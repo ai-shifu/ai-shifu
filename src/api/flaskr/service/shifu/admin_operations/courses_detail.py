@@ -6,13 +6,16 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.service.billing.api import credit_decimal_to_number
 from flaskr.service.common.models import (
     raise_error,
     raise_param_error,
 )
+from flaskr.service.learn.api import uses_agent_engine
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
     ROLE_STUDENT,
@@ -26,11 +29,22 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseChapterDetailDTO,
+    AdminOperationCourseCompletionCreditEstimateDTO,
     AdminOperationCourseDetailBasicInfoDTO,
     AdminOperationCourseDetailChapterDTO,
     AdminOperationCourseDetailDTO,
     AdminOperationCourseDetailMetricsDTO,
     AdminOperationCoursePromptDTO,
+)
+from flaskr.service.shifu.admin_operations.course_completion_credit_features import (
+    build_course_completion_credit_features,
+    detect_authored_language,
+)
+from flaskr.service.shifu.admin_operations.course_completion_credit_model import (
+    estimate_course_credits,
+)
+from flaskr.service.shifu.admin_operations.course_completion_credit_snapshot import (
+    load_course_completion_snapshot,
 )
 from flaskr.service.shifu.admin_operations.courses_credit_estimate import (
     build_operator_course_estimated_credit_cost,
@@ -39,6 +53,7 @@ from flaskr.service.shifu.admin_operations.courses_credit_usage import (
     _build_operator_course_credit_metrics,
 )
 from flaskr.service.shifu.admin_operations.courses_shared import (
+    COURSE_STATUS_PUBLISHED,
     PROMPT_SOURCE_CHAPTER,
     PROMPT_SOURCE_COURSE,
     PROMPT_SOURCE_LESSON,
@@ -64,6 +79,64 @@ if TYPE_CHECKING:
     from flaskr.service.shifu.models import (
         DraftOutlineItem,
         PublishedOutlineItem,
+    )
+
+
+_COMPLETION_CALIBRATION_PATH = Path(__file__).with_name(
+    "course_completion_credit_calibration.json"
+)
+
+
+def _build_completion_credit_estimate(
+    *,
+    shifu_bid: str,
+    published: bool,
+) -> AdminOperationCourseCompletionCreditEstimateDTO:
+    """Predict a complete reading process only with a validated calibration."""
+    empty = AdminOperationCourseCompletionCreditEstimateDTO(status="uncalibrated")
+    if not _COMPLETION_CALIBRATION_PATH.is_file():
+        return empty
+    try:
+        snapshot = load_course_completion_snapshot(shifu_bid, published=published)
+        course = snapshot.course
+        outline_items = snapshot.outline_items
+        visible_leaf_outline_bids = snapshot.visible_leaf_outline_bids
+        language = (
+            "und"
+            if bool(int(getattr(course, "use_learner_language", 0) or 0))
+            else detect_authored_language(outline_items, visible_leaf_outline_bids)
+        )
+        if language == "und":
+            return empty
+        engine = "2.0" if uses_agent_engine(getattr(course, "shifu_bid", "")) else "1.0"
+        features = build_course_completion_credit_features(
+            course=course,
+            outline_items=outline_items,
+            visible_leaf_outline_bids=visible_leaf_outline_bids,
+            engine=engine,
+            language=language,
+        )
+    except ValueError:
+        return empty
+    prediction = estimate_course_credits(
+        features.as_mapping(),
+        engine=engine,
+        language=language,
+        artifact_path=_COMPLETION_CALIBRATION_PATH,
+    )
+    return AdminOperationCourseCompletionCreditEstimateDTO(
+        status=prediction.status,
+        estimated_credits=(
+            credit_decimal_to_number(prediction.estimated_credits)
+            if prediction.estimated_credits is not None
+            else None
+        ),
+        recommended_credits=(
+            credit_decimal_to_number(prediction.recommended_credits)
+            if prediction.recommended_credits is not None
+            else None
+        ),
+        version=prediction.calibration_version,
     )
 
 
@@ -338,6 +411,10 @@ def get_operator_course_detail(
             outline_items=outline_items,
             visible_leaf_outline_bids=visible_leaf_outline_bids,
         )
+        completion_credit_estimate = _build_completion_credit_estimate(
+            shifu_bid=normalized_shifu_bid,
+            published=course_status == COURSE_STATUS_PUBLISHED,
+        )
 
         return AdminOperationCourseDetailDTO(
             basic_info=AdminOperationCourseDetailBasicInfoDTO(
@@ -368,6 +445,7 @@ def get_operator_course_detail(
                 completed_user_avg_credits=credit_metrics["completed_user_avg_credits"],
             ),
             estimated_credit_cost=estimated_credit_cost,
+            completion_credit_estimate=completion_credit_estimate,
             chapters=_build_chapter_tree(
                 outline_items,
                 detail_user_map,

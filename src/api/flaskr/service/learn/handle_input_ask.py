@@ -252,6 +252,7 @@ def handle_input_ask(
     anchor_element_bid: str = "",
     parent_observation: object | None = None,
     runtime_profiles: dict | None = None,
+    learning_mode: str = "",
 ) -> Generator[str, None, None]:
     """Handle user Q&A input.
 
@@ -274,6 +275,9 @@ def handle_input_ask(
         outline_item_bid=outline_item_info.bid,
         progress_record_bid=attend_id,
         usage_scene=usage_scene,
+        learning_mode=(
+            learning_mode if learning_mode in {"read", "listen", "classroom"} else ""
+        ),
     )
 
     app.logger.info("follow_up_info:%s", follow_up_info.__json__())

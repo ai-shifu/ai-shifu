@@ -22,7 +22,10 @@ from flaskr.service.learn.agent.engine.events import (
 from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
 from flaskr.service.learn.agent.session_store import StoredSessionUnusable
 from flaskr.service.learn.learn_dtos import GeneratedType
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 
 USER = "user-bid"
 SHIFU = "shifu-bid"
@@ -168,6 +171,59 @@ def test_a_learner_who_has_not_started_begins_the_lesson(
     _run(engine)
     assert engine.turns[0].type == "start"
     assert calls  # the session was written
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize(
+    ("preview_mode", "listen", "learning_mode", "expected_scene", "expected_mode"),
+    [
+        (False, False, None, BILL_USAGE_SCENE_PROD, "read"),
+        (False, True, None, BILL_USAGE_SCENE_PROD, "listen"),
+        (False, False, "classroom", BILL_USAGE_SCENE_PROD, "classroom"),
+        (True, False, None, BILL_USAGE_SCENE_PREVIEW, "read"),
+    ],
+)
+def test_agent_turn_binds_metering_to_opened_progress_before_model_call(
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    listen: bool,
+    learning_mode: str | None,
+    expected_scene: int,
+    expected_mode: str,
+) -> None:
+    captured: list[object] = []
+    engine = _Engine([TurnDone(reason="end")])
+    if preview_mode:
+        monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-progress")
+
+    def drive(make_events: object, **kwargs: object) -> object:
+        assert len(captured) == 1
+        return _drive(make_events, **kwargs)
+
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            listen=listen,
+            learning_mode=learning_mode,
+            preview_mode=preview_mode,
+            iter_turn=drive,
+            bind_usage_context=captured.append,
+        )
+    )
+    context = captured[0]
+    assert context.user_bid == USER
+    assert context.shifu_bid == SHIFU
+    assert context.outline_item_bid == OUTLINE
+    assert context.progress_record_bid == (
+        "preview-progress" if preview_mode else PROGRESS
+    )
+    assert context.usage_scene == expected_scene
+    assert context.learning_mode == expected_mode
 
 
 def test_a_started_lesson_with_nothing_said_carries_on(calls: list) -> None:

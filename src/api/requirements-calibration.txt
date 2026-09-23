@@ -1,0 +1,2 @@
+# Offline course-credit fitting only; the prediction path does not import SciPy.
+scipy==1.16.2

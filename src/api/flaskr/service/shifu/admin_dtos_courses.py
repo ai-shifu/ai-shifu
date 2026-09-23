@@ -304,6 +304,26 @@ class AdminOperationEstimatedCreditCostDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationCourseCompletionCreditEstimateDTO(BaseModel):
+    """Calibrated standard-1x reading completion estimate for one learner."""
+
+    status: str = Field(..., description="calibrated or uncalibrated")
+    estimated_credits: int | float | None = Field(
+        default=None, description="Whole-course median credit estimate"
+    )
+    recommended_credits: int | float | None = Field(
+        default=None, description="Whole-course 80th percentile credit estimate"
+    )
+    version: str | None = Field(
+        default=None, description="Validated calibration artifact version"
+    )
+
+    def __json__(self) -> dict[str, object]:
+        """Return the completion estimate as JSON-compatible data."""
+        return self.model_dump()
+
+
+@register_schema_to_swagger
 class AdminOperationCourseDetailChapterDTO(BaseModel):
     """Operator-facing course chapter tree node."""
 
@@ -419,6 +439,9 @@ class AdminOperationCourseDetailDTO(BaseModel):
     estimated_credit_cost: AdminOperationEstimatedCreditCostDTO = Field(
         ..., description="Estimated full-course credit cost"
     )
+    completion_credit_estimate: AdminOperationCourseCompletionCreditEstimateDTO = Field(
+        ..., description="Calibrated 1x reading completion credit estimate"
+    )
     chapters: list[AdminOperationCourseDetailChapterDTO] = Field(
         default_factory=list,
         description="Course chapter tree",
@@ -430,6 +453,7 @@ class AdminOperationCourseDetailDTO(BaseModel):
             "basic_info": self.basic_info.__json__(),
             "metrics": self.metrics.__json__(),
             "estimated_credit_cost": self.estimated_credit_cost.__json__(),
+            "completion_credit_estimate": self.completion_credit_estimate.__json__(),
             "chapters": [chapter.__json__() for chapter in self.chapters],
         }
 

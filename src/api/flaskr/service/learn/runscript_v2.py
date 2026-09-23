@@ -751,6 +751,7 @@ def _lesson_events(
                 outline_bid=outline_bid,
                 user_input=user_input,
                 listen=listen,
+                learning_mode=learning_mode,
                 preview_mode=preview_mode,
                 heartbeat_interval=heartbeat_interval,
             )

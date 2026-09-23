@@ -198,6 +198,7 @@ def agent_lesson_events(
     outline_bid: str,
     user_input: str | dict | None = None,
     listen: bool = False,
+    learning_mode: str | None = None,
     preview_mode: bool = False,
     heartbeat_interval: float = 0.5,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -227,17 +228,18 @@ def agent_lesson_events(
         },
         root_span_payload={"name": "agent_lesson_turn"},
     )
+    gateway_model = GatewayModel(
+        app,
+        settings.model,
+        user_id=user_bid,
+        span=span,
+        usage_metadata=settings.usage_metadata,
+        # An author previewing is not a learner taking the course; counting their turns as
+        # production overstates what the course actually cost to teach.
+        **({"usage_scene": BILL_USAGE_SCENE_PREVIEW} if preview_mode else {}),
+    )
     engine = Engine(
-        GatewayModel(
-            app,
-            settings.model,
-            user_id=user_bid,
-            span=span,
-            usage_metadata=settings.usage_metadata,
-            # An author previewing is not a learner taking the course; counting their turns as
-            # production overstates what the course actually cost to teach.
-            **({"usage_scene": BILL_USAGE_SCENE_PREVIEW} if preview_mode else {}),
-        ),
+        gateway_model,
         # No memory store: the engine runs on the bridge's producer thread, which has no app
         # context. The host consumes its `MemoryUpdated` events and writes them instead.
         memory_store=None,
@@ -255,9 +257,11 @@ def agent_lesson_events(
             outline_bid=outline_bid,
             user_input=user_input,
             listen=listen,
+            learning_mode=learning_mode,
             preview_mode=preview_mode,
             shifu_model=_models(preview_mode)[1],
             heartbeat_interval=heartbeat_interval,
+            bind_usage_context=gateway_model.bind_usage_context,
         )
         end_reason = "completed"
     except GeneratorExit:

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from flaskr.service.learn.agent import gateway_model as gw
+from flaskr.service.metering import UsageContext
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -397,6 +398,34 @@ async def test_the_gateway_sends_tools_but_never_forces_a_choice() -> None:
     assert [t["function"]["name"] for t in captured["tools"]] == ["interact"]
     assert "tool_choice" not in captured
     assert captured["emit_tool_calls"] is True
+
+
+def test_bound_lesson_usage_context_reaches_every_model_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The gateway must preserve the progress link needed for complete-course metering."""
+    captured: list[UsageContext] = []
+
+    def fake_chat_llm(**kwargs: object) -> Iterator[FakeChunk]:
+        captured.append(kwargs["usage_context"])
+        yield FakeChunk(result="ok", finish_reason="stop")
+
+    monkeypatch.setattr(gw, "chat_llm", fake_chat_llm)
+    model = gw.GatewayModel(
+        app=None, model="test-model", user_id="learner", span=FakeSpan()
+    )
+    context = UsageContext(
+        user_bid="learner",
+        shifu_bid="course",
+        outline_item_bid="lesson",
+        progress_record_bid="progress",
+        learning_mode="read",
+    )
+    model.bind_usage_context(context)
+    messages = [ModelRequest(parts=[UserPromptPart(content="teach")])]
+    list(model._stream(messages, _params()))
+    list(model._stream(messages, _params()))
+    assert captured == [context, context]
 
 
 def test_agent_instructions_reach_the_model_as_the_system_message() -> None:

@@ -72,7 +72,10 @@ from flaskr.service.learn.memory import (
     load_memory,
     stage_memory,
 )
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
@@ -82,6 +85,7 @@ if TYPE_CHECKING:
     from flaskr.service.learn.agent.engine.engine import Engine, TurnInput
     from flaskr.service.learn.agent.engine.events import Event
     from flaskr.service.learn.agent.engine.session import Session
+    from flaskr.service.metering.api import UsageContext
 
 
 def learner_values(user_input: str | dict | None) -> list[str]:
@@ -230,10 +234,12 @@ def run_agent_lesson(
     outline_bid: str,
     user_input: str | dict | None = None,
     listen: bool = False,
+    learning_mode: str | None = None,
     preview_mode: bool = False,
     shifu_model: type | None = None,
     heartbeat_interval: float = 0.5,
     iter_turn: Callable[..., Any] | None = None,
+    bind_usage_context: Callable[[UsageContext], None] | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
 
@@ -281,6 +287,28 @@ def run_agent_lesson(
             position=0,
         )
     )
+    if bind_usage_context is not None:
+        from flaskr.service.metering.api import UsageContext
+
+        if learning_mode in {"read", "listen", "classroom"}:
+            metered_mode = learning_mode
+        elif learning_mode is None:
+            metered_mode = "listen" if listen else "read"
+        else:
+            metered_mode = ""
+        bind_usage_context(
+            UsageContext(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                progress_record_bid=progress_record_bid,
+                generated_block_bid=generated_block_bid,
+                usage_scene=(
+                    BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+                ),
+                learning_mode=metered_mode,
+            )
+        )
     session_holder: dict[str, Session] = {}
 
     def make_events() -> AsyncIterator[Event]:

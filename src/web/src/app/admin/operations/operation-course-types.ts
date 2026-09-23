@@ -103,6 +103,13 @@ export type AdminOperationEstimatedCreditCost = {
   };
 };
 
+export type AdminOperationCourseCompletionCreditEstimate = {
+  status: 'calibrated' | 'uncalibrated';
+  estimated_credits: number | null;
+  recommended_credits: number | null;
+  version: string | null;
+};
+
 export type AdminOperationCourseDetailChapter = {
   outline_item_bid: string;
   title: string;
@@ -135,6 +142,7 @@ export type AdminOperationCourseDetailResponse = {
   basic_info: AdminOperationCourseDetailBasicInfo;
   metrics: AdminOperationCourseDetailMetrics;
   estimated_credit_cost: AdminOperationEstimatedCreditCost;
+  completion_credit_estimate?: AdminOperationCourseCompletionCreditEstimate;
   chapters: AdminOperationCourseDetailChapter[];
 };
 

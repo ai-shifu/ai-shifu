@@ -2316,6 +2316,7 @@ class RunScriptContextV2:
             anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
             parent_observation=self._trace_root_span,
             runtime_profiles=runtime_profiles,
+            learning_mode=self._get_learning_mode(),
         )
 
         if self._should_stream_tts():

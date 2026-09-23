@@ -106,6 +106,7 @@ def test_a_listening_learner_is_also_taught_by_the_agent_engine(
     )
 
     assert seen["listen"] is True
+    assert seen["learning_mode"] == "listen"
 
 
 @pytest.mark.usefixtures("allowlisted")

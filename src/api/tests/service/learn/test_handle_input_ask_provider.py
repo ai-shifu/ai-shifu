@@ -549,12 +549,14 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
             ),
             trace_args={"output": ""},
             trace=_DummyTrace(),
+            learning_mode="read",
         )
     )
 
     contents = _collect_content_chunks(events)
     assert "synthesized-answer" in contents
     assert len(llm_calls) == 1
+    assert llm_calls[0]["usage_context"].learning_mode == "read"
     context_messages = llm_calls[0]["messages"]
     system_contents = [
         message["content"]

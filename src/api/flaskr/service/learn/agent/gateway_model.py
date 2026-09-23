@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from flask import Flask
     from flaskr.api.langfuse import LangfuseObservationHandle
     from flaskr.api.llm import LLMStreamResponse
+    from flaskr.service.metering.api import UsageContext
     from pydantic_ai.settings import ModelSettings
     from pydantic_ai.tools import RunContext, ToolDefinition
 
@@ -285,6 +286,10 @@ class GatewayModel(Model):
         self._span = span
         self._generation_name = generation_name
         self._chat_llm_kwargs = chat_llm_kwargs
+
+    def bind_usage_context(self, context: UsageContext) -> None:
+        """Attach the progress opened for this turn before model requests begin."""
+        self._chat_llm_kwargs["usage_context"] = context
 
     @property
     def model_name(self) -> str:

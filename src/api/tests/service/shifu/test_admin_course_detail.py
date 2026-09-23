@@ -7,6 +7,7 @@ import sys
 from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
@@ -79,6 +80,9 @@ from flaskr.service.user.models import (
     UserInfo as UserEntity,
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _clear_tables() -> None:
@@ -1303,6 +1307,60 @@ def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
         "prompt_char_count": 10,
         "content_char_count": 30,
         "calculated_at": "2026-05-01T12:00:00Z",
+    }
+    assert payload["data"]["completion_credit_estimate"] == {
+        "status": "uncalibrated",
+        "estimated_credits": None,
+        "recommended_credits": None,
+        "version": None,
+    }
+
+
+def test_calibrated_completion_prediction_reaches_operator_dto(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from flaskr.service.shifu.admin_operations import courses_detail
+
+    artifact = tmp_path / "calibration.json"
+    artifact.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(courses_detail, "_COMPLETION_CALIBRATION_PATH", artifact)
+    monkeypatch.setattr(
+        courses_detail,
+        "load_course_completion_snapshot",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            course=SimpleNamespace(shifu_bid="course", use_learner_language=0),
+            outline_items=[],
+            visible_leaf_outline_bids=["lesson"],
+        ),
+    )
+    monkeypatch.setattr(courses_detail, "detect_authored_language", lambda *_: "zh")
+    monkeypatch.setattr(courses_detail, "uses_agent_engine", lambda *_: False)
+    monkeypatch.setattr(
+        courses_detail,
+        "build_course_completion_credit_features",
+        lambda **_: SimpleNamespace(as_mapping=lambda: {"lesson_count": 1.0}),
+    )
+    monkeypatch.setattr(
+        courses_detail,
+        "estimate_course_credits",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status="calibrated",
+            estimated_credits=Decimal("12.34"),
+            recommended_credits=Decimal("18.56"),
+            calibration_version="v1",
+        ),
+    )
+
+    value = courses_detail._build_completion_credit_estimate(
+        shifu_bid="course",
+        published=True,
+    )
+
+    assert value.__json__() == {
+        "status": "calibrated",
+        "estimated_credits": 12.34,
+        "recommended_credits": 18.56,
+        "version": "v1",
     }
 
 

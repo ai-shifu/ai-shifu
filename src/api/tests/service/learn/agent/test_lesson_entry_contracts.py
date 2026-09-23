@@ -2,12 +2,14 @@
 
 import uuid
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.learn.agent import gateway_model, run_agent
 from flaskr.service.learn.agent import lesson_entry as entry
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
@@ -22,6 +24,8 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
+from pydantic_ai.messages import ModelRequest, UserPromptPart
+from pydantic_ai.models import ModelRequestParameters
 
 
 @pytest.fixture
@@ -187,7 +191,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     )
     finalize = Mock()
     monkeypatch.setattr(entry, "finalize_langfuse_trace", finalize)
-    gateway = Mock(return_value=object())
+    gateway = Mock(return_value=Mock())
     engine = Mock(return_value=object())
     monkeypatch.setattr(entry, "GatewayModel", gateway)
     monkeypatch.setattr(entry, "Engine", engine)
@@ -250,7 +254,78 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "outline_bid": "lesson",
         "user_input": {"choice": ["a"]},
         "listen": True,
+        "learning_mode": None,
         "preview_mode": True,
         "shifu_model": DraftShifu,
         "heartbeat_interval": 0.1,
+        "bind_usage_context": gateway.return_value.bind_usage_context,
     }
+
+
+@pytest.mark.parametrize("learning_mode", ["read", "classroom"])
+def test_agent_entry_passes_opened_turn_context_to_gateway_request(
+    app: object, monkeypatch: pytest.MonkeyPatch, learning_mode: str
+) -> None:
+    """Trace entry -> turn progress -> gateway request without a paid provider or DB write."""
+    settings = LLMSettings(model="test-model", temperature=0.2)
+    monkeypatch.setattr(
+        entry, "_resolve", lambda *_args, **_kwargs: ("script", settings)
+    )
+    monkeypatch.setattr(entry, "get_langfuse_client", object)
+    monkeypatch.setattr(
+        entry, "create_trace_with_root_span", lambda **_kwargs: (object(), object())
+    )
+    monkeypatch.setattr(entry, "finalize_langfuse_trace", Mock())
+    monkeypatch.setattr(run_agent, "_load_or_start", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_args, **_kwargs: "progress-1")
+
+    engines: list[object] = []
+
+    class FakeEngine:
+        def __init__(self, model: object, **_kwargs: object) -> None:
+            self.model = model
+            engines.append(self)
+
+    monkeypatch.setattr(entry, "Engine", FakeEngine)
+    requests: list[dict[str, object]] = []
+
+    def fake_chat_llm(**kwargs: object) -> object:
+        requests.append(kwargs)
+        yield SimpleNamespace(
+            result="ok", tool_call_deltas=[], finish_reason="stop", usage=None
+        )
+
+    monkeypatch.setattr(gateway_model, "chat_llm", fake_chat_llm)
+    opened_blocks: list[str] = []
+
+    def stream_turn(_app: object, **kwargs: object) -> object:
+        opened_blocks.append(kwargs["generated_block_bid"])
+        model = engines[0].model
+        messages = [ModelRequest(parts=[UserPromptPart(content="teach")])]
+        parameters = ModelRequestParameters(function_tools=[], output_tools=[])
+        list(model._stream(messages, parameters))
+        return iter(())
+
+    monkeypatch.setattr(run_agent, "_stream_turn", stream_turn)
+
+    assert (
+        list(
+            entry.agent_lesson_events(
+                app,
+                user_bid="learner-1",
+                shifu_bid="course-1",
+                outline_bid="lesson-1",
+                learning_mode=learning_mode,
+            )
+        )
+        == []
+    )
+
+    assert len(requests) == 1
+    context = requests[0]["usage_context"]
+    assert context.user_bid == "learner-1"
+    assert context.shifu_bid == "course-1"
+    assert context.outline_item_bid == "lesson-1"
+    assert context.progress_record_bid == "progress-1"
+    assert context.generated_block_bid == opened_blocks[0]
+    assert context.learning_mode == learning_mode
