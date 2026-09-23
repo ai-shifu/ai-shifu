@@ -192,7 +192,6 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
 
 def test_runtime_config_dto_json_uses_public_aliases() -> None:
     dto = RuntimeConfigDTO(
-        default_llm_model="gpt-5.4",
         wechat_app_id="wechat-app-1",
         enable_wechat_code=True,
         billing_enabled=True,
@@ -285,7 +284,6 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert dto.billing_enabled is True
     assert dto.official_site_url == "https://official.example.com"
     assert set(payload) == {
-        "defaultLlmModel",
         "wechatAppId",
         "enableWechatCode",
         "billingEnabled",

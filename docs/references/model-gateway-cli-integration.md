@@ -217,10 +217,9 @@ X-AI-Shifu-Client-ID: example-cli
 
 The list is the source of truth for client model selection. Do not hardcode
 provider names or assume that every model configured on the server is billable.
-The `ai-shifu-default` alias uses an explicitly configured `DEFAULT_LLM_MODEL`,
-or the physical binding of numbered model 1 when that setting is unset or blank.
-The alias is listed only when its binding is configured, routable and fully
-rated; it never switches to another model because the default is unavailable.
+The `ai-shifu-default` alias uses the physical binding of numbered model 1.
+The alias is listed only when that binding is configured, routable and fully
+rated; it never switches to another model because model 1 is unavailable.
 
 ## Non-streaming Chat Completions
 

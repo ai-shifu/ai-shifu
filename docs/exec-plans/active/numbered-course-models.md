@@ -12,6 +12,9 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 
 ## Progress
 
+- [x] 2026-09-23 UTC: Remove the separate global default-model setting. Use
+  numbered model 1 for the gateway alias and services that need a deployment
+  default, while retaining route and rate eligibility checks.
 - [x] 2026-09-19 UTC: Apply annotated course-setting copy: name the teaching
   model, explain its effect on speed and quality, simplify the course-prompt
   guidance, and remove the fallback notice while preserving selection and
@@ -78,10 +81,9 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
   course fallback could take effect. Authoring transfers must validate the
   effective primary number while keeping the follow-up ID available for Live
   provider validation and copying both saved selections exactly.
-- The physical catalog formerly marked a default only through DEFAULT_LLM_MODEL.
-  Numbered-only deployments need the gateway alias to use model 1 when that
-  optional setting is blank, while preserving explicit gateway defaults and
-  the existing route and rate eligibility checks.
+- The physical catalog formerly marked a default through a separate global
+  setting. The gateway alias now uses model 1 and retains the existing route
+  and rate eligibility checks.
 - Eager preview model resolution rejected static MarkdownFlow documents when
   their configured provider was unavailable. Carry selection metadata through
   preview setup and resolve the physical binding only at the shared LLM call
@@ -89,6 +91,11 @@ no cleanup: invalid selections resolve to model 1 without rewriting the rows.
 
 ## Decision Log
 
+- 2026-09-23: `LLM_MODEL_1_ID` is the sole configured deployment default.
+  The gateway alias and non-course default consumers use its physical binding;
+  unavailable or unrated model 1 remains an error instead of selecting another
+  slot. Removing the separate global setting does not rewrite saved course
+  selections.
 - 2026-09-19: Name the canonical catalog get_course_model_options and the
   old-field adapter get_legacy_course_model_options. Serve the selector at
   /api/llm/course-model-options and use CourseModelSelect in the web client.
@@ -213,9 +220,8 @@ allowlisting, provider wrappers and physical-rate accounting remain in place.
 Arena workers bind their five requested IDs to isolated process-local slots even
 when model_routes is omitted; explicit routes override those IDs in the same
 order, preserving the requested versions and normal provider availability checks.
-The gateway default alias preserves an explicit DEFAULT_LLM_MODEL; when absent
-or blank, it uses model 1's physical binding. An unavailable or unrated default
-does not select another physical model.
+The gateway default alias uses model 1's physical binding. An unavailable or
+unrated model 1 does not select another physical model.
 
 ## Deployment Runbook
 

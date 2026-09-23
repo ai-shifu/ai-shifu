@@ -16,6 +16,7 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
     get_request_trace_id,
 )
+from flaskr.api.llm.model_selection import get_default_llm_model
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.dao import (
     invalidate_session,
@@ -197,7 +198,7 @@ class ProfileResearchRuntime:
             msg = "document has too many blocks"
             raise ProfileResearchValidationError(msg)
 
-        model = str(self.app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
+        model = get_default_llm_model(self.app)
         if not model:
             msg = "LLM model is not configured"
             raise ProfileResearchValidationError(msg)

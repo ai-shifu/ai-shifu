@@ -15,7 +15,7 @@ from flaskr.service.shifu.models import DraftOutlineItem
 @pytest.fixture
 def preview() -> runtime.RunScriptPreviewContextV2:
     app = Flask("preview-context-contract")
-    app.config.update(DEFAULT_LLM_MODEL="default", DEFAULT_LLM_TEMPERATURE=0.7)
+    app.config.update(LLM_MODEL_1_ID="default", DEFAULT_LLM_TEMPERATURE=0.7)
     return runtime.RunScriptPreviewContextV2(app)
 
 

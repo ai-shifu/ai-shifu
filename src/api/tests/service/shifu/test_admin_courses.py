@@ -1290,7 +1290,7 @@ def test_list_operator_courses_sql_path_falls_back_to_latest_nonempty_models(
     assert historical_fallback.tts_model == "speech-01"
 
 
-def test_list_operator_courses_sql_path_falls_back_to_default_llm_model(
+def test_list_operator_courses_sql_path_falls_back_to_model_one(
     app: object,
 ) -> None:
     creator_bid = uuid.uuid4().hex[:32]

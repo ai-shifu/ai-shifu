@@ -905,7 +905,6 @@ class RuntimeBillingContextDTO(BillingBaseDTO):
 class RuntimeConfigDTO(BillingBaseDTO):
     """Represent the runtime config API payload."""
 
-    default_llm_model: str = Field(alias="defaultLlmModel")
     wechat_app_id: str = Field(alias="wechatAppId")
     enable_wechat_code: bool = Field(alias="enableWechatCode")
     billing_enabled: bool = Field(alias="billingEnabled")

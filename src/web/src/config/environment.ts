@@ -11,10 +11,6 @@ interface EnvironmentConfig {
   // Core API Configuration
   apiBaseUrl: string;
 
-  // Content Configuration
-  defaultLlmModel: string;
-  currencySymbol: string;
-
   // WeChat Integration
   wechatAppId: string;
   enableWechatCode: boolean;
@@ -48,6 +44,7 @@ interface EnvironmentConfig {
   homeUrl: string;
   contactUsUrl: string;
   officialSiteUrl: string;
+  currencySymbol: string;
 
   // Legal Documents Configuration
   legalUrls: {
@@ -162,15 +159,6 @@ export function getCachedDynamicApiBaseUrl(): string | undefined {
     return getApiBaseUrl();
   }
   return configFetched ? cachedApiBaseUrl : undefined;
-}
-
-/**
- * Gets default LLM model
- */
-function getDefaultLlmModel(): string {
-  return (
-    getRuntimeEnv('DEFAULT_LLM_MODEL') || process.env.DEFAULT_LLM_MODEL || ''
-  );
 }
 
 /**
@@ -419,9 +407,6 @@ function getLegalUrls(): {
 export const environment: EnvironmentConfig = {
   // Core API Configuration
   apiBaseUrl: getApiBaseUrl(),
-
-  // Content Configuration
-  defaultLlmModel: getDefaultLlmModel(),
 
   // WeChat Integration
   wechatAppId: getWeChatAppId(),

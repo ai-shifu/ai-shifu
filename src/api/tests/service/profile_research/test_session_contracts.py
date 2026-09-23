@@ -135,7 +135,7 @@ def test_invalid_start_identity_or_revision_creates_no_active_session(
 @pytest.mark.parametrize(
     ("config_key", "value"),
     [
-        ("DEFAULT_LLM_MODEL", " "),
+        ("LLM_MODEL_1_ID", " "),
         ("DEFAULT_LLM_TEMPERATURE", "invalid"),
         ("DEFAULT_LLM_TEMPERATURE", -0.1),
         ("DEFAULT_LLM_TEMPERATURE", 2.1),

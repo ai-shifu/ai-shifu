@@ -11,7 +11,6 @@ export interface LegalUrls {
 
 export interface EnvStoreState {
   courseId: string;
-  defaultLlmModel: string;
   appId: string;
   alwaysShowLessonTree: string;
   umamiWebsiteId: string;
@@ -40,7 +39,6 @@ export interface EnvStoreState {
   legalUrls: LegalUrls;
   runtimeConfigLoaded: boolean;
   updateCourseId: (courseId: string) => Promise<void>;
-  updateDefaultLlmModel: (model: string) => Promise<void>;
   updateAppId: (appId: string) => Promise<void>;
   updateAlwaysShowLessonTree: (value: string) => Promise<void>;
   updateUmamiWebsiteId: (id: string) => Promise<void>;

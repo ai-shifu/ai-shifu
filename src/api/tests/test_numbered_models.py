@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from flask import Flask
 from flaskr.api import llm
 from flaskr.api.llm import _attach_credit_multipliers, model_selection
 from flaskr.service.common.models import AppError
@@ -272,7 +273,6 @@ def test_course_catalog_loads_rates_once_for_available_slots(
     model_config.update(
         LLM_MODEL_2_NAME="Offline",
         LLM_MODEL_2_ID="test/offline",
-        DEFAULT_LLM_MODEL="test/advanced",
     )
     monkeypatch.setattr(
         llm,
@@ -425,3 +425,19 @@ def test_process_local_slot_overrides_support_isolated_arena_runs() -> None:
     ):
         assert model_selection.resolve_course_selection("legacy")[0] == "test/arena"
     assert model_selection.resolve_course_selection("legacy")[0] == "test/default"
+
+
+def test_default_llm_model_uses_app_snapshot_and_arena_override() -> None:
+    """Explicit apps keep their binding, while Arena overrides take precedence."""
+    from flaskr.service.config import config_overrides
+
+    app = Flask("isolated-model-config")
+    app.config["LLM_MODEL_1_ID"] = "  test/isolated  "
+
+    assert model_selection.get_default_llm_model() == "test/default"
+    assert model_selection.get_configured_model_slots()[0]["model"] == "test/default"
+    assert model_selection.get_default_llm_model(app) == "test/isolated"
+    with config_overrides({"LLM_MODEL_1_ID": "  test/arena  "}):
+        assert model_selection.get_default_llm_model() == "test/arena"
+        assert model_selection.get_default_llm_model(app) == "test/arena"
+    assert model_selection.get_default_llm_model(app) == "test/isolated"

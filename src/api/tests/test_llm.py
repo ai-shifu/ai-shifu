@@ -259,7 +259,6 @@ def _configure_model_list(monkeypatch: object) -> None:
         },
     )
     config = {
-        "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
         "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "0.066667",
         **{
             f"LLM_MODEL_{index}_ID": model
@@ -414,7 +413,6 @@ def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
 ) -> None:
     _configure_model_list(monkeypatch)
     missing_anchor_config = {
-        "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
         "LLM_MODEL_1_NAME": "Default",
         "LLM_MODEL_1_ID": "qwen/deepseek-v4-flash",
         "LLM_MODEL_2_NAME": "Second",

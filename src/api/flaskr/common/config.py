@@ -791,18 +791,6 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
-    "DEFAULT_LLM_MODEL": EnvVar(
-        name="DEFAULT_LLM_MODEL",
-        default="",
-        description="""Default LLM model. Supported models:
-OpenAI: gpt-4o-latest, gpt-4o-mini, gpt-4, gpt-3.5-turbo, chatgpt-4o-latest
-ERNIE: ERNIE-4.0-8K, ERNIE-3.5-8K, ERNIE-3.5-128K, ERNIE-Speed-8K, ERNIE-Speed-128K
-GLM: glm-4, glm-4-air, glm-4-airx, glm-4-flash, glm-4v, glm-3-turbo
-Qwen: qwen-long, qwen-max, qwen-max-longcontext, qwen-plus, qwen-turbo, qwen2-*
-DeepSeek: deepseek-chat
-Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
-        group="llm",
-    ),
     "LLM_MODEL_1_NAME": EnvVar(
         name="LLM_MODEL_1_NAME",
         description="Optional display name for course model 1. Uses LLM_MODEL_1_ID when unset or blank.",
@@ -919,7 +907,7 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
             "Fixed global 1x credit anchor for LLM output tokens, expressed as "
             "credits consumed per 1000 output tokens. This value is used for "
             "operator rate multiplier display, save conversion, and model-picker "
-            "multiplier labels. It must not be derived from DEFAULT_LLM_MODEL."
+            "multiplier labels. It is independent of configured model prices."
         ),
         group="llm",
         required=False,
@@ -2030,8 +2018,8 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
             "shared 1x anchor. Default 0.216 = omega(13.5%) x 1.6 chars/token. "
             "The picker multiplier is TTS char cost x this factor / the fixed "
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS anchor, so TTS tiers stay on "
-            "the same scale as LLM model multipliers without depending on the "
-            "current DEFAULT_LLM_MODEL price."
+            "the same scale as LLM model multipliers without depending on any "
+            "configured model price."
         ),
         group="tts",
     ),

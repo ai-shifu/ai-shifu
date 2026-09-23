@@ -44,10 +44,8 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import CreditUsageRate
-from flaskr.service.billing.rate_references import (
-    format_credit_multiplier,
-    load_llm_credit_1x_unit_cost,
-)
+from flaskr.service.billing.rate_references import format_credit_multiplier
+from flaskr.service.common.credit_rate_references import load_llm_credit_1x_unit_cost
 from flaskr.service.common.models import ERROR_CODE, AppError, raise_error_with_args
 from flaskr.service.config import get_config
 from flaskr.service.metering import UsageContext, record_llm_usage
@@ -2060,18 +2058,9 @@ def _load_llm_output_rate_rows(app: Flask) -> list[CreditUsageRate]:
 def _attach_credit_multipliers(
     app: Flask, options: list[dict[str, object]]
 ) -> list[dict[str, object]]:
-    from flaskr.api.llm.model_selection import get_configured_model_slots
+    from flaskr.api.llm.model_selection import get_default_llm_model
 
-    default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
-    if not default_model:
-        default_model = next(
-            (
-                slot["model"]
-                for slot in get_configured_model_slots()
-                if slot["index"] == "1"
-            ),
-            "",
-        )
+    default_model = get_default_llm_model()
     if not options:
         return [{**option, "credit_multiplier": None} for option in options]
 

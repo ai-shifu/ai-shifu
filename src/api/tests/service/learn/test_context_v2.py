@@ -1216,9 +1216,7 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
         self,
     ) -> None:
         app = Flask("preview-llm-settings")
-        app.config.update(
-            DEFAULT_LLM_MODEL="different-model", DEFAULT_LLM_TEMPERATURE=0.3
-        )
+        app.config.update(LLM_MODEL_1_ID="different-model", DEFAULT_LLM_TEMPERATURE=0.3)
         config = {
             "LLM_MODEL_1_NAME": "Daily",
             "LLM_MODEL_1_ID": "test/default",

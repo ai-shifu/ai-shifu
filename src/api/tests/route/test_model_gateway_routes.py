@@ -121,11 +121,11 @@ def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, lis
 
 @pytest.mark.no_mock_llm
 @pytest.mark.parametrize(
-    ("default_model", "ineligible_model", "reason", "expected"),
+    ("model_one", "ineligible_model", "reason", "expected"),
     [
         (None, None, None, "test/default"),
-        ("", None, None, "test/default"),
-        (" \t", None, None, "test/default"),
+        ("", None, None, None),
+        (" \t", None, None, None),
         ("test/advanced", None, None, "test/advanced"),
         ("test/missing", None, None, None),
         ("test/advanced", "test/advanced", "unavailable", None),
@@ -138,7 +138,7 @@ def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, lis
 def test_numbered_catalog_preserves_gateway_default_alias(
     monkeypatch: pytest.MonkeyPatch,
     numbered_gateway_catalog: tuple[dict, list],
-    default_model: str | None,
+    model_one: str | None,
     ineligible_model: str | None,
     reason: str | None,
     expected: str | None,
@@ -147,8 +147,8 @@ def test_numbered_catalog_preserves_gateway_default_alias(
     from flaskr.route import model_gateway as gateway
 
     config, rows = numbered_gateway_catalog
-    if default_model is not None:
-        config["DEFAULT_LLM_MODEL"] = default_model
+    if model_one is not None:
+        config["LLM_MODEL_1_ID"] = model_one
     if reason == "unavailable":
         del llm.MODEL_ALIAS_MAP[ineligible_model]
     elif reason == "unrated":
@@ -184,7 +184,7 @@ def test_numbered_catalog_preserves_gateway_default_alias(
         model["index"]
         for model in llm.get_course_model_options(app)
         if model["is_default"]
-    ] == ["1"]
+    ] == (["1"] if str(config["LLM_MODEL_1_ID"]).strip() else [])
 
 
 @pytest.mark.parametrize("endpoint", ["models", "chat", "stream"])

@@ -222,7 +222,6 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         ) or get_config("STRIPE_PUBLISHABLE_KEY", "")
 
         config = RuntimeConfigDTO(
-            default_llm_model=get_config("DEFAULT_LLM_MODEL", ""),
             wechat_app_id=wechat_app_id,
             enable_wechat_code=bool(wechat_app_id),
             billing_enabled=billing_enabled,

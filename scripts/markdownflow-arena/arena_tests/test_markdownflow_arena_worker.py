@@ -58,7 +58,6 @@ def test_worker_builds_catalog_from_comparison_models(
 
     monkeypatch.setenv("LLM_MODEL_1_ID", REQUESTED_MODELS[0])
     monkeypatch.setenv("LLM_MODEL_1_NAME", "Inherited")
-    monkeypatch.setenv("DEFAULT_LLM_MODEL", routes[0])
     monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
     monkeypatch.setenv("SECRET_KEY", "test-secret")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")

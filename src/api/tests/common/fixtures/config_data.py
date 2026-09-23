@@ -111,14 +111,12 @@ FULL_TEST_ENV_VARS = {
         group="flask",
     ),
     # Multi-line description
-    "DEFAULT_LLM_MODEL": EnvVar(
-        name="DEFAULT_LLM_MODEL",
-        default="gpt-3.5-turbo",
-        description="""Default LLM model to use.
-Supported models:
-- OpenAI: gpt-4, gpt-3.5-turbo
-- Claude: claude-3-opus""",
-        group="llm",
+    "MULTILINE_TEST_VALUE": EnvVar(
+        name="MULTILINE_TEST_VALUE",
+        default="example",
+        description="""Example value for environment export.
+The description spans multiple lines.""",
+        group="flask",
     ),
     # Optional without default (handled by libraries)
     "SERVER_SOFTWARE": EnvVar(

@@ -5,10 +5,6 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
-from flaskr.service.common.credit_rate_references import (
-    load_llm_credit_1x_unit_cost,
-)
-
 if TYPE_CHECKING:
     from flaskr.service.billing.models import CreditUsageRate
 
@@ -35,17 +31,6 @@ def format_credit_multiplier(value: Decimal | None) -> str | None:
     else:
         text = format(rounded.normalize(), "f").rstrip("0").rstrip(".")
     return f"{text or '0'}x"
-
-
-def load_default_llm_reference_cost(default_model: str | None = None) -> Decimal | None:
-    """Backward-compatible alias for the fixed LLM 1x anchor.
-
-    DEFAULT_LLM_MODEL no longer participates in multiplier calculation; it only
-    decides which LLM is selected by default. Keep the old function name so
-    existing callers share the fixed anchor without a broad rename.
-    """
-    _ = default_model
-    return load_llm_credit_1x_unit_cost()
 
 
 def resolve_llm_rate_identity(model: str) -> tuple[str, list[str]]:

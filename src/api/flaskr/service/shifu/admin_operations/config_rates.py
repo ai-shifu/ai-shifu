@@ -7,6 +7,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from flaskr.api.llm import get_current_models
+from flaskr.api.llm.model_selection import get_default_llm_model
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -181,13 +182,13 @@ def _load_llm_credit_1x_reference_cost() -> Decimal | None:
     return load_llm_credit_1x_unit_cost()
 
 
-def _load_default_llm_metric_ratio(metric: int) -> Decimal:
+def _load_model_1_metric_ratio(metric: int, app: Flask) -> Decimal:
     if metric == BILLING_METRIC_LLM_OUTPUT_TOKENS:
         return Decimal(1)
 
-    default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
-    if default_model:
-        provider, model_candidates = _resolve_llm_rate_identity(default_model)
+    model_1_id = get_default_llm_model(app)
+    if model_1_id:
+        provider, model_candidates = _resolve_llm_rate_identity(model_1_id)
         metric_cost = _unit_cost(
             _rate_for_identity(
                 usage_type=BILL_USAGE_TYPE_LLM,
@@ -212,11 +213,12 @@ def _load_default_llm_metric_ratio(metric: int) -> Decimal:
 
 def _llm_credits_for_missing_metric(
     *,
+    app: Flask,
     metric: int,
     output_unit_cost: Decimal,
     unit_size: int,
 ) -> Decimal:
-    ratio = _load_default_llm_metric_ratio(metric)
+    ratio = _load_model_1_metric_ratio(metric, app)
     return output_unit_cost * ratio * Decimal(str(unit_size))
 
 
@@ -542,7 +544,6 @@ def get_operator_rate_config(app: Flask) -> dict[str, object]:
         rate_index = _load_active_rate_index()
         return {
             "baseline": {
-                "default_llm_model": str(get_config("DEFAULT_LLM_MODEL", "") or ""),
                 "unit_cost": _decimal_to_number(baseline_cost or Decimal(0)),
                 "per_1000_output_tokens": _decimal_to_number(
                     baseline_per_1000 or Decimal(0)
@@ -790,6 +791,7 @@ def update_operator_rate_config(
                     )
                 else:
                     next_credits_per_unit = _llm_credits_for_missing_metric(
+                        app=app,
                         metric=metric,
                         output_unit_cost=target_unit_cost,
                         unit_size=next_unit_size,

@@ -55,7 +55,7 @@ from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
 from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
-from flaskr.service.billing.rate_references import load_llm_credit_1x_unit_cost
+from flaskr.service.common.credit_rate_references import load_llm_credit_1x_unit_cost
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_TTS
 from flaskr.util.datetime import now_utc
 
