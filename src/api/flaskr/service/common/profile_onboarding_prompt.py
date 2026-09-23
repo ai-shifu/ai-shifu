@@ -13,7 +13,7 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.api.llm import invoke_llm
-from flaskr.api.llm.model_selection import get_default_llm_model_id
+from flaskr.api.llm.model_selection import get_default_llm_model
 from flaskr.i18n import get_locale_labels
 from flaskr.service.common.models import raise_error
 from flaskr.service.metering.api import UsageContext
@@ -154,7 +154,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
             app,
             "",
             span,
-            get_default_llm_model_id(app),
+            get_default_llm_model(app),
             _prepare_compiler_input(document),
             system=load_prompt_template("profile_onboarding_assistant_compiler"),
             json=False,
@@ -225,7 +225,7 @@ def localize_profile_onboarding_assistant_prompt(
             app,
             "",
             span,
-            get_default_llm_model_id(app),
+            get_default_llm_model(app),
             json.dumps(
                 {
                     "assistant_prompt": master_prompt,

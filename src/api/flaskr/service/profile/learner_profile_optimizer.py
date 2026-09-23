@@ -14,7 +14,7 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.api.llm import invoke_llm
-from flaskr.api.llm.model_selection import get_default_llm_model_id
+from flaskr.api.llm.model_selection import get_default_llm_model
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.service.common.models import AppError, raise_error, raise_param_error
 from flaskr.service.metering.api import UsageContext
@@ -92,7 +92,7 @@ def optimize_learner_profile(
     if not moderation_allowed:
         raise_error("server.profile.learnerProfileOptimizationRejected")
 
-    model = get_default_llm_model_id(app)
+    model = get_default_llm_model(app)
     if not model:
         raise_error("server.profile.learnerProfileOptimizationNotConfigured")
 

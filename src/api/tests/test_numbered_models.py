@@ -427,17 +427,17 @@ def test_process_local_slot_overrides_support_isolated_arena_runs() -> None:
     assert model_selection.resolve_course_selection("legacy")[0] == "test/default"
 
 
-def test_default_llm_model_id_uses_app_snapshot_and_arena_override() -> None:
+def test_default_llm_model_uses_app_snapshot_and_arena_override() -> None:
     """Explicit apps keep their binding, while Arena overrides take precedence."""
     from flaskr.service.config import config_overrides
 
     app = Flask("isolated-model-config")
     app.config["LLM_MODEL_1_ID"] = "  test/isolated  "
 
-    assert model_selection.get_default_llm_model_id() == "test/default"
+    assert model_selection.get_default_llm_model() == "test/default"
     assert model_selection.get_configured_model_slots()[0]["model"] == "test/default"
-    assert model_selection.get_default_llm_model_id(app) == "test/isolated"
+    assert model_selection.get_default_llm_model(app) == "test/isolated"
     with config_overrides({"LLM_MODEL_1_ID": "  test/arena  "}):
-        assert model_selection.get_default_llm_model_id() == "test/arena"
-        assert model_selection.get_default_llm_model_id(app) == "test/arena"
-    assert model_selection.get_default_llm_model_id(app) == "test/isolated"
+        assert model_selection.get_default_llm_model() == "test/arena"
+        assert model_selection.get_default_llm_model(app) == "test/arena"
+    assert model_selection.get_default_llm_model(app) == "test/isolated"

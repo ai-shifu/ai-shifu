@@ -23,7 +23,7 @@ def _slot_config(key: str) -> str:
     return str(reader(key, "") or "").strip()
 
 
-def get_default_llm_model_id(app: Flask | None = None) -> str:
+def get_default_llm_model(app: Flask | None = None) -> str:
     """Read model 1's physical ID for default LLM calls.
 
     Use an Arena override first, then a supplied app, then process config.

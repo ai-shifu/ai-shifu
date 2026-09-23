@@ -7,7 +7,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from flaskr.api.llm import get_current_models
-from flaskr.api.llm.model_selection import get_default_llm_model_id
+from flaskr.api.llm.model_selection import get_default_llm_model
 from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -186,7 +186,7 @@ def _load_model_1_metric_ratio(metric: int) -> Decimal:
     if metric == BILLING_METRIC_LLM_OUTPUT_TOKENS:
         return Decimal(1)
 
-    model_1_id = get_default_llm_model_id()
+    model_1_id = get_default_llm_model()
     if model_1_id:
         provider, model_candidates = _resolve_llm_rate_identity(model_1_id)
         metric_cost = _unit_cost(
