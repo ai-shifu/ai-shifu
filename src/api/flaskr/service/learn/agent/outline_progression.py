@@ -54,40 +54,38 @@ def _is_leaf(item: OutlineNode) -> bool:
     return not (item.children and item.children[0].type == "outline")
 
 
-def _visible_children(item: OutlineNode, hidden: dict[str, bool]) -> list[OutlineNode]:
-    """Return the children a learner can see, in order.
+def _leaves(struct: OutlineNode) -> list[list[OutlineNode]]:
+    """List every lesson in the outline, in order, each with the path that leads to it.
 
-    An item missing from `hidden` is treated as hidden: it is not in the outline the learner was
-    served, and advancing them onto something that was never shown would be worse than stopping.
-    """
-    return [
-        child
-        for child in item.children
-        if child.type == "outline" and not hidden.get(child.bid, True)
-    ]
-
-
-def _visible_leaves(
-    struct: OutlineNode, hidden: dict[str, bool]
-) -> list[list[OutlineNode]]:
-    """List every lesson a learner can reach, in order, each with the path that leads to it.
-
-    Built once and read twice, rather than stepping from one sibling to the next: a chapter whose
-    lessons are all hidden is nothing a learner can be handed to, and stepping would stop at it
-    and hand them nowhere. Here it simply contributes no lessons and the search carries on.
+    Every lesson, not only the visible ones: the lesson that just ended is looked up here too, and
+    an author may have hidden it while the learner was in it. Whether a lesson can be handed to is
+    a separate question, answered by `_reachable`.
     """
     leaves: list[list[OutlineNode]] = []
     stack = [(struct, [])]
     while stack:
         node, above = stack.pop()
         path = [*above, node]
-        children = _visible_children(node, hidden)
         if _is_leaf(node):
-            if not hidden.get(node.bid, True):
-                leaves.append(path)
+            leaves.append(path)
             continue
-        stack.extend((child, path) for child in reversed(children))
+        stack.extend(
+            (child, path)
+            for child in reversed(node.children)
+            if child.type == "outline"
+        )
     return leaves
+
+
+def _reachable(path: list[OutlineNode], hidden: dict[str, bool]) -> bool:
+    """Whether a learner can be handed to the lesson at the end of `path`.
+
+    Every item on the way down has to be visible, the root aside: a visible lesson inside a
+    hidden chapter is not in the outline the learner was served. An item missing from `hidden`
+    is treated as hidden, for the same reason -- advancing them onto something that was never
+    shown would be worse than stopping.
+    """
+    return all(not hidden.get(node.bid, True) for node in path[1:])
 
 
 def plan_lesson_completion(
@@ -109,16 +107,17 @@ def plan_lesson_completion(
 
     An unknown lesson changes nothing. A lesson that was the last one in the course still
     completes, along with everything it closed; there is simply nowhere to go.
+
+    The lesson that ended need not be visible itself. An author can hide a lesson while a learner
+    is partway through it, and the learner still finishes it; they are handed on to the next
+    lesson they can see, exactly as if nothing had been hidden. Requiring the ended lesson to be
+    visible used to hand such a learner nowhere and close the chapter over lessons they had not
+    yet reached.
     """
     path = _path_to(struct, outline_bid)
     if not path:
         return []
-    leaves = _visible_leaves(struct, hidden)
-    order = [leaf[-1].bid for leaf in leaves]
-    position = order.index(outline_bid) if outline_bid in order else -1
-    onward = (
-        leaves[position + 1] if position >= 0 and position + 1 < len(leaves) else []
-    )
+    onward = _next_reachable_lesson(struct, outline_bid, hidden)
     left_behind = {node.bid for node in path[1:-1]}
     ahead = {node.bid for node in onward[1:-1]}
     updates = [_completed(path[-1], titles)]
@@ -137,6 +136,32 @@ def plan_lesson_completion(
     if onward:
         updates.append(_in_progress(onward[-1], titles, has_children=False))
     return updates
+
+
+def _next_reachable_lesson(
+    struct: OutlineNode, outline_bid: str, hidden: dict[str, bool]
+) -> list[OutlineNode]:
+    """Return the path to the first lesson after `outline_bid` a learner can be handed to.
+
+    Position is taken from the whole outline, so the ended lesson is found whether or not it is
+    still visible. Only what comes after it has to be reachable. Nothing is returned when
+    `outline_bid` is a chapter rather than a lesson, or when no reachable lesson follows.
+
+    Searched over the whole list rather than stepping from one sibling to the next: a chapter
+    whose lessons are all hidden is nothing a learner can be handed to, and stepping would stop
+    at it and hand them nowhere. Here it simply contributes no reachable lesson and the search
+    carries on.
+    """
+    leaves = _leaves(struct)
+    position = next(
+        (index for index, leaf in enumerate(leaves) if leaf[-1].bid == outline_bid),
+        None,
+    )
+    if position is None:
+        return []
+    return next(
+        (leaf for leaf in leaves[position + 1 :] if _reachable(leaf, hidden)), []
+    )
 
 
 def _completed(item: OutlineNode, titles: dict[str, str]) -> OutlineItemUpdateDTO:

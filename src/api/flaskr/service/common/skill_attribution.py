@@ -8,7 +8,7 @@ from uuid import UUID
 from flaskr.service.common.models import raise_param_error
 
 ALLOWED_HOST_PLATFORMS = frozenset(
-    {"workbuddy", "doubao", "lobster", "codex", "direct"}
+    {"workbuddy", "doubao", "qclaw", "lobster", "codex", "direct"}
 )
 ALLOWED_SKILL_IDS = frozenset({"ai-shifu-course-creator"})
 _REQUIRED_KEYS = frozenset({"host_platform", "skill_id", "skill_version", "handoff_id"})

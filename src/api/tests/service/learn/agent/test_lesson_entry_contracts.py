@@ -81,7 +81,7 @@ def test_lesson_resolution_preserves_course_selection_and_revision_metadata(
         course.llm = saved
         record_id = course.id
     with app.app_context():
-        script, settings = entry._resolve(
+        script, brief, settings = entry._resolve(
             app,
             user_bid="learner",
             shifu_bid=lesson,
@@ -90,6 +90,7 @@ def test_lesson_resolution_preserves_course_selection_and_revision_metadata(
         )
     version = "draft" if preview else "published"
     assert script == f"{version} lesson script"
+    assert brief == ""
     assert settings.model == saved
     assert float(settings.temperature) == 0.2
     assert settings.usage_metadata == {
@@ -178,7 +179,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
             "model_selection_original": "2",
         },
     )
-    monkeypatch.setattr(entry, "_resolve", lambda *_a, **_kw: ("script", settings))
+    monkeypatch.setattr(entry, "_resolve", lambda *_a, **_kw: ("script", "", settings))
     trace, span = object(), object()
     monkeypatch.setattr(entry, "get_langfuse_client", object)
     monkeypatch.setattr(
@@ -243,6 +244,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     assert runner.call_args.kwargs == {
         "engine": engine.return_value,
         "script": "script",
+        "teaching_brief": "",
         "user_bid": "learner",
         "shifu_bid": "course",
         "outline_bid": "lesson",

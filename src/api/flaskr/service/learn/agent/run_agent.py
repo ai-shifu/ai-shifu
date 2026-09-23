@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -40,6 +41,8 @@ from flaskr.service.learn.agent.engine.events import (
     MemoryUpdated,
     TurnDone,
 )
+from flaskr.service.learn.agent.engine.script import ScriptBundle
+from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
     translate,
@@ -163,6 +166,7 @@ def _load_or_start(
     shifu_bid: str,
     outline_bid: str,
     script: str,
+    teaching_brief: str = "",
     preview_mode: bool,
 ) -> Callable[[], Any]:
     """Build the coroutine factory the bridge runs on its producer thread.
@@ -189,11 +193,26 @@ def _load_or_start(
     async def make_session() -> Session:
         if stored is not None:
             stored.user_memory = dict(user_memory)
+            # The brief is re-read too, for the same reason the memory is: a stored session
+            # carries the snapshot taken when it was last saved. A lesson already in progress
+            # when an author writes or edits one would otherwise never see it, and a lesson
+            # begun before this existed would never see one at all.
+            #
+            # Only the brief, not the script. Replacing the script under a conversation that has
+            # already been taught from it would leave the two disagreeing about what was said.
+            stored.script = replace(stored.script, constraints=teaching_brief or None)
             return stored
         # `listen_mode=False` always. Listening is delivered by the host's spoken track, not by
         # the engine's own listen mode -- which we do not use, and which a session would keep
         # switched on for every later read-mode turn once it had been stored with it.
-        session = await engine.new_session(script, user_id=user_bid, listen_mode=False)
+        # The brief travels with the script, not in the system prompt. The system prompt is
+        # the engine's contract -- call the tool, never narrate, finish when done -- and author
+        # text placed beside it carries the same authority: "don't ask questions, just teach"
+        # would switch the tool protocol off. It is also the stable prefix every turn of every
+        # lesson shares, so per-lesson text there costs the prefix cache. The engine already
+        # has a slot for author-supplied rules that arrive as user content.
+        bundle = ScriptBundle(script=script, constraints=teaching_brief or None)
+        session = await engine.new_session(bundle, user_id=user_bid, listen_mode=False)
         session.user_memory = dict(user_memory)
         return session
 
@@ -205,6 +224,7 @@ def run_agent_lesson(
     *,
     engine: Engine,
     script: str,
+    teaching_brief: str = "",
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
@@ -230,6 +250,7 @@ def run_agent_lesson(
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         script=script,
+        teaching_brief=teaching_brief,
         preview_mode=preview_mode,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
@@ -516,8 +537,46 @@ def _question(
     yield from controls
 
 
+def _narrated_question(
+    span: str,
+    *,
+    voice: LessonVoice | None,
+    outline_bid: str,
+    generated_block_bid: str,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Send a question the model wrote into its narration as the question it meant to be.
+
+    It goes out exactly as the model wrote it. A 1.0 script carries its interactions in this same
+    notation and the browser renders it the same way, so nothing is rebuilt; what changes is that
+    it arrives as the turn's question rather than as a line of its prose.
+
+    The engine did not ask, so no answer is pending for it and the learner's reply reaches the
+    model as a remark to react to. That is a lesser wrong than a lesson that sprints past a
+    question it has just put on the screen.
+
+    Ordered as `_question` orders it: the text before it is already out, so its audio is finished
+    and its block closed, and the question is written after both.
+    """
+    if voice is not None:
+        yield from voice.finish()
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        type=GeneratedType.BREAK,
+        content="",
+    )
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        type=GeneratedType.INTERACTION,
+        content=span,
+    )
+
+
 def _without_markers(
-    events: Iterable[object], markers: PreserveMarkerFilter
+    events: Iterable[object],
+    markers: PreserveMarkerFilter,
+    syntax: InteractionSyntaxFilter,
 ) -> Generator[object, None, None]:
     """Pass the turn's events through, with the script's verbatim markers taken out of its text.
 
@@ -528,7 +587,7 @@ def _without_markers(
         if not isinstance(event, ContentDelta):
             yield event
             continue
-        text = markers.feed(event.text)
+        text = syntax.feed(markers.feed(event.text))
         if text:
             yield event if text == event.text else ContentDelta(text=text)
 
@@ -586,6 +645,7 @@ def _outline_progression(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
+    progress_record_bid: str,
     preview_mode: bool,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Report what the finished lesson changed in the outline, and write it down.
@@ -596,6 +656,10 @@ def _outline_progression(
     A failure here is not allowed to take the lesson down with it. The learner has finished it and
     the turn is already saved; losing the outline update costs them a tick in the sidebar, while
     raising would cost them the end of the lesson.
+
+    Nothing is reported that was not written. A reset that lands between the turn's commit and
+    this one leaves no live record to complete, and the changes are dropped rather than recorded;
+    telling the browser about them anyway would show a completion the database does not hold.
     """
     if preview_mode:
         return
@@ -605,8 +669,13 @@ def _outline_progression(
         )
         if not updates:
             return
-        apply_outline_progression(
-            app, user_bid=user_bid, shifu_bid=shifu_bid, updates=updates
+        applied = apply_outline_progression(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            updates=updates,
         )
     except Exception:
         app.logger.warning(
@@ -615,6 +684,8 @@ def _outline_progression(
             outline_bid,
             exc_info=True,
         )
+        return
+    if not applied:
         return
     for update in updates:
         yield RunMarkdownFlowDTO(
@@ -647,9 +718,15 @@ def _stream_turn(
     persisted = False
     # The script's verbatim markers come back in the engine's text; they are syntax, not lesson.
     markers = PreserveMarkerFilter()
+    # A question the model typed into its narration instead of asking for one. Held aside while
+    # the turn runs: what becomes of it depends on whether the model also called the tool.
+    syntax = InteractionSyntaxFilter()
+    asked = False
 
     for event in _without_markers(
-        run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval), markers
+        run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval),
+        markers,
+        syntax,
     ):
         if isinstance(event, ContentDelta):
             taught.append(event.text)
@@ -680,7 +757,7 @@ def _stream_turn(
             # question's controls, so the last thing in the learner's history was text rather
             # than the question -- and the browser, seeing no question to answer, asked the
             # lesson to continue with nothing.
-            tail = markers.flush()
+            tail = syntax.feed(markers.flush()) + syntax.flush()
             if tail:
                 taught.append(tail)
                 yield from _say(
@@ -704,6 +781,7 @@ def _stream_turn(
             # question's controls. History is ordered by the moment of writing, and a history
             # whose last row was not the question read to the browser as a lesson to continue --
             # which it did, with nothing, on every reload.
+            asked = True
             yield from _question(
                 event,
                 pager=pager,
@@ -752,8 +830,28 @@ def _stream_turn(
                         user_bid=user_bid,
                         shifu_bid=shifu_bid,
                         outline_bid=outline_bid,
+                        progress_record_bid=progress_record_bid,
                         preview_mode=preview_mode,
                     )
+
+        finished = bool(getattr(session_holder.get("session"), "finished", False))
+        if isinstance(event, TurnDone) and not asked and not finished and syntax.spans:
+            # The model typed a question rather than asking for one. Sent before the event that
+            # ends the turn, so it is the last thing written: a turn ending on text is the host's
+            # signal to carry on, and carrying on would run the lesson past the question the
+            # learner is still reading.
+            #
+            # Not on a lesson the model has just finished. The engine refuses a turn on a
+            # finished session, so the question could never be answered, and the lesson is over
+            # in any case -- a question typed on the way out is not one to put to the learner.
+            # Only the last span is asked: a turn holds one question, and it is the one the
+            # narration ends on.
+            yield from _narrated_question(
+                syntax.spans[-1],
+                voice=voice,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+            )
 
         try:
             yield from _on_this_page(
@@ -794,7 +892,10 @@ def _stream_turn(
     # the failures it cannot continue past. What the turn produced still has to be written, or the
     # learner replays an exchange that already happened.
     if not persisted:
-        tail = markers.flush()
+        # A turn that died has no `TurnDone`, so nothing above will have asked what the model
+        # typed. Putting it back as text loses nothing: it is what the model wrote, and the
+        # learner is being shown a failure rather than a question either way.
+        tail = syntax.feed(markers.flush()) + syntax.flush() + "".join(syntax.spans)
         if tail:
             taught.append(tail)
             yield from _say(
