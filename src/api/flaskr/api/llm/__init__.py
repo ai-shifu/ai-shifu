@@ -270,9 +270,21 @@ def _load_and_register_model_max_output_tokens() -> dict[str, int]:
         limits = parse_llm_model_max_output_tokens(raw_limits)
     except ValueError as exc:
         _log_warning(f"Ignoring invalid LLM_MODEL_MAX_OUTPUT_TOKENS: {exc}")
-        return {}
-    if not limits:
-        return {}
+        limits = {}
+
+    model_metadata = {
+        model: {"max_output_tokens": max_output_tokens}
+        for model, max_output_tokens in limits.items()
+    }
+    # LiteLLM 1.102.0 has no exact GPT-6 Sol catalogue entry. Keep this in
+    # the same registration as a configured output limit so catalogue reloads
+    # preserve both fields. The no-reasoning capability lets its adapter send
+    # our usual temperature when reasoning_effort="none".
+    model_metadata["gpt-6-sol"] = {
+        **model_metadata.get("gpt-6-sol", {}),
+        "litellm_provider": "openai",
+        "supports_none_reasoning_effort": True,
+    }
 
     register_model = getattr(litellm, "register_model", None)
     if not callable(register_model):
@@ -282,16 +294,9 @@ def _load_and_register_model_max_output_tokens() -> dict[str, int]:
         )
         return limits
     try:
-        register_model(
-            {
-                model: {"max_output_tokens": max_output_tokens}
-                for model, max_output_tokens in limits.items()
-            }
-        )
+        register_model(model_metadata)
     except Exception as exc:
-        _log_warning(
-            f"Registering LLM_MODEL_MAX_OUTPUT_TOKENS with LiteLLM failed: {exc}"
-        )
+        _log_warning(f"Registering LiteLLM model metadata failed: {exc}")
     return limits
 
 

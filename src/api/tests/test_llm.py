@@ -979,6 +979,7 @@ def test_load_and_register_model_max_output_tokens(monkeypatch: object) -> None:
     configured = {
         "qwen/deepseek-v4-flash": 393216,
         "ark/doubao-seed-2-0-lite-260428": 131072,
+        "gpt-6-sol": 65536,
     }
     captured = {}
 
@@ -1002,12 +1003,18 @@ def test_load_and_register_model_max_output_tokens(monkeypatch: object) -> None:
     assert captured == {
         "qwen/deepseek-v4-flash": {"max_output_tokens": 393216},
         "ark/doubao-seed-2-0-lite-260428": {"max_output_tokens": 131072},
+        "gpt-6-sol": {
+            "max_output_tokens": 65536,
+            "litellm_provider": "openai",
+            "supports_none_reasoning_effort": True,
+        },
     }
 
 
 def test_load_model_max_output_tokens_ignores_invalid_config(
     monkeypatch: object,
 ) -> None:
+    captured = {}
     monkeypatch.setattr(
         llm,
         "get_config",
@@ -1018,11 +1025,17 @@ def test_load_model_max_output_tokens_ignores_invalid_config(
     monkeypatch.setattr(
         llm.litellm,
         "register_model",
-        lambda _model_map: pytest.fail("invalid limits must not be registered"),
+        captured.update,
         raising=False,
     )
 
     assert llm._load_and_register_model_max_output_tokens() == {}
+    assert captured == {
+        "gpt-6-sol": {
+            "litellm_provider": "openai",
+            "supports_none_reasoning_effort": True,
+        }
+    }
 
 
 def test_stream_litellm_completion_falls_back_to_litellm_limit(
@@ -2030,6 +2043,18 @@ def test_litellm_1102_native_adapter_contracts() -> None:
                 model: native_reasoning_capabilities("openai", model)
                 for model in ("gpt-5.5-pro", "gpt-5.5-pro-2026-04-23")
             },
+            "openai_6_sol": adapter_contract(
+                "openai",
+                "gpt-6-sol",
+                "https://api.openai.com/v1",
+                prepared("openai", "openai", "gpt-6-sol"),
+            ),
+            "openai_6_sol_course_temperature": adapter_contract(
+                "openai",
+                "gpt-6-sol",
+                "https://api.openai.com/v1",
+                prepared("openai", "openai", "gpt-6-sol", {"temperature": "0.4"}),
+            ),
             "openai_responses_reasoning_conflict": (
                 openai_responses_reasoning_contract()
             ),
@@ -2170,6 +2195,14 @@ def test_litellm_1102_native_adapter_contracts() -> None:
     assert all(
         "temperature" not in params for params in contracts["openai_pro"].values()
     )
+    assert contracts["openai_6_sol"]["body"]["reasoning_effort"] == "none"
+    assert contracts["openai_6_sol"]["body"]["temperature"] == 0.3
+    assert contracts["openai_6_sol"]["content"] == "Hello world"
+    assert (
+        contracts["openai_6_sol_course_temperature"]["body"]["reasoning_effort"]
+        == "none"
+    )
+    assert contracts["openai_6_sol_course_temperature"]["body"]["temperature"] == 0.4
     responses_contract = contracts["openai_responses_reasoning_conflict"]
     assert responses_contract["request"]["reasoning"] == {"effort": "medium"}
     assert responses_contract["optional"]["extra_body"] == {"custom": "keep"}

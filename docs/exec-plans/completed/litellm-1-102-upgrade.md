@@ -25,6 +25,9 @@ shapes, structured output, streaming usage, and billing inputs stable.
 - [x] 2026-09-23 09:08 CST: Regenerated repository knowledge docs; harness,
   architecture, development-tool, Ruff, dependency, and pre-commit checks
   passed, leaving the change ready for pull request review.
+- [x] 2026-09-23 09:40 CST: Used the live CN and US model routing and credential
+  references for six short local streaming requests. All six returned content,
+  a stop finish reason, and provider usage after correcting GPT-6 Sol metadata.
 
 ## Surprises & Discoveries
 
@@ -52,6 +55,17 @@ shapes, structured output, streaming usage, and billing inputs stable.
   `.codex/environments/environment.toml` in write mode. Excluding the
   workspace's protected `.codex` and `.agents` surfaces and disabling hook
   auto-staging let every repository check pass; no unrelated files changed.
+- The live US quality model is GPT-6 Sol. LiteLLM 1.102.0 lacks its exact
+  catalogue entry and rejects the wrapper's `reasoning_effort="none"` plus
+  `temperature=0.3` before sending a request. Registering only this model's
+  known no-reasoning capability with its OpenAI provider preserves the
+  product's temperature behavior; the live proxy then accepted the request.
+- LiteLLM replays only the latest registration for a model when refreshing
+  its catalogue. GPT-6 Sol's capability and any configured output limit must
+  therefore be registered in one entry. This sparse entry does not provide a
+  LiteLLM price; application credit charges continue to use database rates.
+- This Mac's SOCKS proxy required `httpx[socks]` in the isolated test
+  environment for real provider calls. No production dependency changed.
 
 ## Decision Log
 
@@ -65,6 +79,8 @@ shapes, structured output, streaming usage, and billing inputs stable.
 - Remove the two GPT-5.5 Pro exact rows, Gemini 3.8's `allowed_openai_params`,
   and the four GLM-5.3 `additional_drop_params` fields. Rename the remaining
   version-labelled table to reflect 1.102.0.
+- Register the missing GPT-6 Sol capability in LiteLLM's local model map so
+  default and explicit course temperatures keep working with no reasoning.
 
 ## Outcomes & Retrospective
 
@@ -73,13 +89,17 @@ The backend now pins LiteLLM 1.102.0. Two GPT-5.5 Pro exact rows, Gemini
 removed. All other compatibility entries remain because isolated SDK and
 mock-transport comparisons showed changed wire output or adapter errors when
 they were absent. The native adapter contract now runs at the new pin and
-checks GPT-5.5 Pro's native capability metadata and ZAI's updated capability.
+checks GPT-5.5 Pro's native capability metadata, ZAI's updated capability,
+and GPT-6 Sol's no-reasoning request with the ordinary temperature.
 
 The full backend suite passed with 9,187 tests, 107 skips, and 50 passing
 subtests. Focused code-format, architecture-boundary, dependency-resolution,
 development-tool, repository-harness, and adjusted all-files pre-commit checks
 also passed. Simulated adapter requests cannot prove live provider behavior,
-so deployment should retain its ordinary provider smoke and rollout checks.
+so the three live CN and three live US model routes were also exercised from
+the local Python environment with short streaming calls. Each returned
+content, a stop finish reason, and prompt/completion token usage. Deployment
+should retain its ordinary rollout checks.
 
 ## Context and Orientation
 
