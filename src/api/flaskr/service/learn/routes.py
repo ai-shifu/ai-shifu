@@ -219,26 +219,29 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             raise_error("server.shifu.noPermission")
         return user_bid
 
-    def _ensure_outline_belongs_to_shifu(shifu_bid: str, outline_bid: str) -> None:
-        """Validate that outline belongs to the specified shifu."""
-        in_draft = db.session.execute(
-            select(DraftOutlineItem.id).where(
-                DraftOutlineItem.shifu_bid == shifu_bid,
-                DraftOutlineItem.outline_item_bid == outline_bid,
-                DraftOutlineItem.deleted == 0,
-            )
-        ).first()
-        if in_draft:
-            return
-        in_published = db.session.execute(
-            select(PublishedOutlineItem.id).where(
-                PublishedOutlineItem.shifu_bid == shifu_bid,
-                PublishedOutlineItem.outline_item_bid == outline_bid,
-                PublishedOutlineItem.deleted == 0,
-            )
-        ).first()
-        if not in_published:
-            raise_error("server.shifu.lessonNotFoundInCourse")
+    def _ensure_outline_belongs_to_shifu(
+        shifu_bid: str,
+        outline_bid: str,
+        *,
+        preview_mode: bool | None = None,
+    ) -> None:
+        """Validate that the requested lesson version belongs to the course."""
+        models = (
+            (DraftOutlineItem, PublishedOutlineItem)
+            if preview_mode is None
+            else (DraftOutlineItem if preview_mode else PublishedOutlineItem,)
+        )
+        for model in models:
+            found = db.session.execute(
+                select(model.id).where(
+                    model.shifu_bid == shifu_bid,
+                    model.outline_item_bid == outline_bid,
+                    model.deleted == 0,
+                )
+            ).first()
+            if found:
+                return
+        raise_error("server.shifu.lessonNotFoundInCourse")
 
     def _admit_creator_usage_for_shifu(shifu_bid: str, usage_scene: int) -> None:
         if is_builtin_demo_shifu(app, shifu_bid):
@@ -428,6 +431,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         preview_mode = preview_mode.lower() == "true"
         if preview_mode:
             require_shifu_preview_permission(app, user_bid, shifu_bid)
+        _ensure_outline_belongs_to_shifu(
+            shifu_bid,
+            outline_bid,
+            preview_mode=preview_mode,
+        )
         _admit_creator_usage_for_shifu(
             shifu_bid,
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
