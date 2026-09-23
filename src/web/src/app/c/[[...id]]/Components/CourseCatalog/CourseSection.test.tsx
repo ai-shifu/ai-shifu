@@ -6,6 +6,7 @@ import { CourseSection } from './CourseSection';
 const mockUserState = { isLoggedIn: true };
 const mockSystemState = { previewMode: false };
 const mockOpenPayModal = jest.fn();
+const mockI18n = { language: 'zh-CN' };
 
 jest.mock('@/api/studyV2', () => ({
   LEARNING_PERMISSION: {
@@ -16,7 +17,7 @@ jest.mock('@/api/studyV2', () => ({
 }));
 
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({ t: (key: string) => key, i18n: mockI18n }),
 }));
 
 jest.mock('@/store', () => ({
@@ -45,6 +46,40 @@ describe('CourseSection navigation acceptance', () => {
     jest.clearAllMocks();
     mockUserState.isLoggedIn = true;
     mockSystemState.previewMode = false;
+    mockI18n.language = 'zh-CN';
+  });
+
+  it('inherits Spanish for a Spanish lesson title', () => {
+    mockI18n.language = 'es-ES';
+
+    render(
+      <CourseSection
+        id='lesson-spanish'
+        name='Introducción al curso'
+        chapterId='chapter-1'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('Introducción al curso')).not.toHaveAttribute(
+      'lang',
+    );
+  });
+
+  it('marks a Latin-only lesson title as English in a Chinese interface', () => {
+    render(
+      <CourseSection
+        id='lesson-english'
+        name='English lesson title'
+        chapterId='chapter-1'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('English lesson title')).toHaveAttribute(
+      'lang',
+      'en',
+    );
   });
 
   it('reports navigation only after the lesson passes access guards', () => {

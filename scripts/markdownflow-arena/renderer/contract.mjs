@@ -50,7 +50,7 @@ export function normalizeArtifact(value) {
     elements,
     mode: markerCount ? "slides" : "reading",
     stepCount: markerCount || 1,
-    locale: ["en-US", "fr-FR", "zh-CN", "ar-SA", "th-TH"].includes(
+    locale: ["en-US", "es-ES", "fr-FR", "zh-CN", "ar-SA", "th-TH"].includes(
       value.metadata?.locale,
     )
       ? value.metadata.locale

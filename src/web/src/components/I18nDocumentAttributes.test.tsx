@@ -47,6 +47,7 @@ describe('I18nDocumentAttributes direction context', () => {
   test.each([
     ['ar-SA', 'rtl'],
     ['en-US', 'ltr'],
+    ['es-ES', 'ltr'],
     ['fr-FR', 'ltr'],
     ['th-TH', 'ltr'],
     ['zh-CN', 'ltr'],

@@ -2,6 +2,7 @@ import type { MarkdownFlowLocale } from 'markdown-flow-ui/renderer';
 
 const MARKDOWN_FLOW_LOCALES: readonly MarkdownFlowLocale[] = [
   'en-US',
+  'es-ES',
   'fr-FR',
   'zh-CN',
   'ar-SA',
@@ -12,6 +13,7 @@ const localeByBaseCode: Record<string, MarkdownFlowLocale> = Object.assign(
   Object.create(null),
   {
     en: 'en-US',
+    es: 'es-ES',
     fr: 'fr-FR',
     zh: 'zh-CN',
     ar: 'ar-SA',

@@ -29,13 +29,18 @@ def _resolve_supported_language(raw_language: str | None) -> str | None:
     if not normalized_language:
         return None
 
-    normalized_language_lower = normalized_language.lower()
+    normalized_language_lower = normalized_language.replace("_", "-").lower()
     for supported_language in _translations:
         if supported_language.lower() == normalized_language_lower:
             return supported_language
 
     for supported_language in _translations:
         if supported_language.lower().startswith(normalized_language_lower):
+            return supported_language
+
+    base_language = normalized_language_lower.split("-", 1)[0]
+    for supported_language in _translations:
+        if supported_language.lower().startswith(f"{base_language}-"):
             return supported_language
 
     return normalized_language

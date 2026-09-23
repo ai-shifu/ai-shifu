@@ -71,7 +71,7 @@ try {
   );
   await page.goto(origin);
   await page.waitForFunction(() => typeof window.renderArena === "function");
-  const locales = ["ar-SA", "en-US", "fr-FR", "th-TH", "zh-CN"];
+  const locales = ["ar-SA", "en-US", "es-ES", "fr-FR", "th-TH", "zh-CN"];
   for (const mode of ["reading", "slides"]) {
     for (const locale of locales) {
       const direction = locale === "ar-SA" ? "rtl" : "ltr";
@@ -128,7 +128,7 @@ try {
     }
   }
   process.stdout.write(
-    JSON.stringify({ status: "complete", locales, component_cases: 10 }) + "\n",
+    JSON.stringify({ status: "complete", locales, component_cases: 12 }) + "\n",
   );
 } finally {
   await browser?.close();
