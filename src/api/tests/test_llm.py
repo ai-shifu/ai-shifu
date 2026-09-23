@@ -1627,6 +1627,27 @@ def test_explicit_temperature_is_preserved_for_strict_provider_validation(
     assert "drop_params" not in prepared
 
 
+@pytest.mark.parametrize("kwargs", [{"temperature": "0.3"}, {}])
+def test_gpt_6_sol_omits_unsupported_temperature(
+    monkeypatch: object, kwargs: dict[str, object]
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {},
+    )
+
+    prepared = llm._prepare_litellm_request_kwargs(
+        "openai",
+        "gpt-6-sol",
+        {"custom_llm_provider": "openai"},
+        {**kwargs, "stop": ["done"]},
+    )
+
+    assert "temperature" not in prepared
+    assert prepared["stop"] == ["done"]
+
+
 LITELLM_CONTRACT_VERSION = "1.98.0"
 
 

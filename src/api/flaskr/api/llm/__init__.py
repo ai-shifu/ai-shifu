@@ -955,7 +955,11 @@ def _prepare_litellm_request_kwargs(
     policy_params = _keep_primary_thinking_control(policy_params, primary)
 
     prepared = dict(kwargs)
-    if "temperature" in prepared:
+    if provider_key == "openai" and model_id.casefold() == "gpt-6-sol":
+        # GPT-6 Sol only accepts the provider default temperature, even when
+        # a course explicitly supplies its usual 0.3 setting.
+        prepared.pop("temperature", None)
+    elif "temperature" in prepared:
         prepared["temperature"] = float(prepared["temperature"])
     elif _should_inject_default_temperature(
         provider_key, model_id, primary, policy_params
