@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from flaskr.common.config import get_config
 from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
 from flaskr.service.config import get_config as get_override_config
 from flaskr.service.config import has_config_override
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 MODEL_INDEXES = tuple(str(index) for index in range(1, 10))
 
@@ -18,9 +23,15 @@ def _slot_config(key: str) -> str:
     return str(reader(key, "") or "").strip()
 
 
-def get_model_1_id() -> str:
-    """Return the configured physical binding for numbered model 1."""
-    return _slot_config("LLM_MODEL_1_ID")
+def get_default_llm_model_id(app: Flask | None = None) -> str:
+    """Read model 1's physical ID for default LLM calls.
+
+    Use an Arena override first, then a supplied app, then process config.
+    """
+    key = "LLM_MODEL_1_ID"
+    if app is None or has_config_override(key):
+        return _slot_config(key)
+    return str(app.config.get(key, "") or "").strip()
 
 
 def get_configured_model_slots() -> list[dict[str, str]]:

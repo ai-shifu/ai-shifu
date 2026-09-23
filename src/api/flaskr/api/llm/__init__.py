@@ -2058,9 +2058,9 @@ def _load_llm_output_rate_rows(app: Flask) -> list[CreditUsageRate]:
 def _attach_credit_multipliers(
     app: Flask, options: list[dict[str, object]]
 ) -> list[dict[str, object]]:
-    from flaskr.api.llm.model_selection import get_model_1_id
+    from flaskr.api.llm.model_selection import get_default_llm_model_id
 
-    default_model = get_model_1_id()
+    default_model = get_default_llm_model_id()
     if not options:
         return [{**option, "credit_multiplier": None} for option in options]
 
