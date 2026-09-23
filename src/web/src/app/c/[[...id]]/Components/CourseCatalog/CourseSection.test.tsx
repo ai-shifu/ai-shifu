@@ -66,6 +66,41 @@ describe('CourseSection navigation acceptance', () => {
     );
   });
 
+  it('uses English pronunciation for an English guide title in a Spanish interface', () => {
+    mockI18n.language = 'es-ES';
+
+    render(
+      <CourseSection
+        id='lesson-guide-en'
+        name='How to use this course'
+        chapterId='chapter-1'
+        titleLanguage='en-US'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('How to use this course')).toHaveAttribute(
+      'lang',
+      'en-US',
+    );
+  });
+
+  it('uses Chinese pronunciation for a Chinese guide title in a Spanish interface', () => {
+    mockI18n.language = 'es-ES';
+
+    render(
+      <CourseSection
+        id='lesson-guide-zh'
+        name='学习说明'
+        chapterId='chapter-1'
+        titleLanguage='zh-CN'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('学习说明')).toHaveAttribute('lang', 'zh-CN');
+  });
+
   it('marks a Latin-only lesson title as English in a Chinese interface', () => {
     render(
       <CourseSection

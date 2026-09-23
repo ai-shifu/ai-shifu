@@ -33,6 +33,26 @@ def load_demo_shifu_bids() -> set[str]:
     return demo_bids
 
 
+def get_demo_course_title_language(shifu_bid: str) -> str | None:
+    """Return the authored title language of a configured demo course."""
+    normalized_bid = str(shifu_bid or "").strip()
+    if not normalized_bid:
+        return None
+
+    matches: list[str] = []
+    for key, language in (
+        ("DEMO_SHIFU_BID", "zh-CN"),
+        ("DEMO_EN_SHIFU_BID", "en-US"),
+    ):
+        try:
+            configured_bid = str(get_dynamic_config(key, "") or "").strip()
+        except Exception:
+            configured_bid = ""
+        if configured_bid and configured_bid == normalized_bid:
+            matches.append(language)
+    return matches[0] if len(matches) == 1 else None
+
+
 def resolve_demo_course_for_language(
     app: Flask, language: str | None
 ) -> dict[str, object]:

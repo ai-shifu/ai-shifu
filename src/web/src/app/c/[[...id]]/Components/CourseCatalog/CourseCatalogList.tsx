@@ -24,6 +24,7 @@ type CourseCatalogListProps = {
   onTryLessonSelect?: (params: { chapterId: string; lessonId: string }) => void;
   selectedLessonId?: string;
   hideCourseHeader?: boolean;
+  titleLanguage?: string;
 };
 
 export const CourseCatalogList = ({
@@ -37,6 +38,7 @@ export const CourseCatalogList = ({
   onTryLessonSelect,
   selectedLessonId = '',
   hideCourseHeader = false,
+  titleLanguage,
 }: CourseCatalogListProps) => {
   const [trialNodePosition, setTrialNodePosition] = useState<TrialNodePosition>(
     TRAIL_NODE_POSITION.NORMAL,
@@ -83,6 +85,7 @@ export const CourseCatalogList = ({
                   onCollapse={onChapterCollapse}
                   onLessonSelect={onLessonSelect}
                   onTrySelect={onTryLessonSelect}
+                  titleLanguage={titleLanguage}
                 />
                 {Boolean(catalog.bannerInfo) && (
                   <TrialNodeBottomArea

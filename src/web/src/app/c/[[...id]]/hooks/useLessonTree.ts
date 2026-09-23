@@ -38,6 +38,7 @@ type LessonTreeApiCatalog = {
 type LessonTreeApiResponse = {
   outline_items?: LessonTreeApiCatalog[];
   banner_info?: unknown;
+  title_language?: string;
 };
 
 export type LessonTreeLesson = {
@@ -66,6 +67,7 @@ export type LessonTreeCatalog = {
 
 export type LessonTreeData = {
   bannerInfo?: unknown;
+  titleLanguage?: string;
   catalogs: LessonTreeCatalog[];
 };
 
@@ -285,6 +287,7 @@ export const useLessonTree = () => {
       const newTree: LessonTreeData = {
         catalogs,
         bannerInfo: treeData.banner_info,
+        titleLanguage: treeData.title_language,
       };
 
       debugInfo('[lesson-tree] request success', {

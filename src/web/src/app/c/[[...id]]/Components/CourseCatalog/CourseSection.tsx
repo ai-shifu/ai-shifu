@@ -29,6 +29,7 @@ type CourseSectionProps = {
   selected?: boolean;
   canLearning?: boolean;
   chapterId: string;
+  titleLanguage?: string;
   onSelect?: (params: { id: string }) => void;
   onTrySelect?: (params: { id: string }) => void;
 };
@@ -55,11 +56,13 @@ export const CourseSection = ({
   selected,
   canLearning = false,
   chapterId,
+  titleLanguage,
   onSelect,
   onTrySelect,
 }: CourseSectionProps) => {
   const { t, i18n } = useTranslation();
-  const courseTitleLang = getCourseTitleLang(name, i18n?.language);
+  const courseTitleLang =
+    titleLanguage ?? getCourseTitleLang(name, i18n?.language);
   const { mobileStyle } = useContext(AppContext);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const previewMode = useSystemStore(state => state.previewMode);

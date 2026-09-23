@@ -85,6 +85,7 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_TRIAL,
 )
+from flaskr.service.shifu.dtos import get_demo_course_title_language
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
@@ -505,6 +506,7 @@ def get_outline_item_tree(
             return LearnOutlineItemsWithBannerInfoDTO(
                 banner_info=banner_info_dto,
                 outline_items=outline_items,
+                title_language=get_demo_course_title_language(shifu_bid),
             )
         if not is_paid and add_banner:
             banner_info_dto = LearnBannerInfoDTO(
@@ -517,6 +519,7 @@ def get_outline_item_tree(
         return LearnOutlineItemsWithBannerInfoDTO(
             banner_info=banner_info_dto,
             outline_items=outline_items,
+            title_language=get_demo_course_title_language(shifu_bid),
         )
 
 
