@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from flaskr.i18n import _
 from flaskr.service.learn.agent import legacy_protocol
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
@@ -17,7 +18,11 @@ from flaskr.service.learn.agent.engine.events import (
     TurnDone,
     Visual,
 )
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
+from flaskr.service.learn.agent.engine.interaction import (
+    DEFAULT_CONFIRM_LABEL,
+    InteractionSpec,
+    Option,
+)
 from flaskr.service.learn.learn_dtos import GeneratedType
 
 OUTLINE = "outline-bid"
@@ -493,16 +498,6 @@ def test_the_stored_value_a_learner_returns_is_the_one_the_engine_will_match() -
             "an ellipsis turns the rest into a text box",
             id="ellipsis-in-display",
         ),
-        pytest.param(
-            {
-                "type": "single",
-                "prompt": "p",
-                "options": [Option(display=" A ")],
-                "variable": "v",
-            },
-            "the grammar drops surrounding spaces, and the engine matches the untrimmed string",
-            id="padded-display",
-        ),
     ],
 )
 def test_an_interaction_the_grammar_would_reshape_is_refused(
@@ -512,6 +507,23 @@ def test_an_interaction_the_grammar_would_reshape_is_refused(
     with pytest.raises(legacy_protocol.UnrepresentableInteractionError):
         legacy_protocol.render_interaction(_spec(**spec_kwargs))
     assert why  # documents the case
+
+
+def test_an_option_the_model_padded_with_spaces_is_still_asked() -> None:
+    """The grammar drops those spaces, so the engine no longer keeps them either.
+
+    While it did, a question was refused over whitespace nobody could see, and the learner was
+    shown its text with no controls under it.
+    """
+    rendered = legacy_protocol.render_interaction(
+        _spec(
+            type="single",
+            prompt="p",
+            options=[Option(display=" A "), Option(display="B")],
+            variable="v",
+        )
+    )
+    assert rendered == "?[%{{v}} A | B]"
 
 
 def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -> None:
@@ -546,7 +558,7 @@ def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
 
 
 def test_a_long_confirm_prompt_stays_as_text() -> None:
-    """An instruction to the learner is content; the button keeps its default label."""
+    """An instruction to the learner is content; the button is labelled by the host."""
     translated = _translate(
         InteractionRequest(
             id="i1",
@@ -559,4 +571,101 @@ def test_a_long_confirm_prompt_stays_as_text() -> None:
         GeneratedType.CONTENT,
         GeneratedType.INTERACTION,
     ]
-    assert translated[1].content == "?[Continue//continue]"
+    # The host names the button, rather than the engine's default reaching the learner. Asserted
+    # through the same lookup, because in English the two words are the same one; that the label
+    # really is translated is asserted in a Chinese lesson below.
+    assert translated[1].content == f"?[{_('server.learn.continueButton')}//continue]"
+
+
+def test_a_label_the_model_wrote_is_left_alone() -> None:
+    """Only the engine's own default is replaced.
+
+    A short confirm prompt becomes the button's text, and it is already in the lesson's language.
+    Replacing it too would overwrite the author's wording with a generic one.
+    """
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(type="confirm", prompt="我准备好了", options=[]),
+        )
+    )
+    assert translated[-1].content == "?[我准备好了//continue]"
+
+
+def test_an_unlabelled_confirm_is_named_by_the_host() -> None:
+    """The engine leaves an English word on the button; the learner must not see it."""
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(type="confirm", prompt="", options=[]),
+        )
+    )
+    assert translated[-1].content == f"?[{_('server.learn.continueButton')}//continue]"
+
+
+def test_a_model_that_writes_continue_itself_keeps_its_own_word() -> None:
+    """The host's replacement must not reach a label the model chose, even the same word.
+
+    A short confirm prompt becomes the button's text, so by the time that rewrite has run the
+    model's `Continue` looks exactly like the engine's default. Localising after it would take
+    the model's own word off the button, which is the line this fix must not cross.
+    """
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(
+                type="confirm", prompt=DEFAULT_CONFIRM_LABEL, options=[]
+            ),
+        )
+    )
+    assert translated[-1].content == f"?[{DEFAULT_CONFIRM_LABEL}//continue]"
+
+
+def test_a_button_the_model_labelled_continue_itself_is_left_alone() -> None:
+    """Only the engine's own default is replaced, not a label the model chose.
+
+    The model may write the very word the engine would have defaulted to. Telling the two apart
+    by the word made that model's label indistinguishable from no label at all, and its stored
+    value was rewritten along with it.
+    """
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(
+                type="confirm",
+                prompt="Read the diagram, then carry on when you are ready.",
+                options=[Option(display=DEFAULT_CONFIRM_LABEL, value="go")],
+            ),
+        )
+    )
+    assert translated[-1].content == f"?[{DEFAULT_CONFIRM_LABEL}//go]"
+
+
+@pytest.mark.parametrize("language", ["zh-CN", "en-US", "fr-FR", "ar-SA", "th-TH"])
+@pytest.mark.usefixtures("app")
+def test_the_continue_label_exists_in_every_language(language: str) -> None:
+    """A missing or misspelt key would put `server.learn.continueButton` on the button.
+
+    Asserting through `_()` on both sides cannot see that: with no translations loaded it
+    returns the key, and the two sides agree. This loads them and asks for the word.
+    """
+    from flaskr.i18n import translate_for_language
+
+    key = "server.learn.continueButton"
+    assert translate_for_language(key, language) != key
+
+
+@pytest.mark.usefixtures("app")
+def test_a_chinese_learner_is_asked_to_continue_in_chinese() -> None:
+    from flaskr.i18n import clear_language, set_language
+
+    set_language("zh-CN")
+    try:
+        translated = _translate(
+            InteractionRequest(
+                id="i1", spec=InteractionSpec(type="confirm", prompt="", options=[])
+            )
+        )
+    finally:
+        clear_language()
+    assert translated[-1].content == "?[继续//continue]"

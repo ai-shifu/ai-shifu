@@ -130,3 +130,33 @@ def test_a_confirm_is_always_usable() -> None:
     """A confirm carries no answer, only "go on", so an empty response still means continue."""
     confirm = InteractionSpec.model_validate({"type": "confirm", "prompt": "Ready?"})
     assert answer_is_usable(confirm, InteractionAnswer(values=[])) is True
+
+
+def test_whitespace_around_an_option_is_dropped() -> None:
+    """The model's stray spaces, gone before anything stores or renders the option."""
+    o = Option(display="  yes\t", value=" y ")
+    assert o.display == "yes"
+    assert o.value == "y"
+    assert o.stored == "y"
+
+
+def test_an_empty_stored_value_survives_trimming() -> None:
+    """Empty is a value the script can mean; whitespace-only collapsing to it is not a loss."""
+    assert Option(display="skip", value="").stored == ""
+    assert Option(display="skip", value="   ").stored == ""
+
+
+def test_an_option_written_with_spaces_still_matches_the_answer_it_gets_back() -> None:
+    """What the learner clicks is the trimmed text, and it has to count as an answer.
+
+    Untrimmed, the spec kept `" yes"` while the controls could only offer `"yes"`, and every
+    answer was dropped as not being one of the choices.
+    """
+    s = InteractionSpec(
+        type="single",
+        prompt="q",
+        options=[Option(display=" yes"), Option(display="no ")],
+    )
+    answer = normalize_answer(s, InteractionAnswer(values=["yes"]))
+    assert answer.values == ["yes"]
+    assert answer_is_usable(s, answer)

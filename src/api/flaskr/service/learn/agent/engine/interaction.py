@@ -22,10 +22,36 @@ class Option(BaseModel):
         default=None, description="Stored value when different from display."
     )
 
+    @model_validator(mode="after")
+    def _trim(self) -> Option:
+        """Drop whitespace around the model's option text, before anything else sees it.
+
+        A learner cannot perceive a leading or trailing space on a button, so two options
+        differing only by one are the same option to them. The machinery around them is not so
+        forgiving: an answer is matched against the option string unmodified, and MarkdownFlow's
+        own grammar drops that whitespace when the controls are written out -- so a stray space
+        from the model turned a working question into one whose every answer was discarded as
+        not being one of the choices.
+
+        Normalizing here rather than at either of those places is what keeps them agreeing: the
+        spec the engine holds while it waits, the controls the learner is shown, and the answer
+        that comes back are then all the same string.
+        """
+        self.display = self.display.strip()
+        if self.value is not None:
+            self.value = self.value.strip()
+        return self
+
     @property
     def stored(self) -> str:
         """Return the value to keep when the learner picks this option."""
         return self.value if self.value is not None else self.display
+
+
+# What a confirm's button says when the model names nothing for it. The host replaces this with
+# a label in the learner's own language; it is a constant so that replacement can recognise the
+# default rather than guess at any English word it finds on a button.
+DEFAULT_CONFIRM_LABEL = "Continue"
 
 
 class InteractionSpec(BaseModel):
@@ -45,6 +71,14 @@ class InteractionSpec(BaseModel):
     placeholder: str | None = Field(
         default=None, description="Placeholder for the text box."
     )
+    # Set by the engine, never by the model: the model does not see this field. It records that
+    # the confirm's button label is the engine's own default rather than anything the model
+    # wrote, so a host can replace exactly that and nothing else -- including a model that
+    # happened to write the same word itself.
+    # Carried in every dump on purpose: the engine hands the spec to the host as JSON and reads
+    # pending ones back from the session the same way, and a flag that did not survive that
+    # round trip would tell the host nothing.
+    labelled_by_engine: bool = False
 
     @model_validator(mode="after")
     def _check(self) -> InteractionSpec:
@@ -59,7 +93,8 @@ class InteractionSpec(BaseModel):
             raise ValueError(msg)
         if self.type == "confirm":
             if not self.options:
-                self.options = [Option(display="Continue", value="continue")]
+                self.options = [Option(display=DEFAULT_CONFIRM_LABEL, value="continue")]
+                self.labelled_by_engine = True
             # Every confirm answer means the same thing, so a second button would offer the
             # learner a choice that cannot reach the model. Keep the first one only.
             self.options = self.options[:1]

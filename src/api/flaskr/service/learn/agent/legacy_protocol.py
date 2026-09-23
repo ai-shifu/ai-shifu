@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from flaskr.i18n import _
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
     ErrorEvent,
@@ -31,7 +32,10 @@ from flaskr.service.learn.agent.engine.events import (
     MemoryUpdated,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
+from flaskr.service.learn.agent.engine.interaction import (
+    InteractionSpec,
+    Option,
+)
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     RunMarkdownFlowDTO,
@@ -149,6 +153,28 @@ def render_interaction(spec: InteractionSpec) -> str:
     return rendered
 
 
+def _in_the_learner_s_language(spec: InteractionSpec) -> InteractionSpec:
+    """Give a confirm the host's word for carrying on, where the model named none.
+
+    The engine fills an unlabelled confirm with an English default, and it reached learners as a
+    `Continue` button under a lesson taught in Chinese. Only that default is replaced: a label the
+    model did write is the lesson's own wording and is left exactly as it wrote it.
+
+    Which is why this runs before a short prompt is turned into the button's text, and not after.
+    Afterwards, a model that had written `Continue` itself would be indistinguishable from one
+    that wrote nothing, and would have its own word swapped for the host's.
+    """
+    if spec.type != "confirm" or not spec.labelled_by_engine:
+        # Either the model named the button itself -- even if the word it chose is the same one
+        # the engine would have used -- or there is no button to name.
+        return spec
+    return InteractionSpec(
+        type="confirm",
+        prompt=spec.prompt,
+        options=[Option(display=_("server.learn.continueButton"), value="continue")],
+    )
+
+
 def translate(
     event: Event,
     *,
@@ -180,6 +206,10 @@ def translate(
         # the model wrote it, because the frontend renders it as Markdown and leading indentation
         # or a trailing hard break changes what the learner sees.
         prompt = spec.prompt
+        # Before the rewrite below, not after: that rewrite puts the model's own words on the
+        # button, and a model that wrote `Continue` would otherwise have them taken for the
+        # engine's default and replaced.
+        spec = _in_the_learner_s_language(spec)
         if (
             spec.type == "confirm"
             and 0 < len(prompt.strip()) <= _CONFIRM_LABEL_MAX_CHARS

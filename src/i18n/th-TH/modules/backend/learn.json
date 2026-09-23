@@ -8,6 +8,7 @@
     "askProviderRateLimited": "คำขอหรือโควตาคลังความรู้ถูกจำกัด โปรดลองอีกครั้งภายหลัง",
     "askProviderTimeout": "คลังความรู้ภายนอกตอบกลับเกินเวลา โปรดลองอีกครั้งภายหลัง",
     "askProviderUnavailable": "คลังความรู้ภายนอกไม่พร้อมใช้งานชั่วคราว",
+    "continueButton": "ดำเนินการต่อ",
     "generatedBlockNotFound": "ไม่พบบล็อกที่สร้างขึ้น",
     "invalidAction": "การดำเนินการไม่ถูกต้อง",
     "lessonFeedbackCommentPlaceholder": "ไม่บังคับ: บอกข้อเสนอแนะของคุณให้เราทราบ",

@@ -114,7 +114,7 @@ def test_course_settings_drive_both_engines_and_follow_up(
         settings = ctx.get_llm_settings(lesson_bid)
         assert settings.model == expected_model
         assert float(settings.temperature) == expected_temperature
-        script, agent_settings = lesson_entry._resolve(
+        script, _brief, agent_settings = lesson_entry._resolve(
             app,
             user_bid="teacher-1",
             shifu_bid=shifu_bid,
