@@ -80,6 +80,21 @@ def _request_feedback(client: object, course: object, **kwargs: object) -> objec
     ).get_json(force=True)
 
 
+def _progress_snapshot(app: object) -> list[tuple[object, ...]]:
+    with app.app_context():
+        return [
+            (
+                row.progress_record_bid,
+                row.shifu_bid,
+                row.outline_item_bid,
+                row.user_bid,
+                row.status,
+                row.deleted,
+            )
+            for row in LearnProgressRecord.query.order_by(LearnProgressRecord.id).all()
+        ]
+
+
 @pytest.mark.parametrize("published_only", [False, True])
 def test_feedback_http_round_trip_preserves_scope_and_updates_existing_submission(
     app: object, test_client: object, feedback_course: object, published_only: bool
@@ -376,7 +391,7 @@ def test_runtime_route_normalizes_listen_and_learning_mode_before_streaming(
     monkeypatch.setattr(routes, "run_script", run)
     monkeypatch.setattr(routes, "is_builtin_demo_shifu", lambda *_: True)
     response = test_client.put(
-        f"/api/learn/shifu/{feedback_course.bid}/run/lesson",
+        f"/api/learn/shifu/{feedback_course.bid}/run/{feedback_course.bid}",
         json={
             "listen": listen,
             "learning_mode": " classroom ",
@@ -388,6 +403,130 @@ def test_runtime_route_normalizes_listen_and_learning_mode_before_streaming(
     assert run.call_args.kwargs["listen"] is (listen is not None)
     assert run.call_args.kwargs["learning_mode"] == "classroom"
     assert run.call_args.kwargs["user_input"] == {"answer": ["yes"]}
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+def test_runtime_route_rejects_a_lesson_from_another_course_before_admission(
+    app: object,
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    preview_mode: bool,
+) -> None:
+    foreign_course_bid = uuid.uuid4().hex
+    foreign_outline_bid = uuid.uuid4().hex
+    with app.app_context(), unit_of_work():
+        for model in (DraftOutlineItem, PublishedOutlineItem):
+            db.session.add(
+                model(
+                    shifu_bid=foreign_course_bid,
+                    outline_item_bid=foreign_outline_bid,
+                    title="Foreign lesson",
+                    position=0,
+                    deleted=0,
+                )
+            )
+
+    preview_admission = Mock()
+    production_admission = Mock()
+    run = Mock(return_value=iter(["data: completed\n\n"]))
+    monkeypatch.setattr(routes, "is_builtin_demo_shifu", lambda *_: False)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+    monkeypatch.setattr(routes, "admit_creator_preview_usage", preview_admission)
+    monkeypatch.setattr(routes, "admit_creator_usage", production_admission)
+    monkeypatch.setattr(routes, "run_script", run)
+    progress_before = _progress_snapshot(app)
+
+    try:
+        response = test_client.put(
+            f"/api/learn/shifu/{feedback_course.bid}/run/{foreign_outline_bid}",
+            query_string={"preview_mode": str(preview_mode).lower()},
+            json={
+                "input": "answer",
+                # Payload identifiers must never override the route's course scope.
+                "shifu_bid": foreign_course_bid,
+                "outline_bid": foreign_outline_bid,
+            },
+            headers={"Token": "test-token"},
+        ).get_json(force=True)
+    finally:
+        with app.app_context(), unit_of_work():
+            for model in (DraftOutlineItem, PublishedOutlineItem):
+                model.query.filter_by(outline_item_bid=foreign_outline_bid).delete()
+
+    assert response["code"] == ERROR_CODE["server.shifu.lessonNotFoundInCourse"]
+    assert _progress_snapshot(app) == progress_before
+    preview_admission.assert_not_called()
+    production_admission.assert_not_called()
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+def test_runtime_route_rejects_soft_deleted_lessons_without_persisting(
+    app: object,
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    preview_mode: bool,
+) -> None:
+    with app.app_context(), unit_of_work():
+        selected_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
+        selected_model.query.filter_by(shifu_bid=feedback_course.bid).one().deleted = 1
+
+    preview_admission = Mock()
+    production_admission = Mock()
+    run = Mock(return_value=iter(["data: completed\n\n"]))
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+    monkeypatch.setattr(routes, "admit_creator_preview_usage", preview_admission)
+    monkeypatch.setattr(routes, "admit_creator_usage", production_admission)
+    monkeypatch.setattr(routes, "run_script", run)
+    progress_before = _progress_snapshot(app)
+
+    response = test_client.put(
+        f"/api/learn/shifu/{feedback_course.bid}/run/{feedback_course.bid}",
+        query_string={"preview_mode": str(preview_mode).lower()},
+        json={"input": "answer"},
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+
+    assert response["code"] == ERROR_CODE["server.shifu.lessonNotFoundInCourse"]
+    assert _progress_snapshot(app) == progress_before
+    preview_admission.assert_not_called()
+    production_admission.assert_not_called()
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+def test_runtime_route_rejects_a_lesson_missing_from_the_requested_version(
+    app: object,
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    preview_mode: bool,
+) -> None:
+    with app.app_context(), unit_of_work():
+        unavailable_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
+        unavailable_model.query.filter_by(shifu_bid=feedback_course.bid).delete()
+
+    preview_admission = Mock()
+    production_admission = Mock()
+    run = Mock(return_value=iter(["data: completed\n\n"]))
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+    monkeypatch.setattr(routes, "admit_creator_preview_usage", preview_admission)
+    monkeypatch.setattr(routes, "admit_creator_usage", production_admission)
+    monkeypatch.setattr(routes, "run_script", run)
+
+    response = test_client.put(
+        f"/api/learn/shifu/{feedback_course.bid}/run/{feedback_course.bid}",
+        query_string={"preview_mode": str(preview_mode).lower()},
+        json={"input": "answer"},
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+
+    assert response["code"] == ERROR_CODE["server.shifu.lessonNotFoundInCourse"]
+    preview_admission.assert_not_called()
+    production_admission.assert_not_called()
+    run.assert_not_called()
 
 
 @pytest.mark.parametrize("visual", [None, " true "])
