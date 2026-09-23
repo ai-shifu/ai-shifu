@@ -1678,38 +1678,6 @@ def _installed_litellm_version() -> str | None:
 
 @pytest.mark.skipif(
     _installed_litellm_version() != LITELLM_CONTRACT_VERSION,
-    reason=f"contract targets litellm=={LITELLM_CONTRACT_VERSION}",
-)
-@pytest.mark.parametrize(
-    ("model_id", "expected_effort", "expected_temperature"),
-    [
-        ("gpt-6-sol", "none", 0.3),
-        ("gpt-6-luna", "none", 0.3),
-        ("gpt-6-astra", "low", None),
-    ],
-)
-def test_gpt_6_reasoning_survives_litellm_198_adapter(
-    model_id: str, expected_effort: str, expected_temperature: float | None
-) -> None:
-    prepared = llm._prepare_litellm_request_kwargs(
-        "openai",
-        model_id,
-        {"custom_llm_provider": "openai"},
-        {"temperature": "0.3"},
-    )
-
-    optional_params = llm.litellm.get_optional_params(
-        model=model_id,
-        custom_llm_provider="openai",
-        **prepared,
-    )
-
-    assert optional_params["reasoning_effort"] == expected_effort
-    assert optional_params.get("temperature") == expected_temperature
-
-
-@pytest.mark.skipif(
-    _installed_litellm_version() != LITELLM_CONTRACT_VERSION,
     reason=(
         "contract test targets litellm=="
         f"{LITELLM_CONTRACT_VERSION}, found "
@@ -2055,6 +2023,16 @@ def test_litellm_198_native_adapter_contracts() -> None:
                     "gpt-5.5-pro",
                 )
             },
+            "gpt_6": {
+                model: litellm.get_optional_params(
+                    model=model,
+                    custom_llm_provider="openai",
+                    **prepared(
+                        "openai", "openai", model, {"temperature": "0.3"}
+                    ),
+                )
+                for model in ("gpt-6-sol", "gpt-6-luna", "gpt-6-astra")
+            },
             "openai_responses_reasoning_conflict": (
                 openai_responses_reasoning_contract()
             ),
@@ -2185,6 +2163,17 @@ def test_litellm_198_native_adapter_contracts() -> None:
     assert all(
         "temperature" not in params for params in contracts["openai_pro"].values()
     )
+    assert {
+        model: params["reasoning_effort"]
+        for model, params in contracts["gpt_6"].items()
+    } == {
+        "gpt-6-sol": "none",
+        "gpt-6-luna": "none",
+        "gpt-6-astra": "low",
+    }
+    assert contracts["gpt_6"]["gpt-6-sol"]["temperature"] == 0.3
+    assert contracts["gpt_6"]["gpt-6-luna"]["temperature"] == 0.3
+    assert "temperature" not in contracts["gpt_6"]["gpt-6-astra"]
     responses_contract = contracts["openai_responses_reasoning_conflict"]
     assert responses_contract["request"]["reasoning"] == {"effort": "medium"}
     assert responses_contract["optional"]["extra_body"] == {"custom": "keep"}
