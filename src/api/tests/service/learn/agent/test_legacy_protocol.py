@@ -498,16 +498,6 @@ def test_the_stored_value_a_learner_returns_is_the_one_the_engine_will_match() -
             "an ellipsis turns the rest into a text box",
             id="ellipsis-in-display",
         ),
-        pytest.param(
-            {
-                "type": "single",
-                "prompt": "p",
-                "options": [Option(display=" A ")],
-                "variable": "v",
-            },
-            "the grammar drops surrounding spaces, and the engine matches the untrimmed string",
-            id="padded-display",
-        ),
     ],
 )
 def test_an_interaction_the_grammar_would_reshape_is_refused(
@@ -517,6 +507,23 @@ def test_an_interaction_the_grammar_would_reshape_is_refused(
     with pytest.raises(legacy_protocol.UnrepresentableInteractionError):
         legacy_protocol.render_interaction(_spec(**spec_kwargs))
     assert why  # documents the case
+
+
+def test_an_option_the_model_padded_with_spaces_is_still_asked() -> None:
+    """The grammar drops those spaces, so the engine no longer keeps them either.
+
+    While it did, a question was refused over whitespace nobody could see, and the learner was
+    shown its text with no controls under it.
+    """
+    rendered = legacy_protocol.render_interaction(
+        _spec(
+            type="single",
+            prompt="p",
+            options=[Option(display=" A "), Option(display="B")],
+            variable="v",
+        )
+    )
+    assert rendered == "?[%{{v}} A | B]"
 
 
 def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -> None:
