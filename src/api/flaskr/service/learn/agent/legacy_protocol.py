@@ -63,11 +63,11 @@ _FREE_TEXT_TYPES = frozenset({"text", "single_or_text", "multi_or_text"})
 class UnrepresentableInteractionError(Exception):
     """An interaction that MarkdownFlow cannot carry without changing what it asks.
 
-    The grammar has no escape sequence, so option text carrying its delimiters reshapes the
-    controls: a display holding `|` becomes two choices, one holding `//` loses half of itself to
-    the stored value, one holding `...` turns the rest into a text box, and `]` ends the
-    interaction early. Leading and trailing spaces disappear as well, which matters because the
-    engine matches a submitted answer against the option string it was given, unmodified.
+    The grammar's delimiters are escapable now, and every option is written escaped, so text
+    holding a `|`, `//`, `...` or `]` no longer reshapes the controls. What is left are shapes
+    the grammar has no way to carry at all: an option containing a newline, which is read only
+    as far as its first line, and an empty option, which disappears and leaves the learner fewer
+    buttons than the model offered.
 
     Raised rather than rendered approximately: a learner answering controls that no longer match
     what the model asked produces an answer the engine will reject, and neither of them can see
