@@ -31,9 +31,13 @@ are deliberately excluded until the third rollout PR.
   and focused backend/frontend tests.
 - [x] 2026-09-22 15:02 CST: Validated the Alembic revision directly against
   SQLite and confirmed it is the repository's sole migration head.
-- [x] 2026-09-22 15:08 CST: Completed full backend-branch validation,
-  including type checking, architecture/UoW ratchets, repository harness, and
-  the repository-wide pre-commit gate.
+- [x] 2026-09-22 15:08 CST: Completed the focused attribution suites, type
+  checking, architecture/UoW ratchets, repository harness, and the
+  repository-wide pre-commit gate available in the branch environment. After
+  the final main-branch sync, the newly introduced dependencies were not fully
+  installed and exercised locally, and the frontend was not rebuilt in a
+  complete lockfile environment; do not describe this as a full latest-stack
+  application validation.
 - [ ] Complete the following Skills producer PR.
 
 ## Surprises & Discoveries
