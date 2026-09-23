@@ -88,7 +88,7 @@ def _performance_html(artifact: dict, copy: dict) -> str:
         elif key in {"elapsed", "latency"}:
             formatted = f"{value:,.1f} s"
         elif key == "speed":
-            formatted = f"{value:,.1f} token/s"
+            formatted = f"{value:,.1f} {copy['performance']['speed_unit']}"
         else:
             formatted = f"{value:,.0f}"
         fields.append(

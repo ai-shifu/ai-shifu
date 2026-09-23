@@ -1078,9 +1078,9 @@
     "empty": "暂无日报表数据。",
     "loadError": "当前无法加载账务报表。",
     "metric": {
-      "llmCacheTokens": "LLM 缓存 tokens",
-      "llmInputTokens": "LLM 输入 tokens",
-      "llmOutputTokens": "LLM 输出 tokens",
+      "llmCacheTokens": "LLM 缓存词元",
+      "llmInputTokens": "LLM 输入词元",
+      "llmOutputTokens": "LLM 输出词元",
       "ttsInputChars": "TTS 输入字符",
       "ttsOutputChars": "TTS 输出字符",
       "ttsRequestCount": "TTS 请求次数"
