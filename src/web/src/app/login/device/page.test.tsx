@@ -78,8 +78,7 @@ const envelope = (data: unknown, code = 0, message = 'success') => ({
 
 describe('DeviceAuthorizationPage', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockTrackEvent.mockReset();
+    jest.resetAllMocks();
     searchParams = new URLSearchParams('code=AC4-7HK');
     storeState = { isInitialized: true, isLoggedIn: true };
   });
@@ -400,13 +399,15 @@ describe('DeviceAuthorizationPage', () => {
     render(<DeviceAuthorizationPage />);
 
     await screen.findByText('MacBook-Pro');
-    expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_prompt_shown', {
-      device_os: 'macos',
-      from_link: true,
-      host_platform: 'unattributed',
-      skill_id: 'unattributed',
-      skill_version_major: 'unattributed',
-    });
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_prompt_shown', {
+        device_os: 'macos',
+        from_link: true,
+        host_platform: 'unattributed',
+        skill_id: 'unattributed',
+        skill_version_major: 'unattributed',
+      }),
+    );
   });
 
   it('never sends a caller-owned Skill version to analytics', async () => {
@@ -423,6 +424,12 @@ describe('DeviceAuthorizationPage', () => {
     render(<DeviceAuthorizationPage />);
 
     await screen.findByText('MacBook-Pro');
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'device_auth_prompt_shown',
+        expect.anything(),
+      ),
+    );
     const exposure = mockTrackEvent.mock.calls.find(
       ([name]) => name === 'device_auth_prompt_shown',
     )?.[1];
