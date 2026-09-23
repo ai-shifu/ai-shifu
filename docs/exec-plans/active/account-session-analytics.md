@@ -16,7 +16,8 @@ rejected unless the terminal states are recorded separately.
   people are being shown requests they did not start.
 - Metric definition: numerator is approval events (`device_auth_approved`);
   denominator is prompt exposure events (`device_auth_prompt_shown`) in the
-  same calendar week, grouped by the shared `device_os` and `from_link` fields.
+  same calendar week, grouped by the shared `device_os`, `from_link`,
+  `host_platform`, `skill_id`, and `skill_version_major` fields.
   Abandonment is the residual, `1 - (approved + denied) / shown`, and is
   meaningful only because exposure is counted separately. Without a request
   identifier, this calculation is aggregate and cannot be presented as a
@@ -32,23 +33,27 @@ rejected unless the terminal states are recorded separately.
 - Count unit: one pending authorization request.
 - Deduplication: keyed on the pairing code held in a ref, so re-renders and a
   second effect pass cannot inflate the denominator. Scope is one mounted page.
-- Correlation: none. The pairing code is a live credential for ten minutes and
-  is deliberately absent from every payload, so these events cannot be joined
-  to a specific request.
-- Consumers: none yet. The refusal rate is the signal worth watching once the
-  flow ships.
-- Compatibility: additive; three new names, with `from_link` included in the
-  complete payload of all three events.
+- Correlation: aggregate dimensions only. The pairing code and Skill handoff
+  ID are deliberately absent from every payload, so these events cannot be
+  joined to a specific request.
+- Consumers: the periodic Skill acquisition and journey report compares the
+  authorization funnel by host platform, Skill, and version.
+- Compatibility: the event names are unchanged. Skill dimensions are additive
+  payload fields; ordinary device requests use `unattributed` for all three.
 - Verification: `src/web/src/app/login/device/page.test.tsx` asserts the
-  exposure fires exactly once, that the pairing code stays out of the payload,
+  exposure fires exactly once, that pairing and handoff identifiers stay out
+  of the payload,
   that link-opened and manually entered outcomes retain the same `from_link`
   dimension as their exposure, that outcomes fire on confirmation, and that a
   failed decision emits no outcome.
 
-| Field       | Type    | Allowed values                                                                   | Cardinality | Privacy class | Why required                                                    |
-| ----------- | ------- | -------------------------------------------------------------------------------- | ----------- | ------------- | --------------------------------------------------------------- |
-| `device_os` | string  | `android`, `chromeos`, `ios`, `linux`, `macos`, `other`, `unknown`, or `windows` | low         | non-personal  | tells whether refusals cluster on one platform                  |
-| `from_link` | boolean | true/false                                                                       | low         | non-personal  | separates prompts opened from the link from codes typed by hand |
+| Field                 | Type    | Allowed values                                                                   | Cardinality | Privacy class | Why required                                                       |
+| --------------------- | ------- | -------------------------------------------------------------------------------- | ----------- | ------------- | ------------------------------------------------------------------ |
+| `device_os`           | string  | `android`, `chromeos`, `ios`, `linux`, `macos`, `other`, `unknown`, or `windows` | low         | non-personal  | tells whether refusals cluster on one platform                     |
+| `from_link`           | boolean | true/false                                                                       | low         | non-personal  | separates prompts opened from the link from codes typed by hand    |
+| `host_platform`       | string  | `workbuddy`, `doubao`, `qclaw`, `lobster`, `codex`, `direct`, `unattributed`     | low         | non-personal  | compares host-platform funnels                                     |
+| `skill_id`            | string  | `ai-shifu-course-creator`, `unattributed`                                        | low         | non-personal  | identifies the supported Skill funnel                              |
+| `skill_version_major` | string  | `v0` through `v9`, `unknown`, or `unattributed`                                  | low         | non-personal  | finds major-version-specific drop-offs without sending caller text |
 
 ### session management
 

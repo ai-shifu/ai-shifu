@@ -16,7 +16,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useUserStore } from '@/store';
 import { EVENT_NAMES, useTracking } from '@/hooks/useTracking';
-import { normalizeDeviceOsForAnalytics } from './deviceAuthorizationAnalytics';
+import {
+  normalizeDeviceOsForAnalytics,
+  normalizeRegistrationAttributionForAnalytics,
+} from './deviceAuthorizationAnalytics';
 
 type PendingDevice = {
   user_code: string;
@@ -24,6 +27,7 @@ type PendingDevice = {
   device_os: string;
   client_version: string;
   client_ip: string;
+  registration_attribution?: unknown;
 };
 
 type ResolvedPendingDevice = PendingDevice & {
@@ -88,6 +92,16 @@ const DeviceAuthorizationContent = () => {
   useEffect(() => {
     trackEventRef.current = trackEvent;
   }, [trackEvent]);
+  const trackDeviceEvent = useCallback(
+    (eventName: string, payload: Record<string, unknown>) => {
+      try {
+        void Promise.resolve(trackEventRef.current(eventName, payload)).catch(
+          () => {},
+        );
+      } catch {}
+    },
+    [],
+  );
 
   const shownPromptRef = useRef<{
     code: string;
@@ -156,11 +170,14 @@ const DeviceAuthorizationContent = () => {
       code,
       openedFromLink: pending.openedFromLink,
     };
-    void trackEventRef.current(EVENT_NAMES.DEVICE_AUTH_PROMPT_SHOWN, {
+    trackDeviceEvent(EVENT_NAMES.DEVICE_AUTH_PROMPT_SHOWN, {
       device_os: normalizeDeviceOsForAnalytics(pending?.device_os),
       from_link: pending.openedFromLink,
+      ...normalizeRegistrationAttributionForAnalytics(
+        pending.registration_attribution,
+      ),
     });
-  }, [pending]);
+  }, [pending, trackDeviceEvent]);
 
   const handleLookup = useCallback(() => {
     const code = enteredCode.trim();
@@ -196,13 +213,16 @@ const DeviceAuthorizationContent = () => {
           shownPromptRef.current?.code === code
             ? shownPromptRef.current.openedFromLink
             : (pending?.openedFromLink ?? false);
-        void trackEventRef.current(
+        trackDeviceEvent(
           approve
             ? EVENT_NAMES.DEVICE_AUTH_APPROVED
             : EVENT_NAMES.DEVICE_AUTH_DENIED,
           {
             device_os: normalizeDeviceOsForAnalytics(pending?.device_os),
             from_link: openedFromLink,
+            ...normalizeRegistrationAttributionForAnalytics(
+              pending?.registration_attribution,
+            ),
           },
         );
       } catch (error) {
@@ -212,7 +232,7 @@ const DeviceAuthorizationContent = () => {
         setSubmitting(false);
       }
     },
-    [enteredCode, pending],
+    [enteredCode, pending, trackDeviceEvent],
   );
 
   const renderDetail = (label: string, value: string) => (

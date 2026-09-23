@@ -73,7 +73,23 @@ def test_registration_attribution_is_ephemeral_device_context(app: object) -> No
 
         pending = get_device_authorization(app, user_code=started["user_code"])
 
-    assert pending["registration_attribution"] == attribution
+    assert pending["registration_attribution"] == {
+        "host_platform": "qclaw",
+        "skill_id": "ai-shifu-course-creator",
+        "skill_version": "2.0.0",
+    }
+    assert attribution["handoff_id"] not in json.dumps(pending)
+
+
+def test_pending_device_without_skill_attribution_keeps_existing_shape(
+    app: object,
+) -> None:
+    with app.test_request_context():
+        started = _start(app)
+
+        pending = get_device_authorization(app, user_code=started["user_code"])
+
+    assert "registration_attribution" not in pending
 
 
 def test_token_can_only_be_collected_once(app: object) -> None:

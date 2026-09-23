@@ -301,8 +301,18 @@ def get_device_authorization(
         "client_ip": payload.get("client_ip") or "",
         "expires_in": expires_in,
     }
-    if payload.get("registration_attribution"):
-        result["registration_attribution"] = payload["registration_attribution"]
+    attribution = parse_skill_attribution(
+        payload.get("registration_attribution"),
+        field_name="registration_attribution",
+    )
+    if attribution is not None:
+        # The browser needs only allowlisted Umami dimensions. Keep the request
+        # correlation UUID inside the expiring device session.
+        result["registration_attribution"] = {
+            "host_platform": attribution.host_platform,
+            "skill_id": attribution.skill_id,
+            "skill_version": attribution.skill_version,
+        }
     return result
 
 
