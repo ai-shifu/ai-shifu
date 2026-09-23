@@ -23,7 +23,7 @@ type SkillId = (typeof SKILL_IDS)[number];
 export type DeviceAuthorizationAttributionAnalytics = {
   host_platform: HostPlatform | 'unattributed';
   skill_id: SkillId | 'unattributed';
-  skill_version: string;
+  skill_version_major: `v${number}` | 'unknown' | 'unattributed';
 };
 
 type PublicRegistrationAttribution = {
@@ -62,7 +62,7 @@ export const normalizeRegistrationAttributionForAnalytics = (
     return {
       host_platform: 'unattributed',
       skill_id: 'unattributed',
-      skill_version: 'unattributed',
+      skill_version_major: 'unattributed',
     };
   }
 
@@ -77,17 +77,27 @@ export const normalizeRegistrationAttributionForAnalytics = (
     typeof attribution.skill_version === 'string'
       ? attribution.skill_version.trim()
       : '';
-  if (!hostPlatform || !skillId || !skillVersion || skillVersion.length > 32) {
+  if (!hostPlatform || !skillId) {
     return {
       host_platform: 'unattributed',
       skill_id: 'unattributed',
-      skill_version: 'unattributed',
+      skill_version_major: 'unattributed',
     };
   }
+
+  // The device-authorization endpoint is public. Never send its caller-owned
+  // version string to analytics: retain only one bounded semantic-version
+  // major bucket, and collapse everything else to a fixed value.
+  const semanticVersion =
+    /^v?([0-9])\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.exec(
+      skillVersion,
+    );
 
   return {
     host_platform: hostPlatform,
     skill_id: skillId,
-    skill_version: skillVersion,
+    skill_version_major: semanticVersion
+      ? (`v${semanticVersion[1]}` as `v${number}`)
+      : 'unknown',
   };
 };

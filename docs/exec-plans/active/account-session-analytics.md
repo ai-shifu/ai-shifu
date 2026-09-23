@@ -17,7 +17,7 @@ rejected unless the terminal states are recorded separately.
 - Metric definition: numerator is approval events (`device_auth_approved`);
   denominator is prompt exposure events (`device_auth_prompt_shown`) in the
   same calendar week, grouped by the shared `device_os`, `from_link`,
-  `host_platform`, `skill_id`, and `skill_version` fields.
+  `host_platform`, `skill_id`, and `skill_version_major` fields.
   Abandonment is the residual, `1 - (approved + denied) / shown`, and is
   meaningful only because exposure is counted separately. Without a request
   identifier, this calculation is aggregate and cannot be presented as a
@@ -47,13 +47,13 @@ rejected unless the terminal states are recorded separately.
   dimension as their exposure, that outcomes fire on confirmation, and that a
   failed decision emits no outcome.
 
-| Field           | Type    | Allowed values                                                                   | Cardinality | Privacy class | Why required                                                    |
-| --------------- | ------- | -------------------------------------------------------------------------------- | ----------- | ------------- | --------------------------------------------------------------- |
-| `device_os`     | string  | `android`, `chromeos`, `ios`, `linux`, `macos`, `other`, `unknown`, or `windows` | low         | non-personal  | tells whether refusals cluster on one platform                  |
-| `from_link`     | boolean | true/false                                                                       | low         | non-personal  | separates prompts opened from the link from codes typed by hand |
-| `host_platform` | string  | `workbuddy`, `doubao`, `lobster`, `codex`, `direct`, `unattributed`              | low         | non-personal  | compares host-platform funnels                                  |
-| `skill_id`      | string  | `ai-shifu-course-creator`, `unattributed`                                        | low         | non-personal  | identifies the supported Skill funnel                           |
-| `skill_version` | string  | validated Skill version or `unattributed`                                        | bounded     | non-personal  | finds version-specific drop-offs                                |
+| Field                 | Type    | Allowed values                                                                   | Cardinality | Privacy class | Why required                                                       |
+| --------------------- | ------- | -------------------------------------------------------------------------------- | ----------- | ------------- | ------------------------------------------------------------------ |
+| `device_os`           | string  | `android`, `chromeos`, `ios`, `linux`, `macos`, `other`, `unknown`, or `windows` | low         | non-personal  | tells whether refusals cluster on one platform                     |
+| `from_link`           | boolean | true/false                                                                       | low         | non-personal  | separates prompts opened from the link from codes typed by hand    |
+| `host_platform`       | string  | `workbuddy`, `doubao`, `lobster`, `codex`, `direct`, `unattributed`              | low         | non-personal  | compares host-platform funnels                                     |
+| `skill_id`            | string  | `ai-shifu-course-creator`, `unattributed`                                        | low         | non-personal  | identifies the supported Skill funnel                              |
+| `skill_version_major` | string  | `v0` through `v9`, `unknown`, or `unattributed`                                  | low         | non-personal  | finds major-version-specific drop-offs without sending caller text |
 
 ### session management
 

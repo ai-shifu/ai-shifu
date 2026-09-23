@@ -65,7 +65,7 @@ const pendingDevice = {
 const expectedSkillAttribution = {
   host_platform: 'workbuddy',
   skill_id: 'ai-shifu-course-creator',
-  skill_version: '1.3.0',
+  skill_version_major: 'v1',
 };
 
 // The request layer returns the raw envelope for any path containing '/login',
@@ -405,8 +405,35 @@ describe('DeviceAuthorizationPage', () => {
       from_link: true,
       host_platform: 'unattributed',
       skill_id: 'unattributed',
-      skill_version: 'unattributed',
+      skill_version_major: 'unattributed',
     });
+  });
+
+  it('never sends a caller-owned Skill version to analytics', async () => {
+    (api.deviceAuthPending as jest.Mock).mockResolvedValue(
+      envelope({
+        ...pendingDevice,
+        registration_attribution: {
+          ...pendingDevice.registration_attribution,
+          skill_version: 'person@example.test',
+        },
+      }),
+    );
+
+    render(<DeviceAuthorizationPage />);
+
+    await screen.findByText('MacBook-Pro');
+    const exposure = mockTrackEvent.mock.calls.find(
+      ([name]) => name === 'device_auth_prompt_shown',
+    )?.[1];
+    expect(exposure).toEqual({
+      device_os: 'macos',
+      from_link: true,
+      host_platform: 'workbuddy',
+      skill_id: 'ai-shifu-course-creator',
+      skill_version_major: 'unknown',
+    });
+    expect(JSON.stringify(exposure)).not.toContain('person@example.test');
   });
 
   it('keeps approval working when tracking throws', async () => {

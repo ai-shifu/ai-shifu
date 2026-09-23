@@ -34,7 +34,7 @@ describe('normalizeRegistrationAttributionForAnalytics', () => {
     ).toEqual({
       host_platform: 'workbuddy',
       skill_id: 'ai-shifu-course-creator',
-      skill_version: '1.3.0',
+      skill_version_major: 'v1',
     });
   });
 
@@ -52,16 +52,28 @@ describe('normalizeRegistrationAttributionForAnalytics', () => {
       skill_id: 'unknown-skill',
       skill_version: '1.3.0',
     },
-    {
-      host_platform: 'doubao',
-      skill_id: 'ai-shifu-course-creator',
-      skill_version: '',
-    },
   ])('uses a stable unattributed group for invalid input %#', value => {
     expect(normalizeRegistrationAttributionForAnalytics(value)).toEqual({
       host_platform: 'unattributed',
       skill_id: 'unattributed',
-      skill_version: 'unattributed',
+      skill_version_major: 'unattributed',
     });
   });
+
+  test.each(['', 'person@example.test', 'token-fragment', '10.2.0'])(
+    'maps untrusted version %p to a fixed unknown bucket',
+    skillVersion => {
+      expect(
+        normalizeRegistrationAttributionForAnalytics({
+          host_platform: 'doubao',
+          skill_id: 'ai-shifu-course-creator',
+          skill_version: skillVersion,
+        }),
+      ).toEqual({
+        host_platform: 'doubao',
+        skill_id: 'ai-shifu-course-creator',
+        skill_version_major: 'unknown',
+      });
+    },
+  );
 });

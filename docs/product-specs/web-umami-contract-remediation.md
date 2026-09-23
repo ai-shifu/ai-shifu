@@ -252,9 +252,9 @@ The only contact enum is `surface=admin|invite|other`.
 - Replacement: delete the `learner_login_success` producer and consumers. Login
   queries use `learner_login_attempt` and `learner_login_result`.
 
-| Event                   | Fields and allowed values                                                                                                                                                                 |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `learner_login_attempt` | `login_method` is `email`, `password`, `sms`, or `google`                                                                                                                                 |
+| Event                   | Fields and allowed values                                                                                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `learner_login_attempt` | `login_method` is `email`, `password`, `sms`, or `google`                                                                                                                                                 |
 | `learner_login_result`  | `login_method`; `outcome` is `success` or `failed`; failed only: `failure_category` is `credentials_rejected`, `rate_limited`, `request_failed`, `start_failed`, `callback_invalid`, or `callback_failed` |
 
 Credentials, mobile/email identifiers, OAuth code/state, token, user ID, and raw
@@ -263,11 +263,12 @@ backend messages are excluded.
 ## Device authorization
 
 - Business question: which device-authorization prompts are resolved by the
-  user, and how does that vary by a bounded operating-system category?
+  user, and how does that vary by a bounded operating-system category, Skill
+  host platform, Skill identity, and semantic-version major bucket?
 - Metric definition: approved and denied outcomes divided by prompt exposures,
-  grouped only by the shared `device_os` and `from_link` fields. There is no
-  request identifier, so this is an aggregate ratio rather than a row-level
-  join.
+  grouped only by the shared `device_os`, `from_link`, `host_platform`,
+  `skill_id`, and `skill_version_major` fields. There is no request identifier,
+  so this is an aggregate ratio rather than a row-level join.
 - Trigger: prompt shown once after a pairing request resolves; approved or
   denied once after the corresponding API call succeeds.
 - Population: authenticated users viewing a valid pending device request.
@@ -278,15 +279,18 @@ backend messages are excluded.
   decisions emit a terminal event.
 - Consumer: device-authorization adoption and completion analysis.
 
-| Event                      | Complete reviewed field set |
-| -------------------------- | --------------------------- |
-| `device_auth_prompt_shown` | `device_os`, `from_link`    |
-| `device_auth_approved`     | `device_os`, `from_link`    |
-| `device_auth_denied`       | `device_os`, `from_link`    |
+| Event                      | Complete reviewed field set                                                  |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `device_auth_prompt_shown` | `device_os`, `from_link`, `host_platform`, `skill_id`, `skill_version_major` |
+| `device_auth_approved`     | `device_os`, `from_link`, `host_platform`, `skill_id`, `skill_version_major` |
+| `device_auth_denied`       | `device_os`, `from_link`, `host_platform`, `skill_id`, `skill_version_major` |
 
 `device_os` is exactly one of `android|chromeos|ios|linux|macos|other|unknown|windows`.
-The pairing code, device name, client version, IP address, raw operating-system
-string, user identity, and raw errors are excluded.
+`host_platform` and `skill_id` use the backend allowlists or `unattributed`.
+`skill_version_major` is exactly `v0` through `v9`, `unknown`, or
+`unattributed`; the caller-owned raw version is never sent. The pairing code,
+handoff ID, device name, client version, IP address, raw operating-system
+string, user identity, URLs, and raw errors are excluded.
 
 ## Learner payment
 
@@ -456,11 +460,11 @@ analytics.
   deduplication, exact allowlisted payloads, exclusion of free-form fields and
   raw errors, and continued creation when tracking throws or is unavailable.
 
-| Event                           | Fields                                                                                                                                          |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `creator_course_create_attempt` | `creation_path=manual`; historical `ai_assistant` is retained for old data only                                                                      |
-| `creator_course_create_result`  | `creation_path=manual`; `outcome` is `success` or `failed`; success only: `shifu_bid`; failed only: `failure_category=request_failed`                  |
-| `creator_course_create_cancel`  | `creation_path=manual`                                                                                                                            |
+| Event                           | Fields                                                                                                                                |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `creator_course_create_attempt` | `creation_path=manual`; historical `ai_assistant` is retained for old data only                                                       |
+| `creator_course_create_result`  | `creation_path=manual`; `outcome` is `success` or `failed`; success only: `shifu_bid`; failed only: `failure_category=request_failed` |
+| `creator_course_create_cancel`  | `creation_path=manual`                                                                                                                |
 
 ## Learner profile assistant
 

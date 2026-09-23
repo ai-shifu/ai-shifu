@@ -15,7 +15,8 @@ the source of truth; Umami is a best-effort aggregate view only.
   where does the browser authorization step become a funnel bottleneck?
 - Metric definition: in a calendar week, group
   `device_auth_prompt_shown`, `device_auth_approved`, and
-  `device_auth_denied` by `host_platform`, `skill_id`, and `skill_version`.
+  `device_auth_denied` by `host_platform`, `skill_id`, and
+  `skill_version_major`.
   Approval rate is approvals divided by shown prompts; denial rate is denials
   divided by shown prompts. Counts are aggregate because no handoff identifier
   is sent to Umami.
@@ -42,14 +43,16 @@ the source of truth; Umami is a best-effort aggregate view only.
   values, deduplication, terminal timing, prohibited-field absence, and
   fail-open tracking.
 
-| Field           | Type   | Allowed values                                                      | Cardinality | Privacy class                   | Why required                     |
-| --------------- | ------ | ------------------------------------------------------------------- | ----------- | ------------------------------- | -------------------------------- |
-| `host_platform` | string | `workbuddy`, `doubao`, `lobster`, `codex`, `direct`, `unattributed` | low         | non-personal enum               | compare host-platform funnels    |
-| `skill_id`      | string | `ai-shifu-course-creator`, `unattributed`                           | low         | non-personal enum               | separate supported Skill funnels |
-| `skill_version` | string | validated released Skill version, or `unattributed`                 | bounded     | non-personal release identifier | find version-specific drop-offs  |
+| Field                 | Type   | Allowed values                                                      | Cardinality | Privacy class               | Why required                                                         |
+| --------------------- | ------ | ------------------------------------------------------------------- | ----------- | --------------------------- | -------------------------------------------------------------------- |
+| `host_platform`       | string | `workbuddy`, `doubao`, `lobster`, `codex`, `direct`, `unattributed` | low         | non-personal enum           | compare host-platform funnels                                        |
+| `skill_id`            | string | `ai-shifu-course-creator`, `unattributed`                           | low         | non-personal enum           | separate supported Skill funnels                                     |
+| `skill_version_major` | string | `v0` through `v9`, `unknown`, or `unattributed`                     | low         | non-personal release bucket | find major-version-specific drop-offs without collecting caller text |
 
 The complete event payload remains flat and contains these three fields plus
-the existing `device_os` and `from_link` fields.
+the existing `device_os` and `from_link` fields. The raw `skill_version` is
+caller-controlled at the public authorization endpoint and is never sent to
+Umami.
 
 ## Progress
 
@@ -58,12 +61,12 @@ the existing `device_os` and `from_link` fields.
 - [x] 2026-09-23 10:45 CST: Defined the decision, metric, privacy boundary,
       fallback group, and compatibility contract above.
 - [x] 2026-09-23 11:05 CST: Exposed only the three allowlisted attribution
-  dimensions to the authorization page; handoff identity remains private.
+      dimensions to the authorization page; handoff identity remains private.
 - [x] 2026-09-23 11:15 CST: Extended the existing event producer and focused
-  regression tests, including unattributed and fail-open paths.
+      regression tests, including unattributed and fail-open paths.
 - [x] 2026-09-23 11:35 CST: Passed focused backend/frontend tests, type-check,
-  lint, Ruff, architecture/UoW checks, repository harness, and the complete
-  pre-commit gate; prepared the focused stacked pull request.
+      lint, Ruff, architecture/UoW checks, repository harness, and the complete
+      pre-commit gate; prepared the focused stacked pull request.
 
 ## Surprises & Discoveries
 
@@ -71,6 +74,9 @@ the existing `device_os` and `from_link` fields.
   extends its payload instead of adding duplicate event names.
 - The prerequisite backend stores `handoff_id`, but the browser and Umami do
   not need it. The public response must therefore project a strict subset.
+- The public authorization endpoint also accepts a Skill version. A length cap
+  does not make that caller-owned string safe for analytics, so the producer
+  must emit only a fixed semantic-version major bucket.
 
 ## Decision Log
 
@@ -83,6 +89,9 @@ the existing `device_os` and `from_link` fields.
 - Decision: do not emit `handoff_id`. Rationale: aggregate funnel analysis does
   not require row-level correlation, and the handoff ID is pseudonymous
   workflow identity that should remain in the authoritative database.
+- Decision: emit `skill_version_major`, never raw `skill_version`. Rationale:
+  `v0` through `v9`, `unknown`, and `unattributed` are a useful low-cardinality
+  rollout dimension and cannot carry an email, token fragment, or free text.
 
 ## Outcomes & Retrospective
 
@@ -104,9 +113,9 @@ routes. The approval page and its producer tests live under
 
 Project the validated cached attribution into the pending-request response as
 only `host_platform`, `skill_id`, and `skill_version`. Normalize that public
-object through a frontend allowlist and append the resulting stable dimensions
-to all three existing events. Preserve the existing trigger and deduplication
-logic.
+object through frontend allowlists, reduce the caller-owned version to a fixed
+major bucket, and append the resulting stable dimensions to all three existing
+events. Preserve the existing trigger and deduplication logic.
 
 ## Concrete Steps
 
