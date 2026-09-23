@@ -2505,12 +2505,14 @@ function useChatLogicHook({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
           });
-        }
-        if (!effectivePreviewMode) {
-          trackEvent('learner_lesson_start', {
-            shifu_bid: shifuBid,
-            outline_bid: outlineBid,
-          });
+          // Inside the guard: the refreshes this deduplicates would otherwise each report a
+          // start, and one reset would read as several in the analytics.
+          if (!effectivePreviewMode) {
+            trackEvent('learner_lesson_start', {
+              shifu_bid: shifuBid,
+              outline_bid: outlineBid,
+            });
+          }
         }
       }
     } catch (error) {
@@ -2612,6 +2614,10 @@ function useChatLogicHook({
     ) {
       return;
     }
+    // Opening a lesson is a fresh load, so whatever was started for the lesson left behind does
+    // not speak for this one. Without this, coming back to a lesson whose history ends in text
+    // -- which the host continues by itself -- would find its own mark still set and stall.
+    autoRunStartedForRef.current = null;
     refreshData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creditInsufficientAudience, lessonId, resetedLessonId]);
