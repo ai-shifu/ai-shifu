@@ -298,7 +298,11 @@ class _App:
 
 @pytest.mark.usefixtures("calls")
 def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn() -> None:
-    """The rest of the turn still stands; the learner loses the controls, not the lesson."""
+    """The rest of the turn still stands; the learner loses the controls, not the lesson.
+
+    The delimiters are escapable now, so what is left are shapes the grammar cannot carry at
+    all: an option with a newline in it is read as far as the end of its first line.
+    """
     engine = _Engine(
         [
             ContentDelta(text="before"),
@@ -307,7 +311,7 @@ def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn() -> Non
                 spec=InteractionSpec(
                     type="single",
                     prompt="pick",
-                    options=[Option(display="A | B")],
+                    options=[Option(display="A\nB")],
                     variable="v",
                 ),
             ),
