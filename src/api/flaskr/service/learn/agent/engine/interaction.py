@@ -22,6 +22,26 @@ class Option(BaseModel):
         default=None, description="Stored value when different from display."
     )
 
+    @model_validator(mode="after")
+    def _trim(self) -> Option:
+        """Drop whitespace around the model's option text, before anything else sees it.
+
+        A learner cannot perceive a leading or trailing space on a button, so two options
+        differing only by one are the same option to them. The machinery around them is not so
+        forgiving: an answer is matched against the option string unmodified, and MarkdownFlow's
+        own grammar drops that whitespace when the controls are written out -- so a stray space
+        from the model turned a working question into one whose every answer was discarded as
+        not being one of the choices.
+
+        Normalizing here rather than at either of those places is what keeps them agreeing: the
+        spec the engine holds while it waits, the controls the learner is shown, and the answer
+        that comes back are then all the same string.
+        """
+        self.display = self.display.strip()
+        if self.value is not None:
+            self.value = self.value.strip()
+        return self
+
     @property
     def stored(self) -> str:
         """Return the value to keep when the learner picks this option."""
