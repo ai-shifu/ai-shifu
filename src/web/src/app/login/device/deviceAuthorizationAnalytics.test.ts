@@ -38,6 +38,20 @@ describe('normalizeRegistrationAttributionForAnalytics', () => {
     });
   });
 
+  it('recognizes the QClaw distribution package', () => {
+    expect(
+      normalizeRegistrationAttributionForAnalytics({
+        host_platform: 'qclaw',
+        skill_id: 'ai-shifu-course-creator',
+        skill_version: '1.3.0',
+      }),
+    ).toEqual({
+      host_platform: 'qclaw',
+      skill_id: 'ai-shifu-course-creator',
+      skill_version_major: 'v1',
+    });
+  });
+
   test.each([
     undefined,
     null,

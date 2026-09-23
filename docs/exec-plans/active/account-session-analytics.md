@@ -51,7 +51,7 @@ rejected unless the terminal states are recorded separately.
 | --------------------- | ------- | -------------------------------------------------------------------------------- | ----------- | ------------- | ------------------------------------------------------------------ |
 | `device_os`           | string  | `android`, `chromeos`, `ios`, `linux`, `macos`, `other`, `unknown`, or `windows` | low         | non-personal  | tells whether refusals cluster on one platform                     |
 | `from_link`           | boolean | true/false                                                                       | low         | non-personal  | separates prompts opened from the link from codes typed by hand    |
-| `host_platform`       | string  | `workbuddy`, `doubao`, `lobster`, `codex`, `direct`, `unattributed`              | low         | non-personal  | compares host-platform funnels                                     |
+| `host_platform`       | string  | `workbuddy`, `doubao`, `qclaw`, `lobster`, `codex`, `direct`, `unattributed`     | low         | non-personal  | compares host-platform funnels                                     |
 | `skill_id`            | string  | `ai-shifu-course-creator`, `unattributed`                                        | low         | non-personal  | identifies the supported Skill funnel                              |
 | `skill_version_major` | string  | `v0` through `v9`, `unknown`, or `unattributed`                                  | low         | non-personal  | finds major-version-specific drop-offs without sending caller text |
 

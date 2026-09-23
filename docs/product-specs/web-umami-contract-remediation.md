@@ -286,7 +286,8 @@ backend messages are excluded.
 | `device_auth_denied`       | `device_os`, `from_link`, `host_platform`, `skill_id`, `skill_version_major` |
 
 `device_os` is exactly one of `android|chromeos|ios|linux|macos|other|unknown|windows`.
-`host_platform` and `skill_id` use the backend allowlists or `unattributed`.
+`host_platform` (`workbuddy`, `doubao`, `qclaw`, `lobster`, `codex`, or
+`direct`) and `skill_id` use the backend allowlists or `unattributed`.
 `skill_version_major` is exactly `v0` through `v9`, `unknown`, or
 `unattributed`; the caller-owned raw version is never sent. The pairing code,
 handoff ID, device name, client version, IP address, raw operating-system

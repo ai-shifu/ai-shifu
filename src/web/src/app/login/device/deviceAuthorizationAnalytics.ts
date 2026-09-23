@@ -11,6 +11,7 @@ export type DeviceOsAnalyticsCategory =
 const HOST_PLATFORMS = [
   'workbuddy',
   'doubao',
+  'qclaw',
   'lobster',
   'codex',
   'direct',

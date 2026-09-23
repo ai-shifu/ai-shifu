@@ -43,11 +43,11 @@ the source of truth; Umami is a best-effort aggregate view only.
   values, deduplication, terminal timing, prohibited-field absence, and
   fail-open tracking.
 
-| Field                 | Type   | Allowed values                                                      | Cardinality | Privacy class               | Why required                                                         |
-| --------------------- | ------ | ------------------------------------------------------------------- | ----------- | --------------------------- | -------------------------------------------------------------------- |
-| `host_platform`       | string | `workbuddy`, `doubao`, `lobster`, `codex`, `direct`, `unattributed` | low         | non-personal enum           | compare host-platform funnels                                        |
-| `skill_id`            | string | `ai-shifu-course-creator`, `unattributed`                           | low         | non-personal enum           | separate supported Skill funnels                                     |
-| `skill_version_major` | string | `v0` through `v9`, `unknown`, or `unattributed`                     | low         | non-personal release bucket | find major-version-specific drop-offs without collecting caller text |
+| Field                 | Type   | Allowed values                                                               | Cardinality | Privacy class               | Why required                                                         |
+| --------------------- | ------ | ---------------------------------------------------------------------------- | ----------- | --------------------------- | -------------------------------------------------------------------- |
+| `host_platform`       | string | `workbuddy`, `doubao`, `qclaw`, `lobster`, `codex`, `direct`, `unattributed` | low         | non-personal enum           | compare host-platform funnels                                        |
+| `skill_id`            | string | `ai-shifu-course-creator`, `unattributed`                                    | low         | non-personal enum           | separate supported Skill funnels                                     |
+| `skill_version_major` | string | `v0` through `v9`, `unknown`, or `unattributed`                              | low         | non-personal release bucket | find major-version-specific drop-offs without collecting caller text |
 
 The complete event payload remains flat and contains these three fields plus
 the existing `device_os` and `from_link` fields. The raw `skill_version` is
