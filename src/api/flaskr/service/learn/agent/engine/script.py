@@ -32,6 +32,9 @@ def _closes_fence(line: str, opening: str) -> bool:
 
 
 _VAR_RE = re.compile(r"(?<!%)\{\{\s*([^{}\s]+)\s*\}\}")
+# `%{{name}}` marks a variable this script collects during the lesson, in a question or an
+# instruction to remember something.
+_COLLECTED_RE = re.compile(r"%\{\{\s*([^{}\s]+)\s*\}\}")
 
 
 if TYPE_CHECKING:
@@ -95,15 +98,36 @@ def _strip_fences(text: str) -> str:
     return "\n".join(out)
 
 
-def substitute_variables(text: str, values: Mapping[str, Any]) -> str:
+def collected_names(text: str) -> frozenset[str]:
+    """Return the variables this script fills in during the lesson, named by `%{{name}}`."""
+    return frozenset(_COLLECTED_RE.findall(text))
+
+
+def substitute_variables(
+    text: str, values: Mapping[str, Any], *, collected: frozenset[str] = frozenset()
+) -> str:
     """Replace `{{name}}` with `values[name]` outside fenced code blocks.
 
     `%{{name}}` and unknown names are left untouched so the model can still see what the author
     meant.
+
+    A name in `collected` is left untouched as well, whatever memory holds for it. Those are the
+    variables this script is about to ask the learner for, and substitution happens once, before
+    the lesson starts. A script that echoes one back -- a line reading "your goal is {{purpose}}"
+    placed after the question that fills `purpose` -- would otherwise carry the previous
+    session's answer into this one as a statement of fact, and a model given both that statement
+    and a fresh tool result believes the statement. One lesson recorded a goal the learner had
+    given weeks earlier while they were looking at the "not sure yet" they had just chosen.
+
+    Left as `{{purpose}}`, the model fills it from the answer it was actually given. The 1.0 run
+    never had this problem: it rendered each block when it reached it, after the interaction had
+    already written the variable.
     """
 
     def repl(m: re.Match[str]) -> str:
         name = m.group(1)
+        if name in collected:
+            return m.group(0)
         if name not in values or values[name] in (None, ""):
             return m.group(0)
         v = values[name]
@@ -130,14 +154,21 @@ def render_first_prompt(bundle: ScriptBundle, memory: Mapping[str, Any]) -> str:
     Learner memory first, then the script with its variables substituted, then optional
     constraints and extras.
     """
-    mem = json.dumps(dict(memory), ensure_ascii=False, indent=2) if memory else "{}"
+    collected = collected_names(bundle.script)
+    # What this lesson is about to ask for is not something the learner has already said. Shown
+    # in memory, an earlier answer is read as the current one -- and a model that has both a
+    # stale fact and a fresh tool result tends to trust the fact.
+    remembered = {k: v for k, v in memory.items() if k not in collected}
+    mem = json.dumps(remembered, ensure_ascii=False, indent=2) if remembered else "{}"
     parts = [
         f"<memory>\n{mem}\n</memory>",
-        f"<script>\n{substitute_variables(bundle.script, memory)}\n</script>",
+        f"<script>\n{substitute_variables(bundle.script, memory, collected=collected)}\n</script>",
     ]
     if bundle.constraints:
         parts.append(
-            f"<constraints>\n{substitute_variables(bundle.constraints, memory)}\n</constraints>"
+            f"<constraints>\n"
+            f"{substitute_variables(bundle.constraints, memory, collected=collected)}\n"
+            f"</constraints>"
         )
     for name, body in bundle.extras.items():
         parts.append(f'<extra name="{name}">\n{body}\n</extra>')
