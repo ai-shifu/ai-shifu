@@ -78,12 +78,11 @@ const DeviceAuthorizationContent = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const redirectToLogin = useCallback(() => {
-    const preservedCode = enteredCode.trim() || codeFromUrl;
-    const target = preservedCode
-      ? `/login/device?code=${encodeURIComponent(preservedCode)}`
+    const target = codeFromUrl
+      ? `/login/device?code=${encodeURIComponent(codeFromUrl)}`
       : '/login/device';
     router.replace(`/login?redirect=${encodeURIComponent(target)}`);
-  }, [codeFromUrl, enteredCode, router]);
+  }, [codeFromUrl, router]);
 
   const trackEventRef = useRef(trackEvent);
   useEffect(() => {
@@ -189,7 +188,7 @@ const DeviceAuthorizationContent = () => {
         );
         if (!ok) {
           setErrorMessage(message);
-          setPhase(pending ? 'confirm' : 'error');
+          setPhase('error');
           return;
         }
         setPhase(approve ? 'approved' : 'denied');
@@ -208,7 +207,7 @@ const DeviceAuthorizationContent = () => {
         );
       } catch (error) {
         setErrorMessage((error as Error)?.message || '');
-        setPhase(pending ? 'confirm' : 'error');
+        setPhase('error');
       } finally {
         setSubmitting(false);
       }
@@ -319,10 +318,6 @@ const DeviceAuthorizationContent = () => {
           <p className='text-sm text-muted-foreground'>
             {t('module.auth.deviceAuthWarning')}
           </p>
-
-          {errorMessage ? (
-            <p className='text-sm text-destructive'>{errorMessage}</p>
-          ) : null}
 
           <div className='flex gap-3'>
             <Button

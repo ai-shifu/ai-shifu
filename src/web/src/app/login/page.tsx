@@ -173,19 +173,6 @@ export default function AuthPage() {
     const redirectPath = resolveRedirectPath();
     return redirectPath.startsWith('/admin') ? 'admin' : 'default';
   }, [resolveRedirectPath]);
-  const deviceUserCode = useMemo(() => {
-    const redirect = searchParams.get('redirect');
-    if (!redirect?.startsWith('/login/device')) {
-      return '';
-    }
-    const queryIndex = redirect.indexOf('?');
-    if (queryIndex < 0) {
-      return '';
-    }
-    return (
-      new URLSearchParams(redirect.slice(queryIndex + 1)).get('code') ?? ''
-    );
-  }, [searchParams]);
   const courseIdFromRedirect = useMemo(() => {
     const redirectPath = resolveRedirectPath();
     const match = redirectPath.match(/^\/c\/([^/?#]+)/);
@@ -335,12 +322,11 @@ export default function AuthPage() {
       await startGoogleLogin({
         redirectPath: resolveRedirectPath(),
         language: language ?? undefined,
-        deviceUserCode: deviceUserCode || undefined,
       });
     } catch {
       setIsGoogleLoading(false);
     }
-  }, [deviceUserCode, language, resolveRedirectPath, startGoogleLogin]);
+  }, [language, resolveRedirectPath, startGoogleLogin]);
 
   const handleGoogleSignIn = useCallback(async () => {
     if (!isGoogleEnabled) {
@@ -379,7 +365,6 @@ export default function AuthPage() {
               loginContext={loginContext}
               courseId={courseIdFromRedirect || undefined}
               referralMetadata={referralMetadata}
-              deviceUserCode={deviceUserCode || undefined}
             />
           );
         case 'email':
@@ -389,7 +374,6 @@ export default function AuthPage() {
               loginContext={loginContext}
               courseId={courseIdFromRedirect || undefined}
               referralMetadata={referralMetadata}
-              deviceUserCode={deviceUserCode || undefined}
             />
           );
         case 'google':
@@ -427,7 +411,6 @@ export default function AuthPage() {
       loginContext,
       courseIdFromRedirect,
       referralMetadata,
-      deviceUserCode,
       isEmailEnabled,
       isGoogleEnabled,
       isPasswordEmailOnly,

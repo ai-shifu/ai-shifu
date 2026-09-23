@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from flaskr.i18n import _, get_current_language, set_language
+from flaskr.i18n import _
 from flaskr.service.learn.agent import legacy_protocol
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
@@ -614,30 +614,22 @@ def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
 
 def test_a_long_confirm_prompt_stays_as_text() -> None:
     """An instruction to the learner is content; the button is labelled by the host."""
-    previous_language = get_current_language()
-    try:
-        set_language("zh-CN")
-        translated = _translate(
-            InteractionRequest(
-                id="i1",
-                spec=InteractionSpec(
-                    type="confirm",
-                    prompt="看完上面的图，想清楚了再点继续。",
-                    options=[],
-                ),
-            )
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(
+                type="confirm", prompt="看完上面的图，想清楚了再点继续。", options=[]
+            ),
         )
-        expected_content = f"?[{_('server.learn.continueButton')}//continue]"
-    finally:
-        set_language(previous_language)
+    )
     assert [e.type for e in translated] == [
         GeneratedType.CONTENT,
         GeneratedType.INTERACTION,
     ]
-    # The engine's English default never reaches a learner: the host names the button in their
-    # own language, so a lesson taught in Chinese does not end on a `Continue`.
-    assert translated[1].content == expected_content
-    assert DEFAULT_CONFIRM_LABEL not in translated[1].content
+    # The host names the button, rather than the engine's default reaching the learner. Asserted
+    # through the same lookup, because in English the two words are the same one; that the label
+    # really is translated is asserted in a Chinese lesson below.
+    assert translated[1].content == f"?[{_('server.learn.continueButton')}//continue]"
 
 
 def test_a_label_the_model_wrote_is_left_alone() -> None:

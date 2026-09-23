@@ -71,10 +71,6 @@ describe('DeviceAuthorizationPage', () => {
     storeState = { isInitialized: true, isLoggedIn: true };
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   it('shows what is being authorized before asking for a decision', async () => {
     (api.deviceAuthPending as jest.Mock).mockResolvedValue(
       envelope(pendingDevice),
@@ -191,29 +187,6 @@ describe('DeviceAuthorizationPage', () => {
     expect(
       screen.queryByText('module.auth.deviceAuthApprovedTitle'),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByText('module.auth.deviceAuthApprove'),
-    ).toBeInTheDocument();
-  });
-
-  it('lets the same user retry after attribution persistence recovers', async () => {
-    (api.deviceAuthPending as jest.Mock).mockResolvedValue(
-      envelope(pendingDevice),
-    );
-    (api.deviceAuthApprove as jest.Mock)
-      .mockResolvedValueOnce(envelope(null, 3000, 'database unavailable'))
-      .mockResolvedValueOnce(envelope({ status: 'approved' }));
-
-    render(<DeviceAuthorizationPage />);
-    fireEvent.click(await screen.findByText('module.auth.deviceAuthApprove'));
-
-    expect(await screen.findByText('database unavailable')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('module.auth.deviceAuthApprove'));
-
-    await waitFor(() => expect(api.deviceAuthApprove).toHaveBeenCalledTimes(2));
-    expect(
-      await screen.findByText('module.auth.deviceAuthApprovedTitle'),
-    ).toBeInTheDocument();
   });
 
   it('reports the prompt exposure once, without leaking the pairing code', async () => {
@@ -367,25 +340,5 @@ describe('DeviceAuthorizationPage', () => {
     )?.[1];
     expect(JSON.stringify(approvedPayload)).not.toContain('AC4-7HK');
     expect(JSON.stringify(approvedPayload)).not.toContain('macOS 15');
-  });
-
-  it('preserves a manually entered code when authentication is required', async () => {
-    searchParams = new URLSearchParams('');
-    const authError = Object.assign(new Error('User Not Found'), {
-      code: 1001,
-    });
-    (api.deviceAuthPending as jest.Mock).mockRejectedValue(authError);
-
-    render(<DeviceAuthorizationPage />);
-    fireEvent.change(screen.getByLabelText('module.auth.deviceAuthCodeLabel'), {
-      target: { value: 'ac4-7hk' },
-    });
-    fireEvent.click(screen.getByText('module.auth.deviceAuthContinue'));
-
-    await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalledWith(
-        `/login?redirect=${encodeURIComponent('/login/device?code=ac4-7hk')}`,
-      ),
-    );
   });
 });

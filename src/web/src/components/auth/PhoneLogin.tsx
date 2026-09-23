@@ -9,7 +9,6 @@ interface PhoneLoginProps {
   loginContext?: string;
   courseId?: string;
   referralMetadata?: ReferralLoginMetadata;
-  deviceUserCode?: string;
 }
 
 export function PhoneLogin(props: PhoneLoginProps) {

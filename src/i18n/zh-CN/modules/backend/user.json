@@ -8,7 +8,6 @@
     "accountCancellationPreviewStale": "账号信息已变化，请确认最新注销信息后重试",
     "checkCodeError": "图形验证码错误",
     "checkCodeExpired": "图形验证码已过期",
-    "deviceAuthAccountMismatch": "请使用完成注册的同一账号授权此请求",
     "deviceAuthAlreadyHandled": "该授权请求已经处理过了",
     "deviceAuthTooManyRequests": "授权请求过于频繁，请稍后再试",
     "deviceCodeInvalid": "配对码无效或已过期，请返回刚才使用的应用重新发起授权。",

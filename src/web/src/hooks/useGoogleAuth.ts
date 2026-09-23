@@ -47,7 +47,6 @@ interface StartGoogleLoginOptions {
   redirectPath?: string;
   redirectUriOverride?: string;
   language?: string;
-  deviceUserCode?: string;
 }
 
 interface FinalizeGoogleLoginOptions {
@@ -105,7 +104,6 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
       redirectPath,
       redirectUriOverride,
       language,
-      deviceUserCode,
     }: StartGoogleLoginOptions = {}) => {
       trackEvent('learner_login_attempt', buildLoginAttemptAnalytics('google'));
       try {
@@ -129,7 +127,6 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
             redirect_uri: redirectUri,
             login_context: loginContext,
             language,
-            device_user_code: deviceUserCode,
           }),
         );
         const payload = extractData<OAuthStartPayload>(response);

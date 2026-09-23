@@ -119,14 +119,12 @@ def test_authorization_redirect_persists_language_and_uses_canonical_callback(
                 "language": language,
                 "redirect_uri": "https://untrusted.example.com/callback",
                 "login_context": "admin",
-                "device_user_code": "ABC-789",
             },
         )
     creator.assert_called_once_with(app, "https://login.example.com/callback")
     claims = google._decode_state(app, result["state"])
     assert claims["redirect_uri"] == "https://login.example.com/callback"
     assert claims["login_context"] == "admin"
-    assert claims["device_user_code"] == "ABC-789"
     assert claims.get("language") == expected
     kwargs = session.create_authorization_url.call_args.kwargs
     assert kwargs.get("hl") == expected
