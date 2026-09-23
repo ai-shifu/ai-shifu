@@ -526,6 +526,30 @@ def test_an_option_carrying_the_grammar_s_own_delimiters_is_asked(
     assert [b["display"] for b in parsed["buttons"]] == [option, "other"], why
 
 
+def test_a_stored_value_carrying_a_delimiter_survives_as_well() -> None:
+    """The value is what the engine matches the answer against, so it has to come back exact.
+
+    The cases above set only the display, which leaves the other half of `Display//value`
+    untested -- and that half is the one a mistake would lose silently, since the learner would
+    still see the right button.
+    """
+    rendered = legacy_protocol.render_interaction(
+        _spec(
+            type="single",
+            prompt="p",
+            options=[
+                Option(display="Match a decimal", value=r"\d+\.\d+"),
+                Option(display="Any URL", value="https://a.com/x"),
+            ],
+            variable="v",
+        )
+    )
+    assert [(b["display"], b["value"]) for b in _parse(rendered)["buttons"]] == [
+        ("Match a decimal", r"\d+\.\d+"),
+        ("Any URL", "https://a.com/x"),
+    ]
+
+
 def test_a_placeholder_carrying_a_delimiter_is_escaped_too() -> None:
     """It sits after the `...` marker, where an unescaped bracket would end the interaction."""
     rendered = legacy_protocol.render_interaction(
