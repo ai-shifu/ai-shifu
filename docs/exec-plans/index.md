@@ -44,6 +44,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
+- [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Secure learner Stripe payment synchronization](./active/stripe-payment-sync-security.md)
 - [Trusted Client IP Resolution](./active/trusted-client-ip.md)
 

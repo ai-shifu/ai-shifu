@@ -31,6 +31,7 @@ from flaskr.common.config import get_redis_derived_prefix
 from flaskr.common.public_urls import build_public_url
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
+from flaskr.service.common.skill_attribution import parse_skill_attribution
 from flaskr.service.user.utils import generate_token
 
 if TYPE_CHECKING:
@@ -218,12 +219,16 @@ def create_device_authorization(
     device_os: str | None = None,
     client_version: str | None = None,
     client_ip: str | None = None,
+    registration_attribution: object = None,
 ) -> dict[str, Any]:
     """Start a pending authorization and hand the CLI its polling secret."""
     _guard_issue_rate(app, client_ip)
     ttl_seconds = _expire_seconds(app)
     device_code = secrets.token_urlsafe(32)
     user_code = _generate_user_code(app, ttl_seconds)
+    attribution = parse_skill_attribution(
+        registration_attribution, field_name="registration_attribution"
+    )
 
     payload = {
         "user_code": user_code,
@@ -235,6 +240,13 @@ def create_device_authorization(
         "client_ip": _clean_text(client_ip),
         "created_at": int(time.time()),
     }
+    if attribution is not None:
+        payload["registration_attribution"] = {
+            "host_platform": attribution.host_platform,
+            "skill_id": attribution.skill_id,
+            "skill_version": attribution.skill_version,
+            "handoff_id": attribution.handoff_id,
+        }
     _store_session(app, device_code, payload, ttl_seconds)
     redis.set(_user_code_key(app, user_code), device_code, ex=ttl_seconds)
 
@@ -281,7 +293,7 @@ def get_device_authorization(
     # Read the remaining lifetime from the cache entry itself rather than
     # deriving it from a stored epoch value.
     expires_in = max(0, int(redis.ttl(_session_key(app, device_code)) or 0))
-    return {
+    result = {
         "user_code": format_user_code(str(payload.get("user_code") or "")),
         "device_name": payload.get("device_name") or "",
         "device_os": payload.get("device_os") or "",
@@ -289,6 +301,9 @@ def get_device_authorization(
         "client_ip": payload.get("client_ip") or "",
         "expires_in": expires_in,
     }
+    if payload.get("registration_attribution"):
+        result["registration_attribution"] = payload["registration_attribution"]
+    return result
 
 
 def _record_decision(

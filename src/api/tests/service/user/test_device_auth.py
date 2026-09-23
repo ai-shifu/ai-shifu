@@ -61,6 +61,21 @@ def test_verification_url_never_carries_the_device_code(app: object) -> None:
         assert started["user_code"] in started["verification_uri_complete"]
 
 
+def test_registration_attribution_is_ephemeral_device_context(app: object) -> None:
+    attribution = {
+        "host_platform": "qclaw",
+        "skill_id": "ai-shifu-course-creator",
+        "skill_version": "2.0.0",
+        "handoff_id": "123e4567-e89b-12d3-a456-426614174001",
+    }
+    with app.test_request_context():
+        started = create_device_authorization(app, registration_attribution=attribution)
+
+        pending = get_device_authorization(app, user_code=started["user_code"])
+
+    assert pending["registration_attribution"] == attribution
+
+
 def test_token_can_only_be_collected_once(app: object) -> None:
     with app.test_request_context():
         started = _start(app)
