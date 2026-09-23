@@ -59,3 +59,48 @@ async def test_roundtrip(store_factory: Callable[[], SessionStore]) -> None:
     assert back.turn == 3
     assert back.all_memory() == {"pace": "slow", "n": "Lin"}
     assert await store.load("nope") is None
+
+
+def test_a_confirm_stored_before_the_label_mark_existed_is_still_the_engine_s() -> None:
+    """A learner mid-lesson when that change ships must not get the English button back.
+
+    Sessions written before the engine recorded who named a confirm's button carry no such
+    field. A stored confirm carrying exactly the engine's own default was the engine's.
+    """
+    stored = {
+        "id": "s1",
+        "script": {"script": "lesson"},
+        "pending": [
+            {
+                "tool_call_id": "c1",
+                "spec": {
+                    "type": "confirm",
+                    "prompt": "",
+                    "options": [{"display": "Continue", "value": "continue"}],
+                },
+            }
+        ],
+    }
+    session = Session.from_dict(stored)
+    assert session.pending[0].spec.labelled_by_engine is True
+
+
+def test_a_confirm_stored_with_the_mark_is_believed() -> None:
+    """A session written since the field existed records the answer; do not second-guess it."""
+    stored = {
+        "id": "s1",
+        "script": {"script": "lesson"},
+        "pending": [
+            {
+                "tool_call_id": "c1",
+                "spec": {
+                    "type": "confirm",
+                    "prompt": "",
+                    "options": [{"display": "Continue", "value": "continue"}],
+                    "labelled_by_engine": False,
+                },
+            }
+        ],
+    }
+    session = Session.from_dict(stored)
+    assert session.pending[0].spec.labelled_by_engine is False
