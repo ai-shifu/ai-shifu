@@ -145,3 +145,26 @@ def test_a_collected_name_is_recognised_wherever_the_script_names_it() -> None:
         {"a", "b"}
     )
     assert collected_names("just {{c}} here\n") == frozenset()
+
+
+def test_a_marker_inside_a_fenced_block_is_an_example_not_a_question() -> None:
+    """A lesson teaching MarkdownFlow shows the notation; it is not asking anything.
+
+    Counted as collected, the fenced example would drop a real memory value that nothing in the
+    lesson asks for again -- the lesson would erase the learner's own answer by quoting syntax.
+    """
+    text = "greet {{nickname}}\n```\n?[%{{nickname}} A | B]\n```\n"
+
+    assert collected_names(text) == frozenset()
+    assert (
+        substitute_variables(
+            text, {"nickname": "Lin"}, collected=collected_names(text)
+        ).splitlines()[0]
+        == "greet Lin"
+    )
+
+
+def test_a_marker_outside_a_fence_is_still_collected_when_one_is_present() -> None:
+    text = "?[%{{purpose}} A | B]\n```\n?[%{{nickname}} X]\n```\n"
+
+    assert collected_names(text) == frozenset({"purpose"})

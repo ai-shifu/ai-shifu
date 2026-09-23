@@ -99,8 +99,14 @@ def _strip_fences(text: str) -> str:
 
 
 def collected_names(text: str) -> frozenset[str]:
-    """Return the variables this script fills in during the lesson, named by `%{{name}}`."""
-    return frozenset(_COLLECTED_RE.findall(text))
+    """Return the variables this script fills in during the lesson, named by `%{{name}}`.
+
+    Fenced blocks are content the lesson shows, not instructions it follows, so a `%{{name}}`
+    inside one is an example of the notation rather than a question. Counted as collected, it
+    would drop a real memory value that nothing in the lesson is going to ask for again --
+    exactly what a lesson teaching MarkdownFlow would do to itself.
+    """
+    return frozenset(_COLLECTED_RE.findall(_strip_fences(text)))
 
 
 def substitute_variables(
