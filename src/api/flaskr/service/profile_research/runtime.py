@@ -197,7 +197,7 @@ class ProfileResearchRuntime:
             msg = "document has too many blocks"
             raise ProfileResearchValidationError(msg)
 
-        model = str(self.app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
+        model = str(self.app.config.get("LLM_MODEL_1_ID", "") or "").strip()
         if not model:
             msg = "LLM model is not configured"
             raise ProfileResearchValidationError(msg)

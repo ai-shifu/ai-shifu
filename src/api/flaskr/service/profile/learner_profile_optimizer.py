@@ -91,7 +91,7 @@ def optimize_learner_profile(
     if not moderation_allowed:
         raise_error("server.profile.learnerProfileOptimizationRejected")
 
-    model = str(app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
+    model = str(app.config.get("LLM_MODEL_1_ID", "") or "").strip()
     if not model:
         raise_error("server.profile.learnerProfileOptimizationNotConfigured")
 

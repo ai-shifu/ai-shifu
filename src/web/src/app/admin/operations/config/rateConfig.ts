@@ -29,7 +29,6 @@ export type RateRow = {
 };
 
 export type RateBaseline = {
-  default_llm_model?: string;
   unit_cost?: number;
   per_1000_output_tokens?: number;
   is_configured?: boolean;

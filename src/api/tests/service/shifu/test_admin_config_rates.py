@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.service.billing import rate_references
 from flaskr.service.billing.consts import (
@@ -91,12 +92,13 @@ def test_update_llm_rate_uses_rate_model_and_keeps_metric_ratios(
 ) -> None:
     def config_getter(key: object, default: object = None) -> object:
         return {
-            "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
+            "LLM_MODEL_1_ID": "qwen/deepseek-v4-flash",
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "3000",
             "TTS_CHARS_PER_LLM_TOKEN": "1",
         }.get(key, default)
 
     monkeypatch.setattr(config_rates, "get_config", config_getter)
+    monkeypatch.setattr(model_selection, "get_config", config_getter)
     monkeypatch.setattr(
         credit_rate_references,
         "get_config",
@@ -319,12 +321,12 @@ def test_update_db_only_llm_alias_only_supersedes_explicit_alias(
         db.session.commit()
 
 
-def test_update_new_llm_rate_uses_default_metric_ratios(
+def test_update_new_llm_rate_uses_model_one_metric_ratios(
     monkeypatch: object, app: object
 ) -> None:
     def config_getter(key: object, default: object = None) -> object:
         return {
-            "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
+            "LLM_MODEL_1_ID": "qwen/deepseek-v4-flash",
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "3000",
             "TTS_CHARS_PER_LLM_TOKEN": "1",
         }.get(key, default)
@@ -334,6 +336,7 @@ def test_update_new_llm_rate_uses_default_metric_ratios(
         return provider, [actual_model, model]
 
     monkeypatch.setattr(config_rates, "get_config", config_getter)
+    monkeypatch.setattr(model_selection, "get_config", config_getter)
     monkeypatch.setattr(credit_rate_references, "get_config", config_getter)
     monkeypatch.setattr(config_rates, "_resolve_llm_rate_identity", resolve_identity)
     monkeypatch.setattr(rate_references, "resolve_llm_rate_identity", resolve_identity)
@@ -397,12 +400,13 @@ def test_operator_rate_config_exposes_fixed_credit_1x_baseline(
 ) -> None:
     def config_getter(key: object, default: object = None) -> object:
         return {
-            "DEFAULT_LLM_MODEL": "ark/doubao-seed-2-0-lite-260428",
+            "LLM_MODEL_1_ID": "ark/doubao-seed-2-0-lite-260428",
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "0.066667",
             "TTS_CHARS_PER_LLM_TOKEN": "0.216",
         }.get(key, default)
 
     monkeypatch.setattr(config_rates, "get_config", config_getter)
+    monkeypatch.setattr(model_selection, "get_config", config_getter)
     monkeypatch.setattr(credit_rate_references, "get_config", config_getter)
     monkeypatch.setattr(
         config_rates,
@@ -427,9 +431,7 @@ def test_operator_rate_config_exposes_fixed_credit_1x_baseline(
 
         config = config_rates.get_operator_rate_config(app)
 
-        assert config["baseline"]["default_llm_model"] == (
-            "ark/doubao-seed-2-0-lite-260428"
-        )
+        assert "default_llm_model" not in config["baseline"]
         assert config["baseline"]["per_1000_output_tokens"] == 0.066667
         assert config["baseline"]["unit_cost"] == 0.000066667
         assert config["baseline"]["is_configured"] is True
@@ -444,11 +446,12 @@ def test_update_rate_rejects_missing_credit_1x_anchor(
 ) -> None:
     def config_getter(key: object, default: object = None) -> object:
         return {
-            "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
+            "LLM_MODEL_1_ID": "qwen/deepseek-v4-flash",
             "TTS_CHARS_PER_LLM_TOKEN": "1",
         }.get(key, default)
 
     monkeypatch.setattr(config_rates, "get_config", config_getter)
+    monkeypatch.setattr(model_selection, "get_config", config_getter)
     monkeypatch.setattr(credit_rate_references, "get_config", config_getter)
     monkeypatch.setattr(
         config_rates,

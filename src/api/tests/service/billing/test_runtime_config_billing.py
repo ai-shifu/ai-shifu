@@ -46,7 +46,6 @@ def runtime_config_client(monkeypatch: object) -> Iterator[FlaskClient]:
 
     dao.db.init_app(app)
     config_values = {
-        "DEFAULT_LLM_MODEL": "gpt-5.4",
         "WECHAT_APP_ID": "wechat-app-1",
         "BILL_ENABLED": True,
         "BILL_CREDIT_PRECISION": 4,

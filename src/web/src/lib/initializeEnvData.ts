@@ -75,7 +75,6 @@ const buildRuntimeConfigUrl = (resolvedBase: string): string => {
 const loadRuntimeConfig = async () => {
   const {
     updateAppId,
-    updateDefaultLlmModel,
     updateAlwaysShowLessonTree,
     updateUmamiWebsiteId,
     updateUmamiScriptSrc,
@@ -172,7 +171,6 @@ const loadRuntimeConfig = async () => {
   await updateEnableWxcode(
     runtimeConfig?.enableWechatCode?.toString() || 'true',
   );
-  await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
   await updateHomeUrl(runtimeConfig?.homeUrl || environment.homeUrl);
   await updateContactUsUrl(runtimeConfig?.contactUsUrl || '');
   await updateOfficialSiteUrl(

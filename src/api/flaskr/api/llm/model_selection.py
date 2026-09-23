@@ -18,6 +18,11 @@ def _slot_config(key: str) -> str:
     return str(reader(key, "") or "").strip()
 
 
+def get_model_1_id() -> str:
+    """Return the configured physical binding for numbered model 1."""
+    return _slot_config("LLM_MODEL_1_ID")
+
+
 def get_configured_model_slots() -> list[dict[str, str]]:
     """Read bound slots, using their model IDs when display names are absent."""
     slots = []

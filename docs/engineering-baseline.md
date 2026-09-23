@@ -693,9 +693,9 @@ does not replace test coverage. Before committing, also run
 - Important groups: LLM API keys and numbered model configurations, database, Redis, auth, storage, app config
 
 Every backend environment requires a provider key and `LLM_MODEL_1_ID`, which
-has no default; `DEFAULT_LLM_MODEL` does not replace it. Nonblank IDs enable
-optional numbers 2-9, using stable identifiers that may have gaps. Names for all
-numbers are optional and fall back to their configured model IDs when omitted
+has no default. Nonblank IDs enable optional numbers 2-9, using stable
+identifiers that may have gaps. Names for all numbers are optional and fall back
+to their configured model IDs when omitted
 or blank. Names without IDs do not enable options.
 Invalid historical course selections fall back to 1 without rewriting course
 rows. Existing installations need the new environment configuration, not data

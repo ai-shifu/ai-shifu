@@ -2079,12 +2079,6 @@ class RunScriptContextV2:
             has_next_outline_item=has_next_outline_item,
         )
 
-    def _get_default_llm_settings(self) -> LLMSettings:
-        return LLMSettings(
-            model=self.app.config.get("DEFAULT_LLM_MODEL"),
-            temperature=float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
-        )
-
     def _has_effective_input(self) -> bool:
         input_value = self._input
         if input_value is None:

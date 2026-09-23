@@ -33,7 +33,6 @@ const mockCurrentShifu = {
 };
 
 const mockEnvState = {
-  defaultLlmModel: '',
   currencySymbol: '¥',
   minimumPaidCoursePrice: 0.5,
   billingEnabled: 'false',

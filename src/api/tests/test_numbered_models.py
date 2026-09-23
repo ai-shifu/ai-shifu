@@ -272,7 +272,6 @@ def test_course_catalog_loads_rates_once_for_available_slots(
     model_config.update(
         LLM_MODEL_2_NAME="Offline",
         LLM_MODEL_2_ID="test/offline",
-        DEFAULT_LLM_MODEL="test/advanced",
     )
     monkeypatch.setattr(
         llm,

@@ -213,14 +213,22 @@ class TestConfigurationExport:
         assert "SECRET_KEY=" in output
         assert "# (REQUIRED - must be set)" in output
 
-        # Verify multi-line descriptions are formatted correctly
+        # Verify a remaining multi-line description is formatted correctly.
         lines = output.split("\n")
         for i, line in enumerate(lines):
-            if "DEFAULT_LLM_MODEL=" in line:
-                # Check that multi-line description appears before
+            if "SQLALCHEMY_DATABASE_URI=" in line:
                 assert any(
-                    "Supported models:" in lines[j] for j in range(max(0, i - 10), i)
+                    "MySQL database connection URI" in lines[j]
+                    for j in range(max(0, i - 10), i)
                 )
+                assert any(
+                    "Example: mysql://username:password" in lines[j]
+                    for j in range(max(0, i - 10), i)
+                )
+                break
+        else:
+            pytest.fail("SQLALCHEMY_DATABASE_URI missing from exported example")
+        assert "DEFAULT_LLM_MODEL=" not in output
 
     def test_export_groups_secrets(self) -> None:
         """Test that export properly handles secret values."""

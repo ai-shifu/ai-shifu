@@ -27,7 +27,7 @@ from flaskr.service.shifu.models import (
 @pytest.fixture
 def lesson(app: object, monkeypatch: object) -> object:
     identity = uuid.uuid4().hex
-    monkeypatch.setitem(app.config, "DEFAULT_LLM_MODEL", "deployment-model")
+    monkeypatch.setitem(app.config, "LLM_MODEL_1_ID", "deployment-model")
     monkeypatch.setitem(app.config, "DEFAULT_LLM_TEMPERATURE", 0.4)
     with app.app_context(), unit_of_work():
         for model, name in ((DraftShifu, "draft"), (PublishedShifu, "published")):

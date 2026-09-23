@@ -5,9 +5,6 @@ import { environment } from '@/config/environment';
 export const useEnvStore = create<EnvStoreState>(set => ({
   courseId: '',
   updateCourseId: async (courseId: string) => set({ courseId }),
-  defaultLlmModel: environment.defaultLlmModel,
-  updateDefaultLlmModel: async (defaultLlmModel: string) =>
-    set({ defaultLlmModel }),
   appId: environment.wechatAppId,
   updateAppId: async (appId: string) => set({ appId }),
   alwaysShowLessonTree: environment.alwaysShowLessonTree.toString(),

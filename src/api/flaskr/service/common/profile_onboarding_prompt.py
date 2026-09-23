@@ -153,7 +153,7 @@ def compile_profile_onboarding_assistant_prompt(app: Flask, document: str) -> st
             app,
             "",
             span,
-            str(app.config.get("DEFAULT_LLM_MODEL", "") or ""),
+            str(app.config.get("LLM_MODEL_1_ID", "") or ""),
             _prepare_compiler_input(document),
             system=load_prompt_template("profile_onboarding_assistant_compiler"),
             json=False,
@@ -224,7 +224,7 @@ def localize_profile_onboarding_assistant_prompt(
             app,
             "",
             span,
-            str(app.config.get("DEFAULT_LLM_MODEL", "") or ""),
+            str(app.config.get("LLM_MODEL_1_ID", "") or ""),
             json.dumps(
                 {
                     "assistant_prompt": master_prompt,
