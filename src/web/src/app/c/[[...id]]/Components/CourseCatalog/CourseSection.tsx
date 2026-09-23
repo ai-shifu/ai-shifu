@@ -35,7 +35,10 @@ type CourseSectionProps = {
 
 const getCourseTitleLang = (title: string, interfaceLanguage?: string) => {
   const trimmed = title.trim();
-  if (!trimmed || !interfaceLanguage?.toLowerCase().startsWith('zh')) {
+  const usesNonLatinScript = /^(zh|ar|th)(?:-|$)/i.test(
+    interfaceLanguage ?? '',
+  );
+  if (!trimmed || !usesNonLatinScript) {
     return undefined;
   }
   const containsLatin = /[A-Za-z]/.test(trimmed);

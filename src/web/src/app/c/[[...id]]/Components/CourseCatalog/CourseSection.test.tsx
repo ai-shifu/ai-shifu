@@ -82,6 +82,27 @@ describe('CourseSection navigation acceptance', () => {
     );
   });
 
+  it.each(['ar-SA', 'th-TH'])(
+    'marks a Latin-only lesson title as English in a %s interface',
+    language => {
+      mockI18n.language = language;
+
+      render(
+        <CourseSection
+          id='lesson-english'
+          name='English lesson title'
+          chapterId='chapter-1'
+          type={LEARNING_PERMISSION.GUEST}
+        />,
+      );
+
+      expect(screen.getByText('English lesson title')).toHaveAttribute(
+        'lang',
+        'en',
+      );
+    },
+  );
+
   it('reports navigation only after the lesson passes access guards', () => {
     const onTrySelect = jest.fn();
     const onSelect = jest.fn();
