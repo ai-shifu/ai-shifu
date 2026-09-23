@@ -91,6 +91,21 @@ def test_report_rebuild_replaces_previous_page(
     assert Path(result["path"]).read_bytes() == before
 
 
+def test_report_localizes_recorded_speed_unit(
+    report_manifest: dict, tmp_path: Path
+) -> None:
+    """Show the Chinese speed unit when a model call records output and latency."""
+    artifact = next(iter(report_manifest["artifacts"].values()))
+    artifact["metadata"]["requests"] = [
+        {"latency_ms": 1000, "usage": {"input": 10, "output": 20}}
+    ]
+
+    result = write_report(report_manifest, tmp_path)
+    content = Path(result["path"]).read_text()
+    assert "20.0 词元/秒" in content
+    assert "token/s" not in content
+
+
 @pytest.mark.parametrize("attack", ["modified", "outside"])
 def test_report_rejects_unverified_image_and_preserves_previous_report(
     report_manifest: dict, tmp_path: Path, attack: str
