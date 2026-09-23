@@ -174,7 +174,7 @@ jobs:
             local file="$1"
             echo "  → Updating $file..."
             sed -i.bak -E "s/__version__ = ['\"]([^'\"]*)['\"]/__version__ = '$VERSION'/" "$file"
-            sed -i.bak -E "s/VERSION = ['\"]([^'\"]*)['\"]//VERSION = '$VERSION'/" "$file"
+            sed -i.bak -E "s/VERSION = ['\"]([^'\"]*)['\"]/VERSION = '$VERSION'/" "$file"
             rm -f "$file.bak"
           }
 
