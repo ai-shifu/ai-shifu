@@ -1627,9 +1627,21 @@ def test_explicit_temperature_is_preserved_for_strict_provider_validation(
     assert "drop_params" not in prepared
 
 
-@pytest.mark.parametrize("kwargs", [{"temperature": "0.3"}, {}])
-def test_gpt_6_sol_omits_unsupported_temperature(
-    monkeypatch: object, kwargs: dict[str, object]
+@pytest.mark.parametrize(
+    ("model_id", "expected_effort", "expected_temperature"),
+    [
+        ("gpt-6-sol", "none", 0.3),
+        ("gpt-6-luna", "none", 0.3),
+        ("gpt-6-astra", "low", None),
+    ],
+)
+@pytest.mark.parametrize("course_temperature", ["0.3", None])
+def test_gpt_6_uses_lowest_supported_reasoning_despite_missing_litellm_metadata(
+    monkeypatch: object,
+    model_id: str,
+    expected_effort: str,
+    expected_temperature: float | None,
+    course_temperature: str | None,
 ) -> None:
     monkeypatch.setattr(
         llm,
@@ -1639,12 +1651,18 @@ def test_gpt_6_sol_omits_unsupported_temperature(
 
     prepared = llm._prepare_litellm_request_kwargs(
         "openai",
-        "gpt-6-sol",
+        model_id,
         {"custom_llm_provider": "openai"},
-        {**kwargs, "stop": ["done"]},
+        {
+            "reasoning_effort": "high",
+            "stop": ["done"],
+            **({"temperature": course_temperature} if course_temperature else {}),
+        },
     )
 
-    assert "temperature" not in prepared
+    assert prepared["reasoning_effort"] == expected_effort
+    assert prepared.get("temperature") == expected_temperature
+    assert prepared["allowed_openai_params"] == ["reasoning_effort"]
     assert prepared["stop"] == ["done"]
 
 
@@ -1656,6 +1674,38 @@ def _installed_litellm_version() -> str | None:
         return importlib.metadata.version("litellm")
     except importlib.metadata.PackageNotFoundError:
         return None
+
+
+@pytest.mark.skipif(
+    _installed_litellm_version() != LITELLM_CONTRACT_VERSION,
+    reason=f"contract targets litellm=={LITELLM_CONTRACT_VERSION}",
+)
+@pytest.mark.parametrize(
+    ("model_id", "expected_effort", "expected_temperature"),
+    [
+        ("gpt-6-sol", "none", 0.3),
+        ("gpt-6-luna", "none", 0.3),
+        ("gpt-6-astra", "low", None),
+    ],
+)
+def test_gpt_6_reasoning_survives_litellm_198_adapter(
+    model_id: str, expected_effort: str, expected_temperature: float | None
+) -> None:
+    prepared = llm._prepare_litellm_request_kwargs(
+        "openai",
+        model_id,
+        {"custom_llm_provider": "openai"},
+        {"temperature": "0.3"},
+    )
+
+    optional_params = llm.litellm.get_optional_params(
+        model=model_id,
+        custom_llm_provider="openai",
+        **prepared,
+    )
+
+    assert optional_params["reasoning_effort"] == expected_effort
+    assert optional_params.get("temperature") == expected_temperature
 
 
 @pytest.mark.skipif(

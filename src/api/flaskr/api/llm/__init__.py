@@ -751,6 +751,18 @@ _LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, objec
     ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.5-pro"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.5-pro-2026-04-23"): {"reasoning_effort": "medium"},
+    ("openai", "gpt-6-astra"): {
+        "reasoning_effort": "low",
+        "allowed_openai_params": ["reasoning_effort"],
+    },
+    ("openai", "gpt-6-sol"): {
+        "reasoning_effort": "none",
+        "allowed_openai_params": ["reasoning_effort"],
+    },
+    ("openai", "gpt-6-luna"): {
+        "reasoning_effort": "none",
+        "allowed_openai_params": ["reasoning_effort"],
+    },
 }
 
 
@@ -955,9 +967,8 @@ def _prepare_litellm_request_kwargs(
     policy_params = _keep_primary_thinking_control(policy_params, primary)
 
     prepared = dict(kwargs)
-    if provider_key == "openai" and model_id.casefold() == "gpt-6-sol":
-        # GPT-6 Sol only accepts the provider default temperature, even when
-        # a course explicitly supplies its usual 0.3 setting.
+    if provider_key == "openai" and model_id.casefold() == "gpt-6-astra":
+        # Astra's minimum reasoning level is low, which rejects temperature.
         prepared.pop("temperature", None)
     elif "temperature" in prepared:
         prepared["temperature"] = float(prepared["temperature"])
