@@ -79,6 +79,13 @@ def test_new_user_attribution_is_resolved_from_pending_device_request(
                 "handoff_id": handoff_id,
             },
         )
+        pending = get_device_authorization(app, user_code=started["user_code"])
+        assert pending["registration_attribution"] == {
+            "host_platform": "doubao",
+            "skill_id": "ai-shifu-course-creator",
+            "skill_version": "2.0.0",
+        }
+        assert handoff_id not in json.dumps(pending)
         with unit_of_work():
             record_new_user_skill_attribution(
                 app, user_code=started["user_code"], user_id=USER_ID
@@ -91,6 +98,17 @@ def test_new_user_attribution_is_resolved_from_pending_device_request(
         assert saved.host_platform == "doubao"
         assert saved.skill_id == "ai-shifu-course-creator"
         assert saved.handoff_id == handoff_id
+
+
+def test_pending_device_without_skill_attribution_keeps_existing_shape(
+    app: object,
+) -> None:
+    with app.test_request_context():
+        started = _start(app)
+
+        pending = get_device_authorization(app, user_code=started["user_code"])
+
+        assert "registration_attribution" not in pending
 
 
 def test_existing_first_touch_attribution_is_not_replaced(app: object) -> None:

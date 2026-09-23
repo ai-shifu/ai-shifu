@@ -54,6 +54,18 @@ const pendingDevice = {
   device_os: 'macOS 15',
   client_version: '1.2.6',
   client_ip: '203.0.113.7',
+  registration_attribution: {
+    host_platform: 'workbuddy',
+    skill_id: 'ai-shifu-course-creator',
+    skill_version: '1.3.0',
+    handoff_id: '123e4567-e89b-12d3-a456-426614174000',
+  },
+};
+
+const expectedSkillAttribution = {
+  host_platform: 'workbuddy',
+  skill_id: 'ai-shifu-course-creator',
+  skill_version: '1.3.0',
 };
 
 // The request layer returns the raw envelope for any path containing '/login',
@@ -67,6 +79,7 @@ const envelope = (data: unknown, code = 0, message = 'success') => ({
 describe('DeviceAuthorizationPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTrackEvent.mockReset();
     searchParams = new URLSearchParams('code=AC4-7HK');
     storeState = { isInitialized: true, isLoggedIn: true };
   });
@@ -229,10 +242,16 @@ describe('DeviceAuthorizationPage', () => {
       ([name]) => name === 'device_auth_prompt_shown',
     );
     expect(exposures).toHaveLength(1);
-    expect(exposures[0][1]).toEqual({ device_os: 'macos', from_link: true });
+    expect(exposures[0][1]).toEqual({
+      device_os: 'macos',
+      from_link: true,
+      ...expectedSkillAttribution,
+    });
     // The pairing code is a live credential; it must not reach analytics.
     expect(JSON.stringify(exposures[0][1])).not.toContain('AC4-7HK');
     expect(JSON.stringify(exposures[0][1])).not.toContain('macOS 15');
+    expect(JSON.stringify(exposures[0][1])).not.toContain('handoff_id');
+    expect(JSON.stringify(exposures[0][1])).not.toContain('426614174000');
   });
 
   it('keeps the originating link source on a denied outcome', async () => {
@@ -256,6 +275,7 @@ describe('DeviceAuthorizationPage', () => {
       expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_denied', {
         device_os: 'macos',
         from_link: true,
+        ...expectedSkillAttribution,
       }),
     );
   });
@@ -334,6 +354,7 @@ describe('DeviceAuthorizationPage', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_prompt_shown', {
       device_os: 'macos',
       from_link: false,
+      ...expectedSkillAttribution,
     });
 
     // Re-resolving the same code from a link must not change the source of the
@@ -360,6 +381,7 @@ describe('DeviceAuthorizationPage', () => {
       expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_approved', {
         device_os: 'macos',
         from_link: false,
+        ...expectedSkillAttribution,
       }),
     );
     const approvedPayload = mockTrackEvent.mock.calls.find(
@@ -367,6 +389,43 @@ describe('DeviceAuthorizationPage', () => {
     )?.[1];
     expect(JSON.stringify(approvedPayload)).not.toContain('AC4-7HK');
     expect(JSON.stringify(approvedPayload)).not.toContain('macOS 15');
+    expect(JSON.stringify(approvedPayload)).not.toContain('handoff_id');
+  });
+
+  it('groups ordinary device authorization as unattributed', async () => {
+    (api.deviceAuthPending as jest.Mock).mockResolvedValue(
+      envelope({ ...pendingDevice, registration_attribution: undefined }),
+    );
+
+    render(<DeviceAuthorizationPage />);
+
+    await screen.findByText('MacBook-Pro');
+    expect(mockTrackEvent).toHaveBeenCalledWith('device_auth_prompt_shown', {
+      device_os: 'macos',
+      from_link: true,
+      host_platform: 'unattributed',
+      skill_id: 'unattributed',
+      skill_version: 'unattributed',
+    });
+  });
+
+  it('keeps approval working when tracking throws', async () => {
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('analytics unavailable');
+    });
+    (api.deviceAuthPending as jest.Mock).mockResolvedValue(
+      envelope(pendingDevice),
+    );
+    (api.deviceAuthApprove as jest.Mock).mockResolvedValue(
+      envelope({ status: 'approved' }),
+    );
+
+    render(<DeviceAuthorizationPage />);
+    fireEvent.click(await screen.findByText('module.auth.deviceAuthApprove'));
+
+    expect(
+      await screen.findByText('module.auth.deviceAuthApprovedTitle'),
+    ).toBeInTheDocument();
   });
 
   it('preserves a manually entered code when authentication is required', async () => {

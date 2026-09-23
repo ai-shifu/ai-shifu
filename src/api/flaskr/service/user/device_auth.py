@@ -370,7 +370,7 @@ def get_device_authorization(
     # Read the remaining lifetime from the cache entry itself rather than
     # deriving it from a stored epoch value.
     expires_in = max(0, int(redis.ttl(_session_key(app, device_code)) or 0))
-    return {
+    result = {
         "user_code": format_user_code(str(payload.get("user_code") or "")),
         "device_name": payload.get("device_name") or "",
         "device_os": payload.get("device_os") or "",
@@ -378,6 +378,19 @@ def get_device_authorization(
         "client_ip": payload.get("client_ip") or "",
         "expires_in": expires_in,
     }
+    attribution = parse_skill_attribution(
+        payload.get("registration_attribution"),
+        field_name="registration_attribution",
+    )
+    if attribution is not None:
+        # The browser needs only aggregate reporting dimensions. Keep the
+        # handoff identifier in the authoritative database/cache boundary.
+        result["registration_attribution"] = {
+            "host_platform": attribution.host_platform,
+            "skill_id": attribution.skill_id,
+            "skill_version": attribution.skill_version,
+        }
+    return result
 
 
 def _record_decision(
