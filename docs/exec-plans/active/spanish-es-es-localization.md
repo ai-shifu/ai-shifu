@@ -10,7 +10,8 @@ Add `es-ES` as a complete selectable product language. A learner or teacher who 
 - [x] 2026-09-24: Translated and checked all 58 shared JSON namespaces against the Chinese source and their call sites.
 - [x] 2026-09-24: Wired `es-ES` through frontend, backend, legal URL configuration, and the native MarkdownFlow locale in [markdown-flow-ui PR #245](https://github.com/ai-shifu/markdown-flow-ui/pull/245).
 - [x] 2026-09-24: Validated translation parity and usage, focused backend/frontend tests, architecture boundaries, repository harness, MarkdownFlow browser smoke, and the frontend production build against `markdown-flow-ui@0.2.28-dev.1`.
-- [ ] 2026-09-24: After explicit formal-release confirmation required by the component repository, publish the stable MarkdownFlow package, replace both development pins, rerun install/build checks, and open the AI-Shifu pull request.
+- [x] 2026-09-24: Opened [AI-Shifu PR #2942](https://github.com/ai-shifu/ai-shifu/pull/2942) for review with the development-package merge blocker called out.
+- [ ] 2026-09-24: After explicit formal-release confirmation required by the component repository, publish the stable MarkdownFlow package, replace both development pins, rerun install/build checks, and clear the PR's release-pin check.
 
 ## Surprises & Discoveries
 
@@ -23,11 +24,12 @@ Add `es-ES` as a complete selectable product language. A learner or teacher who 
 
 - 2026-09-24: Add Spain Spanish as the single requested locale. Do not add Latin American variants in this change.
 - 2026-09-24: Preserve existing translation keys, ICU argument names, markup, technical identifiers, and course data. Translate user-facing values from Chinese with usage context.
-- 2026-09-24: The user deferred the formal `markdown-flow-ui@0.2.28` release. Keep the AI-Shifu feature branch on the validated development package and do not open a PR to `main` until a stable package is published and pinned.
+- 2026-09-24: The user deferred the formal `markdown-flow-ui@0.2.28` release. Keep the AI-Shifu feature branch on the validated development package until a stable package is published and pinned.
+- 2026-09-24: The user subsequently requested an AI-Shifu PR now. Open a ready review PR and state that its release-pin check is expected to fail; do not merge while the development pin remains.
 
 ## Outcomes & Retrospective
 
-All 58 locale files and the application wiring are implemented. The development package passes local frontend build and focused tests, and the Arena confirms native Spanish component text in a browser. The remaining delivery step is the stable MarkdownFlow release and replacement of both development dependency pins, followed by the AI-Shifu pull request.
+All 58 locale files and the application wiring are implemented. The development package passes local frontend build and focused tests, and the Arena confirms native Spanish component text in a browser. AI-Shifu PR #2942 is open for review. The remaining merge prerequisite is the stable MarkdownFlow release and replacement of both development dependency pins.
 
 ## Context and Orientation
 
