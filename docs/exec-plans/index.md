@@ -45,7 +45,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
-- [Skill Platform Attribution and Journey Events](./active/skill-platform-attribution.md)
+- [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Secure learner Stripe payment synchronization](./active/stripe-payment-sync-security.md)
 - [Trusted Client IP Resolution](./active/trusted-client-ip.md)
 
@@ -72,6 +72,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Learner Profile Dialog](./completed/learner-profile-dialog-redesign.md)
 - [Learner Profile Foundation](./completed/learner-profile-foundation.md)
 - [Recover legacy Stripe billing timeouts](./completed/legacy-stripe-billing-timeout-recovery.md)
+- [Upgrade LiteLLM to 1.102.0 and retire covered compatibility patches](./completed/litellm-1-102-upgrade.md)
 - [LiteLLM-First Minimum-Thinking Parameters](./completed/llm-provider-parameter-policies.md)
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)

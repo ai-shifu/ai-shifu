@@ -270,9 +270,21 @@ def _load_and_register_model_max_output_tokens() -> dict[str, int]:
         limits = parse_llm_model_max_output_tokens(raw_limits)
     except ValueError as exc:
         _log_warning(f"Ignoring invalid LLM_MODEL_MAX_OUTPUT_TOKENS: {exc}")
-        return {}
-    if not limits:
-        return {}
+        limits = {}
+
+    model_metadata = {
+        model: {"max_output_tokens": max_output_tokens}
+        for model, max_output_tokens in limits.items()
+    }
+    # LiteLLM 1.102.0 lacks exact GPT-6 Sol/Luna catalogue entries. Register
+    # their no-reasoning capability together with any configured output limit
+    # so catalogue reloads preserve both and temperature remains supported.
+    for model in ("gpt-6-sol", "gpt-6-luna"):
+        model_metadata[model] = {
+            **model_metadata.get(model, {}),
+            "litellm_provider": "openai",
+            "supports_none_reasoning_effort": True,
+        }
 
     register_model = getattr(litellm, "register_model", None)
     if not callable(register_model):
@@ -282,16 +294,9 @@ def _load_and_register_model_max_output_tokens() -> dict[str, int]:
         )
         return limits
     try:
-        register_model(
-            {
-                model: {"max_output_tokens": max_output_tokens}
-                for model, max_output_tokens in limits.items()
-            }
-        )
+        register_model(model_metadata)
     except Exception as exc:
-        _log_warning(
-            f"Registering LLM_MODEL_MAX_OUTPUT_TOKENS with LiteLLM failed: {exc}"
-        )
+        _log_warning(f"Registering LiteLLM model metadata failed: {exc}")
     return limits
 
 
@@ -691,15 +696,15 @@ _THINKING_CONFLICT_PATHS = (
     "extra_body.generation_config.thinking_config",
 )
 
-# These entries cover confirmed gaps in LiteLLM 1.98.0. The normal path is
+# These entries cover confirmed gaps in LiteLLM 1.102.0. The normal path is
 # capability-driven; upgrading LiteLLM should make individual rows removable
 # when their contract tests start passing without the row.
 _ZAI_DISABLED_THINKING_PATCH: dict[str, object] = {
-    # LiteLLM 1.98 sends top-level thinking to the OpenAI SDK for ZAI, where it
+    # LiteLLM 1.102 sends top-level thinking to the OpenAI SDK for ZAI, where it
     # is rejected. extra_body reaches the provider wire format.
     "extra_body": {"thinking": {"type": "disabled"}},
 }
-_LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
+_LITELLM_1102_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
     ("qwen", None): {"extra_body": {"enable_thinking": False}},
     ("silicon", None): {"extra_body": {"enable_thinking": False}},
     ("ark", None): {"allowed_openai_params": ["response_format"]},
@@ -720,28 +725,21 @@ _LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, objec
     ("qwen", "glm-5.3"): {
         "reasoning_effort": "low",
         "allowed_openai_params": ["reasoning_effort"],
-        "additional_drop_params": ["enable_thinking"],
     },
     ("qwen", "glm-5.3-flash"): {
         "reasoning_effort": "low",
         "allowed_openai_params": ["reasoning_effort"],
-        "additional_drop_params": ["enable_thinking"],
     },
     ("qwen", "zhipu/glm-5.3"): {
         "reasoning_effort": "low",
         "allowed_openai_params": ["reasoning_effort"],
-        "additional_drop_params": ["enable_thinking"],
     },
     ("qwen", "zhipu/glm-5.3-flash"): {
         "reasoning_effort": "low",
         "allowed_openai_params": ["reasoning_effort"],
-        "additional_drop_params": ["enable_thinking"],
     },
     ("gemini", "gemini-3.7-flash"): {"reasoning_effort": "low"},
-    ("gemini", "gemini-3.8-flash"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
+    ("gemini", "gemini-3.8-flash"): {"reasoning_effort": "low"},
     ("gemini", "gemini-2.5-pro"): {"reasoning_effort": "minimal"},
     ("openai", "gpt-5-pro"): {"reasoning_effort": "high"},
     ("openai", "gpt-5-pro-2025-10-06"): {"reasoning_effort": "high"},
@@ -749,20 +747,7 @@ _LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, objec
     ("openai", "gpt-5.2-pro-2025-12-11"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.4-pro"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
-    ("openai", "gpt-5.5-pro"): {"reasoning_effort": "medium"},
-    ("openai", "gpt-5.5-pro-2026-04-23"): {"reasoning_effort": "medium"},
-    ("openai", "gpt-6-astra"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
-    ("openai", "gpt-6-sol"): {
-        "reasoning_effort": "none",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
-    ("openai", "gpt-6-luna"): {
-        "reasoning_effort": "none",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
+    ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
 }
 
 
@@ -954,8 +939,10 @@ def _prepare_litellm_request_kwargs(
     custom_llm_provider = _litellm_provider_name(provider_key, provider_params)
     stages = [
         _litellm_minimum_thinking_params(model_id, custom_llm_provider),
-        _LITELLM_198_COMPATIBILITY_PATCHES.get((provider_key, None), {}),
-        _LITELLM_198_COMPATIBILITY_PATCHES.get((provider_key, model_id.casefold()), {}),
+        _LITELLM_1102_COMPATIBILITY_PATCHES.get((provider_key, None), {}),
+        _LITELLM_1102_COMPATIBILITY_PATCHES.get(
+            (provider_key, model_id.casefold()), {}
+        ),
     ]
     primary = None
     policy_params: dict[str, object] = {}

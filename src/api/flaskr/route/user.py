@@ -50,7 +50,6 @@ from flaskr.service.user.device_auth import (
     deny_device_authorization,
     get_device_authorization,
     poll_device_authorization,
-    record_new_user_skill_attribution,
 )
 from flaskr.service.user.models import UserInfo
 from flaskr.service.user.onboarding import (
@@ -68,10 +67,6 @@ from flaskr.service.user.sessions import (
     list_user_sessions,
     revoke_other_user_sessions,
     revoke_user_session,
-)
-from flaskr.service.user.skill_journey import (
-    get_skill_attribution_report,
-    record_skill_journey_event,
 )
 from flaskr.service.user.token_store import token_store
 from flaskr.service.user.user import (
@@ -755,12 +750,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                         },
                     ),
                 )
-                if auth_result.is_new_user:
-                    record_new_user_skill_attribution(
-                        app,
-                        user_code=payload.get("device_user_code"),
-                        user_id=auth_result.user.user_id,
-                    )
             run_post_auth_extensions(
                 app,
                 PostAuthContext(
@@ -845,29 +834,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         _apply_request_language(payload)
         return make_common_response(
             poll_device_authorization(app, device_code=payload.get("device_code"))
-        )
-
-    @app.route(path_prefix + "/skill/events", methods=["POST"])
-    @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
-    def record_skill_event_api() -> str:
-        """Record one authenticated, deduplicated Skill journey milestone."""
-        return make_common_response(
-            record_skill_journey_event(
-                user_id=request.user.user_id,
-                payload=request.get_json(silent=True),
-            )
-        )
-
-    @app.route(path_prefix + "/admin/skill-attribution/report", methods=["GET"])
-    def skill_attribution_report_api() -> str:
-        """Return aggregate Skill acquisition and journey data to operators."""
-        if not bool(getattr(request.user, "is_operator", False)):
-            raise_error("server.shifu.noPermission")
-        return make_common_response(
-            get_skill_attribution_report(
-                start=request.args.get("start"),
-                end=request.args.get("end"),
-            )
         )
 
     @app.route(path_prefix + "/device/pending", methods=["GET"])
@@ -1243,9 +1209,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         ui_language = request.args.get("language")
         if ui_language:
             metadata["language"] = ui_language
-        device_user_code = request.args.get("device_user_code")
-        if device_user_code:
-            metadata["device_user_code"] = device_user_code
         # Every header here is attacker-controllable — the edge nginx passes
         # inbound X-Forwarded-* through, and Origin is forwarded unchanged — so
         # the origin alone cannot decide where the authorization code is sent.
@@ -1299,12 +1262,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
         with unit_of_work():
             auth_result = provider.handle_oauth_callback(app, callback_request)
-            if auth_result.is_new_user:
-                record_new_user_skill_attribution(
-                    app,
-                    user_code=auth_result.metadata.get("device_user_code"),
-                    user_id=auth_result.user.user_id,
-                )
         run_post_auth_extensions(
             app,
             PostAuthContext(

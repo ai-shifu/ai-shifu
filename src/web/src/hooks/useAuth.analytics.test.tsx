@@ -121,21 +121,6 @@ describe('useAuth login analytics contract', () => {
     );
   });
 
-  it('passes the device pairing code only in the login request', async () => {
-    mockSmsLogin.mockResolvedValue(successfulSmsResponse);
-    const { result } = renderHook(() => useAuth({ deviceUserCode: 'ABC-789' }));
-
-    await act(async () => {
-      await result.current.loginWithSmsCode('13800138000', '123456', 'zh-CN');
-    });
-
-    expect(mockSmsLogin).toHaveBeenCalledWith(
-      expect.objectContaining({ device_user_code: 'ABC-789' }),
-      { skipErrorToast: true },
-    );
-    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('ABC-789');
-  });
-
   it('keeps SMS success terminal when the post-login callback throws', async () => {
     const callbackError = new Error('private post-login callback error');
     const onSuccess = jest.fn(() => {

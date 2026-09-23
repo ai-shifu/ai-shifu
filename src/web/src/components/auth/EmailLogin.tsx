@@ -9,7 +9,6 @@ interface EmailLoginProps {
   loginContext?: string;
   courseId?: string;
   referralMetadata?: ReferralLoginMetadata;
-  deviceUserCode?: string;
 }
 
 export function EmailLogin(props: EmailLoginProps) {

@@ -19,43 +19,6 @@ from sqlalchemy.dialects.mysql import BIGINT
 from .consts import CREDENTIAL_STATE_UNVERIFIED, USER_STATE_UNREGISTERED
 
 
-class UserSkillAttribution(db.Model):
-    """Persist the immutable first Skill platform attribution for one user."""
-
-    __tablename__ = "user_skill_attributions"
-    __table_args__ = (
-        UniqueConstraint("user_bid", name="uk_user_skill_attribution_user_bid"),
-        UniqueConstraint("handoff_id", name="uk_user_skill_attribution_handoff_id"),
-    )
-
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
-    user_bid = Column(String(32), nullable=False, comment="User business identifier")
-    host_platform = Column(String(32), nullable=False, comment="Skill host platform")
-    skill_id = Column(String(100), nullable=False, comment="Skill identifier")
-    skill_version = Column(String(32), nullable=False, comment="Skill version")
-    handoff_id = Column(String(36), nullable=False, comment="Device handoff UUID")
-    created_at = Column(
-        DateTime, nullable=False, default=now_utc, comment="Attribution timestamp"
-    )
-
-
-class SkillJourneyEvent(db.Model):
-    """Persist a deduplicated authenticated Skill journey milestone."""
-
-    __tablename__ = "skill_journey_events"
-    __table_args__ = (UniqueConstraint("event_bid", name="uk_skill_journey_event_bid"),)
-
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
-    event_bid = Column(String(36), nullable=False, comment="Client event UUID")
-    user_bid = Column(String(32), nullable=False, index=True, comment="User identifier")
-    shifu_bid = Column(String(32), nullable=False, default="", index=True)
-    host_platform = Column(String(32), nullable=False)
-    skill_id = Column(String(100), nullable=False)
-    skill_version = Column(String(32), nullable=False)
-    event_name = Column(String(64), nullable=False, index=True)
-    created_at = Column(DateTime, nullable=False, default=now_utc, index=True)
-
-
 class UserConversion(db.Model):
     """Persist user conversion records."""
 

@@ -30,7 +30,6 @@ from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
-from flaskr.service.common.skill_attribution import SkillAttributionInput
 from flaskr.service.config import get_config
 from flaskr.service.learn.api import (
     is_live_follow_up_model,
@@ -56,7 +55,6 @@ from flaskr.service.learn.ask_provider_adapters.consts import (  # noqa: F401
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util import generate_id
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
-from sqlalchemy.exc import IntegrityError
 
 from .consts import (
     ASK_MODE_DEFAULT,
@@ -70,13 +68,7 @@ from .course_activity import load_course_activity_map
 from .demo_courses import is_builtin_demo_course
 from .dtos import ShifuDetailDto, ShifuDto
 from .funcs import shifu_permission_verification
-from .models import (
-    DraftShifu,
-    FavoriteScenario,
-    PublishedShifu,
-    ShifuSkillAttribution,
-    ShifuUserArchive,
-)
+from .models import DraftShifu, FavoriteScenario, PublishedShifu, ShifuUserArchive
 from .permissions import get_user_shifu_permissions
 from .shifu_history_manager import save_shifu_history
 from .shifu_outline_funcs import create_default_outlines_for_new_shifu
@@ -308,7 +300,6 @@ def create_shifu_draft(
     shifu_model: str | None = None,
     shifu_temperature: float | None = None,
     shifu_price: float | None = None,
-    skill_attribution: SkillAttributionInput | None = None,
 ) -> ShifuDto:
     """Create a shifu draft.
 
@@ -322,7 +313,6 @@ def create_shifu_draft(
         shifu_model: Shifu model
         shifu_temperature: Shifu temperature
         shifu_price: Shifu price
-        skill_attribution: Optional validated Skill platform attribution
     Returns:
         ShifuDto: Shifu dto.
 
@@ -378,55 +368,6 @@ def create_shifu_draft(
 
         # save to database
         stage_started_at = perf_counter()
-        if skill_attribution is not None:
-            try:
-                with db.session.begin_nested():
-                    db.session.add(
-                        ShifuSkillAttribution(
-                            shifu_bid=shifu_id,
-                            user_bid=user_id,
-                            host_platform=skill_attribution.host_platform,
-                            skill_id=skill_attribution.skill_id,
-                            skill_version=skill_attribution.skill_version,
-                            handoff_id=skill_attribution.handoff_id,
-                        )
-                    )
-                    db.session.flush()
-            except IntegrityError:
-                previous = (
-                    ShifuSkillAttribution.query.filter_by(
-                        handoff_id=skill_attribution.handoff_id
-                    )
-                    .with_for_update()
-                    .first()
-                )
-                if previous is None:
-                    raise
-                if (
-                    previous.user_bid != user_id
-                    or previous.host_platform != skill_attribution.host_platform
-                    or previous.skill_id != skill_attribution.skill_id
-                    or previous.skill_version != skill_attribution.skill_version
-                ):
-                    raise_param_error("creation_attribution.handoff_id")
-                draft = get_latest_shifu_draft(previous.shifu_bid)
-                if draft is None:
-                    raise_error("server.shifu.shifuNotFound")
-                if draft.created_user_bid != user_id or draft.deleted:
-                    raise_param_error("creation_attribution.handoff_id")
-                return ShifuDto(
-                    shifu_id=draft.shifu_bid,
-                    shifu_name=draft.title,
-                    shifu_description=draft.description,
-                    shifu_avatar=draft.avatar_res_bid,
-                    shifu_state=STATUS_DRAFT,
-                    is_favorite=False,
-                    archived=False,
-                    can_manage_archive=True,
-                    can_manage_permissions=True,
-                    created_user_bid=draft.created_user_bid,
-                )
-
         db.session.add(shifu_draft)
         db.session.flush()
 

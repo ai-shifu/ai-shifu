@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from flaskr.i18n import _, get_current_language, set_language
+from flaskr.i18n import _
 from flaskr.service.learn.agent import legacy_protocol
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
@@ -462,51 +462,106 @@ def test_the_stored_value_a_learner_returns_is_the_one_the_engine_will_match() -
             {
                 "type": "single",
                 "prompt": "p",
-                "options": [Option(display="A | B")],
+                "options": [Option(display="A\nB")],
                 "variable": "v",
             },
-            "a bar splits one choice into two",
-            id="bar-in-display",
+            "the grammar reads one line, and the rest of the option disappears",
+            id="newline-in-display",
         ),
         pytest.param(
             {
                 "type": "single",
                 "prompt": "p",
-                "options": [Option(display="A//B")],
+                "options": [Option(display=""), Option(display="B")],
                 "variable": "v",
             },
-            "a double slash gives half the display away to the stored value",
-            id="slashes-in-display",
-        ),
-        pytest.param(
-            {
-                "type": "single",
-                "prompt": "p",
-                "options": [Option(display="A]B")],
-                "variable": "v",
-            },
-            "a bracket ends the interaction early",
-            id="bracket-in-display",
-        ),
-        pytest.param(
-            {
-                "type": "single",
-                "prompt": "p",
-                "options": [Option(display="A...B")],
-                "variable": "v",
-            },
-            "an ellipsis turns the rest into a text box",
-            id="ellipsis-in-display",
+            "an empty choice is dropped, leaving fewer buttons than the model asked for",
+            id="empty-display",
         ),
     ],
 )
 def test_an_interaction_the_grammar_would_reshape_is_refused(
     spec_kwargs: dict, why: str
 ) -> None:
-    """Rendering it approximately gives the learner controls the engine will not accept."""
+    """Rendering it approximately gives the learner controls the engine will not accept.
+
+    The delimiters themselves are escapable now; what is left is shapes the grammar has no way
+    to carry at all.
+    """
     with pytest.raises(legacy_protocol.UnrepresentableInteractionError):
         legacy_protocol.render_interaction(_spec(**spec_kwargs))
     assert why  # documents the case
+
+
+@pytest.mark.parametrize(
+    ("option", "why"),
+    [
+        pytest.param(
+            "https://a.com/x", "a double slash divides display from value", id="url"
+        ),
+        pytest.param("^[a-z]+$", "a bracket ends the interaction", id="regex"),
+        pytest.param("a|b", "a bar splits one choice into two", id="bar"),
+        pytest.param("array[0]", "a bracket ends the interaction", id="index"),
+        pytest.param("wait... ok", "an ellipsis opens a text box", id="ellipsis"),
+    ],
+)
+def test_an_option_carrying_the_grammar_s_own_delimiters_is_asked(
+    option: str, why: str
+) -> None:
+    """These five used to be refused, and the learner got the question with no controls.
+
+    The model writes these options: a question about URLs has URLs in it. Escaping them is what
+    lets the question be asked at all, and the round-trip check inside `render_interaction` is
+    what proves the escaping did not change which choices are offered.
+    """
+    rendered = legacy_protocol.render_interaction(
+        _spec(
+            type="single",
+            prompt="p",
+            options=[Option(display=option), Option(display="other")],
+            variable="v",
+        )
+    )
+    parsed = _parse(rendered)
+    assert [b["display"] for b in parsed["buttons"]] == [option, "other"], why
+
+
+def test_a_stored_value_carrying_a_delimiter_survives_as_well() -> None:
+    """The value is what the engine matches the answer against, so it has to come back exact.
+
+    The cases above set only the display, which leaves the other half of `Display//value`
+    untested -- and that half is the one a mistake would lose silently, since the learner would
+    still see the right button.
+    """
+    rendered = legacy_protocol.render_interaction(
+        _spec(
+            type="single",
+            prompt="p",
+            options=[
+                Option(display="Match a decimal", value=r"\d+\.\d+"),
+                Option(display="Any URL", value="https://a.com/x"),
+            ],
+            variable="v",
+        )
+    )
+    assert [(b["display"], b["value"]) for b in _parse(rendered)["buttons"]] == [
+        ("Match a decimal", r"\d+\.\d+"),
+        ("Any URL", "https://a.com/x"),
+    ]
+
+
+def test_a_placeholder_carrying_a_delimiter_is_escaped_too() -> None:
+    """It sits after the `...` marker, where an unescaped bracket would end the interaction."""
+    rendered = legacy_protocol.render_interaction(
+        _spec(
+            type="text",
+            prompt="p",
+            options=[],
+            variable="v",
+            placeholder="e.g. https://a.com/x]",
+        )
+    )
+    assert _parse(rendered)["question"] == "e.g. https://a.com/x]"
 
 
 def test_an_option_the_model_padded_with_spaces_is_still_asked() -> None:
@@ -535,7 +590,7 @@ def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -
                 spec=_spec(
                     type="single",
                     prompt="q",
-                    options=[Option(display="A | B")],
+                    options=[Option(display="A\nB")],
                     variable="v",
                 ),
             )
@@ -559,30 +614,22 @@ def test_a_short_confirm_prompt_becomes_the_button_not_a_line_of_text() -> None:
 
 def test_a_long_confirm_prompt_stays_as_text() -> None:
     """An instruction to the learner is content; the button is labelled by the host."""
-    previous_language = get_current_language()
-    try:
-        set_language("zh-CN")
-        translated = _translate(
-            InteractionRequest(
-                id="i1",
-                spec=InteractionSpec(
-                    type="confirm",
-                    prompt="看完上面的图，想清楚了再点继续。",
-                    options=[],
-                ),
-            )
+    translated = _translate(
+        InteractionRequest(
+            id="i1",
+            spec=InteractionSpec(
+                type="confirm", prompt="看完上面的图，想清楚了再点继续。", options=[]
+            ),
         )
-        expected_content = f"?[{_('server.learn.continueButton')}//continue]"
-    finally:
-        set_language(previous_language)
+    )
     assert [e.type for e in translated] == [
         GeneratedType.CONTENT,
         GeneratedType.INTERACTION,
     ]
-    # The engine's English default never reaches a learner: the host names the button in their
-    # own language, so a lesson taught in Chinese does not end on a `Continue`.
-    assert translated[1].content == expected_content
-    assert DEFAULT_CONFIRM_LABEL not in translated[1].content
+    # The host names the button, rather than the engine's default reaching the learner. Asserted
+    # through the same lookup, because in English the two words are the same one; that the label
+    # really is translated is asserted in a Chinese lesson below.
+    assert translated[1].content == f"?[{_('server.learn.continueButton')}//continue]"
 
 
 def test_a_label_the_model_wrote_is_left_alone() -> None:
