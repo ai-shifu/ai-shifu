@@ -691,15 +691,15 @@ _THINKING_CONFLICT_PATHS = (
     "extra_body.generation_config.thinking_config",
 )
 
-# These entries cover confirmed gaps in LiteLLM 1.98.0. The normal path is
+# These entries cover confirmed gaps in LiteLLM 1.102.0. The normal path is
 # capability-driven; upgrading LiteLLM should make individual rows removable
 # when their contract tests start passing without the row.
 _ZAI_DISABLED_THINKING_PATCH: dict[str, object] = {
-    # LiteLLM 1.98 sends top-level thinking to the OpenAI SDK for ZAI, where it
+    # LiteLLM 1.102 sends top-level thinking to the OpenAI SDK for ZAI, where it
     # is rejected. extra_body reaches the provider wire format.
     "extra_body": {"thinking": {"type": "disabled"}},
 }
-_LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
+_LITELLM_1102_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
     ("qwen", None): {"extra_body": {"enable_thinking": False}},
     ("silicon", None): {"extra_body": {"enable_thinking": False}},
     ("ark", None): {"allowed_openai_params": ["response_format"]},
@@ -720,28 +720,21 @@ _LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, objec
     ("qwen", "glm-5.3"): {
         "reasoning_effort": "low",
         "allowed_openai_params": ["reasoning_effort"],
-        "additional_drop_params": ["enable_thinking"],
     },
     ("qwen", "glm-5.3-flash"): {
         "reasoning_effort": "low",
         "allowed_openai_params": ["reasoning_effort"],
-        "additional_drop_params": ["enable_thinking"],
     },
     ("qwen", "zhipu/glm-5.3"): {
         "reasoning_effort": "low",
         "allowed_openai_params": ["reasoning_effort"],
-        "additional_drop_params": ["enable_thinking"],
     },
     ("qwen", "zhipu/glm-5.3-flash"): {
         "reasoning_effort": "low",
         "allowed_openai_params": ["reasoning_effort"],
-        "additional_drop_params": ["enable_thinking"],
     },
     ("gemini", "gemini-3.7-flash"): {"reasoning_effort": "low"},
-    ("gemini", "gemini-3.8-flash"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
+    ("gemini", "gemini-3.8-flash"): {"reasoning_effort": "low"},
     ("gemini", "gemini-2.5-pro"): {"reasoning_effort": "minimal"},
     ("openai", "gpt-5-pro"): {"reasoning_effort": "high"},
     ("openai", "gpt-5-pro-2025-10-06"): {"reasoning_effort": "high"},
@@ -749,8 +742,6 @@ _LITELLM_198_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, objec
     ("openai", "gpt-5.2-pro-2025-12-11"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.4-pro"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
-    ("openai", "gpt-5.5-pro"): {"reasoning_effort": "medium"},
-    ("openai", "gpt-5.5-pro-2026-04-23"): {"reasoning_effort": "medium"},
 }
 
 
@@ -942,8 +933,10 @@ def _prepare_litellm_request_kwargs(
     custom_llm_provider = _litellm_provider_name(provider_key, provider_params)
     stages = [
         _litellm_minimum_thinking_params(model_id, custom_llm_provider),
-        _LITELLM_198_COMPATIBILITY_PATCHES.get((provider_key, None), {}),
-        _LITELLM_198_COMPATIBILITY_PATCHES.get((provider_key, model_id.casefold()), {}),
+        _LITELLM_1102_COMPATIBILITY_PATCHES.get((provider_key, None), {}),
+        _LITELLM_1102_COMPATIBILITY_PATCHES.get(
+            (provider_key, model_id.casefold()), {}
+        ),
     ]
     primary = None
     policy_params: dict[str, object] = {}

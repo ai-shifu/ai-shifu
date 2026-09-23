@@ -1368,7 +1368,7 @@ def test_zai_patch_keeps_thinking_in_extra_body(monkeypatch: object) -> None:
     )
     assert {
         model_id
-        for provider, model_id in llm._LITELLM_198_COMPATIBILITY_PATCHES
+        for provider, model_id in llm._LITELLM_1102_COMPATIBILITY_PATCHES
         if provider == "glm" and model_id is not None
     } == {model_id.casefold() for model_id in patched_model_ids}
 
@@ -1485,16 +1485,20 @@ def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
 
     assert prepared["reasoning_effort"] == "low"
     assert prepared["temperature"] == 0.3
+    assert (
+        "additional_drop_params"
+        not in llm._LITELLM_1102_COMPATIBILITY_PATCHES[
+            ("qwen", str(model_id).casefold())
+        ]
+    )
     assert prepared["allowed_openai_params"] == [
         "response_format",
         "reasoning_effort",
     ]
-    assert prepared["additional_drop_params"][:4] == [
-        "caller_only",
-        "enable_thinking",
-        "reasoning",
-        "thinking",
-    ]
+    assert prepared["additional_drop_params"][0] == "caller_only"
+    assert prepared["additional_drop_params"].count("enable_thinking") == 1
+    assert "reasoning" in prepared["additional_drop_params"]
+    assert "thinking" in prepared["additional_drop_params"]
     assert "extra_body.reasoning_effort" in prepared["additional_drop_params"]
     assert prepared["extra_body"]["custom_field"] == "keep"
     assert "drop_params" not in prepared
@@ -1568,9 +1572,10 @@ def test_gemini_exact_minimum_patches(
     assert prepared["reasoning_effort"] == expected_effort
     assert ("temperature" in prepared) is expects_temperature
     if str(model_id).lower() == "gemini-3.8-flash":
-        assert prepared["allowed_openai_params"] == ["reasoning_effort"]
-    else:
-        assert "allowed_openai_params" not in prepared
+        assert llm._LITELLM_1102_COMPATIBILITY_PATCHES[
+            ("gemini", "gemini-3.8-flash")
+        ] == {"reasoning_effort": "low"}
+    assert "allowed_openai_params" not in prepared
 
 
 @pytest.mark.parametrize(
@@ -1582,11 +1587,9 @@ def test_gemini_exact_minimum_patches(
         ("gpt-5.2-pro-2025-12-11", "medium"),
         ("gpt-5.4-pro", "medium"),
         ("gpt-5.4-pro-2026-03-05", "medium"),
-        ("gpt-5.5-pro", "medium"),
-        ("gpt-5.5-pro-2026-04-23", "medium"),
     ],
 )
-def test_openai_pro_patches_correct_litellm_198_metadata(
+def test_openai_pro_patches_correct_litellm_1102_metadata(
     monkeypatch: object, model_id: object, expected_effort: object
 ) -> None:
     monkeypatch.setattr(
@@ -1603,6 +1606,34 @@ def test_openai_pro_patches_correct_litellm_198_metadata(
     )
 
     assert prepared["reasoning_effort"] == expected_effort
+    assert "temperature" not in prepared
+
+
+@pytest.mark.parametrize("model_id", ["gpt-5.5-pro", "gpt-5.5-pro-2026-04-23"])
+def test_openai_55_pro_uses_native_minimum_without_patch(
+    monkeypatch: pytest.MonkeyPatch, model_id: str
+) -> None:
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_supported_openai_params",
+        lambda **_kwargs: ["reasoning_effort"],
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_model_info",
+        lambda **_kwargs: {
+            "supports_none_reasoning_effort": False,
+            "supports_minimal_reasoning_effort": False,
+            "supports_low_reasoning_effort": False,
+        },
+    )
+
+    prepared = llm._prepare_litellm_request_kwargs(
+        "openai", model_id, {"custom_llm_provider": "openai"}, {}
+    )
+
+    assert ("openai", model_id) not in llm._LITELLM_1102_COMPATIBILITY_PATCHES
+    assert prepared["reasoning_effort"] == "medium"
     assert "temperature" not in prepared
 
 
@@ -1627,7 +1658,7 @@ def test_explicit_temperature_is_preserved_for_strict_provider_validation(
     assert "drop_params" not in prepared
 
 
-LITELLM_CONTRACT_VERSION = "1.98.0"
+LITELLM_CONTRACT_VERSION = "1.102.0"
 
 
 def _installed_litellm_version() -> str | None:
@@ -1638,15 +1669,11 @@ def _installed_litellm_version() -> str | None:
 
 
 @pytest.mark.skipif(
-    _installed_litellm_version() != LITELLM_CONTRACT_VERSION,
-    reason=(
-        "contract test targets litellm=="
-        f"{LITELLM_CONTRACT_VERSION}, found "
-        f"{_installed_litellm_version() or 'no litellm distribution'}; "
-        "install requirements.txt to run it"
-    ),
+    _installed_litellm_version() is None,
+    reason="install requirements.txt to run the native LiteLLM adapter contract",
 )
-def test_litellm_198_native_adapter_contracts() -> None:
+def test_litellm_1102_native_adapter_contracts() -> None:
+    assert _installed_litellm_version() == LITELLM_CONTRACT_VERSION
     script = textwrap.dedent(
         """
         import copy
@@ -1781,6 +1808,20 @@ def test_litellm_198_native_adapter_contracts() -> None:
                 return type(exc).__name__
             return None
 
+        def native_reasoning_capabilities(provider, model):
+            supported = litellm.get_supported_openai_params(
+                model=model, custom_llm_provider=provider
+            )
+            model_info = litellm.get_model_info(
+                model=model, custom_llm_provider=provider
+            )
+            return {
+                "supports_reasoning_effort": "reasoning_effort" in (supported or []),
+                "supports_none": model_info.get("supports_none_reasoning_effort"),
+                "supports_minimal": model_info.get("supports_minimal_reasoning_effort"),
+                "supports_low": model_info.get("supports_low_reasoning_effort"),
+            }
+
         def prepared(provider_key, provider, model, kwargs=None):
             return app_llm._prepare_litellm_request_kwargs(
                 provider_key,
@@ -1908,7 +1949,7 @@ def test_litellm_198_native_adapter_contracts() -> None:
                     {"response_format": {"type": "json_object"}},
                 ),
             ),
-            "zai_198_supported_params": {
+            "zai_supported_params": {
                 model: litellm.get_supported_openai_params(
                     model=model,
                     custom_llm_provider="zai",
@@ -1982,7 +2023,12 @@ def test_litellm_198_native_adapter_contracts() -> None:
                     "gpt-5.2-pro",
                     "gpt-5.4-pro",
                     "gpt-5.5-pro",
+                    "gpt-5.5-pro-2026-04-23",
                 )
+            },
+            "openai_55_native_capabilities": {
+                model: native_reasoning_capabilities("openai", model)
+                for model in ("gpt-5.5-pro", "gpt-5.5-pro-2026-04-23")
             },
             "openai_responses_reasoning_conflict": (
                 openai_responses_reasoning_contract()
@@ -2020,7 +2066,7 @@ def test_litellm_198_native_adapter_contracts() -> None:
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     contracts = json.loads(completed.stdout.strip().splitlines()[-1])
-    assert contracts["version"] == "1.98.0"
+    assert contracts["version"] == LITELLM_CONTRACT_VERSION
 
     expected_urls = {
         "deepseek": "https://api.deepseek.com/chat/completions",
@@ -2067,9 +2113,9 @@ def test_litellm_198_native_adapter_contracts() -> None:
     assert contracts["zai_native_thinking"]["body"]["thinking"] == {"type": "disabled"}
     assert "thinking" not in contracts["zai_legacy"]["body"]
     assert contracts["zai_legacy"]["body"]["response_format"] == {"type": "json_object"}
-    assert "thinking" not in contracts["zai_198_supported_params"]["glm-4.5"]
-    assert "thinking" in contracts["zai_198_supported_params"]["glm-4.6"]
-    assert "thinking" not in contracts["zai_198_supported_params"]["glm-5.2"]
+    assert "thinking" not in contracts["zai_supported_params"]["glm-4.5"]
+    assert "thinking" in contracts["zai_supported_params"]["glm-4.6"]
+    assert "thinking" in contracts["zai_supported_params"]["glm-5.2"]
 
     assert contracts["gemini_3"]["thinkingConfig"] == {
         "thinkingLevel": "minimal",
@@ -2110,6 +2156,16 @@ def test_litellm_198_native_adapter_contracts() -> None:
         "gpt-5.2-pro": "medium",
         "gpt-5.4-pro": "medium",
         "gpt-5.5-pro": "medium",
+        "gpt-5.5-pro-2026-04-23": "medium",
+    }
+    assert contracts["openai_55_native_capabilities"] == {
+        model: {
+            "supports_reasoning_effort": True,
+            "supports_none": False,
+            "supports_minimal": False,
+            "supports_low": False,
+        }
+        for model in ("gpt-5.5-pro", "gpt-5.5-pro-2026-04-23")
     }
     assert all(
         "temperature" not in params for params in contracts["openai_pro"].values()
