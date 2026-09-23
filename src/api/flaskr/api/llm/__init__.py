@@ -276,15 +276,15 @@ def _load_and_register_model_max_output_tokens() -> dict[str, int]:
         model: {"max_output_tokens": max_output_tokens}
         for model, max_output_tokens in limits.items()
     }
-    # LiteLLM 1.102.0 has no exact GPT-6 Sol catalogue entry. Keep this in
-    # the same registration as a configured output limit so catalogue reloads
-    # preserve both fields. The no-reasoning capability lets its adapter send
-    # our usual temperature when reasoning_effort="none".
-    model_metadata["gpt-6-sol"] = {
-        **model_metadata.get("gpt-6-sol", {}),
-        "litellm_provider": "openai",
-        "supports_none_reasoning_effort": True,
-    }
+    # LiteLLM 1.102.0 lacks exact GPT-6 Sol/Luna catalogue entries. Register
+    # their no-reasoning capability together with any configured output limit
+    # so catalogue reloads preserve both and temperature remains supported.
+    for model in ("gpt-6-sol", "gpt-6-luna"):
+        model_metadata[model] = {
+            **model_metadata.get(model, {}),
+            "litellm_provider": "openai",
+            "supports_none_reasoning_effort": True,
+        }
 
     register_model = getattr(litellm, "register_model", None)
     if not callable(register_model):
@@ -747,6 +747,7 @@ _LITELLM_1102_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, obje
     ("openai", "gpt-5.2-pro-2025-12-11"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.4-pro"): {"reasoning_effort": "medium"},
     ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
+    ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
 }
 
 
@@ -953,7 +954,10 @@ def _prepare_litellm_request_kwargs(
     policy_params = _keep_primary_thinking_control(policy_params, primary)
 
     prepared = dict(kwargs)
-    if "temperature" in prepared:
+    if provider_key == "openai" and model_id.casefold() == "gpt-6-astra":
+        # Astra's minimum reasoning level is low, which rejects temperature.
+        prepared.pop("temperature", None)
+    elif "temperature" in prepared:
         prepared["temperature"] = float(prepared["temperature"])
     elif _should_inject_default_temperature(
         provider_key, model_id, primary, policy_params

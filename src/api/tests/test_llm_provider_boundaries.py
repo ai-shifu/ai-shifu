@@ -184,6 +184,10 @@ def test_configured_output_limits_survive_missing_or_failing_litellm_registratio
                     "litellm_provider": "openai",
                     "supports_none_reasoning_effort": True,
                 },
+                "gpt-6-luna": {
+                    "litellm_provider": "openai",
+                    "supports_none_reasoning_effort": True,
+                },
             }
         )
 
@@ -200,7 +204,11 @@ def test_empty_output_limit_config_still_registers_model_capability(
             "gpt-6-sol": {
                 "litellm_provider": "openai",
                 "supports_none_reasoning_effort": True,
-            }
+            },
+            "gpt-6-luna": {
+                "litellm_provider": "openai",
+                "supports_none_reasoning_effort": True,
+            },
         }
     )
 

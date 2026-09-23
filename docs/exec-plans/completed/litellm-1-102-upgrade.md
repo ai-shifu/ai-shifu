@@ -28,6 +28,12 @@ shapes, structured output, streaming usage, and billing inputs stable.
 - [x] 2026-09-23 09:40 CST: Used the live CN and US model routing and credential
   references for six short local streaming requests. All six returned content,
   a stop finish reason, and provider usage after correcting GPT-6 Sol metadata.
+- [x] 2026-09-23 09:58 CST: Reran the complete backend suite after the Sol
+  correction; 9,190 tests passed, 107 skipped, and 50 subtests passed.
+- [x] 2026-09-23 10:02 CST: Integrated the new `main` GPT-6 reasoning policy;
+  kept Astra's required `low` setting, added Luna's missing capability, and
+  verified Astra and Luna against the live OpenAI proxy. The combined LLM
+  and provider-boundary tests passed with 184 cases.
 
 ## Surprises & Discoveries
 
@@ -61,9 +67,13 @@ shapes, structured output, streaming usage, and billing inputs stable.
   known no-reasoning capability with its OpenAI provider preserves the
   product's temperature behavior; the live proxy then accepted the request.
 - LiteLLM replays only the latest registration for a model when refreshing
-  its catalogue. GPT-6 Sol's capability and any configured output limit must
+  its catalogue. GPT-6 Sol/Luna capabilities and any configured output limit must
   therefore be registered in one entry. This sparse entry does not provide a
   LiteLLM price; application credit charges continue to use database rates.
+- `main` added GPT-6 reasoning settings while this PR was under review.
+  LiteLLM 1.102.0 handles the standard reasoning parameter for all three
+  models. Astra still needs an exact `low` setting and temperature removal;
+  Sol and Luna need model capability registration to retain course temperature.
 - This Mac's SOCKS proxy required `httpx[socks]` in the isolated test
   environment for real provider calls. No production dependency changed.
 
@@ -79,8 +89,10 @@ shapes, structured output, streaming usage, and billing inputs stable.
 - Remove the two GPT-5.5 Pro exact rows, Gemini 3.8's `allowed_openai_params`,
   and the four GLM-5.3 `additional_drop_params` fields. Rename the remaining
   version-labelled table to reflect 1.102.0.
-- Register the missing GPT-6 Sol capability in LiteLLM's local model map so
-  default and explicit course temperatures keep working with no reasoning.
+- Register the missing GPT-6 Sol/Luna capabilities in LiteLLM's local model
+  map so default and explicit course temperatures keep working with no reasoning.
+- Keep only Astra's exact GPT-6 request patch; remove its redundant parameter
+  allowlist and the Sol/Luna request patches now covered by LiteLLM 1.102.0.
 
 ## Outcomes & Retrospective
 
@@ -90,16 +102,19 @@ removed. All other compatibility entries remain because isolated SDK and
 mock-transport comparisons showed changed wire output or adapter errors when
 they were absent. The native adapter contract now runs at the new pin and
 checks GPT-5.5 Pro's native capability metadata, ZAI's updated capability,
-and GPT-6 Sol's no-reasoning request with the ordinary temperature.
+and GPT-6 request handling with the ordinary and course temperatures.
 
-The full backend suite passed with 9,187 tests, 107 skips, and 50 passing
-subtests. Focused code-format, architecture-boundary, dependency-resolution,
+The initial full backend suite passed with 9,187 tests; after the Sol fix, the
+full rerun passed with 9,190 tests, 107 skips, and 50 passing subtests. The
+subsequent `main` integration passed 184 focused LLM and provider-boundary
+tests. Focused code-format, architecture-boundary, dependency-resolution,
 development-tool, repository-harness, and adjusted all-files pre-commit checks
 also passed. Simulated adapter requests cannot prove live provider behavior,
 so the three live CN and three live US model routes were also exercised from
 the local Python environment with short streaming calls. Each returned
 content, a stop finish reason, and prompt/completion token usage. Deployment
-should retain its ordinary rollout checks.
+should retain its ordinary rollout checks. Astra and Luna were also verified
+after their concurrent `main` policy was merged.
 
 ## Context and Orientation
 
