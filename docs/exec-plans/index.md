@@ -70,6 +70,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Learner Profile Dialog](./completed/learner-profile-dialog-redesign.md)
 - [Learner Profile Foundation](./completed/learner-profile-foundation.md)
 - [Recover legacy Stripe billing timeouts](./completed/legacy-stripe-billing-timeout-recovery.md)
+- [Upgrade LiteLLM to 1.102.0 and retire covered compatibility patches](./completed/litellm-1-102-upgrade.md)
 - [LiteLLM-First Minimum-Thinking Parameters](./completed/llm-provider-parameter-policies.md)
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)
