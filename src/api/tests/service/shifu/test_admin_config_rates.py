@@ -321,7 +321,7 @@ def test_update_db_only_llm_alias_only_supersedes_explicit_alias(
         db.session.commit()
 
 
-def test_update_new_llm_rate_uses_model_one_metric_ratios(
+def test_update_new_llm_rate_uses_app_model_one_metric_ratios(
     monkeypatch: object, app: object
 ) -> None:
     def config_getter(key: object, default: object = None) -> object:
@@ -336,7 +336,16 @@ def test_update_new_llm_rate_uses_model_one_metric_ratios(
         return provider, [actual_model, model]
 
     monkeypatch.setattr(config_rates, "get_config", config_getter)
-    monkeypatch.setattr(model_selection, "get_config", config_getter)
+    monkeypatch.setitem(app.config, "LLM_MODEL_1_ID", "qwen/deepseek-v4-flash")
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: (
+            "qwen/process-default"
+            if key == "LLM_MODEL_1_ID"
+            else config_getter(key, default)
+        ),
+    )
     monkeypatch.setattr(credit_rate_references, "get_config", config_getter)
     monkeypatch.setattr(config_rates, "_resolve_llm_rate_identity", resolve_identity)
     monkeypatch.setattr(rate_references, "resolve_llm_rate_identity", resolve_identity)
@@ -354,6 +363,29 @@ def test_update_new_llm_rate_uses_model_one_metric_ratios(
     with app.app_context():
         db.session.query(CreditUsageRate).delete()
         _seed_default_llm_rates()
+        db.session.add_all(
+            [
+                _credit_rate(
+                    rate_bid="process-input",
+                    model="process-default",
+                    metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    credits_per_unit="2",
+                ),
+                _credit_rate(
+                    rate_bid="process-cache",
+                    model="process-default",
+                    metric=BILLING_METRIC_LLM_CACHE_TOKENS,
+                    credits_per_unit="1",
+                ),
+                _credit_rate(
+                    rate_bid="process-output",
+                    model="process-default",
+                    metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+                    credits_per_unit="4",
+                ),
+            ]
+        )
+        db.session.commit()
 
         config_rates.update_operator_rate_config(
             app,
