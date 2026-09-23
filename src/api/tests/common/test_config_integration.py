@@ -159,7 +159,6 @@ class TestConfigurationValidation:
             "ERNIE_API_KEY",
             "ARK_API_KEY",
             "SILICON_API_KEY",
-            "GLM_API_KEY",
             "GEMINI_API_KEY",
             "DEEPSEEK_API_KEY",
             "QWEN_API_KEY",

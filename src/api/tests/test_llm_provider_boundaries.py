@@ -1,12 +1,14 @@
 """Verify LLM discovery degradation, numbered model isolation and gateway limits."""
 
 import asyncio
+import os
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from flaskr.api import llm
 from flaskr.api.llm import model_selection
+from flaskr.common.config import ENV_VARS, EnhancedConfig, EnvironmentConfigError
 from flaskr.service.common.models import ERROR_CODE, AppError
 
 pytestmark = pytest.mark.no_mock_llm
@@ -64,6 +66,46 @@ def test_missing_api_key_disables_provider_without_discovery(
     )
     assert llm.MODEL_ALIAS_MAP == {}
     fetch.assert_not_called()
+
+
+@pytest.mark.parametrize("key_name", ["BIGMODEL_API_KEY", "GLM_API_KEY"])
+def test_bigmodel_startup_validation_matches_provider_credentials(
+    monkeypatch: pytest.MonkeyPatch, key_name: str
+) -> None:
+    """Only the credential actually used by GLM may satisfy startup validation."""
+    environment = {
+        "SQLALCHEMY_DATABASE_URI": "sqlite://",
+        "SECRET_KEY": "test-secret",
+        "UNIVERSAL_VERIFICATION_CODE": "123456",
+        "LLM_MODEL_1_ID": "glm/glm-4",
+        key_name: "test-provider-key",
+    }
+    with patch.dict(os.environ, environment, clear=True):
+        settings = EnhancedConfig(ENV_VARS)
+        monkeypatch.setattr(llm, "get_config", settings.get)
+        fetch = Mock(return_value=["glm-4"])
+        monkeypatch.setattr(llm, "_fetch_provider_models", fetch)
+        provider = next(
+            item for item in llm.LITELLM_PROVIDER_CONFIGS if item.key == "glm"
+        )
+
+        if key_name == "BIGMODEL_API_KEY":
+            settings.validate_environment()
+            state = llm._init_litellm_provider(provider)
+            assert state.enabled
+            assert state.params["api_key"] == environment[key_name]
+            assert state.models == ["glm/glm-4"]
+            fetch.assert_called_once_with(
+                environment[key_name], provider.default_base_url
+            )
+        else:
+            with pytest.raises(
+                EnvironmentConfigError,
+                match="At least one LLM API key must be configured",
+            ):
+                settings.validate_environment()
+            assert not llm._init_litellm_provider(provider).enabled
+            fetch.assert_not_called()
 
 
 def test_provider_discovery_filters_duplicates_and_registers_alias_routes(
