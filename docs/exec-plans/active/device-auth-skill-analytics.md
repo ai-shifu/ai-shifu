@@ -4,9 +4,9 @@
 
 Extend the existing browser device-authorization funnel so product reports can
 compare prompt exposure, approval, and denial by the Skill host platform,
-Skill identity, and Skill version that initiated the handoff. The durable
-database attribution introduced by the prerequisite Skill-platform PR remains
-the source of truth; Umami is a best-effort aggregate view only.
+Skill identity, and Skill version that initiated the handoff. The prerequisite
+PR retains this context only in the expiring Redis device session; Umami is the
+only analytics destination and remains best effort.
 
 ### device authorization Skill dimensions
 
@@ -72,8 +72,9 @@ Umami.
 
 - Main already contains a privacy-reviewed authorization funnel, so this work
   extends its payload instead of adding duplicate event names.
-- The prerequisite backend stores `handoff_id`, but the browser and Umami do
-  not need it. The public response must therefore project a strict subset.
+- The prerequisite backend keeps `handoff_id` only in the expiring device
+  session. The browser and Umami do not need it, so the public response must
+  project a strict subset.
 - The public authorization endpoint also accepts a Skill version. A length cap
   does not make that caller-owned string safe for analytics, so the producer
   must emit only a fixed semantic-version major bucket.
@@ -87,8 +88,8 @@ Umami.
   baseline group makes denominators and dashboards deterministic without
   inventing a dynamic source value.
 - Decision: do not emit `handoff_id`. Rationale: aggregate funnel analysis does
-  not require row-level correlation, and the handoff ID is pseudonymous
-  workflow identity that should remain in the authoritative database.
+  not require row-level correlation, and the request UUID expires with the
+  device session rather than becoming an analytics or business record.
 - Decision: emit `skill_version_major`, never raw `skill_version`. Rationale:
   `v0` through `v9`, `unknown`, and `unattributed` are a useful low-cardinality
   rollout dimension and cannot carry an email, token fragment, or free text.
