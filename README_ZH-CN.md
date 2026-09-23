@@ -77,7 +77,7 @@ cd ai-shifu/docker
 cp .env.example.full .env
 
 # 编辑 .env，必须同时配置服务商密钥和 1 号模型 ID：
-# - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
+# - OPENAI_API_KEY / ERNIE_API_KEY / BIGMODEL_API_KEY / ...
 # - LLM_MODEL_1_NAME：可选的显示名称；留空时显示该编号配置的模型 ID
 # - LLM_MODEL_1_ID：已配置的文本模型 ID，没有默认值
 # - SQLALCHEMY_DATABASE_URI：默认指向 docker 中的 MySQL 服务

@@ -76,7 +76,7 @@ cd ai-shifu/docker
 cp .env.example.full .env
 
 # Edit .env: a provider key and the model 1 binding are required:
-# - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
+# - OPENAI_API_KEY / ERNIE_API_KEY / BIGMODEL_API_KEY / ...
 # - LLM_MODEL_1_NAME: optional display name; blank uses the configured model ID
 # - LLM_MODEL_1_ID: a configured text model ID (no default)
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service

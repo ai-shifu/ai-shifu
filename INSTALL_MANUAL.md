@@ -59,7 +59,11 @@ Copy the full environment template (already aligned with the Docker defaults):
 cp docker/.env.example.full docker/.env
 ```
 
-For Docker-based workflows, configure at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY` or `GLM_API_KEY`) and set `LLM_MODEL_1_ID` to a text model ID available through that provider. `LLM_MODEL_1_NAME` is optional; omit it or leave it blank to display the configured model ID. The template intentionally leaves both values empty, but only the ID is required. Database defaults match the bundled services; review security settings before production use.
+For Docker-based workflows, configure at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY` or `BIGMODEL_API_KEY`) and set `LLM_MODEL_1_ID` to a text model ID available through that provider. `LLM_MODEL_1_NAME` is optional; omit it or leave it blank to display the configured model ID. The template intentionally leaves both values empty, but only the ID is required. Database defaults match the bundled services; review security settings before production use.
+
+For Zhipu GLM models, use `BIGMODEL_API_KEY`. If an older setup uses
+`GLM_API_KEY`, rename it to `BIGMODEL_API_KEY`; the GLM provider does not read
+`GLM_API_KEY`.
 
 ### Step 3: Configure Environment Variables
 
