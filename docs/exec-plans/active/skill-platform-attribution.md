@@ -52,9 +52,10 @@ are deliberately excluded until the third rollout PR.
 
 ## Decision Log
 
-- Decision: use `host_platform` values `workbuddy`, `doubao`, `lobster`,
-  `codex`, and `direct` as an explicit backend allowlist. Rationale: readable,
-  stable reporting dimensions are safer than numeric or caller-defined values.
+- Decision: use `host_platform` values `workbuddy`, `doubao`, `qclaw`,
+  `lobster`, `codex`, and `direct` as an explicit backend allowlist. Rationale:
+  readable, stable reporting dimensions are safer than numeric or
+  caller-defined values, and QClaw has its own independently built package.
 - Decision: the Skill identity is the existing `SKILL.md` `name`, and its
   version is the existing `version`; the producer supplies both. Rationale:
   do not duplicate identity fields in every channel package.
