@@ -41,6 +41,7 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
     VariableUpdateDTO,
 )
+from markdown_flow.escaping import escape_interaction_text
 
 if TYPE_CHECKING:
     from flaskr.service.learn.agent.engine.events import Event
@@ -79,10 +80,15 @@ def _render_option(option: Option) -> str:
 
     The value is written whenever the spec carries one, including an empty string: `stored` on the
     spec returns exactly that, so omitting it would silently store the display instead.
+
+    Both halves are escaped, because the model writes them and a question about URLs will contain
+    the separator that divides them.
     """
+    display = escape_interaction_text(option.display)
     if option.value is None:
-        return option.display
-    return f"{option.display}{_DISPLAY_VALUE_SEPARATOR}{option.value}"
+        return display
+    value = escape_interaction_text(option.value)
+    return f"{display}{_DISPLAY_VALUE_SEPARATOR}{value}"
 
 
 def _compose(spec: InteractionSpec) -> str:
@@ -93,7 +99,8 @@ def _compose(spec: InteractionSpec) -> str:
     )
     parts = [_render_option(option) for option in spec.options]
     if spec.type in _FREE_TEXT_TYPES:
-        parts.append(f"{_FREE_TEXT_MARKER}{spec.placeholder or ''}")
+        placeholder = escape_interaction_text(spec.placeholder or "")
+        parts.append(f"{_FREE_TEXT_MARKER}{placeholder}")
 
     prefix = f"%{{{{{spec.variable}}}}} " if spec.variable else ""
     return f"?[{prefix}{separator.join(parts)}]"
