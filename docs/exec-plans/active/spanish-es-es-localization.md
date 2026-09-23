@@ -23,6 +23,7 @@ Add `es-ES` as a complete selectable product language. A learner or teacher who 
 
 - 2026-09-24: Add Spain Spanish as the single requested locale. Do not add Latin American variants in this change.
 - 2026-09-24: Preserve existing translation keys, ICU argument names, markup, technical identifiers, and course data. Translate user-facing values from Chinese with usage context.
+- 2026-09-24: The user deferred the formal `markdown-flow-ui@0.2.28` release. Keep the AI-Shifu feature branch on the validated development package and do not open a PR to `main` until a stable package is published and pinned.
 
 ## Outcomes & Retrospective
 
