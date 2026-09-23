@@ -34,6 +34,9 @@ shapes, structured output, streaming usage, and billing inputs stable.
   kept Astra's required `low` setting, added Luna's missing capability, and
   verified Astra and Luna against the live OpenAI proxy. The combined LLM
   and provider-boundary tests passed with 184 cases.
+- [x] 2026-09-23 11:39 CST: Rechecked all three remaining Gemini reasoning
+  patches with and without each row against the live Gemini endpoint. The
+  unpatched calls failed with HTTP 400; the patched calls streamed successfully.
 
 ## Surprises & Discoveries
 
@@ -48,7 +51,11 @@ shapes, structured output, streaming usage, and billing inputs stable.
   GPT-5.5 Pro and its dated ID. The shared capability path therefore chooses
   `medium` without an exact-model patch.
 - Gemini 3.8 Flash accepts `reasoning_effort=low` natively, so its allowlist
-  field is redundant, while the explicit `low` setting remains necessary.
+  field is redundant. The three explicit Gemini levels remain necessary:
+  without the rows, LiteLLM maps the generic `none` fallback to unsupported
+  `thinkingLevel=minimal` for Gemini 3.7/3.8 Flash and invalid
+  `thinkingBudget=0` for Gemini 2.5 Pro. All three live unpatched calls returned
+  HTTP 400; the existing `low`, `low`, and `minimal` rows passed.
 - The common conflict-path generator already drops caller `enable_thinking`
   for the four DashScope GLM-5.3 IDs. Their exact patches still need `low` and
   the allowed parameter entry, but no duplicate drop list.

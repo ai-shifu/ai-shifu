@@ -2044,10 +2044,20 @@ def test_litellm_1102_native_adapter_contracts() -> None:
                 custom_llm_provider="gemini",
                 **prepared("gemini", "gemini", "gemini-3.8-flash"),
             ),
+            "unpatched_gemini_38_flash": litellm.get_optional_params(
+                model="gemini-3.8-flash",
+                custom_llm_provider="gemini",
+                reasoning_effort="none",
+            ),
             "gemini_25_pro": litellm.get_optional_params(
                 model="gemini-2.5-pro",
                 custom_llm_provider="gemini",
                 **prepared("gemini", "gemini", "gemini-2.5-pro"),
+            ),
+            "unpatched_gemini_25_pro": litellm.get_optional_params(
+                model="gemini-2.5-pro",
+                custom_llm_provider="gemini",
+                reasoning_effort="none",
             ),
             "gemini_25_flash": litellm.get_optional_params(
                 model="gemini-2.5-flash",
@@ -2217,6 +2227,10 @@ def test_litellm_1102_native_adapter_contracts() -> None:
         "thinkingLevel": "low",
         "includeThoughts": True,
     }
+    assert contracts["unpatched_gemini_38_flash"]["thinkingConfig"] == {
+        "thinkingLevel": "minimal",
+        "includeThoughts": False,
+    }
     assert contracts["unpatched_gemini_37_flash"]["thinkingConfig"] == {
         "thinkingLevel": "minimal",
         "includeThoughts": False,
@@ -2224,6 +2238,10 @@ def test_litellm_1102_native_adapter_contracts() -> None:
     assert contracts["gemini_25_pro"]["thinkingConfig"] == {
         "thinkingBudget": 128,
         "includeThoughts": True,
+    }
+    assert contracts["unpatched_gemini_25_pro"]["thinkingConfig"] == {
+        "thinkingBudget": 0,
+        "includeThoughts": False,
     }
     assert contracts["gemini_25_flash"]["thinkingConfig"] == {
         "thinkingBudget": 0,
