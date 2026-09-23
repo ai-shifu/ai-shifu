@@ -47,6 +47,7 @@ from .interaction import InteractionAnswer, InteractionSpec, InteractionType, Op
 from .memory import InMemoryMemoryStore, MemoryStore
 from .script import (
     ScriptBundle,
+    collected_names,
     detect_v1_syntax,
     render_first_prompt,
     substitute_variables,
@@ -60,7 +61,7 @@ from .session import (
     SQLiteSessionStore,
 )
 
-__version__ = "0.1.0"
+__version__ = "2.3.3"
 
 __all__ = [
     "ContentDelta",
@@ -99,6 +100,7 @@ __all__ = [
     "TurnDone",
     "TurnInput",
     "Visual",
+    "collected_names",
     "detect_v1_syntax",
     "parse_event",
     "plain_narration",

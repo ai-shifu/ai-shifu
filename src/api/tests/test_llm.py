@@ -979,6 +979,7 @@ def test_load_and_register_model_max_output_tokens(monkeypatch: object) -> None:
     configured = {
         "qwen/deepseek-v4-flash": 393216,
         "ark/doubao-seed-2-0-lite-260428": 131072,
+        "gpt-6-sol": 65536,
     }
     captured = {}
 
@@ -1002,12 +1003,22 @@ def test_load_and_register_model_max_output_tokens(monkeypatch: object) -> None:
     assert captured == {
         "qwen/deepseek-v4-flash": {"max_output_tokens": 393216},
         "ark/doubao-seed-2-0-lite-260428": {"max_output_tokens": 131072},
+        "gpt-6-sol": {
+            "max_output_tokens": 65536,
+            "litellm_provider": "openai",
+            "supports_none_reasoning_effort": True,
+        },
+        "gpt-6-luna": {
+            "litellm_provider": "openai",
+            "supports_none_reasoning_effort": True,
+        },
     }
 
 
 def test_load_model_max_output_tokens_ignores_invalid_config(
     monkeypatch: object,
 ) -> None:
+    captured = {}
     monkeypatch.setattr(
         llm,
         "get_config",
@@ -1018,11 +1029,21 @@ def test_load_model_max_output_tokens_ignores_invalid_config(
     monkeypatch.setattr(
         llm.litellm,
         "register_model",
-        lambda _model_map: pytest.fail("invalid limits must not be registered"),
+        captured.update,
         raising=False,
     )
 
     assert llm._load_and_register_model_max_output_tokens() == {}
+    assert captured == {
+        "gpt-6-sol": {
+            "litellm_provider": "openai",
+            "supports_none_reasoning_effort": True,
+        },
+        "gpt-6-luna": {
+            "litellm_provider": "openai",
+            "supports_none_reasoning_effort": True,
+        },
+    }
 
 
 def test_stream_litellm_completion_falls_back_to_litellm_limit(
@@ -1368,7 +1389,7 @@ def test_zai_patch_keeps_thinking_in_extra_body(monkeypatch: object) -> None:
     )
     assert {
         model_id
-        for provider, model_id in llm._LITELLM_198_COMPATIBILITY_PATCHES
+        for provider, model_id in llm._LITELLM_1102_COMPATIBILITY_PATCHES
         if provider == "glm" and model_id is not None
     } == {model_id.casefold() for model_id in patched_model_ids}
 
@@ -1485,16 +1506,20 @@ def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
 
     assert prepared["reasoning_effort"] == "low"
     assert prepared["temperature"] == 0.3
+    assert (
+        "additional_drop_params"
+        not in llm._LITELLM_1102_COMPATIBILITY_PATCHES[
+            ("qwen", str(model_id).casefold())
+        ]
+    )
     assert prepared["allowed_openai_params"] == [
         "response_format",
         "reasoning_effort",
     ]
-    assert prepared["additional_drop_params"][:4] == [
-        "caller_only",
-        "enable_thinking",
-        "reasoning",
-        "thinking",
-    ]
+    assert prepared["additional_drop_params"][0] == "caller_only"
+    assert prepared["additional_drop_params"].count("enable_thinking") == 1
+    assert "reasoning" in prepared["additional_drop_params"]
+    assert "thinking" in prepared["additional_drop_params"]
     assert "extra_body.reasoning_effort" in prepared["additional_drop_params"]
     assert prepared["extra_body"]["custom_field"] == "keep"
     assert "drop_params" not in prepared
@@ -1568,9 +1593,10 @@ def test_gemini_exact_minimum_patches(
     assert prepared["reasoning_effort"] == expected_effort
     assert ("temperature" in prepared) is expects_temperature
     if str(model_id).lower() == "gemini-3.8-flash":
-        assert prepared["allowed_openai_params"] == ["reasoning_effort"]
-    else:
-        assert "allowed_openai_params" not in prepared
+        assert llm._LITELLM_1102_COMPATIBILITY_PATCHES[
+            ("gemini", "gemini-3.8-flash")
+        ] == {"reasoning_effort": "low"}
+    assert "allowed_openai_params" not in prepared
 
 
 @pytest.mark.parametrize(
@@ -1582,11 +1608,9 @@ def test_gemini_exact_minimum_patches(
         ("gpt-5.2-pro-2025-12-11", "medium"),
         ("gpt-5.4-pro", "medium"),
         ("gpt-5.4-pro-2026-03-05", "medium"),
-        ("gpt-5.5-pro", "medium"),
-        ("gpt-5.5-pro-2026-04-23", "medium"),
     ],
 )
-def test_openai_pro_patches_correct_litellm_198_metadata(
+def test_openai_pro_patches_correct_litellm_1102_metadata(
     monkeypatch: object, model_id: object, expected_effort: object
 ) -> None:
     monkeypatch.setattr(
@@ -1603,6 +1627,34 @@ def test_openai_pro_patches_correct_litellm_198_metadata(
     )
 
     assert prepared["reasoning_effort"] == expected_effort
+    assert "temperature" not in prepared
+
+
+@pytest.mark.parametrize("model_id", ["gpt-5.5-pro", "gpt-5.5-pro-2026-04-23"])
+def test_openai_55_pro_uses_native_minimum_without_patch(
+    monkeypatch: pytest.MonkeyPatch, model_id: str
+) -> None:
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_supported_openai_params",
+        lambda **_kwargs: ["reasoning_effort"],
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_model_info",
+        lambda **_kwargs: {
+            "supports_none_reasoning_effort": False,
+            "supports_minimal_reasoning_effort": False,
+            "supports_low_reasoning_effort": False,
+        },
+    )
+
+    prepared = llm._prepare_litellm_request_kwargs(
+        "openai", model_id, {"custom_llm_provider": "openai"}, {}
+    )
+
+    assert ("openai", model_id) not in llm._LITELLM_1102_COMPATIBILITY_PATCHES
+    assert prepared["reasoning_effort"] == "medium"
     assert "temperature" not in prepared
 
 
@@ -1636,7 +1688,7 @@ def test_explicit_temperature_is_preserved_for_strict_provider_validation(
     ],
 )
 @pytest.mark.parametrize("course_temperature", ["0.3", None])
-def test_gpt_6_uses_lowest_supported_reasoning_despite_missing_litellm_metadata(
+def test_gpt_6_keeps_minimum_reasoning_and_compatible_temperature(
     monkeypatch: object,
     model_id: str,
     expected_effort: str,
@@ -1646,7 +1698,7 @@ def test_gpt_6_uses_lowest_supported_reasoning_despite_missing_litellm_metadata(
     monkeypatch.setattr(
         llm,
         "_litellm_minimum_thinking_params",
-        lambda *_args, **_kwargs: {},
+        lambda *_args, **_kwargs: {"reasoning_effort": "none"},
     )
 
     prepared = llm._prepare_litellm_request_kwargs(
@@ -1662,11 +1714,19 @@ def test_gpt_6_uses_lowest_supported_reasoning_despite_missing_litellm_metadata(
 
     assert prepared["reasoning_effort"] == expected_effort
     assert prepared.get("temperature") == expected_temperature
-    assert prepared["allowed_openai_params"] == ["reasoning_effort"]
+    assert "allowed_openai_params" not in prepared
     assert prepared["stop"] == ["done"]
 
 
-LITELLM_CONTRACT_VERSION = "1.98.0"
+def test_only_gpt_6_astra_needs_an_exact_request_patch() -> None:
+    assert {
+        key: patch
+        for key, patch in llm._LITELLM_1102_COMPATIBILITY_PATCHES.items()
+        if key[0] == "openai" and key[1] and key[1].startswith("gpt-6-")
+    } == {("openai", "gpt-6-astra"): {"reasoning_effort": "low"}}
+
+
+LITELLM_CONTRACT_VERSION = "1.102.0"
 
 
 def _installed_litellm_version() -> str | None:
@@ -1677,15 +1737,11 @@ def _installed_litellm_version() -> str | None:
 
 
 @pytest.mark.skipif(
-    _installed_litellm_version() != LITELLM_CONTRACT_VERSION,
-    reason=(
-        "contract test targets litellm=="
-        f"{LITELLM_CONTRACT_VERSION}, found "
-        f"{_installed_litellm_version() or 'no litellm distribution'}; "
-        "install requirements.txt to run it"
-    ),
+    _installed_litellm_version() is None,
+    reason="install requirements.txt to run the native LiteLLM adapter contract",
 )
-def test_litellm_198_native_adapter_contracts() -> None:
+def test_litellm_1102_native_adapter_contracts() -> None:
+    assert _installed_litellm_version() == LITELLM_CONTRACT_VERSION
     script = textwrap.dedent(
         """
         import copy
@@ -1820,6 +1876,20 @@ def test_litellm_198_native_adapter_contracts() -> None:
                 return type(exc).__name__
             return None
 
+        def native_reasoning_capabilities(provider, model):
+            supported = litellm.get_supported_openai_params(
+                model=model, custom_llm_provider=provider
+            )
+            model_info = litellm.get_model_info(
+                model=model, custom_llm_provider=provider
+            )
+            return {
+                "supports_reasoning_effort": "reasoning_effort" in (supported or []),
+                "supports_none": model_info.get("supports_none_reasoning_effort"),
+                "supports_minimal": model_info.get("supports_minimal_reasoning_effort"),
+                "supports_low": model_info.get("supports_low_reasoning_effort"),
+            }
+
         def prepared(provider_key, provider, model, kwargs=None):
             return app_llm._prepare_litellm_request_kwargs(
                 provider_key,
@@ -1947,7 +2017,7 @@ def test_litellm_198_native_adapter_contracts() -> None:
                     {"response_format": {"type": "json_object"}},
                 ),
             ),
-            "zai_198_supported_params": {
+            "zai_supported_params": {
                 model: litellm.get_supported_openai_params(
                     model=model,
                     custom_llm_provider="zai",
@@ -1974,10 +2044,20 @@ def test_litellm_198_native_adapter_contracts() -> None:
                 custom_llm_provider="gemini",
                 **prepared("gemini", "gemini", "gemini-3.8-flash"),
             ),
+            "unpatched_gemini_38_flash": litellm.get_optional_params(
+                model="gemini-3.8-flash",
+                custom_llm_provider="gemini",
+                reasoning_effort="none",
+            ),
             "gemini_25_pro": litellm.get_optional_params(
                 model="gemini-2.5-pro",
                 custom_llm_provider="gemini",
                 **prepared("gemini", "gemini", "gemini-2.5-pro"),
+            ),
+            "unpatched_gemini_25_pro": litellm.get_optional_params(
+                model="gemini-2.5-pro",
+                custom_llm_provider="gemini",
+                reasoning_effort="none",
             ),
             "gemini_25_flash": litellm.get_optional_params(
                 model="gemini-2.5-flash",
@@ -2021,15 +2101,30 @@ def test_litellm_198_native_adapter_contracts() -> None:
                     "gpt-5.2-pro",
                     "gpt-5.4-pro",
                     "gpt-5.5-pro",
+                    "gpt-5.5-pro-2026-04-23",
                 )
             },
+            "openai_55_native_capabilities": {
+                model: native_reasoning_capabilities("openai", model)
+                for model in ("gpt-5.5-pro", "gpt-5.5-pro-2026-04-23")
+            },
+            "openai_6_sol": adapter_contract(
+                "openai",
+                "gpt-6-sol",
+                "https://api.openai.com/v1",
+                prepared("openai", "openai", "gpt-6-sol"),
+            ),
+            "openai_6_sol_course_temperature": adapter_contract(
+                "openai",
+                "gpt-6-sol",
+                "https://api.openai.com/v1",
+                prepared("openai", "openai", "gpt-6-sol", {"temperature": "0.4"}),
+            ),
             "gpt_6": {
                 model: litellm.get_optional_params(
                     model=model,
                     custom_llm_provider="openai",
-                    **prepared(
-                        "openai", "openai", model, {"temperature": "0.3"}
-                    ),
+                    **prepared("openai", "openai", model, {"temperature": "0.3"}),
                 )
                 for model in ("gpt-6-sol", "gpt-6-luna", "gpt-6-astra")
             },
@@ -2069,7 +2164,7 @@ def test_litellm_198_native_adapter_contracts() -> None:
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     contracts = json.loads(completed.stdout.strip().splitlines()[-1])
-    assert contracts["version"] == "1.98.0"
+    assert contracts["version"] == LITELLM_CONTRACT_VERSION
 
     expected_urls = {
         "deepseek": "https://api.deepseek.com/chat/completions",
@@ -2116,9 +2211,9 @@ def test_litellm_198_native_adapter_contracts() -> None:
     assert contracts["zai_native_thinking"]["body"]["thinking"] == {"type": "disabled"}
     assert "thinking" not in contracts["zai_legacy"]["body"]
     assert contracts["zai_legacy"]["body"]["response_format"] == {"type": "json_object"}
-    assert "thinking" not in contracts["zai_198_supported_params"]["glm-4.5"]
-    assert "thinking" in contracts["zai_198_supported_params"]["glm-4.6"]
-    assert "thinking" not in contracts["zai_198_supported_params"]["glm-5.2"]
+    assert "thinking" not in contracts["zai_supported_params"]["glm-4.5"]
+    assert "thinking" in contracts["zai_supported_params"]["glm-4.6"]
+    assert "thinking" in contracts["zai_supported_params"]["glm-5.2"]
 
     assert contracts["gemini_3"]["thinkingConfig"] == {
         "thinkingLevel": "minimal",
@@ -2132,6 +2227,10 @@ def test_litellm_198_native_adapter_contracts() -> None:
         "thinkingLevel": "low",
         "includeThoughts": True,
     }
+    assert contracts["unpatched_gemini_38_flash"]["thinkingConfig"] == {
+        "thinkingLevel": "minimal",
+        "includeThoughts": False,
+    }
     assert contracts["unpatched_gemini_37_flash"]["thinkingConfig"] == {
         "thinkingLevel": "minimal",
         "includeThoughts": False,
@@ -2139,6 +2238,10 @@ def test_litellm_198_native_adapter_contracts() -> None:
     assert contracts["gemini_25_pro"]["thinkingConfig"] == {
         "thinkingBudget": 128,
         "includeThoughts": True,
+    }
+    assert contracts["unpatched_gemini_25_pro"]["thinkingConfig"] == {
+        "thinkingBudget": 0,
+        "includeThoughts": False,
     }
     assert contracts["gemini_25_flash"]["thinkingConfig"] == {
         "thinkingBudget": 0,
@@ -2159,10 +2262,28 @@ def test_litellm_198_native_adapter_contracts() -> None:
         "gpt-5.2-pro": "medium",
         "gpt-5.4-pro": "medium",
         "gpt-5.5-pro": "medium",
+        "gpt-5.5-pro-2026-04-23": "medium",
+    }
+    assert contracts["openai_55_native_capabilities"] == {
+        model: {
+            "supports_reasoning_effort": True,
+            "supports_none": False,
+            "supports_minimal": False,
+            "supports_low": False,
+        }
+        for model in ("gpt-5.5-pro", "gpt-5.5-pro-2026-04-23")
     }
     assert all(
         "temperature" not in params for params in contracts["openai_pro"].values()
     )
+    assert contracts["openai_6_sol"]["body"]["reasoning_effort"] == "none"
+    assert contracts["openai_6_sol"]["body"]["temperature"] == 0.3
+    assert contracts["openai_6_sol"]["content"] == "Hello world"
+    assert (
+        contracts["openai_6_sol_course_temperature"]["body"]["reasoning_effort"]
+        == "none"
+    )
+    assert contracts["openai_6_sol_course_temperature"]["body"]["temperature"] == 0.4
     assert {
         model: params["reasoning_effort"]
         for model, params in contracts["gpt_6"].items()
