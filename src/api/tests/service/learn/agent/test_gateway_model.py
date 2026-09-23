@@ -403,16 +403,20 @@ async def test_the_gateway_sends_tools_but_never_forces_a_choice() -> None:
 def test_bound_lesson_usage_context_reaches_every_model_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The gateway must preserve the progress link needed for complete-course metering."""
-    captured: list[UsageContext] = []
+    """Each model call keeps the lesson link and parent HTTP request identity."""
+    captured: list[tuple[UsageContext, str]] = []
 
     def fake_chat_llm(**kwargs: object) -> Iterator[FakeChunk]:
-        captured.append(kwargs["usage_context"])
+        captured.append((kwargs["usage_context"], kwargs["request_id"]))
         yield FakeChunk(result="ok", finish_reason="stop")
 
     monkeypatch.setattr(gw, "chat_llm", fake_chat_llm)
     model = gw.GatewayModel(
-        app=None, model="test-model", user_id="learner", span=FakeSpan()
+        app=None,
+        model="test-model",
+        user_id="learner",
+        span=FakeSpan(),
+        request_id="parent-request-id",
     )
     context = UsageContext(
         user_bid="learner",
@@ -425,7 +429,7 @@ def test_bound_lesson_usage_context_reaches_every_model_request(
     messages = [ModelRequest(parts=[UserPromptPart(content="teach")])]
     list(model._stream(messages, _params()))
     list(model._stream(messages, _params()))
-    assert captured == [context, context]
+    assert captured == [(context, "parent-request-id")] * 2
 
 
 def test_agent_instructions_reach_the_model_as_the_system_message() -> None:

@@ -49,6 +49,7 @@ _BILL_USAGE_LLM = 1101
 _BILL_USAGE_PRODUCTION = 1203
 _MODEL_TEACHER = 1
 _MODEL_CONTENT = 311
+_AGENT_FEATURE_CONTRACT = "agent-2.0-author-constraints-v1"
 _MACHINE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 
 
@@ -254,7 +255,13 @@ def _verified_engine(
     if engine == "2.0":
         # Earlier 2.0 requests did not persist their progress/turn usage
         # context. A deployment audit must prove this run started after
-        # the linkage became available.
+        # the linkage became available. The same audit must identify the
+        # prompt behavior: earlier 2.0 deployments did not send inherited
+        # author constraints, so their feature vectors are incompatible.
+        _require(
+            proof.get("feature_contract") == _AGENT_FEATURE_CONTRACT,
+            "engine_unverified",
+        )
         instrumented_from = _timestamp(
             proof.get("instrumented_from"), "engine_unverified"
         )

@@ -116,7 +116,7 @@ def _build_completion_credit_estimate(
             engine=engine,
             language=language,
         )
-    except ValueError:
+    except (OSError, ValueError):
         return empty
     prediction = estimate_course_credits(
         features.as_mapping(),

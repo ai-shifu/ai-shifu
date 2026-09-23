@@ -1364,6 +1364,77 @@ def test_calibrated_completion_prediction_reaches_operator_dto(
     }
 
 
+def test_course_detail_survives_unreadable_optional_engine_prompt(
+    app: object,
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from flaskr.service.shifu.admin_operations import (
+        course_completion_credit_features,
+        courses_detail,
+    )
+
+    _mock_operator(monkeypatch)
+    artifact = tmp_path / "calibration.json"
+    artifact.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(courses_detail, "_COMPLETION_CALIBRATION_PATH", artifact)
+    monkeypatch.setattr(courses_detail, "uses_agent_engine", lambda *_: True)
+    monkeypatch.setattr(courses_detail, "detect_authored_language", lambda *_: "zh")
+    monkeypatch.setattr(
+        course_completion_credit_features,
+        "_ENGINE_PROMPTS_DIR",
+        tmp_path / "missing-engine-prompts",
+    )
+    with pytest.raises(FileNotFoundError, match="missing-engine-prompts"):
+        course_completion_credit_features._v2_system_chars("讲授内容" * 20, "")
+    monkeypatch.setattr(
+        courses_detail,
+        "load_course_completion_snapshot",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            course=SimpleNamespace(shifu_bid="course-detail", use_learner_language=0),
+            outline_items=[
+                SimpleNamespace(outline_item_bid="lesson-1", content="讲授内容" * 20)
+            ],
+            visible_leaf_outline_bids=["lesson-1"],
+        ),
+    )
+    now = datetime(2026, 4, 3, 15, 30)
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=now,
+            updated_at=now,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            position="1",
+            content="讲授内容" * 20,
+            updated_at=now,
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["completion_credit_estimate"] == {
+        "status": "uncalibrated",
+        "estimated_credits": None,
+        "recommended_credits": None,
+        "version": None,
+    }
+
+
 def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surfaces_unknown_permission(
     app: object,
     test_client: object,

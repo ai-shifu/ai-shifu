@@ -18,6 +18,7 @@ Estimate the credits for one learner to complete every visible lesson in reading
 - [x] 2026-09-23 08:32 CST: Added engine-aware feature extraction, strict historical sample screening, and gated P50/P80 calibration.
 - [x] 2026-09-23 08:32 CST: Added a separate standard-1x completion estimate object to the operator detail response, with null values until calibration qualifies.
 - [x] 2026-09-23 08:36 CST: Passed focused and service-wide tests, repository harness, architecture boundary, and frontend type checks. No authoritative ten-course training set is available locally, so calibration remains pending.
+- [x] 2026-09-23 08:55 CST: Rebased onto the new 2.0 teaching-brief behavior, counted inherited constraints, carried the originating request ID through the agent bridge, and made optional estimate failures leave course details available. Focused regression checks passed.
 
 ## Surprises & Discoveries
 
@@ -27,6 +28,7 @@ Estimate the credits for one learner to complete every visible lesson in reading
 - The active engine may be selected by deployment allowlist, so a published row's engine field alone cannot prove the historical runtime.
 - The detail page favors an unpublished draft even when a published course exists. The new estimate must instead read the exact version in the runtime's published structure and prune hidden subtrees.
 - The local development database has too few completed learning records to pass the ten-course, 100-completion release gate. A validated coefficient artifact cannot be produced from it.
+- The 2.0 agent now sends inherited teaching briefs as constraints. Historical agent runs from before that deployment cannot share its current feature contract, and metered turns need the original HTTP request ID for independent reading-mode proof.
 
 ## Decision Log
 

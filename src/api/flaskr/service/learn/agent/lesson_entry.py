@@ -17,6 +17,7 @@ from flaskr.api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
+    get_request_id,
 )
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.service.learn.agent.engine.engine import Engine
@@ -233,6 +234,10 @@ def agent_lesson_events(
         settings.model,
         user_id=user_bid,
         span=span,
+        # The model call runs on the bridge's second OS thread. Carry the
+        # originating HTTP request ID explicitly so persisted usage can be
+        # matched to independent request-mode evidence.
+        request_id=get_request_id(),
         usage_metadata=settings.usage_metadata,
         # An author previewing is not a learner taking the course; counting their turns as
         # production overstates what the course actually cost to teach.

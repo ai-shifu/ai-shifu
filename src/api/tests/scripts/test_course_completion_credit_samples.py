@@ -179,6 +179,7 @@ def _candidate() -> dict:
 def _agent_candidate() -> dict:
     candidate = _candidate()
     candidate["engine_proof"]["engine"] = "2.0"
+    candidate["engine_proof"]["feature_contract"] = "agent-2.0-author-constraints-v1"
     candidate["engine_proof"]["instrumented_from"] = "2026-09-01T00:00:00Z"
     block = candidate["generated_blocks"][0]
     block["role"] = 0
@@ -233,6 +234,10 @@ def test_agent_follow_up_cost_needs_independent_read_mode_proof() -> None:
 
 
 def test_agent_sample_excludes_unproved_instrumentation_or_mode() -> None:
+    candidate = _agent_candidate()
+    candidate["engine_proof"].pop("feature_contract")
+    assert screen_candidate(candidate).reason == "engine_unverified"
+
     candidate = _agent_candidate()
     candidate["engine_proof"].pop("instrumented_from")
     assert screen_candidate(candidate).reason == "engine_unverified"

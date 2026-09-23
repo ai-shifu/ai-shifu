@@ -184,6 +184,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         },
     )
     monkeypatch.setattr(entry, "_resolve", lambda *_a, **_kw: ("script", "", settings))
+    monkeypatch.setattr(entry, "get_request_id", lambda: "parent-request-id")
     trace, span = object(), object()
     monkeypatch.setattr(entry, "get_langfuse_client", object)
     monkeypatch.setattr(
@@ -240,6 +241,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         user_id="learner",
         span=span,
         usage_metadata=settings.usage_metadata,
+        request_id="parent-request-id",
         usage_scene=BILL_USAGE_SCENE_PREVIEW,
     )
     engine.assert_called_once_with(
@@ -269,8 +271,9 @@ def test_agent_entry_passes_opened_turn_context_to_gateway_request(
     """Trace entry -> turn progress -> gateway request without a paid provider or DB write."""
     settings = LLMSettings(model="test-model", temperature=0.2)
     monkeypatch.setattr(
-        entry, "_resolve", lambda *_args, **_kwargs: ("script", settings)
+        entry, "_resolve", lambda *_args, **_kwargs: ("script", "", settings)
     )
+    monkeypatch.setattr(entry, "get_request_id", lambda: "parent-request-id")
     monkeypatch.setattr(entry, "get_langfuse_client", object)
     monkeypatch.setattr(
         entry, "create_trace_with_root_span", lambda **_kwargs: (object(), object())
@@ -329,3 +332,4 @@ def test_agent_entry_passes_opened_turn_context_to_gateway_request(
     assert context.progress_record_bid == "progress-1"
     assert context.generated_block_bid == opened_blocks[0]
     assert context.learning_mode == learning_mode
+    assert requests[0]["request_id"] == "parent-request-id"

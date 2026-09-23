@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 
 _THOUSAND = 1000
+_V2_ANCESTOR_LIMIT = 12
 _ENGINE_PROMPTS_DIR = Path(__file__).parents[2] / "learn/agent/engine/prompts"
 _FENCE_OPEN = re.compile(r"^(`{3,}|~{3,}).*$")
 _V1_SYNTAX = re.compile(
@@ -126,9 +127,16 @@ def _selected_items(
     return [item_map[bid] for bid in selected_bids], item_map
 
 
-def _effective_prompt(item: object, item_map: dict[str, object], course: object) -> str:
+def _effective_prompt(
+    item: object,
+    item_map: dict[str, object],
+    course: object,
+    *,
+    max_ancestors: int | None = None,
+) -> str:
     visited: set[str] = set()
     current = item
+    ancestor_count = 0
     while current is not None:
         bid = str(getattr(current, "outline_item_bid", "") or "").strip()
         if bid in visited:
@@ -141,10 +149,13 @@ def _effective_prompt(item: object, item_map: dict[str, object], course: object)
         parent_bid = str(getattr(current, "parent_bid", "") or "").strip()
         if not parent_bid:
             break
+        if max_ancestors is not None and ancestor_count >= max_ancestors:
+            break
         if parent_bid not in item_map:
             message = f"missing outline ancestor: {parent_bid}"
             raise ValueError(message)
         current = item_map[parent_bid]
+        ancestor_count += 1
     prompt = str(getattr(course, "llm_system_prompt", "") or "")
     return prompt if prompt.strip() else ""
 
@@ -217,12 +228,14 @@ def _outside_fenced_code(content: str) -> str:
     return "\n".join(out)
 
 
-def _v2_system_chars(content: str) -> int:
+def _v2_system_chars(content: str, teaching_brief: str) -> int:
     # lesson_entry.Engine uses sandbox rendering, read mode, and no extra
     # instructions. Mirror Engine.compose_instructions without importing the
     # optional pydantic-ai runtime into this read-only extractor.
     parts = ["system.md", "html_display.md"]
-    if _V1_SYNTAX.search(_outside_fenced_code(content)):
+    # Engine.new_session detects 1.0 syntax in ScriptBundle.all_text(), which
+    # includes both the script and the effective teaching brief.
+    if _V1_SYNTAX.search(_outside_fenced_code(f"{content}\n{teaching_brief}")):
         parts.append("v1_syntax.md")
     return len(
         "\n\n".join(
@@ -233,16 +246,23 @@ def _v2_system_chars(content: str) -> int:
     )
 
 
-def _v2_lesson_sizes(content: str) -> tuple[int, int, int, int, int]:
+def _v2_lesson_sizes(
+    content: str, teaching_brief: str
+) -> tuple[int, int, int, int, int]:
     # The agent sends the complete script in the first user message. Explicit
     # 1.0-style interactions still matter to its compatibility instructions;
     # ordinary prose that asks a question is not a machine-countable point.
     blocks = MarkdownFlow(content).get_all_blocks()
     interactions = sum(block.block_type == BlockType.INTERACTION for block in blocks)
+    # ScriptBundle renders the inherited teaching brief as a constraints
+    # section in the first user message. It remains in conversation history,
+    # so count it alongside the fixed instructions rather than the script.
+    brief = teaching_brief.strip()
+    brief_chars = len(f"\n\n<constraints>\n{brief}\n</constraints>") if brief else 0
     return (
         len(content),
         0,
-        _v2_system_chars(content),
+        _v2_system_chars(content, brief) + brief_chars,
         int(bool(content.strip())),
         interactions,
     )
@@ -284,7 +304,12 @@ def build_course_completion_credit_features(
                 content, prompt
             )
         else:
-            dynamic, static, system, blocks, interactions = _v2_lesson_sizes(content)
+            prompt = _effective_prompt(
+                item, item_map, course, max_ancestors=_V2_ANCESTOR_LIMIT
+            )
+            dynamic, static, system, blocks, interactions = _v2_lesson_sizes(
+                content, prompt
+            )
         total_dynamic += dynamic
         total_static += static
         total_system += system

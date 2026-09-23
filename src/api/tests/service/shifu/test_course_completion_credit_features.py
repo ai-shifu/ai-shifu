@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -121,18 +122,96 @@ def test_whole_course_interactions_capture_long_vs_many_lessons() -> None:
     assert one_long.chars_system_k2 == pytest.approx(many_short.chars_system_k2)
 
 
-def test_v2_counts_full_script_and_not_unused_course_prompt() -> None:
+def test_v2_counts_full_script_and_inherited_teaching_brief() -> None:
     content = "Explain this.\n---\nAsk ?[%{{x}} A | B]\n```\n?[example]\n```"
     item = _item("lesson", content)
-    first = _features([item], ["lesson"], engine="2.0", course_prompt="short")
-    second = _features([item], ["lesson"], engine="2.0", course_prompt="a" * 10000)
+    short = _features([item], ["lesson"], engine="2.0", course_prompt="short")
+    long = _features([item], ["lesson"], engine="2.0", course_prompt="a" * 10000)
 
-    assert first == second
-    assert first.dynamic_chars_k == len(content) / 1000
-    assert first.static_chars_k == 0
-    assert first.generated_block_count == 1
-    assert first.interaction_count == 1
-    assert first.system_chars_k > 1
+    assert long.system_chars_k - short.system_chars_k == pytest.approx(
+        (10000 - len("short")) / 1000
+    )
+    assert short.dynamic_chars_k == long.dynamic_chars_k == len(content) / 1000
+    assert short.static_chars_k == 0
+    assert short.generated_block_count == 1
+    assert short.interaction_count == 1
+    assert short.system_chars_k > 1
+    assert long.chars_system_k2 > short.chars_system_k2
+    assert long.chars_blocks_k > short.chars_blocks_k
+
+
+def test_v2_teaching_brief_uses_nearest_nonempty_ancestor() -> None:
+    chapter = _item("chapter", prompt="chapter brief")
+    lesson = _item("lesson", "Teach this", parent_bid="chapter")
+    inherited = _features(
+        [chapter, lesson], ["lesson"], engine="2.0", course_prompt="course brief"
+    )
+    overridden = _features(
+        [chapter, _item("lesson", "Teach this", parent_bid="chapter", prompt="own")],
+        ["lesson"],
+        engine="2.0",
+        course_prompt="course brief",
+    )
+    no_ancestor = _features(
+        [lesson, _item("chapter")],
+        ["lesson"],
+        engine="2.0",
+        course_prompt="course brief",
+    )
+
+    assert inherited.system_chars_k - overridden.system_chars_k == pytest.approx(
+        (len("chapter brief") - len("own")) / 1000
+    )
+    assert no_ancestor.system_chars_k - overridden.system_chars_k == pytest.approx(
+        (len("course brief") - len("own")) / 1000
+    )
+
+
+def test_v2_teaching_brief_uses_runtime_ancestor_limit() -> None:
+    ancestors = [_item("a0", prompt="outside the runtime limit")]
+    ancestors.extend(
+        _item(f"a{index}", parent_bid=f"a{index - 1}") for index in range(1, 13)
+    )
+    deep_lesson = _item("lesson", "Teach this", parent_bid="a12")
+    nested = _features(
+        [*ancestors, deep_lesson],
+        ["lesson"],
+        engine="2.0",
+        course_prompt="course brief",
+    )
+    direct = _features(
+        [_item("lesson", "Teach this")],
+        ["lesson"],
+        engine="2.0",
+        course_prompt="course brief",
+    )
+    assert nested.system_chars_k == direct.system_chars_k
+
+
+def test_v2_brief_syntax_loads_compatibility_instructions() -> None:
+    plain = _features(
+        [_item("lesson", "Teach this")],
+        ["lesson"],
+        engine="2.0",
+        course_prompt="plain",
+    )
+    legacy = _features(
+        [_item("lesson", "Teach this")],
+        ["lesson"],
+        engine="2.0",
+        course_prompt="{{x}}",
+    )
+    prompts_dir = (
+        Path(__file__).resolve().parents[3]
+        / "flaskr/service/learn/agent/engine/prompts"
+    )
+    compatibility_chars = len((prompts_dir / "v1_syntax.md").read_text().strip())
+
+    # The two briefs have the same length, so the delta is the system prompt
+    # added when ScriptBundle.all_text() detects 1.0 syntax in constraints.
+    assert legacy.system_chars_k - plain.system_chars_k == pytest.approx(
+        (compatibility_chars + 2) / 1000
+    )
 
 
 @pytest.mark.parametrize(
