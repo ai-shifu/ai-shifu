@@ -2,6 +2,7 @@
 
 from flaskr.service.learn.agent.engine import (
     ScriptBundle,
+    collected_names,
     detect_v1_syntax,
     render_first_prompt,
     substitute_variables,
@@ -85,3 +86,85 @@ def test_an_indented_marker_does_not_close_a_fence() -> None:
     out = substitute_variables(text, {"name": "Ada"})
     assert out.count("{{name}}") == 1  # the one inside the block survives
     assert out.endswith("Ada\n")
+
+
+# --- a variable this lesson collects ------------------------------------------------------
+
+_ECHOES_ITS_OWN_ANSWER = (
+    "- ask the learner why they are here\n"
+    "\n"
+    "?[%{{purpose}} not sure yet | ...why are you learning AI?]\n"
+    "\n"
+    "the learner's goal: {{purpose}}\n"
+    "- comment on whether that goal is realistic\n"
+)
+
+
+def test_a_variable_the_script_collects_is_not_filled_from_an_earlier_session() -> None:
+    """The script states the goal *after* asking for it, so a stale value reads as this run's.
+
+    A learner who chose "not sure yet" had a goal from weeks earlier recorded and read back to
+    them: the model was given the old answer as a statement in the script and believed it over
+    the tool result it had just received.
+    """
+    out = substitute_variables(
+        _ECHOES_ITS_OWN_ANSWER,
+        {"purpose": "find me a girlfriend"},
+        collected=collected_names(_ECHOES_ITS_OWN_ANSWER),
+    )
+
+    assert "find me a girlfriend" not in out
+    assert "the learner's goal: {{purpose}}" in out
+
+
+def test_a_variable_the_script_only_reads_is_still_filled() -> None:
+    """Nothing in the script asks for it, so memory is the only place it can come from."""
+    text = "greet {{nickname}} warmly\n"
+
+    out = substitute_variables(
+        text, {"nickname": "Lin"}, collected=collected_names(text)
+    )
+
+    assert out == "greet Lin warmly\n"
+
+
+def test_the_memory_block_drops_what_this_lesson_will_ask_for() -> None:
+    """Left in, an earlier answer is read as the current one even when the script no longer says so."""
+    bundle = ScriptBundle(script=_ECHOES_ITS_OWN_ANSWER)
+
+    prompt = render_first_prompt(
+        bundle, {"purpose": "find me a girlfriend", "nickname": "Lin"}
+    )
+
+    assert "find me a girlfriend" not in prompt
+    assert '"nickname": "Lin"' in prompt
+
+
+def test_a_collected_name_is_recognised_wherever_the_script_names_it() -> None:
+    assert collected_names("?[%{{a}} x | y]\n- remember %{{ b }}\n") == frozenset(
+        {"a", "b"}
+    )
+    assert collected_names("just {{c}} here\n") == frozenset()
+
+
+def test_a_marker_inside_a_fenced_block_is_an_example_not_a_question() -> None:
+    """A lesson teaching MarkdownFlow shows the notation; it is not asking anything.
+
+    Counted as collected, the fenced example would drop a real memory value that nothing in the
+    lesson asks for again -- the lesson would erase the learner's own answer by quoting syntax.
+    """
+    text = "greet {{nickname}}\n```\n?[%{{nickname}} A | B]\n```\n"
+
+    assert collected_names(text) == frozenset()
+    assert (
+        substitute_variables(
+            text, {"nickname": "Lin"}, collected=collected_names(text)
+        ).splitlines()[0]
+        == "greet Lin"
+    )
+
+
+def test_a_marker_outside_a_fence_is_still_collected_when_one_is_present() -> None:
+    text = "?[%{{purpose}} A | B]\n```\n?[%{{nickname}} X]\n```\n"
+
+    assert collected_names(text) == frozenset({"purpose"})
