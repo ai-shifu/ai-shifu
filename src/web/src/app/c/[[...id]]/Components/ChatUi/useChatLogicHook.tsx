@@ -327,6 +327,14 @@ function useChatLogicHook({
   const sseRef = useRef<any>(null);
   const sseRunSerialRef = useRef(0);
   const refreshDataSerialRef = useRef(0);
+  // The lesson an empty-input run has already been started for. Loading a lesson calls
+  // `refreshData` from three places -- the lesson-id effect, the reset subscription, and the
+  // effect watching `resetedLessonId` return to null -- and on a reset all three fire. They run
+  // one after another, so `refreshDataSerialRef` cannot tell them apart: each is the newest at
+  // the moment it finishes, and each started its own run. Measured on a reset: three identical
+  // runs within 332ms. The first two are closed client-side, which does not stop the server, so
+  // each one still teaches a turn, bills for it, and leaves an unfinalized row behind.
+  const autoRunStartedForRef = useRef<string | null>(null);
   const runStreamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -2481,22 +2489,30 @@ function useChatLogicHook({
           // recordResp.elements[recordResp.elements.length - 1].element_type ===
           //   BLOCK_TYPE.ERROR
         ) {
+          if (autoRunStartedForRef.current !== outlineBid) {
+            autoRunStartedForRef.current = outlineBid;
+            runRef.current?.({
+              input: '',
+              input_type: SSE_INPUT_TYPE.NORMAL,
+            });
+          }
+        }
+      } else {
+        setShowLessonUpdateNotice(false);
+        if (autoRunStartedForRef.current !== outlineBid) {
+          autoRunStartedForRef.current = outlineBid;
           runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
           });
-        }
-      } else {
-        setShowLessonUpdateNotice(false);
-        runRef.current?.({
-          input: '',
-          input_type: SSE_INPUT_TYPE.NORMAL,
-        });
-        if (!effectivePreviewMode) {
-          trackEvent('learner_lesson_start', {
-            shifu_bid: shifuBid,
-            outline_bid: outlineBid,
-          });
+          // Inside the guard: the refreshes this deduplicates would otherwise each report a
+          // start, and one reset would read as several in the analytics.
+          if (!effectivePreviewMode) {
+            trackEvent('learner_lesson_start', {
+              shifu_bid: shifuBid,
+              outline_bid: outlineBid,
+            });
+          }
         }
       }
     } catch (error) {
@@ -2549,6 +2565,9 @@ function useChatLogicHook({
         setIsLoading(true);
         if (curr === lessonId) {
           sseRef.current?.close();
+          // A reset clears the lesson, so the run that follows it is a new first run, not the
+          // one already started for this lesson.
+          autoRunStartedForRef.current = null;
           await refreshData();
           // updateResetedChapterId(null);
           // @ts-expect-error resetedLessonId can be null per store design
@@ -2595,6 +2614,10 @@ function useChatLogicHook({
     ) {
       return;
     }
+    // Opening a lesson is a fresh load, so whatever was started for the lesson left behind does
+    // not speak for this one. Without this, coming back to a lesson whose history ends in text
+    // -- which the host continues by itself -- would find its own mark still set and stall.
+    autoRunStartedForRef.current = null;
     refreshData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creditInsufficientAudience, lessonId, resetedLessonId]);
