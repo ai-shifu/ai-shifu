@@ -1709,3 +1709,102 @@ def test_the_engine_splits_a_script_s_options_as_the_grammar_does() -> None:
         }
         decoded = set(script_options(question).values())
         assert decoded == set(expected.values()), question
+
+
+# --- pauses the script did not write ---------------------------------------------------------
+
+
+def test_a_script_pauses_only_where_it_puts_a_single_button() -> None:
+    from flaskr.service.learn.agent.engine.tools import script_pauses
+
+    assert script_pauses("讲一段。\n\n?[继续]\n\n再讲一段。") == 1
+    assert script_pauses("?[准备好了//continue]\n?[继续]") == 2
+    # A question, not a pause: a variable, a text box, or more than one choice.
+    assert script_pauses("?[%{{name}} 好的]") == 0
+    assert script_pauses("?[...写点什么]") == 0
+    assert script_pauses("?[A | B]") == 0
+    assert script_pauses("?[A || B]") == 0
+    # Prose, a link and an example in a code fence are not buttons.
+    assert script_pauses("让用户思考一下，再继续讲。") == 0
+    assert script_pauses("?[看这里](https://example.com)") == 0
+    assert script_pauses("```\n?[继续]\n```") == 0
+
+
+def _pausing_model(
+    told: list[str],
+) -> Callable[..., StreamChunks]:
+    """Model: writes a part, then pauses with a `confirm`; records what each call returned."""
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        ret = _last_tool_return(messages)
+        if ret is not None:
+            told.append(str(ret.content))
+            yield "Part two.\n"
+            return
+        yield "Part one.\n"
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    {"type": "confirm", "prompt": "", "options": [{"display": "继续"}]}
+                ),
+                tool_call_id="c1",
+            )
+        }
+
+    return model
+
+
+async def test_a_pause_the_script_did_not_write_is_not_put_to_the_learner() -> None:
+    """General-education course (2026-09-24): 17 unasked-for "继续" buttons over 4 lessons.
+
+    A 1.0 lesson pauses only where its author put a button, and a host whose scripts are written
+    that way says so. The lesson goes on in the same turn instead.
+    """
+    told: list[str] = []
+    engine = Engine(
+        FunctionModel(stream_function=_pausing_model(told)), pauses_from_notation=True
+    )
+    session = await engine.new_session("让用户思考一下，再继续讲下一部分。")
+    events = await collect(engine.run_turn(session))
+
+    assert not [e for e in events if isinstance(e, InteractionRequest)]
+    assert _said(events) == "Part one.\nPart two.\n"
+    assert told
+    assert "No pause here" in told[0]
+    assert session.pending == []
+
+
+async def test_a_pause_the_script_wrote_is_still_put_to_the_learner() -> None:
+    told: list[str] = []
+    engine = Engine(
+        FunctionModel(stream_function=_pausing_model(told)), pauses_from_notation=True
+    )
+    session = await engine.new_session("讲一段。\n\n?[继续]\n\n再讲一段。")
+    events = await collect(engine.run_turn(session))
+
+    (asked,) = [e for e in events if isinstance(e, InteractionRequest)]
+    assert asked.spec.type == "confirm"
+    assert events[-1].reason == "interaction"
+
+
+async def test_a_script_that_pauses_once_pauses_once() -> None:
+    """The second pause of a lesson whose script has one button is not put to the learner."""
+    told: list[str] = []
+    engine = Engine(
+        FunctionModel(stream_function=_pausing_model(told)), pauses_from_notation=True
+    )
+    session = await engine.new_session("讲一段。\n\n?[继续]\n\n再讲一段。")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["继续"])))
+    # Carried on: the model pauses again, which the script has no second button for.
+    events = await collect(engine.run_turn(session, ContinueTurn()))
+    assert not [e for e in events if isinstance(e, InteractionRequest)]
+
+
+async def test_the_model_decides_pauses_unless_the_host_says_otherwise() -> None:
+    told: list[str] = []
+    engine = Engine(FunctionModel(stream_function=_pausing_model(told)))
+    session = await engine.new_session("让用户思考一下，再继续讲下一部分。")
+    events = await collect(engine.run_turn(session))
+    assert [e for e in events if isinstance(e, InteractionRequest)]

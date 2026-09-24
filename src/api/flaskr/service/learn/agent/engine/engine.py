@@ -63,7 +63,7 @@ from .interaction import (
 from .script import ScriptBundle, detect_v1_syntax, render_first_prompt
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
-from .tools import Deps, finish, interact, remember, script_options
+from .tools import Deps, finish, interact, remember, script_options, script_pauses
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -215,6 +215,7 @@ class Engine:
         turn_limit: int = 200,
         model_settings: ModelSettings | None = None,
         interaction_check: Callable[[InteractionSpec], str | None] | None = None,
+        pauses_from_notation: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -222,9 +223,15 @@ class Engine:
         `interact` call would defer, it returns None, or the reason the host cannot render it.
         A question it cannot render is refused to the model, which asks it again, rather than
         left pending with nothing on the learner's screen to answer it.
+
+        `pauses_from_notation` is how a host says its scripts pause only where their notation puts
+        a button (`?[继续]`), as a MarkdownFlow 1.0 lesson does: a lesson then pauses at most as
+        many times as its script has such buttons, and a `confirm` beyond that is answered
+        without asking the learner. Off, the model decides when a pause is called for.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
+        self.pauses_from_notation = pauses_from_notation
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -336,6 +343,9 @@ class Engine:
             uses_v1_syntax=uses_v1_syntax,
             interaction_check=self.interaction_check,
             script_options=script_options(script_text) if uses_v1_syntax else {},
+            pause_budget=(
+                script_pauses(script_text) if self.pauses_from_notation else None
+            ),
         )
         deps.history_len = len(session.messages) if session.started else 0
         kwargs: dict[str, Any] = {"deps": deps, "usage_limits": self.limits}
