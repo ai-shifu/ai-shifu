@@ -231,6 +231,12 @@ def text_in_turn(ctx: RunContext[Deps]) -> int:
     )
 
 
+LESSON_OVER = (
+    "The lesson is over: you called `finish`, so the learner is not asked anything more. Write "
+    "nothing further."
+)
+
+
 NO_PAUSE = (
     "No pause here: the script does not ask the learner to stop at this point, so they were not "
     "asked. Go straight on with the next part of the script now."
@@ -259,6 +265,9 @@ async def interact(
     explicitly names (e.g. `%{{name}}` or "store it as X"); leave it empty otherwise.
     The learner's answer is returned as the tool result; then continue the script.
     """
+    if ctx.deps.finished is not None:
+        # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
+        return LESSON_OVER
     if type == "confirm" and text_in_turn(ctx) == 0:
         msg = (
             "You asked the learner to continue without presenting anything in this turn. "
@@ -322,4 +331,4 @@ async def finish(ctx: RunContext[Deps], summary: str = "") -> str:
     when the script merely pauses, asks a question, or waits for the learner.
     """
     ctx.deps.finished = summary.strip() or "done"
-    return "finished"
+    return "finished. The lesson is over: write nothing more and call no other tool."

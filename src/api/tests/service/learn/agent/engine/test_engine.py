@@ -1065,6 +1065,20 @@ async def test_carrying_on_tells_the_model_to_finish_if_nothing_remains() -> Non
     assert "`finish`" in carried_on
 
 
+async def test_carrying_on_resumes_a_half_done_step_and_keeps_a_scripted_recap() -> (
+    None
+):
+    """Carrying on picks up a step left half done, and a recap the script asks for still comes."""
+    model, prompts = _repeating_model("Part one.\n", "Part two.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session))
+    carried_on = prompts[-1]
+    assert "the rest of the step you were on" in carried_on
+    assert "unless that step of the script asks for it" in carried_on
+
+
 async def test_a_short_line_said_twice_is_not_the_end() -> None:
     """A script may say the same short thing twice in a row -- a drill, a heading.
 
@@ -1916,3 +1930,185 @@ async def test_the_model_decides_pauses_unless_the_host_says_otherwise() -> None
     session = await engine.new_session("让用户思考一下，再继续讲下一部分。")
     events = await collect(engine.run_turn(session))
     assert [e for e in events if isinstance(e, InteractionRequest)]
+
+
+# --- nothing is asked after `finish` -------------------------------------------------------
+
+_AGAIN = {
+    "type": "single",
+    "prompt": "你是不是已经迫不及待了？",
+    "options": [{"display": "是"}, {"display": "还不确定"}],
+}
+
+
+def _finish_call(call_id: str = "f1") -> dict[int, DeltaToolCall]:
+    return {
+        0: DeltaToolCall(
+            name="finish",
+            json_args=json.dumps({"summary": "done"}),
+            tool_call_id=call_id,
+        )
+    }
+
+
+async def test_a_question_asked_after_finish_does_not_keep_the_lesson_going() -> None:
+    """General-education course (2026-09-24): after `finish`, the model taught the lesson again.
+
+    Given the `finish` result it started over and asked its first question once more; taken as a
+    question, that left the lesson unfinished, and every answer brought the same lesson and the
+    same question back -- 14 times.
+    """
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            yield "最后一部分讲完了。\n"
+            yield _finish_call()
+        elif calls["n"] == 2:
+            yield "咱们开始吧。\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(_AGAIN), tool_call_id="q2"
+                )
+            }
+        else:
+            yield "好的。"
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+
+    assert not [e for e in events if isinstance(e, InteractionRequest)]
+    assert events[-1].reason == "finished"
+    assert session.finished is True
+    assert session.pending == []
+
+
+async def test_a_model_that_keeps_asking_after_finish_still_ends_the_lesson() -> None:
+    """Asking again and again after `finish` runs into the request limit; the end still stands."""
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            yield "最后一部分讲完了。\n"
+            yield _finish_call()
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(_AGAIN),
+                    tool_call_id=f"q{calls['n']}",
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+
+    assert not [e for e in events if isinstance(e, (InteractionRequest, ErrorEvent))]
+    assert events[-1].reason == "finished"
+    assert session.finished is True
+
+
+async def test_the_last_question_asked_beside_finish_is_still_put() -> None:
+    """Asking the script's last question and finishing in one response: the learner still answers.
+
+    The lesson ends with the turn that takes the answer, and nothing is asked after it.
+    """
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            yield "最后一部分讲完了。\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(_AGAIN), tool_call_id="q1"
+                ),
+                1: DeltaToolCall(
+                    name="finish",
+                    json_args=json.dumps({"summary": "done"}),
+                    tool_call_id="f1",
+                ),
+            }
+        elif _last_tool_return(messages) is not None and calls["n"] == 2:
+            yield "好的。\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(_AGAIN), tool_call_id="q2"
+                )
+            }
+        else:
+            yield "好的。"
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    first = await collect(engine.run_turn(session))
+
+    assert [e.id for e in first if isinstance(e, InteractionRequest)] == ["q1"]
+    assert first[-1].reason == "interaction"
+    assert session.finished is False
+
+    session = Session.from_dict(session.to_dict())
+    second = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["是"]))
+    )
+
+    assert not [e for e in second if isinstance(e, InteractionRequest)]
+    assert second[-1].reason == "finished"
+    assert second[-1].summary == "done"
+    assert session.finished is True
+    assert session.pending == []
+
+
+async def test_a_question_asked_right_after_finish_in_one_response_is_not_put() -> None:
+    """`finish` first, then a question in the same response: the lesson was already over."""
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield "最后一部分讲完了。\n"
+        yield {
+            0: DeltaToolCall(
+                name="finish",
+                json_args=json.dumps({"summary": "done"}),
+                tool_call_id="f1",
+            ),
+            1: DeltaToolCall(
+                name="interact", json_args=json.dumps(_AGAIN), tool_call_id="q1"
+            ),
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+
+    assert not [e for e in events if isinstance(e, InteractionRequest)]
+    assert events[-1].reason == "finished"
+    assert session.pending == []
+
+
+async def test_finishing_with_the_last_step_ends_the_lesson_in_that_turn() -> None:
+    """The last step's content and `finish` in one response: no carrying on, and it stays over."""
+    requests = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        requests["n"] += 1
+        if _last_tool_return(messages) is None:
+            yield "最后一步：把今天学的用一遍。\n"
+            yield _finish_call()
+        else:
+            yield ""
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+
+    assert "最后一步" in _said(events)
+    assert events[-1].reason == "finished"
+    assert session.finished is True
+    asked = requests["n"]
+
+    again = await collect(engine.run_turn(Session.from_dict(session.to_dict())))
+    assert [e.reason for e in again if isinstance(e, TurnDone)] == ["finished"]
+    assert requests["n"] == asked
