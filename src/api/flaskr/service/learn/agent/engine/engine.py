@@ -167,6 +167,14 @@ def _text_of(messages: Iterable[object]) -> str:
 # floor sits well clear of the first and well under the second.
 _REPEAT_FLOOR_CHARS = 40
 
+# How much of a host-initiated continue is held back before any of it is shown, in visible
+# characters. A model with nothing left often says so before it calls `finish` -- "The script has
+# been delivered in full -- ... Nothing remains." -- and that is addressed to the host, not the
+# learner. Seen on 3 of 40 lesson runs of the general-education course (2026-09-24), each 150 to
+# 180 visible characters. A continue with the next part to deliver goes past this in two or
+# three seconds, while the learner is still reading the turn before it.
+_CONTINUE_HOLD_CHARS = 280
+
 
 def _previous_turn_text(messages: Sequence[object], history_len: int) -> str:
     """Return the text of the turn before `history_len`, whitespace removed.
@@ -479,10 +487,19 @@ class Engine:
         # nothing left to deliver as far as the model was concerned, and the host could not tell;
         # so what this turn writes may be nothing new -- see `_repeats_previous_turn` -- and that
         # is known only once it has been written. Text is therefore held back for as long as it
-        # reads as the previous turn starting over, and released the moment it differs. A turn
-        # with something new to say loses nothing but a few characters' worth of delay; one that
-        # says the previous turn again is never shown. It was: a learner on the simulation
+        # reads as something the previous turn already said, and released the moment it differs.
+        # A turn with something new to say loses nothing but a few characters' worth of delay; one
+        # that says the previous turn again is never shown. It was: a learner on the simulation
         # environment watched a lesson's last piece appear a second time and only then stop.
+        #
+        # Anywhere in the previous turn, not only its start. A model with nothing left often
+        # writes the previous turn's closing line again and then calls `finish`: the learner read
+        # "理解「名字指向什么」是同一件事。" twice in a row (boundary lesson 6-3, 2026-09-24),
+        # and "你选了……" twice on 4-2.
+        #
+        # And never less than its opening `_CONTINUE_HOLD_CHARS`, new or not: a model with
+        # nothing left announces it before calling `finish`, and whatever is still held when that
+        # call comes is dropped with the turn.
         carried_on = isinstance(turn, ContinueTurn) and prompt is not None
         previous = (
             _previous_turn_text(session.messages, deps.history_len)
@@ -491,7 +508,7 @@ class Engine:
         )
         held: list[str] = []
         held_text = ""
-        holding = bool(previous)
+        holding = carried_on
 
         def _out(text: str) -> list[Event]:
             nonlocal delivered
@@ -507,7 +524,7 @@ class Engine:
                 return _out(text)
             held.append(text)
             held_text += "".join(text.split())
-            if previous.startswith(held_text):
+            if len(held_text) < _CONTINUE_HOLD_CHARS or held_text in previous:
                 return []
             holding = False
             released, held[:] = "".join(held), []
