@@ -26,6 +26,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, replace
+from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -522,7 +523,31 @@ def _already_asked(taught: str, prompt: str) -> bool:
         return False
     said = _condensed(taught)
     start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
-    return _stands_alone(asked, said, start)
+    return _stands_alone(asked, said, start) or _ends_asking(said, asked)
+
+
+# How alike the narration's closing words and a prompt must be to count as the same question,
+# and how long a prompt must be before likeness is enough. A model asking in the narration and
+# again in the prompt rewords it a little -- 3 characters of 30 on the general-education course
+# -- while a short prompt resembles too many endings to be judged by likeness at all.
+_REWORDED_RATIO = 0.85
+_REWORDED_MIN_CHARS = 8
+
+
+def _ends_asking(said: str, asked: str) -> bool:
+    """Whether the narration ends on this question, in nearly the same words.
+
+    End-anchored: only the words the learner has just read, so a question the lesson asked
+    earlier and has since moved on from never stands in for the one now being put.
+    """
+    if len(asked) < _REWORDED_MIN_CHARS or not said:
+        return False
+    shortest = int(len(asked) * _REWORDED_RATIO)
+    longest = int(len(asked) / _REWORDED_RATIO) + 1
+    return any(
+        SequenceMatcher(None, said[-length:], asked).ratio() >= _REWORDED_RATIO
+        for length in range(shortest, min(longest, len(said)) + 1)
+    )
 
 
 def _question(
