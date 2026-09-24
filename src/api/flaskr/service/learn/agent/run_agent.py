@@ -526,28 +526,59 @@ def _already_asked(taught: str, prompt: str) -> bool:
     return _stands_alone(asked, said, start) or _ends_asking(said, asked)
 
 
-# How alike the narration's closing words and a prompt must be to count as the same question,
-# and how long a prompt must be before likeness is enough. A model asking in the narration and
-# again in the prompt rewords it a little -- 3 characters of 30 on the general-education course
-# -- while a short prompt resembles too many endings to be judged by likeness at all.
+# How much of the narration's closing words a prompt must account for to count as the same
+# question, and how long a prompt must be before anything short of an exact repeat is enough. A
+# model asking in the narration and again in the prompt drops a few words -- "挑一件你觉得最费时间"
+# became "挑一件最费时间" on the general-education course -- while a short prompt resembles too
+# many endings to be judged this way at all.
 _REWORDED_RATIO = 0.85
 _REWORDED_MIN_CHARS = 8
+_PUNCTUATION = re.compile(r"[\s\W_]+")
+# Where a sentence ends, so a question followed by a short aside is still found.
+# Full stop, exclamation and question marks (full-width and ASCII) and an ellipsis, then any
+# closing quote or bracket.
+_SENTENCE_END = re.compile(
+    r"[\u3002\uff01\uff1f!?\u2026]+[\u300d\u300f\u201d\"')\uff09]*"
+)
 
 
 def _ends_asking(said: str, asked: str) -> bool:
-    """Whether the narration ends on this question, in nearly the same words.
+    """Whether the narration just asked this question, with at most a few words left out.
 
-    End-anchored: only the words the learner has just read, so a question the lesson asked
-    earlier and has since moved on from never stands in for the one now being put.
+    Only words dropped, never changed: every word of the prompt must appear, in order, in the
+    stretch of narration it is compared with. A changed word can turn the question around --
+    "largest" for "smallest", "最大" for "最小" -- and a prompt dropped as a repeat of a different
+    question would leave its controls under the wrong one (review of #2958).
+
+    Compared with the narration's last sentence or two: its very end, or the end of a sentence
+    followed by a short aside, within `_ECHO_WINDOW_CHARS`. Never earlier, so a question the lesson
+    asked and has since moved on from does not stand in for the one now being put.
     """
     if len(asked) < _REWORDED_MIN_CHARS or not said:
         return False
-    shortest = int(len(asked) * _REWORDED_RATIO)
+    window_start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
+    ends = {len(said)} | {
+        m.end() for m in _SENTENCE_END.finditer(said) if m.end() > window_start
+    }
     longest = int(len(asked) / _REWORDED_RATIO) + 1
-    return any(
-        SequenceMatcher(None, said[-length:], asked).ratio() >= _REWORDED_RATIO
-        for length in range(shortest, min(longest, len(said)) + 1)
-    )
+    for end in ends:
+        for length in range(len(asked), min(longest, end) + 1):
+            if _only_words_added(asked, said[end - length : end]):
+                return True
+    return False
+
+
+def _only_words_added(asked: str, stretch: str) -> bool:
+    """Whether `stretch` is `asked` with a few words added and none changed.
+
+    Punctuation and spacing may differ; a model ends the same sentence with a full-width question
+    mark in one place and an ASCII one in the other.
+    """
+    matcher = SequenceMatcher(None, asked, stretch, autojunk=False)
+    for tag, a_start, a_end, _b_start, _b_end in matcher.get_opcodes():
+        if tag in ("replace", "delete") and _PUNCTUATION.sub("", asked[a_start:a_end]):
+            return False
+    return matcher.ratio() >= _REWORDED_RATIO
 
 
 def _question(

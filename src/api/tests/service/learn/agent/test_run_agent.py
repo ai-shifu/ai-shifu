@@ -1429,6 +1429,25 @@ def test_a_different_question_after_the_narration_is_still_asked() -> None:
 
 
 @pytest.mark.usefixtures("calls")
+def test_a_question_with_one_word_changed_is_still_asked() -> None:
+    """A changed word can turn the question around; dropped, its controls would sit under the wrong one.
+
+    Review of #2958: "largest" and "smallest" are alike by character, not by meaning.
+    """
+    narration = "我们看这组数：3、9、4。这组数里最大的数是哪一个？请从下面选。"
+    prompt = "这组数里最小的数是哪一个？请从下面选。"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_followed_by_a_short_aside_is_not_asked_again() -> None:
+    """The narration asks, adds a line of encouragement, and the prompt asks again."""
+    narration = "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。别担心，随便说说就行。"
+    prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
+    assert _asked_after(narration, prompt) == [narration]
+
+
+@pytest.mark.usefixtures("calls")
 def test_a_short_prompt_is_not_matched_loosely() -> None:
     """A two-word prompt can resemble any ending; only an exact repeat of it is dropped."""
     narration = "准备好了吗？我们继续。"
