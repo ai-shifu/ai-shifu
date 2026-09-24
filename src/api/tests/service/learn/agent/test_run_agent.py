@@ -1346,6 +1346,29 @@ def test_a_question_the_lesson_just_asked_is_not_asked_again() -> None:
     assert any(e.type == GeneratedType.INTERACTION for e in events)
 
 
+def test_the_model_s_copy_of_its_memory_never_reaches_the_learner(calls: list) -> None:
+    """A model wrote its memory note as text instead of calling `remember`, and it was shown.
+
+    Removed before anything shows, speaks or stores it: the block the turn records is what the
+    1.0 run reads back as the assistant's side, so leaving it there would show it again later.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="<memory>\n"),
+            ContentDelta(
+                text='{"key": "经验", "value": "完全没写过代码", "scope": "sess'
+            ),
+            ContentDelta(text='ion"}\n</memory>\n\n好，那我们用做菜来打比方。'),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine)
+
+    assert _narration(events) == "好，那我们用做菜来打比方。"
+    staged = next(kw for name, kw in calls if name == "record_content")
+    assert staged["content"] == "好，那我们用做菜来打比方。"
+
+
 @pytest.mark.usefixtures("calls")
 def test_a_question_the_lesson_did_not_ask_still_reaches_the_learner() -> None:
     """Often the prompt is the only place the model asks; suppressing it leaves nothing to answer."""

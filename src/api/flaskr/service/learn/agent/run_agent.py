@@ -29,6 +29,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
 from flaskr.service.learn.agent.engine.engine import (
     ContinueTurn,
     InteractionResponseTurn,
@@ -577,6 +578,7 @@ def _without_markers(
     events: Iterable[object],
     markers: PreserveMarkerFilter,
     syntax: InteractionSyntaxFilter,
+    echoes: EchoedMemoryFilter,
 ) -> Generator[object, None, None]:
     """Pass the turn's events through, with the script's verbatim markers taken out of its text.
 
@@ -587,7 +589,7 @@ def _without_markers(
         if not isinstance(event, ContentDelta):
             yield event
             continue
-        text = syntax.feed(markers.feed(event.text))
+        text = syntax.feed(markers.feed(echoes.feed(event.text)))
         if text:
             yield event if text == event.text else ContentDelta(text=text)
 
@@ -721,12 +723,16 @@ def _stream_turn(
     # A question the model typed into its narration instead of asking for one. Held aside while
     # the turn runs: what becomes of it depends on whether the model also called the tool.
     syntax = InteractionSyntaxFilter()
+    # The model's copy of the `<memory>` section it was given, written out instead of a
+    # `remember` call. Input to the model, never lesson text.
+    echoes = EchoedMemoryFilter()
     asked = False
 
     for event in _without_markers(
         run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval),
         markers,
         syntax,
+        echoes,
     ):
         if isinstance(event, ContentDelta):
             taught.append(event.text)
@@ -757,7 +763,10 @@ def _stream_turn(
             # question's controls, so the last thing in the learner's history was text rather
             # than the question -- and the browser, seeing no question to answer, asked the
             # lesson to continue with nothing.
-            tail = syntax.feed(markers.flush()) + syntax.flush()
+            tail = (
+                syntax.feed(markers.feed(echoes.flush()) + markers.flush())
+                + syntax.flush()
+            )
             if tail:
                 taught.append(tail)
                 yield from _say(
@@ -895,7 +904,11 @@ def _stream_turn(
         # A turn that died has no `TurnDone`, so nothing above will have asked what the model
         # typed. Putting it back as text loses nothing: it is what the model wrote, and the
         # learner is being shown a failure rather than a question either way.
-        tail = syntax.feed(markers.flush()) + syntax.flush() + "".join(syntax.spans)
+        tail = (
+            syntax.feed(markers.feed(echoes.flush()) + markers.flush())
+            + syntax.flush()
+            + "".join(syntax.spans)
+        )
         if tail:
             taught.append(tail)
             yield from _say(
