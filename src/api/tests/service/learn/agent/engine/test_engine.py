@@ -1524,3 +1524,67 @@ def test_the_engine_reads_escapes_exactly_as_the_grammar_does() -> None:
     ]
     for sample in samples:
         assert _unescape(sample) == unescape_interaction_text(sample), sample
+
+
+async def _shown(script: str, options: list[dict]) -> list[tuple[str, str | None]]:
+    engine = Engine(FunctionModel(stream_function=_asks(options)))
+    s = await engine.new_session(script)
+    events = await collect(engine.run_turn(s))
+    asked = next(e for e in events if isinstance(e, InteractionRequest))
+    return [(o.display, o.value) for o in asked.spec.options]
+
+
+async def test_an_option_already_read_as_the_grammar_reads_it_is_left_alone() -> None:
+    r"""`a\\|b` is the option `a\|b`; handed that, the model's text must not lose its backslash."""
+    script = "?[%{{x}} a\\\\|b | c]"
+    assert await _shown(script, [{"display": "a\\|b"}, {"display": "c"}]) == [
+        ("a\\|b", None),
+        ("c", None),
+    ]
+    # Copied as written, it is read the way the grammar reads it.
+    assert await _shown(script, [{"display": "a\\\\|b"}, {"display": "c"}]) == [
+        ("a\\|b", None),
+        ("c", None),
+    ]
+
+
+async def test_text_outside_the_script_s_questions_is_not_an_option() -> None:
+    """Prose and code that happen to contain the same characters were never an option."""
+    script = "看这个例子：`a\\|b`\n\n```\n?[x\\|y | z]\n```\n\n?[%{{ok}} 是 | 否]"
+    assert await _shown(script, [{"display": "a\\|b"}, {"display": "x\\|y"}]) == [
+        ("a\\|b", None),
+        ("x\\|y", None),
+    ]
+
+
+async def test_a_value_the_model_made_up_keeps_what_it_wrote() -> None:
+    """Only a field taken from the script is read as notation; each field is judged alone."""
+    script = "?[%{{x}} a\\|b | c]"
+    assert await _shown(
+        script, [{"display": "a\\|b", "value": "code\\|name"}, {"display": "c"}]
+    ) == [("a|b", "code\\|name"), ("c", None)]
+
+
+def test_the_engine_splits_a_script_s_options_as_the_grammar_does() -> None:
+    """Checked against MarkdownFlow's own parser, so the two cannot drift apart."""
+    from flaskr.service.learn.agent.engine.tools import script_options
+    from markdown_flow import InteractionParser
+
+    questions = [
+        "?[%{{x}} a | b | c]",
+        "?[%{{x}} a || b || c]",
+        "?[%{{x}} Beginner//1 | Expert//3]",
+        "?[%{{x}} a\\|b | wait\\.\\.\\. ok | https:\\/\\/x.org]",
+        "?[%{{x}} a\\\\|b | [a-z\\]+ || c]",
+        "?[%{{x}} 前端 | 后端 | ...你关心什么方向？]",
+        "?[%{{x}} \\d+\\.\\d+ | $\\pi$]",
+        "?[继续]",
+    ]
+    for question in questions:
+        expected = {
+            raw: decoded
+            for b in InteractionParser().parse(question)["buttons"]
+            for raw, decoded in [(b["display"], b["display"]), (b["value"], b["value"])]
+        }
+        decoded = set(script_options(question).values())
+        assert decoded == set(expected.values()), question

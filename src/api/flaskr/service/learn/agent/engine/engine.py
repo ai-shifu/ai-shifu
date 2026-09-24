@@ -63,7 +63,7 @@ from .interaction import (
 from .script import ScriptBundle, detect_v1_syntax, render_first_prompt
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
-from .tools import Deps, finish, interact, remember
+from .tools import Deps, finish, interact, remember, script_options
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -326,7 +326,7 @@ class Engine:
             listen_mode=session.listen_mode,
             uses_v1_syntax=uses_v1_syntax,
             interaction_check=self.interaction_check,
-            script_text=script_text if uses_v1_syntax else "",
+            script_options=script_options(script_text) if uses_v1_syntax else {},
         )
         deps.history_len = len(session.messages) if session.started else 0
         kwargs: dict[str, Any] = {"deps": deps, "usage_limits": self.limits}

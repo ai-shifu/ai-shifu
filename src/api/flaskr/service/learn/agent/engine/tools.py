@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -31,13 +32,68 @@ class Deps:
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
-    # The script as the model was given it, when it is written in the 1.0 notation; see
-    # `_as_the_script_writes_it`.
-    script_text: str = ""
+    # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
+    # when the script is in the 1.0 notation; see `_as_the_script_writes_it`.
+    script_options: dict[str, str] = field(default_factory=dict)
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
 _ESCAPABLE = "|/.]"
+_FENCED = re.compile(
+    r"^[ ]{0,3}(`{3,}|~{3,})[^\n]*\n.*?^[ ]{0,3}\1[ \t]*$", re.MULTILINE | re.DOTALL
+)
+_VARIABLE = re.compile(r"^\s*%\{\{[^}]*\}\}")
+
+
+def _is_escape(text: str, index: int) -> bool:
+    return (
+        index + 1 < len(text) and text[index] == "\\" and text[index + 1] in _ESCAPABLE
+    )
+
+
+def _find_unescaped(text: str, needle: str, start: int = 0) -> int:
+    index = start
+    while index < len(text):
+        if _is_escape(text, index):
+            index += 2
+            continue
+        if text.startswith(needle, index):
+            return index
+        index += 1
+    return -1
+
+
+def _split_unescaped(text: str, separator: str) -> list[str]:
+    parts: list[str] = []
+    start = 0
+    while (found := _find_unescaped(text, separator, start)) >= 0:
+        parts.append(text[start:found])
+        start = found + len(separator)
+    parts.append(text[start:])
+    return parts
+
+
+def _split_on_single_pipe(text: str) -> list[str]:
+    """Split on each unescaped `|` that is not part of a `||`, as the grammar does."""
+    parts: list[str] = []
+    start = 0
+    index = 0
+    while index < len(text):
+        if _is_escape(text, index):
+            index += 2
+            continue
+        if text[index] == "|":
+            if text.startswith("||", index):
+                index += 2
+                continue
+            if index and text[index - 1] == "|" and not _is_escape(text, index - 1):
+                index += 1
+                continue
+            parts.append(text[start:index])
+            start = index + 1
+        index += 1
+    parts.append(text[start:])
+    return parts
 
 
 def _unescape(text: str) -> str:
@@ -45,11 +101,7 @@ def _unescape(text: str) -> str:
     out: list[str] = []
     index = 0
     while index < len(text):
-        if (
-            text[index] == "\\"
-            and index + 1 < len(text)
-            and text[index + 1] in _ESCAPABLE
-        ):
+        if _is_escape(text, index):
             out.append(text[index + 1])
             index += 2
             continue
@@ -58,21 +110,65 @@ def _unescape(text: str) -> str:
     return "".join(out)
 
 
-def _as_the_script_writes_it(option: Option, script_text: str) -> Option:
+def script_options(script_text: str) -> dict[str, str]:
+    """Map every option of the script's `?[...]` questions, as written, to what it means.
+
+    Split the way MarkdownFlow splits them: a leading `%{{variable}}` and a trailing `...`
+    placeholder are not options, `||` separates the choices of a multiple choice and `|` those of
+    a single one, and `//` separates what is shown from what is stored. Questions shown inside a
+    code fence are examples, not questions. Both halves of `display//value` are entries of their
+    own, since the model passes them separately.
+    """
+    text = _FENCED.sub("", script_text)
+    options: dict[str, str] = {}
+    at = 0
+    while (start := text.find("?[", at)) >= 0:
+        at = start + 2
+        if start and text[start - 1] == "\\":
+            continue
+        end = _find_unescaped(text, "]", at)
+        if end < 0:
+            break
+        at = end + 1
+        if text[end + 1 : end + 2] == "(":
+            continue  # `?[text](url)` is a link
+        body = _VARIABLE.sub("", text[start + 2 : end])
+        first_line = body.split("\n", 1)[0]
+        ellipsis = _find_unescaped(first_line, "...")
+        if ellipsis >= 0:
+            body = body[:ellipsis]
+        # A single bar anywhere makes it single choice, with any `||` left inside an option;
+        # otherwise `||` separates the choices of a multiple choice.
+        choices = _split_on_single_pipe(body)
+        if len(choices) == 1:
+            choices = _split_unescaped(body, "||")
+        for choice in choices:
+            for half in _split_unescaped(choice, "//")[:2]:
+                written = half.strip()
+                if written:
+                    options[written] = _unescape(written)
+    return options
+
+
+def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
     r"""Return a script's option as the script means it, without the escapes of its notation.
 
     Copying a question from the script, the model copies it character for character, escapes
     included: `a\|b` reached the learner as a button reading `a\|b`, where the author had
-    written the option `a|b`. An option found in the script as the model wrote it is one taken
-    from the notation, so its escapes are resolved the way the grammar resolves them and the
-    learner sees what a 1.0 lesson shows. An option the model made up is left as it wrote it.
+    written the option `a|b`. A field the model passed exactly as one of the script's options is
+    written is read the way the grammar reads it, so the learner sees what a 1.0 lesson shows.
+
+    Each field is judged on its own, and only against the script's own options: text the model
+    already read correctly, text that merely appears in the script's prose or code, and a value
+    the model made up are all left as it wrote them.
     """
-    raw = [option.display] + ([option.value] if option.value is not None else [])
-    if not any("\\" in text and text in script_text for text in raw):
-        return option
     return Option(
-        display=_unescape(option.display),
-        value=_unescape(option.value) if option.value is not None else None,
+        display=written.get(option.display, option.display),
+        value=(
+            written.get(option.value, option.value)
+            if option.value is not None
+            else None
+        ),
     )
 
 
@@ -120,9 +216,9 @@ async def interact(
             "after that content, and never answer a continue with another confirm."
         )
         raise ModelRetry(msg)
-    if ctx.deps.script_text:
+    if ctx.deps.script_options:
         options = [
-            _as_the_script_writes_it(o, ctx.deps.script_text) for o in options or []
+            _as_the_script_writes_it(o, ctx.deps.script_options) for o in options or []
         ]
     spec = InteractionSpec(
         type=type,
