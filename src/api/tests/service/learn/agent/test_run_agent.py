@@ -1410,6 +1410,73 @@ def test_a_question_the_lesson_just_asked_is_not_asked_again() -> None:
     assert any(e.type == GeneratedType.INTERACTION for e in events)
 
 
+def _asked_after(narration: str, prompt: str) -> list[str]:
+    engine = _Engine(
+        [
+            ContentDelta(text=narration),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="text", prompt=prompt, placeholder="写下来", options=[]
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    return _contents(_run(engine))
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_just_asked_in_other_words_is_not_asked_again() -> None:
+    """The narration ends on the question; the prompt says it with a word or two changed.
+
+    General-education course (2026-09-24): the learner read the question the narration ended
+    on and, right under it, the prompt asking it again with three characters dropped -- the
+    same question twice, missed because the two were not character for character the same.
+    """
+    narration = (
+        "任何一项复杂工作，都能拆成一条工作流。\n\n"
+        "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。"
+    )
+    prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
+    assert _asked_after(narration, prompt) == [narration]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_different_question_after_the_narration_is_still_asked() -> None:
+    """Only a near copy of the question the narration ends on is dropped, not a related one."""
+    narration = "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。"
+    prompt = "这件事里，哪一步最适合交给 AI？"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_with_one_word_changed_is_still_asked() -> None:
+    """A changed word can turn the question around; dropped, its controls would sit under the wrong one.
+
+    Review of #2958: "largest" and "smallest" are alike by character, not by meaning.
+    """
+    narration = "我们看这组数：3、9、4。这组数里最大的数是哪一个？请从下面选。"
+    prompt = "这组数里最小的数是哪一个？请从下面选。"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_followed_by_a_short_aside_is_not_asked_again() -> None:
+    """The narration asks, adds a line of encouragement, and the prompt asks again."""
+    narration = "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。别担心，随便说说就行。"
+    prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
+    assert _asked_after(narration, prompt) == [narration]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_short_prompt_is_not_matched_loosely() -> None:
+    """A two-word prompt can resemble any ending; only an exact repeat of it is dropped."""
+    narration = "准备好了吗？我们继续。"
+    prompt = "准备好了？"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
 def test_the_model_s_copy_of_its_memory_never_reaches_the_learner(calls: list) -> None:
     """A model wrote its memory note as text instead of calling `remember`, and it was shown.
 
