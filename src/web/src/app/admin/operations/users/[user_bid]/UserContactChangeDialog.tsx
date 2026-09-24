@@ -213,7 +213,10 @@ export default function UserContactChangeDialog({
                   value={identifier}
                   disabled={submitting}
                   placeholder={t(`contactChange.${contactType}.newPlaceholder`)}
-                  onChange={event => setIdentifier(event.target.value)}
+                  onChange={event => {
+                    setIdentifier(event.target.value);
+                    setError('');
+                  }}
                 />
               </div>
               <div className='space-y-2'>
@@ -229,7 +232,10 @@ export default function UserContactChangeDialog({
                   disabled={submitting}
                   maxLength={500}
                   placeholder={t('contactChange.reasonPlaceholder')}
-                  onChange={event => setReason(event.target.value)}
+                  onChange={event => {
+                    setReason(event.target.value);
+                    setError('');
+                  }}
                 />
               </div>
             </>
