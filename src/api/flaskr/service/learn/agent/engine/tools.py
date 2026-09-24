@@ -6,8 +6,16 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
+from pydantic import ValidationError
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
-from pydantic_ai.messages import ModelResponse, TextPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
 
 from .interaction import InteractionSpec, InteractionType, Option
 
@@ -243,6 +251,136 @@ NO_PAUSE = (
 )
 
 
+# Below this many visible characters, the same words before the same question are not taken as a
+# loop: a short lead-in such as "好的。" can legitimately come before a question asked again.
+_LOOP_FLOOR_CHARS = 40
+
+
+def _visible(text: str) -> str:
+    return "".join(text.split())
+
+
+def _question(
+    kind: str,
+    prompt: str,
+    variable: str | None,
+    options: list[Option] | None,
+    placeholder: str | None,
+    written: dict[str, str],
+) -> tuple[object, ...]:
+    r"""Return everything that makes up the question an `interact` call puts to the learner.
+
+    Its choices as the learner sees them: `a\|b` copied from a 1.0 script and `a|b` are one
+    button (see `_as_the_script_writes_it`).
+    """
+    if written:
+        options = [_as_the_script_writes_it(o, written) for o in options or []]
+    return (
+        kind,
+        prompt.strip(),
+        variable or None,
+        tuple((o.display, o.value or None) for o in options or []),
+        (placeholder or "").strip() or None,
+    )
+
+
+def _asked(call: ToolCallPart, written: dict[str, str]) -> tuple[object, ...] | None:
+    """Return the question an earlier `interact` call put, or None if its arguments do not read."""
+    args = call.args_as_dict()
+    try:
+        options = [Option.model_validate(o) for o in args.get("options") or []]
+    except ValidationError:
+        return None
+    return _question(
+        args.get("type"),
+        args.get("prompt") or "",
+        args.get("variable"),
+        options,
+        args.get("placeholder"),
+        written,
+    )
+
+
+def asks_the_answered_question_again(
+    ctx: RunContext[Deps],
+    kind: str,
+    prompt: str,
+    variable: str | None,
+    options: list[Option] | None = None,
+    placeholder: str | None = None,
+) -> bool:
+    """Whether this call repeats, word for word, the turn that asked a question just answered.
+
+    Seen on the general-education course (2026-09-24): the learner named a book, and the model
+    wrote the same paragraph and asked "which book?" again, with the same variable -- every answer
+    after that got the identical paragraph and question, 14 times. A question put again after a
+    wrong answer is not this: the model says something about the answer first, so the words
+    before it differ.
+
+    The questions just answered are all those the last asking response put: a response can ask
+    several, and every one is answered before the model goes on. On both sides only the text
+    written before the call counts: a response can go on writing after a call, and text between
+    two calls came before the second one only.
+    """
+    messages = ctx.messages
+    start = ctx.deps.history_len
+    now = _visible("".join(_text_up_to(messages[start:], ctx.tool_call_id)))
+    if len(now) < _LOOP_FLOOR_CHARS:
+        return False
+    written = ctx.deps.script_options
+    question = _question(kind, prompt, variable, options, placeholder, written)
+    for index in range(min(start, len(messages)) - 1, -1, -1):
+        msg = messages[index]
+        if not isinstance(msg, ModelResponse):
+            continue
+        calls = [
+            p
+            for p in msg.parts
+            if isinstance(p, ToolCallPart) and p.tool_name == "interact"
+        ]
+        if not calls:
+            continue
+        matching = [call for call in calls if _asked(call, written) == question]
+        return any(
+            _turn_text_before(messages, index, call.tool_call_id) == now
+            for call in matching
+        )
+    return False
+
+
+def _text_up_to(messages: list, call_id: str | None) -> list[str]:
+    """Return the model's text in `messages`, stopping at the call `call_id` if they hold it."""
+    parts: list[str] = []
+    for msg in messages:
+        if not isinstance(msg, ModelResponse):
+            continue
+        for part in msg.parts:
+            if isinstance(part, ToolCallPart) and part.tool_call_id == call_id:
+                return parts
+            if isinstance(part, TextPart):
+                parts.append(part.content)
+    return parts
+
+
+def _turn_text_before(messages: list, index: int, call_id: str) -> str:
+    """Return the model's text in the turn that asked the call `call_id`, up to that call.
+
+    `index` is the response holding the call. A turn begins with the learner's message or an
+    answer to a question, so the text is collected back to the request that carried one.
+    """
+    begin = 0
+    for i in range(index, -1, -1):
+        msg = messages[i]
+        if isinstance(msg, ModelRequest) and any(
+            isinstance(p, UserPromptPart)
+            or (isinstance(p, ToolReturnPart) and p.tool_name == "interact")
+            for p in msg.parts
+        ):
+            begin = i + 1
+            break
+    return _visible("".join(_text_up_to(messages[begin : index + 1], call_id)))
+
+
 async def interact(
     ctx: RunContext[Deps],
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
@@ -268,6 +406,20 @@ async def interact(
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
+    if type != "confirm" and asks_the_answered_question_again(
+        ctx, type, prompt, variable, options, placeholder
+    ):
+        # Not a flat refusal: a script can ask again after a wrong answer, with the same
+        # correction each time. Put that way, it is said to this answer and so reads differently.
+        msg = (
+            "The learner has just answered this question, and you have written the same text "
+            "as before and asked it again, word for word -- to the learner that is the lesson "
+            "stuck in a loop. If their answer completes this step, do not ask again: go on with "
+            "the next step of the script, or call `finish` if nothing in it remains. If the "
+            "script has you ask again, first say what about this particular answer falls short, "
+            "then ask."
+        )
+        raise ModelRetry(msg)
     if type == "confirm" and text_in_turn(ctx) == 0:
         msg = (
             "You asked the learner to continue without presenting anything in this turn. "
