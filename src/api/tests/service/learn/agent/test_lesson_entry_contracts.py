@@ -246,6 +246,8 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         model_settings={"temperature": 0.25},
         # Without it, a question the controls cannot carry reaches the learner with no controls.
         interaction_check=entry.unrenderable_reason,
+        # Without it, the model pauses the lesson where the author wrote no button.
+        pauses_from_notation=True,
     )
     assert runner.call_args.kwargs == {
         "engine": engine.return_value,

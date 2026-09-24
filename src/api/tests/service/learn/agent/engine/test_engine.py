@@ -1155,6 +1155,92 @@ async def test_a_short_continue_that_reads_like_the_last_turn_is_still_shown() -
     assert second[-1].reason == "end"
 
 
+def _closing_again_model(
+    first: list[str], then: list[str]
+) -> Callable[..., StreamChunks]:
+    """Model: the first turn writes `first`; told to carry on, it writes `then` and finishes.
+
+    Given the `finish` result it writes `then` once more, as the model on the simulation
+    environment did.
+    """
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            for piece in first:
+                yield piece
+            return
+        for piece in then:
+            yield piece
+        if calls["n"] == 2:
+            yield {
+                0: DeltaToolCall(
+                    name="finish",
+                    json_args=json.dumps({"summary": "done"}),
+                    tool_call_id="f1",
+                )
+            }
+
+    return model
+
+
+async def test_a_continue_that_says_the_last_line_again_and_finishes_shows_nothing() -> (
+    None
+):
+    """The previous turn's closing line, written again before `finish`, is not shown twice.
+
+    Boundary lesson 6-3 (2026-09-24): told to carry on, the model wrote the line the previous
+    turn ended on -- "……理解「名字指向什么」是同一件事。" -- and called `finish`, and the
+    learner read it twice in a row. Only a repeat of the previous turn's *start* was held.
+    """
+    closing = "不管从哪条路来，理解「名字指向什么」是同一件事。"
+    model = _closing_again_model(
+        ["做菜的时候，你会给东西起名字。\n\n", closing], [closing[:8], closing[8:]]
+    )
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    first = await collect(engine.run_turn(session))
+    assert _said(first).count(closing) == 1
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == ""
+    assert second[-1].reason == "finished"
+
+
+async def test_a_continue_that_goes_on_from_a_line_it_repeated_is_shown() -> None:
+    """Held only while it is something the previous turn said; new text releases all of it."""
+    part_two = "下面讲第二部分：名字和它指向的东西是两回事。" * 20
+    model = _closing_again_model(
+        ["第一部分讲完了。\n\n小结：名字指向东西。"], ["小结：", part_two]
+    )
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    # The model's text, as it wrote it: the repeat was only held, never cut, once it went on.
+    assert _said(second) == "小结：" + part_two
+
+
+async def test_a_continue_that_announces_it_has_nothing_left_shows_nothing() -> None:
+    """What a model with nothing left writes before `finish` is addressed to the host.
+
+    General-education course, 3 of 40 lesson runs (2026-09-24): told to carry on, the model wrote
+    "The script has been fully delivered -- ... Nothing remains." and then called `finish`, and
+    the learner read it under the lesson.
+    """
+    note = (
+        "The script has been fully delivered — the last section (the thinking question, its two "
+        "reasons, and the model distillation point) was completed in the previous turn."
+    )
+    model = _closing_again_model(["第一部分讲完了。"], [note[:40], note[40:]])
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == ""
+    assert second[-1].reason == "finished"
+
+
 async def test_what_the_model_writes_after_finishing_a_continue_is_not_shown() -> None:
     """Told to carry on, the model calls `finish` first and then writes.
 
@@ -1710,6 +1796,127 @@ def test_the_engine_splits_a_script_s_options_as_the_grammar_does() -> None:
         }
         decoded = set(script_options(question).values())
         assert decoded == set(expected.values()), question
+
+
+# --- pauses the script did not write ---------------------------------------------------------
+
+
+def test_a_script_pauses_only_where_it_puts_a_single_button() -> None:
+    from flaskr.service.learn.agent.engine.tools import script_pauses
+
+    assert script_pauses("讲一段。\n\n?[继续]\n\n再讲一段。") == 1
+    assert script_pauses("?[准备好了//continue]\n?[继续]") == 2
+    # A question, not a pause: a variable, a text box, or more than one choice.
+    assert script_pauses("?[%{{name}} 好的]") == 0
+    assert script_pauses("?[...写点什么]") == 0
+    assert script_pauses("?[A | B]") == 0
+    assert script_pauses("?[A || B]") == 0
+    # Prose, a link and an example in a code fence are not buttons.
+    assert script_pauses("让用户思考一下，再继续讲。") == 0
+    assert script_pauses("?[看这里](https://example.com)") == 0
+    assert script_pauses("```\n?[继续]\n```") == 0
+
+
+def _pausing_model(
+    told: list[str],
+) -> Callable[..., StreamChunks]:
+    """Model: writes a part, then pauses with a `confirm`; records what each call returned."""
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        ret = _last_tool_return(messages)
+        if ret is not None:
+            told.append(str(ret.content))
+            yield "Part two.\n"
+            return
+        yield "Part one.\n"
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    {"type": "confirm", "prompt": "", "options": [{"display": "继续"}]}
+                ),
+                tool_call_id="c1",
+            )
+        }
+
+    return model
+
+
+async def test_a_pause_the_script_did_not_write_is_not_put_to_the_learner() -> None:
+    """General-education course (2026-09-24): 17 unasked-for "继续" buttons over 4 lessons.
+
+    A 1.0 lesson pauses only where its author put a button, and a host whose scripts are written
+    that way says so. The lesson goes on in the same turn instead.
+    """
+    told: list[str] = []
+    engine = Engine(
+        FunctionModel(stream_function=_pausing_model(told)), pauses_from_notation=True
+    )
+    session = await engine.new_session("让用户思考一下，再继续讲下一部分。")
+    events = await collect(engine.run_turn(session))
+
+    assert not [e for e in events if isinstance(e, InteractionRequest)]
+    assert _said(events) == "Part one.\nPart two.\n"
+    assert told
+    assert "No pause here" in told[0]
+    assert session.pending == []
+
+
+async def test_a_pause_the_script_wrote_is_still_put_to_the_learner() -> None:
+    told: list[str] = []
+    engine = Engine(
+        FunctionModel(stream_function=_pausing_model(told)), pauses_from_notation=True
+    )
+    session = await engine.new_session("讲一段。\n\n?[继续]\n\n再讲一段。")
+    events = await collect(engine.run_turn(session))
+
+    (asked,) = [e for e in events if isinstance(e, InteractionRequest)]
+    assert asked.spec.type == "confirm"
+    assert events[-1].reason == "interaction"
+
+
+async def test_a_script_with_a_button_leaves_its_pauses_to_the_model() -> None:
+    """Where the script has buttons, nothing says which part of it the model has reached.
+
+    A count of buttons, spent as the model paused, let an early unscripted pause use up the one
+    the author wrote, and the author's button was then skipped (review of #2957). So the model
+    keeps placing pauses in such a lesson, as before.
+    """
+    told: list[str] = []
+    engine = Engine(
+        FunctionModel(stream_function=_pausing_model(told)), pauses_from_notation=True
+    )
+    session = await engine.new_session("讲一段。\n\n?[继续]\n\n再讲一段。")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["继续"])))
+    events = await collect(engine.run_turn(session, ContinueTurn()))
+    assert [e for e in events if isinstance(e, InteractionRequest)]
+
+
+async def test_a_button_in_the_brief_is_not_a_pause_of_the_lesson() -> None:
+    """A brief may show `?[继续]` as an example of the notation; the lesson itself has none."""
+    from flaskr.service.learn.agent.engine.script import ScriptBundle
+
+    told: list[str] = []
+    engine = Engine(
+        FunctionModel(stream_function=_pausing_model(told)), pauses_from_notation=True
+    )
+    session = await engine.new_session(
+        ScriptBundle(
+            script="让用户思考一下，再继续讲下一部分。",
+            constraints="写停顿的方式是 ?[继续]，本节不需要。",
+        )
+    )
+    events = await collect(engine.run_turn(session))
+    assert not [e for e in events if isinstance(e, InteractionRequest)]
+
+
+async def test_the_model_decides_pauses_unless_the_host_says_otherwise() -> None:
+    told: list[str] = []
+    engine = Engine(FunctionModel(stream_function=_pausing_model(told)))
+    session = await engine.new_session("让用户思考一下，再继续讲下一部分。")
+    events = await collect(engine.run_turn(session))
+    assert [e for e in events if isinstance(e, InteractionRequest)]
 
 
 # --- a question asked again in a loop ------------------------------------------------------
