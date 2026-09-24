@@ -2123,11 +2123,6 @@ def _rewind_run(
         "stage_retirement",
         lambda plan, **_kw: calls.append(("stage_retirement", plan.retired_block_bids)),
     )
-    monkeypatch.setattr(
-        run_agent,
-        "mark_lesson_in_progress",
-        lambda _record: calls.append(("mark_in_progress", None)),
-    )
     engine = _Engine([TurnDone(reason="end")], session=session)
     list(
         run_agent.run_agent_lesson(
@@ -2164,9 +2159,24 @@ def test_answering_again_restores_the_question_and_sends_the_new_answer(
     assert session.finished is False
     assert isinstance(engine.turns[0], InteractionResponseTurn)
     assert engine.turns[0].values == ["Right"]
-    # Written with the turn: the superseded rows retired, the lesson back in progress.
+    # Written with the turn: the superseded rows retired.
     assert ("stage_retirement", ["B2"]) in calls
-    assert ("mark_in_progress", None) in calls
+
+
+def test_going_back_does_not_reopen_a_completed_lesson(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The completion was earned; reopening only this lesson would leave its chapter ahead of it."""
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    record = _Record()
+    record.status = 603  # LEARN_STATUS_COMPLETED
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: record)
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    _rewind_run(monkeypatch, calls, plan=plan, user_input={"way": ["Right"]})
+    assert record.status == 603
 
 
 def test_regenerating_runs_the_turn_again_with_the_input_it_had(

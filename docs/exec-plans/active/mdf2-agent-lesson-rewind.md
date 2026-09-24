@@ -64,8 +64,12 @@ that turn originally had). A lesson whose turns predate this change cannot be re
 - Rows are deactivated from the target block onwards (status 0), follow-up (ask/answer) blocks
   excepted, as 1.0 does; this is staged inside the turn's own persist transaction, so it commits
   with the restored session or not at all.
-- A lesson completed after the target point is put back in progress when the rewound turn does not
-  finish it again.
+- A rewind does **not** reopen a lesson already completed (revised after review): reopening only
+  that record would leave its chapter completed and the next lesson started, ahead of a lesson
+  that says it is unfinished. The outline follows the same rule (`apply_outline_progression`
+  never reopens a finished lesson), and progression stays idempotent if the lesson finishes again.
+- A reload on an allowlisted lesson whose script is gone (`LessonNotTeachable`) is refused rather
+  than sent to 1.0, which cannot take the 2.0 session back.
 - Profile (user-scope) memory written after the target is not undone; 1.0 does not undo it either.
 - Preview has no blocks to rewind; a reload in preview is refused the same way as a legacy turn.
 

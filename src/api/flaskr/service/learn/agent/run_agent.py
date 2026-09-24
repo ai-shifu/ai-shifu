@@ -53,7 +53,6 @@ from flaskr.service.learn.agent.lesson_record import (
     apply_outline_progression,
     claim_for_writing,
     mark_lesson_finished,
-    mark_lesson_in_progress,
     record_turn_content,
     retire_unused_block,
     stage_turn_block,
@@ -1069,9 +1068,11 @@ def _persist(
             )
             if session.finished:
                 mark_lesson_finished(record)
-            elif rewind is not None:
-                # Taken back to before its end, the lesson is being taught again.
-                mark_lesson_in_progress(record)
+            # A rewind does not reopen a lesson already completed. Going back to answer
+            # differently is revisiting it, and the completion was earned: reopening only this
+            # record would also leave its chapter completed and the next lesson started, ahead of
+            # a lesson that says it is unfinished -- which is why the outline never reopens a
+            # finished lesson either (see `apply_outline_progression`).
 
     try:
         save_agent_session(

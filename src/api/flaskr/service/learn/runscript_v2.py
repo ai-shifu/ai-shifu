@@ -778,6 +778,10 @@ def _lesson_events(
             # busy is something a learner can act on; being told nothing is not.
             raise_error("server.learn.agentTurnCapacity")
         except LessonNotTeachable:
+            if reload_generated_block_bid or reload_element_bid:
+                # Going back needs the 2.0 session taken back too, which 1.0 cannot do: it would
+                # rewrite history and leave the session on its old branch.
+                raise_error("server.learn.agentRewindUnavailable")
             # An allowlisted course whose lesson has no script: 1.0 knows what to do with that,
             # and refusing the learner over a configuration mistake would be worse.
             app.logger.warning(

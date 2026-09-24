@@ -138,11 +138,6 @@ def mark_lesson_finished(record: LearnProgressRecord) -> None:
     record.status = LEARN_STATUS_COMPLETED
 
 
-def mark_lesson_in_progress(record: LearnProgressRecord) -> None:
-    """Record that the lesson is being taught again, after being taken back before its end."""
-    record.status = LEARN_STATUS_IN_PROGRESS
-
-
 def retire_unused_block(*, generated_block_bid: str) -> None:
     """Drop a block the turn never filled in.
 
