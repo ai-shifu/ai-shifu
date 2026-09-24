@@ -86,8 +86,10 @@ class StartTurn(BaseModel):
 # simulation environment read a lesson's entire text twice and then watched it stop.
 CONTINUE_PROMPT = (
     "continue\n\n"
-    "Deliver the next part of the script. If nothing in the script remains to be delivered, "
-    "do not write anything: call `finish`."
+    "Deliver the next part of the script: the first step you have not delivered yet. Do not "
+    "summarise, recap, restate or elaborate on anything you already delivered, and do not add a "
+    "closing wrap-up of your own. If nothing in the script remains to be delivered, write nothing "
+    "at all -- no note, no summary -- and call `finish`."
 )
 
 
