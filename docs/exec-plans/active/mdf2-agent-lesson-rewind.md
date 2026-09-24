@@ -24,13 +24,23 @@ that turn originally had). A lesson whose turns predate this change cannot be re
 
 - [x] 2026-09-24 12:40 CST: Reproduced on sim and traced the routing (`_teaches_with_agent`).
 - [x] 2026-09-24 13:00 CST: Chose the design (checkpoint per turn block); wrote this plan.
-- [ ] Checkpoint written with every 2.0 turn (`block_content_conf`).
-- [ ] Rewind planning and session restore (`agent/rewind.py`), unit tests.
-- [ ] Wiring: route reloads to 2.0, apply the plan in `run_agent_lesson`, retire rows at persist.
-- [ ] i18n message for a lesson that cannot be rewound.
-- [ ] Browser verification on sim (6-1 re-answer, content regenerate, legacy session refusal).
+- [x] 2026-09-24 13:40 CST: Checkpoint written with every 2.0 turn (`block_content_conf`).
+- [x] 2026-09-24 13:40 CST: Rewind planning and session restore (`agent/rewind.py`), unit tests.
+- [x] 2026-09-24 13:50 CST: Wiring: reloads routed to 2.0, plan applied in `run_agent_lesson`,
+  rows retired at persist; rollback of each layer turns its tests red.
+- [x] 2026-09-24 13:50 CST: i18n message for a lesson that cannot be rewound (five locales).
+- [x] 2026-09-24 14:00 CST: Browser verification on sim, boundary lesson 6-1: re-answering the
+  first question ("后端" → "数据") continued with data-direction options; after a page reload the
+  history showed only the new branch; the session held `Learner chose: 数据` and the new question
+  pending; the superseded blocks had status 0. A lesson from before checkpoints (6-3) showed the
+  "use 重修" message and nothing changed server-side.
+- [ ] Content regenerate (`onRefresh`) has no visible trigger in the reading UI today; covered by
+  tests only.
 
 ## Surprises & Discoveries
+
+- When a reload is refused, the browser has already truncated the page locally; a page reload
+  restores it. Only lessons whose turns predate checkpoints can be refused, so this ages out.
 
 - 2.0 turn blocks all have `position = 0`, so 1.0's `position >=` filter is meaningless for them;
   ordering by `id` within the progress record is what identifies "later" blocks.
