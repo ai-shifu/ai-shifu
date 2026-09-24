@@ -2002,3 +2002,125 @@ async def test_a_question_asked_again_after_something_new_is_still_asked() -> No
     )
 
     assert [e for e in third if isinstance(e, InteractionRequest)]
+
+
+_CORRECTION = (
+    "还不对：书名要写全，而且得是一本真正的经典名著，比如四大名著里的一本，再试一次。\n"
+)
+
+
+async def test_a_scripted_re_ask_with_the_same_correction_still_reaches_the_learner() -> (
+    None
+):
+    """A script may prescribe the same correction on every wrong answer.
+
+    The second identical correction and question are sent back once; said to that answer in
+    particular, the question is put again.
+    """
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        retry = next(
+            (p for p in last.parts if isinstance(p, RetryPromptPart)),
+            None,
+        )
+        if retry is not None:
+            # Told only to move on, a model has no way left to put the scripted retry.
+            if "If the script has you ask again" not in str(retry.content):
+                yield "下一步：读完之后，说说你的读后感。\n"
+                return
+            yield "「随便」也不是书名。\n"
+        elif _last_tool_return(messages) is None:
+            yield "留个作业：跟着 AI 读一本经典。\n"
+        else:
+            yield _CORRECTION
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(_BOOK),
+                tool_call_id=f"q{len(messages)}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["不知道"])))
+    third = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["随便"]))
+    )
+
+    assert [e for e in third if isinstance(e, InteractionRequest)]
+    assert "「随便」也不是书名" in _said(third)
+
+
+async def test_the_same_question_with_new_choices_is_still_asked() -> None:
+    """Same lead-in and question, other choices: a new question, not the one answered."""
+    first = {
+        "type": "single",
+        "prompt": "你想先看哪个例子？",
+        "options": [{"display": "例子 A"}, {"display": "例子 B"}],
+    }
+    second = {**first, "options": [{"display": "例子 C"}, {"display": "例子 D"}]}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        answered = _last_tool_return(messages) is not None
+        yield _LEAD
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(second if answered else first),
+                tool_call_id=f"q{len(messages)}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    again = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["例子 A"]))
+    )
+
+    asked = [e for e in again if isinstance(e, InteractionRequest)]
+    assert [o.display for o in asked[0].spec.options] == ["例子 C", "例子 D"]
+
+
+async def test_an_earlier_question_of_a_batch_asked_again_is_not_put() -> None:
+    """Two questions in one response, both answered, then the first one again, word for word."""
+    genre = {"type": "text", "prompt": "你平时爱读哪类书？", "variable": "genre"}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(p, RetryPromptPart) for p in last.parts
+        ):
+            yield "下一步：读完之后，说说你的读后感。\n"
+            return
+        yield _LEAD
+        if _last_tool_return(messages) is None:
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(_BOOK), tool_call_id="q1"
+                ),
+                1: DeltaToolCall(
+                    name="interact", json_args=json.dumps(genre), tool_call_id="q2"
+                ),
+            }
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(_BOOK), tool_call_id="q3"
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["红楼梦"])))
+    after = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["小说"]))
+    )
+
+    assert not [e for e in after if isinstance(e, InteractionRequest)]
+    assert "读后感" in _said(after)
+    assert session.pending == []

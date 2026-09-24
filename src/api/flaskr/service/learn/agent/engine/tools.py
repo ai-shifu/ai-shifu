@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
+from pydantic import ValidationError
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
 from pydantic_ai.messages import (
     ModelRequest,
@@ -253,19 +254,57 @@ def _visible(text: str) -> str:
     return "".join(text.split())
 
 
+def _question(
+    kind: str,
+    prompt: str,
+    variable: str | None,
+    options: list[Option] | None,
+    placeholder: str | None,
+) -> tuple[object, ...]:
+    """Everything that makes up the question an `interact` call puts to the learner."""
+    return (
+        kind,
+        prompt.strip(),
+        variable or None,
+        tuple((o.display, o.value or None) for o in options or []),
+        (placeholder or "").strip() or None,
+    )
+
+
+def _asked(call: ToolCallPart) -> tuple[object, ...] | None:
+    """Return the question an earlier `interact` call put, or None if its arguments do not read."""
+    args = call.args_as_dict()
+    try:
+        options = [Option.model_validate(o) for o in args.get("options") or []]
+    except ValidationError:
+        return None
+    return _question(
+        args.get("type"),
+        args.get("prompt") or "",
+        args.get("variable"),
+        options,
+        args.get("placeholder"),
+    )
+
+
 def asks_the_answered_question_again(
     ctx: RunContext[Deps],
     kind: str,
     prompt: str,
     variable: str | None,
+    options: list[Option] | None = None,
+    placeholder: str | None = None,
 ) -> bool:
-    """Whether this call repeats, word for word, the turn that asked the question just answered.
+    """Whether this call repeats, word for word, the turn that asked a question just answered.
 
     Seen on the general-education course (2026-09-24): the learner named a book, and the model
     wrote the same paragraph and asked "which book?" again, with the same variable -- every answer
     after that got the identical paragraph and question, 14 times. A question put again after a
     wrong answer is not this: the model says something about the answer first, so the words
     before it differ.
+
+    The questions just answered are all those the last asking response put: a response can ask
+    several, and every one is answered before the model goes on.
     """
     messages = ctx.messages
     start = ctx.deps.history_len
@@ -280,7 +319,7 @@ def asks_the_answered_question_again(
     )
     if len(now) < _LOOP_FLOOR_CHARS:
         return False
-    # The question just answered: the last `interact` call of the turns before this one.
+    question = _question(kind, prompt, variable, options, placeholder)
     for index in range(min(start, len(messages)) - 1, -1, -1):
         msg = messages[index]
         if not isinstance(msg, ModelResponse):
@@ -292,12 +331,7 @@ def asks_the_answered_question_again(
         ]
         if not calls:
             continue
-        asked = calls[-1].args_as_dict()
-        if (
-            asked.get("type"),
-            (asked.get("prompt") or "").strip(),
-            asked.get("variable") or None,
-        ) != (kind, prompt.strip(), variable or None):
+        if not any(_asked(call) == question for call in calls):
             return False
         return _turn_text_before(messages, index) == now
     return False
@@ -345,13 +379,17 @@ async def interact(
     The learner's answer is returned as the tool result; then continue the script.
     """
     if type != "confirm" and asks_the_answered_question_again(
-        ctx, type, prompt, variable
+        ctx, type, prompt, variable, options, placeholder
     ):
+        # Not a flat refusal: a script can ask again after a wrong answer, with the same
+        # correction each time. Put that way, it is said to this answer and so reads differently.
         msg = (
-            "The learner has already answered this question, and you have just written the same "
-            "text and asked it again, word for word. Do not ask it again. Go on with the next "
-            "step of the script from their answer; if nothing in the script remains, call "
-            "`finish`."
+            "The learner has just answered this question, and you have written the same text "
+            "as before and asked it again, word for word -- to the learner that is the lesson "
+            "stuck in a loop. If their answer completes this step, do not ask again: go on with "
+            "the next step of the script, or call `finish` if nothing in it remains. If the "
+            "script has you ask again, first say what about this particular answer falls short, "
+            "then ask."
         )
         raise ModelRetry(msg)
     if type == "confirm" and text_in_turn(ctx) == 0:
