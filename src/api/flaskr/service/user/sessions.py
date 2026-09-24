@@ -165,3 +165,10 @@ def revoke_other_user_sessions(
         if not (current_token and record.token == current_token)
     ]
     return {"revoked": _forget(app, records)}
+
+
+def revoke_all_user_sessions(app: Flask, *, user_id: str) -> dict[str, Any]:
+    """End every active session after an operator changes login identity."""
+    if not user_id:
+        raise_error("server.user.userNotFound")
+    return {"revoked": _forget(app, _active_sessions(user_id))}

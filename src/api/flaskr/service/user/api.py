@@ -8,6 +8,7 @@ from flaskr.service.user.account_cancellation import (
     request_user_account_cancellation,
 )
 from flaskr.service.user.auth.oauth_origins import is_allowed_oauth_origin
+from flaskr.service.user.operator_contact_change import change_operator_user_contact
 from flaskr.service.user.repository import (
     UserAggregate,
     ensure_user_for_identifier,
@@ -27,6 +28,7 @@ __all__ = [
     "UserAggregate",
     "cancel_account_subscription_renewals",
     "cancel_user_account",
+    "change_operator_user_contact",
     "ensure_demo_course_permissions",
     "ensure_user_for_identifier",
     "get_account_cancellation_preview",

@@ -65,6 +65,50 @@
     "transferPlaceholder": "New owner phone or email",
     "transferRequired": "Transfer {count} published courses first"
   },
+  "contactChange": {
+    "cancel": "Cancel",
+    "confirm": "Confirm change",
+    "email": {
+      "action": "Change email",
+      "confirmLabel": "Enter the new email again",
+      "confirmPlaceholder": "Enter the new email again",
+      "currentLabel": "Current email",
+      "description": "The previous email will be unlinked and can register a new account. This user's existing data will remain unchanged.",
+      "newLabel": "New email",
+      "newPlaceholder": "Enter the new email",
+      "sessionNotice": "After this change, all sessions for this user will be revoked. The user must sign in again with the new email.",
+      "successDescription": "All sessions for this user have been revoked. The user must sign in again with the new email.",
+      "successTitle": "User email updated",
+      "title": "Change user email"
+    },
+    "errors": {
+      "confirmationMismatch": "The two entries do not match.",
+      "emailInvalid": "Enter a valid email address.",
+      "emailRequired": "Enter the new email.",
+      "emailUnchanged": "The new email is the same as the current email.",
+      "phoneInvalid": "Enter a valid 11-digit phone number.",
+      "phoneRequired": "Enter the new phone number.",
+      "phoneUnchanged": "The new phone number is the same as the current phone number.",
+      "reasonRequired": "Enter the reason for this change.",
+      "submitFailed": "The account could not be changed. Try again later."
+    },
+    "phone": {
+      "action": "Change phone number",
+      "confirmLabel": "Enter the new phone number again",
+      "confirmPlaceholder": "Enter the new phone number again",
+      "currentLabel": "Current phone number",
+      "description": "The previous phone number will be unlinked and can register a new account. This user's existing data will remain unchanged.",
+      "newLabel": "New phone number",
+      "newPlaceholder": "Enter the new phone number",
+      "sessionNotice": "After this change, all sessions for this user will be revoked. The user must sign in again with the new phone number.",
+      "successDescription": "All sessions for this user have been revoked. The user must sign in again with the new phone number.",
+      "successTitle": "User phone number updated",
+      "title": "Change user phone number"
+    },
+    "reasonLabel": "Reason for change",
+    "reasonPlaceholder": "Enter the reason for this change",
+    "submitting": "Submitting…"
+  },
   "courseSummary": {
     "dialog": {
       "courseId": "Course ID",

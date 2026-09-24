@@ -53,6 +53,7 @@
 | `docs/exec-plans/active/operator-credit-grant-package.md` | ExecPlan: Operator Credit Grant Package | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-promotion-ops-state-rules.md` | ExecPlan: Operator Promotion Ops State Rules | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/operator-user-contact-change.md` | Operator User Contact Change | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/package-campaigns.md` | ExecPlan: Package Campaigns | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/password-login-rate-limit.md` | Password Login Account Rate Limit | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |

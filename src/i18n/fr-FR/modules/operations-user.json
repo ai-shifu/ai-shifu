@@ -65,6 +65,50 @@
     "transferPlaceholder": "Téléphone ou e-mail du nouveau responsable",
     "transferRequired": "Transférez d’abord {count} cours publiés"
   },
+  "contactChange": {
+    "cancel": "Annuler",
+    "confirm": "Confirmer le changement",
+    "email": {
+      "action": "Changer l’adresse e-mail",
+      "confirmLabel": "Saisissez à nouveau la nouvelle adresse e-mail",
+      "confirmPlaceholder": "Saisissez à nouveau la nouvelle adresse e-mail",
+      "currentLabel": "Adresse e-mail actuelle",
+      "description": "L’ancienne adresse e-mail sera dissociée et pourra servir à créer un nouveau compte. Les données existantes resteront inchangées.",
+      "newLabel": "Nouvelle adresse e-mail",
+      "newPlaceholder": "Saisissez la nouvelle adresse e-mail",
+      "sessionNotice": "Après cette modification, toutes les sessions seront révoquées. L’utilisateur devra se reconnecter avec la nouvelle adresse e-mail.",
+      "successDescription": "Toutes les sessions ont été révoquées. L’utilisateur doit se reconnecter avec la nouvelle adresse e-mail.",
+      "successTitle": "Adresse e-mail de l’utilisateur modifiée",
+      "title": "Changer l’adresse e-mail de l’utilisateur"
+    },
+    "errors": {
+      "confirmationMismatch": "Les deux saisies ne correspondent pas.",
+      "emailInvalid": "Saisissez une adresse e-mail valide.",
+      "emailRequired": "Saisissez la nouvelle adresse e-mail.",
+      "emailUnchanged": "La nouvelle adresse e-mail est identique à l’adresse actuelle.",
+      "phoneInvalid": "Saisissez un numéro de téléphone valide à 11 chiffres.",
+      "phoneRequired": "Saisissez le nouveau numéro de téléphone.",
+      "phoneUnchanged": "Le nouveau numéro est identique au numéro actuel.",
+      "reasonRequired": "Indiquez la raison de ce changement.",
+      "submitFailed": "Le changement a échoué. Réessayez plus tard."
+    },
+    "phone": {
+      "action": "Changer le numéro de téléphone",
+      "confirmLabel": "Saisissez à nouveau le nouveau numéro",
+      "confirmPlaceholder": "Saisissez à nouveau le nouveau numéro",
+      "currentLabel": "Numéro actuel",
+      "description": "L’ancien numéro sera dissocié et pourra servir à créer un nouveau compte. Les données existantes resteront inchangées.",
+      "newLabel": "Nouveau numéro",
+      "newPlaceholder": "Saisissez le nouveau numéro",
+      "sessionNotice": "Après cette modification, toutes les sessions seront révoquées. L’utilisateur devra se reconnecter avec le nouveau numéro de téléphone.",
+      "successDescription": "Toutes les sessions ont été révoquées. L’utilisateur doit se reconnecter avec le nouveau numéro de téléphone.",
+      "successTitle": "Numéro de téléphone de l’utilisateur modifié",
+      "title": "Changer le numéro de l’utilisateur"
+    },
+    "reasonLabel": "Raison du changement",
+    "reasonPlaceholder": "Indiquez la raison de ce changement",
+    "submitting": "Envoi…"
+  },
   "courseSummary": {
     "dialog": {
       "courseId": "ID du cours",

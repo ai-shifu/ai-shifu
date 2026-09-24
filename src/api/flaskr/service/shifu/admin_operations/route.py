@@ -50,6 +50,7 @@ from flaskr.service.referral.api import (
     update_operator_referral_status,
 )
 from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserContactChangeRequestDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserPackageGrantRequestDTO,
 )
@@ -110,6 +111,7 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
 )
 from flaskr.service.user.api import (
     cancel_account_subscription_renewals,
+    change_operator_user_contact,
     get_account_cancellation_preview,
     get_account_cancellation_status,
     request_user_account_cancellation,
@@ -2038,6 +2040,27 @@ def register_admin_operations_routes(
         """
         _require_operator()
         return make_common_response(get_operator_user_detail(app, user_bid))
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/contact",
+        methods=["POST"],
+    )
+    def admin_operation_user_contact_change(user_bid: str) -> str:
+        """Replace an operator-managed user's configured login contact."""
+        _require_operator()
+        payload = AdminOperationUserContactChangeRequestDTO.model_validate(
+            request.get_json(silent=True) or {}
+        )
+        return make_common_response(
+            change_operator_user_contact(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                contact_type=payload.contact_type,
+                new_identifier=payload.identifier,
+                reason=payload.reason,
+            )
+        )
 
     @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/cancellation-preview",
