@@ -466,10 +466,15 @@ class Engine:
         # nothing left to deliver as far as the model was concerned, and the host could not tell;
         # so what this turn writes may be nothing new -- see `_repeats_previous_turn` -- and that
         # is known only once it has been written. Text is therefore held back for as long as it
-        # reads as the previous turn starting over, and released the moment it differs. A turn
-        # with something new to say loses nothing but a few characters' worth of delay; one that
-        # says the previous turn again is never shown. It was: a learner on the simulation
+        # reads as something the previous turn already said, and released the moment it differs.
+        # A turn with something new to say loses nothing but a few characters' worth of delay; one
+        # that says the previous turn again is never shown. It was: a learner on the simulation
         # environment watched a lesson's last piece appear a second time and only then stop.
+        #
+        # Anywhere in the previous turn, not only its start. A model with nothing left often
+        # writes the previous turn's closing line again and then calls `finish`: the learner read
+        # "理解「名字指向什么」是同一件事。" twice in a row (boundary lesson 6-3, 2026-09-24),
+        # and "你选了……" twice on 4-2.
         carried_on = isinstance(turn, ContinueTurn) and prompt is not None
         previous = (
             _previous_turn_text(session.messages, deps.history_len)
@@ -494,7 +499,7 @@ class Engine:
                 return _out(text)
             held.append(text)
             held_text += "".join(text.split())
-            if previous.startswith(held_text):
+            if held_text in previous:
                 return []
             holding = False
             released, held[:] = "".join(held), []

@@ -1154,6 +1154,71 @@ async def test_a_short_continue_that_reads_like_the_last_turn_is_still_shown() -
     assert second[-1].reason == "end"
 
 
+def _closing_again_model(
+    first: list[str], then: list[str]
+) -> Callable[..., StreamChunks]:
+    """Model: the first turn writes `first`; told to carry on, it writes `then` and finishes.
+
+    Given the `finish` result it writes `then` once more, as the model on the simulation
+    environment did.
+    """
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            for piece in first:
+                yield piece
+            return
+        for piece in then:
+            yield piece
+        if calls["n"] == 2:
+            yield {
+                0: DeltaToolCall(
+                    name="finish",
+                    json_args=json.dumps({"summary": "done"}),
+                    tool_call_id="f1",
+                )
+            }
+
+    return model
+
+
+async def test_a_continue_that_says_the_last_line_again_and_finishes_shows_nothing() -> (
+    None
+):
+    """The previous turn's closing line, written again before `finish`, is not shown twice.
+
+    Boundary lesson 6-3 (2026-09-24): told to carry on, the model wrote the line the previous
+    turn ended on -- "……理解「名字指向什么」是同一件事。" -- and called `finish`, and the
+    learner read it twice in a row. Only a repeat of the previous turn's *start* was held.
+    """
+    closing = "不管从哪条路来，理解「名字指向什么」是同一件事。"
+    model = _closing_again_model(
+        ["做菜的时候，你会给东西起名字。\n\n", closing], [closing[:8], closing[8:]]
+    )
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    first = await collect(engine.run_turn(session))
+    assert _said(first).count(closing) == 1
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == ""
+    assert second[-1].reason == "finished"
+
+
+async def test_a_continue_that_goes_on_from_a_line_it_repeated_is_shown() -> None:
+    """Held only while it is something the previous turn said; new text releases all of it."""
+    model = _closing_again_model(
+        ["第一部分讲完了。\n\n小结：名字指向东西。"], ["小结：", "下面讲第二部分。"]
+    )
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    # The model's text, as it wrote it: the repeat was only held, never cut, once it went on.
+    assert _said(second) == "小结：下面讲第二部分。"
+
+
 async def test_what_the_model_writes_after_finishing_a_continue_is_not_shown() -> None:
     """Told to carry on, the model calls `finish` first and then writes.
 
