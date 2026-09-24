@@ -18,7 +18,7 @@
         "completed": "Abgeschlossen",
         "exception": "Einrichtungsproblem",
         "in_progress": "Laufende Arbeiten",
-        "pending": "Vorläufige Einrichtung"
+        "pending": "Einrichtung ausstehend"
       },
       "configStatusHelp": {
         "completed": "Die Operationen haben diese Runde der Aufbau-Follow-up beendet.",
@@ -114,7 +114,7 @@
         "status": {
           "active": "Lebend",
           "exception": "Ausgabe",
-          "inactive": "Nicht lebend",
+          "inactive": "Nicht aktiv",
           "pending": "Verarbeitung",
           "unconfigured": "Nicht konfiguriert"
         },
@@ -465,11 +465,11 @@
       },
       "creatorOrders": {
         "description": "Die Sync-, Checkout- und Topup-Ströme der Lehrer-Ordnung bleiben aktiviert.",
-        "title": "Lehrerbefehle"
+        "title": "Bestellungen von Lehrkräften"
       },
       "creatorSubscriptionCheckout": {
         "description": "Lehrer Abonnement Checkout, Stornierung und Lebenslauf bleiben aktiviert.",
-        "title": "Lebenszyklus des Lehrerabonnements"
+        "title": "Lehrkraft-Abonnements"
       },
       "creatorWalletLedger": {
         "description": "Credit-Kontingente und Abrechnungsmodelle bleiben aktiviert.",
@@ -509,7 +509,7 @@
       },
       "walletBucketExpiration": {
         "description": "Das Ablaufdatum der Credit-Kontingente bleibt nur intern sichtbar.",
-        "title": "Fälligkeit des Kontoguthabens"
+        "title": "Ablauf von Kontoguthaben"
       }
     },
     "status": {
@@ -668,7 +668,7 @@
     },
     "integrationStatus": {
       "disabled": "Deaktiviert",
-      "draft": "Vorläufige Genehmigung",
+      "draft": "Aktivierung ausstehend",
       "failed": "Aktivierung fehlgeschlagen",
       "unconfigured": "Nicht konfiguriert",
       "verified": "Aktiviert"

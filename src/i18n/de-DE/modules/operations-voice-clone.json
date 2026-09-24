@@ -135,7 +135,7 @@
     "voiceIdRequired": "Bitte geben Sie eine Voice-ID ein"
   },
   "status": {
-    "billing_pending": "Rechnungswesen",
+    "billing_pending": "Abrechnung ausstehend",
     "failed": "fehlgeschlagen",
     "processing": "Verarbeitung",
     "queued": "Angestellt",

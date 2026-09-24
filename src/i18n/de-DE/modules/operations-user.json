@@ -227,7 +227,7 @@
       "gift_expire": "Erlöschen des Schenkungsguthabens",
       "gift_grant": "Schenkung",
       "grant": "Gutschrift von Credits",
-      "hold": "Anrechnungsbetrag",
+      "hold": "Credits reserviert",
       "learning_consume": "Lernkonsum",
       "manual_credit": "Manuelle Gutschrift",
       "manual_debit": "Manuelles Debit",
@@ -240,7 +240,7 @@
       "subscription_grant": "Zeichnungszuschuß",
       "topup_expire": "Creditpaket Ablauf",
       "topup_grant": "Creditpaket-Zuschuss",
-      "trial_subscription_grant": "Studienabonnementsstipendium"
+      "trial_subscription_grant": "Credits aus Probeabonnement"
     },
     "creditLedgerUsageSceneLabels": {
       "debug": "Fehler",
