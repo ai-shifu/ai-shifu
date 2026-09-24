@@ -377,7 +377,7 @@ describe('AskBlock', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('leaves unknown follow-up language unset with English MarkdownFlow controls', () => {
+  it('leaves unknown follow-up language unset with Spanish MarkdownFlow controls', () => {
     mockLanguage = 'es-ES';
     render(
       <AskBlock
@@ -391,12 +391,12 @@ describe('AskBlock', () => {
 
     expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute(
       'data-locale',
-      'en-US',
+      'es-ES',
     );
     expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute('lang', '');
     expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
       'data-locale',
-      'en-US',
+      'es-ES',
     );
     expect(screen.getByTestId('follow-up-answer')).toHaveAttribute('lang', '');
   });

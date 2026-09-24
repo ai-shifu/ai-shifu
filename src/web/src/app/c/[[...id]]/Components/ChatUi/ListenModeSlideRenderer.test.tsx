@@ -805,7 +805,7 @@ describe('ListenModeSlideRenderer', () => {
     );
 
     expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({ locale: 'en-US', lang: 'en-US' }),
+      expect.objectContaining({ locale: 'es-ES', lang: 'en-US' }),
     );
   });
 
@@ -821,7 +821,7 @@ describe('ListenModeSlideRenderer', () => {
     );
 
     expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({ locale: 'en-US', lang: 'es-ES' }),
+      expect.objectContaining({ locale: 'es-ES', lang: 'es-ES' }),
     );
   });
 
@@ -836,7 +836,7 @@ describe('ListenModeSlideRenderer', () => {
     );
 
     expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({ locale: 'en-US', lang: '' }),
+      expect.objectContaining({ locale: 'es-ES', lang: '' }),
     );
   });
 

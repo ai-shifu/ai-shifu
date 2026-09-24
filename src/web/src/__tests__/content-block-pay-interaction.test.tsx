@@ -69,7 +69,7 @@ describe('ContentBlock pay interaction overrides', () => {
     );
 
     expect(mockContentRender).toHaveBeenCalledWith(
-      expect.objectContaining({ locale: 'en-US', lang: '' }),
+      expect.objectContaining({ locale: 'es-ES', lang: '' }),
     );
   });
 

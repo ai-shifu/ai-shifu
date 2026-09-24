@@ -70,10 +70,7 @@ test("preserves every supported frozen locale and defaults unsupported values", 
       metadata: { locale },
     });
     assert.equal(artifact.locale, locale);
-    assert.equal(
-      artifact.markdownFlowLocale,
-      locale === "es-ES" ? "en-US" : locale,
-    );
+    assert.equal(artifact.markdownFlowLocale, locale);
   }
   for (const locale of [undefined, null, "", "ar", "es", "th", "de-DE"]) {
     const artifact = normalizeArtifact({

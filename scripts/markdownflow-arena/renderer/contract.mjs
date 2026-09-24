@@ -61,8 +61,7 @@ export function normalizeArtifact(value) {
     mode: markerCount ? "slides" : "reading",
     stepCount: markerCount || 1,
     locale,
-    // 0.2.27 has no Spanish UI strings; keep Spanish content language separate.
-    markdownFlowLocale: locale === "es-ES" ? "en-US" : locale,
+    markdownFlowLocale: locale,
   };
 }
 

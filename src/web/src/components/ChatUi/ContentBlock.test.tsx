@@ -65,12 +65,12 @@ const renderContent = (
   );
 
 describe('ContentBlock content language', () => {
-  it('keeps the English guide body marked as English under a Spanish UI', () => {
+  it('keeps the English guide body marked as English under Spanish controls', () => {
     renderContent('en-US');
 
     expect(screen.getByTestId('course-content')).toHaveAttribute(
       'data-locale',
-      'en-US',
+      'es-ES',
     );
     expect(screen.getByTestId('course-content')).toHaveAttribute(
       'lang',
@@ -83,7 +83,7 @@ describe('ContentBlock content language', () => {
 
     expect(screen.getByTestId('course-content')).toHaveAttribute(
       'data-locale',
-      'en-US',
+      'es-ES',
     );
     expect(screen.getByTestId('course-content')).toHaveAttribute(
       'lang',
@@ -96,7 +96,7 @@ describe('ContentBlock content language', () => {
 
     expect(screen.getByTestId('course-content')).toHaveAttribute(
       'data-locale',
-      'en-US',
+      'es-ES',
     );
     expect(screen.getByTestId('course-content')).toHaveAttribute(
       'lang',

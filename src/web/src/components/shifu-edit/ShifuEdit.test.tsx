@@ -939,7 +939,7 @@ describe('ShifuEdit draft conflict checks', () => {
     }
   });
 
-  test('leaves unknown authored language unset with English editor controls', async () => {
+  test('leaves unknown authored language unset with Spanish editor controls', async () => {
     setLessonNode();
     const mockI18nState = getMockI18nState();
     const originalResolvedLanguage = mockI18nState.resolvedLanguage;
@@ -956,7 +956,7 @@ describe('ShifuEdit draft conflict checks', () => {
       });
 
       expect(mockMarkdownFlowEditor.mock.calls.at(-1)?.[0]).toEqual(
-        expect.objectContaining({ locale: 'en-US', lang: '' }),
+        expect.objectContaining({ locale: 'es-ES', lang: '' }),
       );
     } finally {
       mockI18nState.resolvedLanguage = originalResolvedLanguage;

@@ -143,7 +143,7 @@ describe('ProfileOnboardingConversation', () => {
     mockScrollToBottomControl.mockClear();
   });
 
-  test('leaves unknown onboarding content language unset with English renderer controls', async () => {
+  test('leaves unknown onboarding content language unset with Spanish renderer controls', async () => {
     mockLanguage = 'es-ES';
     const runSession = jest.fn(({ onMessage }) => {
       queueMicrotask(() => {
@@ -170,7 +170,7 @@ describe('ProfileOnboardingConversation', () => {
     await screen.findByText('English prompt');
     expect(screen.getByTestId('profile-onboarding-renderer')).toHaveAttribute(
       'data-locale',
-      'en-US',
+      'es-ES',
     );
     expect(screen.getByTestId('profile-onboarding-renderer')).toHaveAttribute(
       'lang',
