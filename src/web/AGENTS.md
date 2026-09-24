@@ -1,4 +1,4 @@
-# Cook Web AI Collaboration Rules
+# Web AI Collaboration Rules
 
 This file routes frontend work to the right source documents and keeps the
 hard frontend constraints close to `src/web/`.
