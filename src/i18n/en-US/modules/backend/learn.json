@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentRewindUnavailable": "This step can't be regenerated. To change an earlier answer, use \"Reset\" to take this lesson again.",
     "agentTurnCapacity": "Too many lessons are running right now. Please try again in a moment.",
     "askProviderAuthFailed": "Knowledge base authentication failed. Please check the API Key and Client ID.",
     "askProviderNoResults": "No relevant knowledge base content was found.",

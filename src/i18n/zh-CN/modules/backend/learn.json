@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentRewindUnavailable": "这一步暂时无法重新生成。如需修改之前的回答，请点击「重修」重新学习本节",
     "agentTurnCapacity": "当前同时学习的人较多，请稍后重试",
     "askProviderAuthFailed": "知识库鉴权失败，请检查 API Key 与 Client ID 是否正确",
     "askProviderNoResults": "未检索到相关知识库内容",
