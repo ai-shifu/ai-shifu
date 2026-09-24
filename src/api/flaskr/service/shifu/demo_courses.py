@@ -33,8 +33,7 @@ def load_demo_shifu_bids() -> set[str]:
     return demo_bids
 
 
-def get_demo_course_title_language(shifu_bid: str) -> str | None:
-    """Return the authored title language of a configured demo course."""
+def _get_configured_demo_language(shifu_bid: str) -> str | None:
     normalized_bid = str(shifu_bid or "").strip()
     if not normalized_bid:
         return None
@@ -51,6 +50,16 @@ def get_demo_course_title_language(shifu_bid: str) -> str | None:
         if configured_bid and configured_bid == normalized_bid:
             matches.append(language)
     return matches[0] if len(matches) == 1 else None
+
+
+def get_demo_course_title_language(shifu_bid: str) -> str | None:
+    """Return the authored title language of a configured demo course."""
+    return _get_configured_demo_language(shifu_bid)
+
+
+def get_demo_course_content_language(shifu_bid: str) -> str | None:
+    """Return the output language fixed by a configured demo course's prompts."""
+    return _get_configured_demo_language(shifu_bid)
 
 
 def resolve_demo_course_for_language(

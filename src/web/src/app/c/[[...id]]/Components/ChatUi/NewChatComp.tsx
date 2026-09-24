@@ -133,6 +133,7 @@ interface NewChatComponentsProps {
   lessonId?: string;
   lessonTitle?: string;
   titleLanguage?: string;
+  contentLanguage?: string;
   lessonStatus?: string;
   lessonHasContentUpdate?: boolean;
   followUpMode?: 'text' | 'live_voice' | 'disabled';
@@ -161,6 +162,7 @@ export const NewChatComponents = ({
   lessonId,
   lessonTitle = '',
   titleLanguage,
+  contentLanguage,
   lessonStatus = '',
   lessonHasContentUpdate = false,
   followUpMode = 'text',
@@ -1463,6 +1465,7 @@ export const NewChatComponents = ({
               courseName={courseName}
               sectionTitle={lessonTitle}
               titleLanguage={titleLanguage}
+              contentLanguage={contentLanguage}
               lessonId={lessonId}
               shifuBid={shifuBid}
               previewMode={previewMode}
@@ -1815,6 +1818,7 @@ export const NewChatComponents = ({
                       */}
                       <ContentBlock
                         item={item}
+                        contentLanguage={contentLanguage}
                         printMode={isPreparingLessonPdf && isCourseInteraction}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}

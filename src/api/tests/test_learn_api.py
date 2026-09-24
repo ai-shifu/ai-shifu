@@ -157,6 +157,8 @@ def test_get_outline_item_tree_preview_mode(
     assert result.outline_items[0].follow_up_mode == "text"
     assert result.title_language == "en-US"
     assert result.__json__()["title_language"] == "en-US"
+    assert result.content_language == "en-US"
+    assert result.__json__()["content_language"] == "en-US"
 
 
 def test_get_outline_item_tree_uses_course_model_with_outline_ask_status(
@@ -270,6 +272,8 @@ def test_get_outline_item_tree_uses_course_model_with_outline_ask_status(
     assert result.outline_items[0].children[0].follow_up_mode == "live_voice"
     assert result.outline_items[1].follow_up_mode == "live_voice"
     assert result.outline_items[2].follow_up_mode == "disabled"
+    assert result.content_language is None
+    assert "content_language" not in result.__json__()
 
     live_availability["enabled"] = False
     unavailable_result = get_outline_item_tree(

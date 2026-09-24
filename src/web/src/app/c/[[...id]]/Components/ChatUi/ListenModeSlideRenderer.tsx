@@ -79,10 +79,7 @@ import {
 } from './lessonFeedbackPromptState';
 import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
 import LearnerCourseShareButton from '../LearnerCourseShareButton';
-import {
-  resolveMarkdownFlowContentLanguage,
-  resolveMarkdownFlowLocale,
-} from '@/lib/markdown-flow-locale';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import type { FollowUpPresentationMode } from './liveVoiceFollowUpMode';
 import type { LiveVoiceFollowUpController } from '@/components/live-follow-up/useLiveVoiceFollowUp';
 
@@ -191,6 +188,7 @@ interface ListenModeSlideRendererProps {
   isGenerating?: boolean;
   sectionTitle?: string;
   titleLanguage?: string;
+  contentLanguage?: string;
   courseName?: string;
   courseAvatar?: string;
   lessonId?: string;
@@ -757,6 +755,7 @@ const ListenModeSlideRenderer = ({
   isGenerating = false,
   sectionTitle,
   titleLanguage,
+  contentLanguage,
   courseName = '',
   courseAvatar = '',
   lessonId = '',
@@ -2443,7 +2442,8 @@ const ListenModeSlideRenderer = ({
             isMobileFullscreen && 'listen-slide-root--landscape',
           )}
           locale={markdownFlowLocale}
-          lang={resolveMarkdownFlowContentLanguage(hostLanguage)}
+          // Known guide output language is independent of its title and UI.
+          lang={contentLanguage ?? ''}
           elementList={renderedElementList}
           interactionTexts={{
             title: t('module.chat.listenInteractionHint'),

@@ -350,18 +350,23 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
     title_language: str | None = Field(
         default=None, description="Authored outline title language when known"
     )
+    content_language: str | None = Field(
+        default=None, description="Course output language when explicitly known"
+    )
 
     def __init__(
         self,
         banner_info: LearnBannerInfoDTO | None,
         outline_items: list[LearnOutlineItemInfoDTO],
         title_language: str | None = None,
+        content_language: str | None = None,
     ) -> None:
         """Combine the learner banner and outline item payloads."""
         super().__init__(
             banner_info=banner_info,
             outline_items=outline_items,
             title_language=title_language,
+            content_language=content_language,
         )
 
     def __json__(self) -> dict:
@@ -374,6 +379,8 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
         }
         if self.title_language is not None:
             payload["title_language"] = self.title_language
+        if self.content_language is not None:
+            payload["content_language"] = self.content_language
         return payload
 
 

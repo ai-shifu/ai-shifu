@@ -909,6 +909,7 @@ export default function ChatPage() {
             chapterId={chapterId}
             lessonTitle={currentLessonTitle}
             titleLanguage={tree?.titleLanguage}
+            contentLanguage={tree?.contentLanguage}
             lessonStatus={currentLessonStatus}
             lessonHasContentUpdate={currentLessonHasContentUpdate}
             followUpMode={currentLessonFollowUpMode}

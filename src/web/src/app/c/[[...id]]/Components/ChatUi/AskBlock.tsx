@@ -27,10 +27,7 @@ import {
 } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
-import {
-  resolveMarkdownFlowContentLanguage,
-  resolveMarkdownFlowLocale,
-} from '@/lib/markdown-flow-locale';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import { isRtlLocale } from '@/lib/i18n-locales';
 import {
   AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
@@ -852,7 +849,7 @@ export default function AskBlock({
                 >
                   <ContentRender
                     locale={markdownFlowLocale}
-                    lang={resolveMarkdownFlowContentLanguage(hostLanguage)}
+                    lang=''
                     content={message.content}
                     customRenderBar={
                       message.isStreaming
@@ -913,7 +910,7 @@ export default function AskBlock({
               )
             }
             locale={markdownFlowLocale}
-            lang={resolveMarkdownFlowContentLanguage(hostLanguage)}
+            lang=''
             placeholder={t('module.chat.askContent')}
             value={inputValue}
             onChange={handleInputChange}

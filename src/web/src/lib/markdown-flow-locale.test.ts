@@ -1,7 +1,4 @@
-import {
-  resolveMarkdownFlowContentLanguage,
-  resolveMarkdownFlowLocale,
-} from './markdown-flow-locale';
+import { resolveMarkdownFlowLocale } from './markdown-flow-locale';
 
 describe('resolveMarkdownFlowLocale', () => {
   it.each([
@@ -30,22 +27,6 @@ describe('resolveMarkdownFlowLocale', () => {
     'falls back to English for %s',
     language => {
       expect(resolveMarkdownFlowLocale(language)).toBe('en-US');
-    },
-  );
-});
-
-describe('resolveMarkdownFlowContentLanguage', () => {
-  it.each(['es-ES', 'es_ES', 'es-MX', 'es'])(
-    'keeps %s content tagged as Spanish',
-    language => {
-      expect(resolveMarkdownFlowContentLanguage(language)).toBe('es-ES');
-    },
-  );
-
-  it.each([undefined, null, '', 'en-US', 'fr-FR'])(
-    'leaves %s content language to MarkdownFlow',
-    language => {
-      expect(resolveMarkdownFlowContentLanguage(language)).toBeUndefined();
     },
   );
 });

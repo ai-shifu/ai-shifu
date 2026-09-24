@@ -22,15 +22,13 @@ import {
   localizeSystemInteractionContent,
 } from '@/lib/system-interaction';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
-import {
-  resolveMarkdownFlowContentLanguage,
-  resolveMarkdownFlowLocale,
-} from '@/lib/markdown-flow-locale';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 
 interface ContentBlockProps {
   item: ChatContentItem;
   mobileStyle: boolean;
   blockBid: string;
+  contentLanguage?: string;
   contentRenderKey?: string;
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
@@ -49,6 +47,7 @@ const ContentBlock = memo(
     item,
     mobileStyle,
     blockBid,
+    contentLanguage,
     contentRenderKey,
     onClickCustomButtonAfterContent,
     onSend,
@@ -144,7 +143,13 @@ const ContentBlock = memo(
         <ContentRender
           key={contentRenderKey}
           locale={markdownFlowLocale}
-          lang={resolveMarkdownFlowContentLanguage(hostLanguage)}
+          // MarkdownFlow falls back to the controls locale for nullish lang.
+          // Empty lang keeps unknown authored text from claiming that language.
+          lang={
+            item.type === ChatContentItemType.CONTENT
+              ? (contentLanguage ?? '')
+              : ''
+          }
           enableTypewriter={shouldEnableTypewriter}
           typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
           typewriterPacing='content-aware'
@@ -204,6 +209,7 @@ const ContentBlock = memo(
       prevProps.item.user_input === nextProps.item.user_input &&
       prevProps.item.readonly === nextProps.item.readonly &&
       prevProps.item.content === nextProps.item.content &&
+      prevProps.contentLanguage === nextProps.contentLanguage &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.contentRenderKey === nextProps.contentRenderKey &&

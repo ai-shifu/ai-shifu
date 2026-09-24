@@ -31,7 +31,7 @@ jest.mock('@/store/useCourseStore', () => ({
 
 const mockGetLessonTree = getLessonTree as jest.Mock;
 
-describe('useLessonTree title language', () => {
+describe('useLessonTree authored language metadata', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -40,10 +40,12 @@ describe('useLessonTree title language', () => {
     mockGetLessonTree.mockResolvedValueOnce({
       outline_items: [],
       title_language: 'en-US',
+      content_language: 'en-US',
     });
     mockGetLessonTree.mockResolvedValueOnce({
       outline_items: [],
       title_language: 'zh-CN',
+      content_language: 'zh-CN',
     });
 
     const { result } = renderHook(() => useLessonTree());
@@ -51,11 +53,13 @@ describe('useLessonTree title language', () => {
       await result.current.loadTree();
     });
     expect(result.current.tree?.titleLanguage).toBe('en-US');
+    expect(result.current.tree?.contentLanguage).toBe('en-US');
 
     await act(async () => {
       await result.current.reloadTree();
     });
     expect(result.current.tree?.titleLanguage).toBe('zh-CN');
+    expect(result.current.tree?.contentLanguage).toBe('zh-CN');
     expect(mockGetLessonTree).toHaveBeenCalledWith('guide-course', false);
   });
 
@@ -68,5 +72,6 @@ describe('useLessonTree title language', () => {
     });
 
     expect(result.current.tree?.titleLanguage).toBeUndefined();
+    expect(result.current.tree?.contentLanguage).toBeUndefined();
   });
 });

@@ -792,7 +792,40 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps).not.toHaveProperty('playerTexts');
   });
 
-  it('marks Spanish slide content as Spanish with English player controls', () => {
+  it('marks the English guide slide as English under a Spanish UI', () => {
+    mockLanguage = 'es-ES';
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        titleLanguage='fr-FR'
+        contentLanguage='en-US'
+      />,
+    );
+
+    expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ locale: 'en-US', lang: 'en-US' }),
+    );
+  });
+
+  it('marks explicitly known Spanish slide content as Spanish', () => {
+    mockLanguage = 'es-ES';
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        contentLanguage='es-ES'
+      />,
+    );
+
+    expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ locale: 'en-US', lang: 'es-ES' }),
+    );
+  });
+
+  it('does not infer an unknown slide language from the Spanish UI', () => {
     mockLanguage = 'es-ES';
     render(
       <ListenModeSlideRenderer
@@ -803,7 +836,7 @@ describe('ListenModeSlideRenderer', () => {
     );
 
     expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({ locale: 'en-US', lang: 'es-ES' }),
+      expect.objectContaining({ locale: 'en-US', lang: '' }),
     );
   });
 

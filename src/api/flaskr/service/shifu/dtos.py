@@ -36,6 +36,15 @@ def get_demo_course_title_language(shifu_bid: str) -> str | None:
     return _get_demo_course_title_language(shifu_bid)
 
 
+def get_demo_course_content_language(shifu_bid: str) -> str | None:
+    """Expose the configured guide output language across service boundaries."""
+    from flaskr.service.shifu.demo_courses import (
+        get_demo_course_content_language as _get_demo_course_content_language,
+    )
+
+    return _get_demo_course_content_language(shifu_bid)
+
+
 @register_schema_to_swagger
 class ShifuDto(BaseModel):
     """Shifu dto."""

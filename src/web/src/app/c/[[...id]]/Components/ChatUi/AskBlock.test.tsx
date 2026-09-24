@@ -377,7 +377,7 @@ describe('AskBlock', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('marks Spanish follow-up text as Spanish with English MarkdownFlow controls', () => {
+  it('leaves unknown follow-up language unset with English MarkdownFlow controls', () => {
     mockLanguage = 'es-ES';
     render(
       <AskBlock
@@ -385,7 +385,7 @@ describe('AskBlock', () => {
         outline_bid='lesson-1'
         element_bid='element-1'
         isExpanded
-        askList={[{ type: BLOCK_TYPE.ANSWER, content: 'Hola' }]}
+        askList={[{ type: BLOCK_TYPE.ANSWER, content: 'English reply' }]}
       />,
     );
 
@@ -393,18 +393,12 @@ describe('AskBlock', () => {
       'data-locale',
       'en-US',
     );
-    expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute(
-      'lang',
-      'es-ES',
-    );
+    expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute('lang', '');
     expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
       'data-locale',
       'en-US',
     );
-    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
-      'lang',
-      'es-ES',
-    );
+    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute('lang', '');
   });
 
   it.each([false, true])(
