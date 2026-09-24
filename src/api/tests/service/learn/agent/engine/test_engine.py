@@ -1916,3 +1916,113 @@ async def test_the_model_decides_pauses_unless_the_host_says_otherwise() -> None
     session = await engine.new_session("让用户思考一下，再继续讲下一部分。")
     events = await collect(engine.run_turn(session))
     assert [e for e in events if isinstance(e, InteractionRequest)]
+
+
+# --- nothing is asked after `finish` -------------------------------------------------------
+
+_AGAIN = {
+    "type": "single",
+    "prompt": "你是不是已经迫不及待了？",
+    "options": [{"display": "是"}, {"display": "还不确定"}],
+}
+
+
+def _finish_call(call_id: str = "f1") -> dict[int, DeltaToolCall]:
+    return {
+        0: DeltaToolCall(
+            name="finish",
+            json_args=json.dumps({"summary": "done"}),
+            tool_call_id=call_id,
+        )
+    }
+
+
+async def test_a_question_asked_after_finish_does_not_keep_the_lesson_going() -> None:
+    """General-education course (2026-09-24): after `finish`, the model taught the lesson again.
+
+    Given the `finish` result it started over and asked its first question once more; taken as a
+    question, that left the lesson unfinished, and every answer brought the same lesson and the
+    same question back -- 14 times.
+    """
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            yield "最后一部分讲完了。\n"
+            yield _finish_call()
+        elif calls["n"] == 2:
+            yield "咱们开始吧。\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(_AGAIN), tool_call_id="q2"
+                )
+            }
+        else:
+            yield "好的。"
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+
+    assert not [e for e in events if isinstance(e, InteractionRequest)]
+    assert events[-1].reason == "finished"
+    assert session.finished is True
+    assert session.pending == []
+
+
+async def test_a_model_that_keeps_asking_after_finish_still_ends_the_lesson() -> None:
+    """Asking again and again after `finish` runs into the request limit; the end still stands."""
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            yield "最后一部分讲完了。\n"
+            yield _finish_call()
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(_AGAIN),
+                    tool_call_id=f"q{calls['n']}",
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+
+    assert not [e for e in events if isinstance(e, (InteractionRequest, ErrorEvent))]
+    assert events[-1].reason == "finished"
+    assert session.finished is True
+
+
+async def test_a_question_asked_beside_finish_is_not_left_pending() -> None:
+    """Asking and finishing in one response: the lesson is over, and nothing waits on the learner."""
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            yield "最后一部分讲完了。\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(_AGAIN), tool_call_id="q1"
+                ),
+                1: DeltaToolCall(
+                    name="finish",
+                    json_args=json.dumps({"summary": "done"}),
+                    tool_call_id="f1",
+                ),
+            }
+        else:
+            yield "好的。"
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    events = await collect(engine.run_turn(session))
+
+    assert not [e for e in events if isinstance(e, InteractionRequest)]
+    assert events[-1].reason == "finished"
+    assert session.pending == []
