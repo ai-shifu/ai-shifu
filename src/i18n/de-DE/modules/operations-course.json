@@ -37,8 +37,8 @@
       "yes": "Ja"
     },
     "chapterType": {
-      "chapter": "- Nein, nein, nein, nein, nein, nein, nein, nein, nein, nein, nein, nein, nein, nein, nein, nein, nein, nein, nein.",
-      "lesson": "Genau."
+      "chapter": "Kapitel",
+      "lesson": "Lektion"
     },
     "chapters": "Kapitel",
     "chaptersTable": {
@@ -85,7 +85,7 @@
       "details": {
         "collapse": "Einklappen",
         "durationMinutesSeconds": "{minutes}m {seconds}s",
-        "durationSeconds": "{seconds}",
+        "durationSeconds": "{seconds}s",
         "empty": "Keine Nutzungsdetails",
         "expand": "Erweitern",
         "openUsageDetails": "Details zur Creditverwendung öffnen {count}",
@@ -248,7 +248,7 @@
     },
     "metrics": "Metrik",
     "metricsLabels": {
-      "completedUserAvgCredits": "Avg Credits Gekauft pro vollständiger Benutzer",
+      "completedUserAvgCredits": "Durchschnittlich verbrauchte Credits pro Nutzer mit Kursabschluss",
       "creditConsumedTotal": "Insgesamt Gutschriften verbraucht",
       "creditUsageCount": "Anzahl der Creditverwendungen",
       "creditUserCount": "Benutzer der Creditverwendung",

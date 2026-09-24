@@ -165,12 +165,12 @@
     },
     "providerPrices": {
       "actions": {
-        "activate": "Liste",
+        "activate": "Für Zahlungen aktivieren",
         "cancel": "Abbrechen",
         "configure": "Einrichten",
         "create": "Zusatzpreis",
         "restore": "Wiederherstellen des Entwurfs",
-        "retire": "Liste nicht auflisten",
+        "retire": "Aus Zahlungen entfernen",
         "saveDraft": "Entwurf speichern",
         "validate": "Kontrolle",
         "viewIssues": "Probleme anzeigen"
@@ -180,9 +180,9 @@
         "yearly": "Jährlich"
       },
       "confirm": {
-        "activate": "Liste {productName}? Künftige Kasse für dieses Produkt wird diesen Zahlungspreis verwenden.",
+        "activate": "Preis für {productName} aktivieren? Künftige Zahlungen für dieses Produkt verwenden dann diesen Preis.",
         "restore": "Wiederherstellen {productName}? Es wird zum Entwurf zurückkehren und muss vor der Auflistung erneut überprüft werden.",
-        "retire": "Unlist {productName}? Das Produkt hat vorübergehend keine Festpreiskasse."
+        "retire": "Preis für {productName} entfernen? Danach ist für dieses Produkt vorübergehend keine Zahlung zum Festpreis möglich."
       },
       "description": "Verwalten Sie Zahlungspreise für Übersee-Pläne und Creditpakete so angezeigte Preise, Zahlungsbeträge, und gewährt Vorteile bleiben ausgerichtet.",
       "dialog": {
@@ -742,7 +742,7 @@
       "failed": "SSL fehlgeschlagen",
       "issued": "SSL ausgegeben",
       "not_requested": "SSL nicht angefordert",
-      "pending": "SSL läuft aus",
+      "pending": "SSL ausstehend",
       "provisioning": "SSL-Provisionierung"
     },
     "status": {
@@ -804,7 +804,7 @@
         "name": "Skala"
       },
       "studio": {
-        "name": "Einzimmerwohnung"
+        "name": "Studio"
       }
     },
     "renewalPrice": "Dann erneuert sich zu {price} / {period}."
@@ -900,7 +900,7 @@
       "currentSubscription": "Aktuelles Abonnement",
       "currentUsing": "Aktuell genutzt",
       "downgradeDisabled": "Downgrade nicht möglich",
-      "freeTrial": "Abgelaufen",
+      "freeTrial": "Inaktiv",
       "monthlySwitchDisabled": "Wechsel zur monatlichen Zahlung derzeit nicht möglich",
       "nonMemberTooltip": "Sie haben derzeit kein aktives Abonnement. Es ist keine Aktion nötig.",
       "preorderDowngrade": "Downgrade vorbestellen",

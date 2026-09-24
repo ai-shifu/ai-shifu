@@ -13,7 +13,7 @@
         "grantSourceType": "Art der Zuerkennungsquelle",
         "grantedCredits": "Zugewährte Credits",
         "orderType": "Art der Bestellung",
-        "paidAt": "Zahlbar am",
+        "paidAt": "Bezahlt am",
         "productCode": "Erzeugniscode",
         "providerReference": "Referenz des Anbieters",
         "validFrom": "Gültig von"

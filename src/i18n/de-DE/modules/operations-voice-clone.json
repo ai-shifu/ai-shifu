@@ -5,7 +5,7 @@
     "detail": "Einzelheiten"
   },
   "billingStatus": {
-    "charged": "Aufgeladen",
+    "charged": "Abgerechnet",
     "failed": "Die Abrechnung ist fehlgeschlagen.",
     "not_required": "Nicht erforderlich",
     "released": "Freigegeben",
@@ -18,7 +18,7 @@
     "basic": "Grundlegende Informationen",
     "billing": "Rechnungsinformationen",
     "billingStatus": "Rechnungsstatus",
-    "chargedCredits": "Aufgeladene Gutschriften",
+    "chargedCredits": "Abgezogene Credits",
     "contact": "Ansprechpartner",
     "course": "Kurs",
     "courseId": "Kurskennung",
@@ -144,7 +144,7 @@
   "table": {
     "actions": "Maßnahmen",
     "billing": "Rechnungswesen",
-    "chargedCredits": "Aufgeladene {credits}",
+    "chargedCredits": "Abgezogen: {credits} Credits",
     "course": "Kurs",
     "createdAt": "Erzeugt bei",
     "failure": "Grund des Versagens",
