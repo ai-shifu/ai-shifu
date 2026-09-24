@@ -65,6 +65,50 @@
     "transferPlaceholder": "Neuer Eigentümer Telefon oder E-Mail",
     "transferRequired": "Transfer {count} veröffentlichten Kurse zuerst"
   },
+  "contactChange": {
+    "back": "Zurück zur Bearbeitung",
+    "cancel": "Abbrechen",
+    "confirm": "Änderung bestätigen",
+    "email": {
+      "action": "E-Mail-Adresse ändern",
+      "confirmDescription": "Prüfen Sie die folgenden Änderungen.",
+      "confirmTitle": "Änderung der E-Mail-Adresse bestätigen",
+      "currentLabel": "Aktuelle E-Mail-Adresse",
+      "description": "Die Änderung der E-Mail-Adresse hat keinen Einfluss auf die Nutzer-ID, Lernverläufe, Bestellungen oder andere gespeicherte Daten. Die bisherige Adresse wird vom Konto gelöst und kann für ein neues Konto verwendet werden.",
+      "newLabel": "Neue E-Mail-Adresse",
+      "newPlaceholder": "Neue E-Mail-Adresse eingeben",
+      "sessionNotice": "Nach der Änderung werden alle Anmeldesitzungen dieses Nutzers beendet. Eine erneute Anmeldung mit der neuen E-Mail-Adresse ist erforderlich.",
+      "successDescription": "Alle Anmeldesitzungen dieses Nutzers wurden beendet. Eine erneute Anmeldung mit der neuen E-Mail-Adresse ist erforderlich.",
+      "successTitle": "E-Mail-Adresse geändert",
+      "title": "E-Mail-Adresse des Nutzers ändern"
+    },
+    "errors": {
+      "emailInvalid": "Geben Sie eine gültige E-Mail-Adresse ein.",
+      "emailRequired": "Geben Sie die neue E-Mail-Adresse ein.",
+      "emailUnchanged": "Die neue E-Mail-Adresse ist identisch mit der bisherigen. Geben Sie eine andere Adresse ein.",
+      "phoneInvalid": "Geben Sie eine gültige elfstellige Telefonnummer ein.",
+      "phoneRequired": "Geben Sie die neue Telefonnummer ein.",
+      "phoneUnchanged": "Die neue Telefonnummer ist identisch mit der bisherigen. Geben Sie eine andere Nummer ein.",
+      "reasonRequired": "Geben Sie einen Grund für die Änderung ein.",
+      "submitFailed": "Die Änderung ist fehlgeschlagen. Bitte versuchen Sie es später erneut."
+    },
+    "phone": {
+      "action": "Telefonnummer ändern",
+      "confirmDescription": "Prüfen Sie die folgenden Änderungen.",
+      "confirmTitle": "Änderung der Telefonnummer bestätigen",
+      "currentLabel": "Aktuelle Telefonnummer",
+      "description": "Die Änderung der Telefonnummer hat keinen Einfluss auf die Nutzer-ID, Lernverläufe, Bestellungen oder andere gespeicherte Daten. Die bisherige Nummer wird vom Konto gelöst und kann für ein neues Konto verwendet werden.",
+      "newLabel": "Neue Telefonnummer",
+      "newPlaceholder": "Neue Telefonnummer eingeben",
+      "sessionNotice": "Nach der Änderung werden alle Anmeldesitzungen dieses Nutzers beendet. Eine erneute Anmeldung mit der neuen Telefonnummer ist erforderlich.",
+      "successDescription": "Alle Anmeldesitzungen dieses Nutzers wurden beendet. Eine erneute Anmeldung mit der neuen Telefonnummer ist erforderlich.",
+      "successTitle": "Telefonnummer geändert",
+      "title": "Telefonnummer des Nutzers ändern"
+    },
+    "reasonLabel": "Grund für die Änderung",
+    "reasonPlaceholder": "Geben Sie einen Grund für die Änderung ein.",
+    "submitting": "Wird gesendet …"
+  },
   "courseSummary": {
     "dialog": {
       "courseId": "Kurskennung",

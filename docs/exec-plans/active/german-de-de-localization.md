@@ -23,6 +23,8 @@ library work and are outside this change.
   legal fallback, independent content language, and latest-head CI. Targeted
   tests, frontend build, Arena browser smoke, and all-files pre-commit passed;
   final PR CI and broader copy review remain.
+- [x] 2026-09-25: Rebased onto the latest `main` after CI found newly added
+  contact-change messages, and translated the new frontend and backend keys.
 
 ## Surprises & Discoveries
 
