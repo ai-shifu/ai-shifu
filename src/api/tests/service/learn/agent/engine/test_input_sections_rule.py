@@ -38,3 +38,18 @@ def test_the_first_message_uses_the_section_names_the_rule_gives() -> None:
     script_source = (_PROMPTS.parent / "script.py").read_text()
     for tag in ("<memory>", "<script>"):
         assert tag in script_source
+
+
+def test_the_notation_says_a_variable_is_collected_by_interact_not_remember() -> None:
+    """The system prompt says an `interact` variable is already stored; the notation must agree."""
+    notation = (_PROMPTS / "v1_syntax.md").read_text()
+    assert "as the `variable` of the `interact` call" in notation
+    assert "do not `remember` it as well" in notation
+    assert "call `remember` with that name as the key" not in notation
+
+
+def test_the_notation_says_how_to_read_an_escape_in_an_option() -> None:
+    r"""Told to copy options exactly, the model copied `a\|b` backslash and all."""
+    notation = (_PROMPTS / "v1_syntax.md").read_text()
+    assert "only stops that character being read as notation" in notation
+    assert "is the option `a|b`" in notation
