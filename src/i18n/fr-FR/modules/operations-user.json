@@ -71,7 +71,7 @@
     "confirm": "Confirmer le changement",
     "email": {
       "action": "Changer l’adresse e-mail",
-      "confirmDescription": "Confirmez le remplacement de {current} par {next}. Toutes les sessions seront révoquées après l’envoi.",
+      "confirmDescription": "Vérifiez les informations de modification ci-dessous.",
       "confirmTitle": "Confirmer la modification de l’adresse e-mail",
       "currentLabel": "Adresse e-mail actuelle",
       "description": "L’ancienne adresse e-mail sera dissociée et pourra servir à créer un nouveau compte. Les données existantes resteront inchangées.",
@@ -94,7 +94,7 @@
     },
     "phone": {
       "action": "Changer le numéro de téléphone",
-      "confirmDescription": "Confirmez le remplacement de {current} par {next}. Toutes les sessions seront révoquées après l’envoi.",
+      "confirmDescription": "Vérifiez les informations de modification ci-dessous.",
       "confirmTitle": "Confirmer la modification du numéro",
       "currentLabel": "Numéro actuel",
       "description": "L’ancien numéro sera dissocié et pourra servir à créer un nouveau compte. Les données existantes resteront inchangées.",

@@ -71,7 +71,7 @@
     "confirm": "Confirm change",
     "email": {
       "action": "Change email",
-      "confirmDescription": "Confirm changing the email from {current} to {next}. All sessions for this user will be revoked after submission.",
+      "confirmDescription": "Review the change details below.",
       "confirmTitle": "Confirm user email change",
       "currentLabel": "Current email",
       "description": "The previous email will be unlinked and can register a new account. This user's existing data will remain unchanged.",
@@ -94,7 +94,7 @@
     },
     "phone": {
       "action": "Change phone number",
-      "confirmDescription": "Confirm changing the phone number from {current} to {next}. All sessions for this user will be revoked after submission.",
+      "confirmDescription": "Review the change details below.",
       "confirmTitle": "Confirm user phone number change",
       "currentLabel": "Current phone number",
       "description": "The previous phone number will be unlinked and can register a new account. This user's existing data will remain unchanged.",

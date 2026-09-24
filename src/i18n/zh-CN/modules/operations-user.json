@@ -71,7 +71,7 @@
     "confirm": "确认修改",
     "email": {
       "action": "修改邮箱",
-      "confirmDescription": "请确认将邮箱由 {current} 修改为 {next}。提交后，该用户的全部登录会话将被注销。",
+      "confirmDescription": "请核对以下变更信息。",
       "confirmTitle": "确认修改用户邮箱",
       "currentLabel": "当前邮箱",
       "description": "修改邮箱不会改变用户 ID，学习记录、订单及其他历史数据均予以保留。原邮箱将解除绑定，并可用于注册新账号。",
@@ -94,7 +94,7 @@
     },
     "phone": {
       "action": "修改手机号",
-      "confirmDescription": "请确认将手机号由 {current} 修改为 {next}。提交后，该用户的全部登录会话将被注销。",
+      "confirmDescription": "请核对以下变更信息。",
       "confirmTitle": "确认修改用户手机号",
       "currentLabel": "当前手机号",
       "description": "修改手机号不会改变用户 ID，学习记录、订单及其他历史数据均予以保留。原手机号将解除绑定，并可用于注册新账号。",

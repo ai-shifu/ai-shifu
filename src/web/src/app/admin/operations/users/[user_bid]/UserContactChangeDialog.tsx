@@ -179,10 +179,7 @@ export default function UserContactChangeDialog({
           </DialogTitle>
           <DialogDescription>
             {confirming
-              ? t(`contactChange.${contactType}.confirmDescription`, {
-                  current: currentIdentifier || '--',
-                  next: normalizedIdentifier,
-                })
+              ? t(`contactChange.${contactType}.confirmDescription`)
               : t(`contactChange.${contactType}.description`)}
           </DialogDescription>
         </DialogHeader>
@@ -192,7 +189,13 @@ export default function UserContactChangeDialog({
             <label className='text-sm font-medium'>
               {t(`contactChange.${contactType}.currentLabel`)}
             </label>
-            <div className='break-all text-sm text-muted-foreground'>
+            <div
+              className={`break-all text-sm ${
+                confirming
+                  ? 'font-semibold text-foreground'
+                  : 'text-muted-foreground'
+              }`}
+            >
               {currentIdentifier || '--'}
             </div>
           </div>
@@ -230,7 +233,16 @@ export default function UserContactChangeDialog({
                 />
               </div>
             </>
-          ) : null}
+          ) : (
+            <div className='space-y-2'>
+              <div className='text-sm font-medium'>
+                {t(`contactChange.${contactType}.newLabel`)}
+              </div>
+              <div className='break-all text-sm font-semibold text-foreground'>
+                {normalizedIdentifier}
+              </div>
+            </div>
+          )}
           <p className='text-sm text-muted-foreground'>
             {t(`contactChange.${contactType}.sessionNotice`)}
           </p>
