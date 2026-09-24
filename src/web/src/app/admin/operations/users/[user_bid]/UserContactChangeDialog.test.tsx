@@ -149,4 +149,42 @@ describe('UserContactChangeDialog', () => {
 
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
   });
+
+  it('tracks a failed change without exposing the contact or reason', async () => {
+    mockChangeContact.mockRejectedValueOnce(
+      new Error('Contact is unavailable'),
+    );
+    renderDialog('email');
+    fireEvent.change(
+      screen.getByPlaceholderText('contactChange.email.newPlaceholder'),
+      {
+        target: { value: 'new@example.com' },
+      },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText('contactChange.reasonPlaceholder'),
+      {
+        target: { value: 'Verified user request' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'contactChange.confirm' }),
+    );
+    await screen.findByText('contactChange.email.confirmTitle');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'contactChange.confirm' }),
+    );
+
+    await screen.findByRole('alert');
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'operator_user_contact_change_result',
+      { contact_type: 'email', result: 'failed' },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'new@example.com',
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'Verified user request',
+    );
+  });
 });
