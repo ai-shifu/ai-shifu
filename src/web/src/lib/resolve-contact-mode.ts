@@ -22,14 +22,10 @@ export const resolveContactMode = (
   defaultLoginMethod: DefaultLoginInput,
 ): ContactMode => {
   const methods = normalizeMethods(loginMethodsEnabled);
-  const hasEmail = methods.includes('email');
+  const hasEmail = methods.includes('email') || methods.includes('google');
   const hasPhone = methods.includes('phone');
-  const hasGoogle = methods.includes('google');
   const normalizedDefault = (defaultLoginMethod || '').trim().toLowerCase();
 
-  if (hasGoogle && !hasEmail && !hasPhone) {
-    return 'email';
-  }
   if (hasEmail && !hasPhone) {
     return 'email';
   }

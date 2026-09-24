@@ -65,6 +65,50 @@
     "transferPlaceholder": "Móvil o correo electrónico del nuevo responsable",
     "transferRequired": "Transfiere primero {count} cursos publicados"
   },
+  "contactChange": {
+    "back": "Volver a editar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar cambio",
+    "email": {
+      "action": "Cambiar correo electrónico",
+      "confirmDescription": "Revisa los datos del cambio.",
+      "confirmTitle": "Confirmar el cambio de correo electrónico",
+      "currentLabel": "Correo electrónico actual",
+      "description": "El correo electrónico anterior se desvinculará y podrá usarse para registrar una cuenta nueva. Los datos existentes de este usuario no cambiarán.",
+      "newLabel": "Nuevo correo electrónico",
+      "newPlaceholder": "Introduce el nuevo correo electrónico",
+      "sessionNotice": "Tras este cambio, se cerrarán todas las sesiones del usuario. Deberá iniciar sesión de nuevo con el nuevo correo electrónico.",
+      "successDescription": "Se han cerrado todas las sesiones del usuario. Deberá iniciar sesión de nuevo con el nuevo correo electrónico.",
+      "successTitle": "Correo electrónico actualizado",
+      "title": "Cambiar el correo electrónico del usuario"
+    },
+    "errors": {
+      "emailInvalid": "Introduce una dirección de correo electrónico válida.",
+      "emailRequired": "Introduce el nuevo correo electrónico.",
+      "emailUnchanged": "El nuevo correo electrónico es igual al actual.",
+      "phoneInvalid": "Introduce un número de teléfono válido de 11 dígitos.",
+      "phoneRequired": "Introduce el nuevo número de teléfono.",
+      "phoneUnchanged": "El nuevo número de teléfono es igual al actual.",
+      "reasonRequired": "Introduce el motivo del cambio.",
+      "submitFailed": "No se ha podido modificar la cuenta. Inténtalo de nuevo más tarde."
+    },
+    "phone": {
+      "action": "Cambiar número de teléfono",
+      "confirmDescription": "Revisa los datos del cambio.",
+      "confirmTitle": "Confirmar el cambio de número de teléfono",
+      "currentLabel": "Número de teléfono actual",
+      "description": "El número de teléfono anterior se desvinculará y podrá usarse para registrar una cuenta nueva. Los datos existentes de este usuario no cambiarán.",
+      "newLabel": "Nuevo número de teléfono",
+      "newPlaceholder": "Introduce el nuevo número de teléfono",
+      "sessionNotice": "Tras este cambio, se cerrarán todas las sesiones del usuario. Deberá iniciar sesión de nuevo con el nuevo número de teléfono.",
+      "successDescription": "Se han cerrado todas las sesiones del usuario. Deberá iniciar sesión de nuevo con el nuevo número de teléfono.",
+      "successTitle": "Número de teléfono actualizado",
+      "title": "Cambiar el número de teléfono del usuario"
+    },
+    "reasonLabel": "Motivo del cambio",
+    "reasonPlaceholder": "Introduce el motivo del cambio",
+    "submitting": "Enviando…"
+  },
   "courseSummary": {
     "dialog": {
       "courseId": "ID del curso",

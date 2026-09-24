@@ -73,6 +73,10 @@ jest.mock('@/api', () => ({
   },
 }));
 
+jest.mock('@/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: jest.fn() }),
+}));
+
 jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserState) => unknown) =>

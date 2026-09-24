@@ -26,11 +26,54 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
 ) -> None:
     import flaskr.route.user as user_route
     from flaskr.dao import db
-    from flaskr.service.user.models import UserToken
+    from flaskr.service.user.consts import (
+        CREDENTIAL_STATE_VERIFIED,
+        USER_STATE_REGISTERED,
+    )
+    from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
     from flaskr.service.user.token_store import token_store
 
     token = f"password-failed-{uuid.uuid4().hex}"
     user_id = uuid.uuid4().hex
+    identifier = "user@example.com"
+    password_credential_bid = f"password-{user_id}"
+
+    with app.app_context():
+        db.session.add(
+            UserInfo(
+                user_bid=user_id,
+                user_identify=identifier,
+                state=USER_STATE_REGISTERED,
+                deleted=0,
+            )
+        )
+        db.session.add_all(
+            [
+                AuthCredential(
+                    credential_bid=f"email-{user_id}",
+                    user_bid=user_id,
+                    provider_name="email",
+                    subject_id=identifier,
+                    subject_format="email",
+                    identifier=identifier,
+                    raw_profile="{}",
+                    state=CREDENTIAL_STATE_VERIFIED,
+                    deleted=0,
+                ),
+                AuthCredential(
+                    credential_bid=password_credential_bid,
+                    user_bid=user_id,
+                    provider_name="password",
+                    subject_id=identifier,
+                    subject_format="email",
+                    identifier=identifier,
+                    raw_profile="{}",
+                    state=CREDENTIAL_STATE_VERIFIED,
+                    deleted=0,
+                ),
+            ]
+        )
+        db.session.commit()
 
     class FailingCommitProvider:
         def verify(self, route_app: object, _request: object) -> object:
@@ -44,7 +87,11 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
                 user=SimpleNamespace(user_id=user_id, language="en-US"),
                 token=SimpleNamespace(token=token),
                 is_new_user=False,
-                metadata={},
+                metadata={
+                    "verified_identifier": identifier,
+                    "password_credential_bid": password_credential_bid,
+                    "password_credential_identifier": identifier,
+                },
             )
 
     def fail_commit() -> None:
@@ -59,7 +106,7 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
     _response, body = _post_json(
         test_client,
         "/api/user/login_password",
-        {"identifier": "user@example.com", "password": "password"},
+        {"identifier": identifier, "password": "password"},
     )
     assert body["code"] == -1
 
@@ -174,6 +221,70 @@ def test_password_login_after_setting_password(
     assert body["code"] == 0
     assert body["data"]["token"]
     assert body["data"]["userInfo"]["mobile"] == phone
+
+
+def test_inflight_old_contact_login_cannot_issue_token_after_contact_change(
+    test_client: object, app: object, monkeypatch: object
+) -> None:
+    import flaskr.route.user as user_route
+    from flaskr.service.user import operator_contact_change, phone_flow
+    from flaskr.service.user.auth.providers.password import PasswordAuthProvider
+    from flaskr.service.user.models import UserInfo, UserToken
+    from flaskr.service.user.operator_contact_change import (
+        change_operator_user_contact,
+    )
+
+    old_phone = "15500002223"
+    new_phone = "15500002224"
+    password_value = "Abcd1234"
+
+    with app.app_context():
+        user_token, _created, _ctx = phone_flow.verify_phone_code(
+            app, user_id=None, phone=old_phone, code="9999"
+        )
+        user_bid = user_token.userInfo.user_id
+
+    _post_json(
+        test_client,
+        "/api/user/set_password",
+        {"identifier": old_phone, "code": "9999", "new_password": password_value},
+        headers={"Token": user_token.token},
+    )
+
+    real_provider = PasswordAuthProvider()
+
+    class InterleavedPasswordProvider:
+        def verify(self, route_app: object, verification_request: object) -> object:
+            result = real_provider.verify(route_app, verification_request)
+            change_operator_user_contact(
+                route_app,
+                user_bid=user_bid,
+                operator_user_bid="operator-1",
+                contact_type="phone",
+                new_identifier=new_phone,
+                reason="Verified user request",
+            )
+            return result
+
+    monkeypatch.setattr(
+        operator_contact_change, "resolve_primary_contact_type", lambda: "phone"
+    )
+    monkeypatch.setattr(
+        user_route, "get_provider", lambda _name: InterleavedPasswordProvider()
+    )
+
+    _response, body = _post_json(
+        test_client,
+        "/api/user/login_password",
+        {"identifier": old_phone, "password": password_value},
+    )
+
+    assert body["code"] == 1016
+    with app.app_context():
+        assert UserInfo.query.filter_by(user_bid=user_bid).one().user_identify == (
+            new_phone
+        )
+        assert UserToken.query.filter_by(user_id=user_bid).count() == 0
 
 
 def test_password_login_merges_authenticated_guest_learner_profile(

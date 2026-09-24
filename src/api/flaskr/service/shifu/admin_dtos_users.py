@@ -14,6 +14,15 @@ from pydantic import BaseModel, Field
 
 
 @register_schema_to_swagger
+class AdminOperationUserContactChangeRequestDTO(BaseModel):
+    """Operator request to replace a user's configured login contact."""
+
+    contact_type: str = Field(..., description="Configured contact type")
+    identifier: str = Field(..., description="New phone number or email address")
+    reason: str = Field(..., min_length=1, max_length=500, description="Change reason")
+
+
+@register_schema_to_swagger
 class AdminOperationUserCourseSummaryDTO(BaseModel):
     """Course summary shown in operator user-related course lists."""
 
