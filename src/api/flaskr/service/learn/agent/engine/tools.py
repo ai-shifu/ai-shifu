@@ -245,9 +245,14 @@ LESSON_OVER = (
 )
 
 
+# Like the host's `continue`, this tells a model to go on, and one that has delivered the whole
+# script has nothing to go on with: told only to carry on, it wrote the entire lesson over again,
+# on 3 of 21 pauses answered this way in local sweeps of the general-education course.
 NO_PAUSE = (
     "No pause here: the script does not ask the learner to stop at this point, so they were not "
-    "asked. Go straight on with the next part of the script now."
+    "asked. Go straight on with the next part of the script: the first step you have not "
+    "delivered yet. Do not repeat, summarise or restate anything you already delivered. If "
+    "nothing in the script remains to be delivered, write nothing at all and call `finish`."
 )
 
 

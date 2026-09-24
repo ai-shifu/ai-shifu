@@ -65,7 +65,15 @@ from .interaction import (
 from .script import ScriptBundle, detect_v1_syntax, render_first_prompt
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
-from .tools import Deps, finish, interact, remember, script_options, script_pauses
+from .tools import (
+    NO_PAUSE,
+    Deps,
+    finish,
+    interact,
+    remember,
+    script_options,
+    script_pauses,
+)
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -179,6 +187,38 @@ _REPEAT_FLOOR_CHARS = 40
 # 180 visible characters. A continue with the next part to deliver goes past this in two or
 # three seconds, while the learner is still reading the turn before it.
 _CONTINUE_HOLD_CHARS = 280
+
+
+# Where a repeat is cut from what follows it: the end of a line or of a sentence.
+_BREAKS = "\n\u3002\uff01\uff1f.!?"
+
+
+def _after_the_repeat(held: Sequence[str], said: str) -> str:
+    """Return what of the held text to show once it stops reading as what was `said`.
+
+    A repeat long enough to be one (`_REPEAT_FLOOR_CHARS`) at its start is left out, up to the
+    last line or sentence end inside it, so what is shown begins where a sentence does. A model
+    told to go on often starts by writing the last part again and only then gets to the new
+    one; everything else was new, and is shown whole.
+    """
+    text = "".join(held)
+    visible = "".join(text.split())
+    if visible in said:
+        # All of it was said before: a repeat, unless too short to be one.
+        return "" if len(visible) >= _REPEAT_FLOOR_CHARS else text
+    cut, seen = 0, ""
+    for i, ch in enumerate(text):
+        if not ch.isspace():
+            seen += ch
+        if ch in _BREAKS:
+            # A prefix that was not said cannot become said by growing, so the first one
+            # that was not ends the search.
+            if seen not in said:
+                break
+            cut = i + 1
+    if _visible_length(text[:cut]) < _REPEAT_FLOOR_CHARS:
+        return text
+    return text[cut:]
 
 
 def _previous_turn_text(messages: Sequence[object], history_len: int) -> str:
@@ -539,10 +579,18 @@ class Engine:
         held: list[str] = []
         held_text = ""
         holding = carried_on
+        hold_floor = _CONTINUE_HOLD_CHARS if carried_on else 0
+        # The same, within a turn: a pause the script did not write is answered with `NO_PAUSE`,
+        # which tells the model to go on -- and one that had delivered the whole lesson wrote it
+        # all again (general-education course, 2026-09-24). From that answer on, text is held
+        # back while it reads as something this turn already said.
+        said: list[str] = []
+        after_pause = False
 
         def _out(text: str) -> list[Event]:
             nonlocal delivered
             delivered += _visible_length(text)
+            said.append("".join(text.split()))
             out: list[Event] = [ContentDelta(text=text)]
             if segmenter:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
@@ -554,11 +602,11 @@ class Engine:
                 return _out(text)
             held.append(text)
             held_text += "".join(text.split())
-            if len(held_text) < _CONTINUE_HOLD_CHARS or held_text in previous:
+            if len(held_text) < hold_floor or held_text in previous:
                 return []
             holding = False
-            released, held[:] = "".join(held), []
-            return _out(released)
+            released, held[:] = _after_the_repeat(held, previous), []
+            return _out(released) if released else []
 
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
@@ -582,7 +630,15 @@ class Engine:
                     # Text held back so far was the previous turn again, and is dropped with it.
                     if deps.finished is not None and speak_after_finish is None:
                         speak_after_finish = delivered == 0 and not carried_on
-                        if carried_on:
+                        if after_pause and held:
+                            # Held since the pause and still this turn's own words: a repeat,
+                            # unless too short to be one.
+                            if len(held_text) < _REPEAT_FLOOR_CHARS:
+                                for e in _out("".join(held)):
+                                    yield e
+                            held.clear()
+                            holding = False
+                        elif carried_on:
                             held.clear()
                     silent = deps.finished is not None and not speak_after_finish
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
@@ -607,6 +663,23 @@ class Engine:
                     elif isinstance(ev, FunctionToolResultEvent):
                         if ev.part.tool_call_id in resumed:
                             continue
+                        if (
+                            ev.part.tool_name == "interact"
+                            and getattr(ev.part, "content", None) == NO_PAUSE
+                        ):
+                            # What was held so far came before the pause, and the model moved
+                            # on from it: it is shown, unless it was a repeat -- the lesson written
+                            # again after one untaken pause, and then a second pause.
+                            if held:
+                                released = _after_the_repeat(held, previous)
+                                if released:
+                                    for e in _out(released):
+                                        yield e
+                                held.clear()
+                            previous = (previous if carried_on else "") + "".join(said)
+                            held_text = ""
+                            holding = after_pause = True
+                            hold_floor = 0
                         if ev.part.tool_name == "finish":
                             continue
                         if ev.part.tool_name == "remember":
@@ -627,12 +700,28 @@ class Engine:
                         repeated = carried_on and _repeats_previous_turn(
                             session.messages, deps.history_len
                         )
-                        if held and not repeated:
+                        if after_pause and holding and held:
+                            # Everything written since the pause was this turn over again. It is
+                            # not shown, but it does not end the lesson either: the model may have
+                            # paused before the script's end, and a repeat says only that this
+                            # response added nothing. The host carries the lesson on, and a
+                            # model with nothing left calls `finish` then.
+                            released = _after_the_repeat(held, previous)
+                            if released:
+                                for e in _out(released):
+                                    yield e
+                        elif held and not repeated:
                             # Still reading as the previous turn when the turn ended, but too
                             # little of it to be taken as a repeat: it is the model's text, and
-                            # nothing says it was not meant.
+                            # nothing says it was not meant. Held only for its length, and new
+                            # after a repeat of the previous turn: the new part.
                             holding = False
-                            for e in _out("".join(held)):
+                            released = (
+                                "".join(held)
+                                if held_text in previous
+                                else _after_the_repeat(held, previous)
+                            )
+                            for e in _out(released):
                                 yield e
                         held.clear()
                         # Only now are the answers safely part of the history; clearing them any
