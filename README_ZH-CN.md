@@ -122,5 +122,5 @@ Docker 启动后：
 ## 国际化（i18n）
 
 - 共享翻译位于 `src/i18n/<locale>/**/*.json`，后端与 Cook Web 共用。
-- 统一指南（规范、脚本、CI 校验）：`docs/i18n.md`。
-- 前端语言列表只展示 `en-US` 与 `zh-CN`。
+- [统一 i18n 指南](docs/references/i18n.md)包含产品语言交付清单、规范、脚本与 CI 校验。
+- 前端支持的语言以 `src/i18n/locales.json` 为准。
