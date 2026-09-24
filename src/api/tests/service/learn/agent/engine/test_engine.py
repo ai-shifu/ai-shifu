@@ -1294,3 +1294,63 @@ async def test_without_a_check_every_question_is_deferred_as_before() -> None:
     s = await engine.new_session("Greet the learner, then ask how they feel.")
     events = await collect(engine.run_turn(s))
     assert any(isinstance(e, InteractionRequest) for e in events)
+
+
+async def test_a_saved_question_the_host_cannot_show_is_asked_again() -> None:
+    """A session already waiting on an unshowable question is not left waiting forever.
+
+    It was saved before the host could refuse it: the learner has only its text and nothing to
+    answer with. Returning to the lesson hands it back to the model to be asked again.
+    """
+    bad = {
+        "type": "single",
+        "prompt": "Which one?",
+        "options": [{"display": "%{{x}} first"}, {"display": "second"}],
+    }
+    good = {
+        "type": "single",
+        "prompt": "Which one?",
+        "options": [{"display": "first"}, {"display": "second"}],
+    }
+    told: list[str] = []
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        ret = _last_tool_return(messages)
+        if ret is None:
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(bad), tool_call_id="c1"
+                )
+            }
+        else:
+            told.append(str(ret.content))
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(good), tool_call_id="c2"
+                )
+            }
+
+    def check(spec: object) -> str | None:
+        options = getattr(spec, "options", [])
+        return (
+            "an option contains %{{"
+            if any("%{{" in o.display for o in options)
+            else None
+        )
+
+    # Saved by code that could not refuse it.
+    before = Engine(FunctionModel(stream_function=model))
+    s = await before.new_session("Ask which one.")
+    await collect(before.run_turn(s))
+    assert [p.tool_call_id for p in s.pending] == ["c1"]
+
+    # The learner comes back with nothing to answer: the frontend sends an empty answer.
+    after = Engine(FunctionModel(stream_function=model), interaction_check=check)
+    events = await collect(after.run_turn(s, InteractionResponseTurn(values=[])))
+
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert [o.display for o in asked[0].spec.options] == ["first", "second"]
+    assert [p.tool_call_id for p in s.pending] == ["c2"]
+    assert "never shown" in told[0]
+    assert "an option contains %{{" in told[0]
+    assert not any(isinstance(e, ErrorEvent) for e in events)

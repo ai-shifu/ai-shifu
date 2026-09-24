@@ -337,6 +337,26 @@ class Engine:
             prompt = render_first_prompt(session.script, session.all_memory())
             if isinstance(turn, MessageTurn):
                 prompt += f"\n\n{turn.text}"
+        elif session.pending and (unshowable := self._unshowable(session.pending[0])):
+            # A question saved before the host could refuse it, or refused by a host that has
+            # learned something since. The learner has nothing on screen to answer it with, so
+            # waiting for an answer would strand them for good: it goes back to the model as a
+            # question never shown, to be asked again in a form that can be.
+            stale = session.pending.pop(0)
+            session.answers[stale.tool_call_id] = (
+                f"The learner was never shown this question, so nothing was answered: "
+                f"{unshowable}. Ask it again with `interact`, written so that it can be shown."
+            )
+            if session.pending:
+                nxt = session.pending[0]
+                yield InteractionRequest(id=nxt.tool_call_id, spec=nxt.spec)
+                yield TurnDone(reason="interaction", usage=session.usage)
+                return
+            kwargs["deferred_tool_results"] = DeferredToolResults(
+                calls=dict(session.answers)
+            )
+            resumed.update(session.answers)
+            prompt = None
         elif session.pending:
             if not isinstance(turn, InteractionResponseTurn):
                 yield ErrorEvent(
@@ -557,6 +577,10 @@ class Engine:
                 )
             ):
                 await self.memory_store.save(session.user_id, session.user_memory)
+
+    def _unshowable(self, pending: PendingInteraction) -> str | None:
+        """Why the host cannot show this pending question, or None if it can (or cannot say)."""
+        return self.interaction_check(pending.spec) if self.interaction_check else None
 
     @staticmethod
     def _pick_pending(
