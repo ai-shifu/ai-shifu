@@ -48,7 +48,7 @@ describe('ContentBlock pay interaction overrides', () => {
     mockLanguage = 'zh-CN';
   });
 
-  it('marks Spanish lesson content as Spanish with English MarkdownFlow controls', () => {
+  it('does not infer content language from the Spanish interface', () => {
     mockLanguage = 'es-ES';
     render(
       <ContentBlock
@@ -66,7 +66,7 @@ describe('ContentBlock pay interaction overrides', () => {
     );
 
     expect(mockContentRender).toHaveBeenCalledWith(
-      expect.objectContaining({ locale: 'en-US', lang: 'es-ES' }),
+      expect.objectContaining({ locale: 'en-US', lang: '' }),
     );
   });
 
