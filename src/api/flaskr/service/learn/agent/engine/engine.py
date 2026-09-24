@@ -63,7 +63,7 @@ from .interaction import (
 from .script import ScriptBundle, detect_v1_syntax, render_first_prompt
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
-from .tools import Deps, finish, interact, remember
+from .tools import Deps, finish, interact, remember, script_options
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -318,12 +318,15 @@ class Engine:
             yield TurnDone(reason="finished", usage=session.usage)
             return
         turn = turn or (StartTurn() if not session.started else ContinueTurn())
+        script_text = session.script.all_text()
+        uses_v1_syntax = detect_v1_syntax(script_text)
         deps = Deps(
             memory=session.memory,
             user_memory=session.user_memory,
             listen_mode=session.listen_mode,
-            uses_v1_syntax=detect_v1_syntax(session.script.all_text()),
+            uses_v1_syntax=uses_v1_syntax,
             interaction_check=self.interaction_check,
+            script_options=script_options(script_text) if uses_v1_syntax else {},
         )
         deps.history_len = len(session.messages) if session.started else 0
         kwargs: dict[str, Any] = {"deps": deps, "usage_limits": self.limits}
@@ -371,7 +374,9 @@ class Engine:
                     message=f"interaction {pending.tool_call_id!r} needs an answer",
                     retryable=True,
                 )
-                yield InteractionRequest(id=pending.tool_call_id, spec=pending.spec)
+                yield InteractionRequest(
+                    id=pending.tool_call_id, spec=pending.spec, asked_before=True
+                )
                 yield TurnDone(reason="interaction", usage=session.usage)
                 return
             session.answers[pending.tool_call_id] = format_answer_for_model(

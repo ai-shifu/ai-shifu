@@ -257,4 +257,85 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "preview_mode": True,
         "shifu_model": DraftShifu,
         "heartbeat_interval": 0.1,
+        "rewind": None,
     }
+
+
+def _entry_with_runner(monkeypatch: object) -> Mock:
+    """Stub everything around the turn and return the mock standing in for the turn itself."""
+    settings = LLMSettings(model="2", temperature=0.25, usage_metadata={})
+    monkeypatch.setattr(entry, "_resolve", lambda *_a, **_kw: ("script", "", settings))
+    monkeypatch.setattr(entry, "get_langfuse_client", object)
+    monkeypatch.setattr(
+        entry, "create_trace_with_root_span", lambda **_kw: (object(), object())
+    )
+    monkeypatch.setattr(entry, "finalize_langfuse_trace", Mock())
+    monkeypatch.setattr(entry, "GatewayModel", Mock(return_value=object()))
+    monkeypatch.setattr(entry, "Engine", Mock(return_value=object()))
+    runner = Mock(side_effect=lambda *_a, **_kw: iter(()))
+    monkeypatch.setattr(entry, "run_agent_lesson", runner)
+    return runner
+
+
+def _reload(app: object, **kwargs: object) -> list:
+    return list(
+        entry.agent_lesson_events(
+            app,
+            user_bid="learner",
+            shifu_bid="course",
+            outline_bid="lesson",
+            reload_generated_block_bid="block-1",
+            **kwargs,
+        )
+    )
+
+
+def test_going_back_hands_the_turn_the_plan_for_where_it_went_back_to(
+    app: object, monkeypatch: object
+) -> None:
+    runner = _entry_with_runner(monkeypatch)
+    plan = object()
+    asked: dict = {}
+
+    def _plan(**kwargs: object) -> object:
+        asked.update(kwargs)
+        return plan
+
+    monkeypatch.setattr(entry, "plan_rewind", _plan)
+    _reload(app, user_input={"way": ["Right"]})
+
+    assert asked == {
+        "user_bid": "learner",
+        "outline_bid": "lesson",
+        "anchor": "block-1",
+        "answering": True,
+    }
+    assert runner.call_args.kwargs["rewind"] is plan
+
+
+def test_a_lesson_that_cannot_go_back_says_so_instead_of_running(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.learn.agent.rewind import RewindUnavailableError
+
+    runner = _entry_with_runner(monkeypatch)
+
+    def _unavailable(**_kwargs: object) -> None:
+        raise RewindUnavailableError
+
+    monkeypatch.setattr(entry, "plan_rewind", _unavailable)
+    with pytest.raises(AppError):
+        _reload(app, user_input="")
+    runner.assert_not_called()
+
+
+def test_a_preview_cannot_go_back(app: object, monkeypatch: object) -> None:
+    """A preview keeps no turn blocks to go back to."""
+    from flaskr.service.common.models import AppError
+
+    runner = _entry_with_runner(monkeypatch)
+    monkeypatch.setattr(entry, "plan_rewind", Mock())
+    with pytest.raises(AppError):
+        _reload(app, user_input="", preview_mode=True)
+    runner.assert_not_called()

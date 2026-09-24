@@ -45,6 +45,19 @@ class _Session:
         self.turn = 0
         self.finished = False
         self.script = ScriptBundle(script=SCRIPT)
+        self.messages: list = []
+        self.memory: dict = {}
+        self.answers: dict = {}
+
+    def to_dict(self) -> dict:
+        """Return the fields a checkpoint reads, the way a real session serializes them."""
+        return {
+            "memory": self.memory,
+            "pending": [repr(item) for item in self.pending],
+            "answers": self.answers,
+            "turn": self.turn,
+            "finished": self.finished,
+        }
 
 
 class _Record:
@@ -1390,6 +1403,33 @@ def test_a_memory_block_interrupted_by_a_tool_call_is_still_removed(
 
 
 @pytest.mark.usefixtures("calls")
+def test_a_question_put_again_sends_its_controls_but_not_its_text_again() -> None:
+    """An unusable answer puts the same question again; its text is already on the screen.
+
+    Sent again, the question's text appeared as a second line under the first each time the
+    learner's answer was refused.
+    """
+    engine = _Engine(
+        [
+            ErrorEvent(message="interaction 'q1' needs an answer", retryable=True),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="multi",
+                    prompt="你读过哪些？",
+                    options=[Option(display="A"), Option(display="B")],
+                ),
+                asked_before=True,
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == []
+    assert any(e.type == GeneratedType.INTERACTION for e in events)
+
+
+@pytest.mark.usefixtures("calls")
 def test_a_question_the_lesson_did_not_ask_still_reaches_the_learner() -> None:
     """Often the prompt is the only place the model asks; suppressing it leaves nothing to answer."""
     engine = _Engine(
@@ -2047,3 +2087,161 @@ def test_a_brief_an_author_deleted_stops_reaching_a_resumed_lesson(
         )
     )
     assert stored.script.constraints is None
+
+
+# --- going back to an earlier turn ----------------------------------------------------------
+
+
+def _waiting_session() -> object:
+    """Build a real session that has just asked "Which way?"."""
+    from flaskr.service.learn.agent.engine.script import ScriptBundle
+    from flaskr.service.learn.agent.engine.session import PendingInteraction, Session
+    from pydantic_ai.messages import (
+        ModelRequest,
+        ModelResponse,
+        TextPart,
+        UserPromptPart,
+    )
+
+    return Session(
+        script=ScriptBundle(script=SCRIPT),
+        messages=[
+            ModelRequest(parts=[UserPromptPart(content="start")]),
+            ModelResponse(parts=[TextPart(content="Pick one.")]),
+        ],
+        pending=[
+            PendingInteraction(
+                "q1",
+                InteractionSpec(
+                    type="single",
+                    prompt="Which way?",
+                    options=[Option(display="Left"), Option(display="Right")],
+                ),
+            )
+        ],
+        turn=1,
+    )
+
+
+def _rewind_run(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list,
+    *,
+    plan: object,
+    user_input: object = None,
+    stored: object = "session",
+) -> tuple[_Engine, object]:
+    from flaskr.service.learn.agent.rewind import checkpoint_of
+
+    session = _waiting_session()
+    if plan is not None and getattr(plan, "checkpoint", None) == "waiting":
+        plan.checkpoint = checkpoint_of(session)
+    # The lesson went on after the question: answered, taught further, finished.
+    from pydantic_ai.messages import ModelResponse, TextPart
+
+    session.messages.append(ModelResponse(parts=[TextPart(content="You went left.")]))
+    session.pending = []
+    session.turn = 3
+    session.finished = True
+    loaded = session if stored == "session" else None
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: loaded)
+    monkeypatch.setattr(
+        run_agent,
+        "stage_retirement",
+        lambda plan, **_kw: calls.append(("stage_retirement", plan.retired_block_bids)),
+    )
+    engine = _Engine([TurnDone(reason="end")], session=session)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=user_input,
+            iter_turn=_drive,
+            rewind=plan,
+        )
+    )
+    return engine, session
+
+
+def test_answering_again_restores_the_question_and_sends_the_new_answer(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.agent.engine.engine import InteractionResponseTurn
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    engine, session = _rewind_run(
+        monkeypatch, calls, plan=plan, user_input={"way": ["Right"]}
+    )
+
+    # The engine was handed the lesson as it stood when the question was asked.
+    assert len(session.messages) == 2
+    assert [p.tool_call_id for p in session.pending] == ["q1"]
+    assert session.finished is False
+    assert isinstance(engine.turns[0], InteractionResponseTurn)
+    assert engine.turns[0].values == ["Right"]
+    # Written with the turn: the superseded rows retired.
+    assert ("stage_retirement", ["B2"]) in calls
+
+
+def test_going_back_does_not_reopen_a_completed_lesson(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The completion was earned; reopening only this lesson would leave its chapter ahead of it."""
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    record = _Record()
+    record.status = 603  # LEARN_STATUS_COMPLETED
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: record)
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    _rewind_run(monkeypatch, calls, plan=plan, user_input={"way": ["Right"]})
+    assert record.status == 603
+
+
+def test_regenerating_runs_the_turn_again_with_the_input_it_had(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.agent.engine.engine import InteractionResponseTurn
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=["Left"], retired_block_bids=["B2"]
+    )
+    engine, _session = _rewind_run(monkeypatch, calls, plan=plan, user_input="")
+
+    assert isinstance(engine.turns[0], InteractionResponseTurn)
+    assert engine.turns[0].values == ["Left"]
+
+
+def test_going_back_without_a_stored_session_is_refused(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.agent.rewind import RewindPlan, RewindUnavailableError
+
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    with pytest.raises(RewindUnavailableError):
+        _rewind_run(monkeypatch, calls, plan=plan, user_input="x", stored=None)
+    assert not [c for c in calls if c[0] in {"stage_retirement", "save_session"}]
+
+
+def test_every_turn_keeps_the_state_it_started_from_on_its_block(calls: list) -> None:
+    """Without it, the turn could never be gone back to."""
+    import json
+
+    engine = _Engine([ContentDelta(text="Hello."), TurnDone(reason="end")])
+    _run(engine, user_input="hi")
+
+    staged = next(kw for name, kw in calls if name == "record_content")
+    record = json.loads(staged["turn_record"])["agent_turn"]
+    assert record["values"] == ["hi"]
+    assert record["checkpoint"]["messages"] == 0

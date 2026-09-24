@@ -29,6 +29,7 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.order.consts import LEARN_STATUS_RESET
+from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.util.datetime import to_utc_iso
@@ -53,9 +54,13 @@ def _load_interaction_user_input_by_block_bid(
     if not interaction_block_bids:
         return {}
 
+    # Only an interaction block's generated content is the learner's answer. A 2.0 turn keeps its
+    # question in the content block that holds what the turn taught; read as an answer, that
+    # text pre-filled the question and was submitted as the learner's choice.
     interaction_blocks = (
         LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.generated_block_bid.in_(list(interaction_block_bids)),
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
             LearnGeneratedBlock.deleted == 0,
             LearnGeneratedBlock.status == 1,
         )
