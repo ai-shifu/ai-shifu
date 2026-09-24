@@ -65,6 +65,50 @@
     "transferPlaceholder": "新负责人的手机号或邮箱",
     "transferRequired": "需先转移 {count} 门已发布课程"
   },
+  "contactChange": {
+    "back": "返回修改",
+    "cancel": "取消",
+    "confirm": "确认修改",
+    "email": {
+      "action": "修改邮箱",
+      "confirmDescription": "请核对以下变更信息。",
+      "confirmTitle": "确认修改用户邮箱",
+      "currentLabel": "当前邮箱",
+      "description": "修改邮箱不会改变用户 ID，学习记录、订单及其他历史数据均予以保留。原邮箱将解除绑定，并可用于注册新账号。",
+      "newLabel": "新邮箱",
+      "newPlaceholder": "请输入新邮箱",
+      "sessionNotice": "修改成功后，系统将注销该用户的全部登录会话。用户须使用新邮箱重新登录。",
+      "successDescription": "该用户的全部登录会话已注销，须使用新邮箱重新登录。",
+      "successTitle": "用户邮箱修改成功",
+      "title": "修改用户邮箱"
+    },
+    "errors": {
+      "emailInvalid": "请输入有效的邮箱地址",
+      "emailRequired": "请输入新邮箱",
+      "emailUnchanged": "新邮箱与当前邮箱一致，请重新填写",
+      "phoneInvalid": "请输入有效的 11 位手机号",
+      "phoneRequired": "请输入新手机号",
+      "phoneUnchanged": "新手机号与当前手机号一致，请重新填写",
+      "reasonRequired": "请输入修改原因",
+      "submitFailed": "修改失败，请稍后重试"
+    },
+    "phone": {
+      "action": "修改手机号",
+      "confirmDescription": "请核对以下变更信息。",
+      "confirmTitle": "确认修改用户手机号",
+      "currentLabel": "当前手机号",
+      "description": "修改手机号不会改变用户 ID，学习记录、订单及其他历史数据均予以保留。原手机号将解除绑定，并可用于注册新账号。",
+      "newLabel": "新手机号",
+      "newPlaceholder": "请输入新手机号",
+      "sessionNotice": "修改成功后，系统将注销该用户的全部登录会话。用户须使用新手机号重新登录。",
+      "successDescription": "该用户的全部登录会话已注销，须使用新手机号重新登录。",
+      "successTitle": "用户手机号修改成功",
+      "title": "修改用户手机号"
+    },
+    "reasonLabel": "修改原因",
+    "reasonPlaceholder": "请输入修改原因",
+    "submitting": "正在提交…"
+  },
   "courseSummary": {
     "dialog": {
       "courseId": "课程ID",

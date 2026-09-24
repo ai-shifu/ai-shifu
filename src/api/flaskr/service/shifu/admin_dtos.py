@@ -42,6 +42,7 @@ from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseUserDTO,
 )
 from flaskr.service.shifu.admin_dtos_users import (
+    AdminOperationUserContactChangeRequestDTO,
     AdminOperationUserCourseSummaryDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserCreditGrantResultDTO,

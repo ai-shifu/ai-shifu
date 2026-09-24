@@ -138,6 +138,19 @@ export type AdminOperationUserListResponse = {
 
 export type AdminOperationUserDetailResponse = AdminOperationUserItem;
 
+export type AdminOperationUserContactChangeRequest = {
+  contact_type: 'phone' | 'email';
+  identifier: string;
+  reason: string;
+};
+
+export type AdminOperationUserContactChangeResponse = {
+  user_bid: string;
+  contact_type: 'phone' | 'email';
+  identifier: string;
+  revoked_sessions: number;
+};
+
 export type AdminOperationUserCreditSummary = {
   available_credits: string;
   subscription_credits: string;

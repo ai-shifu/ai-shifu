@@ -20,6 +20,7 @@ from flaskr.service.user.auth.factory import (
     has_provider,
     register_provider,
 )
+from flaskr.service.user.models import AuthCredential, UserInfo
 from flaskr.service.user.password_rate_limit import PasswordLoginAttempt
 from flaskr.service.user.password_utils import verify_password
 from flaskr.service.user.repository import (
@@ -135,7 +136,12 @@ class PasswordAuthProvider(AuthProvider):
             token=user_token,
             credential=credential,
             is_new_user=False,
-            metadata={"user_bid": aggregate.user_bid},
+            metadata={
+                "user_bid": aggregate.user_bid,
+                "verified_identifier": identifier,
+                "password_credential_bid": credential.credential_bid,
+                "password_credential_identifier": credential.identifier,
+            },
         )
 
     @staticmethod
@@ -152,6 +158,57 @@ class PasswordAuthProvider(AuthProvider):
             response_attempt.record_failure()
             if response_attempt.cooldown_active:
                 raise_error("server.user.passwordLoginTooManyAttempts")
+        raise_error("server.user.invalidCredentials")
+
+
+def confirm_password_login_for_token_issue(
+    *,
+    identifier: str,
+    user_bid: str,
+    credential_bid: str,
+    credential_identifier: str,
+) -> None:
+    """Lock and confirm password-login evidence immediately before token storage."""
+    user = (
+        UserInfo.query.filter(
+            UserInfo.user_bid == user_bid,
+            UserInfo.deleted == 0,
+        )
+        .with_for_update()
+        .first()
+    )
+    if user is None:
+        raise_error("server.user.invalidCredentials")
+
+    contact_matches = user.user_identify == identifier
+    if not contact_matches:
+        contact_matches = (
+            AuthCredential.query.filter(
+                AuthCredential.user_bid == user_bid,
+                AuthCredential.provider_name.in_(["phone", "email"]),
+                AuthCredential.identifier == identifier,
+                AuthCredential.deleted == 0,
+            )
+            .with_for_update()
+            .first()
+            is not None
+        )
+
+    password_credential = (
+        AuthCredential.query.filter(
+            AuthCredential.credential_bid == credential_bid,
+            AuthCredential.user_bid == user_bid,
+            AuthCredential.provider_name == "password",
+            AuthCredential.deleted == 0,
+        )
+        .with_for_update()
+        .first()
+    )
+    if (
+        not contact_matches
+        or password_credential is None
+        or password_credential.identifier != credential_identifier
+    ):
         raise_error("server.user.invalidCredentials")
 
 
