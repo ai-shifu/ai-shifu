@@ -48,7 +48,7 @@
     },
     "dify": {
       "api_key": {
-        "hint": "App-API-Schlüssel löschen.",
+        "hint": "Geben Sie den API-Schlüssel Ihrer Dify-App ein.",
         "label": "API-Schlüssel"
       },
       "base_url": {
@@ -100,7 +100,7 @@
   "askProviderOptions": {
     "coze": "Coze",
     "coze_workflow": "Coze-Workflow",
-    "dify": "Verfeinern",
+    "dify": "Dify",
     "get_biji_knowledge": "Dedao Gehirn Wissensgrundlage",
     "llm": "Eingebaute LLM",
     "volc_knowledge": "Volcengine Knowledge Base"
