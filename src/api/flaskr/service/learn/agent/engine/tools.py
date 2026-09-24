@@ -266,8 +266,15 @@ def _question(
     variable: str | None,
     options: list[Option] | None,
     placeholder: str | None,
+    written: dict[str, str],
 ) -> tuple[object, ...]:
-    """Everything that makes up the question an `interact` call puts to the learner."""
+    r"""Return everything that makes up the question an `interact` call puts to the learner.
+
+    Its choices as the learner sees them: `a\|b` copied from a 1.0 script and `a|b` are one
+    button (see `_as_the_script_writes_it`).
+    """
+    if written:
+        options = [_as_the_script_writes_it(o, written) for o in options or []]
     return (
         kind,
         prompt.strip(),
@@ -277,7 +284,7 @@ def _question(
     )
 
 
-def _asked(call: ToolCallPart) -> tuple[object, ...] | None:
+def _asked(call: ToolCallPart, written: dict[str, str]) -> tuple[object, ...] | None:
     """Return the question an earlier `interact` call put, or None if its arguments do not read."""
     args = call.args_as_dict()
     try:
@@ -290,6 +297,7 @@ def _asked(call: ToolCallPart) -> tuple[object, ...] | None:
         args.get("variable"),
         options,
         args.get("placeholder"),
+        written,
     )
 
 
@@ -310,22 +318,17 @@ def asks_the_answered_question_again(
     before it differ.
 
     The questions just answered are all those the last asking response put: a response can ask
-    several, and every one is answered before the model goes on.
+    several, and every one is answered before the model goes on. On both sides only the text
+    written before the call counts: a response can go on writing after a call, and text between
+    two calls came before the second one only.
     """
     messages = ctx.messages
     start = ctx.deps.history_len
-    now = _visible(
-        "".join(
-            part.content
-            for msg in messages[start:]
-            if isinstance(msg, ModelResponse)
-            for part in msg.parts
-            if isinstance(part, TextPart)
-        )
-    )
+    now = _visible("".join(_text_up_to(messages[start:], ctx.tool_call_id)))
     if len(now) < _LOOP_FLOOR_CHARS:
         return False
-    question = _question(kind, prompt, variable, options, placeholder)
+    written = ctx.deps.script_options
+    question = _question(kind, prompt, variable, options, placeholder, written)
     for index in range(min(start, len(messages)) - 1, -1, -1):
         msg = messages[index]
         if not isinstance(msg, ModelResponse):
@@ -337,29 +340,45 @@ def asks_the_answered_question_again(
         ]
         if not calls:
             continue
-        if not any(_asked(call) == question for call in calls):
-            return False
-        return _turn_text_before(messages, index) == now
+        matching = [call for call in calls if _asked(call, written) == question]
+        return any(
+            _turn_text_before(messages, index, call.tool_call_id) == now
+            for call in matching
+        )
     return False
 
 
-def _turn_text_before(messages: list, index: int) -> str:
-    """Return the model's text in the turn whose response at `index` asked a question.
-
-    A turn begins with the learner's message or an answer to a question, so the text is
-    collected back to the request that carried one.
-    """
+def _text_up_to(messages: list, call_id: str | None) -> list[str]:
+    """Return the model's text in `messages`, stopping at the call `call_id` if they hold it."""
     parts: list[str] = []
-    for msg in reversed(messages[: index + 1]):
+    for msg in messages:
+        if not isinstance(msg, ModelResponse):
+            continue
+        for part in msg.parts:
+            if isinstance(part, ToolCallPart) and part.tool_call_id == call_id:
+                return parts
+            if isinstance(part, TextPart):
+                parts.append(part.content)
+    return parts
+
+
+def _turn_text_before(messages: list, index: int, call_id: str) -> str:
+    """Return the model's text in the turn that asked the call `call_id`, up to that call.
+
+    `index` is the response holding the call. A turn begins with the learner's message or an
+    answer to a question, so the text is collected back to the request that carried one.
+    """
+    begin = 0
+    for i in range(index, -1, -1):
+        msg = messages[i]
         if isinstance(msg, ModelRequest) and any(
             isinstance(p, UserPromptPart)
             or (isinstance(p, ToolReturnPart) and p.tool_name == "interact")
             for p in msg.parts
         ):
+            begin = i + 1
             break
-        if isinstance(msg, ModelResponse):
-            parts[:0] = [p.content for p in msg.parts if isinstance(p, TextPart)]
-    return _visible("".join(parts))
+    return _visible("".join(_text_up_to(messages[begin : index + 1], call_id)))
 
 
 async def interact(

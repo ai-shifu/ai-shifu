@@ -2320,3 +2320,101 @@ async def test_an_earlier_question_of_a_batch_asked_again_is_not_put() -> None:
     assert not [e for e in after if isinstance(e, InteractionRequest)]
     assert "读后感" in _said(after)
     assert session.pending == []
+
+
+def test_only_the_text_before_each_question_is_compared() -> None:
+    """A response can go on writing after a call, and write between two calls.
+
+    The gateway keeps such text as its own part after the call. The first question of a batch,
+    asked again with the same lead-in, is still recognised, whatever came after the calls.
+    """
+    from types import SimpleNamespace
+
+    from flaskr.service.learn.agent.engine.tools import (
+        asks_the_answered_question_again,
+    )
+    from pydantic_ai.messages import (
+        ModelResponse,
+        TextPart,
+        ToolCallPart,
+        ToolReturnPart,
+    )
+
+    genre = {"type": "text", "prompt": "你平时爱读哪类书？", "variable": "genre"}
+    messages = [
+        ModelRequest(parts=[UserPromptPart(content="start")]),
+        ModelResponse(
+            parts=[
+                TextPart(content=_LEAD),
+                ToolCallPart(tool_name="interact", args=_BOOK, tool_call_id="q1"),
+                TextPart(content="再顺便问一句。\n"),
+                ToolCallPart(tool_name="interact", args=genre, tool_call_id="q2"),
+            ]
+        ),
+        ModelRequest(
+            parts=[
+                ToolReturnPart(
+                    tool_name="interact", content="红楼梦", tool_call_id="q1"
+                ),
+                ToolReturnPart(tool_name="interact", content="小说", tool_call_id="q2"),
+            ]
+        ),
+        ModelResponse(
+            parts=[
+                TextPart(content=_LEAD),
+                ToolCallPart(tool_name="interact", args=_BOOK, tool_call_id="q3"),
+                TextPart(content="想好了就告诉我。\n"),
+            ]
+        ),
+    ]
+    ctx = SimpleNamespace(
+        messages=messages,
+        deps=SimpleNamespace(history_len=3, script_options={}),
+        tool_call_id="q3",
+    )
+
+    assert asks_the_answered_question_again(
+        ctx, "text", _BOOK["prompt"], _BOOK["variable"]
+    )
+
+
+async def test_a_choice_spelled_with_the_script_s_escape_is_the_same_choice() -> None:
+    r"""`a\|b` copied from a 1.0 script and `a|b` are one button to the learner."""
+    script = "先讲一段，然后问：\n\n?[%{{pick}} 含竖线的 a\\|b | 别的]"
+
+    def ask(display: str) -> dict:
+        return {
+            "type": "single",
+            "prompt": "选哪个？",
+            "variable": "pick",
+            "options": [{"display": display}, {"display": "别的"}],
+        }
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(p, RetryPromptPart) for p in last.parts
+        ):
+            yield "下一步：读完之后，说说你的读后感。\n"
+            return
+        answered = _last_tool_return(messages) is not None
+        yield _LEAD
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    ask("含竖线的 a|b" if answered else "含竖线的 a\\|b")
+                ),
+                tool_call_id=f"q{len(messages)}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(script)
+    await collect(engine.run_turn(session))
+    again = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["别的"]))
+    )
+
+    assert not [e for e in again if isinstance(e, InteractionRequest)]
+    assert "读后感" in _said(again)
