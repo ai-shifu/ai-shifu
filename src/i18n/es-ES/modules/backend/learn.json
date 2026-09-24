@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentRewindUnavailable": "Este paso no se puede regenerar. Para cambiar una respuesta anterior, usa «Restablecer» y vuelve a realizar esta lección.",
     "agentTurnCapacity": "Hay demasiadas personas aprendiendo al mismo tiempo. Inténtalo de nuevo en unos momentos.",
     "askProviderAuthFailed": "Ha fallado la autenticación de la base de conocimientos. Comprueba la API Key y el Client ID.",
     "askProviderNoResults": "No se ha encontrado contenido relevante en la base de conocimientos.",
