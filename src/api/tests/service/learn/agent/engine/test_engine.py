@@ -2179,8 +2179,13 @@ async def test_the_lesson_written_again_after_an_untaken_pause_is_not_shown() ->
     assert events[-1].reason == "finished"
 
 
-async def test_the_lesson_written_again_after_an_untaken_pause_ends_it() -> None:
-    """Written again without `finish`: nothing was left, so the lesson is over, not carried on."""
+async def test_the_lesson_written_again_without_finish_is_hidden_but_not_the_end() -> (
+    None
+):
+    """A repeat says only that this response added nothing, not that the script is done.
+
+    The model may have paused before the script's end; the host carries the lesson on.
+    """
 
     async def again() -> StreamChunks:
         yield _WHOLE
@@ -2188,7 +2193,59 @@ async def test_the_lesson_written_again_after_an_untaken_pause_ends_it() -> None
     events = await _no_pause_lesson(again)
 
     assert _said(events) == _WHOLE
+    assert events[-1].reason == "end"
+
+
+async def test_a_repeat_before_new_text_after_an_untaken_pause_is_left_out() -> None:
+    """The last part written again, then the next one: only the next one is shown."""
+
+    async def repeat_then_new() -> StreamChunks:
+        yield _WHOLE[:30]
+        yield _WHOLE[30:]
+        yield "第二部分：权重文件为什么这么小。\n"
+
+    events = await _no_pause_lesson(repeat_then_new)
+
+    assert _said(events) == _WHOLE + "第二部分：权重文件为什么这么小。\n"
+
+
+async def test_a_repeat_held_at_a_second_untaken_pause_is_not_shown() -> None:
+    """The lesson written again and then another pause: the repeat is not let out by it."""
+    pauses = {"n": 0}
+
+    async def again_and_pause() -> StreamChunks:
+        pauses["n"] += 1
+        if pauses["n"] > 1:
+            yield _finish_call()
+            return
+        yield _WHOLE
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    {"type": "confirm", "prompt": "", "options": [{"display": "继续"}]}
+                ),
+                tool_call_id="c2",
+            )
+        }
+
+    events = await _no_pause_lesson(again_and_pause)
+
+    assert _said(events) == _WHOLE
     assert events[-1].reason == "finished"
+
+
+async def test_a_continue_that_starts_with_the_last_turn_shows_only_what_is_new() -> (
+    None
+):
+    """Carried on, the model wrote the previous turn's last part again before the next part."""
+    model, _ = _repeating_model(_WHOLE, _WHOLE + "第二部分：权重文件为什么这么小。\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+
+    assert _said(second) == "第二部分：权重文件为什么这么小。\n"
 
 
 async def test_what_follows_an_untaken_pause_is_shown_when_it_is_new() -> None:
