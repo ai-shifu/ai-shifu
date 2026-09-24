@@ -83,6 +83,10 @@ migration explicitly replaces them.
   the frontend environment migration helper, old-path ignore rules, and
   legacy-path Codex setup. Current checkouts now use `src/web` directly while
   the release workflow retains a bounded fallback for pre-rename tags.
+- [x] 2026-09-24 12:25 CST: In PR #2945, renamed the private frontend npm
+  package and collaboration-guide heading to Web. Verified that tracked build
+  and deployment consumers use paths and image/service identifiers rather than
+  the old npm package name.
 
 ## Surprises & Discoveries
 
@@ -156,6 +160,13 @@ migration explicitly replaces them.
   Rationale: supported checkouts now use `src/web` directly; the release
   workflow still needs one bounded fallback for tags created before the rename.
   Date/Author: 2026-09-01 / Codex
+- Decision: supersede the earlier choice to retain `cook-web` as the private
+  frontend npm package name; use `web` in the manifest and lockfile. Keep Cook
+  Web product branding and deployed image, service, and configuration names.
+  Rationale: the user explicitly requested this package and guide rename. The
+  package is private, and tracked build and deployment consumers reference
+  paths or deployment identifiers rather than its npm package name.
+  Date/Author: 2026-09-24 / Codex
 
 ## Outcomes & Retrospective
 
@@ -171,8 +182,8 @@ Codex worktree setup copies environment files from the current `src/web`
 checkout and reuses compatible dependencies from that same path. Legacy
 checkout migration and old-path artifact compatibility are intentionally no
 longer supported; users must update their checkout and install dependencies
-under `src/web`. The private npm package name remains `cook-web` so the
-deployment-facing package contract stays compatible.
+under `src/web`. The private npm package name is now `web` in the
+manifest and lockfile; deployment-facing Cook Web identifiers stay unchanged.
 
 The repository harness requires `src/web` and verifies the direct frontend
 development and build entry points. It no longer maintains checks or fixtures
