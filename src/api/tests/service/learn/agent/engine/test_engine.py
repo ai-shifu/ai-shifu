@@ -1081,6 +1081,125 @@ async def test_a_short_line_said_twice_is_not_the_end() -> None:
     assert session.finished is False
 
 
+def _said(events: list[object]) -> str:
+    return "".join(e.text for e in events if isinstance(e, ContentDelta))
+
+
+async def test_a_continue_that_repeats_the_last_turn_shows_the_learner_nothing() -> (
+    None
+):
+    """The repeat is known only once it has been written, so it must not be streamed meanwhile.
+
+    On the simulation environment (boundary lesson 3-2, 2026-09-24) the model wrote the whole
+    lesson again on being told to carry on; the repeat detection ended the lesson, but the
+    learner had already read the copy.
+    """
+    whole = "That is everything the script had to say, delivered once and in full.\n"
+    model, _ = _repeating_model(whole, whole)
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == ""
+    assert second[-1].reason == "finished"
+
+
+async def test_a_continue_that_starts_the_last_turn_over_and_stops_is_a_repeat() -> (
+    None
+):
+    whole = "That is everything the script had to say, delivered once and in full.\n"
+    model, _ = _repeating_model(whole, whole[:60])
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == ""
+    assert second[-1].reason == "finished"
+
+
+async def test_a_continue_that_begins_like_the_last_turn_is_shown_once_it_differs() -> (
+    None
+):
+    """Held only while it reads as the previous turn; released whole the moment it does not."""
+    first = "## Step one\n\nThe first step, in full.\n"
+    then = "## Step two\n\nThe second step, in full.\n"
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        text = first if calls["n"] == 1 else then
+        for piece in (text[:3], text[3:8], text[8:]):
+            yield piece
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == then
+    # `## ` and `Step ` read as the previous turn and were held; the piece that differed
+    # released them, and all of it went out together.
+    assert [e.text for e in second if isinstance(e, ContentDelta)] == [then]
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+async def test_a_short_continue_that_reads_like_the_last_turn_is_still_shown() -> None:
+    """Too short to be taken as a repeat, so it is the model's text and goes out at the end."""
+    model, _ = _repeating_model("Repeat: hello.\n", "Repeat: hello.\n")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == "Repeat: hello.\n"
+    assert second[-1].reason == "end"
+
+
+async def test_what_the_model_writes_after_finishing_a_continue_is_not_shown() -> None:
+    """Told to carry on, the model calls `finish` first and then writes.
+
+    On the simulation environment (boundary lessons 4-2 and 3-3, 2026-09-24) that text was the
+    previous turn's last line again, and an announcement that the script was all delivered. The
+    exception that lets a closing line through after `finish` is for a turn that has something to
+    close; a turn the host carried on has nothing, or the model would not have stopped before it.
+    """
+    closing = "You chose the email pattern.\n"
+
+    async def deliver(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield closing
+
+    async def finish_first(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield {
+            0: DeltaToolCall(
+                name="finish",
+                json_args=json.dumps({"summary": "done"}),
+                tool_call_id="f1",
+            )
+        }
+
+    async def then_write(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> StreamChunks:
+        yield "The script has been delivered in full.\n"
+
+    calls = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        calls["n"] += 1
+        gen = {1: deliver, 2: finish_first}.get(calls["n"], then_write)
+        async for x in gen(messages, _info):
+            yield x
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    first = await collect(engine.run_turn(session))
+    assert _said(first) == closing
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == ""
+    assert second[-1].reason == "finished"
+
+
 async def test_a_closing_line_written_after_finish_still_reaches_the_learner() -> None:
     """Calling `finish` first and writing the closing line after it is still writing it.
 

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -178,8 +178,11 @@ def _load_or_start(
     teaching_brief: str = "",
     preview_mode: bool,
     rewind: RewindPlan | None = None,
-) -> Callable[[], Any]:
+) -> tuple[Callable[[], Any], bool]:
     """Build the coroutine factory the bridge runs on its producer thread.
+
+    Also says whether the stored lesson is already finished, which is known here and decides
+    whether there is a turn to run at all.
 
     Reading happens out here because it needs the app context this thread has; the session itself
     is built in there, because everything the engine touches has to be created on the loop that
@@ -233,7 +236,7 @@ def _load_or_start(
         session.user_memory = dict(user_memory)
         return session
 
-    return make_session
+    return make_session, bool(stored is not None and stored.finished)
 
 
 def run_agent_lesson(
@@ -252,8 +255,10 @@ def run_agent_lesson(
     heartbeat_interval: float = 0.5,
     iter_turn: Callable[..., Any] | None = None,
     rewind: RewindPlan | None = None,
-) -> Generator[RunMarkdownFlowDTO, None, None]:
+) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
+
+    Returns how the turn ended (see `TurnOutcome`); the caller decides whether another follows.
 
     `rewind` takes the lesson back to an earlier turn first (see `agent.rewind`): the session is
     restored, the turn runs from there, and the rows it supersedes are retired when it is written.
@@ -264,7 +269,7 @@ def run_agent_lesson(
     from flaskr.service.learn.agent.bridge import iter_turn as bridge_iter_turn
 
     run_turn_on_thread = iter_turn or bridge_iter_turn
-    make_session = _load_or_start(
+    make_session, finished_already = _load_or_start(
         app,
         engine,
         user_bid=user_bid,
@@ -278,6 +283,15 @@ def run_agent_lesson(
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.
     generated_block_bid = uuid.uuid4().hex
+    if finished_already:
+        # The browser asks for a turn every time the learner opens a lesson whose history does
+        # not end on a question, a finished one included: it cannot tell the two apart. The
+        # engine refuses to run a finished session and says so at once, and there is nothing to
+        # write for that -- running it as a turn used to leave an empty block, an empty element
+        # and the outline's rows behind on every visit. Nothing is sent either: a terminal event
+        # yielded here is written down as an element of no block, while the stream's own closing
+        # event, which it sends whenever a lesson's events end without one, is not.
+        return TurnOutcome(reason="finished", taught=False)
     # Regenerating content runs the turn again with the input it had; everything else, including
     # a question answered differently, runs with what the learner just sent.
     values = (
@@ -341,20 +355,22 @@ def run_agent_lesson(
     # reading lesson has no audio to bind and keeps the single-element shape it has today.
     pager = LessonPager() if listen else None
     try:
-        yield from _stream_turn(
-            app,
-            run_turn_on_thread=run_turn_on_thread,
-            voice=voice,
-            pager=pager,
-            make_events=make_events,
-            session_holder=session_holder,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            preview_mode=preview_mode,
-            progress_record_bid=progress_record_bid,
-            generated_block_bid=generated_block_bid,
-            heartbeat_interval=heartbeat_interval,
+        return (
+            yield from _stream_turn(
+                app,
+                run_turn_on_thread=run_turn_on_thread,
+                voice=voice,
+                pager=pager,
+                make_events=make_events,
+                session_holder=session_holder,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                preview_mode=preview_mode,
+                progress_record_bid=progress_record_bid,
+                generated_block_bid=generated_block_bid,
+                heartbeat_interval=heartbeat_interval,
+            )
         )
     except BaseException:
         # The turn died before it could record what it taught -- an engine error, or the learner
@@ -746,7 +762,7 @@ def _stream_turn(
     progress_record_bid: str,
     generated_block_bid: str,
     heartbeat_interval: float,
-) -> Generator[RunMarkdownFlowDTO, None, None]:
+) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
     pending_memory: list[MemoryUpdated] = []
     taught: list[str] = []
@@ -846,6 +862,8 @@ def _stream_turn(
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
         # question emits one and then re-asks the question and ends the turn properly, so treating
         # it as terminal would write the turn twice and stage its block twice.
+        if isinstance(event, TurnDone):
+            session_holder["reason"] = event.reason
         if isinstance(event, TurnDone) and voice is not None:
             # Whatever is still mid-synthesis when the text runs out, which is usually the last
             # sentence of the turn.
@@ -987,6 +1005,24 @@ def _stream_turn(
             turn_record=session_holder.get("turn_record", ""),
             rewind=session_holder.get("rewind"),
         )
+
+    return TurnOutcome(
+        reason=session_holder.get("reason"),
+        taught=bool("".join(taught).strip()),
+    )
+
+
+@dataclass(frozen=True)
+class TurnOutcome:
+    """How a turn ended, for the caller that decides whether the lesson goes on.
+
+    `reason` is the engine's: "interaction" (waiting on the learner), "finished", "end" (out of
+    content for this turn, the lesson not over), or None when the turn died. `taught` says whether
+    the turn put any text in front of the learner.
+    """
+
+    reason: str | None
+    taught: bool
 
 
 class _TurnDiscardedError(Exception):
