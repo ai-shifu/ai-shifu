@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { CourseCatalogList } from './CourseCatalogList';
 import type { LessonTreeCatalog } from '../../hooks/useLessonTree';
 
@@ -61,7 +62,8 @@ const catalogs: LessonTreeCatalog[] = [
   },
 ];
 
-it('passes the guide course language through the catalog to its lesson titles', () => {
+it('uses the guide language for chapter headings, tooltips, and lesson titles', async () => {
+  const user = userEvent.setup();
   render(
     <CourseCatalogList
       catalogs={catalogs}
@@ -74,4 +76,21 @@ it('passes the guide course language through the catalog to its lesson titles', 
     'lang',
     'en-US',
   );
+  const chapterHeading = screen.getByText('Getting started');
+  expect(chapterHeading).toHaveAttribute('lang', 'en-US');
+
+  await user.hover(chapterHeading);
+  const tooltip = await screen.findByRole('tooltip');
+  expect(tooltip.parentElement).toHaveAttribute('lang', 'en-US');
+});
+
+it('lets ordinary Spanish chapter headings inherit the interface language', () => {
+  render(
+    <CourseCatalogList
+      catalogs={[{ ...catalogs[0], name: 'Primeros pasos' }]}
+      hideCourseHeader
+    />,
+  );
+
+  expect(screen.getByText('Primeros pasos')).not.toHaveAttribute('lang');
 });

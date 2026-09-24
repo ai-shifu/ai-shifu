@@ -67,11 +67,17 @@ export const CourseCatalog = ({
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className={styles.leftSectionText}>{name}</span>
+                <span
+                  className={styles.leftSectionText}
+                  lang={titleLanguage}
+                >
+                  {name}
+                </span>
               </TooltipTrigger>
               <TooltipContent
                 side='top'
                 className='max-w-[260px] whitespace-pre-wrap break-words'
+                lang={titleLanguage}
               >
                 {name}
               </TooltipContent>
