@@ -1034,7 +1034,7 @@
     },
     "topupComingSoon": "Próximamente",
     "validity": {
-      "daily": "Vigencia: empieza el día de la compra y se renueva cada día",
+      "daily": "Vigencia: válida cada día a partir de la fecha de compra",
       "days": "Vigencia: se renueva cada {count} días desde el día de la compra",
       "free": "Vigencia: {days} días desde el registro",
       "monthly": "Vigencia: 30 días desde la compra, incluido el día de compra",
