@@ -17,6 +17,7 @@ from flaskr.service.learn.agent.engine.events import (
     ErrorEvent,
     InteractionRequest,
     MemoryUpdated,
+    ToolCall,
     TurnDone,
 )
 from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
@@ -1367,6 +1368,25 @@ def test_the_model_s_copy_of_its_memory_never_reaches_the_learner(calls: list) -
     assert _narration(events) == "好，那我们用做菜来打比方。"
     staged = next(kw for name, kw in calls if name == "record_content")
     assert staged["content"] == "好，那我们用做菜来打比方。"
+
+
+def test_a_memory_block_interrupted_by_a_tool_call_is_still_removed(
+    calls: list,
+) -> None:
+    """A tool event between chunks is not the end of the text; the block is still open."""
+    engine = _Engine(
+        [
+            ContentDelta(text='<memory>\n{"key": "a"}\n'),
+            ToolCall(id="t1", name="remember", args={"key": "a", "value": "b"}),
+            ContentDelta(text="</memory>\n好，开始。"),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine)
+
+    assert _narration(events) == "好，开始。"
+    staged = next(kw for name, kw in calls if name == "record_content")
+    assert staged["content"] == "好，开始。"
 
 
 @pytest.mark.usefixtures("calls")

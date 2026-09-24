@@ -763,10 +763,17 @@ def _stream_turn(
             # question's controls, so the last thing in the learner's history was text rather
             # than the question -- and the browser, seeing no question to answer, asked the
             # lesson to continue with nothing.
-            tail = (
-                syntax.feed(markers.feed(echoes.flush()) + markers.flush())
-                + syntax.flush()
+            #
+            # Except an echoed memory block: a tool call or its result can come between its
+            # opening and its close, and released there it would be shown. It is let go only
+            # where the text really ends -- a question, or the end of the turn -- and whatever
+            # is still held when a turn dies is released below.
+            echoed = (
+                echoes.flush()
+                if isinstance(event, (InteractionRequest, TurnDone))
+                else ""
             )
+            tail = syntax.feed(markers.feed(echoed) + markers.flush()) + syntax.flush()
             if tail:
                 taught.append(tail)
                 yield from _say(

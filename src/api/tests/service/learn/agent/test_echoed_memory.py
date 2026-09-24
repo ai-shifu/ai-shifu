@@ -79,3 +79,36 @@ def test_text_goes_out_as_it_arrives_rather_than_at_the_end_of_the_line() -> Non
     """Holding every line to its end would stall the lesson's streaming for no reason."""
     echo_filter = EchoedMemoryFilter()
     assert echo_filter.feed("好，那我们") == "好，那我们"
+
+
+def test_a_closing_fence_split_across_chunks_still_closes_the_code() -> None:
+    """Otherwise the code never ends, and a block written after it is taken for an example."""
+    for fence in ("```", "~~~"):
+        text = f"{fence}\nexample\n{fence}\n<memory>\n{{}}\n</memory>\nNext\n"
+        for seed in range(30):
+            assert _through(text, seed) == f"{fence}\nexample\n{fence}\nNext\n", (
+                f"{fence} seed {seed}"
+            )
+
+
+def test_the_tag_in_indented_code_is_kept() -> None:
+    """Four spaces of indent is a code block in Markdown: the lesson is showing the format."""
+    text = "    <memory>\n    {}\n    </memory>\nNext\n"
+    for seed in range(30):
+        assert _through(text, seed) == text, f"seed {seed}"
+
+
+def test_a_backtick_line_with_a_backtick_after_it_is_not_a_fence() -> None:
+    """CommonMark: a backtick fence's info string cannot contain a backtick."""
+    text = "``` `not a fence`\n<memory>\n{}\n</memory>\nNext\n"
+    for seed in range(30):
+        assert _through(text, seed) == "``` `not a fence`\nNext\n", f"seed {seed}"
+
+
+def test_a_block_that_ends_the_turn_without_a_newline_is_removed() -> None:
+    for text in (
+        '讲课。\n<memory>{"key": "a"}</memory>',
+        '讲课。\n<memory>\n{"key": "a"}\n</memory>',
+    ):
+        for seed in range(30):
+            assert _through(text, seed) == "讲课。\n", f"{text!r} seed {seed}"

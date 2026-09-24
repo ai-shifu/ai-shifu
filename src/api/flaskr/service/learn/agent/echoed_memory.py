@@ -28,20 +28,28 @@ import re
 
 _OPEN = "<memory>"
 _CLOSE = "</memory>"
-_CODE_FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
+# CommonMark: a backtick fence's info string cannot itself contain a backtick; a tilde fence's can.
+_CODE_FENCE_OPEN = re.compile(r"^[ ]{0,3}(?:(`{3,})(?![^\n]*`)|(~{3,}))")
 _CODE_FENCE_CLOSE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})[ \t]*$")
 # An unfinished line that may still become a code fence, and so decide what the lines after it are.
 _MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]")
 
 
+# Up to three spaces of indent: four is an indented code block in Markdown, where a lesson showing
+# the format puts it.
+_INDENT = re.compile(r"^[ ]{0,3}")
+
+
 def _opens_block(line: str) -> bool:
-    return line.lstrip(" \t").startswith(_OPEN)
+    return line[_INDENT.match(line).end() :].startswith(_OPEN)
 
 
 def _may_open_block(partial: str) -> bool:
     """Whether a line still arriving could turn out to open a block."""
-    stripped = partial.lstrip(" \t")
-    return _OPEN.startswith(stripped) or stripped.startswith(_OPEN)
+    rest = partial[_INDENT.match(partial).end() :]
+    if rest.startswith((" ", "\t")):
+        return False
+    return _OPEN.startswith(rest) or rest.startswith(_OPEN)
 
 
 class EchoedMemoryFilter:
@@ -73,17 +81,26 @@ class EchoedMemoryFilter:
         return "".join(out)
 
     def flush(self) -> str:
-        """Release what is still held, because no more text is coming."""
-        held = "".join(self._block or []) + self._line
+        """Release what is still held, because no more text is coming.
+
+        The last line is read as a line first: a turn may end on `</memory>`, or on a whole
+        block, without a newline after it. Only a block still open after that is released.
+        """
+        tail = self._complete_line(self._line) if self._line else ""
+        held = "".join(self._block or [])
         self._line = ""
         self._block = None
         self._released_some_of_line = False
         self._after_block = False
-        return held
+        return tail + held
 
     def _holds(self, partial: str) -> bool:
-        if self._fence is not None or self._released_some_of_line:
+        if self._released_some_of_line:
             return False
+        if self._fence is not None:
+            # Inside code nothing opens a block, but a line that may be the closing fence waits
+            # for its end: released in part, it could no longer close the code.
+            return _MAY_BE_FENCE.match(partial) is not None
         if self._after_block and not partial.strip():
             return True
         return _may_open_block(partial) or _MAY_BE_FENCE.match(partial) is not None
@@ -118,7 +135,8 @@ class EchoedMemoryFilter:
         if whole_line:
             opened = _CODE_FENCE_OPEN.match(line)
             if opened:
-                self._fence = (opened.group(1)[0], len(opened.group(1)))
+                fence = opened.group(1) or opened.group(2)
+                self._fence = (fence[0], len(fence))
         return line
 
     def _closes_fence(self, line: str) -> bool:
