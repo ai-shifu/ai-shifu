@@ -36,6 +36,9 @@ jest.mock('@/lib/lesson-feedback-interaction', () => ({
 }));
 
 jest.mock('@/lib/system-interaction', () => ({
+  isSystemInteractionContent: jest.fn((content?: string) =>
+    Boolean(content?.includes('_sys_')),
+  ),
   isPaySystemInteractionContent: jest.fn((content?: string) =>
     Boolean(content?.includes('_sys_pay')),
   ),

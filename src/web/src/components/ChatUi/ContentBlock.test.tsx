@@ -43,14 +43,22 @@ const guideContent: ChatContentItem = {
   type: ChatContentItemType.CONTENT,
   content: 'Create your first course',
 };
+const guideInteraction: ChatContentItem = {
+  element_bid: 'guide-interaction',
+  type: ChatContentItemType.INTERACTION,
+  content: '?[Create a course | Explore courses]',
+};
 const onSend = jest.fn();
 
-const renderContent = (contentLanguage?: string) =>
+const renderContent = (
+  contentLanguage?: string,
+  item: ChatContentItem = guideContent,
+) =>
   render(
     <ContentBlock
-      item={guideContent}
+      item={item}
       mobileStyle={false}
-      blockBid='guide-content'
+      blockBid={item.element_bid}
       contentLanguage={contentLanguage}
       onSend={onSend}
     />,
@@ -81,6 +89,34 @@ describe('ContentBlock content language', () => {
       'lang',
       'es-ES',
     );
+  });
+
+  it('marks authored guide interaction choices with the known course language', () => {
+    renderContent('en-US', guideInteraction);
+
+    expect(screen.getByTestId('course-content')).toHaveAttribute(
+      'data-locale',
+      'en-US',
+    );
+    expect(screen.getByTestId('course-content')).toHaveAttribute(
+      'lang',
+      'en-US',
+    );
+  });
+
+  it('keeps system interaction labels outside the course language', () => {
+    renderContent('en-US', {
+      ...guideInteraction,
+      content: '?[Next lesson//_sys_next_chapter]',
+    });
+
+    expect(screen.getByTestId('course-content')).toHaveAttribute('lang', '');
+  });
+
+  it('does not infer an unknown interaction language from the interface', () => {
+    renderContent(undefined, guideInteraction);
+
+    expect(screen.getByTestId('course-content')).toHaveAttribute('lang', '');
   });
 
   it('does not infer unknown authored content language from the Spanish UI', () => {

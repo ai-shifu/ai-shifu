@@ -19,6 +19,7 @@ import {
 import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isPaySystemInteractionContent,
+  isSystemInteractionContent,
   localizeSystemInteractionContent,
 } from '@/lib/system-interaction';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
@@ -97,6 +98,10 @@ const ContentBlock = memo(
     const isPayInteraction =
       item.type === ChatContentItemType.INTERACTION &&
       isPaySystemInteractionContent(item.content);
+    const usesCourseLanguage =
+      item.type === ChatContentItemType.CONTENT ||
+      (item.type === ChatContentItemType.INTERACTION &&
+        !isSystemInteractionContent(item.content));
     const resolvedReadonly = printMode
       ? true
       : isPayInteraction
@@ -145,11 +150,7 @@ const ContentBlock = memo(
           locale={markdownFlowLocale}
           // MarkdownFlow falls back to the controls locale for nullish lang.
           // Empty lang keeps unknown authored text from claiming that language.
-          lang={
-            item.type === ChatContentItemType.CONTENT
-              ? (contentLanguage ?? '')
-              : ''
-          }
+          lang={usesCourseLanguage ? (contentLanguage ?? '') : ''}
           enableTypewriter={shouldEnableTypewriter}
           typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
           typewriterPacing='content-aware'
