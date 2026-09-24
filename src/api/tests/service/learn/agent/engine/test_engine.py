@@ -26,6 +26,7 @@ from flaskr.service.learn.agent.engine import (
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
+    RetryPromptPart,
     ToolReturnPart,
     UserPromptPart,
 )
@@ -2112,6 +2113,311 @@ async def test_finishing_with_the_last_step_ends_the_lesson_in_that_turn() -> No
     again = await collect(engine.run_turn(Session.from_dict(session.to_dict())))
     assert [e.reason for e in again if isinstance(e, TurnDone)] == ["finished"]
     assert requests["n"] == asked
+
+
+# --- a question asked again in a loop ------------------------------------------------------
+
+_BOOK = {
+    "type": "text",
+    "prompt": "你打算挑哪本经典名著来试？",
+    "variable": "classic_book",
+}
+_LEAD = (
+    "《红楼梦》——好眼光。这本书人物上千、线索千头，正是检验 AI 读书功力的好材料。\n\n"
+    "那咱们就把问题落到这本书上，你直接拿去问：用 300 字讲讲主要情节；三个主角各自想要什么。\n"
+)
+
+
+def _looping_model(
+    lead_after_answer: Callable[[int], str],
+) -> Callable[..., StreamChunks]:
+    """Model: asks for a book; after each answer writes `lead_after_answer(n)` and asks again.
+
+    Told it may not ask again, it goes on with the next part.
+    """
+    answers = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(p, RetryPromptPart) for p in last.parts
+        ):
+            yield "下一步：读完之后，说说你的读后感。\n"
+            return
+        if _last_tool_return(messages) is None:
+            yield "留个作业：跟着 AI 读一本经典。\n"
+        else:
+            answers["n"] += 1
+            yield lead_after_answer(answers["n"])
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(_BOOK),
+                tool_call_id=f"q{answers['n']}",
+            )
+        }
+
+    return model
+
+
+async def test_a_question_asked_again_word_for_word_is_not_put_to_the_learner() -> None:
+    """General-education course (2026-09-24): the same paragraph and question after every answer.
+
+    The learner named a book; the model wrote the same lead-in and asked "which book?" again, and
+    kept doing so, 14 times. The second time round is refused and the lesson goes on.
+    """
+    engine = Engine(FunctionModel(stream_function=_looping_model(lambda _n: _LEAD)))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["红楼梦"])))
+    third = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["红楼梦"]))
+    )
+
+    assert not [e for e in third if isinstance(e, InteractionRequest)]
+    assert "读后感" in _said(third)
+    assert session.pending == []
+
+
+async def test_a_question_asked_again_after_something_new_is_still_asked() -> None:
+    """After a wrong answer the model says something about it first; that re-ask is not a loop."""
+    engine = Engine(
+        FunctionModel(
+            stream_function=_looping_model(
+                lambda n: (
+                    f"第 {n} 次回答还不太对，再想想：这本书得是你真想读的那本，书名要写全。\n"
+                )
+            )
+        )
+    )
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["不知道"])))
+    third = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["随便"]))
+    )
+
+    assert [e for e in third if isinstance(e, InteractionRequest)]
+
+
+_CORRECTION = (
+    "还不对：书名要写全，而且得是一本真正的经典名著，比如四大名著里的一本，再试一次。\n"
+)
+
+
+async def test_a_scripted_re_ask_with_the_same_correction_still_reaches_the_learner() -> (
+    None
+):
+    """A script may prescribe the same correction on every wrong answer.
+
+    The second identical correction and question are sent back once; said to that answer in
+    particular, the question is put again.
+    """
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        retry = next(
+            (p for p in last.parts if isinstance(p, RetryPromptPart)),
+            None,
+        )
+        if retry is not None:
+            # Told only to move on, a model has no way left to put the scripted retry.
+            if "If the script has you ask again" not in str(retry.content):
+                yield "下一步：读完之后，说说你的读后感。\n"
+                return
+            yield "「随便」也不是书名。\n"
+        elif _last_tool_return(messages) is None:
+            yield "留个作业：跟着 AI 读一本经典。\n"
+        else:
+            yield _CORRECTION
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(_BOOK),
+                tool_call_id=f"q{len(messages)}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["不知道"])))
+    third = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["随便"]))
+    )
+
+    assert [e for e in third if isinstance(e, InteractionRequest)]
+    assert "「随便」也不是书名" in _said(third)
+
+
+async def test_the_same_question_with_new_choices_is_still_asked() -> None:
+    """Same lead-in and question, other choices: a new question, not the one answered."""
+    first = {
+        "type": "single",
+        "prompt": "你想先看哪个例子？",
+        "options": [{"display": "例子 A"}, {"display": "例子 B"}],
+    }
+    second = {**first, "options": [{"display": "例子 C"}, {"display": "例子 D"}]}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        answered = _last_tool_return(messages) is not None
+        yield _LEAD
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(second if answered else first),
+                tool_call_id=f"q{len(messages)}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    again = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["例子 A"]))
+    )
+
+    asked = [e for e in again if isinstance(e, InteractionRequest)]
+    assert [o.display for o in asked[0].spec.options] == ["例子 C", "例子 D"]
+
+
+async def test_an_earlier_question_of_a_batch_asked_again_is_not_put() -> None:
+    """Two questions in one response, both answered, then the first one again, word for word."""
+    genre = {"type": "text", "prompt": "你平时爱读哪类书？", "variable": "genre"}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(p, RetryPromptPart) for p in last.parts
+        ):
+            yield "下一步：读完之后，说说你的读后感。\n"
+            return
+        yield _LEAD
+        if _last_tool_return(messages) is None:
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(_BOOK), tool_call_id="q1"
+                ),
+                1: DeltaToolCall(
+                    name="interact", json_args=json.dumps(genre), tool_call_id="q2"
+                ),
+            }
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(_BOOK), tool_call_id="q3"
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["红楼梦"])))
+    after = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["小说"]))
+    )
+
+    assert not [e for e in after if isinstance(e, InteractionRequest)]
+    assert "读后感" in _said(after)
+    assert session.pending == []
+
+
+def test_only_the_text_before_each_question_is_compared() -> None:
+    """A response can go on writing after a call, and write between two calls.
+
+    The gateway keeps such text as its own part after the call. The first question of a batch,
+    asked again with the same lead-in, is still recognised, whatever came after the calls.
+    """
+    from types import SimpleNamespace
+
+    from flaskr.service.learn.agent.engine.tools import (
+        asks_the_answered_question_again,
+    )
+    from pydantic_ai.messages import (
+        ModelResponse,
+        TextPart,
+        ToolCallPart,
+        ToolReturnPart,
+    )
+
+    genre = {"type": "text", "prompt": "你平时爱读哪类书？", "variable": "genre"}
+    messages = [
+        ModelRequest(parts=[UserPromptPart(content="start")]),
+        ModelResponse(
+            parts=[
+                TextPart(content=_LEAD),
+                ToolCallPart(tool_name="interact", args=_BOOK, tool_call_id="q1"),
+                TextPart(content="再顺便问一句。\n"),
+                ToolCallPart(tool_name="interact", args=genre, tool_call_id="q2"),
+            ]
+        ),
+        ModelRequest(
+            parts=[
+                ToolReturnPart(
+                    tool_name="interact", content="红楼梦", tool_call_id="q1"
+                ),
+                ToolReturnPart(tool_name="interact", content="小说", tool_call_id="q2"),
+            ]
+        ),
+        ModelResponse(
+            parts=[
+                TextPart(content=_LEAD),
+                ToolCallPart(tool_name="interact", args=_BOOK, tool_call_id="q3"),
+                TextPart(content="想好了就告诉我。\n"),
+            ]
+        ),
+    ]
+    ctx = SimpleNamespace(
+        messages=messages,
+        deps=SimpleNamespace(history_len=3, script_options={}),
+        tool_call_id="q3",
+    )
+
+    assert asks_the_answered_question_again(
+        ctx, "text", _BOOK["prompt"], _BOOK["variable"]
+    )
+
+
+async def test_a_choice_spelled_with_the_script_s_escape_is_the_same_choice() -> None:
+    r"""`a\|b` copied from a 1.0 script and `a|b` are one button to the learner."""
+    script = "先讲一段，然后问：\n\n?[%{{pick}} 含竖线的 a\\|b | 别的]"
+
+    def ask(display: str) -> dict:
+        return {
+            "type": "single",
+            "prompt": "选哪个？",
+            "variable": "pick",
+            "options": [{"display": display}, {"display": "别的"}],
+        }
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(p, RetryPromptPart) for p in last.parts
+        ):
+            yield "下一步：读完之后，说说你的读后感。\n"
+            return
+        answered = _last_tool_return(messages) is not None
+        yield _LEAD
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    ask("含竖线的 a|b" if answered else "含竖线的 a\\|b")
+                ),
+                tool_call_id=f"q{len(messages)}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(script)
+    await collect(engine.run_turn(session))
+    again = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["别的"]))
+    )
+
+    assert not [e for e in again if isinstance(e, InteractionRequest)]
+    assert "读后感" in _said(again)
 
 
 # --- a pause that was not taken, followed by the lesson again --------------------------------
