@@ -71,7 +71,7 @@ try {
   );
   await page.goto(origin);
   await page.waitForFunction(() => typeof window.renderArena === "function");
-  const locales = ["ar-SA", "en-US", "fr-FR", "th-TH", "zh-CN"];
+  const locales = ["ar-SA", "en-US", "es-ES", "fr-FR", "th-TH", "zh-CN"];
   for (const mode of ["reading", "slides"]) {
     for (const locale of locales) {
       const direction = locale === "ar-SA" ? "rtl" : "ltr";
@@ -93,6 +93,7 @@ try {
             }
           : {}),
       });
+      assert.equal(artifact.markdownFlowLocale, locale);
       await page.evaluate((value) => window.renderArena(value), artifact);
       await page.waitForFunction(
         ({ locale, direction }) => {
@@ -127,8 +128,17 @@ try {
       );
     }
   }
+  const spanishCode = normalizeArtifact({
+    content: "```text\nhola\n```",
+    metadata: { locale: "es-ES" },
+  });
+  await page.evaluate((value) => window.renderArena(value), spanishCode);
+  await page
+    .locator("#capture")
+    .getByRole("button", { name: "Copiar", exact: true })
+    .waitFor({ state: "visible" });
   process.stdout.write(
-    JSON.stringify({ status: "complete", locales, component_cases: 10 }) + "\n",
+    JSON.stringify({ status: "complete", locales, component_cases: 13 }) + "\n",
   );
 } finally {
   await browser?.close();

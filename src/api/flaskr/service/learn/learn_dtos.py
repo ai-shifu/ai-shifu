@@ -347,26 +347,41 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
     outline_items: list[LearnOutlineItemInfoDTO] = Field(
         ..., description="outline items"
     )
+    title_language: str | None = Field(
+        default=None, description="Authored outline title language when known"
+    )
+    content_language: str | None = Field(
+        default=None, description="Course output language when explicitly known"
+    )
 
     def __init__(
         self,
         banner_info: LearnBannerInfoDTO | None,
         outline_items: list[LearnOutlineItemInfoDTO],
+        title_language: str | None = None,
+        content_language: str | None = None,
     ) -> None:
         """Combine the learner banner and outline item payloads."""
         super().__init__(
             banner_info=banner_info,
             outline_items=outline_items,
+            title_language=title_language,
+            content_language=content_language,
         )
 
     def __json__(self) -> dict:
         """Return the learner banner and outline collection as JSON-compatible data."""
-        return {
+        payload = {
             "banner_info": None
             if self.banner_info is None
             else self.banner_info.__json__(),
             "outline_items": self.outline_items,
         }
+        if self.title_language is not None:
+            payload["title_language"] = self.title_language
+        if self.content_language is not None:
+            payload["content_language"] = self.content_language
+        return payload
 
 
 @register_schema_to_swagger

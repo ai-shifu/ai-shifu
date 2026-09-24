@@ -376,3 +376,55 @@ def update_profile_onboarding_config(
     if cache_refresh_pending:
         response["cache_refresh_pending"] = True
     return response
+
+
+def backfill_profile_onboarding_assistant_locale(
+    app: Flask, *, locale: str, apply: bool
+) -> dict[str, object]:
+    """Fill a newly supported locale in the saved config through the normal CAS save."""
+    if locale not in get_locale_labels():
+        raise_param_error("language")
+    assert_profile_onboarding_persistable()
+    raw_value = read_profile_onboarding_database(app)
+    if raw_value is None:
+        return {"status": "no_configuration", "locale": locale}
+    try:
+        stored_value = json.loads(raw_value)
+    except (TypeError, ValueError) as exc:
+        message = "Stored profile onboarding configuration is invalid JSON"
+        raise ValueError(message) from exc
+    if not isinstance(stored_value, dict):
+        message = "Stored profile onboarding configuration must be an object"
+        raise TypeError(message)
+    existing = normalize_profile_onboarding_config_payload(stored_value)
+    revision = int(existing["revision"])
+    result: dict[str, object] = {"locale": locale, "config_revision": revision}
+    if (
+        not str(existing["markdownflow"]).strip()
+        or not str(existing["assistant_prompt"]).strip()
+    ):
+        return {**result, "status": "no_master_prompt"}
+    if locale in _supported_assistant_prompts(existing["assistant_prompts"]):
+        return {**result, "status": "already_present"}
+    if not apply:
+        return {**result, "status": "pending"}
+    published = update_profile_onboarding_config(
+        app,
+        payload={
+            "enabled": existing["enabled"],
+            "markdownflow": existing["markdownflow"],
+            "assistant_prompt": existing["assistant_prompt"],
+            "config_revision": revision,
+        },
+        operator_user_bid="system",
+    )
+    generated_locales = sorted(
+        set(_supported_assistant_prompts(published["assistant_prompts"]))
+        - set(_supported_assistant_prompts(existing["assistant_prompts"]))
+    )
+    return {
+        "locale": locale,
+        "config_revision": published["config_revision"],
+        "generated_locales": generated_locales,
+        "status": "backfilled",
+    }

@@ -1,0 +1,15 @@
+{
+  "__namespace__": "module.user",
+  "confirmLogoutContent": "¿Quieres cerrar sesión?",
+  "confirmLogoutTitle": "Confirmar cierre de sesión",
+  "defaultUserName": "Usuario anónimo",
+  "gender": {
+    "female": "Mujer",
+    "male": "Hombre",
+    "secret": "Prefiero no decirlo"
+  },
+  "login": "Iniciar sesión",
+  "loginMainButton": "Iniciar sesión o registrarse",
+  "logout": "Cerrar sesión",
+  "notLogin": "Sesión no iniciada"
+}

@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.common",
+  "__flat__": {
+    "dataLoadFailed": "No se han podido cargar los datos. Inténtalo más tarde.",
+    "nicknameNotAllowed": "El apodo introducido no está permitido.",
+    "operationFailed": "Se ha producido un error en el servicio. Inténtalo más tarde.",
+    "paramsError": "Parámetros incorrectos: {param_message}",
+    "stateInvalid": "Esta acción no está disponible en el estado actual.",
+    "systemError": "Error del sistema",
+    "unexpectedError": "El servicio no está disponible temporalmente. Inténtalo más tarde.",
+    "unknownError": "Error desconocido"
+  }
+}

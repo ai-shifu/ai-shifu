@@ -39,3 +39,37 @@ describe('cached runtime API base URL', () => {
     },
   );
 });
+
+describe('Spanish legal document URLs', () => {
+  const originalAgreementUrl = process.env.LEGAL_AGREEMENT_URL_ES_ES;
+  const originalPrivacyUrl = process.env.LEGAL_PRIVACY_URL_ES_ES;
+
+  afterEach(() => {
+    if (originalAgreementUrl === undefined) {
+      delete process.env.LEGAL_AGREEMENT_URL_ES_ES;
+    } else {
+      process.env.LEGAL_AGREEMENT_URL_ES_ES = originalAgreementUrl;
+    }
+    if (originalPrivacyUrl === undefined) {
+      delete process.env.LEGAL_PRIVACY_URL_ES_ES;
+    } else {
+      process.env.LEGAL_PRIVACY_URL_ES_ES = originalPrivacyUrl;
+    }
+  });
+
+  it('exposes configured es-ES agreement and privacy URLs', async () => {
+    process.env.LEGAL_AGREEMENT_URL_ES_ES = 'https://example.test/acuerdo';
+    process.env.LEGAL_PRIVACY_URL_ES_ES = 'https://example.test/privacidad';
+
+    await jest.isolateModulesAsync(async () => {
+      const { environment } = await import('./environment');
+
+      expect(environment.legalUrls.agreement['es-ES']).toBe(
+        'https://example.test/acuerdo',
+      );
+      expect(environment.legalUrls.privacy['es-ES']).toBe(
+        'https://example.test/privacidad',
+      );
+    });
+  });
+});

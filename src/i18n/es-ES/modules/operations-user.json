@@ -1,0 +1,447 @@
+{
+  "__namespace__": "module.operationsUser",
+  "actions": {
+    "cancelAccount": "Dar de baja la cuenta",
+    "grantCredits": "Asignar créditos o plan",
+    "moreForUser": "Más acciones para {user}"
+  },
+  "cancellation": {
+    "back": "Volver",
+    "blockers": {
+      "operator": "Esta cuenta tiene acceso de operador y actualmente no se puede dar de baja.",
+      "paid_preorder_refund_required": "Esta cuenta tiene {count} pedidos anticipados pagados pendientes de activación. Completa el reembolso manual antes de darla de baja.",
+      "published_course_transfer_required": "Transfiere los {count} cursos publicados de esta cuenta antes de continuar.",
+      "self": "No puedes dar de baja la cuenta de operador con la que has iniciado sesión. Solicita a otro operador que complete esta acción.",
+      "title": "No se puede continuar con la baja",
+      "unknown": "Esta cuenta tiene asuntos pendientes. Actualiza la página e inténtalo de nuevo o contacta con el servicio técnico.",
+      "unsettled_payment": "Resuelve los {count} pedidos sin liquidar antes de dar de baja esta cuenta."
+    },
+    "confirm": "Dar de baja la cuenta",
+    "confirmDescription": "La cuenta {user} se dará de baja de forma permanente.",
+    "confirmPaidPreorder": "Esta cuenta tiene {count} planes de prepago pendientes de activación. Confirma que se han completado los reembolsos manuales u otras gestiones necesarias.",
+    "confirmTitle": "Confirmar la baja de la cuenta",
+    "continue": "Dar de baja la cuenta",
+    "description": "Se comprobarán los cursos, suscripciones, créditos y sesiones.",
+    "errors": {
+      "blocked": "Aún hay asuntos que requieren atención",
+      "cancel": "No se ha podido dar de baja la cuenta",
+      "executionFailed": "Ha fallado la tarea de baja. Inténtalo de nuevo.",
+      "load": "No se han podido cargar los detalles de la baja",
+      "prepare": "No se ha podido preparar la baja",
+      "processingTimeout": "La baja aún se está procesando. Actualiza la lista de usuarios más tarde para comprobar el resultado.",
+      "transfer": "No se han podido transferir los cursos"
+    },
+    "irreversible": "Se eliminarán el perfil y los datos de acceso; se conservará el historial comercial obligatorio.",
+    "processing": "Dando de baja…",
+    "reasonCounter": "{count}/500",
+    "reasonHint": "El motivo se conservará en el registro de auditoría de operaciones.",
+    "reasonLabel": "Motivo de la baja",
+    "reasonPlaceholder": "Introduce un motivo concreto, por ejemplo, «Baja solicitada por el usuario»",
+    "reasonTooShort": "Introduce al menos 5 caracteres.",
+    "summary": {
+      "accountLabel": "Cuenta de usuario",
+      "courseCounts": "Borradores: {drafts} · Publicados: {published}",
+      "coursesHint": "Los borradores se conservarán bloqueados; los cursos publicados deben transferirse primero.",
+      "coursesLabel": "Cursos",
+      "creditsExpireAtLabel": "Validez de los créditos",
+      "creditsHint": "El saldo de créditos se eliminará sin reembolso.",
+      "creditsLabel": "Saldo de créditos",
+      "creditsValue": "{count} (se eliminarán sin reembolso)",
+      "draftsHint": "Los borradores se conservarán bloqueados tras la baja.",
+      "draftsLabel": "Borradores de cursos",
+      "draftsValue": "{count} (se conservarán bloqueados)",
+      "paidPackages": "Plan pagado:",
+      "preorders": "Plan de prepago pendiente:",
+      "renewals": "Suscripciones activas que finalizarán al dar de baja la cuenta: {count}",
+      "sessionsHint": "Todas las sesiones iniciadas se cerrarán inmediatamente.",
+      "sessionsLabel": "Sesiones activas",
+      "sessionsValue": "{count} (se cerrarán al dar de baja la cuenta)",
+      "subscriptions": "Suscripción con renovación automática:"
+    },
+    "title": "Dar de baja la cuenta",
+    "transfer": "Transferir todos",
+    "transferEmailPlaceholder": "Correo electrónico del nuevo responsable",
+    "transferPhonePlaceholder": "Móvil del nuevo responsable",
+    "transferPlaceholder": "Móvil o correo electrónico del nuevo responsable",
+    "transferRequired": "Transfiere primero {count} cursos publicados"
+  },
+  "courseSummary": {
+    "dialog": {
+      "courseId": "ID del curso",
+      "courseName": "Nombre del curso",
+      "createdTitle": "Cursos creados",
+      "description": "Usuario: {user}",
+      "learningTitle": "Cursos que estudia",
+      "status": "Estado"
+    },
+    "empty": "--"
+  },
+  "credits": {
+    "longTerm": "Sin fecha de caducidad"
+  },
+  "detail": {
+    "basicInfo": "Información básica",
+    "cancellationOperator": "Operador que tramitó la baja",
+    "cancellationReason": "Motivo de la baja",
+    "cancelledAt": "Fecha de baja",
+    "createdCourses": "Cursos creados",
+    "creditExpireAtHint": "Si hay varios periodos de validez, se muestra la fecha de caducidad más próxima.",
+    "creditExpireAtHintAriaLabel": "Ver explicación de la caducidad de los créditos",
+    "creditLedger": "Movimientos de créditos",
+    "creditLedgerColumns": {
+      "amount": "Créditos modificados",
+      "balanceAfter": "Saldo posterior",
+      "consumedCredits": "Créditos consumidos",
+      "course": "Curso",
+      "createdAt": "Fecha del movimiento",
+      "entryType": "Tipo",
+      "expiresAt": "Fecha de caducidad",
+      "grantedCredits": "Créditos asignados",
+      "note": "Nota",
+      "sectionChapter": "Lección / Capítulo",
+      "sourceType": "Origen",
+      "usageMode": "Modo",
+      "usageScene": "Contexto",
+      "user": "Usuario"
+    },
+    "creditLedgerFilters": {
+      "course": "Curso",
+      "coursePlaceholder": "ID / Nombre del curso",
+      "grantSource": "Origen de la asignación",
+      "grantSourceOptions": {
+        "all": "Todos",
+        "manual": "Asignación manual",
+        "subscription": "Plan",
+        "topup": "Paquete de créditos",
+        "trial_subscription": "Créditos de prueba"
+      },
+      "time": "Periodo",
+      "timePlaceholder": "Fecha de inicio ~ Fecha de fin",
+      "type": "Tipo",
+      "typeOptions": {
+        "all": "Todos",
+        "consume": "Consumo",
+        "grant": "Asignación",
+        "other": "Otros"
+      },
+      "usageMode": "Modo de consumo",
+      "usageModeOptions": {
+        "all": "Todos",
+        "ask": "Preguntas de seguimiento",
+        "learn": "Lectura",
+        "listen": "Escucha"
+      },
+      "usageScene": "Contexto de consumo",
+      "usageSceneOptions": {
+        "all": "Todos",
+        "debug": "Depuración",
+        "learning": "Aprendizaje",
+        "preview": "Vista previa"
+      }
+    },
+    "creditLedgerNoteLabels": {
+      "admin_manual_plan_grant": "Plan asignado por operaciones",
+      "debug_consume": "Créditos consumidos durante la depuración",
+      "gift_expire": "Caducidad de créditos de regalo",
+      "gift_grant": "Créditos de regalo asignados",
+      "learning_consume": "Créditos consumidos durante el aprendizaje",
+      "manual_credit": "Créditos añadidos manualmente",
+      "manual_debit": "Créditos descontados manualmente",
+      "manual_grant": "Créditos asignados manualmente",
+      "preview_consume": "Créditos consumidos durante la vista previa",
+      "refund_return": "Créditos devueltos tras el reembolso",
+      "subscription_cycle_transition": "Créditos restantes del ciclo anterior caducados al cambiar de ciclo del plan",
+      "subscription_expire": "Caducidad de créditos del plan",
+      "subscription_grant": "Créditos asignados por el plan",
+      "subscription_purchase": "Créditos asignados por la compra del plan",
+      "subscription_renewal": "Créditos asignados por la renovación del plan",
+      "topup_expire": "Caducidad de créditos del paquete",
+      "topup_grant": "Créditos asignados por el paquete",
+      "topup_purchase": "Créditos asignados por la compra del paquete",
+      "trial_bootstrap": "Créditos asignados al activar el plan de prueba",
+      "trial_subscription_grant": "Créditos asignados por el plan de prueba"
+    },
+    "creditLedgerSourceLabels": {
+      "compensation": "Compensación",
+      "debug": "Depuración",
+      "gift": "Regalo",
+      "learning": "Aprendizaje",
+      "manual": "Gestión manual",
+      "preview": "Vista previa",
+      "refund": "Reembolso",
+      "reward": "Recompensa",
+      "subscription": "Plan",
+      "topup": "Paquete de créditos",
+      "trial_subscription": "Plan de prueba",
+      "usage": "Uso"
+    },
+    "creditLedgerTypeLabels": {
+      "adjustment": "Ajuste de créditos",
+      "consume": "Consumo de créditos",
+      "debug_consume": "Consumo durante la depuración",
+      "expire": "Caducidad de créditos",
+      "gift_expire": "Caducidad de créditos de regalo",
+      "gift_grant": "Asignación de regalo",
+      "grant": "Asignación de créditos",
+      "hold": "Retención de créditos",
+      "learning_consume": "Consumo durante el aprendizaje",
+      "manual_credit": "Abono manual",
+      "manual_debit": "Descuento manual",
+      "manual_grant": "Asignación manual",
+      "preview_consume": "Consumo durante la vista previa",
+      "refund": "Devolución por reembolso",
+      "refund_return": "Devolución por reembolso",
+      "release": "Liberación de créditos",
+      "subscription_expire": "Caducidad de créditos del plan",
+      "subscription_grant": "Asignación del plan",
+      "topup_expire": "Caducidad del paquete de créditos",
+      "topup_grant": "Asignación del paquete de créditos",
+      "trial_subscription_grant": "Asignación del plan de prueba"
+    },
+    "creditLedgerUsageSceneLabels": {
+      "debug": "Depuración",
+      "learning": "Aprendizaje",
+      "preview": "Vista previa"
+    },
+    "creditUsageDetail": {
+      "actions": {
+        "open": "Detalles",
+        "openAriaLabel": "Ver detalles del consumo de créditos"
+      },
+      "collapse": "Contraer",
+      "columns": {
+        "consumedCredits": "Créditos consumidos",
+        "createdAt": "Fecha de consumo",
+        "inputTokens": "Tokens de entrada",
+        "outputSummary": "Resumen de la salida",
+        "outputTokens": "Tokens de salida",
+        "ttsContent": "Contenido sintetizado",
+        "ttsDuration": "Duración del audio",
+        "ttsSegmentCount": "Segmentos",
+        "ttsWordCount": "Caracteres sintetizados"
+      },
+      "description": "Muestra el contenido generado y los créditos consumidos que se pueden asociar a esta liquidación.",
+      "durationMinutesSeconds": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "empty": "No hay detalles de consumo",
+      "error": "No se han podido cargar los detalles de consumo",
+      "expand": "Expandir",
+      "loading": "Cargando",
+      "title": "Detalles del consumo de créditos"
+    },
+    "creditsOverview": "Resumen de créditos",
+    "creditsOverviewLabels": {
+      "availableCredits": "Saldo total de créditos",
+      "creditsExpireAt": "Validez de los créditos",
+      "subscriptionCredits": "Saldo de créditos del plan",
+      "topupCredits": "Saldo del paquete de créditos"
+    },
+    "emptyCourses": "No hay cursos",
+    "emptyCredits": "No hay movimientos de créditos",
+    "learningCourses": "Cursos que estudia",
+    "learningProgress": "Progreso",
+    "loadingCredits": "Cargando",
+    "overview": "Resumen",
+    "tabs": {
+      "createdCourses": "Cursos creados",
+      "credits": "Movimientos de créditos",
+      "learningCourses": "Cursos que estudia"
+    },
+    "title": "Detalles del usuario"
+  },
+  "emptyList": "No hay usuarios",
+  "filters": {
+    "createdAt": "Fecha de creación",
+    "email": "Correo electrónico",
+    "mobile": "Móvil",
+    "nickname": "Apodo",
+    "role": "Rol",
+    "status": "Estado",
+    "user": "Usuario",
+    "userPlaceholderEmail": "Correo electrónico / Apodo",
+    "userPlaceholderPhone": "Móvil / Apodo",
+    "userPlaceholderPhoneEmail": "Móvil / Correo electrónico / Apodo"
+  },
+  "grantDialog": {
+    "bootstrapError": "No se han podido cargar los planes. Inténtalo más tarde.",
+    "confirmButton": "Confirmar asignación",
+    "confirmDescription": "Comprueba los detalles de la asignación de créditos. Se aplicará inmediatamente tras la confirmación.",
+    "confirmSummary": {
+      "amount": "Créditos asignados",
+      "mode": "Tipo de asignación",
+      "note": "Nota",
+      "package": "Plan",
+      "packageCredits": "Créditos",
+      "packageExpireAt": "Fecha estimada de caducidad",
+      "packageValidity": "Validez",
+      "referralCurrentCredits": "Créditos actuales por invitaciones",
+      "referralCurrentExpireAt": "Caducidad actual de la recompensa por invitaciones",
+      "referralEstimatedCredits": "Créditos estimados tras la asignación",
+      "referralEstimatedExpireAt": "Caducidad estimada tras la asignación",
+      "referralGrantCount": "Número de invitaciones recompensadas",
+      "source": "Origen",
+      "validityPreset": "Validez"
+    },
+    "confirmTitle": "Confirmar asignación de créditos",
+    "description": "Asigna créditos o planes a profesores u operadores desde el panel de operaciones.",
+    "fields": {
+      "amount": "Créditos",
+      "mode": "Tipo de asignación",
+      "note": "Nota",
+      "source": "Origen",
+      "validityPreset": "Validez"
+    },
+    "modeOptions": {
+      "credits": "Asignar créditos",
+      "package": "Asignar plan",
+      "referralReward": "Recompensa por invitación"
+    },
+    "packageConfirmDescription": "Comprueba los detalles de la asignación del plan. Se aplicará inmediatamente tras la confirmación.",
+    "packageConfirmTitle": "Confirmar asignación del plan",
+    "packageFields": {
+      "credits": "Créditos",
+      "expiryHintPending": "El plan se activará en cuanto se asigne; la fecha de caducidad se calculará automáticamente según su periodo de validez.",
+      "expiryHintResolved": "El plan se activará en cuanto se asigne. Fecha estimada de caducidad: {dateTime}.",
+      "packageName": "Nombre del plan",
+      "product": "Plan",
+      "validity": "Validez"
+    },
+    "placeholders": {
+      "amount": "Introduce el número de créditos",
+      "note": "Opcional. Indica el motivo de la asignación",
+      "product": "Selecciona un plan",
+      "productLoading": "Cargando planes...",
+      "referralRewardAmount": "Introduce los créditos de recompensa",
+      "source": "Selecciona un origen",
+      "validityPreset": "Selecciona un periodo de validez"
+    },
+    "referralReward": {
+      "bootstrapError": "No se han podido cargar los datos de recompensas por invitaciones. Inténtalo más tarde.",
+      "bootstrapLoading": "Cargando los datos de recompensas por invitaciones...",
+      "currentCredits": "Créditos actuales por invitaciones",
+      "currentExpireAt": "Caducidad actual de la recompensa por invitaciones",
+      "description": "Cada asignación de recompensa añade los créditos indicados y amplía en 1 mes la validez actual de la recompensa por invitaciones.",
+      "emptyDescription": "Si no hay ninguna recompensa activa, la validez empieza en el momento de la asignación y dura 1 mes.",
+      "grantCount": "Número de invitaciones recompensadas",
+      "grantCountTooltip": "Por ahora, el dato se basa en el número de asignaciones de recompensas por invitaciones.",
+      "noActiveReward": "No hay ninguna recompensa por invitaciones activa",
+      "oneMonth": "1 mes",
+      "validity": "Validez"
+    },
+    "referralRewardConfirmDescription": "Comprueba los detalles de la recompensa por invitación. Se aplicará inmediatamente tras la confirmación.",
+    "referralRewardConfirmTitle": "Confirmar recompensa por invitación",
+    "sourceOptions": {
+      "compensation": "Compensación",
+      "reward": "Recompensa"
+    },
+    "submitButton": "Confirmar",
+    "submitSuccess": "Asignación completada",
+    "summary": {
+      "account": "Cuenta",
+      "availableCredits": "Saldo de créditos",
+      "currentExpireAt": "Válido hasta",
+      "currentPackage": "Plan actual",
+      "nickname": "Apodo",
+      "package": "Plan"
+    },
+    "title": "Asignar créditos o plan",
+    "validation": {
+      "amountRequired": "Introduce un número de créditos mayor que 0",
+      "productRequired": "Selecciona un plan",
+      "referralRewardAmountRequired": "Introduce un número entero de créditos mayor que 0",
+      "sourceRequired": "Selecciona un origen",
+      "validityPresetRequired": "Selecciona un periodo de validez"
+    },
+    "validityHint": "Si no hay ningún plan activo, no se puede establecer la validez como «Igual que la del plan actual».",
+    "validityOptions": {
+      "alignSubscription": "Igual que la del plan actual",
+      "oneDay": "1 día tras la asignación",
+      "oneMonth": "1 mes tras la asignación",
+      "oneYear": "1 año tras la asignación",
+      "sevenDays": "7 días tras la asignación",
+      "threeMonths": "3 meses tras la asignación"
+    }
+  },
+  "loginMethodLabels": {
+    "email": "Correo electrónico",
+    "google": "Google",
+    "phone": "Móvil",
+    "unknown": "Desconocido",
+    "wechat": "WeChat"
+  },
+  "overview": {
+    "activeFilter": "Filtro rápido",
+    "metrics": {
+      "creators": "Profesores",
+      "guests": "Visitantes",
+      "learners": "Estudiantes",
+      "learningActive30d": "Estudiantes activos (30 días)",
+      "newUsers30d": "Usuarios nuevos (30 días)",
+      "paidUsers": "Usuarios de pago",
+      "paidUsers30d": "Usuarios de pago (30 días)",
+      "registeredUsers": "Usuarios registrados",
+      "registeredUsers30d": "Registros nuevos (30 días)",
+      "totalUsers": "Total de usuarios"
+    },
+    "staleData": "No se ha podido actualizar el resumen. Se muestran los últimos datos cargados correctamente.",
+    "title": "Resumen de datos",
+    "tooltips": {
+      "creators": "Número de profesores",
+      "guests": "Número de usuarios visitantes",
+      "learners": "Número de usuarios con registros de aprendizaje",
+      "learningActive30d": "Número de usuarios con actividad de aprendizaje en los últimos 30 días",
+      "newUsers30d": "Número de usuarios nuevos en los últimos 30 días",
+      "paidUsers": "Número de usuarios de pago, incluidas las activaciones importadas",
+      "paidUsers30d": "Número de usuarios que han pagado en los últimos 30 días, incluidas las activaciones importadas",
+      "registeredUsers": "Número de usuarios registrados",
+      "registeredUsers30d": "Número de usuarios registrados en los últimos 30 días",
+      "totalUsers": "Número total de usuarios"
+    }
+  },
+  "registrationSourceLabels": {
+    "email": "Correo electrónico",
+    "google": "Google",
+    "imported": "Importación",
+    "phone": "Móvil",
+    "unknown": "Desconocido",
+    "wechat": "WeChat"
+  },
+  "roleLabels": {
+    "creator": "Profesor",
+    "learner": "Estudiante",
+    "operator": "Operador",
+    "regular": "Usuario normal",
+    "unknown": "Desconocido"
+  },
+  "statusLabels": {
+    "cancelled": "Cuenta dada de baja",
+    "paid": "De pago",
+    "registered": "Registrado",
+    "unknown": "Desconocido",
+    "unregistered": "Sin registrar"
+  },
+  "table": {
+    "action": "Acción",
+    "availableCredits": "Créditos totales",
+    "createdAt": "Fecha de creación",
+    "createdCourses": "Cursos creados",
+    "creditsExpireAt": "Fecha de caducidad de los créditos",
+    "email": "Correo electrónico",
+    "guestUser": "Visitante",
+    "lastLearningAt": "Última actividad de aprendizaje",
+    "lastLoginAt": "Último inicio de sesión",
+    "learningCourses": "Cursos que estudia",
+    "loginMethods": "Métodos de acceso",
+    "mobile": "Móvil",
+    "nickname": "Apodo",
+    "registrationSource": "Origen del registro",
+    "role": "Rol",
+    "status": "Estado",
+    "subscriptionCredits": "Créditos del plan",
+    "topupCredits": "Créditos del paquete",
+    "totalPaidAmount": "Importe total pagado",
+    "updatedAt": "Fecha de actualización",
+    "userId": "ID de usuario"
+  },
+  "title": "Gestión de usuarios"
+}

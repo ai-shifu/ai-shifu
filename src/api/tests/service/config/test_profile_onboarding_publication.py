@@ -1,5 +1,6 @@
 """Exercise actual JSON persistence and CAS with an isolated SQLite test database."""
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from threading import Barrier, Lock
@@ -335,3 +336,153 @@ def test_rejected_enabled_prompt_clear_keeps_previously_saved_manual_prompt(
     assert publication.read_profile_onboarding_database(app) == old
     assert payload["assistant_prompt"] == ""
     compiler.assert_not_called()
+
+
+def _seed_saved_prompt_config(
+    app: object, publication: object, prompts: dict[str, str]
+) -> str:
+    value = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": "?[...Answer]",
+            "assistant_prompt": "Saved master prompt",
+            "assistant_prompts": prompts,
+            "revision": 8,
+        }
+    )
+    publication.publish_profile_onboarding_database(
+        app, expected_value=None, value=value, updated_by="operator"
+    )
+    return value
+
+
+def test_spanish_prompt_backfill_preview_and_repeat_are_read_only(
+    app: object, publication: object, monkeypatch: object
+) -> None:
+    from flaskr.service.common import profile_onboarding as config
+
+    existing_prompts = {locale: locale for locale in get_i18n_list()}
+    original = _seed_saved_prompt_config(app, publication, existing_prompts)
+    localizer = Mock(side_effect=AssertionError("complete map must not generate"))
+    monkeypatch.setattr(
+        config, "localize_profile_onboarding_assistant_prompt", localizer
+    )
+
+    assert config.backfill_profile_onboarding_assistant_locale(
+        app, locale="es-ES", apply=False
+    ) == {"locale": "es-ES", "config_revision": 8, "status": "already_present"}
+    assert config.backfill_profile_onboarding_assistant_locale(
+        app, locale="es-ES", apply=True
+    ) == {"locale": "es-ES", "config_revision": 8, "status": "already_present"}
+    assert publication.read_profile_onboarding_database(app) == original
+    localizer.assert_not_called()
+
+
+@pytest.mark.parametrize("only_spanish_missing", [True, False])
+def test_spanish_prompt_backfill_fills_missing_locales_and_preserves_existing(
+    app: object,
+    publication: object,
+    monkeypatch: object,
+    only_spanish_missing: bool,
+) -> None:
+    from flaskr.service.common import profile_onboarding as config
+
+    existing_prompts = {
+        locale: f"Saved {locale}"
+        for locale in get_i18n_list()
+        if locale == "en-US" or (only_spanish_missing and locale != "es-ES")
+    }
+    missing_locales = set(get_i18n_list()) - set(existing_prompts)
+    original = _seed_saved_prompt_config(app, publication, existing_prompts)
+    monkeypatch.setattr(config, "validate_profile_onboarding_markdownflow", Mock())
+    generated_prompts = {locale: f"Generated {locale}" for locale in missing_locales}
+    localizer = Mock(return_value=generated_prompts)
+    monkeypatch.setattr(
+        config, "localize_profile_onboarding_assistant_prompt", localizer
+    )
+
+    assert config.backfill_profile_onboarding_assistant_locale(
+        app, locale="es-ES", apply=False
+    ) == {"locale": "es-ES", "config_revision": 8, "status": "pending"}
+    assert publication.read_profile_onboarding_database(app) == original
+    localizer.assert_not_called()
+
+    assert config.backfill_profile_onboarding_assistant_locale(
+        app, locale="es-ES", apply=True
+    ) == {
+        "locale": "es-ES",
+        "config_revision": 9,
+        "generated_locales": sorted(missing_locales),
+        "status": "backfilled",
+    }
+    localizer.assert_called_once_with(
+        app, "Saved master prompt", target_locales=missing_locales
+    )
+    saved = json.loads(publication.read_profile_onboarding_database(app))
+    assert saved["assistant_prompts"] == {**existing_prompts, **generated_prompts}
+    assert saved["revision"] == 9
+    assert (
+        config.backfill_profile_onboarding_assistant_locale(
+            app, locale="es-ES", apply=True
+        )["status"]
+        == "already_present"
+    )
+    localizer.assert_called_once()
+
+
+def test_spanish_prompt_backfill_rejects_concurrent_operator_edit(
+    app: object, publication: object, monkeypatch: object
+) -> None:
+    from flaskr.service.common import profile_onboarding as config
+
+    original = _seed_saved_prompt_config(
+        app, publication, {"en-US": "Existing English"}
+    )
+    winner = json.dumps(
+        {
+            "enabled": True,
+            "markdownflow": "?[...New answer]",
+            "assistant_prompt": "New operator prompt",
+            "assistant_prompts": {"en-US": "New English"},
+            "revision": 9,
+        }
+    )
+    monkeypatch.setattr(config, "validate_profile_onboarding_markdownflow", Mock())
+
+    def localize_and_race(
+        _app: object, _prompt: str, *, target_locales: set[str]
+    ) -> dict[str, str]:
+        publication.publish_profile_onboarding_database(
+            app, expected_value=original, value=winner, updated_by="operator"
+        )
+        return {locale: f"New {locale}" for locale in target_locales}
+
+    monkeypatch.setattr(
+        config, "localize_profile_onboarding_assistant_prompt", localize_and_race
+    )
+    with pytest.raises(AppError):
+        config.backfill_profile_onboarding_assistant_locale(
+            app, locale="es-ES", apply=True
+        )
+    assert publication.read_profile_onboarding_database(app) == winner
+
+
+def test_spanish_prompt_backfill_generation_failure_keeps_saved_config(
+    app: object, publication: object, monkeypatch: object
+) -> None:
+    from flaskr.service.common import profile_onboarding as config
+
+    original = _seed_saved_prompt_config(
+        app, publication, {"en-US": "Existing English"}
+    )
+    monkeypatch.setattr(config, "validate_profile_onboarding_markdownflow", Mock())
+    monkeypatch.setattr(
+        config,
+        "localize_profile_onboarding_assistant_prompt",
+        Mock(side_effect=RuntimeError("localization unavailable")),
+    )
+    with pytest.raises(RuntimeError, match="localization unavailable"):
+        config.backfill_profile_onboarding_assistant_locale(
+            app, locale="es-ES", apply=True
+        )
+    assert publication.read_profile_onboarding_database(app) == original

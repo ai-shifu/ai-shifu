@@ -25,6 +25,7 @@ const mockUpdateLessonId = jest.fn();
 const mockUpdateChapterId = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
+let mockTitleLanguage: string | undefined;
 const openLearnerProfileLabel = 'open learner profile';
 const saveLearnerProfileLabel = 'save learner profile';
 const laterLabel = 'later';
@@ -35,10 +36,12 @@ const dismissOnboardingLabel = 'dismiss onboarding';
 interface MockChatMobileHeaderProps {
   lessonId?: string;
   lessonTitle?: string;
+  titleLanguage?: string;
 }
 
 interface MockChatUiProps {
   lessonId?: string;
+  titleLanguage?: string;
   followUpMode?: 'text' | 'live_voice' | 'disabled';
   runtimeReady?: boolean;
   lessonUpdate?: (value: {
@@ -87,21 +90,28 @@ const getResetChapterEventHandler = () => {
 };
 
 const mockChatMobileHeader = jest.fn(
-  ({ lessonId, lessonTitle }: MockChatMobileHeaderProps) => (
+  ({ lessonId, lessonTitle, titleLanguage }: MockChatMobileHeaderProps) => (
     <div
       data-testid='mobile-header'
       data-lesson-id={lessonId}
       data-lesson-title={lessonTitle}
+      data-title-language={titleLanguage}
     />
   ),
 );
 const mockChatUi = jest.fn(
-  ({ lessonId, followUpMode, runtimeReady }: MockChatUiProps) => (
+  ({
+    lessonId,
+    followUpMode,
+    runtimeReady,
+    titleLanguage,
+  }: MockChatUiProps) => (
     <div
       data-testid='chat-ui'
       data-lesson-id={lessonId}
       data-follow-up-mode={followUpMode}
       data-runtime-ready={String(runtimeReady)}
+      data-title-language={titleLanguage}
     />
   ),
 );
@@ -415,6 +425,7 @@ jest.mock('./hooks/useLessonTree', () => ({
   useLessonTree: () => ({
     tree: {
       bannerInfo: null,
+      titleLanguage: mockTitleLanguage,
       catalogs: [
         {
           id: 'chapter-1',
@@ -497,6 +508,7 @@ describe('ChatPage profile onboarding gate', () => {
     mockInMiniProgram = false;
     sessionStorage.clear();
     mockUiLayoutStoreState.frameLayout = 'desktop';
+    mockTitleLanguage = undefined;
     mockSelectedLessonId = 'lesson-1';
     mockToast.mockReset();
     mockLessonTreeLessons = [
@@ -790,6 +802,22 @@ describe('ChatPage profile onboarding gate', () => {
 
     const chatUi = await screen.findByTestId('chat-ui');
     expect(chatUi).toHaveAttribute('data-lesson-id', 'lesson-new');
+  });
+
+  test('passes the guide title language to both learner header components', async () => {
+    mockUiLayoutStoreState.frameLayout = 'mobile';
+    mockTitleLanguage = 'en-US';
+
+    render(<ChatPage />);
+
+    expect(await screen.findByTestId('mobile-header')).toHaveAttribute(
+      'data-title-language',
+      'en-US',
+    );
+    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+      'data-title-language',
+      'en-US',
+    );
   });
 
   test('preserves an unavailable Live follow-up mode without a text fallback', async () => {
