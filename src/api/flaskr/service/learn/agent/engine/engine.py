@@ -65,7 +65,15 @@ from .interaction import (
 from .script import ScriptBundle, detect_v1_syntax, render_first_prompt
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
-from .tools import Deps, finish, interact, remember, script_options, script_pauses
+from .tools import (
+    NO_PAUSE,
+    Deps,
+    finish,
+    interact,
+    remember,
+    script_options,
+    script_pauses,
+)
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -539,10 +547,18 @@ class Engine:
         held: list[str] = []
         held_text = ""
         holding = carried_on
+        hold_floor = _CONTINUE_HOLD_CHARS if carried_on else 0
+        # The same, within a turn: a pause the script did not write is answered with `NO_PAUSE`,
+        # which tells the model to go on -- and one that had delivered the whole lesson wrote it
+        # all again (general-education course, 2026-09-24). From that answer on, text is held
+        # back while it reads as something this turn already said.
+        said: list[str] = []
+        after_pause = False
 
         def _out(text: str) -> list[Event]:
             nonlocal delivered
             delivered += _visible_length(text)
+            said.append("".join(text.split()))
             out: list[Event] = [ContentDelta(text=text)]
             if segmenter:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
@@ -554,7 +570,7 @@ class Engine:
                 return _out(text)
             held.append(text)
             held_text += "".join(text.split())
-            if len(held_text) < _CONTINUE_HOLD_CHARS or held_text in previous:
+            if len(held_text) < hold_floor or held_text in previous:
                 return []
             holding = False
             released, held[:] = "".join(held), []
@@ -582,7 +598,15 @@ class Engine:
                     # Text held back so far was the previous turn again, and is dropped with it.
                     if deps.finished is not None and speak_after_finish is None:
                         speak_after_finish = delivered == 0 and not carried_on
-                        if carried_on:
+                        if after_pause and held:
+                            # Held since the pause and still this turn's own words: a repeat,
+                            # unless too short to be one.
+                            if len(held_text) < _REPEAT_FLOOR_CHARS:
+                                for e in _out("".join(held)):
+                                    yield e
+                            held.clear()
+                            holding = False
+                        elif carried_on:
                             held.clear()
                     silent = deps.finished is not None and not speak_after_finish
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
@@ -607,6 +631,20 @@ class Engine:
                     elif isinstance(ev, FunctionToolResultEvent):
                         if ev.part.tool_call_id in resumed:
                             continue
+                        if (
+                            ev.part.tool_name == "interact"
+                            and getattr(ev.part, "content", None) == NO_PAUSE
+                        ):
+                            # What was held so far came before the pause: the model moved on
+                            # from it, so it was meant.
+                            if held:
+                                for e in _out("".join(held)):
+                                    yield e
+                                held.clear()
+                            previous = (previous if carried_on else "") + "".join(said)
+                            held_text = ""
+                            holding = after_pause = True
+                            hold_floor = 0
                         if ev.part.tool_name == "finish":
                             continue
                         if ev.part.tool_name == "remember":
@@ -624,8 +662,16 @@ class Engine:
                     elif isinstance(ev, AgentRunResultEvent):
                         result = ev.result
                         session.messages = list(result.all_messages())
-                        repeated = carried_on and _repeats_previous_turn(
-                            session.messages, deps.history_len
+                        repeated = (
+                            carried_on
+                            and _repeats_previous_turn(
+                                session.messages, deps.history_len
+                            )
+                        ) or (
+                            # Everything written since the pause was this turn over again.
+                            after_pause
+                            and holding
+                            and len(held_text) >= _REPEAT_FLOOR_CHARS
                         )
                         if held and not repeated:
                             # Still reading as the previous turn when the turn ended, but too
@@ -681,7 +727,8 @@ class Engine:
                                 summary=deps.finished,
                             )
                         elif repeated:
-                            # Told to carry on, the model wrote the previous turn over again.
+                            # Told to carry on -- by the host, or by a pause it was not given --
+                            # the model wrote what it had already written over again.
                             # There is nothing left in the script for it to deliver, whether or
                             # not it says so; carrying on again would only produce a third copy.
                             # Only a host-initiated continue counts. A learner who asked for

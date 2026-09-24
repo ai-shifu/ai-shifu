@@ -2112,3 +2112,109 @@ async def test_finishing_with_the_last_step_ends_the_lesson_in_that_turn() -> No
     again = await collect(engine.run_turn(Session.from_dict(session.to_dict())))
     assert [e.reason for e in again if isinstance(e, TurnDone)] == ["finished"]
     assert requests["n"] == asked
+
+
+# --- a pause that was not taken, followed by the lesson again --------------------------------
+
+_WHOLE = (
+    "咱们先从一个数字说起：99.9%。全球最顶尖的人工智能科学家，每天在琢磨的，其实就一件事——"
+    "怎么让 AI 预测对下一个 token。\n"
+)
+
+
+def _rewriting_model(
+    after_pause: Callable[[], StreamChunks],
+) -> Callable[..., StreamChunks]:
+    """Model: delivers `_WHOLE` and pauses; told there is no pause, runs `after_pause`."""
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        ret = _last_tool_return(messages)
+        if ret is None:
+            yield _WHOLE
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "confirm",
+                            "prompt": "",
+                            "options": [{"display": "继续"}],
+                        }
+                    ),
+                    tool_call_id="c1",
+                )
+            }
+        elif ret.tool_name == "interact":
+            async for x in after_pause():
+                yield x
+        else:
+            yield _WHOLE
+
+    return model
+
+
+async def _no_pause_lesson(after_pause: Callable[[], StreamChunks]) -> list[object]:
+    engine = Engine(
+        FunctionModel(stream_function=_rewriting_model(after_pause)),
+        pauses_from_notation=True,
+    )
+    session = await engine.new_session("讲完这一节。")
+    return await collect(engine.run_turn(session))
+
+
+async def test_the_lesson_written_again_after_an_untaken_pause_is_not_shown() -> None:
+    """General-education course (2026-09-24): after "no pause here", the whole lesson again.
+
+    The model had delivered all of it, paused where the script has no pause, and on being told to
+    go on wrote the lesson a second time and called `finish` -- and a third time after that.
+    """
+
+    async def again_and_finish() -> StreamChunks:
+        yield _WHOLE
+        yield _finish_call()
+
+    events = await _no_pause_lesson(again_and_finish)
+
+    assert _said(events) == _WHOLE
+    assert events[-1].reason == "finished"
+
+
+async def test_the_lesson_written_again_after_an_untaken_pause_ends_it() -> None:
+    """Written again without `finish`: nothing was left, so the lesson is over, not carried on."""
+
+    async def again() -> StreamChunks:
+        yield _WHOLE
+
+    events = await _no_pause_lesson(again)
+
+    assert _said(events) == _WHOLE
+    assert events[-1].reason == "finished"
+
+
+async def test_what_follows_an_untaken_pause_is_shown_when_it_is_new() -> None:
+    async def new_part() -> StreamChunks:
+        yield "咱们接着看第二部分：权重文件为什么这么小。\n"
+
+    events = await _no_pause_lesson(new_part)
+
+    assert _said(events) == _WHOLE + "咱们接着看第二部分：权重文件为什么这么小。\n"
+    assert events[-1].reason == "end"
+
+
+async def test_a_short_line_after_an_untaken_pause_is_shown_even_if_said_before() -> (
+    None
+):
+    async def short() -> StreamChunks:
+        yield "99.9%。"
+        yield _finish_call()
+
+    events = await _no_pause_lesson(short)
+
+    assert _said(events) == _WHOLE + "99.9%。"
+
+
+async def test_an_untaken_pause_tells_the_model_to_finish_if_nothing_remains() -> None:
+    from flaskr.service.learn.agent.engine.tools import NO_PAUSE
+
+    assert "`finish`" in NO_PAUSE
+    assert "Do not repeat" in NO_PAUSE
