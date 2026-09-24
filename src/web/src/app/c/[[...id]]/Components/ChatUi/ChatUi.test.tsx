@@ -158,13 +158,14 @@ describe('ChatUi lesson PDF action', () => {
     mockChatComponentProps = {};
   });
 
-  it('passes the guide title language to the desktop course heading', () => {
+  it('passes the guide title language to the desktop heading and chat runtime', () => {
     render(createChatUi('lesson-1', 'en-US'));
 
     expect(screen.getByTestId('course-summary')).toHaveAttribute(
       'lang',
       'en-US',
     );
+    expect(mockChatComponentProps.titleLanguage).toBe('en-US');
   });
 
   it('keeps the action visible and disabled before the lesson content is ready', () => {

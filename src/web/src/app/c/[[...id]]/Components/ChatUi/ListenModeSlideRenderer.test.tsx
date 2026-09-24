@@ -842,6 +842,63 @@ describe('ListenModeSlideRenderer', () => {
     },
   );
 
+  it.each(['listen', 'classroom'] as const)(
+    'marks both English guide headings in the mobile fullscreen %s header',
+    variant => {
+      mockLanguage = 'es-ES';
+      render(
+        <ListenModeSlideRenderer
+          items={[]}
+          mobileStyle
+          chatRef={createChatRef()}
+          courseName='English guide'
+          sectionTitle='First lesson'
+          titleLanguage='en-US'
+          variant={variant}
+        />,
+      );
+
+      const slideProps = getMockSlide().mock.calls[0]?.[0] as
+        | { fullscreenHeader?: { content?: React.ReactNode } }
+        | undefined;
+      render(<div lang='es-ES'>{slideProps?.fullscreenHeader?.content}</div>);
+
+      expect(screen.getByText('English guide')).toHaveAttribute(
+        'lang',
+        'en-US',
+      );
+      expect(screen.getByText('First lesson')).toHaveAttribute('lang', 'en-US');
+    },
+  );
+
+  it.each(['listen', 'classroom'] as const)(
+    'inherits the Spanish page language when the mobile fullscreen %s header has no title override',
+    variant => {
+      mockLanguage = 'es-ES';
+      render(
+        <ListenModeSlideRenderer
+          items={[]}
+          mobileStyle
+          chatRef={createChatRef()}
+          courseName='Curso de IA'
+          sectionTitle='Primera lección'
+          variant={variant}
+        />,
+      );
+
+      const slideProps = getMockSlide().mock.calls[0]?.[0] as
+        | { fullscreenHeader?: { content?: React.ReactNode } }
+        | undefined;
+      render(<div lang='es-ES'>{slideProps?.fullscreenHeader?.content}</div>);
+
+      for (const heading of ['Curso de IA', 'Primera lección']) {
+        const element = screen.getByText(heading);
+        expect(element).not.toHaveAttribute('lang');
+        expect(element.closest('[lang]')).toHaveAttribute('lang', 'es-ES');
+      }
+    },
+  );
+
   it('hides the mobile fullscreen share action in preview mode', () => {
     render(
       <ListenModeSlideRenderer

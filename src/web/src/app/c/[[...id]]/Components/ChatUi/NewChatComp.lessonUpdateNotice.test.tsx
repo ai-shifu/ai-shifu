@@ -320,8 +320,17 @@ jest.mock(
 jest.mock(
   './ListenModeSlideRenderer',
   () =>
-    function MockListenModeSlideRenderer() {
-      return <div data-testid='listen-mode-renderer' />;
+    function MockListenModeSlideRenderer({
+      titleLanguage,
+    }: {
+      titleLanguage?: string;
+    }) {
+      return (
+        <div
+          data-testid='listen-mode-renderer'
+          data-title-language={titleLanguage}
+        />
+      );
     },
 );
 jest.mock(
@@ -384,6 +393,7 @@ const createNewChatComponentsElement = (
   onLessonPdfActionChange: jest.Mock,
   previewMode = false,
   mobileStyle = false,
+  titleLanguage?: string,
 ) => (
   <AppContext.Provider
     value={{
@@ -401,6 +411,7 @@ const createNewChatComponentsElement = (
       lessonHasContentUpdate={true}
       lessonId='lesson-1'
       lessonTitle='第一课'
+      titleLanguage={titleLanguage}
       lessonUpdate={jest.fn()}
       onGoChapter={jest.fn()}
       onPurchased={jest.fn()}
@@ -420,6 +431,7 @@ const renderNewChatComponents = (
   items: Array<Record<string, unknown>> = [],
   previewMode = false,
   mobileStyle = false,
+  titleLanguage?: string,
 ) => {
   setMockChatLogicItems(items);
   const renderElement = () =>
@@ -428,6 +440,7 @@ const renderNewChatComponents = (
       onLessonPdfActionChange,
       previewMode,
       mobileStyle,
+      titleLanguage,
     );
   const renderResult = render(renderElement());
 
@@ -839,6 +852,19 @@ describe('NewChatComponents', () => {
     });
     expect(screen.getByTestId('listen-mode-renderer')).toBeInTheDocument();
   });
+
+  it.each(['listen', 'classroom'] as const)(
+    'passes the authored title language to the %s slide renderer',
+    variant => {
+      mockLearningMode = variant;
+      renderNewChatComponents(jest.fn(), jest.fn(), [], false, false, 'en-US');
+
+      expect(screen.getByTestId('listen-mode-renderer')).toHaveAttribute(
+        'data-title-language',
+        'en-US',
+      );
+    },
+  );
 
   it('keeps the slide renderer mounted while preparing the read-mode print tree', async () => {
     mockLessonPdfReady = true;

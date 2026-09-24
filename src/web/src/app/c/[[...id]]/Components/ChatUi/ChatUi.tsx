@@ -220,6 +220,7 @@ export const ChatUi = ({
           lessonUpdate={lessonUpdate}
           onGoChapter={onGoChapter}
           lessonTitle={lessonTitle}
+          titleLanguage={titleLanguage}
           lessonStatus={lessonStatus}
           lessonHasContentUpdate={lessonHasContentUpdate}
           followUpMode={followUpMode}

@@ -190,6 +190,7 @@ interface ListenModeSlideRendererProps {
   isLoading?: boolean;
   isGenerating?: boolean;
   sectionTitle?: string;
+  titleLanguage?: string;
   courseName?: string;
   courseAvatar?: string;
   lessonId?: string;
@@ -755,6 +756,7 @@ const ListenModeSlideRenderer = ({
   isLoading = false,
   isGenerating = false,
   sectionTitle,
+  titleLanguage,
   courseName = '',
   courseAvatar = '',
   lessonId = '',
@@ -2186,12 +2188,18 @@ const ListenModeSlideRenderer = ({
           ) : null}
           <div className='flex min-w-0 flex-col justify-center'>
             {courseName ? (
-              <span className='truncate text-base font-bold leading-5 text-current'>
+              <span
+                className='truncate text-base font-bold leading-5 text-current'
+                lang={titleLanguage}
+              >
                 {courseName}
               </span>
             ) : null}
             {sectionTitle ? (
-              <span className='truncate text-xs leading-4 text-current opacity-80'>
+              <span
+                className='truncate text-xs leading-4 text-current opacity-80'
+                lang={titleLanguage}
+              >
                 {sectionTitle}
               </span>
             ) : null}
@@ -2206,7 +2214,7 @@ const ListenModeSlideRenderer = ({
         )}
       </div>
     );
-  }, [courseAvatar, courseName, previewMode, sectionTitle]);
+  }, [courseAvatar, courseName, previewMode, sectionTitle, titleLanguage]);
   const fullscreenHeader = useMemo(
     () => ({
       content: fullscreenHeaderContent,
