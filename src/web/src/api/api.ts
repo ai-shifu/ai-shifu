@@ -178,6 +178,8 @@ const api = {
     'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/invitations',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
+  changeAdminOperationUserContact:
+    'POST /shifu/admin/operations/users/{user_bid}/contact',
   getAdminOperationUserCancellationPreview:
     'GET /shifu/admin/operations/users/{user_bid}/cancellation-preview',
   transferAdminOperationUserPublishedCourses:

@@ -39,6 +39,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
 - [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
+- [Operator User Contact Change](./active/operator-user-contact-change.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [Password Login Account Rate Limit](./active/password-login-rate-limit.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
