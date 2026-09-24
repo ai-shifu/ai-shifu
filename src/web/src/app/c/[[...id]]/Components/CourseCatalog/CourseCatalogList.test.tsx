@@ -21,6 +21,9 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/store', () => ({
   useUserStore: (selector: (state: { isLoggedIn: boolean }) => unknown) =>
     selector({ isLoggedIn: true }),
+  useCourseStore: (
+    selector: (state: { courseAvatar: string; courseName: string }) => unknown,
+  ) => selector({ courseAvatar: '', courseName: '' }),
 }));
 
 jest.mock('@/store/useSystemStore', () => ({
@@ -93,4 +96,19 @@ it('lets ordinary Spanish chapter headings inherit the interface language', () =
   );
 
   expect(screen.getByText('Primeros pasos')).not.toHaveAttribute('lang');
+});
+
+it('passes the guide language to the catalog course heading when shown', () => {
+  render(
+    <CourseCatalogList
+      catalogs={catalogs}
+      courseName='AI-Shifu Creation Guide'
+      titleLanguage='en-US'
+    />,
+  );
+
+  expect(screen.getByText('AI-Shifu Creation Guide')).toHaveAttribute(
+    'lang',
+    'en-US',
+  );
 });

@@ -61,6 +61,7 @@ export const CourseCatalogList = ({
             <CourseHeaderSummary
               courseAvatar={courseAvatar}
               courseName={courseName}
+              titleLanguage={titleLanguage}
               className={styles.titleArea}
             />
           </div>

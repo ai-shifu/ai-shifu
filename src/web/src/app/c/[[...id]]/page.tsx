@@ -866,6 +866,7 @@ export default function ChatPage() {
             chapterId={chapterId}
             lessonId={resolvedLessonId}
             lessonTitle={currentLessonTitle}
+            titleLanguage={tree?.titleLanguage}
           />
         ) : null}
 
@@ -907,6 +908,7 @@ export default function ChatPage() {
             lessonId={resolvedLessonId}
             chapterId={chapterId}
             lessonTitle={currentLessonTitle}
+            titleLanguage={tree?.titleLanguage}
             lessonStatus={currentLessonStatus}
             lessonHasContentUpdate={currentLessonHasContentUpdate}
             followUpMode={currentLessonFollowUpMode}
