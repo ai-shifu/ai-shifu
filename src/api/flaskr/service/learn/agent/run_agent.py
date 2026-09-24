@@ -519,10 +519,13 @@ def _question(
             if prompt
             else []
         )
+    # A question put again after an unusable answer is already on the learner's screen; sending
+    # its text again added the same line under it each time.
     prompts = [
         d
         for d in translated
         if d.type == GeneratedType.CONTENT
+        and not event.asked_before
         and not _already_asked(taught, str(d.content or ""))
     ]
     controls = [d for d in translated if d.type != GeneratedType.CONTENT]
