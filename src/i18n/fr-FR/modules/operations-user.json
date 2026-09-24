@@ -66,12 +66,13 @@
     "transferRequired": "Transférez d’abord {count} cours publiés"
   },
   "contactChange": {
+    "back": "Revenir à la modification",
     "cancel": "Annuler",
     "confirm": "Confirmer le changement",
     "email": {
       "action": "Changer l’adresse e-mail",
-      "confirmLabel": "Saisissez à nouveau la nouvelle adresse e-mail",
-      "confirmPlaceholder": "Saisissez à nouveau la nouvelle adresse e-mail",
+      "confirmDescription": "Confirmez le remplacement de {current} par {next}. Toutes les sessions seront révoquées après l’envoi.",
+      "confirmTitle": "Confirmer la modification de l’adresse e-mail",
       "currentLabel": "Adresse e-mail actuelle",
       "description": "L’ancienne adresse e-mail sera dissociée et pourra servir à créer un nouveau compte. Les données existantes resteront inchangées.",
       "newLabel": "Nouvelle adresse e-mail",
@@ -82,7 +83,6 @@
       "title": "Changer l’adresse e-mail de l’utilisateur"
     },
     "errors": {
-      "confirmationMismatch": "Les deux saisies ne correspondent pas.",
       "emailInvalid": "Saisissez une adresse e-mail valide.",
       "emailRequired": "Saisissez la nouvelle adresse e-mail.",
       "emailUnchanged": "La nouvelle adresse e-mail est identique à l’adresse actuelle.",
@@ -94,8 +94,8 @@
     },
     "phone": {
       "action": "Changer le numéro de téléphone",
-      "confirmLabel": "Saisissez à nouveau le nouveau numéro",
-      "confirmPlaceholder": "Saisissez à nouveau le nouveau numéro",
+      "confirmDescription": "Confirmez le remplacement de {current} par {next}. Toutes les sessions seront révoquées après l’envoi.",
+      "confirmTitle": "Confirmer la modification du numéro",
       "currentLabel": "Numéro actuel",
       "description": "L’ancien numéro sera dissocié et pourra servir à créer un nouveau compte. Les données existantes resteront inchangées.",
       "newLabel": "Nouveau numéro",

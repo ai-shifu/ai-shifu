@@ -35,10 +35,15 @@ def _mask_contact(identifier: str, contact_type: str) -> str:
 def _active_contact_credentials(
     *, user_bid: str, contact_type: str
 ) -> list[AuthCredential]:
+    providers = (
+        [CONTACT_TYPE_EMAIL, "google"]
+        if contact_type == CONTACT_TYPE_EMAIL
+        else [contact_type]
+    )
     return (
         AuthCredential.query.filter(
             AuthCredential.user_bid == user_bid,
-            AuthCredential.provider_name == contact_type,
+            AuthCredential.provider_name.in_(providers),
             AuthCredential.deleted == 0,
         )
         .order_by(AuthCredential.id.asc())
@@ -79,7 +84,10 @@ def change_operator_user_contact(
         normalized_contact_type,
         empty_error="identifier",
     )
+    if len(normalized_identifier) > 255:
+        raise_param_error("identifier")
     old_identifiers: list[str] = []
+    revoked_sessions = 0
 
     with app_context_scope(app), unit_of_work():
         user = (
@@ -93,9 +101,27 @@ def change_operator_user_contact(
         if user is None:
             raise_error("server.user.userNotFound")
 
+        owner_by_identity = (
+            UserInfo.query.filter(
+                UserInfo.user_identify == normalized_identifier,
+                UserInfo.deleted == 0,
+            )
+            .with_for_update()
+            .first()
+        )
+        if owner_by_identity is not None:
+            if owner_by_identity.user_bid == normalized_user_bid:
+                raise_error(f"server.user.{normalized_contact_type}Unchanged")
+            raise_error(f"server.user.{normalized_contact_type}AlreadyRegistered")
+
+        providers = (
+            [CONTACT_TYPE_EMAIL, "google"]
+            if normalized_contact_type == CONTACT_TYPE_EMAIL
+            else [normalized_contact_type]
+        )
         existing_owner = (
             AuthCredential.query.filter(
-                AuthCredential.provider_name == normalized_contact_type,
+                AuthCredential.provider_name.in_(providers),
                 AuthCredential.identifier == normalized_identifier,
                 AuthCredential.deleted == 0,
             )
@@ -155,11 +181,12 @@ def change_operator_user_contact(
 
         user.user_identify = normalized_identifier
         db.session.flush()
-
-    revoked_sessions = revoke_all_user_sessions(
-        app,
-        user_id=normalized_user_bid,
-    )["revoked"]
+        # Join session deletion to the identity transaction. If durable deletion
+        # or cache eviction fails, the contact update rolls back and can be retried.
+        revoked_sessions = revoke_all_user_sessions(
+            app,
+            user_id=normalized_user_bid,
+        )["revoked"]
     old_masked = [
         _mask_contact(identifier, normalized_contact_type)
         for identifier in old_identifiers

@@ -214,3 +214,96 @@ def test_operator_cannot_send_the_other_deployments_contact_type(
             new_identifier="13800138000",
             reason="Wrong deployment contact type",
         )
+
+
+def test_email_change_retires_google_alias_and_detects_google_owner(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        contact_change_module, "resolve_primary_contact_type", lambda: "email"
+    )
+    with app.app_context():
+        _seed_user(
+            user_bid="target", contact_type="email", identifier="old@example.com"
+        )
+        db.session.add(
+            AuthCredential(
+                credential_bid="google-target",
+                user_bid="target",
+                provider_name="google",
+                subject_id="google-subject",
+                subject_format="email",
+                identifier="old@example.com",
+                raw_profile="{}",
+                state=CREDENTIAL_STATE_VERIFIED,
+                deleted=0,
+            )
+        )
+        _seed_user(
+            user_bid="google-owner",
+            contact_type="google",
+            identifier="owned@example.com",
+            with_password=False,
+        )
+        db.session.commit()
+
+        with pytest.raises(AppError) as error:
+            change_operator_user_contact(
+                app,
+                user_bid="target",
+                operator_user_bid="operator-1",
+                contact_type="email",
+                new_identifier="owned@example.com",
+                reason="Verified request",
+            )
+        assert error.value.code == 1043
+
+        change_operator_user_contact(
+            app,
+            user_bid="target",
+            operator_user_bid="operator-1",
+            contact_type="email",
+            new_identifier="new@example.com",
+            reason="Verified request",
+        )
+        assert AuthCredential.query.filter_by(
+            credential_bid="google-target", deleted=1
+        ).one()
+
+
+def test_session_revocation_failure_rolls_back_contact_change(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        contact_change_module, "resolve_primary_contact_type", lambda: "phone"
+    )
+    with app.app_context():
+        _seed_user(user_bid="user-1", contact_type="phone", identifier="13800138000")
+        db.session.add(
+            UserToken(
+                user_id="user-1",
+                token="token-1",
+                token_expired_at=now_utc().replace(year=now_utc().year + 1),
+            )
+        )
+        db.session.commit()
+        monkeypatch.setattr(
+            "flaskr.service.user.sessions.redis.delete",
+            lambda _key: (_ for _ in ()).throw(RuntimeError("redis unavailable")),
+        )
+
+        with pytest.raises(AppError):
+            change_operator_user_contact(
+                app,
+                user_bid="user-1",
+                operator_user_bid="operator-1",
+                contact_type="phone",
+                new_identifier="13900139000",
+                reason="Verified request",
+            )
+
+        db.session.expire_all()
+        assert UserInfo.query.filter_by(user_bid="user-1").one().user_identify == (
+            "13800138000"
+        )
+        assert UserToken.query.filter_by(user_id="user-1").count() == 1

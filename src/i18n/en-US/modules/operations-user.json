@@ -66,12 +66,13 @@
     "transferRequired": "Transfer {count} published courses first"
   },
   "contactChange": {
+    "back": "Back to edit",
     "cancel": "Cancel",
     "confirm": "Confirm change",
     "email": {
       "action": "Change email",
-      "confirmLabel": "Enter the new email again",
-      "confirmPlaceholder": "Enter the new email again",
+      "confirmDescription": "Confirm changing the email from {current} to {next}. All sessions for this user will be revoked after submission.",
+      "confirmTitle": "Confirm user email change",
       "currentLabel": "Current email",
       "description": "The previous email will be unlinked and can register a new account. This user's existing data will remain unchanged.",
       "newLabel": "New email",
@@ -82,7 +83,6 @@
       "title": "Change user email"
     },
     "errors": {
-      "confirmationMismatch": "The two entries do not match.",
       "emailInvalid": "Enter a valid email address.",
       "emailRequired": "Enter the new email.",
       "emailUnchanged": "The new email is the same as the current email.",
@@ -94,8 +94,8 @@
     },
     "phone": {
       "action": "Change phone number",
-      "confirmLabel": "Enter the new phone number again",
-      "confirmPlaceholder": "Enter the new phone number again",
+      "confirmDescription": "Confirm changing the phone number from {current} to {next}. All sessions for this user will be revoked after submission.",
+      "confirmTitle": "Confirm user phone number change",
       "currentLabel": "Current phone number",
       "description": "The previous phone number will be unlinked and can register a new account. This user's existing data will remain unchanged.",
       "newLabel": "New phone number",

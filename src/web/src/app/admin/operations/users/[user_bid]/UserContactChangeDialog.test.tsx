@@ -65,15 +65,17 @@ describe('UserContactChangeDialog', () => {
       },
     );
     fireEvent.change(
-      screen.getByPlaceholderText('contactChange.phone.confirmPlaceholder'),
-      { target: { value: '13900139000' } },
-    );
-    fireEvent.change(
       screen.getByPlaceholderText('contactChange.reasonPlaceholder'),
       {
         target: { value: 'Verified user request' },
       },
     );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'contactChange.confirm',
+      }),
+    );
+    await screen.findByText('contactChange.phone.confirmTitle');
     const submit = screen.getByRole('button', {
       name: 'contactChange.confirm',
     });
@@ -104,7 +106,7 @@ describe('UserContactChangeDialog', () => {
     );
   });
 
-  it('requires matching email confirmation and a reason before submitting', () => {
+  it('requires a reason before showing the final confirmation', () => {
     renderDialog('email');
     fireEvent.change(
       screen.getByPlaceholderText('contactChange.email.newPlaceholder'),
@@ -112,16 +114,12 @@ describe('UserContactChangeDialog', () => {
         target: { value: 'new@example.com' },
       },
     );
-    fireEvent.change(
-      screen.getByPlaceholderText('contactChange.email.confirmPlaceholder'),
-      { target: { value: 'different@example.com' } },
-    );
     fireEvent.click(
       screen.getByRole('button', { name: 'contactChange.confirm' }),
     );
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'contactChange.errors.confirmationMismatch',
+      'contactChange.errors.reasonRequired',
     );
     expect(mockChangeContact).not.toHaveBeenCalled();
   });
@@ -136,15 +134,15 @@ describe('UserContactChangeDialog', () => {
       },
     );
     fireEvent.change(
-      screen.getByPlaceholderText('contactChange.email.confirmPlaceholder'),
-      { target: { value: 'new@example.com' } },
-    );
-    fireEvent.change(
       screen.getByPlaceholderText('contactChange.reasonPlaceholder'),
       {
         target: { value: 'Verified user request' },
       },
     );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'contactChange.confirm' }),
+    );
+    await screen.findByText('contactChange.email.confirmTitle');
     fireEvent.click(
       screen.getByRole('button', { name: 'contactChange.confirm' }),
     );

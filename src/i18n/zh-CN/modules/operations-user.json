@@ -66,12 +66,13 @@
     "transferRequired": "需先转移 {count} 门已发布课程"
   },
   "contactChange": {
+    "back": "返回修改",
     "cancel": "取消",
     "confirm": "确认修改",
     "email": {
       "action": "修改邮箱",
-      "confirmLabel": "再次输入新邮箱",
-      "confirmPlaceholder": "请再次输入新邮箱",
+      "confirmDescription": "请确认将邮箱由 {current} 修改为 {next}。提交后，该用户的全部登录会话将被注销。",
+      "confirmTitle": "确认修改用户邮箱",
       "currentLabel": "当前邮箱",
       "description": "修改邮箱不会改变用户 ID，学习记录、订单及其他历史数据均予以保留。原邮箱将解除绑定，并可用于注册新账号。",
       "newLabel": "新邮箱",
@@ -82,7 +83,6 @@
       "title": "修改用户邮箱"
     },
     "errors": {
-      "confirmationMismatch": "两次输入不一致，请重新填写",
       "emailInvalid": "请输入有效的邮箱地址",
       "emailRequired": "请输入新邮箱",
       "emailUnchanged": "新邮箱与当前邮箱一致，请重新填写",
@@ -94,8 +94,8 @@
     },
     "phone": {
       "action": "修改手机号",
-      "confirmLabel": "再次输入新手机号",
-      "confirmPlaceholder": "请再次输入新手机号",
+      "confirmDescription": "请确认将手机号由 {current} 修改为 {next}。提交后，该用户的全部登录会话将被注销。",
+      "confirmTitle": "确认修改用户手机号",
       "currentLabel": "当前手机号",
       "description": "修改手机号不会改变用户 ID，学习记录、订单及其他历史数据均予以保留。原手机号将解除绑定，并可用于注册新账号。",
       "newLabel": "新手机号",

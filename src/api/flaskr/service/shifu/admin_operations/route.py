@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from flask import Flask, request
 from flaskr.common.config import get_config
+from flaskr.common.http import sensitive_body
 from flaskr.route.admin_profile_onboarding import (
     register_operator_profile_onboarding_routes,
 )
@@ -2045,12 +2046,16 @@ def register_admin_operations_routes(
         path_prefix + "/admin/operations/users/<user_bid>/contact",
         methods=["POST"],
     )
+    @sensitive_body(max_bytes=4096)
     def admin_operation_user_contact_change(user_bid: str) -> str:
         """Replace an operator-managed user's configured login contact."""
         _require_operator()
-        payload = AdminOperationUserContactChangeRequestDTO.model_validate(
-            request.get_json(silent=True) or {}
-        )
+        try:
+            payload = AdminOperationUserContactChangeRequestDTO.model_validate(
+                request.get_json(silent=True) or {}
+            )
+        except ValidationError:
+            raise_param_error("contact_change_payload")
         return make_common_response(
             change_operator_user_contact(
                 app,

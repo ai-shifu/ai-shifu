@@ -67,6 +67,7 @@ import { formatOperatorUtcDateTime } from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
 import UserCancellationDialog from './UserCancellationDialog';
+import UserContactChangeDialog from './[user_bid]/UserContactChangeDialog';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationUserCourseItem,
@@ -394,6 +395,8 @@ export default function AdminOperationUsersPage() {
   const [grantDialogUser, setGrantDialogUser] =
     useState<AdminOperationUserItem | null>(null);
   const [cancellationDialogUser, setCancellationDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [contactChangeDialogUser, setContactChangeDialogUser] =
     useState<AdminOperationUserItem | null>(null);
   const [draftFilters, setDraftFilters] = useState<UserFilters>(() =>
     createDefaultFilters(),
@@ -1496,6 +1499,15 @@ export default function AdminOperationUsersPage() {
                               )}
                               actions={[
                                 {
+                                  key: 'change-contact',
+                                  label: tOperationsUsers(
+                                    `contactChange.${contactType}.action`,
+                                  ),
+                                  disabled: user.user_status === 'cancelled',
+                                  onClick: () =>
+                                    setContactChangeDialogUser(user),
+                                },
+                                {
                                   key: 'grant-credits',
                                   label: tOperationsUsers(
                                     'actions.grantCredits',
@@ -1676,6 +1688,23 @@ export default function AdminOperationUsersPage() {
               setCancellationDialogUser(null);
               void fetchUsers(pageIndex, appliedFilters, quickFilter);
               void fetchUserOverview();
+            }}
+          />
+          <UserContactChangeDialog
+            open={Boolean(contactChangeDialogUser)}
+            userBid={contactChangeDialogUser?.user_bid || ''}
+            contactType={contactType}
+            currentIdentifier={
+              contactType === 'email'
+                ? contactChangeDialogUser?.email || ''
+                : contactChangeDialogUser?.mobile || ''
+            }
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setContactChangeDialogUser(null);
+            }}
+            onChanged={() => {
+              setContactChangeDialogUser(null);
+              void fetchUsers(pageIndex, appliedFilters, quickFilter);
             }}
           />
         </div>

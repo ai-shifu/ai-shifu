@@ -46,9 +46,9 @@ export default function UserContactChangeDialog({
   const { toast } = useToast();
   const { trackEvent } = useTracking();
   const [identifier, setIdentifier] = useState('');
-  const [confirmation, setConfirmation] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
 
@@ -75,9 +75,9 @@ export default function UserContactChangeDialog({
   useEffect(() => {
     if (!open) return;
     setIdentifier('');
-    setConfirmation('');
     setReason('');
     setError('');
+    setConfirming(false);
     submittedRef.current = false;
     trackContactChange('operator_user_contact_change_dialog_viewed', {
       contact_type: contactType,
@@ -88,11 +88,6 @@ export default function UserContactChangeDialog({
     contactType === 'email'
       ? identifier.trim().toLowerCase()
       : identifier.trim();
-  const normalizedConfirmation =
-    contactType === 'email'
-      ? confirmation.trim().toLowerCase()
-      : confirmation.trim();
-
   const validate = (): string => {
     if (!normalizedIdentifier) {
       return t(`contactChange.errors.${contactType}Required`);
@@ -106,20 +101,22 @@ export default function UserContactChangeDialog({
     if (normalizedIdentifier === currentIdentifier.trim().toLowerCase()) {
       return t(`contactChange.errors.${contactType}Unchanged`);
     }
-    if (normalizedConfirmation !== normalizedIdentifier) {
-      return t('contactChange.errors.confirmationMismatch');
-    }
     if (!reason.trim()) return t('contactChange.errors.reasonRequired');
     return '';
   };
 
-  const submit = async () => {
-    if (submittedRef.current || submitting) return;
+  const prepareConfirmation = () => {
     const validationError = validate();
     if (validationError) {
       setError(validationError);
       return;
     }
+    setError('');
+    setConfirming(true);
+  };
+
+  const submit = async () => {
+    if (submittedRef.current || submitting) return;
     submittedRef.current = true;
     setSubmitting(true);
     setError('');
@@ -175,9 +172,18 @@ export default function UserContactChangeDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>{t(`contactChange.${contactType}.title`)}</DialogTitle>
+          <DialogTitle>
+            {t(
+              `contactChange.${contactType}.${confirming ? 'confirmTitle' : 'title'}`,
+            )}
+          </DialogTitle>
           <DialogDescription>
-            {t(`contactChange.${contactType}.description`)}
+            {confirming
+              ? t(`contactChange.${contactType}.confirmDescription`, {
+                  current: currentIdentifier || '--',
+                  next: normalizedIdentifier,
+                })
+              : t(`contactChange.${contactType}.description`)}
           </DialogDescription>
         </DialogHeader>
 
@@ -190,52 +196,41 @@ export default function UserContactChangeDialog({
               {currentIdentifier || '--'}
             </div>
           </div>
-          <div className='space-y-2'>
-            <label
-              htmlFor='operator-new-contact'
-              className='text-sm font-medium'
-            >
-              {t(`contactChange.${contactType}.newLabel`)}
-            </label>
-            <Input
-              id='operator-new-contact'
-              value={identifier}
-              disabled={submitting}
-              placeholder={t(`contactChange.${contactType}.newPlaceholder`)}
-              onChange={event => setIdentifier(event.target.value)}
-            />
-          </div>
-          <div className='space-y-2'>
-            <label
-              htmlFor='operator-confirm-contact'
-              className='text-sm font-medium'
-            >
-              {t(`contactChange.${contactType}.confirmLabel`)}
-            </label>
-            <Input
-              id='operator-confirm-contact'
-              value={confirmation}
-              disabled={submitting}
-              placeholder={t(`contactChange.${contactType}.confirmPlaceholder`)}
-              onChange={event => setConfirmation(event.target.value)}
-            />
-          </div>
-          <div className='space-y-2'>
-            <label
-              htmlFor='operator-contact-change-reason'
-              className='text-sm font-medium'
-            >
-              {t('contactChange.reasonLabel')}
-            </label>
-            <Textarea
-              id='operator-contact-change-reason'
-              value={reason}
-              disabled={submitting}
-              maxLength={500}
-              placeholder={t('contactChange.reasonPlaceholder')}
-              onChange={event => setReason(event.target.value)}
-            />
-          </div>
+          {!confirming ? (
+            <>
+              <div className='space-y-2'>
+                <label
+                  htmlFor='operator-new-contact'
+                  className='text-sm font-medium'
+                >
+                  {t(`contactChange.${contactType}.newLabel`)}
+                </label>
+                <Input
+                  id='operator-new-contact'
+                  value={identifier}
+                  disabled={submitting}
+                  placeholder={t(`contactChange.${contactType}.newPlaceholder`)}
+                  onChange={event => setIdentifier(event.target.value)}
+                />
+              </div>
+              <div className='space-y-2'>
+                <label
+                  htmlFor='operator-contact-change-reason'
+                  className='text-sm font-medium'
+                >
+                  {t('contactChange.reasonLabel')}
+                </label>
+                <Textarea
+                  id='operator-contact-change-reason'
+                  value={reason}
+                  disabled={submitting}
+                  maxLength={500}
+                  placeholder={t('contactChange.reasonPlaceholder')}
+                  onChange={event => setReason(event.target.value)}
+                />
+              </div>
+            </>
+          ) : null}
           <p className='text-sm text-muted-foreground'>
             {t(`contactChange.${contactType}.sessionNotice`)}
           </p>
@@ -254,14 +249,20 @@ export default function UserContactChangeDialog({
             type='button'
             variant='outline'
             disabled={submitting}
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              if (confirming) setConfirming(false);
+              else onOpenChange(false);
+            }}
           >
-            {t('contactChange.cancel')}
+            {t(confirming ? 'contactChange.back' : 'contactChange.cancel')}
           </Button>
           <Button
             type='button'
             disabled={submitting}
-            onClick={() => void submit()}
+            onClick={() => {
+              if (confirming) void submit();
+              else prepareConfirmation();
+            }}
           >
             {submitting
               ? t('contactChange.submitting')
