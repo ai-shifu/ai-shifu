@@ -470,6 +470,28 @@ def test_only_what_outlives_the_session_is_written_to_the_profile(calls: list) -
     assert [(v.key, v.value) for v in staged.variables] == [("pace", "slow")]
 
 
+def test_an_answer_to_a_scripted_question_is_written_to_the_profile(
+    calls: list,
+) -> None:
+    """A script collects `%{{purpose}}` in one lesson and uses `{{purpose}}` in the next.
+
+    1.0 writes every answer a question collects to the learner's profile, which is what a later
+    lesson reads. Kept only in the session, the answer never left the lesson that asked it: on
+    the general-education course the second lesson showed the learner "你的学习目标是 {{purpose}}"
+    word for word, and a later lesson asked for the purpose again.
+    """
+    engine = _Engine(
+        [
+            MemoryUpdated(key="purpose", value="还没想好", source="interaction"),
+            MemoryUpdated(key="current_exercise", value="fractions", scope="session"),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+    (staged,) = [update for name, update in calls if name == "stage_memory"]
+    assert [(v.key, v.value) for v in staged.variables] == [("purpose", "还没想好")]
+
+
 @pytest.mark.usefixtures("calls")
 def test_a_turn_that_only_notes_something_for_itself_writes_no_profile(
     monkeypatch: pytest.MonkeyPatch,
