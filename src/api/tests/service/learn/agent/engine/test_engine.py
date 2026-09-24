@@ -1223,3 +1223,228 @@ async def test_a_confirm_the_model_labelled_itself_says_so_too() -> None:
     asked = [e for e in events if isinstance(e, InteractionRequest)]
     assert asked[0].spec.labelled_by_engine is False
     assert asked[0].spec.options[0].display == "开始"
+
+
+async def test_a_question_the_host_cannot_show_is_asked_again_instead() -> None:
+    """A question the host cannot render never waits for an answer.
+
+    Deferred, it reached the learner as text with no controls: the lesson waited for an answer
+    that could not be given, and every return to the lesson asked it again. Refused, the model
+    is told why and asks it in a form the host can show.
+    """
+    from pydantic_ai.messages import RetryPromptPart
+
+    bad = {
+        "type": "single",
+        "prompt": "Which one?",
+        "options": [{"display": "%{{x}} first"}, {"display": "second"}],
+    }
+    good = {
+        "type": "single",
+        "prompt": "Which one?",
+        "options": [{"display": "first"}, {"display": "second"}],
+    }
+    retries: list[str] = []
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        retry = next(
+            (p for p in getattr(last, "parts", []) if isinstance(p, RetryPromptPart)),
+            None,
+        )
+        if retry is None:
+            yield "Pick one.\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(bad), tool_call_id="c1"
+                )
+            }
+        else:
+            retries.append(retry.model_response())
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(good), tool_call_id="c2"
+                )
+            }
+
+    def check(spec: object) -> str | None:
+        options = getattr(spec, "options", [])
+        return (
+            "an option contains %{{"
+            if any("%{{" in o.display for o in options)
+            else None
+        )
+
+    engine = Engine(FunctionModel(stream_function=model), interaction_check=check)
+    s = await engine.new_session("Ask which one.")
+    events = await collect(engine.run_turn(s))
+
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert [o.display for o in asked[0].spec.options] == ["first", "second"]
+    assert len(asked) == 1
+    assert [p.spec.options[0].display for p in s.pending] == ["first"]
+    assert len(retries) == 1
+    assert "an option contains %{{" in retries[0]
+    assert not any(isinstance(e, ErrorEvent) for e in events)
+    assert events[-1].reason == "interaction"
+
+
+async def test_without_a_check_every_question_is_deferred_as_before() -> None:
+    engine = make_engine()
+    s = await engine.new_session("Greet the learner, then ask how they feel.")
+    events = await collect(engine.run_turn(s))
+    assert any(isinstance(e, InteractionRequest) for e in events)
+
+
+async def test_a_saved_question_the_host_cannot_show_is_asked_again() -> None:
+    """A session already waiting on an unshowable question is not left waiting forever.
+
+    It was saved before the host could refuse it: the learner has only its text and nothing to
+    answer with. Returning to the lesson hands it back to the model to be asked again.
+    """
+    bad = {
+        "type": "single",
+        "prompt": "Which one?",
+        "options": [{"display": "%{{x}} first"}, {"display": "second"}],
+    }
+    good = {
+        "type": "single",
+        "prompt": "Which one?",
+        "options": [{"display": "first"}, {"display": "second"}],
+    }
+    told: list[str] = []
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        ret = _last_tool_return(messages)
+        if ret is None:
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(bad), tool_call_id="c1"
+                )
+            }
+        else:
+            told.append(str(ret.content))
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(good), tool_call_id="c2"
+                )
+            }
+
+    def check(spec: object) -> str | None:
+        options = getattr(spec, "options", [])
+        return (
+            "an option contains %{{"
+            if any("%{{" in o.display for o in options)
+            else None
+        )
+
+    # Saved by code that could not refuse it.
+    before = Engine(FunctionModel(stream_function=model))
+    s = await before.new_session("Ask which one.")
+    await collect(before.run_turn(s))
+    assert [p.tool_call_id for p in s.pending] == ["c1"]
+
+    # The learner comes back with nothing to answer: the frontend sends an empty answer.
+    after = Engine(FunctionModel(stream_function=model), interaction_check=check)
+    events = await collect(after.run_turn(s, InteractionResponseTurn(values=[])))
+
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert [o.display for o in asked[0].spec.options] == ["first", "second"]
+    assert [p.tool_call_id for p in s.pending] == ["c2"]
+    assert "never shown" in told[0]
+    assert "an option contains %{{" in told[0]
+    assert not any(isinstance(e, ErrorEvent) for e in events)
+
+
+def _two_questions_model(first: dict, second: dict, told: list[str]):  # noqa: ANN202
+    """Build a model that asks two questions in one turn, then re-asks one renderable one."""
+    good = {
+        "type": "single",
+        "prompt": "Again?",
+        "options": [{"display": "yes"}, {"display": "no"}],
+    }
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        returns = [
+            p for p in getattr(last, "parts", []) if isinstance(p, ToolReturnPart)
+        ]
+        if not returns:
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(first), tool_call_id="q1"
+                ),
+                1: DeltaToolCall(
+                    name="interact", json_args=json.dumps(second), tool_call_id="q2"
+                ),
+            }
+        else:
+            told.extend(str(p.content) for p in returns)
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(good), tool_call_id="q3"
+                )
+            }
+
+    return model
+
+
+_BAD = {
+    "type": "single",
+    "prompt": "Which one?",
+    "options": [{"display": "%{{x}} first"}, {"display": "second"}],
+}
+_GOOD = {
+    "type": "single",
+    "prompt": "Which one?",
+    "options": [{"display": "first"}, {"display": "second"}],
+}
+
+
+def _refuses_variable_syntax(spec: object) -> str | None:
+    options = getattr(spec, "options", [])
+    return (
+        "an option contains %{{" if any("%{{" in o.display for o in options) else None
+    )
+
+
+async def test_every_unshowable_question_saved_in_a_turn_is_set_aside() -> None:
+    """Two questions from one turn, both unshowable: neither is left for the learner."""
+    told: list[str] = []
+    model = _two_questions_model(_BAD, _BAD, told)
+    s = await Engine(FunctionModel(stream_function=model)).new_session("Ask twice.")
+    await collect(Engine(FunctionModel(stream_function=model)).run_turn(s))
+    assert [p.tool_call_id for p in s.pending] == ["q1", "q2"]
+
+    after = Engine(
+        FunctionModel(stream_function=model), interaction_check=_refuses_variable_syntax
+    )
+    events = await collect(after.run_turn(s, InteractionResponseTurn(values=[])))
+
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert [e.id for e in asked] == ["q3"]
+    assert len(told) == 2
+    assert all("never shown" in t for t in told)
+    assert not any(isinstance(e, ErrorEvent) for e in events)
+
+
+async def test_the_next_question_after_an_answer_is_checked_too() -> None:
+    """Answering a good question must not put an unshowable one in front of the learner."""
+    told: list[str] = []
+    model = _two_questions_model(_GOOD, _BAD, told)
+    s = await Engine(FunctionModel(stream_function=model)).new_session("Ask twice.")
+    await collect(Engine(FunctionModel(stream_function=model)).run_turn(s))
+    assert [p.tool_call_id for p in s.pending] == ["q1", "q2"]
+
+    after = Engine(
+        FunctionModel(stream_function=model), interaction_check=_refuses_variable_syntax
+    )
+    events = await collect(
+        after.run_turn(s, InteractionResponseTurn(id="q1", values=["first"]))
+    )
+
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert [e.id for e in asked] == ["q3"]
+    assert any("Learner chose: first" in t for t in told)
+    assert any("never shown" in t for t in told)
+    assert not any(isinstance(e, ErrorEvent) for e in events)

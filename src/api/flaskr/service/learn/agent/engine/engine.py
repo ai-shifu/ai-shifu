@@ -30,7 +30,7 @@ from pydantic_ai.messages import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterable, Sequence
+    from collections.abc import AsyncIterator, Callable, Iterable, Sequence
 
     from pydantic_ai.models import Model
     from pydantic_ai.settings import ModelSettings
@@ -205,9 +205,17 @@ class Engine:
         tool_calls_limit: int | None = 30,
         turn_limit: int = 200,
         model_settings: ModelSettings | None = None,
+        interaction_check: Callable[[InteractionSpec], str | None] | None = None,
     ) -> None:
-        """Bind a model and the host's capabilities; sessions are supplied per turn."""
+        """Bind a model and the host's capabilities; sessions are supplied per turn.
+
+        `interaction_check` is how a host says which questions it can show: given the spec an
+        `interact` call would defer, it returns None, or the reason the host cannot render it.
+        A question it cannot render is refused to the model, which asks it again, rather than
+        left pending with nothing on the learner's screen to answer it.
+        """
         self.prompts = prompts or Prompts.default()
+        self.interaction_check = interaction_check
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -225,7 +233,9 @@ class Engine:
             deps_type=Deps,
             output_type=[str, DeferredToolRequests],
             instructions=self._instructions,
-            tools=[Tool(interact, max_retries=2), remember, finish],
+            # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
+            # again, and a model rewriting options sometimes needs more than one attempt.
+            tools=[Tool(interact, max_retries=3), remember, finish],
             toolsets=list(toolsets or []),
             model_settings=model_settings,
         )
@@ -313,6 +323,7 @@ class Engine:
             user_memory=session.user_memory,
             listen_mode=session.listen_mode,
             uses_v1_syntax=detect_v1_syntax(session.script.all_text()),
+            interaction_check=self.interaction_check,
         )
         deps.history_len = len(session.messages) if session.started else 0
         kwargs: dict[str, Any] = {"deps": deps, "usage_limits": self.limits}
@@ -326,6 +337,22 @@ class Engine:
             prompt = render_first_prompt(session.script, session.all_memory())
             if isinstance(turn, MessageTurn):
                 prompt += f"\n\n{turn.text}"
+        elif session.pending and self._unshowable(session.pending[0]):
+            # A question saved before the host could refuse it, or refused by a host that has
+            # learned something since. The learner has nothing on screen to answer it with, so
+            # waiting for an answer would strand them for good: it goes back to the model as a
+            # question never shown, to be asked again in a form that can be.
+            self._set_aside_unshowable(session)
+            if session.pending:
+                nxt = session.pending[0]
+                yield InteractionRequest(id=nxt.tool_call_id, spec=nxt.spec)
+                yield TurnDone(reason="interaction", usage=session.usage)
+                return
+            kwargs["deferred_tool_results"] = DeferredToolResults(
+                calls=dict(session.answers)
+            )
+            resumed.update(session.answers)
+            prompt = None
         elif session.pending:
             if not isinstance(turn, InteractionResponseTurn):
                 yield ErrorEvent(
@@ -360,6 +387,9 @@ class Engine:
             session.pending = [
                 p for p in session.pending if p.tool_call_id != pending.tool_call_id
             ]
+            # The next question is about to be shown; one the host cannot show is set aside
+            # here too, not left for the learner to face.
+            self._set_aside_unshowable(session)
             if session.pending:
                 # The model raised several interactions in one turn. Ask the next one and wait:
                 # pydantic-ai rejects a resume that leaves any deferred call unanswered, so the
@@ -546,6 +576,23 @@ class Engine:
                 )
             ):
                 await self.memory_store.save(session.user_id, session.user_memory)
+
+    def _set_aside_unshowable(self, session: Session) -> None:
+        """Resolve, as never shown, every question at the head of the queue the host cannot show.
+
+        Only the head is shown next, so only a run of unshowable questions there matters; they
+        are all resolved at once so the learner is never handed one of them.
+        """
+        while session.pending and (unshowable := self._unshowable(session.pending[0])):
+            stale = session.pending.pop(0)
+            session.answers[stale.tool_call_id] = (
+                f"The learner was never shown this question, so nothing was answered: "
+                f"{unshowable}. Ask it again with `interact`, written so that it can be shown."
+            )
+
+    def _unshowable(self, pending: PendingInteraction) -> str | None:
+        """Why the host cannot show this pending question, or None if it can (or cannot say)."""
+        return self.interaction_check(pending.spec) if self.interaction_check else None
 
     @staticmethod
     def _pick_pending(

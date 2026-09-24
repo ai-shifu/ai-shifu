@@ -724,3 +724,59 @@ def test_a_chinese_learner_is_asked_to_continue_in_chinese() -> None:
     finally:
         clear_language()
     assert translated[-1].content == "?[继续//continue]"
+
+
+# --- whether a question can be shown at all ---------------------------------------------------
+
+
+def test_a_question_the_controls_can_carry_is_renderable() -> None:
+    spec = InteractionSpec(
+        type="multi",
+        prompt="读过哪些？",
+        options=[
+            Option(display="Spring https://docs.spring.io/a"),
+            Option(display="a|b ] ..."),
+        ],
+        variable="读过的文档站",
+    )
+    assert legacy_protocol.unrenderable_reason(spec) is None
+
+
+def test_a_short_confirm_is_checked_as_the_button_it_becomes() -> None:
+    """The check sees the question as `translate` sends it, not as the model wrote it."""
+    spec = InteractionSpec(type="confirm", prompt="继续")
+    assert legacy_protocol.unrenderable_reason(spec) is None
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        InteractionSpec(
+            type="single",
+            prompt="q",
+            options=[Option(display="%{{x}} first"), Option(display="second")],
+        ),
+        InteractionSpec(
+            type="single",
+            prompt="q",
+            options=[Option(display="first"), Option(display="second")],
+            variable="a]b",
+        ),
+        InteractionSpec(
+            type="single",
+            prompt="q",
+            options=[Option(display="first"), Option(display="second")],
+            variable="x}}y",
+        ),
+    ],
+    ids=["variable-syntax-in-an-option", "bracket-in-variable", "braces-in-variable"],
+)
+def test_a_question_the_controls_cannot_carry_says_why(spec: InteractionSpec) -> None:
+    reason = legacy_protocol.unrenderable_reason(spec)
+    assert reason
+    with pytest.raises(legacy_protocol.UnrepresentableInteractionError):
+        legacy_protocol.translate(
+            InteractionRequest(id="q", spec=spec),
+            outline_bid="o",
+            generated_block_bid="b",
+        )

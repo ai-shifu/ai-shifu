@@ -21,6 +21,7 @@ from flaskr.api.langfuse import (
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
+from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
 from flaskr.service.learn.agent.run_agent import run_agent_lesson
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -242,6 +243,10 @@ def agent_lesson_events(
         # context. The host consumes its `MemoryUpdated` events and writes them instead.
         memory_store=None,
         model_settings={"temperature": settings.temperature},
+        # A question this host cannot render goes back to the model to be asked again. Let
+        # through, it reached the learner as text with no controls under it, the lesson waited
+        # for an answer that could not be given, and each return to the lesson asked it again.
+        interaction_check=unrenderable_reason,
     )
     end_reason = "error"
     try:
