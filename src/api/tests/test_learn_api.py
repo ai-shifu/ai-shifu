@@ -106,7 +106,16 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app: object) -> None:
     assert live_dto.default_listen_mode_enabled is False
 
 
-def test_get_outline_item_tree_preview_mode(app: object) -> None:
+def test_get_outline_item_tree_preview_mode(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": (
+            "shifu-learn-1" if key == "DEMO_EN_SHIFU_BID" else default
+        ),
+    )
     with app.app_context():
         outline = DraftOutlineItem(
             outline_item_bid="outline-learn-1",
@@ -146,6 +155,10 @@ def test_get_outline_item_tree_preview_mode(app: object) -> None:
     assert result.outline_items[0].is_paid is True
     assert result.outline_items[0].has_content_update_for_current_user is False
     assert result.outline_items[0].follow_up_mode == "text"
+    assert result.title_language == "en-US"
+    assert result.__json__()["title_language"] == "en-US"
+    assert result.content_language == "en-US"
+    assert result.__json__()["content_language"] == "en-US"
 
 
 def test_get_outline_item_tree_uses_course_model_with_outline_ask_status(
@@ -259,6 +272,8 @@ def test_get_outline_item_tree_uses_course_model_with_outline_ask_status(
     assert result.outline_items[0].children[0].follow_up_mode == "live_voice"
     assert result.outline_items[1].follow_up_mode == "live_voice"
     assert result.outline_items[2].follow_up_mode == "disabled"
+    assert result.content_language is None
+    assert "content_language" not in result.__json__()
 
     live_availability["enabled"] = False
     unavailable_result = get_outline_item_tree(

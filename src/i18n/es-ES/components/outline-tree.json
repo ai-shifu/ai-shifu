@@ -1,0 +1,8 @@
+{
+  "__namespace__": "component.outlineTree",
+  "cancel": "Cancelar",
+  "confirm": "Confirmar",
+  "confirmDelete": "Confirmar eliminación",
+  "confirmDeleteDescription": "Esta acción no se puede deshacer. ¿Quieres eliminarlo?",
+  "delete": "Eliminar"
+}

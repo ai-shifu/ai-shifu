@@ -1,0 +1,88 @@
+{
+  "__namespace__": "module.operationsConfig",
+  "actions": {
+    "addConfiguration": "Añadir tarifa",
+    "adding": "Añadiendo…",
+    "confirmAdd": "Confirmar adición",
+    "continue": "Continuar",
+    "edit": "Editar",
+    "save": "Guardar"
+  },
+  "baselineMissing": "No se ha configurado la referencia de 1x, por lo que no se pueden guardar los multiplicadores de consumo de créditos.",
+  "confirm": {
+    "description": "¿Cambiar el multiplicador de consumo de créditos de {model} de {from} a {to}?",
+    "title": "Confirmar el cambio del multiplicador de consumo"
+  },
+  "create": {
+    "confirmDescription": "¿Añadir una tarifa específica para {identity} ({type}) con un multiplicador de consumo de {multiplier}x? Esta tarifa solo afectará al uso futuro.",
+    "confirmTitle": "Confirmar la adición de la tarifa",
+    "defaultTier": "nivel predeterminado",
+    "description": "Añade una tarifa específica para la categoría actual de {type}.",
+    "doesNotEnable": "Añadir una tarifa solo crea una regla de consumo de créditos. No activa el modelo ni modifica su disponibilidad.",
+    "errors": {
+      "duplicate": "Ya existe una tarifa específica para este proveedor y modelo. Usa «Editar» en la lista.",
+      "modelInvalid": "El modelo o nivel no puede superar los 100 caracteres ni contener caracteres de control o el símbolo *.",
+      "modelRequired": "Introduce un modelo.",
+      "providerInvalid": "El proveedor no puede superar los 32 caracteres ni contener caracteres de control o el símbolo *.",
+      "providerRequired": "Introduce un proveedor.",
+      "ttsFactorMissing": "No se ha configurado el factor de conversión de caracteres de TTS, por lo que no se puede añadir la tarifa."
+    },
+    "failed": "No se ha podido añadir la tarifa. Revisa los datos introducidos.",
+    "modelPlaceholder": "Por ejemplo, deepseek-v4-flash",
+    "multiplierPlaceholder": "Por ejemplo, 1.5",
+    "partialSuccessDescription": "Vuelve a actualizar la lista. No añadas la tarifa de nuevo.",
+    "partialSuccessTitle": "Tarifa añadida, pero no se ha podido actualizar la lista",
+    "providerPlaceholder": "Por ejemplo, qwen",
+    "retryRefresh": "Reintentar actualización",
+    "retryRefreshAltText": "Reintentar la actualización de la lista de tarifas",
+    "success": "Tarifa añadida",
+    "title": "Añadir tarifa",
+    "ttsDefaultHint": "Deja en blanco el modelo o nivel para usar el nivel predeterminado del proveedor.",
+    "ttsModelPlaceholder": "Dejar en blanco para usar el nivel predeterminado del proveedor",
+    "typeLabel": "Tipo de tarifa"
+  },
+  "description": "Gestiona las reglas de consumo de créditos para LLM y síntesis de voz. Los cambios solo afectan al uso futuro.",
+  "empty": "No hay tarifas de modelos disponibles.",
+  "fields": {
+    "actions": "Acciones",
+    "displayName": "Nombre mostrado",
+    "model": "Modelo",
+    "modelTier": "Modelo / Nivel",
+    "multiplier": "Multiplicador de consumo de créditos",
+    "multiplierSuffix": "x",
+    "provider": "Proveedor",
+    "source": "Origen de la tarifa",
+    "ttsMultiplier": "Multiplicador de consumo de créditos",
+    "updatedAt": "Fecha de actualización"
+  },
+  "invalidMultiplier": "Introduce un multiplicador de consumo mayor que 0, con un máximo de 2 decimales.",
+  "loadFailed": "No se han podido cargar las tarifas. Inténtalo más tarde.",
+  "pagination": {
+    "next": "Siguiente",
+    "prev": "Anterior"
+  },
+  "rules": {
+    "baselineMissing": "No se ha configurado la referencia de 1x, por lo que no se pueden guardar los multiplicadores de consumo de créditos.",
+    "baselinePer1000": "Referencia de 1x",
+    "baselinePer1000Value": "{value} créditos por cada 1000 tokens de salida del LLM",
+    "baselineUnitCost": "Referencia por token",
+    "effectScope": "Ámbito de aplicación",
+    "fixedBaseline": "Esta referencia es fija y global; no cambia al actualizar el modelo predeterminado ni los multiplicadores de modelos.",
+    "futureOnly": "Solo afecta al uso futuro. Las facturas anteriores no se recalculan.",
+    "intro": "Valores de referencia fijos para calcular los multiplicadores de consumo de créditos. Úsalos para revisar la configuración operativa.",
+    "tooltipAriaLabel": "Ver referencia de tarifas",
+    "ttsFactor": "Factor de conversión de caracteres de TTS"
+  },
+  "saveFailed": "No se ha podido guardar la tarifa. Revisa los datos introducidos.",
+  "saveSuccess": "Tarifa guardada",
+  "source": {
+    "default": "Tarifa predeterminada del sistema",
+    "exact": "Tarifa específica",
+    "unconfigured": "Tarifa sin configurar"
+  },
+  "tabs": {
+    "llm": "Consumo de créditos de LLM",
+    "tts": "Consumo de créditos de TTS"
+  },
+  "title": "Gestión de tarifas"
+}

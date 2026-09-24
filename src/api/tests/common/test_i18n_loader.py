@@ -56,6 +56,14 @@ def test_french_language_loads_shared_translations() -> None:
     assert t("module.chat.ask") == "Demander"
 
 
+def test_spanish_language_loads_shared_translations() -> None:
+    app = Flask(__name__)
+
+    load_translations(app)
+    set_language("es-ES")
+    assert t("module.chat.ask") == "Preguntar"
+
+
 def test_arabic_and_thai_languages_load_shared_translations() -> None:
     app = Flask(__name__)
 
@@ -76,6 +84,7 @@ def test_locale_labels_follow_shared_metadata_order() -> None:
     assert get_locale_labels() == {
         "ar-SA": "العربية",
         "en-US": "English",
+        "es-ES": "Español (España)",
         "fr-FR": "Français",
         "th-TH": "ไทย",
         "zh-CN": "中文",

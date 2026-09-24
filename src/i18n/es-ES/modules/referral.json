@@ -1,0 +1,130 @@
+{
+  "__namespace__": "module.referral",
+  "creator": {
+    "copied": "Copiado",
+    "copyLink": "Copiar enlace",
+    "description": "Recomienda AI Shifu a amigos que puedan necesitarlo.",
+    "emptyQueue": "Comparte tu enlace de invitación. Cuando un amigo se registre con su móvil, recibirás inmediatamente un mes de ventajas del plan.",
+    "inviteCardDescription": "Copia tu enlace de invitación y compártelo con alguien que aún no se haya registrado en AI Shifu. Cuando haga clic y termine el registro, recibirás la recompensa del plan correspondiente.",
+    "inviteCardTitle": "Comparte tu enlace de invitación",
+    "inviteLink": "Enlace de invitación",
+    "metrics": {
+      "rewarded": "Meses de recompensa"
+    },
+    "queueColumns": {
+      "effectiveAt": "Comienza",
+      "expiresAt": "Termina",
+      "invitee": "Amigo invitado",
+      "reward": "Recompensa",
+      "status": "Estado"
+    },
+    "queueTitle": "Invitaciones",
+    "refresh": "Actualizar",
+    "rewardRecordValue": "{cycles, plural, one {# mes} other {# meses}} de plan básico ({credits} créditos incluidos)",
+    "rewardRulesTitle": "Normas de la promoción",
+    "rules": {
+      "cap": "Las recompensas por invitación se conceden automáticamente y pueden acumularse hasta {cap} meses. Por ejemplo, si invitas a 12 amigos, puedes conseguir 12 meses del plan básico.",
+      "defer": "Si ya tienes un plan activo, las recompensas por invitación empezarán automáticamente cuando termine el plan actual.",
+      "firstRegistration": "La invitación se considera válida cuando un amigo se registra por primera vez desde tu enlace.",
+      "inviteeBenefit": "Tras registrarse, los amigos invitados reciben el plan de prueba para nuevos usuarios con 1000 créditos, válido durante 15 días.",
+      "inviterReward": "Por cada amigo que se registre correctamente, recibirás {cycles, plural, one {# mes} other {# meses}} del plan básico ({credits} créditos incluidos, valorado en 199 RMB).",
+      "unregistered": "Comparte tu enlace de invitación con personas que aún no se hayan registrado en AI Shifu."
+    },
+    "shareMessage": "Utilizo AI Shifu para convertir conocimientos y experiencia en cursos interactivos individuales. Te recomiendo probarlo. Regístrate para obtener un plan de prueba gratuito de 15 días: {url}",
+    "title": "Invitar a amigos",
+    "tooltips": {
+      "rewarded": "Meses ya contabilizados como recompensas automáticas."
+    }
+  },
+  "inviteLanding": {
+    "badge": "Invitación de un amigo",
+    "brandName": "AI Shifu",
+    "codeLabel": "Código de invitación",
+    "codePlaceholder": "Introduce el código de invitación",
+    "codeRequired": "Introduce primero un código de invitación.",
+    "descriptionAfterBrand": " sea tu compañero de enseñanza y convierta tus conocimientos y experiencia en cursos interactivos individuales.",
+    "descriptionBeforeBrand": "Deja que ",
+    "fallbackTitle": "¡Te han invitado a probar AI Shifu!",
+    "formAria": "Formulario de registro con código de invitación",
+    "formTitle": "Confirmar código de invitación",
+    "invitedTitle": "¡{maskedMobile} te ha invitado a probar AI Shifu!",
+    "register": "Regístrate gratis y empieza",
+    "submitFailed": "No se ha podido enviar el código de invitación. Inténtalo de nuevo más tarde.",
+    "title": "¡Te han invitado a probar AI Shifu!",
+    "trialHint": "Regístrate para obtener un plan de prueba gratuito de 15 días"
+  },
+  "operator": {
+    "actions": {
+      "reset": "Restablecer",
+      "search": "Buscar"
+    },
+    "description": "Consulta las relaciones de invitación, el estado de las recompensas, las cuentas invitadas y los registros de facturación.",
+    "empty": "No hay relaciones de invitación.",
+    "filters": {
+      "all": "Todas",
+      "boundAt": "Fecha de vinculación",
+      "campaignBid": "ID de campaña",
+      "inviteCode": "Código de invitación",
+      "invitee": "Invitado",
+      "inviteeEmailPlaceholder": "Correo del invitado",
+      "inviteeMobilePlaceholder": "Móvil del invitado",
+      "inviter": "Persona que invita",
+      "inviterEmailPlaceholder": "Correo del persona que invita",
+      "inviterMobilePlaceholder": "Móvil del persona que invita",
+      "relationStatus": "Estado de la relación"
+    },
+    "loadFailed": "No se han podido cargar las relaciones de invitación. Actualiza la página e inténtalo de nuevo.",
+    "metrics": {
+      "abnormalRelations": "Relaciones anómalas",
+      "generatedRewards": "Meses de recompensa",
+      "totalRelations": "Relaciones de invitación"
+    },
+    "pagination": {
+      "jumpInputAria": "Ir a la página de relaciones de invitación",
+      "next": "Siguiente",
+      "nextAria": "Página siguiente",
+      "prev": "Anterior",
+      "prevAria": "Página anterior"
+    },
+    "refresh": "Actualizar",
+    "statusUpdated": "Estado actualizado",
+    "table": {
+      "action": "Acción",
+      "boundAt": "Fecha de vinculación",
+      "campaign": "Campaña",
+      "inviteCode": "Código de invitación",
+      "invitee": "Invitado",
+      "inviter": "Persona que invita",
+      "relationStatus": "Estado de la relación",
+      "rewardStatus": "Estado de la recompensa"
+    },
+    "title": "Recompensas por invitación",
+    "tooltips": {
+      "abnormalRelations": "Relaciones de invitación marcadas como «en revisión» o confirmadas como anómalas.",
+      "generatedRewards": "Recompensas por invitación que no se han cancelado.",
+      "totalRelations": "Número total de relaciones de invitación vinculadas."
+    },
+    "total": "{total} en total"
+  },
+  "relationStatus": {
+    "abnormalReviewing": "Anomalía en revisión",
+    "canceled": "Cancelada",
+    "registered": "Registrado",
+    "rewardActive": "Recompensa activa",
+    "rewardEnded": "Recompensa finalizada",
+    "rewardGenerated": "Recompensa generada",
+    "rewardPendingEffective": "Recompensa pendiente de activación",
+    "rewardSkippedCap": "Omitida por límite",
+    "unknown": "Estado de relación desconocido"
+  },
+  "rewardStatus": {
+    "active": "Activa",
+    "canceled": "Cancelada",
+    "expired": "Caducada",
+    "frozen": "Bloqueada",
+    "generated": "Generada",
+    "pendingEffective": "Pendiente de activación",
+    "skippedCap": "Omitida por límite",
+    "unknown": "Estado de recompensa desconocido"
+  }
+}

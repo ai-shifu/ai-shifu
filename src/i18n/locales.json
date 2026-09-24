@@ -9,6 +9,10 @@
       "label": "English",
       "rtl": false
     },
+    "es-ES": {
+      "label": "Español (España)",
+      "rtl": false
+    },
     "fr-FR": {
       "label": "Français",
       "rtl": false

@@ -1,0 +1,164 @@
+{
+  "__namespace__": "module.operationsOrder",
+  "creditOrders": {
+    "creditAmountValue": "{credits}",
+    "detail": {
+      "description": "Ver los detalles del pedido de créditos",
+      "labels": {
+        "creatorId": "ID de usuario",
+        "failedAt": "Fecha del error",
+        "failureCode": "Código de error",
+        "failureMessage": "Motivo del error",
+        "grantSourceId": "ID del origen de asignación",
+        "grantSourceType": "Tipo de origen de asignación",
+        "grantedCredits": "Créditos abonados",
+        "orderType": "Tipo de pedido",
+        "paidAt": "Fecha de pago",
+        "productCode": "Código de producto",
+        "providerReference": "Referencia del pago",
+        "validFrom": "Válido desde"
+      },
+      "sections": {
+        "creator": "Información del usuario",
+        "grant": "Registro de asignación",
+        "metadata": "Información adicional",
+        "payment": "Información del pago",
+        "product": "Información del plan de créditos",
+        "summary": "Información del pedido"
+      },
+      "title": "Detalles del pedido de créditos"
+    },
+    "emptyList": "No hay pedidos de créditos",
+    "filters": {
+      "creatorKeyword": "Usuario",
+      "creatorKeywordPlaceholderEmail": "Correo electrónico",
+      "creatorKeywordPlaceholderPhone": "Móvil",
+      "orderKind": "Tipo de pedido",
+      "paymentProvider": "Proveedor de pagos",
+      "productKeyword": "Buscar plan de créditos",
+      "productKeywordPlaceholder": "Nombre del plan o paquete de créditos"
+    },
+    "kind": {
+      "other": "Otro",
+      "plan": "Plan de créditos",
+      "topup": "Paquete de créditos"
+    },
+    "longTerm": "Sin fecha de caducidad",
+    "overview": {
+      "metrics": {
+        "creditAmount": "Créditos disponibles",
+        "paidAmount": "Importe pagado",
+        "paidOrders": "Pagados",
+        "totalOrders": "Total de pedidos"
+      },
+      "tooltips": {
+        "creditAmount": "Total de créditos sin consumir que están disponibles en todas las cuentas de profesores para aprender, previsualizar y depurar",
+        "paidAmount": "Importe total pagado por pedidos de créditos",
+        "paidOrders": "Número de pedidos de créditos pagados",
+        "totalOrders": "Número total de pedidos de créditos"
+      }
+    },
+    "paymentChannel": {
+      "checkoutSession": "Sesión de pago"
+    },
+    "productIntervals": {
+      "day": "Diario",
+      "month": "Mensual",
+      "year": "Anual"
+    },
+    "productNameFormat": "{interval} - {name}",
+    "table": {
+      "creator": "Usuario",
+      "creditAmount": "Créditos",
+      "orderId": "ID del pedido de créditos",
+      "orderKind": "Tipo de pedido",
+      "paymentChannel": "Método de pago",
+      "product": "Plan de créditos",
+      "validTo": "Válido hasta"
+    }
+  },
+  "detail": {
+    "fallback": "Detalles del pedido",
+    "sections": {
+      "activities": "Información de promociones",
+      "coupons": "Código de canje",
+      "course": "Información del curso",
+      "payment": "Importe y pago",
+      "summary": "Información del pedido",
+      "user": "Información del usuario"
+    },
+    "title": "Detalles del pedido"
+  },
+  "emptyList": "No hay pedidos",
+  "filters": {
+    "course": "Curso",
+    "courseId": "ID del curso",
+    "courseIdPlaceholder": "ID del curso",
+    "courseName": "Nombre del curso",
+    "courseNamePlaceholder": "Nombre del curso",
+    "courseQueryPlaceholder": "ID / Nombre del curso",
+    "createdAt": "Fecha del pedido",
+    "endTime": "Fecha de fin",
+    "orderId": "ID del pedido",
+    "orderIdPlaceholder": "ID del pedido",
+    "paymentChannel": "Canal de pago",
+    "reset": "Restablecer",
+    "search": "Buscar",
+    "source": "Origen del pedido",
+    "startTime": "Fecha de inicio",
+    "status": "Estado",
+    "timeRangePlaceholder": "Fecha de inicio ~ Fecha de fin",
+    "userKeyword": "Usuario",
+    "userKeywordPlaceholder": "Móvil / Correo electrónico",
+    "userKeywordPlaceholderEmail": "Correo electrónico",
+    "userKeywordPlaceholderPhone": "Móvil"
+  },
+  "messages": {
+    "loadCreditOrderDetailFailed": "No se han podido cargar los detalles del pedido de créditos. Inténtalo más tarde.",
+    "loadDetailFailed": "No se han podido cargar los detalles del pedido. Inténtalo más tarde."
+  },
+  "overview": {
+    "activeFilter": "Filtro actual",
+    "metrics": {
+      "paidAmount": "Importe pagado",
+      "paidOrders": "Pagados",
+      "totalOrders": "Total de pedidos"
+    },
+    "staleData": "No se ha podido cargar el resumen. Actualiza la página para intentarlo de nuevo.",
+    "title": "Resumen de datos",
+    "tooltips": {
+      "paidAmount": "Importe total pagado por pedidos de cursos",
+      "paidOrders": "Número de pedidos de cursos pagados",
+      "totalOrders": "Número total de pedidos de cursos"
+    }
+  },
+  "source": {
+    "couponRedeem": "Canje de código",
+    "importActivation": "Activación por importación",
+    "openApi": "Activación mediante Open API",
+    "userPurchase": "Compra del usuario"
+  },
+  "table": {
+    "action": "Acción",
+    "coupons": "Código de canje",
+    "course": "Curso",
+    "createdAt": "Fecha del pedido",
+    "discountAmount": "Descuento",
+    "empty": "No hay pedidos",
+    "orderId": "ID del pedido",
+    "paidAmount": "Importe cobrado",
+    "paymentChannel": "Canal de pago",
+    "source": "Origen del pedido",
+    "status": "Estado",
+    "updatedAt": "Fecha de actualización del pedido",
+    "user": "Usuario",
+    "userId": "ID de usuario",
+    "view": "Ver detalles"
+  },
+  "tabs": {
+    "credits": "Pedidos de créditos",
+    "learn": "Pedidos de cursos"
+  },
+  "title": "Gestión de pedidos",
+  "totalCount": "{count} pedidos"
+}

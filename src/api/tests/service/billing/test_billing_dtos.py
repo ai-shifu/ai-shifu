@@ -221,6 +221,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
                 **{
                     "zh-CN": "/legal/agreement/zh",
                     "en-US": "/legal/agreement/en",
+                    "es-ES": "/legal/agreement/es",
                     "fr-FR": "/legal/agreement/fr",
                     "ar-SA": "/legal/agreement/ar",
                     "th-TH": "/legal/agreement/th",
@@ -230,6 +231,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
                 **{
                     "zh-CN": "/legal/privacy/zh",
                     "en-US": "/legal/privacy/en",
+                    "es-ES": "/legal/privacy/es",
                     "fr-FR": "/legal/privacy/fr",
                     "ar-SA": "/legal/privacy/ar",
                     "th-TH": "/legal/privacy/th",
@@ -271,6 +273,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert payload["legalUrls"]["agreement"] == {
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
+        "es-ES": "/legal/agreement/es",
         "fr-FR": "/legal/agreement/fr",
         "ar-SA": "/legal/agreement/ar",
         "th-TH": "/legal/agreement/th",

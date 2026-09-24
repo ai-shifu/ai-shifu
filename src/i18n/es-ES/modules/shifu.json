@@ -1,0 +1,63 @@
+{
+  "__namespace__": "module.shifu",
+  "creationArea": {
+    "descriptionPrefix": "Escribe en formato",
+    "descriptionSuffix": "para guiar a la IA durante la enseñanza",
+    "modeCode": "Avanzado",
+    "modeText": "Sencillo",
+    "title": "Instrucciones de enseñanza"
+  },
+  "history": {
+    "backToDocument": "Volver al documento",
+    "collapse": "Contraer",
+    "confirmDescription": "Al confirmar, esta versión sustituirá por completo el contenido actual de la lección.",
+    "confirmLoadFailed": "No se ha podido cargar el contenido de esta versión. Inténtalo de nuevo más tarde.",
+    "confirmTitle": "Confirmar restauración",
+    "contentEmpty": "Esta versión no tiene contenido",
+    "empty": "Todavía no hay historial",
+    "expand": "Mostrar texto completo",
+    "loading": "Cargando...",
+    "restore": "Restaurar esta versión",
+    "restoreLessonDeleted": "Otro editor ha eliminado esta lección y no se puede restaurar. Actualiza la página e inténtalo de nuevo.",
+    "restoring": "Restaurando...",
+    "title": "Historial",
+    "unknownUser": "Usuario desconocido"
+  },
+  "newChapter": "Añadir capítulo",
+  "previewArea": {
+    "action": "Probar",
+    "close": "Contraer simulación de aprendizaje",
+    "copied": "Fragmento copiado",
+    "copy": "Copiar fragmento",
+    "copyTooltip": "Pégalo en las instrucciones de enseñanza de la izquierda para que la próxima vez la IA enseñe con este fragmento",
+    "description": "Experimenta lo que verá el alumno y descubre cómo las instrucciones personalizan el curso",
+    "disabled": "Selecciona una unidad antes de iniciar la prueba.",
+    "empty": "Escribe las instrucciones de enseñanza a la izquierda y haz clic en «Probar» para experimentar la simulación de aprendizaje",
+    "loading": "Generando la simulación de aprendizaje...",
+    "open": "Mostrar simulación de aprendizaje",
+    "systemVariableLabels": {
+      "accessibleName": "{label} ({name})",
+      "background": "Contexto y preferencias del alumno",
+      "input": "Última respuesta",
+      "language": "Idioma de enseñanza",
+      "nickname": "Nombre del alumno"
+    },
+    "title": "Simulación de aprendizaje",
+    "variablesCollapse": "Contraer",
+    "variablesDescription": "Cada alumno configura sus variables para recibir un curso adaptado",
+    "variablesEmpty": "No hay variables",
+    "variablesExpand": "Mostrar",
+    "variablesHideSingleConfirmDesc": "Ocultar «{name}». Puedes recuperarla con «Mostrar todas».",
+    "variablesHideSingleConfirmTitle": "Ocultar variable",
+    "variablesHideUnused": "Ocultar las no utilizadas",
+    "variablesHideUnusedConfirmDesc": "Ocultar las variables personalizadas que no se usan en el curso. Después podrás volver a mostrarlas con este botón.",
+    "variablesHideUnusedConfirmTitle": "Ocultar variables personalizadas no utilizadas",
+    "variablesHideUnusedTooltip": "Ocultar las variables personalizadas que no se usan en el curso",
+    "variablesPlaceholder": "DESCONOCIDO",
+    "variablesRestoreHidden": "Mostrar todas",
+    "variablesRestoreHiddenConfirmDesc": "Mostrar todas las variables del curso. Después podrás volver a ocultar las variables personalizadas no utilizadas con este botón.",
+    "variablesRestoreHiddenConfirmTitle": "Mostrar todas las variables",
+    "variablesRestoreHiddenTooltip": "Mostrar todas las variables del curso",
+    "variablesTitle": "Variables"
+  }
+}

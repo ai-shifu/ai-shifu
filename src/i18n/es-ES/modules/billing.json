@@ -1,0 +1,1156 @@
+{
+  "__namespace__": "module.billing",
+  "admin": {
+    "attention": "Requiere atención",
+    "backToCreatorBilling": "Volver al centro de suscripciones",
+    "entitlements": {
+      "actions": {
+        "viewDetail": "Editar configuración"
+      },
+      "configProgress": {
+        "complete": "Configurado",
+        "exception": "Incidencia",
+        "loading": "Cargando",
+        "partial": "Configurado parcialmente",
+        "unconfigured": "Sin configurar"
+      },
+      "configStatus": {
+        "completed": "Terminado",
+        "exception": "Incidencia en la configuración",
+        "in_progress": "En curso",
+        "pending": "Pendiente de configurar"
+      },
+      "configStatusHelp": {
+        "completed": "El equipo de operaciones ha terminado el seguimiento de esta configuración.",
+        "exception": "La configuración está bloqueada o presenta una incidencia y requiere seguimiento.",
+        "in_progress": "Los datos o la configuración siguen en proceso y aún no se han completado.",
+        "pending": "Se han habilitado las funciones, pero aún no se ha iniciado su configuración."
+      },
+      "customization": {
+        "integrationStatus": {
+          "disabled": "Desactivado",
+          "draft": "Borrador",
+          "failed": "Incidencia",
+          "unconfigured": "Sin configurar",
+          "verified": "Verificado"
+        },
+        "loading": "Cargando configuración...",
+        "logoReady": "Cargado",
+        "providers": {
+          "alipay": "Alipay",
+          "pingxx": "Ping++",
+          "stripe": "Stripe",
+          "wechat_oauth": "Cuenta oficial de WeChat",
+          "wechatpay": "WeChat Pay"
+        }
+      },
+      "description": "Consulta los profesores que tienen habilitadas funciones de marca o cobro independientes y sigue el avance de su configuración desde un solo lugar.",
+      "empty": "Todavía no hay profesores con funciones de marca o cobro independientes.",
+      "followDefault": "Configuración predeterminada",
+      "grant": {
+        "brandingInlineDescription": "Sube el logotipo de la marca mediante una URL de imagen o un archivo.",
+        "cancel": "Cancelar",
+        "configStatusHint": "Puedes cambiar el estado directamente en la tabla. Este cuadro solo muestra el estado actual.",
+        "configurationSection": "Detalles de configuración",
+        "configurationSectionDescription": "Completa la configuración del logotipo, el dominio propio, la cuenta oficial de WeChat y los métodos de pago. Al guardar, los resultados aparecerán también en la tabla.",
+        "createdContinue": "Se ha creado la configuración de marca y cobro para {creator}. Completa los detalles a continuación.",
+        "creatorBidPlaceholder": "Introduce el BID del responsable del curso",
+        "creatorEmailPlaceholder": "Introduce el correo electrónico del responsable del curso",
+        "creatorMobilePlaceholder": "Introduce el número de móvil del responsable del curso",
+        "description": "El equipo de operaciones gestiona aquí la marca, el dominio, WeChat y los pagos de los profesores. Al guardar se actualizan todas las funciones habilitadas.",
+        "disabled": "No activado",
+        "domainInlineDescription": "Añade y verifica el dominio propio para confirmar cuándo estará disponible.",
+        "edit": "Editar",
+        "editTitle": "Editar la configuración de marca y cobro",
+        "emailHint": "Introduce un correo electrónico. Si aún no está registrado, el sistema creará la cuenta y habilitará el acceso como profesor.",
+        "enabled": "Activado",
+        "errors": {
+          "creatorBidRequired": "Introduce el BID del responsable del curso",
+          "creatorEmailInvalid": "Introduce un correo electrónico válido",
+          "creatorEmailRequired": "Introduce el correo electrónico del responsable del curso",
+          "creatorMobileInvalid": "Introduce un número de móvil válido",
+          "creatorMobileRequired": "Introduce el número de móvil del responsable del curso"
+        },
+        "fields": {
+          "branding_enabled": "Logotipo de la marca",
+          "configStatus": "Estado de configuración",
+          "creatorBid": "BID del responsable del curso",
+          "creatorEmail": "Correo electrónico del responsable del curso",
+          "creatorMobile": "Móvil del responsable del curso",
+          "custom_domain_enabled": "Dominio propio",
+          "custom_payment_enabled": "Configuración de cobro independiente",
+          "custom_wechat_enabled": "Cuenta oficial de WeChat independiente",
+          "note": "Nota de operaciones"
+        },
+        "mobileHint": "Introduce un número de móvil. Si aún no está registrado, el sistema creará la cuenta y habilitará el acceso como profesor.",
+        "notePlaceholder": "Añade el progreso actual, los datos pendientes o las incidencias",
+        "open": "Añadir configuración",
+        "paymentInlineDescription": "Rellene los parámetros del canal de pago y verifique la configuración de pago actual.",
+        "pendingConfiguration": {
+          "branding_enabled": "Guarda primero las funciones habilitadas y después sube aquí el logotipo de la marca.",
+          "custom_domain_enabled": "Guarda primero las funciones habilitadas y después introduce y verifica aquí el dominio propio.",
+          "custom_payment_enabled": "Guarda primero las funciones habilitadas y después completa aquí los parámetros del canal de pago.",
+          "custom_wechat_enabled": "Guarda primero las funciones habilitadas y después completa aquí los parámetros de la cuenta oficial de WeChat.",
+          "title": "Guarda y continúa con la configuración"
+        },
+        "submit": "Guardar configuración",
+        "submitting": "Guardando...",
+        "success": "Se ha actualizado la configuración de marca y cobro de {creator}",
+        "title": "Añadir configuración de marca y cobro",
+        "wechatInlineDescription": "Completa los parámetros de la cuenta oficial y verifica la autorización y la configuración de devolución de llamada."
+      },
+      "loadError": "No se han podido cargar los datos de prestaciones del panel de administración.",
+      "logoPreview": {
+        "next": "Siguiente logo",
+        "open": "Previsualizar {label}",
+        "previous": "Logotipo anterior",
+        "title": "Previsualización del logotipo"
+      },
+      "notEnabled": "No activado",
+      "realEffect": {
+        "branding": "Logotipo",
+        "domain": "Dominio",
+        "payment": "Pago",
+        "status": {
+          "active": "Activo",
+          "exception": "Incidencia",
+          "inactive": "Inactivo",
+          "pending": "En proceso",
+          "unconfigured": "Sin configurar"
+        },
+        "wechat": "WeChat"
+      },
+      "source": {
+        "default": "Prestaciones predeterminadas",
+        "productPayload": "Según el plan",
+        "snapshot": "Registro activo actual"
+      },
+      "sourceReference": "Registro: {value}",
+      "statusReason": {
+        "exceptionDefault": "Hay una incidencia en la configuración. Vuelve a autorizarla y envía la solicitud otra vez.",
+        "inProgress": "La configuración sigue en curso, a la espera de datos o de una verificación.",
+        "inactive": "La configuración aún no ha comenzado; está pendiente de seguimiento por operaciones."
+      },
+      "table": {
+        "actions": "Acciones",
+        "analytics": "Capacidades de pago",
+        "configProgress": "Progreso de la configuración",
+        "creator": "Profesor",
+        "domain": "Dominio",
+        "features": "Elementos de configuración",
+        "logo": "Logotipo",
+        "payment": "Métodos de pago",
+        "priority": "Capacidades de marca",
+        "realEffect": "Estado real de activación",
+        "source": "Prestaciones actuales",
+        "status": "Situación de seguimiento",
+        "support": "Nivel de asistencia",
+        "wechat": "Configuración de WeChat",
+        "window": "Actualización / Vigencia"
+      },
+      "title": "Prestaciones",
+      "window": {
+        "activeNow": "Actualmente en actividad",
+        "endsAt": "Válido hasta {date}",
+        "startedAt": "Activo desde {date}"
+      }
+    },
+    "navigation": {
+      "description": "Consulta planes, pedidos, prestaciones, dominios e informes. El estado de las funciones seguirá visible en la parte superior.",
+      "title": "Consultar por tema"
+    },
+    "pagination": {
+      "page": "Página {page} de {pageCount} · {total} registros",
+      "total": "{total} registros"
+    },
+    "providerPrices": {
+      "actions": {
+        "activate": "Publicar",
+        "cancel": "Cancelar",
+        "configure": "Configurar",
+        "create": "Añadir precio",
+        "restore": "Volver a borrador",
+        "retire": "Retirar",
+        "saveDraft": "Guardar borrador",
+        "validate": "Verificar",
+        "viewIssues": "Ver incidencias"
+      },
+      "billingLabel": {
+        "monthly": "Mensual",
+        "yearly": "Anual"
+      },
+      "confirm": {
+        "activate": "¿Publicar {productName}? A partir de entonces se usará este precio en las compras del producto.",
+        "restore": "¿Devolver {productName} a borrador? Tendrás que verificar el precio antes de volver a publicarlo.",
+        "retire": "¿Retirar {productName}? El producto dejará de ofrecer temporalmente el pago a precio fijo."
+      },
+      "description": "Gestiona los precios de los planes internacionales y los paquetes de créditos para que coincidan el precio mostrado, el importe cobrado y las prestaciones otorgadas.",
+      "dialog": {
+        "autoDetectHint": "El sistema verifica automáticamente el importe, la moneda, el periodo y el entorno. Activa el precio cuando supere la verificación.",
+        "description": "Copia de Stripe el ID del producto y el ID del precio. El sistema leerá los detalles automáticamente.",
+        "title": "Configurar el precio de cobro"
+      },
+      "empty": "No hay planes ni paquetes de crédito disponibles para la configuración.",
+      "environment": {
+        "live": "Producción",
+        "test": "Prueba"
+      },
+      "fields": {
+        "priceId": "ID del precio de Stripe",
+        "product": "Producto",
+        "productId": "ID del producto de Stripe",
+        "productPlaceholder": "Seleccionar un producto"
+      },
+      "filters": {
+        "allProducts": "Todos los productos",
+        "product": "Producto",
+        "status": "Estado"
+      },
+      "health": {
+        "active": "Publicado",
+        "draft": "Pendiente de activar",
+        "healthy": "Correcto",
+        "invalid": "Verificación fallida",
+        "missing": "Sin configurar",
+        "retired": "Retirado",
+        "warning": "Requiere revisión"
+      },
+      "interval": {
+        "day": "Cada {count} días",
+        "month": "Cada {count} meses",
+        "oneTime": "Pago único",
+        "year": "Cada {count} años"
+      },
+      "issueDrawer": {
+        "description": "Muestra las causas para el equipo de operaciones y conserva los códigos originales para el diagnóstico técnico.",
+        "issues": "Causas de las incidencias",
+        "noIssues": "No hay detalles de la cuestión todavía",
+        "priceId": "ID del precio de Stripe",
+        "raw": "Detalles originales",
+        "title": "Incidencias en la verificación del precio"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "El recuento del intervalo de facturación no coincide con el elemento local",
+        "billing_interval_mismatch": "El intervalo de facturación no coincide con el elemento local",
+        "currency_mismatch": "La moneda no coincide con el elemento local",
+        "local_plan_billing_mode_invalid": "El modo de facturación del plan local no es válido",
+        "local_topup_billing_interval_count_invalid": "El conteo de intervalos de paquete de crédito local debe ser 0",
+        "local_topup_billing_interval_invalid": "Los paquetes de crédito locales no deben utilizar un intervalo recurrente",
+        "local_topup_billing_mode_invalid": "El modo de facturación local del paquete de crédito no es válido",
+        "plan_requires_licensed_recurring_price": "Los planes deben utilizar un precio recurrente de tipo licensed",
+        "plan_requires_recurring_price": "Los planes deben utilizar un precio de Stripe recurrente",
+        "price_livemode_mismatch": "El entorno del precio de Stripe no coincide con la configuración actual",
+        "price_metadata_billing_interval_mismatch": "Los metadatos del periodo de facturación del precio de Stripe no coinciden",
+        "price_metadata_billing_interval_missing": "Al precio de Stripe le faltan los metadatos del periodo de facturación",
+        "price_metadata_credit_amount_mismatch": "Los metadatos de la cantidad de créditos del precio de Stripe no coinciden",
+        "price_metadata_credit_amount_missing": "Al precio de Stripe le faltan los metadatos de la cantidad de créditos",
+        "price_metadata_product_code_mismatch": "Los metadatos del código de producto del precio de Stripe no coinciden",
+        "price_metadata_product_code_missing": "Al precio de Stripe le faltan los metadatos del código de producto",
+        "price_product_mismatch": "El precio de Stripe no pertenece a este producto",
+        "product_livemode_mismatch": "El entorno del producto de Stripe no coincide con la configuración actual",
+        "product_metadata_market_mismatch": "Los metadatos del mercado del producto de Stripe no coinciden",
+        "product_metadata_market_missing": "Al producto de Stripe le faltan los metadatos del mercado",
+        "product_metadata_plan_tier_mismatch": "Los metadatos del nivel del plan del producto de Stripe no coinciden",
+        "product_metadata_plan_tier_missing": "Al producto de Stripe le faltan los metadatos del nivel del plan",
+        "product_metadata_product_type_mismatch": "Los metadatos del tipo de producto de Stripe no coinciden",
+        "product_metadata_product_type_missing": "Al producto de Stripe le faltan los metadatos del tipo de producto",
+        "provider_account_mismatch": "La cuenta Stripe no coincide",
+        "provider_price_inactive": "El precio de Stripe está desactivado",
+        "provider_price_mismatch": "El ID del precio de Stripe no coincide con esta configuración",
+        "provider_price_unit_amount_missing": "Al precio de Stripe le falta un importe fijo",
+        "provider_product_inactive": "El producto de Stripe está desactivado",
+        "provider_product_mismatch": "El ID del producto Stripe no coincide con este artículo",
+        "retired_mapping_cannot_be_activated": "Un precio retirado no se puede volver a publicar",
+        "retired_mapping_cannot_be_validated": "Un precio retirado no se puede volver a verificar",
+        "stripe_catalog_reference_missing": "Falta el ID de producto o el ID de precio de Stripe",
+        "stripe_catalog_retrieve_failed": "No se puede leer el producto o el precio de Stripe",
+        "topup_requires_one_time_price": "Los paquetes de créditos deben utilizar un precio de pago único de Stripe",
+        "unit_amount_mismatch": "El importe cobrado no coincide con el precio mostrado",
+        "unknown": "Incidencia desconocida",
+        "unsupported_product_type": "Este tipo de producto aún no admite un precio de cobro"
+      },
+      "loadError": "No se puede cargar la configuración de precios de los planes en este momento.",
+      "loading": "Cargando precios del paquete...",
+      "menuTitle": "Gestión de paquetes",
+      "pageDescription": "Gestiona los precios de los planes internacionales y los paquetes de créditos para que coincidan la página, el cobro y la conciliación posterior.",
+      "productCredits": "{credits} créditos",
+      "productType": {
+        "plan": "Plan",
+        "topup": "Paquete de créditos"
+      },
+      "status": {
+        "active": "Publicado",
+        "all": "Todos los estados",
+        "draft": "Pendiente de activar",
+        "invalid": "Verificación fallida",
+        "missing": "Sin configurar",
+        "retired": "Retirado"
+      },
+      "table": {
+        "actions": "Acciones",
+        "benefit": "Prestaciones",
+        "localPrice": "Precio mostrado",
+        "product": "Producto",
+        "productType": "Tipo",
+        "status": "Estado",
+        "stripePrice": "Precio de cobro",
+        "validatedAt": "Última verificación"
+      },
+      "title": "Gestión de paquetes",
+      "toast": {
+        "activateFailed": "No se ha podido publicar el precio",
+        "activateSuccess": "Precio publicado",
+        "createFailed": "No se ha podido guardar el precio",
+        "createSuccess": "Precio guardado",
+        "restoreFailed": "No se ha podido devolver el precio a borrador",
+        "restoreSuccess": "Precio devuelto a borrador",
+        "retireFailed": "No se ha podido retirar el precio",
+        "retireSuccess": "Precio retirado",
+        "validateFailed": "Ha fallado la verificación del precio",
+        "validateSuccess": "Verificación del precio completada"
+      }
+    },
+    "reports": {
+      "actions": {
+        "viewOrders": "Ver pedidos"
+      },
+      "attentionReasons": {
+        "active_production": "Uso activo en producción",
+        "debug_preview_heavy": "Alto consumo en depuración y vista previa",
+        "high_consumption": "Alto consumo",
+        "high_frequency": "Alta frecuencia de llamadas",
+        "rapid_growth": "Consumo en rápido crecimiento",
+        "sustained_activity": "Activo al menos 3 días en los últimos 7 días"
+      },
+      "description": "Resume los profesores con consumo, actividad o patrones de uso recientes que requieren atención para ayudar a operaciones a priorizar el seguimiento.",
+      "empty": "No hay profesores que requieran atención prioritaria en este momento.",
+      "emptyHint": "Se muestran los profesores que cumplen alguna condición de consumo elevado, llamadas frecuentes, actividad en producción, alta proporción de depuración, actividad continuada o crecimiento rápido del consumo.",
+      "filters": {
+        "active_production": "Producción activa",
+        "all": "Todos los profesores prioritarios",
+        "debug_preview_heavy": "Alto consumo en depuración",
+        "rapid_growth": "Crece rápido"
+      },
+      "sections": {
+        "usage": {
+          "description": "Solo se muestran los profesores que cumplen alguna condición de atención. Ordena por crecimiento, proporción de depuración o consumo de los últimos 30 días.",
+          "title": "Profesores que requieren seguimiento"
+        }
+      },
+      "sort": {
+        "label": "Ordenar por",
+        "options": {
+          "credits_30d": "Consumo de los últimos 30 días",
+          "debug_ratio": "Relación de depuración",
+          "growth": "Prioridad para el crecimiento"
+        }
+      },
+      "summary": {
+        "activeTeachers7d": "Activos en los últimos 7 días",
+        "activeTeachers7dHint": "Profesores revisados con registros de uso en los últimos 7 días",
+        "debugHeavyCount": "Profesores con alta proporción de depuración",
+        "debugHeavyCountHint": "Profesores con alta proporción de consumo en depuración o vista previa durante los últimos 30 días",
+        "focusCount": "Profesores a revisar",
+        "focusCountHint": "Coincide con una o más reglas de atención de uso",
+        "totalCredits": "Consumo de los profesores supervisados en 30 días",
+        "totalCreditsHint": "Total de 30 días para los profesores actualmente mostrados"
+      },
+      "table": {
+        "actions": "Acciones",
+        "activeDays7d": "Días activos en los últimos 7 días",
+        "attentionReasons": "Condiciones de atención",
+        "attentionReasonsMore": "{count} elementos",
+        "creator": "Profesor",
+        "credits30d": "Créditos de 30 días",
+        "credits30dBreakdown": "Producción {production} · Depuración/vista previa {debugPreview}",
+        "credits30dDebugPreview": "Depuración/vista previa {debugPreview}",
+        "credits30dProduction": "Producción {production}",
+        "credits7d": "Créditos de 7 días",
+        "latestActivity": "Última actividad",
+        "latestActivityHint": "Activo {days} días en los últimos 7 días",
+        "productionRatio": "Proporción de consumo en producción",
+        "recordCount7d": "Llamadas de 7 días"
+      },
+      "title": "Resumen de consumo que requiere atención"
+    },
+    "subscriptions": {
+      "description": "Revisar las suscripciones que necesitan seguimiento, incluyendo los saldos crediticios y las próximas acciones.",
+      "empty": "No hay suscripciones que necesiten seguimiento en este momento.",
+      "filters": {
+        "reset": "Restablecer",
+        "search": "Buscar",
+        "searchPlaceholderEmail": "Correo electrónico del profesor",
+        "searchPlaceholderPhone": "Móvil del profesor",
+        "status": "Situación de las suscripciones",
+        "statusAll": "Todos los estados",
+        "teacherField": "Profesor"
+      },
+      "loadError": "No se han podido cargar los datos de suscripciones del panel de administración. Actualiza la página y vuelve a intentarlo.",
+      "preorderTarget": "Compra anticipada: {product}",
+      "results": {
+        "cancelAtPeriodEnd": "No se renovará al vencer",
+        "cancelAtPeriodEndWithDate": "Vencerá el {date}",
+        "expire": "No se renovará al vencer",
+        "expireWithDate": "Vencerá el {date}",
+        "preorder": "Cambiará a {product} cuando venza el periodo actual",
+        "preorderWithDate": "Cambiará a {product} el {date}",
+        "renewalFailed": "La renovación ha fallado y requiere seguimiento",
+        "renewalFailedWithError": "La renovación ha fallado y requiere seguimiento",
+        "renewalScheduled": "Renovación automática programada",
+        "renewalScheduledWithDate": "Renovación automática programada para el {date}"
+      },
+      "table": {
+        "availableCredits": "Créditos disponibles",
+        "creator": "Profesor",
+        "currentPeriodEnd": "Válido hasta",
+        "product": "Plan actual",
+        "provider": "Método de pago",
+        "renewal": "Renovación/expiración",
+        "renewalStatus": "Estado de la renovación",
+        "scheduled": "Programado",
+        "status": "Situación de las suscripciones"
+      },
+      "title": "Seguimiento de las suscripciones"
+    },
+    "subtitle": "Espacio de operaciones para seguir las suscripciones, el consumo y la configuración de marca y cobro.",
+    "table": {},
+    "tabs": {
+      "domains": "Dominios",
+      "entitlements": "Configuración de marca y cobro",
+      "reports": "Consumo que requiere atención",
+      "subscriptions": "Seguimiento de las suscripciones"
+    },
+    "title": "Operaciones comerciales"
+  },
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "Comprar créditos",
+      "openOrders": "Ver historial de pagos",
+      "resumeSubscription": "Reanudar suscripción"
+    },
+    "cancelScheduled": "La suscripción terminará al final del periodo actual. Reanúdala para seguir recibiendo los créditos periódicos.",
+    "lowBalance": "La cuenta del profesor se ha quedado sin créditos. Suscríbete o compra créditos antes de la próxima liquidación.",
+    "lowBalanceDescription": "Se han agotado tus créditos. Por ahora no puedes acceder al contenido generado por IA.",
+    "lowBalanceTitle": "Se han agotado tus créditos. La IA se toma un descanso.",
+    "subscriptionPastDue": "La renovación de la suscripción está bloqueada. Revise los registros de pago y sincronice el estado del proveedor más reciente."
+  },
+  "capabilities": {
+    "description": "Aquí se resumen los módulos disponibles en el panel de administración de marca y cobros. «Pendiente de configuración» significa que el código está integrado pero desactivado por defecto. «Solo proceso interno» significa que se usa en tareas, recuperación u operaciones y no aparece directamente en la página.",
+    "fallbackDescription": "El registro de funciones de facturación determina el estado de cada función.",
+    "fallbackTitle": "Capacidad de facturación",
+    "items": {
+      "adminEntitlements": {
+        "description": "La consulta de prestaciones en el panel de administración sigue disponible.",
+        "title": "Prestaciones del panel de administración"
+      },
+      "adminLedgerAdjust": {
+        "description": "La corrección manual del libro mayor en el panel de administración sigue disponible.",
+        "title": "Corrección del libro mayor de administración"
+      },
+      "adminReports": {
+        "description": "Los informes de uso y del libro mayor del panel de administración siguen disponibles.",
+        "title": "Informes del panel de administración"
+      },
+      "adminSubscriptions": {
+        "description": "La consulta de suscripciones en el panel de administración sigue disponible.",
+        "title": "Suscripciones administrativas"
+      },
+      "billingFeatureFlag": {
+        "description": "La función de facturación sigue desactivada por defecto en la configuración inicial.",
+        "title": "Interruptor de facturación"
+      },
+      "creatorCatalog": {
+        "description": "Las fichas de planes y paquetes de créditos siguen activas.",
+        "title": "Catálogo de productos para profesores"
+      },
+      "creatorOrders": {
+        "description": "La sincronización de pedidos, el pago y la recarga de créditos de los profesores siguen habilitados.",
+        "title": "Pedidos de profesores"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "La compra, cancelación y reanudación de suscripciones de los profesores siguen habilitadas.",
+        "title": "Ciclo de vida de las suscripciones de profesores"
+      },
+      "creatorWalletLedger": {
+        "description": "La consulta de saldos por lotes de créditos y del libro mayor sigue habilitada.",
+        "title": "Cuenta y libro mayor del profesor"
+      },
+      "dailyAggregateRebuild": {
+        "description": "La reconstrucción y el cierre de los datos diarios agregados siguen siendo procesos internos.",
+        "title": "Reconstrucción diaria de agregados"
+      },
+      "domainVerifyRefresh": {
+        "description": "La actualización de la verificación de dominios sigue siendo sólo interna.",
+        "title": "Actualización de la verificación del dominio"
+      },
+      "lowBalanceAlerts": {
+        "description": "La generación de alertas de bajo balance sigue siendo sólo interna.",
+        "title": "Alertas de saldo bajo"
+      },
+      "providerReconcile": {
+        "description": "La conciliación del proveedor sigue siendo un flujo de recuperación interna.",
+        "title": "Conciliación del proveedor"
+      },
+      "renewalCompensation": {
+        "description": "La compensación de renovaciones y reintentos sigue siendo un proceso interno.",
+        "title": "Compensación de renovaciones"
+      },
+      "renewalTaskQueue": {
+        "description": "La ejecución del proceso de renovaciones sigue desactivada por defecto en la configuración inicial.",
+        "title": "Cola de tareas de renovación"
+      },
+      "runtimeBillingExtensions": {
+        "description": "La configuración de ejecución sigue exponiendo el contexto de prestaciones de facturación y dominios.",
+        "title": "Extensiones de facturación de tiempo de ejecución"
+      },
+      "usageSettlement": {
+        "description": "La liquidación del uso y su reprocesamiento siguen siendo tareas internas o procesos de línea de comandos.",
+        "title": "Liquidación del consumo"
+      },
+      "walletBucketExpiration": {
+        "description": "La comprobación del vencimiento de los lotes de créditos de la cuenta sigue siendo un proceso interno.",
+        "title": "Vencimiento de lotes de créditos"
+      }
+    },
+    "status": {
+      "active": "Listo para usar",
+      "defaultDisabled": "Pendiente de configuración",
+      "internalOnly": "Solo proceso interno"
+    },
+    "summary": {
+      "active": "{count} disponibles",
+      "defaultDisabled": "{count} pendientes de configuración",
+      "internalOnly": "{count} flujos de trabajo internos"
+    },
+    "title": "Módulos disponibles"
+  },
+  "catalog": {
+    "actions": {
+      "processing": "Procesando..."
+    },
+    "badges": {
+      "bestValue": "Mejor relación calidad precio",
+      "recommended": "Popular"
+    },
+    "labels": {
+      "everyDays": "cada {count} días",
+      "everyMonths": "cada {count} meses",
+      "everyYears": "cada {count} años",
+      "perDay": "diariamente",
+      "perMonth": "mensual",
+      "perYear": "anual",
+      "providerAlipay": "Alipay",
+      "providerManual": "Manual",
+      "providerPingxx": "Pingxx",
+      "providerStripe": "Stripe",
+      "providerWechatpay": "WeChat Pay",
+      "providerWithChannel": "{provider} / {channel}"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "Ideal para probar un curso a pequeña escala.",
+        "title": "Lite"
+      },
+      "creatorMonthlyPro": {
+        "description": "Ideal para atender a un número reducido de alumnos.",
+        "title": "Básico"
+      },
+      "creatorYearly": {
+        "description": "Ideal para grandes organizaciones.",
+        "title": "Pro"
+      },
+      "creatorYearlyLite": {
+        "description": "Ideal para pequeñas y medianas organizaciones.",
+        "title": "Avanzado"
+      },
+      "creatorYearlyPremium": {
+        "description": "Ideal para organizaciones de gran tamaño.",
+        "title": "Premium"
+      }
+    },
+    "topups": {
+      "default": {
+        "description": "Añade créditos a tu plan actual. Los créditos que no utilices vencerán al final del periodo del plan.",
+        "title": "Paquete de {credits} créditos"
+      }
+    }
+  },
+  "checkout": {
+    "agreementLink": "Acuerdo de compra de créditos",
+    "agreementPrefix": "He leído y acepto el",
+    "bonusCreditsLabel": "{baseCredits} + {bonusCredits} de regalo",
+    "cancel": "Cancelar",
+    "completed": "Pago completado.",
+    "confirm": "Continuar con el pago",
+    "creditsLabel": "Créditos",
+    "expired": "Este pedido ha caducado. Realiza uno nuevo.",
+    "expiresInLabel": "Tiempo restante",
+    "expiresInValue": "Caduca en {countdown}",
+    "planDescription": "Estos son los detalles de pago de tu plan de suscripción de créditos.",
+    "preorderDescription": "Pagarás este plan por adelantado y se activará al terminar el periodo actual.",
+    "prepaidOffsetLabel": "Importe anticipado aplicado",
+    "priceLabel": "Precio",
+    "processing": "Procesando...",
+    "productLabel": "Producto",
+    "providerLabel": "Proveedor de pagos",
+    "redirect": {
+      "creating": "Creando tu pedido...",
+      "description": "Mantén abierta esta página. Si no se abre la página de pago automáticamente, pulsa el botón de abajo para volver a intentarlo.",
+      "openingStripe": "Abriendo la página de pago seguro de Stripe...",
+      "retry": "Volver a abrir la página de pago"
+    },
+    "subject": {
+      "plan": {
+        "day": "Plan diario",
+        "month": "Plan mensual",
+        "year": "Plan anual"
+      }
+    },
+    "title": "Confirmar compra",
+    "topupDescription": "Vas a confirmar la compra de un paquete de créditos de pago único.",
+    "unsupported": "Este método de pago no está disponible en este momento.",
+    "upgradeDescription": "Esta actualización tiene efecto inmediato.",
+    "upgradeWithPreorderDescription": "El cambio a un plan superior se aplicará de inmediato. Se descontará cualquier pago anticipado de una compra ya programada."
+  },
+  "common": {
+    "empty": "No disponible"
+  },
+  "creditInsufficient": {
+    "learner": "Este curso no tiene suficientes créditos para generar más contenido. Ponte en contacto con el profesor del curso.",
+    "purchaseActionAltText": "Abrir la página de compra de créditos",
+    "teacher": "Tu saldo de créditos es insuficiente. Por ahora no puedes continuar.",
+    "teacherCollaborator": "El responsable del curso no tiene suficientes créditos para generar más contenido. Ponte en contacto con él.",
+    "teacherSoftlimit": "Tu saldo de créditos está por debajo del umbral de aviso. La vista previa de depuración no está disponible temporalmente."
+  },
+  "customization": {
+    "actions": {
+      "clear": "Limpiar",
+      "saveConfiguration": "Guardar configuración",
+      "saveIntegration": "Guardar configuración de pago",
+      "secretSaved": "Guardado. Introduzca un nuevo valor para reemplazarlo."
+    },
+    "branding": {
+      "favicon": "Icono del sitio (favicón)",
+      "faviconHint": "Icono de la pestaña del navegador. Sube una imagen PNG, JPEG o WebP (se convertirá a ICO) o un archivo .ico. Si no subes ninguno, se usará el logotipo cuadrado.",
+      "homeUrl": "URL del enlace del logotipo",
+      "homeUrlHint": "Dirección a la que irá el alumno al pulsar el logotipo en la página de aprendizaje. Déjala en blanco para usar la predeterminada.",
+      "homeUrlPlaceholder": "Por ejemplo, https://www.example.com",
+      "invalidFile": "Utilice un archivo PNG, JPEG o WebP no mayor de 2 MB",
+      "resizeNotice": "La imagen no coincide completamente con el tamaño recomendado. Todavía se subirá y escalará normalmente después de guardarla.",
+      "squareHint": "Se recomienda un logotipo cuadrado de 32 × 32 px. También se admiten imágenes de mayor resolución.",
+      "squareLogo": "Logotipo cuadrado",
+      "title": "Logotipos de marca",
+      "uploadFailed": "Fallo al subir la imagen. Inténtalo de nuevo más tarde.",
+      "uploadFavicon": "Subir icono del sitio web",
+      "uploadSquare": "Subir logotipo cuadrado",
+      "uploadWide": "Subir logotipo horizontal",
+      "urlPlaceholder": "O introduzca una URL de imagen directamente",
+      "wideHint": "Recomendado: un logotipo ancho con 32px de altura y hasta 220px de ancho. También se admiten variantes de mayor resolución.",
+      "wideLogo": "Logotipo horizontal"
+    },
+    "disable": "Desactivar",
+    "domain": {
+      "bind": "Vincular dominio",
+      "disableSuccess": "El dominio ha sido desactivado.",
+      "dnsTitle": "Agregue el siguiente registro TXT en su consola DNS",
+      "lastError": "Último resultado de la verificación: {reason}",
+      "placeholder": "Por ejemplo, learn.example.com",
+      "record": "{name} = {value}",
+      "recordName": "Nombre del registro",
+      "recordType": "Tipo de registro",
+      "recordValue": "Valor del registro",
+      "status": "{status} · SSL {sslStatus}",
+      "title": "Dominio personalizado",
+      "verify": "Verificar DNS",
+      "verifyFailed": "La verificación DNS aún no ha pasado. Compruebe el registro TXT e inténtelo de nuevo.",
+      "verifyInstruction": "Cuando se propaguen los registros DNS, verifica el dominio aquí. Después se tramitará el certificado HTTPS.",
+      "verifySuccess": "Se ha aprobado la verificación DNS. Se ha actualizado el estado del dominio."
+    },
+    "integrationStatus": {
+      "disabled": "Desactivado",
+      "draft": "Habilitación pendiente",
+      "failed": "Ha fallado la activación",
+      "unconfigured": "Sin configurar",
+      "verified": "Activado"
+    },
+    "integrations": {
+      "title": "Configuración de WeChat y pagos"
+    },
+    "loading": "Cargando detalles de configuración...",
+    "locked": "Tu plan actual no incluye esta función. Cambia a un plan superior o contacta con el equipo de operaciones para habilitarla.",
+    "paymentProvider": {
+      "description": "Elige uno o varios métodos de pago para los alumnos. Después de guardar, se generarán códigos QR para los métodos configurados.",
+      "title": "Métodos de pago"
+    },
+    "pendingActivation": "Guarda primero la función habilitada. Cuando esté activa, podrás guardar y verificar esta configuración.",
+    "providers": {
+      "alipay": "Alipay",
+      "pingxx": "Ping++",
+      "stripe": "Stripe",
+      "wechat_oauth": "Cuenta oficial de WeChat",
+      "wechatpay": "WeChat Pay"
+    },
+    "verify": "Verificar y activar"
+  },
+  "details": {
+    "actions": {
+      "upgradeNow": "Cambiar a un plan superior"
+    },
+    "emptyValidityLabel": "--",
+    "subscription": {
+      "accessUntil": "Acceso hasta",
+      "autoRenew": "Renovación automática",
+      "cancelAction": "Cancelar la renovación automática",
+      "cancelConfirmAction": "Confirmar cancelación",
+      "cancelConfirmDescription": "Sus beneficios y créditos actuales permanecen disponibles hasta {date}. No se le cobrará de nuevo después de esa fecha.",
+      "cancelConfirmTitle": "¿Cancelar la renovación automática?",
+      "cancelScheduled": "Auto-renovación cancelada",
+      "cancelSuccess": "Renovación automática cancelada. Las prestaciones del periodo actual no cambian.",
+      "currentPlan": "Plan actual",
+      "nextRenewal": "Próxima renovación",
+      "paused": "Suscripción pausada",
+      "renewalStatus": "Estado de la renovación",
+      "resumeAction": "Reanudar la renovación automática",
+      "resumeConfirmAction": "Confirmar reanudación",
+      "resumeConfirmDescription": "Su plan original se renovará automáticamente en {date}.",
+      "resumeConfirmTitle": "¿Reanudar la renovación automática?",
+      "resumeSuccess": "Se reanuda la renovación automática."
+    },
+    "subtitle": "Consulta el total de créditos, los saldos de cada tipo y el periodo de vigencia de cada fuente.",
+    "table": {
+      "balance": "Saldo",
+      "creditType": "Tipo",
+      "validUntil": "Válido hasta"
+    },
+    "topupAvailabilityLabel": "Sin caducidad",
+    "topupAvailabilityTooltip": "Se requiere una suscripción activa para usar paquetes de crédito.",
+    "totalCreditsDescription": "Los créditos del plan se utilizan primero, luego los paquetes de crédito.",
+    "totalCreditsLabel": "Saldo",
+    "usageTable": {
+      "columns": {
+        "scene": "Concepto de consumo"
+      },
+      "title": "Detalles de uso"
+    }
+  },
+  "domains": {
+    "records": {
+      "neverVerified": "No verificado aún"
+    },
+    "ssl": {
+      "active": "SSL activo",
+      "failed": "Error de SSL",
+      "issued": "Certificado SSL emitido",
+      "not_requested": "Certificado SSL no solicitado",
+      "pending": "SSL pendiente",
+      "provisioning": "Preparando certificado SSL"
+    },
+    "status": {
+      "disabled": "Desactivado",
+      "failed": "Verificación fallida",
+      "pending": "Pendiente de verificación",
+      "verified": "Verificado"
+    }
+  },
+  "entitlements": {
+    "analytics": {
+      "advanced": "Avanzado",
+      "basic": "Básico",
+      "enterprise": "Análisis empresarial"
+    },
+    "flags": {
+      "branding": "Logotipo de marca",
+      "customDomain": "Dominio personalizado",
+      "customPayment": "Métodos de pago",
+      "customWechat": "Cuenta oficial de WeChat independiente",
+      "disabled": "Desactivado",
+      "enabled": "Activado"
+    },
+    "metrics": {
+      "analyticsTier": "Nivel de análisis",
+      "maxConcurrency": "Máximo de tareas simultáneas",
+      "priorityClass": "Clase prioritaria",
+      "supportTier": "Nivel de asistencia"
+    },
+    "priority": {
+      "priority": "Prioridad",
+      "standard": "Estándar",
+      "vip": "VIP"
+    },
+    "support": {
+      "businessHours": "Asistencia en horario laboral",
+      "priority": "Asistencia prioritaria",
+      "selfServe": "Autoservicio"
+    }
+  },
+  "globalPricing": {
+    "actions": {
+      "buyCredits": "Comprar créditos",
+      "checkoutLoading": "Abriendo la página de pago...",
+      "choosePlan": "Elegir el plan",
+      "cycleSwitchDisabled": "Cambio de ciclo de facturación no disponible",
+      "viewMonthly": "Ver plan mensual"
+    },
+    "annualSavings": "Ahorra {amount} al año frente al pago mensual",
+    "monthlyOnly": "Solo pago mensual",
+    "plans": {
+      "business": {
+        "name": "Business"
+      },
+      "growth": {
+        "name": "Growth"
+      },
+      "scale": {
+        "name": "Scale"
+      },
+      "studio": {
+        "name": "Studio"
+      }
+    },
+    "renewalPrice": "Después se renueva por {price} / {period}."
+  },
+  "ledger": {
+    "bucketDescription": "Consulta los lotes de créditos según su origen, el saldo restante y el orden en que se consumirán.",
+    "category": {
+      "subscription": "Créditos del plan",
+      "topup": "Paquete de créditos"
+    },
+    "empty": "Todavía no hay lotes de créditos en esta cuenta. Aparecerán aquí cuando se concedan créditos por primera vez.",
+    "entriesDescription": "Los movimientos de concesión, consumo, reembolso y vencimiento se añadirán en una próxima tarea de facturación.",
+    "entriesTitle": "Movimientos del libro mayor",
+    "entryType": {
+      "adjustment": "Ajuste",
+      "consume": "Consumo",
+      "expire": "Vencimiento",
+      "grant": "Concesión",
+      "hold": "Retención",
+      "refund": "Devolución por reembolso",
+      "release": "Liberación"
+    },
+    "loadError": "No se han podido cargar los lotes de créditos de la cuenta. Actualiza la página y vuelve a intentarlo.",
+    "neverExpires": "Sigue el vencimiento de los créditos del plan",
+    "pagination": {
+      "page": "Página {page} de {pageCount} · {total} movimientos"
+    },
+    "source": {
+      "campaignBonus": "Créditos de bonificación de campaña",
+      "gift": "Créditos de regalo",
+      "manual": "Ajuste manual",
+      "refund": "Devolución por reembolso",
+      "subscription": "Créditos del plan",
+      "topup": "Paquete de créditos",
+      "usage": "Liquidación del consumo"
+    },
+    "summary": {
+      "activeBuckets": "Lotes de créditos activos",
+      "nextExpiry": "Próximo vencimiento",
+      "totalAvailable": "Créditos totales por origen"
+    },
+    "table": {
+      "action": "Acción",
+      "amount": "Cantidad",
+      "availableCredits": "Créditos disponibles",
+      "balanceAfter": "Saldo después",
+      "createdAt": "Fecha",
+      "detail": "Detalles",
+      "effectiveWindow": "Periodo de vigencia",
+      "entryType": "Tipo de movimiento",
+      "priority": "Prioridad",
+      "source": "Fuente",
+      "status": "Estado"
+    },
+    "usageScene": {
+      "debug": "Depuración",
+      "preview": "Vista previa",
+      "production": "Aprendizaje",
+      "tts": "Voz"
+    }
+  },
+  "orders": {
+    "status": {
+      "canceled": "Cancelado",
+      "failed": "Fallido",
+      "init": "Creado",
+      "paid": "Pagado",
+      "pending": "Pendiente",
+      "refunded": "Reembolsado",
+      "timeout": "Tiempo agotado"
+    },
+    "type": {
+      "manual": "Pedido manual",
+      "refund": "Pedido de reembolso",
+      "subscriptionRenewal": "Renovación de la suscripción",
+      "subscriptionStart": "Inicio de la suscripción",
+      "subscriptionUpgrade": "Cambio a un plan superior",
+      "topup": "Pedido de paquete de créditos"
+    }
+  },
+  "overview": {
+    "availableCreditsLabel": "Créditos disponibles",
+    "feedback": {
+      "cancelSuccess": "La suscripción se cancelará al final del período en curso.",
+      "resumeSuccess": "Se ha restablecido la renovación de la suscripción."
+    },
+    "loadError": "No se han podido cargar los datos de facturación. Actualiza la página y vuelve a intentarlo.",
+    "walletTitle": "Resumen de créditos"
+  },
+  "package": {
+    "actions": {
+      "buyNow": "Comprar ahora",
+      "currentSubscription": "Suscripción actual",
+      "currentUsing": "Plan actual",
+      "downgradeDisabled": "No se puede cambiar a un plan inferior",
+      "freeTrial": "Inactivo",
+      "monthlySwitchDisabled": "Facturación mensual no disponible",
+      "nonMemberTooltip": "Actualmente no tienes una suscripción. No es necesario hacer nada.",
+      "preorderDowngrade": "Programar cambio a un plan inferior",
+      "preorderLocked": "Compra anticipada bloqueada",
+      "preorderLockedTooltip": "Ya hay un cambio de plan programado. Por ahora solo puedes cambiar inmediatamente a un plan superior.",
+      "preorderProviderUnsupportedTooltip": "La compra anticipada de planes solo está disponible con el canal de pago autogestionado actual.",
+      "preorderRenewal": "Pagar la renovación por adelantado",
+      "preorderScheduled": "Compra anticipada programada",
+      "subscribeNow": "Suscribirse ahora",
+      "upgradeNow": "Cambiar a un plan superior",
+      "upgradeOnlyTooltip": "Tu plan actual sigue vigente. Solo puedes cambiar a un plan superior."
+    },
+    "campaign": {
+      "bonusBadge": "{credits} créditos de regalo",
+      "discountBadge": "Oferta limitada",
+      "paymentOnly": "El descuento se aplica únicamente a este pago."
+    },
+    "creditPeriod": {
+      "oneTime": "Pago único"
+    },
+    "creditSummary": {
+      "daily": "Créditos diarios {credits}",
+      "days": "{credits} créditos cada {count} días",
+      "monthly": "Créditos mensuales {credits}",
+      "months": "Créditos cada {count} meses: {credits}",
+      "yearly": "Créditos anuales {credits}",
+      "years": "Créditos cada {count} años: {credits}"
+    },
+    "features": {
+      "advanced": {
+        "includesLabel": "Incluye todas las prestaciones de Basic y además:",
+        "parallelProcessing": "Mayor capacidad de procesamiento simultáneo",
+        "taskPriority": "Procesamiento de tareas prioritarias",
+        "techBasic": "Asistencia técnica básica"
+      },
+      "common": {
+        "allLearning": "Todas las características de aprendizaje",
+        "allTeachingAndLearning": "Todas las funciones de creación y enseñanza",
+        "createDebugPublish": "Crear, depurar y publicar cursos",
+        "higherConcurrency": "Mayor capacidad de uso simultáneo",
+        "unlimitedCourses": "Cursos ilimitados"
+      },
+      "daily": {
+        "preview": "Ideal para pruebas y experiencias breves",
+        "publish": "Publicación temporal y puesta en marcha rápida",
+        "support": "Asistencia para el plan diario"
+      },
+      "free": {
+        "preview": "Entrega a alumnos e importación de cuentas de aprendizaje",
+        "publish": "Creación de cursos y almacenamiento de contenidos"
+      },
+      "monthly": {
+        "preview": "Entrega a alumnos e importación de cuentas de aprendizaje",
+        "publish": "Creación de cursos y almacenamiento de contenidos"
+      },
+      "premium": {
+        "concurrencyQuota": "Mayor cuota de tareas simultáneas",
+        "dedicatedSupport": "Asistencia técnica exclusiva",
+        "includesLabel": "Incluye todas las prestaciones de Pro y además:",
+        "onboarding": "Formación exclusiva para crear cursos"
+      },
+      "pro": {
+        "branding": "Imagen de marca personalizada",
+        "customDomain": "Dominio personalizado",
+        "includesLabel": "Incluye todas las prestaciones de Advanced y además:",
+        "techPriority": "Asistencia técnica prioritaria"
+      },
+      "yearly": {
+        "lite": {
+          "ops": "Mayor capacidad de procesamiento simultáneo",
+          "publish": "Procesamiento de tareas prioritarias"
+        },
+        "premium": {
+          "analytics": "Mayor cuota de tareas simultáneas",
+          "branding": "Imagen de marca personalizada",
+          "domain": "Dominio personalizado",
+          "priority": "Asistencia técnica exclusiva",
+          "support": "Formación exclusiva para crear cursos"
+        },
+        "pro": {
+          "analytics": "Asistencia técnica prioritaria",
+          "branding": "Imagen de marca personalizada",
+          "domain": "Dominio personalizado",
+          "priority": "Mayor capacidad de procesamiento simultáneo",
+          "support": "Asistencia técnica básica"
+        }
+      }
+    },
+    "featuresTitle": "Ventajas incluidas:",
+    "footnote": {
+      "learningTime": "Estas estimaciones se basan en datos históricos y son orientativas. El contenido del curso, el modelo elegido y las interacciones afectan al consumo real de créditos. La síntesis de voz consume créditos adicionales.",
+      "validity": "Vigencia de los créditos: en los planes mensuales, 30 días desde que se reciben (incluido ese día); en los anuales, según el año natural desde su recepción. En ambos casos vencen a las 23:59 del último día."
+    },
+    "free": {
+      "creditSummary": "{credits} créditos de regalo",
+      "description": "Ideal para probar el servicio por primera vez.",
+      "priceNote": "/ válido dentro de los {days} días de registro",
+      "priceNoteGranted": "/ activado en {grantedAt}, válido hasta {expiresAt}",
+      "title": "Prueba"
+    },
+    "intervalTabs": {
+      "daily": "Planes diarios",
+      "monthly": "Planes mensuales",
+      "plans": "Planes de crédito",
+      "topup": "Paquetes de crédito",
+      "yearly": "Planes anuales"
+    },
+    "learningTime": {
+      "compactValue": "Aprox. {minutes} minutos",
+      "label": "Tiempo estimado de aprendizaje",
+      "lessThanOne": "Menos de 1 minuto",
+      "unavailable": "—",
+      "value": "Aprox. {minutes} minutos"
+    },
+    "loading": "Cargando planes...",
+    "preorder": {
+      "pending": "Compra anticipada pendiente: {plan} se activará el {date}."
+    },
+    "subtitle": "Elige el plan de crédito adecuado.",
+    "table": {
+      "creditsRowLabel": "Créditos por ciclo",
+      "emptyValue": "—",
+      "featuresRowLabel": "Ventajas",
+      "validityRowLabel": "Validez del crédito"
+    },
+    "title": "Comprar créditos",
+    "topup": {
+      "creditLabel": "{credits} créditos",
+      "noteFrozen": "Los créditos de un paquete solo se pueden utilizar si la cuenta tiene un plan de créditos vigente.",
+      "noteInstant": "Los créditos están disponibles inmediatamente después de la compra y no caducan."
+    },
+    "topupComingSoon": "Próximamente",
+    "validity": {
+      "daily": "Vigencia: válida cada día a partir de la fecha de compra",
+      "days": "Vigencia: se renueva cada {count} días desde el día de la compra",
+      "free": "Vigencia: {days} días desde el registro",
+      "monthly": "Vigencia: 30 días desde la compra, incluido el día de compra",
+      "months": "Vigencia: se renueva cada {count} periodos de 30 días desde la compra, incluido el día de compra",
+      "yearly": "Vigencia: se calcula por años naturales desde la fecha de compra",
+      "years": "Vigencia: se renueva cada {count} años naturales desde la fecha de compra"
+    },
+    "validityShort": {
+      "free": "{days} días",
+      "monthly": "{count, plural, one {# mes} other {# meses}}",
+      "yearly": "{count, plural, one {# año} other {# años}}"
+    }
+  },
+  "page": {
+    "adminLink": "Abrir el panel de facturación",
+    "tabs": {
+      "customization": "Marca y cobros",
+      "ledger": "Detalles de los créditos",
+      "plans": "Comprar créditos"
+    },
+    "title": "Suscripción y créditos"
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "Cancelación aplicada",
+      "downgradeEffective": "Cambio a plan inferior aplicado",
+      "expire": "Procesar vencimiento",
+      "reconcile": "Ajuste de conciliación",
+      "renewal": "Renovación",
+      "retry": "Reintentar"
+    },
+    "status": {
+      "canceled": "Cancelado",
+      "failed": "Fallido",
+      "pending": "Pendiente",
+      "processing": "En proceso",
+      "succeeded": "Completado"
+    }
+  },
+  "reports": {
+    "empty": "No hay datos diarios todavía.",
+    "loadError": "No se pueden cargar los informes de facturación ahora mismo.",
+    "metric": {
+      "llmCacheTokens": "Tokens de caché de LLM",
+      "llmInputTokens": "Tokens de entrada LLM",
+      "llmOutputTokens": "Tokens de salida LLM",
+      "ttsInputChars": "Caracteres de entrada de TTS",
+      "ttsOutputChars": "Caracteres de salida de TTS",
+      "ttsRequestCount": "Número de solicitudes de TTS"
+    },
+    "table": {
+      "count": "Conteo de entradas",
+      "credits": "Créditos",
+      "date": "Fecha",
+      "entryType": "Tipo de entrada",
+      "metric": "Métrica de facturación",
+      "provider": "Proveedor/modelo",
+      "rawAmount": "Consumo original",
+      "scene": "Contexto",
+      "shifu": "Shifu",
+      "source": "Fuente",
+      "usageType": "Tipo de uso",
+      "window": "Periodo de cálculo"
+    },
+    "usageType": {
+      "llm": "Uso del modelo",
+      "tts": "Síntesis de voz"
+    }
+  },
+  "result": {
+    "countdown": "Volverás al centro de suscripciones en {seconds} s",
+    "errorTitle": "Error al sincronizar la facturación",
+    "missingOrder": "Falta el número de pedido de facturación. Abre el centro de suscripciones y vuelve a sincronizar desde la lista de pedidos.",
+    "openBilling": "Abrir el centro de suscripciones",
+    "pending": "El pago sigue en proceso. Puedes volver a sincronizar dentro de un momento.",
+    "pendingTitle": "Esperando confirmación de facturación",
+    "processing": "Sincronizando el estado del pago",
+    "retry": "Volver a sincronizar",
+    "success": "Pago confirmado. Se están actualizando tu suscripción y tus créditos.",
+    "successTitle": "Facturación actualizada"
+  },
+  "sidebar": {
+    "creditsLabel": "Créditos",
+    "cta": "Abrir el centro de suscripciones",
+    "dailyBalanceTitle": "Saldo diario",
+    "dailyTitle": "Plan diario",
+    "description": "Revise su plan, créditos y las próximas acciones de facturación.",
+    "expired": "Caducado",
+    "expiresInDays": "Caduca en {days} días",
+    "monthlyBalanceTitle": "Saldo mensual",
+    "monthlyTitle": "Plan mensual",
+    "nonMemberBalanceTitle": "Saldo de créditos",
+    "nonMemberTitle": "Sin suscripción",
+    "periodLabel": "Período",
+    "placeholderValue": "--",
+    "subscriptionPending": "Próximamente",
+    "subscriptionStatusLabel": "Suscripción",
+    "summaryTitle": "Créditos",
+    "upgradeCta": "Cambiar a un plan superior",
+    "usageCta": "Ver detalles",
+    "yearlyBalanceTitle": "Saldo anual",
+    "yearlyTitle": "Plan anual"
+  },
+  "status": {
+    "active": "Activo",
+    "cancelScheduled": "Cancelación programada",
+    "canceled": "Cancelado",
+    "draft": "Pendiente de pago",
+    "expired": "Caducado",
+    "none": "No activado",
+    "pastDue": "Renovación fallida",
+    "paused": "Pausado"
+  },
+  "welcomeTrial": {
+    "confirm": "¡Lo tengo, vamos!",
+    "description": "Como nuevo usuario, recibes un plan Basic gratuito de {days} días con {credits} créditos. ¡Empieza a crear tu primer curso!",
+    "title": "Te damos la bienvenida a {appName}"
+  }
+}

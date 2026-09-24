@@ -45,16 +45,23 @@ export function normalizeArtifact(value) {
     throw new RenderError("artifact_too_large");
   }
   if (markerCount > MAX_PAGES) throw new RenderError("too_many_pages");
+  const locale = [
+    "en-US",
+    "es-ES",
+    "fr-FR",
+    "zh-CN",
+    "ar-SA",
+    "th-TH",
+  ].includes(value.metadata?.locale)
+    ? value.metadata.locale
+    : "zh-CN";
   return {
     content: value.content,
     elements,
     mode: markerCount ? "slides" : "reading",
     stepCount: markerCount || 1,
-    locale: ["en-US", "fr-FR", "zh-CN", "ar-SA", "th-TH"].includes(
-      value.metadata?.locale,
-    )
-      ? value.metadata.locale
-      : "zh-CN",
+    locale,
+    markdownFlowLocale: locale,
   };
 }
 

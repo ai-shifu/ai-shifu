@@ -42,7 +42,12 @@ jest.mock('@/hooks/useDisclosure', () => ({
 
 jest.mock('./CourseHeaderSummary', () => ({
   __esModule: true,
-  default: () => <div data-testid='course-summary' />,
+  default: ({ titleLanguage }: { titleLanguage?: string }) => (
+    <div
+      data-testid='course-summary'
+      lang={titleLanguage}
+    />
+  ),
 }));
 
 jest.mock('./LearningModeSwitch', () => ({
@@ -76,7 +81,7 @@ jest.mock('./MobileHeaderIconPopover', () => ({
   default: () => <div />,
 }));
 
-const renderHeader = () =>
+const renderHeader = (titleLanguage?: string) =>
   render(
     <ChatMobileHeader
       className=''
@@ -87,6 +92,7 @@ const renderHeader = () =>
       chapterId='chapter-1'
       lessonId='lesson-1'
       lessonTitle='Lesson one'
+      titleLanguage={titleLanguage}
     />,
   );
 
@@ -120,5 +126,14 @@ describe('ChatMobileHeader course share action', () => {
 
     expect(screen.getByTestId('preview-header-banner')).toBeInTheDocument();
     expect(screen.queryByTestId('course-share-button')).not.toBeInTheDocument();
+  });
+
+  it('passes the guide title language to the mobile course heading', () => {
+    renderHeader('en-US');
+
+    expect(screen.getByTestId('course-summary')).toHaveAttribute(
+      'lang',
+      'en-US',
+    );
   });
 });

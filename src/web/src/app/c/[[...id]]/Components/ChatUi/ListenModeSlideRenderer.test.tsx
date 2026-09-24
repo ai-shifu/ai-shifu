@@ -48,13 +48,14 @@ const mockAskBlock = jest.fn(
 );
 let mockSlideMountId = 0;
 let mockSlideCurrentElement = { blockBid: 'content-1', type: 'content' };
+let mockLanguage = 'zh-CN';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
     i18n: {
-      language: 'zh-CN',
-      resolvedLanguage: 'zh-CN',
+      language: mockLanguage,
+      resolvedLanguage: mockLanguage,
     },
   }),
 }));
@@ -217,6 +218,7 @@ describe('ListenModeSlideRenderer', () => {
     window.localStorage.clear();
     mockSlideMountId = 0;
     mockSlideCurrentElement = { blockBid: 'content-1', type: 'content' };
+    mockLanguage = 'zh-CN';
     getMockSlide().mockClear();
     getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
@@ -790,6 +792,54 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps).not.toHaveProperty('playerTexts');
   });
 
+  it('marks the English guide slide as English under a Spanish UI', () => {
+    mockLanguage = 'es-ES';
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        titleLanguage='fr-FR'
+        contentLanguage='en-US'
+      />,
+    );
+
+    expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ locale: 'es-ES', lang: 'en-US' }),
+    );
+  });
+
+  it('marks explicitly known Spanish slide content as Spanish', () => {
+    mockLanguage = 'es-ES';
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        contentLanguage='es-ES'
+      />,
+    );
+
+    expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ locale: 'es-ES', lang: 'es-ES' }),
+    );
+  });
+
+  it('does not infer an unknown slide language from the Spanish UI', () => {
+    mockLanguage = 'es-ES';
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ locale: 'es-ES', lang: '' }),
+    );
+  });
+
   it.each(['listen', 'classroom'] as const)(
     'keeps the course summary left and share action right in the mobile fullscreen %s header',
     variant => {
@@ -822,6 +872,63 @@ describe('ListenModeSlideRenderer', () => {
       expect(headerRow?.firstElementChild).toContainElement(
         screen.getByText('Course one'),
       );
+    },
+  );
+
+  it.each(['listen', 'classroom'] as const)(
+    'marks both English guide headings in the mobile fullscreen %s header',
+    variant => {
+      mockLanguage = 'es-ES';
+      render(
+        <ListenModeSlideRenderer
+          items={[]}
+          mobileStyle
+          chatRef={createChatRef()}
+          courseName='English guide'
+          sectionTitle='First lesson'
+          titleLanguage='en-US'
+          variant={variant}
+        />,
+      );
+
+      const slideProps = getMockSlide().mock.calls[0]?.[0] as
+        | { fullscreenHeader?: { content?: React.ReactNode } }
+        | undefined;
+      render(<div lang='es-ES'>{slideProps?.fullscreenHeader?.content}</div>);
+
+      expect(screen.getByText('English guide')).toHaveAttribute(
+        'lang',
+        'en-US',
+      );
+      expect(screen.getByText('First lesson')).toHaveAttribute('lang', 'en-US');
+    },
+  );
+
+  it.each(['listen', 'classroom'] as const)(
+    'inherits the Spanish page language when the mobile fullscreen %s header has no title override',
+    variant => {
+      mockLanguage = 'es-ES';
+      render(
+        <ListenModeSlideRenderer
+          items={[]}
+          mobileStyle
+          chatRef={createChatRef()}
+          courseName='Curso de IA'
+          sectionTitle='Primera lección'
+          variant={variant}
+        />,
+      );
+
+      const slideProps = getMockSlide().mock.calls[0]?.[0] as
+        | { fullscreenHeader?: { content?: React.ReactNode } }
+        | undefined;
+      render(<div lang='es-ES'>{slideProps?.fullscreenHeader?.content}</div>);
+
+      for (const heading of ['Curso de IA', 'Primera lección']) {
+        const element = screen.getByText(heading);
+        expect(element).not.toHaveAttribute('lang');
+        expect(element.closest('[lang]')).toHaveAttribute('lang', 'es-ES');
+      }
     },
   );
 

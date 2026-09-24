@@ -1,0 +1,234 @@
+{
+  "__namespace__": "module.dashboard",
+  "detail": {
+    "basicInfo": {
+      "chapterCount": "Número de capítulos",
+      "courseName": "Nombre del curso",
+      "createdAt": "Fecha de creación",
+      "learnerCount": "Total de participantes",
+      "status": "Estado del curso",
+      "statusLabels": {
+        "published": "Publicado",
+        "unpublished": "Sin publicar"
+      },
+      "title": "Información básica"
+    },
+    "courseIdLabel": "ID del curso",
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "Consulta la pregunta de seguimiento y su respuesta para detectar dónde tienen dificultades los alumnos y si el contenido del curso se explica con claridad.",
+        "fields": {
+          "currentAnswer": "Respuesta actual",
+          "currentFollowUp": "Pregunta de seguimiento actual",
+          "followUpTime": "Fecha de la pregunta",
+          "lesson": "Lección relacionada",
+          "nickname": "Apodo",
+          "turnIndex": "Turno",
+          "user": "Alumno"
+        },
+        "sections": {
+          "basicInfo": "Información básica",
+          "currentRecord": "Registro actual",
+          "timeline": "Cronología de preguntas de seguimiento"
+        },
+        "timeline": {
+          "current": "Actual",
+          "student": "Alumno",
+          "teacher": "Respuesta del curso"
+        },
+        "title": "Detalle de la pregunta de seguimiento"
+      },
+      "filters": {
+        "chapterKeyword": "Capítulo",
+        "chapterKeywordPlaceholder": "Nombre del capítulo o la lección",
+        "followUpTime": "Fecha de la pregunta",
+        "lessonKeyword": "Lección",
+        "lessonKeywordPlaceholder": "Nombre de la lección",
+        "reset": "Restablecer",
+        "resultCount": "{count} resultados",
+        "search": "Buscar",
+        "sourceStatus": "Ubicación de la respuesta original",
+        "sourceStatusAll": "Todos los estados",
+        "sourceStatusMissing": "Respuesta original no localizada",
+        "sourceStatusResolved": "Respuesta original localizada",
+        "timePlaceholder": "Fecha de inicio ~ Fecha de fin",
+        "userKeyword": "Alumno",
+        "userKeywordPlaceholderEmail": "Correo electrónico / apodo",
+        "userKeywordPlaceholderPhone": "Móvil / apodo"
+      },
+      "summary": {
+        "followUpCount": "Total de preguntas de seguimiento",
+        "latestFollowUpAt": "Última pregunta de seguimiento",
+        "lessonCount": "Lecciones con preguntas",
+        "scopeHint": "Consulta las preguntas que hacen los alumnos sobre el curso para detectar dificultades frecuentes y capítulos que conviene mejorar.",
+        "userCount": "Alumnos que han hecho preguntas"
+      },
+      "table": {
+        "action": "Acción",
+        "chapter": "Capítulo",
+        "content": "Pregunta de seguimiento",
+        "createdAt": "Fecha de la pregunta",
+        "detailAction": "Ver detalle",
+        "empty": "Todavía no hay preguntas de seguimiento",
+        "lesson": "Lección",
+        "sourceMissing": "Respuesta original no localizada",
+        "sourceResolved": "Respuesta original localizada",
+        "title": "Preguntas de seguimiento",
+        "turnIndex": "Turno",
+        "user": "Alumno"
+      },
+      "title": "Datos de preguntas de seguimiento",
+      "turnIndex": "Turno {count}",
+      "turnIndexHelp": "Los turnos se ordenan según la fecha de las preguntas de seguimiento dentro de un mismo registro de aprendizaje"
+    },
+    "learners": {
+      "columns": {
+        "joinedAt": "Fecha de incorporación",
+        "lastLearningAt": "Última actividad de aprendizaje",
+        "name": "Alumno",
+        "progress": "Progreso de aprendizaje",
+        "questions": "Total de preguntas de seguimiento",
+        "status": "Estado de aprendizaje"
+      },
+      "empty": "Todavía no hay alumnos",
+      "filters": {
+        "lastLearningTime": "Última actividad de aprendizaje",
+        "lastLearningTimePlaceholder": "Fecha de inicio ~ Fecha de fin",
+        "learningStatus": "Estado de aprendizaje",
+        "statusAll": "Todos",
+        "userKeyword": "Alumno"
+      },
+      "searchPlaceholderEmail": "Correo electrónico / apodo",
+      "searchPlaceholderPhone": "Móvil / apodo",
+      "status": {
+        "completed": "Completado",
+        "learning": "En curso",
+        "notStarted": "Sin empezar"
+      },
+      "title": "Lista de alumnos",
+      "totalCount": "{count} alumnos en total",
+      "viewFollowUps": "Ver preguntas de seguimiento",
+      "viewFollowUpsForLearner": "Ver las preguntas de seguimiento de {learner}"
+    },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "Consumo medio por persona",
+        "consumedCredits": "Créditos consumidos",
+        "consumptionSpeed": "Consumo medio diario en los últimos 7 días",
+        "mode": "Modo de aprendizaje",
+        "participants": "Número de usuarios"
+      },
+      "empty": "Todavía no hay datos por modo de aprendizaje",
+      "modes": {
+        "classroom": "Aula",
+        "listen": "Escuchar",
+        "read": "Leer"
+      },
+      "scopeHint": "Compara el consumo de créditos en los modos Leer, Escuchar y Aula para conocer cómo prefieren aprender los alumnos.",
+      "title": "Modos de aprendizaje"
+    },
+    "metrics": {
+      "completedLearners": "Alumnos que han completado el curso",
+      "completionRate": "Tasa de finalización",
+      "learningLearners": "Alumnos en curso",
+      "orderAmount": "Importe de los pedidos",
+      "orderCount": "Número de pedidos",
+      "rating": "Valoración del curso",
+      "title": "Métricas principales",
+      "totalQuestions": "Preguntas de seguimiento"
+    },
+    "metricsTooltips": {
+      "completedLearners": "Número de alumnos que han completado todo el contenido del curso.",
+      "completionRate": "Porcentaje de participantes que han completado todo el contenido del curso.",
+      "learningLearners": "Número de alumnos que han empezado el curso pero todavía no han completado todo su contenido.",
+      "orderAmount": "Importe total que los usuarios han pagado por este curso. No se incluyen los pedidos con código de canje.",
+      "orderCount": "Número total de pedidos completados de este curso, incluidos los de pago y los de código de canje.",
+      "rating": "Valoración media que los alumnos han dado al contenido del curso, sobre 5.",
+      "totalQuestions": "Número total de preguntas de seguimiento que los alumnos han hecho a la IA durante el curso. Haz clic para verlas."
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Capítulo",
+        "chapterKeywordPlaceholder": "Nombre del capítulo o la lección",
+        "commentStatus": "Comentario",
+        "commentStatusAll": "Todos",
+        "commentStatusCommented": "Solo con comentario",
+        "ratingTime": "Fecha de valoración",
+        "reset": "Restablecer",
+        "resultCount": "{count} resultados",
+        "score": "Valoración",
+        "scoreAll": "Todas las valoraciones",
+        "search": "Buscar",
+        "timePlaceholder": "Fecha de inicio ~ Fecha de fin",
+        "userKeyword": "Alumno",
+        "userKeywordPlaceholderEmail": "Correo electrónico / apodo",
+        "userKeywordPlaceholderPhone": "Móvil / apodo"
+      },
+      "scoreValue": "{score} puntos",
+      "summary": {
+        "averageScore": "Valoración media",
+        "latestRatedAt": "Última valoración",
+        "ratingCount": "Número de valoraciones",
+        "scopeHint": "Consulta las valoraciones y los comentarios de los alumnos sobre las lecciones para detectar cambios de satisfacción y contenidos que conviene mejorar.",
+        "userCount": "Alumnos que han valorado el curso"
+      },
+      "table": {
+        "comment": "Comentario",
+        "empty": "Todavía no hay valoraciones",
+        "guestUser": "Alumno anónimo",
+        "lesson": "Lección",
+        "ratedAt": "Fecha de valoración",
+        "score": "Valoración",
+        "title": "Lista de valoraciones",
+        "user": "Alumno"
+      },
+      "title": "Datos de valoraciones"
+    },
+    "subtitle": "La información básica, las métricas principales y la actividad de los alumnos se actualizan en tiempo real.",
+    "title": "Detalle del curso"
+  },
+  "entry": {
+    "kpi": {
+      "courses": "Número de cursos",
+      "learners": "Total de alumnos",
+      "orderAmount": "Importe total de los pedidos",
+      "orders": "Número total de pedidos"
+    },
+    "table": {
+      "action": "Acciones",
+      "course": "Curso",
+      "empty": "Todavía no hay cursos",
+      "footnote": "Cursos: {count} (Solo se incluyen los datos de los cursos que has creado y de los que eres responsable. Se excluyen los cursos en los que colaboras.)",
+      "lastActive": "Última actividad",
+      "learners": "Alumnos",
+      "orderAmount": "Importe de los pedidos",
+      "orders": "Pedidos",
+      "reset": "Restablecer",
+      "scopeNote": "Solo se incluyen los datos de los cursos que has creado y de los que eres responsable. Se excluyen los cursos en los que colaboras.",
+      "search": "Buscar",
+      "searchPlaceholder": "ID o nombre del curso",
+      "title": "Lista de cursos",
+      "totalCount": "Total: {count}",
+      "viewCourse": "Ver curso",
+      "viewOrders": "Ver pedidos"
+    }
+  },
+  "filters": {
+    "dateRangePlaceholder": "Fecha de inicio ~ Fecha de fin",
+    "reset": "Restablecer"
+  },
+  "messages": {
+    "loadCourseDetailFailed": "No se ha podido cargar el detalle del curso. Inténtalo de nuevo más tarde.",
+    "loadCoursesFailed": "No se ha podido cargar la lista de cursos. Actualiza la página e inténtalo de nuevo.",
+    "loadFollowUpDetailFailed": "No se ha podido cargar el detalle de la pregunta de seguimiento. Inténtalo de nuevo más tarde.",
+    "loadFollowUpsFailed": "No se han podido cargar las preguntas de seguimiento. Actualiza la página e inténtalo de nuevo.",
+    "loadLearnersFailed": "No se ha podido cargar la lista de alumnos. Inténtalo de nuevo más tarde.",
+    "loadRatingsFailed": "No se han podido cargar las valoraciones. Actualiza la página e inténtalo de nuevo."
+  },
+  "pagination": {
+    "next": "Siguiente",
+    "prev": "Anterior"
+  },
+  "title": "Datos"
+}
