@@ -59,14 +59,6 @@ class LessonNotTeachable(Exception):  # noqa: N818 - an outcome, not a failure
 _ANCESTOR_LIMIT = 12
 
 
-# How many turns one request may run before it hands back to the browser regardless. A 1.0
-# request runs every block up to the next question with no such limit; this one is only a brake
-# on a model that keeps writing something new and never says the lesson is over. It sits far
-# above what a lesson needs -- turns are whole steps of the script -- and well under the engine's
-# own limit on turns per lesson, which is where a lesson that will not end is finally stopped.
-_MAX_TURNS_PER_REQUEST = 25
-
-
 def _models(preview_mode: bool) -> tuple[type, type]:
     """Pick the draft or published tables, the way the 1.0 run context does."""
     if preview_mode:
@@ -219,7 +211,9 @@ def agent_lesson_events(
 
     One request, as many turns as it takes: a turn that ends with content still to come is
     followed by the next in the same stream, the way a 1.0 request runs block after block until a
-    question or the end of the lesson. See `_MAX_TURNS_PER_REQUEST`.
+    question or the end of the lesson. A lesson that will not end is stopped by the engine's own
+    limit on turns per lesson, which ends it as finished; a cap here would instead close the
+    stream mid-lesson, which the browser cannot tell from a finished request.
 
     `listen` reaches the spoken track, not the engine: the engine's own listen mode stays off, and
     what it teaches is spoken by the pipeline that speaks a 1.0 lesson. See `agent/listen.py`.
@@ -286,7 +280,7 @@ def agent_lesson_events(
     )
     end_reason = "error"
     try:
-        for _ in range(_MAX_TURNS_PER_REQUEST):
+        while True:
             outcome = yield from run_agent_lesson(
                 app,
                 engine=engine,
