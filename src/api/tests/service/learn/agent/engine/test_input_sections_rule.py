@@ -58,8 +58,15 @@ def test_the_notation_says_how_to_read_an_escape_in_an_option() -> None:
 def test_the_escape_rule_is_only_for_reading_the_notation() -> None:
     r"""Told how to read `\.`, the model dropped `\d`'s backslash when repeating `\d+.\d+`."""
     notation = (_PROMPTS / "v1_syntax.md").read_text()
-    assert "This is only how to read the notation" in notation
+    assert (
+        "This is only how to read the notation of the script's own questions"
+        in notation
+    )
     assert "the second `\\d` keeps its backslash" in notation
+    # What the learner typed is not notation: `file\\.txt` is repeated as `file\\.txt`.
+    assert (
+        "what the learner typed, an option you made up -- is not notation" in notation
+    )
 
 
 def test_the_end_of_a_lesson_is_not_announced_to_the_learner() -> None:
