@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.discount",
+  "__flat__": {
+    "couponCodeGenerationFailed": "Fehler beim Erstellen von Gutscheincodes. Bitte versuchen Sie es später noch einmal.",
+    "discountAlreadyExpired": "Der Gutscheincode ist ungültig.",
+    "discountAlreadyUsed": "Der Gutscheincode wurde verwendet.",
+    "discountLimitExceeded": "Die Gutschein-Code-Grenze überschritten.",
+    "discountNotApply": "Der Gutscheincode gilt nicht für diesen Kurs.",
+    "discountNotFound": "Der Gutscheincode existiert nicht.",
+    "discountNotStart": "Der Gutscheincode hat noch nicht begonnen.",
+    "orderDiscountAlreadyUsed": "Bereits verwendeter Rabatt bestellen"
+  }
+}

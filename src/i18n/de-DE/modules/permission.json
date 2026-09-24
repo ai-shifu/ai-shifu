@@ -1,0 +1,28 @@
+{
+  "__namespace__": "module.permission",
+  "errors": {
+    "authRequired": "Bitte melden Sie sich an und versuchen Sie es erneut",
+    "authRequiredTitle": "Authentifizierung erforderlich",
+    "forbidden": "Zugriff verboten",
+    "forbiddenTitle": "Verboten",
+    "generalError": "Ein Fehler ist aufgetreten, bitte versuchen Sie es später noch einmal",
+    "generalErrorTitle": "Fehler",
+    "noPermission": "Sie haben keine Berechtigung, auf diese Seite zuzugreifen. Bitte kontaktieren Sie den Administrator für den Zugriff.",
+    "noPermissionTitle": "Erlaubnis verweigert",
+    "notFound": "Die angeforderte Ressource wurde nicht gefunden",
+    "notFoundTitle": "Nicht gefunden",
+    "serverError": "Serverfehler, bitte versuchen Sie es später noch einmal",
+    "serverErrorTitle": "Serverfehler"
+  },
+  "permission": {
+    "requestDescription": "Bitte erläutern Sie kurz, warum Sie Zugang benötigen, und wir werden Ihre Anfrage so schnell wie möglich bearbeiten.",
+    "requestError": "Bitte versuchen Sie es später noch einmal.",
+    "requestPlaceholder": "Bitte geben Sie Ihren Grund ein (z.B. Arbeitsanforderungen, Lernzwecke, etc.)",
+    "requestSubmit": "Anfrage senden",
+    "requestSuccess": "Genehmigungsantrag erfolgreich eingereicht, wir werden es in Kürze bearbeiten",
+    "requestTitle": "Zugriffsberechtigung anfordern"
+  },
+  "user": {
+    "login": "Anmeldung"
+  }
+}

@@ -8,7 +8,8 @@ import pytest
     [
         ("es-ES", "es-ES"),
         ("es_MX", "es-ES"),
-        ("de_DE", "en-US"),
+        ("de_DE", "de-DE"),
+        ("de_AT", "de-DE"),
         ("zz", "en-US"),
         ("---", "en-US"),
         ("en_GB", "en-US"),

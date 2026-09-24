@@ -3,6 +3,7 @@ import { UserInfo } from './index';
 export type SupportedLocale =
   | 'zh-CN'
   | 'en-US'
+  | 'de-DE'
   | 'es-ES'
   | 'fr-FR'
   | 'ar-SA'

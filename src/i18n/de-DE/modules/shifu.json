@@ -1,0 +1,63 @@
+{
+  "__namespace__": "module.shifu",
+  "creationArea": {
+    "descriptionPrefix": "Schreiben Sie ein",
+    "descriptionSuffix": "Format, um die KI-Lehre zu leiten",
+    "modeCode": "Pro",
+    "modeText": "Leicht",
+    "title": "Lehranreize"
+  },
+  "history": {
+    "backToDocument": "Zurück zum Dokument",
+    "collapse": "Zusammenbruch",
+    "confirmDescription": "Nach Bestätigung wird der aktuelle Unterrichtsinhalt vollständig durch diese Version ersetzt.",
+    "confirmLoadFailed": "Dieser Versionsinhalt konnte nicht geladen werden. Bitte versuchen Sie es später noch einmal.",
+    "confirmTitle": "Wiederherstellen bestätigen",
+    "contentEmpty": "Diese Version hat keinen Inhalt",
+    "empty": "Noch keine Geschichte",
+    "expand": "Volltext erweitern",
+    "loading": "Laden...",
+    "restore": "Wiederherstellen dieser Version",
+    "restoreLessonDeleted": "Diese Lektion wurde von einem anderen Editor gelöscht und kann nicht wiederhergestellt werden. Bitte aktualisieren und versuchen Sie es erneut.",
+    "restoring": "Ich restauriere...",
+    "title": "Geschichte",
+    "unknownUser": "Unbekannter Benutzer"
+  },
+  "newChapter": "Kapitel hinzufügen",
+  "previewArea": {
+    "action": "Fehler",
+    "close": "Lernsimulation zum Zusammenbruch",
+    "copied": "Snippet kopiert",
+    "copy": "Kopieren von Schnipsel",
+    "copyTooltip": "Fügen Sie es in die Lehraufforderung auf der linken Seite, und das nächste Mal wird es mit diesem Schnipsel lehren",
+    "description": "Spüren Sie die Erfahrung des Lernenden und sehen Sie, wie Aufforderungen personalisieren Kurse",
+    "disabled": "Wählen Sie vor dem Debuggen eine Einheit aus.",
+    "empty": "Geben Sie Eingabeaufforderung auf der linken Seite, dann klicken Sie auf \"Debug\", um Lernsimulation erleben",
+    "loading": "Lernsimulation erzeugen...",
+    "open": "Lernsimulation erweitern",
+    "systemVariableLabels": {
+      "accessibleName": "{label} ({name})",
+      "background": "Hintergrund und Vorlieben der Schüler",
+      "input": "Letzte Eingabe",
+      "language": "Unterrichtssprache",
+      "nickname": "Schülername"
+    },
+    "title": "Simulation des Lernens",
+    "variablesCollapse": "Zusammenbruch",
+    "variablesDescription": "Verschiedene Lernende setzen verschiedene Variablen, um verschiedene Kurse zu erhalten",
+    "variablesEmpty": "Keine Variablen",
+    "variablesExpand": "Erweitern",
+    "variablesHideSingleConfirmDesc": "Verstecken Sie \"{name}\". Sie können es wiederherstellen, indem Sie auf \"Alle anzeigen\" klicken.",
+    "variablesHideSingleConfirmTitle": "Variable ausblenden",
+    "variablesHideUnused": "Nicht verwendete ausblenden",
+    "variablesHideUnusedConfirmDesc": "Verstecken Sie benutzerdefinierte Variablen, die nicht im Kurs verwendet werden. Nachdem Sie sich versteckt haben, können Sie auf diese Schaltfläche klicken, um sie erneut anzuzeigen.",
+    "variablesHideUnusedConfirmTitle": "Ungenutzte benutzerdefinierte Variablen ausblenden",
+    "variablesHideUnusedTooltip": "Nicht im Kurs verwendete benutzerdefinierte Variablen ausblenden",
+    "variablesPlaceholder": "UNVERSTÄNDLICH",
+    "variablesRestoreHidden": "Alle anzeigen",
+    "variablesRestoreHiddenConfirmDesc": "Alle Variablen im Kurs anzeigen. Nach der Anzeige können Sie auf diesen Knopf klicken, um unbenutzte benutzerdefinierte Variablen zu verstecken.",
+    "variablesRestoreHiddenConfirmTitle": "Alle Variablen anzeigen",
+    "variablesRestoreHiddenTooltip": "Alle Variablen im Kurs anzeigen",
+    "variablesTitle": "Variablen"
+  }
+}

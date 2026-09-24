@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.creatorAnalytics",
+  "__flat__": {
+    "invalidAggregate": "Die Abfrage benutzte eine nicht erlaubte Aggregatfunktion.",
+    "invalidColumn": "Die gewünschte Spalte befindet sich nicht in der Whitelist.",
+    "invalidDsl": "Die Abfragebeschreibung ist ungültig.",
+    "invalidLimit": "Limit oder Offset ist außer Reichweite.",
+    "invalidOperator": "Die Abfrage benutzte einen nicht erlaubten Operator.",
+    "invalidTable": "Die angeforderte Tabelle steht nicht in der Whitelist.",
+    "noPermission": "Sie haben keine Berechtigung, die Analyse dieses Kurses abzufragen.",
+    "queryTimeout": "Abfrage überschritten die Zeit Budget. Enger den Umfang und erneut versuchen."
+  }
+}

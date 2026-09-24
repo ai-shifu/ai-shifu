@@ -1,0 +1,597 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "Konfiguration speichern",
+    "applyTemplate": "Vorlage anwenden",
+    "changeTemplate": "Vorlage ändern",
+    "detail": "Einzelheiten",
+    "disable": "Deaktivieren",
+    "dryRun": "Schätzung senden",
+    "enable": "Aktivieren",
+    "more": "Mehr",
+    "refresh": "Aktualisieren",
+    "requeue": "Rückforderung",
+    "reset": "Zurücksetzen",
+    "search": "Suchen",
+    "syncTemplate": "Abfrage-Vorlage",
+    "syncingTemplate": "Abfragen"
+  },
+  "config": {
+    "deliveryRules": {
+      "active": "An",
+      "description": "Überprüfen Sie tägliche Kappen, ruhige Stunden, SMS-Nutzungssicherungen und Lehrer Low-Balance-Regeln an einem Ort.",
+      "descriptionEmail": "Überprüfen Sie E-Mail-Frequenzgrenzen, ruhige Stunden und Lehrer Low-Balance-Regeln an einem Ort.",
+      "dialogDescription": "Diese Regeln steuern das tägliche SMS-Volume, Pausen in der Ruhestunde und wie Lehrer geschützt werden, wenn Credits niedrig laufen. Sie gelten nach dem Speichern.",
+      "dialogDescriptionEmail": "Diese Regeln steuern E-Mail-Frequenzlimits, Ruhepausen und wie Lehrer geschützt werden, wenn Credits niedrig laufen. Sie gelten nach dem Speichern.",
+      "dialogTitle": "Liefergarantien",
+      "edit": "Lieferregeln bearbeiten",
+      "inactive": "Aus",
+      "no": "Nein",
+      "summaries": {
+        "budget": "Tagesobergrenze {limit}; Kosten je Einheit {cost}; Trockenlauf: {dryRun}.",
+        "frequency": "Kontakt: {perMobile}/Tag; Lehrer + Typ: {perCreatorType}/Tag.",
+        "frequencyEmail": "Empfänger: {perRecipient}/Tag; Lehrer + Typ: {perCreatorType}/Tag.",
+        "quietHoursOff": "Ruhezeiten sind aus; Benachrichtigungen folgen den Scanergebnissen.",
+        "quietHoursOn": "Anhalten der Lieferung von {start} nach {end} in {timezone}.",
+        "softlimit": "Unter {threshold} credits; alarm {teacherAlert}; debug lock {debugLock}; SMS {sms}.",
+        "softlimitEmail": "Unter {threshold} credits; alarm {teacherAlert}; debug lock {debugLock}."
+      },
+      "yes": "Ja"
+    },
+    "description": "Verwalten Sie Credit-Benachrichtigung Schalter, Vorlagen, Senden von Regeln, ruhige Stunden und Do-Not-Send-Listen an einem Ort.",
+    "emptyBlockedCreators": "Noch keine blockierten Lehrer.",
+    "emptyOptedOutCreators": "Noch keine Auserwählten.",
+    "fieldTips": {
+      "blockedCreatorList": "Zeigt Lehrer aktuell in der blockierten Liste an. Änderungen von der Eingabe werden nach dem Speichern der Konfiguration wirksam.",
+      "creatorIdentifierList": "Geben Sie die Handynummern oder IDs des Lehrers ein, die durch Kommas getrennt sind.",
+      "creatorIdentifierListEmail": "Geben Sie Lehrer-E-Mails oder IDs getrennt durch Kommas ein.",
+      "creatorIdentifierListPhone": "Geben Sie die Handynummern oder IDs des Lehrers ein, die durch Kommas getrennt sind.",
+      "creatorList": "Geben Sie Lehrer-IDs getrennt durch Kommata ein.",
+      "dailySmsLimit": "Nachdem diese tägliche Kappe erreicht ist, wird an diesem Tag keine neue SMS gesendet.",
+      "enabled": "Kontrolliert, ob Credit-SMS-Benachrichtigungen aktiviert sind. Gilt nur für zukünftige Benachrichtigungen.",
+      "enabledEmail": "Kontrolliert, ob Credit-E-Mail-Benachrichtigungen aktiviert sind. Gilt nur für zukünftige Benachrichtigungen.",
+      "estimatedDays": "Triggert balancearme Erinnerungen, wenn die geschätzten verbleibenden nutzbaren Tage diesen Wert erreichen.",
+      "fallbackFixedValue": "Wenn die Verbrauchsdaten unzureichend sind, fällt sie auf eine feste Schwelle zurück.",
+      "lookbackDays": "Zahl der letzten Tage, die zur Berechnung des durchschnittlichen täglichen Verbrauchs verwendet wurden.",
+      "minConsumedDays": "Wenn gültige Verbrauchstage unter diesem Wert liegen, werden die geschätzten Tagesregeln nicht verwendet.",
+      "mobileList": "Geben Sie durch Kommata getrennte Handynummern ein.",
+      "optedOutCreators": "Opt-Out-Listen werden durch den Abmeldefluss generiert und sind schreibgeschützt.",
+      "perCreatorPerTypePerDay": "Maximale Nachrichten, die für denselben Lehrer und Benachrichtigungstyp pro Tag generiert werden.",
+      "perMobilePerDay": "Maximale Credit-SMS-Nachrichten an das gleiche Handy pro Tag gesendet.",
+      "perRecipientPerDay": "Maximale Credit-E-Mails an den gleichen Empfänger pro Tag gesendet.",
+      "quietEnd": "Ruhige Stunden Endzeit, zum Beispiel 08:00.",
+      "quietStart": "Ruhige Startzeiten, zum Beispiel 22:00 Uhr.",
+      "smsUnitCost": "Wird verwendet, um SMS-Kosten zu schätzen. Tatsächliche Abrechnung wird vom SMS-Anbieter bestimmt.",
+      "softlimitThreshold": "Balance unterhalb dieses Wertes löst Seitenwarnungen, SMS-Erinnerungen oder Debug-Blockierung aus.",
+      "templateCode": "Wählen Sie die SMS-Vorlage, die von diesem Benachrichtigungstyp verwendet wird. Wenden Sie die Vorlage nach Änderungen an, um die Validierung abzuschließen.",
+      "templateSelect": "Wählen Sie die SMS-Vorlage, die von diesem Benachrichtigungstyp verwendet wird. Wenden Sie die Vorlage nach Änderungen an, um die Validierung abzuschließen.",
+      "thresholds": "Zum Beispiel 100,50,10; Erinnerungen auslösen, wenn das Gleichgewicht unter eine konfigurierte Schwelle fällt.",
+      "timezone": "Zeitzone verwendet von ruhigen Stunden, zum Beispiel Asien/Shanghai.",
+      "windows": "Zum Beispiel bedeutet 7d,3d,1d,0d 7 Tage vor, 3 Tage vor, 1 Tag vor und am Ablauftag."
+    },
+    "fields": {
+      "blacklistCreatorBids": "Benutzer-gesperrte Lehrer-IDs",
+      "blacklistMobiles": "Betreiber-gesperrte Mobiltelefone",
+      "blockedCreatorList": "Blockierte Lehrer",
+      "blockedCreators": "Blockierte Lehrer",
+      "dailySmsLimit": "Tägliche Sendekappe",
+      "disableDebug": "Debug blockieren, wenn das Gleichgewicht niedrig ist",
+      "dryRunRequired": "Kostenvoranschlag vor Versendung erforderlich",
+      "enabled": "Credits--SMS-Benachrichtigungen aktivieren",
+      "enabledEmail": "Credits--E-Mail-Benachrichtigungen aktivieren",
+      "estimatedDays": "Übrige nutzbare Tage",
+      "estimatedDaysEnabled": "Erinnern nach nutzbaren Tagen",
+      "fallbackFixedValue": "Schwellenwert für die Rückstellungsbilanz",
+      "lookbackDays": "Rückschlagstage des Verbrauchs",
+      "mergeSameCreator": "Dieselbe Lehrerin zusammenführen",
+      "minConsumedDays": "Mindestgültige Verbrauchstage",
+      "optOutCreatorBids": "Ausgestellte Lehrerausweise",
+      "optOutMobiles": "Opted-out-Mobile",
+      "optedOutCreators": "Ausgeschlossene Lehrer",
+      "perCreatorPerTypePerDay": "Tagesmütze je Lehrer/Typ",
+      "perMobilePerDay": "Tagesmütze pro Handy",
+      "perRecipientPerDay": "Tagesobergrenze je Empfänger",
+      "quietEnd": "Ruhige Stunden enden",
+      "quietHoursEnabled": "Stille Stunden aktivieren",
+      "quietStart": "Ruhezeiten beginnen",
+      "smsUnitCost": "Kosten für SMS-Einheiten",
+      "softlimitEnabled": "Balance-Schutz aktivieren",
+      "softlimitSms": "Balanceschutz SMS senden",
+      "softlimitThreshold": "Schwellenwert für die Schutzbilanz",
+      "teacherPageAlert": "Warnung auf der Admin-Seite",
+      "templateCode": "SMS-Vorlage",
+      "templateSelect": "SMS-Vorlage auswählen",
+      "thresholds": "Schwellenwerte für die Erinnerungsbilanz",
+      "timezone": "Zeitzone",
+      "windows": "Erinnerungsfenster auslöschen"
+    },
+    "inputPlaceholders": {
+      "blockedCreatorsEmail": "Lehrer-E-Mails oder IDs, getrennt durch Kommas",
+      "blockedCreatorsPhone": "Lehrmobile oder IDs, getrennt durch Kommas"
+    },
+    "invalidConfig": "Config konnte nicht gespeichert werden. Überprüfen Sie die Formularwerte.",
+    "listDialog": {
+      "add": "Hinzufügen",
+      "addedBlockedCreators": "{count} Lehrkräfte hinzugefügt.",
+      "blockedCreatorLimit": "Fügen Sie höchstens {count} Lehrkräfte auf einmal hinzu.",
+      "blockedDescription": "Suchen, Anzeigen und Entfernen von blockierten Lehrern. Änderungen werden nach dem Speichern der Konfiguration wirksam.",
+      "blockedSummary": "{count} blockierte Lehrer",
+      "comingSoon": "Ich komme gleich.",
+      "delete": "Löschen",
+      "duplicateBlockedCreators": "Die Eingabe befindet sich bereits in der blockierten Liste.",
+      "emptyPreview": "Noch keine Angaben",
+      "emptyResult": "Keine passenden Ergebnisse.",
+      "invalidBlockedCreators": "Unerkannter Inhalt: {values}",
+      "manage": "Verwaltung",
+      "manageLists": "Listen verwalten",
+      "manageListsDescription": "Fügen Sie Lehrer in die manuelle Do-Not-Send-Liste oder Überprüfung Lehrer, die sich entschieden.",
+      "optedOutDescription": "Opted-out Lehrer sind nur Lese-only. Suche nach Kontakt oder Spitzname.",
+      "optedOutSummary": "{count} Ausgewählte Lehrer",
+      "searchPlaceholderEmail": "E-Mail / Nickname",
+      "searchPlaceholderPhone": "Mobil / Nickname",
+      "view": "Ansicht"
+    },
+    "loadFailed": "Die Benachrichtigungsrichtlinie konnte nicht geladen werden. Aktualisieren und erneut versuchen.",
+    "loadRequired": "Die Benachrichtigungsrichtlinie wurde nicht erfolgreich geladen, so dass die Konfiguration nicht gespeichert werden kann.",
+    "masterSwitchDescription": "Wenn deaktiviert, werden keine neuen Credit-SMS-Benachrichtigungen generiert. Historische Aufzeichnungen sind nicht betroffen.",
+    "masterSwitchDescriptionEmail": "Wenn deaktiviert, werden keine neuen Credit-E-Mail-Benachrichtigungen generiert. Historische Aufzeichnungen sind nicht betroffen.",
+    "placeholders": {
+      "available": "Verfügbare Platzhalter",
+      "available_credits": "Verfügbare Gutschriften",
+      "avg_daily_consumption": "Durchschnittlicher täglicher Verbrauch",
+      "collapse": "Zusammenbruch",
+      "credits": "Creditbetrag",
+      "estimated_remaining_days": "Geschätzte verbleibende Tage",
+      "expand": "Erweitern",
+      "expires_at": "Befristung",
+      "groups": {
+        "creditExpiring": "Erinnerungsvariablen für die Zeitleiste",
+        "creditGranted": "Erinnerungsvariablen gewähren",
+        "lowBalanceEstimated": "Rest-Tage-Variablen",
+        "lowBalanceFixed": "Festgewichts-/Fallback-Variablen"
+      },
+      "guideHint": "Beim Ändern von Vorlagen überprüfen",
+      "guideTitle": {
+        "credit_expiring": "Variabler Leitfaden für den Creditablauf",
+        "credit_granted": "Gutgeschriebene Variable Anleitung",
+        "low_balance": "Variabler Leitfaden für die Credits-bilanz"
+      },
+      "lookback_days": "Rückschlagstage des Verbrauchs",
+      "notes": {
+        "emptyVariables": "Innerhalb eines Benachrichtigungstyps werden Variablen, die vom eigentlichen Triggerpfad nicht verwendet werden, als leere Strings gesendet.",
+        "estimatedLowBalance": "Für die übrigen Tage werden die Tage ab dem durchschnittlichen täglichen Verbrauch geschätzt; feste Schwellenwertvariablen sind leer.",
+        "expiresAtOptional": "Wenn die gewährten Gutschriften keine Ablaufzeit haben, ist die Ablaufvariable leer.",
+        "fallbackLowBalance": "Wenn die Verbrauchshistorie unzureichend ist und ein Fallback-Schwellenwert konfiguriert ist, wird der Fixed-Balance-Pfad verwendet; feste Variablen werden bevölkert und geschätzte Variablen sind leer.",
+        "fixedLowBalance": "Festbalancierungswarnungen bevölkern nur Balance-, Schwellen- und Schwellentypenvariablen.",
+        "unsupportedValidation": "Vorlagen, die Variablen verwenden, die vom System nicht unterstützt werden, werden während der Template-Synchronisierung oder des enabled-config-Speichers blockiert.",
+        "windowSource": "Die Erinnerungsfenstervariable kommt von der Ablauffensterkonfiguration, wie 7d, 3d, 1d oder 0d."
+      },
+      "source": "Zuschußquelle",
+      "threshold": "Festbetragsschwelle",
+      "threshold_kind": "Schwellentyp",
+      "tolerance": "SMS-Vorlagen können nur einige Platzhalter verwenden; fehlende unbenutzte Variablen blockieren das Speichern oder Senden nicht.",
+      "trigger_days": "Auslösung verbleibender Tage",
+      "window": "Erinnerungsfenster"
+    },
+    "saveStickyHint": "Speichern Sie Konfigurationsänderungen, damit sie für zukünftige Benachrichtigungen gelten.",
+    "saved": "Config gerettet.",
+    "sectionDescriptions": {
+      "budget": "Kontrolliert die tägliche SMS-Sendungs-Cap und schätzt die erwarteten Kosten.",
+      "frequency": "Begrenzt, wie viele SMS-Nachrichten der gleiche Handy oder Lehrer an einem Tag empfangen kann.",
+      "frequencyEmail": "Begrenzt, wie viele E-Mails der gleiche Empfänger oder Lehrer an einem Tag erhalten kann.",
+      "lists": "Lehrer in diesen Listen erhalten keine Credit-SMS-Nachrichten mehr. Opted-out-Lehrer werden durch den Abmeldefluss generiert und sind schreibgeschützt.",
+      "quietHours": "Während der ruhigen Stunden werden SMS-Nachrichten entsprechend der Richtlinie verzögert oder übersprungen.",
+      "softlimit": "Wenn das Gleichgewicht unter der Schutzlinie ist, erinnern Lehrer und begrenzen weitere Debug-Nutzung, um weitere Ausgaben zu verhindern."
+    },
+    "sections": {
+      "budget": "SMS-Nutzungsgrenze",
+      "deliveryPolicy": "Regeln versenden",
+      "frequency": "Tägliche Sendelimits",
+      "lists": "Nicht-Senden-Listen",
+      "masterSwitch": "Hauptschalter",
+      "quietHours": "Ruhige Stunden",
+      "softlimit": "Lehrer, der eine schwach ausgeglichene Garde hat",
+      "types": "Benachrichtigungsarten"
+    },
+    "templateList": {
+      "editPlaceholder": "Wählen oder geben Sie eine Vorlage für diesen Typ ein",
+      "error": "Die Liste der Provider-Vorlagen konnte nicht geladen werden. Es wurden nur lokal abgefragte Vorlagen oder manuelle Eingaben angezeigt.",
+      "fallbackManual": "SMS-Provider-Vorlagen können nicht geladen werden. Geben Sie manuell einen Template-Code ein.",
+      "fallbackWithCache": "SMS-Provider-Vorlagen konnten nicht geladen werden. Zeigt lokale Cache-Vorlagen an.",
+      "itemSource": {
+        "local": "Lokale zwischengespeicherte Vorlage",
+        "provider": "Vorlage des Anbieters"
+      },
+      "placeholder": "Wählen Sie eine Vorlage oder geben Sie einen Vorlagencode ein",
+      "source": {
+        "empty": "Noch keine wählbaren Vorlagen. Geben Sie einen Vorlagencode manuell ein.",
+        "local": "Die Vorlagenliste wird aus dem lokalen Cache geladen.",
+        "provider": "Die Vorlagenliste wird vom SMS-Anbieter geladen."
+      }
+    },
+    "templateSync": {
+      "compatible": "Vorlagenvariablen werden unterstützt",
+      "content": "Inhalt der Vorlage",
+      "error": "Synchronisationsfehler",
+      "incompatible": "Vorlage hat nicht unterstützte Variablen",
+      "status": "Prüfungsstatus",
+      "syncFailed": "Vorlagenabfrage fehlgeschlagen. Versuchen Sie es später noch einmal.",
+      "templateCodeRequired": "Geben Sie zuerst den SMS-Vorlagecode ein.",
+      "unsupported": "Nicht unterstützte Vorlagenvariablen",
+      "unused": "Ungenutzte Systemvariablen",
+      "variables": "Vorlagenvariablen"
+    },
+    "title": "Benachrichtigung Config",
+    "typeDescriptions": {
+      "credit_expiring": "Erinnert die Lehrer daran, Credits zu verwenden, bevor sie ablaufen.",
+      "credit_granted": "Erinnert die Lehrer daran, das Ergebnis nach dem Hinzufügen von Credits zu überprüfen.",
+      "low_balance": "Erinnert Lehrer, wenn das Guthaben unter einer Schwelle liegt oder geschätzte nutzbare Tage niedrig sind."
+    },
+    "typeEditor": {
+      "descriptions": {
+        "basic": "Kontrollieren Sie, ob dieser Benachrichtigungstyp an der zukünftigen Auslieferung teilnimmt.",
+        "template": "Wählen oder validieren Sie die SMS-Vorlage. Variable Anleitung bleibt zusammengebrochen, bis eine Fehlerbehebung der Vorlage erforderlich ist."
+      },
+      "done": "Fertig mit der Bearbeitung",
+      "draftHint": "Änderungen bleiben in dieser Seite Entwurf zuerst. Klicken Sie auf die untere Schaltfläche Config speichern, um sie aktiv zu machen.",
+      "ruleDescriptions": {
+        "credit_expiring": "Konfigurieren Sie, wann Lehrer erinnert werden, bevor Credits ablaufen, und ob mehrere ablaufende Credit-Kontingente pro Lehrer kombiniert werden.",
+        "credit_granted": "Diese Benachrichtigung wird ausgelöst, nachdem Credits gewährt werden und benötigt keine zusätzlichen Trigger-Einstellungen.",
+        "low_balance": "Konfigurieren Sie feste Gleichgewichtsschwellen oder erinnern Sie die Lehrer durch geschätzte verbleibende Nutzungstage."
+      },
+      "sections": {
+        "basic": "Grundeinstellungen",
+        "rules": "Auslösungsregeln",
+        "template": "SMS-Vorlage"
+      }
+    },
+    "typeTable": {
+      "actions": "Maßnahmen",
+      "channel": "Kanal",
+      "edit": "Bearbeiten",
+      "editDescription": "Bearbeiten Sie die Vorlagen- und Triggerregeln für diesen Benachrichtigungstyp. Änderungen beeinflussen zukünftige Benachrichtigungen erst nach dem Speichern.",
+      "emailChannelComingSoon": "E-Mail · In Kürze",
+      "enabled": "Aktiviert",
+      "notificationType": "Art der Meldung",
+      "rule": "Auslösungsregel",
+      "rules": {
+        "creditExpiring": "Erinnerungsfenster: {windows}",
+        "creditGranted": "Ausgelöst nach der Gewährung von Credits",
+        "lowBalanceEstimated": "Saldenschwellen: {thresholds}; daran erinnern, wenn Credits innerhalb von {days} Tagen auslaufen können",
+        "lowBalanceFixed": "Saldenschwellen: {thresholds}"
+      },
+      "smsChannelAvailable": "SMS",
+      "statusCompatible": "Variablen kompatibel",
+      "statusIncompatible": "Inkompatible Variablen",
+      "statusUnknown": "Nicht geprüft",
+      "template": "Vorlage",
+      "templateNotSet": "Nicht konfiguriert",
+      "templateStatus": "Status der Vorlage"
+    },
+    "unsavedDialog": {
+      "cancel": "Bearbeiten fortsetzen",
+      "description": "Wenn Sie diese Seite verlassen, werden Ihre Änderungen verworfen und die zuletzt gespeicherte Konfiguration wiederhergestellt.",
+      "discard": "Ohne zu sparen gehen",
+      "save": "Speichern und verlassen",
+      "title": "Nicht gespeicherte Änderungen"
+    }
+  },
+  "deliveryStatus": {
+    "failed": "Ausgefallenes Senden",
+    "not_sent": "Nicht gesendet",
+    "pending": "In Vorbereitung",
+    "sent": "Gesendet"
+  },
+  "detail": {
+    "description": "Anzeige des Lieferpfads, des Zeitpunkts und der Antwort des Anbieters für diesen Benachrichtigungseintrag.",
+    "fallback": "Kein Datensatz ausgewählt",
+    "fields": {
+      "attemptedAt": "Letzter Versuch",
+      "createdAt": "Erstellt am",
+      "dedupeKey": "Dedupe-Marker",
+      "errorCode": "Fehlercode",
+      "errorMessage": "Grund für das Versagen",
+      "metadata": "Metadaten",
+      "notificationBid": "Benachrichtigungsprotokoll-ID",
+      "policySnapshot": "Überblick über die Politik",
+      "providerResponse": "Antwort des Anbieters",
+      "requestedAt": "Beantragt bei",
+      "sentAt": "Gesendet am",
+      "skipReason": "Nicht eingesandter Grund",
+      "sourceBid": "Objekt-ID auslösen",
+      "sourceObject": "Objekt auslösen",
+      "template": "SMS-Vorlage",
+      "templateCode": "Vordruckcode",
+      "templateName": "Name der Vorlage",
+      "templateParams": "Vorlagen-Params",
+      "updatedAt": "Aktualisiert am"
+    },
+    "params": {
+      "available_credits": "Verfügbare Gutschriften",
+      "avg_daily_consumption": "Durchschnittlicher täglicher Verbrauch",
+      "credits": "Credits",
+      "estimated_remaining_days": "Geschätzte verbleibende Tage",
+      "expires_at": "Befristung",
+      "lookback_days": "Rückschlagstage des Verbrauchs",
+      "source": "Zuschußquelle",
+      "threshold": "Warnschwelle",
+      "threshold_kind": "Schwellentyp",
+      "trigger_days": "Auslösung verbleibender Tage",
+      "window": "Erinnerungsfenster"
+    },
+    "sections": {
+      "business": "Verwandte Daten",
+      "delivery": "Lieferfrist",
+      "diagnostics": "Diagnose",
+      "message": "SMS-Inhalt",
+      "provider": "Anbieter",
+      "snapshots": "Schnappschüsse",
+      "summary": "Zusammenfassung",
+      "time": "Zeit",
+      "trigger": "Auslösung von Informationen"
+    },
+    "sourceObject": {
+      "ledger": "Creditbuch",
+      "wallet": "Bilanz",
+      "wallet_bucket": "Creditcharge"
+    },
+    "summary": {
+      "creator": "Lehrer",
+      "notification": "Art der Meldung",
+      "status": "Lieferstatus"
+    },
+    "title": "Einzelheiten der Anmeldung"
+  },
+  "dryRun": {
+    "candidateCount": "Geschätzt {count} Treffer",
+    "description": "Schätzen Sie, wie viele Benachrichtigungen mit der aktuellen Konfiguration übereinstimmen. Es wird keine SMS gesendet.",
+    "descriptionEmail": "Schätzen Sie, wie viele Benachrichtigungen mit der aktuellen Konfiguration übereinstimmen. Es wird keine E-Mail gesendet.",
+    "empty": "Noch kein Schätzergebnis.",
+    "metrics": {
+      "candidate": "Geschätzte Übereinstimmungen",
+      "cost": "Geschätzte Kosten",
+      "created": "Geschätzt erstellt"
+    },
+    "rawResult": "Rohes Ergebnis",
+    "title": "Schätzung senden"
+  },
+  "empty": "Keine Credit-Nachweise.",
+  "errorReason": {
+    "blacklisted": "Der Lehrer ist in der Liste, die nicht gesendet wird.",
+    "budget_daily_sms_limit": "Tägliches SMS-Budget wurde erreicht.",
+    "expiry_extended": "Der Ablauf von Credits wurde vor der Lieferung verlängert.",
+    "frequency_creator_type_daily": "Die tägliche Grenze für diesen Lehrer und den Benachrichtigungstyp wurde erreicht.",
+    "frequency_mobile_daily": "Die Tagesgrenze für dieses Handy wurde erreicht.",
+    "invalid_mobile": "Lehrer mobile ist ungültig, nicht gesendet.",
+    "missing_mobile": "Lehrer Handy ist leer, nicht gesendet.",
+    "missing_template_code": "Die SMS-Vorlage ist nicht konfiguriert.",
+    "missing_template_params": "Die Parameter der SMS-Vorlage sind unvollständig.",
+    "opt_out": "Der Lehrer hat sich entschieden, nicht geschickt.",
+    "policy_disabled": "Die Benachrichtigungsrichtlinie ist deaktiviert, nicht gesendet.",
+    "provider_exception": "SMS-Anbieter Anruf fehlgeschlagen.",
+    "provider_failed": "Der SMS-Anbieter gab keine akzeptierte Antwort zurück.",
+    "quiet_hours": "Ruhezeiten sind aktiv, nicht gesendet.",
+    "unsupported_channel": "Dieser Benachrichtigungskanal ist nicht aktiviert, nicht gesendet.",
+    "zero_balance_missing_estimated_remaining_days": "Die Null-Balance-Erinnerung fehlt an geschätzten verbleibenden Tagen, nicht gesendet."
+  },
+  "filters": {
+    "all": "Insgesamt",
+    "createdTime": "Zeit erzeugt",
+    "creator": "Lehrer",
+    "creatorBid": "Ausweis des Lehrers",
+    "creatorPlaceholder": "Mobil / Nickname",
+    "creatorPlaceholderEmail": "E-Mail / Nickname",
+    "creatorPlaceholderPhone": "Mobil / Nickname",
+    "mobile": "Mobil",
+    "notificationType": "Art der Meldung",
+    "skipReason": "Nicht eingesandter Grund",
+    "sourceBid": "Auslösung der Geschäftskennung",
+    "sourceType": "Auslösungsszenario",
+    "status": "Lieferstatus",
+    "time": "Zeit",
+    "timeRangePlaceholder": "Startzeit ~ Endzeit"
+  },
+  "loadError": "Credit-Benachrichtigungsdaten konnten nicht geladen werden. Aktualisieren und versuchen Sie es erneut.",
+  "messages": {
+    "requeueDone": "Aufgabe übertragen.",
+    "requeueFailed": "Aufgabe wiederholen fehlgeschlagen."
+  },
+  "overview": {
+    "activeFilter": "Aktivfilter",
+    "failed": "Ausfälle senden",
+    "failedTooltip": "Benachrichtigungen, die beim SMS-Anbieter fehlgeschlagen sind und aus der Detailliste zurückbehalten werden können.",
+    "pending": "In Vorbereitung",
+    "pendingTooltip": "Benachrichtigungen erstellt und warten auf gesendet oder verarbeitet werden.",
+    "sent": "Gesendet",
+    "sentTooltip": "Benachrichtigungen erfolgreich an den SMS-Anbieter übermittelt und als gesendet markiert.",
+    "skipped": "Nicht gesendet",
+    "skippedTooltip": "Benachrichtigungen, die aufgrund von Kontaktproblemen, Richtlinienlimits, Duplikaten oder veränderten Auslösebedingungen nicht gesendet werden.",
+    "total": "Alle Benachrichtigungsprotokolle",
+    "totalTooltip": "Alle vom System generierten Gutschrift-SMS-Benachrichtigungsaufzeichnungen."
+  },
+  "records": {
+    "totalCount": "{count} Benachrichtigungsaufzeichnungen"
+  },
+  "ruleManagement": {
+    "cancel": "Abbrechen",
+    "columns": {
+      "actions": "Maßnahmen",
+      "conditions": "Bedingungen",
+      "emailTemplate": "E-Mail-Vorlage",
+      "enabled": "Status",
+      "name": "Name der Regel",
+      "template": "SMS-Vorlage",
+      "trigger": "Ereignis auslösen"
+    },
+    "delete": "Löschen",
+    "deleteDescription": "Diese Änderung tritt nach dem Speichern der Benachrichtigungskonfiguration in Kraft. Weiter?",
+    "deleteTitle": "Benachrichtigungsregel löschen",
+    "description": "Konfigurieren Sie unabhängig aktivierte Benachrichtigungsregeln durch Trigger-Ereignis, SMS-Vorlage und Bedingungen.",
+    "descriptionEmail": "Konfigurieren Sie unabhängig aktivierte Benachrichtigungsregeln durch Trigger-Ereignis, E-Mail-Vorlage und Bedingungen.",
+    "dialogDescription": "Nach dem Speichern der Konfiguration gilt diese Regel für die zukünftige Benachrichtigungslieferung.",
+    "edit": "Bearbeiten",
+    "editRule": "Benachrichtigungsregel bearbeiten",
+    "empty": "Noch keine Benachrichtigungsregeln konfiguriert.",
+    "fields": {
+      "emailTemplate": "E-Mail-Vorlage",
+      "enabled": "Regel aktivieren",
+      "englishFallbackTemplate": "Englische Fallback-Vorlage",
+      "localizedTemplates": "Optionale lokalisierte Vorlagen",
+      "name": "Name der Regel",
+      "template": "SMS-Vorlage",
+      "thresholds": "Schwellenwerte für den niedrigen Saldo",
+      "trigger": "Ereignis auslösen",
+      "windows": "Erinnerungsfenster auslöschen"
+    },
+    "legacySmsMigrationHint": "Legacy SMS Regeln wurden erkannt. Bind E-Mail Vorlagen und aktivieren Sie die migrierten Regeln, wenn bereit.",
+    "migrateLegacySmsRules": "Zu E-Mail-Regeln migrieren",
+    "migrateLegacySmsRulesDescription": "Dies ersetzt die drei alten SMS-Regeln, hält ihre Trigger-Bedingungen, löscht SMS-Vorlagen und erstellt drei deaktivierte E-Mail-Regeln. Die Migration wird erst wirksam, nachdem Sie die Konfiguration am unteren Rand dieser Seite gespeichert haben.",
+    "migrateLegacySmsRulesTitle": "Legacy-SMS-Regeln migrieren",
+    "newRule": "Neue Regel",
+    "noConditions": "Keine zusätzlichen Bedingungen",
+    "noLocalizedTemplate": "Englischen Fallback verwenden",
+    "saveRule": "Regel speichern",
+    "selectEmailTemplate": "E-Mail-Vorlage auswählen",
+    "selectEnglishFallbackTemplate": "Wählen Sie die gewünschte englische Vorlage",
+    "selectTemplate": "SMS-Vorlage auswählen",
+    "title": "Mitteilungsregeln"
+  },
+  "skipReason": {
+    "channel": "Benachrichtigungskanal nicht verfügbar",
+    "contact": "Kontaktfrage",
+    "duplicate": "Doppelte Anmeldung",
+    "policy": "Politische Begrenzung",
+    "stale": "Trigger-Bedingung geändert",
+    "template_params": "Unvollständige Vorlagenparams"
+  },
+  "sourceType": {
+    "ledger": "Erinnerung an die Gutschriftzuweisung",
+    "wallet": "Erinnerung an den Creditsaldo",
+    "wallet_bucket": "Erinnerung an das Auslaufen der Gutschrift"
+  },
+  "status": {
+    "failed_provider": "Ausgefallenes Senden",
+    "pending": "In Vorbereitung",
+    "sent": "Gesendet",
+    "skipped": "Nicht gesendet",
+    "skipped_no_mobile": "Kontaktfrage",
+    "skipped_opt_out": "Politische Begrenzung",
+    "suppressed_duplicate": "Doppelte Anmeldung"
+  },
+  "subtitle": "Inspizieren Sie Creditzuschuss, Ablauf und Low-Balance-Benachrichtigung Lieferung, und konfigurieren Sie die Benachrichtigungspolitik.",
+  "table": {
+    "action": "Mehr",
+    "createdAt": "Erstellt am",
+    "creator": "Lehrer",
+    "dedupeKey": "Dedupe Schlüssel",
+    "error": "Angaben zur Begründung / zum Fehler",
+    "mobile": "Mobil",
+    "notification": "Art der Meldung",
+    "source": "Auslösungsszenario",
+    "status": "Lieferstatus",
+    "template": "Vorlage",
+    "templateParams": "Momentaufnahme des Parameters"
+  },
+  "tabs": {
+    "config": "Benachrichtigung Config",
+    "records": "Meldungsprotokolle",
+    "templates": "Verwaltung der Vorlagen"
+  },
+  "templateManagement": {
+    "allEmailStatuses": "Alle Vorlagenstatus",
+    "allStatuses": "Alle Bewertungsstatus",
+    "bindingsLoading": "Belastungsbindungen",
+    "bindingsUnavailable": "Verbindliche Informationen nicht verfügbar",
+    "columns": {
+      "action": "Maßnahmen",
+      "bindings": "Verwendet von",
+      "content": "Inhalt",
+      "name": "Vorlage",
+      "status": "Überprüfungsstatus",
+      "type": "Vorlagetyp"
+    },
+    "create": "Vorlage erstellen",
+    "detail": {
+      "code": "Vordruckcode",
+      "content": "Vollständiger Inhalt",
+      "error": "Synchronisationsfehler",
+      "status": "Überprüfungsstatus",
+      "syncedAt": "Zuletzt synchronisiert",
+      "type": "Vorlagetyp",
+      "variables": "Variablen"
+    },
+    "detailDescription": "Anbieter-Details und aktuelle Geschäftsnutzung für diese Vorlage.",
+    "emailDescription": "Verwalten Sie die SMTP-E-Mail-Vorlagen, die für ausländische Benachrichtigungsregeln verfügbar sind.",
+    "emailFields": {
+      "htmlBody": "E-Mail-Stelle",
+      "htmlBodyPlaceholder": "Geben Sie die englische E-Mail-Körper (HTML unterstützt)",
+      "locale": "Sprache",
+      "name": "Name der Vorlage",
+      "notificationTypes": "Anwendbare Benachrichtigungsarten",
+      "notificationTypesHint": "Verbinden Sie nur die ausgewählten Ereignisse. Einmal aktiviert, ist diese Vorlage nur in Regeln für diese Ereignisse verfügbar.",
+      "status": "Status der Vorlage",
+      "subject": "Betreff E-Mail",
+      "subjectPlaceholder": "Geben Sie ein englisches E-Mail-Betreff ein"
+    },
+    "emailLoadError": "SMTP-Relay-Konfiguration ist unvollständig. E-Mail-Vorlagen können noch verwaltet werden, aber die Lieferung ist nicht verfügbar.",
+    "emailLocales": {
+      "arSA": "Arabisch",
+      "enUS": "Englisch (Vereinigte Staaten)",
+      "frFR": "Französisch",
+      "thTH": "Thailändisch",
+      "zhCN": "Chinesisch (vereinfacht)"
+    },
+    "emailSaveError": "Die E-Mail-Vorlage konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+    "emailStatus": {
+      "active": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "draft": "Entwurf"
+    },
+    "emailStatusFilter": "Status der Vorlage",
+    "emailTitle": "E-Mail-Vorlagen",
+    "emailVariables": {
+      "availableCredits": "Verfügbare Gutschriften",
+      "collapse": "Einklappen-Variablen",
+      "credits": "Zugewährte Credits",
+      "estimatedRemainingDays": "Geschätzte verbleibende Tage",
+      "expand": "Variablen erweitern",
+      "expiresAt": "Gültigkeitsdauer der Credits",
+      "product": "Name des Plans",
+      "window": "Erinnerungsfenster auslöschen"
+    },
+    "empty": "Keine Vorlagen entsprechen den aktuellen Filtern.",
+    "loadError": "Die Alibaba Cloud-Vorlagenliste konnte nicht geladen werden. Lokale Cache-Vorlagen werden angezeigt, wenn verfügbar.",
+    "loading": "Vorlagen werden geladen...",
+    "refresh": "Synchronisieren von Alibaba Cloud-SMS-Vorlagen",
+    "reload": "Vorlagen neu laden",
+    "searchPlaceholder": "Suche Vorlage Name, Code oder Inhalt",
+    "smsDescription": "Alle SMS-Vorlagen aus Alibaba Cloud synchronisiert, einschließlich Vorlagen, die noch nicht an eine Credits-meldung gebunden sind.",
+    "smsTitle": "Alibaba Cloud-SMS-Vorlagen",
+    "status": {
+      "AUDIT_SATE_CANCEL": "Gestorben",
+      "AUDIT_STATE_CANCEL": "Gestorben",
+      "AUDIT_STATE_INIT": "Überprüfung",
+      "AUDIT_STATE_NOT_PASS": "abgelehnt",
+      "AUDIT_STATE_PASS": "Genehmigt"
+    },
+    "statusFilter": "Überprüfungsstatus",
+    "type": {
+      "0": "Benachrichtigungs-SMS",
+      "1": "Werbe-SMS",
+      "2": "Prüfcode",
+      "6": "Internationale SMS"
+    },
+    "unbound": "Nicht in Gebrauch"
+  },
+  "templateName": {
+    "credit_expiring": "Meldebogen für die Credits-auslauf-Erinnerung",
+    "credit_granted": "Gutgeschriebene Erinnerungsvorlage",
+    "low_balance": "Meldebogen zur Erinnerung an die Credits-beurteilung"
+  },
+  "title": "Credit-Benachrichtigungen",
+  "type": {
+    "credit_expiring": "Ablauf von Credits",
+    "credit_granted": "Gutschrift von Credits",
+    "low_balance": "Geringer Saldo"
+  }
+}

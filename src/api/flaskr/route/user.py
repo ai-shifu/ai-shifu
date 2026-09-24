@@ -93,6 +93,7 @@ _AUTH_SENSITIVE_BODY_MAX_BYTES = 32 * 1024
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = (
     "zh-CN",
     "en-US",
+    "de-DE",
     "es-ES",
     "fr-FR",
     "ar-SA",

@@ -24,6 +24,10 @@
     "zh-CN": {
       "label": "中文",
       "rtl": false
+    },
+    "de-DE": {
+      "label": "Deutsch",
+      "rtl": false
     }
   },
   "namespaces": [

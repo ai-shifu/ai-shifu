@@ -1,0 +1,18 @@
+{
+  "__namespace__": "module.profiles",
+  "add": "Hinzufügen",
+  "addNewVariable": "Neue Variable hinzufügen",
+  "cancel": "Abbrechen",
+  "confirm": "Bestätigen",
+  "confirmDelete": "Löschen bestätigen",
+  "confirmDeleteDescription": "Diese Operation wird dazu führen, dass der aktuelle Inhalt verloren geht. Sind Sie sicher?",
+  "createNewCustomVariable": "Erstellen Sie eine neue benutzerdefinierte Variable.",
+  "customVariable": "Benutzerdefinierte Variable",
+  "defaultValue": "Standardwert",
+  "editVariable": "Variable bearbeiten",
+  "modifyExistingVariable": "Bestehende Variableneigenschaften ändern.",
+  "noVariableFound": "Keine Variable gefunden",
+  "save": "Speichern",
+  "systemVariable": "Systemvariable",
+  "variableName": "Variablenname"
+}

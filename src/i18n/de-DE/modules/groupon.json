@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.groupon",
+  "inputMessage": "Bitte geben Sie den Rückzahlungscode ein",
+  "modify": "Code ändern >",
+  "placeholder": "Bitte geben Sie den Rückzahlungscode ein",
+  "title": "Einlösungscode",
+  "useOtherPayment": "Sonstige Zahlungsmethoden"
+}

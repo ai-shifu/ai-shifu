@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.feedback",
+  "feedbackError": "Feedback-Einreichung fehlgeschlagen",
+  "feedbackPlaceholder": "Bitte geben Sie Feedback ein",
+  "feedbackSubmit": "Senden",
+  "feedbackSuccess": "erfolgreich übermitteltes Feedback",
+  "feedbackTitle": "Rückmeldungen"
+}

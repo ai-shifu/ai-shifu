@@ -1,0 +1,130 @@
+{
+  "__namespace__": "module.referral",
+  "creator": {
+    "copied": "Kopiert",
+    "copyLink": "Link kopieren",
+    "description": "Empfehlen Sie AI Shifu an Freunde, die es vielleicht brauchen.",
+    "emptyQueue": "Teilen Sie Ihre Einladung Link. Sobald ein Freund die mobile Registrierung abgeschlossen hat, erhalten Sie sofort 1 Monat Plan Vorteile.",
+    "inviteCardDescription": "Kopieren Sie Ihren Einladungslink und teilen Sie ihn mit einem neuen Benutzer, der sich nicht für KI Shifu registriert hat. Nachdem Ihr Freund auf den Link klickt und die Registrierung abgeschlossen hat, erhalten Sie die entsprechende Planbelohnung.",
+    "inviteCardTitle": "Teilen Sie Ihre Einladung Link",
+    "inviteLink": "Link einladen",
+    "metrics": {
+      "rewarded": "Belohnte Monate"
+    },
+    "queueColumns": {
+      "effectiveAt": "Starts",
+      "expiresAt": "Ende",
+      "invitee": "Eingeladener Freund",
+      "reward": "Belohnung",
+      "status": "Status"
+    },
+    "queueTitle": "Protokolle einladen",
+    "refresh": "Aktualisieren",
+    "rewardRecordValue": "{cycles} Monate Basistarif (einschließlich {credits} Credits)",
+    "rewardRulesTitle": "Kampagnenregeln",
+    "rules": {
+      "cap": "Ladeprämien werden automatisch ausgegeben und können bis zu {cap} Monaten ansammeln. Zum Beispiel können einladende 12 Freunde 12 Monate des Grundplans verdienen.",
+      "defer": "Wenn Sie derzeit einen aktiven Plan haben, werden die Belohnungen automatisch nach dem Ende Ihres aktuellen Plans gestartet.",
+      "firstRegistration": "Wenn ein Freund seine erste Registrierung über Ihren Einladungslink abschließt, zählt die Einladung als erfolgreich.",
+      "inviteeBenefit": "Nach der Registrierung erhalten eingeladene Freunde den neuen Nutzer 1000-Credit-Testplan, gültig für 15 Tage.",
+      "inviterReward": "Für jeden Freund, der sich erfolgreich registriert, erhalten Sie {cycles} Monat des Basisplans ({credits} Credits enthalten, bewertet mit RMB 199).",
+      "unregistered": "Teilen Sie Ihren Einladungslink mit neuen Nutzern, die sich noch nicht für AI Shifu angemeldet haben."
+    },
+    "shareMessage": "Ich benutze KI Shifu, um Wissen und Erfahrung in eins-zu-eins interaktive Kurse zu verwandeln. Ich empfehle auch KI Shifu auszuprobieren. Melden Sie sich an, um einen kostenlosen 15-Tage-Testplan zu erhalten: {url}",
+    "title": "Freunde einladen",
+    "tooltips": {
+      "rewarded": "Schon Monate in automatischen Belohnungen gezählt."
+    }
+  },
+  "inviteLanding": {
+    "badge": "Freund einladen",
+    "brandName": "KI Shifu",
+    "codeLabel": "Code einladen",
+    "codePlaceholder": "Einladungscode eingeben",
+    "codeRequired": "Geben Sie zuerst einen Einladungscode ein.",
+    "descriptionAfterBrand": "werden Sie Ihr Allzweck-Lehrpartner und verwandeln Sie Wissen und Erfahrung in eins-zu-eins interaktive Kurse.",
+    "descriptionBeforeBrand": "Lassen Sie",
+    "fallbackTitle": "Sie sind eingeladen, KI Shifu zu versuchen!",
+    "formAria": "Einladen-Code-Registrierung Eintrag",
+    "formTitle": "Einladungscode bestätigen",
+    "invitedTitle": "{maskedMobile} lud dich ein, AI Shifu zu probieren!",
+    "register": "Kostenlos registrieren und starten",
+    "submitFailed": "Lade Code-Einreichung fehlgeschlagen. Versuchen Sie es später noch einmal.",
+    "title": "Sie sind eingeladen, KI Shifu zu versuchen!",
+    "trialHint": "Registrieren Sie sich, um einen kostenlosen 15-Tage-Testplan zu erhalten"
+  },
+  "operator": {
+    "actions": {
+      "reset": "Zurücksetzen",
+      "search": "Suchen"
+    },
+    "description": "Review laden Beziehungen, Belohnung Status, eingeladene Konten und Abrechnung Artefakte.",
+    "empty": "Keine Einladungsbeziehungen.",
+    "filters": {
+      "all": "Insgesamt",
+      "boundAt": "Gebunden am",
+      "campaignBid": "Kampagne BID",
+      "inviteCode": "Code einladen",
+      "invitee": "Einladen",
+      "inviteeEmailPlaceholder": "E-Mail einladen",
+      "inviteeMobilePlaceholder": "Mobil einladen",
+      "inviter": "Einladender",
+      "inviterEmailPlaceholder": "E-Mail des Einladenden",
+      "inviterMobilePlaceholder": "Einladender mobiler",
+      "relationStatus": "Beziehungsstatus"
+    },
+    "loadFailed": "Nicht geladen laden Beziehungen. Aktualisieren und versuchen Sie es erneut.",
+    "metrics": {
+      "abnormalRelations": "Abnorme Beziehungen",
+      "generatedRewards": "Prämienmonate",
+      "totalRelations": "Beziehungen einladen"
+    },
+    "pagination": {
+      "jumpInputAria": "Wechseln zu Einladung Beziehung Seite",
+      "next": "Nächster",
+      "nextAria": "Nächste Seite",
+      "prev": "Zurück",
+      "prevAria": "Vorherige Seite"
+    },
+    "refresh": "Aktualisieren",
+    "statusUpdated": "Status aktualisiert",
+    "table": {
+      "action": "Maßnahmen",
+      "boundAt": "Gebunden am",
+      "campaign": "Kampagne",
+      "inviteCode": "Code einladen",
+      "invitee": "Einladen",
+      "inviter": "Einladender",
+      "relationStatus": "Beziehungsstatus",
+      "rewardStatus": "Belohnungsstatus"
+    },
+    "title": "Belohnungen einladen",
+    "tooltips": {
+      "abnormalRelations": "Einladen Beziehungen markiert Überprüfung oder bestätigt abnormal.",
+      "generatedRewards": "Lade Belohnungsaufzeichnungen ein, die nicht abgesagt werden.",
+      "totalRelations": "Total gebunden laden Beziehungen ein."
+    },
+    "total": "{total} insgesamt"
+  },
+  "relationStatus": {
+    "abnormalReviewing": "Ungewöhnliche Überprüfung",
+    "canceled": "Gestorben",
+    "registered": "Registriert",
+    "rewardActive": "Belohnung aktiv",
+    "rewardEnded": "Befristete Belohnung",
+    "rewardGenerated": "Erzeugte Belohnung",
+    "rewardPendingEffective": "Noch nicht wirksam erhaltene Belohnung",
+    "rewardSkippedCap": "Durch Kappe übersprungen",
+    "unknown": "Unbekannter Beziehungsstatus"
+  },
+  "rewardStatus": {
+    "active": "Aktiv",
+    "canceled": "Gestorben",
+    "expired": "Abgelaufen",
+    "frozen": "Gefroren",
+    "generated": "Erzeugt",
+    "pendingEffective": "Bis zur Wirksamkeit",
+    "skippedCap": "Durch Kappe übersprungen",
+    "unknown": "Unbekannter Belohnungsstatus"
+  }
+}

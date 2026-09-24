@@ -9,6 +9,7 @@ import i18n, { normalizeLanguage } from '@/i18n';
 const privacyPolicies = {
   'zh-CN': ZH_CN_PrivacyPolicy,
   'en-US': EN_PrivacyPolicy,
+  'de-DE': EN_PrivacyPolicy,
   'es-ES': EN_PrivacyPolicy,
   'fr-FR': EN_PrivacyPolicy,
   'ar-SA': EN_PrivacyPolicy,

@@ -1,0 +1,22 @@
+{
+  "__namespace__": "server.learn",
+  "__flat__": {
+    "agentRewindUnavailable": "Dieser Schritt kann nicht regeneriert werden. Um eine frühere Antwort zu ändern, verwenden Sie \"Reset\", um diese Lektion wieder zu nehmen.",
+    "agentTurnCapacity": "Zu viele Lektionen laufen gerade. Bitte versuchen Sie es gleich noch einmal.",
+    "askProviderAuthFailed": "Die Authentifizierung auf Wissensbasis ist fehlgeschlagen. Bitte überprüfen Sie die API-Schlüssel- und Client-ID.",
+    "askProviderNoResults": "Es wurde kein relevanter Inhalt der Wissensbasis gefunden.",
+    "askProviderNotMember": "Das Dedao Brain Konto hat keine aktive Mitgliedschaft, daher ist die OpenAPI nicht verfügbar.",
+    "askProviderRateLimited": "Der Wissensbasis-Request-Rate oder Quotenlimit wurde erreicht. Bitte versuchen Sie es später noch einmal.",
+    "askProviderTimeout": "Der externe Wissensdienst terminierte. Bitte versuchen Sie es später noch einmal.",
+    "askProviderUnavailable": "Der externe Wissensdienst ist vorübergehend nicht verfügbar.",
+    "continueButton": "Weiter",
+    "generatedBlockNotFound": "Generierter Block nicht gefunden",
+    "invalidAction": "Ungültige Maßnahme",
+    "lessonFeedbackCommentPlaceholder": "Optional: Lassen Sie Ihr Feedback",
+    "liveFollowUpCapacityExceeded": "Sprachgesprächskapazität wurde erreicht. Bitte versuchen Sie es später noch einmal.",
+    "llmStreamInterrupted": "Die Generationsverbindung wurde unterbrochen. Bitte aktualisieren und versuchen Sie es erneut.",
+    "nextChapterButton": "Nächster",
+    "outputInProgress": "Inhalt erzeugt noch. Bitte warten Sie, bevor Sie erneut versuchen.",
+    "ttsRateLimited": "Der Sprachdienst ist gerade beschäftigt. Bitte versuchen Sie es gleich noch einmal."
+  }
+}

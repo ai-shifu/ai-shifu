@@ -18,11 +18,13 @@ existing ElementDTO `content`, `element_type` (or frontend `type`), `is_marker`,
 `sequence_number` fields. Preserve marker flags and sequence order from the
 backend adapter. Audio and identity metadata are excluded from rendering.
 The backend freezes the case's output language in `metadata.locale`. Supported
-values are `zh-CN`, `en-US`, `es-ES`, `fr-FR`, `ar-SA`, and `th-TH`; missing or unsupported
+values are `zh-CN`, `en-US`, `de-DE`, `es-ES`, `fr-FR`, `ar-SA`, and `th-TH`; missing or unsupported
 values default to `zh-CN`. The host document and rendered content retain that
 language and direction: Arabic uses RTL and the other languages use LTR.
 `markdown-flow-ui@0.2.29` receives `es-ES` for Spanish content and renders its
 built-in controls in Spanish.
+German content retains `lang=de-DE`, while built-in controls use the pinned
+component's English fallback until that library adds German separately.
 
 The slide-only evaluation pipeline rejects output without slide markers. The
 underlying capture harness also supports general component regression fixtures:

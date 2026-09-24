@@ -1,0 +1,1156 @@
+{
+  "__namespace__": "module.billing",
+  "admin": {
+    "attention": "Braucht Aufmerksamkeit",
+    "backToCreatorBilling": "Zurück zum Abrechnungszentrum",
+    "entitlements": {
+      "actions": {
+        "viewDetail": "Einrichtung bearbeiten"
+      },
+      "configProgress": {
+        "complete": "Konfiguriert",
+        "exception": "Ausnahme",
+        "loading": "Laden",
+        "partial": "Teilweise konfiguriert",
+        "unconfigured": "Nicht konfiguriert"
+      },
+      "configStatus": {
+        "completed": "Abgeschlossen",
+        "exception": "Einrichtungsproblem",
+        "in_progress": "Laufende Arbeiten",
+        "pending": "Vorläufige Einrichtung"
+      },
+      "configStatusHelp": {
+        "completed": "Die Operationen haben diese Runde der Aufbau-Follow-up beendet.",
+        "exception": "Der Rollout ist blockiert oder hat ein Problem getroffen und muss weiterverfolgt werden.",
+        "in_progress": "Materialien oder Konfigurationen werden verarbeitet und noch nicht fertig gestellt.",
+        "pending": "Fähigkeiten werden gewährt, aber die Setup-Arbeit hat noch nicht begonnen."
+      },
+      "customization": {
+        "integrationStatus": {
+          "disabled": "Deaktiviert",
+          "draft": "Entwurf",
+          "failed": "Ausgabe",
+          "unconfigured": "Nicht konfiguriert",
+          "verified": "Verifiziert"
+        },
+        "loading": "Einrichtung wird geladen...",
+        "logoReady": "Hochgeladen",
+        "providers": {
+          "alipay": "Alipay",
+          "pingxx": "Ping++",
+          "stripe": "Streifen",
+          "wechat_oauth": "WeChat OA",
+          "wechatpay": "WeChat Pay"
+        }
+      },
+      "description": "Testen Sie Lehrer mit eigenständigen Marken- oder Zahlungsmöglichkeiten aktiviert, und lassen Sie Operationen verfolgen den Rollout-Fortschritt an einem Ort.",
+      "empty": "Noch haben keine Lehrer eigenständige Marken- oder Zahlungsmöglichkeiten.",
+      "followDefault": "Standardeinstellung",
+      "grant": {
+        "brandingInlineDescription": "Laden Sie Markenlogos hoch und halten Sie die displayfähigen Bildlinks synchron.",
+        "cancel": "Abbrechen",
+        "configStatusHint": "Wechseln Sie den Status direkt aus der Tabelle. Dieser Dialog zeigt nur den aktuellen Zustand an.",
+        "configurationSection": "Konfigurationsdetails",
+        "configurationSectionDescription": "Füllen Sie hier das eigentliche Logo, die Domain, WeChat und die Zahlungseinstellung aus. Gespeicherte Werte werden ebenfalls in der Tabelle angezeigt.",
+        "createdContinue": "Für {creator} wurden Brand- und Payment-Setups erstellt. Weiter mit der Konfiguration weiter unten.",
+        "creatorBidPlaceholder": "Geben Sie den Kursinhaber BID ein",
+        "creatorEmailPlaceholder": "Geben Sie die E-Mail-Adresse des Eigentümers ein",
+        "creatorMobilePlaceholder": "Geben Sie die Telefonnummer des Eigentümers ein",
+        "description": "Operations verwaltet hier Marken-, Domain-, WeChat- und Payment-Setup. Das Speichern von Updates der aktivierten Elemente zusammen.",
+        "disabled": "Nicht aktiviert",
+        "domainInlineDescription": "Fügen Sie die benutzerdefinierte Domäne hinzu, verifizieren Sie diese vollständig und synchronisieren Sie den neuesten Rollout-Fortschritt.",
+        "edit": "Bearbeiten",
+        "editTitle": "Marke & Zahlungsaufbau bearbeiten",
+        "emailHint": "Verwenden Sie eine E-Mail-Adresse. Wenn sie sich noch nicht registriert hat, erstellt das System das Konto und ermöglicht zunächst den Zugang von Lehrern.",
+        "enabled": "Aktiviert",
+        "errors": {
+          "creatorBidRequired": "Geben Sie den Kursinhaber BID ein",
+          "creatorEmailInvalid": "Geben Sie eine gültige E-Mail-Adresse ein",
+          "creatorEmailRequired": "Geben Sie die E-Mail-Adresse des Eigentümers ein",
+          "creatorMobileInvalid": "Geben Sie eine gültige Telefonnummer ein",
+          "creatorMobileRequired": "Geben Sie die Telefonnummer des Eigentümers ein"
+        },
+        "fields": {
+          "branding_enabled": "Markenlogos",
+          "configStatus": "Konfigurationsstatus",
+          "creatorBid": "Kursinhaber BID",
+          "creatorEmail": "E-Mail-Adresse des Eigentümers",
+          "creatorMobile": "Nummer des Eigentümers",
+          "custom_domain_enabled": "Benutzerdefinierte Domäne",
+          "custom_payment_enabled": "Benutzerdefinierte Zahlungskonfiguration",
+          "custom_wechat_enabled": "Custom WeChat offizielles Konto",
+          "note": "Anmerkung"
+        },
+        "mobileHint": "Verwenden Sie eine Telefonnummer. Wenn sich die Nummer noch nicht registriert hat, erstellt das System das Konto und ermöglicht zunächst den Zugang zum Lehrer.",
+        "notePlaceholder": "Rollout-Fortschritt, fehlende Materialien oder Ausnahmenotizen hinzufügen",
+        "open": "Einrichtung hinzufügen",
+        "paymentInlineDescription": "Füllen Sie die Parameter des Zahlungskanals aus und überprüfen Sie die aktuelle Zahlungseinstellung.",
+        "pendingConfiguration": {
+          "branding_enabled": "Speichern Sie zuerst die aktivierten Elemente, dann laden Sie hier Markenlogos hoch.",
+          "custom_domain_enabled": "Speichern Sie zuerst die aktivierten Elemente, dann geben Sie ein und überprüfen Sie hier die benutzerdefinierte Domäne.",
+          "custom_payment_enabled": "Speichern Sie zuerst die aktivierten Elemente, dann füllen Sie hier die Parameter des Zahlungskanals aus.",
+          "custom_wechat_enabled": "Speichern Sie zuerst die aktivierten Elemente, dann füllen Sie hier die offiziellen Parameter des WeChat-Kontos aus.",
+          "title": "Zuerst speichern, dann fortfahren"
+        },
+        "submit": "Einrichtung speichern",
+        "submitting": "Speichern...",
+        "success": "Aktualisierte benutzerdefinierte Ansprüche für {creator}",
+        "title": "Marke & Zahlungsaufbau hinzufügen",
+        "wechatInlineDescription": "Füllen Sie die offiziellen Kontoparameter aus und bestätigen Sie die Autorisierungs- und Rückrufeinstellungen."
+      },
+      "loadError": "Admin-Rechtsdaten konnten nicht geladen werden.",
+      "logoPreview": {
+        "next": "Nächstes Logo",
+        "open": "Vorschau {label}",
+        "previous": "Vorheriges Logo",
+        "title": "Vorschau auf das Logo"
+      },
+      "notEnabled": "Nicht aktiviert",
+      "realEffect": {
+        "branding": "Bezeichnung",
+        "domain": "Bereich",
+        "payment": "Zahlung",
+        "status": {
+          "active": "Lebend",
+          "exception": "Ausgabe",
+          "inactive": "Nicht lebend",
+          "pending": "Verarbeitung",
+          "unconfigured": "Nicht konfiguriert"
+        },
+        "wechat": "WeChat"
+      },
+      "source": {
+        "default": "Verzugsansprüche",
+        "productPayload": "planbasiert",
+        "snapshot": "Aktueller Live-Record"
+      },
+      "sourceReference": "Datensatz: {value}",
+      "statusReason": {
+        "exceptionDefault": "Setup Problem gefunden. Autorisieren Sie erneut, um die Anfrage zu senden.",
+        "inProgress": "Das Setup ist noch im Gange und wartet auf Materialien oder Verifikationen.",
+        "inactive": "Das Setup hat noch nicht begonnen und wartet auf die Folgemaßnahmen."
+      },
+      "table": {
+        "actions": "Maßnahmen",
+        "analytics": "Zahlungsmöglichkeiten",
+        "configProgress": "Konfigurationsfortschritt",
+        "creator": "Lehrer",
+        "domain": "Bereich",
+        "features": "Konfigurationselemente",
+        "logo": "Bezeichnung",
+        "payment": "Zahlungsmethoden",
+        "priority": "Eigenschaften der Marke",
+        "realEffect": "Tatsächlicher Live-Status",
+        "source": "Laufende Ansprüche",
+        "status": "Status der Folgemaßnahmen",
+        "support": "Unterstützungskategorie",
+        "wechat": "WeChat-Einrichtung",
+        "window": "Aktualisiert / Gültigkeit"
+      },
+      "title": "Ansprüche",
+      "window": {
+        "activeNow": "Derzeit aktiv",
+        "endsAt": "Gültig bis {date}",
+        "startedAt": "Gestartet bei {date}"
+      }
+    },
+    "navigation": {
+      "description": "Wechseln Sie zwischen Plänen, Aufträgen, Berechtigungen, Domains und Berichten, während der Status der Fähigkeiten oben sichtbar bleibt.",
+      "title": "Nach Thema durchsuchen"
+    },
+    "pagination": {
+      "page": "Seite {page} / {pageCount} · {total} Datensätze",
+      "total": "{total} Aufzeichnungen"
+    },
+    "providerPrices": {
+      "actions": {
+        "activate": "Liste",
+        "cancel": "Abbrechen",
+        "configure": "Einrichten",
+        "create": "Zusatzpreis",
+        "restore": "Wiederherstellen des Entwurfs",
+        "retire": "Liste nicht auflisten",
+        "saveDraft": "Entwurf speichern",
+        "validate": "Kontrolle",
+        "viewIssues": "Probleme anzeigen"
+      },
+      "billingLabel": {
+        "monthly": "Monatlich",
+        "yearly": "Jährlich"
+      },
+      "confirm": {
+        "activate": "Liste {productName}? Künftige Kasse für dieses Produkt wird diesen Zahlungspreis verwenden.",
+        "restore": "Wiederherstellen {productName}? Es wird zum Entwurf zurückkehren und muss vor der Auflistung erneut überprüft werden.",
+        "retire": "Unlist {productName}? Das Produkt hat vorübergehend keine Festpreiskasse."
+      },
+      "description": "Verwalten Sie Zahlungspreise für Übersee-Pläne und Creditpakete so angezeigte Preise, Zahlungsbeträge, und gewährt Vorteile bleiben ausgerichtet.",
+      "dialog": {
+        "autoDetectHint": "Das System überprüft Betrag, Währung, Intervall und Modus automatisch. Aktivieren Sie den Preis nach dem Check-Pass.",
+        "description": "Kopieren Sie die Produkt-ID und Preis-ID von Stripe. Das System liest die Preisangaben automatisch.",
+        "title": "Zahlungspreis einrichten"
+      },
+      "empty": "Für die Konfiguration stehen keine Pläne oder Creditpakete zur Verfügung.",
+      "environment": {
+        "live": "Lebend",
+        "test": "Prüfung"
+      },
+      "fields": {
+        "priceId": "ID des Stripe-Preises",
+        "product": "Erzeugnis",
+        "productId": "Produkt-ID für Streifen",
+        "productPlaceholder": "Wählen Sie ein Produkt"
+      },
+      "filters": {
+        "allProducts": "Alle Erzeugnisse",
+        "product": "Erzeugnis",
+        "status": "Status"
+      },
+      "health": {
+        "active": "Aufgeführt",
+        "draft": "Nicht aktiviert",
+        "healthy": "Gesund",
+        "invalid": "Überprüfung fehlgeschlagen",
+        "missing": "Nicht konfiguriert",
+        "retired": "Nicht aufgeführt",
+        "warning": "Notwendigkeit einer Überprüfung"
+      },
+      "interval": {
+        "day": "Jeder {count} Tag(e)",
+        "month": "Jeder {count} Monat(e)",
+        "oneTime": "Einmalig",
+        "year": "Jedes {count} Jahr(e)"
+      },
+      "issueDrawer": {
+        "description": "Zeigt bedienungsfreundliche Gründe und hält die Rohcodes für die technische Fehlersuche.",
+        "issues": "Ausgabegründe",
+        "noIssues": "Noch keine Angaben",
+        "priceId": "ID des Stripe-Preises",
+        "raw": "Rohe Angaben",
+        "title": "Fragen der Preisvalidierung"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "Anzahl der Abrechnungsintervalle entspricht nicht dem lokalen Element",
+        "billing_interval_mismatch": "Abrechnungsintervall entspricht nicht dem lokalen Element",
+        "currency_mismatch": "Währung stimmt nicht mit dem lokalen Element überein",
+        "local_plan_billing_mode_invalid": "Der lokale Abrechnungsmodus ist ungültig.",
+        "local_topup_billing_interval_count_invalid": "Die Anzahl der lokalen Creditpaket Intervalle muss 0 sein.",
+        "local_topup_billing_interval_invalid": "Lokale Creditpakete dürfen kein wiederkehrendes Intervall verwenden",
+        "local_topup_billing_mode_invalid": "Lokaler Creditpaket-Rechnungsmodus ist ungültig",
+        "plan_requires_licensed_recurring_price": "Pläne müssen lizenzierte wiederkehrende Preise verwenden",
+        "plan_requires_recurring_price": "Pläne müssen einen wiederkehrenden Stripe-Preis verwenden",
+        "price_livemode_mismatch": "Stripe-Preis-Modus passt nicht",
+        "price_metadata_billing_interval_mismatch": "Stripe Preis Abrechnung Intervall Metadaten nicht übereinstimmen",
+        "price_metadata_billing_interval_missing": "Stripe Preis fehlt Abrechnung Intervall Metadaten",
+        "price_metadata_credit_amount_mismatch": "Stripe Preis Gutschrift Menge Metadaten nicht übereinstimmen",
+        "price_metadata_credit_amount_missing": "Stripe Preis fehlt Creditbetrag Metadaten",
+        "price_metadata_product_code_mismatch": "Stripe Preis Produktcode Metadaten nicht übereinstimmen",
+        "price_metadata_product_code_missing": "Stripe Preis fehlt Produktcode Metadaten",
+        "price_product_mismatch": "Stripe Preis ist nicht an dieses Produkt gebunden",
+        "product_livemode_mismatch": "Stripe-Produktmodus passt nicht",
+        "product_metadata_market_mismatch": "Stripe Produktmarkt-Metadaten passen nicht",
+        "product_metadata_market_missing": "Stripe Produkt fehlt Markt Metadaten",
+        "product_metadata_plan_tier_mismatch": "Streifen Produktplan Ebenen-Metadaten nicht übereinstimmen",
+        "product_metadata_plan_tier_missing": "Stripe Produkt fehlt Plan Ebene Metadaten",
+        "product_metadata_product_type_mismatch": "Stripe Produkttyp Metadaten passt nicht",
+        "product_metadata_product_type_missing": "Stripe Produkt fehlt Produkttyp Metadaten",
+        "provider_account_mismatch": "Stripe-Konto passt nicht",
+        "provider_price_inactive": "Stripe-Preis ist inaktiv",
+        "provider_price_mismatch": "Stripe price ID passt nicht zu diesem Artikel",
+        "provider_price_unit_amount_missing": "Stripe Preis fehlt eine feste Menge",
+        "provider_product_inactive": "Streifenprodukt ist inaktiv",
+        "provider_product_mismatch": "Stripe product ID passt nicht zu diesem Artikel",
+        "retired_mapping_cannot_be_activated": "Nicht aufgeführte Preise können nicht wieder aufgeführt werden",
+        "retired_mapping_cannot_be_validated": "Nicht aufgeführte Preise können nicht erneut validiert werden",
+        "stripe_catalog_reference_missing": "Stripe Produkt ID oder Preis ID fehlt",
+        "stripe_catalog_retrieve_failed": "Das Produkt oder den Preis von Stripe nicht lesen",
+        "topup_requires_one_time_price": "Creditpakete müssen einen einmaligen Stripe-Preis verwenden",
+        "unit_amount_mismatch": "Zahlungsbetrag entspricht nicht dem Anzeigepreis",
+        "unknown": "Unbekannte Ausgabe",
+        "unsupported_product_type": "Dieser Warentyp kann nicht mit einem Zahlungspreis verknüpft werden."
+      },
+      "loadError": "Die Paketpreiseinstellungen können jetzt nicht geladen werden.",
+      "loading": "Paketpreise werden geladen...",
+      "menuTitle": "Paketverwaltung",
+      "pageDescription": "Verwalten Sie Zahlungspreise für Übersee-Pläne und Creditpakete so Paket-Anzeige, Bezahlvorgang und Abrechnung bleiben ausgerichtet.",
+      "productCredits": "{credits} Credits",
+      "productType": {
+        "plan": "Plan",
+        "topup": "Creditpaket"
+      },
+      "status": {
+        "active": "Aufgeführt",
+        "all": "Alle Statusstufen",
+        "draft": "Entwurf",
+        "invalid": "Ungültig",
+        "missing": "Fehlend",
+        "retired": "Nicht aufgeführt"
+      },
+      "table": {
+        "actions": "Maßnahmen",
+        "benefit": "Vorteile",
+        "localPrice": "Preis anzeigen",
+        "product": "Erzeugnis",
+        "productType": "Art",
+        "status": "Status",
+        "stripePrice": "Zahlungspreis",
+        "validatedAt": "Zuletzt geprüft"
+      },
+      "title": "Paketverwaltung",
+      "toast": {
+        "activateFailed": "Fehler beim Listenpreis",
+        "activateSuccess": "Preis aufgeführt",
+        "createFailed": "Fehler beim Sparen des Preises",
+        "createSuccess": "Preis gespart",
+        "restoreFailed": "Nicht wiederherstellen Preis",
+        "restoreSuccess": "Preis wiederhergestellt, um Entwurf",
+        "retireFailed": "Preis nicht auflisten",
+        "retireSuccess": "Nicht aufgeführter Preis",
+        "validateFailed": "Preisprüfung fehlgeschlagen",
+        "validateSuccess": "Preisprüfung abgeschlossen"
+      }
+    },
+    "reports": {
+      "actions": {
+        "viewOrders": "Befehle anzeigen"
+      },
+      "attentionReasons": {
+        "active_production": "Produktionsnutzung aktiv",
+        "debug_preview_heavy": "Debug und Vorschau schwer",
+        "high_consumption": "Hoher Verbrauch",
+        "high_frequency": "Hohes Rufvolumen",
+        "rapid_growth": "Verwendung wächst schnell",
+        "sustained_activity": "Aktiv an 3+ letzten Tagen"
+      },
+      "description": "Zusammengefasst Lehrer mit ungewöhnlichen jüngsten Verbrauch, Aktivität oder Nutzungsmix, so dass Betreiber können folgen-up priorisieren.",
+      "empty": "Keine Lehrer brauchen jetzt Priorität.",
+      "emptyHint": "Lehrer erscheinen nach dem Matching hoher Verbrauch, hohes Rufvolumen, Produktionsaktivität, Debug-schwere Nutzung, anhaltende Aktivität oder schnelle Wachstumsregeln.",
+      "filters": {
+        "active_production": "Aktive Erzeugung",
+        "all": "Alle vorrangigen Lehrer",
+        "debug_preview_heavy": "Debug-schwer",
+        "rapid_growth": "Schnell wachsen"
+      },
+      "sections": {
+        "usage": {
+          "description": "Es werden nur Lehrer angezeigt, die die Aufmerksamkeitsregeln erfüllen. Sortieren Sie nach Wachstum, Debug-Verhältnis oder 30-Tage-Verbrauch.",
+          "title": "Lehrer, die nach oben folgen"
+        }
+      },
+      "sort": {
+        "label": "Sortieren nach",
+        "options": {
+          "credits_30d": "30d-Gutschriften",
+          "debug_ratio": "Fehlerquote",
+          "growth": "Wachstumspriorität"
+        }
+      },
+      "summary": {
+        "activeTeachers7d": "Noch aktiv in 7d",
+        "activeTeachers7dHint": "Bewertete Lehrer mit Nutzungsdaten in den letzten 7 Tagen",
+        "debugHeavyCount": "Debug-schwere Lehrer",
+        "debugHeavyCountHint": "Lehrer, deren Debug/Preview-Nutzung in den letzten 30 Tagen hoch ist",
+        "focusCount": "Lehrer zur Überprüfung",
+        "focusCountHint": "Passt zu einer oder mehreren Nutzungsaufmerksamkeitsregeln",
+        "totalCredits": "30d Credits von geprüften Lehrern",
+        "totalCreditsHint": "30-Tage-Gesamtsumme für die derzeit gezeigten Lehrer"
+      },
+      "table": {
+        "actions": "Maßnahmen",
+        "activeDays7d": "7-tägige aktive Tage",
+        "attentionReasons": "Schwerpunktregeln",
+        "attentionReasonsMore": "{count} Einträge",
+        "creator": "Lehrer",
+        "credits30d": "30-Tage-Gutschriften",
+        "credits30dBreakdown": "Produktion {production} · Debug/Preview {debugPreview}",
+        "credits30dDebugPreview": "Debug/Preview {debugPreview}",
+        "credits30dProduction": "Erzeugung {production}",
+        "credits7d": "7-Tage-Gutschriften",
+        "latestActivity": "Letzte Aktivität",
+        "latestActivityHint": "Aktiv an {days} Tagen in den letzten 7d",
+        "productionRatio": "Produktionskreditquote",
+        "recordCount7d": "7-Tage-Anrufe"
+      },
+      "title": "Zusammenfassung der Anwendung"
+    },
+    "subscriptions": {
+      "description": "Überprüfung von Abonnements, die Folgemaßnahmen erfordern, einschließlich Creditsalden und nächsten Maßnahmen.",
+      "empty": "Es gibt keine Abonnements, die im Moment Follow-up brauchen.",
+      "filters": {
+        "reset": "Zurücksetzen",
+        "search": "Suchen",
+        "searchPlaceholderEmail": "Lehrer-E-Mail",
+        "searchPlaceholderPhone": "Lehrer mobil",
+        "status": "Zeichnungsstatus",
+        "statusAll": "Alle Statusstufen",
+        "teacherField": "Lehrer"
+      },
+      "loadError": "Admin-Abonnementdaten konnten nicht geladen werden.",
+      "preorderTarget": "Vorbestellung: {product}",
+      "results": {
+        "cancelAtPeriodEnd": "Wird ablaufen",
+        "cancelAtPeriodEndWithDate": "Läuft am {date} ab",
+        "expire": "Wird ablaufen",
+        "expireWithDate": "Läuft am {date} ab",
+        "preorder": "Umschaltet nach Ablauf auf {product}",
+        "preorderWithDate": "Umschaltet auf {product} am {date}",
+        "renewalFailed": "Erneuerung fehlgeschlagen und muss weiterverfolgt werden",
+        "renewalFailedWithError": "Erneuerung fehlgeschlagen und muss weiterverfolgt werden",
+        "renewalScheduled": "Auto-Erneuerung geplant",
+        "renewalScheduledWithDate": "Auto-Erneuerung für {date} geplant"
+      },
+      "table": {
+        "availableCredits": "Verfügbare Gutschriften",
+        "creator": "Lehrer",
+        "currentPeriodEnd": "Gültig bis",
+        "product": "Laufender Plan",
+        "provider": "Zahlungsmethode",
+        "renewal": "Erneuerung / Ablauf",
+        "renewalStatus": "Erneuerungsveranstaltung",
+        "scheduled": "Geplant",
+        "status": "Zeichnungsstatus"
+      },
+      "title": "Folgemaßnahmen zum Abonnement"
+    },
+    "subtitle": "Operations Workspace für Abonnement-Follow-up, Nutzungsaufmerksamkeit und Markenzahlungs-Setup.",
+    "table": {},
+    "tabs": {
+      "domains": "Domänen",
+      "entitlements": "Einrichtung der Marke & Zahlung",
+      "reports": "Verwendung Achtung",
+      "subscriptions": "Folgemaßnahmen zum Abonnement"
+    },
+    "title": "Kommerzielle Tätigkeiten"
+  },
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "Credits kaufen",
+      "openOrders": "Offene Zahlungsprotokolle",
+      "resumeSubscription": "Abonnement wiederaufnehmen"
+    },
+    "cancelScheduled": "Dieses Abonnement endet an der aktuellen Periodengrenze. Setzt es fort, um wiederkehrende Credits aktiv zu halten.",
+    "lowBalance": "Ihr Lehrerkonto hat keine verfügbaren Credits mehr. Schließen Sie vor der nächsten Abrechnung ein Abonnement ab oder kaufen Sie Credits.",
+    "lowBalanceDescription": "Ihre Credits sind weg, also sind KI-generierte Inhalte im Moment nicht verfügbar.",
+    "lowBalanceTitle": "Die AI macht eine Pause.",
+    "subscriptionPastDue": "Die Verlängerung des Abonnements ist blockiert. Überprüfen Sie die Zahlungsaufzeichnungen und synchronisieren Sie den aktuellen Anbieterstatus."
+  },
+  "capabilities": {
+    "description": "Dieser Bereich fasst die Module zusammen, die Operatoren auf der Admin-Seite für Marken und Zahlungen verwenden können. Braucht Setup bedeutet, dass der Codepfad existiert, bleibt aber standardmäßig aus. Interner Workflow bedeutet, dass er nur in Jobs, Recovery-Flows oder Ops-Tools läuft und nicht als direkte Seitenfunktion erscheint.",
+    "fallbackDescription": "Der Status der Kapazität wird von der Abrechnungs-Register verfolgt.",
+    "fallbackTitle": "Abrechnungskapazität",
+    "items": {
+      "adminEntitlements": {
+        "description": "Die Überprüfung des Admin-Rechts bleibt aktiviert.",
+        "title": "Admin-Ansprüche"
+      },
+      "adminLedgerAdjust": {
+        "description": "Die manuelle Admin-Registerkorrektur ist noch verfügbar.",
+        "title": "Admin-Leiterkorrektur"
+      },
+      "adminReports": {
+        "description": "Admin-Nutzung und Protokolle bleiben aktiviert.",
+        "title": "Verwaltungsberichte"
+      },
+      "adminSubscriptions": {
+        "description": "Die Admin-Abonnement-Überprüfung bleibt aktiviert.",
+        "title": "Admin-Abonnements"
+      },
+      "billingFeatureFlag": {
+        "description": "Das Flag für die Abrechnungsfunktion ist in der Datei seam config immer noch deaktiviert.",
+        "title": "Rechnungsfunktions-Flagge"
+      },
+      "creatorCatalog": {
+        "description": "Katalogkarten für Pläne und Topups bleiben aktiv.",
+        "title": "Lehrerkatalog"
+      },
+      "creatorOrders": {
+        "description": "Die Sync-, Checkout- und Topup-Ströme der Lehrer-Ordnung bleiben aktiviert.",
+        "title": "Lehrerbefehle"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "Lehrer Abonnement Checkout, Stornierung und Lebenslauf bleiben aktiviert.",
+        "title": "Lebenszyklus des Lehrerabonnements"
+      },
+      "creatorWalletLedger": {
+        "description": "Credit-Kontingente und Abrechnungsmodelle bleiben aktiviert.",
+        "title": "Lehrerkonto und -buch"
+      },
+      "dailyAggregateRebuild": {
+        "description": "Tägliche Aggregatumbau- und Finalisierungsströme bleiben intern.",
+        "title": "Täglicher Aggregataufbau"
+      },
+      "domainVerifyRefresh": {
+        "description": "Domain-Verifikations-Refresh bleibt intern.",
+        "title": "Domäne überprüfen aktualisieren"
+      },
+      "lowBalanceAlerts": {
+        "description": "Die balancearme Alarm-Erzeugung bleibt intern.",
+        "title": "Warnungen bei geringem Saldo"
+      },
+      "providerReconcile": {
+        "description": "Anbieter versöhnen bleibt ein interner Rückgewinnungsfluss.",
+        "title": "Anbieter versöhnen"
+      },
+      "renewalCompensation": {
+        "description": "Wiedererneuerung und Wiedererneuerung der Entschädigung bleiben intern.",
+        "title": "Verlängerungsvergütung"
+      },
+      "renewalTaskQueue": {
+        "description": "Erneuerte Worker-Exekution ist in der Datei seam config noch nicht aktiviert.",
+        "title": "Warteschlange für die Verlängerung der Aufgabe"
+      },
+      "runtimeBillingExtensions": {
+        "description": "Runtime config setzt noch Billing-Anspruch und Domain-Kontext frei.",
+        "title": "Laufzeit-Rechnungserweiterungen"
+      },
+      "usageSettlement": {
+        "description": "Nutzungsabrechnung und Wiedergabe bleiben interne Aufgaben-/CLI-Ströme.",
+        "title": "Nutzungsabrechnung"
+      },
+      "walletBucketExpiration": {
+        "description": "Das Ablaufdatum der Credit-Kontingente bleibt nur intern sichtbar.",
+        "title": "Fälligkeit des Kontoguthabens"
+      }
+    },
+    "status": {
+      "active": "Gebrauchsfertig",
+      "defaultDisabled": "Erforderliche Einrichtung",
+      "internalOnly": "Interner Workflow"
+    },
+    "summary": {
+      "active": "{count} gebrauchsfertig",
+      "defaultDisabled": "{count} muss eingerichtet werden",
+      "internalOnly": "{count} interne Workflows"
+    },
+    "title": "Verfügbare Module"
+  },
+  "catalog": {
+    "actions": {
+      "processing": "Verarbeitung..."
+    },
+    "badges": {
+      "bestValue": "Bester Wert",
+      "recommended": "Heiß"
+    },
+    "labels": {
+      "everyDays": "alle {count} Tage",
+      "everyMonths": "alle {count} Monate",
+      "everyYears": "alle {count} Jahre",
+      "perDay": "täglich",
+      "perMonth": "monatlich",
+      "perYear": "jährlich",
+      "providerAlipay": "Alipay",
+      "providerManual": "Handbuch",
+      "providerPingxx": "Pingxx",
+      "providerStripe": "Streifen",
+      "providerWechatpay": "WeChat Pay",
+      "providerWithChannel": "{provider} / {channel}"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "Das Beste für einen leichten Kurs.",
+        "title": "Lite"
+      },
+      "creatorMonthlyPro": {
+        "description": "Am besten für eine kleine Anzahl von Lernenden.",
+        "title": "Grundlegende"
+      },
+      "creatorYearly": {
+        "description": "Das Beste für große Organisationen.",
+        "title": "Pro"
+      },
+      "creatorYearlyLite": {
+        "description": "Das Beste für kleine und mittlere Organisationen.",
+        "title": "Erweitert"
+      },
+      "creatorYearlyPremium": {
+        "description": "Das Beste für extra große Organisationen.",
+        "title": "Prämie"
+      }
+    },
+    "topups": {
+      "default": {
+        "description": "Ergänzen Sie Ihren aktuellen Plan. Ungenutzte Credits laufen mit dem Planzeitraum ab.",
+        "title": "{credits}-Creditpaket"
+      }
+    }
+  },
+  "checkout": {
+    "agreementLink": "Creditkaufvertrag",
+    "agreementPrefix": "Ich habe gelesen und dem zugestimmt.",
+    "bonusCreditsLabel": "{baseCredits} + {bonusCredits} bonus",
+    "cancel": "Abbrechen",
+    "completed": "Zahlung abgeschlossen.",
+    "confirm": "Weiterzahlung",
+    "creditsLabel": "Credits",
+    "expired": "Diese Bestellung ist abgelaufen. Bitte geben Sie sie erneut an.",
+    "expiresInLabel": "Verbleibende Zeit",
+    "expiresInValue": "Läuft im {countdown} ab",
+    "planDescription": "Hier sind die Zahlungsdetails für Ihren Credit-Abonnement-Plan.",
+    "preorderDescription": "Dieses Paket wird jetzt vorbezahlt und wird wirksam, wenn der aktuelle Zyklus endet.",
+    "prepaidOffsetLabel": "Prepaid-Offset",
+    "priceLabel": "Preis",
+    "processing": "Verarbeitung...",
+    "productLabel": "Erzeugnis",
+    "providerLabel": "Zahlungsdienstleister",
+    "redirect": {
+      "creating": "Erstellen Sie Ihre Bestellung...",
+      "description": "Bitte halten Sie diese Seite offen. Wenn sie nicht automatisch umleitet, verwenden Sie die Schaltfläche unten, um es erneut zu versuchen.",
+      "openingStripe": "Die sichere Kasse von Stripe öffnen...",
+      "retry": "Kasse wieder öffnen"
+    },
+    "subject": {
+      "plan": {
+        "day": "Tagesplan",
+        "month": "Monatlicher Plan",
+        "year": "Jährlicher Plan"
+      }
+    },
+    "title": "Kauf bestätigen",
+    "topupDescription": "Sie sind im Begriff, eine einmalige Creditpaket Kauf Kasse zu öffnen.",
+    "unsupported": "Diese Zahlungsmethode ist momentan nicht verfügbar.",
+    "upgradeDescription": "Dieses Upgrade wird sofort wirksam.",
+    "upgradeWithPreorderDescription": "Dieses Upgrade wird sofort wirksam. Jegliche aktive Vorbestellungszahlung wird als Offset angewendet."
+  },
+  "common": {
+    "empty": "Nicht verfügbar"
+  },
+  "creditInsufficient": {
+    "learner": "Dieser Kurs hat nicht genug Credits, um mehr Inhalte zu generieren. Bitte kontaktieren Sie den Kurslehrer.",
+    "purchaseActionAltText": "Öffnen Sie die Creditkaufseite",
+    "teacher": "Ihr Guthaben ist unzureichend. Sie können jetzt nicht weitermachen.",
+    "teacherCollaborator": "Das Guthaben des Kursinhabers reicht nicht aus, um mehr Inhalte zu generieren. Bitte kontaktieren Sie den Kursinhaber.",
+    "teacherSoftlimit": "Ihr Guthaben liegt unterhalb der Erinnerungsschwelle. Debug-Vorschau ist vorübergehend nicht verfügbar."
+  },
+  "customization": {
+    "actions": {
+      "clear": "Löschen",
+      "saveConfiguration": "Konfiguration speichern",
+      "saveIntegration": "Zahlungseinstellungen speichern",
+      "secretSaved": "Gespeichert. Geben Sie einen neuen Wert ein, um ihn zu ersetzen."
+    },
+    "branding": {
+      "favicon": "Site-Symbol (favicon)",
+      "faviconHint": "Browser-Registersymbol. Laden Sie PNG/JPEG/WebP (autokonvertiert auf ICO) oder eine .ico-Datei hoch; das quadratische Logo wird bei leerem Zustand verwendet.",
+      "homeUrl": "Logo-Link-URL",
+      "homeUrlHint": "Wo die Lernseite navigiert, wenn das Logo angeklickt wird. Leer lassen, um den Standard zu verwenden.",
+      "homeUrlPlaceholder": "z.B. https://www.example.com",
+      "invalidFile": "Verwenden Sie eine PNG-, JPEG- oder WebP-Datei nicht größer als 2 MB",
+      "resizeNotice": "Das Bild entspricht nicht vollständig der empfohlenen Größe. Es wird nach dem Speichern immer noch normal hochgeladen und skaliert.",
+      "squareHint": "Empfohlen: ein 32x32px quadratisches Logo. Es werden auch Varianten mit höherer Auflösung unterstützt.",
+      "squareLogo": "Quadratisches Logo",
+      "title": "Markenlogos",
+      "uploadFailed": "Bild-Upload fehlgeschlagen. Versuchen Sie es später noch einmal.",
+      "uploadFavicon": "Website-Symbol hochladen",
+      "uploadSquare": "Quadrat-Logo hochladen",
+      "uploadWide": "Breites Logo hochladen",
+      "urlPlaceholder": "Oder geben Sie eine Bild-URL direkt ein",
+      "wideHint": "Empfohlen: ein breites Logo mit 32px Höhe und bis zu 220px Breite. Auch hochauflösende Varianten werden unterstützt.",
+      "wideLogo": "Breites Logo"
+    },
+    "disable": "Deaktivieren",
+    "domain": {
+      "bind": "Bindungsdomäne",
+      "disableSuccess": "Domain wurde deaktiviert.",
+      "dnsTitle": "Fügen Sie den folgenden TXT-Record in Ihrer DNS-Konsole hinzu",
+      "lastError": "Letztes Verifizierungsergebnis: {reason}",
+      "placeholder": "z.B. learn.example.com",
+      "record": "{name} = {value}",
+      "recordName": "Host-Aufzeichnung",
+      "recordType": "Aufzeichnungsart",
+      "recordValue": "Aufzeichnungswert",
+      "status": "{status} · SSL {sslStatus}",
+      "title": "Benutzerdefinierte Domäne",
+      "verify": "DNS überprüfen",
+      "verifyFailed": "Die DNS-Verifikation ist noch nicht abgeschlossen. Überprüfen Sie den TXT-Record und versuchen Sie es erneut.",
+      "verifyInstruction": "Nach DNS-Propagationen, überprüfen Sie es hier. HTTPS-Zertifikat-Setup wird nach Überprüfung fortgesetzt.",
+      "verifySuccess": "DNS-Verifikation übergeben. Domain-Status wurde aktualisiert."
+    },
+    "integrationStatus": {
+      "disabled": "Deaktiviert",
+      "draft": "Vorläufige Genehmigung",
+      "failed": "Aktivierung fehlgeschlagen",
+      "unconfigured": "Nicht konfiguriert",
+      "verified": "Aktiviert"
+    },
+    "integrations": {
+      "title": "WeChat und Zahlungseinstellungen"
+    },
+    "loading": "Konfigurationsdetails werden geladen...",
+    "locked": "Ihr aktueller Plan beinhaltet diese Funktion nicht. Upgrade oder Kontaktunterstützung.",
+    "paymentProvider": {
+      "description": "Wählen Sie eine oder mehrere Zahlungsmethoden für die Learninger Checkouts. Nach dem Speichern generiert die Learninger Checkouts QR-Codes für die konfigurierten Methoden.",
+      "title": "Zahlungsmethoden"
+    },
+    "pendingActivation": "Speichern Sie zuerst die aktivierte Fähigkeit. Nachdem sie wirksam wird, können Sie diese Konfiguration speichern und überprüfen.",
+    "providers": {
+      "alipay": "Alipay",
+      "pingxx": "Ping++",
+      "stripe": "Streifen",
+      "wechat_oauth": "Offizielles Konto von WeChat",
+      "wechatpay": "WeChat Pay"
+    },
+    "verify": "Prüfen und aktivieren"
+  },
+  "details": {
+    "actions": {
+      "upgradeNow": "Jetzt upgraden"
+    },
+    "emptyValidityLabel": "--",
+    "subscription": {
+      "accessUntil": "Zugang bis",
+      "autoRenew": "Auto-Erneuerung",
+      "cancelAction": "Auto-Erneuerung abbrechen",
+      "cancelConfirmAction": "Annullierung bestätigen",
+      "cancelConfirmDescription": "Ihre aktuellen Vorteile und Credits bleiben bis {date} verfügbar. Sie werden nach diesem Datum nicht wieder belastet.",
+      "cancelConfirmTitle": "Auto-Erneuerung absagen?",
+      "cancelScheduled": "Auto-Erneuerung abgebrochen",
+      "cancelSuccess": "Auto-Erneuerung abgebrochen. Ihre aktuellen Leistungen sind unverändert.",
+      "currentPlan": "Laufender Plan",
+      "nextRenewal": "Nächste Verlängerung",
+      "paused": "Abonnement angehalten",
+      "renewalStatus": "Verlängerungsstatus",
+      "resumeAction": "Auto-Erneuerung fortsetzen",
+      "resumeConfirmAction": "Wiederaufnahme bestätigen",
+      "resumeConfirmDescription": "Ihr ursprünglicher Plan wird automatisch am {date} erneuert.",
+      "resumeConfirmTitle": "Auto-Erneuerung fortsetzen?",
+      "resumeSuccess": "Auto-Erneuerung wieder aufgenommen."
+    },
+    "subtitle": "Überprüfung der Gesamtgutschriften, der Kategoriesalden und des effektiven Fensters für jede Creditquelle.",
+    "table": {
+      "balance": "Saldo",
+      "creditType": "Art",
+      "validUntil": "Gültig bis"
+    },
+    "topupAvailabilityLabel": "Kein Ablauf",
+    "topupAvailabilityTooltip": "Für die Verwendung von Creditpaketen ist ein aktives Abonnement erforderlich.",
+    "totalCreditsDescription": "Plangutschriften werden zuerst verwendet, dann Creditpakete.",
+    "totalCreditsLabel": "Saldo",
+    "usageTable": {
+      "columns": {
+        "scene": "Verwendungspunkt"
+      },
+      "title": "Angaben zur Verwendung"
+    }
+  },
+  "domains": {
+    "records": {
+      "neverVerified": "Noch nicht verifiziert"
+    },
+    "ssl": {
+      "active": "SSL aktiv",
+      "failed": "SSL fehlgeschlagen",
+      "issued": "SSL ausgegeben",
+      "not_requested": "SSL nicht angefordert",
+      "pending": "SSL läuft aus",
+      "provisioning": "SSL-Provisionierung"
+    },
+    "status": {
+      "disabled": "Deaktiviert",
+      "failed": "Überprüfung fehlgeschlagen",
+      "pending": "Bis zur Prüfung",
+      "verified": "Verifiziert"
+    }
+  },
+  "entitlements": {
+    "analytics": {
+      "advanced": "Erweitert",
+      "basic": "Grundlegende",
+      "enterprise": "Unternehmen"
+    },
+    "flags": {
+      "branding": "Markenlogo",
+      "customDomain": "Benutzerdefinierte Domäne",
+      "customPayment": "Zahlungsmethoden",
+      "customWechat": "Kundenspezifisches WeChat-Konto",
+      "disabled": "Deaktiviert",
+      "enabled": "Aktiviert"
+    },
+    "metrics": {
+      "analyticsTier": "Analysestufe",
+      "maxConcurrency": "Maximale Übereinstimmung",
+      "priorityClass": "Prioritätsklasse",
+      "supportTier": "Unterstützungskategorie"
+    },
+    "priority": {
+      "priority": "Priorität",
+      "standard": "Standard",
+      "vip": "VIP"
+    },
+    "support": {
+      "businessHours": "Öffnungszeiten",
+      "priority": "Vorrangige Unterstützung",
+      "selfServe": "Selbstverwaltung"
+    }
+  },
+  "globalPricing": {
+    "actions": {
+      "buyCredits": "Credits kaufen",
+      "checkoutLoading": "Die Kasse öffnen...",
+      "choosePlan": "Plan auswählen",
+      "cycleSwitchDisabled": "Rechnungszyklusänderung nicht verfügbar",
+      "viewMonthly": "Monatsplan anzeigen"
+    },
+    "annualSavings": "Sparen Sie {amount} pro Jahr im Vergleich zur monatlichen Abrechnung",
+    "monthlyOnly": "Nur monatlich",
+    "plans": {
+      "business": {
+        "name": "Unternehmen"
+      },
+      "growth": {
+        "name": "Wachstum"
+      },
+      "scale": {
+        "name": "Skala"
+      },
+      "studio": {
+        "name": "Einzimmerwohnung"
+      }
+    },
+    "renewalPrice": "Dann erneuert sich zu {price} / {period}."
+  },
+  "ledger": {
+    "bucketDescription": "Sehen Sie die Credit-Kontingente nach Herkunft, das Restguthaben und die Reihenfolge der Abbuchung.",
+    "category": {
+      "subscription": "Plangutschriften",
+      "topup": "Creditpaket"
+    },
+    "empty": "Noch keine Kontoguthaben. Credits erscheinen hier nach Ihrem ersten Zuschuss.",
+    "entriesDescription": "Eingabe-Level-Zuschuss, Verbrauch, Rückerstattung und Ablauf Datensätze werden in der nächsten Rechnungsaufgabe verbunden werden.",
+    "entriesTitle": "Ledger-Einträge",
+    "entryType": {
+      "adjustment": "Anpassung",
+      "consume": "Verbrauch",
+      "expire": "Ablauf",
+      "grant": "Zuschuß",
+      "hold": "Anhalten",
+      "refund": "Erstattungsbetrag",
+      "release": "Freigabe"
+    },
+    "loadError": "Konto Credit Bucket Daten konnten nicht geladen werden. Aktualisieren und versuchen Sie es erneut.",
+    "neverExpires": "Folgen Plan Gutschriften Ablauf",
+    "pagination": {
+      "page": "Seite {page} / {pageCount} · {total} Einträge"
+    },
+    "source": {
+      "campaignBonus": "Prämiengutschriften für Kampagnen",
+      "gift": "Gutschriften für Schenkungen",
+      "manual": "Manuelle Anpassung",
+      "refund": "Erstattungsrückerstattung",
+      "subscription": "Plangutschriften",
+      "topup": "Creditpaket",
+      "usage": "Nutzungsabrechnung"
+    },
+    "summary": {
+      "activeBuckets": "Aktive Credit-Kontingente",
+      "nextExpiry": "Nächster Ablauf",
+      "totalAvailable": "Bucket-Gutschriften"
+    },
+    "table": {
+      "action": "Maßnahmen",
+      "amount": "Anzahl",
+      "availableCredits": "Verfügbare Gutschriften",
+      "balanceAfter": "Saldo nach",
+      "createdAt": "Zeit",
+      "detail": "Einzelheiten",
+      "effectiveWindow": "Effektives Fenster",
+      "entryType": "Eintragsart",
+      "priority": "Priorität",
+      "source": "Quelle",
+      "status": "Status"
+    },
+    "usageScene": {
+      "debug": "Fehler",
+      "preview": "Vorschau",
+      "production": "Studie",
+      "tts": "Stimme"
+    }
+  },
+  "orders": {
+    "status": {
+      "canceled": "Gestorben",
+      "failed": "fehlgeschlagen",
+      "init": "Initialisiert",
+      "paid": "Bezahlt",
+      "pending": "In Vorbereitung",
+      "refunded": "Refinanziert",
+      "timeout": "Auszeit"
+    },
+    "type": {
+      "manual": "Manuelle Reihenfolge",
+      "refund": "Erstattungsanordnung",
+      "subscriptionRenewal": "Verlängerung des Abonnements",
+      "subscriptionStart": "Abonnementstart",
+      "subscriptionUpgrade": "Abonnement-Upgrade",
+      "topup": "Creditpaket-Bestellung"
+    }
+  },
+  "overview": {
+    "availableCreditsLabel": "Verfügbare Gutschriften",
+    "feedback": {
+      "cancelSuccess": "Das Abonnement wird am Ende des aktuellen Zeitraums gekündigt.",
+      "resumeSuccess": "Abonnement-Erneuerung wurde wiederhergestellt."
+    },
+    "loadError": "Rechnungsdaten konnten nicht geladen werden. Aktualisieren und erneut versuchen.",
+    "walletTitle": "Übersicht der Credits"
+  },
+  "package": {
+    "actions": {
+      "buyNow": "Jetzt kaufen",
+      "currentSubscription": "Laufendes Abonnement",
+      "currentUsing": "Laufender Plan",
+      "downgradeDisabled": "Nicht verfügbare Downgrade",
+      "freeTrial": "Nichterwerbstätig",
+      "monthlySwitchDisabled": "Monatliche Abrechnung nicht verfügbar",
+      "nonMemberTooltip": "Sie befinden sich derzeit auf dem Nicht-Mitgliedsplan. Es ist keine Maßnahme erforderlich.",
+      "preorderDowngrade": "Downgrade vorbestellen",
+      "preorderLocked": "Vorbestellen gesperrt",
+      "preorderLockedTooltip": "Eine Paketvorbestellung steht bereits aus. Es stehen nur sofortige Upgrades zur Verfügung.",
+      "preorderProviderUnsupportedTooltip": "Paketvorbestellung ist nur für den aktuellen selbst verwalteten Zahlungskanal verfügbar.",
+      "preorderRenewal": "Vorkassenerneuerung",
+      "preorderScheduled": "Vorbestellung geplant",
+      "subscribeNow": "Jetzt abonnieren",
+      "upgradeNow": "Jetzt upgraden",
+      "upgradeOnlyTooltip": "Das aktuelle Abonnement ist noch aktiv. Es sind nur Upgrades zu einem höheren Plan erlaubt."
+    },
+    "campaign": {
+      "bonusBadge": "{credits} Bonusgutschriften",
+      "discountBadge": "Begrenztes Angebot",
+      "paymentOnly": "Der Rabatt gilt nur für diese Zahlung."
+    },
+    "creditPeriod": {
+      "oneTime": "Einmalig"
+    },
+    "creditSummary": {
+      "daily": "Tageskredite {credits}",
+      "days": "Credits alle {count} Tage: {credits}",
+      "monthly": "Monatliche Credits {credits}",
+      "months": "Credits alle {count} Monate: {credits}",
+      "yearly": "Jährliche Gutschriften {credits}",
+      "years": "Credits alle {count} Jahre: {credits}"
+    },
+    "features": {
+      "advanced": {
+        "includesLabel": "Alles in Basic, und:",
+        "parallelProcessing": "Höhere parallele Verarbeitungskapazität",
+        "taskPriority": "Bearbeitung von vorrangigen Aufgaben",
+        "techBasic": "Grundlegende technische Unterstützung"
+      },
+      "common": {
+        "allLearning": "Alle Lernmerkmale",
+        "allTeachingAndLearning": "Alle Lehr- und Forschungsmerkmale",
+        "createDebugPublish": "Kurse erstellen, debuggen und veröffentlichen",
+        "higherConcurrency": "Höhere Unterstützung bei der Konkurrenz",
+        "unlimitedCourses": "Unbegrenzte Kurse"
+      },
+      "daily": {
+        "preview": "Täglicher schneller Zugriff für kurze Validierungszyklen",
+        "publish": "Kurzfristige Veröffentlichung und Onboarding-Berichterstattung",
+        "support": "Tägliche operative Unterstützung des Plans"
+      },
+      "free": {
+        "preview": "Learner Lieferung und Kontoimport",
+        "publish": "Erstellung von Kursen und Speicherung von Inhalten"
+      },
+      "monthly": {
+        "preview": "Learner Lieferung und Kontoimport",
+        "publish": "Erstellung von Kursen und Speicherung von Inhalten"
+      },
+      "premium": {
+        "concurrencyQuota": "Höhere Konkurrenzquote",
+        "dedicatedSupport": "Spezieller technischer Support",
+        "includesLabel": "Alles in Pro und:",
+        "onboarding": "Ausschließliche Kurs-Building-Schulung"
+      },
+      "pro": {
+        "branding": "Benutzerdefiniertes Branding",
+        "customDomain": "Benutzerdefinierte Domäne",
+        "includesLabel": "Alles in Fortgeschrittenen, und:",
+        "techPriority": "Vorrangige technische Unterstützung"
+      },
+      "yearly": {
+        "lite": {
+          "ops": "Höhere parallele Verarbeitungskapazität",
+          "publish": "Bearbeitung von vorrangigen Aufgaben"
+        },
+        "premium": {
+          "analytics": "Höhere Konkurrenzquote",
+          "branding": "Benutzerdefiniertes Branding",
+          "domain": "Benutzerdefinierte Domäne",
+          "priority": "Spezieller technischer Support",
+          "support": "Ausschließliche Kurs-Building-Schulung"
+        },
+        "pro": {
+          "analytics": "Vorrangige technische Unterstützung",
+          "branding": "Benutzerdefiniertes Branding",
+          "domain": "Benutzerdefinierte Domäne",
+          "priority": "Höhere parallele Verarbeitungskapazität",
+          "support": "Grundlegende technische Unterstützung"
+        }
+      }
+    },
+    "featuresTitle": "Eingeschlossene Leistungen:",
+    "footnote": {
+      "learningTime": "Diese Schätzungen basieren auf historischen Daten und dienen nur als Referenz. Kursinhalte, das ausgewählte Modell und Interaktionen beeinflussen die tatsächliche Creditnutzung. Wenn Sprachsynthese aktiviert ist, werden mehr Credits verwendet.",
+      "validity": "Credit Gültigkeit: Monatliche Pläne sind gültig für 30 Tage ab dem Tag, an dem Sie sie erhalten (inklusive); jährliche Pläne sind gültig nach Kalenderjahr ab dem Tag, an dem Sie sie erhalten. Beide enden um 23:59 Uhr am Ablauftag."
+    },
+    "free": {
+      "creditSummary": "{credits} Bonusgutschriften",
+      "description": "Das Beste für einen ersten Blick.",
+      "priceNote": "/ gültig innerhalb von {days} Tagen nach der Registrierung",
+      "priceNoteGranted": "/ aktiviert auf {grantedAt}, gültig bis {expiresAt}",
+      "title": "Versuch"
+    },
+    "intervalTabs": {
+      "daily": "Tagespläne",
+      "monthly": "Monatliche Pläne",
+      "plans": "Creditpläne",
+      "topup": "Creditpakete",
+      "yearly": "Jährliche Pläne"
+    },
+    "learningTime": {
+      "compactValue": "Etwa {minutes} Minuten",
+      "label": "Geschätzte Lernzeit",
+      "lessThanOne": "Weniger als 1 Minute",
+      "unavailable": "—",
+      "value": "Etwa {minutes} Minuten"
+    },
+    "loading": "Pläne werden geladen...",
+    "preorder": {
+      "pending": "Bis zur Vorbestellung: {plan} wird zum {date} wirksam."
+    },
+    "subtitle": "Wählen Sie den richtigen Creditplan.",
+    "table": {
+      "creditsRowLabel": "Credits pro Zyklus",
+      "emptyValue": "—",
+      "featuresRowLabel": "Ansprüche",
+      "validityRowLabel": "Gültigkeit der Credits"
+    },
+    "title": "Credits kaufen",
+    "topup": {
+      "creditLabel": "{credits} Credits",
+      "noteFrozen": "Credits aus Creditpaketen können nur verwendet werden, wenn das Konto einen aktiven Creditplan hat.",
+      "noteInstant": "Credits werden sofort nach dem Kauf wirksam und laufen nie ab."
+    },
+    "topupComingSoon": "Ich komme gleich.",
+    "validity": {
+      "daily": "Gültigkeit: gerechnet ab dem Kauftag, gültig jeden Tag",
+      "days": "Gültigkeit: gerechnet ab dem Kauftag, verlängert jeden {count} Tag",
+      "free": "Gültigkeit: gültig innerhalb von {days} Tagen nach der Registrierung",
+      "monthly": "Gültig für 30 Tage ab dem Kauftag, inklusive",
+      "months": "Gültigkeit: verlängert jeden {count} 30-Tage-Zeitraum ab dem Kauftag, inklusive",
+      "yearly": "Gültigkeit: gerechnet nach Kalenderjahr ab dem Kaufdatum",
+      "years": "Gültigkeit: verlängert jedes {count} Kalenderjahr ab dem Kaufdatum"
+    },
+    "validityShort": {
+      "free": "{days} Tage",
+      "monthly": "{count, plural, one {# Monat} other {# Monate}}",
+      "yearly": "{count, plural, one {# Jahr} other {# Jahre}}"
+    }
+  },
+  "page": {
+    "adminLink": "Offener Rechnungsdienst",
+    "tabs": {
+      "customization": "Marken & Zahlungen",
+      "ledger": "Creditdetails",
+      "plans": "Credits kaufen"
+    },
+    "title": "Mitgliedschaft und Credits"
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "Wirksam abbrechen",
+      "downgradeEffective": "Effektiv absenken",
+      "expire": "Ablauf",
+      "reconcile": "Reconcile",
+      "renewal": "Erneuerung",
+      "retry": "Wiederholung"
+    },
+    "status": {
+      "canceled": "Gestorben",
+      "failed": "fehlgeschlagen",
+      "pending": "In Vorbereitung",
+      "processing": "Verarbeitung",
+      "succeeded": "Erfolg"
+    }
+  },
+  "reports": {
+    "empty": "Noch keine Tagesberichtsdaten.",
+    "loadError": "Die Abrechnungsberichte können jetzt nicht geladen werden.",
+    "metric": {
+      "llmCacheTokens": "LLM-Cache-Token",
+      "llmInputTokens": "LLM-Eingabe-Token",
+      "llmOutputTokens": "LLM-Ausgangstoken",
+      "ttsInputChars": "TTS-Eingabezeichen",
+      "ttsOutputChars": "TTS-Ausgabezeichen",
+      "ttsRequestCount": "Anzahl der TTS-Anfragen"
+    },
+    "table": {
+      "count": "Anzahl der Einträge",
+      "credits": "Credits",
+      "date": "Zeitpunkt",
+      "entryType": "Eintragsart",
+      "metric": "Metrisch",
+      "provider": "Anbieter / Modell",
+      "rawAmount": "Rohbetrag",
+      "scene": "Szene",
+      "shifu": "Shifu",
+      "source": "Quelle",
+      "usageType": "Art der Verwendung",
+      "window": "Fenster"
+    },
+    "usageType": {
+      "llm": "Modellnutzung",
+      "tts": "Sprachsynthese"
+    }
+  },
+  "result": {
+    "countdown": "Umleitung zum Abrechnungszentrum in {seconds}s",
+    "errorTitle": "Rechnungssynchronisierung fehlgeschlagen",
+    "missingOrder": "Fehlende Rechnungsbestellung. Öffnen Sie das Abrechnungszentrum und versuchen Sie es erneut von Ihrer Bestellliste.",
+    "openBilling": "Abrechnungszentrum öffnen",
+    "pending": "Die Zahlung ist noch Bearbeitung. Sie können synchronisieren in einem Moment wiederholen.",
+    "pendingTitle": "Warten auf Rechnungsbestätigung",
+    "processing": "Synchronisierung des Zahlungsstatus",
+    "retry": "Synchronisieren wiederholen",
+    "success": "Zahlung bestätigt. Ihre Abrechnungsdaten werden aktualisiert.",
+    "successTitle": "Rechnungsführung aktualisiert"
+  },
+  "sidebar": {
+    "creditsLabel": "Credits",
+    "cta": "Abrechnungszentrum öffnen",
+    "dailyBalanceTitle": "Tagessaldo",
+    "dailyTitle": "Tagesplan",
+    "description": "Überprüfen Sie Ihren Plan, Credits und anstehende Abrechnungsaktionen.",
+    "expired": "Abgelaufen",
+    "expiresInDays": "Läuft in {days} Tagen ab",
+    "monthlyBalanceTitle": "Monatlicher Saldo",
+    "monthlyTitle": "Monatlicher Plan",
+    "nonMemberBalanceTitle": "Creditsaldo",
+    "nonMemberTitle": "Nichtmitglied",
+    "periodLabel": "Zeitraum",
+    "placeholderValue": "--",
+    "subscriptionPending": "Ich komme gleich.",
+    "subscriptionStatusLabel": "Abonnement",
+    "summaryTitle": "Credits",
+    "upgradeCta": "Aktualisierung",
+    "usageCta": "Details anzeigen",
+    "yearlyBalanceTitle": "Jahressaldo",
+    "yearlyTitle": "Jährlicher Plan"
+  },
+  "status": {
+    "active": "Aktiv",
+    "cancelScheduled": "Geplantes Abbrechen",
+    "canceled": "Gestorben",
+    "draft": "Entwurf",
+    "expired": "Abgelaufen",
+    "none": "Nicht begonnen",
+    "pastDue": "Vorhergehende Fälligkeit",
+    "paused": "Anhalten"
+  },
+  "welcomeTrial": {
+    "confirm": "Los geht's!",
+    "description": "Als neuer Benutzer erhalten Sie einen kostenlosen {days} Tage gültigen Basistarif mit {credits} Credits. Beginnen Sie jetzt Ihren ersten Kurs zu erstellen!",
+    "title": "Willkommen bei {appName}"
+  }
+}

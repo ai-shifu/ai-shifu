@@ -1,0 +1,23 @@
+{
+  "__namespace__": "module.chapterSetting",
+  "addLesson": "Lektion hinzufügen",
+  "chapterName": "Bezeichnung des Kapitels",
+  "chapterNamePlaceholder": "Bitte geben Sie den Kapitelnamen ein",
+  "chapterPrompt": "Kapitelaufforderung",
+  "chapterPromptHint": "Definieren Sie die Inhaltsgenerierung, das Publikum, den Ton und die Leitplanken des Kapitels",
+  "chapterSettingsTitle": "Kapiteleinstellungen",
+  "free": "Frei",
+  "guest": "Login-frei",
+  "hidden": "Versteckt",
+  "isHidden": "Sichtbarkeit",
+  "learningPermission": "Lernberechtigung",
+  "lessonName": "Lektionsname",
+  "lessonNamePlaceholder": "Bitte geben Sie den Unterrichtsnamen ein",
+  "lessonPrompt": "Kursaufforderung",
+  "lessonPromptHint": "Definieren Sie die Generierung, das Publikum, den Ton und die Leitplanken der Lektion",
+  "lessonPromptPlaceholder": "Bitte geben Sie die Eingabeaufforderung ein. Wenn dies leer ist, wird die Generierung der Unterrichtsinhalte durch den Inhalt des Kapitels prompt eingeschränkt.",
+  "lessonSettingsTitle": "Lektionseinstellungen",
+  "paid": "Bezahlt",
+  "promptPlaceholder": "Bitte geben Sie die Eingabeaufforderung ein",
+  "visible": "Sichtbar"
+}

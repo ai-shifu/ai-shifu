@@ -1,0 +1,15 @@
+{
+  "__namespace__": "module.user",
+  "confirmLogoutContent": "Bist du sicher, dass du dich abmelden willst?",
+  "confirmLogoutTitle": "Abmelden bestätigen",
+  "defaultUserName": "Anonymer Benutzer",
+  "gender": {
+    "female": "Weiblich",
+    "male": "Männlich",
+    "secret": "Keine Angabe"
+  },
+  "login": "Anmeldung",
+  "loginMainButton": "Anmelden oder registrieren",
+  "logout": "Abmelden",
+  "notLogin": "Nicht angemeldet"
+}

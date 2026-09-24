@@ -1,0 +1,11 @@
+{
+  "__namespace__": "module.lesson",
+  "reset": {
+    "confirmContent": "Zurücksetzen wird die Lerndaten dieser Lektion löschen. Sind Sie sicher?",
+    "confirmTitle": "Zurücksetzen bestätigen",
+    "title": "Zurücksetzen"
+  },
+  "tooltip": {
+    "paidExclusive": "Bezahlter Premium-Zugang"
+  }
+}

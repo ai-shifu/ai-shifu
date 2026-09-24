@@ -1,0 +1,234 @@
+{
+  "__namespace__": "module.dashboard",
+  "detail": {
+    "basicInfo": {
+      "chapterCount": "Kapitelzahl",
+      "courseName": "Kursbezeichnung",
+      "createdAt": "Erzeugt bei",
+      "learnerCount": "Teilnehmer insgesamt",
+      "status": "Kursstatus",
+      "statusLabels": {
+        "published": "Veröffentlicht",
+        "unpublished": "Unveröffentlicht"
+      },
+      "title": "Grundlegende Informationen"
+    },
+    "courseIdLabel": "Kurskennung",
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "Überprüfen Sie die aktuelle Frage der Lernenden und beantworten Sie die Frage, wo Lernende stecken bleiben und ob die Lektion Wortwahl klar ist.",
+        "fields": {
+          "currentAnswer": "Aktuelle Antwort",
+          "currentFollowUp": "Laufende Folgemaßnahmen",
+          "followUpTime": "Nachbeobachtungszeit",
+          "lesson": "Verwandte Lektionen",
+          "nickname": "Nickname",
+          "turnIndex": "Drehen",
+          "user": "Lernender"
+        },
+        "sections": {
+          "basicInfo": "Grundlegende Informationen",
+          "currentRecord": "Aktueller Datensatz",
+          "timeline": "Zeitplan für die Weiterverfolgung"
+        },
+        "timeline": {
+          "current": "Laufender Monat",
+          "student": "Lernender",
+          "teacher": "Kursbeantwortung"
+        },
+        "title": "Detail der Folgemaßnahmen"
+      },
+      "filters": {
+        "chapterKeyword": "Kapitel",
+        "chapterKeywordPlaceholder": "Kapitel/Lektionsname",
+        "followUpTime": "Nachbeobachtungszeit",
+        "lessonKeyword": "Lektion",
+        "lessonKeywordPlaceholder": "Lektionsname",
+        "reset": "Zurücksetzen",
+        "resultCount": "Insgesamt {count}",
+        "search": "Suchen",
+        "sourceStatus": "Ursprünglicher Ausgabestatus",
+        "sourceStatusAll": "Alle Zustände",
+        "sourceStatusMissing": "Ursprüngliche Ausgabe fehlt",
+        "sourceStatusResolved": "Ursprüngliche Ausgabe vorhanden",
+        "timePlaceholder": "Startzeit ~ Endzeit",
+        "userKeyword": "Lernender",
+        "userKeywordPlaceholderEmail": "E-Mail / Nickname",
+        "userKeywordPlaceholderPhone": "Mobil / Nickname"
+      },
+      "summary": {
+        "followUpCount": "Folgemaßnahmen insgesamt",
+        "latestFollowUpAt": "Letzte Folgemaßnahmen",
+        "lessonCount": "Beteiligte Lehren",
+        "scopeHint": "Überprüfung der Lerner Follow-ups rund um Kursinhalte, um häufige Festhalten Punkte und Lektionen, die Verbesserung benötigen zu identifizieren.",
+        "userCount": "Lernende mit Follow-ups"
+      },
+      "table": {
+        "action": "Maßnahmen",
+        "chapter": "Kapitel",
+        "content": "Inhalt der Folgemaßnahmen",
+        "createdAt": "Nachbeobachtungszeit",
+        "detailAction": "Detail",
+        "empty": "Bisher noch keine Daten zu Rückfragen",
+        "lesson": "Lektion",
+        "sourceMissing": "Ursprüngliche Ausgabe fehlt",
+        "sourceResolved": "Ursprüngliche Ausgabe vorhanden",
+        "title": "Folgeliste",
+        "turnIndex": "Drehen",
+        "user": "Lernender"
+      },
+      "title": "Folgedaten",
+      "turnIndex": "Runde {count}",
+      "turnIndexHelp": "Turn-Ordnung basiert auf der Nachbeobachtungszeit innerhalb des gleichen Lernrekords."
+    },
+    "learners": {
+      "columns": {
+        "joinedAt": "Eingewechselt",
+        "lastLearningAt": "Letztes Lernen",
+        "name": "Lernender",
+        "progress": "Fortschritte",
+        "questions": "Fragen insgesamt",
+        "status": "Lernstatus"
+      },
+      "empty": "Noch keine Lernenden",
+      "filters": {
+        "lastLearningTime": "Letzte Lernzeit",
+        "lastLearningTimePlaceholder": "Startzeit ~ Endzeit",
+        "learningStatus": "Lernstatus",
+        "statusAll": "Insgesamt",
+        "userKeyword": "Lernender"
+      },
+      "searchPlaceholderEmail": "E-Mail / Nickname",
+      "searchPlaceholderPhone": "Mobil / Nickname",
+      "status": {
+        "completed": "Abgeschlossen",
+        "learning": "Lernen",
+        "notStarted": "Nicht gestartet"
+      },
+      "title": "Liste der Lernenden",
+      "totalCount": "Insgesamt {count} Lernende",
+      "viewFollowUps": "Follow-ups anzeigen",
+      "viewFollowUpsForLearner": "Follow-ups für {learner} anzeigen"
+    },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "Avg. Verwendet pro Lernender",
+        "consumedCredits": "Verwendete Credits",
+        "consumptionSpeed": "Tägliche Avg. Verwendet (7 Tage)",
+        "mode": "Lernformat",
+        "participants": "Lernende"
+      },
+      "empty": "Noch keine Lernformatdaten",
+      "modes": {
+        "classroom": "Klassenzimmer",
+        "listen": "Zuhören",
+        "read": "Lesen"
+      },
+      "scopeHint": "Vergleichen Sie den Creditverbrauch über Lese-, Hör- und Klassenzimmerformate, um zu sehen, wie Lernende diesen Kurs nutzen.",
+      "title": "Lernformat"
+    },
+    "metrics": {
+      "completedLearners": "Vervollständiger",
+      "completionRate": "Fertigstellungsrate",
+      "learningLearners": "Lernende in Arbeit",
+      "orderAmount": "Betrag",
+      "orderCount": "Beschlüsse",
+      "rating": "Kursbewertung",
+      "title": "Kerndaten",
+      "totalQuestions": "Folgefragen"
+    },
+    "metricsTooltips": {
+      "completedLearners": "Menschen, die jede Lektion in diesem Kurs abgeschlossen.",
+      "completionRate": "Der Anteil der Teilnehmer, die jede Lektion in diesem Kurs absolviert haben.",
+      "learningLearners": "Menschen, die den Kurs begonnen haben, aber noch nicht jede Lektion abgeschlossen haben.",
+      "orderAmount": "Der Gesamtbetrag, den die Benutzer für diesen Kurs bezahlt haben. Erlösungs-Code-Aufträge sind nicht enthalten.",
+      "orderCount": "Erfolgreiche Bestellungen für diesen Kurs, einschließlich bezahlter und Rücknahmecode-Bestellungen.",
+      "rating": "Die durchschnittliche Lektion von Lernenden, von 5.",
+      "totalQuestions": "Die Gesamtnachfragen Lernenden fragte AI während des Studiums dieses Kurses. Offen, um die Details zu sehen."
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Kapitel",
+        "chapterKeywordPlaceholder": "Kapitel/Lektionsname",
+        "commentStatus": "Bemerkung",
+        "commentStatusAll": "Insgesamt",
+        "commentStatusCommented": "Nur mit Kommentar",
+        "ratingTime": "Bewertungszeit",
+        "reset": "Zurücksetzen",
+        "resultCount": "Insgesamt {count}",
+        "score": "Bewertung",
+        "scoreAll": "Alle Ratings",
+        "search": "Suchen",
+        "timePlaceholder": "Startzeit ~ Endzeit",
+        "userKeyword": "Lernender",
+        "userKeywordPlaceholderEmail": "E-Mail / Nickname",
+        "userKeywordPlaceholderPhone": "Mobil / Nickname"
+      },
+      "scoreValue": "{score} Sterne",
+      "summary": {
+        "averageScore": "Durchschnittliche Bewertung",
+        "latestRatedAt": "Letzte Bewertung",
+        "ratingCount": "Bewertung",
+        "scopeHint": "Review Lektion Bewertungen und Schöpfer-relevantes Feedback, so dass Sie die Zufriedenheit Verschiebungen und Lektionen, die Verfeinerung benötigen zu erkennen.",
+        "userCount": "Lernende, die es bewertet haben"
+      },
+      "table": {
+        "comment": "Bemerkung",
+        "empty": "Noch keine Bewertungsdaten",
+        "guestUser": "Gastlerner",
+        "lesson": "Lektion",
+        "ratedAt": "Bewertungszeit",
+        "score": "Bewertung",
+        "title": "Bewertungsliste",
+        "user": "Lernender"
+      },
+      "title": "Bewertungsdaten"
+    },
+    "subtitle": "Grundlegende Kursinformationen, Schlüsselmetriken und Lernaktivitätsdaten werden alle durch Live-Reporting angetrieben.",
+    "title": "Detail des Kurses"
+  },
+  "entry": {
+    "kpi": {
+      "courses": "Kurse",
+      "learners": "Lernende insgesamt",
+      "orderAmount": "Gesamtbetrag des Auftragsbetrags",
+      "orders": "Bestellungen insgesamt"
+    },
+    "table": {
+      "action": "Maßnahmen",
+      "course": "Kurs",
+      "empty": "Keine Kurse",
+      "footnote": "Kurse: {count} (Scope: Nur Daten von Kursen, die Sie erstellt haben und die Sie besitzen, sind enthalten.",
+      "lastActive": "Zuletzt aktiv",
+      "learners": "Lernende",
+      "orderAmount": "Betrag",
+      "orders": "Beschlüsse",
+      "reset": "Zurücksetzen",
+      "scopeNote": "Umfang: Es sind nur Daten aus von Ihnen erstellten und eigenen Kursen enthalten. Kollaborative Kurse sind ausgeschlossen.",
+      "search": "Suchen",
+      "searchPlaceholder": "Kurs-ID / Kurs-Name",
+      "title": "Kursliste",
+      "totalCount": "Insgesamt {count}",
+      "viewCourse": "Kurs anzeigen",
+      "viewOrders": "Reihenfolge anzeigen"
+    }
+  },
+  "filters": {
+    "dateRangePlaceholder": "Startzeit ~ Endzeit",
+    "reset": "Zurücksetzen"
+  },
+  "messages": {
+    "loadCourseDetailFailed": "Fehler beim Laden der Kursdetails. Bitte versuchen Sie es später noch einmal.",
+    "loadCoursesFailed": "Die Kursliste konnte nicht geladen werden. Bitte aktualisieren und erneut versuchen.",
+    "loadFollowUpDetailFailed": "Fehler beim Laden von Details zu Rückfragen. Bitte versuchen Sie es später noch einmal.",
+    "loadFollowUpsFailed": "Fehler beim Laden von Daten zu Rückfragen. Bitte aktualisieren und erneut versuchen.",
+    "loadLearnersFailed": "Fehler beim Laden der Lernliste. Bitte versuchen Sie es später noch einmal.",
+    "loadRatingsFailed": "Fehler beim Laden von Bewertungsdaten. Bitte aktualisieren und erneut versuchen."
+  },
+  "pagination": {
+    "next": "Nächster",
+    "prev": "Zurück"
+  },
+  "title": "Dashboard"
+}

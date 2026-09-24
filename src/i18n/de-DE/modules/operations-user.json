@@ -1,0 +1,447 @@
+{
+  "__namespace__": "module.operationsUser",
+  "actions": {
+    "cancelAccount": "Konto abbrechen",
+    "grantCredits": "Zuschußgutschriften/Paket",
+    "moreForUser": "Weitere Aktionen für {user}"
+  },
+  "cancellation": {
+    "back": "Zurück",
+    "blockers": {
+      "operator": "Dieses Konto hat Zugriff auf den Betreiber und kann derzeit nicht storniert werden.",
+      "paid_preorder_refund_required": "Dieses Konto hat {count} bezahlte Vorbestellungen bis zur Aktivierung. Erfüllen Sie eine manuelle Rückerstattung vor der Stornierung.",
+      "published_course_transfer_required": "Übertragen Sie die veröffentlichten {count} Kurse, die diesem Konto gehören, bevor Sie fortfahren.",
+      "self": "Sie können das aktuell angemeldete Operator-Konto nicht kündigen. Bitten Sie einen anderen Operator, diese Aktion abzuschließen.",
+      "title": "Annullierung kann nicht fortgesetzt werden",
+      "unknown": "Dieses Konto hat ungelöste Elemente. Aktualisieren Sie und versuchen Sie es erneut oder kontaktieren Sie technischen Support.",
+      "unsettled_payment": "Lösen Sie die {count} ungestörten Bestellungen, bevor Sie dieses Konto stornieren."
+    },
+    "confirm": "Konto abbrechen",
+    "confirmDescription": "Konto {user} wird dauerhaft storniert.",
+    "confirmPaidPreorder": "Dieses Konto hat {count} bezahlte Prepaid-Pläne, die auf die Aktivierung warten. Bestätigen Sie, dass manuelle Rückerstattungen oder damit zusammenhängende Behandlung abgeschlossen sind.",
+    "confirmTitle": "Kontostornierung bestätigen",
+    "continue": "Konto abbrechen",
+    "description": "Kurse, Abonnements, Credits und Sessions werden überprüft.",
+    "errors": {
+      "blocked": "Einige Punkte erfordern noch Maßnahmen",
+      "cancel": "Stornierung fehlgeschlagen",
+      "executionFailed": "Die Absage-Aufgabe ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+      "load": "Annullierungsdetails können nicht geladen werden",
+      "prepare": "Stornierungen können nicht vorbereitet werden",
+      "processingTimeout": "Die Löschungsaufgabe wird noch bearbeitet. Aktualisieren Sie die Benutzerliste später, um das Ergebnis zu überprüfen.",
+      "transfer": "Kursübertragung fehlgeschlagen"
+    },
+    "irreversible": "Profil- und Anmeldeinformationen werden gelöscht, während die erforderliche Geschäftshistorie beibehalten wird.",
+    "processing": "Absagen...",
+    "reasonCounter": "{count}/500",
+    "reasonHint": "Dieser Grund wird im Betriebsprüfungsprotokoll beibehalten.",
+    "reasonLabel": "Annullierungsgrund",
+    "reasonPlaceholder": "Geben Sie einen bestimmten Grund ein, wie z.B. die vom Benutzer angeforderte Stornogebühr.",
+    "reasonTooShort": "Geben Sie mindestens 5 Zeichen ein.",
+    "summary": {
+      "accountLabel": "Benutzerkonto",
+      "courseCounts": "Entwürfe: {drafts} · Veröffentlicht: {published}",
+      "coursesHint": "Die Lehrpläne werden beibehalten und eingefroren; die veröffentlichten Lehrgänge müssen zunächst übertragen werden.",
+      "coursesLabel": "Kurse",
+      "creditsExpireAtLabel": "Gültigkeit der Credits",
+      "creditsHint": "Der Creditsaldo wird ohne Rückerstattung getilgt.",
+      "creditsLabel": "Creditsaldo",
+      "creditsValue": "{count} (ohne Erstattung freigegeben)",
+      "draftsHint": "Die Lehrpläne werden nach der Stornierung beibehalten und eingefroren.",
+      "draftsLabel": "Entwurf von Kursen",
+      "draftsValue": "{count} (behalten und eingefroren)",
+      "paidPackages": "Bezahlter Plan:",
+      "preorders": "Bis zum Vorkassenplan:",
+      "renewals": "Aktive Abonnements bei Stornierung beendet: {count}",
+      "sessionsHint": "Alle aktiven Login-Sitzungen werden sofort widerrufen.",
+      "sessionsLabel": "Aktive Sitzungen",
+      "sessionsValue": "{count} (alle bei Löschung widerrufen)",
+      "subscriptions": "Automatische Verlängerung des Abonnements:"
+    },
+    "title": "Konto abbrechen",
+    "transfer": "Alle übertragen",
+    "transferEmailPlaceholder": "Neue Eigentümer-E-Mail",
+    "transferPhonePlaceholder": "Neue Eigentümer-Telefonnummer",
+    "transferPlaceholder": "Neuer Eigentümer Telefon oder E-Mail",
+    "transferRequired": "Transfer {count} veröffentlichten Kurse zuerst"
+  },
+  "courseSummary": {
+    "dialog": {
+      "courseId": "Kurskennung",
+      "courseName": "Kursbezeichnung",
+      "createdTitle": "Geschaffene Kurse",
+      "description": "Benutzer: {user}",
+      "learningTitle": "Lehrveranstaltungen",
+      "status": "Status"
+    },
+    "empty": "--"
+  },
+  "credits": {
+    "longTerm": "Langfristig gültig"
+  },
+  "detail": {
+    "basicInfo": "Grundlegende Informationen",
+    "cancellationOperator": "Annullierungsbetreiber",
+    "cancellationReason": "Annullierungsgrund",
+    "cancelledAt": "Annulliert am",
+    "createdCourses": "Geschaffene Kurse",
+    "creditExpireAtHint": "Wenn mehrere Gültigkeitsdauern existieren, wird zuerst der früheste Ablauf angezeigt.",
+    "creditExpireAtHintAriaLabel": "Siehe Credits Ablauf Erklärung",
+    "creditLedger": "Details zu Credits",
+    "creditLedgerColumns": {
+      "amount": "Betrag",
+      "balanceAfter": "Saldo nach",
+      "consumedCredits": "Gekaufte Gutschriften",
+      "course": "Kurs",
+      "createdAt": "Verändert am",
+      "entryType": "Art",
+      "expiresAt": "Läuft ab",
+      "grantedCredits": "Zugewährte Credits",
+      "note": "Anmerkung",
+      "sectionChapter": "Abschnitt/Kapitel",
+      "sourceType": "Quelle",
+      "usageMode": "Modus",
+      "usageScene": "Szene",
+      "user": "Benutzer"
+    },
+    "creditLedgerFilters": {
+      "course": "Kurs",
+      "coursePlaceholder": "Kurs-ID / Kurs-Name",
+      "grantSource": "Zuschußquelle",
+      "grantSourceOptions": {
+        "all": "Insgesamt",
+        "manual": "Manueller Zuschuss",
+        "subscription": "Abonnement",
+        "topup": "Creditpaket",
+        "trial_subscription": "Prüfgutschriften"
+      },
+      "time": "Zeitbereich",
+      "timePlaceholder": "Startzeit ~ Endzeit",
+      "type": "Art",
+      "typeOptions": {
+        "all": "Insgesamt",
+        "consume": "Verbrauch",
+        "grant": "Zuschuß",
+        "other": "Sonstige"
+      },
+      "usageMode": "Verwendungsmodus",
+      "usageModeOptions": {
+        "all": "Insgesamt",
+        "ask": "Folgemaßnahmen",
+        "learn": "Lesen",
+        "listen": "Hör zu."
+      },
+      "usageScene": "Verwendungsszene",
+      "usageSceneOptions": {
+        "all": "Insgesamt",
+        "debug": "Fehler",
+        "learning": "Lernen",
+        "preview": "Vorschau"
+      }
+    },
+    "creditLedgerNoteLabels": {
+      "admin_manual_plan_grant": "Finanzhilfe im Rahmen des Operationspakets",
+      "debug_consume": "Von Debug-Nutzung verbrauchte Credits",
+      "gift_expire": "Ausgelaufene Gutschriften",
+      "gift_grant": "Begünstigte Gutschriften",
+      "learning_consume": "Von der Lernnutzung verbrauchte Credits",
+      "manual_credit": "manuell hinzugefügte Credits",
+      "manual_debit": "Von Hand abgezogene Credits",
+      "manual_grant": "Von Hand vergebene Gutschriften",
+      "preview_consume": "Von der Vorschau-Nutzung verbrauchte Credits",
+      "refund_return": "Nach Erstattung zurückgegebene Gutschriften",
+      "subscription_cycle_transition": "Vorab-Abonnementgutschriften während des Zyklus-Übergangs abgelaufen",
+      "subscription_expire": "Ausgelaufene Abonnementgutschriften",
+      "subscription_grant": "Aus dem Abonnement gewährte Credits",
+      "subscription_purchase": "Aus Abonnementkauf gewährte Credits",
+      "subscription_renewal": "Aus der Verlängerung des Abonnements gewährte Credits",
+      "topup_expire": "Ausgelaufene Credits aus Creditpaketen",
+      "topup_grant": "Aus Creditpaketen gewährte Credits",
+      "topup_purchase": "Credits, die aus dem Erwerb von Creditpaketen gewährt werden",
+      "trial_bootstrap": "Aus der Aktivierung des Versuchs gewährte Gutschriften",
+      "trial_subscription_grant": "Aus dem Probeabonnement gewährte Credits"
+    },
+    "creditLedgerSourceLabels": {
+      "compensation": "Ausgleich",
+      "debug": "Fehler",
+      "gift": "Geschenk",
+      "learning": "Lernen",
+      "manual": "Handbuch",
+      "preview": "Vorschau",
+      "refund": "Erstattungsbetrag",
+      "reward": "Belohnung",
+      "subscription": "Abonnement",
+      "topup": "Creditpaket",
+      "trial_subscription": "Subskription der Probe",
+      "usage": "Verwendung"
+    },
+    "creditLedgerTypeLabels": {
+      "adjustment": "Creditanpassung",
+      "consume": "Creditverbrauch",
+      "debug_consume": "Debug-Verbrauch",
+      "expire": "Gültigkeitsdauer der Credits",
+      "gift_expire": "Erlöschen des Schenkungsguthabens",
+      "gift_grant": "Schenkung",
+      "grant": "Gutschrift von Credits",
+      "hold": "Anrechnungsbetrag",
+      "learning_consume": "Lernkonsum",
+      "manual_credit": "Manuelle Gutschrift",
+      "manual_debit": "Manuelles Debit",
+      "manual_grant": "Manueller Zuschuss",
+      "preview_consume": "Vorhersage Verbrauch",
+      "refund": "Erstattungsrückerstattung",
+      "refund_return": "Erstattungsrückerstattung",
+      "release": "Credits-freisetzung",
+      "subscription_expire": "Zeichnungsgutschrift Ablauf",
+      "subscription_grant": "Zeichnungszuschuß",
+      "topup_expire": "Creditpaket Ablauf",
+      "topup_grant": "Creditpaket-Zuschuss",
+      "trial_subscription_grant": "Studienabonnementsstipendium"
+    },
+    "creditLedgerUsageSceneLabels": {
+      "debug": "Fehler",
+      "learning": "Lernen",
+      "preview": "Vorschau"
+    },
+    "creditUsageDetail": {
+      "actions": {
+        "open": "Einzelheiten",
+        "openAriaLabel": "Details zur Creditnutzung anzeigen"
+      },
+      "collapse": "Zusammenbruch",
+      "columns": {
+        "consumedCredits": "Credits",
+        "createdAt": "Gekauft bei",
+        "inputTokens": "Eingabe-Token",
+        "outputSummary": "Zusammenfassung der Ausgabe",
+        "outputTokens": "Ausgabe-Token",
+        "ttsContent": "Synthetischer Inhalt",
+        "ttsDuration": "Dauer des Tons",
+        "ttsSegmentCount": "Segmente",
+        "ttsWordCount": "Synthetische Wörter"
+      },
+      "description": "Zeigt Output-Inhalte und Credits, die für diese Abrechnung verwendet werden, wenn verfügbar.",
+      "durationMinutesSeconds": "{minutes}m {seconds}s",
+      "durationSeconds": "{seconds}",
+      "empty": "Keine Nutzungsdetails",
+      "error": "Fehler beim Laden von Nutzungsdetails",
+      "expand": "Erweitern",
+      "loading": "Laden",
+      "title": "Angaben zur Creditverwendung"
+    },
+    "creditsOverview": "Übersicht der Credits",
+    "creditsOverviewLabels": {
+      "availableCredits": "Creditsaldo insgesamt",
+      "creditsExpireAt": "Credits Gültigkeit",
+      "subscriptionCredits": "Abonnement-Creditsaldo",
+      "topupCredits": "Creditpaket-Creditsaldo"
+    },
+    "emptyCourses": "Keine Kurse",
+    "emptyCredits": "Keine Gutschriften",
+    "learningCourses": "Lehrveranstaltungen",
+    "learningProgress": "Fortschritte",
+    "loadingCredits": "Laden",
+    "overview": "Überblick",
+    "tabs": {
+      "createdCourses": "Geschaffene Kurse",
+      "credits": "Details zu Credits",
+      "learningCourses": "Lehrveranstaltungen"
+    },
+    "title": "Benutzerdetails"
+  },
+  "emptyList": "Keine Verwender",
+  "filters": {
+    "createdAt": "Erzeugt bei",
+    "email": "E-Mail-Adresse",
+    "mobile": "Mobil",
+    "nickname": "Nickname",
+    "role": "Rolle",
+    "status": "Status",
+    "user": "Benutzer",
+    "userPlaceholderEmail": "E-Mail / Nickname",
+    "userPlaceholderPhone": "Mobil / Nickname",
+    "userPlaceholderPhoneEmail": "Mobil / E-Mail / Nickname"
+  },
+  "grantDialog": {
+    "bootstrapError": "Fehler beim Laden von Paketen. Bitte versuchen Sie es später noch einmal.",
+    "confirmButton": "Zuschuß bestätigen",
+    "confirmDescription": "Bitte bestätigen Sie die Credit-Zuschuss-Details. Einmal bestätigt, wird es sofort wirksam.",
+    "confirmSummary": {
+      "amount": "Zugewährte Credits",
+      "mode": "Art der Finanzhilfe",
+      "note": "Anmerkung",
+      "package": "Verpackung",
+      "packageCredits": "Credits",
+      "packageExpireAt": "Geschätzte Gültigkeit bis",
+      "packageValidity": "Geltungsdauer",
+      "referralCurrentCredits": "Aktuelle Referral Reward Credits",
+      "referralCurrentExpireAt": "Derzeitige Bewährung gültig bis",
+      "referralEstimatedCredits": "Geschätzte Credits nach Zuschuss",
+      "referralEstimatedExpireAt": "Geschätzte Gültigkeit bis nach Gewährung des Zuschusses",
+      "referralGrantCount": "Belohnte Befassungszahl",
+      "source": "Quelle",
+      "validityPreset": "Geltungsdauer"
+    },
+    "confirmTitle": "Gutschrift-Zuschuss bestätigen",
+    "description": "Verwenden Sie diesen Dialog, um Lehrer- oder Bedienerbenutzern von Operations Credits oder ein Paket zuzuteilen.",
+    "fields": {
+      "amount": "Credits",
+      "mode": "Art der Finanzhilfe",
+      "note": "Anmerkung",
+      "source": "Quelle",
+      "validityPreset": "Geltungsdauer"
+    },
+    "modeOptions": {
+      "credits": "Zuschußkredite",
+      "package": "Finanzhilfepaket",
+      "referralReward": "Beschleunigte Belohnung"
+    },
+    "packageConfirmDescription": "Bitte bestätigen Sie die Angaben zur Zuführung des Pakets. Sobald dies bestätigt ist, wird sie sofort wirksam.",
+    "packageConfirmTitle": "Paketzuschuss bestätigen",
+    "packageFields": {
+      "credits": "Credits",
+      "expiryHintPending": "Das Paket wird unmittelbar nach der Erteilung wirksam und die Gültigkeit bis zur Zeit wird automatisch aus der Gültigkeit des Pakets berechnet.",
+      "expiryHintResolved": "Das Paket wird sofort nach dem Erfolg des Zuschusses wirksam. Geschätzt gültig bis: {dateTime}.",
+      "packageName": "Paketname",
+      "product": "Verpackung",
+      "validity": "Geltungsdauer"
+    },
+    "placeholders": {
+      "amount": "Geben Sie den Creditbetrag ein",
+      "note": "Optional. Den Grund für diesen Zuschuss aufzeichnen",
+      "product": "Paket auswählen",
+      "productLoading": "Pakete werden geladen...",
+      "referralRewardAmount": "Prämiengutschriften eingeben",
+      "source": "Quelle auswählen",
+      "validityPreset": "Gültigkeit auswählen"
+    },
+    "referralReward": {
+      "bootstrapError": "Fehler beim Laden von Empfehlungs-Belohnungsdaten. Bitte versuchen Sie es später noch einmal.",
+      "bootstrapLoading": "Verweisungs-Belohnungsdaten werden geladen...",
+      "currentCredits": "Aktuelle Referral Reward Credits",
+      "currentExpireAt": "Derzeitige Bewährung gültig bis",
+      "description": "Jede Empfehlung Belohnung Zuschuss fügt die eingegebenen Gutschriften und verlängert die aktuelle Empfehlung Belohnung Gültigkeit um 1 Monat.",
+      "emptyDescription": "Gibt es keine aktive Überweisungsvergütung, so beginnt die Gültigkeit der Finanzhilfezeit und dauert 1 Monat.",
+      "grantCount": "Belohnte Befassungszahl",
+      "grantCountTooltip": "Die Datenquelle basiert vorübergehend auf der Anzahl der Bezuschussungen.",
+      "noActiveReward": "Keine aktive Empfehlungsprämie",
+      "oneMonth": "1 Monat",
+      "validity": "Geltungsdauer"
+    },
+    "referralRewardConfirmDescription": "Bitte bestätigen Sie die Einzelheiten der Überweisungsvergütung. Sobald sie bestätigt ist, wird sie sofort wirksam.",
+    "referralRewardConfirmTitle": "Bestätigen des Besoldungszuschusses",
+    "sourceOptions": {
+      "compensation": "Ausgleich",
+      "reward": "Belohnung"
+    },
+    "submitButton": "Bestätigen",
+    "submitSuccess": "Der Zuschuss ist erfolgreich.",
+    "summary": {
+      "account": "Konto",
+      "availableCredits": "Creditsaldo",
+      "currentExpireAt": "Gültig bis",
+      "currentPackage": "Aktuelles Paket",
+      "nickname": "Nickname",
+      "package": "Verpackung"
+    },
+    "title": "Zuschußgutschriften/Paket",
+    "validation": {
+      "amountRequired": "Geben Sie einen Creditbetrag von mehr als 0 ein",
+      "productRequired": "Paket auswählen",
+      "referralRewardAmountRequired": "Geben Sie einen positiven Integer-Creditbetrag ein",
+      "sourceRequired": "Eine Quelle auswählen",
+      "validityPresetRequired": "Wählen Sie eine Voreinstellung für die Gültigkeit"
+    },
+    "validityHint": "Wenn kein aktives Abonnement vorliegt, kann die Gültigkeit nicht auf \"Aktuelles Abonnement auslaufen\" gesetzt werden.",
+    "validityOptions": {
+      "alignSubscription": "Entsprechen Sie dem aktuellen Ablauf des Abonnements",
+      "oneDay": "1 Tag nach Gewährung",
+      "oneMonth": "1 Monat nach Gewährung",
+      "oneYear": "1 Jahr nach Gewährung",
+      "sevenDays": "7 Tage nach Gewährung",
+      "threeMonths": "3 Monate nach Gewährung"
+    }
+  },
+  "loginMethodLabels": {
+    "email": "E-Mail-Adresse",
+    "google": "Google",
+    "phone": "Mobil",
+    "unknown": "Unbekannt",
+    "wechat": "WeChat"
+  },
+  "overview": {
+    "activeFilter": "Schnellfilter",
+    "metrics": {
+      "creators": "Lehrer",
+      "guests": "Gäste",
+      "learners": "Lernende",
+      "learningActive30d": "Aktive Lernende (30d)",
+      "newUsers30d": "Neue Nutzer (30d)",
+      "paidUsers": "Bezahlte Nutzer",
+      "paidUsers30d": "Bezahlte Nutzer (30d)",
+      "registeredUsers": "Registrierte Benutzer",
+      "registeredUsers30d": "Registrierte Benutzer (30d)",
+      "totalUsers": "Benutzer insgesamt"
+    },
+    "staleData": "Übersicht refresh fehlgeschlagen. Zeigt den letzten erfolgreichen Snapshot an.",
+    "title": "Überblick",
+    "tooltips": {
+      "creators": "Lehrer",
+      "guests": "Gastnutzer",
+      "learners": "Benutzer mit Lernaufzeichnungen",
+      "learningActive30d": "Nutzer mit Lernaktivität in den letzten 30 Tagen",
+      "newUsers30d": "Neue Benutzer in den letzten 30 Tagen",
+      "paidUsers": "Benutzer im bezahlten Status (einschließlich importierter Aktivierungen)",
+      "paidUsers30d": "Nutzer, die in den letzten 30 Tagen erfolgreich bezahlt haben (einschließlich importierter Aktivierungen)",
+      "registeredUsers": "Registrierte Verwender",
+      "registeredUsers30d": "Nutzer, die die Registrierung in den letzten 30 Tagen abgeschlossen haben",
+      "totalUsers": "Alle Benutzer"
+    }
+  },
+  "registrationSourceLabels": {
+    "email": "E-Mail-Adresse",
+    "google": "Google",
+    "imported": "Einfuhr",
+    "phone": "Mobil",
+    "unknown": "Unbekannt",
+    "wechat": "WeChat"
+  },
+  "roleLabels": {
+    "creator": "Lehrer",
+    "learner": "Lernender",
+    "operator": "Betreiber",
+    "regular": "Regelmäßig",
+    "unknown": "Unbekannt"
+  },
+  "statusLabels": {
+    "cancelled": "Annulliert",
+    "paid": "Bezahlt",
+    "registered": "Registriert",
+    "unknown": "Unbekannt",
+    "unregistered": "Nicht registriert"
+  },
+  "table": {
+    "action": "Maßnahmen",
+    "availableCredits": "Credits insgesamt",
+    "createdAt": "Erzeugt bei",
+    "createdCourses": "Geschaffene Kurse",
+    "creditsExpireAt": "Credits laufen ab",
+    "email": "E-Mail-Adresse",
+    "guestUser": "Gast",
+    "lastLearningAt": "Letztes Lernen",
+    "lastLoginAt": "Letzte Anmeldung",
+    "learningCourses": "Lehrveranstaltungen",
+    "loginMethods": "Login-Methoden",
+    "mobile": "Mobil",
+    "nickname": "Nickname",
+    "registrationSource": "Registrierungsquelle",
+    "role": "Rolle",
+    "status": "Status",
+    "subscriptionCredits": "Abonnementgutschriften",
+    "topupCredits": "Credits aus Creditpaketen",
+    "totalPaidAmount": "Gezahlt insgesamt",
+    "updatedAt": "Aktualisiert am",
+    "userId": "Benutzer-ID"
+  },
+  "title": "Benutzerverwaltung"
+}

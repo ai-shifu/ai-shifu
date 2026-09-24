@@ -4,30 +4,31 @@ This directory contains utility scripts for managing AI-Shifu configuration.
 
 ## backfill_profile_onboarding_assistant_prompts.py
 
-Run this once when adding Spanish (`es-ES`) to an installation with an existing
-profile-onboarding configuration. Use the upgraded API runtime, with its
+Run this once when adding a new supported language to an installation with an
+existing profile-onboarding configuration. Use the upgraded API runtime, with its
 database and LLM settings available, before exposing Spanish in the learner UI.
 For a Docker Compose installation, run from the repository root:
 
 ```bash
 cd docker
-docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py
-docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py --apply
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py --locale de-DE
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py --locale de-DE --apply
 ```
 
 For a source-checkout installation, run from the repository root instead:
 
 ```bash
 cd src/api
-python scripts/backfill_profile_onboarding_assistant_prompts.py
-python scripts/backfill_profile_onboarding_assistant_prompts.py --apply
+python scripts/backfill_profile_onboarding_assistant_prompts.py --locale de-DE
+python scripts/backfill_profile_onboarding_assistant_prompts.py --locale de-DE --apply
 ```
 
 The first command previews the stored configuration without a model call or
 write. `--apply` localizes the saved master prompt and atomically fills missing
-registered locales, preserving existing translations. It prints only a status
+registered locales, preserving existing translations. Omitting `--locale`
+continues to target Spanish for compatibility with older runbooks. It prints only a status
 and configuration revision plus the generated locale codes, never the prompt
-text. If an older map lacks languages besides Spanish, the existing save path
+text. If an older map lacks languages besides German, the existing save path
 fills those missing languages in the same run. `already_present` means a
 repeat run has nothing to do. `no_configuration` or `no_master_prompt` means
 there is no saved prompt to translate; configure the onboarding prompt through

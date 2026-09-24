@@ -1,0 +1,32 @@
+{
+  "__namespace__": "server.order",
+  "__flat__": {
+    "checkout": "Kasse",
+    "courseNotPaid": "Kurs nicht gekauft, bitte den Kurs zuerst kaufen",
+    "emailAlreadyActivated": "Email {email} ist für diesen Kurs bereits aktiviert",
+    "importActivationFailed": "Diese Aktivierungszeile konnte nicht importiert werden. Überprüfen Sie die Zeilendaten und versuchen Sie es erneut.",
+    "learnStatusBranch": "Zweig",
+    "learnStatusCompleted": "Fertig",
+    "learnStatusInProgress": "Lernen",
+    "learnStatusLocked": "Gesperrt",
+    "learnStatusNotStarted": "Fertig",
+    "learnStatusRefund": "Erstattungsbetrag",
+    "learnStatusReset": "Zurücksetzen",
+    "learnStatusUnavailable": "Nicht verfügbar",
+    "mobileAlreadyActivated": "Mobile {mobile} bereits für diesen Kurs aktiviert",
+    "orderHasPaid": "Der Auftrag hat sich bezahlt gemacht",
+    "orderNotFound": "Bestellung nicht gefunden",
+    "orderPayExpired": "Diese Bestellung ist abgelaufen. Bitte geben Sie eine neue Bestellung an.",
+    "orderRefundError": "Rückerstattung fehlgeschlagen",
+    "orderStatusError": "Der Bestellstatus ist für diesen Vorgang ungültig.",
+    "orderStatusInit": "Nicht eingeleitet",
+    "orderStatusRefund": "Erstattungsbetrag",
+    "orderStatusSuccess": "Erfolg",
+    "orderStatusTimeout": "Abgelaufen",
+    "orderStatusToBePaid": "Zu zahlen",
+    "payItemBasePrice": "Grundpreis",
+    "payItemCoupon": "Kupon",
+    "payItemProduct": "Erzeugnis",
+    "payItemPromotion": "Förderung"
+  }
+}

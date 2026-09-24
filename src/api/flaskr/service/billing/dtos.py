@@ -856,6 +856,7 @@ class RuntimeLocalizedUrlDTO(BillingBaseDTO):
 
     zh_cn: str = Field(alias="zh-CN")
     en_us: str = Field(alias="en-US")
+    de_de: str = Field(alias="de-DE")
     es_es: str = Field(alias="es-ES")
     fr_fr: str = Field(alias="fr-FR")
     ar_sa: str = Field(alias="ar-SA")
