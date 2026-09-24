@@ -26,6 +26,8 @@ from pydantic_ai.messages import (
     PartStartEvent,
     TextPart,
     TextPartDelta,
+    ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 
@@ -86,10 +88,11 @@ class StartTurn(BaseModel):
 # simulation environment read a lesson's entire text twice and then watched it stop.
 CONTINUE_PROMPT = (
     "continue\n\n"
-    "Deliver the next part of the script: the first step you have not delivered yet. Do not "
-    "summarise, recap, restate or elaborate on anything you already delivered, and do not add a "
-    "closing wrap-up of your own. If nothing in the script remains to be delivered, write nothing "
-    "at all -- no note, no summary -- and call `finish`."
+    "Deliver the next part of the script: the rest of the step you were on if any of it is still "
+    "to be delivered, otherwise the first step you have not delivered yet. Do not summarise, "
+    "recap, restate or elaborate on anything you already delivered unless that step of the "
+    "script asks for it, and do not add a closing wrap-up of your own. If nothing in the script "
+    "remains to be delivered, write nothing at all -- no note, no summary -- and call `finish`."
 )
 
 
@@ -206,6 +209,30 @@ def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool
     if len(now) < _REPEAT_FLOOR_CHARS:
         return False
     return _previous_turn_text(messages, history_len).startswith(now)
+
+
+def _finished_in(messages: Sequence[object]) -> str | None:
+    """Return the summary of a `finish` the model already called in this lesson, if it did.
+
+    Read from the history rather than kept on the session, so it goes wherever the history goes:
+    a question asked in the same response as `finish` is still shown, and the turn that takes its
+    answer then ends the lesson.
+    """
+    finished = {
+        part.tool_call_id
+        for message in messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, ToolReturnPart) and part.tool_name == "finish"
+    }
+    for message in messages:
+        if not isinstance(message, ModelResponse):
+            continue
+        for part in message.parts:
+            if isinstance(part, ToolCallPart) and part.tool_call_id in finished:
+                summary = str(part.args_as_dict().get("summary") or "").strip()
+                return summary or "done"
+    return None
 
 
 class Engine:
@@ -361,6 +388,7 @@ class Engine:
             ),
         )
         deps.history_len = len(session.messages) if session.started else 0
+        deps.finished = _finished_in(session.messages)
         kwargs: dict[str, Any] = {"deps": deps, "usage_limits": self.limits}
         resumed: set[str] = set()
         prompt: str | None
@@ -623,19 +651,12 @@ class Engine:
                                 segmenter.finish(), seg_state, session, final=True
                             ):
                                 yield e
-                        if deps.finished is not None:
-                            # The lesson is over, whatever the model did after saying so. Given
-                            # the `finish` result it sometimes started the lesson again and asked
-                            # its first question once more: taken as a question, that kept a
-                            # finished lesson going, every answer followed by the same lesson and
-                            # the same question (general-education course, 2026-09-24).
-                            session.finished = True
-                            yield TurnDone(
-                                reason="finished",
-                                usage=session.usage,
-                                summary=deps.finished,
-                            )
-                        elif isinstance(result.output, DeferredToolRequests):
+                        if isinstance(result.output, DeferredToolRequests):
+                            # Every question here was asked before `finish`, if the model called
+                            # it at all: `interact` defers nothing once the lesson is over. Asked
+                            # in the same response as `finish`, the script's last question is
+                            # still the learner's to answer, and the turn that takes the answer
+                            # ends the lesson (see `_finished_in`).
                             for call in result.output.calls:
                                 spec = InteractionSpec.model_validate(
                                     result.output.metadata.get(call.tool_call_id, {})
@@ -647,6 +668,18 @@ class Engine:
                                     id=call.tool_call_id, spec=spec
                                 )
                             yield TurnDone(reason="interaction", usage=session.usage)
+                        elif deps.finished is not None:
+                            # The lesson is over, whatever the model did after saying so. Given
+                            # the `finish` result it sometimes started the lesson again and asked
+                            # its first question once more: taken as a question, that kept a
+                            # finished lesson going, every answer followed by the same lesson and
+                            # the same question (general-education course, 2026-09-24).
+                            session.finished = True
+                            yield TurnDone(
+                                reason="finished",
+                                usage=session.usage,
+                                summary=deps.finished,
+                            )
                         elif repeated:
                             # Told to carry on, the model wrote the previous turn over again.
                             # There is nothing left in the script for it to deliver, whether or
