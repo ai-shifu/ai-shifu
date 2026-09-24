@@ -371,7 +371,9 @@ class Engine:
                     message=f"interaction {pending.tool_call_id!r} needs an answer",
                     retryable=True,
                 )
-                yield InteractionRequest(id=pending.tool_call_id, spec=pending.spec)
+                yield InteractionRequest(
+                    id=pending.tool_call_id, spec=pending.spec, asked_before=True
+                )
                 yield TurnDone(reason="interaction", usage=session.usage)
                 return
             session.answers[pending.tool_call_id] = format_answer_for_model(

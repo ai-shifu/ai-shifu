@@ -844,6 +844,8 @@ async def test_an_unanswerable_response_keeps_the_question_pending() -> None:
         "TurnDone",
     ]
     assert events[0].retryable is True
+    # Put again, not asked anew: its text is already on the learner's screen.
+    assert events[1].asked_before is True
     assert s.pending[0].tool_call_id == "q1"  # still waiting
     assert s.answers == {}
     assert "picked" not in s.memory
