@@ -1083,7 +1083,17 @@ def _persist(
         # them to the profile would leak a turn's working notes into preview, Ask and follow-up
         # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
         # session scope, so this is the common case, not the rare one.
-        durable = [update for update in memory if update.scope == "user"]
+        #
+        # An answer to one of the script's questions is not a working note: it is what the author
+        # asked the learner, stored under the name the script gave it, and 1.0 writes every such
+        # answer to the profile. Later lessons read it from there -- a script that asks for
+        # `%{{purpose}}` in one lesson uses `{{purpose}}` in the next -- and a lesson whose
+        # answer stayed in its own session showed the next one's learner the placeholder itself.
+        durable = [
+            update
+            for update in memory
+            if update.scope == "user" or update.source == "interaction"
+        ]
         if durable:
             stage_memory(
                 app,
