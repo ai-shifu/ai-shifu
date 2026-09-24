@@ -7,13 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
-from pydantic_ai.messages import (
-    ModelRequest,
-    ModelResponse,
-    TextPart,
-    ToolCallPart,
-    ToolReturnPart,
-)
+from pydantic_ai.messages import ModelResponse, TextPart
 
 from .interaction import InteractionSpec, InteractionType, Option
 
@@ -41,9 +35,10 @@ class Deps:
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
     # when the script is in the 1.0 notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
-    # How many times this lesson may pause on a `confirm`, when the host's scripts pause only
-    # where their notation puts a button; None when the model decides. See `script_pauses`.
-    pause_budget: int | None = None
+    # Set when the host's scripts pause only where their notation puts a button and this lesson's
+    # script has none: a `confirm` is then answered without asking the learner. See
+    # `script_pauses` and `Engine(pauses_from_notation=)`.
+    no_pauses: bool = False
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
@@ -242,33 +237,6 @@ NO_PAUSE = (
 )
 
 
-def pauses_taken(ctx: RunContext[Deps]) -> int:
-    """Count the `confirm` pauses this lesson has already shown the learner.
-
-    A pause the learner was shown ends with their answer as the call's return; one the lesson did
-    not take (see `NO_PAUSE`) returns that text instead and does not count.
-    """
-    confirms: set[str] = set()
-    for msg in ctx.messages:
-        if isinstance(msg, ModelResponse):
-            for part in msg.parts:
-                if (
-                    isinstance(part, ToolCallPart)
-                    and part.tool_name == "interact"
-                    and part.args_as_dict().get("type") == "confirm"
-                ):
-                    confirms.add(part.tool_call_id)
-    return sum(
-        1
-        for msg in ctx.messages
-        if isinstance(msg, ModelRequest)
-        for part in msg.parts
-        if isinstance(part, ToolReturnPart)
-        and part.tool_call_id in confirms
-        and part.content != NO_PAUSE
-    )
-
-
 async def interact(
     ctx: RunContext[Deps],
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
@@ -298,10 +266,9 @@ async def interact(
             "after that content, and never answer a continue with another confirm."
         )
         raise ModelRetry(msg)
-    budget = ctx.deps.pause_budget
-    if type == "confirm" and budget is not None and pauses_taken(ctx) >= budget:
-        # A pause the script did not write. The learner is not asked: the lesson simply goes on,
-        # as a 1.0 lesson does there. Answered rather than refused, so the model carries on in
+    if type == "confirm" and ctx.deps.no_pauses:
+        # A pause in a lesson whose script has none. The learner is not asked: the lesson simply
+        # goes on, as a 1.0 lesson does. Answered rather than refused, so the model carries on in
         # the same turn instead of spending its retries on a call it cannot make.
         return NO_PAUSE
     if ctx.deps.script_options:

@@ -1788,8 +1788,13 @@ async def test_a_pause_the_script_wrote_is_still_put_to_the_learner() -> None:
     assert events[-1].reason == "interaction"
 
 
-async def test_a_script_that_pauses_once_pauses_once() -> None:
-    """The second pause of a lesson whose script has one button is not put to the learner."""
+async def test_a_script_with_a_button_leaves_its_pauses_to_the_model() -> None:
+    """Where the script has buttons, nothing says which part of it the model has reached.
+
+    A count of buttons, spent as the model paused, let an early unscripted pause use up the one
+    the author wrote, and the author's button was then skipped (review of #2957). So the model
+    keeps placing pauses in such a lesson, as before.
+    """
     told: list[str] = []
     engine = Engine(
         FunctionModel(stream_function=_pausing_model(told)), pauses_from_notation=True
@@ -1797,8 +1802,25 @@ async def test_a_script_that_pauses_once_pauses_once() -> None:
     session = await engine.new_session("讲一段。\n\n?[继续]\n\n再讲一段。")
     await collect(engine.run_turn(session))
     await collect(engine.run_turn(session, InteractionResponseTurn(values=["继续"])))
-    # Carried on: the model pauses again, which the script has no second button for.
     events = await collect(engine.run_turn(session, ContinueTurn()))
+    assert [e for e in events if isinstance(e, InteractionRequest)]
+
+
+async def test_a_button_in_the_brief_is_not_a_pause_of_the_lesson() -> None:
+    """A brief may show `?[继续]` as an example of the notation; the lesson itself has none."""
+    from flaskr.service.learn.agent.engine.script import ScriptBundle
+
+    told: list[str] = []
+    engine = Engine(
+        FunctionModel(stream_function=_pausing_model(told)), pauses_from_notation=True
+    )
+    session = await engine.new_session(
+        ScriptBundle(
+            script="让用户思考一下，再继续讲下一部分。",
+            constraints="写停顿的方式是 ?[继续]，本节不需要。",
+        )
+    )
+    events = await collect(engine.run_turn(session))
     assert not [e for e in events if isinstance(e, InteractionRequest)]
 
 

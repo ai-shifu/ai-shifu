@@ -225,9 +225,10 @@ class Engine:
         left pending with nothing on the learner's screen to answer it.
 
         `pauses_from_notation` is how a host says its scripts pause only where their notation puts
-        a button (`?[继续]`), as a MarkdownFlow 1.0 lesson does: a lesson then pauses at most as
-        many times as its script has such buttons, and a `confirm` beyond that is answered
-        without asking the learner. Off, the model decides when a pause is called for.
+        a button (`?[继续]`), as a MarkdownFlow 1.0 lesson does: a lesson whose script has no such
+        button then never pauses, and a `confirm` in it is answered without asking the learner.
+        Where the script has buttons, the model places the pauses, since nothing says which part
+        of the script it has reached. Off, the model decides everywhere.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
@@ -343,8 +344,10 @@ class Engine:
             uses_v1_syntax=uses_v1_syntax,
             interaction_check=self.interaction_check,
             script_options=script_options(script_text) if uses_v1_syntax else {},
-            pause_budget=(
-                script_pauses(script_text) if self.pauses_from_notation else None
+            # The lesson's own script only: a brief or a reference document may show `?[继续]`
+            # as an example of the notation, which is not a pause in this lesson.
+            no_pauses=(
+                self.pauses_from_notation and script_pauses(session.script.script) == 0
             ),
         )
         deps.history_len = len(session.messages) if session.started else 0
