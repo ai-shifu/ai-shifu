@@ -32,8 +32,8 @@ anything written after `finish`; and opening a finished lesson writes nothing.
   dropped and ends the lesson; nothing written after `finish` is shown. Tests fail with the
   change reverted.
 - [x] Host: `run_agent_lesson` returns a `TurnOutcome`; `agent_lesson_events` runs the next turn
-  in the same request while the last ended with content still to come and said something, up to
-  `_MAX_TURNS_PER_REQUEST`. Tests fail with the change reverted.
+  in the same request while the last ended with content still to come and said something. Tests
+  fail with the change reverted.
 - [x] Host: a turn asked of a finished session runs nothing and writes nothing (it used to leave
   an empty block, an element and the outline's rows on every visit, then an orphan element).
 - [x] Local browser verification: 3-2 (content only), 3-3 (code block and table), 4-2 (a question
@@ -57,8 +57,16 @@ anything written after `finish`; and opening a finished lesson writes nothing.
 - The lesson is carried on by the host, not by the browser. The browser has no way to tell a
   turn's end from the lesson's under the element protocol, and 1.0 never needed it to.
 - A turn that ended out of content having said nothing is not followed: the model has nothing to
-  add and did not say so, and asking again would loop. The engine's turn limit is the final brake;
-  `_MAX_TURNS_PER_REQUEST` is only a guard against a model that keeps writing something new.
+  add and did not say so, and asking again would loop. The engine's turn limit is the brake for a
+  lesson that will not end; it ends the lesson as finished. There is no cap per request (review):
+  one would close the stream mid-lesson with a terminal event, which the browser cannot tell from
+  a finished request, so a long lesson would stop until reopened -- the symptom being fixed.
+- A question the model typed as text (`?[...]`, shown by `_narrated_question`) makes the turn a
+  wait: `TurnOutcome.reason` is "interaction" for it, or the loop would run past it (review).
+- On a continue turn, text held back when `finish` is seen is dropped whatever its length
+  (review suggested keeping it below the repeat floor): the floor exists for a script that says a
+  short thing twice as content; a turn that says the previous turn's opening words and then
+  `finish` on being told to carry on has not delivered content, it has repeated and stopped.
 - The held text is compared whitespace-insensitively against the previous turn's text, the same
   normalisation `_repeats_previous_turn` uses. A short repeat (under `_REPEAT_FLOOR_CHARS`) is
   still shown, as before: a drill line said twice is the script's.

@@ -2317,3 +2317,22 @@ def test_a_turn_reports_how_it_ended_and_whether_it_said_anything() -> None:
         )
     )
     assert over.reason == "finished"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_model_typed_is_reported_as_a_wait() -> None:
+    """The engine ended the turn out of content, but the learner has a question to answer.
+
+    The host shows the last `?[...]` the model wrote as a question; a caller reading the
+    engine's "end" would carry the lesson on past it before the learner could answer.
+    """
+    outcome = _outcome(
+        _Engine(
+            [
+                ContentDelta(text="Pick one.\n\n?[Left | Right]\n"),
+                TurnDone(reason="end"),
+            ],
+            session=_Session(started=True),
+        )
+    )
+    assert outcome.reason == "interaction"

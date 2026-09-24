@@ -420,17 +420,3 @@ def test_a_turn_that_waits_ends_or_says_nothing_is_not_followed(
 
     assert len(events) == 1
     assert len(calls) == 1
-
-
-def test_a_request_runs_only_so_many_turns(app: object, monkeypatch: object) -> None:
-    runner = _entry_with_runner(monkeypatch)
-    calls: list[dict] = []
-    runner.side_effect = _turn([TurnOutcome(reason="end", taught=True)] * 100, calls)
-
-    list(
-        entry.agent_lesson_events(
-            app, user_bid="learner", shifu_bid="course", outline_bid="lesson"
-        )
-    )
-
-    assert len(calls) == entry._MAX_TURNS_PER_REQUEST

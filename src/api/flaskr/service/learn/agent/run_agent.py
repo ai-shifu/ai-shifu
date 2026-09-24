@@ -921,6 +921,10 @@ def _stream_turn(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
             )
+            # The engine ended the turn out of content, but the learner has a question in front
+            # of them all the same, and a caller carrying the lesson on from an "end" would run it
+            # past that question before they could answer.
+            session_holder["reason"] = "interaction"
 
         try:
             yield from _on_this_page(
