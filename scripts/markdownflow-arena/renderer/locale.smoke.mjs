@@ -93,6 +93,10 @@ try {
             }
           : {}),
       });
+      assert.equal(
+        artifact.markdownFlowLocale,
+        locale === "es-ES" ? "en-US" : locale,
+      );
       await page.evaluate((value) => window.renderArena(value), artifact);
       await page.waitForFunction(
         ({ locale, direction }) => {

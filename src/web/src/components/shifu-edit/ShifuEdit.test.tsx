@@ -939,6 +939,31 @@ describe('ShifuEdit draft conflict checks', () => {
     }
   });
 
+  test('marks Spanish authored content as Spanish with English editor controls', async () => {
+    setLessonNode();
+    const mockI18nState = getMockI18nState();
+    const originalResolvedLanguage = mockI18nState.resolvedLanguage;
+    const originalLanguage = mockI18nState.language;
+
+    try {
+      mockI18nState.resolvedLanguage = 'es-ES';
+      mockI18nState.language = 'es-ES';
+
+      render(<ScriptEditor id='shifu-1' />);
+
+      await waitFor(() => {
+        expect(mockMarkdownFlowEditor).toHaveBeenCalled();
+      });
+
+      expect(mockMarkdownFlowEditor.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ locale: 'en-US', lang: 'es-ES' }),
+      );
+    } finally {
+      mockI18nState.resolvedLanguage = originalResolvedLanguage;
+      mockI18nState.language = originalLanguage;
+    }
+  });
+
   test('renders the history entry as a same-window link for the current lesson', async () => {
     setLessonNode();
 

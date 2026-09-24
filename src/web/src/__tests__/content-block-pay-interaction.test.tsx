@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import ContentBlock from '@/components/ChatUi/ContentBlock';
 
 const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
+let mockLanguage = 'zh-CN';
 
 jest.mock('markdown-flow-ui/renderer', () => ({
   ContentRender: (props: Record<string, unknown>) => {
@@ -15,8 +16,8 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
     i18n: {
-      language: 'zh-CN',
-      resolvedLanguage: 'zh-CN',
+      language: mockLanguage,
+      resolvedLanguage: mockLanguage,
     },
   }),
 }));
@@ -44,6 +45,29 @@ jest.mock('@/lib/system-interaction', () => ({
 describe('ContentBlock pay interaction overrides', () => {
   beforeEach(() => {
     mockContentRender.mockClear();
+    mockLanguage = 'zh-CN';
+  });
+
+  it('marks Spanish lesson content as Spanish with English MarkdownFlow controls', () => {
+    mockLanguage = 'es-ES';
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'content',
+            content: 'Hola',
+            element_bid: 'spanish-content',
+          } as any
+        }
+        mobileStyle={false}
+        blockBid='spanish-content'
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'en-US', lang: 'es-ES' }),
+    );
   });
 
   it('keeps sys pay interactions writable and unselected', () => {

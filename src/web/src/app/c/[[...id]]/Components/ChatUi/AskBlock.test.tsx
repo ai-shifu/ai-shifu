@@ -42,17 +42,23 @@ jest.mock('@/lib/markdownUtils', () => ({
 jest.mock('markdown-flow-ui/renderer', () => ({
   ContentRender: ({
     content,
+    locale,
+    lang,
     enableTypewriter,
     typewriterPacing,
     typingSpeed,
   }: {
     content: string;
+    locale?: string;
+    lang?: string;
     enableTypewriter?: boolean;
     typewriterPacing?: 'fixed' | 'content-aware';
     typingSpeed?: number;
   }) => (
     <div
       data-testid='follow-up-answer'
+      data-locale={locale}
+      lang={lang}
       data-typewriter={String(Boolean(enableTypewriter))}
       data-typewriter-pacing={typewriterPacing}
       data-typing-speed={typingSpeed}
@@ -62,6 +68,8 @@ jest.mock('markdown-flow-ui/renderer', () => ({
   ),
   MarkdownFlowInput: ({
     disabled,
+    locale,
+    lang,
     value,
     onChange,
     onSend,
@@ -69,6 +77,8 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     textareaClassName,
   }: {
     disabled?: boolean;
+    locale?: string;
+    lang?: string;
     value: string;
     onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onSend: () => void;
@@ -77,6 +87,8 @@ jest.mock('markdown-flow-ui/renderer', () => ({
   }) => (
     <div
       data-testid='ask-input-wrapper'
+      data-locale={locale}
+      lang={lang}
       data-send-shortcut={sendShortcut}
     >
       <textarea
@@ -363,6 +375,36 @@ describe('AskBlock', () => {
         name: 'module.chat.liveVoiceStartMicrophone',
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it('marks Spanish follow-up text as Spanish with English MarkdownFlow controls', () => {
+    mockLanguage = 'es-ES';
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        askList={[{ type: BLOCK_TYPE.ANSWER, content: 'Hola' }]}
+      />,
+    );
+
+    expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute(
+      'data-locale',
+      'en-US',
+    );
+    expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute(
+      'lang',
+      'es-ES',
+    );
+    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
+      'data-locale',
+      'en-US',
+    );
+    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
+      'lang',
+      'es-ES',
+    );
   });
 
   it.each([false, true])(

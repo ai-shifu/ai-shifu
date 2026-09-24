@@ -48,13 +48,14 @@ const mockAskBlock = jest.fn(
 );
 let mockSlideMountId = 0;
 let mockSlideCurrentElement = { blockBid: 'content-1', type: 'content' };
+let mockLanguage = 'zh-CN';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
     i18n: {
-      language: 'zh-CN',
-      resolvedLanguage: 'zh-CN',
+      language: mockLanguage,
+      resolvedLanguage: mockLanguage,
     },
   }),
 }));
@@ -217,6 +218,7 @@ describe('ListenModeSlideRenderer', () => {
     window.localStorage.clear();
     mockSlideMountId = 0;
     mockSlideCurrentElement = { blockBid: 'content-1', type: 'content' };
+    mockLanguage = 'zh-CN';
     getMockSlide().mockClear();
     getMockSlideBuiltInActionClick().mockClear();
     mockAskBlock.mockClear();
@@ -788,6 +790,21 @@ describe('ListenModeSlideRenderer', () => {
     });
     expect(slideProps?.fullscreenHeader).not.toHaveProperty('backAriaLabel');
     expect(slideProps).not.toHaveProperty('playerTexts');
+  });
+
+  it('marks Spanish slide content as Spanish with English player controls', () => {
+    mockLanguage = 'es-ES';
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    expect(getMockSlide().mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ locale: 'en-US', lang: 'es-ES' }),
+    );
   });
 
   it.each(['listen', 'classroom'] as const)(

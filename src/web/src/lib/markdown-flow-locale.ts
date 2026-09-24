@@ -1,8 +1,8 @@
 import type { MarkdownFlowLocale } from 'markdown-flow-ui/renderer';
 
+// Pass only locales supported by the pinned MarkdownFlow release.
 const MARKDOWN_FLOW_LOCALES: readonly MarkdownFlowLocale[] = [
   'en-US',
-  'es-ES',
   'fr-FR',
   'zh-CN',
   'ar-SA',
@@ -13,7 +13,6 @@ const localeByBaseCode: Record<string, MarkdownFlowLocale> = Object.assign(
   Object.create(null),
   {
     en: 'en-US',
-    es: 'es-ES',
     fr: 'fr-FR',
     zh: 'zh-CN',
     ar: 'ar-SA',
@@ -38,3 +37,11 @@ export const resolveMarkdownFlowLocale = (
   const baseCode = normalizedLanguage.split('-')[0]?.toLowerCase();
   return (baseCode && localeByBaseCode[baseCode]) || 'en-US';
 };
+
+// Keep Spanish authored content marked as Spanish while 0.2.27 controls use English.
+export const resolveMarkdownFlowContentLanguage = (
+  language?: string | null,
+): string | undefined =>
+  language?.replace('_', '-').split('-')[0]?.toLowerCase() === 'es'
+    ? 'es-ES'
+    : undefined;

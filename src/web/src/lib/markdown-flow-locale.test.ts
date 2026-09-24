@@ -1,20 +1,23 @@
-import { resolveMarkdownFlowLocale } from './markdown-flow-locale';
+import {
+  resolveMarkdownFlowContentLanguage,
+  resolveMarkdownFlowLocale,
+} from './markdown-flow-locale';
 
 describe('resolveMarkdownFlowLocale', () => {
   it.each([
     ['en-US', 'en-US'],
-    ['es-ES', 'es-ES'],
+    ['es-ES', 'en-US'],
     ['fr-FR', 'fr-FR'],
     ['zh-CN', 'zh-CN'],
     ['ar-SA', 'ar-SA'],
     ['th-TH', 'th-TH'],
     ['zh_CN', 'zh-CN'],
-    ['es_ES', 'es-ES'],
+    ['es_ES', 'en-US'],
     ['ar_SA', 'ar-SA'],
     ['th_TH', 'th-TH'],
     ['en', 'en-US'],
-    ['es-MX', 'es-ES'],
-    ['es', 'es-ES'],
+    ['es-MX', 'en-US'],
+    ['es', 'en-US'],
     ['fr-CA', 'fr-FR'],
     ['zh-Hant', 'zh-CN'],
     ['ar', 'ar-SA'],
@@ -27,6 +30,22 @@ describe('resolveMarkdownFlowLocale', () => {
     'falls back to English for %s',
     language => {
       expect(resolveMarkdownFlowLocale(language)).toBe('en-US');
+    },
+  );
+});
+
+describe('resolveMarkdownFlowContentLanguage', () => {
+  it.each(['es-ES', 'es_ES', 'es-MX', 'es'])(
+    'keeps %s content tagged as Spanish',
+    language => {
+      expect(resolveMarkdownFlowContentLanguage(language)).toBe('es-ES');
+    },
+  );
+
+  it.each([undefined, null, '', 'en-US', 'fr-FR'])(
+    'leaves %s content language to MarkdownFlow',
+    language => {
+      expect(resolveMarkdownFlowContentLanguage(language)).toBeUndefined();
     },
   );
 });

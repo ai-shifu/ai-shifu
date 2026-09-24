@@ -24,6 +24,7 @@ let mockRendererSubmission: OnSendContentParams = DEFAULT_RENDERER_SUBMISSION;
 let mockAutoFinishTypewriter = true;
 let mockLatestTypeFinished: (() => void) | undefined;
 let mockRenderedContents: string[] = [];
+let mockLanguage = 'zh-CN';
 
 type MockScrollControlProps = {
   ariaLabel: string;
@@ -52,13 +53,15 @@ const mockScrollToBottomControl = jest.fn(
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
-    i18n: { language: 'zh-CN', resolvedLanguage: 'zh-CN' },
+    i18n: { language: mockLanguage, resolvedLanguage: mockLanguage },
   }),
 }));
 
 jest.mock('markdown-flow-ui/renderer', () => ({
   ContentRender: ({
     content,
+    locale,
+    lang,
     userInput,
     readonly,
     onSend,
@@ -68,6 +71,8 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     onTypeFinished,
   }: {
     content: string;
+    locale?: string;
+    lang?: string;
     readonly?: boolean;
     userInput?: string;
     onSend?: (value: OnSendContentParams) => void;
@@ -90,7 +95,11 @@ jest.mock('markdown-flow-ui/renderer', () => ({
       />
     );
     return (
-      <div>
+      <div
+        data-testid='profile-onboarding-renderer'
+        data-locale={locale}
+        lang={lang}
+      >
         <UnsentAnswer />
         <span>{content}</span>
         {userInput ? <span>{userInput}</span> : null}
@@ -126,11 +135,47 @@ const getLatestScrollControlProps = () => {
 
 describe('ProfileOnboardingConversation', () => {
   beforeEach(() => {
+    mockLanguage = 'zh-CN';
     mockRendererSubmission = DEFAULT_RENDERER_SUBMISSION;
     mockAutoFinishTypewriter = true;
     mockLatestTypeFinished = undefined;
     mockRenderedContents = [];
     mockScrollToBottomControl.mockClear();
+  });
+
+  test('marks Spanish onboarding content as Spanish with English renderer controls', async () => {
+    mockLanguage = 'es-ES';
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        onMessage({
+          type: 'element',
+          content: {
+            element_bid: 'spanish-content',
+            element_type: 'text',
+            content: 'Hola',
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'spanish-session' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    await screen.findByText('Hola');
+    expect(screen.getByTestId('profile-onboarding-renderer')).toHaveAttribute(
+      'data-locale',
+      'en-US',
+    );
+    expect(screen.getByTestId('profile-onboarding-renderer')).toHaveAttribute(
+      'lang',
+      'es-ES',
+    );
   });
 
   test('matches backend run-input limits using Unicode code points', () => {

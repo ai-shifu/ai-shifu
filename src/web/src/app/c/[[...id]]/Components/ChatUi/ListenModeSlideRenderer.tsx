@@ -79,7 +79,10 @@ import {
 } from './lessonFeedbackPromptState';
 import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
 import LearnerCourseShareButton from '../LearnerCourseShareButton';
-import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import {
+  resolveMarkdownFlowContentLanguage,
+  resolveMarkdownFlowLocale,
+} from '@/lib/markdown-flow-locale';
 import type { FollowUpPresentationMode } from './liveVoiceFollowUpMode';
 import type { LiveVoiceFollowUpController } from '@/components/live-follow-up/useLiveVoiceFollowUp';
 
@@ -770,9 +773,8 @@ const ListenModeSlideRenderer = ({
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
-  const markdownFlowLocale = resolveMarkdownFlowLocale(
-    i18n.resolvedLanguage ?? i18n.language,
-  );
+  const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const markdownFlowLocale = resolveMarkdownFlowLocale(hostLanguage);
   const presentationProfile = resolveListenSlidePresentationProfile(variant);
   const {
     includeAudio,
@@ -2433,6 +2435,7 @@ const ListenModeSlideRenderer = ({
             isMobileFullscreen && 'listen-slide-root--landscape',
           )}
           locale={markdownFlowLocale}
+          lang={resolveMarkdownFlowContentLanguage(hostLanguage)}
           elementList={renderedElementList}
           interactionTexts={{
             title: t('module.chat.listenInteractionHint'),

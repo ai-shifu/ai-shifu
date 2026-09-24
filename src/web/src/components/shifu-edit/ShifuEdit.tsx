@@ -35,7 +35,10 @@ import { normalizeLanguage } from '@/i18n';
 import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
-import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import {
+  resolveMarkdownFlowContentLanguage,
+  resolveMarkdownFlowLocale,
+} from '@/lib/markdown-flow-locale';
 import { resolveCourseCreditInsufficientAudience } from '@/lib/creditInsufficientToast';
 import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
 import {
@@ -1924,6 +1927,9 @@ const ScriptEditor = ({
                     <MarkdownFlowEditor
                       key={editorScopeKey}
                       locale={resolveMarkdownFlowLocale(
+                        i18n.resolvedLanguage ?? i18n.language,
+                      )}
+                      lang={resolveMarkdownFlowContentLanguage(
                         i18n.resolvedLanguage ?? i18n.language,
                       )}
                       disabled={currentShifu?.readonly}
