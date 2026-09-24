@@ -2,7 +2,9 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import LanguageSelect from './LanguageSelect';
 
-const mockChangeLanguage = jest.fn((value: string) => Promise.resolve(value));
+const mockChangeLanguage = jest.fn<Promise<void>, [string]>(() =>
+  Promise.resolve(),
+);
 const mockTrackEvent = jest.fn(() => Promise.resolve());
 const mockSelectValueChange = jest.fn<void, [string]>();
 
