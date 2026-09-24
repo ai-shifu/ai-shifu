@@ -1532,12 +1532,14 @@ export const NewChatComponents = ({
                 <div className='min-w-0 flex-1'>
                   <h1
                     data-lesson-print-course-name='true'
+                    lang={titleLanguage}
                     className='break-words text-2xl font-semibold leading-tight text-foreground'
                   >
                     {courseName}
                   </h1>
                   <h2
                     data-lesson-print-lesson-title='true'
+                    lang={titleLanguage}
                     className='mt-2 break-words text-lg font-medium leading-tight text-muted-foreground'
                   >
                     {lessonTitle}

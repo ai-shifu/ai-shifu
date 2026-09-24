@@ -1067,6 +1067,26 @@ describe('NewChatComponents', () => {
     ).toHaveTextContent('第一课');
   });
 
+  it('marks print-only course and lesson headings with their authored language', () => {
+    mockLearningMode = 'read';
+
+    const { container } = renderNewChatComponents(
+      jest.fn(),
+      jest.fn(),
+      [],
+      false,
+      false,
+      'en-US',
+    );
+
+    expect(
+      container.querySelector('[data-lesson-print-course-name="true"]'),
+    ).toHaveAttribute('lang', 'en-US');
+    expect(
+      container.querySelector('[data-lesson-print-lesson-title="true"]'),
+    ).toHaveAttribute('lang', 'en-US');
+  });
+
   it('keeps the configured site brand when the course has no avatar', () => {
     mockLearningMode = 'read';
     mockLogoHorizontal = '/runtime-horizontal-logo.png';
