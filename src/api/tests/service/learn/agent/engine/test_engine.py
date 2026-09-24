@@ -26,6 +26,7 @@ from flaskr.service.learn.agent.engine import (
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
+    RetryPromptPart,
     ToolReturnPart,
     UserPromptPart,
 )
@@ -2026,3 +2027,88 @@ async def test_a_question_asked_beside_finish_is_not_left_pending() -> None:
     assert not [e for e in events if isinstance(e, InteractionRequest)]
     assert events[-1].reason == "finished"
     assert session.pending == []
+
+
+# --- a question asked again in a loop ------------------------------------------------------
+
+_BOOK = {
+    "type": "text",
+    "prompt": "你打算挑哪本经典名著来试？",
+    "variable": "classic_book",
+}
+_LEAD = (
+    "《红楼梦》——好眼光。这本书人物上千、线索千头，正是检验 AI 读书功力的好材料。\n\n"
+    "那咱们就把问题落到这本书上，你直接拿去问：用 300 字讲讲主要情节；三个主角各自想要什么。\n"
+)
+
+
+def _looping_model(
+    lead_after_answer: Callable[[int], str],
+) -> Callable[..., StreamChunks]:
+    """Model: asks for a book; after each answer writes `lead_after_answer(n)` and asks again.
+
+    Told it may not ask again, it goes on with the next part.
+    """
+    answers = {"n": 0}
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(p, RetryPromptPart) for p in last.parts
+        ):
+            yield "下一步：读完之后，说说你的读后感。\n"
+            return
+        if _last_tool_return(messages) is None:
+            yield "留个作业：跟着 AI 读一本经典。\n"
+        else:
+            answers["n"] += 1
+            yield lead_after_answer(answers["n"])
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(_BOOK),
+                tool_call_id=f"q{answers['n']}",
+            )
+        }
+
+    return model
+
+
+async def test_a_question_asked_again_word_for_word_is_not_put_to_the_learner() -> None:
+    """General-education course (2026-09-24): the same paragraph and question after every answer.
+
+    The learner named a book; the model wrote the same lead-in and asked "which book?" again, and
+    kept doing so, 14 times. The second time round is refused and the lesson goes on.
+    """
+    engine = Engine(FunctionModel(stream_function=_looping_model(lambda _n: _LEAD)))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["红楼梦"])))
+    third = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["红楼梦"]))
+    )
+
+    assert not [e for e in third if isinstance(e, InteractionRequest)]
+    assert "读后感" in _said(third)
+    assert session.pending == []
+
+
+async def test_a_question_asked_again_after_something_new_is_still_asked() -> None:
+    """After a wrong answer the model says something about it first; that re-ask is not a loop."""
+    engine = Engine(
+        FunctionModel(
+            stream_function=_looping_model(
+                lambda n: (
+                    f"第 {n} 次回答还不太对，再想想：这本书得是你真想读的那本，书名要写全。\n"
+                )
+            )
+        )
+    )
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    await collect(engine.run_turn(session, InteractionResponseTurn(values=["不知道"])))
+    third = await collect(
+        engine.run_turn(session, InteractionResponseTurn(values=["随便"]))
+    )
+
+    assert [e for e in third if isinstance(e, InteractionRequest)]
