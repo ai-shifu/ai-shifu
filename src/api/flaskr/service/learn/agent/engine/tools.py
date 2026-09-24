@@ -31,6 +31,49 @@ class Deps:
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
+    # The script as the model was given it, when it is written in the 1.0 notation; see
+    # `_as_the_script_writes_it`.
+    script_text: str = ""
+
+
+# The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
+_ESCAPABLE = "|/.]"
+
+
+def _unescape(text: str) -> str:
+    """Resolve the grammar's escapes in `text`, leaving every other backslash alone."""
+    out: list[str] = []
+    index = 0
+    while index < len(text):
+        if (
+            text[index] == "\\"
+            and index + 1 < len(text)
+            and text[index + 1] in _ESCAPABLE
+        ):
+            out.append(text[index + 1])
+            index += 2
+            continue
+        out.append(text[index])
+        index += 1
+    return "".join(out)
+
+
+def _as_the_script_writes_it(option: Option, script_text: str) -> Option:
+    r"""Return a script's option as the script means it, without the escapes of its notation.
+
+    Copying a question from the script, the model copies it character for character, escapes
+    included: `a\|b` reached the learner as a button reading `a\|b`, where the author had
+    written the option `a|b`. An option found in the script as the model wrote it is one taken
+    from the notation, so its escapes are resolved the way the grammar resolves them and the
+    learner sees what a 1.0 lesson shows. An option the model made up is left as it wrote it.
+    """
+    raw = [option.display] + ([option.value] if option.value is not None else [])
+    if not any("\\" in text and text in script_text for text in raw):
+        return option
+    return Option(
+        display=_unescape(option.display),
+        value=_unescape(option.value) if option.value is not None else None,
+    )
 
 
 def text_in_turn(ctx: RunContext[Deps]) -> int:
@@ -77,6 +120,10 @@ async def interact(
             "after that content, and never answer a continue with another confirm."
         )
         raise ModelRetry(msg)
+    if ctx.deps.script_text:
+        options = [
+            _as_the_script_writes_it(o, ctx.deps.script_text) for o in options or []
+        ]
     spec = InteractionSpec(
         type=type,
         prompt=prompt,

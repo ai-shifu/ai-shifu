@@ -1448,3 +1448,79 @@ async def test_the_next_question_after_an_answer_is_checked_too() -> None:
     assert any("Learner chose: first" in t for t in told)
     assert any("never shown" in t for t in told)
     assert not any(isinstance(e, ErrorEvent) for e in events)
+
+
+_ESCAPED_SCRIPT = (
+    "请照原样呈现这道题：\n\n"
+    "?[%{{正则}} 匹配小数 \\d+\\.\\d+ || 含竖线的 a\\|b || 省略号 wait\\.\\.\\. ok "
+    "|| 文档 https:\\/\\/docs.python.org]"
+)
+
+
+def _asks(options: list[dict]):  # noqa: ANN202
+    """Build a model that asks one multi-select with `options`, as the model wrote them."""
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    {"type": "multi", "prompt": "认识哪些？", "options": options}
+                ),
+                tool_call_id="q1",
+            )
+        }
+
+    return model
+
+
+async def test_an_option_copied_from_the_script_loses_the_notation_s_escapes() -> None:
+    r"""The model copies a script's question with its escapes; the learner saw `a\|b`."""
+    copied = [
+        {"display": "匹配小数 \\d+\\.\\d+"},
+        {"display": "含竖线的 a\\|b"},
+        {"display": "省略号 wait\\.\\.\\. ok"},
+        {"display": "文档 https:\\/\\/docs.python.org"},
+    ]
+    engine = Engine(FunctionModel(stream_function=_asks(copied)))
+    s = await engine.new_session(_ESCAPED_SCRIPT)
+    events = await collect(engine.run_turn(s))
+
+    asked = next(e for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in asked.spec.options] == [
+        "匹配小数 \\d+.\\d+",
+        "含竖线的 a|b",
+        "省略号 wait... ok",
+        "文档 https://docs.python.org",
+    ]
+
+
+async def test_an_option_the_model_made_up_keeps_what_it_wrote() -> None:
+    """Only the script's own notation is read as notation; a new option is the model's text."""
+    made_up = [{"display": "正则 a\\|b 的写法"}, {"display": "都不认识"}]
+    engine = Engine(FunctionModel(stream_function=_asks(made_up)))
+    s = await engine.new_session(_ESCAPED_SCRIPT)
+    events = await collect(engine.run_turn(s))
+
+    asked = next(e for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in asked.spec.options] == ["正则 a\\|b 的写法", "都不认识"]
+
+
+def test_the_engine_reads_escapes_exactly_as_the_grammar_does() -> None:
+    """The engine keeps its own copy of the rule; it must not drift from MarkdownFlow's."""
+    from flaskr.service.learn.agent.engine.tools import _unescape
+    from markdown_flow.escaping import unescape_interaction_text
+
+    samples = [
+        "a\\|b",
+        "wait\\.\\.\\.",
+        "https:\\/\\/x.org\\/y",
+        "\\d+\\.\\d+",
+        "$\\pi$ \\\\ \\beta",
+        "[a-z\\]+",
+        "trailing \\",
+        "\\\\|",
+        "",
+    ]
+    for sample in samples:
+        assert _unescape(sample) == unescape_interaction_text(sample), sample
