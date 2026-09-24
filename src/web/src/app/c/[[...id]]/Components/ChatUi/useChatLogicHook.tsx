@@ -2402,9 +2402,10 @@ function useChatLogicHook({
   /**
    * Loads the persisted lesson records and primes the chat stream.
    */
-  const refreshData = useCallback(async () => {
+  // Resolves true when the lesson's history was loaded and applied by this call.
+  const refreshData = useCallback(async (): Promise<boolean> => {
     if (creditInsufficientAudience === null) {
-      return;
+      return false;
     }
     const refreshSerial = ++refreshDataSerialRef.current;
     const isCurrentRefresh = () =>
@@ -2428,7 +2429,7 @@ function useChatLogicHook({
         preview_mode: effectivePreviewMode,
       });
       if (!isCurrentRefresh()) {
-        return;
+        return false;
       }
       let shouldShowLessonUpdateNotice = false;
       const latestStudyUpdatedAt =
@@ -2447,7 +2448,7 @@ function useChatLogicHook({
           })
           .catch(() => null);
         if (!isCurrentRefresh()) {
-          return;
+          return false;
         }
         const latestDraftUpdatedAt = parseLessonHistoryDate(
           draftMeta?.updated_at,
@@ -2461,7 +2462,7 @@ function useChatLogicHook({
         shouldShowLessonUpdateNotice = Boolean(lessonHasContentUpdate);
       }
       if (!isCurrentRefresh()) {
-        return;
+        return false;
       }
       setShowLessonUpdateNotice(shouldShowLessonUpdateNotice);
 
@@ -2525,11 +2526,13 @@ function useChatLogicHook({
           }
         }
       }
+      return true;
     } catch (error) {
       if (isCurrentRefresh()) {
         setShowLessonUpdateNotice(false);
       }
       debugWarn('[lesson-run] refreshData error', error);
+      return false;
     } finally {
       if (isCurrentRefresh()) {
         setIsLoading(false);
@@ -2578,8 +2581,11 @@ function useChatLogicHook({
           // A reset clears the lesson, so the run that follows it is a new first run, not the
           // one already started for this lesson.
           autoRunStartedForRef.current = null;
-          reloadedForResetRef.current = curr;
-          await refreshData();
+          // Marked only once the reload has loaded the lesson. If it failed -- the history
+          // request errored -- handing the reset back lets the lesson effect load it again.
+          if (await refreshData()) {
+            reloadedForResetRef.current = curr;
+          }
           // updateResetedChapterId(null);
           // @ts-expect-error resetedLessonId can be null per store design
           updateResetedLessonId(null);
@@ -2616,6 +2622,15 @@ function useChatLogicHook({
     };
   }, [chapterId, refreshData]);
 
+  // Only the open lesson's own reset concerns the effect below. The store's reset fields name
+  // whichever lesson is being reset, and a reset of another lesson from the catalog, with this
+  // one staying open, would otherwise re-run it: close this lesson's stream and start its run
+  // again.
+  const isResettingOpenLesson =
+    Boolean(lessonId) && resettingLessonId === lessonId;
+  const hasResetLandedForOpenLesson =
+    Boolean(lessonId) && resetedLessonId === lessonId;
+
   useEffect(() => {
     // A mark for another lesson is stale: the learner moved on before the reset was handed back.
     if (reloadedForResetRef.current !== lessonId) {
@@ -2625,7 +2640,7 @@ function useChatLogicHook({
     // load is this lesson's; closing its run and loading again would start the same run twice.
     if (
       lessonId &&
-      !resetedLessonId &&
+      !hasResetLandedForOpenLesson &&
       reloadedForResetRef.current === lessonId
     ) {
       reloadedForResetRef.current = null;
@@ -2633,7 +2648,7 @@ function useChatLogicHook({
     }
     // The reset of this lesson has landed and the subscription is reloading it; closing here
     // could close the run that reload has just started.
-    if (lessonId && resetedLessonId === lessonId) {
+    if (hasResetLandedForOpenLesson) {
       return;
     }
     sseRef.current?.close();
@@ -2645,7 +2660,7 @@ function useChatLogicHook({
     // lesson as it was, which the reset's own reload then closes -- measured: two runs 70ms
     // apart, the first still taught and billed. The subscription loads it once the reset lands;
     // if the reset fails, clearing `resettingLessonId` brings the load back here.
-    if (resettingLessonId === lessonId) {
+    if (isResettingOpenLesson) {
       return;
     }
     // Opening a lesson is a fresh load, so whatever was started for the lesson left behind does
@@ -2657,8 +2672,8 @@ function useChatLogicHook({
   }, [
     creditInsufficientAudience,
     lessonId,
-    resetedLessonId,
-    resettingLessonId,
+    hasResetLandedForOpenLesson,
+    isResettingOpenLesson,
   ]);
 
   useEffect(() => {

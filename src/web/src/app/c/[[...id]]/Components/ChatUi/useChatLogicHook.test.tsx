@@ -523,6 +523,86 @@ describe('useChatLogicHook stream cleanup', () => {
     }
   });
 
+  it('leaves the open lesson alone while another lesson is reset', async () => {
+    // Review of the reset fix: watching the store's reset fields for any lesson re-ran the open
+    // lesson's effect when another one was reset, closing its stream and starting its run again.
+    const courseState = globalThis.__chatHookCourseState__!;
+    courseState.resetedLessonId = null;
+    courseState.resettingLessonId = '';
+    const params = buildBaseParams();
+    const { result, rerender } = renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+    await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const openRun = mockGetRunMessage.mock.results[0]?.value as MockRunSource;
+
+    try {
+      // lesson-2 is reset from the catalog and lesson-1 stays open.
+      courseState.resettingLessonId = 'lesson-2';
+      rerender();
+      courseState.resetedLessonId = 'lesson-2';
+      await act(async () => {
+        await Promise.all(
+          [...globalThis.__chatHookCourseListeners__!].map(listener =>
+            listener('lesson-2'),
+          ),
+        );
+      });
+      courseState.resettingLessonId = '';
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(1);
+      expect(openRun.close).not.toHaveBeenCalled();
+    } finally {
+      courseState.resetedLessonId = null;
+      courseState.resettingLessonId = '';
+    }
+  });
+
+  it('loads the lesson again when the reload after a reset fails', async () => {
+    // Review of the reset fix: marking the reload as done before it succeeded left the lesson
+    // blank when its history request failed, with nothing to load it again.
+    const courseState = globalThis.__chatHookCourseState__!;
+    courseState.resetedLessonId = null;
+    courseState.resettingLessonId = '';
+    const params = buildBaseParams();
+    const { result, rerender } = renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+    await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    try {
+      mockGetLessonStudyRecord.mockRejectedValueOnce(new Error('network'));
+      courseState.resetedLessonId = 'lesson-1';
+      let reloaded: Promise<unknown> | undefined;
+      act(() => {
+        reloaded = Promise.all(
+          [...globalThis.__chatHookCourseListeners__!].map(listener =>
+            listener('lesson-1'),
+          ),
+        );
+      });
+      rerender();
+      await act(async () => {
+        await reloaded;
+      });
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(1);
+
+      courseState.resetedLessonId = null;
+      rerender();
+
+      await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(2));
+      expect(mockGetLessonStudyRecord).toHaveBeenCalledTimes(3);
+    } finally {
+      courseState.resetedLessonId = null;
+    }
+  });
+
   it('sends listen=true in the run body when listen requests are enabled', async () => {
     const { result } = renderHook(
       () =>
