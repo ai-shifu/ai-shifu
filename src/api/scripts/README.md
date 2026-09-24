@@ -2,6 +2,39 @@
 
 This directory contains utility scripts for managing AI-Shifu configuration.
 
+## backfill_profile_onboarding_assistant_prompts.py
+
+Run this once when adding Spanish (`es-ES`) to an installation with an existing
+profile-onboarding configuration. Use the upgraded API runtime, with its
+database and LLM settings available, before exposing Spanish in the learner UI.
+For a Docker Compose installation, run from the repository root:
+
+```bash
+cd docker
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py --apply
+```
+
+For a source-checkout installation, run from the repository root instead:
+
+```bash
+cd src/api
+python scripts/backfill_profile_onboarding_assistant_prompts.py
+python scripts/backfill_profile_onboarding_assistant_prompts.py --apply
+```
+
+The first command previews the stored configuration without a model call or
+write. `--apply` localizes the saved master prompt and atomically fills missing
+registered locales, preserving existing translations. It prints only a status
+and configuration revision plus the generated locale codes, never the prompt
+text. If an older map lacks languages besides Spanish, the existing save path
+fills those missing languages in the same run. `already_present` means a
+repeat run has nothing to do. `no_configuration` or `no_master_prompt` means
+there is no saved prompt to translate; configure the onboarding prompt through
+the operator UI if that feature is needed. A generation or concurrent-save
+failure leaves the previous configuration intact; retry after resolving it.
+Existing learner sessions retain their original frozen prompt.
+
 ## generate_env_examples.py
 
 Generates the environment configuration example file from the application's configuration definitions.
