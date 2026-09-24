@@ -116,11 +116,15 @@ def test_a_listening_learner_is_also_taught_by_the_agent_engine(
         pytest.param({"reload_element_bid": "element-bid"}, id="element"),
     ],
 )
-def test_regenerating_past_content_keeps_the_script_engine(
+def test_regenerating_past_content_stays_with_the_agent_engine(
     reload_kwargs: dict,
 ) -> None:
-    """Those requests address rows 1.0 wrote; the agent engine has no equivalent of them."""
-    assert _routes_to_agent(**reload_kwargs) is False
+    """Going back is the agent's own to do.
+
+    Sent to the script engine, a reload regenerated from rows the agent wrote and left the agent's
+    session where it was, so the page and the lesson disagreed from then on.
+    """
+    assert _routes_to_agent(**reload_kwargs) is True
 
 
 @pytest.mark.usefixtures("allowlisted")

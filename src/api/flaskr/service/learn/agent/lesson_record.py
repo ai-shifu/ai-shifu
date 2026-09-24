@@ -138,6 +138,11 @@ def mark_lesson_finished(record: LearnProgressRecord) -> None:
     record.status = LEARN_STATUS_COMPLETED
 
 
+def mark_lesson_in_progress(record: LearnProgressRecord) -> None:
+    """Record that the lesson is being taught again, after being taken back before its end."""
+    record.status = LEARN_STATUS_IN_PROGRESS
+
+
 def retire_unused_block(*, generated_block_bid: str) -> None:
     """Drop a block the turn never filled in.
 
@@ -157,11 +162,16 @@ def retire_unused_block(*, generated_block_bid: str) -> None:
         block.status = 0
 
 
-def record_turn_content(*, generated_block_bid: str, content: str) -> None:
+def record_turn_content(
+    *, generated_block_bid: str, content: str, turn_record: str = ""
+) -> None:
     """Fill in what the turn taught, now that it is over.
 
     The row itself is created before the turn streams, because the element rows reference it while
     it runs. Its text is only known at the end.
+
+    `turn_record` is what a later rewind to this turn needs (see `agent.rewind`); it goes in
+    `block_content_conf`, which a 2.0 turn block has no other use for.
     """
     block = LearnGeneratedBlock.query.filter(
         LearnGeneratedBlock.generated_block_bid == generated_block_bid,
@@ -169,6 +179,8 @@ def record_turn_content(*, generated_block_bid: str, content: str) -> None:
     ).first()
     if block is not None:
         block.generated_content = content
+        if turn_record:
+            block.block_content_conf = turn_record
 
 
 def stage_turn_block(

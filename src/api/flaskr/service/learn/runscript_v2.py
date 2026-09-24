@@ -753,6 +753,8 @@ def _lesson_events(
                 listen=listen,
                 preview_mode=preview_mode,
                 heartbeat_interval=heartbeat_interval,
+                reload_generated_block_bid=reload_generated_block_bid,
+                reload_element_bid=reload_element_bid,
             )
             # The element adapter finalises the block on the turn's last event and stages every
             # element it streamed; that happens in the caller, between the last yield above and
@@ -818,18 +820,21 @@ def _teaches_with_agent(
 ) -> bool:
     """Whether this particular request goes to the 2.0 engine.
 
-    Being on the allowlist is necessary but not sufficient. Two kinds of request keep the 1.0
-    path even for an allowlisted course, because 2.0 has no equivalent of them yet:
+    Being on the allowlist is necessary but not sufficient. A follow-up question keeps the 1.0
+    path even for an allowlisted course: it runs beside the lesson under its own semaphore rather
+    than through the lesson's turn loop.
 
-    * a follow-up question, which runs beside the lesson under its own semaphore rather than
-      through the lesson's turn loop;
-    * regenerating a past block or element, which addresses rows 1.0 wrote and 2.0 does not have.
+    Regenerating a past block or element goes to 2.0 like everything else. It used to go to 1.0,
+    which regenerated from rows 2.0 wrote and left the 2.0 session where it was, so the page and
+    the lesson disagreed from then on. 2.0 takes its own session back now (`agent.rewind`).
     """
+    del (
+        reload_generated_block_bid,
+        reload_element_bid,
+    )  # kept for the call sites; no longer decide
     if not uses_agent_engine(shifu_bid):
         return False
-    if input_type == INPUT_TYPE_ASK:
-        return False
-    return not (reload_generated_block_bid or reload_element_bid)
+    return input_type != INPUT_TYPE_ASK
 
 
 def run_script(

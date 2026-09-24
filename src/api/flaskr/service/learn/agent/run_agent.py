@@ -53,6 +53,7 @@ from flaskr.service.learn.agent.lesson_record import (
     apply_outline_progression,
     claim_for_writing,
     mark_lesson_finished,
+    mark_lesson_in_progress,
     record_turn_content,
     retire_unused_block,
     stage_turn_block,
@@ -60,6 +61,14 @@ from flaskr.service.learn.agent.lesson_record import (
 from flaskr.service.learn.agent.listen import LessonVoice
 from flaskr.service.learn.agent.pagination import LessonPager
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
+from flaskr.service.learn.agent.rewind import (
+    RewindPlan,
+    RewindUnavailableError,
+    checkpoint_of,
+    restore,
+    stage_retirement,
+    turn_record,
+)
 from flaskr.service.learn.agent.session_store import (
     StoredSessionUnusable,
     load_agent_session,
@@ -169,6 +178,7 @@ def _load_or_start(
     script: str,
     teaching_brief: str = "",
     preview_mode: bool,
+    rewind: RewindPlan | None = None,
 ) -> Callable[[], Any]:
     """Build the coroutine factory the bridge runs on its producer thread.
 
@@ -189,6 +199,13 @@ def _load_or_start(
         # Written by code whose sessions this one cannot read. Starting over loses the
         # conversation, which is the point of comparing versions rather than parsing hopefully.
         stored = None
+    if rewind is not None:
+        if stored is None:
+            # The rows say where to go back to, but there is no conversation to take back.
+            raise RewindUnavailableError
+        # Taken back before the turn is built, so the turn is whatever this state calls for: the
+        # question the learner is now answering differently, or the turn being regenerated.
+        restore(stored, rewind.checkpoint)
     user_memory = load_memory(app, user_bid, shifu_bid).as_variables()
 
     async def make_session() -> Session:
@@ -235,8 +252,12 @@ def run_agent_lesson(
     shifu_model: type | None = None,
     heartbeat_interval: float = 0.5,
     iter_turn: Callable[..., Any] | None = None,
+    rewind: RewindPlan | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
+
+    `rewind` takes the lesson back to an earlier turn first (see `agent.rewind`): the session is
+    restored, the turn runs from there, and the rows it supersedes are retired when it is written.
 
     `iter_turn` is injectable so a test can drive the turn without a thread; the default is the
     bridge, which runs the engine on its own loop and yields events as they arrive.
@@ -253,11 +274,18 @@ def run_agent_lesson(
         script=script,
         teaching_brief=teaching_brief,
         preview_mode=preview_mode,
+        rewind=rewind,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.
     generated_block_bid = uuid.uuid4().hex
-    values = learner_values(user_input)
+    # Regenerating content runs the turn again with the input it had; everything else, including
+    # a question answered differently, runs with what the learner just sent.
+    values = (
+        rewind.replay_values
+        if rewind is not None and rewind.replay_values is not None
+        else learner_values(user_input)
+    )
     # Resolved before the turn runs, and remembered: what it identifies is both where this turn's
     # elements will hang and the thing a reset marks, so a turn can tell afterwards whether the
     # lesson it started in is still the one it is finishing.
@@ -282,12 +310,15 @@ def run_agent_lesson(
             position=0,
         )
     )
-    session_holder: dict[str, Session] = {}
+    session_holder: dict[str, Any] = {"rewind": rewind}
 
     def make_events() -> AsyncIterator[Event]:
         async def events() -> AsyncIterator[Event]:
             session = await make_session()
             session_holder["session"] = session
+            # The state this turn starts from, kept on its block so the lesson can be taken back
+            # to it later.
+            session_holder["turn_record"] = turn_record(checkpoint_of(session), values)
             async for event in engine.run_turn(session, _turn_input(session, values)):
                 yield event
 
@@ -705,7 +736,7 @@ def _stream_turn(
     voice: LessonVoice | None,
     pager: LessonPager | None,
     make_events: Callable[[], Any],
-    session_holder: dict[str, Session],
+    session_holder: dict[str, Any],
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
@@ -833,6 +864,8 @@ def _stream_turn(
                     progress_record_bid=progress_record_bid,
                     generated_block_bid=generated_block_bid,
                     taught="".join(taught),
+                    turn_record=session_holder.get("turn_record", ""),
+                    rewind=session_holder.get("rewind"),
                 )
                 pending_memory = []
                 if session.finished and kept:  # not for a turn a reset discarded
@@ -949,6 +982,8 @@ def _stream_turn(
             progress_record_bid=progress_record_bid,
             generated_block_bid=generated_block_bid,
             taught="".join(taught),
+            turn_record=session_holder.get("turn_record", ""),
+            rewind=session_holder.get("rewind"),
         )
 
 
@@ -968,6 +1003,8 @@ def _persist(
     progress_record_bid: str,
     generated_block_bid: str,
     taught: str,
+    turn_record: str = "",
+    rewind: RewindPlan | None = None,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -1021,9 +1058,20 @@ def _persist(
                 ),
             )
         if record is not None:
-            record_turn_content(generated_block_bid=generated_block_bid, content=taught)
+            if rewind is not None:
+                # With the session it restored, or not at all: rows retired by a turn that was
+                # then discarded would leave history ending where the session does not.
+                stage_retirement(rewind, user_bid=user_bid, outline_bid=outline_bid)
+            record_turn_content(
+                generated_block_bid=generated_block_bid,
+                content=taught,
+                turn_record=turn_record,
+            )
             if session.finished:
                 mark_lesson_finished(record)
+            elif rewind is not None:
+                # Taken back to before its end, the lesson is being taught again.
+                mark_lesson_in_progress(record)
 
     try:
         save_agent_session(
