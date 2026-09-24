@@ -59,6 +59,14 @@ class LessonNotTeachable(Exception):  # noqa: N818 - an outcome, not a failure
 _ANCESTOR_LIMIT = 12
 
 
+# How many turns one request may run before it hands back to the browser regardless. A 1.0
+# request runs every block up to the next question with no such limit; this one is only a brake
+# on a model that keeps writing something new and never says the lesson is over. It sits far
+# above what a lesson needs -- turns are whole steps of the script -- and well under the engine's
+# own limit on turns per lesson, which is where a lesson that will not end is finally stopped.
+_MAX_TURNS_PER_REQUEST = 25
+
+
 def _models(preview_mode: bool) -> tuple[type, type]:
     """Pick the draft or published tables, the way the 1.0 run context does."""
     if preview_mode:
@@ -207,7 +215,11 @@ def agent_lesson_events(
     reload_generated_block_bid: str | None = None,
     reload_element_bid: str | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Run one turn of an allowlisted lesson and yield the events 1.0 produces.
+    """Teach an allowlisted lesson until it waits or ends, yielding the events 1.0 produces.
+
+    One request, as many turns as it takes: a turn that ends with content still to come is
+    followed by the next in the same stream, the way a 1.0 request runs block after block until a
+    question or the end of the lesson. See `_MAX_TURNS_PER_REQUEST`.
 
     `listen` reaches the spoken track, not the engine: the engine's own listen mode stays off, and
     what it teaches is spoken by the pipeline that speaks a 1.0 lesson. See `agent/listen.py`.
@@ -274,21 +286,32 @@ def agent_lesson_events(
     )
     end_reason = "error"
     try:
-        yield from run_agent_lesson(
-            app,
-            engine=engine,
-            script=script,
-            teaching_brief=brief,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            user_input=user_input,
-            listen=listen,
-            preview_mode=preview_mode,
-            shifu_model=_models(preview_mode)[1],
-            heartbeat_interval=heartbeat_interval,
-            rewind=rewind,
-        )
+        for _ in range(_MAX_TURNS_PER_REQUEST):
+            outcome = yield from run_agent_lesson(
+                app,
+                engine=engine,
+                script=script,
+                teaching_brief=brief,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_input=user_input,
+                listen=listen,
+                preview_mode=preview_mode,
+                shifu_model=_models(preview_mode)[1],
+                heartbeat_interval=heartbeat_interval,
+                rewind=rewind,
+            )
+            # A turn that ran out of content with the lesson not over is followed by the next,
+            # as the host's own "continue": the learner's input and the rewind belonged to the
+            # first turn only. The browser is not asked to do this. It never sees the boundary
+            # -- a turn's end that is not the lesson's is kept off the stream -- so a lesson
+            # left there stayed "in progress" until the learner came back to it, and only then
+            # went on. A turn that ended the same way having said nothing is not followed: the
+            # model has nothing to add and did not say so, and asking again would only loop.
+            if outcome is None or outcome.reason != "end" or not outcome.taught:
+                break
+            user_input, rewind = None, None
         end_reason = "completed"
     except RewindUnavailableError:
         # The session the rows point back into is gone (unreadable, or never stored).

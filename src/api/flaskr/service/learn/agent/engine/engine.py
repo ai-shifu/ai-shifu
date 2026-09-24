@@ -168,16 +168,12 @@ def _text_of(messages: Iterable[object]) -> str:
 _REPEAT_FLOOR_CHARS = 40
 
 
-def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
-    """Whether the text written after `history_len` is the previous turn's text, again.
+def _previous_turn_text(messages: Sequence[object], history_len: int) -> str:
+    """Return the text of the turn before `history_len`, whitespace removed.
 
     A turn begins with the user's prompt, so the previous turn is everything from the last user
-    prompt before `history_len` up to `history_len`. Empty on either side is not a repeat: a turn
-    that wrote nothing has not repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
+    prompt before `history_len` up to `history_len`.
     """
-    now = _text_of(messages[history_len:])
-    if len(now) < _REPEAT_FLOOR_CHARS:
-        return False
     start = 0
     for index in range(history_len - 1, -1, -1):
         message = messages[index]
@@ -186,7 +182,20 @@ def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool
         ):
             start = index
             break
-    return now == _text_of(messages[start:history_len])
+    return _text_of(messages[start:history_len])
+
+
+def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
+    """Whether the text written after `history_len` is the previous turn's text, again.
+
+    The whole of it, or its beginning: a model that starts the previous turn over and stops part
+    way has still delivered nothing new. Empty is not a repeat: a turn that wrote nothing has not
+    repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
+    """
+    now = _text_of(messages[history_len:])
+    if len(now) < _REPEAT_FLOOR_CHARS:
+        return False
+    return _previous_turn_text(messages, history_len).startswith(now)
 
 
 class Engine:
@@ -453,6 +462,44 @@ class Engine:
         delivered = 0
         speak_after_finish: bool | None = None
 
+        # A turn the host began by telling the model to carry on. The previous turn ended with
+        # nothing left to deliver as far as the model was concerned, and the host could not tell;
+        # so what this turn writes may be nothing new -- see `_repeats_previous_turn` -- and that
+        # is known only once it has been written. Text is therefore held back for as long as it
+        # reads as the previous turn starting over, and released the moment it differs. A turn
+        # with something new to say loses nothing but a few characters' worth of delay; one that
+        # says the previous turn again is never shown. It was: a learner on the simulation
+        # environment watched a lesson's last piece appear a second time and only then stop.
+        carried_on = isinstance(turn, ContinueTurn) and prompt is not None
+        previous = (
+            _previous_turn_text(session.messages, deps.history_len)
+            if carried_on
+            else ""
+        )
+        held: list[str] = []
+        held_text = ""
+        holding = bool(previous)
+
+        def _out(text: str) -> list[Event]:
+            nonlocal delivered
+            delivered += _visible_length(text)
+            out: list[Event] = [ContentDelta(text=text)]
+            if segmenter:
+                out.extend(self._segment(segmenter.feed(text), seg_state, session))
+            return out
+
+        def _text(text: str) -> list[Event]:
+            nonlocal holding, held_text
+            if not holding:
+                return _out(text)
+            held.append(text)
+            held_text += "".join(text.split())
+            if previous.startswith(held_text):
+                return []
+            holding = False
+            released, held[:] = "".join(held), []
+            return _out(released)
+
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
                 async for ev in events:
@@ -466,32 +513,29 @@ class Engine:
                     # line, and a learner who is sent nothing for the turn has been robbed of
                     # it. Decided once, when the call is first seen: deciding it per chunk would
                     # let the first chunk through and cut the rest off mid-sentence.
+                    #
+                    # Not on a turn the host carried on, though. The closing line was written
+                    # by the turn before, or the model would not have stopped there; a model
+                    # that calls `finish` first on being told to carry on has nothing left, and
+                    # what it writes after that is a farewell, an announcement that the lesson
+                    # is over, or the closing line again -- each of which a learner has read.
+                    # Text held back so far was the previous turn again, and is dropped with it.
                     if deps.finished is not None and speak_after_finish is None:
-                        speak_after_finish = delivered == 0
+                        speak_after_finish = delivered == 0 and not carried_on
+                        if carried_on:
+                            held.clear()
                     silent = deps.finished is not None and not speak_after_finish
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
                         if ev.part.content and not silent:
-                            delivered += _visible_length(ev.part.content)
-                            yield ContentDelta(text=ev.part.content)
-                            if segmenter:
-                                for e in self._segment(
-                                    segmenter.feed(ev.part.content), seg_state, session
-                                ):
-                                    yield e
+                            for e in _text(ev.part.content):
+                                yield e
                     elif (
                         isinstance(ev, PartDeltaEvent)
                         and isinstance(ev.delta, TextPartDelta)
                         and not silent
                     ):
-                        delivered += _visible_length(ev.delta.content_delta)
-                        yield ContentDelta(text=ev.delta.content_delta)
-                        if segmenter:
-                            for e in self._segment(
-                                segmenter.feed(ev.delta.content_delta),
-                                seg_state,
-                                session,
-                            ):
-                                yield e
+                        for e in _text(ev.delta.content_delta):
+                            yield e
                     elif isinstance(ev, FunctionToolCallEvent):
                         if ev.part.tool_call_id in resumed:
                             continue
@@ -520,6 +564,17 @@ class Engine:
                     elif isinstance(ev, AgentRunResultEvent):
                         result = ev.result
                         session.messages = list(result.all_messages())
+                        repeated = carried_on and _repeats_previous_turn(
+                            session.messages, deps.history_len
+                        )
+                        if held and not repeated:
+                            # Still reading as the previous turn when the turn ended, but too
+                            # little of it to be taken as a repeat: it is the model's text, and
+                            # nothing says it was not meant.
+                            holding = False
+                            for e in _out("".join(held)):
+                                yield e
+                        held.clear()
                         # Only now are the answers safely part of the history; clearing them any
                         # earlier would lose them if the request failed.
                         session.answers = {}
@@ -555,9 +610,7 @@ class Engine:
                                 usage=session.usage,
                                 summary=deps.finished,
                             )
-                        elif isinstance(turn, ContinueTurn) and _repeats_previous_turn(
-                            session.messages, deps.history_len
-                        ):
+                        elif repeated:
                             # Told to carry on, the model wrote the previous turn over again.
                             # There is nothing left in the script for it to deliver, whether or
                             # not it says so; carrying on again would only produce a third copy.

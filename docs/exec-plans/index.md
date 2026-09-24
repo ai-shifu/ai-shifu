@@ -30,6 +30,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Learner listen playback stability](./active/learner-listen-playback-stability.md)
 - [Lobster Course Entry Analytics](./active/lobster-course-entry-analytics.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./active/markdownflow-model-arena.md)
+- [MarkdownFlow 2.0: a lesson carries on until it waits or ends](./active/mdf2-agent-lesson-carries-on.md)
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)
 - [Notification Channel Foundation](./active/notification-channel-foundation.md)
 - [Numbered course models](./active/numbered-course-models.md)
