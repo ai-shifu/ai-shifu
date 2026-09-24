@@ -6,7 +6,8 @@ import pytest
 @pytest.mark.parametrize(
     ("requested_language", "canonical_language"),
     [
-        ("es-ES", "en-US"),
+        ("es-ES", "es-ES"),
+        ("es_MX", "es-ES"),
         ("de_DE", "en-US"),
         ("zz", "en-US"),
         ("---", "en-US"),

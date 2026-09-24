@@ -10,6 +10,7 @@ describe('i18n language normalization', () => {
       default: 'en-US',
       locales: {
         'en-US': { label: 'English' },
+        'es-ES': { label: 'Español (España)' },
         'zh-CN': { label: '中文' },
         'fr-FR': { label: 'Français' },
         'ar-SA': { label: 'العربية', rtl: true },
@@ -31,6 +32,9 @@ describe('i18n language normalization', () => {
       expect(normalizeLanguage(undefined)).toBe('en-US');
       expect(normalizeLanguage('en')).toBe('en-US');
       expect(normalizeLanguage('en-GB')).toBe('en-US');
+      expect(normalizeLanguage('es')).toBe('es-ES');
+      expect(normalizeLanguage('es-ES')).toBe('es-ES');
+      expect(normalizeLanguage('es-MX')).toBe('es-ES');
       expect(normalizeLanguage('zh')).toBe('zh-CN');
       expect(normalizeLanguage('fr')).toBe('fr-FR');
       expect(normalizeLanguage('fr-CA')).toBe('fr-FR');

@@ -1,6 +1,12 @@
 import { UserInfo } from './index';
 
-export type SupportedLocale = 'zh-CN' | 'en-US' | 'fr-FR' | 'ar-SA' | 'th-TH';
+export type SupportedLocale =
+  | 'zh-CN'
+  | 'en-US'
+  | 'es-ES'
+  | 'fr-FR'
+  | 'ar-SA'
+  | 'th-TH';
 
 export type LearningMode = 'listen' | 'read' | 'classroom';
 

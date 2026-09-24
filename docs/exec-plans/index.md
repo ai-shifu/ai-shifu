@@ -47,6 +47,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
+- [Spanish (Spain) Product Localization](./active/spanish-es-es-localization.md)
 - [Secure learner Stripe payment synchronization](./active/stripe-payment-sync-security.md)
 - [Trusted Client IP Resolution](./active/trusted-client-ip.md)
 

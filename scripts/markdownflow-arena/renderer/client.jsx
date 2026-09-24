@@ -32,7 +32,7 @@ window.renderArena = (artifact, step = 0) => {
         <Slide
           key={step}
           elementList={elements}
-          locale={artifact.locale}
+          locale={artifact.markdownFlowLocale}
           lang={artifact.locale}
           dir={direction}
           playerEnabled={false}
@@ -51,7 +51,7 @@ window.renderArena = (artifact, step = 0) => {
       >
         <ContentRender
           content={artifact.content}
-          locale={artifact.locale}
+          locale={artifact.markdownFlowLocale}
           lang={artifact.locale}
           dir={direction}
           enableTypewriter={false}

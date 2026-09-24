@@ -1,0 +1,33 @@
+{
+  "__namespace__": "server.billing",
+  "__flat__": {
+    "adminPlanGrantAlreadyActive": "Este usuario ya tiene activo el mismo plan; no se puede asignar de nuevo por ahora.",
+    "adminPlanGrantProviderManagedConflict": "Este usuario ya tiene un plan activo gestionado por el proveedor de pagos. Espera a que caduque antes de asignar otro plan desde el panel de administración.",
+    "adminPlanGrantRoleUnsupported": "Solo se pueden asignar créditos o planes a profesores y operadores.",
+    "campaignLockedAfterHit": "Esta campaña de planes ya tiene pedidos pagados. No se pueden modificar los productos ni las reglas de la promoción.",
+    "campaignNotFound": "No se ha encontrado la campaña de planes.",
+    "campaignOverlapActive": "Los productos {product_names} ya tienen una campaña de planes activa durante el periodo seleccionado. Cambia las fechas o elige otros productos.",
+    "campaignProviderDiscountLocked": "Esta campaña de planes ya tiene descuentos activos en Stripe. Crea una nueva versión o detén los descuentos de Stripe antes de cambiar productos, reglas o fechas.",
+    "campaignProviderDiscountSyncRequired": "Esta campaña de planes aún no se ha sincronizado por completo con Stripe. Sincronízala y confirma que el estado es correcto antes de activarla.",
+    "creditInsufficient": "No tienes suficientes créditos para continuar. Activa un plan o compra créditos.",
+    "customDomainDisabled": "Este profesor no tiene activada la opción de dominio personalizado.",
+    "debugDisabledBySoftLimit": "El saldo de créditos está por debajo del umbral de aviso. Activa un plan o compra créditos antes de seguir con la depuración.",
+    "disabled": "La facturación por créditos no está activada.",
+    "domainBindingNotFound": "No se ha encontrado la vinculación del dominio personalizado.",
+    "domainHostConflict": "Otro profesor ya tiene vinculado este dominio personalizado.",
+    "manualCreditGrantFailed": "No se han podido asignar los créditos. Inténtalo más tarde.",
+    "manualPlanGrantBusy": "La solicitud de asignación del plan aún se está procesando. Inténtalo más tarde.",
+    "manualPlanGrantFailed": "No se ha podido asignar el plan. Revisa su configuración e inténtalo de nuevo.",
+    "notificationPolicySaveFailed": "No se ha podido guardar la política de notificaciones de créditos. Inténtalo más tarde.",
+    "rateConfigAlreadyExists": "Ya existe una tarifa para este proveedor y modelo. Edita la tarifa existente.",
+    "referralRewardProductMismatch": "El plan de recompensa por invitación no coincide con el producto de facturación. Contacta con el administrador para revisar la campaña.",
+    "subscriptionCheckoutBusy": "La solicitud de compra del plan aún se está procesando. Inténtalo más tarde.",
+    "subscriptionInactive": "Compra primero un plan de créditos. Solo puedes usar paquetes de créditos mientras tengas un plan de créditos activo.",
+    "subscriptionPreorderAlreadyExists": "Este plan ya tiene un pedido anticipado pendiente de activación. Resuélvelo antes de hacer otro.",
+    "subscriptionPreorderProviderUnsupported": "Por ahora, los pedidos anticipados de planes solo se admiten con canales de pago gestionados directamente.",
+    "subscriptionPreorderTargetInvalid": "Solo puedes comprar por anticipado una renovación del plan actual o el cambio a un plan inferior al terminar el ciclo.",
+    "subscriptionPreorderUnavailable": "El estado actual del plan no permite compras anticipadas.",
+    "subscriptionUpgradeAmountInvalid": "El importe a pagar por la mejora debe ser mayor que 0 después de aplicar el descuento del pedido anticipado. Contacta con el administrador para ajustar el precio del plan.",
+    "subscriptionUpgradeOnly": "Mientras el plan actual siga vigente, solo puedes cambiar a uno superior; no puedes comprar el mismo plan ni uno inferior."
+  }
+}

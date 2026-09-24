@@ -1,0 +1,6 @@
+{
+  "__namespace__": "server.check",
+  "__flat__": {
+    "checkRiskControlReject": "El contenido introducido no cumple las normas. Revísalo."
+  }
+}

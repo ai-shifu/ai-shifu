@@ -350,6 +350,36 @@ voice follow-up retain their separate contracts.
 See the [numbered-model deployment runbook](docs/exec-plans/active/numbered-course-models.md#deployment-runbook).
 Do not roll back to a build that treats newly saved numeric choices as physical IDs.
 
+## Upgrading existing profile-onboarding prompts for Spanish
+
+When upgrading an installation that already saved the profile-onboarding
+assistant prompt, run the Spanish prompt backfill from the upgraded API runtime
+before exposing `es-ES` in the learner UI. The runtime needs database and LLM
+access. For the Docker Compose installation above, run from the repository root:
+
+```bash
+cd docker
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py --apply
+```
+
+For a source-checkout installation, run from the repository root instead:
+
+```bash
+cd src/api
+python scripts/backfill_profile_onboarding_assistant_prompts.py
+python scripts/backfill_profile_onboarding_assistant_prompts.py --apply
+```
+
+The first command previews whether a prompt is missing; the second generates
+and publishes it, also filling any other missing supported locales in the
+saved map. `already_present` is a successful no-op. If generation or a
+concurrent operator edit fails, the saved configuration stays unchanged; rerun
+after resolving the error. See the
+[script notes](src/api/scripts/README.md)
+for the other statuses. This is an explicit rollout step; database migrations
+do not call the LLM.
+
 ## Troubleshooting
 
 ### Common Issues

@@ -1,0 +1,28 @@
+{
+  "__namespace__": "module.permission",
+  "errors": {
+    "authRequired": "Inicia sesión e inténtalo de nuevo",
+    "authRequiredTitle": "Debes iniciar sesión",
+    "forbidden": "Acceso prohibido",
+    "forbiddenTitle": "Acceso prohibido",
+    "generalError": "Se ha producido un error. Inténtalo de nuevo más tarde",
+    "generalErrorTitle": "Error",
+    "noPermission": "No tienes permiso para acceder a esta página. Solicita acceso al administrador.",
+    "noPermissionTitle": "Permiso denegado",
+    "notFound": "No se ha encontrado el recurso solicitado",
+    "notFoundTitle": "No encontrado",
+    "serverError": "Error del servidor. Inténtalo de nuevo más tarde",
+    "serverErrorTitle": "Error del servidor"
+  },
+  "permission": {
+    "requestDescription": "Explica brevemente por qué necesitas acceso y tramitaremos tu solicitud lo antes posible.",
+    "requestError": "No se ha podido enviar la solicitud. Inténtalo de nuevo más tarde",
+    "requestPlaceholder": "Indica el motivo (por ejemplo, necesidades laborales o de aprendizaje)",
+    "requestSubmit": "Solicitar acceso",
+    "requestSuccess": "Solicitud de acceso enviada correctamente. La tramitaremos pronto",
+    "requestTitle": "Solicitar permiso de acceso"
+  },
+  "user": {
+    "login": "Iniciar sesión"
+  }
+}

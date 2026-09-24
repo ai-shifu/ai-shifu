@@ -102,9 +102,8 @@ export default function AskBlock({
   const liveRef = useRef(liveVoice);
   liveRef.current = liveVoice;
   const liveSubmissionRef = useRef(false);
-  const markdownFlowLocale = resolveMarkdownFlowLocale(
-    i18n.resolvedLanguage ?? i18n.language,
-  );
+  const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const markdownFlowLocale = resolveMarkdownFlowLocale(hostLanguage);
   const { mobileStyle } = useContext(AppContext);
   const { trackEvent } = useTracking();
   const courseAvatar = useCourseStore(state => state.courseAvatar);
@@ -850,6 +849,7 @@ export default function AskBlock({
                 >
                   <ContentRender
                     locale={markdownFlowLocale}
+                    lang=''
                     content={message.content}
                     customRenderBar={
                       message.isStreaming
@@ -910,6 +910,7 @@ export default function AskBlock({
               )
             }
             locale={markdownFlowLocale}
+            lang=''
             placeholder={t('module.chat.askContent')}
             value={inputValue}
             onChange={handleInputChange}

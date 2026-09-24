@@ -132,6 +132,8 @@ interface NewChatComponentsProps {
   chapterId: string;
   lessonId?: string;
   lessonTitle?: string;
+  titleLanguage?: string;
+  contentLanguage?: string;
   lessonStatus?: string;
   lessonHasContentUpdate?: boolean;
   followUpMode?: 'text' | 'live_voice' | 'disabled';
@@ -159,6 +161,8 @@ export const NewChatComponents = ({
   chapterId,
   lessonId,
   lessonTitle = '',
+  titleLanguage,
+  contentLanguage,
   lessonStatus = '',
   lessonHasContentUpdate = false,
   followUpMode = 'text',
@@ -1460,6 +1464,8 @@ export const NewChatComponents = ({
               courseAvatar={courseAvatar}
               courseName={courseName}
               sectionTitle={lessonTitle}
+              titleLanguage={titleLanguage}
+              contentLanguage={contentLanguage}
               lessonId={lessonId}
               shifuBid={shifuBid}
               previewMode={previewMode}
@@ -1526,12 +1532,14 @@ export const NewChatComponents = ({
                 <div className='min-w-0 flex-1'>
                   <h1
                     data-lesson-print-course-name='true'
+                    lang={titleLanguage}
                     className='break-words text-2xl font-semibold leading-tight text-foreground'
                   >
                     {courseName}
                   </h1>
                   <h2
                     data-lesson-print-lesson-title='true'
+                    lang={titleLanguage}
                     className='mt-2 break-words text-lg font-medium leading-tight text-muted-foreground'
                   >
                     {lessonTitle}
@@ -1812,6 +1820,7 @@ export const NewChatComponents = ({
                       */}
                       <ContentBlock
                         item={item}
+                        contentLanguage={contentLanguage}
                         printMode={isPreparingLessonPdf && isCourseInteraction}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}

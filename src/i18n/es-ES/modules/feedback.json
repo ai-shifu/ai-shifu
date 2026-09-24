@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.feedback",
+  "feedbackError": "No se ha podido enviar tu opinión",
+  "feedbackPlaceholder": "Escribe tu opinión",
+  "feedbackSubmit": "Enviar",
+  "feedbackSuccess": "Tu opinión se ha enviado correctamente",
+  "feedbackTitle": "Opinión"
+}

@@ -189,6 +189,7 @@ const NavDrawer = ({
                   hideCourseHeader
                   selectedLessonId={selectedLessonId}
                   catalogs={lessonTree?.catalogs || []}
+                  titleLanguage={lessonTree?.titleLanguage}
                   onChapterCollapse={onChapterCollapse}
                   onLessonSelect={onLessonSelect}
                   onTryLessonSelect={onTryLessonSelect}
