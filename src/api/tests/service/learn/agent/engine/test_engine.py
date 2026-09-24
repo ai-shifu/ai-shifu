@@ -1208,15 +1208,36 @@ async def test_a_continue_that_says_the_last_line_again_and_finishes_shows_nothi
 
 async def test_a_continue_that_goes_on_from_a_line_it_repeated_is_shown() -> None:
     """Held only while it is something the previous turn said; new text releases all of it."""
+    part_two = "下面讲第二部分：名字和它指向的东西是两回事。" * 20
     model = _closing_again_model(
-        ["第一部分讲完了。\n\n小结：名字指向东西。"], ["小结：", "下面讲第二部分。"]
+        ["第一部分讲完了。\n\n小结：名字指向东西。"], ["小结：", part_two]
     )
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session("script")
     await collect(engine.run_turn(session))
     second = await collect(engine.run_turn(session))
     # The model's text, as it wrote it: the repeat was only held, never cut, once it went on.
-    assert _said(second) == "小结：下面讲第二部分。"
+    assert _said(second) == "小结：" + part_two
+
+
+async def test_a_continue_that_announces_it_has_nothing_left_shows_nothing() -> None:
+    """What a model with nothing left writes before `finish` is addressed to the host.
+
+    General-education course, 3 of 40 lesson runs (2026-09-24): told to carry on, the model wrote
+    "The script has been fully delivered -- ... Nothing remains." and then called `finish`, and
+    the learner read it under the lesson.
+    """
+    note = (
+        "The script has been fully delivered — the last section (the thinking question, its two "
+        "reasons, and the model distillation point) was completed in the previous turn."
+    )
+    model = _closing_again_model(["第一部分讲完了。"], [note[:40], note[40:]])
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == ""
+    assert second[-1].reason == "finished"
 
 
 async def test_what_the_model_writes_after_finishing_a_continue_is_not_shown() -> None:
