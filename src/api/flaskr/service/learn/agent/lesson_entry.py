@@ -277,6 +277,11 @@ def agent_lesson_events(
         # through, it reached the learner as text with no controls under it, the lesson waited
         # for an answer that could not be given, and each return to the lesson asked it again.
         interaction_check=unrenderable_reason,
+        # Every lesson here is written in MarkdownFlow, and a MarkdownFlow lesson pauses only where
+        # its author put a button. Left to decide, the model added pauses the author never wrote:
+        # 17 "继续" buttons over 4 lessons of the general-education course (2026-09-24), 6 of
+        # them in a lesson whose script has no question at all.
+        pauses_from_notation=True,
     )
     end_reason = "error"
     try:

@@ -26,6 +26,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, replace
+from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -522,7 +523,62 @@ def _already_asked(taught: str, prompt: str) -> bool:
         return False
     said = _condensed(taught)
     start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
-    return _stands_alone(asked, said, start)
+    return _stands_alone(asked, said, start) or _ends_asking(said, asked)
+
+
+# How much of the narration's closing words a prompt must account for to count as the same
+# question, and how long a prompt must be before anything short of an exact repeat is enough. A
+# model asking in the narration and again in the prompt drops a few words -- "挑一件你觉得最费时间"
+# became "挑一件最费时间" on the general-education course -- while a short prompt resembles too
+# many endings to be judged this way at all.
+_REWORDED_RATIO = 0.85
+_REWORDED_MIN_CHARS = 8
+_PUNCTUATION = re.compile(r"[\s\W_]+")
+# Where a sentence ends, so a question followed by a short aside is still found.
+# Full stop, exclamation and question marks (full-width and ASCII) and an ellipsis, then any
+# closing quote or bracket.
+_SENTENCE_END = re.compile(
+    r"[\u3002\uff01\uff1f!?\u2026]+[\u300d\u300f\u201d\"')\uff09]*"
+)
+
+
+def _ends_asking(said: str, asked: str) -> bool:
+    """Whether the narration just asked this question, with at most a few words left out.
+
+    Only words dropped, never changed: every word of the prompt must appear, in order, in the
+    stretch of narration it is compared with. A changed word can turn the question around --
+    "largest" for "smallest", "最大" for "最小" -- and a prompt dropped as a repeat of a different
+    question would leave its controls under the wrong one (review of #2958).
+
+    Compared with the narration's last sentence or two: its very end, or the end of a sentence
+    followed by a short aside, within `_ECHO_WINDOW_CHARS`. Never earlier, so a question the lesson
+    asked and has since moved on from does not stand in for the one now being put.
+    """
+    if len(asked) < _REWORDED_MIN_CHARS or not said:
+        return False
+    window_start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
+    ends = {len(said)} | {
+        m.end() for m in _SENTENCE_END.finditer(said) if m.end() > window_start
+    }
+    longest = int(len(asked) / _REWORDED_RATIO) + 1
+    for end in ends:
+        for length in range(len(asked), min(longest, end) + 1):
+            if _only_words_added(asked, said[end - length : end]):
+                return True
+    return False
+
+
+def _only_words_added(asked: str, stretch: str) -> bool:
+    """Whether `stretch` is `asked` with a few words added and none changed.
+
+    Punctuation and spacing may differ; a model ends the same sentence with a full-width question
+    mark in one place and an ASCII one in the other.
+    """
+    matcher = SequenceMatcher(None, asked, stretch, autojunk=False)
+    for tag, a_start, a_end, _b_start, _b_end in matcher.get_opcodes():
+        if tag in ("replace", "delete") and _PUNCTUATION.sub("", asked[a_start:a_end]):
+            return False
+    return matcher.ratio() >= _REWORDED_RATIO
 
 
 def _question(
@@ -1083,7 +1139,17 @@ def _persist(
         # them to the profile would leak a turn's working notes into preview, Ask and follow-up
         # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
         # session scope, so this is the common case, not the rare one.
-        durable = [update for update in memory if update.scope == "user"]
+        #
+        # An answer to one of the script's questions is not a working note: it is what the author
+        # asked the learner, stored under the name the script gave it, and 1.0 writes every such
+        # answer to the profile. Later lessons read it from there -- a script that asks for
+        # `%{{purpose}}` in one lesson uses `{{purpose}}` in the next -- and a lesson whose
+        # answer stayed in its own session showed the next one's learner the placeholder itself.
+        durable = [
+            update
+            for update in memory
+            if update.scope == "user" or update.source == "interaction"
+        ]
         if durable:
             stage_memory(
                 app,

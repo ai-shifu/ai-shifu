@@ -35,6 +35,10 @@ class Deps:
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
     # when the script is in the 1.0 notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
+    # Set when the host's scripts pause only where their notation puts a button and this lesson's
+    # script has none: a `confirm` is then answered without asking the learner. See
+    # `script_pauses` and `Engine(pauses_from_notation=)`.
+    no_pauses: bool = False
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
@@ -119,8 +123,45 @@ def script_options(script_text: str) -> dict[str, str]:
     code fence are examples, not questions. Both halves of `display//value` are entries of their
     own, since the model passes them separately.
     """
-    text = _FENCED.sub("", script_text)
     options: dict[str, str] = {}
+    for question in _script_questions(script_text):
+        for choice in question.choices:
+            for half in _split_unescaped(choice, "//")[:2]:
+                written = half.strip()
+                if written:
+                    options[written] = _unescape(written)
+    return options
+
+
+def script_pauses(script_text: str) -> int:
+    """Count the places the script pauses the lesson: a `?[...]` that is a single button.
+
+    One choice, no variable to store it in and no text box -- `?[继续]`, `?[准备好了//continue]` --
+    is how MarkdownFlow writes "wait here until the learner goes on". A 1.0 lesson pauses there
+    and nowhere else.
+    """
+    return sum(
+        1
+        for question in _script_questions(script_text)
+        if not question.variable
+        and not question.text
+        and len([c for c in question.choices if c.strip()]) == 1
+    )
+
+
+@dataclass
+class _Question:
+    """One `?[...]` of a script, split the way MarkdownFlow splits it."""
+
+    variable: bool
+    text: bool
+    choices: list[str]
+
+
+def _script_questions(script_text: str) -> list[_Question]:
+    """Return the script's `?[...]` questions, outside code fences, in order."""
+    text = _FENCED.sub("", script_text)
+    questions: list[_Question] = []
     at = 0
     while (start := text.find("?[", at)) >= 0:
         at = start + 2
@@ -132,7 +173,8 @@ def script_options(script_text: str) -> dict[str, str]:
         at = end + 1
         if text[end + 1 : end + 2] == "(":
             continue  # `?[text](url)` is a link
-        body = _VARIABLE.sub("", text[start + 2 : end])
+        raw = text[start + 2 : end]
+        body = _VARIABLE.sub("", raw)
         first_line = body.split("\n", 1)[0]
         ellipsis = _find_unescaped(first_line, "...")
         if ellipsis >= 0:
@@ -142,12 +184,14 @@ def script_options(script_text: str) -> dict[str, str]:
         choices = _split_on_single_pipe(body)
         if len(choices) == 1:
             choices = _split_unescaped(body, "||")
-        for choice in choices:
-            for half in _split_unescaped(choice, "//")[:2]:
-                written = half.strip()
-                if written:
-                    options[written] = _unescape(written)
-    return options
+        questions.append(
+            _Question(
+                variable=bool(_VARIABLE.match(raw)),
+                text=ellipsis >= 0,
+                choices=choices,
+            )
+        )
+    return questions
 
 
 def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
@@ -193,6 +237,12 @@ LESSON_OVER = (
 )
 
 
+NO_PAUSE = (
+    "No pause here: the script does not ask the learner to stop at this point, so they were not "
+    "asked. Go straight on with the next part of the script now."
+)
+
+
 async def interact(
     ctx: RunContext[Deps],
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
@@ -225,6 +275,11 @@ async def interact(
             "after that content, and never answer a continue with another confirm."
         )
         raise ModelRetry(msg)
+    if type == "confirm" and ctx.deps.no_pauses:
+        # A pause in a lesson whose script has none. The learner is not asked: the lesson simply
+        # goes on, as a 1.0 lesson does. Answered rather than refused, so the model carries on in
+        # the same turn instead of spending its retries on a call it cannot make.
+        return NO_PAUSE
     if ctx.deps.script_options:
         options = [
             _as_the_script_writes_it(o, ctx.deps.script_options) for o in options or []
