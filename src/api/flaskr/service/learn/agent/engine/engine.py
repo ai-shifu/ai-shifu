@@ -593,7 +593,19 @@ class Engine:
                                 segmenter.finish(), seg_state, session, final=True
                             ):
                                 yield e
-                        if isinstance(result.output, DeferredToolRequests):
+                        if deps.finished is not None:
+                            # The lesson is over, whatever the model did after saying so. Given
+                            # the `finish` result it sometimes started the lesson again and asked
+                            # its first question once more: taken as a question, that kept a
+                            # finished lesson going, every answer followed by the same lesson and
+                            # the same question (general-education course, 2026-09-24).
+                            session.finished = True
+                            yield TurnDone(
+                                reason="finished",
+                                usage=session.usage,
+                                summary=deps.finished,
+                            )
+                        elif isinstance(result.output, DeferredToolRequests):
                             for call in result.output.calls:
                                 spec = InteractionSpec.model_validate(
                                     result.output.metadata.get(call.tool_call_id, {})
@@ -605,13 +617,6 @@ class Engine:
                                     id=call.tool_call_id, spec=spec
                                 )
                             yield TurnDone(reason="interaction", usage=session.usage)
-                        elif deps.finished is not None:
-                            session.finished = True
-                            yield TurnDone(
-                                reason="finished",
-                                usage=session.usage,
-                                summary=deps.finished,
-                            )
                         elif repeated:
                             # Told to carry on, the model wrote the previous turn over again.
                             # There is nothing left in the script for it to deliver, whether or
@@ -624,6 +629,15 @@ class Engine:
                             yield TurnDone(reason="end", usage=session.usage)
         # Surface any failure to the host and keep the session usable.
         except Exception as exc:
+            if deps.finished is not None:
+                # The lesson had ended before this failure -- typically a model that kept calling
+                # tools after `finish` until the request limit stopped it. What came after the
+                # end was never shown, and the end stands.
+                session.finished = True
+                yield TurnDone(
+                    reason="finished", usage=session.usage, summary=deps.finished
+                )
+                return
             yield ErrorEvent(message=f"{type(exc).__name__}: {exc}", retryable=True)
             return
         finally:
