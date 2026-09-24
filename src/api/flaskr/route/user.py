@@ -39,6 +39,9 @@ from flaskr.service.user.auth.base import (
 from flaskr.service.user.auth.providers.google import (
     resolve_state_return_origin,
 )
+from flaskr.service.user.auth.providers.password import (
+    confirm_password_login_for_token_issue,
+)
 from flaskr.service.user.captcha import (
     create_captcha_challenge,
     verify_captcha_code,
@@ -1305,6 +1308,18 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         auth_result = provider.verify(app, vr)
         try:
             with unit_of_work():
+                confirm_password_login_for_token_issue(
+                    identifier=str(
+                        auth_result.metadata.get("verified_identifier") or ""
+                    ),
+                    user_bid=auth_result.user.user_id,
+                    credential_bid=str(
+                        auth_result.metadata.get("password_credential_bid") or ""
+                    ),
+                    credential_identifier=str(
+                        auth_result.metadata.get("password_credential_identifier") or ""
+                    ),
+                )
                 persist_token(
                     app,
                     user_id=auth_result.user.user_id,
