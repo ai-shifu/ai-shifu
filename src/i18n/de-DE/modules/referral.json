@@ -108,7 +108,7 @@
   },
   "relationStatus": {
     "abnormalReviewing": "Ungewöhnliche Überprüfung",
-    "canceled": "Gestorben",
+    "canceled": "Storniert",
     "registered": "Registriert",
     "rewardActive": "Belohnung aktiv",
     "rewardEnded": "Befristete Belohnung",
@@ -119,7 +119,7 @@
   },
   "rewardStatus": {
     "active": "Aktiv",
-    "canceled": "Gestorben",
+    "canceled": "Storniert",
     "expired": "Abgelaufen",
     "frozen": "Gefroren",
     "generated": "Erzeugt",

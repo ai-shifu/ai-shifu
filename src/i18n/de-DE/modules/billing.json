@@ -868,7 +868,7 @@
   },
   "orders": {
     "status": {
-      "canceled": "Gestorben",
+      "canceled": "Storniert",
       "failed": "fehlgeschlagen",
       "init": "Initialisiert",
       "paid": "Bezahlt",
@@ -897,24 +897,24 @@
   "package": {
     "actions": {
       "buyNow": "Jetzt kaufen",
-      "currentSubscription": "Laufendes Abonnement",
-      "currentUsing": "Laufender Plan",
-      "downgradeDisabled": "Nicht verfügbare Downgrade",
-      "freeTrial": "Nichterwerbstätig",
-      "monthlySwitchDisabled": "Monatliche Abrechnung nicht verfügbar",
-      "nonMemberTooltip": "Sie befinden sich derzeit auf dem Nicht-Mitgliedsplan. Es ist keine Maßnahme erforderlich.",
+      "currentSubscription": "Aktuelles Abonnement",
+      "currentUsing": "Aktuell genutzt",
+      "downgradeDisabled": "Downgrade nicht möglich",
+      "freeTrial": "Abgelaufen",
+      "monthlySwitchDisabled": "Wechsel zur monatlichen Zahlung derzeit nicht möglich",
+      "nonMemberTooltip": "Sie haben derzeit kein aktives Abonnement. Es ist keine Aktion nötig.",
       "preorderDowngrade": "Downgrade vorbestellen",
-      "preorderLocked": "Vorbestellen gesperrt",
+      "preorderLocked": "Vorbestellung gesperrt",
       "preorderLockedTooltip": "Eine Paketvorbestellung steht bereits aus. Es stehen nur sofortige Upgrades zur Verfügung.",
       "preorderProviderUnsupportedTooltip": "Paketvorbestellung ist nur für den aktuellen selbst verwalteten Zahlungskanal verfügbar.",
-      "preorderRenewal": "Vorkassenerneuerung",
-      "preorderScheduled": "Vorbestellung geplant",
+      "preorderRenewal": "Verlängerung im Voraus bezahlen",
+      "preorderScheduled": "Vorbestellt",
       "subscribeNow": "Jetzt abonnieren",
       "upgradeNow": "Jetzt upgraden",
-      "upgradeOnlyTooltip": "Das aktuelle Abonnement ist noch aktiv. Es sind nur Upgrades zu einem höheren Plan erlaubt."
+      "upgradeOnlyTooltip": "Solange Ihr aktueller Tarif gültig ist, können Sie nur auf einen höheren Tarif wechseln."
     },
     "campaign": {
-      "bonusBadge": "{credits} Bonusgutschriften",
+      "bonusBadge": "{credits} Credits geschenkt",
       "discountBadge": "Begrenztes Angebot",
       "paymentOnly": "Der Rabatt gilt nur für diese Zahlung."
     },
@@ -922,51 +922,51 @@
       "oneTime": "Einmalig"
     },
     "creditSummary": {
-      "daily": "Tageskredite {credits}",
-      "days": "Credits alle {count} Tage: {credits}",
-      "monthly": "Monatliche Credits {credits}",
-      "months": "Credits alle {count} Monate: {credits}",
-      "yearly": "Jährliche Gutschriften {credits}",
-      "years": "Credits alle {count} Jahre: {credits}"
+      "daily": "{credits} Credits pro Tag",
+      "days": "{credits} Credits alle {count} Tage",
+      "monthly": "{credits} Credits pro Monat",
+      "months": "{credits} Credits alle {count} Monate",
+      "yearly": "{credits} Credits pro Jahr",
+      "years": "{credits} Credits alle {count} Jahre"
     },
     "features": {
       "advanced": {
-        "includesLabel": "Alles in Basic, und:",
-        "parallelProcessing": "Höhere parallele Verarbeitungskapazität",
-        "taskPriority": "Bearbeitung von vorrangigen Aufgaben",
-        "techBasic": "Grundlegende technische Unterstützung"
+        "includesLabel": "Alles aus dem Basic-Tarif plus:",
+        "parallelProcessing": "Mehr parallele Verarbeitung",
+        "taskPriority": "Vorrangige Aufgabenbearbeitung",
+        "techBasic": "Grundlegender technischer Support"
       },
       "common": {
-        "allLearning": "Alle Lernmerkmale",
-        "allTeachingAndLearning": "Alle Lehr- und Forschungsmerkmale",
-        "createDebugPublish": "Kurse erstellen, debuggen und veröffentlichen",
-        "higherConcurrency": "Höhere Unterstützung bei der Konkurrenz",
+        "allLearning": "Alle Lernfunktionen",
+        "allTeachingAndLearning": "Alle Funktionen für Kurserstellung und Lernen",
+        "createDebugPublish": "Kurse erstellen, testen und veröffentlichen",
+        "higherConcurrency": "Mehr gleichzeitige Aufgaben",
         "unlimitedCourses": "Unbegrenzte Kurse"
       },
       "daily": {
-        "preview": "Täglicher schneller Zugriff für kurze Validierungszyklen",
-        "publish": "Kurzfristige Veröffentlichung und Onboarding-Berichterstattung",
+        "preview": "Geeignet für kurze Tests und einen schnellen Einstieg",
+        "publish": "Kurzfristige Veröffentlichung und schneller Einstieg",
         "support": "Tägliche operative Unterstützung des Plans"
       },
       "free": {
-        "preview": "Learner Lieferung und Kontoimport",
-        "publish": "Erstellung von Kursen und Speicherung von Inhalten"
+        "preview": "Kurse für Lernende bereitstellen und Lernkonten importieren",
+        "publish": "Kurse erstellen und Inhalte speichern"
       },
       "monthly": {
-        "preview": "Learner Lieferung und Kontoimport",
-        "publish": "Erstellung von Kursen und Speicherung von Inhalten"
+        "preview": "Kurse für Lernende bereitstellen und Lernkonten importieren",
+        "publish": "Kurse erstellen und Inhalte speichern"
       },
       "premium": {
-        "concurrencyQuota": "Höhere Konkurrenzquote",
-        "dedicatedSupport": "Spezieller technischer Support",
-        "includesLabel": "Alles in Pro und:",
-        "onboarding": "Ausschließliche Kurs-Building-Schulung"
+        "concurrencyQuota": "Höheres Kontingent für gleichzeitige Aufgaben",
+        "dedicatedSupport": "Persönlicher technischer Support",
+        "includesLabel": "Alles aus dem Pro-Tarif plus:",
+        "onboarding": "Individuelle Schulung zur Kurserstellung"
       },
       "pro": {
         "branding": "Benutzerdefiniertes Branding",
         "customDomain": "Benutzerdefinierte Domäne",
-        "includesLabel": "Alles in Fortgeschrittenen, und:",
-        "techPriority": "Vorrangige technische Unterstützung"
+        "includesLabel": "Alles aus dem Advanced-Tarif plus:",
+        "techPriority": "Vorrangiger technischer Support"
       },
       "yearly": {
         "lite": {
@@ -974,39 +974,39 @@
           "publish": "Bearbeitung von vorrangigen Aufgaben"
         },
         "premium": {
-          "analytics": "Höhere Konkurrenzquote",
+          "analytics": "Höheres Kontingent für gleichzeitige Aufgaben",
           "branding": "Benutzerdefiniertes Branding",
           "domain": "Benutzerdefinierte Domäne",
           "priority": "Spezieller technischer Support",
-          "support": "Ausschließliche Kurs-Building-Schulung"
+          "support": "Individuelle Schulung zur Kurserstellung"
         },
         "pro": {
           "analytics": "Vorrangige technische Unterstützung",
           "branding": "Benutzerdefiniertes Branding",
           "domain": "Benutzerdefinierte Domäne",
-          "priority": "Höhere parallele Verarbeitungskapazität",
-          "support": "Grundlegende technische Unterstützung"
+          "priority": "Mehr parallele Verarbeitung",
+          "support": "Grundlegender technischer Support"
         }
       }
     },
     "featuresTitle": "Eingeschlossene Leistungen:",
     "footnote": {
-      "learningTime": "Diese Schätzungen basieren auf historischen Daten und dienen nur als Referenz. Kursinhalte, das ausgewählte Modell und Interaktionen beeinflussen die tatsächliche Creditnutzung. Wenn Sprachsynthese aktiviert ist, werden mehr Credits verwendet.",
-      "validity": "Credit Gültigkeit: Monatliche Pläne sind gültig für 30 Tage ab dem Tag, an dem Sie sie erhalten (inklusive); jährliche Pläne sind gültig nach Kalenderjahr ab dem Tag, an dem Sie sie erhalten. Beide enden um 23:59 Uhr am Ablauftag."
+      "learningTime": "Die Lernzeit ist eine Schätzung anhand bisheriger Daten. Kursinhalt, gewähltes Modell und Interaktionen beeinflussen den tatsächlichen Creditverbrauch. Sprachsynthese verbraucht zusätzliche Credits.",
+      "validity": "Gültigkeit der Credits: Monatstarife gelten ab Zuteilung 30 Tage einschließlich des ersten Tages. Jahrestarife gelten ab Zuteilung für ein Kalenderjahr. Beide enden am Ablaufdatum um 23:59 Uhr."
     },
     "free": {
-      "creditSummary": "{credits} Bonusgutschriften",
-      "description": "Das Beste für einen ersten Blick.",
-      "priceNote": "/ gültig innerhalb von {days} Tagen nach der Registrierung",
-      "priceNoteGranted": "/ aktiviert auf {grantedAt}, gültig bis {expiresAt}",
-      "title": "Versuch"
+      "creditSummary": "{credits} Credits geschenkt",
+      "description": "Ideal zum Ausprobieren",
+      "priceNote": "/ gültig für {days} Tage ab Registrierung",
+      "priceNoteGranted": "/ aktiviert am {grantedAt}, gültig bis {expiresAt}",
+      "title": "Testversion"
     },
     "intervalTabs": {
-      "daily": "Tagespläne",
-      "monthly": "Monatliche Pläne",
+      "daily": "Tagestarife",
+      "monthly": "Monatstarife",
       "plans": "Creditpläne",
       "topup": "Creditpakete",
-      "yearly": "Jährliche Pläne"
+      "yearly": "Jahrestarife"
     },
     "learningTime": {
       "compactValue": "Etwa {minutes} Minuten",
@@ -1015,15 +1015,15 @@
       "unavailable": "—",
       "value": "Etwa {minutes} Minuten"
     },
-    "loading": "Pläne werden geladen...",
+    "loading": "Tarife werden geladen …",
     "preorder": {
-      "pending": "Bis zur Vorbestellung: {plan} wird zum {date} wirksam."
+      "pending": "Ausstehende Vorbestellung: {plan} wird am {date} wirksam."
     },
-    "subtitle": "Wählen Sie den richtigen Creditplan.",
+    "subtitle": "Wählen Sie einen passenden Creditplan.",
     "table": {
       "creditsRowLabel": "Credits pro Zyklus",
       "emptyValue": "—",
-      "featuresRowLabel": "Ansprüche",
+      "featuresRowLabel": "Enthaltene Leistungen",
       "validityRowLabel": "Gültigkeit der Credits"
     },
     "title": "Credits kaufen",
@@ -1032,15 +1032,15 @@
       "noteFrozen": "Credits aus Creditpaketen können nur verwendet werden, wenn das Konto einen aktiven Creditplan hat.",
       "noteInstant": "Credits werden sofort nach dem Kauf wirksam und laufen nie ab."
     },
-    "topupComingSoon": "Ich komme gleich.",
+    "topupComingSoon": "Demnächst verfügbar",
     "validity": {
-      "daily": "Gültigkeit: gerechnet ab dem Kauftag, gültig jeden Tag",
-      "days": "Gültigkeit: gerechnet ab dem Kauftag, verlängert jeden {count} Tag",
-      "free": "Gültigkeit: gültig innerhalb von {days} Tagen nach der Registrierung",
-      "monthly": "Gültig für 30 Tage ab dem Kauftag, inklusive",
-      "months": "Gültigkeit: verlängert jeden {count} 30-Tage-Zeitraum ab dem Kauftag, inklusive",
-      "yearly": "Gültigkeit: gerechnet nach Kalenderjahr ab dem Kaufdatum",
-      "years": "Gültigkeit: verlängert jedes {count} Kalenderjahr ab dem Kaufdatum"
+      "daily": "Gültigkeit: ab dem Kauftag täglich",
+      "days": "Gültigkeit: ab dem Kauftag alle {count} Tage erneuert",
+      "free": "Gültigkeit: {days} Tage ab Registrierung",
+      "monthly": "Gültigkeit: 30 Tage ab dem Kauftag, einschließlich des Kauftags",
+      "months": "Gültigkeit: ab dem Kauftag alle {count} Zeiträume von 30 Tagen erneuert",
+      "yearly": "Gültigkeit: ein Kalenderjahr ab dem Kauftag",
+      "years": "Gültigkeit: ab dem Kauftag alle {count} Kalenderjahre erneuert"
     },
     "validityShort": {
       "free": "{days} Tage",
@@ -1049,7 +1049,7 @@
     }
   },
   "page": {
-    "adminLink": "Offener Rechnungsdienst",
+    "adminLink": "Verwaltungsansicht für Abrechnungen öffnen",
     "tabs": {
       "customization": "Marken & Zahlungen",
       "ledger": "Creditdetails",
@@ -1059,19 +1059,19 @@
   },
   "renewal": {
     "eventType": {
-      "cancelEffective": "Wirksam abbrechen",
-      "downgradeEffective": "Effektiv absenken",
-      "expire": "Ablauf",
-      "reconcile": "Reconcile",
-      "renewal": "Erneuerung",
-      "retry": "Wiederholung"
+      "cancelEffective": "Stornierung wirksam",
+      "downgradeEffective": "Downgrade wirksam",
+      "expire": "Ablauf verarbeiten",
+      "reconcile": "Abrechnung abgleichen",
+      "renewal": "Automatische Verlängerung",
+      "retry": "Erneut versuchen"
     },
     "status": {
-      "canceled": "Gestorben",
+      "canceled": "Storniert",
       "failed": "fehlgeschlagen",
-      "pending": "In Vorbereitung",
+      "pending": "Ausstehend",
       "processing": "Verarbeitung",
-      "succeeded": "Erfolg"
+      "succeeded": "Abgeschlossen"
     }
   },
   "reports": {
@@ -1090,14 +1090,14 @@
       "credits": "Credits",
       "date": "Zeitpunkt",
       "entryType": "Eintragsart",
-      "metric": "Metrisch",
+      "metric": "Abrechnungskennzahl",
       "provider": "Anbieter / Modell",
       "rawAmount": "Rohbetrag",
       "scene": "Szene",
       "shifu": "Shifu",
       "source": "Quelle",
       "usageType": "Art der Verwendung",
-      "window": "Fenster"
+      "window": "Auswertungszeitraum"
     },
     "usageType": {
       "llm": "Modellnutzung",
@@ -1105,52 +1105,52 @@
     }
   },
   "result": {
-    "countdown": "Umleitung zum Abrechnungszentrum in {seconds}s",
-    "errorTitle": "Rechnungssynchronisierung fehlgeschlagen",
-    "missingOrder": "Fehlende Rechnungsbestellung. Öffnen Sie das Abrechnungszentrum und versuchen Sie es erneut von Ihrer Bestellliste.",
-    "openBilling": "Abrechnungszentrum öffnen",
-    "pending": "Die Zahlung ist noch Bearbeitung. Sie können synchronisieren in einem Moment wiederholen.",
-    "pendingTitle": "Warten auf Rechnungsbestätigung",
-    "processing": "Synchronisierung des Zahlungsstatus",
-    "retry": "Synchronisieren wiederholen",
-    "success": "Zahlung bestätigt. Ihre Abrechnungsdaten werden aktualisiert.",
-    "successTitle": "Rechnungsführung aktualisiert"
+    "countdown": "Rückkehr zum Mitgliedsbereich in {seconds} Sekunden",
+    "errorTitle": "Abrechnung konnte nicht synchronisiert werden",
+    "missingOrder": "Die Bestellnummer fehlt. Öffnen Sie den Mitgliedsbereich und synchronisieren Sie die Bestellung erneut über die Bestellliste.",
+    "openBilling": "Mitgliedsbereich öffnen",
+    "pending": "Die Zahlung wird noch verarbeitet. Versuchen Sie die Synchronisierung später erneut.",
+    "pendingTitle": "Warten auf Zahlungsbestätigung",
+    "processing": "Zahlungsstatus wird synchronisiert",
+    "retry": "Erneut synchronisieren",
+    "success": "Die Zahlung wurde bestätigt. Ihre Mitgliedschaft und Credits werden aktualisiert.",
+    "successTitle": "Abrechnung aktualisiert"
   },
   "sidebar": {
-    "creditsLabel": "Credits",
-    "cta": "Abrechnungszentrum öffnen",
+    "creditsLabel": "Verbleibende Credits",
+    "cta": "Zum Mitgliedsbereich",
     "dailyBalanceTitle": "Tagessaldo",
     "dailyTitle": "Tagesplan",
-    "description": "Überprüfen Sie Ihren Plan, Credits und anstehende Abrechnungsaktionen.",
+    "description": "Sehen Sie Ihren Mitgliedschaftsstatus, Ihr Creditguthaben und anstehende Abrechnungen.",
     "expired": "Abgelaufen",
     "expiresInDays": "Läuft in {days} Tagen ab",
     "monthlyBalanceTitle": "Monatlicher Saldo",
     "monthlyTitle": "Monatlicher Plan",
     "nonMemberBalanceTitle": "Creditsaldo",
-    "nonMemberTitle": "Nichtmitglied",
-    "periodLabel": "Zeitraum",
+    "nonMemberTitle": "Keine Mitgliedschaft",
+    "periodLabel": "Tarifzeitraum",
     "placeholderValue": "--",
-    "subscriptionPending": "Ich komme gleich.",
-    "subscriptionStatusLabel": "Abonnement",
+    "subscriptionPending": "Demnächst verfügbar",
+    "subscriptionStatusLabel": "Abonnementstatus",
     "summaryTitle": "Credits",
-    "upgradeCta": "Aktualisierung",
+    "upgradeCta": "Upgrade",
     "usageCta": "Details anzeigen",
     "yearlyBalanceTitle": "Jahressaldo",
     "yearlyTitle": "Jährlicher Plan"
   },
   "status": {
     "active": "Aktiv",
-    "cancelScheduled": "Geplantes Abbrechen",
-    "canceled": "Gestorben",
-    "draft": "Entwurf",
+    "cancelScheduled": "Stornierung geplant",
+    "canceled": "Storniert",
+    "draft": "Zahlung ausstehend",
     "expired": "Abgelaufen",
-    "none": "Nicht begonnen",
-    "pastDue": "Vorhergehende Fälligkeit",
-    "paused": "Anhalten"
+    "none": "Nicht aktiviert",
+    "pastDue": "Verlängerung fehlgeschlagen",
+    "paused": "Pausiert"
   },
   "welcomeTrial": {
     "confirm": "Los geht's!",
-    "description": "Als neuer Benutzer erhalten Sie einen kostenlosen {days} Tage gültigen Basistarif mit {credits} Credits. Beginnen Sie jetzt Ihren ersten Kurs zu erstellen!",
+    "description": "Als neuer Nutzer erhalten Sie den Basic-Tarif {days} Tage lang kostenlos, einschließlich {credits} Credits. Erstellen Sie jetzt Ihren ersten Kurs!",
     "title": "Willkommen bei {appName}"
   }
 }

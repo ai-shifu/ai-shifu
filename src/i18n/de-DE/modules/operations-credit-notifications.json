@@ -19,9 +19,9 @@
   "config": {
     "deliveryRules": {
       "active": "An",
-      "description": "Überprüfen Sie tägliche Kappen, ruhige Stunden, SMS-Nutzungssicherungen und Lehrer Low-Balance-Regeln an einem Ort.",
-      "descriptionEmail": "Überprüfen Sie E-Mail-Frequenzgrenzen, ruhige Stunden und Lehrer Low-Balance-Regeln an einem Ort.",
-      "dialogDescription": "Diese Regeln steuern das tägliche SMS-Volume, Pausen in der Ruhestunde und wie Lehrer geschützt werden, wenn Credits niedrig laufen. Sie gelten nach dem Speichern.",
+      "description": "Überprüfen Sie Tageslimits, Ruhezeiten, SMS-Nutzungssicherungen und Regeln bei niedrigem Guthaben für Lehrkräfte an einem Ort.",
+      "descriptionEmail": "Überprüfen Sie E-Mail-Frequenzgrenzen, Ruhezeiten und Regeln bei niedrigem Guthaben für Lehrkräfte an einem Ort.",
+      "dialogDescription": "Diese Regeln steuern das tägliche SMS-Volume, Pausen in der Ruhezeit und wie Lehrer geschützt werden, wenn Credits niedrig laufen. Sie gelten nach dem Speichern.",
       "dialogDescriptionEmail": "Diese Regeln steuern E-Mail-Frequenzlimits, Ruhepausen und wie Lehrer geschützt werden, wenn Credits niedrig laufen. Sie gelten nach dem Speichern.",
       "dialogTitle": "Liefergarantien",
       "edit": "Lieferregeln bearbeiten",
@@ -38,7 +38,7 @@
       },
       "yes": "Ja"
     },
-    "description": "Verwalten Sie Credit-Benachrichtigung Schalter, Vorlagen, Senden von Regeln, ruhige Stunden und Do-Not-Send-Listen an einem Ort.",
+    "description": "Verwalten Sie Credit-Benachrichtigung Schalter, Vorlagen, Senden von Regeln, Ruhezeiten und Do-Not-Send-Listen an einem Ort.",
     "emptyBlockedCreators": "Noch keine blockierten Lehrer.",
     "emptyOptedOutCreators": "Noch keine Auserwählten.",
     "fieldTips": {
@@ -48,7 +48,7 @@
       "creatorIdentifierListPhone": "Geben Sie die Handynummern oder IDs des Lehrers ein, die durch Kommas getrennt sind.",
       "creatorList": "Geben Sie Lehrer-IDs getrennt durch Kommata ein.",
       "dailySmsLimit": "Nachdem diese tägliche Kappe erreicht ist, wird an diesem Tag keine neue SMS gesendet.",
-      "enabled": "Kontrolliert, ob Credit-SMS-Benachrichtigungen aktiviert sind. Gilt nur für zukünftige Benachrichtigungen.",
+      "enabled": "Kontrolliert, ob SMS-Benachrichtigungen zu Credits aktiviert sind. Gilt nur für zukünftige Benachrichtigungen.",
       "enabledEmail": "Kontrolliert, ob Credit-E-Mail-Benachrichtigungen aktiviert sind. Gilt nur für zukünftige Benachrichtigungen.",
       "estimatedDays": "Triggert balancearme Erinnerungen, wenn die geschätzten verbleibenden nutzbaren Tage diesen Wert erreichen.",
       "fallbackFixedValue": "Wenn die Verbrauchsdaten unzureichend sind, fällt sie auf eine feste Schwelle zurück.",
@@ -57,7 +57,7 @@
       "mobileList": "Geben Sie durch Kommata getrennte Handynummern ein.",
       "optedOutCreators": "Opt-Out-Listen werden durch den Abmeldefluss generiert und sind schreibgeschützt.",
       "perCreatorPerTypePerDay": "Maximale Nachrichten, die für denselben Lehrer und Benachrichtigungstyp pro Tag generiert werden.",
-      "perMobilePerDay": "Maximale Credit-SMS-Nachrichten an das gleiche Handy pro Tag gesendet.",
+      "perMobilePerDay": "Maximale SMS-Benachrichtigungen zu Credits an das gleiche Handy pro Tag gesendet.",
       "perRecipientPerDay": "Maximale Credit-E-Mails an den gleichen Empfänger pro Tag gesendet.",
       "quietEnd": "Ruhige Stunden Endzeit, zum Beispiel 08:00.",
       "quietStart": "Ruhige Startzeiten, zum Beispiel 22:00 Uhr.",
@@ -65,7 +65,7 @@
       "softlimitThreshold": "Balance unterhalb dieses Wertes löst Seitenwarnungen, SMS-Erinnerungen oder Debug-Blockierung aus.",
       "templateCode": "Wählen Sie die SMS-Vorlage, die von diesem Benachrichtigungstyp verwendet wird. Wenden Sie die Vorlage nach Änderungen an, um die Validierung abzuschließen.",
       "templateSelect": "Wählen Sie die SMS-Vorlage, die von diesem Benachrichtigungstyp verwendet wird. Wenden Sie die Vorlage nach Änderungen an, um die Validierung abzuschließen.",
-      "thresholds": "Zum Beispiel 100,50,10; Erinnerungen auslösen, wenn das Gleichgewicht unter eine konfigurierte Schwelle fällt.",
+      "thresholds": "Zum Beispiel 100,50,10; Erinnerungen auslösen, wenn das Guthaben unter eine konfigurierte Schwelle fällt.",
       "timezone": "Zeitzone verwendet von ruhigen Stunden, zum Beispiel Asien/Shanghai.",
       "windows": "Zum Beispiel bedeutet 7d,3d,1d,0d 7 Tage vor, 3 Tage vor, 1 Tag vor und am Ablauftag."
     },
@@ -75,10 +75,10 @@
       "blockedCreatorList": "Blockierte Lehrer",
       "blockedCreators": "Blockierte Lehrer",
       "dailySmsLimit": "Tägliche Sendekappe",
-      "disableDebug": "Debug blockieren, wenn das Gleichgewicht niedrig ist",
+      "disableDebug": "Debug blockieren, wenn das Guthaben niedrig ist",
       "dryRunRequired": "Kostenvoranschlag vor Versendung erforderlich",
-      "enabled": "Credits--SMS-Benachrichtigungen aktivieren",
-      "enabledEmail": "Credits--E-Mail-Benachrichtigungen aktivieren",
+      "enabled": "SMS-Benachrichtigungen zu Credits aktivieren",
+      "enabledEmail": "Credit-E-Mail-Benachrichtigungen aktivieren",
       "estimatedDays": "Übrige nutzbare Tage",
       "estimatedDaysEnabled": "Erinnern nach nutzbaren Tagen",
       "fallbackFixedValue": "Schwellenwert für die Rückstellungsbilanz",
@@ -94,7 +94,7 @@
       "quietEnd": "Ruhige Stunden enden",
       "quietHoursEnabled": "Stille Stunden aktivieren",
       "quietStart": "Ruhezeiten beginnen",
-      "smsUnitCost": "Kosten für SMS-Einheiten",
+      "smsUnitCost": "Kosten pro SMS",
       "softlimitEnabled": "Balance-Schutz aktivieren",
       "softlimitSms": "Balanceschutz SMS senden",
       "softlimitThreshold": "Schwellenwert für die Schutzbilanz",
@@ -116,7 +116,7 @@
       "blockedCreatorLimit": "Fügen Sie höchstens {count} Lehrkräfte auf einmal hinzu.",
       "blockedDescription": "Suchen, Anzeigen und Entfernen von blockierten Lehrern. Änderungen werden nach dem Speichern der Konfiguration wirksam.",
       "blockedSummary": "{count} blockierte Lehrer",
-      "comingSoon": "Ich komme gleich.",
+      "comingSoon": "Demnächst verfügbar",
       "delete": "Löschen",
       "duplicateBlockedCreators": "Die Eingabe befindet sich bereits in der blockierten Liste.",
       "emptyPreview": "Noch keine Angaben",
@@ -133,7 +133,7 @@
     },
     "loadFailed": "Die Benachrichtigungsrichtlinie konnte nicht geladen werden. Aktualisieren und erneut versuchen.",
     "loadRequired": "Die Benachrichtigungsrichtlinie wurde nicht erfolgreich geladen, so dass die Konfiguration nicht gespeichert werden kann.",
-    "masterSwitchDescription": "Wenn deaktiviert, werden keine neuen Credit-SMS-Benachrichtigungen generiert. Historische Aufzeichnungen sind nicht betroffen.",
+    "masterSwitchDescription": "Wenn deaktiviert, werden keine neuen SMS-Benachrichtigungen zu Credits generiert. Historische Aufzeichnungen sind nicht betroffen.",
     "masterSwitchDescriptionEmail": "Wenn deaktiviert, werden keine neuen Credit-E-Mail-Benachrichtigungen generiert. Historische Aufzeichnungen sind nicht betroffen.",
     "placeholders": {
       "available": "Verfügbare Platzhalter",
@@ -179,9 +179,9 @@
       "budget": "Kontrolliert die tägliche SMS-Sendungs-Cap und schätzt die erwarteten Kosten.",
       "frequency": "Begrenzt, wie viele SMS-Nachrichten der gleiche Handy oder Lehrer an einem Tag empfangen kann.",
       "frequencyEmail": "Begrenzt, wie viele E-Mails der gleiche Empfänger oder Lehrer an einem Tag erhalten kann.",
-      "lists": "Lehrer in diesen Listen erhalten keine Credit-SMS-Nachrichten mehr. Opted-out-Lehrer werden durch den Abmeldefluss generiert und sind schreibgeschützt.",
+      "lists": "Lehrer in diesen Listen erhalten keine SMS-Benachrichtigungen zu Credits mehr. Lehrkräfte mit Abmeldung werden durch den Abmeldefluss generiert und sind schreibgeschützt.",
       "quietHours": "Während der ruhigen Stunden werden SMS-Nachrichten entsprechend der Richtlinie verzögert oder übersprungen.",
-      "softlimit": "Wenn das Gleichgewicht unter der Schutzlinie ist, erinnern Lehrer und begrenzen weitere Debug-Nutzung, um weitere Ausgaben zu verhindern."
+      "softlimit": "Wenn das Guthaben unter der Schutzlinie ist, erinnern Lehrer und begrenzen weitere Debug-Nutzung, um weitere Ausgaben zu verhindern."
     },
     "sections": {
       "budget": "SMS-Nutzungsgrenze",
@@ -568,8 +568,8 @@
     "smsDescription": "Alle SMS-Vorlagen aus Alibaba Cloud synchronisiert, einschließlich Vorlagen, die noch nicht an eine Credits-meldung gebunden sind.",
     "smsTitle": "Alibaba Cloud-SMS-Vorlagen",
     "status": {
-      "AUDIT_SATE_CANCEL": "Gestorben",
-      "AUDIT_STATE_CANCEL": "Gestorben",
+      "AUDIT_SATE_CANCEL": "Storniert",
+      "AUDIT_STATE_CANCEL": "Storniert",
       "AUDIT_STATE_INIT": "Überprüfung",
       "AUDIT_STATE_NOT_PASS": "abgelehnt",
       "AUDIT_STATE_PASS": "Genehmigt"

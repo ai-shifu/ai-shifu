@@ -7,7 +7,7 @@
   },
   "couponStatus": {
     "active": "Aktiv",
-    "inactive": "Nichterwerbstätig",
+    "inactive": "Inaktiv",
     "timeout": "Abgelaufen",
     "unknown": "Unbekannt",
     "used": "Verwendet"
