@@ -1403,6 +1403,33 @@ def test_a_memory_block_interrupted_by_a_tool_call_is_still_removed(
 
 
 @pytest.mark.usefixtures("calls")
+def test_a_question_put_again_sends_its_controls_but_not_its_text_again() -> None:
+    """An unusable answer puts the same question again; its text is already on the screen.
+
+    Sent again, the question's text appeared as a second line under the first each time the
+    learner's answer was refused.
+    """
+    engine = _Engine(
+        [
+            ErrorEvent(message="interaction 'q1' needs an answer", retryable=True),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="multi",
+                    prompt="你读过哪些？",
+                    options=[Option(display="A"), Option(display="B")],
+                ),
+                asked_before=True,
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == []
+    assert any(e.type == GeneratedType.INTERACTION for e in events)
+
+
+@pytest.mark.usefixtures("calls")
 def test_a_question_the_lesson_did_not_ask_still_reaches_the_learner() -> None:
     """Often the prompt is the only place the model asks; suppressing it leaves nothing to answer."""
     engine = _Engine(
