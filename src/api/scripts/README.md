@@ -6,7 +6,7 @@ This directory contains utility scripts for managing AI-Shifu configuration.
 
 Run this once when adding a new supported language to an installation with an
 existing profile-onboarding configuration. Use the upgraded API runtime, with its
-database and LLM settings available, before exposing Spanish in the learner UI.
+database and LLM settings available, before exposing German in the learner UI.
 For a Docker Compose installation, run from the repository root:
 
 ```bash

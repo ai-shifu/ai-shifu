@@ -104,6 +104,7 @@
 
 ```typescript
 import { environment } from '@/config/environment';
+import { useEnvStore } from '@/store';
 
 // Get API base URL
 const apiUrl = environment.apiBaseUrl;
@@ -125,7 +126,7 @@ const isPasswordEnabled = loginMethods.includes('password');
 const googleRedirect = '/login/google-callback';
 
 // Get legal document URLs (from /api/runtime-config)
-const legalUrls = environment.legalUrls;
+const legalUrls = useEnvStore(state => state.legalUrls);
 const agreementUrlZhCN = legalUrls.agreement['zh-CN']; // 中文服务协议URL
 const agreementUrlEnUS = legalUrls.agreement['en-US']; // 英文服务协议URL
 const agreementUrlDeDE = legalUrls.agreement['de-DE']; // 德文服务协议URL
