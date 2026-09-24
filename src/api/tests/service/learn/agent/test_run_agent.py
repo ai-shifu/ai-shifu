@@ -191,6 +191,34 @@ def test_a_started_lesson_with_nothing_said_carries_on(calls: list) -> None:
     assert calls
 
 
+def test_a_finished_lesson_asked_for_a_turn_says_it_is_over_and_writes_nothing(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Opening a finished lesson used to write an empty block and an element on every visit.
+
+    The browser asks for a turn whenever a lesson's history ends on text, and a finished lesson's
+    does. Seen on the simulation environment, 2026-09-24: boundary lessons 3-2 and 3-3 gained an
+    empty block, an empty element and the outline's rows each time they were revisited.
+    """
+    finished = _Session(started=True)
+    finished.finished = True
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: finished)
+    opened: list = []
+    monkeypatch.setattr(
+        run_agent, "_open_turn", lambda *_a, **k: opened.append(k) or PROGRESS
+    )
+    engine = _Engine([TurnDone(reason="end")], session=finished)
+
+    events = _run(engine)
+
+    # Not even a terminal event: the stream closes the lesson's events itself, and one yielded
+    # here was written down as an element belonging to no block.
+    assert events == []
+    assert engine.turns == []
+    assert opened == []
+    assert calls == []
+
+
 def test_input_while_a_question_is_pending_is_read_as_its_answer(calls: list) -> None:
     """That is what the learner was asked for, so it must not arrive as a side remark."""
     engine = _Engine(
@@ -2245,3 +2273,66 @@ def test_every_turn_keeps_the_state_it_started_from_on_its_block(calls: list) ->
     record = json.loads(staged["turn_record"])["agent_turn"]
     assert record["values"] == ["hi"]
     assert record["checkpoint"]["messages"] == 0
+
+
+# --- how the turn ended, for the caller -------------------------------------------------------
+
+
+def _outcome(engine: _Engine) -> run_agent.TurnOutcome | None:
+    """Drain a turn and return what it hands back, the way `yield from` would."""
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    while True:
+        try:
+            next(stream)
+        except StopIteration as stop:
+            return stop.value
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_turn_reports_how_it_ended_and_whether_it_said_anything() -> None:
+    """What the entry point reads to decide whether the lesson goes on in this request."""
+    said = _outcome(
+        _Engine(
+            [ContentDelta(text="Part one.\n"), TurnDone(reason="end")],
+            session=_Session(started=True),
+        )
+    )
+    assert said == run_agent.TurnOutcome(reason="end", taught=True)
+
+    silent = _outcome(_Engine([TurnDone(reason="end")], session=_Session(started=True)))
+    assert silent == run_agent.TurnOutcome(reason="end", taught=False)
+
+    over = _outcome(
+        _Engine(
+            [ContentDelta(text="Bye.\n"), TurnDone(reason="finished")],
+            session=_Session(started=True),
+        )
+    )
+    assert over.reason == "finished"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_model_typed_is_reported_as_a_wait() -> None:
+    """The engine ended the turn out of content, but the learner has a question to answer.
+
+    The host shows the last `?[...]` the model wrote as a question; a caller reading the
+    engine's "end" would carry the lesson on past it before the learner could answer.
+    """
+    outcome = _outcome(
+        _Engine(
+            [
+                ContentDelta(text="Pick one.\n\n?[Left | Right]\n"),
+                TurnDone(reason="end"),
+            ],
+            session=_Session(started=True),
+        )
+    )
+    assert outcome.reason == "interaction"

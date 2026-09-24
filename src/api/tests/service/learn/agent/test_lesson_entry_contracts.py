@@ -1,6 +1,7 @@
 """Verify agent lesson lookup, course model identity, paid access, and trace closure."""
 
 import uuid
+from collections.abc import Callable
 from decimal import Decimal
 from unittest.mock import Mock
 
@@ -9,6 +10,7 @@ from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import lesson_entry as entry
+from flaskr.service.learn.agent.run_agent import TurnOutcome
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -339,3 +341,82 @@ def test_a_preview_cannot_go_back(app: object, monkeypatch: object) -> None:
     with pytest.raises(AppError):
         _reload(app, user_input="", preview_mode=True)
     runner.assert_not_called()
+
+
+def _turn(
+    outcomes: list[TurnOutcome | None], calls: list[dict]
+) -> Callable[..., object]:
+    """Build a turn double: record the call, yield one event, return the next outcome."""
+
+    def produce(*_args: object, **kwargs: object) -> object:
+        calls.append(kwargs)
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            generated_block_bid=f"block-{len(calls)}",
+            type=GeneratedType.CONTENT,
+            content="said",
+        )
+        return outcomes[len(calls) - 1]
+
+    return produce
+
+
+def test_a_turn_that_ran_out_of_content_is_followed_by_the_next_in_the_same_request(
+    app: object, monkeypatch: object
+) -> None:
+    """The browser never sees a turn's end that is not the lesson's, so the host carries on.
+
+    On the simulation environment (2026-09-24, boundary lessons 3-2 and 3-3) a lesson whose
+    model stopped without `finish` stayed "in progress" until the learner opened it again.
+    """
+    runner = _entry_with_runner(monkeypatch)
+    calls: list[dict] = []
+    runner.side_effect = _turn(
+        [
+            TurnOutcome(reason="end", taught=True),
+            TurnOutcome(reason="end", taught=True),
+            TurnOutcome(reason="interaction", taught=True),
+        ],
+        calls,
+    )
+
+    events = list(
+        entry.agent_lesson_events(
+            app,
+            user_bid="learner",
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_input={"choice": ["a"]},
+        )
+    )
+
+    assert [e.generated_block_bid for e in events] == ["block-1", "block-2", "block-3"]
+    # The learner's input belongs to the first turn; the ones after it are the host's continue.
+    assert [c["user_input"] for c in calls] == [{"choice": ["a"]}, None, None]
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        TurnOutcome(reason="finished", taught=True),
+        TurnOutcome(reason="interaction", taught=True),
+        # Out of content having said nothing: the model has nothing to add and did not say so.
+        TurnOutcome(reason="end", taught=False),
+        None,
+    ],
+)
+def test_a_turn_that_waits_ends_or_says_nothing_is_not_followed(
+    app: object, monkeypatch: object, outcome: TurnOutcome | None
+) -> None:
+    runner = _entry_with_runner(monkeypatch)
+    calls: list[dict] = []
+    runner.side_effect = _turn([outcome, TurnOutcome(reason="end", taught=True)], calls)
+
+    events = list(
+        entry.agent_lesson_events(
+            app, user_bid="learner", shifu_bid="course", outline_bid="lesson"
+        )
+    )
+
+    assert len(events) == 1
+    assert len(calls) == 1
