@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
 from pydantic_ai.messages import ModelResponse, TextPart
 
 from .interaction import InteractionSpec, InteractionType, Option
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass
@@ -25,6 +28,9 @@ class Deps:
     finished: str | None = None  # set by `finish`; the summary the model gave
     # len(message history) when this turn started; anything after it belongs to this turn.
     history_len: int = 0
+    # The host's answer to "can the learner be shown this question?": None if it can, otherwise
+    # why not. See `Engine(interaction_check=)`.
+    interaction_check: Callable[[InteractionSpec], str | None] | None = None
 
 
 def text_in_turn(ctx: RunContext[Deps]) -> int:
@@ -78,6 +84,16 @@ async def interact(
         variable=variable,
         placeholder=placeholder,
     )
+    problem = ctx.deps.interaction_check(spec) if ctx.deps.interaction_check else None
+    if problem:
+        # Deferred, the question would wait for an answer the learner has no controls to give.
+        # Sent back instead, it is asked again in a form the host can show.
+        msg = (
+            f"The learner cannot be shown this question: {problem}. Call `interact` again "
+            "with the same question, rewriting what the problem names: every option must be "
+            "non-empty text without `%{{` or `}}`, and the variable must be a short plain name."
+        )
+        raise ModelRetry(msg)
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 

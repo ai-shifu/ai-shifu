@@ -182,6 +182,48 @@ def _in_the_learner_s_language(spec: InteractionSpec) -> InteractionSpec:
     )
 
 
+def _as_sent(spec: InteractionSpec) -> tuple[str, InteractionSpec]:
+    """Return the question's text and the controls it is sent as.
+
+    Shared by `translate` and `unrenderable_reason`, so that what is checked before a question is
+    asked is exactly what is sent when it is.
+    """
+    # Stripped only to decide whether there is a question at all: the text itself goes out as
+    # the model wrote it, because the frontend renders it as Markdown and leading indentation
+    # or a trailing hard break changes what the learner sees.
+    prompt = spec.prompt
+    # Before the rewrite below, not after: that rewrite puts the model's own words on the
+    # button, and a model that wrote `Continue` would otherwise have them taken for the
+    # engine's default and replaced.
+    spec = _in_the_learner_s_language(spec)
+    if spec.type == "confirm" and 0 < len(prompt.strip()) <= _CONFIRM_LABEL_MAX_CHARS:
+        # A confirm's prompt is what the button should say -- the model writes "继续" there --
+        # not a line of lesson text. Sent as content it appeared after the lesson's last
+        # sentence, followed by a button reading "Continue" in whatever language the lesson
+        # was not in. A longer prompt is an instruction to the learner and stays as text.
+        spec = InteractionSpec(
+            type="confirm",
+            prompt="",
+            options=[Option(display=prompt.strip(), value="continue")],
+        )
+        prompt = ""
+    return prompt, spec
+
+
+def unrenderable_reason(spec: InteractionSpec) -> str | None:
+    """Why this question cannot be shown to the learner, or None if it can.
+
+    Given to the engine as its `interaction_check`, so a question the controls cannot carry is
+    sent back to the model to ask again, instead of reaching `translate` and leaving the learner
+    with a question and nothing to answer it with.
+    """
+    try:
+        render_interaction(_as_sent(spec)[1])
+    except UnrepresentableInteractionError as exc:
+        return str(exc)
+    return None
+
+
 def translate(
     event: Event,
     *,
@@ -208,29 +250,7 @@ def translate(
 
     if isinstance(event, InteractionRequest):
         events = []
-        spec = event.spec
-        # Stripped only to decide whether there is a question at all: the text itself goes out as
-        # the model wrote it, because the frontend renders it as Markdown and leading indentation
-        # or a trailing hard break changes what the learner sees.
-        prompt = spec.prompt
-        # Before the rewrite below, not after: that rewrite puts the model's own words on the
-        # button, and a model that wrote `Continue` would otherwise have them taken for the
-        # engine's default and replaced.
-        spec = _in_the_learner_s_language(spec)
-        if (
-            spec.type == "confirm"
-            and 0 < len(prompt.strip()) <= _CONFIRM_LABEL_MAX_CHARS
-        ):
-            # A confirm's prompt is what the button should say -- the model writes "继续" there --
-            # not a line of lesson text. Sent as content it appeared after the lesson's last
-            # sentence, followed by a button reading "Continue" in whatever language the lesson
-            # was not in. A longer prompt is an instruction to the learner and stays as text.
-            spec = InteractionSpec(
-                type="confirm",
-                prompt="",
-                options=[Option(display=prompt.strip(), value="continue")],
-            )
-            prompt = ""
+        prompt, spec = _as_sent(event.spec)
         if prompt.strip():
             events.append(
                 RunMarkdownFlowDTO(

@@ -30,7 +30,7 @@ from pydantic_ai.messages import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterable, Sequence
+    from collections.abc import AsyncIterator, Callable, Iterable, Sequence
 
     from pydantic_ai.models import Model
     from pydantic_ai.settings import ModelSettings
@@ -205,9 +205,17 @@ class Engine:
         tool_calls_limit: int | None = 30,
         turn_limit: int = 200,
         model_settings: ModelSettings | None = None,
+        interaction_check: Callable[[InteractionSpec], str | None] | None = None,
     ) -> None:
-        """Bind a model and the host's capabilities; sessions are supplied per turn."""
+        """Bind a model and the host's capabilities; sessions are supplied per turn.
+
+        `interaction_check` is how a host says which questions it can show: given the spec an
+        `interact` call would defer, it returns None, or the reason the host cannot render it.
+        A question it cannot render is refused to the model, which asks it again, rather than
+        left pending with nothing on the learner's screen to answer it.
+        """
         self.prompts = prompts or Prompts.default()
+        self.interaction_check = interaction_check
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -225,7 +233,9 @@ class Engine:
             deps_type=Deps,
             output_type=[str, DeferredToolRequests],
             instructions=self._instructions,
-            tools=[Tool(interact, max_retries=2), remember, finish],
+            # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
+            # again, and a model rewriting options sometimes needs more than one attempt.
+            tools=[Tool(interact, max_retries=3), remember, finish],
             toolsets=list(toolsets or []),
             model_settings=model_settings,
         )
@@ -313,6 +323,7 @@ class Engine:
             user_memory=session.user_memory,
             listen_mode=session.listen_mode,
             uses_v1_syntax=detect_v1_syntax(session.script.all_text()),
+            interaction_check=self.interaction_check,
         )
         deps.history_len = len(session.messages) if session.started else 0
         kwargs: dict[str, Any] = {"deps": deps, "usage_limits": self.limits}

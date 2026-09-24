@@ -1223,3 +1223,74 @@ async def test_a_confirm_the_model_labelled_itself_says_so_too() -> None:
     asked = [e for e in events if isinstance(e, InteractionRequest)]
     assert asked[0].spec.labelled_by_engine is False
     assert asked[0].spec.options[0].display == "开始"
+
+
+async def test_a_question_the_host_cannot_show_is_asked_again_instead() -> None:
+    """A question the host cannot render never waits for an answer.
+
+    Deferred, it reached the learner as text with no controls: the lesson waited for an answer
+    that could not be given, and every return to the lesson asked it again. Refused, the model
+    is told why and asks it in a form the host can show.
+    """
+    from pydantic_ai.messages import RetryPromptPart
+
+    bad = {
+        "type": "single",
+        "prompt": "Which one?",
+        "options": [{"display": "%{{x}} first"}, {"display": "second"}],
+    }
+    good = {
+        "type": "single",
+        "prompt": "Which one?",
+        "options": [{"display": "first"}, {"display": "second"}],
+    }
+    retries: list[str] = []
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        last = messages[-1]
+        retry = next(
+            (p for p in getattr(last, "parts", []) if isinstance(p, RetryPromptPart)),
+            None,
+        )
+        if retry is None:
+            yield "Pick one.\n"
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(bad), tool_call_id="c1"
+                )
+            }
+        else:
+            retries.append(retry.model_response())
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=json.dumps(good), tool_call_id="c2"
+                )
+            }
+
+    def check(spec: object) -> str | None:
+        options = getattr(spec, "options", [])
+        return (
+            "an option contains %{{"
+            if any("%{{" in o.display for o in options)
+            else None
+        )
+
+    engine = Engine(FunctionModel(stream_function=model), interaction_check=check)
+    s = await engine.new_session("Ask which one.")
+    events = await collect(engine.run_turn(s))
+
+    asked = [e for e in events if isinstance(e, InteractionRequest)]
+    assert [o.display for o in asked[0].spec.options] == ["first", "second"]
+    assert len(asked) == 1
+    assert [p.spec.options[0].display for p in s.pending] == ["first"]
+    assert len(retries) == 1
+    assert "an option contains %{{" in retries[0]
+    assert not any(isinstance(e, ErrorEvent) for e in events)
+    assert events[-1].reason == "interaction"
+
+
+async def test_without_a_check_every_question_is_deferred_as_before() -> None:
+    engine = make_engine()
+    s = await engine.new_session("Greet the learner, then ask how they feel.")
+    events = await collect(engine.run_turn(s))
+    assert any(isinstance(e, InteractionRequest) for e in events)
