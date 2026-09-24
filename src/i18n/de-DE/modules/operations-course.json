@@ -83,7 +83,7 @@
       "count": "{count} Einträge",
       "description": "Überprüfen Sie Credit-Verbrauch Aufzeichnungen für diesen Kurs.",
       "details": {
-        "collapse": "Zusammenbruch",
+        "collapse": "Einklappen",
         "durationMinutesSeconds": "{minutes}m {seconds}s",
         "durationSeconds": "{seconds}",
         "empty": "Keine Nutzungsdetails",
@@ -255,7 +255,7 @@
       "followUpCount": "Fragen",
       "learnerCount": "Lernende",
       "orderAmount": "Auftragswert (einschließlich Coupon-Codes)",
-      "orderCount": "Beschlüsse",
+      "orderCount": "Bestellungen",
       "ratingScore": "Bewertung"
     },
     "metricsTooltips": {

@@ -132,7 +132,7 @@
       "completionRate": "Fertigstellungsrate",
       "learningLearners": "Lernende in Arbeit",
       "orderAmount": "Betrag",
-      "orderCount": "Beschlüsse",
+      "orderCount": "Bestellungen",
       "rating": "Kursbewertung",
       "title": "Kerndaten",
       "totalQuestions": "Folgefragen"
@@ -203,7 +203,7 @@
       "lastActive": "Zuletzt aktiv",
       "learners": "Lernende",
       "orderAmount": "Betrag",
-      "orders": "Beschlüsse",
+      "orders": "Bestellungen",
       "reset": "Zurücksetzen",
       "scopeNote": "Umfang: Es sind nur Daten aus von Ihnen erstellten und eigenen Kursen enthalten. Kollaborative Kurse sind ausgeschlossen.",
       "search": "Suchen",

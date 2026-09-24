@@ -77,12 +77,12 @@
   "saveSuccess": "Gespeicherte Rate",
   "source": {
     "default": "System-Default-Rate",
-    "exact": "Dedizierter Zinssatz",
+    "exact": "Dedizierter Tarif",
     "unconfigured": "Nicht festgelegter Satz"
   },
   "tabs": {
     "llm": "LLM-Creditverbrauch",
     "tts": "TTS Creditverbrauch"
   },
-  "title": "Zinsverwaltung"
+  "title": "Tarifverwaltung"
 }

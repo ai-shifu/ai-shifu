@@ -99,8 +99,8 @@
     "courseQueryPlaceholder": "Kurs-ID / Kurs-Name",
     "createdAt": "Erstellt",
     "endTime": "Endzeit",
-    "orderId": "Auftrags-ID",
-    "orderIdPlaceholder": "Auftrags-ID",
+    "orderId": "Bestell-ID",
+    "orderIdPlaceholder": "Bestell-ID",
     "paymentChannel": "Zahlung",
     "reset": "Zurücksetzen",
     "search": "Suchen",
@@ -133,7 +133,7 @@
     }
   },
   "source": {
-    "couponRedeem": "Kuponeinlösung",
+    "couponRedeem": "Gutscheineinlösung",
     "importActivation": "Aktivierung importieren",
     "openApi": "API-Zuschuss öffnen",
     "userPurchase": "Benutzerkauf"
@@ -145,7 +145,7 @@
     "createdAt": "Erzeugt bei",
     "discountAmount": "Rabatt",
     "empty": "Keine Bestelldaten",
-    "orderId": "Auftrags-ID",
+    "orderId": "Bestell-ID",
     "paidAmount": "Bezahlt",
     "paymentChannel": "Zahlungskanal",
     "source": "Bestellquelle",

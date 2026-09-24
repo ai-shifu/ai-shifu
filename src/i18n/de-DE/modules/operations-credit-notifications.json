@@ -139,7 +139,7 @@
       "available": "Verfügbare Platzhalter",
       "available_credits": "Verfügbare Gutschriften",
       "avg_daily_consumption": "Durchschnittlicher täglicher Verbrauch",
-      "collapse": "Zusammenbruch",
+      "collapse": "Einklappen",
       "credits": "Creditbetrag",
       "estimated_remaining_days": "Geschätzte verbleibende Tage",
       "expand": "Erweitern",
@@ -237,7 +237,7 @@
       "ruleDescriptions": {
         "credit_expiring": "Konfigurieren Sie, wann Lehrer erinnert werden, bevor Credits ablaufen, und ob mehrere ablaufende Credit-Kontingente pro Lehrer kombiniert werden.",
         "credit_granted": "Diese Benachrichtigung wird ausgelöst, nachdem Credits gewährt werden und benötigt keine zusätzlichen Trigger-Einstellungen.",
-        "low_balance": "Konfigurieren Sie feste Gleichgewichtsschwellen oder erinnern Sie die Lehrer durch geschätzte verbleibende Nutzungstage."
+        "low_balance": "Konfigurieren Sie feste Guthabenschwellen oder erinnern Sie die Lehrer durch geschätzte verbleibende Nutzungstage."
       },
       "sections": {
         "basic": "Grundeinstellungen",
@@ -277,7 +277,7 @@
     }
   },
   "deliveryStatus": {
-    "failed": "Ausgefallenes Senden",
+    "failed": "Senden fehlgeschlagen",
     "not_sent": "Nicht gesendet",
     "pending": "In Vorbereitung",
     "sent": "Gesendet"
@@ -470,7 +470,7 @@
     "wallet_bucket": "Erinnerung an das Auslaufen der Gutschrift"
   },
   "status": {
-    "failed_provider": "Ausgefallenes Senden",
+    "failed_provider": "Senden fehlgeschlagen",
     "pending": "In Vorbereitung",
     "sent": "Gesendet",
     "skipped": "Nicht gesendet",

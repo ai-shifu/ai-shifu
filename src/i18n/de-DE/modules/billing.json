@@ -39,7 +39,7 @@
         "providers": {
           "alipay": "Alipay",
           "pingxx": "Ping++",
-          "stripe": "Streifen",
+          "stripe": "Stripe",
           "wechat_oauth": "WeChat OA",
           "wechatpay": "WeChat Pay"
         }
@@ -198,7 +198,7 @@
       "fields": {
         "priceId": "ID des Stripe-Preises",
         "product": "Erzeugnis",
-        "productId": "Produkt-ID für Streifen",
+        "productId": "Produkt-ID für Stripe",
         "productPlaceholder": "Wählen Sie ein Produkt"
       },
       "filters": {
@@ -250,7 +250,7 @@
         "product_livemode_mismatch": "Stripe-Produktmodus passt nicht",
         "product_metadata_market_mismatch": "Stripe Produktmarkt-Metadaten passen nicht",
         "product_metadata_market_missing": "Stripe Produkt fehlt Markt Metadaten",
-        "product_metadata_plan_tier_mismatch": "Streifen Produktplan Ebenen-Metadaten nicht übereinstimmen",
+        "product_metadata_plan_tier_mismatch": "Stripe-Produktplan Ebenen-Metadaten nicht übereinstimmen",
         "product_metadata_plan_tier_missing": "Stripe Produkt fehlt Plan Ebene Metadaten",
         "product_metadata_product_type_mismatch": "Stripe Produkttyp Metadaten passt nicht",
         "product_metadata_product_type_missing": "Stripe Produkt fehlt Produkttyp Metadaten",
@@ -258,7 +258,7 @@
         "provider_price_inactive": "Stripe-Preis ist inaktiv",
         "provider_price_mismatch": "Stripe price ID passt nicht zu diesem Artikel",
         "provider_price_unit_amount_missing": "Stripe Preis fehlt eine feste Menge",
-        "provider_product_inactive": "Streifenprodukt ist inaktiv",
+        "provider_product_inactive": "Stripe-Produkt ist inaktiv",
         "provider_product_mismatch": "Stripe product ID passt nicht zu diesem Artikel",
         "retired_mapping_cannot_be_activated": "Nicht aufgeführte Preise können nicht wieder aufgeführt werden",
         "retired_mapping_cannot_be_validated": "Nicht aufgeführte Preise können nicht erneut validiert werden",
@@ -312,7 +312,7 @@
     },
     "reports": {
       "actions": {
-        "viewOrders": "Befehle anzeigen"
+        "viewOrders": "Bestellungen anzeigen"
       },
       "attentionReasons": {
         "active_production": "Produktionsnutzung aktiv",
@@ -540,9 +540,9 @@
       "perMonth": "monatlich",
       "perYear": "jährlich",
       "providerAlipay": "Alipay",
-      "providerManual": "Handbuch",
+      "providerManual": "Manuell",
       "providerPingxx": "Pingxx",
-      "providerStripe": "Streifen",
+      "providerStripe": "Stripe",
       "providerWechatpay": "WeChat Pay",
       "providerWithChannel": "{provider} / {channel}"
     },
@@ -686,7 +686,7 @@
     "providers": {
       "alipay": "Alipay",
       "pingxx": "Ping++",
-      "stripe": "Streifen",
+      "stripe": "Stripe",
       "wechat_oauth": "Offizielles Konto von WeChat",
       "wechatpay": "WeChat Pay"
     },
@@ -873,7 +873,7 @@
       "init": "Initialisiert",
       "paid": "Bezahlt",
       "pending": "In Vorbereitung",
-      "refunded": "Refinanziert",
+      "refunded": "Erstattet",
       "timeout": "Auszeit"
     },
     "type": {

@@ -25,7 +25,7 @@
     "orderStatusTimeout": "Abgelaufen",
     "orderStatusToBePaid": "Zu zahlen",
     "payItemBasePrice": "Grundpreis",
-    "payItemCoupon": "Kupon",
+    "payItemCoupon": "Gutschein",
     "payItemProduct": "Erzeugnis",
     "payItemPromotion": "Förderung"
   }
