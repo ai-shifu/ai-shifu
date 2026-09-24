@@ -39,7 +39,7 @@ anything written after `finish`; and opening a finished lesson writes nothing.
 - [x] Local browser verification: 3-2 (content only), 3-3 (code block and table), 4-2 (a question
   then a closing line). Each finished within one request, once, with no duplicated text; the
   finished lesson revisited wrote no rows.
-- [ ] Sim verification after merge.
+- [x] 2026-09-24 17:33 CST: Sim verification on the sim branch (image `sim-bf003b3`): 3-2 finished within one request (two turns, 8 s) and 4-2 right after its answer, each sentence shown once; the stored sessions show the model wrote "本节内容已全部呈现完毕。" and the answer line again after `finish`, and neither reached the page.
 
 ## Surprises & Discoveries
 
@@ -67,7 +67,7 @@ anything written after `finish`; and opening a finished lesson writes nothing.
 
 ## Outcomes & Retrospective
 
-(To be filled in after sim verification.)
+Both symptoms were one gap seen from two sides: the browser cannot carry a 2.0 lesson on, and the host had left that to it. Carrying on in the request also put the model's "nothing left" turn where the engine could keep its output off the page. Verified locally with the same course and model before sim, which made the missing return value in `run_agent_lesson` visible on the first run rather than after a deploy.
 
 ## Context and Orientation
 
