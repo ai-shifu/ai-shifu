@@ -6,14 +6,14 @@
     "changeTemplate": "Vorlage ändern",
     "detail": "Einzelheiten",
     "disable": "Deaktivieren",
-    "dryRun": "Schätzung senden",
+    "dryRun": "Versand simulieren",
     "enable": "Aktivieren",
     "more": "Mehr",
     "refresh": "Aktualisieren",
-    "requeue": "Rückforderung",
+    "requeue": "Erneut senden",
     "reset": "Zurücksetzen",
     "search": "Suchen",
-    "syncTemplate": "Abfrage-Vorlage",
+    "syncTemplate": "Vorlage abrufen",
     "syncingTemplate": "Abfragen"
   },
   "config": {
@@ -23,7 +23,7 @@
       "descriptionEmail": "Überprüfen Sie E-Mail-Frequenzgrenzen, Ruhezeiten und Regeln bei niedrigem Guthaben für Lehrkräfte an einem Ort.",
       "dialogDescription": "Diese Regeln steuern das tägliche SMS-Volume, Pausen in der Ruhezeit und wie Lehrer geschützt werden, wenn Credits niedrig laufen. Sie gelten nach dem Speichern.",
       "dialogDescriptionEmail": "Diese Regeln steuern E-Mail-Frequenzlimits, Ruhepausen und wie Lehrer geschützt werden, wenn Credits niedrig laufen. Sie gelten nach dem Speichern.",
-      "dialogTitle": "Liefergarantien",
+      "dialogTitle": "Schutzregeln für den Versand",
       "edit": "Lieferregeln bearbeiten",
       "inactive": "Aus",
       "no": "Nein",
@@ -221,7 +221,7 @@
       "unused": "Ungenutzte Systemvariablen",
       "variables": "Vorlagenvariablen"
     },
-    "title": "Benachrichtigung Config",
+    "title": "Benachrichtigungseinstellungen",
     "typeDescriptions": {
       "credit_expiring": "Erinnert die Lehrer daran, Credits zu verwenden, bevor sie ablaufen.",
       "credit_granted": "Erinnert die Lehrer daran, das Ergebnis nach dem Hinzufügen von Credits zu überprüfen.",
@@ -340,7 +340,7 @@
       "notification": "Art der Meldung",
       "status": "Lieferstatus"
     },
-    "title": "Einzelheiten der Anmeldung"
+    "title": "Benachrichtigungsdetails"
   },
   "dryRun": {
     "candidateCount": "Geschätzt {count} Treffer",
@@ -357,18 +357,18 @@
   },
   "empty": "Keine Credit-Nachweise.",
   "errorReason": {
-    "blacklisted": "Der Lehrer ist in der Liste, die nicht gesendet wird.",
+    "blacklisted": "Die Lehrkraft steht auf der Ausschlussliste. Keine Nachricht gesendet.",
     "budget_daily_sms_limit": "Tägliches SMS-Budget wurde erreicht.",
     "expiry_extended": "Der Ablauf von Credits wurde vor der Lieferung verlängert.",
     "frequency_creator_type_daily": "Die tägliche Grenze für diesen Lehrer und den Benachrichtigungstyp wurde erreicht.",
     "frequency_mobile_daily": "Die Tagesgrenze für dieses Handy wurde erreicht.",
-    "invalid_mobile": "Lehrer mobile ist ungültig, nicht gesendet.",
-    "missing_mobile": "Lehrer Handy ist leer, nicht gesendet.",
+    "invalid_mobile": "Die Mobilnummer der Lehrkraft ist ungültig. Keine Nachricht gesendet.",
+    "missing_mobile": "Für die Lehrkraft ist keine Mobilnummer hinterlegt. Keine Nachricht gesendet.",
     "missing_template_code": "Die SMS-Vorlage ist nicht konfiguriert.",
     "missing_template_params": "Die Parameter der SMS-Vorlage sind unvollständig.",
-    "opt_out": "Der Lehrer hat sich entschieden, nicht geschickt.",
+    "opt_out": "Die Lehrkraft hat Benachrichtigungen abbestellt. Keine Nachricht gesendet.",
     "policy_disabled": "Die Benachrichtigungsrichtlinie ist deaktiviert, nicht gesendet.",
-    "provider_exception": "SMS-Anbieter Anruf fehlgeschlagen.",
+    "provider_exception": "Der Aufruf des SMS-Anbieters ist fehlgeschlagen.",
     "provider_failed": "Der SMS-Anbieter gab keine akzeptierte Antwort zurück.",
     "quiet_hours": "Ruhezeiten sind aktiv, nicht gesendet.",
     "unsupported_channel": "Dieser Benachrichtigungskanal ist nicht aktiviert, nicht gesendet.",
@@ -454,7 +454,7 @@
     "selectEmailTemplate": "E-Mail-Vorlage auswählen",
     "selectEnglishFallbackTemplate": "Wählen Sie die gewünschte englische Vorlage",
     "selectTemplate": "SMS-Vorlage auswählen",
-    "title": "Mitteilungsregeln"
+    "title": "Benachrichtigungsregeln"
   },
   "skipReason": {
     "channel": "Benachrichtigungskanal nicht verfügbar",
@@ -474,9 +474,9 @@
     "pending": "In Vorbereitung",
     "sent": "Gesendet",
     "skipped": "Nicht gesendet",
-    "skipped_no_mobile": "Kontaktfrage",
-    "skipped_opt_out": "Politische Begrenzung",
-    "suppressed_duplicate": "Doppelte Anmeldung"
+    "skipped_no_mobile": "Kontaktproblem",
+    "skipped_opt_out": "Durch Richtlinie unterdrückt",
+    "suppressed_duplicate": "Doppelte Benachrichtigung"
   },
   "subtitle": "Inspizieren Sie Creditzuschuss, Ablauf und Low-Balance-Benachrichtigung Lieferung, und konfigurieren Sie die Benachrichtigungspolitik.",
   "table": {
