@@ -103,7 +103,7 @@
       "templateSelect": "SMS-Vorlage auswählen",
       "thresholds": "Schwellenwerte für die Erinnerungsbilanz",
       "timezone": "Zeitzone",
-      "windows": "Erinnerungsfenster auslöschen"
+      "windows": "Erinnerungsfenster vor Ablauf"
     },
     "inputPlaceholders": {
       "blockedCreatorsEmail": "Lehrer-E-Mails oder IDs, getrennt durch Kommas",
@@ -441,7 +441,7 @@
       "template": "SMS-Vorlage",
       "thresholds": "Schwellenwerte für den niedrigen Saldo",
       "trigger": "Ereignis auslösen",
-      "windows": "Erinnerungsfenster auslöschen"
+      "windows": "Erinnerungsfenster vor Ablauf"
     },
     "legacySmsMigrationHint": "Legacy SMS Regeln wurden erkannt. Bind E-Mail Vorlagen und aktivieren Sie die migrierten Regeln, wenn bereit.",
     "migrateLegacySmsRules": "Zu E-Mail-Regeln migrieren",
@@ -557,7 +557,7 @@
       "expand": "Variablen erweitern",
       "expiresAt": "Gültigkeitsdauer der Credits",
       "product": "Name des Plans",
-      "window": "Erinnerungsfenster auslöschen"
+      "window": "Erinnerungsfenster vor Ablauf"
     },
     "empty": "Keine Vorlagen entsprechen den aktuellen Filtern.",
     "loadError": "Die Alibaba Cloud-Vorlagenliste konnte nicht geladen werden. Lokale Cache-Vorlagen werden angezeigt, wenn verfügbar.",
