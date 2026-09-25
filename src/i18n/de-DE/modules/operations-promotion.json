@@ -123,7 +123,7 @@
     "emptyRedemptions": "Keine damit zusammenhängenden Bestellungen",
     "emptyReferralCampaignRecords": "Keine Einladungsaufzeichnungen.",
     "emptyReferralCampaigns": "Keine passenden Empfehlungskampagnen. Passen Sie die Filter an und versuchen Sie es erneut.",
-    "emptyUsages": "Keine Rücknahme-Nutzungsaufzeichnungen",
+    "emptyUsages": "Noch keine Einlösungen erfasst",
     "enableConfirmDescription": "<strong>{name}</strong> aktivieren? Die Aktion wird danach gemäß der aktuellen Konfiguration wieder angewendet.",
     "enableConfirmTitle": "Aktivieren bestätigen",
     "enabledSuccess": "Aktiviert",
