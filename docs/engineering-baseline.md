@@ -13,8 +13,8 @@ details behind those rules.
 
 | Task | Command | Location |
 |------|---------|----------|
-| Start backend dev server | `flask run --port=5800` | `cd src/api` |
-| Start frontend dev server | `npm run dev` | `cd src/web` |
+| Start backend dev server | `flask run --host=127.0.0.1 --port=5800` | `cd src/api` |
+| Start frontend dev server | `npm run dev -- --hostname 127.0.0.1` | `cd src/web` |
 | Run backend tests | `pytest` | `cd src/api` |
 | Run frontend unit tests | `npm run test:ci` | `cd src/web` |
 | Generate DB migration | `FLASK_APP=app.py flask db migrate -m "message"` | `cd src/api` |
@@ -46,6 +46,10 @@ its development proxy defaults to the backend on port 5800. See the
 [Frontend setup guide](../src/web/README.md) for runtime configuration and
 the [installation manual](../INSTALL_MANUAL.md#step-5-manual-installation-development)
 for database and backend setup.
+
+Keep both local development servers on loopback when using the Docker
+template's demo authentication settings. The frontend development proxy can
+reach the API, so binding only the backend to loopback is insufficient.
 
 ### Local Tooling Setup
 

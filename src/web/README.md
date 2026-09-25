@@ -27,8 +27,11 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 Use an origin without an `/api` suffix. Then start the frontend:
 
 ```bash
-npm run dev
+npm run dev -- --hostname 127.0.0.1
 ```
+
+Bind the frontend to loopback as well as the backend: its development proxy
+can reach an API configured with the Docker template's demo authentication.
 
 Open [http://localhost:3000](http://localhost:3000). Routes live under
 `src/app/`; the authoring and operator entry is `/admin`, and the legacy

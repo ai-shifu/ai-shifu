@@ -263,6 +263,12 @@ backend directory. Run this from the repository root; keep an existing
 cp -n docker/.env src/api/.env
 ```
 
+The Docker template includes demo authentication settings such as
+`UNIVERSAL_VERIFICATION_CODE`. The API and frontend commands below bind to
+loopback so those settings are not exposed through either development server.
+Before making the application remotely accessible, clear the universal code,
+replace the demo `SECRET_KEY`, and configure a real login provider.
+
 Edit `src/api/.env`, retaining the provider key and required `LLM_MODEL_1_ID`
 mapping. Replace Docker service hostnames with the addresses of your local
 services:
@@ -288,7 +294,7 @@ pip install -r requirements.txt
 flask db upgrade
 
 # Start the API server
-gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
+gunicorn -w 4 -b 127.0.0.1:5800 'app:app' --timeout 300 --log-level debug
 ```
 
 #### Step 5.4: Start Frontend
@@ -311,7 +317,7 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 
 ```bash
 # Start development server
-npm run dev
+npm run dev -- --hostname 127.0.0.1
 ```
 
 The frontend is available at `http://localhost:3000`. See the [frontend README](src/web/README.md) for
