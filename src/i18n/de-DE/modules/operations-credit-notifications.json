@@ -88,8 +88,8 @@
       "optOutCreatorBids": "Ausgestellte Lehrerausweise",
       "optOutMobiles": "Opted-out-Mobile",
       "optedOutCreators": "Ausgeschlossene Lehrer",
-      "perCreatorPerTypePerDay": "Tagesmütze je Lehrer/Typ",
-      "perMobilePerDay": "Tagesmütze pro Handy",
+      "perCreatorPerTypePerDay": "Tagesobergrenze je Lehrer und Typ",
+      "perMobilePerDay": "Tagesobergrenze je Mobilnummer",
       "perRecipientPerDay": "Tagesobergrenze je Empfänger",
       "quietEnd": "Ruhige Stunden enden",
       "quietHoursEnabled": "Stille Stunden aktivieren",
@@ -271,7 +271,7 @@
     "unsavedDialog": {
       "cancel": "Bearbeiten fortsetzen",
       "description": "Wenn Sie diese Seite verlassen, werden Ihre Änderungen verworfen und die zuletzt gespeicherte Konfiguration wiederhergestellt.",
-      "discard": "Ohne zu sparen gehen",
+      "discard": "Ohne Speichern verlassen",
       "save": "Speichern und verlassen",
       "title": "Nicht gespeicherte Änderungen"
     }
