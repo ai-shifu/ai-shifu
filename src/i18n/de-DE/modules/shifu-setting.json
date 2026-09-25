@@ -177,7 +177,7 @@
     "billing_pending": "Abrechnung noch ausstehend",
     "failed": "fehlgeschlagen",
     "processing": "Verarbeitung",
-    "queued": "Angestellt",
+    "queued": "In Warteschlange",
     "ready": "Fertig"
   },
   "minimaxCloneStopRecording": "Anhalten",

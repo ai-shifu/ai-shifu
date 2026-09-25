@@ -138,7 +138,7 @@
     "billing_pending": "Abrechnung ausstehend",
     "failed": "fehlgeschlagen",
     "processing": "Verarbeitung",
-    "queued": "Angestellt",
+    "queued": "In Warteschlange",
     "ready": "Fertig"
   },
   "table": {
