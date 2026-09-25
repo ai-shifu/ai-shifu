@@ -289,8 +289,8 @@
       "table": {
         "actions": "Maßnahmen",
         "benefit": "Vorteile",
-        "localPrice": "Preis anzeigen",
-        "product": "Erzeugnis",
+        "localPrice": "Angezeigter Preis",
+        "product": "Produkt",
         "productType": "Art",
         "status": "Status",
         "stripePrice": "Zahlungspreis",
@@ -298,14 +298,14 @@
       },
       "title": "Paketverwaltung",
       "toast": {
-        "activateFailed": "Fehler beim Listenpreis",
-        "activateSuccess": "Preis aufgeführt",
-        "createFailed": "Fehler beim Sparen des Preises",
-        "createSuccess": "Preis gespart",
-        "restoreFailed": "Nicht wiederherstellen Preis",
-        "restoreSuccess": "Preis wiederhergestellt, um Entwurf",
-        "retireFailed": "Preis nicht auflisten",
-        "retireSuccess": "Nicht aufgeführter Preis",
+        "activateFailed": "Preis konnte nicht veröffentlicht werden",
+        "activateSuccess": "Preis veröffentlicht",
+        "createFailed": "Speichern des Preises fehlgeschlagen",
+        "createSuccess": "Preis gespeichert",
+        "restoreFailed": "Preis konnte nicht wiederhergestellt werden",
+        "restoreSuccess": "Preis als Entwurf wiederhergestellt",
+        "retireFailed": "Preis konnte nicht aus dem Angebot entfernt werden",
+        "retireSuccess": "Preis aus dem Angebot entfernt",
         "validateFailed": "Preisprüfung fehlgeschlagen",
         "validateSuccess": "Preisprüfung abgeschlossen"
       }

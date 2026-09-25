@@ -318,11 +318,11 @@
       "packageCredits": "Credits",
       "packageExpireAt": "Geschätzte Gültigkeit bis",
       "packageValidity": "Geltungsdauer",
-      "referralCurrentCredits": "Aktuelle Referral Reward Credits",
-      "referralCurrentExpireAt": "Derzeitige Bewährung gültig bis",
-      "referralEstimatedCredits": "Geschätzte Credits nach Zuschuss",
-      "referralEstimatedExpireAt": "Geschätzte Gültigkeit bis nach Gewährung des Zuschusses",
-      "referralGrantCount": "Belohnte Befassungszahl",
+      "referralCurrentCredits": "Aktuelle Credits aus Empfehlungsprämien",
+      "referralCurrentExpireAt": "Aktuelle Empfehlungsprämie gültig bis",
+      "referralEstimatedCredits": "Voraussichtliche Credits nach Vergabe",
+      "referralEstimatedExpireAt": "Voraussichtlich gültig bis nach Vergabe",
+      "referralGrantCount": "Anzahl belohnter Empfehlungen",
       "source": "Quelle",
       "validityPreset": "Geltungsdauer"
     },
@@ -340,14 +340,14 @@
       "package": "Finanzhilfepaket",
       "referralReward": "Empfehlungsprämie"
     },
-    "packageConfirmDescription": "Bitte bestätigen Sie die Angaben zur Zuführung des Pakets. Sobald dies bestätigt ist, wird sie sofort wirksam.",
-    "packageConfirmTitle": "Paketzuschuss bestätigen",
+    "packageConfirmDescription": "Bitte bestätigen Sie die Angaben zur Paketvergabe. Nach der Bestätigung wird das Paket sofort wirksam.",
+    "packageConfirmTitle": "Paketvergabe bestätigen",
     "packageFields": {
       "credits": "Credits",
-      "expiryHintPending": "Das Paket wird unmittelbar nach der Erteilung wirksam und die Gültigkeit bis zur Zeit wird automatisch aus der Gültigkeit des Pakets berechnet.",
-      "expiryHintResolved": "Das Paket wird sofort nach dem Erfolg des Zuschusses wirksam. Geschätzt gültig bis: {dateTime}.",
+      "expiryHintPending": "Das Paket wird nach erfolgreicher Vergabe sofort wirksam. Das Gültigkeitsende wird automatisch aus der Paketlaufzeit berechnet.",
+      "expiryHintResolved": "Das Paket wird nach erfolgreicher Vergabe sofort wirksam. Voraussichtlich gültig bis: {dateTime}.",
       "packageName": "Paketname",
-      "product": "Verpackung",
+      "product": "Paket",
       "validity": "Geltungsdauer"
     },
     "placeholders": {
@@ -360,20 +360,20 @@
       "validityPreset": "Gültigkeit auswählen"
     },
     "referralReward": {
-      "bootstrapError": "Fehler beim Laden von Empfehlungs-Belohnungsdaten. Bitte versuchen Sie es später noch einmal.",
-      "bootstrapLoading": "Verweisungs-Belohnungsdaten werden geladen...",
-      "currentCredits": "Aktuelle Referral Reward Credits",
-      "currentExpireAt": "Derzeitige Bewährung gültig bis",
-      "description": "Jede Empfehlung Belohnung Zuschuss fügt die eingegebenen Gutschriften und verlängert die aktuelle Empfehlung Belohnung Gültigkeit um 1 Monat.",
-      "emptyDescription": "Gibt es keine aktive Überweisungsvergütung, so beginnt die Gültigkeit der Finanzhilfezeit und dauert 1 Monat.",
-      "grantCount": "Belohnte Befassungszahl",
-      "grantCountTooltip": "Die Datenquelle basiert vorübergehend auf der Anzahl der Bezuschussungen.",
+      "bootstrapError": "Empfehlungsprämien konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+      "bootstrapLoading": "Empfehlungsprämien werden geladen...",
+      "currentCredits": "Aktuelle Credits aus Empfehlungsprämien",
+      "currentExpireAt": "Aktuelle Empfehlungsprämie gültig bis",
+      "description": "Jede Vergabe einer Empfehlungsprämie fügt die eingegebenen Credits hinzu und verlängert die Gültigkeit der aktuellen Prämie um einen Monat.",
+      "emptyDescription": "Wenn keine aktive Empfehlungsprämie vorhanden ist, beginnt die Gültigkeit mit der Vergabe und dauert einen Monat.",
+      "grantCount": "Anzahl belohnter Empfehlungen",
+      "grantCountTooltip": "Die Anzahl basiert vorläufig auf der Zahl der vergebenen Empfehlungsprämien.",
       "noActiveReward": "Keine aktive Empfehlungsprämie",
       "oneMonth": "1 Monat",
       "validity": "Geltungsdauer"
     },
-    "referralRewardConfirmDescription": "Bitte bestätigen Sie die Einzelheiten der Überweisungsvergütung. Sobald sie bestätigt ist, wird sie sofort wirksam.",
-    "referralRewardConfirmTitle": "Bestätigen des Besoldungszuschusses",
+    "referralRewardConfirmDescription": "Bitte bestätigen Sie die Angaben zur Vergabe der Empfehlungsprämie. Nach der Bestätigung wird sie sofort wirksam.",
+    "referralRewardConfirmTitle": "Vergabe der Empfehlungsprämie bestätigen",
     "sourceOptions": {
       "compensation": "Ausgleich",
       "reward": "Belohnung"
@@ -386,7 +386,7 @@
       "currentExpireAt": "Gültig bis",
       "currentPackage": "Aktuelles Paket",
       "nickname": "Nickname",
-      "package": "Verpackung"
+      "package": "Paket"
     },
     "title": "Zuschußgutschriften/Paket",
     "validation": {
