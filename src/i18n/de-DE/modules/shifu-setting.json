@@ -169,7 +169,7 @@
   "minimaxCloneRecord": "Aufzeichnung",
   "minimaxCloneRecordingUnsupported": "Die Aufzeichnung ist in diesem Browser nicht verfügbar",
   "minimaxCloneRequired": "Erforderlich",
-  "minimaxCloneSeconds": "{seconds}",
+  "minimaxCloneSeconds": "{seconds}s",
   "minimaxCloneSectionTitle": "MiniMax geklonte Stimmen",
   "minimaxCloneSourceAudio": "Sprachbeispiel",
   "minimaxCloneSourceAudioDescription": "Nehmen Sie eine Person, die für mindestens {minSeconds}s und bis zu {maxMinutes} Minuten deutlich spricht, auf. Verwenden Sie einen ruhigen Raum und vermeiden Sie Hintergrundmusik.",
