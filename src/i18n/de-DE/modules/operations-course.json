@@ -177,7 +177,7 @@
           "lesson": "Lektion",
           "nickname": "Nickname",
           "sourceOutput": "Ursprüngliche Ausgabe",
-          "turnIndex": "Drehen",
+          "turnIndex": "Gesprächsrunde",
           "user": "Benutzer",
           "userId": "Benutzer-ID"
         },
@@ -233,7 +233,7 @@
         "sourceMissing": "Ursprüngliche Ausgabe fehlt",
         "sourceResolved": "Ursprüngliche Ausgabe vorhanden",
         "title": "Folgeliste",
-        "turnIndex": "Drehen",
+        "turnIndex": "Gesprächsrunde",
         "user": "Benutzer"
       },
       "title": "Folgedaten",

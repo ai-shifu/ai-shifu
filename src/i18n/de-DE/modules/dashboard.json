@@ -23,7 +23,7 @@
           "followUpTime": "Nachbeobachtungszeit",
           "lesson": "Verwandte Lektionen",
           "nickname": "Nickname",
-          "turnIndex": "Drehen",
+          "turnIndex": "Gesprächsrunde",
           "user": "Lernender"
         },
         "sections": {
@@ -74,7 +74,7 @@
         "sourceMissing": "Ursprüngliche Ausgabe fehlt",
         "sourceResolved": "Ursprüngliche Ausgabe vorhanden",
         "title": "Folgeliste",
-        "turnIndex": "Drehen",
+        "turnIndex": "Gesprächsrunde",
         "user": "Lernender"
       },
       "title": "Folgedaten",
