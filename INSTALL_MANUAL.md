@@ -255,22 +255,31 @@ docker run -d --name redis -p 6379:6379 redis:latest
 
 #### Step 5.2: Configure Environment for Local Development
 
-Keep the provider key and required `LLM_MODEL_1_ID` mapping from Step 3, and update your `.env` file for local development:
+For a fresh local setup, copy the Docker configuration from Step 3 to the
+backend directory. Run this from the repository root; keep an existing
+`src/api/.env` if it already contains local settings.
+
+```bash
+cp -n docker/.env src/api/.env
+```
+
+Edit `src/api/.env`, retaining the provider key and required `LLM_MODEL_1_ID`
+mapping. Replace Docker service hostnames with the addresses of your local
+services:
 
 ```bash
 # Update database URLs for local services
 SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@localhost:3306/ai-shifu"
-
-# Update API base URL
-REACT_APP_BASEURL="http://localhost:5800"
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+FLASK_APP=app.py
 ```
 
 #### Step 5.3: Start Backend API
 
 ```bash
+# From the repository root
 cd src/api
-# Copy the environment configuration from docker directory
-cp ../../docker/.env .env
 
 # Install Python dependencies
 pip install -r requirements.txt
@@ -285,15 +294,29 @@ gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
 #### Step 5.4: Start Web Frontend & CMS
 
 ```bash
+# In a second terminal, from the repository root
 cd src/web
-# Install Node.js dependencies
-npm install  # or use pnpm install
+# Install the versions pinned in package-lock.json
+npm ci
 
+# For a fresh setup; preserve an existing local configuration
+cp -n .env.example .env.local
+```
+
+Set the backend origin in `src/web/.env.local` (without an `/api` suffix):
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
+```
+
+```bash
 # Start development server
 npm run dev
 ```
 
-Cook Web (which now serves both the learner experience and authoring console) will be available at `http://localhost:3000`.
+Cook Web serves both the learner experience and authoring console at
+`http://localhost:3000`. See the [Cook Web README](src/web/README.md) for
+authentication configuration and frontend validation commands.
 
 #### Step 5.5: Install the Code-Quality Hooks (Contributors)
 

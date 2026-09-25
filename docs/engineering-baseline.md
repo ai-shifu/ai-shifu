@@ -13,7 +13,7 @@ details behind those rules.
 
 | Task | Command | Location |
 |------|---------|----------|
-| Start backend dev server | `flask run` | `cd src/api` |
+| Start backend dev server | `flask run --port=5800` | `cd src/api` |
 | Start Cook Web (frontend & CMS) | `npm run dev` | `cd src/web` |
 | Run backend tests | `pytest` | `cd src/api` |
 | Run frontend unit tests | `npm run test:ci` | `cd src/web` |
@@ -35,10 +35,17 @@ For an existing database, follow [Upgrading to numbered models](../INSTALL_MANUA
 ```bash
 # Backend (src/api/.env)
 FLASK_APP=app.py
+FLASK_RUN_PORT=5800
 
 # Cook Web (src/web/.env.local)
-NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 ```
+
+Keep the API origin free of an `/api` suffix. Cook Web runs on port 3000;
+its development proxy defaults to the backend on port 5800. See the
+[Cook Web setup guide](../src/web/README.md) for runtime configuration and
+the [installation manual](../INSTALL_MANUAL.md#step-5-manual-installation-development)
+for database and backend setup.
 
 ### Local Tooling Setup
 
@@ -86,7 +93,7 @@ python scripts/check_dev_tools.py --strict   # also fail on Cook Web tooling gap
 ### Must Do Before Any Commit
 
 1. Confirm the toolchain is installed: `python scripts/check_dev_tools.py`
-2. Run the lefthook checks: `lefthook run pre-commit`
+2. Run the lefthook checks: `lefthook run pre-commit --all-files`
 3. Generate a migration for DB changes: `flask db migrate -m "description"`
 4. Test the relevant change surface
 5. Use English for code-facing text
@@ -113,7 +120,7 @@ maintains control of the narrative progression.
 
 ## Architecture
 
-The project follows a microservices architecture with two main components:
+The application has two main runtime components:
 
 - Backend API (`src/api/`): Flask-based Python API with SQLAlchemy ORM
 - Cook Web (`src/web/`): Next.js-based unified frontend and content
@@ -150,7 +157,7 @@ The project follows a microservices architecture with two main components:
 #### Unified Request System
 
 The Cook Web frontend uses a single request system across routes such as
-`/main` and `/c`.
+`/admin` and `/c`. The legacy `/main` entry redirects to `/admin`.
 
 Request flow:
 
@@ -167,16 +174,24 @@ that shared stack instead of recreating them in feature code.
 
 Use consistent SQLAlchemy model ordering and field semantics.
 
-### Complete Model Example
+### Model Layout Example
+
+This example illustrates field ordering and defaults; the live order schema
+is defined in `src/api/flaskr/service/order/models.py`.
 
 ```python
-from sqlalchemy import Column, BIGINT, String, SmallInteger, DateTime, func
-from flaskr import db
+from typing import ClassVar
+
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc
+from sqlalchemy import BIGINT, Column, DateTime, SmallInteger, String
 
 
 class Order(db.Model):
+    """Store order identifiers, amount, status, and audit fields."""
+
     __tablename__ = "order_orders"
-    __table_args__ = {"comment": "Order entities"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Order entities"}
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
 
@@ -221,9 +236,8 @@ class Order(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        server_default=func.now(),
-        comment="Creation timestamp",
+        default=now_utc,
+        comment="Creation timestamp in UTC",
     )
 
     created_user_bid = Column(
@@ -237,10 +251,9 @@ class Order(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        server_default=func.now(),
-        onupdate=func.now(),
-        comment="Last update timestamp",
+        default=now_utc,
+        onupdate=now_utc,
+        comment="Last update timestamp in UTC",
     )
 
     updated_user_bid = Column(
@@ -251,6 +264,23 @@ class Order(db.Model):
         comment="Last updater user business identifier",
     )
 ```
+
+### Timestamps And Transactions
+
+Stored timestamps use UTC. Pass `now_utc` as the column default or update
+callback so it runs when the row is written. Keep DTO datetime fields as
+`datetime | None`; the shared `fmt()` response serializer in
+`src/api/flaskr/common/http.py` (re-exported by `flaskr.route.common`) emits UTC
+ISO-8601 with a trailing `Z`. Use `to_utc_iso()` only when a payload must be
+serialized before that sink, and represent missing timestamps as `null`.
+The frontend handles display-time timezone conversion.
+
+Use `unit_of_work()` from `flaskr.dao.uow` for service transaction boundaries.
+The outermost block commits on success and rolls back on an exception; nested
+blocks join it. Use `db.session.flush()` when generated IDs are needed inside
+the transaction. Keep provider calls and generator yields outside these
+boundaries. The commit-site ratchet rejects new direct `db.session.commit()`
+calls outside `flaskr/dao/`.
 
 ### Database Change Checklist
 
@@ -265,10 +295,10 @@ class Order(db.Model):
 
 | Problem | Solution |
 |---------|----------|
-| `flask: command not found` | `export FLASK_APP=app.py` or `python -m flask db migrate` |
+| `flask: command not found` | Activate the backend Python environment, install `src/api/requirements.txt`, then use `python -m flask` |
 | `Could not locate a Flask application` | `export FLASK_APP=app.py` |
 | `Target database is not up to date` | Run `flask db current`, then `flask db upgrade` |
-| Database connection errors | Verify `DATABASE_URL` or local DB credentials |
+| Database connection errors | Verify `SQLALCHEMY_DATABASE_URI` and local DB credentials |
 | Migration not detecting changes | Ensure the model is imported in the module init path |
 
 Fresh MySQL replay smoke test:
