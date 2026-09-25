@@ -126,7 +126,7 @@
         "unknown": "Unbekannter Modus"
       },
       "scenes": {
-        "debug": "Fehler",
+        "debug": "Debug",
         "learning": "Lernen",
         "preview": "Vorschau",
         "unknown": "Unbekannter Typ"

@@ -860,7 +860,7 @@
       "status": "Status"
     },
     "usageScene": {
-      "debug": "Fehler",
+      "debug": "Debug",
       "preview": "Vorschau",
       "production": "Studie",
       "tts": "Stimme"
