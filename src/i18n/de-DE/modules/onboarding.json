@@ -11,14 +11,14 @@
     },
     "listenMode": {
       "description": "Wenn sie an ist, können die Lernenden diesen Kurs mit Dias und Stimme studieren.",
-      "title": "Abhörmodus-Schalter"
+      "title": "Hörmodus umschalten"
     },
     "publish": {
       "description": "Lernende werden diese Version des Kursinhaltes erst nach der Veröffentlichung sehen.",
       "title": "Veröffentlichen Sie die neueste Version"
     },
     "settingsEntry": {
-      "description": "Stellen Sie hier den Kursaufforderung, AI-Modell, Preis und schalten Sie den Abhörmodus ein oder aus.",
+      "description": "Legen Sie hier Kurs-Prompt, KI-Modell und Preis fest und schalten Sie den Hörmodus ein oder aus.",
       "title": "Kurseinstellungen"
     }
   }
