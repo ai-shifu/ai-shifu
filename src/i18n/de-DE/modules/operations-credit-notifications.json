@@ -458,9 +458,9 @@
   },
   "skipReason": {
     "channel": "Benachrichtigungskanal nicht verfügbar",
-    "contact": "Kontaktfrage",
-    "duplicate": "Doppelte Anmeldung",
-    "policy": "Politische Begrenzung",
+    "contact": "Kontaktproblem",
+    "duplicate": "Doppelte Benachrichtigung",
+    "policy": "Durch Benachrichtigungsrichtlinie begrenzt",
     "stale": "Trigger-Bedingung geändert",
     "template_params": "Unvollständige Vorlagenparams"
   },
