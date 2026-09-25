@@ -8,7 +8,7 @@
     "createCampaign": "Neue Kampagne",
     "createCoupon": "Neuer Coupon",
     "createPackageCampaign": "Neue Paketkampagne",
-    "createReferralCampaign": "Neue Befassungskampagne",
+    "createReferralCampaign": "Neue Einladungskampagne",
     "disable": "Deaktivieren",
     "edit": "Bearbeiten",
     "enable": "Aktivieren",
@@ -149,14 +149,14 @@
     "packageCampaignProviderRetired": "Stripe-Rabatt gestoppt",
     "packageCampaignProviderRetried": "Stripe resync gestartet",
     "packageCampaignProviderSyncRequired": "Diese Rabatt-Kampagne ist noch nicht vollständig mit Stripe synchronisiert. Synchronisieren Sie sie mit Stripe, bevor Sie sie aktivieren.",
-    "referralCampaignDisabledSuccess": "Befassungskampagne deaktiviert",
-    "referralCampaignEnabledSuccess": "Befassungskampagne aktiviert",
+    "referralCampaignDisabledSuccess": "Einladungskampagne deaktiviert",
+    "referralCampaignEnabledSuccess": "Einladungskampagne aktiviert",
     "statusUpdated": "Status aktualisiert",
     "updateSuccess": "Gespeichert erfolgreich"
   },
   "opsState": {
     "expiringSoon": "Bald ablaufen",
-    "usedUp": "Verwendet nach oben"
+    "usedUp": "Aufgebraucht"
   },
   "packageCampaign": {
     "benefitType": "Leistungstyp",
@@ -330,7 +330,7 @@
     "campaigns": "Kurskampagnen",
     "coupons": "Kurs-Coupon-Codes",
     "packageCampaigns": "Paketkampagnen",
-    "referralCampaigns": "Befassungskampagnen"
+    "referralCampaigns": "Einladungskampagnen"
   },
   "title": "Absatzförderungen",
   "usageType": {
