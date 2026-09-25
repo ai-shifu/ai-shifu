@@ -393,7 +393,7 @@
   },
   "loadError": "Credit-Benachrichtigungsdaten konnten nicht geladen werden. Aktualisieren und versuchen Sie es erneut.",
   "messages": {
-    "requeueDone": "Aufgabe übertragen.",
+    "requeueDone": "Erneuter Versand eingeplant.",
     "requeueFailed": "Aufgabe wiederholen fehlgeschlagen."
   },
   "overview": {
