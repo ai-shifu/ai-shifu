@@ -2,7 +2,7 @@
   "__namespace__": "module.operationsCourse",
   "actions": {
     "copyCourse": "Kurs kopieren",
-    "transferCreator": "Übertragungsersteller"
+    "transferCreator": "Kursverantwortung übertragen"
   },
   "copyCourseDialog": {
     "confirm": "Kopie bestätigen",
@@ -15,7 +15,7 @@
     "contactTypePhone": "Telefon",
     "courseNameFallback": "Kurs",
     "courseNameSuffix": "-Kopieren",
-    "currentCreator": "Aktueller Schöpfer",
+    "currentCreator": "Aktuell verantwortliche Person",
     "description": "Kopieren Sie den letzten Entwurf in einen neuen Entwurf Kurs für den Ziel-Ersteller.",
     "identifier": "Zielersteller",
     "identifierRequired": "Geben Sie einen gültigen Ziel-Ersteller-Kontakt ein",
@@ -28,7 +28,7 @@
     "copyFailed": "Fehler beim Kopieren der Kursaufforderung",
     "copySuccess": "Kursaufforderung kopiert",
     "empty": "Keine Kursaufforderung",
-    "title": "Kursaufforderung"
+    "title": "Kurs-Prompt"
   },
   "detail": {
     "basicInfo": "Grundlegende Informationen",
@@ -76,7 +76,7 @@
     },
     "contentStatus": {
       "empty": "Leer",
-      "has": "Hat",
+      "has": "Vorhanden",
       "unknown": "Unbekannt"
     },
     "creditUsage": {
@@ -162,7 +162,7 @@
       "courseId": "Kurskennung",
       "courseName": "Kursbezeichnung",
       "createdAt": "Erzeugt bei",
-      "creator": "Schöpfer",
+      "creator": "Kursverantwortliche Person",
       "status": "Status",
       "updatedAt": "Aktualisiert am"
     },
@@ -381,9 +381,9 @@
     "courseQuery": "Kurs",
     "courseQueryPlaceholder": "Kurs-ID / Kurs-Name",
     "createdAt": "Erzeugt bei",
-    "creator": "Schöpfer",
-    "creatorEmailOrUserBid": "E-Mail des Schöpfers",
-    "creatorMobileOrUserBid": "Schöpfer mobile",
+    "creator": "Kursersteller",
+    "creatorEmailOrUserBid": "E-Mail der kursverantwortlichen Person",
+    "creatorMobileOrUserBid": "Mobilnummer der kursverantwortlichen Person",
     "endTime": "Enddatum",
     "startTime": "Datum des Beginns",
     "status": "Status"
@@ -433,7 +433,7 @@
     "courseName": "Kursbezeichnung",
     "coursePrompt": "Kursaufforderung",
     "createdAt": "Erzeugt bei",
-    "creator": "Schöpfer",
+    "creator": "Kursersteller",
     "detailAction": "Detail",
     "llmModel": "LLM-Modell",
     "modifier": "Modifikator",
@@ -444,20 +444,20 @@
   },
   "title": "Kursmanagement",
   "transferCreatorDialog": {
-    "confirm": "Übertragung",
-    "confirmDescription": "Übertragen Sie den Schöpfer von {courseName} von {currentCreator} auf {targetCreator}.",
-    "confirmTitle": "Die Übertragung des Schöpfers bestätigen",
-    "contactPlaceholderEmail": "Zielersteller-E-Mail eingeben",
-    "contactPlaceholderPhone": "Ziel-Ersteller-Mobile eingeben",
+    "confirm": "Übertragen",
+    "confirmDescription": "Übertragen Sie die Verantwortung für {courseName} von {currentCreator} auf {targetCreator}.",
+    "confirmTitle": "Übertragung der Kursverantwortung bestätigen",
+    "contactPlaceholderEmail": "E-Mail der neuen kursverantwortlichen Person eingeben",
+    "contactPlaceholderPhone": "Mobilnummer der neuen kursverantwortlichen Person eingeben",
     "contactType": "Kontaktart",
     "contactTypeEmail": "E-Mail-Adresse",
     "contactTypePhone": "Mobil",
-    "currentCreator": "Aktueller Schöpfer",
-    "description": "Nur der Kursersteller ändert sich. Kursinhalt, Konfiguration und freigegebene Berechtigungen bleiben unverändert.",
-    "identifier": "Zielersteller",
-    "identifierRequired": "Bitte geben Sie einen gültigen Ziel-Ersteller Kontakt ein",
-    "sameCreator": "Der Zielkontakt gehört bereits zum aktuellen Ersteller",
-    "submitSuccess": "Der Schöpfer übertragen",
-    "title": "Übertragen Schöpfer"
+    "currentCreator": "Aktuell verantwortliche Person",
+    "description": "Nur die kursverantwortliche Person ändert sich. Kursinhalt, Einstellungen und geteilte Zugriffsrechte bleiben unverändert.",
+    "identifier": "Neue kursverantwortliche Person",
+    "identifierRequired": "Geben Sie gültige Kontaktdaten für die neue kursverantwortliche Person ein.",
+    "sameCreator": "Die Kontaktdaten gehören bereits zur aktuell verantwortlichen Person.",
+    "submitSuccess": "Kursverantwortung übertragen",
+    "title": "Kursverantwortung übertragen"
   }
 }
