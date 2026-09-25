@@ -30,7 +30,7 @@
         "integrationStatus": {
           "disabled": "Deaktiviert",
           "draft": "Entwurf",
-          "failed": "Ausgabe",
+          "failed": "Fehlgeschlagen",
           "unconfigured": "Nicht konfiguriert",
           "verified": "Verifiziert"
         },
