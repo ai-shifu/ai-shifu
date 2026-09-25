@@ -1,31 +1,31 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
-    "cancelAccount": "Konto abbrechen",
+    "cancelAccount": "Konto schließen",
     "grantCredits": "Zuschußgutschriften/Paket",
     "moreForUser": "Weitere Aktionen für {user}"
   },
   "cancellation": {
     "back": "Zurück",
     "blockers": {
-      "operator": "Dieses Konto hat Zugriff auf den Betreiber und kann derzeit nicht storniert werden.",
+      "operator": "Dieses Konto hat Operatorzugriff und kann derzeit nicht geschlossen werden.",
       "paid_preorder_refund_required": "Dieses Konto hat {count} bezahlte Vorbestellungen bis zur Aktivierung. Erfüllen Sie eine manuelle Rückerstattung vor der Stornierung.",
       "published_course_transfer_required": "Übertragen Sie die veröffentlichten {count} Kurse, die diesem Konto gehören, bevor Sie fortfahren.",
       "self": "Sie können das aktuell angemeldete Operator-Konto nicht kündigen. Bitten Sie einen anderen Operator, diese Aktion abzuschließen.",
-      "title": "Annullierung kann nicht fortgesetzt werden",
+      "title": "Kontoschließung nicht möglich",
       "unknown": "Dieses Konto hat ungelöste Elemente. Aktualisieren Sie und versuchen Sie es erneut oder kontaktieren Sie technischen Support.",
       "unsettled_payment": "Klären Sie die {count} offenen Bestellungen, bevor Sie dieses Konto löschen."
     },
-    "confirm": "Konto abbrechen",
-    "confirmDescription": "Konto {user} wird dauerhaft storniert.",
+    "confirm": "Konto schließen",
+    "confirmDescription": "Das Konto {user} wird dauerhaft geschlossen. Prüfen Sie Konto und Grund erneut. Nach dem Absenden kann dies nicht rückgängig gemacht werden.",
     "confirmPaidPreorder": "Dieses Konto hat {count} bezahlte Prepaid-Pläne, die auf die Aktivierung warten. Bestätigen Sie, dass manuelle Rückerstattungen oder damit zusammenhängende Behandlung abgeschlossen sind.",
-    "confirmTitle": "Kontostornierung bestätigen",
-    "continue": "Konto abbrechen",
+    "confirmTitle": "Kontoschließung bestätigen",
+    "continue": "Konto schließen",
     "description": "Kurse, Abonnements, Credits und Sessions werden überprüft.",
     "errors": {
       "blocked": "Einige Punkte erfordern noch Maßnahmen",
-      "cancel": "Stornierung fehlgeschlagen",
-      "executionFailed": "Die Absage-Aufgabe ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+      "cancel": "Kontoschließung fehlgeschlagen",
+      "executionFailed": "Die Kontoschließung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
       "load": "Annullierungsdetails können nicht geladen werden",
       "prepare": "Stornierungen können nicht vorbereitet werden",
       "processingTimeout": "Die Löschungsaufgabe wird noch bearbeitet. Aktualisieren Sie die Benutzerliste später, um das Ergebnis zu überprüfen.",
@@ -35,7 +35,7 @@
     "processing": "Absagen...",
     "reasonCounter": "{count}/500",
     "reasonHint": "Dieser Grund wird im Betriebsprüfungsprotokoll beibehalten.",
-    "reasonLabel": "Annullierungsgrund",
+    "reasonLabel": "Grund für die Kontoschließung",
     "reasonPlaceholder": "Geben Sie einen konkreten Grund ein, z. B. Kontolöschung auf Wunsch des Nutzers.",
     "reasonTooShort": "Geben Sie mindestens 5 Zeichen ein.",
     "summary": {
@@ -58,7 +58,7 @@
       "sessionsValue": "{count} (alle bei Löschung widerrufen)",
       "subscriptions": "Automatische Verlängerung des Abonnements:"
     },
-    "title": "Konto abbrechen",
+    "title": "Konto schließen",
     "transfer": "Alle übertragen",
     "transferEmailPlaceholder": "Neue Eigentümer-E-Mail",
     "transferPhonePlaceholder": "Neue Eigentümer-Telefonnummer",
@@ -113,9 +113,9 @@
     "dialog": {
       "courseId": "Kurskennung",
       "courseName": "Kursbezeichnung",
-      "createdTitle": "Geschaffene Kurse",
+      "createdTitle": "Erstellte Kurse",
       "description": "Benutzer: {user}",
-      "learningTitle": "Lehrveranstaltungen",
+      "learningTitle": "Belegte Kurse",
       "status": "Status"
     },
     "empty": "--"
@@ -207,23 +207,23 @@
     },
     "creditLedgerSourceLabels": {
       "compensation": "Ausgleich",
-      "debug": "Fehler",
+      "debug": "Debug",
       "gift": "Geschenk",
       "learning": "Lernen",
       "manual": "Manuell",
       "preview": "Vorschau",
-      "refund": "Erstattungsbetrag",
+      "refund": "Erstattung",
       "reward": "Belohnung",
       "subscription": "Abonnement",
       "topup": "Creditpaket",
-      "trial_subscription": "Subskription der Probe",
+      "trial_subscription": "Probeabonnement",
       "usage": "Verwendung"
     },
     "creditLedgerTypeLabels": {
       "adjustment": "Creditanpassung",
       "consume": "Creditverbrauch",
       "debug_consume": "Debug-Verbrauch",
-      "expire": "Gültigkeitsdauer der Credits",
+      "expire": "Credits abgelaufen",
       "gift_expire": "Erlöschen des Schenkungsguthabens",
       "gift_grant": "Schenkung",
       "grant": "Gutschrift von Credits",
@@ -232,18 +232,18 @@
       "manual_credit": "Manuelle Gutschrift",
       "manual_debit": "Manuelles Debit",
       "manual_grant": "Manueller Zuschuss",
-      "preview_consume": "Vorhersage Verbrauch",
-      "refund": "Erstattungsrückerstattung",
-      "refund_return": "Erstattungsrückerstattung",
+      "preview_consume": "Verbrauch für Vorschau",
+      "refund": "Credits nach Erstattung zurückgegeben",
+      "refund_return": "Credits nach Erstattung zurückgegeben",
       "release": "Credits-freisetzung",
-      "subscription_expire": "Zeichnungsgutschrift Ablauf",
+      "subscription_expire": "Abonnement-Credits abgelaufen",
       "subscription_grant": "Zeichnungszuschuß",
       "topup_expire": "Creditpaket Ablauf",
       "topup_grant": "Creditpaket-Zuschuss",
       "trial_subscription_grant": "Credits aus Probeabonnement"
     },
     "creditLedgerUsageSceneLabels": {
-      "debug": "Fehler",
+      "debug": "Debug",
       "learning": "Lernen",
       "preview": "Vorschau"
     },
@@ -314,7 +314,7 @@
       "amount": "Zugewährte Credits",
       "mode": "Art der Finanzhilfe",
       "note": "Anmerkung",
-      "package": "Verpackung",
+      "package": "Paket",
       "packageCredits": "Credits",
       "packageExpireAt": "Geschätzte Gültigkeit bis",
       "packageValidity": "Geltungsdauer",
@@ -445,7 +445,7 @@
   "registrationSourceLabels": {
     "email": "E-Mail-Adresse",
     "google": "Google",
-    "imported": "Einfuhr",
+    "imported": "Importiert",
     "phone": "Mobil",
     "unknown": "Unbekannt",
     "wechat": "WeChat"
@@ -453,8 +453,8 @@
   "roleLabels": {
     "creator": "Lehrer",
     "learner": "Lernender",
-    "operator": "Betreiber",
-    "regular": "Regelmäßig",
+    "operator": "Operator",
+    "regular": "Regulärer Nutzer",
     "unknown": "Unbekannt"
   },
   "statusLabels": {
