@@ -14,7 +14,7 @@
       "self": "Sie können das aktuell angemeldete Operator-Konto nicht kündigen. Bitten Sie einen anderen Operator, diese Aktion abzuschließen.",
       "title": "Annullierung kann nicht fortgesetzt werden",
       "unknown": "Dieses Konto hat ungelöste Elemente. Aktualisieren Sie und versuchen Sie es erneut oder kontaktieren Sie technischen Support.",
-      "unsettled_payment": "Lösen Sie die {count} ungestörten Bestellungen, bevor Sie dieses Konto stornieren."
+      "unsettled_payment": "Klären Sie die {count} offenen Bestellungen, bevor Sie dieses Konto löschen."
     },
     "confirm": "Konto abbrechen",
     "confirmDescription": "Konto {user} wird dauerhaft storniert.",
