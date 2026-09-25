@@ -381,7 +381,7 @@
         "search": "Suchen",
         "searchPlaceholderEmail": "Lehrer-E-Mail",
         "searchPlaceholderPhone": "Lehrer mobil",
-        "status": "Zeichnungsstatus",
+        "status": "Abonnementstatus",
         "statusAll": "Alle Statusstufen",
         "teacherField": "Lehrer"
       },
@@ -408,7 +408,7 @@
         "renewal": "Erneuerung / Ablauf",
         "renewalStatus": "Erneuerungsveranstaltung",
         "scheduled": "Geplant",
-        "status": "Zeichnungsstatus"
+        "status": "Abonnementstatus"
       },
       "title": "Folgemaßnahmen zum Abonnement"
     },
@@ -768,7 +768,7 @@
     },
     "metrics": {
       "analyticsTier": "Analysestufe",
-      "maxConcurrency": "Maximale Übereinstimmung",
+      "maxConcurrency": "Maximale Parallelität",
       "priorityClass": "Prioritätsklasse",
       "supportTier": "Unterstützungskategorie"
     },
@@ -862,7 +862,7 @@
     "usageScene": {
       "debug": "Debug",
       "preview": "Vorschau",
-      "production": "Studie",
+      "production": "Lernen",
       "tts": "Stimme"
     }
   },

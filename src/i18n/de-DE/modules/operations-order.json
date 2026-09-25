@@ -40,7 +40,7 @@
     },
     "kind": {
       "other": "Sonstige",
-      "plan": "Einnahmenplan",
+      "plan": "Credit-Tarif",
       "topup": "Creditpaket"
     },
     "longTerm": "Langfristig",
@@ -73,12 +73,12 @@
       "orderId": "Kennnummer des Creditauftrags",
       "orderKind": "Art der Bestellung",
       "paymentChannel": "Zahlungsmethode",
-      "product": "Einnahmenplan",
+      "product": "Credit-Tarif",
       "validTo": "Gültig bis"
     }
   },
   "detail": {
-    "fallback": "Detail der Reihenfolge",
+    "fallback": "Bestelldetails",
     "sections": {
       "activities": "Tätigkeiten",
       "coupons": "Einlösungscode",
@@ -87,7 +87,7 @@
       "summary": "Bestellinformationen",
       "user": "Benutzerinformationen"
     },
-    "title": "Detail der Reihenfolge"
+    "title": "Bestelldetails"
   },
   "emptyList": "Keine Bestelldaten",
   "filters": {
