@@ -255,7 +255,7 @@
       "collapse": "Einklappen",
       "columns": {
         "consumedCredits": "Credits",
-        "createdAt": "Gekauft bei",
+        "createdAt": "Verbraucht am",
         "inputTokens": "Eingabe-Token",
         "outputSummary": "Zusammenfassung der Ausgabe",
         "outputTokens": "Ausgabe-Token",

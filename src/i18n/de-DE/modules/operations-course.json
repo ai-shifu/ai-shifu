@@ -90,7 +90,7 @@
         "expand": "Erweitern",
         "openUsageDetails": "Details zur Creditverwendung öffnen {count}",
         "table": {
-          "createdAt": "Gekauft bei",
+          "createdAt": "Verbraucht am",
           "credits": "Credits",
           "inputTokens": "Eingabe-Token",
           "model": "Modell",
