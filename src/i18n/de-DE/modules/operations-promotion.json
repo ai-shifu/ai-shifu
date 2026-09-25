@@ -209,13 +209,13 @@
   },
   "redemptionStatus": {
     "applied": "Angewandt",
-    "voided": "Abgeschieden"
+    "voided": "Ungültig"
   },
   "referralCampaign": {
     "advancedSettings": "Erweiterte Einstellungen",
     "advancedSettingsHelper": "Erweiterte Konfiguration wird durch System-Standards beibehalten. Kontakt Engineering, wenn Sie Feature Flags oder benutzerdefinierte Berechtigungsregeln benötigen.",
     "cap": "Prämien-Cap",
-    "capCount": "Anzahl der Kappen",
+    "capCount": "Maximale Anzahl von Prämien",
     "capCountPlaceholder": "Maximale Anzahl eingeben",
     "capScope": "Abdeckkappenbereich",
     "capScopeNone": "Unbegrenzt",
