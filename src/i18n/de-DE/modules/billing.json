@@ -334,14 +334,14 @@
       "sections": {
         "usage": {
           "description": "Es werden nur Lehrer angezeigt, die die Aufmerksamkeitsregeln erfüllen. Sortieren Sie nach Wachstum, Debug-Verhältnis oder 30-Tage-Verbrauch.",
-          "title": "Lehrer, die nach oben folgen"
+          "title": "Lehrkräfte zur Nachverfolgung"
         }
       },
       "sort": {
         "label": "Sortieren nach",
         "options": {
           "credits_30d": "30d-Gutschriften",
-          "debug_ratio": "Fehlerquote",
+          "debug_ratio": "Debug-Anteil",
           "growth": "Wachstumspriorität"
         }
       },
