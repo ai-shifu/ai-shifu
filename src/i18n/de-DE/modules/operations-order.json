@@ -150,7 +150,7 @@
     "paymentChannel": "Zahlungskanal",
     "source": "Bestellquelle",
     "status": "Status",
-    "updatedAt": "Reihenfolge aktualisiert bei",
+    "updatedAt": "Bestellung aktualisiert am",
     "user": "Benutzer",
     "userId": "Benutzer-ID",
     "view": "Detail anzeigen"

@@ -20,7 +20,7 @@
     "search": "Suchen",
     "viewData": "Daten anzeigen",
     "viewDetail": "Detail anzeigen",
-    "viewOrders": "Reihenfolge anzeigen"
+    "viewOrders": "Bestellungen anzeigen"
   },
   "campaign": {
     "appliedOrderCount": "Angewandte Aufträge",
@@ -32,7 +32,7 @@
     "basicInfo": "Grundlegende Informationen",
     "channel": "Kanal",
     "channelPlaceholder": "Kanal",
-    "description": "Warenbezeichnung",
+    "description": "Kampagnenbeschreibung",
     "descriptionPlaceholder": "Kampagnenbeschreibung eingeben",
     "detailTitle": "Detail der Kampagne",
     "dialogTitle": "Kampagne erstellen",

@@ -877,7 +877,7 @@
       "timeout": "Auszeit"
     },
     "type": {
-      "manual": "Manuelle Reihenfolge",
+      "manual": "Manuelle Bestellung",
       "refund": "Erstattungsanordnung",
       "subscriptionRenewal": "Verlängerung des Abonnements",
       "subscriptionStart": "Abonnementstart",

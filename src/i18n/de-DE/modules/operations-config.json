@@ -35,7 +35,7 @@
     "providerPlaceholder": "Zum Beispiel, qwen",
     "retryRefresh": "Erneut versuchen",
     "retryRefreshAltText": "Erfrischen Sie die Tarifliste erneut",
-    "success": "Zugesetzter Satz",
+    "success": "Rate hinzugefügt",
     "title": "Rate hinzufügen",
     "ttsDefaultHint": "Lassen Sie Modell / Ebene leer, um den Anbieter Standard-Ebene verwenden.",
     "ttsModelPlaceholder": "Leer für den Provider-Standard lassen",

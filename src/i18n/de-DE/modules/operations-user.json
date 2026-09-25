@@ -178,7 +178,7 @@
       "usageScene": "Verwendungsszene",
       "usageSceneOptions": {
         "all": "Insgesamt",
-        "debug": "Fehler",
+        "debug": "Debug",
         "learning": "Lernen",
         "preview": "Vorschau"
       }
