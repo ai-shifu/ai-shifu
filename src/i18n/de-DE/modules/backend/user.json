@@ -54,6 +54,6 @@
     "userNotFound": "Benutzer nicht gefunden",
     "userNotLogin": "Benutzer nicht eingeloggt",
     "userNotPermission": "Der aktuelle Benutzer darf diese Aktion nicht ausführen.",
-    "userTokenExpired": "Abgelaufenes Zeichen"
+    "userTokenExpired": "Token abgelaufen"
   }
 }

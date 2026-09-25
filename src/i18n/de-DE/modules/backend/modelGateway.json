@@ -7,7 +7,7 @@
     "idempotency_key_required": "Idempotency-Key muss 1 bis 90 Zeichen enthalten.",
     "insufficient_credits": "Das Konto hat keine verfügbare Geldbörse oder unzureichende Credits.",
     "invalid_request": "Die Anfrage ist ungültig.",
-    "invalid_token": "Es ist ein gültiges Autorisierungs-Bären-Token erforderlich.",
+    "invalid_token": "Ein gültiges Bearer-Token ist erforderlich.",
     "messages_invalid": "Nachrichten müssen 1 bis 256 Nachrichtenobjekte enthalten.",
     "missing_client_id": "Der X-AI-Shifu-Client-ID-Header ist erforderlich.",
     "model_not_available": "Das Modell ist nicht verfügbar oder seine Grenzen oder Creditsätze sind nicht konfiguriert.",

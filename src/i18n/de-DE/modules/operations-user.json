@@ -36,7 +36,7 @@
     "reasonCounter": "{count}/500",
     "reasonHint": "Dieser Grund wird im Betriebsprüfungsprotokoll beibehalten.",
     "reasonLabel": "Annullierungsgrund",
-    "reasonPlaceholder": "Geben Sie einen bestimmten Grund ein, wie z.B. die vom Benutzer angeforderte Stornogebühr.",
+    "reasonPlaceholder": "Geben Sie einen konkreten Grund ein, z. B. Kontolöschung auf Wunsch des Nutzers.",
     "reasonTooShort": "Geben Sie mindestens 5 Zeichen ein.",
     "summary": {
       "accountLabel": "Benutzerkonto",
@@ -135,7 +135,7 @@
     "creditLedgerColumns": {
       "amount": "Betrag",
       "balanceAfter": "Saldo nach",
-      "consumedCredits": "Gekaufte Gutschriften",
+      "consumedCredits": "Verbrauchte Credits",
       "course": "Kurs",
       "createdAt": "Verändert am",
       "entryType": "Art",

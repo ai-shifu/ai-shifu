@@ -40,7 +40,7 @@
     },
     "description": "Verwalten Sie Credit-Benachrichtigung Schalter, Vorlagen, Senden von Regeln, Ruhezeiten und Do-Not-Send-Listen an einem Ort.",
     "emptyBlockedCreators": "Noch keine blockierten Lehrer.",
-    "emptyOptedOutCreators": "Noch keine Auserwählten.",
+    "emptyOptedOutCreators": "Noch keine Lehrkräfte von Benachrichtigungen abgemeldet.",
     "fieldTips": {
       "blockedCreatorList": "Zeigt Lehrer aktuell in der blockierten Liste an. Änderungen von der Eingabe werden nach dem Speichern der Konfiguration wirksam.",
       "creatorIdentifierList": "Geben Sie die Handynummern oder IDs des Lehrers ein, die durch Kommas getrennt sind.",

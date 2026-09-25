@@ -2,7 +2,7 @@
   "__namespace__": "component.courseCreationChoiceDialog",
   "aiDescription": "Verwandeln Sie Ihre Materialien und Ideen in einen Kurs in Ihrem KI-Assistenten.",
   "aiExamples": "z.B. Claude Cowork, Codex, Hermes Agent, OpenClaw",
-  "aiPrompt": "Bitte suchen und installieren Sie die Kurserstellungs-Skill von AI Shifu (ai-shifu-course-creator). Falls sie bereits installiert ist, teilen Sie mir bitte mit, dass ich mit der Kurserstellung beginnen kann.",
+  "aiPrompt": "Bitte suchen und installieren Sie den Skill zur Kurserstellung von AI Shifu (ai-shifu-course-creator). Falls er bereits installiert ist, teilen Sie mir bitte mit, dass ich mit der Kurserstellung beginnen kann.",
   "aiTitle": "Mit AI erstellen",
   "copiedAction": "Kopiert",
   "copyAction": "Installationsanweisungen kopieren",
