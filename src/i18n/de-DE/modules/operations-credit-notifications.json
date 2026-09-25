@@ -82,7 +82,7 @@
       "estimatedDays": "Übrige nutzbare Tage",
       "estimatedDaysEnabled": "Erinnern nach nutzbaren Tagen",
       "fallbackFixedValue": "Schwellenwert für die Rückstellungsbilanz",
-      "lookbackDays": "Rückschlagstage des Verbrauchs",
+      "lookbackDays": "Rückblickszeitraum für Verbrauch (Tage)",
       "mergeSameCreator": "Dieselbe Lehrerin zusammenführen",
       "minConsumedDays": "Mindestgültige Verbrauchstage",
       "optOutCreatorBids": "Ausgestellte Lehrerausweise",
@@ -156,7 +156,7 @@
         "credit_granted": "Gutgeschriebene Variable Anleitung",
         "low_balance": "Variabler Leitfaden für die Credits-bilanz"
       },
-      "lookback_days": "Rückschlagstage des Verbrauchs",
+      "lookback_days": "Rückblickszeitraum für Verbrauch (Tage)",
       "notes": {
         "emptyVariables": "Innerhalb eines Benachrichtigungstyps werden Variablen, die vom eigentlichen Triggerpfad nicht verwendet werden, als leere Strings gesendet.",
         "estimatedLowBalance": "Für die übrigen Tage werden die Tage ab dem durchschnittlichen täglichen Verbrauch geschätzt; feste Schwellenwertvariablen sind leer.",
@@ -190,7 +190,7 @@
       "lists": "Nicht-Senden-Listen",
       "masterSwitch": "Hauptschalter",
       "quietHours": "Ruhige Stunden",
-      "softlimit": "Lehrer, der eine schwach ausgeglichene Garde hat",
+      "softlimit": "Schutz bei niedrigem Guthaben für Lehrkräfte",
       "types": "Benachrichtigungsarten"
     },
     "templateList": {
@@ -312,7 +312,7 @@
       "credits": "Credits",
       "estimated_remaining_days": "Geschätzte verbleibende Tage",
       "expires_at": "Befristung",
-      "lookback_days": "Rückschlagstage des Verbrauchs",
+      "lookback_days": "Rückblickszeitraum für Verbrauch (Tage)",
       "source": "Zuschußquelle",
       "threshold": "Warnschwelle",
       "threshold_kind": "Schwellentyp",
