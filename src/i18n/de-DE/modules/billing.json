@@ -108,12 +108,12 @@
       },
       "notEnabled": "Nicht aktiviert",
       "realEffect": {
-        "branding": "Bezeichnung",
-        "domain": "Bereich",
+        "branding": "Logo",
+        "domain": "Domain",
         "payment": "Zahlung",
         "status": {
-          "active": "Lebend",
-          "exception": "Ausgabe",
+          "active": "Aktiv",
+          "exception": "Problem",
           "inactive": "Nicht aktiv",
           "pending": "Verarbeitung",
           "unconfigured": "Nicht konfiguriert"
@@ -192,8 +192,8 @@
       },
       "empty": "Für die Konfiguration stehen keine Pläne oder Creditpakete zur Verfügung.",
       "environment": {
-        "live": "Lebend",
-        "test": "Prüfung"
+        "live": "Live-Modus",
+        "test": "Testmodus"
       },
       "fields": {
         "priceId": "ID des Stripe-Preises",
@@ -223,11 +223,11 @@
       },
       "issueDrawer": {
         "description": "Zeigt bedienungsfreundliche Gründe und hält die Rohcodes für die technische Fehlersuche.",
-        "issues": "Ausgabegründe",
+        "issues": "Problemursachen",
         "noIssues": "Noch keine Angaben",
         "priceId": "ID des Stripe-Preises",
         "raw": "Rohe Angaben",
-        "title": "Fragen der Preisvalidierung"
+        "title": "Probleme bei der Preisprüfung"
       },
       "issueMessages": {
         "billing_interval_count_mismatch": "Anzahl der Abrechnungsintervalle entspricht nicht dem lokalen Element",
@@ -266,7 +266,7 @@
         "stripe_catalog_retrieve_failed": "Das Produkt oder den Preis von Stripe nicht lesen",
         "topup_requires_one_time_price": "Creditpakete müssen einen einmaligen Stripe-Preis verwenden",
         "unit_amount_mismatch": "Zahlungsbetrag entspricht nicht dem Anzeigepreis",
-        "unknown": "Unbekannte Ausgabe",
+        "unknown": "Unbekanntes Problem",
         "unsupported_product_type": "Dieser Warentyp kann nicht mit einem Zahlungspreis verknüpft werden."
       },
       "loadError": "Die Paketpreiseinstellungen können jetzt nicht geladen werden.",
@@ -624,7 +624,7 @@
   },
   "customization": {
     "actions": {
-      "clear": "Löschen",
+      "clear": "Leeren",
       "saveConfiguration": "Konfiguration speichern",
       "saveIntegration": "Zahlungseinstellungen speichern",
       "secretSaved": "Gespeichert. Geben Sie einen neuen Wert ein, um ihn zu ersetzen."
