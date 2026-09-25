@@ -58,8 +58,11 @@ DEFAULT_LOGIN_METHOD=google
 ```
 
 Also configure `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` on
-the backend, and register its Google OAuth callback URL for the target
-environment. Keep the client secret on the backend.
+the backend. Register the frontend callback URL with Google; for this local
+setup it is `http://localhost:3000/login/google-callback`. Set the backend's
+`GOOGLE_OAUTH_REDIRECT_URI` to that exact URL to make the callback explicit.
+Without that override, the backend uses `HOST_URL` or the request origin plus
+`/login/google-callback`. Keep the client secret on the backend.
 
 The frontend variables `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` and
 `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD` in `.env.example` are build-time fallbacks;
@@ -70,18 +73,21 @@ servers after changing environment settings.
 
 Run these commands from `src/web/`, choosing the checks relevant to the change:
 
-| Check               | Command                                        |
-| ------------------- | ---------------------------------------------- |
-| Focused unit tests  | `npm test -- --runInBand path/to/file.test.ts` |
-| Unit suite          | `npm run test:ci`                              |
-| Type checking       | `npm run type-check`                           |
-| Lint                | `npm run lint`                                 |
-| Formatting          | `npm run format:check`                         |
-| Browser smoke tests | `npm run test:e2e`                             |
+| Check              | Command                                        |
+| ------------------ | ---------------------------------------------- |
+| Focused unit tests | `npm test -- --runInBand path/to/file.test.ts` |
+| Unit suite         | `npm run test:ci`                              |
+| Type checking      | `npm run type-check`                           |
+| Lint               | `npm run lint`                                 |
+| Formatting         | `npm run format:check`                         |
+| Browser tests      | `npm run test:e2e`                             |
 
 Browser tests expect a running Docker dev stack at `http://localhost:8080`
 by default; `AI_SHIFU_BASE_URL` overrides the target. They do not start the
-stack. Follow the [repository reliability guide](../../docs/RELIABILITY.md)
+stack. Install the browser once with `npx playwright install chromium`.
+To run only the smoke project and its authentication setup, use
+`npm run test:e2e -- --project=runtime-harness-smoke`.
+Follow the [repository reliability guide](../../docs/RELIABILITY.md)
 when diagnosing smoke failures.
 
 ## Contributor References

@@ -135,14 +135,17 @@ The application has two main runtime components:
 - Plugin-based architecture with hot reload support under
   `flaskr/framework/plugin/`
 - Service-layer organization with dedicated domains such as `shifu`, `learn`,
-  `user`, `order`, `profile`, `lesson`, and `llm`
+  `user`, `order`, `profile`, `billing`, and `llm`
 - Database migrations managed with Alembic under `migrations/`
 - Shared localization data managed under `src/i18n/`
 
 #### LLM Integration
 
-- All server-side LLM calls are routed through LiteLLM inside
-  `src/api/flaskr/api/llm/__init__.py`
+- Shared text and tool LLM calls use the LiteLLM gateway in
+  `src/api/flaskr/api/llm/__init__.py`; the MarkdownFlow 2.0 engine delegates
+  through `src/api/flaskr/service/learn/agent/gateway_model.py`
+- Gemini Live has a separate credential and browser WebSocket path; see the
+  [Live setup notes](../INSTALL_MANUAL.md#optional-gemini-live-voice-follow-up)
 - Provider credentials continue to live in `.env` via the existing API-key
   variables
 - Prefer OpenAI-compatible providers so the shared LiteLLM wrapper can own the
@@ -168,7 +171,7 @@ Request flow:
 2. API layer builds the request and delegates to the request client
 3. Request client injects auth headers and performs the HTTP request
 4. Business-code handling checks `response.code`
-5. Business layer receives `response.data`
+5. Business layer receives `response.data ?? response` on success
 
 Keep request transport, business-code handling, and auth error processing in
 that shared stack instead of recreating them in feature code.
@@ -179,92 +182,58 @@ Use consistent SQLAlchemy model ordering and field semantics.
 
 ### Model Layout Example
 
-This example illustrates field ordering and defaults; the live order schema
-is defined in `src/api/flaskr/service/order/models.py`.
+This excerpt preserves the field definitions from the live
+[Order model](../src/api/flaskr/service/order/models.py), with other columns
+omitted. It is not a complete table definition. Order prices use
+`Numeric(10, 2)` fields (`payable_price` and `paid_price`); order status values
+come from [order constants](../src/api/flaskr/service/order/consts.py).
 
 ```python
 from typing import ClassVar
 
 from flaskr.dao import db
+from flaskr.service.order.consts import ORDER_STATUS_INIT
 from flaskr.util.datetime import now_utc
-from sqlalchemy import BIGINT, Column, DateTime, SmallInteger, String
+from sqlalchemy import Column, DateTime, SmallInteger, String
+from sqlalchemy.dialects.mysql import BIGINT
 
 
 class Order(db.Model):
-    """Store order identifiers, amount, status, and audit fields."""
+    """Selected fields from the legacy Order model."""
 
     __tablename__ = "order_orders"
-    __table_args__: ClassVar[dict[str, str]] = {"comment": "Order entities"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Order orders"}
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
 
     order_bid = Column(
-        String(32),
+        String(36),
         nullable=False,
         default="",
-        index=True,
         comment="Order business identifier",
-    )
-
-    user_bid = Column(
-        String(32),
-        nullable=False,
-        default="",
         index=True,
-        comment="User business identifier",
-    )
-
-    amount = Column(
-        BIGINT,
-        nullable=False,
-        default=0,
-        comment="Order amount in cents",
     )
 
     status = Column(
         SmallInteger,
         nullable=False,
-        default=0,
-        comment="Status: 0=pending, 1=paid, 2=cancelled",
-    )
-
-    deleted = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        index=True,
-        comment="Deletion flag: 0=active, 1=deleted",
+        default=ORDER_STATUS_INIT,
+        comment="Status of the order: 501=init, 502=paid, 503=refunded, 504=unpaid, 505=timeout",
     )
 
     created_at = Column(
         DateTime,
         nullable=False,
         default=now_utc,
-        comment="Creation timestamp in UTC",
-    )
-
-    created_user_bid = Column(
-        String(32),
-        nullable=False,
-        index=True,
-        default="",
-        comment="Creator user business identifier",
+        comment="Creation time",
     )
 
     updated_at = Column(
         DateTime,
         nullable=False,
         default=now_utc,
+        comment="Update time",
         onupdate=now_utc,
-        comment="Last update timestamp in UTC",
-    )
-
-    updated_user_bid = Column(
-        String(32),
-        nullable=False,
-        index=True,
-        default="",
-        comment="Last updater user business identifier",
     )
 ```
 
@@ -320,21 +289,33 @@ pytest -q tests/migrations/test_fresh_mysql_upgrade.py
 ```json
 {
   "code": 0,
-  "message": "Success",
+  "message": "success",
   "data": {}
 }
 ```
+
+This is the success envelope emitted by `make_common_response()` in
+`src/api/flaskr/common/http.py`. Error responses contain `code` and `message`
+and may omit `data`. Streaming and file responses have their own contracts.
 
 ### Common Error Code Expectations
 
 | Code | Meaning | Typical Action |
 |------|---------|----------------|
 | 0 | Success | Process `data` |
-| 1001 | Unauthorized | Redirect to login |
-| 1004 | Token expired | Refresh token or force re-auth |
-| 1005 | Invalid token | Clear token and redirect |
-| 9002 | No permission | Show permission error |
-| 5001+ | Business errors | Show the returned message |
+| 1001 | User not found (`server.user.userNotFound`) | Shared auth recovery |
+| 1004 | User not logged in (`server.user.userNotLogin`) | Shared auth recovery |
+| 1005 | User token expired (`server.user.userTokenExpired`) | Shared auth recovery |
+| 2001 | Invalid parameters (`server.common.paramsError`) | Show the returned message |
+| 5001 | Unsupported payment channel (`server.pay.payChannelNotSupport`) | Show the returned message |
+| 9002 | Scenario permission denied (`server.scenario.noPermission`) | Show permission error |
+
+The authoritative mapping is [error_codes.json](../src/api/error_codes.json);
+business errors are not one numeric range, and other domains use different
+permission codes. The frontend's `handleBusinessCode()` in
+`src/web/src/lib/request.ts` handles 1001, 1004, and 1005 together through
+session recovery and a guarded login redirect. It does not refresh an expired
+token, and an error from an older request must not clear a newer session.
 
 ### Authentication Headers
 
@@ -355,13 +336,15 @@ src/api/tests/
 ├── conftest.py
 ├── service/
 │   ├── shifu/
-│   │   ├── test_models.py
-│   │   ├── test_service.py
-│   │   └── test_api.py
+│   │   ├── conftest.py
+│   │   ├── test_permissions.py
+│   │   └── test_shifu_uow_failure_paths.py
 │   └── ...
 └── common/
+    ├── test_now_utc.py
     └── fixtures/
-        └── test_data.py
+        ├── fake_llm.py
+        └── fake_redis.py
 ```
 
 ### Test Patterns
@@ -634,18 +617,19 @@ does not replace test coverage. Before committing, also run
 
 ### Deployment Process
 
-1. Merge to `main`
-2. CI/CD runs tests and builds
-3. Deploy to staging
-4. Run smoke tests
-5. Deploy to production
+The workflows in this repository test changes and build/publish images.
+They do not deploy staging or production. After the relevant checks and image
+publication succeed, operators deploy the selected image tags through their
+environment's deployment process and verify backend boot and primary frontend
+flows before promoting them.
 
 ## CI/CD And Release Workflow
 
 ### Workflow Inventory
 
-- `backend-tests.yml`: runs backend tests for `src/api/**` changes and on
-  direct pushes to `main`.
+- `backend-tests.yml`: selects backend tests for PRs changing `src/api/**` or
+  the backend workflow, with a successful no-op for unrelated PRs; runs the
+  full suite on pushes to `main` and full coverage on manual dispatch.
 - `frontend-tests.yml`: runs frontend Jest tests for frontend and shared i18n
   changes while reporting a successful no-op check for unrelated PRs.
 - `prettier-check.yml`: checks frontend formatting for frontend changes.
@@ -655,9 +639,9 @@ does not replace test coverage. Before committing, also run
 - `runtime-harness.yml`: runs the Docker-backed Playwright smoke harness for
   runtime-affecting backend, frontend, Docker, and script changes.
 - `prepare-release.yml`: manually prepares a release draft from a requested
-  `vX.Y.Z` version and updates versioned project files.
-- `build-latest.yml`: builds the freshest published Docker images from `main`
-  and can also be triggered manually.
+  `vX.Y.Z` version and opens a version-update PR.
+- `build-latest.yml`: builds `:latest` Docker images on pushes to `main` or
+  manual dispatch; publishing depends on the push toggle and registry credentials.
 - `build-on-release.yml`: builds and pushes release-tagged Docker images when
   a GitHub release is published.
 
@@ -665,18 +649,21 @@ does not replace test coverage. Before committing, also run
 
 1. Start with `prepare-release.yml` and provide a version that starts with
    `v`, such as `v1.5.0`.
-2. Verify the generated version updates, release draft content, and tag
-   expectations before publishing the GitHub release.
-3. The release draft includes repository commits since the previous `vX.Y.Z`
+2. Review and merge the generated `release/version-bump-<tag>` PR into the
+   intended release branch. Confirm that the draft's tag will point to the
+   intended commit, including those version updates, before publishing it.
+3. Review the draft content. It includes repository commits since the previous `vX.Y.Z`
    tag, plus MarkdownFlow dependency updates when the pinned `markdown-flow` or
    `markdown-flow-ui` versions change; dependency notes are generated from the
    corresponding library repository tag range when tags exist. When matching
    tags do not exist, registry publish times are used to limit a GitHub commit
    lookup for the dependency repository.
-4. Publishing the release triggers `build-on-release.yml`, which validates the
-   tag, skips drafts or prereleases, and builds the release-tagged images.
-5. `main` continues to drive `build-latest.yml`, so `:latest` images and
-   release-tagged images must remain semantically aligned.
+4. Publish the final release through GitHub Releases. This triggers
+   `build-on-release.yml`, which skips drafts and prereleases and builds the
+   release-tagged images. Unexpected tag formats only produce a warning in
+   that workflow, so verify the tag before publication.
+5. `main` continues to drive `build-latest.yml` independently. A `:latest`
+   image may contain commits newer than the selected release tag.
 6. After image publication, smoke-check the pinned or latest Docker Compose
    startup path, backend boot, and the primary frontend entry path before
    treating the release as ready.
@@ -703,7 +690,8 @@ does not replace test coverage. Before committing, also run
 ### API Performance
 
 - Target under 200ms for common reads and under 500ms for common writes
-- Default pagination: 20 items, max 100
+- The shared helper in `src/api/flaskr/service/common/pagination.py` defaults
+  to 20 items and caps page size at 100; check each endpoint's contract
 - Use async patterns when they are truly appropriate for I/O work
 - Apply rate limiting where endpoints are abuse-prone
 - Use request timeouts for external dependencies
@@ -761,7 +749,7 @@ When adding a new namespace:
 
 ### Directory Naming
 
-- Use kebab-case for directories
+- Use kebab-case for frontend directories; use snake_case for Python packages
 - Preserve Next.js special folder conventions such as `(group)`, `[dynamic]`,
   and `[[...catchAll]]`
 - Preserve learner and teacher compatibility in shared modules organized by
@@ -769,6 +757,7 @@ When adding a new namespace:
 
 ### File Naming
 
+- Python modules and tests: snake_case, with tests named `test_*.py`
 - Component files: PascalCase, for example `UserProfile.tsx`
 - Regular TypeScript or JavaScript files: kebab-case
 - CSS and SCSS files: kebab-case
@@ -795,12 +784,12 @@ When adding a new namespace:
 | Database connection fails | Verify MySQL and credentials |
 | Migration not detecting changes | Ensure the model is imported |
 | Frontend cannot connect to API | Check CORS and API URL config |
-| Lefthook checks fail | Run `lefthook install` |
+| Lefthook checks fail | Read the failed command's output, fix the reported issue, and rerun that check |
 | Hooks never run, or a tool reports "command not found" | Run `python scripts/check_dev_tools.py` and install what it lists |
 | Tests fail with import errors | Check `PYTHONPATH` and local env |
-| Docker build fails | Ensure required `.env` files exist |
+| Docker build fails | Check the failed build step and Dockerfile context; production image builds use the repository root |
 | Frontend TypeScript errors | Run `npm run type-check` |
-| Redis connection optional | App can still run without Redis in many flows |
+| Redis unavailable | Some HTTP flows can fall back without Redis, but Live coordination and the default Celery broker require it; restore Redis for those features |
 
 ### Debug Commands
 
@@ -824,7 +813,7 @@ docker ps
 docker compose logs [service]
 
 # Check port usage
-lsof -i :5000
+lsof -i :5800
 lsof -i :3000
 ```
 
