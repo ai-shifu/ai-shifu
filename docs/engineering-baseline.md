@@ -14,7 +14,7 @@ details behind those rules.
 | Task | Command | Location |
 |------|---------|----------|
 | Start backend dev server | `flask run --port=5800` | `cd src/api` |
-| Start Cook Web (frontend & CMS) | `npm run dev` | `cd src/web` |
+| Start frontend dev server | `npm run dev` | `cd src/web` |
 | Run backend tests | `pytest` | `cd src/api` |
 | Run frontend unit tests | `npm run test:ci` | `cd src/web` |
 | Generate DB migration | `FLASK_APP=app.py flask db migrate -m "message"` | `cd src/api` |
@@ -22,7 +22,7 @@ details behind those rules.
 | Check code quality | `lefthook run pre-commit --all-files` | Root directory |
 | Start all services (Docker) | `docker compose -f docker-compose.latest.yml up -d` | `cd docker` |
 | Start Docker dev stack (build local latest) | `./dev_in_docker.sh` | `cd docker` |
-| Build Cook Web dev image | `docker build ../src/web -t ai-shifu-cook-web-dev -f ../src/web/Dockerfile_DEV` | `cd docker` |
+| Build frontend dev image | `docker build ../src/web -t ai-shifu-cook-web-dev -f ../src/web/Dockerfile_DEV` | `cd docker` |
 
 ### Essential Environment Variables
 
@@ -37,13 +37,13 @@ For an existing database, follow [Upgrading to numbered models](../INSTALL_MANUA
 FLASK_APP=app.py
 FLASK_RUN_PORT=5800
 
-# Cook Web (src/web/.env.local)
+# Frontend (src/web/.env.local)
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 ```
 
-Keep the API origin free of an `/api` suffix. Cook Web runs on port 3000;
+Keep the API origin free of an `/api` suffix. The frontend runs on port 3000;
 its development proxy defaults to the backend on port 5800. See the
-[Cook Web setup guide](../src/web/README.md) for runtime configuration and
+[Frontend setup guide](../src/web/README.md) for runtime configuration and
 the [installation manual](../INSTALL_MANUAL.md#step-5-manual-installation-development)
 for database and backend setup.
 
@@ -85,7 +85,7 @@ reports exactly what is missing and how to install it:
 
 ```bash
 python scripts/check_dev_tools.py            # core gaps fail; frontend gaps warn
-python scripts/check_dev_tools.py --strict   # also fail on Cook Web tooling gaps
+python scripts/check_dev_tools.py --strict   # also fail on frontend tooling gaps
 ```
 
 ## Critical Requirements
@@ -123,8 +123,7 @@ maintains control of the narrative progression.
 The application has two main runtime components:
 
 - Backend API (`src/api/`): Flask-based Python API with SQLAlchemy ORM
-- Cook Web (`src/web/`): Next.js-based unified frontend and content
-  management interface
+- Frontend (`src/web/`): Next.js application for learners, teachers, and operators
 
 ### Backend Architecture Notes
 
@@ -147,7 +146,7 @@ The application has two main runtime components:
 
 ### Frontend Architecture Notes
 
-- Cook Web uses Next.js, TypeScript, and Tailwind CSS
+- The frontend uses Next.js, TypeScript, and Tailwind CSS
 - The frontend provides both learner-facing routes and authoring/admin tools
 - Shared request handling lives in `src/web/src/lib/request.ts` and
   `src/web/src/lib/api.ts`
@@ -156,7 +155,7 @@ The application has two main runtime components:
 
 #### Unified Request System
 
-The Cook Web frontend uses a single request system across routes such as
+The frontend uses a single request system across routes such as
 `/admin` and `/c`. The legacy `/main` entry redirects to `/admin`.
 
 Request flow:
@@ -643,9 +642,9 @@ does not replace test coverage. Before committing, also run
 
 - `backend-tests.yml`: runs backend tests for `src/api/**` changes and on
   direct pushes to `main`.
-- `frontend-tests.yml`: runs Cook Web Jest tests for frontend and shared i18n
+- `frontend-tests.yml`: runs frontend Jest tests for frontend and shared i18n
   changes while reporting a successful no-op check for unrelated PRs.
-- `prettier-check.yml`: checks Cook Web formatting for frontend changes.
+- `prettier-check.yml`: checks frontend formatting for frontend changes.
 - `repo-harness.yml`: the `Static Checks` job validates architecture
   boundaries, instructions, generated knowledge artifacts, translation
   parity and locale metadata, and the MarkdownFlow release pins on PRs into `main`.
@@ -796,7 +795,7 @@ When adding a new namespace:
 | Hooks never run, or a tool reports "command not found" | Run `python scripts/check_dev_tools.py` and install what it lists |
 | Tests fail with import errors | Check `PYTHONPATH` and local env |
 | Docker build fails | Ensure required `.env` files exist |
-| TypeScript errors in Cook Web | Run `npm run type-check` |
+| Frontend TypeScript errors | Run `npm run type-check` |
 | Redis connection optional | App can still run without Redis in many flows |
 
 ### Debug Commands

@@ -1,6 +1,6 @@
-# Cook Web
+# Web Frontend
 
-Cook Web is AI-Shifu's Next.js frontend for learners, teachers, and operators.
+AI-Shifu's Next.js frontend serves learners, teachers, and operators.
 It shares translations with the backend under `../i18n/` and uses the npm
 lockfile in this directory.
 
@@ -24,7 +24,7 @@ Set the backend origin in `.env.local`, keeping any existing local settings:
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 ```
 
-Use an origin without an `/api` suffix. Then start Cook Web:
+Use an origin without an `/api` suffix. Then start the frontend:
 
 ```bash
 npm run dev
@@ -42,7 +42,7 @@ for deployment.
 
 ## Runtime And Authentication Configuration
 
-Cook Web's `/api/config` route returns only `apiBaseUrl`. The backend
+The frontend's `/api/config` route returns only `apiBaseUrl`. The backend
 `/api/runtime-config` endpoint supplies login methods and other runtime
 settings. See the [environment reference](src/config/ENVIRONMENT_CONFIG.md)
 for the full configuration contract.

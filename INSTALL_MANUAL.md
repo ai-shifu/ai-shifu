@@ -9,11 +9,11 @@ AI-Shifu consists of two main components:
 ```bash
 src/
 ├── api/          # Backend API service (Flask/Python)
-└── web/          # Cook Web frontend (Next.js)
+└── web/          # Frontend (Next.js)
 ```
 
 - **api**: Backend API service built with Flask
-- **web**: Cook Web frontend for creating, managing, and learning courses, built with Next.js
+- **web**: Frontend for creating, managing, and learning courses, built with Next.js
 
 ### Required Tools and Services
 
@@ -291,7 +291,7 @@ flask db upgrade
 gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
 ```
 
-#### Step 5.4: Start Web Frontend & CMS
+#### Step 5.4: Start Frontend
 
 ```bash
 # In a second terminal, from the repository root
@@ -314,8 +314,7 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 npm run dev
 ```
 
-Cook Web serves both the learner experience and authoring console at
-`http://localhost:3000`. See the [Cook Web README](src/web/README.md) for
+The frontend is available at `http://localhost:3000`. See the [frontend README](src/web/README.md) for
 authentication configuration and frontend validation commands.
 
 #### Step 5.5: Install the Code-Quality Hooks (Contributors)
