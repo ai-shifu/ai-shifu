@@ -989,7 +989,14 @@ export default function ShifuSettingDialog({
       return;
     }
     refreshMinimaxVoiceData();
-  }, [providerSupportsCloning, open, refreshMinimaxVoiceData, ttsEnabled]);
+  }, [
+    providerSupportsCloning,
+    open,
+    refreshMinimaxVoiceData,
+    ttsEnabled,
+    isCourseOwner,
+    supportsMiniMaxVoiceCloning,
+  ]);
 
   useEffect(() => {
     if (!open || !providerSupportsCloning) {

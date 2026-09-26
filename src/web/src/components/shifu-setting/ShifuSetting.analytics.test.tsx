@@ -278,6 +278,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     mockListMinimaxTtsVoices.mockResolvedValue({ voices: [] });
     mockGetMinimaxTtsCloneCost.mockResolvedValue({});
     mockCurrentShifu.readonly = false;
+    mockCurrentShifu.created_user_bid = 'owner-1';
     mockAskConfig.mockResolvedValue({ providers: [] });
     mockSaveShifuDetail.mockResolvedValue(undefined);
     mockTrackEvent.mockImplementation(() => undefined);
@@ -350,6 +351,36 @@ describe('ShifuSettingDialog analytics producer', () => {
       'teacher_minimax_clone_cost_unavailable',
       { surface: 'settings' },
     ]);
+  });
+
+  it('refreshes unavailable costs when course ownership loads after the initial refresh', async () => {
+    await configureMiniMaxSettings();
+    mockCurrentShifu.created_user_bid = 'another-owner';
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({});
+
+    const { onSave, rerender } = renderOpenSettings();
+    await waitFor(() =>
+      expect(latestMiniMaxDialogProps().cloneCost).toEqual({}),
+    );
+    expect(unavailableCostEventCalls()).toHaveLength(0);
+    const initialCostRequestCount =
+      mockGetMinimaxTtsCloneCost.mock.calls.length;
+
+    mockCurrentShifu.created_user_bid = 'owner-1';
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-1'
+        openSignal='analytics-test'
+        onSave={onSave}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mockGetMinimaxTtsCloneCost).toHaveBeenCalledTimes(
+        initialCostRequestCount + 1,
+      ),
+    );
+    await waitFor(() => expect(unavailableCostEventCalls()).toHaveLength(1));
   });
 
   it('starts a new unavailable-cost count after settings close and reopen', async () => {
