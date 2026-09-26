@@ -26,7 +26,22 @@ Authenticated same-Origin ownership uses revision-checked replacement; concurren
 contenders have one winner, and stale callers never reclaim automatically.
 Logical owners and outstanding credentials are separate ledgers. Replacement
 retains disclosed or uncertain credential risk until expiry. Rotation disabled
-denies early takeover but continues accounting. Never clear ledgers for capacity.
+denies early takeover but continues accounting while the records are retained.
+Never clear ledgers for capacity.
+
+Redis policies that evict keys, including `volatile-lru` and `allkeys-lru`, are
+accepted alongside `noeviction`; acceptance is not a guarantee that the risk
+ledger survives memory pressure. Eviction can remove ownership and credential-risk
+records before issued credentials expire. Capacity guarantees therefore depend
+on retaining those records until their risk expires. Record the deployed policy
+and retention assumptions during real-Redis acceptance; do not equate an evicting
+store with retained accounting. Privileged same-process Redis `RESTORE` remains
+prohibited unless admission is drained.
+
+`live_follow_up_admission.py` owns this limitation. The readiness policy and
+credential-capacity tests in `test_live_follow_up_admission.py` verify accepted
+policies, restart guards and reservations while records exist; they do not prove
+safe accounting after real eviction.
 
 The central configuration registry owns limits: defaults are 96 global
 credentials, 8 per user, 24 active owners, 4 user mints/minute and 24 global

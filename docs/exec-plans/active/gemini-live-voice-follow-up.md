@@ -15,7 +15,9 @@ embedded Live follow-up. The current behavior is defined in
 - [x] 2026-09-26: Preserved the original delivery journal in `docs/history/`;
   earlier standalone dialogs, quotas and open-PR instructions are superseded.
 - [ ] Reproduce admission/ownership and persistence acceptance with real Redis
-  and MySQL, recording image/configuration and results.
+  and MySQL, recording image/configuration and results, including Redis
+  `maxmemory-policy` and credential-risk record retention. An accepted evicting
+  policy does not establish the retained-record capacity guarantee.
 - [ ] Deploy compatible API/web to the controlled dev environment, drain
   pre-upgrade admissions, and validate enabled rotation and Live-only prompts.
 - [ ] Exercise a real ephemeral credential and direct Gemini WebSocket with
