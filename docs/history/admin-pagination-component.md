@@ -1,5 +1,11 @@
 # Admin Pagination Component
 
+Historical implementation proposal. The shared pagination component is now
+present; PR #1542 merged on 2026-04-20 (`51534b5c5`). The scope and plan below
+record the original migration, not pending work or today's complete API.
+For current changes, use the [admin table workflow](../../src/web/skills/admin-table-visual-system/SKILL.md)
+and [AdminPagination](../../src/web/src/components/admin/AdminPagination.tsx).
+
 ## Goal
 
 Reduce repeated pagination UI code across admin list pages by extracting a shared

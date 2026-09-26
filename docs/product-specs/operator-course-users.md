@@ -1,3 +1,11 @@
+---
+title: Operator Course Users Section
+status: needs-review
+owner_surface: frontend
+last_reviewed: ""
+canonical: true
+---
+
 ## Operator Course Users Section
 
 ### Goal

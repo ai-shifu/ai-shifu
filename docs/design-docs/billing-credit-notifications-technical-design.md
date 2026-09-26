@@ -1,10 +1,18 @@
+---
+title: 积分通知中心技术设计
+status: needs-review
+owner_surface: backend
+last_reviewed: ""
+canonical: true
+---
+
 # 积分通知中心技术设计
 
 更新时间：2026-05-21
 
 ## 目标
 
-本文档基于 `docs/billing-credit-notifications.md`，描述积分通知中心的后续实现设计。v1 只落地短信渠道，但数据模型、任务和运营后台按通知中心抽象设计，后续可以扩展站内信、邮件、飞书等渠道。
+本文档基于 `docs/product-specs/billing-credit-notifications.md`，描述积分通知中心的后续实现设计。v1 只落地短信渠道，但数据模型、任务和运营后台按通知中心抽象设计，后续可以扩展站内信、邮件、飞书等渠道。
 
 本设计只说明未来实现方案，不表示相关数据库表、任务、API 或前端页面已经存在。
 

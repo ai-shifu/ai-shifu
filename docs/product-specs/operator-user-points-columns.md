@@ -1,3 +1,11 @@
+---
+title: Operator User Points
+status: needs-review
+owner_surface: frontend
+last_reviewed: ""
+canonical: true
+---
+
 # Operator User Points
 
 ## Context

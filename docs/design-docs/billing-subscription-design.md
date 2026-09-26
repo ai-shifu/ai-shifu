@@ -1,3 +1,11 @@
+---
+title: Billing 设计文档
+status: needs-review
+owner_surface: backend
+last_reviewed: ""
+canonical: true
+---
+
 # Billing 设计文档
 
 更新日期：2026-08-16
@@ -113,7 +121,7 @@ callback. Do not add SQL `server_default=func.now()` or `CURRENT_TIMESTAMP`
 for these fields. DTOs retain `datetime | None`; the shared `fmt()` sink emits
 UTC ISO-8601 with `Z`, or `null` when absent. Use `to_utc_iso()` for explicit
 serialization before that sink. See the
-[engineering timestamp contract](engineering-baseline.md#timestamps-and-transactions).
+[engineering timestamp contract](../engineering-baseline.md#timestamps-and-transactions).
 
 ### 2.2 通用编码
 

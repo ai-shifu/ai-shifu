@@ -1,5 +1,14 @@
 # Admin Time Display
 
+Historical migration design and field-coverage snapshot. The background,
+implementation plan and exception list below describe the earlier admin time
+migration; they are not a fresh audit of every current serializer or page.
+For the current UTC write/read contract use [repository rules](../../AGENTS.md)
+and the [engineering baseline](../engineering-baseline.md). Browser formatting
+is implemented in [admin-date-time](../../src/web/src/lib/admin-date-time.ts).
+The earlier suggestion to retain server-side display-time timezone semantics
+must not override the current UTC serialization contract.
+
 ## Background
 
 The admin/operator surfaces currently render backend datetimes through three

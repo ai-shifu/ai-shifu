@@ -1,3 +1,11 @@
+---
+title: 积分通知中心需求文档
+status: needs-review
+owner_surface: backend
+last_reviewed: ""
+canonical: true
+---
+
 # 积分通知中心需求文档
 
 更新时间：2026-05-22
@@ -12,9 +20,9 @@ v1 首个触达渠道是短信。但产品模型应按“通知中心”设计�
 
 ## 现有参考
 
-- `docs/billing-subscription-purchase-sms.md` 定义了当前 billing 异步短信模式：业务事实落库时记录通知意图，事务提交后入队，由 worker 调用供应商发送。
-- `docs/operator-user-points-grant.md` 定义了人工积分发放语义，包括 `reward` 和 `compensation`。
-- `docs/billing-subscription-design.md` 定义了账户、积分桶、账本、积分桶过期和低余额提醒边界。
+- `docs/design-docs/billing-subscription-purchase-sms.md` 定义了当前 billing 异步短信模式：业务事实落库时记录通知意图，事务提交后入队，由 worker 调用供应商发送。
+- `docs/product-specs/operator-user-points-grant.md` 定义了人工积分发放语义，包括 `reward` 和 `compensation`。
+- `docs/design-docs/billing-subscription-design.md` 定义了账户、积分桶、账本、积分桶过期和低余额提醒边界。
 
 ## 通知场景
 

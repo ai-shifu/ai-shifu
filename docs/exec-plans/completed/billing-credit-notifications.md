@@ -8,8 +8,8 @@
 
 本计划的来源文档是：
 
-- `docs/billing-credit-notifications.md`
-- `docs/billing-credit-notifications-technical-design.md`
+- `docs/product-specs/billing-credit-notifications.md`
+- `docs/design-docs/billing-credit-notifications-technical-design.md`
 
 核心边界：积分通知只记录和投递通知事实，不改变积分发放、扣减、过期或余额事实。账务真相仍以 `credit_ledger_entries`、`credit_wallet_buckets`、`credit_wallets` 为准。
 
@@ -93,11 +93,11 @@ See `docs/product-specs/notification-management-analytics.md`.
 
 Relevant source documents:
 
-- Requirements: `docs/billing-credit-notifications.md`
-- Technical design: `docs/billing-credit-notifications-technical-design.md`
-- Existing purchase SMS design: `docs/billing-subscription-purchase-sms.md`
-- Manual grant semantics: `docs/operator-user-points-grant.md`
-- Billing wallet and bucket design: `docs/billing-subscription-design.md`
+- Requirements: `docs/product-specs/billing-credit-notifications.md`
+- Technical design: `docs/design-docs/billing-credit-notifications-technical-design.md`
+- Existing purchase SMS design: `docs/design-docs/billing-subscription-purchase-sms.md`
+- Manual grant semantics: `docs/product-specs/operator-user-points-grant.md`
+- Billing wallet and bucket design: `docs/design-docs/billing-subscription-design.md`
 
 Likely backend surfaces:
 
