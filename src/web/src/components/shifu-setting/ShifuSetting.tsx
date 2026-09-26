@@ -628,15 +628,15 @@ export default function ShifuSettingDialog({
             }) as Promise<MiniMaxCloneCost>)
           : Promise.resolve(null),
     });
-    if (result.voices !== null) {
-      setMinimaxClonedVoices(result.voices);
-    }
     const currentScope = minimaxCloneCostRefreshScopeRef.current;
-    if (
+    const isCurrentRefresh =
       refreshSeq === minimaxCloneCostRefreshSeqRef.current &&
       refreshScope.shifuId === currentScope.shifuId &&
-      refreshScope.provider === currentScope.provider
-    ) {
+      refreshScope.provider === currentScope.provider;
+    if (isCurrentRefresh) {
+      if (result.voices !== null) {
+        setMinimaxClonedVoices(result.voices);
+      }
       setMinimaxCloneCost(result.cloneCost);
     }
     if (result.errors.length > 0) {

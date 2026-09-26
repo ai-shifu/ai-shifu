@@ -443,7 +443,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     );
   });
 
-  it('ignores clone-cost refreshes that finish after a newer request', async () => {
+  it('ignores MiniMax refreshes that finish after a newer request', async () => {
     mockTtsConfig.mockResolvedValue({
       providers: [
         {
