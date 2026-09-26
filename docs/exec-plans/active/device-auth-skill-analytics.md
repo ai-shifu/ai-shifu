@@ -108,7 +108,7 @@ Device authorization is implemented in
 `src/api/flaskr/service/user/device_auth.py` and exposed through the user
 routes. The approval page and its producer tests live under
 `src/web/src/app/login/device/`. The existing analytics contract is
-`docs/exec-plans/active/account-session-analytics.md`.
+`docs/product-specs/account-session-analytics.md`.
 
 ## Plan of Work
 

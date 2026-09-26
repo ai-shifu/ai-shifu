@@ -4,6 +4,8 @@
 
 User-facing workflow and page behavior specifications live here.
 
+- [Account Session Analytics](../product-specs/account-session-analytics.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-26` | Canonical: `true`
 - [Billing learning-time estimates](../product-specs/billing-learning-hours-estimate.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-21` | Canonical: `true`
 - [Dashboard Entry Page Contract](../product-specs/dashboard-entry-page.md)
