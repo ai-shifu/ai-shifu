@@ -5,12 +5,13 @@ teacher flows.
 
 Entry files in this directory: `uiConstants.ts`, `courseConstants.ts`.
 
+Shared compatibility, i18n, privacy and verification rules are inherited from
+the root and `src/web/AGENTS.md`; the constraints below are local.
+
 ## Do
 
 - Keep shared breakpoint, course, and UI constants as the single source of
   truth for all consumers.
-- Preserve constant names and semantics when skills or stores already depend
-  on them indirectly.
 - Treat this directory as configuration data rather than a place to hide
   behavior that belongs in hooks or services.
 
@@ -20,8 +21,6 @@ Entry files in this directory: `uiConstants.ts`, `courseConstants.ts`.
   when they already exist here.
 - Do not mix runtime branching logic into constant files unless the logic is
   truly configuration-oriented.
-- Do not rename exported constants casually because many files import them
-  directly.
 
 ## Tests
 

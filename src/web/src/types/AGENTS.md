@@ -6,14 +6,13 @@ and cross-domain frontend interfaces.
 Entry files in this directory: `shifu.ts`, `store.ts`, `sse.d.ts`,
 `markdown-flow-ui.d.ts`, `i18n-keys.d.ts`.
 
+Shared compatibility, i18n, privacy and verification rules are inherited from
+the root and `src/web/AGENTS.md`; the constraints below are local.
+
 ## Do
 
-- Treat shared type exports as compatibility surfaces consumed across routes,
-  stores, hooks, and components.
 - Keep ambient declarations and module augmentation narrow so upstream package
   exports are not accidentally shadowed.
-- Prefer updating source types together with their consumers instead of
-  papering over mismatches with broad `any` casts.
 
 ## Avoid
 

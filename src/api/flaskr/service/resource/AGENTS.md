@@ -5,6 +5,9 @@ centered on the service data model layer.
 
 Entry files in this directory: `models.py`.
 
+Shared compatibility, i18n, privacy and verification rules are inherited from
+the root and `src/api/AGENTS.md`; the constraints below are local.
+
 ## Do
 
 - Keep resource and usage records aligned with business-key and index
@@ -18,8 +21,6 @@ Entry files in this directory: `models.py`.
 
 - Do not let other modules invent incompatible meanings for resource rows or
   usage rows without updating the owning models.
-- Do not grow hidden behavior in compiled artifacts or untracked files when
-  the checked-in model layer is the source of truth.
 - Do not skip migration review when resource columns or indexes move.
 
 ## Tests

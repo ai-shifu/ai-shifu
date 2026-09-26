@@ -10,8 +10,7 @@
 
 ## Backend Skill Index
 
-- `skills/shifu-authoring-flow/SKILL.md`
-- `skills/user-auth-flows/SKILL.md`
+Use the [metadata-derived catalog](skills/README.md) for available workflows.
 
 ## When To Add A Skill
 
