@@ -70,6 +70,9 @@ localized by the request's timezone parameter.
 - Date filtering applies to progress/order creation timestamps for counts and
   progress update timestamps for last activity. With a date range, only courses
   with matching learner or order activity remain in the list and course count.
+- Course rows retain ascending `(shifu_name.lower(), shifu_bid)` order after
+  filtering and before page slicing. The course BID is the stable tie-breaker
+  when names compare equal ignoring case; preserve both sort keys.
 - Summary metrics cover the filtered course scope before pagination. Empty
   results have zero counts, `"0.00"` amount, zero pages, and an empty item list.
 
