@@ -64,6 +64,14 @@ def test_spanish_language_loads_shared_translations() -> None:
     assert t("module.chat.ask") == "Preguntar"
 
 
+def test_german_language_loads_shared_translations() -> None:
+    app = Flask(__name__)
+
+    load_translations(app)
+    set_language("de-DE")
+    assert t("module.chat.ask") == "Nachfragen"
+
+
 def test_arabic_and_thai_languages_load_shared_translations() -> None:
     app = Flask(__name__)
 
@@ -83,6 +91,7 @@ def test_locale_labels_follow_shared_metadata_order() -> None:
 
     assert get_locale_labels() == {
         "ar-SA": "العربية",
+        "de-DE": "Deutsch",
         "en-US": "English",
         "es-ES": "Español (España)",
         "fr-FR": "Français",
@@ -97,7 +106,7 @@ def test_language_fallback_to_default() -> None:
     load_translations(app)
 
     # Set an unsupported language and verify fallback to en-US
-    set_language("de-DE")
+    set_language("xx-XX")
     assert t("module.chat.ask") == "Ask"
 
 

@@ -1,0 +1,17 @@
+{
+  "__namespace__": "server.file",
+  "__flat__": {
+    "fileDownloadFailed": "Datei-Download fehlgeschlagen",
+    "fileTypeNotSupport": "Nicht unterstützter Dateityp",
+    "fileUploadFailed": "Datei-Upload fehlgeschlagen",
+    "videoBilibiliApiError": "Bilibili API-Fehler",
+    "videoBilibiliApiRequestFailed": "Bilibili API anfordern fehlgeschlagen",
+    "videoGetInfoError": "Fehler beim Abrufen von Videoinformationen",
+    "videoInvalidBilibiliLink": "Ungültiger Bilibili-Link",
+    "videoInvalidUrlFormat": "Ungültiges Video-URL-Format",
+    "videoNetworkError": "Fehler beim Videonetzwerk",
+    "videoParseError": "Video-Parse-Fehler",
+    "videoUnsupportedVideoSite": "Nicht unterstützte Video-Website",
+    "videoUrlRequired": "Video-URL ist erforderlich"
+  }
+}

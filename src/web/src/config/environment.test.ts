@@ -73,3 +73,37 @@ describe('Spanish legal document URLs', () => {
     });
   });
 });
+
+describe('German legal document URLs', () => {
+  const originalAgreementUrl = process.env.LEGAL_AGREEMENT_URL_DE_DE;
+  const originalPrivacyUrl = process.env.LEGAL_PRIVACY_URL_DE_DE;
+
+  afterEach(() => {
+    if (originalAgreementUrl === undefined) {
+      delete process.env.LEGAL_AGREEMENT_URL_DE_DE;
+    } else {
+      process.env.LEGAL_AGREEMENT_URL_DE_DE = originalAgreementUrl;
+    }
+    if (originalPrivacyUrl === undefined) {
+      delete process.env.LEGAL_PRIVACY_URL_DE_DE;
+    } else {
+      process.env.LEGAL_PRIVACY_URL_DE_DE = originalPrivacyUrl;
+    }
+  });
+
+  it('exposes configured de-DE agreement and privacy URLs', async () => {
+    process.env.LEGAL_AGREEMENT_URL_DE_DE = 'https://example.test/vereinbarung';
+    process.env.LEGAL_PRIVACY_URL_DE_DE = 'https://example.test/datenschutz';
+
+    await jest.isolateModulesAsync(async () => {
+      const { environment } = await import('./environment');
+
+      expect(environment.legalUrls.agreement['de-DE']).toBe(
+        'https://example.test/vereinbarung',
+      );
+      expect(environment.legalUrls.privacy['de-DE']).toBe(
+        'https://example.test/datenschutz',
+      );
+    });
+  });
+});

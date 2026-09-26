@@ -486,3 +486,42 @@ def test_spanish_prompt_backfill_generation_failure_keeps_saved_config(
             app, locale="es-ES", apply=True
         )
     assert publication.read_profile_onboarding_database(app) == original
+
+
+def test_german_prompt_backfill_preserves_existing_locales(
+    app: object, publication: object, monkeypatch: object
+) -> None:
+    from flaskr.service.common import profile_onboarding as config
+
+    existing_prompts = {
+        locale: f"Saved {locale}" for locale in get_i18n_list() if locale != "de-DE"
+    }
+    original = _seed_saved_prompt_config(app, publication, existing_prompts)
+    monkeypatch.setattr(config, "validate_profile_onboarding_markdownflow", Mock())
+    localizer = Mock(return_value={"de-DE": "Generated German"})
+    monkeypatch.setattr(
+        config, "localize_profile_onboarding_assistant_prompt", localizer
+    )
+
+    assert config.backfill_profile_onboarding_assistant_locale(
+        app, locale="de-DE", apply=False
+    ) == {"locale": "de-DE", "config_revision": 8, "status": "pending"}
+    assert publication.read_profile_onboarding_database(app) == original
+    localizer.assert_not_called()
+
+    assert config.backfill_profile_onboarding_assistant_locale(
+        app, locale="de-DE", apply=True
+    ) == {
+        "locale": "de-DE",
+        "config_revision": 9,
+        "generated_locales": ["de-DE"],
+        "status": "backfilled",
+    }
+    saved = json.loads(publication.read_profile_onboarding_database(app))
+    assert saved["assistant_prompts"] == {
+        **existing_prompts,
+        "de-DE": "Generated German",
+    }
+    localizer.assert_called_once_with(
+        app, "Saved master prompt", target_locales={"de-DE"}
+    )

@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.common",
+  "__flat__": {
+    "dataLoadFailed": "Fehler beim Laden von Daten, bitte versuchen Sie es später noch einmal",
+    "nicknameNotAllowed": "Der eingegebene Spitzname ist nicht zulässig.",
+    "operationFailed": "Servicefehler, bitte versuchen Sie es später noch einmal",
+    "paramsError": "Parameterfehler {param_message}",
+    "stateInvalid": "Diese Aktion ist im aktuellen Zustand nicht verfügbar",
+    "systemError": "Systemfehler",
+    "unexpectedError": "Der Service ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später noch einmal.",
+    "unknownError": "Unbekannter Fehler"
+  }
+}

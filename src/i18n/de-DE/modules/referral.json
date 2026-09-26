@@ -1,0 +1,130 @@
+{
+  "__namespace__": "module.referral",
+  "creator": {
+    "copied": "Kopiert",
+    "copyLink": "Link kopieren",
+    "description": "Empfehlen Sie AI Shifu Freunden, für die es hilfreich sein könnte.",
+    "emptyQueue": "Teilen Sie Ihren persönlichen Einladungslink. Sobald sich ein Freund mit seiner Telefonnummer registriert, erhalten Sie einen Monat Tarifleistungen.",
+    "inviteCardDescription": "Teilen Sie Ihren Einladungslink mit Freunden, die sich noch nicht bei AI Shifu registriert haben. Nach ihrer Registrierung erhalten Sie die entsprechende Tarifprämie.",
+    "inviteCardTitle": "Persönlichen Einladungslink teilen",
+    "inviteLink": "Einladungslink",
+    "metrics": {
+      "rewarded": "Erhaltene Prämien"
+    },
+    "queueColumns": {
+      "effectiveAt": "Beginn",
+      "expiresAt": "Ablaufdatum",
+      "invitee": "Eingeladener Freund",
+      "reward": "Prämie",
+      "status": "Prämienstatus"
+    },
+    "queueTitle": "Einladungsverlauf",
+    "refresh": "Aktualisieren",
+    "rewardRecordValue": "{cycles} Monate Basistarif (einschließlich {credits} Credits)",
+    "rewardRulesTitle": "Kampagnenregeln",
+    "rules": {
+      "cap": "Einladungsprämien werden automatisch gutgeschrieben und können sich auf bis zu {cap} Monate summieren. Wenn Sie zum Beispiel zwölf Freunde einladen, können Sie zwölf Monate Basic-Tarif erhalten.",
+      "defer": "Wenn Sie bereits einen aktiven Tarif haben, beginnt die Einladungsprämie automatisch nach dessen Ablauf.",
+      "firstRegistration": "Wenn ein Freund seine erste Registrierung über Ihren Einladungslink abschließt, zählt die Einladung als erfolgreich.",
+      "inviteeBenefit": "Nach der Registrierung erhalten eingeladene Freunde einen Testtarif mit 1000 Credits für neue Nutzer, der 15 Tage gültig ist.",
+      "inviterReward": "Für jeden erfolgreich eingeladenen Freund erhalten Sie {cycles} Monate Basic-Tarif mit {credits} Credits im Wert von 199 RMB.",
+      "unregistered": "Teilen Sie Ihren Einladungslink mit neuen Nutzern, die sich noch nicht für AI Shifu angemeldet haben."
+    },
+    "shareMessage": "Ich verwandle mit AI Shifu mein Wissen und meine Erfahrungen in persönliche interaktive Kurse. Probier es auch aus: Nach der Registrierung erhältst du einen kostenlosen 15-Tage-Testtarif. Registrieren: {url}",
+    "title": "Freunde einladen",
+    "tooltips": {
+      "rewarded": "Anzahl der Monate, die bereits als automatische Prämie erfasst wurden."
+    }
+  },
+  "inviteLanding": {
+    "badge": "Einladung von Freunden",
+    "brandName": "AI Shifu",
+    "codeLabel": "Einladungscode",
+    "codePlaceholder": "Einladungscode eingeben",
+    "codeRequired": "Geben Sie zuerst einen Einladungscode ein.",
+    "descriptionAfterBrand": " zu Ihrem vielseitigen Lehrpartner werden und verwandeln Sie Wissen und Erfahrung in persönliche interaktive Kurse.",
+    "descriptionBeforeBrand": "Lassen Sie ",
+    "fallbackTitle": "Sie wurden eingeladen, AI Shifu auszuprobieren!",
+    "formAria": "Registrierung mit Einladungscode",
+    "formTitle": "Einladungscode bestätigen",
+    "invitedTitle": "{maskedMobile} lädt Sie ein, AI Shifu auszuprobieren!",
+    "register": "Kostenlos registrieren und starten",
+    "submitFailed": "Der Einladungscode konnte nicht übermittelt werden. Bitte versuchen Sie es später erneut.",
+    "title": "Sie wurden eingeladen, AI Shifu auszuprobieren!",
+    "trialHint": "Registrieren Sie sich, um einen kostenlosen 15-Tage-Testplan zu erhalten"
+  },
+  "operator": {
+    "actions": {
+      "reset": "Zurücksetzen",
+      "search": "Suchen"
+    },
+    "description": "Prüfen Sie Einladungen, Prämienstatus, eingeladene Konten und zugehörige Abrechnungen.",
+    "empty": "Keine Einladungsbeziehungen.",
+    "filters": {
+      "all": "Alle",
+      "boundAt": "Gebunden am",
+      "campaignBid": "Kampagne BID",
+      "inviteCode": "Einladungscode",
+      "invitee": "Eingeladene Person",
+      "inviteeEmailPlaceholder": "E-Mail-Adresse der eingeladenen Person",
+      "inviteeMobilePlaceholder": "Telefonnummer der eingeladenen Person",
+      "inviter": "Einladende Person",
+      "inviterEmailPlaceholder": "E-Mail des Einladenden",
+      "inviterMobilePlaceholder": "Telefonnummer der einladenden Person",
+      "relationStatus": "Beziehungsstatus"
+    },
+    "loadFailed": "Einladungen konnten nicht geladen werden. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.",
+    "metrics": {
+      "abnormalRelations": "Auffällige Einladungen",
+      "generatedRewards": "Prämienmonate",
+      "totalRelations": "Einladungen"
+    },
+    "pagination": {
+      "jumpInputAria": "Zur Seite mit Einladungen springen",
+      "next": "Nächster",
+      "nextAria": "Nächste Seite",
+      "prev": "Zurück",
+      "prevAria": "Vorherige Seite"
+    },
+    "refresh": "Aktualisieren",
+    "statusUpdated": "Status aktualisiert",
+    "table": {
+      "action": "Aktion",
+      "boundAt": "Gebunden am",
+      "campaign": "Kampagne",
+      "inviteCode": "Einladungscode",
+      "invitee": "Eingeladene Person",
+      "inviter": "Einladende Person",
+      "relationStatus": "Beziehungsstatus",
+      "rewardStatus": "Belohnungsstatus"
+    },
+    "title": "Einladungsprämien",
+    "tooltips": {
+      "abnormalRelations": "Einladungen, die geprüft werden oder als auffällig bestätigt wurden.",
+      "generatedRewards": "Anzahl der nicht stornierten Einladungsprämien.",
+      "totalRelations": "Gesamtzahl verknüpfter Einladungen."
+    },
+    "total": "{total} insgesamt"
+  },
+  "relationStatus": {
+    "abnormalReviewing": "Auffällige Einladung wird geprüft",
+    "canceled": "Storniert",
+    "registered": "Registriert",
+    "rewardActive": "Belohnung aktiv",
+    "rewardEnded": "Prämie beendet",
+    "rewardGenerated": "Erzeugte Belohnung",
+    "rewardPendingEffective": "Prämie noch nicht aktiv",
+    "rewardSkippedCap": "Wegen Obergrenze keine Prämie",
+    "unknown": "Unbekannter Beziehungsstatus"
+  },
+  "rewardStatus": {
+    "active": "Aktiv",
+    "canceled": "Storniert",
+    "expired": "Abgelaufen",
+    "frozen": "Eingefroren",
+    "generated": "Erzeugt",
+    "pendingEffective": "Noch nicht aktiv",
+    "skippedCap": "Wegen Obergrenze keine Prämie",
+    "unknown": "Unbekannter Belohnungsstatus"
+  }
+}

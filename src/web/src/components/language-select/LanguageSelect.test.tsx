@@ -25,10 +25,11 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/lib/i18n-locales', () => ({
   localeEntries: [
     ['en-US', { label: 'English' }],
+    ['de-DE', { label: 'Deutsch' }],
     ['es-ES', { label: 'Español (España)' }],
     ['fr-FR', { label: 'Français' }],
   ],
-  localeCodes: ['en-US', 'es-ES', 'fr-FR'],
+  localeCodes: ['en-US', 'de-DE', 'es-ES', 'fr-FR'],
 }));
 
 jest.mock('@/hooks/useTracking', () => ({
@@ -108,6 +109,29 @@ describe('LanguageSelect analytics', () => {
       );
     },
   );
+
+  it('offers German and records an accepted German choice', () => {
+    const onSetLanguage = jest.fn();
+    render(
+      <LanguageSelect
+        analyticsSurface='learner_menu'
+        language='en-US'
+        onSetLanguage={onSetLanguage}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Language' }), {
+      target: { value: 'de-DE' },
+    });
+
+    expect(screen.getByRole('option', { name: 'Deutsch' })).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith('user_language_selected', {
+      selected_locale: 'de-DE',
+      surface: 'learner_menu',
+    });
+    expect(mockChangeLanguage).toHaveBeenCalledWith('de-DE');
+    expect(onSetLanguage).toHaveBeenCalledWith('de-DE');
+  });
 
   it('excludes initialization, prop hydration, same-language and unsupported values', () => {
     const onSetLanguage = jest.fn();
