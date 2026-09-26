@@ -14,11 +14,9 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
-- [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
-- [Repository Knowledge Cleanup](./active/repository-knowledge-cleanup.md)
-- [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
+- [Ruff rule minimization](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 
 ## Completed
@@ -79,6 +77,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Promotion Ops State Rules](./completed/operator-promotion-ops-state-rules.md)
 - [Operator User Contact Change](./completed/operator-user-contact-change.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
+- [ExecPlan: Package Campaigns](./completed/package-campaigns.md)
 - [Password Login Account Rate Limit](./completed/password-login-rate-limit.md)
 - [Separate course permission contact validation](./completed/permission-contact-validation.md)
 - [Let learners answer onboarding questions with their AI](./completed/profile-onboarding-ai-import.md)
@@ -93,6 +92,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
 - [Rename The Cook Web Directory](./completed/rename-cook-web-directory.md)
+- [Repository Knowledge Cleanup](./completed/repository-knowledge-cleanup.md)
 - [Restrict learner order actions to their owner](./completed/restrict-learner-order-actions.md)
 - [Retire the AI Instruction Generator](./completed/retire-ai-instruction-generator.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)

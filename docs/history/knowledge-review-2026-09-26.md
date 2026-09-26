@@ -50,12 +50,12 @@ archived; ambiguous or external acceptance remains active.
 | `operator-promotion-ops-state-rules` | completed | [#1937](https://github.com/ai-shifu/ai-shifu/pull/1937) (`999fcb855`); State-rule changes and focused checks shipped. The old note about unrelated working-tree changes is historical, not current delivery scope. |
 | `operator-user-account-cancellation` | active | Backend and frontend PRs are merged; combined dev02 acceptance remains unperformed and includes destructive account operations. |
 | `operator-user-contact-change` | completed | [#2948](https://github.com/ai-shifu/ai-shifu/pull/2948) (`a0b1e3d0e`); Contact-change workflow and recorded focused tests are delivered. |
-| `package-campaigns` | active | The V1 change merged in #1889. Reconcile original pricing/grant acceptance evidence before closure; order reuse and preorder-renewal pricing are separate business-rule follow-ups. |
+| `package-campaigns` | completed | #1889 (`a4e0648de`); recorded focused billing/UI/type verification and successful backend, contract and runtime/static CI were re-read. Preorder renewal is a separate debt-tracker proposal. |
 | `password-login-rate-limit` | completed | [#2897](https://github.com/ai-shifu/ai-shifu/pull/2897) (`8be7b6536`); The recorded real-Redis concurrent acceptance completes the password limiter. A broader IP-policy follow-up is tracked separately. |
 | `payment-attempt-lifecycle` | active | Awaiting real payment-provider smoke; mocked or local database tests do not prove external provider behavior. |
 | `pydantic-required-compatibility` | completed | [#2912](https://github.com/ai-shifu/ai-shifu/pull/2912) (`38dcfafbf`), [#2913](https://github.com/ai-shifu/ai-shifu/pull/2913) (`d6141f1ca`); The removed legacy constructs, AST guard and recorded regression/CI verification complete compatibility cleanup. |
 | `referral-invitation-rewards` | active | Awaiting dev02 saved-row and product-configuration acceptance; do not infer it from merged implementation. |
-| `rename-cook-web-directory` | active | Implementation and verification are complete. Archival is deferred to the validation-tool batch because its exact historical-path allowlist currently names the active path. |
+| `rename-cook-web-directory` | completed | Original implementation/acceptance was complete; the validation-tool PR updated the exact historical-path allowlist and archived the plan together. |
 | `ruff-rule-minimization` | active | Merged rule units are reconciled below; a fresh census and final rule-selection acceptance still remain. No new lint policy change is part of this audit. |
 | `skill-platform-attribution` | active | Backend #2916 and browser #2934 are merged. The separate Skills producer delivery and end-to-end acquisition report remain external dependencies. |
 | `spanish-es-es-localization` | completed | [#2942](https://github.com/ai-shifu/ai-shifu/pull/2942) (`7791a434c`); PR checks were re-read on 2026-09-26: executed checks succeeded, security-review checks were neutral, and the PR is merged. Native Spanish uses the released library; old dev-pin blockers are historical. |
@@ -64,8 +64,12 @@ archived; ambiguous or external acceptance remains active.
 
 ## Review limits
 
-The directory rename plan is ready for archival but remains active until the
-checker allowlist changes in the separate tooling PR. Package campaign and
-brand/domain plans remain open for evidence/scope reconciliation. No external
+The directory rename and package campaign plans were subsequently closed
+with their stated dependency/evidence resolved. The brand/domain plan remains
+open for settlement-owner reporting implementation and acceptance. No external
 environment was mutated or acceptance silently marked complete by this review.
 No review date was inferred from file modification time or bulk regeneration.
+
+Final disposition of the 46 baseline active documents: 33 completed plans,
+11 retained active plans, one durable product contract and one historical
+inventory. The separately extracted timeline is a completed delivery record.

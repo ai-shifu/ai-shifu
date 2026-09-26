@@ -19,11 +19,11 @@ the content is corrected. Deliver separate ready pull requests per problem.
 - [x] 2026-09-26 00:37 UTC: Reconciled dashboard routes, DTO fields, scope, UTC filtering, and query guidance.
 - [x] 2026-09-26T00:54:50Z: Published the session contract with UTC monthly, disjoint user cohorts.
 - [x] 2026-09-26T00:56:37Z: Reconciled chat Skills with the shared ask store, mode-specific audio, and current timeout constants.
-- [x] 2026-09-26T01:04:37Z: Audited the 46-plan main baseline, separated contracts/snapshots, reconciled merge evidence and retained external acceptance. See `docs/history/knowledge-review-2026-09-26.md`; directory-rename archival awaits the tooling allowlist change.
+- [x] 2026-09-26T01:04:37Z: Audited the 46-plan main baseline, separated contracts/snapshots, reconciled merge evidence and retained external acceptance. See `docs/history/knowledge-review-2026-09-26.md`; directory-rename archival is complete with the tooling allowlist change.
 - [x] 2026-09-26T01:07:05Z: Replaced the frontend note collection with scenario navigation, completed all 20 focused skill metadata entries/catalogs, and narrowed module rules with a local error-fallback i18n exception.
 - [x] 2026-09-26T01:08:48Z: Moved 16 topic documents into specifications/references and updated tracked references. Full-document review dates remain unknown where only navigation or a subsection was checked.
 - [x] 2026-09-26T01:24:07Z: Added tracked Markdown/MDX classification, generated skill catalogs, local link/anchor and plan lifecycle checks, honest review dates, and ignored UTC/HEAD health reports; focused regression evidence is recorded in the delivery report.
-- [ ] 2026-09-26 00:37 UTC: Record pull requests, verification, and external follow-ups.
+- [x] 2026-09-26T01:40:38Z: Recorded ready PRs, verification evidence, review repairs and all external/dependent follow-ups in the delivery report.
 
 - [x] 2026-09-26 04:33 UTC: Recorded concrete audit findings, source paths, delivery links,
   and completion criteria so this plan can be followed without the audit chat.
@@ -32,6 +32,34 @@ the content is corrected. Deliver separate ready pull requests per problem.
   `ae49a0724`, retaining the downstream billing PR ancestry. The existing
   five-file patch was unchanged; seven configuration tests, documentation
   validation, and the full pre-commit gate passed.
+
+- [x] 2026-09-26T03:03:01Z: Incorporated review corrections into the owning PRs, retained a
+  separate unknown-date tooling prerequisite, and consolidated the ready stack.
+  The delivery record links the remaining 12 PRs and documents test coverage
+  limits.
+- [x] 2026-09-26T03:49:51Z: Verified indexed link targets, file types, historical
+  repository containment and Git alias classification; the generator and
+  instruction suites contain 59 passing regression tests.
+
+- [x] 2026-09-26T14:05:49Z: Followed current reviews from #2967 onward, corrected dashboard
+  and audio contracts, and verified the session identity/no-op guards. The
+  delivery ledger records 41 dashboard, 35 analytics and 123 audio tests, plus
+  the independent 61 documentation-tool regressions. Restacked the remaining
+  PRs on merged #2964–#2966 and preserved the concrete audit matrix.
+
+- [x] 2026-09-26T14:48:02Z: Completed the additional review corrections for indexed
+  aliases, lifecycle status, provider-scope rules, mobile/subtitle guidance,
+  header offsets and first-item spacing requirements. Hook triggers include non-document target changes.
+  The tool suites now pass 66 regressions; 13 billing checks establish the
+  implemented timeout/reuse subset, with remaining billing business-order work
+  retained in the debt tracker before campaign-plan archival.
+
+- [x] 2026-09-26T14:56:29Z: Restored the routed learner `debug=1` workflow, including
+  request/auth/page instrumentation and trace limits. All 10 existing request
+  tracing/business-fallback checks passed; they do not cover the debug overlay.
+
+- [x] 2026-09-26T15:12:12Z: Unified tracked category discovery and moved three delivered
+  admin migration proposals into history. All 68 tool regressions passed.
 
 ## Surprises & Discoveries
 
@@ -55,11 +83,16 @@ including those new plans, rather than closing plans from the old counts.
 
 ## Outcomes & Retrospective
 
-Tracker: https://github.com/ai-shifu/ai-shifu/pull/2964.
+The approved cleanup is complete. See
+`docs/history/knowledge-cleanup-delivery-2026-09-26.md` for the ready PR stack,
+executed checks and retained work. All baseline active documents have a recorded
+disposition. Unknown review dates and external acceptance were preserved rather
+than converted into completion claims. User-visible behavior is unchanged.
+Two session analytics producer guards now exclude stale-identity outcomes and zero-session bulk no-ops; event names and
+payloads are preserved, with historical limitations documented.
 
-In progress. Delivery evidence and unresolved external acceptance will be
-recorded here before handoff; code already merged on main is credited rather
-than reimplemented.
+The generator/checker found migration links and metadata/date edge cases during
+verification; content and tooling repairs stayed in separate commits/PRs.
 
 ## Context and Orientation
 
@@ -103,7 +136,9 @@ First correct live operational and behavioral guidance against code and tests.
 Then audit plans with source and merge evidence, extract durable contracts and
 historical snapshots, simplify instruction routing, and relocate topic docs.
 Finally extend the existing generator/checker with regression coverage. Keep
-production application behavior outside this documentation-maintenance scope.
+user-visible application behavior stable. The session contract review required
+focused producer guards and regression tests for its successful-revoker
+population; this does not authorize unrelated behavior changes.
 
 ## Concrete Steps
 
@@ -138,6 +173,7 @@ infer deployment completion from a merged PR or a checked progress item.
 ## Interfaces and Dependencies
 
 Application APIs and analytics event schemas remain unchanged. The session
-analytics reporting contract clarifies cohort semantics. Documentation tooling
-uses the existing Python, Git, and CommonMark parser dependencies. Generated
+analytics reporting contract clarifies cohort semantics and excludes confirmed
+bulk no-ops and outcomes that cross an identity replacement at the producer.
+Documentation tooling uses the existing Python, Git, and CommonMark parser dependencies. Generated
 metadata describes observed sources rather than inventing review timestamps.
