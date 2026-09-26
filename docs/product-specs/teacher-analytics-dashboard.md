@@ -92,6 +92,15 @@ these distinct populations and histories:
   `learned_lesson_count` and `last_learning_at`; the historical proposed
   `completed_outline_count` / `progress_percent` fields are not their contract.
 
+- `_build_dashboard_course_learners` computes each row's `learning_status` from
+  `learned_lesson_count`, not the overview completion-history rule. With at
+  least one eligible leaf, a count at or above `total_lesson_count` yields
+  `completed`; a positive smaller count yields `learning`; zero yields
+  `not_started`. With no eligible leaves, it never returns `completed`.
+  For example, non-reset in-progress records for every leaf make the learner
+  row `completed` without making the learner part of the overview's completed
+  set. Keep these existing list and overview semantics separate.
+
 Use `DashboardCourseDetailDTO` and its nested DTOs for the `/detail` response
 (`basic_info`, aggregate `metrics`, and `learning_mode_metrics`). The separate
 `/learners` response uses `DashboardCourseDetailLearnersDTO`, whose `items` are
