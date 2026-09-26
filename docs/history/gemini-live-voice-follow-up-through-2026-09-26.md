@@ -1669,7 +1669,7 @@ admission review open until implemented behavior, not this design, proves it.
 
 ## Product Analytics Contract (v2: embedded input)
 
-The [canonical embedded analytics contract](../../product-specs/gemini-live-follow-up-analytics.md)
+The [canonical embedded analytics contract](../product-specs/gemini-live-follow-up-analytics.md)
 owns the new input-method consumers, complete payloads, and the deployment-time
 break between automatic-microphone v1 and lazy-connection v2. The connection
 details below continue to apply except that opening the panel is no attempt:

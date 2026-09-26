@@ -3,7 +3,7 @@
 > Lifecycle review, 2026-09-26: July 2026 point-in-time inventory. Counts are historical, not current debt. See the current debt tracker and completed overhaul/UoW plans.
 
 Child deliverable of
-[`backend-overhaul-master.md`](./backend-overhaul-master.md). Scope:
+[`backend-overhaul-master.md`](../exec-plans/completed/backend-overhaul-master.md). Scope:
 `src/api`, dated 2026-07-03. Covers Phase 1 steps 1 (static dead-code pass), 2
 (import-graph reachability), 4 (grep audits + consumer-classified endpoint
 audit), 5 (hotspot ranking), and 3 (runtime coverage; see §7 — pytest-based
