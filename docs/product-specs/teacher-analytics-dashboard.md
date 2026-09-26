@@ -160,35 +160,26 @@ All endpoints live under `/api/dashboard` and are additive to existing routes.
 
 ### Data access patterns (important implementation notes)
 
-**Hard constraint: no database JOIN queries.**
+Query guidance reviewed against the implemented dashboard on 2026-09-26:
 
-- Do not use SQL JOIN / SQLAlchemy `.join()` / relationship eager-loading to combine tables.
-- For parent/child lookups, always:
-  1. Query the parent table first to get the parent keys (`*_bid`, `id`, `parent_bid`, etc.).
-  2. Query the child table with `IN (...)` using those keys.
-  3. Combine the result sets in Python with dict maps.
-- If an `IN (...)` list can grow large, chunk it (e.g. 500-1000 ids per query) and merge the chunks in memory.
+- Filter by the authorized course scope before aggregating or associating data.
+  Course-specific requests use the targeted ownership check; the entry page
+  uses its owned-course scope.
+- Use bounded SQL joins, subqueries, and grouped aggregates where the existing
+  query path requires them. Preserve one-row-per-learner or rating semantics
+  and avoid multiplying counts when joining one-to-many records.
+- Apply SQL filtering and pagination before hydrating page-only display fields.
+  Compute summary metrics over the full eligible scope, not only the page.
+- Retain latest non-reset, non-deleted progress semantics. Batch contact and
+  other display lookups instead of adding per-row queries. Python maps remain
+  appropriate for those bounded presentation joins.
+- Normalize date boundaries once and keep API timestamps in UTC. Query
+  optimizations must preserve empty-state, filter, ordering, and pagination
+  contracts covered by the dashboard route and query-contract tests.
 
-Examples:
-
-- Published outlines:
-  - Load `LogPublishedStruct` (parent) to obtain the outline `id` / `outline_item_bid` list.
-  - Load `PublishedOutlineItem` (child) with `PublishedOutlineItem.id.in_(...)`.
-  - Merge by `outline_item_bid` in Python.
-- Learner list:
-  - Load latest `LearnProgressRecord` rows first (parent) and collect `user_bid` list.
-  - Load `UserEntity` (child) with `UserEntity.user_bid.in_(...)`.
-  - Load `AuthCredential` (child) with `AuthCredential.user_bid.in_(...)`.
-  - Merge user + credential + progress in Python.
-
-Other important patterns:
-
-- Always use **latest** progress record per `(user_bid, outline_item_bid)`:
-  - Build a `max(id)` subquery grouped by `(user_bid, outline_item_bid)` with `status != LEARN_STATUS_RESET` and `deleted == 0`, then load full rows via `LearnProgressRecord.id.in_(subquery)`.
-- Avoid N+1 by batching with `IN (...)` queries:
-  - Batch-load users/credentials for learner lists.
-  - Batch-load ask counts via grouped queries on `learn_generated_blocks` (no joins).
-- Time range filters normalize their boundaries once and apply them to the corresponding entry, follow-up, learner, or rating query.
+The entry route and its four metrics are specified in
+[Dashboard Entry Page Contract](dashboard-entry-page.md); do not duplicate a
+second route or metric definition here.
 
 ### Swagger schemas
 
