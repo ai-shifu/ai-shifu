@@ -21,83 +21,78 @@
 | `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-23` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
-| `docs/exec-plans/active/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/backend-inventory-2026-07.md` | Backend Inventory 2026-07 (Phase 1) | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/backend-overhaul-master.md` | Backend Overhaul Master Plan: Inventory and Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/billing-credit-notifications.md` | ExecPlan: Billing Credit Notifications | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/ci-backend-speed-stack.md` | Speed Up Backend Pull Request Feedback | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/course-price-market-rules-and-free-unlock.md` | Market-aware course prices and free-course unlock | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/creator-dashboard-course-ownership-optimization.md` | Creator Dashboard Course Ownership Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/creator-dashboard-course-ratings.md` | Creator Dashboard Course Ratings | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/creator-dashboard-learners-sql-optimization.md` | Creator Dashboard Learners SQL Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/creator-dashboard-ratings-sql-optimization.md` | Creator Dashboard Ratings SQL Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/creator-dashboard-request-splitting.md` | Creator Dashboard Request Splitting | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/credit-notification-email-delivery.md` | Credit Notification Email Delivery | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/device-auth-skill-analytics.md` | Device Authorization Skill Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-live-configurable-capacity.md` | Configurable Gemini Live admission capacity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live Voice Follow-Up | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/gemini-tts.md` | Gemini TTS Provider | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live follow-up acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/german-de-de-localization.md` | German (Germany) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/idempotent-payment-sync.md` | Keep common payment synchronization idempotent | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/learner-listen-playback-stability.md` | Learner listen playback stability | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/markdownflow-model-arena.md` | Local MarkdownFlow slide comparison ExecPlan | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/mdf2-agent-lesson-carries-on.md` | MarkdownFlow 2.0: a lesson carries on until it waits or ends | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-agent-lesson-rewind.md` | MarkdownFlow 2.0: rewind a lesson to an earlier turn | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/notification-channel-foundation.md` | Notification Channel Foundation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/numbered-course-models.md` | Numbered course models | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/observability-artifacts-consistency-frontend-trace.md` | Observability Artifacts, Consistency Probes, and Frontend Trace IDs | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/official-client-model-gateway.md` | Official Client Model Gateway | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/onboarding-existing-creator-rollout.md` | Existing Creator Onboarding Rollout | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/operator-credit-grant-package.md` | ExecPlan: Operator Credit Grant Package | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/operator-promotion-ops-state-rules.md` | ExecPlan: Operator Promotion Ops State Rules | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/operator-user-contact-change.md` | Operator User Contact Change | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/package-campaigns.md` | ExecPlan: Package Campaigns | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/password-login-rate-limit.md` | Password Login Account Rate Limit | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/pydantic-required-compatibility.md` | Remove deprecated Pydantic `Field(required=...)` metadata | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/repository-knowledge-cleanup.md` | Repository Knowledge Cleanup | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Minimize the Explicit Ruff Policy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/spanish-es-es-localization.md` | Spanish (Spain) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/stripe-payment-sync-security.md` | Secure learner Stripe payment synchronization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/trusted-client-ip.md` | Trusted Client IP Resolution | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-rate-management-create.md` | Add arbitrary rate entries to Rate Management | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/agent-first-harness-migration.md` | Agent-First Harness Migration | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/arabic-thai-i18n.md` | Arabic and Thai Product i18n | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/backend-overhaul-master.md` | Backend Overhaul Master Plan: Inventory and Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/backend-test-coverage-95.md` | Backend Test Coverage Above 95 Percent | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/billing-credit-notifications.md` | ExecPlan: Billing Credit Notifications | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/billing-learning-hours.md` | Billing learning-time estimates | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
-| `docs/exec-plans/completed/billing-timezone-cleanup.md` | Billing 时区死管道清理 — 执行计划 | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/canonical-background-onboarding-contract.md` | Canonical Background And Onboarding Contract | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/ci-backend-speed-stack.md` | Speed Up Backend Pull Request Feedback | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/consolidate-admin-primitives.md` | Consolidate shared admin primitives | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/course-copy-operator.md` | Operator Course Copy | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/course-only-llm-settings.md` | Course-only models and temperatures | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/course-owner-preview-billing.md` | Charge settings previews to the course owner | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/course-price-market-rules-and-free-unlock.md` | Market-aware course prices and free-course unlock | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/creator-dashboard-course-ownership-optimization.md` | Creator Dashboard Course Ownership Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/creator-dashboard-course-ratings.md` | Creator Dashboard Course Ratings | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/creator-dashboard-learners-sql-optimization.md` | Creator Dashboard Learners SQL Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/creator-dashboard-ratings-sql-optimization.md` | Creator Dashboard Ratings SQL Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/creator-dashboard-request-splitting.md` | Creator Dashboard Request Splitting | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/device-auth-skill-analytics.md` | Device Authorization Skill Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/elevenlabs-tts.md` | ElevenLabs TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/frontend-unused-function-stack.md` | Frontend Unused Function Cleanup Stack | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/gemini-tts.md` | Gemini TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/generated-slide-timeline.md` | Generated-slide timeline delivery | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/global-billing-pricing-page.md` | Global Billing Pricing Page | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/harness-health-local-report.md` | Keep harness health reports out of pull request conflicts | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/hide-sys-user-style-from-authoring-ui.md` | Hide `sys_user_style` From Course Authoring UI | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/idempotent-payment-sync.md` | Keep common payment synchronization idempotent | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learn-run-decomposition.md` | ExecPlan: Learn /run Chain Decomposition (B6) | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/learner-listen-playback-stability.md` | Learner listen playback stability | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-dialog-redesign.md` | Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/learner-profile-foundation.md` | Learner Profile Foundation | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/legacy-stripe-billing-timeout-recovery.md` | Recover legacy Stripe billing timeouts | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/litellm-1-102-upgrade.md` | Upgrade LiteLLM to 1.102.0 and retire covered compatibility patches | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/llm-provider-parameter-policies.md` | LiteLLM-First Minimum-Thinking Parameters | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/markdown-flow-agent-memory-migration.md` | Expose Learner Memory through a Typed Host Facade | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/markdown-flow-scroll-controls.md` | MarkdownFlow Scroll Controls | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/markdownflow-model-arena.md` | Local MarkdownFlow slide comparison ExecPlan | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/mdf2-agent-lesson-carries-on.md` | MarkdownFlow 2.0: a lesson carries on until it waits or ends | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/mobile-personalization-dialog.md` | Mobile Learner Personalization Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/model-option-display-normalization.md` | Centralize model option display normalization | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/notification-channel-foundation.md` | Notification Channel Foundation | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/numbered-course-models.md` | Numbered course models | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/observability-artifacts-consistency-frontend-trace.md` | Observability Artifacts, Consistency Probes, and Frontend Trace IDs | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/official-client-model-gateway.md` | Official Client Model Gateway | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/onboarding-existing-creator-rollout.md` | Existing Creator Onboarding Rollout | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/operator-course-b-optimization.md` | Operator Course B Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/operator-course-detail-tab-splitting.md` | Operator Course Detail Tab Splitting | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/operator-credit-grant-package.md` | ExecPlan: Operator Credit Grant Package | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/operator-promotion-ops-state-rules.md` | ExecPlan: Operator Promotion Ops State Rules | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/operator-user-contact-change.md` | Operator User Contact Change | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/operator-user-detail-page-slimming.md` | Operator User Detail Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/password-login-rate-limit.md` | Password Login Account Rate Limit | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/permission-contact-validation.md` | Separate course permission contact validation | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-ai-import.md` | Let learners answer onboarding questions with their AI | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-assistant-controls.md` | Give operators and learners explicit control of AI-assisted onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
@@ -109,11 +104,15 @@
 | `docs/exec-plans/completed/profile-onboarding-multilingual-assistant-prompts.md` | Localize profile-onboarding assistant prompts for every supported language | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-retention.md` | Explain personalization before deferring profile setup | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/profile-onboarding-structural-simplification.md` | Profile Onboarding Structural Simplification | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/pydantic-required-compatibility.md` | Remove deprecated Pydantic `Field(required=...)` metadata | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/restrict-learner-order-actions.md` | Restrict learner order actions to their owner | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/retire-ai-instruction-generator.md` | Retire the AI Instruction Generator | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/runtime-harness-fast-value-gate.md` | Runtime Harness Fast Value Gate | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/safe-frontend-dead-code-cleanup.md` | Safe Frontend Dead Code Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/safe-outbound-url-validation.md` | Safe Outbound URL Validation | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/spanish-es-es-localization.md` | Spanish (Spain) Product Localization | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/stripe-payment-sync-security.md` | Secure learner Stripe payment synchronization | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
+| `docs/exec-plans/completed/trusted-client-ip.md` | Trusted Client IP Resolution | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/tts-provider-capabilities.md` | TTS Provider Capabilities | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/umami-contract-remediation.md` | Remediate Cook Web Umami contracts | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/umami-scope-correction.md` | Correct the Umami remediation scope | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
@@ -128,8 +127,11 @@
 | `docs/product-specs/billing-learning-hours-estimate.md` | Billing learning-time estimates | `product-spec` | `implemented` | `shared` | `2026-09-21` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page Contract | `product-spec` | `implemented` | `shared` | `2026-09-26` | `true` |
 | `docs/product-specs/gemini-live-follow-up-analytics.md` | Embedded Gemini Live Follow-Up Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-16` | `true` |
+| `docs/product-specs/language-selection-analytics.md` | Language Selection Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
+| `docs/product-specs/learner-listen-playback.md` | Learner Listen Playback and Timeline | `product-spec` | `implemented` | `frontend` | `2026-09-26` | `true` |
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/mobile-404-sequencing-followup.md` | Mobile 404 Follow-up: Sequencing Improvement Plan | `product-spec` | `implemented` | `frontend` | `2026-04-17` | `true` |
+| `docs/product-specs/notification-management-analytics.md` | Notification Management Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
 | `docs/product-specs/operator-course-detail-page.md` | Operator Course Detail Page | `product-spec` | `implemented` | `shared` | `2026-05-13` | `true` |
 | `docs/product-specs/operator-role.md` | Operator Role Design | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/product-specs/operator-user-management.md` | Operator User Management | `product-spec` | `implemented` | `shared` | `2026-09-08` | `true` |
@@ -139,6 +141,7 @@
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-08-31` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
+| `docs/references/gemini-live-follow-up.md` | Gemini Live follow-up implementation contract | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/i18n.md` | Internationalization (i18n) Guide | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/markdownflow-model-arena.md` | Local MarkdownFlow slide comparisons | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration Contract | `reference` | `reference` | `repo` | `-` | `true` |

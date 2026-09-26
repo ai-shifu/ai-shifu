@@ -15,6 +15,7 @@ intent, engineering rules, and long-running execution context.
 - `design-docs/`: architecture and implementation decision records
 - `product-specs/`: product workflow and page behavior specifications
 - `references/`: evergreen operational references
+- `history/`: dated audits and superseded journals; not current execution instructions
 - `exec-plans/active/`: currently active ExecPlans
 - `exec-plans/completed/`: archived ExecPlans
 - `generated/`: generated indexes and inventory files

@@ -364,6 +364,6 @@ For each batch:
   the unit of work delegates to.
 - `scripts/check_uow_commit_sites.py`, `docs/generated/uow-commit-baseline.json`,
   `lefthook.yml`, `.github/workflows/repo-harness.yml` enforce the ratchet.
-- `docs/exec-plans/active/backend-overhaul-master.md` (B4) is the parent plan;
-  `docs/exec-plans/active/backend-inventory-2026-07.md` holds the original
+- `docs/exec-plans/completed/backend-overhaul-master.md` (B4) is the parent plan;
+  `docs/history/backend-inventory-2026-07.md` holds the original
   per-file inventory.

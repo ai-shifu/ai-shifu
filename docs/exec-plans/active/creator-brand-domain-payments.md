@@ -1,5 +1,7 @@
 # Creator Brand Domain And Payments
 
+> Lifecycle review, 2026-09-26: Implementation is present, but complete cross-surface verification and the intended operator reporting boundary need reconciliation. Historical TypeScript failures are not proof of a current failure.
+
 ## Purpose / Big Picture
 
 Let entitled course owners apply account-level branding, a verified custom
@@ -7,6 +9,8 @@ domain, an independent WeChat OAuth app, and independent learner payment
 merchant credentials while preserving existing global behavior.
 
 ## Progress
+
+- [ ] 2026-09-26: Reconcile full current verification and operator-reporting scope before closure; do not treat historical environment blockers as current results.
 
 - [x] 2026-07-12 16:06 CST: Captured the approved architecture and acceptance
       decisions in the canonical design document.

@@ -1,5 +1,7 @@
 # Rename The Cook Web Directory
 
+> Lifecycle review, 2026-09-26: Implementation and verification are complete. Archival is deferred to the validation-tool batch because its exact historical-path allowlist currently names the active path.
+
 This ExecPlan is a living document and must stay aligned with `PLANS.md`.
 
 ## Purpose / Big Picture

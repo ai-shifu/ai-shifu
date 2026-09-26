@@ -1,5 +1,7 @@
 # Course Sharing
 
+> Lifecycle review, 2026-09-26: Awaiting physical iOS/Android acceptance; keep the original device matrix open.
+
 ## Purpose / Big Picture
 
 Give teachers and learners one consistent share menu with ordinary sharing

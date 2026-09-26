@@ -1,5 +1,7 @@
 # Minimize the Explicit Ruff Policy
 
+> Lifecycle review, 2026-09-26: Merged rule units are reconciled below; a fresh census and final rule-selection acceptance still remain. No new lint policy change is part of this audit.
+
 ## Purpose / Big Picture
 
 Make the repository's Ruff policy broad in enforcement and small in
@@ -36,15 +38,13 @@ plan's progress update for that rule.
   `sunner/ruff-d406` to the foundation branch. The global exception became one
   explained inline suppression, and the focused Flasgger schema test plus all
   repository pre-commit hooks passed.
-- [ ] Merge foundation PR #2571, then merge or retarget D406 PR #2572 without
-  combining its rule unit with its successor.
+- [x] 2026-09-26: Confirmed merged #2571 (`a6dd16ee8`), #2572 (`3fdd89873`).
 - [x] 2026-08-20 22:10 CST: Opened ready D407 PR
   [#2573](https://github.com/ai-shifu/ai-shifu/pull/2573) from
   `sunner/ruff-d407` to the D406 branch. Its one finding became the second code
   on the same explained inline suppression; the inherited Flasgger schema test
   and all repository pre-commit hooks passed.
-- [ ] Merge or retarget D407 PR #2573 after its predecessors without combining
-  it with the D405 rule unit.
+- [x] 2026-09-26: Confirmed merged #2573 (`5e51be02e`).
 - [x] 2026-08-20 22:16 CST: Opened ready D405 PR
   [#2574](https://github.com/ai-shifu/ai-shifu/pull/2574) from
   `sunner/ruff-d405` to the D407 branch. One ordinary finding was fixed; the
@@ -54,8 +54,7 @@ plan's progress update for that rule.
 - [x] 2026-08-20 22:16 CST: Re-ran the stable `ALL` census on the D405 tip. It
   reports 31,224 findings and no remaining D405/D406/D407 findings outside the
   documented narrow exceptions.
-- [ ] Merge or retarget D405 PR #2574 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2574 (`a06f4576c`).
 - [x] 2026-08-20 22:22 CST: Opened ready UP040 PR
   [#2575](https://github.com/ai-shifu/ai-shifu/pull/2575) from
   `sunner/ruff-up040` to the D405 branch. The redundant ignore was removed;
@@ -69,16 +68,14 @@ plan's progress update for that rule.
   the Python 3.11 check is clean, the one Python 3.12 migration site is audited,
   the 48-test learner-profile suite passes, and all repository pre-commit hooks
   passed.
-- [ ] Merge or retarget UP047 PR #2576 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2576 (`e024ba1f4`).
 - [x] 2026-08-20 22:36 CST: Opened ready UP046 PR
   [#2577](https://github.com/ai-shifu/ai-shifu/pull/2577) from
   `sunner/ruff-up046` to the UP047 branch. The last target-gated PEP 695 ignore
   was removed; the Python 3.11 check is clean, both Python 3.12 migration sites
   are audited, 674 focused billing/history tests pass with 10 skips, and all
   repository pre-commit hooks passed.
-- [ ] Merge or retarget UP046 PR #2577 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2577 (`ccff80ea6`).
 - [x] 2026-08-20 23:16 CST: Opened ready PLW0603 PR
   [#2579](https://github.com/ai-shifu/ai-shifu/pull/2579) from
   `sunner/ruff-plw0603` to the UP046 branch. All 25 findings across 13
@@ -86,8 +83,7 @@ plan's progress update for that rule.
   owners, or explicit accessors; no PLW0603 suppression remains. The full
   backend suite passes 3,008 tests with 17 skips, and all repository
   pre-commit hooks pass.
-- [ ] Merge or retarget PLW0603 PR #2579 after its predecessors without
-  combining it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2579 (`a46bea169`).
 - [x] 2026-08-20 23:42 CST: Opened ready G004 PR
   [#2580](https://github.com/ai-shifu/ai-shifu/pull/2580) from
   `sunner/ruff-g004` to the PLW0603 branch. All 195 findings across 44 backend
@@ -97,8 +93,7 @@ plan's progress update for that rule.
   repository pre-commit hooks pass.
 - [x] 2026-08-20 23:42 CST: Re-ran the stable `ALL` census on the G004 tip. It
   reports 31,058 findings and no G004 findings.
-- [ ] Merge or retarget G004 PR #2580 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2580 (`9c775aa7b`).
 - [x] 2026-08-21 00:20 CST: Opened ready D205 PR
   [#2581](https://github.com/ai-shifu/ai-shifu/pull/2581) from
   `sunner/ruff-d205` to the G004 branch. All 262 findings across 66 tracked
@@ -108,8 +103,7 @@ plan's progress update for that rule.
   and all pre-commit hooks pass.
 - [x] 2026-08-21 00:20 CST: Re-ran the stable `ALL` census on the D205 tip. It
   reports 30,901 findings across 40 rules and no D205 findings.
-- [ ] Merge or retarget D205 PR #2581 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2581 (`af3b420ca`).
 - [x] 2026-08-20 16:45 UTC: Opened ready D107 PR
   [#2582](https://github.com/ai-shifu/ai-shifu/pull/2582) from
   `sunner/ruff-d107` to the D205 branch. All 123 findings across 57 Python
@@ -119,8 +113,7 @@ plan's progress update for that rule.
   backend suite, and all pre-commit hooks pass.
 - [x] 2026-08-20 16:45 UTC: Re-ran the stable `ALL` census on the D107 tip. It
   reports 30,778 findings across 39 rules and no D107 findings.
-- [ ] Merge or retarget D107 PR #2582 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2582 (`8d575b984`).
 - [x] 2026-08-21 01:09 CST: Opened ready D105 PR
   [#2583](https://github.com/ai-shifu/ai-shifu/pull/2583) from
   `sunner/ruff-d105` to the D107 branch. All 155 findings across 37 Python
@@ -130,8 +123,7 @@ plan's progress update for that rule.
 - [x] 2026-08-21 01:09 CST: Re-ran the stable `ALL` census on the D105 tip. It
   reports 30,623 findings across 38 rules and no D105 findings. E501 remains at
   613 findings, so the documentation cleanup transfers no line-length debt.
-- [ ] Merge or retarget D105 PR #2583 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2583 (`e21669290`).
 - [x] 2026-08-21 01:40 CST: Opened ready TC003 PR
   [#2584](https://github.com/ai-shifu/ai-shifu/pull/2584) from
   `sunner/ruff-tc003` to the D105 branch. Of 100 findings across 86 files, 95
@@ -144,8 +136,7 @@ plan's progress update for that rule.
   runtime model also removes four TC002 false positives while TC002 remains a
   separate global exception; deleting one unused fake clock removes one
   ANN001 finding, and every other rule count is unchanged.
-- [ ] Merge or retarget TC003 PR #2584 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2584 (`c00d99440`).
 - [x] 2026-08-21 02:00 CST: Prepared the TC002 stage on
   `sunner/ruff-tc002`, stacked on TC003. All 134 annotation-only third-party
   imports across 113 files moved behind `TYPE_CHECKING`. An import AST audit
@@ -159,8 +150,7 @@ plan's progress update for that rule.
   [#2585](https://github.com/ai-shifu/ai-shifu/pull/2585) from
   `sunner/ruff-tc002` to the TC003 branch after all repository pre-commit hooks
   passed.
-- [ ] Merge or retarget TC002 PR #2585 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2585 (`859e25a90`).
 - [x] 2026-08-21 02:34 CST: Prepared the D100 stage on `sunner/ruff-d100`,
   stacked on TC002. Added ownership- or behavior-focused module docstrings to
   414 Python files and removed one unreferenced zero-byte test placeholder. A
@@ -172,13 +162,11 @@ plan's progress update for that rule.
   while ANN001, D101-D103, E501, and PLR0911 remain unchanged.
 - [x] 2026-08-21 02:47 CST: Opened ready D100 PR #2586 against the TC002
   branch after all local gates passed.
-- [ ] Merge or retarget D100 PR #2586 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2586 (`5ba4e43a0`).
 - [x] 2026-08-21: Prepared the EM101 stage on `sunner/ruff-em101`, stacked on
   EM102. Assigned each ProviderPriceMappingError code to a local before raising,
   preserving exception type, message, context, and all billing error contracts.
-- [ ] Merge or retarget EM101 PR #2628 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2628 (`5d9ee1477`).
 - [x] 2026-08-21: Prepared the RUF001 stage on `sunner/ruff-ruf001`, stacked on
   EM101. The isolated audit identified 162 deliberately fullwidth punctuation
   findings across 106 Chinese-message, TTS-boundary, and regression-fixture
@@ -193,55 +181,46 @@ plan's progress update for that rule.
   exercises `ruff.toml` as CI does: test paths must omit RUF001 while a production
   path must report it, so moving RUF001 back to a global ignore would fail the
   regression. The focused test and `ruff check .` pass.
-- [ ] Merge or retarget RUF001 PR #2629 after its predecessors without combining
-  it with the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2629 (`63a5b9d65`).
 - [x] 2026-08-22: Rebuilt the N815 stage on `sunner/ruff-n815`, stacked directly
   on RUF001. Replaced 26 Pydantic camelCase attributes with snake_case Python
   names and explicit wire aliases, and retained one explained field-level
   suppression where the annotated name itself defines the `UserToken` JSON and
   Swagger contract. Both file-wide N815 exceptions are removed.
-- [ ] Merge or retarget N815 PR #2630 after RUF001 without combining it with the
-  next rule unit.
+- [x] 2026-09-26: Confirmed merged #2630 (`d02c73c2c`).
 - [x] 2026-08-22: Rebuilt the N803 stage on `sunner/ruff-n803`, stacked on
   N815. Renamed the internal `UserToken` constructor argument and its keyword
   callers to `user_info`, while preserving the `userInfo` JSON and Swagger
   field contract and removing the only N803 suppression.
-- [ ] Merge or retarget N803 PR #2631 after N815 without combining it with the
-  next rule unit.
+- [x] 2026-09-26: Confirmed merged #2631 (`1b063568c`).
 - [x] 2026-08-22: Rebuilt the S101 stage on `sunner/ruff-s101`, stacked on
   N803. Removed the stale exact-file exception for the deleted
   `src/api/conftest.py` path and documented the production/test assertion
   boundary.
-- [ ] Merge or retarget S101 PR #2632 after N803 without combining it with the
-  next rule unit.
+- [x] 2026-09-26: Confirmed merged #2632 (`61ec79583`).
 - [x] 2026-08-22: Rebuilt the ARG002 stage on `sunner/ruff-arg002`, stacked on
   S101. Removed repository-owned unused method parameters and explicitly
   consumed externally owned protocol, fixture, and test-double compatibility
   values without renaming keyword contracts.
-- [ ] Merge or retarget ARG002 PR #2633 after S101 without combining it with the
-  next rule unit.
+- [x] 2026-09-26: Confirmed merged #2633 (`3918e75d1`).
 - [x] 2026-08-22: Rebuilt the ARG001 stage on `sunner/ruff-arg001`, stacked on
   ARG002. Removed repository-owned unused function parameters and explicitly
   consumed externally owned callback, fixture, migration, and compatibility
   values without changing accepted signatures.
-- [ ] Merge or retarget ARG001 PR #2634 after ARG002 without combining it with
-  the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2634 (`e7b10e5b3`).
 - [x] 2026-08-22: Rebuilt the ARG005 stage on `sunner/ruff-arg005`, stacked on
   ARG001. Removed unused lambda arguments while preserving provider, callback,
   and test-double keyword contracts through named helpers where required.
-- [ ] Merge or retarget ARG005 PR #2635 after ARG001 without combining it with
-  the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2635 (`ae34efb38`).
 - [x] 2026-08-22: Rebuilt the ANN002 stage on `sunner/ruff-ann002`, stacked on
   ARG005. Annotated every variadic positional parameter with its element type,
   using narrow types for homogeneous forwarding and `object` for genuinely
   heterogeneous compatibility boundaries.
-- [ ] Merge or retarget ANN002 PR #2636 after ARG005 without combining it with
-  the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2636 (`2f16da08b`).
 - [x] 2026-08-22: Rebuilt the ANN003 stage on `sunner/ruff-ann003`, stacked on
   ANN002. Annotated every variadic keyword parameter with its value type while
   preserving all accepted keyword options and forwarding behavior.
-- [ ] Merge or retarget ANN003 PR #2637 after ANN002 without combining it with
-  the next rule unit.
+- [x] 2026-09-26: Confirmed merged #2637 (`e232e3b35`).
 - [x] 2026-08-22: Rebuilt the D102 stage on `sunner/ruff-d102`, stacked on
   ANN003. Documented public production and tool methods by observable contract,
   kept behavior-focused tests exempt, and retained only behavior-preserving

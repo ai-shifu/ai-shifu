@@ -1,5 +1,7 @@
 # Credit Notification Email Delivery
 
+> Lifecycle review, 2026-09-26: Awaiting migration/configuration and a controlled dev-US SMTP delivery with saved notification result; local tests do not prove delivery.
+
 ## Purpose / Big Picture
 
 Make overseas credit notifications deliver operationally managed email through
