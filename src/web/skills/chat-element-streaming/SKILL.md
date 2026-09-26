@@ -72,3 +72,15 @@ It does not currently prove that activity resets the deadline or that a
 cancelled/settled run cannot time out afterward. Add those focused timer cases
 when changing reset or cleanup behavior. Read the current constants before
 changing timing; a past incident's shorter threshold is not the runtime contract.
+
+## Completion updates and trailing interactions
+
+A learner `outline_item_update` with `status=completed` updates lesson state;
+it is not by itself a reason to discard later elements from that live stream.
+Keep accepting a trailing `element_type=interaction`, including the next-lesson
+CTA, after the completion update. Do not make lesson-completion state an extra
+stream-acceptance guard. Preserve the actual terminal stream handling separately.
+
+Verify this ordering with `useChatLogicHook.test.tsx` in
+`src/app/c/[[...id]]/Components/ChatUi/`, specifically
+`keeps interaction elements that arrive after lesson completion updates`.
