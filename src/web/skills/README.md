@@ -14,7 +14,7 @@ the separate documentation-harness change.
 - [chat-element-streaming](chat-element-streaming/SKILL.md): 当 ai-shifu 聊天流从 block 粒度向 element 粒度演进，或历史记录与 SSE 渲染一致性出现问题时使用本技能。统一 element_bid 渲染键、兼容旧字段并收敛 AskBlock 归并逻辑。
 - [chat-layout-width-detection](chat-layout-width-detection/SKILL.md): 当修复 ai-shifu 聊天页在移动端与桌面端布局判定不一致的问题时使用本技能。基于真实可见视口宽度而不是仅 `#root.clientWidth` 计算 `frameLayout`，在 `resize` 与 `visualViewport.resize` 时同步，并在断点纠正后关闭过期的移动端抽屉状态。
 - [chat-system-interaction-button-overrides](chat-system-interaction-button-overrides/SKILL.md): Use when system interaction buttons must remain repeatable despite historical input or renderer readonly state.
-- [deep-link-lessonid-routing](deep-link-lessonid-routing/SKILL.md): 当 Cook Web 需要按 URL 深链定位课节并保持学习端与后台端行为一致时使用本技能。统一使用 lessonid 参数、复用目录点击拦截链路，并覆盖登录/付费/无效课节兜底。
+- [deep-link-lessonid-routing](deep-link-lessonid-routing/SKILL.md): 当 Cook Web 需要按 URL 深链定位课节并保持学习端与后台端行为一致时使用本技能。统一使用 lessonid 参数、复用目录点击拦截链路，并覆盖登录/付费/无效课节兜底，以及 debug=1 初始化和鉴权恢复排查。
 - [fullscreen-dialog-portal](fullscreen-dialog-portal/SKILL.md): 当 Cook Web 页面在浏览器 fullscreen 场景下需要展示基于 Dialog 的支付弹窗、设置弹窗或业务弹层时，使用本技能排查 portal 容器是否落在全屏节点外。
 - [hook-contract-refactor-safety](hook-contract-refactor-safety/SKILL.md): 当重构 hook 返回字段或参数契约时使用本技能。统一同步调用方解构与参数对象，避免大面积 TS 属性错误。
 - [interaction-user-input-defaults](interaction-user-input-defaults/SKILL.md): 当 ai-shifu 与 markdown-flow-ui 之间需要同步交互式 markdown 状态时使用本技能。将原始 `user_input` 持久化在应用状态中，把 `userInput` 传给 `ContentRender` 或 `MarkdownFlow`，并让 markdown-flow-ui 负责推导按钮、输入框和已选项默认值，避免在业务代码重复解析。
