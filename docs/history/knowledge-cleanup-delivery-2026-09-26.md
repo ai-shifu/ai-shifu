@@ -102,8 +102,14 @@ Meaningful focused evidence (runs may overlap; do not sum them as unique cases):
 | Notification template/rule workflows and analytics | 1 suite, 42 tests |
 | Same-lesson continuation and vendored engine | 278 offline tests; used repository-pinned markdown-flow 0.3.4 in a temporary directory because the shared environment has an older version |
 | Trailing interaction and preview typewriter helpers | 4 selected tests passed, 72 outside the selection skipped; helper checks do not prove full preview-panel rendering |
+| Mobile panel mounting and fullscreen header | 7 selected checks passed, 53 excluded; layout/language checks do not prove theme contrast |
+| Learner preview header | 3 selected banner checks passed, 14 excluded; visibility/wiring only, not computed layout |
+| Read-mode loading gate | 3 helper checks passed, 10 excluded; first-item padding still lacks rendered coverage |
+| Subtitle punctuation order | 1 selected cue regression passed, 31 excluded |
+| Learner debug request behavior | 10 existing tracing/business-fallback checks passed; debug overlay and full auth-recovery coverage are not claimed |
+| Existing billing timeout and subscription-order reuse | 13 selected tests passed, 21 excluded; remaining business-order reuse matrix is tracked separately |
 | Selected real-Redis policy cases | 5 skipped locally: redis-server unavailable; external retention acceptance remains open |
-| Knowledge generator/validator | 33 regression fixtures after lifecycle and portable-alias fixes (31 in the original delivery) |
+| Knowledge generator/validator | 40 regression fixtures after lifecycle, checkout-portability and tracked-category fixes (31 in the original delivery) |
 | Existing instruction boundary checks | 28 fixtures |
 | Focused skill metadata | 20 skills accepted by the skill validator |
 | Determinism | Repeated generation has identical committed output; only ignored reports carry run time |
@@ -142,11 +148,38 @@ Review also restored current destinations for run-context retirement and the
 pricing plan follow-ups; documented existing email-template and rule analytics,
 including the rule-action channel mismatch and draft-migration event; preserved
 the evicting-Redis record-retention limit; and made active/completed plan location
-authoritative for canonical status even when moved files retain stale metadata.
+authoritative for lifecycle status and canonical authority even when moved files
+retain stale metadata.
 Absolute filesystem targets are rejected in documentation aliases so a link
-that works only in one checkout cannot pass the local gate. The archived agent
+that works only in one checkout cannot pass the local gate. Indexed alias
+chains and anchors validate when symlinks are materialized as plain files,
+including the historical runtime-reference containment boundary. Incomplete
+sparse checkouts fail before writing partial inventory, catalog or health output.
+The local hook runs on every commit; a real Git trigger fixture proves asset-only
+deletions and source-only renames invoke the checker. Pending-commit validation
+rejects assume-unchanged and skip-worktree on documents so hidden worktree-only
+anchor repairs cannot validate a broken indexed target. Category indexes,
+category metadata checks and health counts now share tracked Markdown/MDX
+discovery: untracked or ignored category notes cannot leak into generated links,
+while staged MDX is included. Indexed aliases stay in inventory/link validation
+and are excluded from canonical category/plan/Skill sources; native and
+materialized checkouts produce identical indexes and health content. The admin pagination, shared-table and time-display
+migration proposals now live in history with links to current rules and code. The archived agent
 plan now correctly describes same-lesson continuation, and the focused streaming
 Skill retains trailing interactions and the dedicated preview typewriter gate.
+Routed guidance also retains mounted follow-up panels, fullscreen foreground
+inheritance, subtitle cleanup ordering, preview header offsets and shared first-item
+spacing. The pre-existing ASK padding exception and missing rendered spacing
+cases are documented explicitly; this relocation does not change their UI.
+The frontend parent owns bootstrap store-import rules so providers outside
+App Router inherit the same safeguard. The learner debug destination keeps
+the exact `debug=1` gate, request/auth diagnostics and page initialization
+instrumentation together, with pre-mount trace and sanitization limits explicit.
+
+The archived campaign plan now points to the active billing-order timeout/reuse
+item in the debt tracker. Existing subscription reuse and top-up deadlines are
+credited; top-up/preorder reuse scope, full snapshot policy and late-payment
+acceptance remain explicit. The provider-attempt plan does not own those gaps.
 
 ## Retained work and external acceptance
 
@@ -177,7 +210,7 @@ Additional link-boundary and alias-classification evidence was recorded at 2026-
 Current-head CI and review state are recorded in #2980; the earlier run linked
 above remains evidence for its original snapshot, not a claim about a later head.
 
-Review follow-up evidence updated at 2026-09-26T14:05:49Z. The 46-document
+Review follow-up evidence updated at 2026-09-26T15:12:12Z. The 46-document
 disposition above remains the original `43e13cdf5` audit population; later plans on main are not
 retroactively included or archived by that census. Latest-head CI and review
 conclusions remain in #2980 so this dated report does not claim future results.

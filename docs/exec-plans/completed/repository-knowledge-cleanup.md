@@ -47,6 +47,20 @@ the content is corrected. Deliver separate ready pull requests per problem.
   the independent 61 documentation-tool regressions. Restacked the remaining
   PRs on merged #2964–#2966 and preserved the concrete audit matrix.
 
+- [x] 2026-09-26T14:48:02Z: Completed the additional review corrections for indexed
+  aliases, lifecycle status, provider-scope rules, mobile/subtitle guidance,
+  header offsets and first-item spacing requirements. Hook triggers include non-document target changes.
+  The tool suites now pass 66 regressions; 13 billing checks establish the
+  implemented timeout/reuse subset, with remaining billing business-order work
+  retained in the debt tracker before campaign-plan archival.
+
+- [x] 2026-09-26T14:56:29Z: Restored the routed learner `debug=1` workflow, including
+  request/auth/page instrumentation and trace limits. All 10 existing request
+  tracing/business-fallback checks passed; they do not cover the debug overlay.
+
+- [x] 2026-09-26T15:12:12Z: Unified tracked category discovery and moved three delivered
+  admin migration proposals into history. All 68 tool regressions passed.
+
 ## Surprises & Discoveries
 
 The original audit used `fd9f56fa6`; main advanced by 26 commits before execution.
