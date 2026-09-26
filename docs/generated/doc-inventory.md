@@ -63,6 +63,7 @@
 | `docs/exec-plans/active/pydantic-required-compatibility.md` | Remove deprecated Pydantic `Field(required=...)` metadata | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/repository-knowledge-cleanup.md` | Repository Knowledge Cleanup | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Minimize the Explicit Ruff Policy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/spanish-es-es-localization.md` | Spanish (Spain) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
