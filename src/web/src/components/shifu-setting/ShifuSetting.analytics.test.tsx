@@ -499,6 +499,11 @@ describe('ShifuSettingDialog analytics producer', () => {
 
       try {
         renderOpenSettings();
+        expect(
+          await screen.findByText(
+            'module.shifuSetting.minimaxCloneCostUnavailable',
+          ),
+        ).toBeInTheDocument();
         const button = await screen.findByTitle(
           demoUrl.trim()
             ? 'module.shifuSetting.minimaxClonePreview'

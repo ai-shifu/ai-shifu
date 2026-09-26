@@ -103,6 +103,7 @@ import {
   buildClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
   executeMiniMaxVoiceAction,
+  getMiniMaxCloneCostDisplayState,
   getCustomVoiceIdValidator,
   isMiniMaxProvider,
   isValidMiniMaxCustomVoiceId,
@@ -622,9 +623,7 @@ export default function ShifuSettingDialog({
     if (result.voices !== null) {
       setMinimaxClonedVoices(result.voices);
     }
-    if (result.cloneCost !== null) {
-      setMinimaxCloneCost(result.cloneCost);
-    }
+    setMinimaxCloneCost(result.cloneCost);
     if (result.errors.length > 0) {
       console.error(
         'Failed to refresh MiniMax voice clone data:',
@@ -721,6 +720,9 @@ export default function ShifuSettingDialog({
   const supportsMiniMaxVoiceCloning =
     isMiniMaxTtsProvider &&
     currentProviderConfig?.supports_voice_cloning === true;
+  const minimaxCloneCostDisplay = getMiniMaxCloneCostDisplayState(
+    minimaxCloneCost?.estimated_credits,
+  );
   const minimaxStatusLabels = useMemo(
     () => ({
       queued: t('module.shifuSetting.minimaxCloneStatus.queued'),
@@ -2809,18 +2811,21 @@ export default function ShifuSettingDialog({
                                   )}
                                 </p>
                                 <p className='truncate text-xs text-muted-foreground'>
-                                  {minimaxCloneCost?.estimated_credits &&
-                                  minimaxCloneCost.estimated_credits !== '0'
+                                  {minimaxCloneCostDisplay.kind === 'credits'
                                     ? t(
                                         'module.shifuSetting.minimaxCloneCostCredits',
                                         {
                                           credits:
-                                            minimaxCloneCost.estimated_credits,
+                                            minimaxCloneCostDisplay.credits,
                                         },
                                       )
-                                    : t(
-                                        'module.shifuSetting.minimaxCloneCostFree',
-                                      )}
+                                    : minimaxCloneCostDisplay.kind === 'free'
+                                      ? t(
+                                          'module.shifuSetting.minimaxCloneCostFree',
+                                        )
+                                      : t(
+                                          'module.shifuSetting.minimaxCloneCostUnavailable',
+                                        )}
                                 </p>
                               </div>
                               <Button

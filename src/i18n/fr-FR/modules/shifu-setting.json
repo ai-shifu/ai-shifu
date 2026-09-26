@@ -154,6 +154,7 @@
   "minimaxCloneAudioSelected": "Sélectionné : {name}",
   "minimaxCloneCostCredits": "{credits} crédits",
   "minimaxCloneCostFree": "Aucun coût de clonage n’est configuré pour le moment",
+  "minimaxCloneCostUnavailable": "Estimation du coût du clonage indisponible pour le moment",
   "minimaxCloneCreate": "Cloner une voix",
   "minimaxCloneDefaultDisplayName": "Voix personnalisée",
   "minimaxCloneDialogTitle": "Cloner une voix MiniMax",

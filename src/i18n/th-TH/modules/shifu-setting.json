@@ -154,6 +154,7 @@
   "minimaxCloneAudioSelected": "เลือกแล้ว: {name}",
   "minimaxCloneCostCredits": "{credits} เครดิต",
   "minimaxCloneCostFree": "ยังไม่ได้ตั้งค่าค่าธรรมเนียมการโคลน",
+  "minimaxCloneCostUnavailable": "ไม่สามารถประเมินค่าใช้จ่ายในการโคลนได้ในขณะนี้",
   "minimaxCloneCreate": "โคลนเสียง",
   "minimaxCloneDefaultDisplayName": "เสียงแบบกำหนดเอง",
   "minimaxCloneDialogTitle": "โคลนเสียง MiniMax",

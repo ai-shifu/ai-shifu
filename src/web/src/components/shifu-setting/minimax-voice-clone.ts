@@ -36,10 +36,48 @@ export interface MiniMaxClonedVoice {
 }
 
 export interface MiniMaxCloneCost {
-  estimated_credits?: string;
+  estimated_credits?: string | number | null;
   available_credits?: string;
   can_submit?: boolean;
   billing_enabled?: boolean;
+}
+
+export type MiniMaxCloneCostDisplayState =
+  | { kind: 'unavailable' }
+  | { kind: 'free' }
+  | { kind: 'credits'; credits: string };
+
+export function getMiniMaxCloneCostDisplayState(
+  estimatedCredits: unknown,
+): MiniMaxCloneCostDisplayState {
+  if (typeof estimatedCredits === 'number') {
+    if (!Number.isFinite(estimatedCredits) || estimatedCredits < 0) {
+      return { kind: 'unavailable' };
+    }
+    if (estimatedCredits === 0) {
+      return { kind: 'free' };
+    }
+    return { kind: 'credits', credits: String(estimatedCredits) };
+  }
+
+  if (typeof estimatedCredits !== 'string') {
+    return { kind: 'unavailable' };
+  }
+
+  const credits = String(estimatedCredits).trim();
+  if (!credits || !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(credits)) {
+    return { kind: 'unavailable' };
+  }
+
+  const numericCredits = Number(credits);
+  if (!Number.isFinite(numericCredits)) {
+    return { kind: 'unavailable' };
+  }
+  if (numericCredits === 0) {
+    return { kind: 'free' };
+  }
+
+  return { kind: 'credits', credits };
 }
 
 export interface MiniMaxVoiceOption extends TTSVoiceOptionBase {

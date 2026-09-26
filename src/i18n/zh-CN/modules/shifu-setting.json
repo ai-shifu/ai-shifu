@@ -154,6 +154,7 @@
   "minimaxCloneAudioSelected": "已选择：{name}",
   "minimaxCloneCostCredits": "{credits} 积分",
   "minimaxCloneCostFree": "当前不收取克隆费用",
+  "minimaxCloneCostUnavailable": "暂时无法获取克隆费用估算",
   "minimaxCloneCreate": "克隆音色",
   "minimaxCloneDefaultDisplayName": "自定义音色",
   "minimaxCloneDialogTitle": "MiniMax 音色克隆",
