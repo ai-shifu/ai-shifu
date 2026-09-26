@@ -35,7 +35,9 @@ Every ExecPlan must be self-contained and must contain these sections:
 
 ## Working Rules
 
-- Treat the plan as the implementation source of truth for the topic.
+- Treat an active plan as the continuation record for its approved scope.
+  Durable product/technical contracts belong in specifications or references;
+  link them instead of retaining competing copies.
 - Keep `Progress`, `Surprises & Discoveries`, `Decision Log`, and
   `Outcomes & Retrospective` current while work is active.
 - Write the plan so a stateless coding agent or a new engineer can continue
@@ -58,6 +60,11 @@ Example:
 - `ARCHITECTURE.md` explains where repository knowledge and runtime surfaces
   live.
 - `docs/engineering-baseline.md` remains the stable engineering handbook.
+- Dated inventories and superseded journals belong in `docs/history/`; they are
+  not current implementation instructions. Record open external acceptance in
+  active plans, and transfer unrelated follow-ups with a named destination.
+- A plan with all boxes checked still needs scope and acceptance review before
+  archival. A checker warning is not authorization to archive.
 - `AGENTS.md` files route contributors to the right local rules and source
   documents.
 

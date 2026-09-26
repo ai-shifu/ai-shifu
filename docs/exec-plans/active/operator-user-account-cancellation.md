@@ -1,5 +1,7 @@
 # Operator-Initiated User Account Cancellation
 
+> Lifecycle review, 2026-09-26: Backend and frontend PRs are merged; combined dev02 acceptance remains unperformed and includes destructive account operations.
+
 This ExecPlan is a living implementation document. Keep `Progress`,
 `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective`
 current as the work proceeds.
@@ -52,8 +54,8 @@ execution service with a different actor and identity-verification policy.
       confirmation dialog, inline published-course transfer, automatic renewal
       preparation, cancelled filter, i18n, API client, privacy-safe analytics,
       audit detail fields, and focused frontend tests.
-- [ ] Run the final repository checks, publish the stacked frontend PR, and
-      validate both backend and frontend PRs together on dev02.
+- [x] 2026-09-26: Confirmed merged backend #2785 and frontend #2786; the recorded focused checks passed.
+- [ ] Validate the combined cancellation workflow on dev02 with an approved disposable account and verify saved state.
 - [x] 2026-09-09 09:35 CST: Moved final cancellation execution to a durable
       background task with operator-visible processing and bounded failure
       states; keep subscription-provider cancellation as a synchronous safety
@@ -197,8 +199,8 @@ or depend on that missing symbol. The migration graph reports
 `b2d4f6a8c0e1` as its single head, and the local database has all three task
 state columns at that revision.
 
-PR 2 remains intentionally separate: it will add the operator dialogs,
-cancelled filter UI, analytics contract, and frontend tests. Later work may
+PR 2 (#2786) has merged with the operator dialogs, cancelled filter UI,
+analytics contract, and frontend tests. Combined dev02 acceptance remains open. Later work may
 add self-service cancellation and jurisdiction-specific retention jobs.
 
 ### Operator cancellation analytics contract

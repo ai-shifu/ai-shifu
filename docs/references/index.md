@@ -6,6 +6,7 @@ Evergreen repository references and operational guides live here.
 
 - [Architecture Boundaries](../references/architecture-boundaries.md)
 - [Frontend Product Analytics](../references/frontend-product-analytics.md)
+- [Gemini Live follow-up implementation contract](../references/gemini-live-follow-up.md)
 - [Internationalization (i18n) Guide](../references/i18n.md)
 - [Local MarkdownFlow slide comparisons](../references/markdownflow-model-arena.md)
 - [Model Gateway CLI Integration Contract](../references/model-gateway-cli-integration.md)

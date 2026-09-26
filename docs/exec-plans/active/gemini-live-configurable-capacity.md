@@ -1,12 +1,14 @@
 # Configurable Gemini Live admission capacity
 
+> Lifecycle review, 2026-09-26: API merge is complete; US configuration rollout and verification of every worker/Redis limit remain external acceptance.
+
 ## Purpose / Big Picture
 Allow US operators to increase Live capacity without patching running containers. Keep current defaults for other environments.
 
 ## Progress
 - [x] Verify US production image, flags, hardcoded limits and aggregate Redis occupancy.
 - [x] Add five positive integer overrides with conservative fallback and Redis boundary tests.
-- [ ] Verify and merge the API change through a focused PR.
+- [x] 2026-09-26: Confirmed API merge #2783 (`804816f1c`).
 - [ ] Persist US values in deployment configuration and roll out compatible API workers.
 - [ ] Verify every US worker and Redis admission behavior after rollout.
 
@@ -17,7 +19,7 @@ US production runs two API replicas with rotation enabled. The shared limits are
 Keep defaults at 96 global credentials, 8 per user, 24 active owners, 4 user mints/minute and 24 global mints/minute. Set US overrides to 192, 16, 48, 8 and 48 respectively. Preserve legacy non-rotation credential limits, the 15-minute credential lifetime, accounting recovery and atomic Lua admission. Do not clear Redis ledgers.
 
 ## Outcomes & Retrospective
-Implementation in progress; no production limit change claimed before runtime verification.
+API implementation is merged. US deployment configuration and all-worker runtime acceptance remain open; no production limit change is claimed.
 
 ## Context and Orientation
 `live_follow_up_admission.py` owns atomic admission. Environment definitions live in the central config registry. US deployment manifests are maintained in the separate deploy-config repository under k8s/us.
