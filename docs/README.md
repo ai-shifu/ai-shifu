@@ -20,8 +20,8 @@ intent, engineering rules, and long-running execution context.
 - `exec-plans/completed/`: archived ExecPlans
 - `generated/`: generated indexes and inventory files
   Includes committed indexes, `doc-inventory.md`, and architecture-boundary
-  and unit-of-work baselines. The optional `harness-health.md` snapshot is
-  ignored by Git.
+  and unit-of-work baselines. `harness-health.md` and
+  `harness-gardening-summary.md` are ignored local/CI snapshots.
 
 ## Workflow
 
@@ -43,8 +43,10 @@ intent, engineering rules, and long-running execution context.
 ## Harness Health Snapshots
 
 `generated/harness-health.md` is a derived report, generated locally and in CI.
-Only this health report is excluded from version control; the other generated
-documents, indexes, inventory, and enforcement baselines remain committed.
+The gardening summary is also an ignored local/CI report. Committed indexes,
+skill catalogs, inventory, and enforcement baselines remain versioned. Each
+report records its UTC generation time and checkout HEAD; local edits may differ
+from that revision, and report presence is not proof of test or runtime health.
 
 Refresh just the report from the repository root:
 
@@ -66,3 +68,29 @@ In GitHub Actions, open a **Static Checks** or **Harness Gardening** run to read
 the report in its job summary. Download the `harness-health` artifact from
 Static Checks, or the `harness-gardening-summary` artifact from Harness
 Gardening, for the Markdown report generated from that run's checkout.
+
+## Inventory and validation
+
+The inventory enumerates all Git-tracked Markdown and MDX, including staged
+additions. It distinguishes instructions, focused skills, skill routers,
+current specifications/references, active/completed plans, historical records,
+generated documents and compatibility aliases. `GEMINI.md` and the minimal
+Copilot entry are aliases, not alternate instruction owners.
+
+Stage new or moved documents before regenerating indexes. Skill catalogs in
+`src/api/skills/README.md` and `src/web/skills/README.md` are generated from each
+focused `SKILL.md`'s `name` and `description`; do not edit the lists manually.
+The name must match its directory slug and be unique; descriptions may wrap
+across indented metadata lines. Routing `SKILL.md` files remain hand-authored.
+
+The harness checks catalog freshness, required plan sections, pending work in
+completed plans, and local Markdown/MDX links, including literal HTML links and
+heading anchors. Code fences and remote URLs are not interpreted or fetched.
+Historical records can refer to retired runtime files, but their document
+navigation must resolve. An active plan without unchecked work produces a
+review reminder; archival still requires evidence of completed scope.
+
+Unknown review dates remain empty. An old or missing date is review debt, not
+proof of incorrect content and not a reason to overwrite it with today's date.
+Run `python scripts/run_harness_gardening.py` for the current review-debt report;
+CI uploads that run's report instead of maintaining a permanent green snapshot.

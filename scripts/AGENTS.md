@@ -85,6 +85,12 @@ under `scripts/`, including translation utilities and AI-doc tooling.
 - When translation scripts change, rerun translation parity, translation usage,
   and locale-metadata checks in the same task.
 
+- When knowledge generation or validation changes, run
+  `python -m unittest discover -s scripts -p 'test_repo_knowledge_index.py'`.
+  Stage new Markdown/MDX before regeneration so Git-tracked discovery includes it.
+- Gardening summaries are ignored reports produced by
+  `python scripts/run_harness_gardening.py`; preserve UTC/HEAD provenance and
+  keep them out of canonical inventories.
 - When instruction validation changes, run its focused tests and
   `python scripts/check_repo_harness.py`. Regenerate knowledge indexes only
   when their source documents or metadata change, then run lefthook checks.
