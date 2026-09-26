@@ -16,7 +16,7 @@ the content is corrected. Deliver separate ready pull requests per problem.
   local environment files in the managed worktree without exposing their values.
 - [x] 2026-09-26 00:37 UTC: Corrected runtime configuration ownership and added local job verification.
 - [x] 2026-09-26 00:37 UTC: Corrected the remaining billing UTC specification and serialization reference.
-- [ ] 2026-09-26 00:37 UTC: Reconcile dashboard routes, fields, and query guidance.
+- [x] 2026-09-26 00:37 UTC: Reconciled dashboard routes, DTO fields, scope, UTC filtering, and query guidance.
 - [ ] 2026-09-26 00:37 UTC: Publish the account-session contract with user-based cohorts.
 - [ ] 2026-09-26 00:37 UTC: Reconcile chat state, audio, and timeout skills.
 - [ ] 2026-09-26 00:37 UTC: Audit current plans and debt, separate snapshots and follow-ups.
