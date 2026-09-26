@@ -133,7 +133,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
                 harness.check_local_document_links([path], link_errors)
                 assert link_errors == []
                 errors: list[str] = []
-                harness.check_partially_staged_documents(errors)
+                harness.check_document_staging(errors)
                 assert len(errors) == 1
                 assert f"Partially staged document: {relative}." in errors[0]
                 assert (
@@ -144,7 +144,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
                 )
                 self.track()
                 errors = []
-                harness.check_partially_staged_documents(errors)
+                harness.check_document_staging(errors)
                 assert errors == []
 
     def test_staging_guard_ignores_untracked_docs_and_non_document_edits(self) -> None:
@@ -153,7 +153,42 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         self.write(path, "unstaged text\n")
         self.write(self.root / "untracked.md", "# Draft\n")
         errors: list[str] = []
-        harness.check_partially_staged_documents(errors)
+        harness.check_document_staging(errors)
+        assert errors == []
+
+    def test_unstaged_anchor_edits_cannot_validate_a_new_staged_link(self) -> None:
+        """A link target's unstaged content is part of the same validation graph."""
+        target = self.fixture("docs/target.md", "# Original\n")
+        tree = subprocess.check_output(
+            ["git", "write-tree"], cwd=self.root, text=True
+        ).strip()
+        commit = subprocess.check_output(
+            [
+                "git",
+                "-c",
+                "user.name=Fixture",
+                "-c",
+                "user.email=fixture@example.test",
+                "commit-tree",
+                tree,
+                "-m",
+                "test: establish fixture history",
+            ],
+            cwd=self.root,
+            text=True,
+        ).strip()
+        subprocess.run(["git", "update-ref", "HEAD", commit], cwd=self.root, check=True)
+        source = self.fixture("docs/links.md", "[new anchor](target.md#new)\n")
+        self.write(target, "# New\n")
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert errors == []
+        harness.check_document_staging(errors)
+        assert len(errors) == 1
+        assert "Unstaged document dependency: docs/target.md." in errors[0]
+        self.track()
+        errors = []
+        harness.check_document_staging(errors)
         assert errors == []
 
     def test_scalar_quotes_preserve_malformed_dates_and_title_apostrophes(self) -> None:
@@ -450,6 +485,66 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         errors = []
         harness.check_skill_metadata([valid, duplicate], errors)
         assert any("Duplicate skill name" in error for error in errors)
+
+    def test_link_targets_must_survive_a_clean_checkout(self) -> None:
+        """Existing untracked, ignored, and empty local directories are not targets."""
+        ignore = self.root / ".gitignore"
+        self.fixture(".gitignore", ignore.read_text() + "docs/ignored.md\n")
+        source = self.fixture(
+            "docs/links.md",
+            "[untracked](untracked.md)\n[ignored](ignored.md)\n[empty](local-only/)\n",
+        )
+        self.write(self.root / "docs/untracked.md", "# Local only\n")
+        self.write(self.root / "docs/ignored.md", "# Ignored\n")
+        (self.root / "docs/local-only").mkdir()
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 3
+        assert all("Untracked local document link target" in error for error in errors)
+
+    def test_removed_index_target_is_rejected_even_when_file_remains(self) -> None:
+        """A staged deletion cannot be hidden by a leftover working-tree file."""
+        source = self.fixture("docs/links.md", "[removed](removed.md)\n")
+        target = self.fixture("docs/removed.md", "# Removed\n")
+        subprocess.run(
+            ["git", "rm", "--cached", "--quiet", "docs/removed.md"],
+            cwd=self.root,
+            check=True,
+        )
+        assert target.exists()
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1
+        assert "Untracked local document link target" in errors[0]
+
+    def test_tracked_aliases_cannot_hide_local_only_link_paths(self) -> None:
+        """A tracked target does not make an untracked alias portable to CI."""
+        self.fixture("docs/target.md", "# Target\n")
+        alias = self.root / "docs/alias.md"
+        alias.symlink_to("target.md")
+        source = self.fixture(
+            "docs/links.md",
+            "[valid](alias.md#target)\n[local alias](local.md#target)\n[dir](./)\n",
+        )
+        (self.root / "docs/local.md").symlink_to("target.md")
+        errors: list[str] = []
+        harness.check_local_document_links([source, alias], errors)
+        assert len(errors) == 1
+        assert "local.md" in errors[0]
+        self.write(source, "[alias](alias.md#target)\n")
+        alias.unlink()
+        alias.symlink_to("local.md")
+        errors = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1  # The alias differs from its indexed target.
+        subprocess.run(["git", "add", "docs/alias.md"], cwd=self.root, check=True)
+        errors = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1  # The indexed alias still needs its untracked hop.
+        self.track()
+        errors = []
+        harness.check_local_document_links([source, alias], errors)
+        assert errors == []
 
     def test_local_links_resolve_reference_links_and_encoded_paths(self) -> None:
         """Links use the source location; code examples and remote links are not fetched."""

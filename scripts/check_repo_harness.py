@@ -941,11 +941,83 @@ def document_navigation(path: Path) -> tuple[list[str], set[str]]:
 
 def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
     """Validate local files and section links while exempting historical runtime paths."""
+    repository_root = ROOT.resolve()
+    try:
+        tracked = subprocess.check_output(
+            ["git", "ls-files", "--stage", "-z"], cwd=ROOT, text=True
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        errors.append(f"Unable to verify indexed document link targets: {error}")
+        return
+    indexed_modes: dict[Path, str] = {}
+    for entry in tracked.split("\0"):
+        if not entry:
+            continue
+        attributes, name = entry.split("\t", 1)
+        mode, _object_id, stage = attributes.split()
+        if stage == "0":
+            indexed_modes[repository_root / name] = mode
+    indexed_paths = set(indexed_modes)
+    indexed_directories = {
+        parent
+        for entry in indexed_paths
+        for parent in entry.parents
+        if parent.is_relative_to(repository_root)
+    }
+
+    alias_targets: dict[Path, Path] = {}
+
+    def is_indexed_target(target: Path, visited: frozenset[Path] = frozenset()) -> bool:
+        if not target.is_relative_to(repository_root):
+            return False
+        target = repository_root / posixpath.normpath(
+            target.relative_to(repository_root).as_posix()
+        )
+        if target in visited or not target.is_relative_to(repository_root):
+            return False
+        if any(
+            parent.is_symlink()
+            for parent in target.parents
+            if parent.is_relative_to(repository_root)
+        ):
+            # Link through the indexed canonical path, not a virtual alias child.
+            return False
+        if target.is_symlink():
+            if indexed_modes.get(target) != "120000":
+                return False
+            if target not in alias_targets:
+                try:
+                    alias_value = subprocess.check_output(
+                        [
+                            "git",
+                            "show",
+                            ":" + target.relative_to(repository_root).as_posix(),
+                        ],
+                        cwd=ROOT,
+                        text=True,
+                    )
+                except (OSError, subprocess.CalledProcessError):
+                    return False
+                if str(target.readlink()) != alias_value:
+                    return False
+                alias_targets[target] = target.parent / alias_value
+            return is_indexed_target(alias_targets[target], visited | {target})
+        return target in indexed_paths or (
+            target.is_dir() and target in indexed_directories
+        )
+
     anchors: dict[Path, set[str]] = {}
     for path in paths:
+        source = repository_root / path.relative_to(ROOT)
         if path.is_symlink():
-            if not path.exists() or not path.resolve().is_relative_to(ROOT.resolve()):
-                errors.append(f"Broken or external documentation alias: {path}")
+            if (
+                not path.exists()
+                or not is_indexed_target(source)
+                or not is_indexed_target(source.resolve())
+            ):
+                errors.append(
+                    f"Broken, external, or untracked documentation alias: {path}"
+                )
             continue
         relative = path.relative_to(ROOT).as_posix()
         historical = relative.startswith(
@@ -957,13 +1029,19 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
             if parsed.scheme or parsed.netloc:
                 continue
             target_path = unquote(parsed.path)
-            target = (
-                path
+            relative_target = (
+                relative
                 if not target_path
-                else ROOT / target_path.lstrip("/")
+                else target_path.lstrip("/")
                 if target_path.startswith("/")
-                else path.parent / target_path
-            ).resolve()
+                else posixpath.join(posixpath.dirname(relative), target_path)
+            )
+            literal_target = repository_root / posixpath.normpath(relative_target)
+            try:
+                target = (repository_root / relative_target).resolve()
+            except (OSError, RuntimeError):
+                errors.append(f"Broken local document link: {path}: {url}")
+                continue
             if (
                 historical
                 and target.suffix.lower() not in {".md", ".mdx"}
@@ -974,6 +1052,9 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
             if not target.is_relative_to(ROOT.resolve()) or not target.exists():
                 errors.append(f"Broken local document link: {path}: {url}")
                 continue
+            if not is_indexed_target(literal_target) or not is_indexed_target(target):
+                errors.append(f"Untracked local document link target: {path}: {url}")
+                continue
             if parsed.fragment and target.suffix.lower() in {".md", ".mdx"}:
                 if target not in anchors:
                     anchors[target] = document_navigation(target)[1]
@@ -981,8 +1062,8 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
                     errors.append(f"Broken local document anchor: {path}: {url}")
 
 
-def check_partially_staged_documents(errors: list[str]) -> None:
-    """Reject split document versions instead of validating unstaged fixes."""
+def check_document_staging(errors: list[str]) -> None:
+    """Keep a pending commit and its entire document dependency graph aligned."""
     try:
         staged = subprocess.check_output(
             ["git", "diff", "--cached", "--name-only", "-z"], cwd=ROOT, text=True
@@ -993,19 +1074,27 @@ def check_partially_staged_documents(errors: list[str]) -> None:
     except (OSError, subprocess.CalledProcessError) as error:
         errors.append(f"Unable to verify documentation staging: {error}")
         return
-    partial = set(staged.split("\0")) & set(unstaged.split("\0"))
-    errors.extend(
-        f"Partially staged document: {name}. Stage the complete intended version "
-        "or set aside its unstaged edits before validation; the harness reads "
-        "working-tree contents and does not modify the index."
-        for name in sorted(partial)
-        if Path(name).suffix.lower() in {".md", ".mdx"}
-    )
+    staged_paths = {name for name in staged.split("\0") if name}
+    if not staged_paths:
+        return
+    for name in sorted(set(unstaged.split("\0"))):
+        if Path(name).suffix.lower() not in {".md", ".mdx"}:
+            continue
+        label = (
+            "Partially staged document"
+            if name in staged_paths
+            else "Unstaged document dependency"
+        )
+        errors.append(
+            f"{label}: {name}. Stage the complete intended version or set aside "
+            "its unstaged edits before validating a pending commit; the harness "
+            "reads the working-tree document graph and does not modify the index."
+        )
 
 
 def check_documentation_contracts(errors: list[str], warnings: list[str]) -> None:
     """Check tracked sources separately from generated index freshness."""
-    check_partially_staged_documents(errors)
+    check_document_staging(errors)
     paths = tracked_markdown(ROOT)
     check_skill_metadata(paths, errors)
     check_plan_lifecycle(paths, errors, warnings)

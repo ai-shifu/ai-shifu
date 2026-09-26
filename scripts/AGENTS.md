@@ -88,9 +88,12 @@ under `scripts/`, including translation utilities and AI-doc tooling.
 - When knowledge generation or validation changes, run
   `python -m unittest discover -s scripts -p 'test_repo_knowledge_index.py'`.
   Stage new Markdown/MDX before regeneration so Git-tracked discovery includes it.
-  The harness rejects partially staged Markdown/MDX because it reads working-tree
-  contents. Finish staging the intended document or set aside its unstaged edits;
-  validation never changes the index for you.
+  When any changes are staged, the harness rejects unstaged tracked Markdown/MDX,
+  including referenced documents, because it reads the entire working-tree graph.
+  Finish staging intended document changes or set aside their unstaged edits;
+  validation never changes the index for you. Local links must name indexed
+  files/directories, including aliases and their destinations; a local-only
+  target is not evidence that the link survives checkout.
 - Gardening summaries are ignored reports produced by
   `python scripts/run_harness_gardening.py`; preserve UTC/HEAD provenance and
   keep them out of canonical inventories.
