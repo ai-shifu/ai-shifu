@@ -334,6 +334,7 @@ export default function ShifuSettingDialog({
   >([]);
   const [minimaxCloneCost, setMinimaxCloneCost] =
     useState<MiniMaxCloneCost | null>(null);
+  const minimaxCloneCostRefreshSeqRef = useRef(0);
   const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
   const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
@@ -601,9 +602,16 @@ export default function ShifuSettingDialog({
   const isMiniMaxTtsProvider = isMiniMaxProvider(resolvedProvider);
   const providerSupportsCloning =
     providerSupportsClonedVoices(resolvedProvider);
+  const minimaxCloneCostRefreshScopeRef = useRef({
+    shifuId,
+    provider: resolvedProvider,
+  });
 
   const refreshMinimaxVoiceData = useCallback(async () => {
     if (!shifuId) return;
+    const refreshScope = { shifuId, provider: resolvedProvider };
+    minimaxCloneCostRefreshScopeRef.current = refreshScope;
+    const refreshSeq = ++minimaxCloneCostRefreshSeqRef.current;
     const result = await loadMiniMaxVoiceRefreshData({
       fetchVoices: () =>
         api.listMinimaxTtsVoices(
@@ -623,7 +631,14 @@ export default function ShifuSettingDialog({
     if (result.voices !== null) {
       setMinimaxClonedVoices(result.voices);
     }
-    setMinimaxCloneCost(result.cloneCost);
+    const currentScope = minimaxCloneCostRefreshScopeRef.current;
+    if (
+      refreshSeq === minimaxCloneCostRefreshSeqRef.current &&
+      refreshScope.shifuId === currentScope.shifuId &&
+      refreshScope.provider === currentScope.provider
+    ) {
+      setMinimaxCloneCost(result.cloneCost);
+    }
     if (result.errors.length > 0) {
       console.error(
         'Failed to refresh MiniMax voice clone data:',
@@ -631,6 +646,12 @@ export default function ShifuSettingDialog({
       );
     }
   }, [isMiniMaxTtsProvider, resolvedProvider, shifuId]);
+  useEffect(() => {
+    minimaxCloneCostRefreshScopeRef.current = {
+      shifuId,
+      provider: resolvedProvider,
+    };
+  }, [resolvedProvider, shifuId]);
   useEffect(() => {
     if (!ttsEnabled) return;
     const options = ttsConfig?.model_options || [];

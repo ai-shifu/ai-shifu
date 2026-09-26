@@ -24,6 +24,7 @@ const mockGetFollowUpModelCatalog = jest.fn();
 const mockGetCourseModelOptions = jest.fn();
 const mockAskSettingsSection = jest.fn();
 const mockMainModelSelector = jest.fn();
+const mockMiniMaxCloneDialog = jest.fn();
 const mockFormMethods = jest.fn();
 const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 const mockCurrentShifu = {
@@ -158,7 +159,10 @@ jest.mock('@/components/shifu-setting/AskSettingsSection', () => ({
 }));
 jest.mock(
   '@/components/shifu-setting/MiniMaxVoiceCloneDialog',
-  () => () => null,
+  () => (props: Record<string, unknown>) => {
+    mockMiniMaxCloneDialog(props);
+    return null;
+  },
 );
 
 jest.mock('@/components/ui/Sheet', () => ({
@@ -437,6 +441,115 @@ describe('ShifuSettingDialog analytics producer', () => {
     expect(JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload)).toEqual(
       expect.objectContaining({ shifu_bid: 'course-1' }),
     );
+  });
+
+  it('ignores clone-cost refreshes that finish after a newer request', async () => {
+    mockTtsConfig.mockResolvedValue({
+      providers: [
+        {
+          name: 'minimax',
+          label: 'MiniMax',
+          supports_voice_cloning: true,
+          speed: { min: 0.5, max: 2, step: 0.1, default: 1 },
+          voices: [{ value: 'voice-1', label: 'Voice' }],
+          models: [{ value: 'tts-model', label: 'TTS' }],
+        },
+      ],
+      model_options: [],
+    });
+    mockListMinimaxTtsVoices.mockResolvedValue({ voices: [] });
+    const initialDetail = await mockGetShifuDetail();
+    mockGetShifuDetail.mockResolvedValue({
+      ...initialDetail,
+      tts_enabled: true,
+      tts_provider: 'minimax',
+      tts_model: 'tts-model',
+      tts_voice_id: 'voice-1',
+      tts_speed: 1,
+    });
+
+    type CloneCostResponse = {
+      estimated_credits?: string;
+      can_submit?: boolean;
+    };
+    const costRequests: Array<
+      ReturnType<typeof createDeferred<CloneCostResponse>>
+    > = [];
+    mockGetMinimaxTtsCloneCost.mockImplementation(() => {
+      const request = createDeferred<CloneCostResponse>();
+      costRequests.push(request);
+      return request.promise;
+    });
+
+    renderOpenSettings();
+    await waitFor(() => expect(costRequests.length).toBeGreaterThan(0));
+    const olderRequests = [...costRequests];
+    const dialogProps = mockMiniMaxCloneDialog.mock.calls.at(-1)?.[0] as {
+      onRefreshCost: () => Promise<void>;
+    };
+    const startRefresh = async () => {
+      const previousCount = costRequests.length;
+      const completion = dialogProps.onRefreshCost();
+      await waitFor(() => expect(costRequests).toHaveLength(previousCount + 1));
+      return { completion, request: costRequests.at(-1)! };
+    };
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const newerRefresh = dialogProps.onRefreshCost();
+    await waitFor(() =>
+      expect(costRequests).toHaveLength(olderRequests.length + 1),
+    );
+    const newerRequest = costRequests.at(-1)!;
+
+    await act(async () => {
+      newerRequest.resolve({ estimated_credits: '10', can_submit: false });
+      await newerRefresh;
+    });
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostCredits'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      olderRequests.forEach(request =>
+        request.reject(new Error('stale clone cost request failed')),
+      );
+      await Promise.all(
+        olderRequests.map(request => request.promise.catch(() => undefined)),
+      );
+    });
+
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostCredits'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.shifuSetting.minimaxCloneCostUnavailable'),
+    ).not.toBeInTheDocument();
+
+    const olderSuccess = await startRefresh();
+    const latestFailure = await startRefresh();
+    await act(async () => {
+      latestFailure.request.reject(
+        new Error('latest clone cost request failed'),
+      );
+      await latestFailure.completion;
+    });
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostUnavailable'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      olderSuccess.request.resolve({
+        estimated_credits: '99',
+        can_submit: true,
+      });
+      await olderSuccess.completion;
+    });
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostUnavailable'),
+    ).toBeInTheDocument();
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(olderRequests.length + 1);
+    consoleErrorSpy.mockRestore();
   });
 
   it.each([
