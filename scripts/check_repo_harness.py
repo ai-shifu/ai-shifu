@@ -1101,12 +1101,28 @@ def check_document_staging(errors: list[str]) -> None:
         unstaged = subprocess.check_output(
             ["git", "diff", "--name-only", "-z"], cwd=ROOT, text=True
         )
+        indexed_flags = subprocess.check_output(
+            ["git", "ls-files", "-v", "-z"], cwd=ROOT, text=True
+        )
     except (OSError, subprocess.CalledProcessError) as error:
         errors.append(f"Unable to verify documentation staging: {error}")
         return
     staged_paths = {name for name in staged.split("\0") if name}
     if not staged_paths:
         return
+    for entry in indexed_flags.split("\0"):
+        if not entry:
+            continue
+        flag, name = entry.split(" ", 1)
+        if Path(name).suffix.lower() not in {".md", ".mdx"}:
+            continue
+        if flag.islower() or flag.upper() == "S":
+            errors.append(
+                f"Hidden document index flag: {name}. Clear assume-unchanged "
+                "and skip-worktree on this document before validating a pending "
+                "commit, then stage or set aside its edits. These flags hide "
+                "changes from git diff; validation never changes the index."
+            )
     for name in sorted(set(unstaged.split("\0"))):
         if Path(name).suffix.lower() not in {".md", ".mdx"}:
             continue

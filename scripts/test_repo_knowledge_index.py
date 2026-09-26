@@ -191,6 +191,73 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         harness.check_document_staging(errors)
         assert errors == []
 
+    def test_hidden_index_flags_cannot_mask_unstaged_anchor_repairs(self) -> None:
+        """Pending document validation refuses both Git worktree-hiding flags."""
+        for flag in ("assume-unchanged", "skip-worktree"):
+            for suffix in ("md", "MDX"):
+                with self.subTest(flag=flag, suffix=suffix):
+                    relative = f"docs/hidden-{flag}.{suffix}"
+                    target = self.fixture(relative, "# Original\n")
+                    tree = subprocess.check_output(
+                        ["git", "write-tree"], cwd=self.root, text=True
+                    ).strip()
+                    commit = subprocess.check_output(
+                        [
+                            "git",
+                            "-c",
+                            "user.name=Fixture",
+                            "-c",
+                            "user.email=fixture@example.test",
+                            "commit-tree",
+                            tree,
+                            "-m",
+                            "test: establish fixture history",
+                        ],
+                        cwd=self.root,
+                        text=True,
+                    ).strip()
+                    subprocess.run(
+                        ["git", "update-ref", "HEAD", commit], cwd=self.root, check=True
+                    )
+                    source = self.fixture(
+                        "docs/hidden-links.md", f"[new anchor]({target.name}#new)\n"
+                    )
+                    subprocess.run(
+                        ["git", "update-index", "--" + flag, relative],
+                        cwd=self.root,
+                        check=True,
+                    )
+                    self.write(target, "# New\n")
+                    assert (
+                        relative
+                        not in subprocess.check_output(
+                            ["git", "diff", "--name-only"], cwd=self.root, text=True
+                        ).splitlines()
+                    )
+                    errors: list[str] = []
+                    harness.check_local_document_links([source], errors)
+                    assert errors == []
+                    harness.check_document_staging(errors)
+                    assert any(
+                        f"Hidden document index flag: {relative}." in error
+                        for error in errors
+                    )
+                    assert (
+                        subprocess.check_output(
+                            ["git", "show", ":" + relative], cwd=self.root
+                        )
+                        == b"# Original\n"
+                    )
+                    subprocess.run(
+                        ["git", "update-index", "--no-" + flag, relative],
+                        cwd=self.root,
+                        check=True,
+                    )
+                    self.track()
+                    errors = []
+                    harness.check_document_staging(errors)
+                    assert errors == []
+
     def test_scalar_quotes_preserve_malformed_dates_and_title_apostrophes(self) -> None:
         """Unmatched quotes remain visible to the date scanner and index."""
         root = self.root / "quoted-review-fixture"
