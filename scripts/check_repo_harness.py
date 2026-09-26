@@ -126,7 +126,7 @@ MANUAL_AGENTS = {
         "credit_*",
         "order_orders",
         "service/order/payment_providers",
-        "docs/billing-subscription-design.md",
+        "docs/design-docs/billing-subscription-design.md",
     ),
     ROOT / "src" / "api" / "flaskr" / "service" / "referral" / "AGENTS.md": (
         "referral_*",
