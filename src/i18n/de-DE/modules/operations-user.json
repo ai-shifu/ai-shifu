@@ -31,7 +31,7 @@
       "processingTimeout": "Die Löschungsaufgabe wird noch bearbeitet. Aktualisieren Sie die Benutzerliste später, um das Ergebnis zu überprüfen.",
       "transfer": "Kursübertragung fehlgeschlagen"
     },
-    "irreversible": "Profil- und Anmeldeinformationen werden gelöscht, während die erforderliche Geschäftshistorie beibehalten wird.",
+    "irreversible": "Nach der Kontoschließung werden Profildaten und Anmeldedaten gelöscht, das Credit-Guthaben auf null gesetzt und bestehende Anmeldesitzungen ungültig gemacht. Historische Geschäftsdatensätze und Kursdaten bleiben gemäß den geltenden Regeln erhalten.",
     "processing": "Absagen...",
     "reasonCounter": "{count}/500",
     "reasonHint": "Dieser Grund wird im Betriebsprüfungsprotokoll beibehalten.",
