@@ -650,6 +650,66 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         )
         assert any("Untracked local document link target" in error for error in errors)
 
+    def test_materialized_aliases_use_indexed_targets(self) -> None:
+        """A no-symlink checkout validates the same alias graph and anchors as CI."""
+        target = self.fixture("docs/target.md", "# Target\n")
+        alias = self.root / "docs/alias.md"
+        alias.symlink_to("target.md")
+        chained = self.root / "docs/chained.md"
+        chained.symlink_to("alias.md")
+        source = self.fixture("docs/links.md", "[target](chained.md#target)\n")
+        subprocess.run(
+            ["git", "config", "core.symlinks", "false"], cwd=self.root, check=True
+        )
+        alias.unlink()
+        chained.unlink()
+        subprocess.run(
+            [
+                "git",
+                "checkout-index",
+                "--force",
+                "--",
+                "docs/alias.md",
+                "docs/chained.md",
+            ],
+            cwd=self.root,
+            check=True,
+        )
+        assert not alias.is_symlink()
+        assert not chained.is_symlink()
+        errors: list[str] = []
+        harness.check_local_document_links([source, alias, chained], errors)
+        assert errors == []
+        for invalid_target in ("", "missing.md", str(target.resolve()), "chained.md"):
+            with self.subTest(target=invalid_target):
+                alias.write_text(invalid_target)
+                subprocess.run(
+                    ["git", "add", "docs/alias.md"], cwd=self.root, check=True
+                )
+                errors = []
+                harness.check_local_document_links([source, alias, chained], errors)
+                assert len(errors) == 3
+                assert sum("documentation alias" in error for error in errors) == 2
+
+    def test_materialized_runtime_alias_cannot_escape_history_boundary(self) -> None:
+        """Historical runtime exemptions must not hide an indexed alias escape."""
+        self.fixture("src/target.py", "pass\n")
+        alias = self.root / "src/alias.py"
+        alias.symlink_to("../../outside.py")
+        source = self.fixture("docs/history/old.md", "[runtime](../../src/alias.py)\n")
+        subprocess.run(
+            ["git", "config", "core.symlinks", "false"], cwd=self.root, check=True
+        )
+        alias.unlink()
+        subprocess.run(
+            ["git", "checkout-index", "--force", "--", "src/alias.py"],
+            cwd=self.root,
+            check=True,
+        )
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1
+
     def test_local_links_resolve_reference_links_and_encoded_paths(self) -> None:
         """Links use the source location; code examples and remote links are not fetched."""
         self.fixture("docs/linked file.md", "# Linked")

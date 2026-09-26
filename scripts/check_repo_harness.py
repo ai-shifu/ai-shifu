@@ -965,58 +965,71 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
         if parent.is_relative_to(repository_root)
     }
 
-    alias_targets: dict[Path, Path] = {}
+    resolved_aliases: dict[Path, Path] = {}
 
-    def is_indexed_target(target: Path, visited: frozenset[Path] = frozenset()) -> bool:
+    def resolve_indexed_target(
+        target: Path, visited: frozenset[Path] = frozenset()
+    ) -> Path | None:
         if not target.is_relative_to(repository_root):
-            return False
+            return None
         target = repository_root / posixpath.normpath(
             target.relative_to(repository_root).as_posix()
         )
         if target in visited or not target.is_relative_to(repository_root):
-            return False
+            return None
         if any(
-            parent.is_symlink()
+            parent.is_symlink() or indexed_modes.get(parent) == "120000"
             for parent in target.parents
             if parent.is_relative_to(repository_root)
         ):
             # Link through the indexed canonical path, not a virtual alias child.
-            return False
+            return None
+        if indexed_modes.get(target) == "120000":
+            if target in resolved_aliases:
+                return resolved_aliases[target]
+            try:
+                alias_value = subprocess.check_output(
+                    [
+                        "git",
+                        "show",
+                        ":" + target.relative_to(repository_root).as_posix(),
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                )
+                # core.symlinks=false materializes the indexed target as plain text.
+                worktree_value = (
+                    str(target.readlink())
+                    if target.is_symlink()
+                    else target.read_text()
+                )
+            except (OSError, UnicodeError, subprocess.CalledProcessError):
+                return None
+            if (
+                not alias_value
+                or Path(alias_value).is_absolute()
+                or worktree_value != alias_value
+            ):
+                return None
+            resolved = resolve_indexed_target(
+                target.parent / alias_value, visited | {target}
+            )
+            if resolved is not None:
+                resolved_aliases[target] = resolved
+            return resolved
         if target.is_symlink():
-            if indexed_modes.get(target) != "120000":
-                return False
-            if target not in alias_targets:
-                try:
-                    alias_value = subprocess.check_output(
-                        [
-                            "git",
-                            "show",
-                            ":" + target.relative_to(repository_root).as_posix(),
-                        ],
-                        cwd=ROOT,
-                        text=True,
-                    )
-                except (OSError, subprocess.CalledProcessError):
-                    return False
-                if Path(alias_value).is_absolute():
-                    return False
-                if str(target.readlink()) != alias_value:
-                    return False
-                alias_targets[target] = target.parent / alias_value
-            return is_indexed_target(alias_targets[target], visited | {target})
-        return (
-            target.is_file() and indexed_modes.get(target) in {"100644", "100755"}
-        ) or (target.is_dir() and target in indexed_directories)
+            return None
+        if (target.is_file() and indexed_modes.get(target) in {"100644", "100755"}) or (
+            target.is_dir() and target in indexed_directories
+        ):
+            return target
+        return None
 
     anchors: dict[Path, set[str]] = {}
     for path in paths:
         source = repository_root / path.relative_to(ROOT)
-        if path.is_symlink():
-            if (
-                not path.exists()
-                or not is_indexed_target(source)
-                or not is_indexed_target(source.resolve())
-            ):
+        if indexed_modes.get(source) == "120000" or path.is_symlink():
+            if resolve_indexed_target(source) is None:
                 errors.append(
                     f"Broken, external, or untracked documentation alias: {path}"
                 )
@@ -1047,8 +1060,16 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
             if not target.is_relative_to(repository_root):
                 errors.append(f"Broken local document link: {path}: {url}")
                 continue
+            indexed_target = resolve_indexed_target(literal_target)
+            if indexed_target is not None:
+                target = indexed_target
+            has_indexed_alias = any(
+                indexed_modes.get(part) == "120000"
+                for part in (literal_target, *literal_target.parents)
+            )
             if (
                 historical
+                and not has_indexed_alias
                 and target.suffix.lower() not in {".md", ".mdx"}
                 and not target.is_relative_to(DOCS_ROOT.resolve())
             ):
@@ -1057,7 +1078,7 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
             if not target.exists():
                 errors.append(f"Broken local document link: {path}: {url}")
                 continue
-            if not is_indexed_target(literal_target) or not is_indexed_target(target):
+            if indexed_target is None:
                 errors.append(f"Untracked local document link target: {path}: {url}")
                 continue
             if parsed.fragment and target.suffix.lower() in {".md", ".mdx"}:
