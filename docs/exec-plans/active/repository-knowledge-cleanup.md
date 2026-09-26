@@ -19,7 +19,7 @@ the content is corrected. Deliver separate ready pull requests per problem.
 - [x] 2026-09-26 00:37 UTC: Reconciled dashboard routes, DTO fields, scope, UTC filtering, and query guidance.
 - [x] 2026-09-26: Published the session contract with UTC monthly, disjoint user cohorts.
 - [x] 2026-09-26: Reconciled chat Skills with the shared ask store, mode-specific audio, and current timeout constants.
-- [ ] 2026-09-26 00:37 UTC: Audit current plans and debt, separate snapshots and follow-ups.
+- [x] 2026-09-26: Audited the 46-plan main baseline, separated contracts/snapshots, reconciled merge evidence and retained external acceptance. See `docs/history/knowledge-review-2026-09-26.md`; directory-rename archival awaits the tooling allowlist change.
 - [ ] 2026-09-26 00:37 UTC: Simplify skill routing and inherited module instructions.
 - [ ] 2026-09-26 00:37 UTC: Place flat topic documents under their owning knowledge categories.
 - [ ] 2026-09-26 00:37 UTC: Extend inventory, skill discovery, lifecycle checks, and health reports.

@@ -1,5 +1,7 @@
 # MarkdownFlow 2.0: rewind a lesson to an earlier turn
 
+> Lifecycle review, 2026-09-26: The backend/frontend change is merged; the planned browser refresh acceptance lacks a visible onRefresh trigger. Retain the acceptance gap explicitly.
+
 ## Purpose / Big Picture
 
 A learner on a 1.0 lesson can go back: pick a different option on a question they already
