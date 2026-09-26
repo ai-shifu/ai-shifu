@@ -49,11 +49,9 @@
 | `docs/exec-plans/active/german-de-de-localization.md` | German (Germany) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-agent-lesson-rewind.md` | MarkdownFlow 2.0: rewind a lesson to an earlier turn | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/package-campaigns.md` | ExecPlan: Package Campaigns | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/repository-knowledge-cleanup.md` | Repository Knowledge Cleanup | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/ruff-rule-minimization.md` | Minimize the Explicit Ruff Policy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -111,6 +109,7 @@
 | `docs/exec-plans/completed/operator-promotion-ops-state-rules.md` | ExecPlan: Operator Promotion Ops State Rules | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/operator-user-contact-change.md` | Operator User Contact Change | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/operator-user-detail-page-slimming.md` | Operator User Detail Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/package-campaigns.md` | ExecPlan: Package Campaigns | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/password-login-rate-limit.md` | Password Login Account Rate Limit | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/permission-contact-validation.md` | Separate course permission contact validation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/profile-onboarding-ai-import.md` | Let learners answer onboarding questions with their AI | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -125,6 +124,7 @@
 | `docs/exec-plans/completed/profile-onboarding-structural-simplification.md` | Profile Onboarding Structural Simplification | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/pydantic-required-compatibility.md` | Remove deprecated Pydantic `Field(required=...)` metadata | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/repository-knowledge-cleanup.md` | Repository Knowledge Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/restrict-learner-order-actions.md` | Restrict learner order actions to their owner | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/retire-ai-instruction-generator.md` | Retire the AI Instruction Generator | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/runtime-harness-fast-value-gate.md` | Runtime Harness Fast Value Gate | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -149,7 +149,9 @@
 | `docs/history/backend-inventory-2026-07.md` | Backend Inventory 2026-07 (Phase 1) | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/billing-timezone-cleanup-draft.md` | Billing 时区死管道清理 — 执行计划 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/gemini-live-voice-follow-up-through-2026-09-26.md` | Gemini Live implementation journal through 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
+| `docs/history/knowledge-cleanup-delivery-2026-09-26.md` | Repository knowledge cleanup delivery — 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/knowledge-review-2026-09-26.md` | Repository knowledge review — 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
+| `docs/history/ruff-rule-minimization-through-2026-09-26.md` | Ruff rule delivery journal through 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/shared-admin-table-component.md` | Shared Admin Table Component | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/product-specs/account-session-analytics.md` | Account Session Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-26` | `true` |
 | `docs/product-specs/billing-credit-notifications.md` | 积分通知中心需求文档 | `product-spec` | `needs-review` | `backend` | `-` | `true` |

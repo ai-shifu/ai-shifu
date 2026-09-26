@@ -19,11 +19,11 @@ the content is corrected. Deliver separate ready pull requests per problem.
 - [x] 2026-09-26 00:37 UTC: Reconciled dashboard routes, DTO fields, scope, UTC filtering, and query guidance.
 - [x] 2026-09-26T00:54:50Z: Published the session contract with UTC monthly, disjoint user cohorts.
 - [x] 2026-09-26T00:56:37Z: Reconciled chat Skills with the shared ask store, mode-specific audio, and current timeout constants.
-- [x] 2026-09-26T01:04:37Z: Audited the 46-plan main baseline, separated contracts/snapshots, reconciled merge evidence and retained external acceptance. See `docs/history/knowledge-review-2026-09-26.md`; directory-rename archival awaits the tooling allowlist change.
+- [x] 2026-09-26T01:04:37Z: Audited the 46-plan main baseline, separated contracts/snapshots, reconciled merge evidence and retained external acceptance. See `docs/history/knowledge-review-2026-09-26.md`; directory-rename archival is complete with the tooling allowlist change.
 - [x] 2026-09-26T01:07:05Z: Replaced the frontend note collection with scenario navigation, completed all 20 focused skill metadata entries/catalogs, and narrowed module rules with a local error-fallback i18n exception.
 - [x] 2026-09-26T01:08:48Z: Moved 16 topic documents into specifications/references and updated tracked references. Full-document review dates remain unknown where only navigation or a subsection was checked.
 - [x] 2026-09-26T01:24:07Z: Added tracked Markdown/MDX classification, generated skill catalogs, local link/anchor and plan lifecycle checks, honest review dates, and ignored UTC/HEAD health reports; focused regression evidence is recorded in the delivery report.
-- [ ] 2026-09-26 00:37 UTC: Record pull requests, verification, and external follow-ups.
+- [x] 2026-09-26T01:40:38Z: Recorded ready PRs, verification evidence, review repairs and all external/dependent follow-ups in the delivery report.
 
 - [x] 2026-09-26 04:33 UTC: Recorded concrete audit findings, source paths, delivery links,
   and completion criteria so this plan can be followed without the audit chat.
@@ -55,11 +55,14 @@ including those new plans, rather than closing plans from the old counts.
 
 ## Outcomes & Retrospective
 
-Tracker: https://github.com/ai-shifu/ai-shifu/pull/2964.
+The approved cleanup is complete. See
+`docs/history/knowledge-cleanup-delivery-2026-09-26.md` for the ready PR stack,
+executed checks and retained work. All baseline active documents have a recorded
+disposition. Unknown review dates and external acceptance were preserved rather
+than converted into completion claims. Application behavior is unchanged.
 
-In progress. Delivery evidence and unresolved external acceptance will be
-recorded here before handoff; code already merged on main is credited rather
-than reimplemented.
+The generator/checker found migration links and metadata/date edge cases during
+verification; content and tooling repairs stayed in separate commits/PRs.
 
 ## Context and Orientation
 
