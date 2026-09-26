@@ -5,8 +5,10 @@ root-layout error entries. Inherit all other frontend/component rules.
 
 ## Local i18n exception
 
-Minimal static fallback labels are allowed only here when i18n or its providers
-may have failed before initialization. Keep ordinary business errors and normal
+Minimal static fallback labels are allowed only in this shared crash component.
+It uses those same labels for route-level and root-layout failures because it
+cannot assume i18n or its providers initialized successfully, regardless of the
+subsystem that failed. Keep ordinary business errors and normal
 UI copy in shared i18n JSON. This exception does not authorize new static copy
 in unrelated components, pages, or analytics payloads.
 

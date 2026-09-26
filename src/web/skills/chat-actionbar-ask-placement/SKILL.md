@@ -59,8 +59,11 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 
 `useAskStateStore` owns messages under `lessonScopeKey + anchor element_bid`.
 Hydrate existing history through `hydrateAskList` / `hydrateAskListMap`; a
-shorter or stale history must not overwrite newer streamed messages. Scope
-changes reject writes from the previous lesson. `AskBlock`, reading mode, and
+shorter or stale history must not overwrite newer streamed messages.
+`setAskList` rejects a previous-lesson write only when the caller supplies the
+optional `expectedLessonScopeKey`; unscoped writes are not automatically guarded.
+Pass the expected scope for asynchronous work that can outlive its lesson and
+preserve caller cancellation/cleanup. `AskBlock`, reading mode, and
 listen mode consume that store. Do not reintroduce parent override maps, local
 message copies, or token-by-token writes into `useChatLogicHook.items`.
 
