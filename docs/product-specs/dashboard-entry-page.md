@@ -1,78 +1,31 @@
 ---
-title: Dashboard Entry Page (v2) Technical Design
+title: Dashboard Entry Page Contract
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-04-17
+last_reviewed: 2026-09-26
 canonical: true
 ---
 
-# Dashboard Entry Page (v2) Technical Design
+# Dashboard Entry Page Contract
 
-## Goal
+## Entry And Navigation
 
-Add a top-level entry page for the admin dashboard that shows:
+`/admin/dashboard` shows course count, distinct learner count, successful order
+count, successful order amount, and a paginated course table. The View Course
+action opens `/admin/dashboard/{shifu_bid}`; the course name and row are not
+navigation triggers. Follow-ups and ratings are sibling detail
+pages below that course route. Build links through
+[admin-dashboard-routes.ts](../../src/web/src/app/admin/dashboard/admin-dashboard-routes.ts).
+The frontend detail path does not contain a `/shifu/` segment.
 
-1. Total course count
-2. Total learner count
-3. Total order count
-4. Total generation count
-5. Course list
+The [teacher dashboard specification](teacher-analytics-dashboard.md) owns the
+course-detail behavior. This document owns only the entry page and its API.
 
-When a course is clicked, user enters the existing course-level dashboard detail page.
+## API Contract
 
-## Scope
-
-In scope:
-
-- Admin route split: dashboard entry vs course detail
-- Entry KPIs and course list
-- Click-through navigation to existing detail view
-- Backend aggregation API for entry metrics
-- i18n keys and basic loading/error states
-
-Out of scope:
-
-- Redesign of course-level detail charts/tables
-- New BI dimensions beyond requested metrics
-- Historical data backfill or ETL jobs
-
-## User Flow
-
-1. User opens `/admin/dashboard`
-2. Page shows four KPI cards and a course list
-3. User clicks one course row/card
-4. Browser navigates to `/admin/dashboard/shifu/{shifu_bid}`
-5. Existing detail dashboard is displayed for that course
-
-## Routing Plan
-
-### New routes
-
-- `GET /admin/dashboard`
-  - New entry page
-- `GET /admin/dashboard/shifu/[shifu_bid]`
-  - Existing detail page content (moved from current `/admin/dashboard`)
-
-### Backward compatibility
-
-- Keep sidebar link pointing to `/admin/dashboard`
-- Optional: if old deep links exist, support redirect from legacy query mode to `/admin/dashboard/shifu/{shifu_bid}`
-
-## Backend Plan
-
-## New endpoint
-
-- `GET /api/dashboard/entry`
-
-Query params:
-
-- `start_date` (optional, `YYYY-MM-DD`)
-- `end_date` (optional, `YYYY-MM-DD`)
-- `keyword` (optional, search by course name/bid)
-- `page_index` (default `1`)
-- `page_size` (default `20`, max `100`)
-
-Response shape:
+`GET /api/dashboard/entry` returns the shared `code`, `message`, `data` envelope.
+The data shape is defined by
+[DashboardEntryDTO](../../src/api/flaskr/service/dashboard/dtos.py):
 
 ```json
 {
@@ -80,129 +33,73 @@ Response shape:
     "course_count": 0,
     "learner_count": 0,
     "order_count": 0,
-    "generation_count": 0
+    "order_amount": "0.00"
   },
   "page": 1,
   "page_size": 20,
-  "page_count": 1,
+  "page_count": 0,
   "total": 0,
-  "items": [
-    {
-      "shifu_bid": "",
-      "shifu_name": "",
-      "learner_count": 0,
-      "order_count": 0,
-      "generation_count": 0,
-      "last_active_at": ""
-    }
-  ]
+  "items": []
 }
 ```
 
-## Metric definitions
+Each item has `shifu_bid`, `shifu_name`, `learner_count`, `order_count`,
+`order_amount`, and `last_active_at`. Amounts are strings with two decimal
+places. Activity is UTC ISO-8601 with `Z`, or `null`; it is not an empty string.
+`generation_count` is not part of this response.
 
-- `course_count`: visible non-archived courses for current creator/collaborator
-- `learner_count`: distinct `user_bid` in `learn_progress_records` for selected courses
-- `order_count`: total non-deleted orders in `order_orders` for selected courses
-- `generation_count`: total follow-up ask records in `learn_generated_blocks` (`type = MDASK`)
+Query parameters are optional `start_date` / `end_date` (`YYYY-MM-DD`),
+`keyword`, `page_index` (default 1), and `page_size` (default 20, capped at 100).
+Pagination syntax is validated at the route boundary. With neither date, all
+time is selected. A missing end resolves to today's UTC date; a missing start
+resolves to 13 days before the end. The inclusive range may span at most 366
+days and becomes a half-open UTC interval. Response timestamps are never
+localized by the request's timezone parameter.
 
-Note: if product expects a different meaning for “generation”, adjust before implementation.
+## Scope And Metrics
 
-## Permission model
+- The course scope contains the current user's owned eligible courses;
+  shared-only and built-in demo courses are excluded. Keyword filtering uses
+  the shared course-loading path.
+- Learners are the distinct union of users with non-reset, non-deleted progress
+  and users imported through successful manual orders. Ordinary purchases
+  alone do not make a user a learner. Summary learners are deduplicated across
+  all selected courses, rather than summed from per-course counts.
+- Orders include successful, non-deleted course orders, including nonzero
+  manual orders. Amount sums `paid_price`; unsuccessful orders are excluded.
+- Date filtering applies to progress/order creation timestamps for counts and
+  progress update timestamps for last activity. With a date range, only courses
+  with matching learner or order activity remain in the list and course count.
+- Course rows retain ascending `(shifu_name.lower(), shifu_bid)` order after
+  filtering and before page slicing. The course BID is the stable tie-breaker
+  when names compare equal ignoring case; preserve both sort keys.
+- Summary metrics cover the filtered course scope before pagination. Empty
+  results have zero counts, `"0.00"` amount, zero pages, and an empty item list.
 
-- Reuse current creator/admin access checks from dashboard/order flows
-- Data must be restricted to courses visible to current user
+The implementation is
+[build_dashboard_entry](../../src/api/flaskr/service/dashboard/funcs.py).
+Preserve its scope, UTC boundaries, and summary-versus-page distinction when
+optimizing queries. Use the query guidance in the teacher dashboard spec.
 
-## Query strategy
+## UI And Verification
 
-- Reuse `get_user_created_shifu_bids(...)` as base course scope
-- Aggregate using grouped queries and Python merge maps
-- Avoid N+1 queries by batching with `IN (...)` and chunking when needed
-- Date range applies to time-based metrics (orders/generation/active)
+The entry page handles loading, empty, error, keyword, date, and pagination
+states. It consumes the shared dashboard API and translations; all supported
+locales come from [the shared locale list](../../src/i18n/locales.json).
 
-## Frontend Plan
+Existing regression evidence:
 
-## Page structure
+- [Backend dashboard routes](../../src/api/tests/service/dashboard/test_dashboard_routes.py)
+  cover ownership, shared/demo exclusions, manual-import learner inclusion,
+  successful-order metrics, date filtering, pagination-parameter validation,
+  and UTC serialization. They do not currently exercise entry results spanning
+  multiple pages, page counts, or out-of-range page clamping.
+- [Entry page tests](../../src/web/src/app/admin/dashboard/page.test.tsx)
+  cover the UI request and navigation behavior.
+- [Query contract tests](../../src/api/tests/service/dashboard/test_dashboard_query_contracts.py)
+  cover invalid date ranges and activity filtering, alongside follow-up source
+  and identity constraints. Page-scoped hydration is an implementation pattern,
+  not a regression guarantee asserted by this test file.
 
-- `src/web/src/app/admin/dashboard/page.tsx`
-  - New entry page UI
-  - KPI cards: courses/learners/orders/generation
-  - Course list (table or cards)
-  - Date range filter (reuse existing `DateRangeFilter` pattern)
-  - Click course => `router.push('/admin/dashboard/shifu/${shifuBid}')`
-
-- `src/web/src/app/admin/dashboard/shifu/[shifu_bid]/page.tsx`
-  - Move current course-level dashboard implementation here
-  - Keep existing learner detail sheet and charts unchanged
-
-## API integration
-
-Add in `src/web/src/api/api.ts`:
-
-- `getDashboardEntry: 'GET /dashboard/entry'`
-
-Add new TS types in `src/web/src/types/dashboard.ts`:
-
-- `DashboardEntrySummary`
-- `DashboardEntryCourseItem`
-- `DashboardEntryResponse`
-
-## i18n
-
-Add keys in:
-
-- `src/i18n/en-US/modules/dashboard.json`
-- `src/i18n/zh-CN/modules/dashboard.json`
-
-Suggested key groups:
-
-- `module.dashboard.entry.kpi.courses`
-- `module.dashboard.entry.kpi.learners`
-- `module.dashboard.entry.kpi.orders`
-- `module.dashboard.entry.kpi.generations`
-- `module.dashboard.entry.table.course`
-- `module.dashboard.entry.table.learners`
-- `module.dashboard.entry.table.orders`
-- `module.dashboard.entry.table.generations`
-- `module.dashboard.entry.table.lastActive`
-- `module.dashboard.entry.table.empty`
-
-Then run:
-
-- `python scripts/check_translations.py`
-- `python scripts/check_translation_usage.py --fail-on-unused`
-- `cd src/web && npm run i18n:keys`
-
-## Test Plan
-
-Backend:
-
-- Unit/integration tests for `/api/dashboard/entry`
-- Verify permission scope
-- Verify date-range filtering
-- Verify pagination and keyword filtering
-- Verify metric calculations on mixed sample data
-
-Frontend:
-
-- Entry page renders loading/error/empty/data states
-- Click course navigates to detail route
-- Detail route still loads existing per-course data
-- i18n keys resolve in both `en-US` and `zh-CN`
-
-## Risks and Mitigations
-
-1. Metric ambiguity (`generation_count`, `order_count` status scope)
-   - Mitigation: lock definitions before coding, keep DTO extensible.
-2. Large dataset aggregation latency
-   - Mitigation: indexed filters, grouped queries, optional pagination-first loading.
-3. Route migration regressions
-   - Mitigation: keep existing detail logic intact and move with minimal refactor.
-
-## Acceptance Criteria
-
-1. `/admin/dashboard` shows requested 4 KPI totals and course list.
-2. Clicking a course enters the existing detail dashboard behavior.
-3. Existing dashboard detail metrics/charts/learner drill-down still work.
-4. New strings are fully i18n-compliant.
-5. Relevant tests and pre-commit checks pass.
+This contract records the implemented behavior; new metrics require an explicit
+product change and matching producer/consumer tests.
