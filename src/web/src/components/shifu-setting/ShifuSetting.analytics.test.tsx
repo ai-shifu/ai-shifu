@@ -264,6 +264,7 @@ describe('ShifuSettingDialog analytics producer', () => {
     mockMiniMaxCloneDialog.mock.calls.at(-1)?.[0] as {
       onOpenChange: (open: boolean) => void;
       onRefreshCost: () => Promise<void>;
+      cloneCost: { estimated_credits?: string } | null;
     };
 
   const unavailableCostEventCalls = () =>
@@ -746,6 +747,61 @@ describe('ShifuSettingDialog analytics producer', () => {
     ).toBeInTheDocument();
     expect(consoleErrorSpy).toHaveBeenCalledTimes(olderRequests.length + 1);
     consoleErrorSpy.mockRestore();
+  });
+
+  it('discards a cost response from the previous course after scope changes', async () => {
+    await configureMiniMaxSettings();
+    const previousCourseCost = createDeferred<{ estimated_credits: string }>();
+    const currentCourseCost = createDeferred<{ estimated_credits: string }>();
+    mockGetMinimaxTtsCloneCost.mockImplementation(
+      ({ shifu_bid }: { shifu_bid: string }) =>
+        shifu_bid === 'course-1'
+          ? previousCourseCost.promise
+          : currentCourseCost.promise,
+    );
+
+    const { onSave, rerender } = renderOpenSettings();
+    await waitFor(() =>
+      expect(
+        mockGetMinimaxTtsCloneCost.mock.calls.some(
+          ([args]) => args.shifu_bid === 'course-1',
+        ),
+      ).toBe(true),
+    );
+
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-2'
+        openSignal='analytics-test'
+        onSave={onSave}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        mockGetMinimaxTtsCloneCost.mock.calls.some(
+          ([args]) => args.shifu_bid === 'course-2',
+        ),
+      ).toBe(true),
+    );
+
+    await act(async () => {
+      previousCourseCost.resolve({ estimated_credits: '99' });
+      await previousCourseCost.promise;
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(latestMiniMaxDialogProps().cloneCost).toBeNull();
+
+    await act(async () => {
+      currentCourseCost.resolve({ estimated_credits: '5' });
+      await currentCourseCost.promise;
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostCredits'),
+    ).toBeInTheDocument();
+    expect(latestMiniMaxDialogProps().cloneCost).toEqual({
+      estimated_credits: '5',
+    });
   });
 
   it('updates polled cloned-voice status without waiting for a slow cost request', async () => {

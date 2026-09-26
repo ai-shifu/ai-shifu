@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -374,7 +375,7 @@ export default function ShifuSettingDialog({
     };
   }, [open, shifuId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (open && !previousMinimaxCloneCostOpenRef.current) {
       minimaxCloneCostOpenSessionRef.current++;
       minimaxCloneCostUnavailableReportedRef.current = false;
@@ -640,13 +641,21 @@ export default function ShifuSettingDialog({
     isCourseOwner,
     supportsVoiceCloning: supportsMiniMaxVoiceCloning,
   });
-  useEffect(() => {
+  useLayoutEffect(() => {
     minimaxCloneCostEligibilityContextRef.current = {
       ttsEnabled,
       isCourseOwner,
       supportsVoiceCloning: supportsMiniMaxVoiceCloning,
     };
-  }, [isCourseOwner, supportsMiniMaxVoiceCloning, ttsEnabled]);
+    minimaxCloneCostEligibilityGenerationRef.current++;
+  }, [
+    isCourseOwner,
+    open,
+    resolvedProvider,
+    shifuId,
+    supportsMiniMaxVoiceCloning,
+    ttsEnabled,
+  ]);
   const minimaxCloneCostRefreshScopeRef = useRef({
     shifuId,
     provider: resolvedProvider,
@@ -714,7 +723,7 @@ export default function ShifuSettingDialog({
       );
     }
   }, [isMiniMaxTtsProvider, resolvedProvider, shifuId]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     minimaxCloneCostRefreshScopeRef.current = {
       shifuId,
       provider: resolvedProvider,
@@ -810,17 +819,6 @@ export default function ShifuSettingDialog({
   );
 
   // Invalidate completed refresh snapshots when the event-eligible context changes.
-  useEffect(() => {
-    minimaxCloneCostEligibilityGenerationRef.current++;
-  }, [
-    isCourseOwner,
-    open,
-    resolvedProvider,
-    shifuId,
-    supportsMiniMaxVoiceCloning,
-    ttsEnabled,
-  ]);
-
   useEffect(() => {
     const refreshResult = minimaxCloneCostRefreshResult;
     if (
