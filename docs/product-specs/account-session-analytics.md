@@ -1,3 +1,11 @@
+---
+title: Account Session Analytics
+status: implemented
+owner_surface: frontend
+last_reviewed: 2026-09-26
+canonical: true
+---
+
 # Account session analytics contract
 
 Covers the two user-facing flows added for account session control: approving a
@@ -16,7 +24,7 @@ rejected unless the terminal states are recorded separately.
   people are being shown requests they did not start.
 - Metric definition: numerator is approval events (`device_auth_approved`);
   denominator is prompt exposure events (`device_auth_prompt_shown`) in the
-  same calendar week, grouped by the shared `device_os`, `from_link`,
+  same UTC calendar week, grouped by the shared `device_os`, `from_link`,
   `host_platform`, `skill_id`, and `skill_version_major` fields.
   Abandonment is the residual, `1 - (approved + denied) / shown`, and is
   meaningful only because exposure is counted separately. Without a request
@@ -60,31 +68,78 @@ rejected unless the terminal states are recorded separately.
 - Business question: do people use session control at all, and when they do,
   are they ending one session they recognise as wrong or clearing everything?
   The second case suggests they could not tell which session was suspicious.
-- Metric definition: numerator is distinct users emitting any revoke event in
-  a calendar month; denominator is distinct users emitting
-  `session_list_opened` in the same month. Track the split between single and
-  bulk revocations as a share of revoking users, not of events.
+- Reporting window: UTC calendar month, including its first instant and excluding
+  the first instant of the next month. Use the event timestamp for membership.
+- Adoption metric: distinct users with a successful revoke divided by distinct
+  users with `session_list_opened` in that month. This is aggregate best-effort
+  telemetry, not a joined funnel; missing open events can make the ratio exceed
+  one. Do not infer authorization or account safety from it.
+- Revocation cohorts: let S be distinct users with `session_revoked` and B be
+  distinct users with `session_revoked_others` in that month. The denominator
+  for all three shares is |S union B|. Report single-only |S minus B|, bulk-only
+  |B minus S|, and both |S intersect B|. These groups are disjoint and sum to
+  the denominator. Repeated actions do not increase a user's cohort weight;
+  actions in another month do not change the current month's membership.
+- Empty denominator: display unavailable, not a fabricated zero-percent split.
 - Event name(s): `session_list_opened`, `session_revoked`,
   `session_revoked_others`.
 - Actor and surface: the signed-in user, from the account menu on the learner
-  and creator surfaces. The surface is carried on the open event.
+  and teacher surfaces. The surface is carried on the open event.
 - Trigger: open fires when the menu entry is activated; revoke events fire
-  only after the backend confirms, so a failed revoke emits nothing.
+  only after the backend confirms an actual revocation. A failed revoke emits
+  nothing; bulk success also requires `revoked > 0`, so a confirmed zero-session
+  no-op refreshes the list without entering a revocation cohort. Capture
+  the shared tracking identity generation before each single or bulk request;
+  emit its success event only if that generation still matches at completion.
+  An account replacement or identity reset suppresses the stale outcome without
+  changing the revocation result, list refresh, or error handling.
 - Population: signed-in users. The entry is hidden while signed out.
-- Count unit: users for the adoption metric; events for the single-versus-bulk
-  split.
-- Deduplication: none within a session. Reopening the dialog is a genuine
-  repeat of the action and should count again.
-- Correlation: none. Session identifiers name a live credential's row and are
-  deliberately absent from every payload.
-- Consumers: none yet.
-- Compatibility: additive; three new names.
+- Count unit: distinct pseudonymous users for both adoption and cohort shares.
+  Event volumes may be reported separately, but never labeled as user shares.
+- Deduplication: producers still emit each confirmed action and each dialog
+  opening. Reporting deduplicates users over the entire UTC month, across all
+  their sessions and both surfaces; producer deduplication is not required.
+- Correlation: use the existing anonymous analytics identity to associate a
+  user's delivered events. Use only rows with that identity for user-based
+  metrics. Shared tracking queues calls until identification is ready; calls
+  can be discarded before delivery if identification never succeeds or the
+  identity changes. The dataset therefore cannot measure all missing-identity
+  events or provide an exclusion count for those lost calls. State this
+  undercount limitation alongside the observed-user cohorts. Do not invent a fallback
+  from session IDs, credentials, or device data. Identity resets can split a
+  person into multiple observed users; this limitation belongs with the report.
+- Consumers: no dedicated session-report query is deployed in this repository.
+  Periodic product reports and future consumers must use these definitions.
+- Compatibility: event names, payloads, and successful-confirmation timing are
+  unchanged; outcomes crossing an identity replacement and zero-session bulk
+  no-ops are now excluded at the producer. This clarification replaces the ambiguous event-based split.
+  Recalculate historical cohorts from available user-level events, or label old
+  aggregates as incomparable when those events are unavailable. Existing events
+  emitted after an identity replacement cannot be reassigned reliably because
+  the initiating identity was not recorded. Historical bulk no-ops cannot be
+  removed either because the revoked count was not sent. Disclose both historical
+  limitations and the producer rollout boundary when comparing cohorts.
 - Verification:
   `src/web/src/components/Settings/SessionManagerModal.test.tsx`
   asserts that outcomes fire only on confirmed revocations, that a failed
   revocation emits nothing, and that no session identifier reaches a payload.
+  It covers single and bulk requests across identity replacement, unchanged
+  identity, zero-session bulk no-ops, and synchronous/asynchronous tracking
+  failures. Tracking failures
+  must leave successful revocation and list refresh unaffected.
 
 | Field     | Type   | Allowed values     | Cardinality | Privacy class | Why required                                                 |
 | --------- | ------ | ------------------ | ----------- | ------------- | ------------------------------------------------------------ |
 | `surface` | string | `learner`, `admin` | low         | non-personal  | shows which surface people manage sessions from              |
 | `source`  | string | `web`, `cli`, ``   | low         | non-personal  | distinguishes ending a browser session from ending a CLI one |
+
+Examples for a single UTC month: a user with three single revocations counts
+once in single-only; a user with two bulk revocations counts once in bulk-only;
+a user with both kinds at least once counts once in both. With one user in
+each group, each share is 1/3. A failed request or bulk no-op belongs to none
+of the groups.
+
+The existing event payload allowlist is unchanged: `surface` is on
+`session_list_opened`, `source` is on `session_revoked`, and
+`session_revoked_others` has no custom fields. Follow the
+[shared analytics contract](../references/frontend-product-analytics.md).

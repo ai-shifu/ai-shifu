@@ -17,7 +17,7 @@ the content is corrected. Deliver separate ready pull requests per problem.
 - [x] 2026-09-26 00:37 UTC: Corrected runtime configuration ownership and added local job verification.
 - [x] 2026-09-26 00:37 UTC: Corrected the remaining billing UTC specification and serialization reference.
 - [x] 2026-09-26 00:37 UTC: Reconciled dashboard routes, DTO fields, scope, UTC filtering, and query guidance.
-- [ ] 2026-09-26 00:37 UTC: Publish the account-session contract with user-based cohorts.
+- [x] 2026-09-26T00:54:50Z: Published the session contract with UTC monthly, disjoint user cohorts.
 - [ ] 2026-09-26 00:37 UTC: Reconcile chat state, audio, and timeout skills.
 - [ ] 2026-09-26 00:37 UTC: Audit current plans and debt, separate snapshots and follow-ups.
 - [ ] 2026-09-26 00:37 UTC: Simplify skill routing and inherited module instructions.
