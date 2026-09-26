@@ -1,3 +1,8 @@
+---
+name: admin-table-visual-system
+description: Use when changing admin table presentation, sticky actions, pagination, or shared table components.
+---
+
 # Admin Table Visual System
 
 ## 触发场景

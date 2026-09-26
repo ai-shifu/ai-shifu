@@ -6,6 +6,9 @@ calls on top of the shared request and generated-client helpers.
 Entry files in this directory: `api.ts`, `index.ts`, `user.ts`, `course.ts`,
 `studyV2.ts`.
 
+Shared compatibility, i18n, privacy and verification rules are inherited from
+the root and `src/web/AGENTS.md`; the constraints below are local.
+
 ## Do
 
 - Preserve learner request payloads and stream contracts alongside generated
@@ -14,8 +17,6 @@ Entry files in this directory: `api.ts`, `index.ts`, `user.ts`, `course.ts`,
   against backend contracts.
 - Prefer the shared `lib/request.ts` and `lib/api.ts` stack instead of
   creating per-endpoint fetch wrappers here.
-- Treat exported API functions as compatibility surfaces consumed by pages,
-  hooks, and stores across the app.
 
 ## Avoid
 

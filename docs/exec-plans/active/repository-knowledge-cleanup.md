@@ -20,7 +20,7 @@ the content is corrected. Deliver separate ready pull requests per problem.
 - [x] 2026-09-26T00:54:50Z: Published the session contract with UTC monthly, disjoint user cohorts.
 - [x] 2026-09-26T00:56:37Z: Reconciled chat Skills with the shared ask store, mode-specific audio, and current timeout constants.
 - [x] 2026-09-26T01:04:37Z: Audited the 46-plan main baseline, separated contracts/snapshots, reconciled merge evidence and retained external acceptance. See `docs/history/knowledge-review-2026-09-26.md`; directory-rename archival awaits the tooling allowlist change.
-- [ ] 2026-09-26 00:37 UTC: Simplify skill routing and inherited module instructions.
+- [x] 2026-09-26T01:07:05Z: Replaced the frontend note collection with scenario navigation, completed all 20 focused skill metadata entries/catalogs, and narrowed module rules with a local error-fallback i18n exception.
 - [ ] 2026-09-26 00:37 UTC: Place flat topic documents under their owning knowledge categories.
 - [ ] 2026-09-26 00:37 UTC: Extend inventory, skill discovery, lifecycle checks, and health reports.
 - [ ] 2026-09-26 00:37 UTC: Record pull requests, verification, and external follow-ups.

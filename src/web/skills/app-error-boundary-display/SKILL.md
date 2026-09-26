@@ -14,7 +14,7 @@ description: 当 Cook Web 需要调整 Next.js App Router 全局或路由级错�
 - `global-error.tsx` 需要自己返回 `<html>` 和 `<body>`，不要依赖根布局里的 Provider、i18n 或运行时配置已经初始化。
 - 错误兜底组件不要静态 import `@/store` barrel，避免错误页加载时触发 unrelated store 的模块副作用。
 - 兜底页样式优先使用 Tailwind class 和现有主题变量，不要引入硬编码色值；高度使用 `dvh`，不要使用 `vh` 或 `env(safe-area-inset-bottom)`。
-- 这类兜底页允许提供最小静态文案，因为它可能在 i18n 初始化失败前渲染；不要把排障关键信息藏到只在控制台可见。
+- Minimal static fallback labels follow the narrow exception in `src/components/error/AGENTS.md`; normal business UI still uses shared i18n. Keep useful diagnostics visible in the fallback.
 
 ## 工作流
 

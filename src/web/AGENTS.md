@@ -68,6 +68,9 @@ hard frontend constraints close to `src/web/`.
   keep their large background or card hit areas on the default cursor so the
   whole page does not read as a button.
 
+- Root layouts, error entries and global providers import exact store modules;
+  do not load the `@/store` barrel while bootstrapping or handling a crash.
+
 ## Avoid
 
 - Do not add ad-hoc component fetch logic or a second request abstraction.

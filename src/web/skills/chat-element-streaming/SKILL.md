@@ -72,3 +72,65 @@ It does not currently prove that activity resets the deadline or that a
 cancelled/settled run cannot time out afterward. Add those focused timer cases
 when changing reset or cleanup behavior. Read the current constants before
 changing timing; a past incident's shorter threshold is not the runtime contract.
+
+## Completion updates and trailing interactions
+
+A learner `outline_item_update` with `status=completed` updates lesson state;
+it is not by itself a reason to discard later elements from that live stream.
+Keep accepting a trailing `element_type=interaction`, including the next-lesson
+CTA, after the completion update. Do not make lesson-completion state an extra
+stream-acceptance guard. Preserve the actual terminal stream handling separately.
+
+Verify this ordering with `useChatLogicHook.test.tsx` in
+`src/app/c/[[...id]]/Components/ChatUi/`, specifically
+`keeps interaction elements that arrive after lesson completion updates`.
+
+## Preview typewriter and speaker helpers
+
+`LessonPreview.tsx` owns a separate typewriter cache and visible-item gate in
+`src/components/lesson-preview/previewTypewriterGate.ts`. Changes to the learner
+read-mode gate do not replace this preview path. Key completion state by
+`element_bid` and retain the preview's `onTypeFinished` callbacks.
+
+Only `CONTENT` items with `element_type=text` participate in this gate. When a
+text item has a cache entry, release subsequent items only after `is_final`,
+the completion callback, and the cached normalized content all agree. A text
+item with no cache is ready only when `shouldUseTypewriter !== true`, as with
+static/history items. Normalize away `custom-button-after-content` markup;
+appended text beyond a finished cache snapshot may require typing again.
+
+Preview `LIKE_STATUS` speaker/helper rows require an existing text parent and
+wait for that parent's gate. Skip helpers for missing or non-text parents,
+including HTML and interaction items. Do not reveal these helpers ahead of
+unfinished text or derive their visibility solely from the learner gate.
+
+Run `previewTypewriterGate.test.ts` for ordering, HTML-helper suppression and
+appended-text behavior. These are helper-level checks, not full rendered-panel
+coverage; verify `LessonPreview` integration when changing cache ownership or
+completion callbacks.
+
+## First-element spacing in read mode
+
+Preserve a single container-level first-element top-padding rule for loading,
+content, ask and interaction states. A first screen must not become flush with
+the header merely because its initial visible element is not ordinary content.
+Use the existing `getReadModeElementPadding` in `NewChatComp.tsx` as the starting
+point: first elements receive `20px 20px 0`, later elements `0 20px`.
+
+Current coverage in the renderer is narrower than that intended invariant:
+reset loading calls the helper with `true`, ordinary content/interaction and
+error containers pass `idx === 0`, and empty-list streaming dots use
+`isReadModeStreamingDotsFirstElement`. The early `ASK` branch still uses fixed
+`0 20px` padding, and some branches can return `null`; do not claim that the
+first visible ask is already covered or that the raw array index necessarily
+identifies the first visible DOM element. Inspect those branches when changing
+first-item layout and preserve shared treatment rather than adding per-type
+padding patches. This guidance relocation does not change their current UI.
+
+`src/app/c/[[...id]]/Components/ChatUi/NewChatComp.test.tsx` currently covers the
+read-mode loading gate and projection helpers; it does not render and assert
+these container paddings. For a spacing change, add rendered cases for reset
+loading, empty-list streaming dots, first content, first ask and first
+interaction, including an earlier item filtered out of the DOM. Check the same
+first top padding and no duplicate top gap on following items. Those first-item
+geometry cases remain a coverage requirement, not completed test evidence.
