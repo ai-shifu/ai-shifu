@@ -1,411 +1,96 @@
-# 环境变量配置完整文档
+# Frontend Configuration Reference
 
-## 概述
+## Ownership And Loading
 
-本项目统一管理所有环境变量，避免重复和命名不一致的问题。所有环境变量都通过 `@/config/environment` 模块访问。
+The frontend has two configuration requests with different owners:
 
-## 环境变量分类
+| Request               | Owner                                    | Response and use                                                                                |
+| --------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `/api/config`         | Next.js (`src/app/api/config/route.ts`)  | Only `apiBaseUrl`; locates the backend.                                                         |
+| `/api/runtime-config` | Flask (`src/api/flaskr/route/config.py`) | Public login, payment, branding, legal, and analytics settings in the shared response envelope. |
 
-### 1. 核心API配置 (Core API Configuration)
+[initializeEnvData.ts](../../lib/initializeEnvData.ts) loads the backend payload
+into [envStore.ts](../../store/envStore.ts). Components consume that store.
+[environment.ts](environment.ts) supplies bootstrap defaults; it is not a second
+browser configuration service. A successful Next `/api/config` fallback proves
+only backend-location discovery, not that runtime settings loaded successfully.
 
-| 变量名                     | 用途       | 默认值                  |
-| -------------------------- | ---------- | ----------------------- |
-| `NEXT_PUBLIC_API_BASE_URL` | API基础URL | `http://localhost:8080` |
+## Frontend Environment
 
-### 2. 入口跳转配置 (Entry Redirect Configuration)
+For local setup, follow the [frontend README](../../../README.md). Put the
+backend origin in `src/web/.env.local`, without an `/api` suffix:
 
-| 变量名     | 用途                                       | 默认值   |
-| ---------- | ------------------------------------------ | -------- |
-| `HOME_URL` | `/`、`/c` 入口跳转地址及 Logo 点击目标 URL | `/admin` |
-
-如需将某门课程作为默认入口，配置 `HOME_URL=/c/<shifu_bid>`。`HOME_URL` 支持站内相对地址和绝对地址；老师品牌配置中的 `home_url` 会覆盖全局值。显式访问 `/c/<shifu_bid>` 时不会被该配置覆盖。
-
-### 3. 微信集成 (WeChat Integration)
-
-| 变量名                            | 用途           | 默认值   |
-| --------------------------------- | -------------- | -------- |
-| `NEXT_PUBLIC_WECHAT_APP_ID`       | 微信App ID     | 空字符串 |
-| `NEXT_PUBLIC_WECHAT_CODE_ENABLED` | 是否启用微信码 | `true`   |
-
-### 4. UI配置 (UI Configuration)
-
-| 变量名                                   | 用途               | 默认值   |
-| ---------------------------------------- | ------------------ | -------- |
-| `NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE` | 是否始终显示课程树 | `false`  |
-| `NEXT_PUBLIC_UI_LOGO_HORIZONTAL`         | 水平Logo URL       | 空字符串 |
-| `NEXT_PUBLIC_UI_LOGO_VERTICAL`           | 垂直Logo URL       | 空字符串 |
-| `LOGO_WIDE_URL`                          | 运行时宽幅Logo URL | 空字符串 |
-| `LOGO_SQUARE_URL`                        | 运行时方形Logo URL | 空字符串 |
-| `FAVICON_URL`                            | 自定义 Favicon URL | 空字符串 |
-
-### 5. 分析统计 (Analytics)
-
-| 变量名                                | 用途             | 默认值   |
-| ------------------------------------- | ---------------- | -------- |
-| `NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT`  | Umami统计脚本URL | 空字符串 |
-| `NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID` | Umami站点ID      | 空字符串 |
-
-### 6. 开发调试 (Development & Debugging)
-
-| 变量名                            | 用途                  | 默认值  |
-| --------------------------------- | --------------------- | ------- |
-| `NEXT_PUBLIC_DEBUG_ERUDA_ENABLED` | 是否启用Eruda调试工具 | `false` |
-
-### 7. 认证配置 (Authentication Configuration)
-
-| Variable                            | Purpose                                   | Default   | Allowed values                                                                                                                                  |
-| ----------------------------------- | ----------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LOGIN_METHODS_ENABLED`             | Server runtime enabled login methods      | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`, or a comma-separated combination such as `"google,password"`                                    |
-| `DEFAULT_LOGIN_METHOD`              | Server runtime default login method       | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`                                                                                                  |
-| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | Build-time fallback enabled login methods | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`, or a comma-separated combination such as `"phone,email"`, `"phone,google"`, `"google,password"` |
-| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | Build-time fallback default login method  | `"phone"` | `"phone"`, `"email"`, `"google"`, `"password"`; normalized and falls back to the first valid enabled login method when disabled or invalid      |
-
-### 8. 支付配置 (Payment Configuration)
-
-| 变量名                               | 用途                              | 默认值   |
-| ------------------------------------ | --------------------------------- | -------- |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe前端可公开的Publishable Key | 空字符串 |
-| `NEXT_PUBLIC_STRIPE_ENABLED`         | 是否启用Stripe前端支付入口        | `false`  |
-
-### 9. 公开站点配置 (Public Site Configuration)
-
-| 变量名              | 用途                        | 默认值                | 说明                                           |
-| ------------------- | --------------------------- | --------------------- | ---------------------------------------------- |
-| `OFFICIAL_SITE_URL` | AI 师傅官网链接，用于邀请页 | `https://ai-shifu.cn` | 留空则邀请页品牌文案和 logo 默认链接到中文官网 |
-
-### 10. 法律文档配置 (Legal Documents Configuration)
-
-| 变量名                      | 用途                | 默认值   | 说明                           |
-| --------------------------- | ------------------- | -------- | ------------------------------ |
-| `LEGAL_AGREEMENT_URL_ZH_CN` | 中文服务协议URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_AGREEMENT_URL_EN_US` | 英文服务协议URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_AGREEMENT_URL_ES_ES` | 西班牙文服务协议URL | 空字符串 | 留空则使用英文参考版本         |
-| `LEGAL_AGREEMENT_URL_FR_FR` | 法文服务协议URL     | 空字符串 | 留空则使用英文参考版本         |
-| `LEGAL_AGREEMENT_URL_AR_SA` | 阿拉伯文服务协议URL | 空字符串 | 留空则使用英文参考版本         |
-| `LEGAL_AGREEMENT_URL_TH_TH` | 泰文服务协议URL     | 空字符串 | 留空则使用英文参考版本         |
-| `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_PRIVACY_URL_ES_ES`   | 西班牙文隐私政策URL | 空字符串 | 留空则使用英文参考版本         |
-| `LEGAL_PRIVACY_URL_FR_FR`   | 法文隐私政策URL     | 空字符串 | 留空则使用英文参考版本         |
-| `LEGAL_PRIVACY_URL_AR_SA`   | 阿拉伯文隐私政策URL | 空字符串 | 留空则使用英文参考版本         |
-| `LEGAL_PRIVACY_URL_TH_TH`   | 泰文隐私政策URL     | 空字符串 | 留空则使用英文参考版本         |
-
-**注意**: 这些配置由后端 `/api/runtime-config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际运行时配置均通过后端接口获取。
-
-- The frontend only reads `NEXT_PUBLIC_API_BASE_URL` and the build-time authentication fallbacks `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` / `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD` directly; other runtime values are configured in the backend environment or DB and returned through `/api/runtime-config` to avoid duplicate frontend/backend settings.
-- billing 总开关由后端 `BILL_ENABLED` 决定，并通过 `/api/runtime-config` 下发给前端入口和请求层。
-- billing 积分展示精度由后端 `BILL_CREDIT_PRECISION` 决定，并通过 `/api/runtime-config` 下发给前端格式化逻辑。
-
-## 使用方式
-
-### 在组件中使用
-
-```typescript
-import { environment } from '@/config/environment';
-
-// Get API base URL
-const apiUrl = environment.apiBaseUrl;
-
-// Get the configured entry URL
-const homeUrl = environment.homeUrl;
-
-// Get WeChat configuration
-const wechatAppId = environment.wechatAppId;
-const wechatEnabled = environment.enableWechatCode;
-
-// Get authentication configuration
-const loginMethods = environment.loginMethodsEnabled; // ['phone', 'email']
-const defaultMethod = environment.defaultLoginMethod; // 'phone' | 'email' | 'google' | 'password'
-const isPhoneEnabled = loginMethods.includes('phone');
-const isEmailEnabled = loginMethods.includes('email');
-const isGoogleEnabled = loginMethods.includes('google');
-const isPasswordEnabled = loginMethods.includes('password');
-const googleRedirect = '/login/google-callback';
-
-// Get legal document URLs (from /api/runtime-config)
-const legalUrls = environment.legalUrls;
-const agreementUrlZhCN = legalUrls.agreement['zh-CN']; // 中文服务协议URL
-const agreementUrlEnUS = legalUrls.agreement['en-US']; // 英文服务协议URL
-const agreementUrlEsES = legalUrls.agreement['es-ES']; // 西班牙文服务协议URL
-const agreementUrlFrFR = legalUrls.agreement['fr-FR']; // 法文服务协议URL
-const agreementUrlArSA = legalUrls.agreement['ar-SA']; // 阿拉伯文服务协议URL
-const agreementUrlThTH = legalUrls.agreement['th-TH']; // 泰文服务协议URL
-const privacyUrlZhCN = legalUrls.privacy['zh-CN']; // 中文隐私政策URL
-const privacyUrlEnUS = legalUrls.privacy['en-US']; // 英文隐私政策URL
-const privacyUrlEsES = legalUrls.privacy['es-ES']; // 西班牙文隐私政策URL
-const privacyUrlFrFR = legalUrls.privacy['fr-FR']; // 法文隐私政策URL
-const privacyUrlArSA = legalUrls.privacy['ar-SA']; // 阿拉伯文隐私政策URL
-const privacyUrlThTH = legalUrls.privacy['th-TH']; // 泰文隐私政策URL
-```
-
-### 在API路由中使用
-
-```typescript
-import { environment } from '@/config/environment';
-
-export async function GET() {
-  return NextResponse.json({
-    apiBaseUrl: environment.apiBaseUrl, // Cook Web 本地接口只暴露后端地址
-  });
-}
-```
-
-## API配置响应
-
-Cook Web 内置的 `/api/config` 只返回 `apiBaseUrl`。后端 `/api/runtime-config` 返回浏览器运行时配置，例如：
-
-```json
-{
-  "wechatAppId": "wxxxxxxxxxxxxxxxxx",
-  "enableWechatCode": true,
-  "billingEnabled": true,
-  "alwaysShowLessonTree": "true",
-  "logoWideUrl": "",
-  "logoSquareUrl": "",
-  "faviconUrl": "",
-  "umamiScriptSrc": "https://analytics.example.test/script.js",
-  "umamiWebsiteId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "enableEruda": "false",
-  "loginMethodsEnabled": ["phone"],
-  "defaultLoginMethod": "phone",
-  "homeUrl": "/admin",
-  "stripePublishableKey": "pk_test_xxx",
-  "stripeEnabled": false
-}
-```
-
-## 路由配置说明
-
-### `/c/[[...id]]` 路由
-
-- **配置获取方式**：通过后端 `/api/runtime-config` API
-- **用途**：课程学习页面，需要完整的配置信息
-- **课程标识来源**：显式 URL 路径 `/c/<shifu_bid>`；运行时配置不再提供默认课程 ID
-- **入口行为**：访问 `/c` 时跳转到 `HOME_URL`，配置 `HOME_URL=/c/<shifu_bid>` 即可指定默认课程入口
-
-### `/main` 路由
-
-- **配置获取方式**：直接使用 `environment` 模块
-- **用途**：师傅列表页面，主要需要API基础URL
-- **包含配置**：API基础URL（用于API请求）
-
-## Docker 部署
-
-### 环境变量配置
-
-Docker 部署不受影响：
-
-- 环境变量在运行时通过 Docker 的 `-e` 参数或 `docker-compose.yml` 传入
-- 构建时不需要环境变量，运行时才会读取
-- 环境配置模块会自动处理变量读取
-
-### 部署示例
-
-```bash
-# 使用新的环境变量名
-docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
-           -e HOME_URL=/c/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-           -e NEXT_PUBLIC_WECHAT_APP_ID=wxxxxxxxxxxxxxxxxx \
-           your-image:tag
-```
-
-## 重构历史
-
-### 完成的工作
-
-#### 1. 统一环境变量管理
-
-✅ **创建了统一的环境配置模块** (`src/config/environment.ts`)
-
-- 集中管理所有环境变量
-- 提供类型安全的接口
-
-#### 2. 解决重复和命名不一致问题
-
-✅ **合并了重复的环境变量**：
-
-- `SITE_HOST`, `NEXT_PUBLIC_BASEURL`, `NEXT_PUBLIC_SITE_URL` → `NEXT_PUBLIC_API_BASE_URL`
-- 统一了API基础URL的获取逻辑
-
-✅ **标准化了命名规范**：
-
-- 所有变量使用 `NEXT_PUBLIC_` 前缀
-- 按功能分类：`UI_`, `ANALYTICS_`, `DEBUG_` 等
-- 布尔值变量使用 `_ENABLED` 后缀
-
-#### 3. 清理了分散的配置文件
-
-✅ **删除了重复的配置文件**：
-
-- 删除了 `src/config/runtime-config.ts`
-- 删除了 `src/config/site.ts`
-- 统一使用 `src/config/environment.ts`
-
-#### 4. 修复了类型错误
-
-✅ **修复了所有TypeScript类型错误**：
-
-- 统一了接口定义
-- 修复了属性访问错误
-- 确保了类型安全
-
-#### 5. 修复了API配置重复问题
-
-✅ **修复了 `/api/config` 路由的数据重复问题**：
-
-- 移除了重复字段，避免数据重复
-- 现在只返回一份干净的配置数据
-
-#### 6. 修复了配置数据映射问题
-
-✅ **修复了配置数据字段映射**：
-
-- 更新了 `/c/[[...id]]/layout.tsx` 中的字段映射
-- 统一使用后端 `/api/runtime-config` 返回的运行时字段
-- 确保所有组件都能正确获取配置
-
-#### 7. 路由配置优化
-
-✅ **优化了不同路由的配置获取**：
-
-- `/c/[[...id]]` 路由：通过 `/api/config` 获取完整配置
-- `/main` 路由：直接使用 `environment` 模块，无需额外API调用
-- 根据路由需求选择合适的配置获取方式
-
-#### 8. 移除向后兼容性
-
-✅ **移除了所有向后兼容性代码**：
-
-- 移除了环境变量名称的fallback逻辑
-- 移除了API响应中的兼容字段
-- 移除了 `legacyEnv` 对象
-- 清理了环境变量文件中的旧变量名
-
-### 环境变量迁移映射
-
-| 旧变量名                              | 新变量名                                 | 说明               |
-| ------------------------------------- | ---------------------------------------- | ------------------ |
-| `SITE_HOST`                           | `NEXT_PUBLIC_API_BASE_URL`               | API基础URL         |
-| `NEXT_PUBLIC_BASEURL`                 | `NEXT_PUBLIC_API_BASE_URL`               | API基础URL         |
-| `NEXT_PUBLIC_SITE_URL`                | `NEXT_PUBLIC_API_BASE_URL`               | API基础URL         |
-| `NEXT_PUBLIC_APP_ID`                  | `NEXT_PUBLIC_WECHAT_APP_ID`              | 微信App ID         |
-| `NEXT_PUBLIC_ENABLE_WXCODE`           | `NEXT_PUBLIC_WECHAT_CODE_ENABLED`        | 是否启用微信码     |
-| `NEXT_PUBLIC_ALWAYS_SHOW_LESSON_TREE` | `NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE` | 是否始终显示课程树 |
-| `NEXT_PUBLIC_LOGO_HORIZONTAL`         | `NEXT_PUBLIC_UI_LOGO_HORIZONTAL`         | 水平Logo           |
-| `NEXT_PUBLIC_LOGO_VERTICAL`           | `NEXT_PUBLIC_UI_LOGO_VERTICAL`           | 垂直Logo           |
-| `NEXT_PUBLIC_UMAMI_SCRIPT_SRC`        | `NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT`     | Umami脚本          |
-| `NEXT_PUBLIC_UMAMI_WEBSITE_ID`        | `NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID`    | Umami站点ID        |
-| `NEXT_PUBLIC_ERUDA`                   | `NEXT_PUBLIC_DEBUG_ERUDA_ENABLED`        | 是否启用Eruda      |
-
-## 优势
-
-1. **统一管理**：所有环境变量都在一个地方定义和管理
-2. **类型安全**：TypeScript提供完整的类型检查
-3. **命名规范**：统一的命名规范，易于理解和维护
-4. **默认值处理**：所有变量都有合理的默认值
-5. **布尔值处理**：自动处理字符串到布尔值的转换
-6. **数据清洁**：API配置不再返回重复数据
-7. **路由优化**：根据路由需求选择合适的配置获取方式
-8. **Docker友好**：Docker部署不受影响，支持新的变量名
-9. **代码简洁**：移除了复杂的fallback逻辑
-10. **性能提升**：减少了不必要的变量检查
-
-## 测试结果
-
-✅ **构建成功**：项目可以正常构建，没有TypeScript错误
-✅ **类型检查通过**：所有类型定义正确
-✅ **API配置正常**：`/api/config` 返回干净的JSON数据，无重复
-✅ **路由配置正确**：不同路由使用合适的配置获取方式
-✅ **Docker兼容**：Docker部署不受影响
-✅ **功能正常**：所有功能都能正常工作
-
-## 环境变量文件示例
-
-### 开发环境 (.env.local)
-
-```bash
-# ===== Core API Configuration =====
+```dotenv
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
-
-# ===== Entry Redirect Configuration =====
-HOME_URL=/c/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# ===== WeChat Integration =====
-NEXT_PUBLIC_WECHAT_APP_ID=wxxxxxxxxxxxxxxxxx
-NEXT_PUBLIC_WECHAT_CODE_ENABLED=true
-
-# ===== User Interface Configuration =====
-NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE=true
-NEXT_PUBLIC_UI_LOGO_HORIZONTAL=
-NEXT_PUBLIC_UI_LOGO_VERTICAL=
-
-# ===== Analytics & Tracking =====
-NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT=https://analytics.example.test/script.js
-NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-
-# ===== Development & Debugging Tools =====
-NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
-
-# ===== Authentication Configuration =====
-LOGIN_METHODS_ENABLED=phone
-DEFAULT_LOGIN_METHOD=phone
-NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
-NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
-NEXT_PUBLIC_STRIPE_ENABLED=false
 ```
 
-### 生产环境 (docker.env.example)
+| Variable                            | Read by                           | Timing and fallback                                                                                     |
+| ----------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL`          | Next server and browser bootstrap | Server runtime takes precedence over the browser build value; unset resolves to an empty base.          |
+| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | Browser bootstrap                 | Build-time fallback, default `phone`; backend runtime settings replace it.                              |
+| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | Browser bootstrap                 | Build-time fallback, default `phone`; invalid or disabled values fall back to the first enabled method. |
+
+Next server initialization can also read unprefixed login, branding, legal URL,
+redirect, currency, and payment-channel settings through `environment.ts`.
+Those server defaults do not replace the Flask configuration consumed by
+browser initialization. Configure the backend for those product capabilities.
+Do not add `NEXT_PUBLIC_` prefixes to backend variables or put secret keys in
+the frontend environment. Restart the affected local process after environment
+changes; rebuild when changing a browser build-time fallback.
+
+On custom domains the Next route may return an empty base so the browser uses
+same-origin `/api` ingress. Localhost frontend/backend origins retain the
+configured backend base even when their ports differ. See
+[route-utils.ts](../../app/api/config/route-utils.ts) and its tests for the host
+comparison contract. The development proxy is described in the frontend README.
+
+## Backend Runtime Settings
+
+Configure these in `src/api/.env` for manual development, or the backend
+service environment for deployment. The config service may supply persisted
+settings, and entitled teacher/domain branding can override global values.
+The public response is an allowlisted projection, not an environment dump.
+
+| Capability  | Backend configuration                                                                           | Runtime output                                                                    |
+| ----------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Login       | `LOGIN_METHODS_ENABLED`, `DEFAULT_LOGIN_METHOD`                                                 | `loginMethodsEnabled`, `defaultLoginMethod`                                       |
+| WeChat      | `WECHAT_APP_ID` plus backend OAuth credentials                                                  | `wechatAppId`, derived `enableWechatCode`; custom domains disable this OAuth flow |
+| Billing     | `BILL_ENABLED`, `BILL_CREDIT_PRECISION`                                                         | `billingEnabled`, `billingCreditPrecision`                                        |
+| Payments    | `PAYMENT_CHANNELS_ENABLED`, `STRIPE_ENABLED`, `STRIPE_PUBLISHABLE_KEY`, `PAY_ORDER_EXPIRE_TIME` | Public channel, Stripe, and checkout-expiry settings                              |
+| Course tree | `UI_ALWAYS_SHOW_LESSON_TREE`                                                                    | `alwaysShowLessonTree`                                                            |
+| Branding    | `LOGO_WIDE_URL`, `LOGO_SQUARE_URL`, `FAVICON_URL`                                               | `logoWideUrl`, `logoSquareUrl`, `faviconUrl`                                      |
+| Navigation  | `HOME_URL`, `CONTACT_US_URL`, `OFFICIAL_SITE_URL`                                               | `homeUrl`, `contactUsUrl`, `officialSiteUrl`                                      |
+| Analytics   | `ANALYTICS_UMAMI_SCRIPT`, `ANALYTICS_UMAMI_SITE_ID`                                             | `umamiScriptSrc`, `umamiWebsiteId`                                                |
+| Debug UI    | `DEBUG_ERUDA_ENABLED`                                                                           | `enableEruda`                                                                     |
+| Prices      | `CURRENCY_SYMBOL`, `DEFAULT_SHIFU_PRICE`, `MIN_SHIFU_PRICE`                                     | `currencySymbol`, `defaultCoursePrice`, `minimumPaidCoursePrice`                  |
+| Legal links | `LEGAL_AGREEMENT_URL_<LOCALE>`, `LEGAL_PRIVACY_URL_<LOCALE>`                                    | Locale-indexed `legalUrls`                                                        |
+
+Legal suffixes use uppercase locale codes with underscores, for example
+`EN_US` and `ZH_CN`. Supported locales are defined by
+[locales.json](../../../../i18n/locales.json); the backend DTO and route enumerate
+the supported legal fields. Missing configuration is returned as an empty URL;
+UI fallback behavior belongs to the legal-link components.
+
+`HOME_URL` defaults to `/admin` and accepts relative or absolute destinations.
+Teacher branding can override it. An explicit `/c/<shifu_bid>` course request
+keeps its course target. Private payment and OAuth credentials stay on the
+backend; a publishable Stripe key is the public exception listed above.
+
+The former `NEXT_PUBLIC_WECHAT_*`, `NEXT_PUBLIC_UI_*`,
+`NEXT_PUBLIC_ANALYTICS_*`, `NEXT_PUBLIC_DEBUG_ERUDA_ENABLED`, and
+`NEXT_PUBLIC_STRIPE_*` settings have no active readers for these capabilities.
+Use the backend names in the table instead.
+
+## Verification
+
+From `src/web`, run the existing configuration and bootstrap tests:
 
 ```bash
-# ===== Core API Configuration =====
-NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com
-
-# ===== Entry Redirect Configuration =====
-HOME_URL=/c/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# ===== WeChat Integration =====
-NEXT_PUBLIC_WECHAT_APP_ID=wxxxxxxxxxxxxxxxxx
-NEXT_PUBLIC_WECHAT_CODE_ENABLED=true
-
-# ===== User Interface Configuration =====
-NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE=false
-NEXT_PUBLIC_UI_LOGO_HORIZONTAL=
-NEXT_PUBLIC_UI_LOGO_VERTICAL=
-
-# ===== Analytics & Tracking =====
-NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT=https://analytics.example.test/script.js
-NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-
-# ===== Development & Debugging Tools =====
-NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
-
-# ===== Authentication Configuration =====
-LOGIN_METHODS_ENABLED=phone
-DEFAULT_LOGIN_METHOD=phone
-NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
-NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx
-NEXT_PUBLIC_STRIPE_ENABLED=true
-
-# ===== Docker Specific Configuration =====
-PORT=3000
-NODE_ENV=production
-NEXT_TELEMETRY_DISABLED=1
+npm test -- --runInBand src/config/ src/app/api/config/ src/lib/initializeEnvData
 ```
 
-## 后续建议
-
-1. **逐步迁移**：可以逐步将其他项目中的环境变量也迁移到这个统一的管理方式
-2. **文档更新**：更新项目文档，说明新的环境变量使用方式
-3. **CI/CD更新**：更新CI/CD配置，使用新的环境变量名
-4. **监控**：监控生产环境，确保所有功能正常工作
-5. **团队培训**：培训团队成员使用新的环境变量配置方式
-
-## 注意事项
-
-1. 所有环境变量都以 `NEXT_PUBLIC_` 开头，确保在客户端可用
-2. 布尔值变量会自动转换为正确的类型，无需手动处理字符串比较
-3. 所有变量都有合理的默认值，避免运行时错误
-4. 新的命名规范更加语义化和一致化
-5. 不再支持旧的环境变量名，必须使用新的标准化命名
+In a local running setup, inspect the two requests separately: Next should
+return the expected backend base; Flask should return the configured public
+values. Confirm the store-driven UI follows that payload. Do not treat the
+bootstrap defaults or a successful frontend page load as proof of backend
+configuration delivery.

@@ -323,6 +323,21 @@ python -m celery -A celery_app:celery_app beat --loglevel info
 
 The bundled Compose stack starts these processes as separate services.
 
+Verify the local worker connection and registered task names from `src/api`:
+
+```bash
+python -m celery -A celery_app:celery_app inspect ping
+python -m celery -A celery_app:celery_app inspect registered
+```
+
+A `pong` proves worker connectivity, not successful business processing. On a
+local disposable dataset, trigger the background operation being developed and
+check both its worker `received` / `succeeded` messages and the expected saved
+result. For scheduled jobs, also verify the single beat process dispatches the
+due task. HTTP health and an idle worker alone do not validate that path.
+The isolated Celery configuration and entrypoint tests cover wiring without
+sending billing tasks to a running environment.
+
 #### Step 5.4: Start Frontend
 
 ```bash
