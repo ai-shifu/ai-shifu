@@ -25,6 +25,7 @@ from build_repo_knowledge_index import (
     parse_frontmatter,
     parse_review_date,
     tracked_markdown,
+    tracked_source_markdown,
 )
 from build_repo_knowledge_index import (
     GENERATED_COMMENT as KNOWLEDGE_GENERATED_COMMENT,
@@ -790,7 +791,7 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
 def check_frontmatter_docs(errors: list[str]) -> None:
     """Check frontmatter docs."""
     try:
-        paths = tracked_markdown(ROOT)
+        paths = tracked_source_markdown(ROOT)
     except FileNotFoundError as error:
         errors.append(str(error))
         return
@@ -1151,9 +1152,10 @@ def check_documentation_contracts(errors: list[str], warnings: list[str]) -> Non
     except FileNotFoundError as error:
         errors.append(str(error))
         return
-    check_skill_metadata(paths, errors)
-    check_plan_lifecycle(paths, errors, warnings)
-    check_review_dates(paths, errors)
+    sources = tracked_source_markdown(ROOT)
+    check_skill_metadata(sources, errors)
+    check_plan_lifecycle(sources, errors, warnings)
+    check_review_dates(sources, errors)
     check_local_document_links(paths, errors)
 
 

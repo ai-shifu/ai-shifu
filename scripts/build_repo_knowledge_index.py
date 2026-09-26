@@ -146,12 +146,22 @@ def tracked_markdown(root: Path | None = None) -> list[Path]:
     return sorted(tracked_markdown_modes(root))
 
 
+def tracked_source_markdown(root: Path | None = None) -> list[Path]:
+    """Keep canonical-source consumers independent of alias checkout representation."""
+    return sorted(
+        path for path, mode in tracked_markdown_modes(root).items() if mode != "120000"
+    )
+
+
 def focused_skills(paths: list[Path]) -> list[Path]:
     """Select dedicated skills while leaving routing SKILL files as navigation."""
+    sources = set(tracked_source_markdown())
     return [
         path
         for path in paths
-        if path.name == "SKILL.md" and path.parent.parent.name == "skills"
+        if path in sources
+        and path.name == "SKILL.md"
+        and path.parent.parent.name == "skills"
     ]
 
 
@@ -272,7 +282,7 @@ def snapshot_provenance() -> list[str]:
 def build_frontmatter_records(category_dir: Path, category: str) -> list[DocRecord]:
     """Build category-tagged records for non-index Markdown files in one metadata directory."""
     records: list[DocRecord] = []
-    for path in tracked_markdown():
+    for path in tracked_source_markdown():
         if path.parent != category_dir or path.name == "index.md":
             continue
         metadata = parse_frontmatter(path)
@@ -294,7 +304,7 @@ def build_frontmatter_records(category_dir: Path, category: str) -> list[DocReco
 def build_reference_records() -> list[DocRecord]:
     """Build canonical reference records for Markdown files under docs/references."""
     records: list[DocRecord] = []
-    for path in tracked_markdown():
+    for path in tracked_source_markdown():
         if path.parent != DOCS_ROOT / "references" or path.name == "index.md":
             continue
         records.append(
@@ -324,7 +334,7 @@ def build_execplan_records(subdir: str, status: str) -> list[DocRecord]:
             last_reviewed="",
             canonical="true",
         )
-        for path in tracked_markdown()
+        for path in tracked_source_markdown()
         if path.parent == plan_dir and path.name != "index.md"
     ]
     return records

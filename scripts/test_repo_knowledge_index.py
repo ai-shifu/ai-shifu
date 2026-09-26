@@ -559,6 +559,69 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         harness.check_frontmatter_docs(errors)
         assert errors == []
 
+    def test_category_aliases_do_not_change_indexes_across_checkout_types(self) -> None:
+        """Aliases remain navigation entries, not duplicate canonical sources."""
+        aliases: list[Path] = []
+        metadata = '---\ntitle: Canonical\nstatus: active\nowner_surface: repo\nlast_reviewed: ""\ncanonical: true\n---\n'
+        headings = "\n".join(f"## {heading}\n" for heading in harness.PLAN_HEADINGS)
+        for category in (
+            "design-docs",
+            "product-specs",
+            "references",
+            "exec-plans/active",
+            "exec-plans/completed",
+        ):
+            directory = generator.DOCS_ROOT / category
+            self.write(
+                directory / "canonical.md", metadata + "# Canonical\n" + headings
+            )
+            alias = directory / "alias.md"
+            alias.symlink_to("canonical.md")
+            aliases.append(alias)
+        self.write(
+            self.root / "src/web/skills/canonical/SKILL.md",
+            "---\nname: canonical\ndescription: Use for canonical fixtures.\n---\n# Canonical skill\n",
+        )
+        skill_alias = self.root / "src/web/skills/alias/SKILL.md"
+        skill_alias.parent.mkdir(parents=True)
+        skill_alias.symlink_to("../canonical/SKILL.md")
+        aliases.append(skill_alias)
+        self.track()
+        native = generator.build_knowledge_docs()
+        with patch.object(generator, "snapshot_provenance", return_value=[]):
+            native_health = generator.build_harness_health_report()
+        subprocess.run(
+            ["git", "config", "core.symlinks", "false"], cwd=self.root, check=True
+        )
+        for alias in aliases:
+            alias.unlink()
+        subprocess.run(
+            [
+                "git",
+                "checkout-index",
+                "--force",
+                "--",
+                *[str(path.relative_to(self.root)) for path in aliases],
+            ],
+            cwd=self.root,
+            check=True,
+        )
+        assert all(not path.is_symlink() for path in aliases)
+        assert generator.build_knowledge_docs() == native
+        with patch.object(generator, "snapshot_provenance", return_value=[]):
+            assert generator.build_harness_health_report() == native_health
+        inventory_path = generator.DOCS_ROOT / "generated/doc-inventory.md"
+        for path, content in native.items():
+            if path != inventory_path:
+                assert "alias.md" not in content
+                assert "alias/SKILL.md" not in content
+        records = {record.path: record for record in generator.build_tracked_records()}
+        assert all(records[path].category == "alias" for path in aliases)
+        errors: list[str] = []
+        harness.check_frontmatter_docs(errors)
+        harness.check_documentation_contracts(errors, [])
+        assert errors == []
+
     def test_health_only_keeps_normal_missing_indexes_optional(self) -> None:
         """A normal checkout can refresh health without restoring an absent index."""
         assert self.run_generator() == 0
