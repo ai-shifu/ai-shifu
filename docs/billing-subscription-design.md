@@ -97,8 +97,8 @@ v1.1 再补充下列扩展能力：
 | --- | --- | --- | --- | --- | --- |
 | `id` | `BIGINT` | `primary_key=True, autoincrement=True` | 自增主键 | `Primary key` | 物理主键 |
 | `deleted` | `SmallInteger` | `not null, default=0, index=True` | `0=active; 1=deleted` | `Deletion flag` | 软删标记 |
-| `created_at` | `DateTime` | `not null, default=func.now()` | 创建时写入 | `Creation timestamp` | 创建时间 |
-| `updated_at` | `DateTime` | `not null, default=func.now(), onupdate=func.now()` | 更新时刷新 | `Last update timestamp` | 更新时间 |
+| `created_at` | `DateTime` | `not null, default=now_utc` | 创建时写入 | `Creation timestamp` | 创建时间 |
+| `updated_at` | `DateTime` | `not null, default=now_utc, onupdate=now_utc` | 更新时刷新 | `Last update timestamp` | 更新时间 |
 
 如果某张表会被后台管理端直接维护，可按仓库现有 Cook 规范额外补充：
 
@@ -106,6 +106,14 @@ v1.1 再补充下列扩展能力：
 | --- | --- | --- | --- | --- | --- |
 | `created_user_bid` | `String(36)` | `not null, default="", index=True` | 管理端写入人 | `Creator user business identifier` | 创建人业务 ID |
 | `updated_user_bid` | `String(36)` | `not null, default="", index=True` | 管理端更新人 | `Last updater user business identifier` | 更新人业务 ID |
+
+Timestamp contract (reviewed 2026-09-26): import `now_utc` from
+`flaskr.util.datetime` and pass the callable as the model default/update
+callback. Do not add SQL `server_default=func.now()` or `CURRENT_TIMESTAMP`
+for these fields. DTOs retain `datetime | None`; the shared `fmt()` sink emits
+UTC ISO-8601 with `Z`, or `null` when absent. Use `to_utc_iso()` for explicit
+serialization before that sink. See the
+[engineering timestamp contract](engineering-baseline.md#timestamps-and-transactions).
 
 ### 2.2 通用编码
 
