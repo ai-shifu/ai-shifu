@@ -18,7 +18,7 @@ the content is corrected. Deliver separate ready pull requests per problem.
 - [x] 2026-09-26 00:37 UTC: Corrected the remaining billing UTC specification and serialization reference.
 - [x] 2026-09-26 00:37 UTC: Reconciled dashboard routes, DTO fields, scope, UTC filtering, and query guidance.
 - [x] 2026-09-26T00:54:50Z: Published the session contract with UTC monthly, disjoint user cohorts.
-- [ ] 2026-09-26 00:37 UTC: Reconcile chat state, audio, and timeout skills.
+- [x] 2026-09-26T00:56:37Z: Reconciled chat Skills with the shared ask store, mode-specific audio, and current timeout constants.
 - [ ] 2026-09-26 00:37 UTC: Audit current plans and debt, separate snapshots and follow-ups.
 - [ ] 2026-09-26 00:37 UTC: Simplify skill routing and inherited module instructions.
 - [ ] 2026-09-26 00:37 UTC: Place flat topic documents under their owning knowledge categories.
