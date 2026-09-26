@@ -13,7 +13,7 @@
   "lastLessonModified": "Zuletzt aktualisiert",
   "lastLessonModifiedWithRelativeTime": "Letzte Aktualisierung: {relativeTime}",
   "learningLink": "Lernlink",
-  "listenModeRequiresTts": "Aktivieren Sie den Listen-Modus in Kurseinstellungen, um diese Option zu verwenden",
+  "listenModeRequiresTts": "Aktivieren Sie den Hörmodus in den Kurseinstellungen, um diese Option zu verwenden",
   "minutesAgo": "{count, plural, one {vor # Minute} other {vor # Minuten}}",
   "publish": "Veröffentlichen",
   "publishAndOpenClassroomMode": "Veröffentlichen und Unterrichtsmodus öffnen",
