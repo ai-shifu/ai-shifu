@@ -44,7 +44,8 @@ This is the **source of truth** for what learners can study in production mode.
     - `status` (`LEARN_STATUS_*`)
     - `block_position` (coarse pointer inside an outline’s block list)
     - `updated_at` (used as “last activity” proxy)
-  - Note: there can be multiple records per `(user_bid, outline_item_bid)`; code paths often pick the latest by `id`.
+  - Multiple records can exist per `(user_bid, outline_item_bid)`. Preserve the
+    metric-specific history rules below instead of selecting one latest row.
 
 ### Follow-up Q/A logs (追问)
 
@@ -63,58 +64,38 @@ This is the **source of truth** for what learners can study in production mode.
   - Course scope values: `shifu_bid == <course_id>` (custom variables collected during learning)
   - Read helper used in learning runtime: `flaskr.service.profile.funcs.get_user_profiles`
 
-### Enrollment candidates (optional enhancement)
+## Implemented course progress metrics
 
-- `order_orders` (`flaskr.service.order.models.Order`)
-  - Can be used to include “purchased but never started” learners.
-  - V1 can start with “learners with progress records”; optionally union orders later.
+The course-detail progress helpers in `flaskr/service/dashboard/funcs.py` use
+these distinct populations and histories:
 
-## Metrics Definitions (V1)
+- `_load_course_leaf_outline_bids` selects visible, non-deleted published
+  outlines and removes parents of visible outlines. It does not restrict the
+  set to normal lessons or expose `include_trial` / `include_guest` flags.
+- `_load_course_learner_bids` unions distinct users with any non-deleted,
+  non-reset progress record and users with successful, non-deleted manual
+  orders. It does not union every paid order.
+- `_load_dashboard_course_learned_lesson_count_map` counts distinct eligible
+  leaf lessons across all non-deleted, non-reset progress rows for each scoped
+  learner. `_load_dashboard_course_last_learning_map` takes `max(updated_at)`
+  across that learner's non-deleted, non-reset course rows. Neither selects a
+  latest row per lesson.
+- `_load_dashboard_course_completed_learner_bids` examines all non-deleted
+  status records for each learner/leaf lesson, ordered by `created_at`, then
+  `id`. A lesson counts as completed if any record is completed, or if a reset
+  record has a later record. Thus completed followed by in-progress still
+  counts, as does reset followed by restudy; reset alone does not. A learner is
+  completed only when every eligible leaf counts; an empty leaf set yields no
+  completed learners.
+- `learning_learner_count` counts learners with at least one learned leaf who
+  are not in the completed set. Learner display rows expose
+  `learned_lesson_count` and `last_learning_at`; the historical proposed
+  `completed_outline_count` / `progress_percent` fields are not their contract.
 
-### Outline set (what counts toward progress)
-
-Default for V1:
-
-- Use **published** outline items from `LogPublishedStruct` + `PublishedOutlineItem`.
-- Exclude `hidden == 1`.
-- Count only `type == UNIT_TYPE_VALUE_NORMAL` as “required lessons”.
-
-Optional flags for future:
-
-- `include_trial=true`: include trial outlines
-- `include_guest=true`: include guest outlines
-
-### Learner set (who is included)
-
-Default for V1:
-
-- Learners are users who have **at least one** `LearnProgressRecord` for this `shifu_bid` (latest non-reset record).
-
-Optional later:
-
-- Union in paid orders (`Order.status == ORDER_STATUS_SUCCESS`) to include not-started learners.
-
-### Per-learner summary fields
-
-- `required_outline_total`
-- `completed_outline_count`
-- `in_progress_outline_count`
-- `progress_percent = completed / total` (0..1)
-- `last_active_at = max(updated_at)` across latest progress records
-- `follow_up_ask_count = count(MDASK)` (time-range aware for filtered lists; total for per-learner)
-
-### Course-level overview
-
-- `learner_count`
-- `completion_count` (learners with `completed == total`)
-- `completion_rate`
-- `order_count`
-- `order_amount`
-- `new_learner_count_last_7_days`
-- `learning_learner_count`
-- `active_learner_count_last_7_days`
-- `total_follow_up_count`
-- `rating_score`
+Use `DashboardCourseDetailDTO` and its nested DTOs in
+`src/api/flaskr/service/dashboard/dtos.py` for current response fields. Entry
+page metrics have their own time-window and population contract in
+[Dashboard Entry Page Contract](dashboard-entry-page.md).
 
 ## Backend Design
 
@@ -174,9 +155,11 @@ Query guidance reviewed against the implemented dashboard on 2026-09-26:
   that filter, then computes the filtered total and slices the page. Paginating
   before that filter would give incorrect totals and incomplete pages.
   Compute summary metrics over the full eligible scope, not only the page.
-- Retain latest non-reset, non-deleted progress semantics. Batch contact and
-  other display lookups instead of adding per-row queries. Python maps remain
-  appropriate for those bounded presentation joins.
+- Retain the metric-specific progress history rules above. In particular,
+  completion needs ordered reset/completion history; activity and learned-lesson
+  aggregates use all eligible non-reset rows. Batch contact and other display
+  lookups instead of adding per-row queries. Python maps remain appropriate
+  for those bounded presentation joins.
 - Normalize date boundaries once and keep API timestamps in UTC. Query
   optimizations must preserve empty-state, filter, ordering, and pagination
   contracts covered by the dashboard route and query-contract tests.
@@ -256,7 +239,7 @@ Backend:
 - Focus on:
   - permission enforcement
   - outline set correctness (hidden excluded)
-  - “latest record” selection correctness
+  - metric-specific completion/reset history and non-reset aggregate semantics
   - pagination stability
 
 Frontend:
