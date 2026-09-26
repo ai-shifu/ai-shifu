@@ -47,6 +47,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./active/pydantic-required-compatibility.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Rename The Cook Web Directory](./active/rename-cook-web-directory.md)
+- [Repository Knowledge Cleanup](./active/repository-knowledge-cleanup.md)
 - [Minimize the Explicit Ruff Policy](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Spanish (Spain) Product Localization](./active/spanish-es-es-localization.md)
