@@ -143,7 +143,7 @@
       "learningLearners": "Menschen, die den Kurs begonnen haben, aber noch nicht jede Lektion abgeschlossen haben.",
       "orderAmount": "Der Gesamtbetrag, den die Benutzer für diesen Kurs bezahlt haben. Erlösungs-Code-Aufträge sind nicht enthalten.",
       "orderCount": "Erfolgreiche Bestellungen für diesen Kurs, einschließlich bezahlter und Rücknahmecode-Bestellungen.",
-      "rating": "Die durchschnittliche Lektion von Lernenden, von 5.",
+      "rating": "Durchschnittliche Bewertung der Kursinhalte durch Lernende; maximal 5 Punkte.",
       "totalQuestions": "Die Gesamtnachfragen Lernenden fragte AI während des Studiums dieses Kurses. Offen, um die Details zu sehen."
     },
     "ratings": {
