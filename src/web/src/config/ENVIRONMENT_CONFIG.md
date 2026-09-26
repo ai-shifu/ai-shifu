@@ -31,7 +31,8 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 | `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | Browser bootstrap                 | Build-time fallback, default `phone`; invalid or disabled values fall back to the first enabled method. |
 
 Next server initialization can also read unprefixed login, branding, legal URL,
-redirect, currency, and payment-channel settings through `environment.ts`.
+redirect, and currency defaults through `environment.ts`. Payment channels
+bootstrap from fixed defaults; `PAYMENT_CHANNELS_ENABLED` is read only by Flask.
 Those server defaults do not replace the Flask configuration consumed by
 browser initialization. Configure the backend for those product capabilities.
 Do not add `NEXT_PUBLIC_` prefixes to backend variables or put secret keys in
