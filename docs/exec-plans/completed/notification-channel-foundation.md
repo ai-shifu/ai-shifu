@@ -65,8 +65,11 @@ overseas email templates and delivery can be enabled in a later PR.
 Implemented on `feat/notification-channel-foundation`. The work preserves the
 current domestic SMS path while making recipient storage and operator payloads
 channel-aware. The newly added migration depends on the repository's single
-current Alembic head and backfills historical records. Email delivery remains
-intentionally disabled until the provider and template-management follow-up.
+current Alembic head and backfills historical records. This foundation originally
+kept email delivery disabled. The provider and template-management follow-up is
+now implemented; controlled SMTP acceptance remains open in the
+[active email-delivery plan](../active/credit-notification-email-delivery.md),
+including Dev-US migration/configuration and a saved delivery result.
 
 ## Context and Orientation
 
