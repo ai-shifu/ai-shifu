@@ -92,9 +92,12 @@ these distinct populations and histories:
   `learned_lesson_count` and `last_learning_at`; the historical proposed
   `completed_outline_count` / `progress_percent` fields are not their contract.
 
-Use `DashboardCourseDetailDTO` and its nested DTOs in
-`src/api/flaskr/service/dashboard/dtos.py` for current response fields. Entry
-page metrics have their own time-window and population contract in
+Use `DashboardCourseDetailDTO` and its nested DTOs for the `/detail` response
+(`basic_info`, aggregate `metrics`, and `learning_mode_metrics`). The separate
+`/learners` response uses `DashboardCourseDetailLearnersDTO`, whose `items` are
+`DashboardCourseDetailLearnerItemDTO` rows. Both DTO families live in
+`src/api/flaskr/service/dashboard/dtos.py`. Entry-page metrics have their own
+time-window and population contract in
 [Dashboard Entry Page Contract](dashboard-entry-page.md).
 
 ## Backend Design
