@@ -6,6 +6,7 @@ import SessionManagerModal from './SessionManagerModal';
 
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
+let mockTrackingIdentityGeneration = 0;
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -20,13 +21,16 @@ jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
-  useTracking: () => ({ trackEvent: mockTrackEvent }),
+jest.mock('@/lib/tracking', () => ({
+  tracking: (...args: unknown[]) => mockTrackEvent(...args),
+  getTrackingIdentityGeneration: () => mockTrackingIdentityGeneration,
   EVENT_NAMES: {
     SESSION_REVOKED: 'session_revoked',
     SESSION_REVOKED_OTHERS: 'session_revoked_others',
   },
 }));
+
+jest.mock('@/api/lesson', () => ({ getScriptInfo: jest.fn() }));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -69,6 +73,8 @@ const cliSession = {
 describe('SessionManagerModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTrackingIdentityGeneration = 0;
+    mockTrackEvent.mockReset().mockResolvedValue(undefined);
     (apiService.listSessions as jest.Mock).mockResolvedValue([
       current,
       cliSession,
@@ -102,6 +108,102 @@ describe('SessionManagerModal', () => {
     // One revoke button for the CLI session, none for the current one.
     expect(screen.getAllByText('module.settings.sessionsRevoke')).toHaveLength(
       1,
+    );
+  });
+
+  describe.each([
+    {
+      label: 'single revoke',
+      method: 'revokeSession',
+      button: 'module.settings.sessionsRevoke',
+      event: 'session_revoked',
+      payload: { source: 'cli' },
+    },
+    {
+      label: 'bulk revoke',
+      method: 'revokeOtherSessions',
+      button: 'module.settings.sessionsRevokeOthers',
+      event: 'session_revoked_others',
+      payload: {},
+    },
+  ] as const)('$label analytics', ({ method, button, event, payload }) => {
+    it.each([false, true])(
+      'checks the initiating identity after confirmation (replaced: %s)',
+      async replaced => {
+        let complete!: (value: { revoked: number }) => void;
+        (apiService[method] as jest.Mock).mockReturnValueOnce(
+          new Promise(resolve => {
+            complete = resolve;
+          }),
+        );
+        render(
+          <SessionManagerModal
+            open
+            onClose={jest.fn()}
+          />,
+        );
+        fireEvent.click(await screen.findByText(button));
+        expect(apiService[method]).toHaveBeenCalledTimes(1);
+        expect(mockTrackEvent).not.toHaveBeenCalled();
+
+        if (replaced) {
+          mockTrackingIdentityGeneration += 1;
+        }
+        complete({ revoked: 1 });
+        await waitFor(() =>
+          expect(apiService.listSessions).toHaveBeenCalledTimes(2),
+        );
+        await waitFor(() => expect(screen.getByText(button)).toBeEnabled());
+
+        if (replaced) {
+          expect(mockTrackEvent).not.toHaveBeenCalled();
+        } else {
+          expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+          expect(mockTrackEvent).toHaveBeenCalledWith(event, payload);
+        }
+        expect(mockToast).not.toHaveBeenCalled();
+      },
+    );
+
+    it('does not emit a success event after a rejected request', async () => {
+      (apiService[method] as jest.Mock).mockRejectedValueOnce(
+        new Error('request failed'),
+      );
+      render(
+        <SessionManagerModal
+          open
+          onClose={jest.fn()}
+        />,
+      );
+      fireEvent.click(await screen.findByText(button));
+      await waitFor(() => expect(mockToast).toHaveBeenCalled());
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    });
+
+    it.each(['throw', 'reject'] as const)(
+      'still refreshes the session list when tracking fails (%s)',
+      async failure => {
+        (apiService[method] as jest.Mock).mockResolvedValueOnce({ revoked: 1 });
+        mockTrackEvent.mockImplementationOnce(() => {
+          if (failure === 'throw') {
+            throw new Error('tracking failed');
+          }
+          return Promise.reject(new Error('tracking failed'));
+        });
+        render(
+          <SessionManagerModal
+            open
+            onClose={jest.fn()}
+          />,
+        );
+        fireEvent.click(await screen.findByText(button));
+        await waitFor(() =>
+          expect(apiService.listSessions).toHaveBeenCalledTimes(2),
+        );
+        await waitFor(() => expect(screen.getByText(button)).toBeEnabled());
+        expect(mockTrackEvent).toHaveBeenCalledWith(event, payload);
+        expect(mockToast).not.toHaveBeenCalled();
+      },
     );
   });
 

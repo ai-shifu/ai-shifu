@@ -86,7 +86,11 @@ rejected unless the terminal states are recorded separately.
 - Actor and surface: the signed-in user, from the account menu on the learner
   and teacher surfaces. The surface is carried on the open event.
 - Trigger: open fires when the menu entry is activated; revoke events fire
-  only after the backend confirms, so a failed revoke emits nothing.
+  only after the backend confirms, so a failed revoke emits nothing. Capture
+  the shared tracking identity generation before each single or bulk request;
+  emit its success event only if that generation still matches at completion.
+  An account replacement or identity reset suppresses the stale outcome without
+  changing the revocation result, list refresh, or error handling.
 - Population: signed-in users. The entry is hidden while signed out.
 - Count unit: distinct pseudonymous users for both adoption and cohort shares.
   Event volumes may be reported separately, but never labeled as user shares.
@@ -104,14 +108,20 @@ rejected unless the terminal states are recorded separately.
   person into multiple observed users; this limitation belongs with the report.
 - Consumers: no dedicated session-report query is deployed in this repository.
   Periodic product reports and future consumers must use these definitions.
-- Compatibility: event names, payloads, triggers, and existing identity handling
-  are unchanged. This clarification replaces the ambiguous event-based split;
-  recalculate historical cohorts from available user-level events, or label
-  old aggregates as incomparable when those events are unavailable.
+- Compatibility: event names, payloads, and successful-confirmation timing are
+  unchanged; outcomes crossing an identity replacement are now excluded at the
+  producer. This clarification replaces the ambiguous event-based split.
+  Recalculate historical cohorts from available user-level events, or label old
+  aggregates as incomparable when those events are unavailable. Existing events
+  emitted after an identity replacement cannot be reassigned reliably because
+  the initiating identity was not recorded; disclose this historical limitation.
 - Verification:
   `src/web/src/components/Settings/SessionManagerModal.test.tsx`
   asserts that outcomes fire only on confirmed revocations, that a failed
   revocation emits nothing, and that no session identifier reaches a payload.
+  It covers single and bulk requests across identity replacement, unchanged
+  identity, and synchronous/asynchronous tracking failures. Tracking failures
+  must leave successful revocation and list refresh unaffected.
 
 | Field     | Type   | Allowed values     | Cardinality | Privacy class | Why required                                                 |
 | --------- | ------ | ------------------ | ----------- | ------------- | ------------------------------------------------------------ |

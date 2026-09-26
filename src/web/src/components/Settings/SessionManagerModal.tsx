@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/useToast';
 import apiService from '@/api';
 import { cn } from '@/lib/utils';
 import { EVENT_NAMES, useTracking } from '@/hooks/useTracking';
+import { getTrackingIdentityGeneration } from '@/lib/tracking';
 
 export type LoginSession = {
   session_bid: string;
@@ -121,12 +122,15 @@ export const SessionManagerModal = ({
 
   const revokeOne = useCallback(
     async (session: LoginSession) => {
+      const trackingIdentityGeneration = getTrackingIdentityGeneration();
       setBusyBid(session.session_bid);
       try {
         await apiService.revokeSession({ session_bid: session.session_bid });
-        void trackRef.current(EVENT_NAMES.SESSION_REVOKED, {
-          source: session.source,
-        });
+        if (getTrackingIdentityGeneration() === trackingIdentityGeneration) {
+          void trackRef.current(EVENT_NAMES.SESSION_REVOKED, {
+            source: session.source,
+          });
+        }
         await loadRef.current();
       } catch (error) {
         reportFailure(error, 'revoke');
@@ -138,10 +142,13 @@ export const SessionManagerModal = ({
   );
 
   const revokeOthers = useCallback(async () => {
+    const trackingIdentityGeneration = getTrackingIdentityGeneration();
     setBusyBid('all');
     try {
       await apiService.revokeOtherSessions({});
-      void trackRef.current(EVENT_NAMES.SESSION_REVOKED_OTHERS, {});
+      if (getTrackingIdentityGeneration() === trackingIdentityGeneration) {
+        void trackRef.current(EVENT_NAMES.SESSION_REVOKED_OTHERS, {});
+      }
       await loadRef.current();
     } catch (error) {
       reportFailure(error, 'revoke');
