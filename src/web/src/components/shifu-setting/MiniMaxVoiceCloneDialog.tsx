@@ -30,18 +30,13 @@ import {
 import {
   MINIMAX_SOURCE_MAX_SECONDS,
   MINIMAX_SOURCE_MIN_SECONDS,
+  getMiniMaxCloneCostDisplayState,
   getMiniMaxCloneSubmitBlockReason,
   getMiniMaxRecordingElapsedSeconds,
+  type MiniMaxCloneCost,
   type MiniMaxCloneSubmitBlockReason,
   type MiniMaxClonedVoice,
 } from './minimax-voice-clone';
-
-interface MiniMaxCloneCost {
-  estimated_credits?: string;
-  available_credits?: string;
-  can_submit?: boolean;
-  billing_enabled?: boolean;
-}
 
 interface MiniMaxVoiceCloneDialogProps {
   open: boolean;
@@ -113,12 +108,17 @@ export default function MiniMaxVoiceCloneDialog({
     t,
   });
 
+  const costDisplay = getMiniMaxCloneCostDisplayState(
+    cloneCost?.estimated_credits,
+  );
   const costText =
-    cloneCost?.estimated_credits && cloneCost.estimated_credits !== '0'
+    costDisplay.kind === 'credits'
       ? t('module.shifuSetting.minimaxCloneCostCredits', {
-          credits: cloneCost.estimated_credits,
+          credits: costDisplay.credits,
         })
-      : t('module.shifuSetting.minimaxCloneCostFree');
+      : costDisplay.kind === 'free'
+        ? t('module.shifuSetting.minimaxCloneCostFree')
+        : t('module.shifuSetting.minimaxCloneCostUnavailable');
 
   const reset = useCallback(() => {
     setDisplayName('');

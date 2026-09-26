@@ -24,6 +24,7 @@ const mockGetFollowUpModelCatalog = jest.fn();
 const mockGetCourseModelOptions = jest.fn();
 const mockAskSettingsSection = jest.fn();
 const mockMainModelSelector = jest.fn();
+const mockMiniMaxCloneDialog = jest.fn();
 const mockFormMethods = jest.fn();
 const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 const mockCurrentShifu = {
@@ -88,6 +89,10 @@ jest.mock('@/store', () => ({
 }));
 
 jest.mock('@/hooks/useTracking', () => ({
+  EVENT_NAMES: {
+    TEACHER_MINIMAX_CLONE_COST_UNAVAILABLE:
+      'teacher_minimax_clone_cost_unavailable',
+  },
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
@@ -158,7 +163,10 @@ jest.mock('@/components/shifu-setting/AskSettingsSection', () => ({
 }));
 jest.mock(
   '@/components/shifu-setting/MiniMaxVoiceCloneDialog',
-  () => () => null,
+  () => (props: Record<string, unknown>) => {
+    mockMiniMaxCloneDialog(props);
+    return null;
+  },
 );
 
 jest.mock('@/components/ui/Sheet', () => ({
@@ -207,23 +215,70 @@ const createDeferred = <T,>() => {
 };
 
 const renderOpenSettings = (onSave = jest.fn()) => {
-  render(
+  const view = render(
     <ShifuSettingDialog
       shifuId='course-1'
       openSignal='analytics-test'
       onSave={onSave}
     />,
   );
-  return { onSave };
+  return { onSave, rerender: view.rerender };
 };
 
 describe('ShifuSettingDialog analytics producer', () => {
+  const configureMiniMaxSettings = async ({
+    userId = 'owner-1',
+    ttsEnabled = true,
+    supportsVoiceCloning = true,
+  }: {
+    userId?: string;
+    ttsEnabled?: boolean;
+    supportsVoiceCloning?: boolean;
+  } = {}) => {
+    mockUserState.userInfo.user_id = userId;
+    mockTtsConfig.mockResolvedValue({
+      providers: [
+        {
+          name: 'minimax',
+          label: 'MiniMax',
+          supports_voice_cloning: supportsVoiceCloning,
+          speed: { min: 0.5, max: 2, step: 0.1, default: 1 },
+          voices: [{ value: 'voice-1', label: 'Voice' }],
+          models: [{ value: 'tts-model', label: 'TTS' }],
+        },
+      ],
+      model_options: [],
+    });
+    const detail = await mockGetShifuDetail();
+    mockGetShifuDetail.mockResolvedValue({
+      ...detail,
+      tts_enabled: ttsEnabled,
+      tts_provider: 'minimax',
+      tts_model: 'tts-model',
+      tts_voice_id: 'voice-1',
+      tts_speed: 1,
+    });
+  };
+
+  const latestMiniMaxDialogProps = () =>
+    mockMiniMaxCloneDialog.mock.calls.at(-1)?.[0] as {
+      onOpenChange: (open: boolean) => void;
+      onRefreshCost: (options?: { polling?: boolean }) => Promise<void>;
+      cloneCost: { estimated_credits?: string } | null;
+    };
+
+  const unavailableCostEventCalls = () =>
+    mockTrackEvent.mock.calls.filter(
+      ([eventName]) => eventName === 'teacher_minimax_clone_cost_unavailable',
+    );
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockTtsConfig.mockResolvedValue({ providers: [], model_options: [] });
     mockListMinimaxTtsVoices.mockResolvedValue({ voices: [] });
     mockGetMinimaxTtsCloneCost.mockResolvedValue({});
     mockCurrentShifu.readonly = false;
+    mockCurrentShifu.created_user_bid = 'owner-1';
     mockAskConfig.mockResolvedValue({ providers: [] });
     mockSaveShifuDetail.mockResolvedValue(undefined);
     mockTrackEvent.mockImplementation(() => undefined);
@@ -253,6 +308,240 @@ describe('ShifuSettingDialog analytics producer', () => {
       default_listen_mode_enabled: true,
       use_learner_language: true,
     });
+  });
+
+  it('tracks unavailable clone costs once per settings opening and re-arms after a usable estimate', async () => {
+    await configureMiniMaxSettings();
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({});
+
+    renderOpenSettings();
+    await screen.findByText('module.shifuSetting.minimaxCloneCostUnavailable');
+    await waitFor(() => expect(unavailableCostEventCalls()).toHaveLength(1));
+
+    const [eventName, payload] = unavailableCostEventCalls()[0];
+    expect(eventName).toBe('teacher_minimax_clone_cost_unavailable');
+    expect(payload).toEqual({ surface: 'settings' });
+    expect(Object.keys(payload)).toEqual(['surface']);
+    expect(JSON.stringify(payload)).not.toMatch(
+      /course-1|Private course|description|estimate|voice|error/i,
+    );
+
+    await act(async () => {
+      await latestMiniMaxDialogProps().onRefreshCost();
+    });
+    expect(unavailableCostEventCalls()).toHaveLength(1);
+
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({
+      estimated_credits: '5',
+      can_submit: true,
+    });
+    await act(async () => {
+      await latestMiniMaxDialogProps().onRefreshCost();
+    });
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostCredits'),
+    ).toBeInTheDocument();
+
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({});
+    await act(async () => {
+      await latestMiniMaxDialogProps().onRefreshCost();
+    });
+    await waitFor(() => expect(unavailableCostEventCalls()).toHaveLength(2));
+    expect(unavailableCostEventCalls()[1]).toEqual([
+      'teacher_minimax_clone_cost_unavailable',
+      { surface: 'settings' },
+    ]);
+  });
+
+  it('refreshes unavailable costs when course ownership loads after the initial refresh', async () => {
+    await configureMiniMaxSettings();
+    mockCurrentShifu.created_user_bid = 'another-owner';
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({});
+
+    const { onSave, rerender } = renderOpenSettings();
+    await waitFor(() =>
+      expect(latestMiniMaxDialogProps().cloneCost).toEqual({}),
+    );
+    expect(unavailableCostEventCalls()).toHaveLength(0);
+    const initialCostRequestCount =
+      mockGetMinimaxTtsCloneCost.mock.calls.length;
+
+    mockCurrentShifu.created_user_bid = 'owner-1';
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-1'
+        openSignal='analytics-test'
+        onSave={onSave}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mockGetMinimaxTtsCloneCost).toHaveBeenCalledTimes(
+        initialCostRequestCount + 1,
+      ),
+    );
+    await waitFor(() => expect(unavailableCostEventCalls()).toHaveLength(1));
+  });
+
+  it('starts a new unavailable-cost count after settings close and reopen', async () => {
+    await configureMiniMaxSettings();
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({});
+    const { onSave, rerender } = renderOpenSettings();
+
+    await waitFor(() => expect(unavailableCostEventCalls()).toHaveLength(1));
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() =>
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument(),
+    );
+
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-1'
+        onSave={onSave}
+        openSignal={undefined}
+      />,
+    );
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-1'
+        onSave={onSave}
+        openSignal='analytics-reopened'
+      />,
+    );
+
+    await waitFor(() => expect(unavailableCostEventCalls()).toHaveLength(2));
+  });
+
+  it('refreshes unavailable costs for a reopened settings session', async () => {
+    await configureMiniMaxSettings();
+    const costRequests: Array<
+      ReturnType<typeof createDeferred<{ estimated_credits?: string }>>
+    > = [];
+    mockGetMinimaxTtsCloneCost.mockImplementation(() => {
+      const request = createDeferred<{ estimated_credits?: string }>();
+      costRequests.push(request);
+      return request.promise;
+    });
+    const { onSave, rerender } = renderOpenSettings();
+
+    await waitFor(() => expect(costRequests.length).toBeGreaterThan(0));
+    const previousRequests = [...costRequests];
+    fireEvent.click(screen.getByLabelText('close-settings'));
+    await waitFor(() =>
+      expect(screen.queryByLabelText('close-settings')).not.toBeInTheDocument(),
+    );
+
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-1'
+        onSave={onSave}
+        openSignal={undefined}
+      />,
+    );
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-1'
+        onSave={onSave}
+        openSignal='analytics-reopened-pending-cost'
+      />,
+    );
+    await waitFor(() =>
+      expect(costRequests.length).toBeGreaterThan(previousRequests.length),
+    );
+    const reopenedCost = costRequests.at(-1)!;
+
+    await act(async () => {
+      reopenedCost.resolve({});
+      await reopenedCost.promise;
+    });
+    await waitFor(() => expect(unavailableCostEventCalls()).toHaveLength(1));
+
+    await act(async () => {
+      previousRequests.forEach(request =>
+        request.resolve({ estimated_credits: '5' }),
+      );
+      await Promise.all(previousRequests.map(request => request.promise));
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostUnavailable'),
+    ).toBeInTheDocument();
+    expect(unavailableCostEventCalls()).toHaveLength(1);
+  });
+
+  it('uses the clone dialog surface when its open cost refresh becomes unavailable', async () => {
+    await configureMiniMaxSettings();
+    const costRequest = createDeferred<{ estimated_credits?: string }>();
+    mockGetMinimaxTtsCloneCost.mockReturnValue(costRequest.promise);
+
+    renderOpenSettings();
+    await waitFor(() => expect(mockGetMinimaxTtsCloneCost).toHaveBeenCalled());
+    act(() => latestMiniMaxDialogProps().onOpenChange(true));
+    await act(async () => {
+      costRequest.resolve({});
+      await costRequest.promise;
+    });
+
+    await waitFor(() => expect(unavailableCostEventCalls()).toHaveLength(1));
+    expect(unavailableCostEventCalls()[0]).toEqual([
+      'teacher_minimax_clone_cost_unavailable',
+      { surface: 'clone_dialog' },
+    ]);
+  });
+
+  it('keeps the unavailable-cost state visible when analytics rejects', async () => {
+    await configureMiniMaxSettings();
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({});
+    mockTrackEvent.mockRejectedValue(new Error('analytics unavailable'));
+
+    renderOpenSettings();
+
+    expect(
+      await screen.findByText(
+        'module.shifuSetting.minimaxCloneCostUnavailable',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(unavailableCostEventCalls()).toHaveLength(1));
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostUnavailable'),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      label: 'a non-owner',
+      userId: 'collaborator-1',
+      ttsEnabled: true,
+      supportsVoiceCloning: true,
+    },
+    {
+      label: 'disabled TTS',
+      userId: 'owner-1',
+      ttsEnabled: false,
+      supportsVoiceCloning: true,
+    },
+    {
+      label: 'a provider without clone support',
+      userId: 'owner-1',
+      ttsEnabled: true,
+      supportsVoiceCloning: false,
+    },
+  ])('does not track unavailable costs for $label', async eligibility => {
+    await configureMiniMaxSettings(eligibility);
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({});
+
+    renderOpenSettings();
+    await screen.findByDisplayValue('Private course name');
+    if (eligibility.ttsEnabled) {
+      await waitFor(() =>
+        expect(mockGetMinimaxTtsCloneCost).toHaveBeenCalled(),
+      );
+    }
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(unavailableCostEventCalls()).toHaveLength(0);
   });
 
   it.each([false, true])(
@@ -439,6 +728,412 @@ describe('ShifuSettingDialog analytics producer', () => {
     );
   });
 
+  it('ignores stale MiniMax refresh data after a newer request completes', async () => {
+    mockTtsConfig.mockResolvedValue({
+      providers: [
+        {
+          name: 'minimax',
+          label: 'MiniMax',
+          supports_voice_cloning: true,
+          speed: { min: 0.5, max: 2, step: 0.1, default: 1 },
+          voices: [{ value: 'voice-1', label: 'Voice' }],
+          models: [{ value: 'tts-model', label: 'TTS' }],
+        },
+      ],
+      model_options: [],
+    });
+    const voiceRequests: Array<
+      ReturnType<typeof createDeferred<{ voices: never[] }>>
+    > = [];
+    mockListMinimaxTtsVoices.mockImplementation(() => {
+      const request = createDeferred<{ voices: never[] }>();
+      voiceRequests.push(request);
+      return request.promise;
+    });
+    const initialDetail = await mockGetShifuDetail();
+    mockGetShifuDetail.mockResolvedValue({
+      ...initialDetail,
+      tts_enabled: true,
+      tts_provider: 'minimax',
+      tts_model: 'tts-model',
+      tts_voice_id: 'voice-1',
+      tts_speed: 1,
+    });
+
+    type CloneCostResponse = {
+      estimated_credits?: string;
+      can_submit?: boolean;
+    };
+    const costRequests: Array<
+      ReturnType<typeof createDeferred<CloneCostResponse>>
+    > = [];
+    mockGetMinimaxTtsCloneCost.mockImplementation(() => {
+      const request = createDeferred<CloneCostResponse>();
+      costRequests.push(request);
+      return request.promise;
+    });
+
+    renderOpenSettings();
+    await waitFor(() => expect(costRequests.length).toBeGreaterThan(0));
+    await waitFor(() => expect(voiceRequests.length).toBeGreaterThan(0));
+    const olderCost = costRequests[0];
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    await act(async () => {
+      olderCost.reject(new Error('stale clone cost request failed'));
+      await olderCost.promise.catch(() => undefined);
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    const newerRefresh = latestMiniMaxDialogProps().onRefreshCost();
+    await waitFor(() => expect(costRequests).toHaveLength(2));
+    const newerCost = costRequests[1];
+    const latestVoiceRequest = voiceRequests.at(-1)!;
+    await act(async () => {
+      newerCost.resolve({ estimated_credits: '10', can_submit: false });
+      latestVoiceRequest.resolve({ voices: [] });
+      await newerRefresh;
+    });
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostCredits'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      voiceRequests
+        .slice(0, -1)
+        .forEach(request => request.resolve({ voices: [] }));
+      await Promise.all(voiceRequests.map(request => request.promise));
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostCredits'),
+    ).toBeInTheDocument();
+    expect(latestMiniMaxDialogProps().cloneCost).toEqual({
+      estimated_credits: '10',
+      can_submit: false,
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('discards a cost response from the previous course after scope changes', async () => {
+    await configureMiniMaxSettings();
+    const previousCourseCost = createDeferred<{ estimated_credits: string }>();
+    const currentCourseCost = createDeferred<{ estimated_credits: string }>();
+    mockGetMinimaxTtsCloneCost.mockImplementation(
+      ({ shifu_bid }: { shifu_bid: string }) =>
+        shifu_bid === 'course-1'
+          ? previousCourseCost.promise
+          : currentCourseCost.promise,
+    );
+
+    const { onSave, rerender } = renderOpenSettings();
+    await waitFor(() =>
+      expect(
+        mockGetMinimaxTtsCloneCost.mock.calls.some(
+          ([args]) => args.shifu_bid === 'course-1',
+        ),
+      ).toBe(true),
+    );
+
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-2'
+        openSignal='analytics-test'
+        onSave={onSave}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        mockGetMinimaxTtsCloneCost.mock.calls.some(
+          ([args]) => args.shifu_bid === 'course-2',
+        ),
+      ).toBe(true),
+    );
+
+    await act(async () => {
+      previousCourseCost.resolve({ estimated_credits: '99' });
+      await previousCourseCost.promise;
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(latestMiniMaxDialogProps().cloneCost).toBeNull();
+
+    await act(async () => {
+      currentCourseCost.resolve({ estimated_credits: '5' });
+      await currentCourseCost.promise;
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostCredits'),
+    ).toBeInTheDocument();
+    expect(latestMiniMaxDialogProps().cloneCost).toEqual({
+      estimated_credits: '5',
+    });
+  });
+
+  it('clears the previous course cost while the new scope refresh is pending', async () => {
+    await configureMiniMaxSettings();
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({ estimated_credits: '5' });
+    const { onSave, rerender } = renderOpenSettings();
+
+    await waitFor(() =>
+      expect(latestMiniMaxDialogProps().cloneCost).toEqual({
+        estimated_credits: '5',
+      }),
+    );
+
+    const currentCourseCost = createDeferred<{ estimated_credits: string }>();
+    mockGetMinimaxTtsCloneCost.mockReturnValue(currentCourseCost.promise);
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-2'
+        openSignal='analytics-test'
+        onSave={onSave}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        mockGetMinimaxTtsCloneCost.mock.calls.some(
+          ([args]) => args.shifu_bid === 'course-2',
+        ),
+      ).toBe(true),
+    );
+    expect(latestMiniMaxDialogProps().cloneCost).toBeNull();
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostUnavailable'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      currentCourseCost.resolve({ estimated_credits: '9' });
+      await currentCourseCost.promise;
+    });
+    await waitFor(() =>
+      expect(latestMiniMaxDialogProps().cloneCost).toEqual({
+        estimated_credits: '9',
+      }),
+    );
+  });
+
+  it('does not let a retained refresh callback restore the previous course scope', async () => {
+    await configureMiniMaxSettings();
+    const costRequests = new Map<
+      string,
+      Array<ReturnType<typeof createDeferred<{ estimated_credits: string }>>>
+    >();
+    mockGetMinimaxTtsCloneCost.mockImplementation(
+      ({ shifu_bid }: { shifu_bid: string }) => {
+        const request = createDeferred<{ estimated_credits: string }>();
+        const courseRequests = costRequests.get(shifu_bid) || [];
+        courseRequests.push(request);
+        costRequests.set(shifu_bid, courseRequests);
+        return request.promise;
+      },
+    );
+
+    const { onSave, rerender } = renderOpenSettings();
+    await waitFor(() =>
+      expect(costRequests.get('course-1')?.length).toBeGreaterThan(0),
+    );
+    const retainedPreviousCourseRefresh =
+      latestMiniMaxDialogProps().onRefreshCost;
+
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-2'
+        openSignal='analytics-test'
+        onSave={onSave}
+      />,
+    );
+    await waitFor(() =>
+      expect(costRequests.get('course-2')?.length).toBeGreaterThan(0),
+    );
+    const courseOneRequestCount = costRequests.get('course-1')?.length ?? 0;
+
+    await act(async () => {
+      await retainedPreviousCourseRefresh();
+    });
+    expect(costRequests.get('course-1')).toHaveLength(courseOneRequestCount);
+
+    await act(async () => {
+      costRequests
+        .get('course-2')
+        ?.forEach(request => request.resolve({ estimated_credits: '5' }));
+      await Promise.all(
+        costRequests.get('course-2')?.map(request => request.promise) || [],
+      );
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(latestMiniMaxDialogProps().cloneCost).toEqual({
+      estimated_credits: '5',
+    });
+
+    await act(async () => {
+      costRequests
+        .get('course-1')
+        ?.forEach(request => request.resolve({ estimated_credits: '99' }));
+      await Promise.all(
+        costRequests.get('course-1')?.map(request => request.promise) || [],
+      );
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(latestMiniMaxDialogProps().cloneCost).toEqual({
+      estimated_credits: '5',
+    });
+  });
+
+  it('coalesces slow voice-list polling without invalidating clone-cost estimates', async () => {
+    await configureMiniMaxSettings({
+      ttsEnabled: true,
+      supportsVoiceCloning: true,
+    });
+    const pendingCost = createDeferred<{ estimated_credits: string }>();
+    const processingVoice = {
+      voice_bid: 'clone-1',
+      voice_id: 'AiShifu_xxxxxxxxxx',
+      display_name: 'Pending voice',
+      status: 'processing',
+    };
+    const readyVoice = {
+      ...processingVoice,
+      display_name: 'Ready voice',
+      status: 'ready',
+    };
+    const pendingVoiceRefresh = createDeferred<{
+      voices: Array<{
+        voice_bid: string;
+        voice_id: string;
+        display_name: string;
+        status: string;
+      }>;
+    }>();
+    mockListMinimaxTtsVoices
+      .mockResolvedValueOnce({ voices: [processingVoice] })
+      .mockReturnValue(pendingVoiceRefresh.promise);
+    mockGetMinimaxTtsCloneCost.mockReturnValue(pendingCost.promise);
+
+    renderOpenSettings();
+    expect(await screen.findByText('AiShifu_xxxxxxxxxx')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockGetMinimaxTtsCloneCost).toHaveBeenCalledTimes(1),
+    );
+
+    const previousVoiceRequestCount =
+      mockListMinimaxTtsVoices.mock.calls.length;
+    const previousCostRequestCount =
+      mockGetMinimaxTtsCloneCost.mock.calls.length;
+    const slowVoicePoll = latestMiniMaxDialogProps().onRefreshCost({
+      polling: true,
+    });
+    await waitFor(() =>
+      expect(mockListMinimaxTtsVoices).toHaveBeenCalledTimes(
+        previousVoiceRequestCount + 1,
+      ),
+    );
+    await act(async () => {
+      await latestMiniMaxDialogProps().onRefreshCost({ polling: true });
+    });
+    expect(mockListMinimaxTtsVoices).toHaveBeenCalledTimes(
+      previousVoiceRequestCount + 1,
+    );
+    expect(mockGetMinimaxTtsCloneCost).toHaveBeenCalledTimes(
+      previousCostRequestCount,
+    );
+
+    await act(async () => {
+      pendingVoiceRefresh.resolve({ voices: [readyVoice] });
+      await slowVoicePoll;
+    });
+    expect(
+      screen.queryByText('module.shifuSetting.minimaxCloneStatus.processing'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneStatus.ready'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      pendingCost.resolve({ estimated_credits: '10' });
+      await pendingCost.promise;
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByText('module.shifuSetting.minimaxCloneCostCredits'),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('updates polled cloned-voice status without waiting for a slow cost request', async () => {
+    mockTtsConfig.mockResolvedValue({
+      providers: [
+        {
+          name: 'minimax',
+          label: 'MiniMax',
+          supports_voice_cloning: true,
+          speed: { min: 0.5, max: 2, step: 0.1, default: 1 },
+          voices: [{ value: 'voice-1', label: 'Voice' }],
+          models: [{ value: 'tts-model', label: 'TTS' }],
+        },
+      ],
+      model_options: [],
+    });
+    const detail = await mockGetShifuDetail();
+    mockGetShifuDetail.mockResolvedValue({
+      ...detail,
+      tts_enabled: true,
+      tts_provider: 'minimax',
+      tts_model: 'tts-model',
+      tts_voice_id: 'voice-1',
+      tts_speed: 1,
+    });
+    mockListMinimaxTtsVoices.mockResolvedValue({
+      voices: [
+        {
+          voice_bid: 'clone-1',
+          voice_id: 'AiShifu_xxxxxxxxxx',
+          display_name: 'Pending voice',
+          status: 'processing',
+        },
+      ],
+    });
+    mockGetMinimaxTtsCloneCost.mockImplementation(() => new Promise(() => {}));
+
+    renderOpenSettings();
+    expect(await screen.findByText('AiShifu_xxxxxxxxxx')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneStatus.processing'),
+    ).toBeInTheDocument();
+
+    const dialogProps = mockMiniMaxCloneDialog.mock.calls.at(-1)?.[0] as {
+      onRefreshCost: () => Promise<void>;
+    };
+    const previousVoiceRequestCount =
+      mockListMinimaxTtsVoices.mock.calls.length;
+    mockListMinimaxTtsVoices.mockResolvedValue({
+      voices: [
+        {
+          voice_bid: 'clone-1',
+          voice_id: 'AiShifu_xxxxxxxxxx',
+          display_name: 'Ready voice',
+          status: 'ready',
+        },
+      ],
+    });
+
+    void dialogProps.onRefreshCost();
+    await waitFor(() =>
+      expect(mockListMinimaxTtsVoices).toHaveBeenCalledTimes(
+        previousVoiceRequestCount + 1,
+      ),
+    );
+    expect(await screen.findByText('AiShifu_xxxxxxxxxx')).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.shifuSetting.minimaxCloneStatus.processing'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneStatus.ready'),
+    ).toBeInTheDocument();
+  });
+
   it.each([
     {
       userId: 'collaborator-1',
@@ -499,6 +1194,11 @@ describe('ShifuSettingDialog analytics producer', () => {
 
       try {
         renderOpenSettings();
+        expect(
+          await screen.findByText(
+            'module.shifuSetting.minimaxCloneCostUnavailable',
+          ),
+        ).toBeInTheDocument();
         const button = await screen.findByTitle(
           demoUrl.trim()
             ? 'module.shifuSetting.minimaxClonePreview'

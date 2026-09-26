@@ -154,6 +154,7 @@
   "minimaxCloneAudioSelected": "تم التحديد: {name}",
   "minimaxCloneCostCredits": "{credits} رصيد",
   "minimaxCloneCostFree": "لا تُفرض رسوم على استنساخ الصوت حاليًا.",
+  "minimaxCloneCostUnavailable": "تعذّر تقدير تكلفة الاستنساخ حاليًا",
   "minimaxCloneCreate": "استنساخ الصوت",
   "minimaxCloneDefaultDisplayName": "صوت مخصص",
   "minimaxCloneDialogTitle": "استنساخ صوت MiniMax",

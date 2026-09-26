@@ -57,6 +57,25 @@ describe('MiniMaxVoiceCloneDialog', () => {
     jest.restoreAllMocks();
   });
 
+  test('shows free only when the estimate explicitly reports zero', () => {
+    renderDialog({ can_submit: true, estimated_credits: '0.00' });
+
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostFree'),
+    ).toBeInTheDocument();
+  });
+
+  test('shows an unavailable estimate instead of claiming cloning is free', () => {
+    renderDialog({ can_submit: true });
+
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostUnavailable'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.shifuSetting.minimaxCloneCostFree'),
+    ).not.toBeInTheDocument();
+  });
+
   test('does not render prompt audio controls', () => {
     const { container } = renderDialog();
 

@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -90,7 +91,7 @@ import type { ModelIndex } from '@/types/shifu';
 import { useEnvStore } from '@/store';
 import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
-import { useTracking } from '@/hooks/useTracking';
+import { EVENT_NAMES, useTracking } from '@/hooks/useTracking';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import {
   AskProviderSchemaValidationError,
@@ -103,6 +104,7 @@ import {
   buildClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
   executeMiniMaxVoiceAction,
+  getMiniMaxCloneCostDisplayState,
   getCustomVoiceIdValidator,
   isMiniMaxProvider,
   isValidMiniMaxCustomVoiceId,
@@ -333,6 +335,29 @@ export default function ShifuSettingDialog({
   >([]);
   const [minimaxCloneCost, setMinimaxCloneCost] =
     useState<MiniMaxCloneCost | null>(null);
+  const [minimaxCloneCostRefreshResult, setMinimaxCloneCostRefreshResult] =
+    useState<{
+      shifuId: string;
+      provider: string;
+      openSession: number;
+      eligibilityGeneration: number;
+      ttsEnabled: boolean;
+      isCourseOwner: boolean | null;
+      supportsVoiceCloning: boolean;
+      cost: MiniMaxCloneCost | null;
+    } | null>(null);
+  const minimaxVoiceListRefreshSeqRef = useRef(0);
+  const minimaxVoiceListRefreshInFlightRef = useRef<{
+    seq: number;
+    shifuId: string;
+    provider: string;
+  } | null>(null);
+  const minimaxCloneCostRefreshSeqRef = useRef(0);
+  // A delayed result belongs only to its settings opening and eligibility scope.
+  const minimaxCloneCostOpenSessionRef = useRef(0);
+  const minimaxCloneCostEligibilityGenerationRef = useRef(0);
+  const previousMinimaxCloneCostOpenRef = useRef(false);
+  const minimaxCloneCostUnavailableReportedRef = useRef(false);
   const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
   const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
@@ -354,6 +379,16 @@ export default function ShifuSettingDialog({
       followUpModeRequestRef.current++;
     };
   }, [open, shifuId]);
+
+  useLayoutEffect(() => {
+    if (open && !previousMinimaxCloneCostOpenRef.current) {
+      minimaxCloneCostOpenSessionRef.current++;
+      minimaxCloneCostUnavailableReportedRef.current = false;
+    } else if (!open) {
+      minimaxCloneCostUnavailableReportedRef.current = false;
+    }
+    previousMinimaxCloneCostOpenRef.current = open;
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -600,38 +635,154 @@ export default function ShifuSettingDialog({
   const isMiniMaxTtsProvider = isMiniMaxProvider(resolvedProvider);
   const providerSupportsCloning =
     providerSupportsClonedVoices(resolvedProvider);
+  const currentProviderConfig =
+    ttsConfig?.providers.find(p => p.name === resolvedProvider) ||
+    ttsConfig?.providers[0];
+  const supportsMiniMaxVoiceCloning =
+    isMiniMaxTtsProvider &&
+    currentProviderConfig?.supports_voice_cloning === true;
+  const minimaxCloneCostEligibilityContextRef = useRef({
+    ttsEnabled,
+    isCourseOwner,
+    supportsVoiceCloning: supportsMiniMaxVoiceCloning,
+  });
+  useLayoutEffect(() => {
+    minimaxCloneCostEligibilityContextRef.current = {
+      ttsEnabled,
+      isCourseOwner,
+      supportsVoiceCloning: supportsMiniMaxVoiceCloning,
+    };
+    minimaxCloneCostEligibilityGenerationRef.current++;
+  }, [
+    isCourseOwner,
+    open,
+    resolvedProvider,
+    shifuId,
+    supportsMiniMaxVoiceCloning,
+    ttsEnabled,
+  ]);
+  const minimaxCloneCostRefreshScopeRef = useRef({
+    shifuId,
+    provider: resolvedProvider,
+  });
 
-  const refreshMinimaxVoiceData = useCallback(async () => {
-    if (!shifuId) return;
-    const result = await loadMiniMaxVoiceRefreshData({
-      fetchVoices: () =>
-        api.listMinimaxTtsVoices(
-          buildClonedVoiceListParams(resolvedProvider, shifuId),
-        ) as Promise<{
-          voices?: MiniMaxClonedVoice[];
-        }>,
-      // Clone-cost estimation only exists for the MiniMax self-serve flow;
-      // operator-registered voices (volcengine) are free for the teacher.
-      fetchCloneCost: () =>
-        isMiniMaxTtsProvider
-          ? (api.getMinimaxTtsCloneCost({
-              shifu_bid: shifuId,
-            }) as Promise<MiniMaxCloneCost>)
-          : Promise.resolve(null),
-    });
-    if (result.voices !== null) {
-      setMinimaxClonedVoices(result.voices);
-    }
-    if (result.cloneCost !== null) {
-      setMinimaxCloneCost(result.cloneCost);
-    }
-    if (result.errors.length > 0) {
-      console.error(
-        'Failed to refresh MiniMax voice clone data:',
-        result.errors,
-      );
-    }
-  }, [isMiniMaxTtsProvider, resolvedProvider, shifuId]);
+  const refreshMinimaxVoiceData = useCallback(
+    async ({
+      forceVoiceList = false,
+      polling = false,
+    }: {
+      forceVoiceList?: boolean;
+      polling?: boolean;
+    } = {}) => {
+      if (!shifuId) return;
+      const refreshScope = { shifuId, provider: resolvedProvider };
+      const isCurrentScope = () => {
+        const currentScope = minimaxCloneCostRefreshScopeRef.current;
+        return (
+          refreshScope.shifuId === currentScope.shifuId &&
+          refreshScope.provider === currentScope.provider
+        );
+      };
+      if (!isCurrentScope()) return;
+
+      const openSession = minimaxCloneCostOpenSessionRef.current;
+      const eligibilityGeneration =
+        minimaxCloneCostEligibilityGenerationRef.current;
+      const eligibilityContext = minimaxCloneCostEligibilityContextRef.current;
+      const inFlightVoice = minimaxVoiceListRefreshInFlightRef.current;
+      const voiceAlreadyInFlight =
+        !forceVoiceList &&
+        inFlightVoice?.shifuId === refreshScope.shifuId &&
+        inFlightVoice.provider === refreshScope.provider;
+      const voiceRefreshSeq = voiceAlreadyInFlight
+        ? null
+        : ++minimaxVoiceListRefreshSeqRef.current;
+      if (voiceRefreshSeq !== null) {
+        minimaxVoiceListRefreshInFlightRef.current = {
+          seq: voiceRefreshSeq,
+          ...refreshScope,
+        };
+      }
+      const costRefreshSeq = polling
+        ? null
+        : ++minimaxCloneCostRefreshSeqRef.current;
+      const result = await loadMiniMaxVoiceRefreshData({
+        fetchVoices: async () => {
+          if (voiceRefreshSeq === null) {
+            return { voices: [] };
+          }
+          try {
+            const response = (await api.listMinimaxTtsVoices(
+              buildClonedVoiceListParams(resolvedProvider, shifuId),
+            )) as {
+              voices?: MiniMaxClonedVoice[];
+            };
+            if (
+              voiceRefreshSeq === minimaxVoiceListRefreshSeqRef.current &&
+              isCurrentScope()
+            ) {
+              setMinimaxClonedVoices(response.voices || []);
+            }
+            return response;
+          } finally {
+            if (
+              minimaxVoiceListRefreshInFlightRef.current?.seq ===
+              voiceRefreshSeq
+            ) {
+              minimaxVoiceListRefreshInFlightRef.current = null;
+            }
+          }
+        },
+        // Clone-cost estimation only exists for the MiniMax self-serve flow;
+        // operator-registered voices (volcengine) are free for the teacher.
+        fetchCloneCost: () => {
+          if (!isMiniMaxTtsProvider || costRefreshSeq === null) {
+            return Promise.resolve(null);
+          }
+          return Promise.resolve().then(
+            () =>
+              api.getMinimaxTtsCloneCost({
+                shifu_bid: shifuId,
+              }) as Promise<MiniMaxCloneCost>,
+          );
+        },
+      });
+      if (
+        costRefreshSeq !== null &&
+        costRefreshSeq === minimaxCloneCostRefreshSeqRef.current &&
+        isCurrentScope()
+      ) {
+        setMinimaxCloneCost(result.cloneCost);
+        setMinimaxCloneCostRefreshResult({
+          shifuId,
+          provider: resolvedProvider,
+          openSession,
+          eligibilityGeneration,
+          ...eligibilityContext,
+          cost: result.cloneCost,
+        });
+      }
+      if (result.errors.length > 0) {
+        console.error(
+          'Failed to refresh MiniMax voice clone data:',
+          result.errors,
+        );
+      }
+    },
+    [isMiniMaxTtsProvider, resolvedProvider, shifuId],
+  );
+  useLayoutEffect(() => {
+    minimaxCloneCostRefreshScopeRef.current = {
+      shifuId,
+      provider: resolvedProvider,
+    };
+    minimaxVoiceListRefreshSeqRef.current++;
+    minimaxVoiceListRefreshInFlightRef.current = null;
+    minimaxCloneCostRefreshSeqRef.current++;
+    minimaxCloneCostUnavailableReportedRef.current = false;
+    setMinimaxCloneCost(null);
+    setMinimaxCloneCostRefreshResult(null);
+  }, [resolvedProvider, shifuId]);
   useEffect(() => {
     if (!ttsEnabled) return;
     const options = ttsConfig?.model_options || [];
@@ -644,11 +795,6 @@ export default function ShifuSettingDialog({
     setTtsProvider(fallback.provider);
     setTtsModel(fallback.model);
   }, [resolvedProvider, ttsEnabled, ttsModel, ttsConfig]);
-
-  // Get current provider config
-  const currentProviderConfig =
-    ttsConfig?.providers.find(p => p.name === resolvedProvider) ||
-    ttsConfig?.providers[0];
 
   const ttsModelOptions = useMemo(
     () => ttsConfig?.model_options || [],
@@ -687,7 +833,7 @@ export default function ShifuSettingDialog({
           api.retryMinimaxTtsVoice({
             voice_bid: voiceBid,
           }),
-        onSuccess: refreshMinimaxVoiceData,
+        onSuccess: () => refreshMinimaxVoiceData({ forceVoiceList: true }),
         onError: showMiniMaxVoiceActionError,
       });
     },
@@ -705,7 +851,7 @@ export default function ShifuSettingDialog({
           if (ttsVoiceId === voice.voice_id) {
             setTtsVoiceId(ttsVoiceOptions[0]?.value || '');
           }
-          refreshMinimaxVoiceData();
+          refreshMinimaxVoiceData({ forceVoiceList: true });
         },
         onError: showMiniMaxVoiceActionError,
       });
@@ -718,9 +864,64 @@ export default function ShifuSettingDialog({
     ],
   );
 
-  const supportsMiniMaxVoiceCloning =
-    isMiniMaxTtsProvider &&
-    currentProviderConfig?.supports_voice_cloning === true;
+  const minimaxCloneCostDisplay = getMiniMaxCloneCostDisplayState(
+    minimaxCloneCost?.estimated_credits,
+  );
+
+  // Invalidate completed refresh snapshots when the event-eligible context changes.
+  useEffect(() => {
+    const refreshResult = minimaxCloneCostRefreshResult;
+    if (
+      !refreshResult ||
+      refreshResult.shifuId !== shifuId ||
+      refreshResult.provider !== resolvedProvider ||
+      refreshResult.openSession !== minimaxCloneCostOpenSessionRef.current ||
+      refreshResult.eligibilityGeneration !==
+        minimaxCloneCostEligibilityGenerationRef.current
+    ) {
+      return;
+    }
+
+    const costDisplay = getMiniMaxCloneCostDisplayState(
+      refreshResult.cost?.estimated_credits,
+    );
+    if (costDisplay.kind !== 'unavailable') {
+      minimaxCloneCostUnavailableReportedRef.current = false;
+      return;
+    }
+    if (
+      !open ||
+      !ttsEnabled ||
+      isCourseOwner !== true ||
+      !refreshResult.ttsEnabled ||
+      refreshResult.isCourseOwner !== true ||
+      !refreshResult.supportsVoiceCloning ||
+      !supportsMiniMaxVoiceCloning ||
+      minimaxCloneCostUnavailableReportedRef.current
+    ) {
+      return;
+    }
+
+    minimaxCloneCostUnavailableReportedRef.current = true;
+    try {
+      void Promise.resolve(
+        trackEvent(EVENT_NAMES.TEACHER_MINIMAX_CLONE_COST_UNAVAILABLE, {
+          surface: minimaxCloneDialogOpen ? 'clone_dialog' : 'settings',
+        }),
+      ).catch(() => {});
+    } catch {}
+  }, [
+    isCourseOwner,
+    minimaxCloneCostRefreshResult,
+    minimaxCloneDialogOpen,
+    open,
+    resolvedProvider,
+    shifuId,
+    supportsMiniMaxVoiceCloning,
+    trackEvent,
+    ttsEnabled,
+  ]);
+
   const minimaxStatusLabels = useMemo(
     () => ({
       queued: t('module.shifuSetting.minimaxCloneStatus.queued'),
@@ -788,7 +989,14 @@ export default function ShifuSettingDialog({
       return;
     }
     refreshMinimaxVoiceData();
-  }, [providerSupportsCloning, open, refreshMinimaxVoiceData, ttsEnabled]);
+  }, [
+    providerSupportsCloning,
+    open,
+    refreshMinimaxVoiceData,
+    ttsEnabled,
+    isCourseOwner,
+    supportsMiniMaxVoiceCloning,
+  ]);
 
   useEffect(() => {
     if (!open || !providerSupportsCloning) {
@@ -803,7 +1011,7 @@ export default function ShifuSettingDialog({
       return;
     }
     const timer = setInterval(() => {
-      refreshMinimaxVoiceData();
+      refreshMinimaxVoiceData({ polling: true });
     }, 4000);
     return () => clearInterval(timer);
   }, [
@@ -2809,18 +3017,21 @@ export default function ShifuSettingDialog({
                                   )}
                                 </p>
                                 <p className='truncate text-xs text-muted-foreground'>
-                                  {minimaxCloneCost?.estimated_credits &&
-                                  minimaxCloneCost.estimated_credits !== '0'
+                                  {minimaxCloneCostDisplay.kind === 'credits'
                                     ? t(
                                         'module.shifuSetting.minimaxCloneCostCredits',
                                         {
                                           credits:
-                                            minimaxCloneCost.estimated_credits,
+                                            minimaxCloneCostDisplay.credits,
                                         },
                                       )
-                                    : t(
-                                        'module.shifuSetting.minimaxCloneCostFree',
-                                      )}
+                                    : minimaxCloneCostDisplay.kind === 'free'
+                                      ? t(
+                                          'module.shifuSetting.minimaxCloneCostFree',
+                                        )
+                                      : t(
+                                          'module.shifuSetting.minimaxCloneCostUnavailable',
+                                        )}
                                 </p>
                               </div>
                               <Button
