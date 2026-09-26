@@ -19,8 +19,12 @@ by scenario; detailed procedures belong in focused skills. The complete
 
 For billing terminology and display rules, use the owning
 [billing design](../../docs/billing-subscription-design.md) and shared components.
-For preview failures, preserve structured error codes through the preview item
-and let `LessonPreview` choose a directed action; do not branch on message text.
+For a preview/debug business failure before the first content element, use the
+existing `usePreviewChat` error path to replace the loading placeholder with the
+backend message. Preserve the structured business code on the rendered error
+item and let `LessonPreview` choose a directed action; do not branch on message
+text. `src/components/lesson-preview/usePreviewChat.test.ts` covers the loading
+replacement and retained business code.
 
 Add a focused skill only for a recurring workflow. Its `SKILL.md` must declare
 `name` and a concrete trigger in `description`; keep reference details there,
