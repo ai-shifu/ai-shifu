@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -23,6 +23,7 @@ from build_repo_knowledge_index import (
     build_knowledge_docs,
     focused_skills,
     parse_frontmatter,
+    parse_review_date,
     tracked_markdown,
 )
 from build_repo_knowledge_index import (
@@ -878,7 +879,7 @@ def check_review_dates(paths: list[Path], errors: list[str]) -> None:
         if not reviewed:
             continue
         try:
-            value = date.fromisoformat(reviewed)
+            value = parse_review_date(reviewed)
         except ValueError:
             errors.append(f"Invalid last_reviewed date: {path}: {reviewed}")
             continue
@@ -963,7 +964,11 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
                 if target_path.startswith("/")
                 else path.parent / target_path
             ).resolve()
-            if historical and target.suffix.lower() not in {".md", ".mdx"}:
+            if (
+                historical
+                and target.suffix.lower() not in {".md", ".mdx"}
+                and not target.is_relative_to(DOCS_ROOT.resolve())
+            ):
                 # Historical implementation links may name retired code or assets.
                 continue
             if not target.is_relative_to(ROOT.resolve()) or not target.exists():

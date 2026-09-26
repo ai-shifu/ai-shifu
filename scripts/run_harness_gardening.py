@@ -11,6 +11,7 @@ from pathlib import Path
 from build_repo_knowledge_index import (
     DOCS_ROOT,
     parse_frontmatter,
+    parse_review_date,
     snapshot_provenance,
 )
 from check_architecture_boundaries import (
@@ -58,11 +59,7 @@ def stale_review_docs() -> list[str]:
                 stale.append(f"{path.relative_to(ROOT)} (missing last_reviewed)")
                 continue
             try:
-                # Repo scripts cannot import `flaskr.util.datetime`; the doc
-                # metadata carries a bare calendar date, so naive is correct.
-                reviewed_date = datetime.strptime(  # noqa: DTZ007
-                    reviewed, "%Y-%m-%d"
-                ).date()
+                reviewed_date = parse_review_date(reviewed)
             except ValueError:
                 stale.append(
                     f"{path.relative_to(ROOT)} (invalid last_reviewed={reviewed})"

@@ -8,7 +8,7 @@ import json
 import re
 import subprocess
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,6 +92,14 @@ def parse_frontmatter(path: Path) -> dict[str, str]:
     return {key: unquote_frontmatter_scalar(value) for key, value in metadata.items()}
 
 
+def parse_review_date(value: str) -> date:
+    """Parse the shared YYYY-MM-DD review-date contract used by both checkers."""
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        message = "Review dates must use YYYY-MM-DD"
+        raise ValueError(message)
+    return date.fromisoformat(value)
+
+
 def extract_title(path: Path) -> str:
     """Return a Markdown file's first heading or a title derived from its filename."""
     text = path.read_text(encoding="utf-8")
@@ -160,7 +168,7 @@ def build_tracked_records() -> list[DocRecord]:
         elif rel.startswith("docs/history/"):
             category, status = "history", "historical"
         elif rel.startswith("docs/exec-plans/active/"):
-            category, status = "exec-plan-active", "active"
+            category, status, canonical = "exec-plan-active", "active", "true"
         elif rel.startswith("docs/exec-plans/completed/"):
             category, status = "exec-plan-completed", "completed"
         elif GENERATED_COMMENT in path.read_text(encoding="utf-8"):

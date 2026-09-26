@@ -330,6 +330,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
                 "skill",
             ),
             "docs/history/old.md": ("# Old", "history"),
+            "docs/exec-plans/active/current.md": ("# Current", "exec-plan-active"),
             "src/help.MDX": ("# Help", "reference"),
             ".github/copilot-instructions.md": ("See AGENTS.md", "alias"),
         }
@@ -347,6 +348,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
             assert records[name].category == category
             assert records[name].last_reviewed == ""
         assert records["GEMINI.md"].category == "alias"
+        assert records["docs/exec-plans/active/current.md"].canonical == "true"
         assert "scratch.md" not in records
         assert "docs/generated/harness-health.md" not in records
         assert "docs/generated/harness-gardening-summary.md" not in records
@@ -418,6 +420,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
             "docs/links.md",
             """# Links
 [valid](linked%20file.md#linked)
+[angle destination](<linked file.md>)
 [reference][target]
 [external](https://example.com/does-not-need-a-fetch)
 ![image](linked%20file.md)
@@ -466,6 +469,43 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         errors = []
         harness.check_local_document_links([current], errors)
         assert len(errors) == 1
+
+    def test_historical_document_directories_must_resolve(self) -> None:
+        """The runtime exception must not hide broken historical doc navigation."""
+        source = self.fixture(
+            "docs/history/old.md",
+            "[docs](../design-docs/)\n[missing](../retired-docs/)",
+        )
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1
+        assert "retired-docs" in errors[0]
+
+    def test_gardening_and_validation_share_review_date_syntax(self) -> None:
+        """Compact/week ISO dates cannot pass one checker and fail the other."""
+        source = self.root / "docs/product-specs/date-format.md"
+        with (
+            patch.object(gardening, "DOCS_ROOT", self.root / "docs"),
+            patch.object(gardening, "ROOT", self.root),
+        ):
+            for reviewed, invalid in (
+                ("2026-01-01", False),
+                ("20260926", True),
+                ("2026-W39-6", True),
+                ("2026-02-31", True),
+            ):
+                self.write(
+                    source, f"---\nlast_reviewed: {reviewed}\n---\n# Date format"
+                )
+                errors: list[str] = []
+                harness.check_review_dates([source], errors)
+                assert bool(errors) == invalid
+                hits = [
+                    hit
+                    for hit in gardening.stale_review_docs()
+                    if "date-format.md" in hit and "invalid last_reviewed" in hit
+                ]
+                assert bool(hits) == invalid
 
     def test_broken_alias_is_reported(self) -> None:
         """Do not follow or silently accept a broken compatibility alias."""
@@ -541,7 +581,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
             record for record in generator.build_tracked_records() if record.path == doc
         )
         assert record.last_reviewed == ""
-        for reviewed in ("not-a-date", "9999-01-01"):
+        for reviewed in ("not-a-date", "20260926", "2026-W39-6", "9999-01-01"):
             self.write(doc, f"---\nlast_reviewed: {reviewed}\n---\n# Example")
             errors = []
             harness.check_review_dates([doc], errors)
