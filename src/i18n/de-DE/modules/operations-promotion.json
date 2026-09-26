@@ -24,11 +24,11 @@
   },
   "campaign": {
     "appliedOrderCount": "Angewandte Aufträge",
-    "applyType": "Art der Finanzhilfe",
+    "applyType": "Art der Vergabe",
     "applyTypeAuto": "Automatisch",
     "applyTypeEvent": "Ereignis",
     "applyTypeManual": "Manuell",
-    "applyTypePlaceholder": "Art der Finanzhilfe auswählen",
+    "applyTypePlaceholder": "Art der Vergabe auswählen",
     "basicInfo": "Grundlegende Informationen",
     "channel": "Kanal",
     "channelPlaceholder": "Kanal",
@@ -303,7 +303,7 @@
     "activeTime": "Effektive Zeit",
     "appliedAt": "Angewandt am",
     "appliedOrderCount": "Angewandte Aufträge",
-    "applyType": "Art der Finanzhilfe",
+    "applyType": "Art der Vergabe",
     "campaignName": "Name der Kampagne",
     "channel": "Kanal",
     "codesEntry": "Untercodes",
@@ -338,7 +338,7 @@
     "singleUse": "Ein Code pro Bestellung"
   },
   "validation": {
-    "campaignApplyTypeRequired": "Art der Finanzhilfe auswählen",
+    "campaignApplyTypeRequired": "Art der Vergabe auswählen",
     "campaignNameRequired": "Kampagnenname eingeben",
     "codeRequired": "Generischer Gutscheincode eingeben",
     "couponNameRequired": "Gutscheinname eingeben",
