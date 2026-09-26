@@ -92,6 +92,36 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
             generator.BOUNDARY_BASELINE_PATH, '{"version": 1, "violations": []}\n'
         )
 
+    def test_scalar_quotes_preserve_malformed_dates_and_title_apostrophes(self) -> None:
+        """Unmatched quotes remain visible to the date scanner and index."""
+        root = self.root / "quoted-review-fixture"
+        docs = root / "docs"
+        path = docs / "product-specs" / "review.md"
+        for raw, expected in (
+            ('"2026-09-26"', "2026-09-26"),
+            ("'2026-09-26'", "2026-09-26"),
+            ("'2026-09-26", "'2026-09-26"),
+            ("2026-09-26'", "2026-09-26'"),
+            ("'2026-09-26\"", "'2026-09-26\""),
+        ):
+            with self.subTest(raw=raw):
+                self.write(
+                    path, "---\ntitle: Teachers'\nlast_reviewed: " + raw + "\n---\n"
+                )
+                metadata = generator.parse_frontmatter(path)
+                assert metadata["title"] == "Teachers'"
+                assert metadata["last_reviewed"] == expected
+                if expected != "2026-09-26":
+                    with (
+                        patch.object(gardening, "ROOT", root),
+                        patch.object(gardening, "DOCS_ROOT", docs),
+                    ):
+                        assert gardening.stale_review_docs() == [
+                            "docs/product-specs/review.md (invalid last_reviewed="
+                            + expected
+                            + ")"
+                        ]
+
     def test_unknown_review_dates_remain_missing_review_debt(self) -> None:
         """Accept an explicit empty date without pretending the review happened."""
         root = self.root / "review-fixture"
