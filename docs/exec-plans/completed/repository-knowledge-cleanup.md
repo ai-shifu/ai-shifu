@@ -41,6 +41,12 @@ the content is corrected. Deliver separate ready pull requests per problem.
   repository containment and Git alias classification; the generator and
   instruction suites contain 59 passing regression tests.
 
+- [x] 2026-09-26T14:05:49Z: Followed current reviews from #2967 onward, corrected dashboard
+  and audio contracts, and verified the session identity/no-op guards. The
+  delivery ledger records 41 dashboard, 35 analytics and 123 audio tests, plus
+  the independent 61 documentation-tool regressions. Restacked the remaining
+  PRs on merged #2964–#2966 and preserved the concrete audit matrix.
+
 ## Surprises & Discoveries
 
 The original audit used `fd9f56fa6`; main advanced by 26 commits before execution.
@@ -67,7 +73,9 @@ The approved cleanup is complete. See
 `docs/history/knowledge-cleanup-delivery-2026-09-26.md` for the ready PR stack,
 executed checks and retained work. All baseline active documents have a recorded
 disposition. Unknown review dates and external acceptance were preserved rather
-than converted into completion claims. Application behavior is unchanged.
+than converted into completion claims. User-visible behavior is unchanged.
+Two session analytics producer guards now exclude stale-identity outcomes and zero-session bulk no-ops; event names and
+payloads are preserved, with historical limitations documented.
 
 The generator/checker found migration links and metadata/date edge cases during
 verification; content and tooling repairs stayed in separate commits/PRs.
@@ -114,7 +122,9 @@ First correct live operational and behavioral guidance against code and tests.
 Then audit plans with source and merge evidence, extract durable contracts and
 historical snapshots, simplify instruction routing, and relocate topic docs.
 Finally extend the existing generator/checker with regression coverage. Keep
-production application behavior outside this documentation-maintenance scope.
+user-visible application behavior stable. The session contract review required
+focused producer guards and regression tests for its successful-revoker
+population; this does not authorize unrelated behavior changes.
 
 ## Concrete Steps
 
@@ -149,6 +159,7 @@ infer deployment completion from a merged PR or a checked progress item.
 ## Interfaces and Dependencies
 
 Application APIs and analytics event schemas remain unchanged. The session
-analytics reporting contract clarifies cohort semantics. Documentation tooling
-uses the existing Python, Git, and CommonMark parser dependencies. Generated
+analytics reporting contract clarifies cohort semantics and excludes confirmed
+bulk no-ops and outcomes that cross an identity replacement at the producer.
+Documentation tooling uses the existing Python, Git, and CommonMark parser dependencies. Generated
 metadata describes observed sources rather than inventing review timestamps.
