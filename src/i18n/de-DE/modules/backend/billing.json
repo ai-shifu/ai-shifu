@@ -1,0 +1,33 @@
+{
+  "__namespace__": "server.billing",
+  "__flat__": {
+    "adminPlanGrantAlreadyActive": "Für diesen Nutzer ist derselbe Tarif bereits aktiv. Eine erneute Vergabe wird derzeit nicht unterstützt.",
+    "adminPlanGrantProviderManagedConflict": "Für diesen Nutzer ist bereits ein gültiger, vom Zahlungsanbieter verwalteter Tarif aktiv. Eine manuelle Tarifvergabe ist erst möglich, wenn dieser Tarif abgelaufen ist.",
+    "adminPlanGrantRoleUnsupported": "Nur Lehrkräfte oder Operatoren können manuell Credits oder Pakete erhalten.",
+    "campaignLockedAfterHit": "Für diese Tarifaktion wurde bereits mindestens eine Bestellung bezahlt. Die Aktionsprodukte und Rabattregeln können nicht mehr geändert werden.",
+    "campaignNotFound": "Paketkampagne nicht gefunden.",
+    "campaignOverlapActive": "Produkte {product_names} haben bereits eine aktive Paketkampagne im ausgewählten Zeitraum. Passen Sie das Kampagnenfenster an oder wählen Sie verschiedene Produkte aus.",
+    "campaignProviderDiscountLocked": "Für diese Tarifaktion sind bereits Stripe-Rabatte aktiv. Erstellen Sie eine neue Aktionsversion oder beenden Sie zuerst die Stripe-Rabatte, bevor Sie Produkte, Rabattregeln oder den Zeitraum ändern.",
+    "campaignProviderDiscountSyncRequired": "Diese Paket-Kampagne ist noch nicht vollständig mit Stripe synchronisiert. Synchronisieren Sie sie mit Stripe und bestätigen Sie den Status, bevor Sie ihn aktivieren.",
+    "creditInsufficient": "Ihre Credits reichen nicht aus. Bitte schließen Sie ein Abonnement ab oder kaufen Sie Credits, bevor Sie fortfahren.",
+    "customDomainDisabled": "Benutzerdefinierte Domains sind für diese Lehrkraft nicht freigeschaltet.",
+    "debugDisabledBySoftLimit": "Credits liegen unterhalb der konfigurierten Erinnerungsschwelle. Schließen Sie ein Abonnement ab oder kaufen Sie Credits, bevor Sie die Debug-Vorschau fortsetzen.",
+    "disabled": "Die Abrechnung ist derzeit deaktiviert.",
+    "domainBindingNotFound": "Die angeforderte benutzerdefinierte Domain-Bindung wurde nicht gefunden.",
+    "domainHostConflict": "Diese benutzerdefinierte Domain ist bereits an eine andere Lehrkraft gebunden.",
+    "manualCreditGrantFailed": "Credits konnten nicht gutgeschrieben werden. Bitte versuchen Sie es später erneut.",
+    "manualPlanGrantBusy": "Die Tarifvergabe wird gerade verarbeitet. Bitte versuchen Sie es später erneut.",
+    "manualPlanGrantFailed": "Der Tarif konnte nicht vergeben werden. Prüfen Sie die Tarifkonfiguration und versuchen Sie es erneut.",
+    "notificationPolicySaveFailed": "Die Credit-Benachrichtigungsrichtlinie konnte nicht gespeichert werden. Bitte versuchen Sie es später noch einmal.",
+    "rateConfigAlreadyExists": "Eine Rate existiert bereits für diesen Anbieter und Modell. Bearbeiten Sie stattdessen die bestehende Rate.",
+    "referralRewardProductMismatch": "Die Konfiguration des Referral Reward Pakets entspricht nicht dem Rechnungsprodukt. Kontaktieren Sie einen Administrator, um das Kampagnen-Setup zu überprüfen.",
+    "subscriptionCheckoutBusy": "Die Paketkaufanfrage wird noch bearbeitet. Bitte versuchen Sie es später noch einmal.",
+    "subscriptionInactive": "Bitte kaufen Sie zuerst einen Credits-Tarif. Credits-Pakete können nur verwendet werden, solange für das Konto ein gültiger Credits-Tarif besteht.",
+    "subscriptionPreorderAlreadyExists": "Für diesen Tarif gibt es bereits eine ausstehende Vorausbestellung. Bearbeiten Sie diese, bevor Sie eine weitere Vorausbestellung aufgeben.",
+    "subscriptionPreorderProviderUnsupported": "Paketvorbestellung wird derzeit nur für selbst verwaltete Zahlungskanäle unterstützt.",
+    "subscriptionPreorderTargetInvalid": "Mit einer Tarif-Vorausbestellung können Sie nur denselben Tarif verlängern oder zum Ende des Abrechnungszeitraums zu einem günstigeren Tarif wechseln.",
+    "subscriptionPreorderUnavailable": "Paketvorbestellung ist für das aktuelle Abonnement nicht verfügbar.",
+    "subscriptionUpgradeAmountInvalid": "Dieses Upgrade kann nicht abgeschlossen werden, da der zahlbare Betrag nach Vorbestellung nicht positiv ist. Bitte kontaktieren Sie den Support, um die Preisgestaltung anzupassen.",
+    "subscriptionUpgradeOnly": "Solange der aktuelle Tarif gültig ist, können Sie nur zu einem höheren Tarif wechseln. Ein Tarif derselben oder einer niedrigeren Stufe kann nicht gekauft werden."
+  }
+}

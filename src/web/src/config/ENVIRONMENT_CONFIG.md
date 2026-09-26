@@ -79,12 +79,14 @@
 | --------------------------- | ------------------- | -------- | ------------------------------ |
 | `LEGAL_AGREEMENT_URL_ZH_CN` | 中文服务协议URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
 | `LEGAL_AGREEMENT_URL_EN_US` | 英文服务协议URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
+| `LEGAL_AGREEMENT_URL_DE_DE` | 德文服务协议URL     | 空字符串 | 留空则使用英文参考版本         |
 | `LEGAL_AGREEMENT_URL_ES_ES` | 西班牙文服务协议URL | 空字符串 | 留空则使用英文参考版本         |
 | `LEGAL_AGREEMENT_URL_FR_FR` | 法文服务协议URL     | 空字符串 | 留空则使用英文参考版本         |
 | `LEGAL_AGREEMENT_URL_AR_SA` | 阿拉伯文服务协议URL | 空字符串 | 留空则使用英文参考版本         |
 | `LEGAL_AGREEMENT_URL_TH_TH` | 泰文服务协议URL     | 空字符串 | 留空则使用英文参考版本         |
 | `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
 | `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL     | 空字符串 | 留空则不显示链接，显示为纯文本 |
+| `LEGAL_PRIVACY_URL_DE_DE`   | 德文隐私政策URL     | 空字符串 | 留空则使用英文参考版本         |
 | `LEGAL_PRIVACY_URL_ES_ES`   | 西班牙文隐私政策URL | 空字符串 | 留空则使用英文参考版本         |
 | `LEGAL_PRIVACY_URL_FR_FR`   | 法文隐私政策URL     | 空字符串 | 留空则使用英文参考版本         |
 | `LEGAL_PRIVACY_URL_AR_SA`   | 阿拉伯文隐私政策URL | 空字符串 | 留空则使用英文参考版本         |
@@ -102,6 +104,7 @@
 
 ```typescript
 import { environment } from '@/config/environment';
+import { useEnvStore } from '@/store';
 
 // Get API base URL
 const apiUrl = environment.apiBaseUrl;
@@ -123,15 +126,17 @@ const isPasswordEnabled = loginMethods.includes('password');
 const googleRedirect = '/login/google-callback';
 
 // Get legal document URLs (from /api/runtime-config)
-const legalUrls = environment.legalUrls;
+const legalUrls = useEnvStore(state => state.legalUrls);
 const agreementUrlZhCN = legalUrls.agreement['zh-CN']; // 中文服务协议URL
 const agreementUrlEnUS = legalUrls.agreement['en-US']; // 英文服务协议URL
+const agreementUrlDeDE = legalUrls.agreement['de-DE']; // 德文服务协议URL
 const agreementUrlEsES = legalUrls.agreement['es-ES']; // 西班牙文服务协议URL
 const agreementUrlFrFR = legalUrls.agreement['fr-FR']; // 法文服务协议URL
 const agreementUrlArSA = legalUrls.agreement['ar-SA']; // 阿拉伯文服务协议URL
 const agreementUrlThTH = legalUrls.agreement['th-TH']; // 泰文服务协议URL
 const privacyUrlZhCN = legalUrls.privacy['zh-CN']; // 中文隐私政策URL
 const privacyUrlEnUS = legalUrls.privacy['en-US']; // 英文隐私政策URL
+const privacyUrlDeDE = legalUrls.privacy['de-DE']; // 德文隐私政策URL
 const privacyUrlEsES = legalUrls.privacy['es-ES']; // 西班牙文隐私政策URL
 const privacyUrlFrFR = legalUrls.privacy['fr-FR']; // 法文隐私政策URL
 const privacyUrlArSA = legalUrls.privacy['ar-SA']; // 阿拉伯文隐私政策URL

@@ -1,0 +1,88 @@
+{
+  "__namespace__": "module.operationsConfig",
+  "actions": {
+    "addConfiguration": "Tarif hinzufügen",
+    "adding": "Hinzufügen...",
+    "confirmAdd": "Hinzufügen bestätigen",
+    "continue": "Weiter",
+    "edit": "Bearbeiten",
+    "save": "Speichern"
+  },
+  "baselineMissing": "Die 1x-Basis ist nicht konfiguriert. Daher können Verbrauchsfaktoren nicht gespeichert werden.",
+  "confirm": {
+    "description": "Möchten Sie den Credits-Verbrauchsfaktor für {model} von {from} auf {to} ändern?",
+    "title": "Credits-Verbrauchsfaktor ändern"
+  },
+  "create": {
+    "confirmDescription": "Möchten Sie für {identity} ({type}) einen eigenen Tarif mit dem Credits-Verbrauchsfaktor {multiplier}x hinzufügen? Dieser Tarif wirkt sich nur auf die künftige Nutzung aus.",
+    "confirmTitle": "Tarif hinzufügen bestätigen",
+    "defaultTier": "Standardebene",
+    "description": "Fügen Sie für die aktuelle Kategorie {type} einen eigenen Tarif hinzu.",
+    "doesNotEnable": "Mit einem Tarif wird nur eine Regel für den Creditverbrauch festgelegt. Das Modell wird dadurch weder aktiviert noch wird seine Verfügbarkeit geändert.",
+    "errors": {
+      "duplicate": "Für diesen Provider und Modell existiert bereits eine dedizierte Rate. Verwenden Sie stattdessen Bearbeiten in der Liste.",
+      "modelInvalid": "Modell / Ebene muss 100 Zeichen oder weniger sein und kann keine Steuerzeichen enthalten oder * verwenden.",
+      "modelRequired": "Geben Sie ein Modell ein.",
+      "providerInvalid": "Anbieter muss 32 Zeichen oder weniger und kann keine Steuerzeichen enthalten oder * verwenden.",
+      "providerRequired": "Geben Sie einen Anbieter ein.",
+      "ttsFactorMissing": "Der TTS-Zeichenumwandlungsfaktor ist nicht konfiguriert, so dass die Rate nicht hinzugefügt werden kann."
+    },
+    "failed": "Der Tarif konnte nicht hinzugefügt werden. Prüfen Sie Ihre Eingaben.",
+    "modelPlaceholder": "Zum Beispiel: deepseek-v4-flash",
+    "multiplierPlaceholder": "Zum Beispiel, 1.5",
+    "partialSuccessDescription": "Erfrischen Sie die Liste erneut. Fügen Sie die Rate nicht noch einmal hinzu.",
+    "partialSuccessTitle": "Rate hinzugefügt, aber die Liste konnte nicht aktualisiert werden",
+    "providerPlaceholder": "Zum Beispiel: qwen",
+    "retryRefresh": "Erneut versuchen",
+    "retryRefreshAltText": "Tarifliste erneut laden",
+    "success": "Rate hinzugefügt",
+    "title": "Rate hinzufügen",
+    "ttsDefaultHint": "Lassen Sie Modell/Tarifstufe leer, um den Standardtarif des Anbieters zu verwenden.",
+    "ttsModelPlaceholder": "Leer lassen, um die Standardtarifstufe des Anbieters zu verwenden",
+    "typeLabel": "Tarif"
+  },
+  "description": "Verwalten Sie die Regeln für den Creditverbrauch von LLMs und der Sprachsynthese. Änderungen wirken sich nur auf die Abrechnung künftiger Nutzung aus.",
+  "empty": "Es liegen keine Modelltarife vor.",
+  "fields": {
+    "actions": "Maßnahmen",
+    "displayName": "Anzeigename",
+    "model": "Modell",
+    "modelTier": "Modell / Tarifstufe",
+    "multiplier": "Credits-Verbrauchsfaktor",
+    "multiplierSuffix": "x",
+    "provider": "Anbieter",
+    "source": "Tarifquelle",
+    "ttsMultiplier": "Credits-Verbrauchsfaktor",
+    "updatedAt": "Aktualisiert am"
+  },
+  "invalidMultiplier": "Geben Sie einen Credits-Verbrauchsfaktor größer als 0 mit höchstens zwei Dezimalstellen ein.",
+  "loadFailed": "Tarife konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+  "pagination": {
+    "next": "Nächster",
+    "prev": "Zurück"
+  },
+  "rules": {
+    "baselineMissing": "Die 1x-Basislinie ist nicht konfiguriert, so dass Creditverbrauch-Multiplikatoren nicht gespeichert werden können.",
+    "baselinePer1000": "1x Ausgangswert",
+    "baselinePer1000Value": "{value} Credits pro 1.000 LLM-Ausgabetoken",
+    "baselineUnitCost": "Ausgangswert je Token",
+    "effectScope": "Wirksamer Anwendungsbereich",
+    "fixedBaseline": "Dies ist eine feste globale Basislinie und ändert sich nicht mit dem Standardmodell oder Modell-Multiplikator-Updates.",
+    "futureOnly": "Nur die zukünftige Nutzung ist betroffen. Historische Rechnungen werden nicht neu berechnet.",
+    "intro": "Feste Referenzwerte, die zur Berechnung von Creditverbrauchsmultiplikatoren verwendet werden, nur für die Überprüfung von Operationen.",
+    "tooltipAriaLabel": "Hinweise zur Tarifberechnung anzeigen",
+    "ttsFactor": "TTS-Zeichenumwandlungsfaktor"
+  },
+  "saveFailed": "Der Tarif konnte nicht gespeichert werden. Prüfen Sie Ihre Eingaben.",
+  "saveSuccess": "Gespeicherte Rate",
+  "source": {
+    "default": "Systemstandardtarif",
+    "exact": "Dedizierter Tarif",
+    "unconfigured": "Kein Tarif festgelegt"
+  },
+  "tabs": {
+    "llm": "LLM-Creditverbrauch",
+    "tts": "TTS Creditverbrauch"
+  },
+  "title": "Tarifverwaltung"
+}

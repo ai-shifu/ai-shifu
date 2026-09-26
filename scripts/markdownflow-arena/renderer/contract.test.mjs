@@ -64,15 +64,15 @@ test("accepts 50 slide pages and rejects 51 to match the attachment cell limit",
 });
 
 test("preserves every supported frozen locale and defaults unsupported values", () => {
-  for (const locale of ["zh-CN", "en-US", "es-ES", "fr-FR", "ar-SA", "th-TH"]) {
+  for (const locale of ["zh-CN", "en-US", "de-DE", "es-ES", "fr-FR", "ar-SA", "th-TH"]) {
     const artifact = normalizeArtifact({
       content: "# Hi",
       metadata: { locale },
     });
     assert.equal(artifact.locale, locale);
-    assert.equal(artifact.markdownFlowLocale, locale);
+    assert.equal(artifact.markdownFlowLocale, locale === "de-DE" ? "en-US" : locale);
   }
-  for (const locale of [undefined, null, "", "ar", "es", "th", "de-DE"]) {
+  for (const locale of [undefined, null, "", "ar", "es", "th"]) {
     const artifact = normalizeArtifact({
       content: "# Hi",
       metadata: { locale },

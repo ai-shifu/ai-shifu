@@ -47,6 +47,7 @@ export function normalizeArtifact(value) {
   if (markerCount > MAX_PAGES) throw new RenderError("too_many_pages");
   const locale = [
     "en-US",
+    "de-DE",
     "es-ES",
     "fr-FR",
     "zh-CN",
@@ -61,7 +62,7 @@ export function normalizeArtifact(value) {
     mode: markerCount ? "slides" : "reading",
     stepCount: markerCount || 1,
     locale,
-    markdownFlowLocale: locale,
+    markdownFlowLocale: locale === "de-DE" ? "en-US" : locale,
   };
 }
 

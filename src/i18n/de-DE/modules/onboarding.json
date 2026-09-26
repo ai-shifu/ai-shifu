@@ -1,0 +1,25 @@
+{
+  "__namespace__": "module.onboarding",
+  "common": {
+    "continue": "Klicken Sie irgendwo, um fortzufahren",
+    "skip": "Überspringen"
+  },
+  "courseEditor": {
+    "backHome": {
+      "description": "Zurück zur Kursliste, um weitere Kurse, Bestellungen und Pläne zu verwalten.",
+      "title": "Zurück zur Kursliste"
+    },
+    "listenMode": {
+      "description": "Wenn sie an ist, können die Lernenden diesen Kurs mit Dias und Stimme studieren.",
+      "title": "Hörmodus umschalten"
+    },
+    "publish": {
+      "description": "Lernende werden diese Version des Kursinhaltes erst nach der Veröffentlichung sehen.",
+      "title": "Veröffentlichen Sie die neueste Version"
+    },
+    "settingsEntry": {
+      "description": "Legen Sie hier Kurs-Prompt, KI-Modell und Preis fest und schalten Sie den Hörmodus ein oder aus.",
+      "title": "Kurseinstellungen"
+    }
+  }
+}

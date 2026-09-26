@@ -1,0 +1,8 @@
+{
+  "__namespace__": "server.openapi",
+  "__flat__": {
+    "courseOwnershipRequired": "Sie können nur die Berechtigung für Kurse verwalten, die Sie erstellt haben",
+    "invalidApiKey": "Ungültiger API-Schlüssel oder Benutzer-ID",
+    "noActiveAuthorization": "Keine aktive Autorisierung für diesen Benutzer und Kurs gefunden"
+  }
+}

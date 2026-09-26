@@ -5,6 +5,10 @@
       "label": "العربية",
       "rtl": true
     },
+    "de-DE": {
+      "label": "Deutsch",
+      "rtl": false
+    },
     "en-US": {
       "label": "English",
       "rtl": false

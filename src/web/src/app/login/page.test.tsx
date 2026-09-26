@@ -237,13 +237,9 @@ describe('AuthPage', () => {
   it('does not reset an already-guest login page session', async () => {
     render(<AuthPage />);
 
-    await waitFor(() => {
-      expect(logoutMock).not.toHaveBeenCalled();
-    });
-    expect(screen.getByTestId('language-select')).toHaveAttribute(
-      'data-analytics-surface',
-      'login',
-    );
+    const languageSelect = await screen.findByTestId('language-select');
+    expect(logoutMock).not.toHaveBeenCalled();
+    expect(languageSelect).toHaveAttribute('data-analytics-surface', 'login');
   });
 
   it('does not reset the session created by a successful login on the login page', async () => {
