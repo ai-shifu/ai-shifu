@@ -4,8 +4,6 @@
 
 Evergreen repository references and operational guides live here.
 
-- [Admin Pagination Component](../references/admin-pagination-component.md)
-- [Admin Time Display](../references/admin-time-display.md)
 - [Architecture Boundaries](../references/architecture-boundaries.md)
 - [Frontend Product Analytics](../references/frontend-product-analytics.md)
 - [Gemini Live follow-up implementation contract](../references/gemini-live-follow-up.md)
@@ -13,4 +11,3 @@ Evergreen repository references and operational guides live here.
 - [Local MarkdownFlow slide comparisons](../references/markdownflow-model-arena.md)
 - [Model Gateway CLI Integration Contract](../references/model-gateway-cli-integration.md)
 - [Scripts Overview](../references/scripts.md)
-- [Shared Admin Table Component](../references/shared-admin-table-component.md)

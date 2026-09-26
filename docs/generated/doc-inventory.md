@@ -152,8 +152,6 @@
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-08-31` | `true` |
-| `docs/references/admin-pagination-component.md` | Admin Pagination Component | `reference` | `reference` | `repo` | `-` | `true` |
-| `docs/references/admin-time-display.md` | Admin Time Display | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/gemini-live-follow-up.md` | Gemini Live follow-up implementation contract | `reference` | `reference` | `repo` | `-` | `true` |
@@ -161,4 +159,3 @@
 | `docs/references/markdownflow-model-arena.md` | Local MarkdownFlow slide comparisons | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration Contract | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/scripts.md` | Scripts Overview | `reference` | `reference` | `repo` | `-` | `true` |
-| `docs/references/shared-admin-table-component.md` | Shared Admin Table Component | `reference` | `reference` | `repo` | `-` | `true` |
