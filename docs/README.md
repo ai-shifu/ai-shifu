@@ -32,8 +32,12 @@ intent, engineering rules, and long-running execution context.
 - Architecture boundary rules live in `references/architecture-boundaries.md`,
   and the committed baseline is checked by
   `python scripts/check_architecture_boundaries.py`.
-- Historical flat topic docs are retired; new docs should be placed in the
-  directory that matches their ownership and purpose.
+- Place topic docs under their owning specifications or references directory.
+  `status: needs-review` identifies a migrated source whose complete runtime
+  contract has not been re-reviewed. A move does not establish implementation
+  status or a review date; keep unknown `last_reviewed` values empty.
+- Use `src/i18n/locales.json` as the shared language inventory; README links
+  and frontend/backend locale lists must follow that source.
 
 ## Harness Health Snapshots
 

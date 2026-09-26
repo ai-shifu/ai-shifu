@@ -6,6 +6,8 @@ User-facing workflow and page behavior specifications live here.
 
 - [Account Session Analytics](../product-specs/account-session-analytics.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-26` | Canonical: `true`
+- [积分通知中心需求文档](../product-specs/billing-credit-notifications.md)
+  - Status: `needs-review` | Owner: `backend` | Last reviewed: `""` | Canonical: `true`
 - [Billing learning-time estimates](../product-specs/billing-learning-hours-estimate.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-21` | Canonical: `true`
 - [Dashboard Entry Page Contract](../product-specs/dashboard-entry-page.md)
@@ -24,10 +26,22 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `""` | Canonical: `true`
 - [Operator Course Detail Page](../product-specs/operator-course-detail-page.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-13` | Canonical: `true`
+- [Operator Course Follow-Up Page](../product-specs/operator-course-follow-up-page.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `""` | Canonical: `true`
+- [Operator Course Users Section](../product-specs/operator-course-users.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `""` | Canonical: `true`
+- [Operator Order Management](../product-specs/operator-order-management.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `""` | Canonical: `true`
+- [Operator Promotions](../product-specs/operator-promotions.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `""` | Canonical: `true`
 - [Operator Role Design](../product-specs/operator-role.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`
 - [Operator User Management](../product-specs/operator-user-management.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-08` | Canonical: `true`
+- [Operator User Points](../product-specs/operator-user-points-columns.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `""` | Canonical: `true`
+- [Operator User Points Grant](../product-specs/operator-user-points-grant.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `""` | Canonical: `true`
 - [Password Login Feature Design](../product-specs/password-login-design.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Teacher Analytics Dashboard (v1)](../product-specs/teacher-analytics-dashboard.md)
