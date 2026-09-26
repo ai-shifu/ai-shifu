@@ -263,7 +263,7 @@ describe('ShifuSettingDialog analytics producer', () => {
   const latestMiniMaxDialogProps = () =>
     mockMiniMaxCloneDialog.mock.calls.at(-1)?.[0] as {
       onOpenChange: (open: boolean) => void;
-      onRefreshCost: () => Promise<void>;
+      onRefreshCost: (options?: { polling?: boolean }) => Promise<void>;
       cloneCost: { estimated_credits?: string } | null;
     };
 
@@ -951,22 +951,34 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
   });
 
-  it('keeps an in-flight clone-cost estimate when voice polling refreshes', async () => {
+  it('coalesces slow voice-list polling without invalidating clone-cost estimates', async () => {
     await configureMiniMaxSettings({
       ttsEnabled: true,
       supportsVoiceCloning: true,
     });
     const pendingCost = createDeferred<{ estimated_credits: string }>();
-    mockListMinimaxTtsVoices.mockResolvedValue({
-      voices: [
-        {
-          voice_bid: 'clone-1',
-          voice_id: 'AiShifu_xxxxxxxxxx',
-          display_name: 'Pending voice',
-          status: 'processing',
-        },
-      ],
-    });
+    const processingVoice = {
+      voice_bid: 'clone-1',
+      voice_id: 'AiShifu_xxxxxxxxxx',
+      display_name: 'Pending voice',
+      status: 'processing',
+    };
+    const readyVoice = {
+      ...processingVoice,
+      display_name: 'Ready voice',
+      status: 'ready',
+    };
+    const pendingVoiceRefresh = createDeferred<{
+      voices: Array<{
+        voice_bid: string;
+        voice_id: string;
+        display_name: string;
+        status: string;
+      }>;
+    }>();
+    mockListMinimaxTtsVoices
+      .mockResolvedValueOnce({ voices: [processingVoice] })
+      .mockReturnValue(pendingVoiceRefresh.promise);
     mockGetMinimaxTtsCloneCost.mockReturnValue(pendingCost.promise);
 
     renderOpenSettings();
@@ -977,13 +989,36 @@ describe('ShifuSettingDialog analytics producer', () => {
 
     const previousVoiceRequestCount =
       mockListMinimaxTtsVoices.mock.calls.length;
-    void latestMiniMaxDialogProps().onRefreshCost();
+    const previousCostRequestCount =
+      mockGetMinimaxTtsCloneCost.mock.calls.length;
+    const slowVoicePoll = latestMiniMaxDialogProps().onRefreshCost({
+      polling: true,
+    });
     await waitFor(() =>
       expect(mockListMinimaxTtsVoices).toHaveBeenCalledTimes(
         previousVoiceRequestCount + 1,
       ),
     );
-    expect(mockGetMinimaxTtsCloneCost).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await latestMiniMaxDialogProps().onRefreshCost({ polling: true });
+    });
+    expect(mockListMinimaxTtsVoices).toHaveBeenCalledTimes(
+      previousVoiceRequestCount + 1,
+    );
+    expect(mockGetMinimaxTtsCloneCost).toHaveBeenCalledTimes(
+      previousCostRequestCount,
+    );
+
+    await act(async () => {
+      pendingVoiceRefresh.resolve({ voices: [readyVoice] });
+      await slowVoicePoll;
+    });
+    expect(
+      screen.queryByText('module.shifuSetting.minimaxCloneStatus.processing'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneStatus.ready'),
+    ).toBeInTheDocument();
 
     await act(async () => {
       pendingCost.resolve({ estimated_credits: '10' });

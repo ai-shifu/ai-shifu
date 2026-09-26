@@ -347,14 +347,12 @@ export default function ShifuSettingDialog({
       cost: MiniMaxCloneCost | null;
     } | null>(null);
   const minimaxVoiceListRefreshSeqRef = useRef(0);
-  const minimaxCloneCostRefreshSeqRef = useRef(0);
-  const minimaxCloneCostRefreshInFlightRef = useRef<{
+  const minimaxVoiceListRefreshInFlightRef = useRef<{
     seq: number;
     shifuId: string;
     provider: string;
-    openSession: number;
-    eligibilityGeneration: number;
   } | null>(null);
+  const minimaxCloneCostRefreshSeqRef = useRef(0);
   // A delayed result belongs only to its settings opening and eligibility scope.
   const minimaxCloneCostOpenSessionRef = useRef(0);
   const minimaxCloneCostEligibilityGenerationRef = useRef(0);
@@ -668,108 +666,119 @@ export default function ShifuSettingDialog({
     provider: resolvedProvider,
   });
 
-  const refreshMinimaxVoiceData = useCallback(async () => {
-    if (!shifuId) return;
-    const refreshScope = { shifuId, provider: resolvedProvider };
-    const isCurrentScope = () => {
-      const currentScope = minimaxCloneCostRefreshScopeRef.current;
-      return (
-        refreshScope.shifuId === currentScope.shifuId &&
-        refreshScope.provider === currentScope.provider
-      );
-    };
-    if (!isCurrentScope()) return;
-
-    const openSession = minimaxCloneCostOpenSessionRef.current;
-    const eligibilityGeneration =
-      minimaxCloneCostEligibilityGenerationRef.current;
-    const eligibilityContext = minimaxCloneCostEligibilityContextRef.current;
-    const voiceRefreshSeq = ++minimaxVoiceListRefreshSeqRef.current;
-    const inFlightCost = minimaxCloneCostRefreshInFlightRef.current;
-    const costAlreadyInFlight =
-      isMiniMaxTtsProvider &&
-      inFlightCost?.shifuId === refreshScope.shifuId &&
-      inFlightCost.provider === refreshScope.provider &&
-      inFlightCost.openSession === openSession &&
-      inFlightCost.eligibilityGeneration === eligibilityGeneration;
-    const costRefreshSeq = costAlreadyInFlight
-      ? null
-      : ++minimaxCloneCostRefreshSeqRef.current;
-    if (isMiniMaxTtsProvider && costRefreshSeq !== null) {
-      minimaxCloneCostRefreshInFlightRef.current = {
-        seq: costRefreshSeq,
-        ...refreshScope,
-        openSession,
-        eligibilityGeneration,
+  const refreshMinimaxVoiceData = useCallback(
+    async ({
+      forceVoiceList = false,
+      polling = false,
+    }: {
+      forceVoiceList?: boolean;
+      polling?: boolean;
+    } = {}) => {
+      if (!shifuId) return;
+      const refreshScope = { shifuId, provider: resolvedProvider };
+      const isCurrentScope = () => {
+        const currentScope = minimaxCloneCostRefreshScopeRef.current;
+        return (
+          refreshScope.shifuId === currentScope.shifuId &&
+          refreshScope.provider === currentScope.provider
+        );
       };
-    }
-    const result = await loadMiniMaxVoiceRefreshData({
-      fetchVoices: async () => {
-        const response = (await api.listMinimaxTtsVoices(
-          buildClonedVoiceListParams(resolvedProvider, shifuId),
-        )) as {
-          voices?: MiniMaxClonedVoice[];
+      if (!isCurrentScope()) return;
+
+      const openSession = minimaxCloneCostOpenSessionRef.current;
+      const eligibilityGeneration =
+        minimaxCloneCostEligibilityGenerationRef.current;
+      const eligibilityContext = minimaxCloneCostEligibilityContextRef.current;
+      const inFlightVoice = minimaxVoiceListRefreshInFlightRef.current;
+      const voiceAlreadyInFlight =
+        !forceVoiceList &&
+        inFlightVoice?.shifuId === refreshScope.shifuId &&
+        inFlightVoice.provider === refreshScope.provider;
+      const voiceRefreshSeq = voiceAlreadyInFlight
+        ? null
+        : ++minimaxVoiceListRefreshSeqRef.current;
+      if (voiceRefreshSeq !== null) {
+        minimaxVoiceListRefreshInFlightRef.current = {
+          seq: voiceRefreshSeq,
+          ...refreshScope,
         };
-        if (
-          voiceRefreshSeq === minimaxVoiceListRefreshSeqRef.current &&
-          isCurrentScope()
-        ) {
-          setMinimaxClonedVoices(response.voices || []);
-        }
-        return response;
-      },
-      // Clone-cost estimation only exists for the MiniMax self-serve flow;
-      // operator-registered voices (volcengine) are free for the teacher.
-      fetchCloneCost: () => {
-        if (!isMiniMaxTtsProvider || costRefreshSeq === null) {
-          return Promise.resolve(null);
-        }
-        return Promise.resolve()
-          .then(
+      }
+      const costRefreshSeq = polling
+        ? null
+        : ++minimaxCloneCostRefreshSeqRef.current;
+      const result = await loadMiniMaxVoiceRefreshData({
+        fetchVoices: async () => {
+          if (voiceRefreshSeq === null) {
+            return { voices: [] };
+          }
+          try {
+            const response = (await api.listMinimaxTtsVoices(
+              buildClonedVoiceListParams(resolvedProvider, shifuId),
+            )) as {
+              voices?: MiniMaxClonedVoice[];
+            };
+            if (
+              voiceRefreshSeq === minimaxVoiceListRefreshSeqRef.current &&
+              isCurrentScope()
+            ) {
+              setMinimaxClonedVoices(response.voices || []);
+            }
+            return response;
+          } finally {
+            if (
+              minimaxVoiceListRefreshInFlightRef.current?.seq ===
+              voiceRefreshSeq
+            ) {
+              minimaxVoiceListRefreshInFlightRef.current = null;
+            }
+          }
+        },
+        // Clone-cost estimation only exists for the MiniMax self-serve flow;
+        // operator-registered voices (volcengine) are free for the teacher.
+        fetchCloneCost: () => {
+          if (!isMiniMaxTtsProvider || costRefreshSeq === null) {
+            return Promise.resolve(null);
+          }
+          return Promise.resolve().then(
             () =>
               api.getMinimaxTtsCloneCost({
                 shifu_bid: shifuId,
               }) as Promise<MiniMaxCloneCost>,
-          )
-          .finally(() => {
-            if (
-              minimaxCloneCostRefreshInFlightRef.current?.seq === costRefreshSeq
-            ) {
-              minimaxCloneCostRefreshInFlightRef.current = null;
-            }
-          });
-      },
-    });
-    if (
-      costRefreshSeq !== null &&
-      costRefreshSeq === minimaxCloneCostRefreshSeqRef.current &&
-      isCurrentScope()
-    ) {
-      setMinimaxCloneCost(result.cloneCost);
-      setMinimaxCloneCostRefreshResult({
-        shifuId,
-        provider: resolvedProvider,
-        openSession,
-        eligibilityGeneration,
-        ...eligibilityContext,
-        cost: result.cloneCost,
+          );
+        },
       });
-    }
-    if (result.errors.length > 0) {
-      console.error(
-        'Failed to refresh MiniMax voice clone data:',
-        result.errors,
-      );
-    }
-  }, [isMiniMaxTtsProvider, resolvedProvider, shifuId]);
+      if (
+        costRefreshSeq !== null &&
+        costRefreshSeq === minimaxCloneCostRefreshSeqRef.current &&
+        isCurrentScope()
+      ) {
+        setMinimaxCloneCost(result.cloneCost);
+        setMinimaxCloneCostRefreshResult({
+          shifuId,
+          provider: resolvedProvider,
+          openSession,
+          eligibilityGeneration,
+          ...eligibilityContext,
+          cost: result.cloneCost,
+        });
+      }
+      if (result.errors.length > 0) {
+        console.error(
+          'Failed to refresh MiniMax voice clone data:',
+          result.errors,
+        );
+      }
+    },
+    [isMiniMaxTtsProvider, resolvedProvider, shifuId],
+  );
   useLayoutEffect(() => {
     minimaxCloneCostRefreshScopeRef.current = {
       shifuId,
       provider: resolvedProvider,
     };
     minimaxVoiceListRefreshSeqRef.current++;
+    minimaxVoiceListRefreshInFlightRef.current = null;
     minimaxCloneCostRefreshSeqRef.current++;
-    minimaxCloneCostRefreshInFlightRef.current = null;
     minimaxCloneCostUnavailableReportedRef.current = false;
     setMinimaxCloneCost(null);
     setMinimaxCloneCostRefreshResult(null);
@@ -824,7 +833,7 @@ export default function ShifuSettingDialog({
           api.retryMinimaxTtsVoice({
             voice_bid: voiceBid,
           }),
-        onSuccess: refreshMinimaxVoiceData,
+        onSuccess: () => refreshMinimaxVoiceData({ forceVoiceList: true }),
         onError: showMiniMaxVoiceActionError,
       });
     },
@@ -842,7 +851,7 @@ export default function ShifuSettingDialog({
           if (ttsVoiceId === voice.voice_id) {
             setTtsVoiceId(ttsVoiceOptions[0]?.value || '');
           }
-          refreshMinimaxVoiceData();
+          refreshMinimaxVoiceData({ forceVoiceList: true });
         },
         onError: showMiniMaxVoiceActionError,
       });
@@ -995,7 +1004,7 @@ export default function ShifuSettingDialog({
       return;
     }
     const timer = setInterval(() => {
-      refreshMinimaxVoiceData();
+      refreshMinimaxVoiceData({ polling: true });
     }, 4000);
     return () => clearInterval(timer);
   }, [
