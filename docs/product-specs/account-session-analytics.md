@@ -94,8 +94,12 @@ rejected unless the terminal states are recorded separately.
   opening. Reporting deduplicates users over the entire UTC month, across all
   their sessions and both surfaces; producer deduplication is not required.
 - Correlation: use the existing anonymous analytics identity to associate a
-  user's events. Exclude events without that identity from user-based metrics
-  and report their missing-identity count separately. Do not invent a fallback
+  user's delivered events. Use only rows with that identity for user-based
+  metrics. Shared tracking queues calls until identification is ready; calls
+  can be discarded before delivery if identification never succeeds or the
+  identity changes. The dataset therefore cannot measure all missing-identity
+  events or provide an exclusion count for those lost calls. State this
+  undercount limitation alongside the observed-user cohorts. Do not invent a fallback
   from session IDs, credentials, or device data. Identity resets can split a
   person into multiple observed users; this limitation belongs with the report.
 - Consumers: no dedicated session-report query is deployed in this repository.
