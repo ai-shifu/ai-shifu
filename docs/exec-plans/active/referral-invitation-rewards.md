@@ -55,7 +55,7 @@
 开始实现前先读这些文件：
 
 - 设计来源：`docs/design-docs/referral-invitation-rewards.md`。
-- 计费设计：`docs/billing-subscription-design.md`。
+- 计费设计：`docs/design-docs/billing-subscription-design.md`。
 - 用户认证规则：`src/api/AGENTS.md`、`src/api/flaskr/service/user/AGENTS.md`、`src/api/skills/user-auth-flows/SKILL.md`。
 - 计费规则：`src/api/flaskr/service/billing/AGENTS.md`。
 - 前端规则：`src/web/AGENTS.md`、`src/web/src/app/AGENTS.md`，以及被修改目录下最近的 `AGENTS.md`。

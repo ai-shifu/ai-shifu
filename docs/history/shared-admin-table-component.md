@@ -1,5 +1,14 @@
 # Shared Admin Table Component
 
+Historical implementation and rollout record. The shared table shell,
+resizable-column hook and style helpers are now present. The prerequisites
+#1542 and #1545 merged on 2026-04-20; the proposal, branch instructions and
+reported type-check failures below describe that original rollout, not current
+requirements or current CI. In particular, the example that hides single-page
+pagination is superseded by the [admin table workflow](../../src/web/skills/admin-table-visual-system/SKILL.md).
+Use [AdminTableShell](../../src/web/src/components/admin/AdminTableShell.tsx)
+for the current component contract, including its pagination and footnote props.
+
 ## Context
 
 The admin operations and order pages already share a large amount of table

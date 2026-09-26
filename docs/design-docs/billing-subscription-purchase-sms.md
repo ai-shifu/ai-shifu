@@ -1,3 +1,11 @@
+---
+title: Billing Subscription Purchase SMS Design
+status: needs-review
+owner_surface: backend
+last_reviewed: ""
+canonical: true
+---
+
 # Billing Subscription Purchase SMS Design
 
 Updated: 2026-04-20

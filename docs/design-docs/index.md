@@ -12,17 +12,29 @@ Implementation and architecture decisions that shape repository behavior live he
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-09-20` | Canonical: `true`
 - [Billing Credit Domain Terminology](../design-docs/billing-credit-domain-terminology.md)
   - Status: `accepted` | Owner: `backend` | Last reviewed: `2026-07-29` | Canonical: `true`
+- [积分通知中心技术设计](../design-docs/billing-credit-notifications-technical-design.md)
+  - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
+- [Billing 设计文档](../design-docs/billing-subscription-design.md)
+  - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Billing Subscription Preorder](../design-docs/billing-subscription-preorder.md)
   - Status: `proposed` | Owner: `backend` | Last reviewed: `2026-05-25` | Canonical: `true`
+- [Billing Subscription Purchase SMS Design](../design-docs/billing-subscription-purchase-sms.md)
+  - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Creator Brand Domain And Payments](../design-docs/creator-brand-domain-payments.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-07-12` | Canonical: `true`
+- [Fresh MySQL Migration Replay Repair](../design-docs/fresh-mysql-migration.md)
+  - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Langfuse Trace Association](../design-docs/langfuse-trace-association.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-08-17` | Canonical: `true`
 - [Learner follow-up input shortcuts](../design-docs/learner-follow-up-input-shortcuts.md)
   - Status: `implemented` | Owner: `learner-web` | Last reviewed: `2026-09-04` | Canonical: `true`
 - [MiniMax Voice Cloning](../design-docs/minimax-voice-cloning.md)
   - Status: `proposed` | Owner: `shared` | Last reviewed: `2026-06-18` | Canonical: `true`
+- [Native China Payments](../design-docs/native-cn-payments.md)
+  - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Official Client Model Gateway](../design-docs/official-client-model-gateway.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-09-23` | Canonical: `true`
+- [Operator Course/User Request Optimization](../design-docs/operator-course-user-request-optimization.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
 - [老带新邀请奖励](../design-docs/referral-invitation-rewards.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-06-11` | Canonical: `true`

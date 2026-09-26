@@ -55,7 +55,7 @@ module-specific ownership and risk points.
 
 ## Commands
 
-- `rg -n "billing" src/api/flaskr/service src/api/tests docs/billing-subscription-design.md`
+- `rg -n "billing" src/api/flaskr/service src/api/tests docs/design-docs/billing-subscription-design.md`
   to locate the design contract, service code, and tests before editing.
 
 - `cd src/api && pytest tests/service/billing/ -q` for the narrowest focused
