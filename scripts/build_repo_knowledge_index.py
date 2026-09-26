@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -113,20 +114,29 @@ def tracked_markdown_modes(root: Path | None = None) -> dict[Path, str]:
     """Keep Git's document types even when aliases are checked out as plain files."""
     root = ROOT if root is None else root
     output = subprocess.check_output(
-        ["git", "ls-files", "--stage", "-z"], cwd=root, text=True
+        ["git", "ls-files", "-v", "--stage", "-z"], cwd=root, text=True
     )
     modes: dict[Path, str] = {}
     for entry in output.split("\0"):
         if not entry:
             continue
         attributes, name = entry.split("\t", 1)
-        mode, _object_id, stage = attributes.split()
+        flag, mode, _object_id, stage = attributes.split()
         path = root / name
         if (
             stage == "0"
             and path.suffix.lower() in {".md", ".mdx"}
-            and (path.is_file() or path.is_symlink())
+            and mode in {"100644", "100755", "120000"}
         ):
+            if not (path.is_file() or path.is_symlink()):
+                if flag.upper() != "S":
+                    continue
+                message = (
+                    f"Tracked document unavailable: {path}. Restore tracked documents "
+                    "(disable incomplete sparse checkout) or stage intended deletions "
+                    "before generating or validating repository knowledge."
+                )
+                raise FileNotFoundError(message)
             modes[path] = mode
     return modes
 
@@ -481,6 +491,7 @@ def render_harness_health_report(
 
 def build_harness_health_report() -> str:
     """Build an optional health snapshot directly from the current working tree."""
+    tracked_markdown_modes()
     return render_harness_health_report(
         design_records=build_frontmatter_records(
             DOCS_ROOT / "design-docs", "design-doc"
@@ -561,7 +572,11 @@ def main() -> int:
         help="Refresh only docs/generated/harness-health.md without changing tracked indexes.",
     )
     args = parser.parse_args()
-    return write_documents(health_only=args.health_only)
+    try:
+        return write_documents(health_only=args.health_only)
+    except FileNotFoundError as error:
+        print(error, file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

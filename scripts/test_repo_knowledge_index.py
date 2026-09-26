@@ -8,7 +8,7 @@ import json
 import subprocess
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -428,6 +428,64 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         assert set(records) == {
             str(path.relative_to(self.root)) for path in generator.tracked_markdown()
         }
+
+    def test_health_only_keeps_normal_missing_indexes_optional(self) -> None:
+        """A normal checkout can refresh health without restoring an absent index."""
+        assert self.run_generator() == 0
+        self.track()
+        index = self.root / "src/web/skills/README.md"
+        index.unlink()
+        assert self.run_generator("--health-only") == 0
+        assert not index.exists()
+
+    def test_sparse_checkout_cannot_write_partial_knowledge_outputs(self) -> None:
+        """Missing tracked docs fail before inventory, catalogs or reports are written."""
+        omitted = self.fixture("extra/omitted.MDX", "# Omitted reference\n")
+        skill = self.fixture(
+            "src/web/skills/omitted/SKILL.md",
+            "---\nname: omitted\ndescription: Use for sparse fixtures.\n---\n# Skill\n",
+        )
+        assert self.run_generator() == 0
+        self.track()
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Fixture",
+                "-c",
+                "user.email=fixture@example.test",
+                "commit",
+                "--quiet",
+                "-m",
+                "chore: create sparse checkout fixture",
+            ],
+            cwd=self.root,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "sparse-checkout", "set", "docs"], cwd=self.root, check=True
+        )
+        assert not omitted.exists()
+        assert not skill.exists()
+        outputs = {
+            path: path.read_bytes()
+            for path in self.root.rglob("*.md")
+            if ".git" not in path.parts
+        }
+        for args in ((), ("--health-only",)):
+            with self.subTest(args=args), redirect_stderr(io.StringIO()) as diagnostics:
+                assert self.run_generator(*args) == 1
+                assert "Tracked document unavailable" in diagnostics.getvalue()
+                assert {path: path.read_bytes() for path in outputs} == outputs
+                assert not (self.root / "src/web/skills/README.md").exists()
+        errors: list[str] = []
+        harness.check_generated_knowledge_docs(errors)
+        assert any("Tracked document unavailable" in error for error in errors)
+        errors = []
+        harness.check_documentation_contracts(errors, [])
+        assert any("Tracked document unavailable" in error for error in errors)
+        subprocess.run(["git", "sparse-checkout", "disable"], cwd=self.root, check=True)
+        assert self.run_generator() == 0
 
     def test_plan_moves_keep_lifecycle_canonical_status(self) -> None:
         """Reactivation and archival override stale frontmatter, unlike specs."""

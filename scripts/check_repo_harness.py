@@ -230,7 +230,11 @@ def check_ordered_headings(path: Path, text: str, errors: list[str]) -> None:
 
 def check_generated_knowledge_docs(errors: list[str]) -> None:
     """Check generated knowledge docs."""
-    expected_docs = build_knowledge_docs()
+    try:
+        expected_docs = build_knowledge_docs()
+    except FileNotFoundError as error:
+        errors.append(str(error))
+        return
     for path, expected in sorted(expected_docs.items()):
         if not path.exists():
             errors.append(f"Missing generated knowledge doc: {path}")
@@ -1121,7 +1125,11 @@ def check_document_staging(errors: list[str]) -> None:
 def check_documentation_contracts(errors: list[str], warnings: list[str]) -> None:
     """Check tracked sources separately from generated index freshness."""
     check_document_staging(errors)
-    paths = tracked_markdown(ROOT)
+    try:
+        paths = tracked_markdown(ROOT)
+    except FileNotFoundError as error:
+        errors.append(str(error))
+        return
     check_skill_metadata(paths, errors)
     check_plan_lifecycle(paths, errors, warnings)
     check_review_dates(paths, errors)

@@ -72,7 +72,10 @@ Gardening, for the Markdown report generated from that run's checkout.
 ## Inventory and validation
 
 The inventory enumerates all Git-tracked Markdown and MDX, including staged
-additions. It distinguishes instructions, focused skills, skill routers,
+additions. If sparse checkout omits tracked documents, generation fails before
+writing an inventory, catalog or health report; restore the omitted documents
+(or disable sparse checkout) first. Normal unstaged deletions remain subject to
+the pending-commit staging guard. It distinguishes instructions, focused skills, skill routers,
 current specifications/references, active/completed plans, historical records,
 generated documents and compatibility aliases. `GEMINI.md` and the minimal
 Copilot entry are aliases, not alternate instruction owners.
