@@ -3,7 +3,7 @@
   "__flat__": {
     "adminPlanGrantAlreadyActive": "Der gleiche Plan ist für diesen Benutzer bereits aktiv.",
     "adminPlanGrantProviderManagedConflict": "Der Benutzer hat bereits ein aktives Abonnement mit Payment-Provider-Managed. Manuelle Paketzuschüsse werden erst unterstützt, wenn das aktuelle Abonnement abläuft.",
-    "adminPlanGrantRoleUnsupported": "Nur Lehrer oder Anwender können manuelle Credit- oder Paketzuschüsse erhalten.",
+    "adminPlanGrantRoleUnsupported": "Nur Lehrkräfte oder Operatoren können manuell Credits oder Pakete erhalten.",
     "campaignLockedAfterHit": "Diese Paket-Kampagne hat bereits Hit-Aufträge bezahlt. Kampagnen-Produkte und Nutzen-Regeln können nicht mehr geändert werden.",
     "campaignNotFound": "Paketkampagne nicht gefunden.",
     "campaignOverlapActive": "Produkte {product_names} haben bereits eine aktive Paketkampagne im ausgewählten Zeitraum. Passen Sie das Kampagnenfenster an oder wählen Sie verschiedene Produkte aus.",
