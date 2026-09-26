@@ -53,3 +53,28 @@ Inspect the `fullscreenHeader` renderer and the host theme when changing this
 contract. Existing `ListenModeSlideRenderer.test.tsx` header cases cover layout
 and language behavior; they do not verify computed color or physical-device
 contrast. Check those visually when changing the theme or color binding.
+
+## Learner preview header layout
+
+For `/c/:id` preview, keep `PreviewHeaderBanner` inside the learner header.
+The mobile `ChatMobileHeader` renders it before the main header row; desktop
+`ChatUi` renders it inside its preview header. Do not float a second banner
+over the chat content or move it outside the header's height calculation.
+
+`src/app/c/[[...id]]/page.module.scss` owns the mobile height contract:
+`--mobile-chat-header-base-height` is 44px and
+`--mobile-chat-preview-banner-height` is 76px. Preview adds both into
+`--mobile-chat-header-height`; a visible lesson-update notice adds its separate
+32px as well. The read-mode header is sticky; listen mode uses a static flex
+header with the same reserved height. `NavDrawer` consumes the shared height
+for its top and available space, and mobile listen-mode `ChatUi` subtracts it
+from the viewport. Update these consumers together when changing banner size
+or placement. Desktop preview has its own `ChatUi.module.scss` header sizing;
+do not apply the mobile 76px increment to desktop unconditionally.
+
+Run the existing `ChatMobileHeader.test.tsx` preview case and `ChatUi.test.tsx`
+preview-banner cases under `src/app/c/[[...id]]/Components/`. They check banner
+visibility and course/lesson wiring, not computed geometry. When changing this
+layout, also verify mobile read/listen, desktop preview, and preview with a
+lesson-update notice: content and drawer must start below the complete header
+without duplicate space or overlap.
