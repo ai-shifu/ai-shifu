@@ -168,7 +168,11 @@ Query guidance reviewed against the implemented dashboard on 2026-09-26:
 - Use bounded SQL joins, subqueries, and grouped aggregates where the existing
   query path requires them. Preserve one-row-per-learner or rating semantics
   and avoid multiplying counts when joining one-to-many records.
-- Apply SQL filtering and pagination before hydrating page-only display fields.
+- Apply SQL filtering and pagination before hydrating page-only display fields
+  where filters can be resolved in SQL. The follow-up `source_status` path is
+  an explicit exception: it resolves candidate source status in Python, applies
+  that filter, then computes the filtered total and slices the page. Paginating
+  before that filter would give incorrect totals and incomplete pages.
   Compute summary metrics over the full eligible scope, not only the page.
 - Retain latest non-reset, non-deleted progress semantics. Batch contact and
   other display lookups instead of adding per-row queries. Python maps remain

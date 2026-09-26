@@ -11,8 +11,9 @@ canonical: true
 ## Entry And Navigation
 
 `/admin/dashboard` shows course count, distinct learner count, successful order
-count, successful order amount, and a paginated course table. Clicking a course
-opens `/admin/dashboard/{shifu_bid}`; follow-ups and ratings are sibling detail
+count, successful order amount, and a paginated course table. The View Course
+action opens `/admin/dashboard/{shifu_bid}`; the course name and row are not
+navigation triggers. Follow-ups and ratings are sibling detail
 pages below that course route. Build links through
 [admin-dashboard-routes.ts](../../src/web/src/app/admin/dashboard/admin-dashboard-routes.ts).
 The frontend detail path does not contain a `/shifu/` segment.
@@ -91,7 +92,9 @@ Existing regression evidence:
 - [Entry page tests](../../src/web/src/app/admin/dashboard/page.test.tsx)
   cover the UI request and navigation behavior.
 - [Query contract tests](../../src/api/tests/service/dashboard/test_dashboard_query_contracts.py)
-  protect SQL aggregation and page-scoped hydration.
+  cover invalid date ranges and activity filtering, alongside follow-up source
+  and identity constraints. Page-scoped hydration is an implementation pattern,
+  not a regression guarantee asserted by this test file.
 
 This contract records the implemented behavior; new metrics require an explicit
 product change and matching producer/consumer tests.
