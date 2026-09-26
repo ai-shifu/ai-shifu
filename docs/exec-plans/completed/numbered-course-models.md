@@ -1,8 +1,8 @@
 ---
-
-> Lifecycle review, 2026-09-26: Completed original scope. Numbered choices, compatibility and later default-setting corrections are delivered with recorded focused regression evidence. Merge evidence: [#2840](https://github.com/ai-shifu/ai-shifu/pull/2840) (`c0dead163`), [#2853](https://github.com/ai-shifu/ai-shifu/pull/2853) (`260b919b6`), [#2941](https://github.com/ai-shifu/ai-shifu/pull/2941) (`02e5b34cc`)
 title: Numbered course models
 ---
+
+> Lifecycle review, 2026-09-26: Completed original scope. Numbered choices, compatibility and later default-setting corrections are delivered with recorded focused regression evidence. Merge evidence: [#2840](https://github.com/ai-shifu/ai-shifu/pull/2840) (`c0dead163`), [#2853](https://github.com/ai-shifu/ai-shifu/pull/2853) (`260b919b6`), [#2941](https://github.com/ai-shifu/ai-shifu/pull/2941) (`02e5b34cc`)
 
 ## Purpose / Big Picture
 

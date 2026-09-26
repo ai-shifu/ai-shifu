@@ -43,7 +43,7 @@ The durable contract lives in `docs/product-specs/language-selection-analytics.m
 
 ## Outcomes & Retrospective
 
-All 58 locale files and the application wiring are implemented. AI-Shifu PR #2942 is open for review. The earlier development package demonstrated native Spanish component text in a browser; the rebased PR now selects published `0.2.29` and passes `es-ES` to embedded controls. Focused tests, Chrome browser smoke, and the frontend production build pass. Built-in guide content uses its known output language; other content remains unmarked when its language is unknown. PR checks remain to be confirmed after pushing the rebased branch.
+All 58 locale files and the application wiring are implemented. AI-Shifu PR #2942 merged on 2026-09-24. The earlier development package demonstrated native Spanish component text in a browser; the rebased PR now selects published `0.2.29` and passes `es-ES` to embedded controls. Focused tests, Chrome browser smoke, and the frontend production build pass. Built-in guide content uses its known output language; other content remains unmarked when its language is unknown. Merge state and successful executed CI checks were re-read on 2026-09-26; neutral review checks are not represented as executed test suites.
 
 ## Context and Orientation
 

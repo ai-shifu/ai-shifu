@@ -1,8 +1,8 @@
 ---
-
-> Lifecycle review, 2026-09-26: Completed original scope. The official-client gateway shipped with recorded 48 focused gateway cases and the full backend gate. Merge evidence: [#2771](https://github.com/ai-shifu/ai-shifu/pull/2771) (`0d333a642`)
 title: Official Client Model Gateway
 ---
+
+> Lifecycle review, 2026-09-26: Completed original scope. The official-client gateway shipped with recorded 48 focused gateway cases and the full backend gate. Merge evidence: [#2771](https://github.com/ai-shifu/ai-shifu/pull/2771) (`0d333a642`)
 
 ## Purpose / Big Picture
 
