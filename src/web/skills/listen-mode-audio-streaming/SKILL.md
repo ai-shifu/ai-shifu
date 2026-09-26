@@ -18,7 +18,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 3. 用户手动切 marker 时立即清除当前 buffering 状态。
 4. `run` 请求体 `listen` 必须跟随当前真实听课状态：只有 `learningMode === 'listen'` 且课程 `tts_enabled` 可用时才发送 `listen=true`；阅读模式即使课程支持听课也必须发送 `listen=false`。
 5. `LIKE_STATUS` 仅表示流结束信号，TTS 还需校验 `is_speakable` 或已有可播音频。
-6. 仅允许点击播放按钮时触发 `generated-blocks/:id/tts`，禁止 `onStepChange` 自动补拉。
+6. Reading mode requests `generated-blocks/:id/tts` when the user presses play. Listen mode uses the existing automatic backfill queue described below; do not add an independent request from `onStepChange`.
 7. `listen-mode` 映射 `elementList` 时显式透传 `isAudioStreaming`。
 8. 统一分发层处理 `type/error` 或 `event_type/error`，立即弹出 destructive toast。
 9. 音频播放 icon 的可见性需受 `is_speakable` 控制：当 `is_speakable === false` 时不展示播放按钮。
@@ -38,3 +38,17 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 ## 备注
 
 - 回放疑难问题时优先复用 Storybook 的原始 `run` fixture，按 SSE 顺序重放 `data:` 片段。
+
+## Verification
+
+The listen-mode queue in `useChatLogicHook` waits for persisted
+`audio_backfill_ready` for newly streamed content, deduplicates in-flight blocks,
+and stops applying results after the lesson scope ends. History and committed
+new content have different eligibility; neither mode switching nor a slide
+change should create a competing backfill implementation.
+
+Run the adjacent `useChatLogicHook.test.tsx` cases for manual play, forced
+`listen=true` backfill, persisted-ready gating, streaming failures, and backfill
+idle timeout. Also run `ListenModeSlideRenderer.test.tsx` when the mapping or
+playback restore contract changes. These files live in
+`src/app/c/[[...id]]/Components/ChatUi/`.

@@ -27,7 +27,7 @@ description: 当 ai-shifu 聊天流从 block 粒度向 element 粒度演进，�
 12. 若后端直接关闭预览 SSE，前端应把“最后一个可操作 element 不是 interaction”视为可续拉信号，自动发起下一次预览请求；但若最近一次 `done.is_terminal=true`，则必须停止续拉。
 13. 预览链路收到 `type=done` 时，不要默认立即 `stopPreview`；仅当 `done.is_terminal=true` 才关闭当前预览流。关闭后若最后一个可操作块不是 `interaction`，应继续拉取下一段流。
 14. 当需要在 `ai-shifu` 本地稳定复现 `run` SSE 问题时，优先在 `getRunMessage` 层增加显式调试开关；`mock_run_sse_fixture=stuck` 回放由 `data.json` 截断得到的卡住 fixture，`mock_run_sse_fixture=test` 回放 `mock-fixtures/test/data.json` 的完整测试流，并保持 `message/readystatechange/close` 契约不变；不要把页面组件改成只兼容 mock 数据。
-15. 学习页 `run` 流若在 3 秒内没有任何新事件，前端应在消费层主动判定为超时：关闭当前流与 loading 状态、向 `items/elementList` 追加 `type=error` 的错误项，并复用同一份国际化文案弹 destructive toast。
+15. The `/run` idle timeout is defined by `RUN_STREAM_IDLE_TIMEOUT_MS` (15 seconds on desktop) and `MOBILE_RUN_STREAM_IDLE_TIMEOUT_MS` (60 seconds on mobile) in `useChatLogicHook.tsx`. Refresh the timer on stream activity; on expiry close the stream and loading state, retain the internal error signal, and show the shared translated destructive toast. Generated-block TTS has its separate `TTS_BACKFILL_IDLE_TIMEOUT_MS` (120 seconds); do not reuse the run timeout.
 16. 听课模式 `Slide` 遇到超时错误时，只把它当作“关闭内部 loading overlay”的信号，不要把错误项渲染成单独一页；用户侧错误提示统一交给 toast。
 17. 阅读模式同样不要把超时错误项渲染进正文列表；错误项可以保留在内部状态里供控制逻辑使用，但用户可见反馈只保留 toast。
 18. 阅读模式的流式点状 loading 应作为列表尾部状态渲染在最后一个 element 后面，不要绑定到当前流式 element 内部，否则 `html` 视觉 marker 更新时容易把 loading 插到两个 element 的视觉边界之间；但当 `loading` 思考占位仍在列表中时，不要同时显示点状 loading。
@@ -46,7 +46,7 @@ description: 当 ai-shifu 聊天流从 block 粒度向 element 粒度演进，�
 31. 同一个 `text element` 在 `is_final !== true` 的等待阶段，即使当前 chunk 已经打完，也不要先把 `enableTypewriter` 关掉；否则后续增量到达时会经历 `false -> true` 切换，`ContentRender` 会把已显示文本清空并从头重打。
 32. 若流式链路在 `text_end/done` 后会自动续拉下一段，不能只依赖内存里的 `currentContentRef` 作为正文基线；下一轮 `content` 到达时应优先回填同一 `element_bid` 已渲染正文，并同时兼容“纯 delta”与“累计快照”两种 payload 语义，否则续流会把前一段正文覆盖掉并触发整段重打。
 33. `AskBlock` 里的追问 answer 要把 `ContentRender.enableTypewriter` 当成“整条 answer 的会话状态”来保活，而不是把每个 `done/break` 都当成终态。非终态 `done(text_end)` 不能立刻 `finalize + close`，终态收尾时也不要顺手把 `shouldUseTypewriter` 改成 `false`，否则同一条 answer 后续再到 chunk 时就会从某一句开始整段直出。
-34. `AskBlock` 本地 store 里若已经追加出比父层 `ask_list` 更长的追问历史，后续 `hydrateAskList` 不能再用更短的旧列表覆盖它；展开/收起、列表重排或重新渲染时都要优先保留较新的本地追问记录，否则收起后再展开会丢失刚刚流出来的追问问答。
+34. `useAskStateStore` 的课时作用域 store 里若已经追加出比父层 `ask_list` 更长的追问历史，后续 `hydrateAskList` 不能再用更短的旧列表覆盖它；展开/收起、列表重排或重新渲染时都要优先保留较新的本地追问记录，否则收起后再展开会丢失刚刚流出来的追问问答。
 35. 阅读模式若在 `text_end/done` 与下一段同 `element_bid` 文本续流之间存在等待期，尾部可见的那个 text element 不能先把 `enableTypewriter` 关掉；至少在本轮输出仍未结束时要保活这次打字机会话，避免后续追加文本到达时触发 `false -> true` 切换并把已显示正文清空重打。
 36. 富内容块把 `custom-button-after-content` 从正文字符串里剥离后，如果改成在宿主层单独渲染追问按钮，按钮的横向布局与 `img/span` 对齐样式也要一起在宿主层显式声明；不要只依赖原先 custom element 场景下的 descendant selector，否则按钮容易在外层 DOM 变化后出现图标与文案错位或换行。
 37. 阅读模式尾部 text 的打字机保活不能只依赖 `isOutputInProgress`；还要记录“当前这轮输出已经实际流到过哪个 element”。新一轮交互 `onSend` 刚启动、首个 element 尚未到达时，必须先清空上一轮的 keep-alive bid，避免旧正文被误判为当前流的一部分而再次整段打字。
@@ -62,3 +62,11 @@ description: 当 ai-shifu 聊天流从 block 粒度向 element 粒度演进，�
 
 - 当同一答案分多次快照回传且 `element_bid` 相同，必须覆盖同一条消息。
 - 字段重构从 `*BlockBid*` 到 `*ElementBid*` 后，消费方解构与依赖数组必须同步改名。
+
+## Timeout verification
+
+Keep the constants and timer behavior aligned with
+`src/app/c/[[...id]]/Components/ChatUi/useChatLogicHook.test.tsx`: desktop idle
+expiry, the longer mobile allowance, activity resets, cancellation, and the
+separate TTS backfill timeout. Read the constants when changing timing; a past
+incident's shorter threshold is not a current runtime contract.
