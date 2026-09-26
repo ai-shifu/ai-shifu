@@ -89,3 +89,19 @@ fixtures do not cover inserting a missing ASK container from stored messages.
 Add focused cases when changing those paths. A stronger freshness guarantee
 needs a separate state contract and regression coverage; these tests do not
 establish one.
+
+## Mounted listen-mode follow-up panels
+
+For an existing selected anchor, closing a listen-mode follow-up panel must
+keep `AskBlock` mounted and pass the closed state through `isExpanded`. Hide
+the host panel instead of conditionally removing `AskBlock`; this lets its
+collapse cleanup and unfinished streaming answer retain the same lifecycle.
+Do not reset the anchor or answer state merely because the user closes the
+panel. This does not forbid a legitimate lesson/anchor change from replacing
+its scoped instance.
+
+The `ListenModeSlideRenderer.test.tsx` case
+`keeps the mobile ask block mounted and collapsed after closing the listen panel`
+in `src/app/c/[[...id]]/Components/ChatUi/` verifies a mounted, collapsed block
+with the same anchor after closure. The [streaming Skill](../chat-element-streaming/SKILL.md)
+also describes hidden in-flight typewriter behavior and terminal cleanup.

@@ -5,6 +5,9 @@ helpers consumed by learner flows and shared stores.
 
 Entry files in this directory: `Shifu.ts`, `shifuUtils.ts`, `storeUtil.ts`.
 
+Shared compatibility, i18n, privacy and verification rules are inherited from
+the root and `src/web/AGENTS.md`; the constraints below are local.
+
 ## Do
 
 - Keep course business transformations centralized so `c` pages and stores do
@@ -18,9 +21,6 @@ Entry files in this directory: `Shifu.ts`, `shifuUtils.ts`, `storeUtil.ts`.
 
 - Do not duplicate shifu or state transformations in pages when this service
   layer already owns them.
-- Do not change compatibility behavior while reorganizing shared code.
-- Do not change service outputs without updating dependent stores and pages
-  together.
 
 ## Tests
 

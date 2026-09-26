@@ -6,12 +6,13 @@ reusable frontend behavior.
 Entry files in this directory: `useAuth.ts`, `useExclusiveAudio.ts`,
 `useGoogleAuth.ts`, `useToast.tsx`.
 
+Shared compatibility, i18n, privacy and verification rules are inherited from
+the root and `src/web/AGENTS.md`; the constraints below are local.
+
 ## Do
 
 - Keep business events on useTracking and delegate Umami transport to
   lib/tracking.ts.
-- Keep hook inputs and returned fields stable, and update all consumers in the
-  same task when the contract changes.
 - Preserve browser and server assumptions explicitly so hooks do not
   accidentally run client-only code on the server.
 - Treat hooks as reusable orchestration layers that should call shared stores
@@ -19,8 +20,6 @@ Entry files in this directory: `useAuth.ts`, `useExclusiveAudio.ts`,
 
 ## Avoid
 
-- Do not leave partially renamed hook return fields in consumers after a
-  contract refactor.
 - Do not hide API calls or state transitions in hooks without keeping the
   underlying shared utilities testable.
 - Do not couple hooks to one page or one route if the behavior should stay

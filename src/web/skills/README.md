@@ -1,17 +1,26 @@
-# Cook Web Skills
+<!-- Manually maintained metadata catalog; keep entries aligned with focused SKILL.md files. -->
 
-- `chat-layout-width-detection`
-- `interaction-user-input-defaults`
-- `deep-link-lessonid-routing`
-- `chat-element-streaming`
-- `chat-actionbar-ask-placement`
-- `listen-mode-audio-streaming`
-- `async-confirm-dialog-loading`
-- `markdownflow-controlled-sync`
-- `next-build-node-runtime`
-- `module-augmentation-guardrails`
-- `hook-contract-refactor-safety`
-- `chat-system-interaction-button-overrides`
-- `app-error-boundary-display`
-- `admin-filter-layout`
-- `admin-table-visual-system`
+# Frontend Skills
+
+Maintained from the focused SKILL.md name and description metadata.
+Update this catalog with each skill change; automated generation is added by
+the separate documentation-harness change.
+
+- [admin-filter-layout](admin-filter-layout/SKILL.md): Use when changing admin filter layouts or consolidating filter controls into the shared AdminFilter component.
+- [admin-table-visual-system](admin-table-visual-system/SKILL.md): Use when changing admin table presentation, sticky actions, pagination, or shared table components.
+- [app-error-boundary-display](app-error-boundary-display/SKILL.md): 当 Cook Web 需要调整 Next.js App Router 全局或路由级错误兜底页时使用本技能。错误页应直接展示错误名称、message、digest、cause、URL 和可用 stack，避免只提示用户查看控制台。
+- [async-confirm-dialog-loading](async-confirm-dialog-loading/SKILL.md): 当 Cook Web 的确认弹窗会触发重修、删除、恢复等异步请求时，使用本技能保证按钮防重复点击、loading 状态与弹窗关闭时机和请求完成保持一致。
+- [chat-actionbar-ask-placement](chat-actionbar-ask-placement/SKILL.md): 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用本技能。确保内容与操作入口同步出现，避免双输入框、空菜单和错位展示。
+- [chat-element-streaming](chat-element-streaming/SKILL.md): 当 ai-shifu 聊天流从 block 粒度向 element 粒度演进，或历史记录与 SSE 渲染一致性出现问题时使用本技能。统一 element_bid 渲染键、兼容旧字段并收敛 AskBlock 归并逻辑。
+- [chat-layout-width-detection](chat-layout-width-detection/SKILL.md): 当修复 ai-shifu 聊天页在移动端与桌面端布局判定不一致的问题时使用本技能。基于真实可见视口宽度而不是仅 `#root.clientWidth` 计算 `frameLayout`，在 `resize` 与 `visualViewport.resize` 时同步，并在断点纠正后关闭过期的移动端抽屉状态。
+- [chat-system-interaction-button-overrides](chat-system-interaction-button-overrides/SKILL.md): Use when system interaction buttons must remain repeatable despite historical input or renderer readonly state.
+- [deep-link-lessonid-routing](deep-link-lessonid-routing/SKILL.md): 当 Cook Web 需要按 URL 深链定位课节并保持学习端与后台端行为一致时使用本技能。统一使用 lessonid 参数、复用目录点击拦截链路，并覆盖登录/付费/无效课节兜底，以及 debug=1 初始化和鉴权恢复排查。
+- [fullscreen-dialog-portal](fullscreen-dialog-portal/SKILL.md): 当 Cook Web 页面在浏览器 fullscreen 场景下需要展示基于 Dialog 的支付弹窗、设置弹窗或业务弹层时，使用本技能排查 portal 容器是否落在全屏节点外。
+- [hook-contract-refactor-safety](hook-contract-refactor-safety/SKILL.md): 当重构 hook 返回字段或参数契约时使用本技能。统一同步调用方解构与参数对象，避免大面积 TS 属性错误。
+- [interaction-user-input-defaults](interaction-user-input-defaults/SKILL.md): 当 ai-shifu 与 markdown-flow-ui 之间需要同步交互式 markdown 状态时使用本技能。将原始 `user_input` 持久化在应用状态中，把 `userInput` 传给 `ContentRender` 或 `MarkdownFlow`，并让 markdown-flow-ui 负责推导按钮、输入框和已选项默认值，避免在业务代码重复解析。
+- [listen-mode-audio-streaming](listen-mode-audio-streaming/SKILL.md): 当处理学习模式初始化、URL 与存储偏好、听课模式流式音频、buffering、TTS 请求门禁与播放连续性问题时使用本技能。
+- [listen-mode-slide-mobile-integration](listen-mode-slide-mobile-integration/SKILL.md): 当 learner 端听课模式需要接入 markdown-flow-ui 的移动端播放器新能力时使用本技能。覆盖横竖屏状态透传、自定义横屏 header、以及播放器文案国际化接入。
+- [markdownflow-controlled-sync](markdownflow-controlled-sync/SKILL.md): 当 ai-shifu 以受控方式接入 MarkdownFlowEditor，并出现变量中间态、临时标签或本地输入回灌问题时使用本技能。
+- [module-augmentation-guardrails](module-augmentation-guardrails/SKILL.md): 当 TypeScript 对子路径导出出现类型丢失或声明冲突时使用本技能。通过规范的 module augmentation 写法避免覆盖上游导出。
+- [next-build-node-runtime](next-build-node-runtime/SKILL.md): 当 Cook Web 执行 npm run build 出现 SyntaxError Unexpected token '?' 或 next/dist/compiled 报错时使用本技能，优先排查 Node 运行时版本不一致问题。
+- [shared-loading-dots](shared-loading-dots/SKILL.md): 当 Cook Web 需要新增共享 loading 动画时，使用本技能统一公共组件目录、非破坏性导出方式，以及圆点序列动画的可配置实现。

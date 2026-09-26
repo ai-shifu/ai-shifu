@@ -1612,3 +1612,16 @@ type CreatorBrandingConfig = {
 - provider webhook 乱序或重复回调导致的状态覆盖问题
 - 费率 wildcard fallback 配置错误导致的错误扣分
 - 报表层聚合与真相源不一致时的 rebuild 成本
+
+## Current UI terminology and display ownership
+
+Billing UI uses “账户” for the displayed account, “购买积分” for short purchase
+actions, and “开通订阅或购买积分” when both subscription and points packages are
+relevant. Use “积分包” specifically for the internal `topup` product, order or
+checkout. Internal `wallet`/`topup` fields, routes and translation keys stay
+stable; they are not display labels. Preserve existing user-visible copy.
+
+Balance displays keep integer precision; purchase allowances and consumption
+retain their shared formatter. Plan benefits come from the shared feature-key
+list in `BillingOverviewCards`. Use shared billing date formatting and the
+admin table shell rather than duplicating formatting or pagination in pages.
