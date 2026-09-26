@@ -47,14 +47,18 @@ and stops applying results after the lesson scope ends. History and committed
 new content have different eligibility. `listenModeUtils` determines candidates,
 while `useChatLogicHook` records persisted readiness and supplies
 `requestAudioForBlock`. Neither mode switching nor a slide change should create
-a competing queue implementation.
+a competing queue implementation. The lesson-change effect resets queue
+bookkeeping and the lesson ref; it does not immediately close a silent old TTS
+stream. `requestAudioForBlock` settles a stale stream when a guarded audio event
+arrives, or through normal stream termination/error or the 120-second listen
+backfill idle timeout. Do not describe this as eager lesson-switch cancellation.
 
 Run `listenModeUtils.test.ts` for candidate selection and block deduplication,
 and `src/lib/runWithConcurrency.test.ts` for bounded worker concurrency.
 `NewChatComp.test.tsx` tests imported projection/loading helpers; it does not
 render the component or verify its backfill effect orchestration. For changes
 to that effect, add focused orchestration coverage for in-flight deduplication
-and lesson-switch cancellation instead of treating these helper suites as proof.
+and lesson-scope result guards instead of treating these helper suites as proof.
 Run the adjacent
 `useChatLogicHook.test.tsx` cases for manual play, forced
 `listen=true` backfill, persisted-ready gating, streaming failures, and backfill
