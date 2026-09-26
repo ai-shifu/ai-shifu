@@ -619,6 +619,32 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         harness.check_local_document_links([source, alias], errors)
         assert errors == []
 
+    def test_document_alias_targets_must_be_relative(self) -> None:
+        """Even an indexed in-repo absolute target is not portable to another clone."""
+        target = self.fixture("docs/target.md", "# Target\n")
+        alias = self.root / "docs/alias.md"
+        alias.symlink_to("target.md")
+        chained = self.root / "docs/chained.md"
+        chained.symlink_to("alias.md")
+        source = self.fixture("docs/links.md", "[target](chained.md#target)\n")
+        errors: list[str] = []
+        harness.check_local_document_links([source, alias, chained], errors)
+        assert errors == []
+
+        alias.unlink()
+        alias.symlink_to(target.resolve())
+        self.track()
+        errors = []
+        harness.check_local_document_links([source, alias, chained], errors)
+        assert len(errors) == 3
+        assert any(
+            "documentation alias" in error and "alias.md" in error for error in errors
+        )
+        assert any(
+            "documentation alias" in error and "chained.md" in error for error in errors
+        )
+        assert any("Untracked local document link target" in error for error in errors)
+
     def test_local_links_resolve_reference_links_and_encoded_paths(self) -> None:
         """Links use the source location; code examples and remote links are not fetched."""
         self.fixture("docs/linked file.md", "# Linked")

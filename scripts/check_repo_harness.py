@@ -998,6 +998,8 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
                     )
                 except (OSError, subprocess.CalledProcessError):
                     return False
+                if Path(alias_value).is_absolute():
+                    return False
                 if str(target.readlink()) != alias_value:
                     return False
                 alias_targets[target] = target.parent / alias_value
