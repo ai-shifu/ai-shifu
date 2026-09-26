@@ -21,7 +21,6 @@
 | `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-23` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
-| `docs/exec-plans/active/account-session-analytics.md` | Account session analytics contract | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/backend-inventory-2026-07.md` | Backend Inventory 2026-07 (Phase 1) | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -124,6 +123,7 @@
 | `docs/exec-plans/completed/verification-code-login-reuse.md` | Reuse Email and SMS Verification Login | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |
 | `docs/exec-plans/tech-debt-tracker.md` | Tech Debt Tracker | `exec-plan-support` | `active` | `repo` | `2026-04-17` | `true` |
 | `docs/generated/harness-gardening-summary.md` | Harness Gardening Summary | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
+| `docs/product-specs/account-session-analytics.md` | Account Session Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-26` | `true` |
 | `docs/product-specs/billing-learning-hours-estimate.md` | Billing learning-time estimates | `product-spec` | `implemented` | `shared` | `2026-09-21` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page Contract | `product-spec` | `implemented` | `shared` | `2026-09-26` | `true` |
 | `docs/product-specs/gemini-live-follow-up-analytics.md` | Embedded Gemini Live Follow-Up Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-16` | `true` |
