@@ -65,16 +65,18 @@ export function getMiniMaxCloneCostDisplayState(
   }
 
   const credits = String(estimatedCredits).trim();
-  if (!credits || !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(credits)) {
+  if (!credits || !/^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(credits)) {
     return { kind: 'unavailable' };
   }
 
-  const numericCredits = Number(credits);
-  if (!Number.isFinite(numericCredits)) {
-    return { kind: 'unavailable' };
-  }
-  if (numericCredits === 0) {
+  const significand = credits.split(/[eE]/, 1)[0];
+  if (!/[1-9]/.test(significand)) {
     return { kind: 'free' };
+  }
+
+  const numericCredits = Number(credits);
+  if (!Number.isFinite(numericCredits) || numericCredits <= 0) {
+    return { kind: 'unavailable' };
   }
 
   return { kind: 'credits', credits };

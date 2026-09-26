@@ -20,10 +20,13 @@ describe('minimax voice clone helpers', () => {
     ['not-a-number', { kind: 'unavailable' }],
     ['-1', { kind: 'unavailable' }],
     [Number.NaN, { kind: 'unavailable' }],
+    ['1e-999', { kind: 'unavailable' }],
     ['0', { kind: 'free' }],
     ['0.00', { kind: 'free' }],
+    ['0E-7', { kind: 'free' }],
     [0, { kind: 'free' }],
     ['12.5', { kind: 'credits', credits: '12.5' }],
+    ['1E-7', { kind: 'credits', credits: '1E-7' }],
     [12, { kind: 'credits', credits: '12' }],
     [1e21, { kind: 'credits', credits: '1e+21' }],
   ])('classifies estimated credits %p', (estimatedCredits, expected) => {
