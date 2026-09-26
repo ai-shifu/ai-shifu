@@ -11,7 +11,7 @@ merchant credentials while preserving existing global behavior.
 ## Progress
 
 - [ ] 2026-09-26: Implement and verify settlement-owner fields/filters for platform-domain orders using teacher-owned credentials, including exclusion from platform collection metrics. This requires a separate feature PR with order/dashboard regression coverage.
-- [ ] Re-run the current cross-surface gate for that implementation; the old TypeScript environment failure is historical, not a current diagnosis.
+- [ ] 2026-09-26: Re-run the current cross-surface gate for that implementation; the old TypeScript environment failure is historical, not a current diagnosis.
 
 - [x] 2026-07-12 16:06 CST: Captured the approved architecture and acceptance
       decisions in the canonical design document.

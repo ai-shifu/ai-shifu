@@ -44,8 +44,9 @@ environment values and deployed configuration were not changed.
 ## Ready pull requests
 
 The branches form a dependency stack because indexes and moved paths overlap.
-Merge in table order; later rows contain independently verified review repairs.
-Do not assess an intermediate content slice as the final generated-tool state.
+Review corrections now live in the PR that owns each issue. Merge in dependency
+order; the skill-content PR explicitly describes its temporary manual catalog
+until the separate generator PR enables automation.
 
 | Delivery | PR | Base branch |
 | --- | --- | --- |
@@ -55,17 +56,15 @@ Do not assess an intermediate content slice as the final generated-tool state.
 | align dashboard guidance with current reports | [#2967](https://github.com/ai-shifu/ai-shifu/pull/2967) | `sunner/billing-utc-guidance` |
 | define monthly session revocation user cohorts | [#2968](https://github.com/ai-shifu/ai-shifu/pull/2968) | `sunner/dashboard-contract-guidance` |
 | align chat skills with current state and playback | [#2969](https://github.com/ai-shifu/ai-shifu/pull/2969) | `sunner/session-analytics-contract` |
-| reconcile plan completion and remaining acceptance | [#2970](https://github.com/ai-shifu/ai-shifu/pull/2970) | `sunner/chat-skill-contracts` |
+| preserve unknown review dates | [#2981](https://github.com/ai-shifu/ai-shifu/pull/2981) | `sunner/chat-skill-contracts` |
+| reconcile plan completion and remaining acceptance | [#2970](https://github.com/ai-shifu/ai-shifu/pull/2970) | `sunner/unknown-review-date-compatibility` |
 | clarify skill navigation and local rule ownership | [#2971](https://github.com/ai-shifu/ai-shifu/pull/2971) | `sunner/plan-lifecycle-reconciliation` |
 | organize topic documents under their owning categories | [#2972](https://github.com/ai-shifu/ai-shifu/pull/2972) | `sunner/skill-routing-ownership` |
-| repair navigation after knowledge document moves | [#2973](https://github.com/ai-shifu/ai-shifu/pull/2973) | `sunner/knowledge-topic-layout` |
-| validate documentation discovery and lifecycle | [#2974](https://github.com/ai-shifu/ai-shifu/pull/2974) | `sunner/knowledge-link-repairs` |
-| clarify backend payment configuration ownership | [#2975](https://github.com/ai-shifu/ai-shifu/pull/2975) | `sunner/documentation-harness-checks` |
-| qualify dashboard navigation and query guarantees | [#2976](https://github.com/ai-shifu/ai-shifu/pull/2976) | `sunner/payment-config-doc-review` |
-| make the mixed revocation cohort example unambiguous | [#2977](https://github.com/ai-shifu/ai-shifu/pull/2977) | `sunner/dashboard-doc-review` |
-| clarify frontend workflow ownership boundaries | [#2978](https://github.com/ai-shifu/ai-shifu/pull/2978) | `sunner/session-cohort-example-review` |
-| close documentation validation edge cases | [#2979](https://github.com/ai-shifu/ai-shifu/pull/2979) | `sunner/frontend-skill-owner-review` |
+| validate documentation discovery and lifecycle | [#2974](https://github.com/ai-shifu/ai-shifu/pull/2974) | `sunner/knowledge-topic-layout` |
+| final delivery record | [#2980](https://github.com/ai-shifu/ai-shifu/pull/2980) | `sunner/documentation-harness-checks` |
 
+Superseded follow-up PRs #2973 and #2975–#2979 are closed after their corrections
+were incorporated into the owning PRs. They remain historical review evidence.
 The reporting/closure PR links this final record and the completed total plan.
 All implementation PRs are ready, not drafts; merge remains a separate step.
 
@@ -80,14 +79,23 @@ Meaningful focused evidence (runs may overlap; do not sum them as unique cases):
 | Runtime configuration | 2 suites, 6 tests |
 | Dashboard UI | 4 suites, 22 tests |
 | Session/device authorization | 2 suites, 27 tests |
-| Ask store, reading items, AskBlock and chat hook | 4 suites, 116 tests |
-| Actual backfill queue and candidate utilities | 2 suites, 45 tests |
-| Knowledge generator/validator | 20 regression fixtures |
+| Ask store, active projection, AskBlock and chat hook | 4 suites, 124 tests |
+| Reading projection helpers, listen candidates and concurrency utility | 3 suites, 50 tests; not component queue-orchestration coverage |
+| Shared analytics delivery | 1 suite, 10 tests |
+| Knowledge generator/validator | 22 regression fixtures |
 | Existing instruction boundary checks | 28 fixtures |
 | Focused skill metadata | 20 skills accepted by the skill validator |
 | Determinism | Repeated generation has identical committed output; only ignored reports carry run time |
 | Backend UoW | Empty outside-DAO baseline; ratchet passed |
 | Architecture | Existing 131 baseline entries; no new or stale entries |
+
+The review follow-up also corrected dashboard history semantics and pagination
+coverage claims, documented unobservable analytics losses before identity is
+ready, and distinguished implemented hydration guards from a stronger freshness
+guarantee. The root instruction now preserves shared contract coordination for
+all producers and consumers. Missing bootstrap, queue-orchestration, hydration,
+and timer-reset/cleanup coverage is stated explicitly rather than counted as
+existing tests. No application behavior or event payload was changed.
 
 The tooling snapshot also passed an explicitly dispatched
 [Static Checks run](https://github.com/ai-shifu/ai-shifu/actions/runs/36208576710).
@@ -121,3 +129,7 @@ evidence. Those remaining tasks require their stated environments, feature
 changes or product decisions; the documentation audit did not perform them.
 
 Delivery record prepared at 2026-09-26T01:40:02Z against application baseline `43e13cdf5`.
+
+Code-review corrections and the consolidated PR ledger were recorded at 2026-09-26T03:03:01Z.
+Current-head CI and review state are recorded in #2980; the earlier run linked
+above remains evidence for its original snapshot, not a claim about a later head.
