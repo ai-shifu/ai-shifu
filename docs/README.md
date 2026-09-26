@@ -76,6 +76,9 @@ additions. It distinguishes instructions, focused skills, skill routers,
 current specifications/references, active/completed plans, historical records,
 generated documents and compatibility aliases. `GEMINI.md` and the minimal
 Copilot entry are aliases, not alternate instruction owners.
+ExecPlan location determines canonical status: active plans are canonical and
+completed plans are not, even when a moved file retains stale `canonical`
+frontmatter. Other document categories continue to honor that metadata.
 
 Stage new or moved documents before regenerating indexes. Skill catalogs in
 `src/api/skills/README.md` and `src/web/skills/README.md` are generated from each

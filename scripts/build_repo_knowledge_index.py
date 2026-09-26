@@ -204,7 +204,12 @@ def build_tracked_records() -> list[DocRecord]:
                     else "repo"
                 ),
                 last_reviewed=metadata.get("last_reviewed", ""),
-                canonical=metadata.get("canonical") or canonical,
+                # Plan location owns canonical status when a move retains stale metadata.
+                canonical=(
+                    canonical
+                    if category in {"exec-plan-active", "exec-plan-completed"}
+                    else metadata.get("canonical") or canonical
+                ),
             )
         )
     return records
