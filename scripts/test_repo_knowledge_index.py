@@ -629,6 +629,21 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         harness.check_local_document_links([current], errors)
         assert len(errors) == 1
 
+    def test_historical_runtime_exemptions_cannot_escape_the_repository(self) -> None:
+        """Retired implementation paths stay repository-relative in both archives."""
+        for folder in ("docs/history", "docs/exec-plans/completed"):
+            with self.subTest(folder=folder):
+                source = self.fixture(
+                    f"{folder}/escaping.md",
+                    "[retired](/src/retired.py)\n"
+                    "[escape](../../../../missing-runtime)\n"
+                    "[root escape](/../../missing-runtime.py)\n",
+                )
+                errors: list[str] = []
+                harness.check_local_document_links([source], errors)
+                assert len(errors) == 2
+                assert all("missing-runtime" in error for error in errors)
+
     def test_historical_document_directories_must_resolve(self) -> None:
         """The runtime exception must not hide broken historical doc navigation."""
         source = self.fixture(

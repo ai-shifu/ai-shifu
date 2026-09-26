@@ -1042,6 +1042,9 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
             except (OSError, RuntimeError):
                 errors.append(f"Broken local document link: {path}: {url}")
                 continue
+            if not target.is_relative_to(repository_root):
+                errors.append(f"Broken local document link: {path}: {url}")
+                continue
             if (
                 historical
                 and target.suffix.lower() not in {".md", ".mdx"}
@@ -1049,7 +1052,7 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
             ):
                 # Historical implementation links may name retired code or assets.
                 continue
-            if not target.is_relative_to(ROOT.resolve()) or not target.exists():
+            if not target.exists():
                 errors.append(f"Broken local document link: {path}: {url}")
                 continue
             if not is_indexed_target(literal_target) or not is_indexed_target(target):
