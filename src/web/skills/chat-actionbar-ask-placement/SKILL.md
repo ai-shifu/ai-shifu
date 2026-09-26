@@ -72,8 +72,10 @@ the shared store. Do not reintroduce parent override maps, local message copies,
 or token-by-token writes into `useChatLogicHook.items`.
 
 `NewChatComp` calls `projectReadModeItems` in `chatUiModeProjection.ts` to derive
-missing ASK containers. `readModeItems.ts` has no runtime caller and is not the
-owner of that live projection. Finalize controls action-row eligibility; avoid
+missing ASK containers. `buildReadModeItemsWithAskState` in `readModeItems.ts`
+has no runtime caller and is not the owner of that live projection. The same
+module exports `normalizeReadModeDisplayItem`, which `projectReadModeItems`
+imports and calls for the active reading projection. Finalize controls action-row eligibility; avoid
 adding a second completion gate or forcing ASK on interaction-only content.
 
 Inspect `useAskStateStore.test.ts` for the optional lesson-scope write guard,
