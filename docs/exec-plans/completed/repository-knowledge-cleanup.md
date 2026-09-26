@@ -36,7 +36,10 @@ the content is corrected. Deliver separate ready pull requests per problem.
 - [x] 2026-09-26T03:03:01Z: Incorporated review corrections into the owning PRs, retained a
   separate unknown-date tooling prerequisite, and consolidated the ready stack.
   The delivery record links the remaining 12 PRs and documents test coverage
-  limits; the generator and instruction suites now contain 52 regression tests.
+  limits.
+- [x] 2026-09-26T03:49:51Z: Verified indexed link targets, file types, historical
+  repository containment and Git alias classification; the generator and
+  instruction suites contain 59 passing regression tests.
 
 ## Surprises & Discoveries
 

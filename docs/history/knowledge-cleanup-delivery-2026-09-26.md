@@ -82,7 +82,7 @@ Meaningful focused evidence (runs may overlap; do not sum them as unique cases):
 | Ask store, active projection, AskBlock and chat hook | 4 suites, 124 tests |
 | Reading projection helpers, listen candidates and concurrency utility | 3 suites, 50 tests; not component queue-orchestration coverage |
 | Shared analytics delivery | 1 suite, 10 tests |
-| Knowledge generator/validator | 24 regression fixtures |
+| Knowledge generator/validator | 31 regression fixtures |
 | Existing instruction boundary checks | 28 fixtures |
 | Focused skill metadata | 20 skills accepted by the skill validator |
 | Determinism | Repeated generation has identical committed output; only ignored reports carry run time |
@@ -95,8 +95,13 @@ ready, and distinguished implemented hydration guards from a stronger freshness
 guarantee. The root instruction now preserves shared contract coordination for
 all producers and consumers. Missing bootstrap, queue-orchestration, hydration,
 and timer-reset/cleanup coverage is stated explicitly rather than counted as
-existing tests. Partially staged Markdown/MDX is rejected so an unstaged repair
-cannot hide a broken pending commit; the guard never changes the index.
+existing tests. Pending commits reject unstaged tracked Markdown/MDX changes,
+including anchor repairs in other documents, so local edits cannot hide a broken
+commit. Link targets and alias chains must be indexed; ignored, untracked and
+removed targets and unstaged file-type repairs are rejected. The guard never
+changes the index. Historical runtime exemptions remain inside the repository.
+Alias classification comes from the Git index, including when a checkout
+materializes aliases as plain files; native entry-point requirements are unchanged.
 No application behavior or event payload was changed.
 
 The tooling snapshot also passed an explicitly dispatched
@@ -132,6 +137,7 @@ changes or product decisions; the documentation audit did not perform them.
 
 Delivery record prepared at 2026-09-26T01:40:02Z against application baseline `43e13cdf5`.
 
-Code-review corrections and the consolidated PR ledger were recorded at 2026-09-26T03:03:01Z.
+Initial code-review consolidation was recorded at 2026-09-26T03:03:01Z.
+Additional link-boundary and alias-classification evidence was recorded at 2026-09-26T03:49:51Z.
 Current-head CI and review state are recorded in #2980; the earlier run linked
 above remains evidence for its original snapshot, not a claim about a later head.
