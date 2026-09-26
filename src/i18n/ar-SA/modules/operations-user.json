@@ -275,7 +275,7 @@
     },
     "creditsOverview": "ملخص الأرصدة",
     "creditsOverviewLabels": {
-      "availableCredits": "إجمالي الرصيد",
+      "availableCredits": "إجمالي الرصيد المتاح",
       "creditsExpireAt": "مدة صلاحية الأرصدة",
       "subscriptionCredits": "رصيد الباقة",
       "topupCredits": "رصيد حزمة الأرصدة"
