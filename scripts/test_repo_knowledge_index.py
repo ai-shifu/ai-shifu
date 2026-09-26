@@ -5,14 +5,17 @@ from __future__ import annotations
 
 import io
 import json
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
 import build_repo_knowledge_index as generator
 import check_repo_harness as harness
+import run_harness_gardening as gardening
 
 
 class RepoKnowledgeIndexTest(unittest.TestCase):
@@ -22,6 +25,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tempdir.cleanup)
         self.root = Path(self.tempdir.name)
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         original_root = generator.ROOT
 
         def rebase(path: Path) -> Path:
@@ -40,7 +44,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
             ),
             (
                 harness,
-                ("ROOT", "DOCS_ROOT", "BOUNDARY_BASELINE", "GARDENING_SUMMARY_PATH"),
+                ("ROOT", "DOCS_ROOT", "BOUNDARY_BASELINE"),
             ),
         ):
             for name in names:
@@ -91,6 +95,29 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
             generator.BOUNDARY_BASELINE_PATH, '{"version": 1, "violations": []}\n'
         )
 
+        for path in (self.root / "docs/design-docs").glob("*.md"):
+            self.write(
+                path,
+                '---\ntitle: Fixture\nstatus: draft\nowner_surface: repo\nlast_reviewed: ""\ncanonical: true\n---\n'
+                + path.read_text(),
+            )
+        self.write(
+            self.root / ".gitignore",
+            "docs/generated/harness-health.md\ndocs/generated/harness-gardening-summary.md\n",
+        )
+        self.track()
+
+    def track(self) -> None:
+        """Stage fixture sources so discovery uses the same Git contract as CI."""
+        subprocess.run(["git", "add", "-A"], cwd=self.root, check=True)
+
+    def fixture(self, name: str, content: str) -> Path:
+        """Create and stage one tracked source, retaining unstaged tests separately."""
+        path = self.root / name
+        self.write(path, content)
+        self.track()
+        return path
+
     @staticmethod
     def write(path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -114,10 +141,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         assert "# Harness Health" in generator.HARNESS_HEALTH_PATH.read_text(
             encoding="utf-8"
         )
-        first_run = {
-            path: path.read_bytes()
-            for path in (*indexes, generator.HARNESS_HEALTH_PATH)
-        }
+        first_run = {path: path.read_bytes() for path in indexes}
         assert self.run_generator() == 0
         assert {path: path.read_bytes() for path in first_run} == first_run
         errors: list[str] = []
@@ -234,6 +258,256 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         assert self.run_generator("--health-only") == 0
         assert generator.HARNESS_HEALTH_PATH.exists()
         assert all(not path.exists() for path in generator.build_knowledge_docs())
+
+    def test_inventory_covers_tracked_markdown_mdx_and_aliases(self) -> None:
+        """Cover all tracked document classes without indexing local scratch files."""
+        cases = {
+            "AGENTS.md": ("# Rules", "instruction"),
+            "src/web/SKILL.md": ("# Router", "skill-router"),
+            "src/web/skills/example/SKILL.md": (
+                "---\nname: example\ndescription: Use for examples.\n---\n# Example",
+                "skill",
+            ),
+            "docs/history/old.md": ("# Old", "history"),
+            "src/help.MDX": ("# Help", "reference"),
+            ".github/copilot-instructions.md": ("See AGENTS.md", "alias"),
+        }
+        for name, (content, _category) in cases.items():
+            self.fixture(name, content)
+        alias = self.root / "GEMINI.md"
+        alias.symlink_to("AGENTS.md")
+        self.track()
+        self.write(self.root / "scratch.md", "# Not committed")
+        records = {
+            str(record.path.relative_to(self.root)): record
+            for record in generator.build_tracked_records()
+        }
+        for name, (_content, category) in cases.items():
+            assert records[name].category == category
+            assert records[name].last_reviewed == ""
+        assert records["GEMINI.md"].category == "alias"
+        assert "scratch.md" not in records
+        assert "docs/generated/harness-health.md" not in records
+        assert "docs/generated/harness-gardening-summary.md" not in records
+        assert set(records) == {
+            str(path.relative_to(self.root)) for path in generator.tracked_markdown()
+        }
+
+    def test_wrapped_skill_descriptions_are_preserved(self) -> None:
+        """Existing wrapped and folded metadata retains the whole trigger text."""
+        for start in ("Use for", ">\n  Use for"):
+            skill = self.fixture(
+                "src/api/skills/example/SKILL.md",
+                f"---\nname: example\ndescription: {start}\n  examples and retries.\n---\n# Example",
+            )
+            assert (
+                generator.parse_frontmatter(skill)["description"]
+                == "Use for examples and retries."
+            )
+            catalog = generator.render_skill_catalog("api", [skill])
+            assert "Use for examples and retries." in catalog
+
+    def test_skill_catalog_detects_omission_and_new_skills(self) -> None:
+        """A newly staged skill invalidates the committed catalog until regeneration."""
+        assert self.run_generator() == 0
+        skill = self.fixture(
+            "src/web/skills/added/SKILL.md",
+            "---\nname: added\ndescription: Use for added workflows.\n---\n# Added",
+        )
+        errors: list[str] = []
+        harness.check_generated_knowledge_docs(errors)
+        assert any("src/web/skills/README.md" in error for error in errors)
+        assert self.run_generator() == 0
+        catalog = skill.parent.parent / "README.md"
+        assert "[added](added/SKILL.md)" in catalog.read_text()
+        self.write(catalog, generator.GENERATED_COMMENT + "\n# Incomplete catalog\n")
+        errors = []
+        harness.check_generated_knowledge_docs(errors)
+        assert any("src/web/skills/README.md" in error for error in errors)
+
+    def test_skill_metadata_accepts_valid_and_rejects_missing_or_duplicate(
+        self,
+    ) -> None:
+        """Focused skills need usable triggers and globally unambiguous slugs."""
+        valid = self.fixture(
+            "src/web/skills/example/SKILL.md",
+            "---\nname: example\ndescription: Use for examples.\n---\n# Example",
+        )
+        errors: list[str] = []
+        harness.check_skill_metadata([valid], errors)
+        assert errors == []
+        for body in (
+            "# No metadata",
+            "---\nname: other\ndescription: \n---\n# Invalid",
+        ):
+            invalid = self.fixture("src/web/skills/invalid/SKILL.md", body)
+            errors = []
+            harness.check_skill_metadata([invalid], errors)
+            assert any("directory slug" in error for error in errors)
+            assert any("description" in error for error in errors)
+        duplicate = self.fixture("src/api/skills/example/SKILL.md", valid.read_text())
+        errors = []
+        harness.check_skill_metadata([valid, duplicate], errors)
+        assert any("Duplicate skill name" in error for error in errors)
+
+    def test_local_links_resolve_reference_links_and_encoded_paths(self) -> None:
+        """Links use the source location; code examples and remote links are not fetched."""
+        self.fixture("docs/linked file.md", "# Linked")
+        source = self.fixture(
+            "docs/links.md",
+            """# Links
+[valid](linked%20file.md#linked)
+[reference][target]
+[external](https://example.com/does-not-need-a-fetch)
+![image](linked%20file.md)
+
+[target]: linked%20file.md
+
+```markdown
+[example](not-a-real-example.md)
+```
+""",
+        )
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert errors == []
+        self.write(source, "[broken](missing.md)\n[escape](../../outside.md)")
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 2
+
+    def test_local_anchors_html_and_mdx_literal_links(self) -> None:
+        """Validate duplicate headings, explicit anchors and static MDX navigation."""
+        target = self.fixture(
+            "docs/target.md", '# Repeated\n# Repeated\n<a id="named"></a>'
+        )
+        source = self.fixture(
+            "docs/source.mdx",
+            '[second](target.md#repeated-1)\n<a href="target.md#named">named</a>\n<a href={dynamic}>dynamic</a>',
+        )
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert errors == []
+        self.write(source, '[broken](target.md#missing)\n<img src="gone.svg" />')
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 2
+        assert target.exists()
+
+    def test_historical_links_exempt_retired_runtime_paths_only(self) -> None:
+        """Historical code references are not current contracts; doc navigation still works."""
+        history = self.fixture("docs/history/old.md", "[retired](../../deleted.py)")
+        errors: list[str] = []
+        harness.check_local_document_links([history], errors)
+        assert errors == []
+        self.write(history, "[missing doc](missing.md)")
+        harness.check_local_document_links([history], errors)
+        assert len(errors) == 1
+        current = self.fixture("docs/current.md", "[retired](../deleted.py)")
+        errors = []
+        harness.check_local_document_links([current], errors)
+        assert len(errors) == 1
+
+    def test_broken_alias_is_reported(self) -> None:
+        """Do not follow or silently accept a broken compatibility alias."""
+        alias = self.root / "GEMINI.md"
+        alias.symlink_to("missing.md")
+        self.track()
+        errors: list[str] = []
+        harness.check_local_document_links([alias], errors)
+        assert any("alias" in error for error in errors)
+
+    def test_plan_lifecycle_preserves_external_acceptance_and_warns_without_archiving(
+        self,
+    ) -> None:
+        """Only pending work in a completed plan fails; active closure is a review decision."""
+        body = "# Plan\n\n" + "\n\n".join(
+            f"## {heading}\n\nContext." for heading in harness.PLAN_HEADINGS
+        )
+        active = self.fixture(
+            "docs/exec-plans/active/example.md",
+            body + "\n- [ ] Verify real SMTP delivery.\n",
+        )
+        errors: list[str] = []
+        warnings: list[str] = []
+        harness.check_plan_lifecycle([active], errors, warnings)
+        assert errors == warnings == []
+        self.write(active, body + "\n- [x] Recorded acceptance.\n")
+        harness.check_plan_lifecycle([active], errors, warnings)
+        assert errors == []
+        assert len(warnings) == 1
+        assert active.exists()
+        archived = self.fixture(
+            "docs/exec-plans/completed/example.md",
+            body + "\n- [ ] Verify real SMTP delivery.\n",
+        )
+        harness.check_plan_lifecycle([archived], errors, warnings)
+        assert any("pending work" in error for error in errors)
+        self.write(
+            archived,
+            body
+            + "\n- [x] Delivery verified.\n```markdown\n- [ ] Example only.\n```\n",
+        )
+        errors = []
+        harness.check_plan_lifecycle([archived], errors, [])
+        assert errors == []
+
+    def test_plan_headings_ignore_code_and_history_is_not_a_plan(self) -> None:
+        """A fenced template is not a usable plan; historical checklists stay historical."""
+        body = "\n".join("## " + heading for heading in harness.PLAN_HEADINGS)
+        active = self.fixture(
+            "docs/exec-plans/active/example.md", "```markdown\n" + body + "\n```"
+        )
+        errors: list[str] = []
+        harness.check_plan_lifecycle([active], errors, [])
+        assert len(errors) == len(harness.PLAN_HEADINGS)
+        history = self.fixture(
+            "docs/history/draft.md", "# Old draft\n- [ ] Old proposal"
+        )
+        errors = []
+        harness.check_plan_lifecycle([history], errors, [])
+        assert errors == []
+
+    def test_unknown_review_dates_are_allowed_without_fabrication(self) -> None:
+        """Unknown dates remain blank; impossible review dates fail separately."""
+        doc = self.fixture(
+            "docs/product-specs/example.md",
+            '---\ntitle: Example\nstatus: needs-review\nowner_surface: repo\nlast_reviewed: ""\ncanonical: true\n---\n# Example',
+        )
+        errors: list[str] = []
+        harness.check_frontmatter_docs(errors)
+        harness.check_review_dates([doc], errors)
+        assert errors == []
+        record = next(
+            record for record in generator.build_tracked_records() if record.path == doc
+        )
+        assert record.last_reviewed == ""
+        for reviewed in ("not-a-date", "9999-01-01"):
+            self.write(doc, f"---\nlast_reviewed: {reviewed}\n---\n# Example")
+            errors = []
+            harness.check_review_dates([doc], errors)
+            assert len(errors) == 1
+
+    def test_health_and_gardening_reports_have_provenance_and_are_optional(
+        self,
+    ) -> None:
+        """Both ephemeral reports identify their checkout and UTC generation time."""
+        assert self.run_generator() == 0
+        report = generator.HARNESS_HEALTH_PATH.read_text()
+        assert "Checkout HEAD:" in report
+        timestamp = report.split("Generated at (UTC): `")[1].split("`")[0]
+        assert timestamp.endswith("Z")
+        assert datetime.fromisoformat(timestamp).utcoffset().total_seconds() == 0
+        path = self.root / "garden.md"
+        gardening.write_summary(
+            path, stale_docs=["needs review"], retired_terms=[], stale_baseline=[]
+        )
+        assert "scripts/run_harness_gardening.py" in path.read_text()
+        assert "Generated at (UTC):" in path.read_text()
+        assert "Checkout HEAD:" in path.read_text()
+        generator.GARDENING_SUMMARY_PATH.unlink()
+        generator.HARNESS_HEALTH_PATH.unlink()
+        errors: list[str] = []
+        harness.check_root_docs(errors)
+        assert errors == []
 
 
 if __name__ == "__main__":

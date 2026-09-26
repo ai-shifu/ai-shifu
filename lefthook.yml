@@ -79,7 +79,7 @@ pre-commit:
 
     # --- Repo guardrails (Python, run once; glob only gates whether) ----------
     check-repo-harness:
-      glob: "{.gitignore,.codex/**,AGENTS.md,**/AGENTS.md,CLAUDE.md,**/CLAUDE.md,CLAUDE.local.md,**/CLAUDE.local.md,**/.claude/rules/**/*.md,ARCHITECTURE.md,INSTALL_MANUAL.md,PLANS.md,README.md,docs/**,.claude/**,.cursor/**,.github/**,lefthook.yml,src/web/Dockerfile,src/web/README.md,src/web/package.json,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/test_repo_instructions.py}"
+      glob: "{.gitignore,.codex/**,**/*.md,**/*.mdx,SKILL.md,scripts/test_repo_knowledge_index.py,scripts/run_harness_gardening.py,AGENTS.md,**/AGENTS.md,CLAUDE.md,**/CLAUDE.md,CLAUDE.local.md,**/CLAUDE.local.md,**/.claude/rules/**/*.md,ARCHITECTURE.md,INSTALL_MANUAL.md,PLANS.md,README.md,docs/**,.claude/**,.cursor/**,.github/**,lefthook.yml,src/web/Dockerfile,src/web/README.md,src/web/package.json,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/test_repo_instructions.py}"
       run: python3 scripts/check_repo_harness.py
     check-example-identifiers:
       run: python3 scripts/check_example_identifiers.py --staged

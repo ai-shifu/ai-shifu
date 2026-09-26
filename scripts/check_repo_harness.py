@@ -6,10 +6,12 @@ from __future__ import annotations
 import json
 import os
 import posixpath
+import re
 import subprocess
 import sys
 import tempfile
 import tomllib
+from datetime import UTC, date, datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -17,10 +19,11 @@ from urllib.parse import unquote, urlsplit
 from build_repo_knowledge_index import (
     DOCS_ROOT,
     FRONTMATTER_FIELDS,
-    GARDENING_SUMMARY_PATH,
     REQUIRED_RUNTIME_ASSETS,
     build_knowledge_docs,
+    focused_skills,
     parse_frontmatter,
+    tracked_markdown,
 )
 from build_repo_knowledge_index import (
     GENERATED_COMMENT as KNOWLEDGE_GENERATED_COMMENT,
@@ -44,7 +47,7 @@ FRONTEND_ENV_FILENAMES = (
 STALE_FRONTEND_PATH = "src/" + "cook-web"
 STALE_FRONTEND_PATH_PARTS = tuple(STALE_FRONTEND_PATH.split("/"))
 STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST = {
-    Path("docs/exec-plans/active/rename-cook-web-directory.md"),
+    Path("docs/exec-plans/completed/rename-cook-web-directory.md"),
 }
 STALE_FRONTEND_PATH_LINE_ALLOWLIST = {
     Path(".github/workflows/prepare-release.yml"): {
@@ -156,7 +159,6 @@ REQUIRED_ROOT_DOCS = (
     DOCS_ROOT / "references" / "architecture-boundaries.md",
     DOCS_ROOT / "references" / "frontend-product-analytics.md",
     BOUNDARY_BASELINE,
-    GARDENING_SUMMARY_PATH,
 )
 REQUIRED_DOC_MARKERS = {
     DOCS_ROOT / "references" / "frontend-product-analytics.md": (
@@ -437,14 +439,6 @@ def check_root_docs(errors: list[str]) -> None:
         text = BOUNDARY_BASELINE.read_text(encoding="utf-8")
         if '"version"' not in text or '"violations"' not in text:
             errors.append(f"Boundary baseline is malformed: {BOUNDARY_BASELINE}")
-
-    if GARDENING_SUMMARY_PATH.exists():
-        text = GARDENING_SUMMARY_PATH.read_text(encoding="utf-8")
-        if KNOWLEDGE_GENERATED_COMMENT not in text:
-            errors.append(
-                "Harness gardening summary is missing generated marker: "
-                f"{GARDENING_SUMMARY_PATH}"
-            )
 
 
 def _stale_path_is_in_allowed_context(
@@ -798,8 +792,197 @@ def check_frontmatter_docs(errors: list[str]) -> None:
             errors.extend(
                 f"Missing frontmatter field '{field}' in {path}"
                 for field in FRONTMATTER_FIELDS
-                if not metadata.get(field)
+                if field not in metadata
+                or (field != "last_reviewed" and not metadata[field])
             )
+
+
+PLAN_HEADINGS = (
+    "Purpose / Big Picture",
+    "Progress",
+    "Surprises & Discoveries",
+    "Decision Log",
+    "Outcomes & Retrospective",
+    "Context and Orientation",
+    "Plan of Work",
+    "Concrete Steps",
+    "Validation and Acceptance",
+    "Idempotence and Recovery",
+    "Interfaces and Dependencies",
+)
+
+
+def check_skill_metadata(paths: list[Path], errors: list[str]) -> None:
+    """Reject undiscoverable or ambiguous focused skill metadata."""
+    names: dict[str, Path] = {}
+    for path in focused_skills(paths):
+        metadata = parse_frontmatter(path)
+        name, description = metadata.get("name", ""), metadata.get("description", "")
+        if (
+            not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name)
+            or name != path.parent.name
+        ):
+            errors.append(f"Skill name must match its directory slug: {path}")
+        if not description or description in {"|", ">", "|-", ">-"}:
+            errors.append(f"Skill needs a nonempty description: {path}")
+        if name in names:
+            errors.append(f"Duplicate skill name {name}: {names[name]} and {path}")
+        names[name] = path
+
+
+def markdown_headings(text: str) -> set[str]:
+    """Read actual section headings, excluding fenced code examples."""
+    tokens = INSTRUCTION_MARKDOWN.parse(text)
+    return {
+        tokens[i + 1].content
+        for i, token in enumerate(tokens)
+        if token.type == "heading_open" and token.tag == "h2"
+    }
+
+
+def check_plan_lifecycle(
+    paths: list[Path], errors: list[str], warnings: list[str]
+) -> None:
+    """Require usable plans and distinguish review reminders from archival."""
+    for path in paths:
+        relative = path.relative_to(ROOT).as_posix()
+        if not relative.startswith(
+            ("docs/exec-plans/active/", "docs/exec-plans/completed/")
+        ):
+            continue
+        text = path.read_text(encoding="utf-8")
+        headings = markdown_headings(text)
+        errors.extend(
+            f"Missing ExecPlan section '{heading}': {path}"
+            for heading in PLAN_HEADINGS
+            if heading not in headings
+        )
+        pending = any(
+            token.type == "inline" and re.match(r"^\[ \]\s", token.content)
+            for token in INSTRUCTION_MARKDOWN.parse(text)
+        )
+        if path.parent.name == "completed" and pending:
+            errors.append(f"Completed ExecPlan still has pending work: {path}")
+        if path.parent.name == "active" and not pending:
+            warnings.append(
+                f"Active ExecPlan has no unchecked work; review scope and acceptance before archival: {path}"
+            )
+
+
+def check_review_dates(paths: list[Path], errors: list[str]) -> None:
+    """Allow unknown review dates but reject invalid or future review claims."""
+    for path in paths:
+        if path.is_symlink():
+            continue
+        reviewed = parse_frontmatter(path).get("last_reviewed", "")
+        if not reviewed:
+            continue
+        try:
+            value = date.fromisoformat(reviewed)
+        except ValueError:
+            errors.append(f"Invalid last_reviewed date: {path}: {reviewed}")
+            continue
+        if value > datetime.now(UTC).date():
+            errors.append(f"Future last_reviewed date: {path}: {reviewed}")
+
+
+class DocumentHTMLLinks(HTMLParser):
+    """Collect literal HTML links and anchors without interpreting JSX expressions."""
+
+    def __init__(self) -> None:
+        """Initialize per-document link and anchor state."""
+        super().__init__()
+        self.links: list[str] = []
+        self.anchors: set[str] = set()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Read static Markdown/MDX HTML attributes only."""
+        for name, value in attrs:
+            if not value or value.startswith("{"):
+                continue
+            if name == "id" or (tag == "a" and name == "name"):
+                self.anchors.add(value)
+            if (tag == "a" and name == "href") or (tag == "img" and name == "src"):
+                self.links.append(value)
+
+
+def document_navigation(path: Path) -> tuple[list[str], set[str]]:
+    """Read real links and GitHub-style heading anchors, ignoring fenced examples."""
+    tokens = INSTRUCTION_MARKDOWN.parse(path.read_text(encoding="utf-8"))
+    html = DocumentHTMLLinks()
+    links: list[str] = []
+    slugs: set[str] = set()
+    for index, token in enumerate(tokens):
+        if token.type == "heading_open":
+            heading = tokens[index + 1]
+            label = "".join(
+                child.content
+                for child in heading.children or []
+                if child.type in {"text", "code_inline", "image"}
+            )
+            base = re.sub(r"[^\w -]", "", label.lower()).replace(" ", "-")
+            slug, counter = base, 0
+            while slug in slugs:
+                counter += 1
+                slug = f"{base}-{counter}"
+            slugs.add(slug)
+        if token.type == "html_block":
+            html.feed(token.content)
+        for child in token.children or []:
+            if child.type == "html_inline":
+                html.feed(child.content)
+            elif child.type in {"link_open", "image"}:
+                links.append(
+                    child.attrGet("href" if child.type == "link_open" else "src") or ""
+                )
+    return links + html.links, slugs | html.anchors
+
+
+def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
+    """Validate local files and section links while exempting historical runtime paths."""
+    anchors: dict[Path, set[str]] = {}
+    for path in paths:
+        if path.is_symlink():
+            if not path.exists() or not path.resolve().is_relative_to(ROOT.resolve()):
+                errors.append(f"Broken or external documentation alias: {path}")
+            continue
+        relative = path.relative_to(ROOT).as_posix()
+        historical = relative.startswith(
+            ("docs/history/", "docs/exec-plans/completed/")
+        )
+        links, _headings = document_navigation(path)
+        for url in links:
+            parsed = urlsplit(url)
+            if parsed.scheme or parsed.netloc:
+                continue
+            target_path = unquote(parsed.path)
+            target = (
+                path
+                if not target_path
+                else ROOT / target_path.lstrip("/")
+                if target_path.startswith("/")
+                else path.parent / target_path
+            ).resolve()
+            if historical and target.suffix.lower() not in {".md", ".mdx"}:
+                # Historical implementation links may name retired code or assets.
+                continue
+            if not target.is_relative_to(ROOT.resolve()) or not target.exists():
+                errors.append(f"Broken local document link: {path}: {url}")
+                continue
+            if parsed.fragment and target.suffix.lower() in {".md", ".mdx"}:
+                if target not in anchors:
+                    anchors[target] = document_navigation(target)[1]
+                if unquote(parsed.fragment) not in anchors[target]:
+                    errors.append(f"Broken local document anchor: {path}: {url}")
+
+
+def check_documentation_contracts(errors: list[str], warnings: list[str]) -> None:
+    """Check tracked sources separately from generated index freshness."""
+    paths = tracked_markdown(ROOT)
+    check_skill_metadata(paths, errors)
+    check_plan_lifecycle(paths, errors, warnings)
+    check_review_dates(paths, errors)
+    check_local_document_links(paths, errors)
 
 
 def check_example_identifiers(errors: list[str]) -> None:
@@ -821,6 +1004,10 @@ def main() -> int:
     check_codex_frontend_asset_reuse(errors)
     check_frontmatter_docs(errors)
     check_example_identifiers(errors)
+    warnings: list[str] = []
+    check_documentation_contracts(errors, warnings)
+    for warning in warnings:
+        print(f"Review reminder: {warning}")
 
     if errors:
         print("Repository harness validation failed:", file=sys.stderr)

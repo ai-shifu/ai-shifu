@@ -202,3 +202,6 @@ artifacts/runs/
 ###############################################################################
 !src/api/tests
 .claude/*
+
+# Regenerated local/CI gardening snapshot, not canonical knowledge.
+docs/generated/harness-gardening-summary.md
