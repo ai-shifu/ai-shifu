@@ -789,9 +789,14 @@ def check_codex_frontend_asset_reuse(errors: list[str]) -> None:
 
 def check_frontmatter_docs(errors: list[str]) -> None:
     """Check frontmatter docs."""
+    try:
+        paths = tracked_markdown(ROOT)
+    except FileNotFoundError as error:
+        errors.append(str(error))
+        return
     for category in ("design-docs", "product-specs"):
-        for path in sorted((DOCS_ROOT / category).glob("*.md")):
-            if path.name == "index.md":
+        for path in paths:
+            if path.parent != DOCS_ROOT / category or path.name == "index.md":
                 continue
             metadata = parse_frontmatter(path)
             errors.extend(

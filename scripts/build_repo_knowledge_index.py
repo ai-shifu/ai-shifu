@@ -272,8 +272,8 @@ def snapshot_provenance() -> list[str]:
 def build_frontmatter_records(category_dir: Path, category: str) -> list[DocRecord]:
     """Build category-tagged records for non-index Markdown files in one metadata directory."""
     records: list[DocRecord] = []
-    for path in sorted(category_dir.glob("*.md")):
-        if path.name == "index.md":
+    for path in tracked_markdown():
+        if path.parent != category_dir or path.name == "index.md":
             continue
         metadata = parse_frontmatter(path)
         title = metadata.get("title") or extract_title(path)
@@ -294,8 +294,8 @@ def build_frontmatter_records(category_dir: Path, category: str) -> list[DocReco
 def build_reference_records() -> list[DocRecord]:
     """Build canonical reference records for Markdown files under docs/references."""
     records: list[DocRecord] = []
-    for path in sorted((DOCS_ROOT / "references").glob("*.md")):
-        if path.name == "index.md":
+    for path in tracked_markdown():
+        if path.parent != DOCS_ROOT / "references" or path.name == "index.md":
             continue
         records.append(
             DocRecord(
@@ -324,7 +324,8 @@ def build_execplan_records(subdir: str, status: str) -> list[DocRecord]:
             last_reviewed="",
             canonical="true",
         )
-        for path in sorted(plan_dir.glob("*.md"))
+        for path in tracked_markdown()
+        if path.parent == plan_dir and path.name != "index.md"
     ]
     return records
 

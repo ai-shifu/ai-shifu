@@ -307,6 +307,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
                         + value
                         + "\ncanonical: true\n---\n",
                     )
+                    self.track()
                     assert generator.parse_frontmatter(path)["last_reviewed"] == ""
                     errors: list[str] = []
                     harness.check_frontmatter_docs(errors)
@@ -369,6 +370,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         self.write(
             generator.DOCS_ROOT / "references" / "new-reference.md", "# New reference\n"
         )
+        self.track()
         errors: list[str] = []
         harness.check_generated_knowledge_docs(errors)
         expected_index = generator.DOCS_ROOT / "references" / "index.md"
@@ -434,6 +436,8 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
                 }
             ),
         )
+        # Health reads current versions of tracked sources; new docs must be staged.
+        self.track()
         missing_asset = generator.REQUIRED_RUNTIME_ASSETS[0]
         missing_workflow = generator.REQUIRED_HARNESS_WORKFLOWS[0]
         missing_asset.unlink()
@@ -495,6 +499,65 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         assert set(records) == {
             str(path.relative_to(self.root)) for path in generator.tracked_markdown()
         }
+
+    def test_section_indexes_share_tracked_document_discovery(self) -> None:
+        """Local scratch files cannot leak into category indexes or health counts."""
+        categories = {
+            "design-docs": "design-docs/index.md",
+            "product-specs": "product-specs/index.md",
+            "references": "references/index.md",
+            "exec-plans/active": "exec-plans/index.md",
+            "exec-plans/completed": "exec-plans/index.md",
+        }
+        before = generator.build_knowledge_docs()
+        with patch.object(generator, "snapshot_provenance", return_value=[]):
+            health_before = generator.build_harness_health_report()
+        ignored = self.root / ".gitignore"
+        self.write(ignored, ignored.read_text() + "**/ignored-note.md\n")
+        subprocess.run(["git", "add", ".gitignore"], cwd=self.root, check=True)
+        tracked_candidates = []
+        for category in categories:
+            directory = generator.DOCS_ROOT / category
+            self.write(directory / "scratch.md", "# Local scratch\n")
+            self.write(directory / "ignored-note.md", "# Ignored note\n")
+            candidate = directory / "new-source.MDX"
+            self.write(
+                candidate,
+                "---\ntitle: New tracked source\nstatus: draft\nowner_surface: repo\n"
+                'last_reviewed: ""\ncanonical: true\n---\n# New tracked source\n',
+            )
+            tracked_candidates.append(candidate)
+        assert generator.build_knowledge_docs() == before
+        metadata_errors: list[str] = []
+        harness.check_frontmatter_docs(metadata_errors)
+        assert metadata_errors == []
+        with patch.object(generator, "snapshot_provenance", return_value=[]):
+            assert generator.build_harness_health_report() == health_before
+        subprocess.run(
+            ["git", "add", "--", *map(str, tracked_candidates)],
+            cwd=self.root,
+            check=True,
+        )
+        after = generator.build_knowledge_docs()
+        inventory = after[generator.DOCS_ROOT / "generated/doc-inventory.md"]
+        for category, section in categories.items():
+            relative = f"{category}/new-source.MDX"
+            section_link = relative.removeprefix("exec-plans/")
+            assert section_link in after[generator.DOCS_ROOT / section]
+            assert relative in inventory
+        for content in after.values():
+            assert "scratch.md" not in content
+            assert "ignored-note.md" not in content
+        assert generator.build_knowledge_docs() == after
+        for path, content in after.items():
+            self.write(path, content)
+        subprocess.run(
+            ["git", "add", "--", *map(str, after)], cwd=self.root, check=True
+        )
+        errors: list[str] = []
+        harness.check_local_document_links(list(after), errors)
+        harness.check_frontmatter_docs(errors)
+        assert errors == []
 
     def test_health_only_keeps_normal_missing_indexes_optional(self) -> None:
         """A normal checkout can refresh health without restoring an absent index."""
