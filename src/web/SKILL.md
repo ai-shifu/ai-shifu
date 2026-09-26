@@ -23,4 +23,5 @@ and let `LessonPreview` choose a directed action; do not branch on message text.
 
 Add a focused skill only for a recurring workflow. Its `SKILL.md` must declare
 `name` and a concrete trigger in `description`; keep reference details there,
-then regenerate the catalog instead of adding another hand-maintained list.
+then update the catalog in the same change. Until the separate documentation-
+harness generator change lands, these catalogs are maintained manually.
