@@ -18,7 +18,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 3. 用户手动切 marker 时立即清除当前 buffering 状态。
 4. `run` 请求体 `listen` 必须跟随当前真实听课状态：只有 `learningMode === 'listen'` 且课程 `tts_enabled` 可用时才发送 `listen=true`；阅读模式即使课程支持听课也必须发送 `listen=false`。
 5. `LIKE_STATUS` 仅表示流结束信号，TTS 还需校验 `is_speakable` 或已有可播音频。
-6. Reading mode requests `generated-blocks/:id/tts` when the user presses play. Listen mode uses the existing automatic backfill queue described below; do not add an independent request from `onStepChange`.
+6. `requestAudioForBlock` supports on-demand `generated-blocks/:id/tts` calls, including programmatic `listen=false` requests. This hook capability does not imply a reading-mode playback button: `NewChatComp` hides audio actions in both normal and preview reading mode. Its mode-level gate is `!isClassroomMode && (previewMode || isListenModeActive) && !isPreviewReadMode`; eligible content must also satisfy the speakability rules. Listen mode uses the existing automatic backfill queue described below; do not add an independent request from `onStepChange`.
 7. `listen-mode` 映射 `elementList` 时显式透传 `isAudioStreaming`。
 8. 统一分发层处理 `type/error` 或 `event_type/error`，立即弹出 destructive toast。
 9. 音频播放 icon 的可见性需受 `is_speakable` 控制：当 `is_speakable === false` 时不展示播放按钮。
@@ -60,8 +60,10 @@ render the component or verify its backfill effect orchestration. For changes
 to that effect, add focused orchestration coverage for in-flight deduplication
 and lesson-scope result guards instead of treating these helper suites as proof.
 Run the adjacent
-`useChatLogicHook.test.tsx` cases for manual play, forced
-`listen=true` backfill, persisted-ready gating, streaming failures, and backfill
-idle timeout. Also run `ListenModeSlideRenderer.test.tsx` when the mapping or
+`useChatLogicHook.test.tsx` cases for programmatic on-demand audio requests,
+forced `listen=true` backfill, persisted-ready gating, streaming failures, and
+backfill idle timeout. The on-demand request test calls the hook directly and
+does not establish a reading-mode UI action; changes to visible audio controls
+need rendered component coverage. Also run `ListenModeSlideRenderer.test.tsx` when the mapping or
 playback restore contract changes. Except for the shared concurrency suite, these files live in
 `src/app/c/[[...id]]/Components/ChatUi/`.
