@@ -28,6 +28,11 @@ the content is corrected. Deliver separate ready pull requests per problem.
 - [x] 2026-09-26 04:33 UTC: Recorded concrete audit findings, source paths, delivery links,
   and completion criteria so this plan can be followed without the audit chat.
 
+- [x] 2026-09-26 12:13 UTC: Rebased the runtime configuration delivery on main
+  `ae49a0724`, retaining the downstream billing PR ancestry. The existing
+  five-file patch was unchanged; seven configuration tests, documentation
+  validation, and the full pre-commit gate passed.
+
 ## Surprises & Discoveries
 
 The original audit used `fd9f56fa6`; main advanced by 26 commits before execution.
