@@ -40,6 +40,27 @@ Each item below identifies its dependency and next evidence needed.
 - Architecture owners: shrink the committed boundary baseline as individual
   boundary violations are fixed; a fresh scan, not old counts, determines work.
 
+### Course pricing follow-ups
+
+Transferred from the completed [market-price plan](completed/course-price-market-rules-and-free-unlock.md):
+
+- Frontend configuration: recover after an initial runtime-config fetch failure.
+  `src/web/src/lib/initializeEnvData.ts` currently marks configuration loaded even
+  on failure; `envStore.ts` retains the 0.50 minimum fallback. Define a bounded
+  retry/recovery path and verify that a transient failure can recover China's
+  CNY 0.01 authoring option without a page refresh, while preserving the global
+  minimum and server-owned policy. This gap is not fixed by archiving the plan.
+- Course-settings analytics: retain the initiating identity across the async save
+  in `src/web/src/components/shifu-setting/ShifuSetting.tsx`. Verify the success
+  event cannot be attributed to an account that replaced the initiating account;
+  keep save success independent of telemetry and preserve the existing payload.
+  The session-modal guard is a separate producer fix and does not close this item.
+- Pricing integration coverage: reassess the recorded payment-hook and authoring-
+  form boundary probes against current tests. Promote still-missing cases into
+  stable integration coverage for provider bypass, server-confirmed free unlock
+  and market-aware authoring. Close this item with actual test paths/results,
+  not only independent helper assertions.
+
 ## Completed Debt and Evidence
 
 The July inventory is preserved at `docs/history/backend-inventory-2026-07.md`.

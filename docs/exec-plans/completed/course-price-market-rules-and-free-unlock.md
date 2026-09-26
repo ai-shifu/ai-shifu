@@ -56,6 +56,10 @@ repository harness checks pass.
 
 ## Follow-up Opportunities
 
+These remain open in the [current course-pricing debt](../tech-debt-tracker.md#course-pricing-follow-ups),
+with owners, dependencies and acceptance. Original feature completion does not
+claim that these later follow-ups were implemented.
+
 - Retry runtime configuration after an initial fetch failure. The current
   compatibility fallback remains 0.50 and requires a refresh to recover, so a
   transient failure can temporarily hide China's 0.01 authoring option.
