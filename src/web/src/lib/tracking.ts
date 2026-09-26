@@ -28,6 +28,8 @@ export const EVENT_NAMES = {
   SESSION_LIST_OPENED: 'session_list_opened',
   SESSION_REVOKED: 'session_revoked',
   SESSION_REVOKED_OTHERS: 'session_revoked_others',
+  TEACHER_MINIMAX_CLONE_COST_UNAVAILABLE:
+    'teacher_minimax_clone_cost_unavailable',
 };
 
 type UmamiUserInfo = {
