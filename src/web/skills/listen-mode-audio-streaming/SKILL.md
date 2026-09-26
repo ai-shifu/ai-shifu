@@ -108,3 +108,19 @@ restoration/selection separation, URL exclusions, unavailable or delayed TTS,
 and selection while capability is pending. It does not specifically assert the
 empty-storage default-write guard; inspect that effect rather than inferring
 this coverage from the helper tests.
+
+## Subtitle punctuation cleanup order
+
+Use `stripDisallowedSubtitleTrailingPunctuation` in `src/lib/subtitleUtils.ts`,
+as called by `resolveListenSlideSubtitleCues` in the learner ChatUi utilities.
+Walk the suffix from right to left: preserve paired closers in their original
+order while removing disallowed punctuation on either side of those closers.
+Stop at allowed question/exclamation endings or ellipses; do not strip the
+closers or replace this with a single trailing-punctuation regular expression.
+For example, suffixes `。”`, `），`, and `？”。` retain `”`, `）`, and `？”`.
+
+Run the `strips disallowed trailing punctuation from subtitle cues` case in
+`src/app/c/[[...id]]/Components/ChatUi/listenModeUtils.test.ts`. It covers closing
+quotes, a closing parenthesis followed by a period, punctuation after a quote,
+and question/ellipsis preservation. Retain these cases when changing cleanup,
+and add the parenthesis-plus-comma variant if changing that boundary.
