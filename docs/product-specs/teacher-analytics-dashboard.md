@@ -111,9 +111,9 @@ time-window and population contract in
 
 ## Backend Design
 
-### New service module
+### Existing service module
 
-Add a new additive service module:
+The implemented dashboard service lives in:
 
 - `src/api/flaskr/service/dashboard/`
   - `dtos.py` (Pydantic DTOs with `__json__`)
@@ -237,10 +237,9 @@ Dashboard surfaces:
 
 ### i18n
 
-Add a new namespace file:
-
-- `src/i18n/en-US/modules/dashboard.json`
-- `src/i18n/zh-CN/modules/dashboard.json`
+Use the existing `modules/dashboard.json` namespace under each supported
+`src/i18n/<locale>/` directory. Supported locales come from
+[the shared locale list](../../src/i18n/locales.json).
 
 Keys example:
 
