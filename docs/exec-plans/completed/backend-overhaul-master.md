@@ -1,6 +1,6 @@
 # Backend Overhaul Master Plan: Inventory and Optimization
 
-> Lifecycle review, 2026-09-26: Completed original scope. Phase 2 shipped with recorded full-suite and live dev smoke evidence. Later direct-commit cleanup is complete; remaining provider-transaction, legacy-query and production-consumer investigations are in the debt tracker. Merge evidence: [#2132](https://github.com/ai-shifu/ai-shifu/pull/2132) (`0d9ed3618`), [#2133](https://github.com/ai-shifu/ai-shifu/pull/2133) (`578fe97bd`)
+> Lifecycle review, 2026-09-26: Completed original scope. Phase 2 shipped with recorded full-suite and live dev smoke evidence. Later direct-commit cleanup is complete; remaining provider-transaction, legacy-query, production-consumer and run-context retirement investigations are in the [debt tracker](../tech-debt-tracker.md). Merge evidence: [#2132](https://github.com/ai-shifu/ai-shifu/pull/2132) (`0d9ed3618`), [#2133](https://github.com/ai-shifu/ai-shifu/pull/2133) (`578fe97bd`)
 
 ## Purpose / Big Picture
 
@@ -389,6 +389,11 @@ disposition, consuming Phase 2 batch. Summary rows go to
   this phase. Strategy: new path behind a
   config flag, golden transcripts diffed across both paths, flip default,
   delete `RunScriptContextV2` in a follow-up PR.
+  This replacement strategy is historical: the child
+  [decomposition plan](learn-run-decomposition.md) instead delivered incremental
+  extractions and retained the facade. Deletion has not happened; the current
+  retirement decision, replacement dependency and acceptance are tracked under
+  Learning backend in the [debt tracker](../tech-debt-tracker.md).
 - **B7 Tail cleanups**: `.query()` modernization in touched modules, update
   `docs/QUALITY_SCORE.md`, archive completed child plans.
 

@@ -14,6 +14,13 @@ Each item below identifies its dependency and next evidence needed.
 - Backend/API owners: verify candidate routes with no known consumer against
   production access evidence before proposing removals. The July inventory's
   count is historical and is not deletion authorization.
+- Learning backend: assess retirement of the retained `RunScriptContextV2`
+  facade. `src/api/flaskr/service/learn/runscript_v2.py` still imports and
+  constructs it. The completed [decomposition](completed/learn-run-decomposition.md)
+  delivered incremental extractions rather than the master plan's proposed
+  replacement path; it did not delete this facade. Agree the replacement
+  boundary before scheduling a dedicated retirement PR, and require golden SSE,
+  resume and disconnect coverage plus removal of runtime callers for completion.
 - Learning backend: extend deterministic golden fixtures for mid-stream errors
   and resume behavior; choose cases from current `/run` contracts.
 - Frontend/product: shared-course editor permission affordances and French
