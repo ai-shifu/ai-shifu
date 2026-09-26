@@ -109,20 +109,31 @@ def extract_title(path: Path) -> str:
     return path.stem.replace("-", " ").title()
 
 
-def tracked_markdown(root: Path | None = None) -> list[Path]:
-    """List tracked Markdown/MDX sources, including staged additions and aliases."""
+def tracked_markdown_modes(root: Path | None = None) -> dict[Path, str]:
+    """Keep Git's document types even when aliases are checked out as plain files."""
     root = ROOT if root is None else root
     output = subprocess.check_output(
-        ["git", "ls-files", "-z", "--cached"], cwd=root, text=True
+        ["git", "ls-files", "--stage", "-z"], cwd=root, text=True
     )
-    return sorted(
-        {
-            root / name
-            for name in output.split("\0")
-            if Path(name).suffix.lower() in {".md", ".mdx"}
-            and ((root / name).is_file() or (root / name).is_symlink())
-        }
-    )
+    modes: dict[Path, str] = {}
+    for entry in output.split("\0"):
+        if not entry:
+            continue
+        attributes, name = entry.split("\t", 1)
+        mode, _object_id, stage = attributes.split()
+        path = root / name
+        if (
+            stage == "0"
+            and path.suffix.lower() in {".md", ".mdx"}
+            and (path.is_file() or path.is_symlink())
+        ):
+            modes[path] = mode
+    return modes
+
+
+def tracked_markdown(root: Path | None = None) -> list[Path]:
+    """List tracked Markdown/MDX sources, including staged additions and aliases."""
+    return sorted(tracked_markdown_modes(root))
 
 
 def focused_skills(paths: list[Path]) -> list[Path]:
@@ -145,17 +156,14 @@ def build_tracked_records() -> list[DocRecord]:
         "docs/RELIABILITY.md",
         "docs/SECURITY.md",
     }
-    for path in tracked_markdown():
+    for path, mode in sorted(tracked_markdown_modes().items()):
         rel = rel_doc(path)
-        metadata = {} if path.is_symlink() else parse_frontmatter(path)
-        title = (
-            path.name
-            if path.is_symlink()
-            else metadata.get("title") or extract_title(path)
-        )
+        is_alias = mode == "120000"
+        metadata = {} if is_alias else parse_frontmatter(path)
+        title = path.name if is_alias else metadata.get("title") or extract_title(path)
         category, status = "reference", "reference"
         canonical = "true" if rel in canonical_roots else "false"
-        if path.is_symlink() or rel == ".github/copilot-instructions.md":
+        if is_alias or rel == ".github/copilot-instructions.md":
             category, status = "alias", "alias"
         elif path.name == "AGENTS.md":
             category, status, canonical = "instruction", "current", "true"

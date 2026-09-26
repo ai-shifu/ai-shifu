@@ -429,6 +429,25 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
             str(path.relative_to(self.root)) for path in generator.tracked_markdown()
         }
 
+    def test_alias_inventory_is_stable_without_worktree_symlink_support(self) -> None:
+        """Git's indexed alias type survives a core.symlinks=false checkout."""
+        alias = self.root / "GEMINI.md"
+        alias.symlink_to("AGENTS.md")
+        self.track()
+        expected = generator.build_tracked_records()
+        subprocess.run(
+            ["git", "config", "core.symlinks", "false"], cwd=self.root, check=True
+        )
+        alias.unlink()
+        subprocess.run(
+            ["git", "checkout-index", "--force", "--", "GEMINI.md"],
+            cwd=self.root,
+            check=True,
+        )
+        assert not alias.is_symlink()
+        assert alias.read_text() == "AGENTS.md"
+        assert generator.build_tracked_records() == expected
+
     def test_wrapped_skill_descriptions_are_preserved(self) -> None:
         """Existing wrapped and folded metadata retains the whole trigger text."""
         for start in ("Use for", ">\n  Use for"):
