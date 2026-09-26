@@ -517,6 +517,32 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         assert len(errors) == 1
         assert "Untracked local document link target" in errors[0]
 
+    def test_worktree_file_cannot_mask_an_indexed_broken_symlink(self) -> None:
+        """A non-document type change must not repair the pending commit locally."""
+        source = self.fixture("docs/links.md", "[asset](asset.svg)\n")
+        target = self.root / "docs/asset.svg"
+        target.symlink_to("missing.svg")
+        self.track()
+        target.unlink()
+        self.write(target, "<svg/>\n")
+        staging_errors: list[str] = []
+        harness.check_document_staging(staging_errors)
+        assert staging_errors == []  # Non-document edits are otherwise allowed.
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1
+        assert "asset.svg" in errors[0]
+        self.track()
+        for mode in ("-x", "+x"):
+            subprocess.run(
+                ["git", "update-index", f"--chmod={mode}", "docs/asset.svg"],
+                cwd=self.root,
+                check=True,
+            )
+            errors = []
+            harness.check_local_document_links([source], errors)
+            assert errors == []
+
     def test_tracked_aliases_cannot_hide_local_only_link_paths(self) -> None:
         """A tracked target does not make an untracked alias portable to CI."""
         self.fixture("docs/target.md", "# Target\n")

@@ -1002,9 +1002,9 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
                     return False
                 alias_targets[target] = target.parent / alias_value
             return is_indexed_target(alias_targets[target], visited | {target})
-        return target in indexed_paths or (
-            target.is_dir() and target in indexed_directories
-        )
+        return (
+            target.is_file() and indexed_modes.get(target) in {"100644", "100755"}
+        ) or (target.is_dir() and target in indexed_directories)
 
     anchors: dict[Path, set[str]] = {}
     for path in paths:
