@@ -16,11 +16,11 @@
     "courseIdLabel": "Kurskennung",
     "followUps": {
       "drawer": {
-        "currentRecordHint": "Überprüfen Sie die aktuelle Frage der Lernenden und beantworten Sie die Frage, wo Lernende stecken bleiben und ob die Lektion Wortwahl klar ist.",
+        "currentRecordHint": "Prüfen Sie die aktuelle Rückfrage und die Antwort, um Lernhindernisse und die Verständlichkeit der Kursinhalte zu beurteilen.",
         "fields": {
           "currentAnswer": "Aktuelle Antwort",
-          "currentFollowUp": "Laufende Folgemaßnahmen",
-          "followUpTime": "Nachbeobachtungszeit",
+          "currentFollowUp": "Aktuelle Rückfrage",
+          "followUpTime": "Zeitpunkt der Rückfrage",
           "lesson": "Verwandte Lektionen",
           "nickname": "Nickname",
           "turnIndex": "Gesprächsrunde",
@@ -29,19 +29,19 @@
         "sections": {
           "basicInfo": "Grundlegende Informationen",
           "currentRecord": "Aktueller Datensatz",
-          "timeline": "Zeitplan für die Weiterverfolgung"
+          "timeline": "Verlauf der Rückfragen"
         },
         "timeline": {
-          "current": "Laufender Monat",
+          "current": "Aktuell",
           "student": "Lernender",
           "teacher": "Kursbeantwortung"
         },
-        "title": "Detail der Folgemaßnahmen"
+        "title": "Details zur Rückfrage"
       },
       "filters": {
         "chapterKeyword": "Kapitel",
         "chapterKeywordPlaceholder": "Kapitel/Lektionsname",
-        "followUpTime": "Nachbeobachtungszeit",
+        "followUpTime": "Zeitpunkt der Rückfrage",
         "lessonKeyword": "Lektion",
         "lessonKeywordPlaceholder": "Lektionsname",
         "reset": "Zurücksetzen",
@@ -57,29 +57,29 @@
         "userKeywordPlaceholderPhone": "Mobil / Nickname"
       },
       "summary": {
-        "followUpCount": "Folgemaßnahmen insgesamt",
-        "latestFollowUpAt": "Letzte Folgemaßnahmen",
-        "lessonCount": "Beteiligte Lehren",
-        "scopeHint": "Überprüfung der Lerner Follow-ups rund um Kursinhalte, um häufige Festhalten Punkte und Lektionen, die Verbesserung benötigen zu identifizieren.",
-        "userCount": "Lernende mit Follow-ups"
+        "followUpCount": "Rückfragen insgesamt",
+        "latestFollowUpAt": "Letzte Rückfrage am",
+        "lessonCount": "Betroffene Lektionen",
+        "scopeHint": "Sehen Sie sich Rückfragen von Lernenden zu Kursinhalten an, um häufige Verständnisprobleme und verbesserungsbedürftige Lektionen zu erkennen.",
+        "userCount": "Lernende mit Rückfragen"
       },
       "table": {
         "action": "Maßnahmen",
         "chapter": "Kapitel",
-        "content": "Inhalt der Folgemaßnahmen",
-        "createdAt": "Nachbeobachtungszeit",
+        "content": "Inhalt der Rückfrage",
+        "createdAt": "Zeitpunkt der Rückfrage",
         "detailAction": "Detail",
         "empty": "Bisher noch keine Daten zu Rückfragen",
         "lesson": "Lektion",
         "sourceMissing": "Ursprüngliche Ausgabe fehlt",
         "sourceResolved": "Ursprüngliche Ausgabe vorhanden",
-        "title": "Folgeliste",
+        "title": "Rückfragen",
         "turnIndex": "Gesprächsrunde",
         "user": "Lernender"
       },
-      "title": "Folgedaten",
+      "title": "Rückfragedaten",
       "turnIndex": "Runde {count}",
-      "turnIndexHelp": "Turn-Ordnung basiert auf der Nachbeobachtungszeit innerhalb des gleichen Lernrekords."
+      "turnIndexHelp": "Die Reihenfolge der Rückfragen richtet sich nach ihrem Zeitpunkt innerhalb desselben Lernverlaufs."
     },
     "learners": {
       "columns": {
@@ -107,8 +107,8 @@
       },
       "title": "Liste der Lernenden",
       "totalCount": "Insgesamt {count} Lernende",
-      "viewFollowUps": "Follow-ups anzeigen",
-      "viewFollowUpsForLearner": "Follow-ups für {learner} anzeigen"
+      "viewFollowUps": "Rückfragen anzeigen",
+      "viewFollowUpsForLearner": "Rückfragen von {learner} anzeigen"
     },
     "learningModePerformance": {
       "columns": {

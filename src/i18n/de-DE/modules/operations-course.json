@@ -119,7 +119,7 @@
         "variants": "{count} Varianten"
       },
       "modes": {
-        "ask": "Folgemaßnahmen",
+        "ask": "Rückfragen",
         "learn": "Lesen",
         "listen": "Hör zu.",
         "mixed": "Gemischt",
@@ -168,12 +168,12 @@
     },
     "followUps": {
       "drawer": {
-        "currentRecordHint": "Lesen Sie in der Reihenfolge: Originalausgabe -> aktuelle Folge-Antwort -> aktuelle Systemantwort.",
+        "currentRecordHint": "Lesen Sie in dieser Reihenfolge: ursprüngliche Ausgabe -> aktuelle Rückfrage -> aktuelle Systemantwort.",
         "fields": {
           "chapter": "Kapitel / Lektion",
           "currentAnswer": "Aktuelle System-Antwort",
-          "currentFollowUp": "Laufende Folgemaßnahmen",
-          "followUpTime": "Nachbeobachtungszeit",
+          "currentFollowUp": "Aktuelle Rückfrage",
+          "followUpTime": "Zeitpunkt der Rückfrage",
           "lesson": "Lektion",
           "nickname": "Nickname",
           "sourceOutput": "Ursprüngliche Ausgabe",
@@ -183,7 +183,7 @@
         },
         "sections": {
           "basicInfo": "Grundlegende Informationen",
-          "currentRecord": "Aktuelles Follow-up Detail",
+          "currentRecord": "Details zur aktuellen Rückfrage",
           "timeline": "Zeitleiste"
         },
         "sourceUnavailable": "Die ursprüngliche Ausgabe für diesen historischen Datensatz kann nicht gefunden werden.",
@@ -192,13 +192,13 @@
           "student": "Schüler",
           "teacher": "System"
         },
-        "title": "Detail der Folgemaßnahmen"
+        "title": "Details zur Rückfrage"
       },
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Kapitel / Lektionssuche",
         "chapterKeywordPlaceholder": "Kapitel / Titel der Lektion",
-        "followUpTime": "Nachbeobachtungszeit",
+        "followUpTime": "Zeitpunkt der Rückfrage",
         "lessonKeyword": "Lektionssuche",
         "lessonKeywordPlaceholder": "Titel der Lektion",
         "reset": "Zurücksetzen",
@@ -214,31 +214,31 @@
         "userKeywordPlaceholderEmail": "E-Mail / Nickname",
         "userKeywordPlaceholderPhone": "Telefon / Nickname"
       },
-      "openMetric": "Weitere Daten öffnen",
+      "openMetric": "Rückfragedaten anzeigen",
       "summary": {
-        "followUpCount": "Folgemaßnahmen",
-        "latestFollowUpAt": "Letzte Folgemaßnahmen",
-        "lessonCount": "Lehren",
-        "userCount": "Verwender"
+        "followUpCount": "Rückfragen insgesamt",
+        "latestFollowUpAt": "Letzte Rückfrage am",
+        "lessonCount": "Betroffene Lektionen",
+        "userCount": "Nutzende mit Rückfragen"
       },
       "table": {
         "action": "Maßnahmen",
         "chapter": "Kapitel",
-        "content": "Inhalt der Folgemaßnahmen",
-        "createdAt": "Nachbeobachtungszeit",
+        "content": "Inhalt der Rückfrage",
+        "createdAt": "Zeitpunkt der Rückfrage",
         "detailAction": "Detail anzeigen",
-        "empty": "Keine Folgedaten",
+        "empty": "Keine Rückfragen vorhanden",
         "lesson": "Lektion",
-        "scopeHint": "Überprüfung der Lerner Follow-ups rund um Kursinhalte, um häufige Festhalten Punkte und Lektionen, die Verbesserung benötigen zu identifizieren.",
+        "scopeHint": "Sehen Sie sich Rückfragen von Lernenden zu Kursinhalten an, um häufige Verständnisprobleme und verbesserungsbedürftige Lektionen zu erkennen.",
         "sourceMissing": "Ursprüngliche Ausgabe fehlt",
         "sourceResolved": "Ursprüngliche Ausgabe vorhanden",
-        "title": "Folgeliste",
+        "title": "Rückfragen",
         "turnIndex": "Gesprächsrunde",
         "user": "Benutzer"
       },
-      "title": "Folgedaten",
+      "title": "Rückfragedaten",
       "turnIndex": "Runde {count}",
-      "turnIndexHelp": "Turn-Ordnung basiert auf der Nachbeobachtungszeit innerhalb des gleichen Lernrekords."
+      "turnIndexHelp": "Die Reihenfolge der Rückfragen richtet sich nach ihrem Zeitpunkt innerhalb desselben Lernverlaufs."
     },
     "learningPermission": {
       "free": "Frei",
