@@ -15,9 +15,6 @@ Entry files in this directory: `layout.tsx`, `page.tsx`, `admin/layout.tsx`,
 - Treat app-route changes as integration changes that may affect auth, request
   bootstrapping, and shared providers.
 
-- Root layouts, error entries and global providers import exact store modules;
-  do not load the `@/store` barrel while bootstrapping or handling a crash.
-
 ## Avoid
 
 - Do not embed large business helpers directly in `page.tsx` files when they
