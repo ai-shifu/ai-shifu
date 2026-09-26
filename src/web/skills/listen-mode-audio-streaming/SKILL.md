@@ -1,6 +1,6 @@
 ---
 name: listen-mode-audio-streaming
-description: 当处理听课模式的流式音频、buffering、TTS 请求门禁与播放连续性问题时使用本技能。统一音频来源选择、分段合并策略和请求触发时机。
+description: 当处理学习模式初始化、URL 与存储偏好、听课模式流式音频、buffering、TTS 请求门禁与播放连续性问题时使用本技能。
 ---
 
 # 听课模式流式音频
@@ -67,3 +67,44 @@ does not establish a reading-mode UI action; changes to visible audio controls
 need rendered component coverage. Also run `ListenModeSlideRenderer.test.tsx` when the mapping or
 playback restore contract changes. Except for the shared concurrency suite, these files live in
 `src/app/c/[[...id]]/Components/ChatUi/`.
+
+## Learning-mode initialization and restored preferences
+
+For `/c/...` initialization, inspect `src/app/c/[[...id]]/layout.tsx` and the
+adjacent `Components/learningModePreference.ts`, `learningModeUrl.ts`,
+`learningModeStorage.ts`, and `learningModeAnalytics.ts` before changing effects.
+
+- Resolve a valid modern `mode` URL value first, then the legacy `listen`
+  override, then the course-scoped stored preference, then the course default.
+  A default of `listen` requires both default-listen and TTS capability to be
+  enabled; otherwise use `read`. Preserve the helper's TTS/classroom capability
+  checks and its pending-capability behavior. Legacy `listen` is normalized into
+  `mode` without overriding an existing valid `mode` value.
+- Storage is scoped by `course_learning_mode:<course id>` and accepts `read`,
+  `listen`, or `classroom`; missing or invalid values read as null. The current
+  layout deliberately does not write an empty preference merely because a
+  default resolved without a URL override. The former instruction to persist
+  that first-load default immediately is obsolete. Explicit URL selections and
+  existing preferences use the layout's synchronization effect; pending
+  classroom resolution can defer that write. Manual switches update the URL and
+  current mode, letting the same effect persist the choice.
+- Read and retain the original stored value before synchronization writes.
+  `learner_last_learning_mode` is a restored-preference event, not an event for
+  every initialization: exclude preview, URL overrides and missing preferences.
+  Wait for required capability data, require the stored mode to equal the
+  resolved mode, and reject restoration if an explicit selection changed
+  storage while capability data was pending. Deduplicate per course within the
+  mounted layout using its existing refs. Do not classify a newly written value
+  as a previously saved choice or change the existing payload/event names.
+- Base follow-up visibility on the resolved current mode, including a capability
+  fallback from listen to read; use the [Ask placement skill](../chat-actionbar-ask-placement/SKILL.md)
+  for shared state and action-row placement.
+
+Run `learningModePreference.test.ts`, `learningModeUrl.test.ts`,
+`learningModeStorage.test.ts`, and `learningModeAnalytics.test.ts` from that
+Components directory, plus `src/__tests__/c-preview-layout.test.tsx`, with
+`npm test -- --runInBand --runTestsByPath` from `src/web`. The layout suite covers
+restoration/selection separation, URL exclusions, unavailable or delayed TTS,
+and selection while capability is pending. It does not specifically assert the
+empty-storage default-write guard; inspect that effect rather than inferring
+this coverage from the helper tests.

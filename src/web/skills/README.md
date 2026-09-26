@@ -18,7 +18,7 @@ the separate documentation-harness change.
 - [fullscreen-dialog-portal](fullscreen-dialog-portal/SKILL.md): 当 Cook Web 页面在浏览器 fullscreen 场景下需要展示基于 Dialog 的支付弹窗、设置弹窗或业务弹层时，使用本技能排查 portal 容器是否落在全屏节点外。
 - [hook-contract-refactor-safety](hook-contract-refactor-safety/SKILL.md): 当重构 hook 返回字段或参数契约时使用本技能。统一同步调用方解构与参数对象，避免大面积 TS 属性错误。
 - [interaction-user-input-defaults](interaction-user-input-defaults/SKILL.md): 当 ai-shifu 与 markdown-flow-ui 之间需要同步交互式 markdown 状态时使用本技能。将原始 `user_input` 持久化在应用状态中，把 `userInput` 传给 `ContentRender` 或 `MarkdownFlow`，并让 markdown-flow-ui 负责推导按钮、输入框和已选项默认值，避免在业务代码重复解析。
-- [listen-mode-audio-streaming](listen-mode-audio-streaming/SKILL.md): 当处理听课模式的流式音频、buffering、TTS 请求门禁与播放连续性问题时使用本技能。统一音频来源选择、分段合并策略和请求触发时机。
+- [listen-mode-audio-streaming](listen-mode-audio-streaming/SKILL.md): 当处理学习模式初始化、URL 与存储偏好、听课模式流式音频、buffering、TTS 请求门禁与播放连续性问题时使用本技能。
 - [listen-mode-slide-mobile-integration](listen-mode-slide-mobile-integration/SKILL.md): 当 learner 端听课模式需要接入 markdown-flow-ui 的移动端播放器新能力时使用本技能。覆盖横竖屏状态透传、自定义横屏 header、以及播放器文案国际化接入。
 - [markdownflow-controlled-sync](markdownflow-controlled-sync/SKILL.md): 当 ai-shifu 以受控方式接入 MarkdownFlowEditor，并出现变量中间态、临时标签或本地输入回灌问题时使用本技能。
 - [module-augmentation-guardrails](module-augmentation-guardrails/SKILL.md): 当 TypeScript 对子路径导出出现类型丢失或声明冲突时使用本技能。通过规范的 module augmentation 写法避免覆盖上游导出。
