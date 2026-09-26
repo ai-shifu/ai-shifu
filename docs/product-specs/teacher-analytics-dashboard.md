@@ -140,7 +140,9 @@ All endpoints live under `/api/dashboard` and are additive to existing routes.
 
 1. `GET /api/dashboard/entry`
    - Returns summary cards and a paginated course table.
-   - Supports course keyword and last-active date filters.
+   - Supports course keyword and UTC date-window filters. Learner/order counts
+     and course inclusion use progress/order `created_at`; progress `updated_at`
+     determines the displayed `last_active_at` only and cannot include a course.
 
 2. `GET /api/dashboard/shifus/{shifu_bid}/detail`
    - Returns course basics and aggregate metrics for the metric-card grid.
@@ -223,7 +225,7 @@ Then use the generated functions via `import api from '@/api'`.
 Dashboard surfaces:
 
 1. Dashboard entry
-   - Course keyword and last-active date filters
+   - Course keyword and UTC date-window filters with the entry contract above
    - Course, learner, order, and revenue summary cards
    - Paginated course table with course-detail and order actions
 2. Course detail
