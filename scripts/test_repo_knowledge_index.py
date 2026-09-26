@@ -118,6 +118,44 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         self.track()
         return path
 
+    def test_partial_document_staging_cannot_hide_broken_index_links(self) -> None:
+        """An unstaged link repair cannot make a broken staged document pass."""
+        self.fixture("docs/references/target.md", "# Target\n")
+        for index, suffix in enumerate(("md", "mdx", "MD")):
+            with self.subTest(suffix=suffix):
+                relative = f"docs/references/partial-{index}.{suffix}"
+                path = self.fixture(relative, "# Partial\n[Broken](missing.md)\n")
+                staged = subprocess.check_output(
+                    ["git", "show", ":" + relative], cwd=self.root
+                )
+                self.write(path, "# Partial\n[Fixed](target.md)\n")
+                link_errors: list[str] = []
+                harness.check_local_document_links([path], link_errors)
+                assert link_errors == []
+                errors: list[str] = []
+                harness.check_partially_staged_documents(errors)
+                assert len(errors) == 1
+                assert f"Partially staged document: {relative}." in errors[0]
+                assert (
+                    subprocess.check_output(
+                        ["git", "show", ":" + relative], cwd=self.root
+                    )
+                    == staged
+                )
+                self.track()
+                errors = []
+                harness.check_partially_staged_documents(errors)
+                assert errors == []
+
+    def test_staging_guard_ignores_untracked_docs_and_non_document_edits(self) -> None:
+        """The guard stays scoped to split versions of staged Markdown/MDX."""
+        path = self.fixture("notes.txt", "staged text\n")
+        self.write(path, "unstaged text\n")
+        self.write(self.root / "untracked.md", "# Draft\n")
+        errors: list[str] = []
+        harness.check_partially_staged_documents(errors)
+        assert errors == []
+
     def test_scalar_quotes_preserve_malformed_dates_and_title_apostrophes(self) -> None:
         """Unmatched quotes remain visible to the date scanner and index."""
         root = self.root / "quoted-review-fixture"

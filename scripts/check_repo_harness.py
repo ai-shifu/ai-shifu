@@ -981,8 +981,31 @@ def check_local_document_links(paths: list[Path], errors: list[str]) -> None:
                     errors.append(f"Broken local document anchor: {path}: {url}")
 
 
+def check_partially_staged_documents(errors: list[str]) -> None:
+    """Reject split document versions instead of validating unstaged fixes."""
+    try:
+        staged = subprocess.check_output(
+            ["git", "diff", "--cached", "--name-only", "-z"], cwd=ROOT, text=True
+        )
+        unstaged = subprocess.check_output(
+            ["git", "diff", "--name-only", "-z"], cwd=ROOT, text=True
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        errors.append(f"Unable to verify documentation staging: {error}")
+        return
+    partial = set(staged.split("\0")) & set(unstaged.split("\0"))
+    errors.extend(
+        f"Partially staged document: {name}. Stage the complete intended version "
+        "or set aside its unstaged edits before validation; the harness reads "
+        "working-tree contents and does not modify the index."
+        for name in sorted(partial)
+        if Path(name).suffix.lower() in {".md", ".mdx"}
+    )
+
+
 def check_documentation_contracts(errors: list[str], warnings: list[str]) -> None:
     """Check tracked sources separately from generated index freshness."""
+    check_partially_staged_documents(errors)
     paths = tracked_markdown(ROOT)
     check_skill_metadata(paths, errors)
     check_plan_lifecycle(paths, errors, warnings)
