@@ -41,14 +41,23 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 
 ## Verification
 
-The listen-mode queue in `useChatLogicHook` waits for persisted
+The listen-mode queue in `NewChatComp` waits for persisted
 `audio_backfill_ready` for newly streamed content, deduplicates in-flight blocks,
 and stops applying results after the lesson scope ends. History and committed
-new content have different eligibility; neither mode switching nor a slide
-change should create a competing backfill implementation.
+new content have different eligibility. `listenModeUtils` determines candidates,
+while `useChatLogicHook` records persisted readiness and supplies
+`requestAudioForBlock`. Neither mode switching nor a slide change should create
+a competing queue implementation.
 
-Run the adjacent `useChatLogicHook.test.tsx` cases for manual play, forced
+Run `listenModeUtils.test.ts` for candidate selection and block deduplication,
+and `src/lib/runWithConcurrency.test.ts` for bounded worker concurrency.
+`NewChatComp.test.tsx` tests imported projection/loading helpers; it does not
+render the component or verify its backfill effect orchestration. For changes
+to that effect, add focused orchestration coverage for in-flight deduplication
+and lesson-switch cancellation instead of treating these helper suites as proof.
+Run the adjacent
+`useChatLogicHook.test.tsx` cases for manual play, forced
 `listen=true` backfill, persisted-ready gating, streaming failures, and backfill
 idle timeout. Also run `ListenModeSlideRenderer.test.tsx` when the mapping or
-playback restore contract changes. These files live in
+playback restore contract changes. Except for the shared concurrency suite, these files live in
 `src/app/c/[[...id]]/Components/ChatUi/`.
