@@ -108,7 +108,7 @@
     "volcengine": "Doubao (Volcengine)"
   },
   "register": {
-    "button": "Register-Stimme",
+    "button": "Stimme registrieren",
     "cancel": "Abbrechen",
     "clearTeacher": "Veränd.",
     "description": "Nach dem Klonen einer Stimme auf der Provider-Konsole registrieren Sie hier die Voice-ID und weisen sie einem Lehrer zu. Die Stimme ist für den Lehrer kostenlos; die Registrierung überprüft die ID beim Anbieter.",
@@ -119,9 +119,9 @@
     "providerLabel": "Anbieter",
     "searchButton": "Suchen",
     "searching": "Suchen...",
-    "submit": "Register",
-    "submitting": "Registrierung...",
-    "successToast": "Eingetragene Stimme",
+    "submit": "Registrieren",
+    "submitting": "Wird registriert...",
+    "successToast": "Stimme registriert",
     "teacherLabel": "Dem Lehrer zuweisen",
     "teacherRequired": "Bitte wählen Sie zuerst einen Lehrer",
     "teacherSearchPlaceholder": "Mobil / E-Mail",
