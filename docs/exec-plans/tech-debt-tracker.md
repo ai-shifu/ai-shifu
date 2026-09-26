@@ -34,7 +34,8 @@ Each item below identifies its dependency and next evidence needed.
   acquisition acceptance remains in the active attribution plan.
 - Billing/product: decide preorder-renewal campaign eligibility, price locking,
   stacking and provider behavior. Automatic renewal remains out of scope until
-  separately decided; order reuse is owned by the active payment-attempt plan.
+  separately decided. Billing business-order timeout/reuse has its own item
+  below; the payment-attempt plan owns provider credentials within an order.
 - Authentication: broader password IP-policy changes depend on the delivered
   trusted-client-IP boundary and a separately specified policy/test matrix.
 - Architecture owners: shrink the committed boundary baseline as individual
@@ -60,6 +61,45 @@ Transferred from the completed [market-price plan](completed/course-price-market
   stable integration coverage for provider bypass, server-confirmed free unlock
   and market-aware authoring. Close this item with actual test paths/results,
   not only independent helper assertions.
+
+### Billing order timeout and reuse
+
+Owner: billing backend and product. This is the active destination for the
+completed [package-campaign plan's follow-up](completed/package-campaigns.md#follow-up-requirement-billing-order-timeout-and-reuse).
+It concerns finding, expiring and reusing `BillingOrder` rows across fresh
+subscription/top-up checkout requests. The active payment-attempt plan concerns
+provider attempts within an existing business order and does not close this work.
+
+- Credit existing implementation before proposing changes: `checkout.py` already
+  finds/reuses pending subscription orders, compares product/order/campaign and
+  provider-price identifiers, and expires stale orders. `consts.py` sets a
+  30-minute deadline; top-up creation also sets `expires_at`, and sync can expire
+  those rows. Thirteen selected subscription lifecycle/provider-boundary tests
+  passed during this review. These implemented pieces are not outstanding debt.
+- Remaining scope: `_prepare_topup_checkout` still creates a fresh business order
+  for each fresh request. Define top-up reuse and reconcile preorder eligibility
+  separately: the managed subscription-order query excludes preorder metadata.
+  Confirm the original campaign-pricing production acceptance dependency before
+  scheduling this follow-up; automated renewal remains outside scope unless
+  product explicitly includes it.
+- Decide the complete reuse key and price/campaign snapshot policy across
+  providers. Map existing identity and price guards to that decision instead of
+  assuming identifier equality proves unchanged payable amount or campaign
+  terms. Specify replacement/expiry handling for draft subscription starts
+  without changing an active subscription for upgrade/preorder attempts.
+- Reconfirm late-payment handling against current provider reconciliation before
+  implementation. The old proposal's strict timeout-terminal rule is a proposal,
+  not a current contract or authorization to discard a provider-confirmed payment.
+- Closure requires source/test evidence for subscription start, upgrade, preorder
+  and top-up as scoped: same checkout inside the window, expiry and replacement,
+  changed price/campaign snapshots, provider/channel credential refresh, duplicate
+  requests and late webhook/sync outcomes. Run the selected provider smoke after
+  the policy is approved. Existing partial timeout/reuse tests do not prove this
+  full matrix; keep unmet cases here or transfer them to a dedicated active plan.
+
+Source owners are `src/api/flaskr/service/billing/checkout.py` and `consts.py`.
+Existing checks are `test_billing_write_routes_subscription_lifecycle.py` and
+`test_checkout_provider_boundary.py` under `src/api/tests/service/billing/`.
 
 ## Completed Debt and Evidence
 
