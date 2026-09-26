@@ -34,10 +34,10 @@
     "discount": "Rabatt",
     "latestCharge": "Letzte Abbuchung",
     "paid": "Bezahlt",
-    "payable": "Zahlbar",
+    "payable": "Zu zahlen",
     "paymentAmount": "Zahlungsbetrag",
     "paymentChannel": "Zahlungskanal",
-    "paymentCreatedAt": "Zahlung erstellt bei",
+    "paymentCreatedAt": "Zahlung erstellt am",
     "paymentIntent": "Zahlungsabsicht",
     "paymentMethod": "Zahlungsmethode",
     "paymentStatus": "Zahlungsstatus",
@@ -86,9 +86,9 @@
     "mobileDuplicate": "Doppelte Telefonnummern: {numbers}. Entfernen Sie die Duplikate vor dem Import.",
     "mobileInvalidLines": "In diesen Einträgen wurde keine Telefonnummer erkannt: {values}",
     "mobileLabel": "Telefonnummer",
-    "mobileLimit": "Sie können bis zu {count} mobile Nummern auf einmal importieren",
+    "mobileLimit": "Sie können höchstens {count} Mobilnummern auf einmal importieren.",
     "mobilePlaceholder": "Telefonnummern oder Telefonnummer plus Spitzname einfügen (Zeilen werden automatisch erkannt), höchstens 50 pro Import.",
-    "mobileRequired": "Mobil ist erforderlich",
+    "mobileRequired": "Bitte geben Sie eine Mobilnummer ein.",
     "nicknameLabel": "Spitzname (optional)",
     "nicknamePlaceholder": "Spitzname eingeben",
     "partialSummary": "{successCount} erfolgreich, {failedCount} fehlgeschlagen",
@@ -144,7 +144,7 @@
     "updateSuccess": "Erfolgreich gespeichert",
     "usageTypeHelp": "Hilfe zum Einlösen des Codes",
     "usageTypeHelpGeneric": "Generisch: Ein Code kann mehrfach eingelöst werden.",
-    "usageTypeHelpSingleUse": "Ein Code pro Bestellung: Das System erstellt einen eindeutigen Subcode für jede Quote, und jeder Subcode kann einmal eingelöst werden."
+    "usageTypeHelpSingleUse": "Ein Code pro Bestellung: Das System erstellt für jeden Platz einen eigenen Untercode. Jeder Untercode kann nur einmal eingelöst werden."
   },
   "sections": {
     "activities": "Aktionen",

@@ -1,10 +1,10 @@
 {
   "__namespace__": "server.banner",
   "__flat__": {
-    "bannerPopUpCancelText": "Erforschen Sie weiter",
-    "bannerPopUpConfirmText": "Entriegeln Sie jetzt!",
-    "bannerPopUpContent": "Erhalten Sie unbegrenzten Zugang und genießen Sie stressfreies Lernen",
-    "bannerPopUpTitle": "Alle Inhalte jederzeit entsperren",
-    "bannerTitle": "Alle entsperren"
+    "bannerPopUpCancelText": "Ich lerne erst einmal weiter",
+    "bannerPopUpConfirmText": "Jetzt freischalten",
+    "bannerPopUpContent": "Schalten Sie jetzt unbegrenzte Rückfragen und weitere Vorteile frei und lernen Sie entspannt weiter.",
+    "bannerPopUpTitle": "Hier jederzeit alle Inhalte freischalten",
+    "bannerTitle": "Alles freischalten"
   }
 }

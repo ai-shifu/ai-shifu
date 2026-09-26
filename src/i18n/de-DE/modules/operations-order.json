@@ -9,9 +9,9 @@
         "failedAt": "Fehlgeschlagen",
         "failureCode": "Fehlercode",
         "failureMessage": "Grund des Versagens",
-        "grantSourceId": "Zuschußquelle-ID",
-        "grantSourceType": "Art der Zuerkennungsquelle",
-        "grantedCredits": "Zugewährte Credits",
+        "grantSourceId": "ID der Gutschriftquelle",
+        "grantSourceType": "Art der Gutschriftquelle",
+        "grantedCredits": "Gutgeschriebene Credits",
         "orderType": "Art der Bestellung",
         "paidAt": "Bezahlt am",
         "productCode": "Erzeugniscode",
@@ -20,19 +20,19 @@
       },
       "sections": {
         "creator": "Benutzerinformationen",
-        "grant": "Zuschuß-Datensatz",
+        "grant": "Gutschriftinformationen",
         "metadata": "Metadaten",
         "payment": "Zahlungsinformationen",
         "product": "Creditplan-Info",
         "summary": "Bestellinformationen"
       },
-      "title": "Detail der Gutschriftbestellung"
+      "title": "Details zur Credit-Bestellung"
     },
     "emptyList": "Keine Angaben zum Creditauftrag",
     "filters": {
       "creatorKeyword": "Benutzer",
       "creatorKeywordPlaceholderEmail": "E-Mail-Adresse",
-      "creatorKeywordPlaceholderPhone": "Mobil",
+      "creatorKeywordPlaceholderPhone": "Mobilnummer",
       "orderKind": "Art der Bestellung",
       "paymentProvider": "Anbieter",
       "productKeyword": "Erzeugnis",
@@ -52,14 +52,14 @@
         "totalOrders": "Bestellungen insgesamt"
       },
       "tooltips": {
-        "creditAmount": "Unverbrauchte Credits, die derzeit über alle Lehrerkonten für Lern-, Vorschau- und Debug-Nutzung verfügbar sind",
+        "creditAmount": "Credits, die aktuell über alle Lehrkraftkonten für Lernen, Vorschau und Debugging verfügbar sind",
         "paidAmount": "Bezahlter Betrag aus Creditaufträgen",
         "paidOrders": "Bezahlte Creditaufträge",
-        "totalOrders": "Creditaufträge insgesamt"
+        "totalOrders": "Anzahl der Credit-Bestellungen insgesamt"
       }
     },
     "paymentChannel": {
-      "checkoutSession": "Kassensitzung"
+      "checkoutSession": "Checkout-Sitzung"
     },
     "productIntervals": {
       "day": "Täglich",
@@ -68,7 +68,7 @@
     },
     "productNameFormat": "{interval} - {name}",
     "table": {
-      "creator": "Benutzer",
+      "creator": "Nutzer",
       "creditAmount": "Credits",
       "orderId": "Kennnummer des Creditauftrags",
       "orderKind": "Art der Bestellung",
@@ -111,7 +111,7 @@
     "userKeyword": "Benutzer",
     "userKeywordPlaceholder": "Mobil / E-Mail",
     "userKeywordPlaceholderEmail": "E-Mail-Adresse",
-    "userKeywordPlaceholderPhone": "Mobil"
+    "userKeywordPlaceholderPhone": "Mobilnummer"
   },
   "messages": {
     "loadCreditOrderDetailFailed": "Fehler beim Laden von Credit-Bestelldetails. Bitte versuchen Sie es später noch einmal.",
@@ -129,20 +129,20 @@
     "tooltips": {
       "paidAmount": "Bezahlter Betrag aus Lernaufträgen",
       "paidOrders": "Bezahlte Lernaufträge",
-      "totalOrders": "Lernaufträge insgesamt"
+      "totalOrders": "Anzahl der Bestellungen insgesamt"
     }
   },
   "source": {
     "couponRedeem": "Gutscheineinlösung",
     "importActivation": "Aktivierung importieren",
-    "openApi": "API-Zuschuss öffnen",
+    "openApi": "Freischaltung über Open API",
     "userPurchase": "Benutzerkauf"
   },
   "table": {
     "action": "Maßnahmen",
     "coupons": "Einlösungscode",
     "course": "Kurs",
-    "createdAt": "Erzeugt bei",
+    "createdAt": "Erstellt am",
     "discountAmount": "Rabatt",
     "empty": "Keine Bestelldaten",
     "orderId": "Bestell-ID",
@@ -159,6 +159,6 @@
     "credits": "Creditaufträge",
     "learn": "Lernaufträge"
   },
-  "title": "Auftragsverwaltung",
+  "title": "Bestellverwaltung",
   "totalCount": "{count}"
 }

@@ -4,7 +4,7 @@
     "basicInfo": {
       "chapterCount": "Kapitelzahl",
       "courseName": "Kursbezeichnung",
-      "createdAt": "Erzeugt bei",
+      "createdAt": "Erstellt am",
       "learnerCount": "Teilnehmer insgesamt",
       "status": "Kursstatus",
       "statusLabels": {
@@ -34,7 +34,7 @@
         "timeline": {
           "current": "Aktuell",
           "student": "Lernender",
-          "teacher": "Kursbeantwortung"
+          "teacher": "Antwort der KI-Lehrkraft"
         },
         "title": "Details zur Rückfrage"
       },
@@ -54,7 +54,7 @@
         "timePlaceholder": "Startzeit ~ Endzeit",
         "userKeyword": "Lernender",
         "userKeywordPlaceholderEmail": "E-Mail / Nickname",
-        "userKeywordPlaceholderPhone": "Mobil / Nickname"
+        "userKeywordPlaceholderPhone": "Mobilnummer / Nickname"
       },
       "summary": {
         "followUpCount": "Rückfragen insgesamt",
@@ -83,7 +83,7 @@
     },
     "learners": {
       "columns": {
-        "joinedAt": "Eingewechselt",
+        "joinedAt": "Beigetreten am",
         "lastLearningAt": "Letztes Lernen",
         "name": "Lernender",
         "progress": "Fortschritte",
@@ -95,14 +95,14 @@
         "lastLearningTime": "Letzte Lernzeit",
         "lastLearningTimePlaceholder": "Startzeit ~ Endzeit",
         "learningStatus": "Lernstatus",
-        "statusAll": "Insgesamt",
+        "statusAll": "Alle",
         "userKeyword": "Lernender"
       },
       "searchPlaceholderEmail": "E-Mail / Nickname",
-      "searchPlaceholderPhone": "Mobil / Nickname",
+      "searchPlaceholderPhone": "Mobilnummer / Nickname",
       "status": {
         "completed": "Abgeschlossen",
-        "learning": "Lernen",
+        "learning": "Lernt gerade",
         "notStarted": "Nicht gestartet"
       },
       "title": "Liste der Lernenden",
@@ -112,25 +112,25 @@
     },
     "learningModePerformance": {
       "columns": {
-        "averageConsumedCredits": "Avg. Verwendet pro Lernender",
+        "averageConsumedCredits": "Durchschnittlicher Creditverbrauch pro lernender Person",
         "consumedCredits": "Verwendete Credits",
-        "consumptionSpeed": "Tägliche Avg. Verwendet (7 Tage)",
+        "consumptionSpeed": "Durchschnittlicher Verbrauch pro Tag (letzte 7 Tage)",
         "mode": "Lernformat",
         "participants": "Lernende"
       },
       "empty": "Noch keine Lernformatdaten",
       "modes": {
         "classroom": "Klassenzimmer",
-        "listen": "Zuhören",
+        "listen": "Hörmodus",
         "read": "Lesen"
       },
       "scopeHint": "Vergleichen Sie den Creditverbrauch über Lese-, Hör- und Klassenzimmerformate, um zu sehen, wie Lernende diesen Kurs nutzen.",
       "title": "Lernformat"
     },
     "metrics": {
-      "completedLearners": "Vervollständiger",
-      "completionRate": "Fertigstellungsrate",
-      "learningLearners": "Lernende in Arbeit",
+      "completedLearners": "Lernende mit Kursabschluss",
+      "completionRate": "Abschlussquote",
+      "learningLearners": "Lernende, die derzeit lernen",
       "orderAmount": "Betrag",
       "orderCount": "Bestellungen",
       "rating": "Kursbewertung",
@@ -138,45 +138,45 @@
       "totalQuestions": "Folgefragen"
     },
     "metricsTooltips": {
-      "completedLearners": "Menschen, die jede Lektion in diesem Kurs abgeschlossen.",
-      "completionRate": "Der Anteil der Teilnehmer, die jede Lektion in diesem Kurs absolviert haben.",
-      "learningLearners": "Menschen, die den Kurs begonnen haben, aber noch nicht jede Lektion abgeschlossen haben.",
-      "orderAmount": "Der Gesamtbetrag, den die Benutzer für diesen Kurs bezahlt haben. Erlösungs-Code-Aufträge sind nicht enthalten.",
-      "orderCount": "Erfolgreiche Bestellungen für diesen Kurs, einschließlich bezahlter und Rücknahmecode-Bestellungen.",
+      "completedLearners": "Anzahl der Lernenden, die alle Kursinhalte abgeschlossen haben.",
+      "completionRate": "Anteil der Teilnehmenden, die alle Kursinhalte abgeschlossen haben.",
+      "learningLearners": "Anzahl der Lernenden, die mit dem Kurs begonnen, aber noch nicht alle Inhalte abgeschlossen haben.",
+      "orderAmount": "Gesamtbetrag, den Nutzerinnen und Nutzer für diesen Kurs bezahlt haben. Bestellungen mit Gutscheincode sind nicht enthalten.",
+      "orderCount": "Anzahl der erfolgreichen Bestellungen für diesen Kurs, einschließlich bezahlter Bestellungen und Gutscheincode-Bestellungen.",
       "rating": "Durchschnittliche Bewertung der Kursinhalte durch Lernende; maximal 5 Punkte.",
-      "totalQuestions": "Die Gesamtnachfragen Lernenden fragte AI während des Studiums dieses Kurses. Offen, um die Details zu sehen."
+      "totalQuestions": "Anzahl der Rückfragen, die Lernende während des Kurses an die KI gestellt haben. Klicken Sie hier, um die einzelnen Fragen anzusehen."
     },
     "ratings": {
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Kapitel",
         "chapterKeywordPlaceholder": "Kapitel/Lektionsname",
-        "commentStatus": "Bemerkung",
-        "commentStatusAll": "Insgesamt",
+        "commentStatus": "Kommentar",
+        "commentStatusAll": "Alle",
         "commentStatusCommented": "Nur mit Kommentar",
         "ratingTime": "Bewertungszeit",
         "reset": "Zurücksetzen",
         "resultCount": "Insgesamt {count}",
         "score": "Bewertung",
-        "scoreAll": "Alle Ratings",
+        "scoreAll": "Alle Bewertungen",
         "search": "Suchen",
         "timePlaceholder": "Startzeit ~ Endzeit",
         "userKeyword": "Lernender",
         "userKeywordPlaceholderEmail": "E-Mail / Nickname",
-        "userKeywordPlaceholderPhone": "Mobil / Nickname"
+        "userKeywordPlaceholderPhone": "Mobilnummer / Nickname"
       },
-      "scoreValue": "{score} Sterne",
+      "scoreValue": "{score} Punkte",
       "summary": {
         "averageScore": "Durchschnittliche Bewertung",
         "latestRatedAt": "Letzte Bewertung",
-        "ratingCount": "Bewertung",
-        "scopeHint": "Review Lektion Bewertungen und Schöpfer-relevantes Feedback, so dass Sie die Zufriedenheit Verschiebungen und Lektionen, die Verfeinerung benötigen zu erkennen.",
+        "ratingCount": "Bewertungen",
+        "scopeHint": "Sehen Sie sich Bewertungen und Kommentare zu den Kurskapiteln an, um die Zufriedenheit der Lernenden einzuschätzen und Verbesserungsbedarf zu erkennen.",
         "userCount": "Lernende, die es bewertet haben"
       },
       "table": {
         "comment": "Bemerkung",
         "empty": "Noch keine Bewertungsdaten",
-        "guestUser": "Gastlerner",
+        "guestUser": "Anonyme lernende Person",
         "lesson": "Lektion",
         "ratedAt": "Bewertungszeit",
         "score": "Bewertung",
@@ -185,27 +185,27 @@
       },
       "title": "Bewertungsdaten"
     },
-    "subtitle": "Grundlegende Kursinformationen, Schlüsselmetriken und Lernaktivitätsdaten werden alle durch Live-Reporting angetrieben.",
-    "title": "Detail des Kurses"
+    "subtitle": "Echtzeitdaten zu Kursinformationen, Kennzahlen und Lernaktivität.",
+    "title": "Kursdetails"
   },
   "entry": {
     "kpi": {
       "courses": "Kurse",
       "learners": "Lernende insgesamt",
-      "orderAmount": "Gesamtbetrag des Auftragsbetrags",
+      "orderAmount": "Gesamtbestellwert",
       "orders": "Bestellungen insgesamt"
     },
     "table": {
       "action": "Maßnahmen",
       "course": "Kurs",
       "empty": "Keine Kurse",
-      "footnote": "Kurse: {count} (Scope: Nur Daten von Kursen, die Sie erstellt haben und die Sie besitzen, sind enthalten.",
+      "footnote": "Kurse: {count} (Hinweis zum Umfang: Es zählen nur Kurse, die Sie selbst erstellt haben und für die Sie verantwortlich sind. Daten zu gemeinsam verwalteten Kursen sind nicht enthalten.)",
       "lastActive": "Zuletzt aktiv",
       "learners": "Lernende",
       "orderAmount": "Betrag",
       "orders": "Bestellungen",
       "reset": "Zurücksetzen",
-      "scopeNote": "Umfang: Es sind nur Daten aus von Ihnen erstellten und eigenen Kursen enthalten. Kollaborative Kurse sind ausgeschlossen.",
+      "scopeNote": "Es zählen nur Kurse, die Sie selbst erstellt haben und für die Sie verantwortlich sind. Daten zu gemeinsam verwalteten Kursen sind nicht enthalten.",
       "search": "Suchen",
       "searchPlaceholder": "Kurs-ID / Kurs-Name",
       "title": "Kursliste",

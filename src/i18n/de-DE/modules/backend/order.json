@@ -1,22 +1,22 @@
 {
   "__namespace__": "server.order",
   "__flat__": {
-    "checkout": "Kasse",
+    "checkout": "Zur Kasse",
     "courseNotPaid": "Kurs nicht gekauft, bitte den Kurs zuerst kaufen",
     "emailAlreadyActivated": "Email {email} ist für diesen Kurs bereits aktiviert",
     "importActivationFailed": "Diese Aktivierungszeile konnte nicht importiert werden. Überprüfen Sie die Zeilendaten und versuchen Sie es erneut.",
     "learnStatusBranch": "Zweig",
     "learnStatusCompleted": "Fertig",
-    "learnStatusInProgress": "Lernen",
+    "learnStatusInProgress": "Wird gelernt",
     "learnStatusLocked": "Gesperrt",
     "learnStatusNotStarted": "Bereit zum Lernen",
     "learnStatusRefund": "Erstattet",
     "learnStatusReset": "Zurücksetzen",
     "learnStatusUnavailable": "Nicht verfügbar",
-    "mobileAlreadyActivated": "Mobile {mobile} bereits für diesen Kurs aktiviert",
+    "mobileAlreadyActivated": "Die Mobilnummer {mobile} wurde für diesen Kurs bereits freigeschaltet.",
     "orderHasPaid": "Die Bestellung wurde bezahlt",
     "orderNotFound": "Bestellung nicht gefunden",
-    "orderPayExpired": "Diese Bestellung ist abgelaufen. Bitte geben Sie eine neue Bestellung an.",
+    "orderPayExpired": "Diese Bestellung ist abgelaufen. Bitte geben Sie eine neue Bestellung auf.",
     "orderRefundError": "Rückerstattung fehlgeschlagen",
     "orderStatusError": "Der Bestellstatus ist für diesen Vorgang ungültig.",
     "orderStatusInit": "Nicht eingeleitet",
@@ -26,7 +26,7 @@
     "orderStatusToBePaid": "Zu zahlen",
     "payItemBasePrice": "Grundpreis",
     "payItemCoupon": "Gutschein",
-    "payItemProduct": "Erzeugnis",
-    "payItemPromotion": "Förderung"
+    "payItemProduct": "Produkt",
+    "payItemPromotion": "Aktion"
   }
 }

@@ -4,10 +4,10 @@
     "couponCodeGenerationFailed": "Fehler beim Erstellen von Gutscheincodes. Bitte versuchen Sie es später noch einmal.",
     "discountAlreadyExpired": "Der Gutscheincode ist abgelaufen.",
     "discountAlreadyUsed": "Der Gutscheincode wurde verwendet.",
-    "discountLimitExceeded": "Die Gutschein-Code-Grenze überschritten.",
+    "discountLimitExceeded": "Die maximale Anzahl der Einlösungen dieses Gutscheincodes wurde erreicht.",
     "discountNotApply": "Der Gutscheincode gilt nicht für diesen Kurs.",
     "discountNotFound": "Der Gutscheincode existiert nicht.",
     "discountNotStart": "Der Gutscheincode hat noch nicht begonnen.",
-    "orderDiscountAlreadyUsed": "Bereits verwendeter Rabatt bestellen"
+    "orderDiscountAlreadyUsed": "Für diese Bestellung wurde bereits ein Gutscheincode verwendet."
   }
 }
