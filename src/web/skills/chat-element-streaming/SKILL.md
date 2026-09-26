@@ -84,3 +84,27 @@ stream-acceptance guard. Preserve the actual terminal stream handling separately
 Verify this ordering with `useChatLogicHook.test.tsx` in
 `src/app/c/[[...id]]/Components/ChatUi/`, specifically
 `keeps interaction elements that arrive after lesson completion updates`.
+
+## Preview typewriter and speaker helpers
+
+`LessonPreview.tsx` owns a separate typewriter cache and visible-item gate in
+`src/components/lesson-preview/previewTypewriterGate.ts`. Changes to the learner
+read-mode gate do not replace this preview path. Key completion state by
+`element_bid` and retain the preview's `onTypeFinished` callbacks.
+
+Only `CONTENT` items with `element_type=text` participate in this gate. When a
+text item has a cache entry, release subsequent items only after `is_final`,
+the completion callback, and the cached normalized content all agree. A text
+item with no cache is ready only when `shouldUseTypewriter !== true`, as with
+static/history items. Normalize away `custom-button-after-content` markup;
+appended text beyond a finished cache snapshot may require typing again.
+
+Preview `LIKE_STATUS` speaker/helper rows require an existing text parent and
+wait for that parent's gate. Skip helpers for missing or non-text parents,
+including HTML and interaction items. Do not reveal these helpers ahead of
+unfinished text or derive their visibility solely from the learner gate.
+
+Run `previewTypewriterGate.test.ts` for ordering, HTML-helper suppression and
+appended-text behavior. These are helper-level checks, not full rendered-panel
+coverage; verify `LessonPreview` integration when changing cache ownership or
+completion callbacks.
