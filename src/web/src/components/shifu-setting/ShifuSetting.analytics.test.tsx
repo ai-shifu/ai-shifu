@@ -841,6 +841,49 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
   });
 
+  it('clears the previous course cost while the new scope refresh is pending', async () => {
+    await configureMiniMaxSettings();
+    mockGetMinimaxTtsCloneCost.mockResolvedValue({ estimated_credits: '5' });
+    const { onSave, rerender } = renderOpenSettings();
+
+    await waitFor(() =>
+      expect(latestMiniMaxDialogProps().cloneCost).toEqual({
+        estimated_credits: '5',
+      }),
+    );
+
+    const currentCourseCost = createDeferred<{ estimated_credits: string }>();
+    mockGetMinimaxTtsCloneCost.mockReturnValue(currentCourseCost.promise);
+    rerender(
+      <ShifuSettingDialog
+        shifuId='course-2'
+        openSignal='analytics-test'
+        onSave={onSave}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        mockGetMinimaxTtsCloneCost.mock.calls.some(
+          ([args]) => args.shifu_bid === 'course-2',
+        ),
+      ).toBe(true),
+    );
+    expect(latestMiniMaxDialogProps().cloneCost).toBeNull();
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneCostUnavailable'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      currentCourseCost.resolve({ estimated_credits: '9' });
+      await currentCourseCost.promise;
+    });
+    await waitFor(() =>
+      expect(latestMiniMaxDialogProps().cloneCost).toEqual({
+        estimated_credits: '9',
+      }),
+    );
+  });
+
   it('does not let a retained refresh callback restore the previous course scope', async () => {
     await configureMiniMaxSettings();
     const costRequests = new Map<

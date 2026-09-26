@@ -771,6 +771,7 @@ export default function ShifuSettingDialog({
     minimaxCloneCostRefreshSeqRef.current++;
     minimaxCloneCostRefreshInFlightRef.current = null;
     minimaxCloneCostUnavailableReportedRef.current = false;
+    setMinimaxCloneCost(null);
     setMinimaxCloneCostRefreshResult(null);
   }, [resolvedProvider, shifuId]);
   useEffect(() => {
