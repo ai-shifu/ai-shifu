@@ -97,11 +97,24 @@ Both symptoms were one gap seen from two sides: the browser cannot carry a 2.0 l
 
 ## Plan of Work
 
-The delivered engine/service integration carries committed lesson context into the next lesson while keeping outlines, interaction state and persistence scoped correctly. Deterministic simulation and recorded live continuation cover the original behavior.
+The delivered host loop runs additional turns of the same lesson within one
+request while the previous outcome is `end` and has taught content. It stops
+when a turn waits, finishes, errors, or ends without teaching more. The engine
+suppresses repeated prior-turn text and output after `finish` on host-initiated
+continue turns; revisiting a finished session runs no turn and writes no new rows.
+This is not context transfer between lessons. Deterministic simulations and the
+recorded live continuation runs cover that same-lesson boundary.
 
 ## Concrete Steps
 
-For a continuation regression, inspect the engine and learner-agent tests referenced in Validation and Acceptance, then run the offline engine suite: `cd src/api && python -m pytest tests/service/learn/agent/engine/ -q`. Reproduce the multi-lesson transition before changing memory transfer.
+For a continuation regression, reproduce a content-only lesson that needs
+another turn inside the same request, then verify wait/finish and empty-turn
+termination, repeat/after-finish suppression, and a finished-session revisit with
+no new rows. Run `tests/service/learn/agent/engine/`,
+`tests/service/learn/agent/test_lesson_entry_contracts.py`, and
+`tests/service/learn/agent/test_run_agent.py` with `python -m pytest ... -q` from
+`src/api`. Keep the request turn loop and engine suppression boundary separate
+from unrelated cross-lesson memory work.
 
 ## Idempotence and Recovery
 
