@@ -65,8 +65,10 @@ description: 当 ai-shifu 聊天流从 block 粒度向 element 粒度演进，�
 
 ## Timeout verification
 
-Keep the constants and timer behavior aligned with
-`src/app/c/[[...id]]/Components/ChatUi/useChatLogicHook.test.tsx`: desktop idle
-expiry, the longer mobile allowance, activity resets, cancellation, and the
-separate TTS backfill timeout. Read the constants when changing timing; a past
-incident's shorter threshold is not a current runtime contract.
+`src/app/c/[[...id]]/Components/ChatUi/useChatLogicHook.test.tsx` has fake-timer
+cases for the 15-second desktop idle expiry, the 60-second mobile allowance,
+and the separate 120-second TTS backfill timeout before the first SSE message.
+It does not currently prove that activity resets the deadline or that a
+cancelled/settled run cannot time out afterward. Add those focused timer cases
+when changing reset or cleanup behavior. Read the current constants before
+changing timing; a past incident's shorter threshold is not the runtime contract.
