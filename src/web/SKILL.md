@@ -31,5 +31,4 @@ replacement and retained business code.
 
 Add a focused skill only for a recurring workflow. Its `SKILL.md` must declare
 `name` and a concrete trigger in `description`; keep reference details there,
-then update the catalog in the same change. Until the separate documentation-
-harness generator change lands, these catalogs are maintained manually.
+then regenerate the catalog instead of adding another hand-maintained list.

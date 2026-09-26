@@ -6,7 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
+import sys
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,13 +77,28 @@ def parse_frontmatter(path: Path) -> dict[str, str]:
     if not match:
         return {}
     metadata: dict[str, str] = {}
+    current_key = ""
     for raw_line in match.group(1).splitlines():
         line = raw_line.strip()
-        if not line or ":" not in line:
+        if not line:
             continue
-        key, value = line.split(":", 1)
-        metadata[key.strip()] = unquote_frontmatter_scalar(value)
-    return metadata
+        if raw_line[0].isspace() and current_key:
+            metadata[current_key] += " " + line
+        elif ":" in line:
+            key, value = line.split(":", 1)
+            current_key = key.strip()
+            metadata[current_key] = (
+                "" if value.strip() in {"|", ">", "|-", ">-"} else value.strip()
+            )
+    return {key: unquote_frontmatter_scalar(value) for key, value in metadata.items()}
+
+
+def parse_review_date(value: str) -> date:
+    """Parse the shared YYYY-MM-DD review-date contract used by both checkers."""
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        message = "Review dates must use YYYY-MM-DD"
+        raise ValueError(message)
+    return date.fromisoformat(value)
 
 
 def extract_title(path: Path) -> str:
@@ -92,11 +110,180 @@ def extract_title(path: Path) -> str:
     return path.stem.replace("-", " ").title()
 
 
+def tracked_markdown_modes(root: Path | None = None) -> dict[Path, str]:
+    """Keep Git's document types even when aliases are checked out as plain files."""
+    root = ROOT if root is None else root
+    output = subprocess.check_output(
+        ["git", "ls-files", "-v", "--stage", "-z"], cwd=root, text=True
+    )
+    modes: dict[Path, str] = {}
+    for entry in output.split("\0"):
+        if not entry:
+            continue
+        attributes, name = entry.split("\t", 1)
+        flag, mode, _object_id, stage = attributes.split()
+        path = root / name
+        if (
+            stage == "0"
+            and path.suffix.lower() in {".md", ".mdx"}
+            and mode in {"100644", "100755", "120000"}
+        ):
+            if not (path.is_file() or path.is_symlink()):
+                if flag.upper() != "S":
+                    continue
+                message = (
+                    f"Tracked document unavailable: {path}. Restore tracked documents "
+                    "(disable incomplete sparse checkout) or stage intended deletions "
+                    "before generating or validating repository knowledge."
+                )
+                raise FileNotFoundError(message)
+            modes[path] = mode
+    return modes
+
+
+def tracked_markdown(root: Path | None = None) -> list[Path]:
+    """List tracked Markdown/MDX sources, including staged additions and aliases."""
+    return sorted(tracked_markdown_modes(root))
+
+
+def tracked_source_markdown(root: Path | None = None) -> list[Path]:
+    """Keep canonical-source consumers independent of alias checkout representation."""
+    return sorted(
+        path for path, mode in tracked_markdown_modes(root).items() if mode != "120000"
+    )
+
+
+def focused_skills(paths: list[Path]) -> list[Path]:
+    """Select dedicated skills while leaving routing SKILL files as navigation."""
+    sources = set(tracked_source_markdown())
+    return [
+        path
+        for path in paths
+        if path in sources
+        and path.name == "SKILL.md"
+        and path.parent.parent.name == "skills"
+    ]
+
+
+def build_tracked_records() -> list[DocRecord]:
+    """Classify every tracked document without inventing review dates."""
+    records: list[DocRecord] = []
+    canonical_roots = {
+        "ARCHITECTURE.md",
+        "PLANS.md",
+        "docs/engineering-baseline.md",
+        "docs/QUALITY_SCORE.md",
+        "docs/RELIABILITY.md",
+        "docs/SECURITY.md",
+    }
+    for path, mode in sorted(tracked_markdown_modes().items()):
+        rel = rel_doc(path)
+        is_alias = mode == "120000"
+        metadata = {} if is_alias else parse_frontmatter(path)
+        title = path.name if is_alias else metadata.get("title") or extract_title(path)
+        category, status = "reference", "reference"
+        canonical = "true" if rel in canonical_roots else "false"
+        if is_alias or rel == ".github/copilot-instructions.md":
+            category, status = "alias", "alias"
+        elif path.name == "AGENTS.md":
+            category, status, canonical = "instruction", "current", "true"
+        elif path.name == "SKILL.md":
+            category = (
+                "skill" if path.parent.parent.name == "skills" else "skill-router"
+            )
+            status = "current"
+            canonical = "true" if category == "skill" else "false"
+        elif rel.startswith("docs/history/"):
+            category, status = "history", "historical"
+        elif rel.startswith("docs/exec-plans/active/"):
+            category, status, canonical = "exec-plan-active", "active", "true"
+        elif rel.startswith("docs/exec-plans/completed/"):
+            category, status = "exec-plan-completed", "completed"
+        elif GENERATED_COMMENT in path.read_text(encoding="utf-8"):
+            category, status = "generated-doc", "generated"
+        elif rel.startswith("docs/design-docs/"):
+            category, canonical = "design-doc", "true"
+        elif rel.startswith("docs/product-specs/"):
+            category, canonical = "product-spec", "true"
+        elif rel.startswith("docs/references/"):
+            canonical = "true"
+        elif rel == "docs/exec-plans/tech-debt-tracker.md":
+            category, status, canonical = "exec-plan-support", "active", "true"
+        records.append(
+            DocRecord(
+                path=path,
+                title=title,
+                category=category,
+                status=(
+                    status
+                    if category in {"exec-plan-active", "exec-plan-completed"}
+                    else metadata.get("status") or status
+                ),
+                owner_surface=metadata.get("owner_surface")
+                or (
+                    "frontend"
+                    if rel.startswith("src/web/")
+                    else "backend"
+                    if rel.startswith("src/api/")
+                    else "repo"
+                ),
+                last_reviewed=metadata.get("last_reviewed", ""),
+                # Plan location owns lifecycle and authority despite stale metadata.
+                canonical=(
+                    canonical
+                    if category in {"exec-plan-active", "exec-plan-completed"}
+                    else metadata.get("canonical") or canonical
+                ),
+            )
+        )
+    return records
+
+
+def render_skill_catalog(surface: str, skills: list[Path]) -> str:
+    """Generate one discoverable catalog from focused skill metadata."""
+    label = "Backend" if surface == "api" else "Frontend"
+    lines = [
+        GENERATED_COMMENT,
+        "",
+        f"# {label} Skills",
+        "",
+        "Derived from the focused SKILL.md name and description metadata.",
+        "",
+    ]
+    for path in skills:
+        metadata = parse_frontmatter(path)
+        name = metadata.get("name", path.parent.name)
+        description = metadata.get("description", "")
+        lines.append(f"- [{name}]({path.parent.name}/SKILL.md): {description}")
+    return "\n".join(lines) + "\n"
+
+
+def snapshot_provenance() -> list[str]:
+    """Identify a local/CI working-tree snapshot without claiming test success."""
+    try:
+        revision = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except subprocess.CalledProcessError:
+        revision = "unavailable (no commit)"
+    generated_at = (
+        datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    )
+    return [
+        f"- Generated at (UTC): `{generated_at}`",
+        f"- Checkout HEAD: `{revision}`",
+        "- Scope: current working tree; local edits may differ from HEAD.",
+    ]
+
+
 def build_frontmatter_records(category_dir: Path, category: str) -> list[DocRecord]:
     """Build category-tagged records for non-index Markdown files in one metadata directory."""
     records: list[DocRecord] = []
-    for path in sorted(category_dir.glob("*.md")):
-        if path.name == "index.md":
+    for path in tracked_source_markdown():
+        if path.parent != category_dir or path.name == "index.md":
             continue
         metadata = parse_frontmatter(path)
         title = metadata.get("title") or extract_title(path)
@@ -117,8 +304,8 @@ def build_frontmatter_records(category_dir: Path, category: str) -> list[DocReco
 def build_reference_records() -> list[DocRecord]:
     """Build canonical reference records for Markdown files under docs/references."""
     records: list[DocRecord] = []
-    for path in sorted((DOCS_ROOT / "references").glob("*.md")):
-        if path.name == "index.md":
+    for path in tracked_source_markdown():
+        if path.parent != DOCS_ROOT / "references" or path.name == "index.md":
             continue
         records.append(
             DocRecord(
@@ -147,7 +334,8 @@ def build_execplan_records(subdir: str, status: str) -> list[DocRecord]:
             last_reviewed="",
             canonical="true",
         )
-        for path in sorted(plan_dir.glob("*.md"))
+        for path in tracked_source_markdown()
+        if path.parent == plan_dir and path.name != "index.md"
     ]
     return records
 
@@ -278,6 +466,8 @@ def render_harness_health_report(
         "",
         "# Harness Health",
         "",
+        *snapshot_provenance(),
+        "",
         "This generated report summarizes the repository harness control plane.",
         "",
         "> Local snapshot of the working tree; it may be stale after edits or a branch switch.",
@@ -312,6 +502,7 @@ def render_harness_health_report(
 
 def build_harness_health_report() -> str:
     """Build an optional health snapshot directly from the current working tree."""
+    tracked_markdown_modes()
     return render_harness_health_report(
         design_records=build_frontmatter_records(
             DOCS_ROOT / "design-docs", "design-doc"
@@ -336,89 +527,9 @@ def build_knowledge_docs() -> dict[Path, str]:
     completed_plans = build_execplan_records("completed", "completed")
     tracker = DOCS_ROOT / "exec-plans" / "tech-debt-tracker.md"
 
-    all_records = (
-        design_records
-        + product_records
-        + reference_records
-        + active_plans
-        + completed_plans
-        + [
-            DocRecord(
-                path=ROOT / "ARCHITECTURE.md",
-                title="AI-Shifu Architecture Map",
-                category="root-doc",
-                status="reference",
-                owner_surface="repo",
-                last_reviewed="2026-04-17",
-                canonical="true",
-            ),
-            DocRecord(
-                path=ROOT / "PLANS.md",
-                title="AI-Shifu ExecPlans",
-                category="root-doc",
-                status="reference",
-                owner_surface="repo",
-                last_reviewed="2026-04-17",
-                canonical="true",
-            ),
-            DocRecord(
-                path=DOCS_ROOT / "engineering-baseline.md",
-                title="Engineering Baseline",
-                category="root-doc",
-                status="reference",
-                owner_surface="repo",
-                last_reviewed="2026-04-17",
-                canonical="true",
-            ),
-            DocRecord(
-                path=DOCS_ROOT / "QUALITY_SCORE.md",
-                title="Quality Score",
-                category="root-doc",
-                status="reference",
-                owner_surface="repo",
-                last_reviewed="2026-04-17",
-                canonical="true",
-            ),
-            DocRecord(
-                path=DOCS_ROOT / "RELIABILITY.md",
-                title="Reliability",
-                category="root-doc",
-                status="reference",
-                owner_surface="repo",
-                last_reviewed="2026-04-17",
-                canonical="true",
-            ),
-            DocRecord(
-                path=DOCS_ROOT / "SECURITY.md",
-                title="Security",
-                category="root-doc",
-                status="reference",
-                owner_surface="repo",
-                last_reviewed="2026-04-17",
-                canonical="true",
-            ),
-            DocRecord(
-                path=tracker,
-                title="Tech Debt Tracker",
-                category="exec-plan-support",
-                status="active",
-                owner_surface="repo",
-                last_reviewed="2026-04-17",
-                canonical="true",
-            ),
-            DocRecord(
-                path=GARDENING_SUMMARY_PATH,
-                title="Harness Gardening Summary",
-                category="generated-doc",
-                status="reference",
-                owner_surface="repo",
-                last_reviewed="2026-04-17",
-                canonical="true",
-            ),
-        ]
-    )
+    all_records = build_tracked_records()
 
-    return {
+    documents = {
         DOCS_ROOT / "design-docs" / "index.md": render_section_index(
             "Design Docs",
             "Implementation and architecture decisions that shape repository "
@@ -443,6 +554,14 @@ def build_knowledge_docs() -> dict[Path, str]:
         ),
     }
 
+    skills = focused_skills([record.path for record in all_records])
+    for surface in ("api", "web"):
+        directory = ROOT / "src" / surface / "skills"
+        documents[directory / "README.md"] = render_skill_catalog(
+            surface, [path for path in skills if path.parent.parent == directory]
+        )
+    return documents
+
 
 def write_documents(*, health_only: bool = False) -> int:
     """Refresh the ignored health report and, by default, version-controlled indexes."""
@@ -464,7 +583,11 @@ def main() -> int:
         help="Refresh only docs/generated/harness-health.md without changing tracked indexes.",
     )
     args = parser.parse_args()
-    return write_documents(health_only=args.health_only)
+    try:
+        return write_documents(health_only=args.health_only)
+    except FileNotFoundError as error:
+        print(error, file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
