@@ -54,8 +54,9 @@ synchronization plus success side effects.
 
 ## Interfaces and Dependencies
 
-This is stacked on PR #2854 until that PR merges. No schema, response, or
-deployment configuration changes.
+This work was originally stacked on PR #2854. That dependency merged on
+2026-09-20 (`a2888f662`), followed by this scope in #2857 (`56e1e884b`).
+No schema, response, or deployment configuration changes were required.
 
 ## Surprises & Discoveries
 
