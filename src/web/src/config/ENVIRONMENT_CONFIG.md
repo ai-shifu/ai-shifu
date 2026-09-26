@@ -9,15 +9,15 @@ The frontend has two configuration requests with different owners:
 | `/api/config`         | Next.js (`src/app/api/config/route.ts`)  | Only `apiBaseUrl`; locates the backend.                                                         |
 | `/api/runtime-config` | Flask (`src/api/flaskr/route/config.py`) | Public login, payment, branding, legal, and analytics settings in the shared response envelope. |
 
-[initializeEnvData.ts](../../lib/initializeEnvData.ts) loads the backend payload
-into [envStore.ts](../../store/envStore.ts). Components consume that store.
+[initializeEnvData.ts](../lib/initializeEnvData.ts) loads the backend payload
+into [envStore.ts](../store/envStore.ts). Components consume that store.
 [environment.ts](environment.ts) supplies bootstrap defaults; it is not a second
 browser configuration service. A successful Next `/api/config` fallback proves
 only backend-location discovery, not that runtime settings loaded successfully.
 
 ## Frontend Environment
 
-For local setup, follow the [frontend README](../../../README.md). Put the
+For local setup, follow the [frontend README](../../README.md). Put the
 backend origin in `src/web/.env.local`, without an `/api` suffix:
 
 ```dotenv
@@ -41,7 +41,7 @@ changes; rebuild when changing a browser build-time fallback.
 On custom domains the Next route may return an empty base so the browser uses
 same-origin `/api` ingress. Localhost frontend/backend origins retain the
 configured backend base even when their ports differ. See
-[route-utils.ts](../../app/api/config/route-utils.ts) and its tests for the host
+[route-utils.ts](../app/api/config/route-utils.ts) and its tests for the host
 comparison contract. The development proxy is described in the frontend README.
 
 ## Backend Runtime Settings
@@ -67,7 +67,7 @@ The public response is an allowlisted projection, not an environment dump.
 
 Legal suffixes use uppercase locale codes with underscores, for example
 `EN_US` and `ZH_CN`. Supported locales are defined by
-[locales.json](../../../../i18n/locales.json); the backend DTO and route enumerate
+[locales.json](../../../i18n/locales.json); the backend DTO and route enumerate
 the supported legal fields. Missing configuration is returned as an empty URL;
 UI fallback behavior belongs to the legal-link components.
 
