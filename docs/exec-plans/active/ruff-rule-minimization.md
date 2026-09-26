@@ -18,11 +18,11 @@ plan's progress update for that rule.
 ## Progress
 
 - [x] 2026-09-26: Reconciled merged rule units against the main baseline; the dated journal preserves per-rule commits and regression evidence.
-- [ ] Re-run the census after each merged rule unit and choose the next smallest
+- [ ] 2026-09-26: Re-run the census after each merged rule unit and choose the next smallest
   behaviorally safe unit.
-- [ ] Collapse the explicit selection to `select = ["ALL"]` once every stable
+- [ ] 2026-09-26: Collapse the explicit selection to `select = ["ALL"]` once every stable
   rule is either clean or represented by a necessary, documented exception.
-- [ ] Move this plan to `docs/exec-plans/completed/` after the final stacked PR
+- [ ] 2026-09-26: Move this plan to `docs/exec-plans/completed/` after the final stacked PR
   is merged and the full acceptance suite passes.
 
 ## Surprises & Discoveries

@@ -82,7 +82,7 @@ Meaningful focused evidence (runs may overlap; do not sum them as unique cases):
 | Ask store, active projection, AskBlock and chat hook | 4 suites, 124 tests |
 | Reading projection helpers, listen candidates and concurrency utility | 3 suites, 50 tests; not component queue-orchestration coverage |
 | Shared analytics delivery | 1 suite, 10 tests |
-| Knowledge generator/validator | 22 regression fixtures |
+| Knowledge generator/validator | 24 regression fixtures |
 | Existing instruction boundary checks | 28 fixtures |
 | Focused skill metadata | 20 skills accepted by the skill validator |
 | Determinism | Repeated generation has identical committed output; only ignored reports carry run time |
@@ -95,7 +95,9 @@ ready, and distinguished implemented hydration guards from a stronger freshness
 guarantee. The root instruction now preserves shared contract coordination for
 all producers and consumers. Missing bootstrap, queue-orchestration, hydration,
 and timer-reset/cleanup coverage is stated explicitly rather than counted as
-existing tests. No application behavior or event payload was changed.
+existing tests. Partially staged Markdown/MDX is rejected so an unstaged repair
+cannot hide a broken pending commit; the guard never changes the index.
+No application behavior or event payload was changed.
 
 The tooling snapshot also passed an explicitly dispatched
 [Static Checks run](https://github.com/ai-shifu/ai-shifu/actions/runs/36208576710).
