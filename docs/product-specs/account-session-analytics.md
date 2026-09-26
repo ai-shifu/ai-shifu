@@ -116,7 +116,7 @@ rejected unless the terminal states are recorded separately.
 
 Examples for a single UTC month: a user with three single revocations counts
 once in single-only; a user with two bulk revocations counts once in bulk-only;
-a user with either kind at least once counts once in both. With one user in
+a user with both kinds at least once counts once in both. With one user in
 each group, each share is 1/3. A failed request belongs to none of the groups.
 
 The existing event payload allowlist is unchanged: `surface` is on
