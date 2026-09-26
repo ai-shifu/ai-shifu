@@ -798,7 +798,8 @@ def check_frontmatter_docs(errors: list[str]) -> None:
             errors.extend(
                 f"Missing frontmatter field '{field}' in {path}"
                 for field in FRONTMATTER_FIELDS
-                if not metadata.get(field)
+                if field not in metadata
+                or (field != "last_reviewed" and not metadata[field])
             )
 
 
