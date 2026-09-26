@@ -84,11 +84,15 @@ Use the backend names in the table instead.
 
 ## Verification
 
-From `src/web`, run the existing configuration and bootstrap tests:
+From `src/web`, run the configuration-parser and Next configuration-route tests:
 
 ```bash
-npm test -- --runInBand src/config/ src/app/api/config/ src/lib/initializeEnvData
+npm test -- --runInBand --runTestsByPath src/config/environment.test.ts src/app/api/config/route.test.ts
 ```
+
+`initializeEnvData.ts` has no dedicated test suite. These tests do not verify
+its backend payload mapping, fallback behavior, or store updates; changes to
+that bootstrap path need focused regression coverage.
 
 In a local running setup, inspect the two requests separately: Next should
 return the expected backend base; Flask should return the configured public
