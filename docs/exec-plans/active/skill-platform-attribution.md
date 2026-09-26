@@ -1,5 +1,7 @@
 # Skill Channel Analytics Through Umami
 
+> Lifecycle review, 2026-09-26: Backend #2916 and browser #2934 are merged. The separate Skills producer delivery and end-to-end acquisition report remain external dependencies.
+
 ## Purpose / Big Picture
 
 AI Shifu needs product analytics that show which controlled Skill package
@@ -25,7 +27,8 @@ acceptable; changing the business operation because tracking failed is not.
   migrations, database reports, and course payload coupling from this branch.
 - [x] Added focused validation for accepted/rejected attribution and the
   ephemeral device-session round trip.
-- [ ] Complete and merge the Skills producer and Cook Web Umami consumer PRs.
+- [x] 2026-09-26: Confirmed merged backend #2916 and browser consumer #2934.
+- [ ] Verify delivery of the separate Skills producer and the resulting end-to-end acquisition report; this repository does not establish that external delivery.
 
 ## Decision Log
 
@@ -108,3 +111,15 @@ The optional device request context is:
 `handoff_id` correlates only the expiring authorization request and is never an
 Umami dimension. The release pipeline writes `AI_SHIFU_HOST_PLATFORM` into each
 controlled package; direct installations use `direct`.
+
+## Surprises & Discoveries
+
+The local backend and browser producer/consumer changes merged separately from the external Skills producer. A repository merge cannot establish end-to-end handoff delivery.
+
+## Outcomes & Retrospective
+
+Backend #2916 and browser attribution #2934 are merged. The external Skills producer and acquisition-report acceptance remain open; existing device authorization payload fields are unchanged by this documentation audit.
+
+## Concrete Steps
+
+Verify the external Skills release revision and handoff behavior, then exercise the existing device authorization and acquisition-report path in a controlled environment. Record aggregate outcomes without handoff identifiers or credentials.

@@ -452,7 +452,7 @@ analytics.
 - AI compatibility: the AI guide and installation-instruction-copy path uses its
   own event family and never emits a manual create attempt, result, or cancel.
   Its current contract is documented in the
-  [AI course-entry plan](../exec-plans/active/lobster-course-entry-analytics.md);
+  [AI course-entry plan](../exec-plans/completed/lobster-course-entry-analytics.md);
   historical
   `creation_path=ai_assistant` results describe only the former handoff and must
   not be combined with confirmed manual course creation.

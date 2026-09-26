@@ -12,10 +12,16 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-26` | Canonical: `true`
 - [Embedded Gemini Live Follow-Up Analytics](../product-specs/gemini-live-follow-up-analytics.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-16` | Canonical: `true`
+- [Language Selection Analytics](../product-specs/language-selection-analytics.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Learner Listen Playback and Timeline](../product-specs/learner-listen-playback.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-26` | Canonical: `true`
 - [MDFlow Element Backfill](../product-specs/mdflow-element-backfill.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Mobile 404 Follow-up: Sequencing Improvement Plan](../product-specs/mobile-404-sequencing-followup.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-04-17` | Canonical: `true`
+- [Notification Management Analytics](../product-specs/notification-management-analytics.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
 - [Operator Course Detail Page](../product-specs/operator-course-detail-page.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-13` | Canonical: `true`
 - [Operator Role Design](../product-specs/operator-role.md)

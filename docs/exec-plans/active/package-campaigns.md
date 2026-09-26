@@ -1,5 +1,7 @@
 # ExecPlan: Package Campaigns
 
+> Lifecycle review, 2026-09-26: The V1 change merged in #1889. Reconcile original pricing/grant acceptance evidence before closure; order reuse and preorder-renewal pricing are separate business-rule follow-ups.
+
 ## Purpose / Big Picture
 
 Add an operator-facing `套餐活动` tab under the existing `优惠活动` page so
@@ -18,9 +20,9 @@ eligibility is captured as a follow-up business-rule iteration.
 - [x] 2026-05-18 11:10 CST: Refined the package campaign modal for per-product activity rules, hid the trial plan option, and constrained the dialog plus product area with internal scrolling and icon-based collapse.
 - [x] 2026-06-08 13:35 CST: Captured the follow-up order-timeout requirement separately from package campaign launch so future work can decide whether pending orders lock price or reprice.
 - [x] 2026-06-08 15:05 CST: Captured the desired follow-up rule that user-initiated preorder renewal should be able to enjoy active package campaign pricing, while automatic renewal executor orders remain out of scope until separately decided.
-- [ ] 2026-05-17 13:10 CST: Add the `套餐活动` admin tab, modal forms, and status actions.
-- [ ] 2026-05-17 13:10 CST: Apply campaign pricing / bonus logic in checkout and paid-order grant side effects.
-- [ ] 2026-05-17 13:10 CST: Add focused tests and run the smallest relevant verification commands.
+- [x] 2026-09-26: Confirmed #1889 delivered the `套餐活动` admin tab, modal forms, and status actions.
+- [x] 2026-09-26: Confirmed #1889 applied campaign pricing / bonus logic in checkout and paid-order grant side effects.
+- [ ] 2026-09-26: Reconcile original focused pricing, bonus-grant and operator UI acceptance evidence before closure; distinguish V1 from later renewal-policy changes.
 
 ## Surprises & Discoveries
 
@@ -74,7 +76,7 @@ eligibility is captured as a follow-up business-rule iteration.
 
 ## Outcomes & Retrospective
 
-- Pending.
+V1 implementation merged in #1889. Original acceptance needs explicit reconciliation before archival. Order reuse is tracked by the payment-attempt lifecycle plan; campaign eligibility for preorder renewal remains a separate business-rule proposal in the debt tracker.
 
 ## Context and Orientation
 

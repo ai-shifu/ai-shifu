@@ -416,7 +416,7 @@ courses still referencing it automatically resume using it. Do not reuse numbers
 without considering those references. Existing physical-model callers and Live
 voice follow-up retain their separate contracts.
 
-See the [numbered-model deployment runbook](docs/exec-plans/active/numbered-course-models.md#deployment-runbook).
+See the [numbered-model deployment runbook](docs/exec-plans/completed/numbered-course-models.md#deployment-runbook).
 Do not roll back to a build that treats newly saved numeric choices as physical IDs.
 
 ## Upgrading existing profile-onboarding prompts for Spanish

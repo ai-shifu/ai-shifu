@@ -1,5 +1,7 @@
 # 老带新邀请奖励实施计划
 
+> Lifecycle review, 2026-09-26: Awaiting dev02 saved-row and product-configuration acceptance; do not infer it from merged implementation.
+
 ## Purpose / Big Picture
 
 基于可配置 referral campaign，实现 AI 师傅第一版“老用户邀请新用户”奖励链路。老用户获得邀请码和邀请链接；新手机号注册用户可以在注册时绑定一个邀请人；首发活动中，每个有效邀请给邀请人发放 1 个月配置好的 199 元套餐权益，最多 12 个月。
