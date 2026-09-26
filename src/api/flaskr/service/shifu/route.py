@@ -58,7 +58,6 @@ from flaskr.api.llm.model_selection import (
     selection_model,
 )
 from flaskr.common.config import get_config
-from flaskr.common.http import sensitive_body
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.framework.plugin.inject import inject
@@ -144,7 +143,6 @@ from flaskr.service.user.repository import (
 from flaskr.service.user.utils import (
     get_user_language,
 )
-from werkzeug.datastructures import FileStorage
 
 from .funcs import (
     get_video_info,
@@ -166,14 +164,6 @@ class ShifuPermission(Enum):
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
-
-
-def _read_bounded_upload(file: FileStorage, *, max_bytes: int) -> bytes:
-    """Read at most one overflow byte so oversized uploads stay memory-bounded."""
-    content = file.stream.read(max_bytes + 1)
-    if len(content) > max_bytes:
-        raise_param_error("audio file is too large")
-    return content
 
 
 class ShifuTokenValidation:
@@ -2412,17 +2402,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             }
         )
 
-    @app.route(path_prefix + "/tts/minimax/voices/clone-cost", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def minimax_tts_clone_cost_api() -> str:
-        from flaskr.service.tts.api import build_minimax_clone_cost
-
-        user_id = request.user.user_id
-        shifu_bid = (request.args.get("shifu_bid") or "").strip()
-        return make_common_response(
-            build_minimax_clone_cost(app, creator_bid=user_id, shifu_bid=shifu_bid)
-        )
-
     @app.route(path_prefix + "/tts/minimax/voices/validate-id", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
     def validate_minimax_tts_voice_id_api() -> str:
@@ -2437,99 +2416,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 "voice_id": voice_id,
                 "valid": is_valid_minimax_custom_voice_id(voice_id),
             }
-        )
-
-    from flaskr.service.tts.api import MINIMAX_CLONE_REQUEST_MAX_BYTES
-
-    @app.route(path_prefix + "/tts/minimax/voices/clone", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
-    @sensitive_body(max_bytes=MINIMAX_CLONE_REQUEST_MAX_BYTES)
-    def clone_minimax_tts_voice_api() -> Response:
-        from flaskr.service.tts.api import (
-            MINIMAX_CLONE_PROMPT_MAX_BYTES,
-            MINIMAX_CLONE_SOURCE_MAX_BYTES,
-            serialize_minimax_cloned_voice,
-            submit_minimax_voice_clone,
-        )
-
-        source_file = request.files.get("source_audio")
-        if source_file is None:
-            raise_param_error("source_audio is required")
-        prompt_file = request.files.get("prompt_audio")
-        row = submit_minimax_voice_clone(
-            app,
-            owner_user_bid=request.user.user_id,
-            shifu_bid=(request.form.get("shifu_bid") or "").strip(),
-            display_name=(request.form.get("display_name") or "").strip(),
-            voice_id=(request.form.get("voice_id") or "").strip(),
-            source_audio_bytes=_read_bounded_upload(
-                source_file,
-                max_bytes=MINIMAX_CLONE_SOURCE_MAX_BYTES,
-            ),
-            source_filename=source_file.filename or "recording.webm",
-            source_content_type=source_file.content_type or "",
-            source_capture_method=(
-                request.form.get("source_capture_method") or "upload"
-            ).strip(),
-            prompt_audio_bytes=(
-                _read_bounded_upload(
-                    prompt_file,
-                    max_bytes=MINIMAX_CLONE_PROMPT_MAX_BYTES,
-                )
-                if prompt_file is not None
-                else None
-            ),
-            prompt_filename=prompt_file.filename if prompt_file is not None else "",
-            prompt_content_type=(
-                prompt_file.content_type if prompt_file is not None else ""
-            ),
-        )
-        return current_app.response_class(
-            response=make_common_response(serialize_minimax_cloned_voice(row)),
-            status=202,
-            mimetype="application/json",
-        )
-
-    @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def get_minimax_tts_voice_api(voice_bid: str) -> str:
-        from flaskr.service.tts.api import get_minimax_cloned_voice
-
-        return make_common_response(
-            get_minimax_cloned_voice(
-                app,
-                owner_user_bid=request.user.user_id,
-                voice_bid=voice_bid,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/tts/minimax/voices/<voice_bid>/retry",
-        methods=["POST"],
-    )
-    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
-    def retry_minimax_tts_voice_api(voice_bid: str) -> str:
-        from flaskr.service.tts.api import retry_minimax_voice_clone
-
-        return make_common_response(
-            retry_minimax_voice_clone(
-                app,
-                owner_user_bid=request.user.user_id,
-                voice_bid=voice_bid,
-            )
-        )
-
-    @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["DELETE"])
-    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
-    def delete_minimax_tts_voice_api(voice_bid: str) -> str:
-        from flaskr.service.tts.api import delete_minimax_cloned_voice
-
-        return make_common_response(
-            delete_minimax_cloned_voice(
-                app,
-                owner_user_bid=request.user.user_id,
-                voice_bid=voice_bid,
-            )
         )
 
     @app.route(path_prefix + "/tts/config", methods=["GET"])

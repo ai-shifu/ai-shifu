@@ -42,11 +42,9 @@ from flaskr.service.billing.manual_credit_grants import grant_manual_credits_to_
 from flaskr.service.billing.manual_plan_grants import grant_manual_plan_to_user
 from flaskr.service.billing.operation_credits import (
     OperationCreditCaptureResult,
-    OperationCreditEstimate,
     OperationCreditReleaseResult,
     OperationCreditReservationResult,
     capture_reserved_operation_credits,
-    estimate_voice_clone_operation_credits,
     release_reserved_operation_credits,
     reserve_operation_credits,
 )
@@ -130,7 +128,6 @@ def admit_creator_preview_usage(
 __all__ = [
     "CreatorUsageAdmission",
     "OperationCreditCaptureResult",
-    "OperationCreditEstimate",
     "OperationCreditReleaseResult",
     "OperationCreditReservationResult",
     "ReferralPlanRewardRequest",
@@ -147,7 +144,6 @@ __all__ = [
     "capture_reserved_operation_credits",
     "credit_decimal_to_number",
     "dry_run_credit_notifications",
-    "estimate_voice_clone_operation_credits",
     "get_credit_notification_detail",
     "get_operator_credit_notification_overview",
     "get_operator_credit_order_detail",

@@ -888,13 +888,11 @@ def test_debug_preview_requires_an_authenticated_user_and_existing_course_owner(
     assert response.get_json(force=True)["code"] == ERROR_CODE[error_code]
 
 
-def test_voice_clone_requires_source_audio(test_client: object) -> None:
+def test_in_product_minimax_voice_clone_route_is_removed(test_client: object) -> None:
     response = test_client.post(
         f"{PREFIX}/tts/minimax/voices/clone", headers=HEADERS, data={}
     )
-    assert (
-        response.get_json(force=True)["code"] == ERROR_CODE["server.common.paramsError"]
-    )
+    assert response.get_json(force=True)["code"] == 404
 
 
 def test_tts_configuration_route_returns_provider_capabilities(

@@ -298,5 +298,4 @@ class ElevenLabsTTSProvider(BaseTTSProvider):
             voices=self.get_supported_voices(),
             emotions=[],
             supports_custom_voice_id=False,
-            supports_voice_cloning=False,
         )

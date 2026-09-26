@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from flaskr.service.tts.minimax_voice_clone import is_valid_minimax_custom_voice_id
+from flaskr.service.tts.cloned_voice_records import is_valid_minimax_custom_voice_id
 from flaskr.service.tts.models import (
     TTS_CLONE_PROVIDER_MINIMAX,
     TTS_CLONE_PROVIDER_VOLCENGINE,
