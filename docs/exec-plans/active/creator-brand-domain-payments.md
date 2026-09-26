@@ -1,6 +1,6 @@
 # Creator Brand Domain And Payments
 
-> Lifecycle review, 2026-09-26: Implementation is present, but complete cross-surface verification and the intended operator reporting boundary need reconciliation. Historical TypeScript failures are not proof of a current failure.
+> Lifecycle review, 2026-09-26: Brand/domain/integration implementation is present; the planned settlement-owner fields and platform-collection reporting boundary remain unimplemented in the inspected order/dashboard paths. Historical TypeScript failures are not proof of a current failure.
 
 ## Purpose / Big Picture
 
@@ -10,7 +10,8 @@ merchant credentials while preserving existing global behavior.
 
 ## Progress
 
-- [ ] 2026-09-26: Reconcile full current verification and operator-reporting scope before closure; do not treat historical environment blockers as current results.
+- [ ] 2026-09-26: Implement and verify settlement-owner fields/filters for platform-domain orders using teacher-owned credentials, including exclusion from platform collection metrics. This requires a separate feature PR with order/dashboard regression coverage.
+- [ ] 2026-09-26: Re-run the current cross-surface gate for that implementation; the old TypeScript environment failure is historical, not a current diagnosis.
 
 - [x] 2026-07-12 16:06 CST: Captured the approved architecture and acceptance
       decisions in the canonical design document.
@@ -68,11 +69,13 @@ Branding is a mutable JSON row; each integration is an encrypted immutable
 version plus an active pointer. Orders snapshot that version and payment create,
 webhook, sync, and refund paths reopen the same credentials. The focused backend
 suite passed 100 tests with one skip, and the customization UI Jest/ESLint checks
-passed. Repository-wide TypeScript and architecture checks remain red only for
-pre-existing markdown-flow type drift and unrelated untracked service refactors.
+passed. At that historical run, repository-wide TypeScript and architecture checks
+were blocked by then-existing markdown-flow type drift and unrelated untracked
+service refactors.
 The follow-up operator and logo-upload slice passed 25 backend tests and 15
-frontend tests; the full TypeScript check remains blocked by the same unrelated
-markdown-flow locale type drift.
+frontend tests; that run again recorded the same unrelated TypeScript locale limitation.
+These are historical results; the remaining reporting slice has not passed
+its own current acceptance.
 
 ## Context and Orientation
 

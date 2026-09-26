@@ -1,6 +1,6 @@
 # ExecPlan: Package Campaigns
 
-> Lifecycle review, 2026-09-26: The V1 change merged in #1889. Reconcile original pricing/grant acceptance evidence before closure; order reuse and preorder-renewal pricing are separate business-rule follow-ups.
+> Lifecycle review, 2026-09-26: V1 implementation and acceptance are complete. PR #1889 merged as `a4e0648de`; its recorded billing-route, promotion UI and type checks were inspected, and its executed backend, contract, runtime-harness and static CI checks were re-read as successful. Billing-order timeout/reuse and renewal-policy proposals remain separate debt-tracker items.
 
 ## Purpose / Big Picture
 
@@ -22,7 +22,7 @@ eligibility is captured as a follow-up business-rule iteration.
 - [x] 2026-06-08 15:05 CST: Captured the desired follow-up rule that user-initiated preorder renewal should be able to enjoy active package campaign pricing, while automatic renewal executor orders remain out of scope until separately decided.
 - [x] 2026-09-26: Confirmed #1889 delivered the `套餐活动` admin tab, modal forms, and status actions.
 - [x] 2026-09-26: Confirmed #1889 applied campaign pricing / bonus logic in checkout and paid-order grant side effects.
-- [ ] 2026-09-26: Reconcile original focused pricing, bonus-grant and operator UI acceptance evidence before closure; distinguish V1 from later renewal-policy changes.
+- [x] 2026-09-26: Reconciled original pricing, bonus-grant and operator UI acceptance against #1889 and successful executed CI.
 
 ## Surprises & Discoveries
 
@@ -76,7 +76,7 @@ eligibility is captured as a follow-up business-rule iteration.
 
 ## Outcomes & Retrospective
 
-V1 implementation merged in #1889. Original acceptance needs explicit reconciliation before archival. Order reuse is tracked by the payment-attempt lifecycle plan; campaign eligibility for preorder renewal remains a separate business-rule proposal in the debt tracker.
+V1 implementation merged in #1889. The original acceptance is documented in #1889 and its successful executed CI, independently re-read on 2026-09-26. Billing-order timeout/reuse is retained in the [debt tracker](../tech-debt-tracker.md#billing-order-timeout-and-reuse), with already implemented subscription reuse and top-up deadlines credited separately from remaining gaps. Provider-attempt replacement does not close that business-order scope. Campaign eligibility for preorder renewal remains a separate business-rule proposal in the debt tracker.
 
 ## Context and Orientation
 
@@ -139,9 +139,12 @@ V1 implementation merged in #1889. Original acceptance needs explicit reconcilia
 
 ## Follow-up Requirement: Billing Order Timeout and Reuse
 
-This follow-up is intentionally outside the package campaign V1 release. It
-should be planned as an independent PR after campaign pricing is verified in
-production.
+This follow-up is intentionally outside the package campaign V1 release. Its
+active owner, implemented subset, remaining decisions and acceptance matrix are
+in the [debt tracker](../tech-debt-tracker.md#billing-order-timeout-and-reuse).
+The requirements below preserve the original proposal, not a claim about current
+runtime behavior. The original dependency was production verification of campaign
+pricing before a separate implementation PR.
 
 Desired behavior:
 
