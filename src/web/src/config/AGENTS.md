@@ -9,7 +9,7 @@ Entry files in this directory: `environment.ts`, `ENVIRONMENT_CONFIG.md`.
 
 - Keep browser-safe environment reads centralized so pages and components do
   not branch on raw process variables.
-- Preserve the contract between backend `/api/config` output and local
+- Preserve the contract between backend `/api/runtime-config` output and local
   environment defaults consumed on the frontend.
 - Treat configuration docs as part of the public developer interface for Cook
   Web setup and troubleshooting.

@@ -14,7 +14,7 @@ the content is corrected. Deliver separate ready pull requests per problem.
   and the engineering UTC example. PR #2952 corrects README locale navigation.
 - [x] 2026-09-26 00:37 UTC: Verified the local development toolchain and preserved
   local environment files in the managed worktree without exposing their values.
-- [ ] 2026-09-26 00:37 UTC: Finish runtime configuration guidance and local job verification.
+- [x] 2026-09-26 00:37 UTC: Corrected runtime configuration ownership and added local job verification.
 - [ ] 2026-09-26 00:37 UTC: Correct the remaining billing UTC specification.
 - [ ] 2026-09-26 00:37 UTC: Reconcile dashboard routes, fields, and query guidance.
 - [ ] 2026-09-26 00:37 UTC: Publish the account-session contract with user-based cohorts.
@@ -27,6 +27,11 @@ the content is corrected. Deliver separate ready pull requests per problem.
 
 - [x] 2026-09-26 04:33 UTC: Recorded concrete audit findings, source paths, delivery links,
   and completion criteria so this plan can be followed without the audit chat.
+
+- [x] 2026-09-26 12:13 UTC: Rebased the runtime configuration delivery on main
+  `ae49a0724`, retaining the downstream billing PR ancestry. The existing
+  five-file patch was unchanged; seven configuration tests, documentation
+  validation, and the full pre-commit gate passed.
 
 ## Surprises & Discoveries
 
@@ -49,6 +54,8 @@ including those new plans, rather than closing plans from the old counts.
   point to a single effective contract; incomplete external acceptance stays open.
 
 ## Outcomes & Retrospective
+
+Tracker: https://github.com/ai-shifu/ai-shifu/pull/2964.
 
 In progress. Delivery evidence and unresolved external acceptance will be
 recorded here before handoff; code already merged on main is credited rather
