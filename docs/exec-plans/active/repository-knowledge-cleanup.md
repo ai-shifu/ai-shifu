@@ -22,7 +22,7 @@ the content is corrected. Deliver separate ready pull requests per problem.
 - [x] 2026-09-26T01:04:37Z: Audited the 46-plan main baseline, separated contracts/snapshots, reconciled merge evidence and retained external acceptance. See `docs/history/knowledge-review-2026-09-26.md`; directory-rename archival awaits the tooling allowlist change.
 - [x] 2026-09-26T01:07:05Z: Replaced the frontend note collection with scenario navigation, completed all 20 focused skill metadata entries/catalogs, and narrowed module rules with a local error-fallback i18n exception.
 - [x] 2026-09-26T01:08:48Z: Moved 16 topic documents into specifications/references and updated tracked references. Full-document review dates remain unknown where only navigation or a subsection was checked.
-- [ ] 2026-09-26 00:37 UTC: Extend inventory, skill discovery, lifecycle checks, and health reports.
+- [x] 2026-09-26T01:24:07Z: Added tracked Markdown/MDX classification, generated skill catalogs, local link/anchor and plan lifecycle checks, honest review dates, and ignored UTC/HEAD health reports; focused regression evidence is recorded in the delivery report.
 - [ ] 2026-09-26 00:37 UTC: Record pull requests, verification, and external follow-ups.
 
 - [x] 2026-09-26 04:33 UTC: Recorded concrete audit findings, source paths, delivery links,

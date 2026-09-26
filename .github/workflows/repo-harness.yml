@@ -117,6 +117,8 @@ jobs:
         run: |
           git diff --exit-code -- \
             docs \
+            src/api/skills/README.md \
+            src/web/skills/README.md \
             scripts/build_repo_knowledge_index.py
 
       - name: Run repo harness validation

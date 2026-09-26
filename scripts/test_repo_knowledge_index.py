@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import io
 import json
+import subprocess
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,6 +25,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tempdir.cleanup)
         self.root = Path(self.tempdir.name)
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         original_root = generator.ROOT
 
         def rebase(path: Path) -> Path:
@@ -41,7 +44,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
             ),
             (
                 harness,
-                ("ROOT", "DOCS_ROOT", "BOUNDARY_BASELINE", "GARDENING_SUMMARY_PATH"),
+                ("ROOT", "DOCS_ROOT", "BOUNDARY_BASELINE"),
             ),
         ):
             for name in names:
@@ -92,6 +95,169 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
             generator.BOUNDARY_BASELINE_PATH, '{"version": 1, "violations": []}\n'
         )
 
+        for path in (self.root / "docs/design-docs").glob("*.md"):
+            self.write(
+                path,
+                '---\ntitle: Fixture\nstatus: draft\nowner_surface: repo\nlast_reviewed: ""\ncanonical: true\n---\n'
+                + path.read_text(),
+            )
+        self.write(
+            self.root / ".gitignore",
+            "docs/generated/harness-health.md\ndocs/generated/harness-gardening-summary.md\n",
+        )
+        self.track()
+
+    def track(self) -> None:
+        """Stage fixture sources so discovery uses the same Git contract as CI."""
+        subprocess.run(["git", "add", "-A"], cwd=self.root, check=True)
+
+    def fixture(self, name: str, content: str) -> Path:
+        """Create and stage one tracked source, retaining unstaged tests separately."""
+        path = self.root / name
+        self.write(path, content)
+        self.track()
+        return path
+
+    def test_partial_document_staging_cannot_hide_broken_index_links(self) -> None:
+        """An unstaged link repair cannot make a broken staged document pass."""
+        self.fixture("docs/references/target.md", "# Target\n")
+        for index, suffix in enumerate(("md", "mdx", "MD")):
+            with self.subTest(suffix=suffix):
+                relative = f"docs/references/partial-{index}.{suffix}"
+                path = self.fixture(relative, "# Partial\n[Broken](missing.md)\n")
+                staged = subprocess.check_output(
+                    ["git", "show", ":" + relative], cwd=self.root
+                )
+                self.write(path, "# Partial\n[Fixed](target.md)\n")
+                link_errors: list[str] = []
+                harness.check_local_document_links([path], link_errors)
+                assert link_errors == []
+                errors: list[str] = []
+                harness.check_document_staging(errors)
+                assert len(errors) == 1
+                assert f"Partially staged document: {relative}." in errors[0]
+                assert (
+                    subprocess.check_output(
+                        ["git", "show", ":" + relative], cwd=self.root
+                    )
+                    == staged
+                )
+                self.track()
+                errors = []
+                harness.check_document_staging(errors)
+                assert errors == []
+
+    def test_staging_guard_ignores_untracked_docs_and_non_document_edits(self) -> None:
+        """The guard stays scoped to split versions of staged Markdown/MDX."""
+        path = self.fixture("notes.txt", "staged text\n")
+        self.write(path, "unstaged text\n")
+        self.write(self.root / "untracked.md", "# Draft\n")
+        errors: list[str] = []
+        harness.check_document_staging(errors)
+        assert errors == []
+
+    def test_unstaged_anchor_edits_cannot_validate_a_new_staged_link(self) -> None:
+        """A link target's unstaged content is part of the same validation graph."""
+        target = self.fixture("docs/target.md", "# Original\n")
+        tree = subprocess.check_output(
+            ["git", "write-tree"], cwd=self.root, text=True
+        ).strip()
+        commit = subprocess.check_output(
+            [
+                "git",
+                "-c",
+                "user.name=Fixture",
+                "-c",
+                "user.email=fixture@example.test",
+                "commit-tree",
+                tree,
+                "-m",
+                "test: establish fixture history",
+            ],
+            cwd=self.root,
+            text=True,
+        ).strip()
+        subprocess.run(["git", "update-ref", "HEAD", commit], cwd=self.root, check=True)
+        source = self.fixture("docs/links.md", "[new anchor](target.md#new)\n")
+        self.write(target, "# New\n")
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert errors == []
+        harness.check_document_staging(errors)
+        assert len(errors) == 1
+        assert "Unstaged document dependency: docs/target.md." in errors[0]
+        self.track()
+        errors = []
+        harness.check_document_staging(errors)
+        assert errors == []
+
+    def test_hidden_index_flags_cannot_mask_unstaged_anchor_repairs(self) -> None:
+        """Pending document validation refuses both Git worktree-hiding flags."""
+        for flag in ("assume-unchanged", "skip-worktree"):
+            for suffix in ("md", "MDX"):
+                with self.subTest(flag=flag, suffix=suffix):
+                    relative = f"docs/hidden-{flag}.{suffix}"
+                    target = self.fixture(relative, "# Original\n")
+                    tree = subprocess.check_output(
+                        ["git", "write-tree"], cwd=self.root, text=True
+                    ).strip()
+                    commit = subprocess.check_output(
+                        [
+                            "git",
+                            "-c",
+                            "user.name=Fixture",
+                            "-c",
+                            "user.email=fixture@example.test",
+                            "commit-tree",
+                            tree,
+                            "-m",
+                            "test: establish fixture history",
+                        ],
+                        cwd=self.root,
+                        text=True,
+                    ).strip()
+                    subprocess.run(
+                        ["git", "update-ref", "HEAD", commit], cwd=self.root, check=True
+                    )
+                    source = self.fixture(
+                        "docs/hidden-links.md", f"[new anchor]({target.name}#new)\n"
+                    )
+                    subprocess.run(
+                        ["git", "update-index", "--" + flag, relative],
+                        cwd=self.root,
+                        check=True,
+                    )
+                    self.write(target, "# New\n")
+                    assert (
+                        relative
+                        not in subprocess.check_output(
+                            ["git", "diff", "--name-only"], cwd=self.root, text=True
+                        ).splitlines()
+                    )
+                    errors: list[str] = []
+                    harness.check_local_document_links([source], errors)
+                    assert errors == []
+                    harness.check_document_staging(errors)
+                    assert any(
+                        f"Hidden document index flag: {relative}." in error
+                        for error in errors
+                    )
+                    assert (
+                        subprocess.check_output(
+                            ["git", "show", ":" + relative], cwd=self.root
+                        )
+                        == b"# Original\n"
+                    )
+                    subprocess.run(
+                        ["git", "update-index", "--no-" + flag, relative],
+                        cwd=self.root,
+                        check=True,
+                    )
+                    self.track()
+                    errors = []
+                    harness.check_document_staging(errors)
+                    assert errors == []
+
     def test_scalar_quotes_preserve_malformed_dates_and_title_apostrophes(self) -> None:
         """Unmatched quotes remain visible to the date scanner and index."""
         root = self.root / "quoted-review-fixture"
@@ -141,6 +307,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
                         + value
                         + "\ncanonical: true\n---\n",
                     )
+                    self.track()
                     assert generator.parse_frontmatter(path)["last_reviewed"] == ""
                     errors: list[str] = []
                     harness.check_frontmatter_docs(errors)
@@ -176,10 +343,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         assert "# Harness Health" in generator.HARNESS_HEALTH_PATH.read_text(
             encoding="utf-8"
         )
-        first_run = {
-            path: path.read_bytes()
-            for path in (*indexes, generator.HARNESS_HEALTH_PATH)
-        }
+        first_run = {path: path.read_bytes() for path in indexes}
         assert self.run_generator() == 0
         assert {path: path.read_bytes() for path in first_run} == first_run
         errors: list[str] = []
@@ -206,6 +370,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         self.write(
             generator.DOCS_ROOT / "references" / "new-reference.md", "# New reference\n"
         )
+        self.track()
         errors: list[str] = []
         harness.check_generated_knowledge_docs(errors)
         expected_index = generator.DOCS_ROOT / "references" / "index.md"
@@ -271,6 +436,8 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
                 }
             ),
         )
+        # Health reads current versions of tracked sources; new docs must be staged.
+        self.track()
         missing_asset = generator.REQUIRED_RUNTIME_ASSETS[0]
         missing_workflow = generator.REQUIRED_HARNESS_WORKFLOWS[0]
         missing_asset.unlink()
@@ -296,6 +463,715 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         assert self.run_generator("--health-only") == 0
         assert generator.HARNESS_HEALTH_PATH.exists()
         assert all(not path.exists() for path in generator.build_knowledge_docs())
+
+    def test_inventory_covers_tracked_markdown_mdx_and_aliases(self) -> None:
+        """Cover all tracked document classes without indexing local scratch files."""
+        cases = {
+            "AGENTS.md": ("# Rules", "instruction"),
+            "src/web/SKILL.md": ("# Router", "skill-router"),
+            "src/web/skills/example/SKILL.md": (
+                "---\nname: example\ndescription: Use for examples.\n---\n# Example",
+                "skill",
+            ),
+            "docs/history/old.md": ("# Old", "history"),
+            "docs/exec-plans/active/current.md": ("# Current", "exec-plan-active"),
+            "src/help.MDX": ("# Help", "reference"),
+            ".github/copilot-instructions.md": ("See AGENTS.md", "alias"),
+        }
+        for name, (content, _category) in cases.items():
+            self.fixture(name, content)
+        alias = self.root / "GEMINI.md"
+        alias.symlink_to("AGENTS.md")
+        self.track()
+        self.write(self.root / "scratch.md", "# Not committed")
+        records = {
+            str(record.path.relative_to(self.root)): record
+            for record in generator.build_tracked_records()
+        }
+        for name, (_content, category) in cases.items():
+            assert records[name].category == category
+            assert records[name].last_reviewed == ""
+        assert records["GEMINI.md"].category == "alias"
+        assert records["docs/exec-plans/active/current.md"].canonical == "true"
+        assert "scratch.md" not in records
+        assert "docs/generated/harness-health.md" not in records
+        assert "docs/generated/harness-gardening-summary.md" not in records
+        assert set(records) == {
+            str(path.relative_to(self.root)) for path in generator.tracked_markdown()
+        }
+
+    def test_section_indexes_share_tracked_document_discovery(self) -> None:
+        """Local scratch files cannot leak into category indexes or health counts."""
+        categories = {
+            "design-docs": "design-docs/index.md",
+            "product-specs": "product-specs/index.md",
+            "references": "references/index.md",
+            "exec-plans/active": "exec-plans/index.md",
+            "exec-plans/completed": "exec-plans/index.md",
+        }
+        before = generator.build_knowledge_docs()
+        with patch.object(generator, "snapshot_provenance", return_value=[]):
+            health_before = generator.build_harness_health_report()
+        ignored = self.root / ".gitignore"
+        self.write(ignored, ignored.read_text() + "**/ignored-note.md\n")
+        subprocess.run(["git", "add", ".gitignore"], cwd=self.root, check=True)
+        tracked_candidates = []
+        for category in categories:
+            directory = generator.DOCS_ROOT / category
+            self.write(directory / "scratch.md", "# Local scratch\n")
+            self.write(directory / "ignored-note.md", "# Ignored note\n")
+            candidate = directory / "new-source.MDX"
+            self.write(
+                candidate,
+                "---\ntitle: New tracked source\nstatus: draft\nowner_surface: repo\n"
+                'last_reviewed: ""\ncanonical: true\n---\n# New tracked source\n',
+            )
+            tracked_candidates.append(candidate)
+        assert generator.build_knowledge_docs() == before
+        metadata_errors: list[str] = []
+        harness.check_frontmatter_docs(metadata_errors)
+        assert metadata_errors == []
+        with patch.object(generator, "snapshot_provenance", return_value=[]):
+            assert generator.build_harness_health_report() == health_before
+        subprocess.run(
+            ["git", "add", "--", *map(str, tracked_candidates)],
+            cwd=self.root,
+            check=True,
+        )
+        after = generator.build_knowledge_docs()
+        inventory = after[generator.DOCS_ROOT / "generated/doc-inventory.md"]
+        for category, section in categories.items():
+            relative = f"{category}/new-source.MDX"
+            section_link = relative.removeprefix("exec-plans/")
+            assert section_link in after[generator.DOCS_ROOT / section]
+            assert relative in inventory
+        for content in after.values():
+            assert "scratch.md" not in content
+            assert "ignored-note.md" not in content
+        assert generator.build_knowledge_docs() == after
+        for path, content in after.items():
+            self.write(path, content)
+        subprocess.run(
+            ["git", "add", "--", *map(str, after)], cwd=self.root, check=True
+        )
+        errors: list[str] = []
+        harness.check_local_document_links(list(after), errors)
+        harness.check_frontmatter_docs(errors)
+        assert errors == []
+
+    def test_category_aliases_do_not_change_indexes_across_checkout_types(self) -> None:
+        """Aliases remain navigation entries, not duplicate canonical sources."""
+        aliases: list[Path] = []
+        metadata = '---\ntitle: Canonical\nstatus: active\nowner_surface: repo\nlast_reviewed: ""\ncanonical: true\n---\n'
+        headings = "\n".join(f"## {heading}\n" for heading in harness.PLAN_HEADINGS)
+        for category in (
+            "design-docs",
+            "product-specs",
+            "references",
+            "exec-plans/active",
+            "exec-plans/completed",
+        ):
+            directory = generator.DOCS_ROOT / category
+            self.write(
+                directory / "canonical.md", metadata + "# Canonical\n" + headings
+            )
+            alias = directory / "alias.md"
+            alias.symlink_to("canonical.md")
+            aliases.append(alias)
+        self.write(
+            self.root / "src/web/skills/canonical/SKILL.md",
+            "---\nname: canonical\ndescription: Use for canonical fixtures.\n---\n# Canonical skill\n",
+        )
+        skill_alias = self.root / "src/web/skills/alias/SKILL.md"
+        skill_alias.parent.mkdir(parents=True)
+        skill_alias.symlink_to("../canonical/SKILL.md")
+        aliases.append(skill_alias)
+        self.track()
+        native = generator.build_knowledge_docs()
+        with patch.object(generator, "snapshot_provenance", return_value=[]):
+            native_health = generator.build_harness_health_report()
+        subprocess.run(
+            ["git", "config", "core.symlinks", "false"], cwd=self.root, check=True
+        )
+        for alias in aliases:
+            alias.unlink()
+        subprocess.run(
+            [
+                "git",
+                "checkout-index",
+                "--force",
+                "--",
+                *[str(path.relative_to(self.root)) for path in aliases],
+            ],
+            cwd=self.root,
+            check=True,
+        )
+        assert all(not path.is_symlink() for path in aliases)
+        assert generator.build_knowledge_docs() == native
+        with patch.object(generator, "snapshot_provenance", return_value=[]):
+            assert generator.build_harness_health_report() == native_health
+        inventory_path = generator.DOCS_ROOT / "generated/doc-inventory.md"
+        for path, content in native.items():
+            if path != inventory_path:
+                assert "alias.md" not in content
+                assert "alias/SKILL.md" not in content
+        records = {record.path: record for record in generator.build_tracked_records()}
+        assert all(records[path].category == "alias" for path in aliases)
+        errors: list[str] = []
+        harness.check_frontmatter_docs(errors)
+        harness.check_documentation_contracts(errors, [])
+        assert errors == []
+
+    def test_health_only_keeps_normal_missing_indexes_optional(self) -> None:
+        """A normal checkout can refresh health without restoring an absent index."""
+        assert self.run_generator() == 0
+        self.track()
+        index = self.root / "src/web/skills/README.md"
+        index.unlink()
+        assert self.run_generator("--health-only") == 0
+        assert not index.exists()
+
+    def test_sparse_checkout_cannot_write_partial_knowledge_outputs(self) -> None:
+        """Missing tracked docs fail before inventory, catalogs or reports are written."""
+        omitted = self.fixture("extra/omitted.MDX", "# Omitted reference\n")
+        skill = self.fixture(
+            "src/web/skills/omitted/SKILL.md",
+            "---\nname: omitted\ndescription: Use for sparse fixtures.\n---\n# Skill\n",
+        )
+        assert self.run_generator() == 0
+        self.track()
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Fixture",
+                "-c",
+                "user.email=fixture@example.test",
+                "commit",
+                "--quiet",
+                "-m",
+                "chore: create sparse checkout fixture",
+            ],
+            cwd=self.root,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "sparse-checkout", "set", "docs"], cwd=self.root, check=True
+        )
+        assert not omitted.exists()
+        assert not skill.exists()
+        outputs = {
+            path: path.read_bytes()
+            for path in self.root.rglob("*.md")
+            if ".git" not in path.parts
+        }
+        for args in ((), ("--health-only",)):
+            with self.subTest(args=args), redirect_stderr(io.StringIO()) as diagnostics:
+                assert self.run_generator(*args) == 1
+                assert "Tracked document unavailable" in diagnostics.getvalue()
+                assert {path: path.read_bytes() for path in outputs} == outputs
+                assert not (self.root / "src/web/skills/README.md").exists()
+        errors: list[str] = []
+        harness.check_generated_knowledge_docs(errors)
+        assert any("Tracked document unavailable" in error for error in errors)
+        errors = []
+        harness.check_documentation_contracts(errors, [])
+        assert any("Tracked document unavailable" in error for error in errors)
+        subprocess.run(["git", "sparse-checkout", "disable"], cwd=self.root, check=True)
+        assert self.run_generator() == 0
+
+    def test_plan_moves_keep_lifecycle_canonical_status(self) -> None:
+        """Reactivation and archival override stale frontmatter, unlike specs."""
+        archived = self.fixture(
+            "docs/exec-plans/completed/reactivated.md",
+            "---\nstatus: completed\ncanonical: false\n---\n# Reactivated plan\n",
+        )
+        active = self.root / "docs/exec-plans/active/reactivated.md"
+        active.parent.mkdir(parents=True, exist_ok=True)
+        archived.rename(active)
+        self.track()
+        records = {record.path: record for record in generator.build_tracked_records()}
+        assert records[active].category == "exec-plan-active"
+        assert records[active].status == "active"
+        assert records[active].canonical == "true"
+
+        self.write(
+            active, "---\nstatus: active\ncanonical: true\n---\n# Archived plan\n"
+        )
+        active.rename(archived)
+        self.track()
+        records = {record.path: record for record in generator.build_tracked_records()}
+        assert records[archived].category == "exec-plan-completed"
+        assert records[archived].status == "completed"
+        assert records[archived].canonical == "false"
+
+        reference = self.fixture(
+            "docs/references/noncanonical.md",
+            "---\nstatus: draft\ncanonical: false\n---\n# Reference\n",
+        )
+        records = {record.path: record for record in generator.build_tracked_records()}
+        assert records[reference].canonical == "false"
+        assert records[reference].status == "draft"
+
+    def test_alias_inventory_is_stable_without_worktree_symlink_support(self) -> None:
+        """Git's indexed alias type survives a core.symlinks=false checkout."""
+        alias = self.root / "GEMINI.md"
+        alias.symlink_to("AGENTS.md")
+        self.track()
+        expected = generator.build_tracked_records()
+        subprocess.run(
+            ["git", "config", "core.symlinks", "false"], cwd=self.root, check=True
+        )
+        alias.unlink()
+        subprocess.run(
+            ["git", "checkout-index", "--force", "--", "GEMINI.md"],
+            cwd=self.root,
+            check=True,
+        )
+        assert not alias.is_symlink()
+        assert alias.read_text() == "AGENTS.md"
+        assert generator.build_tracked_records() == expected
+
+    def test_wrapped_skill_descriptions_are_preserved(self) -> None:
+        """Existing wrapped and folded metadata retains the whole trigger text."""
+        for start in ("Use for", ">\n  Use for"):
+            skill = self.fixture(
+                "src/api/skills/example/SKILL.md",
+                f"---\nname: example\ndescription: {start}\n  examples and retries.\n---\n# Example",
+            )
+            assert (
+                generator.parse_frontmatter(skill)["description"]
+                == "Use for examples and retries."
+            )
+            catalog = generator.render_skill_catalog("api", [skill])
+            assert "Use for examples and retries." in catalog
+
+    def test_skill_catalog_detects_omission_and_new_skills(self) -> None:
+        """A newly staged skill invalidates the committed catalog until regeneration."""
+        assert self.run_generator() == 0
+        skill = self.fixture(
+            "src/web/skills/added/SKILL.md",
+            "---\nname: added\ndescription: Use for added workflows.\n---\n# Added",
+        )
+        errors: list[str] = []
+        harness.check_generated_knowledge_docs(errors)
+        assert any("src/web/skills/README.md" in error for error in errors)
+        assert self.run_generator() == 0
+        catalog = skill.parent.parent / "README.md"
+        assert "[added](added/SKILL.md)" in catalog.read_text()
+        self.write(catalog, generator.GENERATED_COMMENT + "\n# Incomplete catalog\n")
+        errors = []
+        harness.check_generated_knowledge_docs(errors)
+        assert any("src/web/skills/README.md" in error for error in errors)
+
+    def test_skill_metadata_accepts_valid_and_rejects_missing_or_duplicate(
+        self,
+    ) -> None:
+        """Focused skills need usable triggers and globally unambiguous slugs."""
+        valid = self.fixture(
+            "src/web/skills/example/SKILL.md",
+            "---\nname: example\ndescription: Use for examples.\n---\n# Example",
+        )
+        errors: list[str] = []
+        harness.check_skill_metadata([valid], errors)
+        assert errors == []
+        for body in (
+            "# No metadata",
+            "---\nname: other\ndescription: \n---\n# Invalid",
+        ):
+            invalid = self.fixture("src/web/skills/invalid/SKILL.md", body)
+            errors = []
+            harness.check_skill_metadata([invalid], errors)
+            assert any("directory slug" in error for error in errors)
+            assert any("description" in error for error in errors)
+        duplicate = self.fixture("src/api/skills/example/SKILL.md", valid.read_text())
+        errors = []
+        harness.check_skill_metadata([valid, duplicate], errors)
+        assert any("Duplicate skill name" in error for error in errors)
+
+    def test_link_targets_must_survive_a_clean_checkout(self) -> None:
+        """Existing untracked, ignored, and empty local directories are not targets."""
+        ignore = self.root / ".gitignore"
+        self.fixture(".gitignore", ignore.read_text() + "docs/ignored.md\n")
+        source = self.fixture(
+            "docs/links.md",
+            "[untracked](untracked.md)\n[ignored](ignored.md)\n[empty](local-only/)\n",
+        )
+        self.write(self.root / "docs/untracked.md", "# Local only\n")
+        self.write(self.root / "docs/ignored.md", "# Ignored\n")
+        (self.root / "docs/local-only").mkdir()
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 3
+        assert all("Untracked local document link target" in error for error in errors)
+
+    def test_removed_index_target_is_rejected_even_when_file_remains(self) -> None:
+        """A staged deletion cannot be hidden by a leftover working-tree file."""
+        source = self.fixture("docs/links.md", "[removed](removed.md)\n")
+        target = self.fixture("docs/removed.md", "# Removed\n")
+        subprocess.run(
+            ["git", "rm", "--cached", "--quiet", "docs/removed.md"],
+            cwd=self.root,
+            check=True,
+        )
+        assert target.exists()
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1
+        assert "Untracked local document link target" in errors[0]
+
+    def test_worktree_file_cannot_mask_an_indexed_broken_symlink(self) -> None:
+        """A non-document type change must not repair the pending commit locally."""
+        source = self.fixture("docs/links.md", "[asset](asset.svg)\n")
+        target = self.root / "docs/asset.svg"
+        target.symlink_to("missing.svg")
+        self.track()
+        target.unlink()
+        self.write(target, "<svg/>\n")
+        staging_errors: list[str] = []
+        harness.check_document_staging(staging_errors)
+        assert staging_errors == []  # Non-document edits are otherwise allowed.
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1
+        assert "asset.svg" in errors[0]
+        self.track()
+        for mode in ("-x", "+x"):
+            subprocess.run(
+                ["git", "update-index", f"--chmod={mode}", "docs/asset.svg"],
+                cwd=self.root,
+                check=True,
+            )
+            errors = []
+            harness.check_local_document_links([source], errors)
+            assert errors == []
+
+    def test_tracked_aliases_cannot_hide_local_only_link_paths(self) -> None:
+        """A tracked target does not make an untracked alias portable to CI."""
+        self.fixture("docs/target.md", "# Target\n")
+        alias = self.root / "docs/alias.md"
+        alias.symlink_to("target.md")
+        source = self.fixture(
+            "docs/links.md",
+            "[valid](alias.md#target)\n[local alias](local.md#target)\n[dir](./)\n",
+        )
+        (self.root / "docs/local.md").symlink_to("target.md")
+        errors: list[str] = []
+        harness.check_local_document_links([source, alias], errors)
+        assert len(errors) == 1
+        assert "local.md" in errors[0]
+        self.write(source, "[alias](alias.md#target)\n")
+        alias.unlink()
+        alias.symlink_to("local.md")
+        errors = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1  # The alias differs from its indexed target.
+        subprocess.run(["git", "add", "docs/alias.md"], cwd=self.root, check=True)
+        errors = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1  # The indexed alias still needs its untracked hop.
+        self.track()
+        errors = []
+        harness.check_local_document_links([source, alias], errors)
+        assert errors == []
+
+    def test_document_alias_targets_must_be_relative(self) -> None:
+        """Even an indexed in-repo absolute target is not portable to another clone."""
+        target = self.fixture("docs/target.md", "# Target\n")
+        alias = self.root / "docs/alias.md"
+        alias.symlink_to("target.md")
+        chained = self.root / "docs/chained.md"
+        chained.symlink_to("alias.md")
+        source = self.fixture("docs/links.md", "[target](chained.md#target)\n")
+        errors: list[str] = []
+        harness.check_local_document_links([source, alias, chained], errors)
+        assert errors == []
+
+        alias.unlink()
+        alias.symlink_to(target.resolve())
+        self.track()
+        errors = []
+        harness.check_local_document_links([source, alias, chained], errors)
+        assert len(errors) == 3
+        assert any(
+            "documentation alias" in error and "alias.md" in error for error in errors
+        )
+        assert any(
+            "documentation alias" in error and "chained.md" in error for error in errors
+        )
+        assert any("Untracked local document link target" in error for error in errors)
+
+    def test_materialized_aliases_use_indexed_targets(self) -> None:
+        """A no-symlink checkout validates the same alias graph and anchors as CI."""
+        target = self.fixture("docs/target.md", "# Target\n")
+        alias = self.root / "docs/alias.md"
+        alias.symlink_to("target.md")
+        chained = self.root / "docs/chained.md"
+        chained.symlink_to("alias.md")
+        source = self.fixture("docs/links.md", "[target](chained.md#target)\n")
+        subprocess.run(
+            ["git", "config", "core.symlinks", "false"], cwd=self.root, check=True
+        )
+        alias.unlink()
+        chained.unlink()
+        subprocess.run(
+            [
+                "git",
+                "checkout-index",
+                "--force",
+                "--",
+                "docs/alias.md",
+                "docs/chained.md",
+            ],
+            cwd=self.root,
+            check=True,
+        )
+        assert not alias.is_symlink()
+        assert not chained.is_symlink()
+        errors: list[str] = []
+        harness.check_local_document_links([source, alias, chained], errors)
+        assert errors == []
+        for invalid_target in ("", "missing.md", str(target.resolve()), "chained.md"):
+            with self.subTest(target=invalid_target):
+                alias.write_text(invalid_target)
+                subprocess.run(
+                    ["git", "add", "docs/alias.md"], cwd=self.root, check=True
+                )
+                errors = []
+                harness.check_local_document_links([source, alias, chained], errors)
+                assert len(errors) == 3
+                assert sum("documentation alias" in error for error in errors) == 2
+
+    def test_materialized_runtime_alias_cannot_escape_history_boundary(self) -> None:
+        """Historical runtime exemptions must not hide an indexed alias escape."""
+        self.fixture("src/target.py", "pass\n")
+        alias = self.root / "src/alias.py"
+        alias.symlink_to("../../outside.py")
+        source = self.fixture("docs/history/old.md", "[runtime](../../src/alias.py)\n")
+        subprocess.run(
+            ["git", "config", "core.symlinks", "false"], cwd=self.root, check=True
+        )
+        alias.unlink()
+        subprocess.run(
+            ["git", "checkout-index", "--force", "--", "src/alias.py"],
+            cwd=self.root,
+            check=True,
+        )
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1
+
+    def test_local_links_resolve_reference_links_and_encoded_paths(self) -> None:
+        """Links use the source location; code examples and remote links are not fetched."""
+        self.fixture("docs/linked file.md", "# Linked")
+        source = self.fixture(
+            "docs/links.md",
+            """# Links
+[valid](linked%20file.md#linked)
+[angle destination](<linked file.md>)
+[reference][target]
+[external](https://example.com/does-not-need-a-fetch)
+![image](linked%20file.md)
+
+[target]: linked%20file.md
+
+```markdown
+[example](not-a-real-example.md)
+```
+""",
+        )
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert errors == []
+        self.write(source, "[broken](missing.md)\n[escape](../../outside.md)")
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 2
+
+    def test_local_anchors_html_and_mdx_literal_links(self) -> None:
+        """Validate duplicate headings, explicit anchors and static MDX navigation."""
+        target = self.fixture(
+            "docs/target.md", '# Repeated\n# Repeated\n<a id="named"></a>'
+        )
+        source = self.fixture(
+            "docs/source.mdx",
+            '[second](target.md#repeated-1)\n<a href="target.md#named">named</a>\n<a href={dynamic}>dynamic</a>',
+        )
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert errors == []
+        self.write(source, '[broken](target.md#missing)\n<img src="gone.svg" />')
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 2
+        assert target.exists()
+
+    def test_historical_links_exempt_retired_runtime_paths_only(self) -> None:
+        """Historical code references are not current contracts; doc navigation still works."""
+        history = self.fixture("docs/history/old.md", "[retired](../../deleted.py)")
+        errors: list[str] = []
+        harness.check_local_document_links([history], errors)
+        assert errors == []
+        self.write(history, "[missing doc](missing.md)")
+        harness.check_local_document_links([history], errors)
+        assert len(errors) == 1
+        current = self.fixture("docs/current.md", "[retired](../deleted.py)")
+        errors = []
+        harness.check_local_document_links([current], errors)
+        assert len(errors) == 1
+
+    def test_historical_runtime_exemptions_cannot_escape_the_repository(self) -> None:
+        """Retired implementation paths stay repository-relative in both archives."""
+        for folder in ("docs/history", "docs/exec-plans/completed"):
+            with self.subTest(folder=folder):
+                source = self.fixture(
+                    f"{folder}/escaping.md",
+                    "[retired](/src/retired.py)\n"
+                    "[escape](../../../../missing-runtime)\n"
+                    "[root escape](/../../missing-runtime.py)\n",
+                )
+                errors: list[str] = []
+                harness.check_local_document_links([source], errors)
+                assert len(errors) == 2
+                assert all("missing-runtime" in error for error in errors)
+
+    def test_historical_document_directories_must_resolve(self) -> None:
+        """The runtime exception must not hide broken historical doc navigation."""
+        source = self.fixture(
+            "docs/history/old.md",
+            "[docs](../design-docs/)\n[missing](../retired-docs/)",
+        )
+        errors: list[str] = []
+        harness.check_local_document_links([source], errors)
+        assert len(errors) == 1
+        assert "retired-docs" in errors[0]
+
+    def test_gardening_and_validation_share_review_date_syntax(self) -> None:
+        """Compact/week ISO dates cannot pass one checker and fail the other."""
+        source = self.root / "docs/product-specs/date-format.md"
+        with (
+            patch.object(gardening, "DOCS_ROOT", self.root / "docs"),
+            patch.object(gardening, "ROOT", self.root),
+        ):
+            for reviewed, invalid in (
+                ("2026-01-01", False),
+                ("20260926", True),
+                ("2026-W39-6", True),
+                ("2026-02-31", True),
+            ):
+                self.write(
+                    source, f"---\nlast_reviewed: {reviewed}\n---\n# Date format"
+                )
+                errors: list[str] = []
+                harness.check_review_dates([source], errors)
+                assert bool(errors) == invalid
+                hits = [
+                    hit
+                    for hit in gardening.stale_review_docs()
+                    if "date-format.md" in hit and "invalid last_reviewed" in hit
+                ]
+                assert bool(hits) == invalid
+
+    def test_broken_alias_is_reported(self) -> None:
+        """Do not follow or silently accept a broken compatibility alias."""
+        alias = self.root / "GEMINI.md"
+        alias.symlink_to("missing.md")
+        self.track()
+        errors: list[str] = []
+        harness.check_local_document_links([alias], errors)
+        assert any("alias" in error for error in errors)
+
+    def test_plan_lifecycle_preserves_external_acceptance_and_warns_without_archiving(
+        self,
+    ) -> None:
+        """Only pending work in a completed plan fails; active closure is a review decision."""
+        body = "# Plan\n\n" + "\n\n".join(
+            f"## {heading}\n\nContext." for heading in harness.PLAN_HEADINGS
+        )
+        active = self.fixture(
+            "docs/exec-plans/active/example.md",
+            body + "\n- [ ] Verify real SMTP delivery.\n",
+        )
+        errors: list[str] = []
+        warnings: list[str] = []
+        harness.check_plan_lifecycle([active], errors, warnings)
+        assert errors == warnings == []
+        self.write(active, body + "\n- [x] Recorded acceptance.\n")
+        harness.check_plan_lifecycle([active], errors, warnings)
+        assert errors == []
+        assert len(warnings) == 1
+        assert active.exists()
+        archived = self.fixture(
+            "docs/exec-plans/completed/example.md",
+            body + "\n- [ ] Verify real SMTP delivery.\n",
+        )
+        harness.check_plan_lifecycle([archived], errors, warnings)
+        assert any("pending work" in error for error in errors)
+        self.write(
+            archived,
+            body
+            + "\n- [x] Delivery verified.\n```markdown\n- [ ] Example only.\n```\n",
+        )
+        errors = []
+        harness.check_plan_lifecycle([archived], errors, [])
+        assert errors == []
+
+    def test_plan_headings_ignore_code_and_history_is_not_a_plan(self) -> None:
+        """A fenced template is not a usable plan; historical checklists stay historical."""
+        body = "\n".join("## " + heading for heading in harness.PLAN_HEADINGS)
+        active = self.fixture(
+            "docs/exec-plans/active/example.md", "```markdown\n" + body + "\n```"
+        )
+        errors: list[str] = []
+        harness.check_plan_lifecycle([active], errors, [])
+        assert len(errors) == len(harness.PLAN_HEADINGS)
+        history = self.fixture(
+            "docs/history/draft.md", "# Old draft\n- [ ] Old proposal"
+        )
+        errors = []
+        harness.check_plan_lifecycle([history], errors, [])
+        assert errors == []
+
+    def test_unknown_review_dates_are_allowed_without_fabrication(self) -> None:
+        """Unknown dates remain blank; impossible review dates fail separately."""
+        doc = self.fixture(
+            "docs/product-specs/example.md",
+            '---\ntitle: Example\nstatus: needs-review\nowner_surface: repo\nlast_reviewed: ""\ncanonical: true\n---\n# Example',
+        )
+        errors: list[str] = []
+        harness.check_frontmatter_docs(errors)
+        harness.check_review_dates([doc], errors)
+        assert errors == []
+        record = next(
+            record for record in generator.build_tracked_records() if record.path == doc
+        )
+        assert record.last_reviewed == ""
+        for reviewed in ("not-a-date", "20260926", "2026-W39-6", "9999-01-01"):
+            self.write(doc, f"---\nlast_reviewed: {reviewed}\n---\n# Example")
+            errors = []
+            harness.check_review_dates([doc], errors)
+            assert len(errors) == 1
+
+    def test_health_and_gardening_reports_have_provenance_and_are_optional(
+        self,
+    ) -> None:
+        """Both ephemeral reports identify their checkout and UTC generation time."""
+        assert self.run_generator() == 0
+        report = generator.HARNESS_HEALTH_PATH.read_text()
+        assert "Checkout HEAD:" in report
+        timestamp = report.split("Generated at (UTC): `")[1].split("`")[0]
+        assert timestamp.endswith("Z")
+        assert datetime.fromisoformat(timestamp).utcoffset().total_seconds() == 0
+        path = self.root / "garden.md"
+        gardening.write_summary(
+            path, stale_docs=["needs review"], retired_terms=[], stale_baseline=[]
+        )
+        assert "scripts/run_harness_gardening.py" in path.read_text()
+        assert "Generated at (UTC):" in path.read_text()
+        assert "Checkout HEAD:" in path.read_text()
+        generator.GARDENING_SUMMARY_PATH.unlink()
+        generator.HARNESS_HEALTH_PATH.unlink()
+        errors: list[str] = []
+        harness.check_root_docs(errors)
+        assert errors == []
 
 
 if __name__ == "__main__":
