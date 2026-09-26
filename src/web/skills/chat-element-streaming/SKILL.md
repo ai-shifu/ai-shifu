@@ -108,3 +108,29 @@ Run `previewTypewriterGate.test.ts` for ordering, HTML-helper suppression and
 appended-text behavior. These are helper-level checks, not full rendered-panel
 coverage; verify `LessonPreview` integration when changing cache ownership or
 completion callbacks.
+
+## First-element spacing in read mode
+
+Preserve a single container-level first-element top-padding rule for loading,
+content, ask and interaction states. A first screen must not become flush with
+the header merely because its initial visible element is not ordinary content.
+Use the existing `getReadModeElementPadding` in `NewChatComp.tsx` as the starting
+point: first elements receive `20px 20px 0`, later elements `0 20px`.
+
+Current coverage in the renderer is narrower than that intended invariant:
+reset loading calls the helper with `true`, ordinary content/interaction and
+error containers pass `idx === 0`, and empty-list streaming dots use
+`isReadModeStreamingDotsFirstElement`. The early `ASK` branch still uses fixed
+`0 20px` padding, and some branches can return `null`; do not claim that the
+first visible ask is already covered or that the raw array index necessarily
+identifies the first visible DOM element. Inspect those branches when changing
+first-item layout and preserve shared treatment rather than adding per-type
+padding patches. This guidance relocation does not change their current UI.
+
+`src/app/c/[[...id]]/Components/ChatUi/NewChatComp.test.tsx` currently covers the
+read-mode loading gate and projection helpers; it does not render and assert
+these container paddings. For a spacing change, add rendered cases for reset
+loading, empty-list streaming dots, first content, first ask and first
+interaction, including an earlier item filtered out of the DOM. Check the same
+first top padding and no duplicate top gap on following items. Those first-item
+geometry cases remain a coverage requirement, not completed test evidence.
