@@ -145,8 +145,11 @@ export const SessionManagerModal = ({
     const trackingIdentityGeneration = getTrackingIdentityGeneration();
     setBusyBid('all');
     try {
-      await apiService.revokeOtherSessions({});
-      if (getTrackingIdentityGeneration() === trackingIdentityGeneration) {
+      const result = await apiService.revokeOtherSessions({});
+      if (
+        result.revoked > 0 &&
+        getTrackingIdentityGeneration() === trackingIdentityGeneration
+      ) {
         void trackRef.current(EVENT_NAMES.SESSION_REVOKED_OTHERS, {});
       }
       await loadRef.current();

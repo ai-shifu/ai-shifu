@@ -260,6 +260,36 @@ describe('SessionManagerModal', () => {
     expect(mockTrackEvent).toHaveBeenCalledWith('session_revoked_others', {});
   });
 
+  it('refreshes without recording a bulk revocation when no sessions remain', async () => {
+    (apiService.revokeOtherSessions as jest.Mock).mockResolvedValueOnce({
+      revoked: 0,
+    });
+    (apiService.listSessions as jest.Mock)
+      .mockResolvedValueOnce([current, cliSession])
+      .mockResolvedValueOnce([current]);
+    render(
+      <SessionManagerModal
+        open
+        onClose={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByText('module.settings.sessionsRevokeOthers'),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/MacBook-Pro/)).not.toBeInTheDocument(),
+    );
+    expect(apiService.revokeOtherSessions).toHaveBeenCalledTimes(1);
+    expect(apiService.listSessions).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(/Chrome/)).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.settings.sessionsRevokeOthers'),
+    ).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
   it('reports no outcome when a revoke fails', async () => {
     (apiService.revokeSession as jest.Mock).mockRejectedValue(
       new Error('server said no'),

@@ -86,7 +86,9 @@ rejected unless the terminal states are recorded separately.
 - Actor and surface: the signed-in user, from the account menu on the learner
   and teacher surfaces. The surface is carried on the open event.
 - Trigger: open fires when the menu entry is activated; revoke events fire
-  only after the backend confirms, so a failed revoke emits nothing. Capture
+  only after the backend confirms an actual revocation. A failed revoke emits
+  nothing; bulk success also requires `revoked > 0`, so a confirmed zero-session
+  no-op refreshes the list without entering a revocation cohort. Capture
   the shared tracking identity generation before each single or bulk request;
   emit its success event only if that generation still matches at completion.
   An account replacement or identity reset suppresses the stale outcome without
@@ -109,18 +111,21 @@ rejected unless the terminal states are recorded separately.
 - Consumers: no dedicated session-report query is deployed in this repository.
   Periodic product reports and future consumers must use these definitions.
 - Compatibility: event names, payloads, and successful-confirmation timing are
-  unchanged; outcomes crossing an identity replacement are now excluded at the
-  producer. This clarification replaces the ambiguous event-based split.
+  unchanged; outcomes crossing an identity replacement and zero-session bulk
+  no-ops are now excluded at the producer. This clarification replaces the ambiguous event-based split.
   Recalculate historical cohorts from available user-level events, or label old
   aggregates as incomparable when those events are unavailable. Existing events
   emitted after an identity replacement cannot be reassigned reliably because
-  the initiating identity was not recorded; disclose this historical limitation.
+  the initiating identity was not recorded. Historical bulk no-ops cannot be
+  removed either because the revoked count was not sent. Disclose both historical
+  limitations and the producer rollout boundary when comparing cohorts.
 - Verification:
   `src/web/src/components/Settings/SessionManagerModal.test.tsx`
   asserts that outcomes fire only on confirmed revocations, that a failed
   revocation emits nothing, and that no session identifier reaches a payload.
   It covers single and bulk requests across identity replacement, unchanged
-  identity, and synchronous/asynchronous tracking failures. Tracking failures
+  identity, zero-session bulk no-ops, and synchronous/asynchronous tracking
+  failures. Tracking failures
   must leave successful revocation and list refresh unaffected.
 
 | Field     | Type   | Allowed values     | Cardinality | Privacy class | Why required                                                 |
@@ -131,7 +136,8 @@ rejected unless the terminal states are recorded separately.
 Examples for a single UTC month: a user with three single revocations counts
 once in single-only; a user with two bulk revocations counts once in bulk-only;
 a user with both kinds at least once counts once in both. With one user in
-each group, each share is 1/3. A failed request belongs to none of the groups.
+each group, each share is 1/3. A failed request or bulk no-op belongs to none
+of the groups.
 
 The existing event payload allowlist is unchanged: `surface` is on
 `session_list_opened`, `source` is on `session_revoked`, and
