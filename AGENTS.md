@@ -29,6 +29,10 @@ to.
   docs before changing behavior.
 - Reuse existing modules, DTOs, stores, provider wrappers, and request paths
   before creating new abstractions.
+- When changing a shared contract, update all affected producers and consumers
+  in the same task, including compatibility handling and relevant regression
+  tests. This applies to DTO fields, exception codes, and hook, store, type, and
+  utility interfaces; subtree files inherit this coordination requirement.
 - Use ExecPlans for complex work. `PLANS.md` defines the format, and active
   plans live under `docs/exec-plans/active/`.
 - Whenever creating a Git worktree for this repository, copy existing local
