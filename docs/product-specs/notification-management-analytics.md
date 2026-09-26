@@ -76,10 +76,46 @@ asserted; inspect producer paths when extending that coverage.
 
 ## Managed rule actions
 
-- Business question: whether operators are configuring and maintaining managed SMS notification rules.
+- Business question: whether operators configure and maintain notification rules
+  in SMS or email mode. Both use `CreditNotificationRuleManagementSection` and
+  the same action callback; email actions are eligible too.
 - Event name: `operator_notification_rule_action`.
-- Actor and surface: authenticated operators in the credit-notification configuration tab.
-- Trigger: emit after an operator creates, edits, deletes, or changes a rule's enabled state in the local policy draft. The event does not represent a persisted save.
-- Payload allowlist: `channel` (`sms`), `action` (`created`, `edited`, `deleted`, or `toggled`), and `trigger_event` (one of the three supported events). Do not emit rule IDs, rule names, template codes or content, user identifiers, phone numbers, or policy conditions.
-- Consumers: operator configuration adoption reporting. This is additive and must never block the configuration workflow.
-- Verification: focused frontend tests cover eligible exposure, accepted sync attempts and outcomes, filter/detail events, payload allowlists, and analytics failures that do not alter the user workflow.
+- Population and trigger: authenticated operators in the configuration tab,
+  after create, edit, confirmed delete, or enabled-state change in the local
+  policy draft. This is an accepted draft action, not a persisted policy save.
+  Count each callback invocation; no per-rule/session deduplication is applied.
+- Current payload: `channel=sms`, `action` (`created`, `edited`, `deleted`, or
+  `toggled`), and `trigger_event` (`credit_granted`, `credit_expiring`, or
+  `low_balance`). The page's `NOTIFICATION_RULE_TRACKING_CONTEXT` hardcodes
+  `sms` for email actions as well. Consumers must treat this event as combined
+  rule-action volume; its channel cannot establish a true SMS/email split.
+  This is an existing producer mismatch, not an instruction to keep mislabeling
+  new events. A future correction needs coordinated producer/consumer/schema
+  compatibility and regression work; existing rows cannot recover rule channel.
+- Privacy and delivery: omit rule IDs/names, template codes/content, user/contact
+  data and policy conditions. The shared best-effort wrapper must never block
+  the local configuration workflow.
+
+## Legacy SMS-to-email rule migration
+
+`operator_notification_legacy_sms_rules_migrated` fires after the operator
+confirms migration and the local draft's legacy rules are replaced by disabled
+email rules with empty template bindings. The migration control is eligible in
+email contact mode when the list is nonempty and every rule is legacy. Opening
+or cancelling confirmation emits no migration event. The callback runs once per
+accepted confirmation, before any later policy save, and does not emit separate
+create/delete action events for the replaced rules.
+
+The exact payload is `channel=email` and `rule_count='3'` (a string literal in
+the current producer, not a dynamically measured count). Retain the stable event
+name despite its `legacy_sms` wording. Consumers may count accepted draft
+migrations; they must not treat this as persisted configuration, email delivery,
+or infer a dynamic migrated-rule total from the constant payload. The same
+privacy exclusions and best-effort delivery apply.
+
+Sources: `CreditNotificationRuleManagementSection.tsx`,
+`notificationRuleTracking.ts`, and the callback wiring in `page.tsx`, all under
+`src/web/src/app/admin/operations/credit-notifications/`. The adjacent page suite
+covers SMS action payloads, email rule creation and the confirmation migration
+payload. It does not directly assert the email action's mislabeled channel; that
+limitation is established from the shared callback and constant above.
