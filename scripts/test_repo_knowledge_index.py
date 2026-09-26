@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import build_repo_knowledge_index as generator
 import check_repo_harness as harness
+import run_harness_gardening as gardening
 
 
 class RepoKnowledgeIndexTest(unittest.TestCase):
@@ -90,6 +91,67 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         self.write(
             generator.BOUNDARY_BASELINE_PATH, '{"version": 1, "violations": []}\n'
         )
+
+    def test_scalar_quotes_preserve_malformed_dates_and_title_apostrophes(self) -> None:
+        """Unmatched quotes remain visible to the date scanner and index."""
+        root = self.root / "quoted-review-fixture"
+        docs = root / "docs"
+        path = docs / "product-specs" / "review.md"
+        for raw, expected in (
+            ('"2026-09-26"', "2026-09-26"),
+            ("'2026-09-26'", "2026-09-26"),
+            ("'2026-09-26", "'2026-09-26"),
+            ("2026-09-26'", "2026-09-26'"),
+            ("'2026-09-26\"", "'2026-09-26\""),
+        ):
+            with self.subTest(raw=raw):
+                self.write(
+                    path, "---\ntitle: Teachers'\nlast_reviewed: " + raw + "\n---\n"
+                )
+                metadata = generator.parse_frontmatter(path)
+                assert metadata["title"] == "Teachers'"
+                assert metadata["last_reviewed"] == expected
+                if expected != "2026-09-26":
+                    with (
+                        patch.object(gardening, "ROOT", root),
+                        patch.object(gardening, "DOCS_ROOT", docs),
+                    ):
+                        assert gardening.stale_review_docs() == [
+                            "docs/product-specs/review.md (invalid last_reviewed="
+                            + expected
+                            + ")"
+                        ]
+
+    def test_unknown_review_dates_remain_missing_review_debt(self) -> None:
+        """Accept an explicit empty date without pretending the review happened."""
+        root = self.root / "review-fixture"
+        docs = root / "docs"
+        path = docs / "product-specs" / "unknown-review.md"
+        with (
+            patch.object(harness, "DOCS_ROOT", docs),
+            patch.object(gardening, "ROOT", root),
+            patch.object(gardening, "DOCS_ROOT", docs),
+        ):
+            for value in ('""', "''", ""):
+                with self.subTest(value=value):
+                    self.write(
+                        path,
+                        "---\ntitle: Pending review\nstatus: needs-review\n"
+                        "owner_surface: repo\nlast_reviewed: "
+                        + value
+                        + "\ncanonical: true\n---\n",
+                    )
+                    assert generator.parse_frontmatter(path)["last_reviewed"] == ""
+                    errors: list[str] = []
+                    harness.check_frontmatter_docs(errors)
+                    assert errors == []
+                    assert gardening.stale_review_docs() == [
+                        "docs/product-specs/unknown-review.md (missing last_reviewed)"
+                    ]
+            self.write(path, path.read_text().replace("last_reviewed: \n", ""))
+            errors = []
+            harness.check_frontmatter_docs(errors)
+            assert any("last_reviewed" in error for error in errors)
 
     @staticmethod
     def write(path: Path, content: str) -> None:

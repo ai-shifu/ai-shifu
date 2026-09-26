@@ -59,6 +59,14 @@ FRONTMATTER_PATTERN = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 HEADING_PATTERN = re.compile(r"^#{1,6}\s+(.*)$", re.MULTILINE)
 
 
+def unquote_frontmatter_scalar(value: str) -> str:
+    """Unwrap matching scalar quotes while preserving unmatched delimiters."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
 def parse_frontmatter(path: Path) -> dict[str, str]:
     """Return trimmed leading-frontmatter metadata, skipping missing or malformed entries."""
     text = path.read_text(encoding="utf-8")
@@ -71,7 +79,7 @@ def parse_frontmatter(path: Path) -> dict[str, str]:
         if not line or ":" not in line:
             continue
         key, value = line.split(":", 1)
-        metadata[key.strip()] = value.strip()
+        metadata[key.strip()] = unquote_frontmatter_scalar(value)
     return metadata
 
 
