@@ -13,18 +13,18 @@
 | `docs/design-docs/agent-first-harness.md` | Agent-First Harness Migration | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
 | `docs/design-docs/ai-tool-compat.md` | AI Tool Compatibility Layer Design | `design-doc` | `implemented` | `repo` | `2026-09-20` | `true` |
 | `docs/design-docs/billing-credit-domain-terminology.md` | Billing Credit Domain Terminology | `design-doc` | `accepted` | `backend` | `2026-07-29` | `true` |
-| `docs/design-docs/billing-credit-notifications-technical-design.md` | 积分通知中心技术设计 | `design-doc` | `needs-review` | `backend` | `""` | `true` |
-| `docs/design-docs/billing-subscription-design.md` | Billing 设计文档 | `design-doc` | `needs-review` | `backend` | `""` | `true` |
+| `docs/design-docs/billing-credit-notifications-technical-design.md` | 积分通知中心技术设计 | `design-doc` | `needs-review` | `backend` | `-` | `true` |
+| `docs/design-docs/billing-subscription-design.md` | Billing 设计文档 | `design-doc` | `needs-review` | `backend` | `-` | `true` |
 | `docs/design-docs/billing-subscription-preorder.md` | Billing Subscription Preorder | `design-doc` | `proposed` | `backend` | `2026-05-25` | `true` |
-| `docs/design-docs/billing-subscription-purchase-sms.md` | Billing Subscription Purchase SMS Design | `design-doc` | `needs-review` | `backend` | `""` | `true` |
+| `docs/design-docs/billing-subscription-purchase-sms.md` | Billing Subscription Purchase SMS Design | `design-doc` | `needs-review` | `backend` | `-` | `true` |
 | `docs/design-docs/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `design-doc` | `implemented` | `shared` | `2026-07-12` | `true` |
-| `docs/design-docs/fresh-mysql-migration.md` | Fresh MySQL Migration Replay Repair | `design-doc` | `needs-review` | `backend` | `""` | `true` |
+| `docs/design-docs/fresh-mysql-migration.md` | Fresh MySQL Migration Replay Repair | `design-doc` | `needs-review` | `backend` | `-` | `true` |
 | `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-08-17` | `true` |
 | `docs/design-docs/learner-follow-up-input-shortcuts.md` | Learner follow-up input shortcuts | `design-doc` | `implemented` | `learner-web` | `2026-09-04` | `true` |
 | `docs/design-docs/minimax-voice-cloning.md` | MiniMax Voice Cloning | `design-doc` | `proposed` | `shared` | `2026-06-18` | `true` |
-| `docs/design-docs/native-cn-payments.md` | Native China Payments | `design-doc` | `needs-review` | `backend` | `""` | `true` |
+| `docs/design-docs/native-cn-payments.md` | Native China Payments | `design-doc` | `needs-review` | `backend` | `-` | `true` |
 | `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-23` | `true` |
-| `docs/design-docs/operator-course-user-request-optimization.md` | Operator Course/User Request Optimization | `design-doc` | `needs-review` | `frontend` | `""` | `true` |
+| `docs/design-docs/operator-course-user-request-optimization.md` | Operator Course/User Request Optimization | `design-doc` | `needs-review` | `frontend` | `-` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -130,7 +130,7 @@
 | `docs/exec-plans/tech-debt-tracker.md` | Tech Debt Tracker | `exec-plan-support` | `active` | `repo` | `2026-04-17` | `true` |
 | `docs/generated/harness-gardening-summary.md` | Harness Gardening Summary | `generated-doc` | `reference` | `repo` | `2026-04-17` | `true` |
 | `docs/product-specs/account-session-analytics.md` | Account Session Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-26` | `true` |
-| `docs/product-specs/billing-credit-notifications.md` | 积分通知中心需求文档 | `product-spec` | `needs-review` | `backend` | `""` | `true` |
+| `docs/product-specs/billing-credit-notifications.md` | 积分通知中心需求文档 | `product-spec` | `needs-review` | `backend` | `-` | `true` |
 | `docs/product-specs/billing-learning-hours-estimate.md` | Billing learning-time estimates | `product-spec` | `implemented` | `shared` | `2026-09-21` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page Contract | `product-spec` | `implemented` | `shared` | `2026-09-26` | `true` |
 | `docs/product-specs/gemini-live-follow-up-analytics.md` | Embedded Gemini Live Follow-Up Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-16` | `true` |
@@ -140,14 +140,14 @@
 | `docs/product-specs/mobile-404-sequencing-followup.md` | Mobile 404 Follow-up: Sequencing Improvement Plan | `product-spec` | `implemented` | `frontend` | `2026-04-17` | `true` |
 | `docs/product-specs/notification-management-analytics.md` | Notification Management Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
 | `docs/product-specs/operator-course-detail-page.md` | Operator Course Detail Page | `product-spec` | `implemented` | `shared` | `2026-05-13` | `true` |
-| `docs/product-specs/operator-course-follow-up-page.md` | Operator Course Follow-Up Page | `product-spec` | `needs-review` | `frontend` | `""` | `true` |
-| `docs/product-specs/operator-course-users.md` | Operator Course Users Section | `product-spec` | `needs-review` | `frontend` | `""` | `true` |
-| `docs/product-specs/operator-order-management.md` | Operator Order Management | `product-spec` | `needs-review` | `frontend` | `""` | `true` |
-| `docs/product-specs/operator-promotions.md` | Operator Promotions | `product-spec` | `needs-review` | `frontend` | `""` | `true` |
+| `docs/product-specs/operator-course-follow-up-page.md` | Operator Course Follow-Up Page | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
+| `docs/product-specs/operator-course-users.md` | Operator Course Users Section | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
+| `docs/product-specs/operator-order-management.md` | Operator Order Management | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
+| `docs/product-specs/operator-promotions.md` | Operator Promotions | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
 | `docs/product-specs/operator-role.md` | Operator Role Design | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/product-specs/operator-user-management.md` | Operator User Management | `product-spec` | `implemented` | `shared` | `2026-09-08` | `true` |
-| `docs/product-specs/operator-user-points-columns.md` | Operator User Points | `product-spec` | `needs-review` | `frontend` | `""` | `true` |
-| `docs/product-specs/operator-user-points-grant.md` | Operator User Points Grant | `product-spec` | `needs-review` | `frontend` | `""` | `true` |
+| `docs/product-specs/operator-user-points-columns.md` | Operator User Points | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
+| `docs/product-specs/operator-user-points-grant.md` | Operator User Points Grant | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |

@@ -21,7 +21,7 @@ by scenario; detailed procedures belong in focused skills. The complete
 | Error boundaries, build runtime or loading feedback                 | [Error fallback](skills/app-error-boundary-display/SKILL.md), [Node runtime](skills/next-build-node-runtime/SKILL.md), [loading dots](skills/shared-loading-dots/SKILL.md), [async confirmation](skills/async-confirm-dialog-loading/SKILL.md) |
 
 For billing terminology and display rules, use the owning
-[billing design](../../docs/design-docs/design-docs/billing-subscription-design.md) and shared components.
+[billing design](../../docs/design-docs/billing-subscription-design.md) and shared components.
 For a preview/debug business failure before the first content element, use the
 existing `usePreviewChat` error path to replace the loading placeholder with the
 backend message. Preserve the structured business code on the rendered error
