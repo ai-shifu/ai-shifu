@@ -1,0 +1,11 @@
+{
+  "__namespace__": "module.preview",
+  "aiDebugUnavailable": "KI-Debugging ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später noch einmal; falls es nicht funktioniert, überprüfen Sie die Konfiguration des Modells.",
+  "invalidParams": "Vorschauparameter sind unvollständig. Bitte aktualisieren und versuchen Sie es erneut.",
+  "llmError": "LLM-Aufruffehler",
+  "missingApiBaseUrl": "Die aktuelle Umgebung ist falsch konfiguriert. Bitte versuchen Sie es später noch einmal.",
+  "previewAll": "Vorschauentwurf",
+  "previewModeBanner": "Sie sehen die Vorschau eines Kursentwurfs. Lernende sehen Änderungen erst nach der Veröffentlichung. <editLink>Kurs bearbeiten</editLink>",
+  "requestFailed": "Vorschau fehlgeschlagen. Bitte versuchen Sie es später noch einmal.",
+  "streamError": "Die Vorschauverbindung wurde unterbrochen. Bitte versuchen Sie es erneut."
+}

@@ -182,6 +182,7 @@ if TYPE_CHECKING:
 _OPERATOR_PRODUCT_FILTER_LANGUAGES = (
     "zh-CN",
     "en-US",
+    "de-DE",
     "es-ES",
     "fr-FR",
     "ar-SA",

@@ -1,0 +1,63 @@
+{
+  "__namespace__": "module.shifu",
+  "creationArea": {
+    "descriptionPrefix": "Im",
+    "descriptionSuffix": "Format schreiben, um der KI Anweisungen für den Unterricht zu geben",
+    "modeCode": "Professionell",
+    "modeText": "Freundlich",
+    "title": "Lehranweisungen"
+  },
+  "history": {
+    "backToDocument": "Zurück zum Dokument",
+    "collapse": "Einklappen",
+    "confirmDescription": "Nach Bestätigung wird der aktuelle Unterrichtsinhalt vollständig durch diese Version ersetzt.",
+    "confirmLoadFailed": "Dieser Versionsinhalt konnte nicht geladen werden. Bitte versuchen Sie es später noch einmal.",
+    "confirmTitle": "Wiederherstellen bestätigen",
+    "contentEmpty": "Diese Version hat keinen Inhalt",
+    "empty": "Noch kein Versionsverlauf",
+    "expand": "Vollständig anzeigen",
+    "loading": "Laden...",
+    "restore": "Wiederherstellen dieser Version",
+    "restoreLessonDeleted": "Diese Lektion wurde von einem anderen Editor gelöscht und kann nicht wiederhergestellt werden. Bitte aktualisieren und versuchen Sie es erneut.",
+    "restoring": "Wird wiederhergestellt …",
+    "title": "Versionsverlauf",
+    "unknownUser": "Unbekannter Benutzer"
+  },
+  "newChapter": "Kapitel hinzufügen",
+  "previewArea": {
+    "action": "Testen",
+    "close": "Lernsimulation einklappen",
+    "copied": "Snippet kopiert",
+    "copy": "Abschnitt kopieren",
+    "copyTooltip": "Fügen Sie diesen Abschnitt links in die Lehranweisungen ein. Beim nächsten Test wird er verwendet.",
+    "description": "Erleben Sie die Sicht der Lernenden und prüfen Sie, wie die Lehranweisungen den Kurs personalisieren.",
+    "disabled": "Wählen Sie vor dem Debuggen eine Einheit aus.",
+    "empty": "Geben Sie links Lehranweisungen ein und klicken Sie auf „Testen“, um die Lernsimulation zu starten.",
+    "loading": "Lernsimulation wird erstellt …",
+    "open": "Lernsimulation erweitern",
+    "systemVariableLabels": {
+      "accessibleName": "{label} ({name})",
+      "background": "Hintergrund und Vorlieben der Lernenden",
+      "input": "Letzte Eingabe",
+      "language": "Unterrichtssprache",
+      "nickname": "Name des Lernenden"
+    },
+    "title": "Lernsimulation",
+    "variablesCollapse": "Einklappen",
+    "variablesDescription": "Unterschiedliche Werte der Lernenden führen zu unterschiedlichen Kursabläufen.",
+    "variablesEmpty": "Keine Variablen vorhanden",
+    "variablesExpand": "Erweitern",
+    "variablesHideSingleConfirmDesc": "Variable „{name}“ ausblenden. Über „Alle anzeigen“ können Sie sie wieder einblenden.",
+    "variablesHideSingleConfirmTitle": "Variable ausblenden",
+    "variablesHideUnused": "Nicht verwendete ausblenden",
+    "variablesHideUnusedConfirmDesc": "Nicht verwendete eigene Variablen im gesamten Kurs ausblenden. Über diese Schaltfläche können Sie sie später wieder anzeigen.",
+    "variablesHideUnusedConfirmTitle": "Ungenutzte benutzerdefinierte Variablen ausblenden",
+    "variablesHideUnusedTooltip": "Eigene Variablen ausblenden, die im Kurs nicht verwendet werden.",
+    "variablesPlaceholder": "UNBEKANNT",
+    "variablesRestoreHidden": "Alle anzeigen",
+    "variablesRestoreHiddenConfirmDesc": "Alle Variablen im Kurs anzeigen. Anschließend können Sie ungenutzte eigene Variablen wieder ausblenden.",
+    "variablesRestoreHiddenConfirmTitle": "Alle Variablen anzeigen",
+    "variablesRestoreHiddenTooltip": "Alle Variablen im Kurs anzeigen",
+    "variablesTitle": "Variablen"
+  }
+}

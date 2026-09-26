@@ -1,0 +1,463 @@
+{
+  "__namespace__": "module.operationsCourse",
+  "actions": {
+    "copyCourse": "Kurs kopieren",
+    "transferCreator": "Kursverantwortung übertragen"
+  },
+  "copyCourseDialog": {
+    "confirm": "Kopie bestätigen",
+    "confirmDescription": "Der neueste Entwurf von <strong>{courseName}</strong> wird kopiert. Für den neuen Kursentwurf <strong>{newCourseName}</strong> ist anschließend <strong>{targetCreator}</strong> verantwortlich.",
+    "confirmTitle": "Kurskopie bestätigen",
+    "contactPlaceholderEmail": "E-Mail-Adresse der neuen kursverantwortlichen Person eingeben",
+    "contactPlaceholderPhone": "Mobilnummer der neuen kursverantwortlichen Person eingeben",
+    "contactType": "Kontaktart",
+    "contactTypeEmail": "E-Mail-Adresse",
+    "contactTypePhone": "Telefon",
+    "courseNameFallback": "Kurs",
+    "courseNameSuffix": " – Kopie",
+    "currentCreator": "Derzeit verantwortliche Person",
+    "description": "Kopieren Sie den neuesten Entwurf des Kurses. Für den neuen Kursentwurf ist anschließend die ausgewählte Person verantwortlich.",
+    "identifier": "Neue kursverantwortliche Person",
+    "identifierRequired": "Geben Sie gültige Kontaktdaten der neuen kursverantwortlichen Person ein.",
+    "newCourseName": "Neuer Kursname",
+    "submitSuccess": "Kurs erfolgreich kopiert",
+    "title": "Kurs kopieren"
+  },
+  "coursePromptDialog": {
+    "copy": "Kopieren",
+    "copyFailed": "Der Kurs-Prompt konnte nicht kopiert werden.",
+    "copySuccess": "Kurs-Prompt kopiert",
+    "empty": "Kein Kurs-Prompt vorhanden",
+    "title": "Kurs-Prompt"
+  },
+  "detail": {
+    "basicInfo": "Grundlegende Informationen",
+    "boolean": {
+      "no": "Nein",
+      "yes": "Ja"
+    },
+    "chapterType": {
+      "chapter": "Kapitel",
+      "lesson": "Lektion"
+    },
+    "chapters": "Kapitel",
+    "chaptersTable": {
+      "chapterId": "Kapitel-ID",
+      "contentDetail": "Detail",
+      "contentStatus": "Inhaltsstatus",
+      "detailAction": "Detail",
+      "empty": "Keine Kapiteldaten",
+      "followUpCount": "Rückfragen",
+      "learningPermission": "Zugang",
+      "modifier": "Modifikator",
+      "name": "Kapitel",
+      "position": "Position",
+      "ratingCount": "Bewertung",
+      "ratingScore": "Bewertung",
+      "type": "Art",
+      "updatedAt": "Aktualisiert",
+      "visibility": "Sichtbarkeit"
+    },
+    "contentDetailDialog": {
+      "copy": "Kopieren",
+      "copyFailed": "Kopieren fehlgeschlagen",
+      "copySuccess": "Kopierte Inhaltsdetails",
+      "empty": "Kein Inhalt",
+      "sections": {
+        "content": "Inhalt des Kurses",
+        "systemPrompt": "System-Prompt"
+      },
+      "sources": {
+        "chapter": "Quelle: Kapitel-Prompt",
+        "course": "Quelle: Kurs-Prompt",
+        "lesson": "Quelle: Lektions-Prompt"
+      },
+      "title": "Inhaltsdetails"
+    },
+    "contentStatus": {
+      "empty": "Leer",
+      "has": "Vorhanden",
+      "unknown": "Unbekannt"
+    },
+    "creditUsage": {
+      "count": "{count} Einträge",
+      "description": "Sehen Sie sich die Credit-Verbrauchsdaten dieses Kurses an.",
+      "details": {
+        "collapse": "Einklappen",
+        "durationMinutesSeconds": "{minutes} Min. {seconds} Sek.",
+        "durationSeconds": "{seconds} Sek.",
+        "empty": "Keine Nutzungsdetails",
+        "expand": "Erweitern",
+        "openUsageDetails": "Details zur Creditverwendung öffnen {count}",
+        "table": {
+          "createdAt": "Verbraucht am",
+          "credits": "Credits",
+          "inputTokens": "Eingabe-Token",
+          "model": "Modell",
+          "outputSummary": "Zusammenfassung der Ausgabe",
+          "outputTokens": "Ausgabe-Token",
+          "ttsContent": "Synthetischer Inhalt",
+          "ttsDuration": "Dauer des Tons",
+          "ttsSegmentCount": "Segmente",
+          "ttsWordCount": "Synthetische Wörter"
+        },
+        "title": "Angaben zur Creditverwendung"
+      },
+      "filters": {
+        "mode": "Verwendungsmodus",
+        "modeAll": "Alle",
+        "reset": "Zurücksetzen",
+        "scene": "Art der Verwendung",
+        "sceneAll": "Alle",
+        "time": "Zeit",
+        "timePlaceholder": "Startzeit ~ Endzeit",
+        "userKeyword": "Benutzer",
+        "userKeywordPlaceholderEmail": "E-Mail / Nickname",
+        "userKeywordPlaceholderPhone": "Mobilnummer / Nickname"
+      },
+      "modelSummary": {
+        "variants": "{count} Varianten"
+      },
+      "modes": {
+        "ask": "Rückfragen",
+        "learn": "Lesen",
+        "listen": "Hörmodus",
+        "mixed": "Gemischt",
+        "unknown": "Unbekannter Modus"
+      },
+      "scenes": {
+        "debug": "Debug",
+        "learning": "Lernen",
+        "preview": "Vorschau",
+        "unknown": "Unbekannter Typ"
+      },
+      "table": {
+        "chapter": "Kapitel",
+        "createdAt": "Zuletzt verbraucht am",
+        "credits": "Credits insgesamt verbraucht",
+        "empty": "Keine Credit-Verbrauchsdaten vorhanden.",
+        "lesson": "Lektion",
+        "mode": "Verwendungsmodus",
+        "model": "Modell",
+        "nickname": "Nickname",
+        "scene": "Verwendungsart",
+        "usageCount": "Verwendungszahl"
+      },
+      "title": "Creditverwendung"
+    },
+    "creditUsageTab": "Creditverwendung",
+    "estimatedCreditCost": {
+      "classroom": "Klassenzimmer",
+      "creditUnit": "Credits",
+      "description": "Schätzung anhand der aktuellen Inhalte, Modelle und Faktoren. Zusätzlicher Verbrauch durch Wiederholen, Rückfragen oder Neugenerieren ist nicht enthalten. Maßgeblich sind die Creditdetails.",
+      "disabled": "Deaktiviert",
+      "listen": "Hörmodus",
+      "llm": "LLM",
+      "read": "Lesen",
+      "title": "Geschätzte Vollkurskosten",
+      "tts": "TTS",
+      "unknownModel": "Unbekanntes Modell"
+    },
+    "fields": {
+      "courseId": "Kurskennung",
+      "courseName": "Kursbezeichnung",
+      "createdAt": "Erstellt am",
+      "creator": "Kursverantwortliche Person",
+      "status": "Status",
+      "updatedAt": "Aktualisiert am"
+    },
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "Lesen Sie in dieser Reihenfolge: ursprüngliche Ausgabe -> aktuelle Rückfrage -> aktuelle Systemantwort.",
+        "fields": {
+          "chapter": "Kapitel / Lektion",
+          "currentAnswer": "Aktuelle System-Antwort",
+          "currentFollowUp": "Aktuelle Rückfrage",
+          "followUpTime": "Zeitpunkt der Rückfrage",
+          "lesson": "Lektion",
+          "nickname": "Nickname",
+          "sourceOutput": "Ursprüngliche Ausgabe",
+          "turnIndex": "Gesprächsrunde",
+          "user": "Benutzer",
+          "userId": "Benutzer-ID"
+        },
+        "sections": {
+          "basicInfo": "Grundlegende Informationen",
+          "currentRecord": "Details zur aktuellen Rückfrage",
+          "timeline": "Zeitleiste"
+        },
+        "sourceUnavailable": "Die ursprüngliche Ausgabe für diesen historischen Datensatz kann nicht gefunden werden.",
+        "timeline": {
+          "current": "Aktuelle Runde",
+          "student": "Schüler",
+          "teacher": "System"
+        },
+        "title": "Details zur Rückfrage"
+      },
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Kapitel / Lektionssuche",
+        "chapterKeywordPlaceholder": "Kapitel / Titel der Lektion",
+        "followUpTime": "Zeitpunkt der Rückfrage",
+        "lessonKeyword": "Lektionssuche",
+        "lessonKeywordPlaceholder": "Titel der Lektion",
+        "reset": "Zurücksetzen",
+        "resultCount": "{count, plural, one {# Ergebnis} other {# Ergebnisse}}",
+        "search": "Suchen",
+        "sourceStatus": "Ursprünglicher Ausgabestatus",
+        "sourceStatusAll": "Alle Zustände",
+        "sourceStatusMissing": "Ursprüngliche Ausgabe fehlt",
+        "sourceStatusResolved": "Ursprüngliche Ausgabe vorhanden",
+        "timePlaceholder": "Startzeit ~ Endzeit",
+        "userKeyword": "Benutzersuche",
+        "userKeywordPlaceholder": "Telefon / E-Mail / Nickname",
+        "userKeywordPlaceholderEmail": "E-Mail / Nickname",
+        "userKeywordPlaceholderPhone": "Telefon / Nickname"
+      },
+      "openMetric": "Rückfragedaten anzeigen",
+      "summary": {
+        "followUpCount": "Rückfragen insgesamt",
+        "latestFollowUpAt": "Letzte Rückfrage am",
+        "lessonCount": "Betroffene Lektionen",
+        "userCount": "Nutzende mit Rückfragen"
+      },
+      "table": {
+        "action": "Maßnahmen",
+        "chapter": "Kapitel",
+        "content": "Inhalt der Rückfrage",
+        "createdAt": "Zeitpunkt der Rückfrage",
+        "detailAction": "Detail anzeigen",
+        "empty": "Keine Rückfragen vorhanden",
+        "lesson": "Lektion",
+        "scopeHint": "Sehen Sie sich Rückfragen von Lernenden zu Kursinhalten an, um häufige Verständnisprobleme und verbesserungsbedürftige Lektionen zu erkennen.",
+        "sourceMissing": "Ursprüngliche Ausgabe fehlt",
+        "sourceResolved": "Ursprüngliche Ausgabe vorhanden",
+        "title": "Rückfragen",
+        "turnIndex": "Gesprächsrunde",
+        "user": "Benutzer"
+      },
+      "title": "Rückfragedaten",
+      "turnIndex": "Runde {count}",
+      "turnIndexHelp": "Die Reihenfolge der Rückfragen richtet sich nach ihrem Zeitpunkt innerhalb desselben Lernverlaufs."
+    },
+    "learningPermission": {
+      "free": "Frei",
+      "guest": "Kein Login",
+      "paid": "Bezahlt",
+      "unknown": "Unbekannt"
+    },
+    "metrics": "Metrik",
+    "metricsLabels": {
+      "completedUserAvgCredits": "Durchschnittlich verbrauchte Credits pro Nutzer mit Kursabschluss",
+      "creditConsumedTotal": "Credits insgesamt verbraucht",
+      "creditUsageCount": "Anzahl der Credit-Verbrauchsvorgänge",
+      "creditUserCount": "Nutzer mit Credit-Verbrauch",
+      "followUpCount": "Rückfragen",
+      "learnerCount": "Lernende",
+      "orderAmount": "Bestellwert (einschließlich Gutscheincode-Bestellungen)",
+      "orderCount": "Bestellungen",
+      "ratingScore": "Bewertung"
+    },
+    "metricsTooltips": {
+      "completedUserAvgCredits": "Durchschnittlicher Creditverbrauch pro Person, die den Kurs abgeschlossen hat und für die Credit-Verbrauch erfasst wurde.",
+      "creditConsumedTotal": "Credits, die bei der Nutzung dieses Kurses insgesamt verbraucht wurden, einschließlich Lernen und Rückfragen.",
+      "creditUsageCount": "Anzahl der Credit-Abbuchungen für diesen Kurs. So lässt sich die Nutzungshäufigkeit einschätzen.",
+      "creditUserCount": "Anzahl der Nutzer, die in diesem Kurs tatsächlich Credits verbraucht haben.",
+      "followUpCount": "Anzahl der Rückfragen zu den Kursinhalten. Klicken Sie hier, um die einzelnen Fragen anzusehen.",
+      "learnerCount": "Anzahl der Nutzer, die mit dem Lernen begonnen oder sich für den Kurs angemeldet haben. Dies zeigt die Reichweite des Kurses.",
+      "orderAmount": "Bestellwert auf Basis des zu zahlenden Betrags, einschließlich Gutscheincode- und Freischaltungsbestellungen. Er entspricht nicht den tatsächlich eingegangenen Zahlungen.",
+      "orderCount": "Anzahl erfolgreicher Bestellungen für diesen Kurs, einschließlich bezahlter Bestellungen, Gutscheincode-Bestellungen und kostenloser Freischaltungen.",
+      "ratingScore": "Durchschnittliche Bewertung der Kurskapitel. Sie gibt einen Hinweis auf das gesamte Lernerlebnis."
+    },
+    "orders": {
+      "openMetric": "Daten zur Bestellung öffnen"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Kapitel / Lektionssuche",
+        "chapterKeywordPlaceholder": "Kapitel / Titel des Unterrichts",
+        "commentStatus": "Kommentar",
+        "commentStatusAll": "Alle",
+        "commentStatusCommented": "Mit Kommentar",
+        "lessonKeyword": "Lektionssuche",
+        "lessonKeywordPlaceholder": "Titel des Lektions",
+        "mode": "Lernmodus",
+        "modeAll": "Alle Betriebsarten",
+        "ratingTime": "Bewertungszeit",
+        "reset": "Zurücksetzen",
+        "resultCount": "{count, plural, one {# Ergebnis} other {# Ergebnisse}}",
+        "score": "Bewertung",
+        "scoreAll": "Alle Bewertungen",
+        "search": "Suchen",
+        "sortBy": "Sortieren",
+        "sortByLatest": "Neueste zuerst",
+        "sortByLowScore": "Niedrigste Bewertung zuerst",
+        "timePlaceholder": "Startzeit ~ Endzeit",
+        "userKeyword": "Benutzersuche",
+        "userKeywordPlaceholderEmail": "E-Mail / Nickname",
+        "userKeywordPlaceholderPhone": "Telefon / Nickname"
+      },
+      "modes": {
+        "listen": "Hörmodus",
+        "read": "Lesen"
+      },
+      "openMetric": "Offene Bewertungsdaten",
+      "scoreValue": "{count} Punkte",
+      "summary": {
+        "averageScore": "Durchschnittliche Bewertung",
+        "latestRatedAt": "Letzte Bewertung",
+        "ratingCount": "Bewertungen",
+        "userCount": "Personen mit Bewertung"
+      },
+      "table": {
+        "chapter": "Kapitel",
+        "comment": "Bemerkung",
+        "empty": "Keine Bewertungsdaten",
+        "guestUser": "Gast",
+        "lesson": "Lektion",
+        "mode": "Modus",
+        "ratedAt": "Bewertungszeit",
+        "score": "Bewertung",
+        "title": "Bewertungsliste",
+        "user": "Benutzer"
+      },
+      "title": "Bewertungsdaten"
+    },
+    "title": "Kursdetails",
+    "userLearningStatus": {
+      "completed": "Abgeschlossen",
+      "learning": "Lernt gerade",
+      "notStarted": "Nicht gestartet"
+    },
+    "userRole": {
+      "creator": "Lehrkraft",
+      "normal": "Allgemeiner Benutzer",
+      "operator": "Betriebsmitarbeitende",
+      "student": "Lernende"
+    },
+    "users": "Nutzerdaten",
+    "usersCount": "Nutzer dieses Kurses: {count}",
+    "usersDescription": "Sehen Sie sich den Lernfortschritt, den Zahlungsstatus und die letzte Aktivität der Personen an, die mit diesem Kurs verbunden sind.",
+    "usersFilters": {
+      "all": "Alle",
+      "learningStatus": "Lernstatus",
+      "paymentPaid": "Bezahlt",
+      "paymentStatus": "Zahlung",
+      "paymentUnpaid": "Nicht bezahlt",
+      "userKeyword": "Benutzersuche",
+      "userKeywordPlaceholder": "Mobil / E-Mail / Nickname",
+      "userKeywordPlaceholderEmail": "E-Mail / Nickname",
+      "userKeywordPlaceholderPhone": "Mobilnummer / Nickname",
+      "userRole": "Benutzerrolle"
+    },
+    "usersTable": {
+      "account": "Telefon / E-Mail",
+      "accountEmail": "E-Mail-Adresse",
+      "accountPhone": "Telefon",
+      "action": "Maßnahmen",
+      "detailAction": "Detail",
+      "empty": "Keine Benutzerdaten",
+      "isPaid": "Bezahlt",
+      "joinedAt": "Beigetreten am",
+      "lastLearnedAt": "Zuletzt gelernt",
+      "lastLoginAt": "Letzte Anmeldung",
+      "learningProgress": "Fortschritte",
+      "learningStatus": "Lernstatus",
+      "nickname": "Nickname",
+      "totalPaidAmount": "Bisher gezahlter Gesamtbetrag",
+      "userId": "Benutzer-ID",
+      "userRole": "Benutzerrolle"
+    },
+    "visibility": {
+      "hidden": "Versteckt",
+      "visible": "Sichtbar"
+    }
+  },
+  "emptyList": "Keine Kurse",
+  "filters": {
+    "courseId": "Kurskennung",
+    "courseName": "Kursbezeichnung",
+    "courseQuery": "Kurs",
+    "courseQueryPlaceholder": "Kurs-ID / Kurs-Name",
+    "createdAt": "Erstellt am",
+    "creator": "Kursverantwortliche Person",
+    "creatorEmailOrUserBid": "E-Mail der kursverantwortlichen Person",
+    "creatorMobileOrUserBid": "Mobilnummer der kursverantwortlichen Person",
+    "endTime": "Enddatum",
+    "startTime": "Datum des Beginns",
+    "status": "Status"
+  },
+  "messages": {
+    "copyCourseFailed": "Der Kurs konnte nicht kopiert werden. Bitte versuchen Sie es später noch einmal.",
+    "loadChapterDetailFailed": "Fehler beim Laden von Kapiteldetails. Bitte versuchen Sie es später noch einmal.",
+    "loadCourseDetailFailed": "Fehler beim Laden der Kursdetails. Bitte versuchen Sie es später noch einmal.",
+    "loadCourseUsersFailed": "Fehler beim Laden der Kurs-Benutzerdaten. Bitte versuchen Sie es später noch einmal.",
+    "loadCoursesFailed": "Die Kursliste konnte nicht geladen werden. Bitte aktualisieren und erneut versuchen.",
+    "loadCreditUsageDetailsFailed": "Fehler beim Laden von Credit-Nutzungsdetails. Bitte versuchen Sie es später noch einmal.",
+    "loadCreditUsageFailed": "Fehler beim Laden von Credit-Nutzungsdaten. Bitte versuchen Sie es später noch einmal.",
+    "loadFollowUpDetailFailed": "Fehler beim Laden von Details zu Rückfragen. Bitte versuchen Sie es später noch einmal.",
+    "loadFollowUpsFailed": "Fehler beim Laden von Daten zu Rückfragen. Bitte aktualisieren und erneut versuchen.",
+    "loadPromptDetailFailed": "Der Kurs-Prompt konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "loadRatingsFailed": "Fehler beim Laden von Bewertungsdaten. Bitte aktualisieren und erneut versuchen.",
+    "transferCreatorFailed": "Die Kursverantwortung konnte nicht übertragen werden. Bitte versuchen Sie es später erneut."
+  },
+  "overview": {
+    "activeFilter": "Schnellfilter",
+    "metrics": {
+      "createdLast7d": "Neue Kurse (7d)",
+      "draftCourses": "Entwurfskurse",
+      "learningActive30d": "Kurse mit Lernaktivität (30 Tage)",
+      "ordered30d": "Kurse mit Bestellungen (30 Tage)",
+      "publishedCourses": "Veröffentlichte Kurse",
+      "totalCourses": "Kurse insgesamt"
+    },
+    "title": "Überblick",
+    "tooltips": {
+      "createdLast7d": "In den letzten 7 Tagen erstellte Kurse",
+      "draftCourses": "Kurse, die noch nie veröffentlicht wurden.",
+      "learningActive30d": "Kurse mit Lernaktivität in den letzten 30 Tagen.",
+      "ordered30d": "Kurse mit bezahlten Bestellungen in den letzten 30 Tagen.",
+      "publishedCourses": "mindestens einmal veröffentlichte Kurse",
+      "totalCourses": "Anzahl der Kurse insgesamt"
+    }
+  },
+  "statusLabels": {
+    "published": "Veröffentlicht",
+    "unknown": "Unbekannt",
+    "unpublished": "Unveröffentlicht"
+  },
+  "table": {
+    "action": "Maßnahmen",
+    "courseId": "Kurskennung",
+    "courseName": "Kursbezeichnung",
+    "coursePrompt": "Kurs-Prompt",
+    "createdAt": "Erstellt am",
+    "creator": "Kursverantwortliche Person",
+    "detailAction": "Detail",
+    "llmModel": "LLM-Modell",
+    "modifier": "Modifikator",
+    "price": "Preis",
+    "status": "Status",
+    "ttsModel": "TTS-Modell",
+    "updatedAt": "Aktualisiert am"
+  },
+  "title": "Kursmanagement",
+  "transferCreatorDialog": {
+    "confirm": "Übertragen",
+    "confirmDescription": "Übertragen Sie die Verantwortung für {courseName} von {currentCreator} auf {targetCreator}.",
+    "confirmTitle": "Übertragung der Kursverantwortung bestätigen",
+    "contactPlaceholderEmail": "E-Mail der neuen kursverantwortlichen Person eingeben",
+    "contactPlaceholderPhone": "Mobilnummer der neuen kursverantwortlichen Person eingeben",
+    "contactType": "Kontaktart",
+    "contactTypeEmail": "E-Mail-Adresse",
+    "contactTypePhone": "Mobilnummer",
+    "currentCreator": "Aktuell verantwortliche Person",
+    "description": "Nur die kursverantwortliche Person ändert sich. Kursinhalt, Einstellungen und geteilte Zugriffsrechte bleiben unverändert.",
+    "identifier": "Neue kursverantwortliche Person",
+    "identifierRequired": "Geben Sie gültige Kontaktdaten für die neue kursverantwortliche Person ein.",
+    "sameCreator": "Die Kontaktdaten gehören bereits zur aktuell verantwortlichen Person.",
+    "submitSuccess": "Kursverantwortung übertragen",
+    "title": "Kursverantwortung übertragen"
+  }
+}

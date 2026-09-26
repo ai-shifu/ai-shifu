@@ -1,0 +1,164 @@
+{
+  "__namespace__": "module.operationsOrder",
+  "creditOrders": {
+    "creditAmountValue": "{credits}",
+    "detail": {
+      "description": "Details zur Creditbestellung anzeigen",
+      "labels": {
+        "creatorId": "Benutzer-ID",
+        "failedAt": "Fehlgeschlagen",
+        "failureCode": "Fehlercode",
+        "failureMessage": "Grund des Versagens",
+        "grantSourceId": "ID der Gutschriftquelle",
+        "grantSourceType": "Art der Gutschriftquelle",
+        "grantedCredits": "Gutgeschriebene Credits",
+        "orderType": "Art der Bestellung",
+        "paidAt": "Bezahlt am",
+        "productCode": "Erzeugniscode",
+        "providerReference": "Referenz des Anbieters",
+        "validFrom": "Gültig von"
+      },
+      "sections": {
+        "creator": "Benutzerinformationen",
+        "grant": "Gutschriftinformationen",
+        "metadata": "Metadaten",
+        "payment": "Zahlungsinformationen",
+        "product": "Creditplan-Info",
+        "summary": "Bestellinformationen"
+      },
+      "title": "Details zur Credit-Bestellung"
+    },
+    "emptyList": "Keine Angaben zum Creditauftrag",
+    "filters": {
+      "creatorKeyword": "Benutzer",
+      "creatorKeywordPlaceholderEmail": "E-Mail-Adresse",
+      "creatorKeywordPlaceholderPhone": "Mobilnummer",
+      "orderKind": "Art der Bestellung",
+      "paymentProvider": "Anbieter",
+      "productKeyword": "Erzeugnis",
+      "productKeywordPlaceholder": "Creditplan / Creditpaketname"
+    },
+    "kind": {
+      "other": "Sonstige",
+      "plan": "Credit-Tarif",
+      "topup": "Creditpaket"
+    },
+    "longTerm": "Langfristig",
+    "overview": {
+      "metrics": {
+        "creditAmount": "Verfügbare Credits",
+        "paidAmount": "Bezahlter Betrag",
+        "paidOrders": "Bezahlt",
+        "totalOrders": "Bestellungen insgesamt"
+      },
+      "tooltips": {
+        "creditAmount": "Credits, die aktuell über alle Lehrkraftkonten für Lernen, Vorschau und Debugging verfügbar sind",
+        "paidAmount": "Bezahlter Betrag aus Creditaufträgen",
+        "paidOrders": "Bezahlte Creditaufträge",
+        "totalOrders": "Anzahl der Credit-Bestellungen insgesamt"
+      }
+    },
+    "paymentChannel": {
+      "checkoutSession": "Checkout-Sitzung"
+    },
+    "productIntervals": {
+      "day": "Täglich",
+      "month": "Monatlich",
+      "year": "Jährlich"
+    },
+    "productNameFormat": "{interval} - {name}",
+    "table": {
+      "creator": "Nutzer",
+      "creditAmount": "Credits",
+      "orderId": "Kennnummer des Creditauftrags",
+      "orderKind": "Art der Bestellung",
+      "paymentChannel": "Zahlungsmethode",
+      "product": "Credit-Tarif",
+      "validTo": "Gültig bis"
+    }
+  },
+  "detail": {
+    "fallback": "Bestelldetails",
+    "sections": {
+      "activities": "Tätigkeiten",
+      "coupons": "Einlösungscode",
+      "course": "Kursinformationen",
+      "payment": "Betrag & Zahlung",
+      "summary": "Bestellinformationen",
+      "user": "Benutzerinformationen"
+    },
+    "title": "Bestelldetails"
+  },
+  "emptyList": "Keine Bestelldaten",
+  "filters": {
+    "course": "Kurs",
+    "courseId": "Kurskennung",
+    "courseIdPlaceholder": "Kurskennung",
+    "courseName": "Kurs",
+    "courseNamePlaceholder": "Kursbezeichnung",
+    "courseQueryPlaceholder": "Kurs-ID / Kurs-Name",
+    "createdAt": "Erstellt",
+    "endTime": "Endzeit",
+    "orderId": "Bestell-ID",
+    "orderIdPlaceholder": "Bestell-ID",
+    "paymentChannel": "Zahlung",
+    "reset": "Zurücksetzen",
+    "search": "Suchen",
+    "source": "Quelle",
+    "startTime": "Startzeit",
+    "status": "Status",
+    "timeRangePlaceholder": "Startzeit ~ Endzeit",
+    "userKeyword": "Benutzer",
+    "userKeywordPlaceholder": "Mobil / E-Mail",
+    "userKeywordPlaceholderEmail": "E-Mail-Adresse",
+    "userKeywordPlaceholderPhone": "Mobilnummer"
+  },
+  "messages": {
+    "loadCreditOrderDetailFailed": "Fehler beim Laden von Credit-Bestelldetails. Bitte versuchen Sie es später noch einmal.",
+    "loadDetailFailed": "Fehler beim Laden von Bestelldetails. Bitte versuchen Sie es später noch einmal."
+  },
+  "overview": {
+    "activeFilter": "Aktueller Filter",
+    "metrics": {
+      "paidAmount": "Bezahlter Betrag",
+      "paidOrders": "Bezahlt",
+      "totalOrders": "Bestellungen insgesamt"
+    },
+    "staleData": "Übersicht konnte nicht geladen werden. Aktualisieren, um es erneut zu versuchen.",
+    "title": "Überblick",
+    "tooltips": {
+      "paidAmount": "Bezahlter Betrag aus Lernaufträgen",
+      "paidOrders": "Bezahlte Lernaufträge",
+      "totalOrders": "Anzahl der Bestellungen insgesamt"
+    }
+  },
+  "source": {
+    "couponRedeem": "Gutscheineinlösung",
+    "importActivation": "Aktivierung importieren",
+    "openApi": "Freischaltung über Open API",
+    "userPurchase": "Benutzerkauf"
+  },
+  "table": {
+    "action": "Maßnahmen",
+    "coupons": "Einlösungscode",
+    "course": "Kurs",
+    "createdAt": "Erstellt am",
+    "discountAmount": "Rabatt",
+    "empty": "Keine Bestelldaten",
+    "orderId": "Bestell-ID",
+    "paidAmount": "Bezahlt",
+    "paymentChannel": "Zahlungskanal",
+    "source": "Bestellquelle",
+    "status": "Status",
+    "updatedAt": "Bestellung aktualisiert am",
+    "user": "Benutzer",
+    "userId": "Benutzer-ID",
+    "view": "Detail anzeigen"
+  },
+  "tabs": {
+    "credits": "Creditaufträge",
+    "learn": "Lernaufträge"
+  },
+  "title": "Bestellverwaltung",
+  "totalCount": "{count}"
+}
