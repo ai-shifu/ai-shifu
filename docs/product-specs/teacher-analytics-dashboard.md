@@ -10,7 +10,7 @@ canonical: true
 
 ## Background
 
-AI-Shifu stores rich learning and conversation data for a published course (Shifu). The implemented **teacher-facing dashboard** helps course owners and collaborators understand:
+AI-Shifu stores rich learning and conversation data for a published course (Shifu). The implemented **teacher-facing dashboard** helps course owners understand:
 
 1. Learner progress
 2. Course completion
@@ -113,8 +113,14 @@ Add a new additive service module:
 Teacher dashboard must be restricted:
 
 - Require login (existing `before_request` sets `request.user`)
-- Require Shifu permission:
-  - `shifu_permission_verification(app, request.user.user_id, shifu_bid, "view")`
+- Limit access to owned published courses. The entry page uses
+  `_load_dashboard_course_meta_map(user_id)`; course-specific builders use
+  `_load_dashboard_course_meta(user_id, shifu_bid)`. Both restrict
+  `PublishedShifu.created_user_bid` to the requesting user and exclude deleted
+  records and built-in demo courses.
+- Collaborator `view` permission does not grant dashboard access. These builders
+  do not call `shifu_permission_verification`; course-specific requests without
+  an eligible owned course are rejected.
 
 ### Implemented endpoints (V1)
 
