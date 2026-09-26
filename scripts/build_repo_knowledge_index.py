@@ -194,7 +194,11 @@ def build_tracked_records() -> list[DocRecord]:
                 path=path,
                 title=title,
                 category=category,
-                status=metadata.get("status") or status,
+                status=(
+                    status
+                    if category in {"exec-plan-active", "exec-plan-completed"}
+                    else metadata.get("status") or status
+                ),
                 owner_surface=metadata.get("owner_surface")
                 or (
                     "frontend"
@@ -204,7 +208,7 @@ def build_tracked_records() -> list[DocRecord]:
                     else "repo"
                 ),
                 last_reviewed=metadata.get("last_reviewed", ""),
-                # Plan location owns canonical status when a move retains stale metadata.
+                # Plan location owns lifecycle and authority despite stale metadata.
                 canonical=(
                     canonical
                     if category in {"exec-plan-active", "exec-plan-completed"}

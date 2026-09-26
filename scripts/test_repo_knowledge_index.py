@@ -433,7 +433,7 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         """Reactivation and archival override stale frontmatter, unlike specs."""
         archived = self.fixture(
             "docs/exec-plans/completed/reactivated.md",
-            "---\ncanonical: false\n---\n# Reactivated plan\n",
+            "---\nstatus: completed\ncanonical: false\n---\n# Reactivated plan\n",
         )
         active = self.root / "docs/exec-plans/active/reactivated.md"
         active.parent.mkdir(parents=True, exist_ok=True)
@@ -441,21 +441,26 @@ class RepoKnowledgeIndexTest(unittest.TestCase):
         self.track()
         records = {record.path: record for record in generator.build_tracked_records()}
         assert records[active].category == "exec-plan-active"
+        assert records[active].status == "active"
         assert records[active].canonical == "true"
 
-        self.write(active, "---\ncanonical: true\n---\n# Archived plan\n")
+        self.write(
+            active, "---\nstatus: active\ncanonical: true\n---\n# Archived plan\n"
+        )
         active.rename(archived)
         self.track()
         records = {record.path: record for record in generator.build_tracked_records()}
         assert records[archived].category == "exec-plan-completed"
+        assert records[archived].status == "completed"
         assert records[archived].canonical == "false"
 
         reference = self.fixture(
             "docs/references/noncanonical.md",
-            "---\ncanonical: false\n---\n# Reference\n",
+            "---\nstatus: draft\ncanonical: false\n---\n# Reference\n",
         )
         records = {record.path: record for record in generator.build_tracked_records()}
         assert records[reference].canonical == "false"
+        assert records[reference].status == "draft"
 
     def test_alias_inventory_is_stable_without_worktree_symlink_support(self) -> None:
         """Git's indexed alias type survives a core.symlinks=false checkout."""
