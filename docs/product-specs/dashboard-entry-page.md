@@ -88,7 +88,9 @@ Existing regression evidence:
 
 - [Backend dashboard routes](../../src/api/tests/service/dashboard/test_dashboard_routes.py)
   cover ownership, shared/demo exclusions, manual-import learner inclusion,
-  successful-order metrics, date filtering, pagination, and UTC serialization.
+  successful-order metrics, date filtering, pagination-parameter validation,
+  and UTC serialization. They do not currently exercise entry results spanning
+  multiple pages, page counts, or out-of-range page clamping.
 - [Entry page tests](../../src/web/src/app/admin/dashboard/page.test.tsx)
   cover the UI request and navigation behavior.
 - [Query contract tests](../../src/api/tests/service/dashboard/test_dashboard_query_contracts.py)
