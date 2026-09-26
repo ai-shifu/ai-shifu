@@ -552,6 +552,78 @@ describe('ShifuSettingDialog analytics producer', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  it('updates polled cloned-voice status without waiting for a slow cost request', async () => {
+    mockTtsConfig.mockResolvedValue({
+      providers: [
+        {
+          name: 'minimax',
+          label: 'MiniMax',
+          supports_voice_cloning: true,
+          speed: { min: 0.5, max: 2, step: 0.1, default: 1 },
+          voices: [{ value: 'voice-1', label: 'Voice' }],
+          models: [{ value: 'tts-model', label: 'TTS' }],
+        },
+      ],
+      model_options: [],
+    });
+    const detail = await mockGetShifuDetail();
+    mockGetShifuDetail.mockResolvedValue({
+      ...detail,
+      tts_enabled: true,
+      tts_provider: 'minimax',
+      tts_model: 'tts-model',
+      tts_voice_id: 'voice-1',
+      tts_speed: 1,
+    });
+    mockListMinimaxTtsVoices.mockResolvedValue({
+      voices: [
+        {
+          voice_bid: 'clone-1',
+          voice_id: 'AiShifu_xxxxxxxxxx',
+          display_name: 'Pending voice',
+          status: 'processing',
+        },
+      ],
+    });
+    mockGetMinimaxTtsCloneCost.mockImplementation(() => new Promise(() => {}));
+
+    renderOpenSettings();
+    expect(await screen.findByText('AiShifu_xxxxxxxxxx')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneStatus.processing'),
+    ).toBeInTheDocument();
+
+    const dialogProps = mockMiniMaxCloneDialog.mock.calls.at(-1)?.[0] as {
+      onRefreshCost: () => Promise<void>;
+    };
+    const previousVoiceRequestCount =
+      mockListMinimaxTtsVoices.mock.calls.length;
+    mockListMinimaxTtsVoices.mockResolvedValue({
+      voices: [
+        {
+          voice_bid: 'clone-1',
+          voice_id: 'AiShifu_xxxxxxxxxx',
+          display_name: 'Ready voice',
+          status: 'ready',
+        },
+      ],
+    });
+
+    void dialogProps.onRefreshCost();
+    await waitFor(() =>
+      expect(mockListMinimaxTtsVoices).toHaveBeenCalledTimes(
+        previousVoiceRequestCount + 1,
+      ),
+    );
+    expect(await screen.findByText('AiShifu_xxxxxxxxxx')).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.shifuSetting.minimaxCloneStatus.processing'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.shifuSetting.minimaxCloneStatus.ready'),
+    ).toBeInTheDocument();
+  });
+
   it.each([
     {
       userId: 'collaborator-1',

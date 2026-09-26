@@ -632,6 +632,47 @@ Billing UX:
 - After submission, show reserved, charged, or released status using the voice
   DTO `billing_status`.
 
+### Unavailable Clone-Cost Analytics
+
+Follow the event and privacy rules in
+[`frontend-product-analytics.md`](../references/frontend-product-analytics.md).
+
+- Business question: How often do eligible teachers reach the MiniMax clone
+  flow without a usable cost estimate, so product and engineering can decide
+  whether estimate reliability needs prioritization?
+- Metric definition: Count unavailable outcomes by day and distinct tracked
+  teachers over a rolling 30-day window. This event has no successful-result
+  denominator and must not be reported as an estimate-failure rate.
+- Event name: `teacher_minimax_clone_cost_unavailable`.
+- Actor and surface: An authenticated course owner in the authoring settings
+  sheet, with `surface=settings` or `surface=clone_dialog`.
+- Trigger: The latest refresh for the current course/provider completes with
+  an unavailable estimate while the sheet is open, TTS is enabled, and the
+  MiniMax clone capability is available.
+- Population: Include course owners in their own authoring settings. Exclude
+  learners, previews, non-owners, closed settings, disabled TTS, and providers
+  without MiniMax voice cloning.
+- Count unit: One unavailable state transition per settings opening and
+  course/provider scope. Repeated polling failures do not count again; a
+  successfully classified free or credit estimate re-arms the next transition.
+- Deduplication: In-memory per settings opening and course/provider scope;
+  closing/reopening or changing scope resets it. There is no persisted or
+  cross-session deduplication.
+- Correlation: None beyond the shared pseudonymous analytics identity. Do not
+  send course IDs, estimate values, API errors, or voice metadata.
+- Consumers: Product and engineering use daily aggregate event counts to
+  prioritize estimate-endpoint reliability work. No row-level joins are
+  required.
+- Compatibility: Additive new event; no existing event or payload changes and
+  no backfill is required.
+- Verification: Assert exact event name and payload, owner/feature eligibility,
+  per-opening deduplication and re-arming, prohibited-field absence, and that
+  tracking failures do not change the displayed cost state.
+
+| Field | Type | Allowed values | Cardinality | Privacy class | Why required |
+| --- | --- | --- | --- | --- | --- |
+| `surface` | string | `settings`, `clone_dialog` | low | non-personal enum | Distinguishes where the unavailable estimate was visible. |
+
 ### Sanitization Changes
 
 The current effect that defaults unknown voices must become provider-aware:
