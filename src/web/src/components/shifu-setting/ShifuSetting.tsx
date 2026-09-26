@@ -348,6 +348,13 @@ export default function ShifuSettingDialog({
     } | null>(null);
   const minimaxVoiceListRefreshSeqRef = useRef(0);
   const minimaxCloneCostRefreshSeqRef = useRef(0);
+  const minimaxCloneCostRefreshInFlightRef = useRef<{
+    seq: number;
+    shifuId: string;
+    provider: string;
+    openSession: number;
+    eligibilityGeneration: number;
+  } | null>(null);
   // A delayed result belongs only to its settings opening and eligibility scope.
   const minimaxCloneCostOpenSessionRef = useRef(0);
   const minimaxCloneCostEligibilityGenerationRef = useRef(0);
@@ -664,13 +671,6 @@ export default function ShifuSettingDialog({
   const refreshMinimaxVoiceData = useCallback(async () => {
     if (!shifuId) return;
     const refreshScope = { shifuId, provider: resolvedProvider };
-    const openSession = minimaxCloneCostOpenSessionRef.current;
-    const eligibilityGeneration =
-      minimaxCloneCostEligibilityGenerationRef.current;
-    const eligibilityContext = minimaxCloneCostEligibilityContextRef.current;
-    minimaxCloneCostRefreshScopeRef.current = refreshScope;
-    const voiceRefreshSeq = ++minimaxVoiceListRefreshSeqRef.current;
-    const costRefreshSeq = ++minimaxCloneCostRefreshSeqRef.current;
     const isCurrentScope = () => {
       const currentScope = minimaxCloneCostRefreshScopeRef.current;
       return (
@@ -678,6 +678,31 @@ export default function ShifuSettingDialog({
         refreshScope.provider === currentScope.provider
       );
     };
+    if (!isCurrentScope()) return;
+
+    const openSession = minimaxCloneCostOpenSessionRef.current;
+    const eligibilityGeneration =
+      minimaxCloneCostEligibilityGenerationRef.current;
+    const eligibilityContext = minimaxCloneCostEligibilityContextRef.current;
+    const voiceRefreshSeq = ++minimaxVoiceListRefreshSeqRef.current;
+    const inFlightCost = minimaxCloneCostRefreshInFlightRef.current;
+    const costAlreadyInFlight =
+      isMiniMaxTtsProvider &&
+      inFlightCost?.shifuId === refreshScope.shifuId &&
+      inFlightCost.provider === refreshScope.provider &&
+      inFlightCost.openSession === openSession &&
+      inFlightCost.eligibilityGeneration === eligibilityGeneration;
+    const costRefreshSeq = costAlreadyInFlight
+      ? null
+      : ++minimaxCloneCostRefreshSeqRef.current;
+    if (isMiniMaxTtsProvider && costRefreshSeq !== null) {
+      minimaxCloneCostRefreshInFlightRef.current = {
+        seq: costRefreshSeq,
+        ...refreshScope,
+        openSession,
+        eligibilityGeneration,
+      };
+    }
     const result = await loadMiniMaxVoiceRefreshData({
       fetchVoices: async () => {
         const response = (await api.listMinimaxTtsVoices(
@@ -695,14 +720,28 @@ export default function ShifuSettingDialog({
       },
       // Clone-cost estimation only exists for the MiniMax self-serve flow;
       // operator-registered voices (volcengine) are free for the teacher.
-      fetchCloneCost: () =>
-        isMiniMaxTtsProvider
-          ? (api.getMinimaxTtsCloneCost({
-              shifu_bid: shifuId,
-            }) as Promise<MiniMaxCloneCost>)
-          : Promise.resolve(null),
+      fetchCloneCost: () => {
+        if (!isMiniMaxTtsProvider || costRefreshSeq === null) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve()
+          .then(
+            () =>
+              api.getMinimaxTtsCloneCost({
+                shifu_bid: shifuId,
+              }) as Promise<MiniMaxCloneCost>,
+          )
+          .finally(() => {
+            if (
+              minimaxCloneCostRefreshInFlightRef.current?.seq === costRefreshSeq
+            ) {
+              minimaxCloneCostRefreshInFlightRef.current = null;
+            }
+          });
+      },
     });
     if (
+      costRefreshSeq !== null &&
       costRefreshSeq === minimaxCloneCostRefreshSeqRef.current &&
       isCurrentScope()
     ) {
@@ -730,6 +769,7 @@ export default function ShifuSettingDialog({
     };
     minimaxVoiceListRefreshSeqRef.current++;
     minimaxCloneCostRefreshSeqRef.current++;
+    minimaxCloneCostRefreshInFlightRef.current = null;
     minimaxCloneCostUnavailableReportedRef.current = false;
     setMinimaxCloneCostRefreshResult(null);
   }, [resolvedProvider, shifuId]);
