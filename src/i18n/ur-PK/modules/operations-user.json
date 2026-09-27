@@ -200,7 +200,7 @@
       "compensation": "معاوضہ",
       "debug": "ڈیبگنگ",
       "gift": "تحفہ",
-      "learning": "سیکھیں",
+      "learning": "سیکھنے کا عمل",
       "manual": "دستی",
       "preview": "پیش نظارہ",
       "refund": "رقم کی واپسی",
@@ -208,7 +208,7 @@
       "subscription": "پلان",
       "topup": "کریڈٹ پیک",
       "trial_subscription": "آزمائشی پلان",
-      "usage": "استعمال کریں"
+      "usage": "استعمال"
     },
     "creditLedgerTypeLabels": {
       "adjustment": "کریڈٹس ایڈجسٹمنٹ",
