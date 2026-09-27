@@ -35,7 +35,7 @@
   "listenInteractionHint": "پہلے یہ مرحلہ مکمل کریں اور پھر کلاس سننا جاری رکھیں",
   "listenModeTtsDisabled": "سننے کا موڈ موجودہ کورس کے لیے فعال نہیں ہے اور اسے استعمال نہیں کیا جا سکتا۔",
   "listenPlaybackSpeedAriaLabel": "پلے بیک کی رفتار: {speed}",
-  "listenPlaybackSpeedLabel": "ڈبل سپیڈ کھیلیں",
+  "listenPlaybackSpeedLabel": "پلے بیک کی رفتار",
   "liveVoiceCapacityScopes": {
     "active_sessions": "پوری سائٹ پر فعال صوتی سیشنز کی تعداد بالائی حد تک پہنچ گئی ہے۔",
     "global_credentials": "پوری سائٹ پر درست صوتی رسائی کی اسناد کی تعداد حد تک پہنچ گئی ہے۔",
