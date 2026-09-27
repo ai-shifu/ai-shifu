@@ -21,6 +21,8 @@ is outside this task. The durable parameter contract lives in
 - [x] 2026-09-27 UTC: Implement shared optional-ceiling lookup and gateway fallback.
 - [x] 2026-09-27 UTC: Add regression coverage; 471 relevant backend tests pass.
 - [x] 2026-09-27 UTC: Complete repository gates and review the final diff.
+- [x] 2026-09-27 UTC: Follow-up: preserve provider defaults for omitted/null tokens
+  and verify both modes, known/unknown ceilings and streaming retries.
 
 ## Surprises & Discoveries
 
@@ -32,8 +34,9 @@ registration must stay independent of output limits.
 
 ## Decision Log
 
-- 2026-09-27 UTC: Keep the existing 4096 gateway default. Cap it only when a
-  positive integer ceiling is known; reject explicit values above that ceiling.
+- 2026-09-27 UTC: Initially retained the historical 4096 gateway default. User
+  clarification supersedes this: omitted/null values must use provider defaults.
+  Reject explicit values above a known positive integer ceiling.
 - 2026-09-27 UTC: Unknown ceilings accept positive integer caller values without
   imposing an invented model maximum. Provider constraints still apply.
 - 2026-09-27 UTC: Preserve course streaming behavior: apply a known ceiling and
@@ -42,8 +45,8 @@ registration must stay independent of output limits.
 
 ## Outcomes & Retrospective
 
-Implemented optional ceilings without changing the integer resolver interface or
-gateway billing contract. The final combined run passes 471 tests covering LLM
+Implemented optional ceilings without changing the gateway billing contract.
+The first combined run passed 471 tests covering LLM
 wrappers, provider boundaries, gateway routes/runtime, actual asynchronous billing,
 metering, admission/ownership, and course model selection. Native LiteLLM 1.102.0
 uses mocked HTTP for both completion modes without output metadata, including real
@@ -52,6 +55,10 @@ validation, architecture boundaries and repository harness pass. Existing audioo
 and Pydantic deprecation warnings remain. Local LiteLLM and MarkdownFlow had to be
 aligned to their existing requirements pins before the full selection could pass.
 No production call or deployment was performed or required for acceptance.
+Follow-up validation passes 502 tests. Omitted/null gateway values stay absent
+for known and unknown ceilings in both modes and across pre-content stream retries.
+Native mocked HTTP confirms no max_tokens/max_completion_tokens field is sent for
+null gateway values by OpenAI and DashScope. Existing course defaults remain intact.
 
 ## Context and Orientation
 
@@ -90,6 +97,8 @@ to restore the earlier metadata requirement.
 
 ## Interfaces and Dependencies
 
-`resolve_llm_max_output_tokens(model, requested)` continues returning a positive
-integer. Its metadata lookup becomes optional. No new package or environment
+`resolve_llm_max_output_tokens(model, requested)` returns a positive integer for
+an explicit valid request and `None` for omitted/null values. Preparation omits
+the option in the latter case, and gateway streaming disables implicit ceiling
+defaults across retries. Its metadata lookup is optional. No new package or environment
 variable is introduced. Existing LiteLLM registration and billing APIs stay intact.

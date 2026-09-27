@@ -2746,7 +2746,10 @@ def _patch_scripted_streams(monkeypatch: object, scripts: object) -> object:
         _messages: object,
         _params: object,
         _kwargs: object,
+        *,
+        default_to_model_limit: bool = True,
     ) -> object:
+        _ = default_to_model_limit
         script = scripts[min(calls["count"], len(scripts) - 1)]
         calls["count"] += 1
 
@@ -2940,8 +2943,7 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
                         )}
                         llm.record_llm_usage = lambda app, context, **kwargs: recorded.append((context, kwargs))
                         body = {"model": model, "messages": messages, "stream": stream}
-                        if requested is not None:
-                            body["max_tokens"] = requested
+                        body["max_tokens"] = requested
                         request = runtime.prepare_gateway_chat_request(app, creator_bid="user", idempotency_key="native", payload=body)
                         assert request.input_tokens > 0
                         if stream:
@@ -2951,7 +2953,10 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
                             assert runtime.complete_gateway_chat_request(app, request)["choices"][0]["message"]["content"] == "ok"
                         assert len(captured) == 1
                         body_tokens = captured[0].get("max_tokens", captured[0].get("max_completion_tokens"))
-                        assert body_tokens == (4096 if requested is None else requested)
+                        assert body_tokens == requested
+                        if requested is None:
+                            assert "max_tokens" not in captured[0]
+                            assert "max_completion_tokens" not in captured[0]
                         assert len(recorded) == 1
                         context, record = recorded[0]
                         assert context.billable == 1
@@ -2972,7 +2977,7 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
     assert "native gateway fallback passed" in completed.stdout
 
 
-def test_gateway_token_count_and_default_output_limit(
+def test_gateway_token_count_preserves_provider_default_output_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -2994,24 +2999,63 @@ def test_gateway_token_count_and_default_output_limit(
         )
         == 12
     )
-    assert llm.resolve_llm_max_output_tokens("rated-model") == 4096
+    assert llm.resolve_llm_max_output_tokens("rated-model") is None
     assert llm.resolve_llm_max_output_tokens("rated-model", 2048) == 2048
 
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"small-model": 2048})
-    assert llm.resolve_llm_max_output_tokens("small-model") == 2048
+    assert llm.resolve_llm_max_output_tokens("small-model") is None
+
+
+def test_gateway_stream_retries_keep_provider_default_with_a_known_ceiling(
+    monkeypatch: pytest.MonkeyPatch, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"rated-model": 16384})
+    captured = []
+
+    def complete(**kwargs: object) -> object:
+        captured.append(dict(kwargs))
+        attempt = len(captured)
+
+        def chunks() -> object:
+            if attempt == 1:
+                message = "connection died"
+                raise _FakeAPIConnectionError(message)
+            yield FakeResponse("reply", content="ok", finish_reason="stop")
+
+        return chunks()
+
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    chunks = list(
+        llm._iter_stream_with_precontent_retry(
+            app,
+            "rated-model",
+            "upstream-model",
+            [],
+            {},
+            {},
+            default_to_model_limit=False,
+        )
+    )
+    assert chunks[0].choices[0].delta.content == "ok"
+    assert len(captured) == 2
+    assert all("max_tokens" not in call for call in captured)
+    assert all("default_to_model_limit" not in call for call in captured)
 
 
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize(
     "model", ["qwen/deepseek-v4.1-flash", "gpt-6-sol", "gemini-3.8-flash"]
 )
-@pytest.mark.parametrize("requested", [None, 32, 8192])
-def test_gateway_missing_limits_reaches_provider_and_records_actual_usage(
+@pytest.mark.parametrize("requested", ["omitted", None, 32, 8192])
+@pytest.mark.parametrize("limit", [None, 16384])
+def test_gateway_optional_limits_reaches_provider_and_records_actual_usage(
     monkeypatch: pytest.MonkeyPatch,
     app: object,
     stream: bool,
     model: str,
-    requested: int | None,
+    requested: object,
+    limit: int | None,
 ) -> None:
     provider = (
         "qwen"
@@ -3033,7 +3077,9 @@ def test_gateway_missing_limits_reaches_provider_and_records_actual_usage(
             )
         },
     )
-    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
+    monkeypatch.setattr(
+        llm, "MODEL_MAX_OUTPUT_TOKENS", {} if limit is None else {model: limit}
+    )
 
     def unknown_limit(_model: str) -> None:
         message = "Model is not mapped yet"
@@ -3093,7 +3139,7 @@ def test_gateway_missing_limits_reaches_provider_and_records_actual_usage(
         "messages": [{"role": "user", "content": "hi"}],
         "stream": stream,
     }
-    if requested is not None:
+    if requested != "omitted":
         payload["max_tokens"] = requested
     request = gateway_runtime.prepare_gateway_chat_request(
         app,
@@ -3114,7 +3160,11 @@ def test_gateway_missing_limits_reaches_provider_and_records_actual_usage(
         )
     assert captured["model"] == invoke_model
     assert captured["stream"] is stream
-    assert captured["max_tokens"] == (4096 if requested is None else requested)
+    if requested in (None, "omitted"):
+        assert "max_tokens" not in captured
+    else:
+        assert captured["max_tokens"] == requested
+    assert "default_to_model_limit" not in captured
     assert admitted == [
         {"creator_bid": "gateway-user", "usage_scene": BILL_USAGE_SCENE_PROD}
     ]

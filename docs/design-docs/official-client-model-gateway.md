@@ -90,8 +90,9 @@ tokenization. `stream` must be a JSON boolean when supplied. `max_tokens`
 must be a positive integer and respects any known model output limit; it is not
 a credit reservation. Output-limit configuration and LiteLLM metadata are
 optional for model eligibility. Without a known limit, the gateway forwards a
-valid explicit value or defaults to 4096, for both streaming and non-streaming
-requests. See the [CLI integration contract](../references/model-gateway-cli-integration.md)
+valid explicit value. Omitted or null values use the provider/adapter default,
+without injecting an application output allowance in either completion mode.
+See the [CLI integration contract](../references/model-gateway-cli-integration.md)
 for the complete parameter rules.
 
 ## Usage ownership and settlement

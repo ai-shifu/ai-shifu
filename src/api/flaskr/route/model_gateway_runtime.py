@@ -174,7 +174,8 @@ def prepare_gateway_chat_request(
     provider_options = {
         key: value for key, value in payload.items() if key in _ALLOWED_PROVIDER_OPTIONS
     }
-    provider_options["max_tokens"] = max_output_tokens
+    if max_output_tokens is not None:
+        provider_options["max_tokens"] = max_output_tokens
     return GatewayChatRequest(
         creator_bid=creator_bid,
         request_id=request_id,

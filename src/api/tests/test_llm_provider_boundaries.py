@@ -288,10 +288,13 @@ def test_gateway_rejects_invalid_or_excessive_output_limits(
     "limit", [0, -1, None, True, False, "8192", 1.5, {}, RuntimeError("unknown")]
 )
 @pytest.mark.parametrize(
-    ("requested", "expected"), [(None, 4096), (32, 32), (8192, 8192)]
+    ("requested", "expected"), [(None, None), (32, 32), (8192, 8192)]
 )
 def test_gateway_allows_models_without_a_known_positive_limit(
-    monkeypatch: pytest.MonkeyPatch, limit: object, requested: object, expected: int
+    monkeypatch: pytest.MonkeyPatch,
+    limit: object,
+    requested: object,
+    expected: int | None,
 ) -> None:
     get = (
         Mock(side_effect=limit)
@@ -300,7 +303,10 @@ def test_gateway_allows_models_without_a_known_positive_limit(
     )
     monkeypatch.setattr(llm.litellm, "get_max_tokens", get)
     assert llm.resolve_llm_max_output_tokens("model", requested) == expected
-    get.assert_called_once_with("upstream-model")
+    if requested is None:
+        get.assert_not_called()
+    else:
+        get.assert_called_once_with("upstream-model")
 
 
 @pytest.mark.usefixtures("gateway")
@@ -321,12 +327,12 @@ def test_gateway_rejects_invalid_output_tokens_even_without_metadata(
 
 
 @pytest.mark.usefixtures("gateway")
-@pytest.mark.parametrize(("limit", "expected"), [(2048, 2048), (8192, 4096)])
+@pytest.mark.parametrize("limit", [2048, 8192])
 def test_gateway_uses_valid_litellm_ceiling_when_config_is_absent(
-    monkeypatch: pytest.MonkeyPatch, limit: int, expected: int
+    monkeypatch: pytest.MonkeyPatch, limit: int
 ) -> None:
     monkeypatch.setattr(llm.litellm, "get_max_tokens", Mock(return_value=limit))
-    assert llm.resolve_llm_max_output_tokens("model") == expected
+    assert llm.resolve_llm_max_output_tokens("model") is None
     assert llm.resolve_llm_max_output_tokens("model", limit) == limit
     with pytest.raises(AppError):
         llm.resolve_llm_max_output_tokens("model", limit + 1)

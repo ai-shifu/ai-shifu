@@ -426,9 +426,15 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
+    *,
+    default_to_model_limit: bool = True,
 ) -> object:
     try:
-        max_tokens = _get_llm_max_output_tokens(requested_model, model)
+        max_tokens = (
+            _get_llm_max_output_tokens(requested_model, model)
+            if default_to_model_limit or kwargs.get("max_tokens") is not None
+            else None
+        )
         if max_tokens is not None:
             requested_max_tokens = kwargs.get("max_tokens")
             if (
@@ -491,6 +497,7 @@ def _iter_stream_with_precontent_retry(
     kwargs: dict,
     *,
     tool_calls_are_output: bool = False,
+    default_to_model_limit: bool = True,
 ) -> Generator[ModelResponseStream, None, None]:
     """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
 
@@ -506,6 +513,9 @@ def _iter_stream_with_precontent_retry(
     `tool_calls_are_output` extends "content" to tool-call fragments. A caller reading those
     (`chat_llm(..., emit_tool_calls=True)`) has already been handed them, so replaying the request
     would deliver the same arguments twice and could run one tool call as two.
+
+    `default_to_model_limit=False` keeps an omitted output-token option omitted
+    across retries, allowing gateway requests to use provider defaults.
     """
     attempts = 0
     while True:
@@ -516,6 +526,7 @@ def _iter_stream_with_precontent_retry(
             messages,
             params,
             kwargs,
+            default_to_model_limit=default_to_model_limit,
         )
         saw_content = False
         pending_reasoning_chunks = []
@@ -1639,25 +1650,25 @@ def count_llm_chat_input_tokens(
     return normalized
 
 
-def resolve_llm_max_output_tokens(model: str, requested: object = None) -> int:
+def resolve_llm_max_output_tokens(model: str, requested: object = None) -> int | None:
     """Validate gateway output tokens against an optional known model ceiling."""
     params, invoke_model, _provider_key = get_litellm_params_and_model(model)
     if not params:
         raise_error_with_args("server.llm.modelNotSupported", model=model)
-    configured = _get_llm_max_output_tokens(model, invoke_model)
-    default = min(4096, configured) if configured is not None else 4096
-    resolved = default if requested is None else requested
-    if not isinstance(resolved, int) or isinstance(resolved, bool) or resolved <= 0:
+    if requested is None:
+        return None
+    if not isinstance(requested, int) or isinstance(requested, bool) or requested <= 0:
         raise_error_with_args(
             "server.llm.requestFailed", model=model, message="max_tokens"
         )
-    if configured is not None and resolved > configured:
+    configured = _get_llm_max_output_tokens(model, invoke_model)
+    if configured is not None and requested > configured:
         raise_error_with_args(
             "server.llm.requestFailed",
             model=model,
             message=f"max_tokens exceeds model limit {configured}",
         )
-    return resolved
+    return requested
 
 
 def _gateway_output_token_count(invoke_model: str, output: str) -> int:
@@ -1915,6 +1926,7 @@ def stream_openai_chat_completion(
             messages,
             params,
             stream_kwargs,
+            default_to_model_limit=False,
         )
         for chunk in response:
             chunk_usage = getattr(chunk, "usage", None)
