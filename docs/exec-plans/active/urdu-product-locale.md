@@ -25,6 +25,7 @@ Authored course content keeps its own language.
 - [x] 2026-09-27 UTC: Publish ready PR #2988.
 - [x] 2026-09-27 UTC: Review Chinese-source accuracy and correct 382 strings across 35 files.
 - [x] 2026-09-27 UTC: Extend the arena renderer, RTL propagation and locale regression checks to Urdu.
+- [x] 2026-09-27 UTC: Synchronize PR #2989's 376 retired keys and two empty namespaces to Urdu after the remote branch rebase.
 - [ ] 2026-09-27 UTC: Complete review feedback and verify hosted CI acceptance.
 
 ## Surprises & Discoveries
@@ -56,7 +57,9 @@ limited its coverage, so it cannot establish full linguistic acceptance.
 
 ## Outcomes & Retrospective
 
-The complete 57-file Urdu inventory preserves the 4,271 source keys. Focused
+The current 56-file Urdu inventory preserves the 3,895 source keys after PR
+#2989 removed 376 unused keys and two empty namespaces. Surviving Urdu values
+are preserved during that synchronization. Focused
 frontend tests (280) and backend tests (99) pass. Type checking,
 translation parity/usage, architecture checks, a production build and all-files
 pre-commit gates pass. Browser smoke confirms selection, RTL layout, preference

@@ -25,41 +25,29 @@
   "emptyValue": "ابھی تک کوئی نہیں۔",
   "fields": {
     "activityPrice": "ایونٹ کی چھوٹ",
-    "chargeId": "ادائیگی کا آرڈر نمبر",
-    "checkoutSession": "چیک آؤٹ سیشن",
     "couponType": "پیشکش کی قسم",
     "couponValue": "رعایت کی رقم",
     "createdAt": "تخلیق کا وقت",
     "currency": "کرنسی",
     "discount": "رعایت",
-    "latestCharge": "تازہ ترین کٹوتیاں",
     "paid": "اصل ادائیگی",
     "payable": "کے ساتھ نمٹنے",
-    "paymentAmount": "ادائیگی کی رقم",
     "paymentChannel": "ادائیگی چینل",
-    "paymentCreatedAt": "ادائیگی کی تخلیق کا وقت",
-    "paymentIntent": "ادا کرنے کا ارادہ",
-    "paymentMethod": "ادائیگی کا طریقہ",
     "paymentStatus": "ادائیگی کی حیثیت",
-    "paymentUpdatedAt": "ادائیگی کی تازہ کاری کا وقت",
-    "receipt": "رسید کا لنک",
     "shifu": "کورس",
     "status": "حالت",
     "transactionNo": "ٹرانزیکشن نمبر",
-    "updatedAt": "اپ ڈیٹ کا وقت",
     "user": "صارف"
   },
   "filters": {
     "all": "سب",
     "channel": "ادائیگی چینل",
     "dateRangePlaceholder": "وقت آغاز ~ اختتامی وقت",
-    "endTime": "اختتامی تاریخ",
     "orderBid": "آرڈر کی شناخت",
     "reset": "ری سیٹ کریں",
     "search": "استفسار",
     "searchCourseOrId": "کورس ID/کورس کا نام",
     "shifuBid": "کورس کا نام",
-    "startTime": "شروع کی تاریخ",
     "status": "حالت",
     "userBid": "ای میل یا موبائل فون",
     "userBidEmail": "ای میل",
@@ -149,15 +137,13 @@
   "sections": {
     "activities": "سرگرمیاں",
     "coupons": "رعایتی کوپن",
-    "payment": "ادائیگی",
-    "summary": "خلاصہ"
+    "payment": "ادائیگی"
   },
   "statusLabels": {
     "timeout": "میعاد ختم ہو گئی ({minutes} منٹ سے زیادہ بلا معاوضہ)"
   },
   "table": {
     "action": "کارروائیاں",
-    "amount": "ادائیگی کی رقم",
     "createdAt": "تخلیق کا وقت",
     "orderId": "آرڈر کی شناخت",
     "payment": "ادائیگی",

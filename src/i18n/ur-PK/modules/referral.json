@@ -19,7 +19,6 @@
       "status": "انعام کی حیثیت"
     },
     "queueTitle": "دعوت نامے کا ریکارڈ",
-    "refresh": "ریفریش کریں۔",
     "rewardRecordValue": "{cycles} ماہ کا بنیادی پلان (بشمول {credits} کریڈٹس)",
     "rewardRulesTitle": "سرگرمی کے اصول",
     "rules": {
@@ -87,9 +86,7 @@
       "prevAria": "پچھلا صفحہ"
     },
     "refresh": "ریفریش کریں۔",
-    "statusUpdated": "اسٹیٹس اپ ڈیٹ ہو گیا۔",
     "table": {
-      "action": "کارروائیاں",
       "boundAt": "لنک ہونے کا وقت",
       "campaign": "سرگرمیاں",
       "inviteCode": "دعوتی کوڈ",

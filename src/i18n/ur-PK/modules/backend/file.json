@@ -8,7 +8,6 @@
     "videoBilibiliApiRequestFailed": "Bilibili API کی درخواست ناکام ہوگئی",
     "videoGetInfoError": "ویڈیو کی معلومات حاصل کرتے وقت ایک خرابی پیش آگئی",
     "videoInvalidBilibiliLink": "غلط Bilibili ویڈیو لنک",
-    "videoInvalidUrlFormat": "ویڈیو لنک فارمیٹ غلط ہے۔",
     "videoNetworkError": "ویڈیو نیٹ ورک کی خرابی۔",
     "videoParseError": "ویڈیو پارس کرنے میں خرابی۔",
     "videoUnsupportedVideoSite": "یہ ویڈیو ویب سائٹ ابھی تک تعاون یافتہ نہیں ہے۔",

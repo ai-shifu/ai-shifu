@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "کریڈٹس کی میعاد کی مدت",
       "creditsHint": "اکاؤنٹ حذف کرنے پر کریڈٹ بیلنس صفر ہو جائے گا اور رقم واپس نہیں ہوگی۔",
       "creditsLabel": "کریڈٹس بیلنس",
-      "creditsValue": "{count}",
-      "draftsHint": "اکاؤنٹ حذف کرنے کے بعد ڈرافٹ کورسز کو منجمد کر دیا جائے گا۔",
-      "draftsLabel": "ڈرافٹ کورس",
-      "draftsValue": "{count}",
       "paidPackages": "ادا شدہ پیکیج:",
       "preorders": "قبل از ادائیگی مؤثر ہونے کے لیے:",
-      "renewals": "اکاؤنٹ حذف ہونے پر {count} فعال سبسکرپشنز ختم ہوں گی",
-      "sessionsHint": "اکاؤنٹ حذف ہونے پر اس کے تمام لاگ ان سیشن فوراً ختم ہو جائیں گے۔",
-      "sessionsLabel": "درست لاگ ان سیشن",
-      "sessionsValue": "{count}",
       "subscriptions": "خودکار قابل تجدید رکنیت:"
     },
     "title": "صارف کا اکاؤنٹ حذف کریں",
     "transfer": "ایک کلک کی منتقلی",
     "transferEmailPlaceholder": "نئے ذمہ دار کا ای میل",
     "transferPhonePlaceholder": "نئے ذمہ دار کا موبائل نمبر",
-    "transferPlaceholder": "نئے ذمہ دار کا موبائل نمبر یا ای میل",
     "transferRequired": "{count} شائع شدہ کورسز کو پہلے منتقل کرنے کی ضرورت ہے۔"
   },
   "contactChange": {
@@ -356,7 +347,6 @@
       "product": "براہ کرم ایک پیکیج منتخب کریں۔",
       "productLoading": "پیکیج لوڈ ہو رہا ہے...",
       "referralRewardAmount": "براہ کرم انعامی کریڈٹس درج کریں۔",
-      "source": "براہ کرم ذریعہ منتخب کریں۔",
       "validityPreset": "براہ کرم میعاد کی مدت منتخب کریں۔"
     },
     "referralReward": {
@@ -385,8 +375,7 @@
       "availableCredits": "کریڈٹس بیلنس",
       "currentExpireAt": "میعاد ختم ہونے کی تاریخ",
       "currentPackage": "موجودہ پیکیج",
-      "nickname": "عرفی نام",
-      "package": "پلان"
+      "nickname": "عرفی نام"
     },
     "title": "ایشو کریڈٹس/پیکیجز",
     "validation": {

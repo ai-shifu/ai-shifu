@@ -3,11 +3,6 @@
   "confirmLogoutContent": "کیا آپ کو لاگ آؤٹ کرنا یقینی ہے؟",
   "confirmLogoutTitle": "لاگ آؤٹ کرنے کی تصدیق کریں؟",
   "defaultUserName": "گمنام صارف",
-  "gender": {
-    "female": "خواتین",
-    "male": "مرد",
-    "secret": "ظاہر نہیں کرنا"
-  },
   "login": "لاگ ان",
   "loginMainButton": "لاگ ان/رجسٹر",
   "logout": "لاگ آؤٹ کریں۔",
