@@ -434,7 +434,7 @@
   "registrationSourceLabels": {
     "email": "ای میل",
     "google": "Google",
-    "imported": "تخلیق درآمد کریں۔",
+    "imported": "درآمد سے بنایا گیا",
     "phone": "موبائل فون نمبر",
     "unknown": "نامعلوم",
     "wechat": "WeChat"
