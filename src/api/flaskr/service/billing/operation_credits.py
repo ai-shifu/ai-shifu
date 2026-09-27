@@ -368,40 +368,6 @@ def _require_bid(value: str, field_name: str) -> str:
     return normalized
 
 
-def list_unsettled_operation_reservations(
-    app: Flask, *, operation_type: str
-) -> list[dict[str, str]]:
-    """Find operation holds that have neither been captured nor released."""
-    normalized_type = _require_bid(operation_type, "operation_type")
-    with app_context_scope(app):
-        holds = (
-            CreditLedgerEntry.query.filter(
-                CreditLedgerEntry.deleted == 0,
-                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_HOLD,
-                CreditLedgerEntry.idempotency_key.startswith(
-                    f"operation:{normalized_type}:", autoescape=True
-                ),
-            )
-            .order_by(CreditLedgerEntry.id)
-            .all()
-        )
-        result = []
-        for hold in holds:
-            creator_bid = str(hold.creator_bid)
-            reservation_bid = str(hold.ledger_bid)
-            if _reservation_has_capture(creator_bid, reservation_bid):
-                continue
-            if (
-                _load_ledger_by_idempotency(
-                    creator_bid, _release_idempotency_key(reservation_bid)
-                )
-                is not None
-            ):
-                continue
-            result.append({"reservation_bid": reservation_bid})
-        return result
-
-
 def _reserve_idempotency_key(operation_type: str, operation_bid: str) -> str:
     return f"operation:{operation_type}:{operation_bid}:reserve"
 

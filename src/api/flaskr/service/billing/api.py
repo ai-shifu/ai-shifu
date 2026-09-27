@@ -45,7 +45,6 @@ from flaskr.service.billing.operation_credits import (
     OperationCreditReleaseResult,
     OperationCreditReservationResult,
     capture_reserved_operation_credits,
-    list_unsettled_operation_reservations,
     release_reserved_operation_credits,
     reserve_operation_credits,
 )
@@ -157,7 +156,6 @@ __all__ = [
     "list_credit_notification_email_templates",
     "list_credit_notification_templates",
     "list_credit_notifications",
-    "list_unsettled_operation_reservations",
     "load_credit_notification_policy",
     "load_credit_notification_policy_for_operator",
     "load_referral_reward_summary",
