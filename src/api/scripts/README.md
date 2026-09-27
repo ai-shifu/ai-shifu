@@ -2,6 +2,51 @@
 
 This directory contains utility scripts for managing AI-Shifu configuration.
 
+## retire_minimax_clone_jobs.py
+
+Run this once when removing in-product MiniMax voice cloning. The command
+reconciles unfinished jobs and their reserved credits without creating voices or
+calling MiniMax. Ready voices, external registrations and Volcengine voices are
+preserved. It also releases outstanding `voice_clone` reservations that have no
+corresponding voice row (submission could stop before that row was stored).
+
+Use the new API image or source checkout as a maintenance process with the
+installation's database configuration and migrations applied. Before applying,
+disable the old clone-producing API instances, stop every old Celery worker and
+confirm no old clone task is executing. Prevent old instances from restarting
+throughout cutover. A row lock cannot fence a worker already making a provider
+call, and the acknowledgement flag does not inspect or stop workers for you.
+
+From `src/api`, preview first:
+
+```bash
+python scripts/retire_minimax_clone_jobs.py
+```
+
+The preview follows the same reconciliation path under rolled-back transactions;
+no database changes persist. Review its job IDs and statuses. Apply only after
+the old producers and workers are fully stopped:
+
+```bash
+python scripts/retire_minimax_clone_jobs.py --apply --workers-stopped
+python scripts/retire_minimax_clone_jobs.py
+```
+
+Each job's failed status and credit release commit together. Repeated runs do not
+refund twice. A job failure rolls back that job and is reported as `manual_review`
+while other jobs continue. Already captured jobs stay unchanged and are reported
+as `already_captured`; inspect their ledger and provider result manually rather
+than refunding completed work. Cancelled owners, missing reservation records or
+unmatched holds on a ready voice also require manual reconciliation. Any such
+result exits nonzero. Resolve these entries and rerun until the final preview
+reports an empty `jobs` list and exits zero.
+
+Only then start the new API and workers. Old broker messages reference the now
+unregistered `tts.minimax_clone_voice` task and can no longer create a voice or
+charge credits. Do not restart old workers after cancellation: their old handler
+also accepted failed rows. The command retains historical rows and stored audio;
+it does not delete resources or migrate schema.
+
 ## backfill_profile_onboarding_assistant_prompts.py
 
 Run this once when adding a new supported language to an installation with an

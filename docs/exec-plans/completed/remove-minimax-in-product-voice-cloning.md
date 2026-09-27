@@ -20,6 +20,8 @@ preview behavior. Preserve existing database records.
   translations.
 - [x] 2026-09-27 CST: Run focused backend and frontend regression checks, then
   review the final diff and remaining MiniMax references.
+- [x] 2026-09-27 CST: Address review with a quiesced, idempotent job/credit
+  retirement command and focused rollback/cutover regression coverage.
 
 ## Surprises & Discoveries
 
@@ -36,6 +38,10 @@ preview behavior. Preserve existing database records.
   voice listing, selection, and preview behavior.
 - Keep historical rows and schema; do not add a destructive data migration.
 - Keep MiniMax provider synthesis and Volcengine cloned-voice behavior.
+- Retire accepted jobs through an operator-only cutover command after stopping
+  all old producers and workers. Do not retain a clone provider client or task.
+  Release unfinished and orphaned holds idempotently, preserve captured work,
+  and require an empty final preview before starting the new workers.
 
 ## Outcomes & Retrospective
 
@@ -50,8 +56,20 @@ Focused backend tests passed (203 tests across the two targeted runs), and
 focused frontend tests passed (101 tests). Ruff passed on the changed backend
 files checked. `npm run type-check` still reports an unrelated existing
 `es-ES` locale-union mismatch in `src/lib/markdown-flow-locale.ts`. The repo
-harness checker reads the Git index and reports the intentionally deleted,
-unstaged files as missing.
+harness and pre-commit checks passed after the complete change was staged.
+
+Review identified a deployment compatibility gap: accepted jobs could lose their
+worker while retaining reserved credits. The recovery command and deployment
+sequence are documented in
+[`src/api/scripts/README.md`](../../../src/api/scripts/README.md#retire_minimax_clone_jobspy).
+The command owns one transaction per job and reports captured or invalid
+reservations for manual reconciliation. It also covers orphan holds created
+before the original voice row was persisted. It preserves ready/external voices,
+historical rows, and stored audio. Production execution is an installation
+cutover step; it has not been performed from this development checkout.
+The combined targeted backend regression run passed 231 tests, including 28 new
+retirement service/CLI cases. The external list test now asserts the exact voice
+record and teacher ownership even when two owners share the same masked Voice ID.
 
 ## Context and Orientation
 
@@ -103,10 +121,13 @@ registered voices. Keep old database rows and migrations unchanged.
 
 ## Idempotence and Recovery
 
-This change does not modify database contents or historical migrations. The
-removed routes can be restored from version control if the workflow is
-reintroduced. External registrations and existing cloned-voice rows remain
-available.
+Normal application startup does not modify historical jobs or migrations. At
+cutover, stop all old API instances and workers, run the documented retirement
+preview and apply command, and require a final empty preview before starting the
+new version. Credit release and job status changes are atomic and repeatable.
+Captured reservations are never refunded automatically; exceptional entries
+block cutover for operator reconciliation. Keep old workers stopped after the
+command. External registrations and ready cloned voices remain available.
 
 ## Interfaces and Dependencies
 
