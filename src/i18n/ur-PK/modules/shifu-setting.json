@@ -1,10 +1,10 @@
 {
   "__namespace__": "module.shifuSetting",
   "addKeyword": "مطلوبہ الفاظ شامل کریں۔",
-  "archive": "آرکائیو کورسز",
-  "archiveConfirm": "آرکائیو کرنے کے بعد، کورس کو \"Archived\" میں منتقل کر دیا جائے گا اور اسے \"Unarchive\" میں بھی بحال کیا جا سکتا ہے۔ محفوظ شدہ حالت میں کورس کی تدوین اور سیکھنے پر کوئی اثر نہیں پڑے گا۔",
-  "archiveSuccess": "کورس محفوظ شدہ",
-  "archiveTitle": "آیا کورس کو آرکائیو کرنا ہے۔",
+  "archive": "کورس آرکائیو کریں",
+  "archiveConfirm": "آرکائیو کرنے پر کورس “آرکائیو” میں منتقل ہوگا۔ اسے دوبارہ “غیر آرکائیو شدہ” حالت میں واپس لایا جا سکتا ہے۔ آرکائیو ہونے سے کورس میں ترمیم اور اسے سیکھنے پر کوئی اثر نہیں پڑتا۔",
+  "archiveSuccess": "کورس آرکائیو ہو گیا ہے۔",
+  "archiveTitle": "کیا کورس آرکائیو کرنا چاہتے ہیں؟",
   "askModel": "ماڈل سے سوال",
   "askPreview": "ٹیسٹ پوچھ گچھ",
   "askPreviewLoading": "جانچ ہو رہی ہے...",
@@ -14,16 +14,16 @@
   "askPreviewResult": "ٹیسٹ کے نتائج",
   "askPreviewUsedFallback": "{provider} کال ناکام ہوگئی اور اس کی بجائے پہلے سے شامل ماڈل استعمال کیا گیا ہے۔",
   "askPreviewUsedProvider": "اس بار استعمال کریں: {provider}",
-  "askProviderConfigInvalidJson": "{field} ایک قانونی JSON آبجیکٹ ہونا چاہیے۔",
+  "askProviderConfigInvalidJson": "{field} ایک درست JSON آبجیکٹ ہونا چاہیے۔",
   "askProviderConfigOutOfRange": "{field} {min}-{max} کے درمیان ہونا ضروری ہے",
   "askProviderConfigRequired": "{field} درکار ہے۔",
   "askProviderDescriptions": {
     "coze": "طالب علم کے مزید سوالات کے جواب دینے کے لیے Coze Bot استعمال کریں۔",
     "coze_workflow": "طالب علم کے سوالات کے جوابات دینے کے لیے Coze ورک فلو کا استعمال کریں۔",
     "dify": "طالب علم کے سوالات کے جوابات دینے کے لیے Dify گفتگو ایپ استعمال کریں۔",
-    "get_biji_knowledge": "معلومات کی تلاش کے لیے دماغی علم کی بنیاد کا استعمال کریں، اور پھر طلباء کے سوالات کا خلاصہ اور جواب دینے کے لیے پہلے سے موجود ماڈل کا استعمال کریں۔",
+    "get_biji_knowledge": "GetNote نالج بیس میں معلومات تلاش کریں، پھر بلٹ ان ماڈل ان کا خلاصہ کر کے طالب علم کے ضمنی سوال کا جواب دے گا۔",
     "llm": "طلباء کے سوالات کے جوابات دینے کے لیے پہلے سے موجود ماڈلز کا استعمال کریں۔",
-    "volc_knowledge": "طالب علموں کے سوالات کو تلاش کرنے اور جواب دینے کے لیے Volcano Engine کے علم کی بنیاد کا استعمال کریں۔"
+    "volc_knowledge": "Volcengine نالج بیس میں تلاش کر کے طالب علم کے ضمنی سوال کا جواب دیں۔"
   },
   "askProviderFields": {
     "coze": {
@@ -76,8 +76,8 @@
     },
     "volc_knowledge": {
       "account_id": {
-        "hint": "Volcano انجن اکاؤنٹ ID V-Account-Id درخواست کے ہیڈر میں استعمال کیا گیا ہے۔",
-        "label": "اکاؤنٹ کی شناخت"
+        "hint": "V-Account-Id درخواست کے ہیڈر میں استعمال ہونے والی Volcengine اکاؤنٹ ID۔",
+        "label": "اکاؤنٹ ID"
       },
       "ak": {
         "hint": "Volcengine کی Access Key۔",
@@ -101,9 +101,9 @@
     "coze": "Coze",
     "coze_workflow": "Coze ورک فلو",
     "dify": "Dify",
-    "get_biji_knowledge": "دماغی علم کی بنیاد حاصل کریں۔",
+    "get_biji_knowledge": "GetNote نالج بیس",
     "llm": "بلٹ میں ماڈل",
-    "volc_knowledge": "آتش فشاں انجن نالج بیس"
+    "volc_knowledge": "Volcengine نالج بیس"
   },
   "askProviderSelect": "سوال کرنے کا طریقہ منتخب کریں۔",
   "askTemperature": "درجہ حرارت کے بارے میں پوچھیں۔",
@@ -124,7 +124,7 @@
   "inputKeywords": "مطلوبہ الفاظ درج کریں اور شامل کرنے کے لیے Enter دبائیں۔",
   "keywords": "کورس کے مطلوبہ الفاظ",
   "learningUrl": "مطالعہ کا پتہ",
-  "liveVoiceDescription": "براہ راست صوتی سوالات کے لیے Gemini کی سرکاری دستیاب آوازوں میں سے انتخاب کریں۔",
+  "liveVoiceDescription": "براہ راست صوتی سوال و جواب کے لیے Gemini کی پہلے سے فراہم کردہ آوازوں میں سے انتخاب کریں۔",
   "liveVoiceLabel": "ریئل ٹائم ڈائیلاگ کی آوازیں آتی ہیں۔",
   "liveVoicePreviewHint": "براہ کرم پہلے ترتیبات کو محفوظ کریں، پھر مکمل صوتی گفتگو سننے کے لیے کورس کے پیش نظارہ میں \"سوال\" پر کلک کریں۔",
   "liveVoiceStyles": {
@@ -133,7 +133,7 @@
     "bright": "روشن",
     "casual": "قدرتی اور آرام دہ",
     "clear": "صاف",
-    "easyGoing": "آسان",
+    "easyGoing": "ملنسار",
     "even": "ہموار",
     "excitable": "پرجوش",
     "firm": "فرم",
@@ -202,7 +202,7 @@
   "permissionPhoneLabel": "موبائل فون نمبر",
   "permissionPhonePlaceholder": "اشتراک کی اجازتوں کے بیچ ایکٹیویشن کو فعال کرنے کے لیے اپنا موبائل فون نمبر درج کریں۔",
   "permissionPublish": "شائع کریں",
-  "permissionPublishHint": "ترمیم کی اجازت کے ساتھ شائع کریں۔",
+  "permissionPublishHint": "اشاعت کی اجازت میں ترمیم کی اجازت بھی شامل ہے",
   "permissionPublishHintWrapped": "（{hint}）",
   "permissionReadOnly": "صرف پڑھیں",
   "permissionRemove": "ہٹا دیں۔",
@@ -262,10 +262,10 @@
   "ttsSpeedHint": "صوتی پلے بیک کی رفتار کو ایڈجسٹ کریں۔",
   "ttsTitle": "سننے کا موڈ",
   "ttsVoice": "تدریسی آواز",
-  "unarchive": "ان آرکائیو",
+  "unarchive": "آرکائیو سے نکالیں",
   "unarchiveConfirm": "غیر آرکائیو کرنے کے بعد، کورس \"سب\" پر واپس آجائے گا اور آپ اب بھی ترمیم اور سیکھنا جاری رکھ سکتے ہیں۔",
-  "unarchiveSuccess": "غیر محفوظ شدہ",
-  "unarchiveTitle": "آیا آرکائیو کو منسوخ کرنا ہے۔",
+  "unarchiveSuccess": "آرکائیو سے نکال دیا گیا ہے۔",
+  "unarchiveTitle": "کیا کورس کو آرکائیو سے نکالنا چاہتے ہیں؟",
   "upload": "اپ لوڈ کریں",
   "uploadFailed": "اپ لوڈ ناکام ہوگیا، براہ کرم بعد میں دوبارہ کوشش کریں۔",
   "uploading": "اپ لوڈ ہو رہا ہے۔",

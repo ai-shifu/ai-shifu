@@ -6,19 +6,19 @@
   },
   "copyCourseDialog": {
     "confirm": "کاپی کی تصدیق کریں۔",
-    "confirmDescription": "کورس کا تازہ ترین مسودہ <strong>{courseName}</strong> کاپی کیا جائے گا اور <strong>{targetCreator}</strong> کورس کے نئے مسودے کے لیے ذمہ دار ہوگا <strong>{newCourseName}</strong>۔",
+    "confirmDescription": "کورس <strong>{courseName}</strong> کا تازہ ترین مسودہ کاپی ہوگا۔ نئے مسودے کے کورس <strong>{newCourseName}</strong> کی ذمہ داری <strong>{targetCreator}</strong> کو دی جائے گی۔",
     "confirmTitle": "کورس کاپی کرنے کی تصدیق کریں۔",
-    "contactPlaceholderEmail": "براہ کرم انچارج ہدف والے شخص کا ای میل ایڈریس درج کریں۔",
-    "contactPlaceholderPhone": "براہ کرم انچارج ہدف والے شخص کا موبائل فون نمبر درج کریں۔",
+    "contactPlaceholderEmail": "نئے ذمہ دار کا ای میل درج کریں۔",
+    "contactPlaceholderPhone": "نئے ذمہ دار کا موبائل نمبر درج کریں۔",
     "contactType": "رابطے کی قسم",
     "contactTypeEmail": "ای میل",
     "contactTypePhone": "موبائل فون نمبر",
     "courseNameFallback": "کورس",
     "courseNameSuffix": "-کاپی",
-    "currentCreator": "موجودہ انچارج شخص",
-    "description": "کورس کا تازہ ترین مسودہ کاپی کیا گیا ہے اور نئے ڈرافٹ کورس کے لیے ہدف کا مالک ذمہ دار ہے۔",
-    "identifier": "انچارج شخص کو نشانہ بنائیں",
-    "identifierRequired": "براہ کرم انچارج ہدف والے شخص کی قانونی رابطہ کی معلومات درج کریں۔",
+    "currentCreator": "موجودہ ذمہ دار",
+    "description": "اس کورس کا تازہ ترین مسودہ کاپی کریں۔ نئے مسودے کے کورس کی ذمہ داری منتخب شخص کو دی جائے گی۔",
+    "identifier": "نیا ذمہ دار",
+    "identifierRequired": "نئے ذمہ دار کی درست رابطہ معلومات درج کریں۔",
     "newCourseName": "نئے کورس کا نام",
     "submitSuccess": "کورس کاپی کامیاب",
     "title": "کورس کاپی کریں۔"
@@ -47,7 +47,7 @@
       "contentStatus": "مواد کی حیثیت",
       "detailAction": "تفصیلات",
       "empty": "ابھی تک کوئی باب ڈیٹا نہیں ہے۔",
-      "followUpCount": "سوالات کی تعداد",
+      "followUpCount": "ضمنی سوالات کی تعداد",
       "learningPermission": "سیکھنے کی اجازت",
       "modifier": "ترمیم کرنے والا",
       "name": "باب کا نام",
@@ -116,7 +116,7 @@
         "userKeywordPlaceholderPhone": "موبائل فون نمبر/ عرفیت"
       },
       "modelSummary": {
-        "variants": "{count} پرجاتیوں کو شامل کرنا"
+        "variants": "{count} اقسام شامل ہیں"
       },
       "modes": {
         "ask": "مزید پوچھیں",
@@ -126,7 +126,7 @@
         "unknown": "نامعلوم منظر"
       },
       "scenes": {
-        "debug": "آزمائیں",
+        "debug": "ڈیبگنگ",
         "learning": "سیکھیں",
         "preview": "پیش نظارہ",
         "unknown": "نامعلوم قسم"
@@ -159,7 +159,7 @@
       "unknownModel": "نامعلوم ماڈل"
     },
     "fields": {
-      "courseId": "کورس کی شناخت",
+      "courseId": "کورس ID",
       "courseName": "کورس کا نام",
       "createdAt": "تخلیق کا وقت",
       "creator": "کورس کے ذمہ دار",
@@ -171,7 +171,7 @@
         "currentRecordHint": "\"سوال کی اصل پیداوار -> یہ سوال -> یہ سسٹم جواب\" کی ترتیب میں پڑھیں",
         "fields": {
           "chapter": "باب",
-          "currentAnswer": "اس بار سسٹم جواب دیتا ہے۔",
+          "currentAnswer": "نظام کا موجودہ جواب",
           "currentFollowUp": "یہ فالو اپ سوال",
           "followUpTime": "سوال کا وقت",
           "lesson": "تہوار",
@@ -216,10 +216,10 @@
       },
       "openMetric": "فالو اپ ڈیٹا دیکھیں",
       "summary": {
-        "followUpCount": "سوالات کی کل تعداد",
+        "followUpCount": "ضمنی سوالات کی کل تعداد",
         "latestFollowUpAt": "آخری سوال کا وقت",
         "lessonCount": "شامل حصوں کی تعداد",
-        "userCount": "صارفین کی تعداد پوچھیں۔"
+        "userCount": "ضمنی سوال پوچھنے والے صارفین کی تعداد"
       },
       "table": {
         "action": "کارروائیاں",
@@ -243,18 +243,18 @@
     "learningPermission": {
       "free": "مفت",
       "guest": "لاگ ان کرنے کی ضرورت نہیں ہے۔",
-      "paid": "ادا کریں۔",
+      "paid": "بامعاوضہ",
       "unknown": "نامعلوم"
     },
     "metrics": "ڈیٹا کا جائزہ",
     "metricsLabels": {
       "completedUserAvgCredits": "کورس مکمل کرنے والے صارفین کی اوسط کریڈٹ کی کھپت",
       "creditConsumedTotal": "استعمال شدہ کل کریڈٹس",
-      "creditUsageCount": "استعمال شدہ کریڈٹس کی تعداد",
+      "creditUsageCount": "کریڈٹس کٹنے کی تعداد",
       "creditUserCount": "کریڈٹس استعمال کرنے والے صارفین کی تعداد",
-      "followUpCount": "سوالات کی تعداد",
+      "followUpCount": "ضمنی سوالات کی تعداد",
       "learnerCount": "طلباء کی تعداد",
-      "orderAmount": "آرڈر کی رقم (بشمول چھٹکارا کوڈ)",
+      "orderAmount": "آرڈر کی رقم (بشمول ریڈیمپشن کوڈ)",
       "orderCount": "آرڈرز کی تعداد",
       "ratingScore": "درجہ بندی"
     },
@@ -314,12 +314,12 @@
         "chapter": "باب",
         "comment": "تبصرے",
         "empty": "ابھی تک کوئی درجہ بندی کا ڈیٹا نہیں ہے۔",
-        "guestUser": "سیاح",
+        "guestUser": "مہمان صارف",
         "lesson": "تہوار",
         "mode": "سیکھنے کا موڈ",
         "ratedAt": "درجہ بندی کا وقت",
         "score": "درجہ بندی",
-        "title": "درجہ بندی کی فہرست",
+        "title": "ریٹنگز کی فہرست",
         "user": "صارف"
       },
       "title": "درجہ بندی کا ڈیٹا"
@@ -343,13 +343,13 @@
       "all": "سب",
       "learningStatus": "سیکھنے کی حیثیت",
       "paymentPaid": "ادا کیا",
-      "paymentStatus": "ادا کریں یا نہ کریں۔",
+      "paymentStatus": "ادائیگی کی حیثیت",
       "paymentUnpaid": "بلا معاوضہ",
       "userKeyword": "صارف کی تلاش",
       "userKeywordPlaceholder": "موبائل فون نمبر/ای میل/عرفی نام",
       "userKeywordPlaceholderEmail": "ای میل/ عرفیت",
       "userKeywordPlaceholderPhone": "موبائل فون نمبر/ عرفیت",
-      "userRole": "صارف کی شناخت"
+      "userRole": "صارف کا کردار"
     },
     "usersTable": {
       "account": "موبائل فون نمبر/ای میل",
@@ -358,7 +358,7 @@
       "action": "کارروائیاں",
       "detailAction": "تفصیلات",
       "empty": "ابھی تک کوئی صارف ڈیٹا نہیں ہے۔",
-      "isPaid": "ادا کریں یا نہ کریں۔",
+      "isPaid": "ادائیگی کی حیثیت",
       "joinedAt": "کلاس کے وقت میں شامل ہوں۔",
       "lastLearnedAt": "حالیہ مطالعہ کا وقت",
       "lastLoginAt": "آخری لاگ ان کا وقت",
@@ -367,7 +367,7 @@
       "nickname": "عرفی نام",
       "totalPaidAmount": "جمع شدہ ادائیگی کی رقم",
       "userId": "یوزر آئی ڈی",
-      "userRole": "صارف کی شناخت"
+      "userRole": "صارف کا کردار"
     },
     "visibility": {
       "hidden": "چھپائیں",
@@ -376,14 +376,14 @@
   },
   "emptyList": "ابھی تک کوئی کورسز نہیں ہیں۔",
   "filters": {
-    "courseId": "کورس کی شناخت",
+    "courseId": "کورس ID",
     "courseName": "کورس کا نام",
     "courseQuery": "کورس",
     "courseQueryPlaceholder": "کورس ID/کورس کا نام",
     "createdAt": "تخلیق کا وقت",
     "creator": "خالق",
-    "creatorEmailOrUserBid": "کورس لیڈر کا ای میل",
-    "creatorMobileOrUserBid": "کورس لیڈر کا موبائل فون نمبر",
+    "creatorEmailOrUserBid": "کورس کے ذمہ دار کا ای میل",
+    "creatorMobileOrUserBid": "کورس کے ذمہ دار کا موبائل نمبر",
     "endTime": "اختتامی تاریخ",
     "startTime": "شروع کی تاریخ",
     "status": "حالت"
@@ -400,7 +400,7 @@
     "loadFollowUpsFailed": "ڈیٹا لوڈ کرنا ناکام ہو گیا، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
     "loadPromptDetailFailed": "کورس پرامپٹ لوڈ ہونے میں ناکام رہے، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "loadRatingsFailed": "درجہ بندی کا ڈیٹا لوڈ کرنے میں ناکام، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
-    "transferCreatorFailed": "کورس لیڈر کو منتقل کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔"
+    "transferCreatorFailed": "کورس کی ذمہ داری منتقل نہیں ہو سکی، براہ کرم بعد میں دوبارہ کوشش کریں۔"
   },
   "overview": {
     "activeFilter": "فوری فلٹر",
@@ -429,7 +429,7 @@
   },
   "table": {
     "action": "کارروائیاں",
-    "courseId": "کورس کی شناخت",
+    "courseId": "کورس ID",
     "courseName": "کورس کا نام",
     "coursePrompt": "کورس پرامپٹ",
     "createdAt": "تخلیق کا وقت",
@@ -447,17 +447,17 @@
     "confirm": "منتقلی کی تصدیق کریں۔",
     "confirmDescription": "کورس “{courseName}” کی ذمہ داری {currentCreator} سے {targetCreator} کو منتقل ہوگی۔",
     "confirmTitle": "کورس کا ذمہ دار بدلنے کی تصدیق کریں",
-    "contactPlaceholderEmail": "براہ کرم انچارج ہدف والے شخص کا ای میل ایڈریس درج کریں۔",
-    "contactPlaceholderPhone": "براہ کرم انچارج ہدف والے شخص کا موبائل فون نمبر درج کریں۔",
+    "contactPlaceholderEmail": "نئے ذمہ دار کا ای میل درج کریں۔",
+    "contactPlaceholderPhone": "نئے ذمہ دار کا موبائل نمبر درج کریں۔",
     "contactType": "رابطے کی قسم",
     "contactTypeEmail": "ای میل",
     "contactTypePhone": "موبائل فون نمبر",
-    "currentCreator": "موجودہ انچارج شخص",
-    "description": "صرف کورس لیڈر کو تبدیل کیا گیا ہے۔ کورس کا مواد، ترتیب، اور اشتراک کی اجازتیں غیر تبدیل شدہ رہیں گی۔",
-    "identifier": "انچارج شخص کو نشانہ بنائیں",
-    "identifierRequired": "براہ کرم انچارج ہدف والے شخص کی قانونی رابطہ کی معلومات درج کریں۔",
+    "currentCreator": "موجودہ ذمہ دار",
+    "description": "صرف کورس کا ذمہ دار بدلے گا۔ کورس کا مواد، ترتیبات اور اشتراک کی اجازتیں وہی رہیں گی۔",
+    "identifier": "نیا ذمہ دار",
+    "identifierRequired": "نئے ذمہ دار کی درست رابطہ معلومات درج کریں۔",
     "sameCreator": "ٹارگٹ رابطہ کی معلومات پہلے سے ہی موجودہ انچارج شخص سے تعلق رکھتی ہے۔",
-    "submitSuccess": "کورس لیڈر کی منتقلی کامیاب",
+    "submitSuccess": "کورس کی ذمہ داری منتقل ہو گئی ہے۔",
     "title": "کورس کا ذمہ دار بدلیں"
   }
 }

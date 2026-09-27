@@ -1,15 +1,15 @@
 {
   "__namespace__": "server.order",
   "__flat__": {
-    "checkout": "ادا کرنا",
+    "checkout": "ادائیگی کریں",
     "courseNotPaid": "کورس نہیں خریدا گیا ہے، براہ کرم پہلے کورس خریدیں۔",
     "emailAlreadyActivated": "ای میل {email} کے لیے یہ کورس پہلے ہی فعال ہے۔",
     "importActivationFailed": "امپورٹ ایکٹیویشن ناکام ہو گیا، براہ کرم اس قطار میں ڈیٹا چیک کریں اور دوبارہ کوشش کریں۔",
     "learnStatusBranch": "شاخ",
     "learnStatusCompleted": "مکمل",
-    "learnStatusInProgress": "پڑھائی",
+    "learnStatusInProgress": "سیکھنا جاری ہے",
     "learnStatusLocked": "کھلا نہیں ہے۔",
-    "learnStatusNotStarted": "سیکھنے کے قابل",
+    "learnStatusNotStarted": "سیکھنے کے لیے دستیاب",
     "learnStatusRefund": "رقم کی واپسی",
     "learnStatusReset": "ری سیٹ کریں",
     "learnStatusUnavailable": "دستیاب نہیں۔",

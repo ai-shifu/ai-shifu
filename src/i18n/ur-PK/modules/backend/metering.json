@@ -1,9 +1,9 @@
 {
   "__namespace__": "server.metering",
   "__flat__": {
-    "usageSceneDebug": "آزمائیں",
+    "usageSceneDebug": "ڈیبگنگ",
     "usageScenePreview": "پیش نظارہ",
-    "usageSceneProduction": "پیداوار",
+    "usageSceneProduction": "پروڈکشن",
     "usageTypeLlm": "LLM",
     "usageTypeTts": "TTS"
   }

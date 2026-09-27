@@ -22,6 +22,8 @@ Authored course content keeps its own language.
 - [x] 2026-09-27 UTC: Connect runtime, email, legal configuration and analytics contracts.
 - [x] 2026-09-27 UTC: Verify focused frontend/backend checks and browser behavior.
 - [x] 2026-09-27 UTC: Complete all-files repository gates and prepare the ready PR.
+- [x] 2026-09-27 UTC: Publish ready PR #2988.
+- [x] 2026-09-27 UTC: Review Chinese-source accuracy and correct 382 strings across 35 files.
 - [ ] 2026-09-27 UTC: Publish the focused PR and verify hosted CI acceptance.
 
 ## Surprises & Discoveries
@@ -34,6 +36,11 @@ Existing onboarding assistant prompt maps need the existing locale backfill.
 Browser smoke caught the login page overwriting the persisted guest preference
 with browser language on reload. Its fallback now uses the current bootstrap
 language; an explicit account language retains precedence.
+The accuracy follow-up found role reversals, noun/action confusion, literal meal
+translations for daily plans, amount/count confusion, incorrect comparison
+boundaries and financial meanings. Template/placeholder checks did not detect
+these. Reverse translation was used only as a diagnostic; remote unavailability
+limited its coverage, so it cannot establish full linguistic acceptance.
 
 ## Decision Log
 
@@ -57,6 +64,13 @@ The local cross-origin API configuration prevents live authentication and email
 delivery testing; rendering and email contracts have focused regression coverage.
 Hosted CI acceptance remains open. Deployment and per-installation onboarding
 backfills are outside this task.
+The follow-up accuracy review corrected 382 values without changing keys or
+runtime interfaces. It combines an inventory-wide terminology, numeric and
+technical-token audit with bilingual review of key flows and production call
+sites. Real i18next/ICU, locale/legal and backend email/billing translation checks
+pass (15 frontend tests, 58 backend tests). Terminology and meaning constraints
+are recorded in the Urdu section of the canonical i18n guide. This is an agent
+accuracy review, not native-speaker linguistic certification.
 
 ## Context and Orientation
 

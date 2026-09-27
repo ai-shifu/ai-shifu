@@ -9,7 +9,7 @@
         "failedAt": "ناکامی کا وقت",
         "failureCode": "ناکامی کوڈ",
         "failureMessage": "ناکامی کی وجہ",
-        "grantSourceId": "ایشو سورس ID",
+        "grantSourceId": "اجراء کے ماخذ کی ID",
         "grantSourceType": "ریلیز کے ذریعہ کی قسم",
         "grantedCredits": "کریڈٹس موصول ہوئے۔",
         "orderType": "آرڈر کی قسم",
@@ -36,7 +36,7 @@
       "orderKind": "آرڈر کی قسم",
       "paymentProvider": "ادائیگی سروس فراہم کنندہ",
       "productKeyword": "کریڈٹس پیکیج کی تلاش",
-      "productKeywordPlaceholder": "کریڈٹس پیکیج/کریڈٹ پیکیج کا نام"
+      "productKeywordPlaceholder": "کریڈٹ پلان / کریڈٹ پیک کا نام"
     },
     "kind": {
       "other": "دوسرے",
@@ -54,7 +54,7 @@
       "tooltips": {
         "creditAmount": "تمام موجودہ اساتذہ کے اکاؤنٹس میں کریڈٹس کی کل تعداد جو استعمال نہیں ہوئے ہیں اور اب بھی سیکھنے، پیش نظارہ کرنے اور ڈیبگنگ کے لیے استعمال کیے جا سکتے ہیں۔",
         "paidAmount": "ادا شدہ کریڈٹس آرڈرز کی کل رقم",
-        "paidOrders": "آرڈرز کے لیے ادا کیے گئے کریڈٹس کی تعداد",
+        "paidOrders": "ادا شدہ کریڈٹ آرڈرز کی تعداد",
         "totalOrders": "کل کریڈٹس آرڈرز"
       }
     },
@@ -74,7 +74,7 @@
       "orderKind": "آرڈر کی قسم",
       "paymentChannel": "ادائیگی کا طریقہ",
       "product": "کریڈٹ پلان",
-      "validTo": "تک درست ہے۔"
+      "validTo": "میعاد ختم ہونے کی تاریخ"
     }
   },
   "detail": {
@@ -92,15 +92,15 @@
   "emptyList": "ابھی تک کوئی آرڈر ڈیٹا نہیں ہے۔",
   "filters": {
     "course": "کورس",
-    "courseId": "کورس کی شناخت",
-    "courseIdPlaceholder": "کورس کی شناخت",
+    "courseId": "کورس ID",
+    "courseIdPlaceholder": "کورس ID",
     "courseName": "کورس کا نام",
     "courseNamePlaceholder": "کورس کا نام",
     "courseQueryPlaceholder": "کورس ID/کورس کا نام",
     "createdAt": "آرڈر کا وقت",
     "endTime": "اختتامی وقت",
-    "orderId": "آرڈر کی شناخت",
-    "orderIdPlaceholder": "آرڈر کی شناخت",
+    "orderId": "آرڈر ID",
+    "orderIdPlaceholder": "آرڈر ID",
     "paymentChannel": "ادائیگی چینل",
     "reset": "ری سیٹ کریں",
     "search": "استفسار",
@@ -134,8 +134,8 @@
   },
   "source": {
     "couponRedeem": "کوڈ کو چھڑانا",
-    "importActivation": "درآمد کھولیں۔",
-    "openApi": "API ایکٹیویشن کھولیں۔",
+    "importActivation": "درآمد کے ذریعے فعال",
+    "openApi": "Open API کے ذریعے فعال",
     "userPurchase": "صارف آرڈر دیتا ہے۔"
   },
   "table": {
@@ -145,8 +145,8 @@
     "createdAt": "آرڈر کا وقت",
     "discountAmount": "رعایت",
     "empty": "ابھی تک کوئی آرڈر ڈیٹا نہیں ہے۔",
-    "orderId": "آرڈر کی شناخت",
-    "paidAmount": "اصل رسید",
+    "orderId": "آرڈر ID",
+    "paidAmount": "وصول شدہ رقم",
     "paymentChannel": "ادائیگی چینل",
     "source": "آرڈر کا ذریعہ",
     "status": "حالت",
@@ -157,7 +157,7 @@
   },
   "tabs": {
     "credits": "کریڈٹس آرڈر",
-    "learn": "مطالعہ کا حکم"
+    "learn": "سیکھنے کے آرڈرز"
   },
   "title": "آرڈر مینجمنٹ",
   "totalCount": "{count, plural, one {کل # آرڈر} other {کل # آرڈرز}}"

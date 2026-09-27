@@ -8,11 +8,11 @@
     "charged": "کٹوتی",
     "failed": "بلنگ ناکام ہوگئی",
     "not_required": "کوئی بلنگ کی ضرورت نہیں ہے۔",
-    "released": "جاری",
+    "released": "آزاد کر دیا گیا",
     "reserved": "روک لیا"
   },
   "copySuccess": "کاپی ہو گیا",
-  "description": "کلون پیچ ٹاسک کے پروسیسنگ کی حیثیت، ناکامی کی وجوہات، اور بلنگ کے نتائج دیکھیں۔",
+  "description": "آواز کلون کرنے کے کاموں کی حالت، ناکامی کی وجوہات اور بلنگ کے نتائج دیکھیں۔",
   "detail": {
     "audio": "آڈیو خلاصہ",
     "basic": "بنیادی معلومات",
@@ -21,7 +21,7 @@
     "chargedCredits": "اصل کٹوتی",
     "contact": "رابطہ کی معلومات",
     "course": "کورس",
-    "courseId": "کورس کی شناخت",
+    "courseId": "کورس ID",
     "createdAt": "تخلیق کا وقت",
     "displayName": "آواز کا نام",
     "empty": "کوئی ریکارڈ منتخب نہیں کیا گیا۔",
@@ -31,17 +31,17 @@
     "minimaxStatusMsg": "حیثیت کی تفصیل",
     "minimaxTraceId": "ٹریکنگ آئی ڈی",
     "normalizedAudioDuration": "پروسیسنگ کے بعد آڈیو کا دورانیہ",
-    "owner": "خالق",
-    "promptAudioDuration": "آڈیو دورانیہ سنیں۔",
+    "owner": "استاد",
+    "promptAudioDuration": "آزمائشی آڈیو کا دورانیہ",
     "provider": "سروس فراہم کرنے والا",
     "readyAt": "تکمیل کا وقت",
     "retryCount": "دوبارہ کوششوں کی تعداد",
     "sourceAudioDuration": "اصل آڈیو دورانیہ",
     "status": "حیثیت کی معلومات",
     "time": "وقت کی معلومات",
-    "title": "آواز کی تفصیلات کلون کریں۔",
+    "title": "کلون شدہ آواز کی تفصیلات",
     "updatedAt": "اپ ڈیٹ کا وقت",
-    "voiceId": "ٹون آئی ڈی"
+    "voiceId": "آواز کی ID"
   },
   "empty": "کلون آوازوں کا ابھی تک کوئی ریکارڈ نہیں ہے۔",
   "failureDetail": {
@@ -62,7 +62,7 @@
   },
   "failureReason": {
     "audioExpired": "ماخذ آڈیو کی میعاد ختم ہو گئی ہے۔",
-    "billingPending": "بلنگ کی تصدیق کی جائے۔",
+    "billingPending": "بلنگ کی تصدیق کا منتظر",
     "emptyAudio": "آڈیو فائل خالی ہے۔",
     "enqueue_failed": "ٹاسک کی قطار ناکام ہو گئی۔",
     "minimaxProviderError": "MiniMax غلطی واپس کرتا ہے۔",
@@ -95,7 +95,7 @@
     "voiceKeyword": "آواز",
     "voiceKeywordPlaceholder": "وائس آئی ڈی / آواز کا نام"
   },
-  "loadFailed": "کلون شدہ پیچ ریکارڈ لوڈ کرنے میں ناکام",
+  "loadFailed": "کلون شدہ آوازوں کا ریکارڈ لوڈ نہیں ہو سکا۔",
   "pagination": {
     "jumpInputAria": "صفحہ نمبر پر جائیں۔",
     "next": "اگلا صفحہ",
@@ -105,10 +105,10 @@
   },
   "providers": {
     "minimax": "MiniMax",
-    "volcengine": "بین بیگ (آتش فشاں انجن)"
+    "volcengine": "Doubao (Volcengine)"
   },
   "register": {
-    "button": "ایک ٹون رجسٹر کریں۔",
+    "button": "آواز رجسٹر کریں",
     "cancel": "منسوخ کریں",
     "clearTeacher": "دوبارہ منتخب کریں۔",
     "description": "سروس فراہم کنندہ کے کنسول میں آواز کی کلوننگ کرنے کے بعد، یہاں Voice ID کو رجسٹر کریں اور اسے نامزد استاد کو تفویض کریں۔ یہ ٹون اساتذہ کے لیے مفت ہے، اور رجسٹریشن کرتے وقت ٹون کی دستیابی سروس فراہم کنندہ سے تصدیق کی جائے گی۔",
@@ -121,13 +121,13 @@
     "searching": "تلاش کر رہا ہے…",
     "submit": "رجسٹر کریں۔",
     "submitting": "رجسٹر ہو رہا ہے…",
-    "successToast": "ساؤنڈ رجسٹریشن کامیاب",
-    "teacherLabel": "استاد کو تفویض کیا گیا۔",
+    "successToast": "آواز رجسٹر ہو گئی ہے۔",
+    "teacherLabel": "استاد کو تفویض کریں",
     "teacherRequired": "براہ کرم پہلے ایک استاد کا انتخاب کریں۔",
     "teacherSearchPlaceholder": "موبائل فون نمبر/ای میل",
     "title": "کلون وائس رجسٹر کرنا",
     "voiceIdHint": "MiniMax کنسول میں کلون کردہ Voice ID کو پُر کریں۔",
-    "voiceIdHintVolcengine": "صوتی ID (S_ سے شروع ہونے والی آواز کی سلاٹ) کو پُر کریں جسے Volcano Engine کنسول پر تربیت دی گئی ہے۔",
+    "voiceIdHintVolcengine": "Volcengine کنسول میں تربیت مکمل ہونے والی آواز کی ID درج کریں (S_ سے شروع ہونے والا وائس سلاٹ)۔",
     "voiceIdInvalid": "Voice ID فارمیٹ غلط ہے۔",
     "voiceIdLabel": "Voice ID",
     "voiceIdPlaceholder": "مثال کے طور پر: AiShifu_xxxxxxxxxx",
@@ -135,7 +135,7 @@
     "voiceIdRequired": "براہ کرم Voice ID پُر کریں۔"
   },
   "status": {
-    "billing_pending": "بلنگ کی تصدیق کی جائے۔",
+    "billing_pending": "بلنگ کی تصدیق کا منتظر",
     "failed": "ناکام",
     "processing": "کارروائی جاری ہے",
     "queued": "پروسیسنگ کا انتظار ہے۔",
@@ -149,7 +149,7 @@
     "createdAt": "تخلیق کا وقت",
     "failure": "ناکامی کی وجہ",
     "minimax": "MiniMax",
-    "owner": "خالق",
+    "owner": "استاد",
     "provider": "سروس فراہم کرنے والا",
     "status": "حالت",
     "updatedAt": "اپ ڈیٹ کا وقت",

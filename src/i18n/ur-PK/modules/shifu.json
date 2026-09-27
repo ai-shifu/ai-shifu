@@ -1,8 +1,8 @@
 {
   "__namespace__": "module.shifu",
   "creationArea": {
-    "descriptionPrefix": "استعمال کریں",
-    "descriptionSuffix": "AI کی رہنمائی کے لیے تحریر کو فارمیٹ کریں کہ کیسے پڑھایا جائے۔",
+    "descriptionPrefix": "متن ",
+    "descriptionSuffix": " فارمیٹ میں لکھیں تاکہ AI کو پڑھانے کی ہدایات ملیں۔",
     "modeCode": "پیشہ ورانہ",
     "modeText": "دوستانہ",
     "title": "تدریسی پرامپٹ"
@@ -14,7 +14,7 @@
     "confirmLoadFailed": "ورژن کا مواد لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "confirmTitle": "اس ورژن کو بحال کرنے کی تصدیق کریں۔",
     "contentEmpty": "یہ ورژن خالی ہے۔",
-    "empty": "ابھی تک کوئی تاریخ نہیں۔",
+    "empty": "ابھی کوئی سابقہ ریکارڈ نہیں۔",
     "expand": "مکمل متن کو پھیلائیں۔",
     "loading": "لوڈ ہو رہا ہے…",
     "restore": "اس ورژن کو بحال کریں۔",
@@ -48,7 +48,7 @@
     "variablesEmpty": "ابھی تک کوئی متغیر نہیں ہے۔",
     "variablesExpand": "پھیلائیں",
     "variablesHideSingleConfirmDesc": "\"{name}\" متغیر کو چھپائیں۔ چھپنے کے بعد، آپ اسے بحال کرنے کے لیے \"سب دکھائیں\" بٹن پر کلک کر سکتے ہیں۔",
-    "variablesHideSingleConfirmTitle": "پوشیدہ متغیرات",
+    "variablesHideSingleConfirmTitle": "متغیر چھپائیں",
     "variablesHideUnused": "غیر استعمال شدہ چھپائیں۔",
     "variablesHideUnusedConfirmDesc": "پورے کورس میں غیر استعمال شدہ خود ساختہ متغیرات کو چھپائیں۔ چھپنے کے بعد، آپ اس بٹن پر کلک کر کے انہیں ڈسپلے میں بحال کر سکتے ہیں۔",
     "variablesHideUnusedConfirmTitle": "غیر استعمال شدہ خود ساختہ متغیرات کو چھپائیں۔",
