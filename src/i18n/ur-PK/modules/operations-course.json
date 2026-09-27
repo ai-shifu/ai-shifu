@@ -168,22 +168,22 @@
     },
     "followUps": {
       "drawer": {
-        "currentRecordHint": "\"سوال کی اصل پیداوار -> یہ سوال -> یہ سسٹم جواب\" کی ترتیب میں پڑھیں",
+        "currentRecordHint": "اس ترتیب میں پڑھیں: وہ اصل جواب جس پر ضمنی سوال کیا گیا -> موجودہ ضمنی سوال -> نظام کا موجودہ جواب",
         "fields": {
           "chapter": "باب",
           "currentAnswer": "نظام کا موجودہ جواب",
-          "currentFollowUp": "یہ فالو اپ سوال",
-          "followUpTime": "سوال کا وقت",
+          "currentFollowUp": "موجودہ ضمنی سوال",
+          "followUpTime": "ضمنی سوال کا وقت",
           "lesson": "سبق",
           "nickname": "عرفی نام",
-          "sourceOutput": "سوال کی خام پیداوار",
-          "turnIndex": "سوالیہ نشانات",
+          "sourceOutput": "وہ اصل جواب جس پر ضمنی سوال کیا گیا",
+          "turnIndex": "ضمنی سوال نمبر",
           "user": "صارف",
           "userId": "یوزر آئی ڈی"
         },
         "sections": {
           "basicInfo": "بنیادی معلومات",
-          "currentRecord": "اس انکوائری کی تفصیلات",
+          "currentRecord": "موجودہ ضمنی سوال کی تفصیلات",
           "timeline": "متعلقہ ٹائم لائن"
         },
         "sourceUnavailable": "متعلقہ اصل آؤٹ پٹ اس وقت نہیں مل سکتا۔",
@@ -192,53 +192,53 @@
           "student": "طالب علم",
           "teacher": "نظام"
         },
-        "title": "تفصیلات طلب کریں۔"
+        "title": "ضمنی سوال کی تفصیلات"
       },
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "باب/سیکشن کی تلاش",
         "chapterKeywordPlaceholder": "باب/سیکشن کا عنوان",
-        "followUpTime": "سوال کا وقت",
+        "followUpTime": "ضمنی سوال کا وقت",
         "lessonKeyword": "سیکشن کی تلاش",
         "lessonKeywordPlaceholder": "سیکشن کا عنوان",
         "reset": "ری سیٹ کریں",
         "resultCount": "کل {count} اندراجات",
         "search": "استفسار",
-        "sourceStatus": "اصل آؤٹ پٹ پوزیشننگ",
+        "sourceStatus": "اصل جواب کی شناخت",
         "sourceStatusAll": "تمام حالتیں",
-        "sourceStatusMissing": "خام آؤٹ پٹ واقع نہیں ہے۔",
-        "sourceStatusResolved": "اصل آؤٹ پٹ واقع ہے۔",
+        "sourceStatusMissing": "اصل جواب نہیں ملا",
+        "sourceStatusResolved": "اصل جواب مل گیا",
         "timePlaceholder": "وقت آغاز ~ اختتامی وقت",
         "userKeyword": "صارف کی تلاش",
         "userKeywordPlaceholder": "موبائل فون نمبر/ای میل/عرفی نام",
         "userKeywordPlaceholderEmail": "ای میل/ عرفیت",
         "userKeywordPlaceholderPhone": "موبائل فون نمبر/ عرفیت"
       },
-      "openMetric": "فالو اپ ڈیٹا دیکھیں",
+      "openMetric": "ضمنی سوالات کا ڈیٹا دیکھیں",
       "summary": {
         "followUpCount": "ضمنی سوالات کی کل تعداد",
-        "latestFollowUpAt": "آخری سوال کا وقت",
+        "latestFollowUpAt": "آخری ضمنی سوال کا وقت",
         "lessonCount": "شامل حصوں کی تعداد",
         "userCount": "ضمنی سوال پوچھنے والے صارفین کی تعداد"
       },
       "table": {
         "action": "کارروائیاں",
         "chapter": "باب",
-        "content": "سوال کا مواد",
-        "createdAt": "سوال کا وقت",
+        "content": "ضمنی سوال کا متن",
+        "createdAt": "ضمنی سوال کا وقت",
         "detailAction": "تفصیلات دیکھیں",
-        "empty": "ابھی تک کوئی فالو اپ ڈیٹا نہیں ہے۔",
+        "empty": "ابھی ضمنی سوالات کا کوئی ڈیٹا نہیں ہے۔",
         "lesson": "سبق",
         "scopeHint": "طلباء کی طرف سے کورس کے مواد کے بارے میں اٹھائے گئے سوالات کو چیک کریں تاکہ ہائی فریکوئنسی کے پھنسے ہوئے پوائنٹس اور سیکشنز کا تعین کرنے میں مدد ملے جن کو اصلاح کی ضرورت ہے۔",
-        "sourceMissing": "خام آؤٹ پٹ واقع نہیں ہے۔",
-        "sourceResolved": "اصل آؤٹ پٹ واقع ہے۔",
-        "title": "سوالوں کی فہرست",
-        "turnIndex": "سوالیہ نشانات",
+        "sourceMissing": "اصل جواب نہیں ملا",
+        "sourceResolved": "اصل جواب مل گیا",
+        "title": "ضمنی سوالات کی فہرست",
+        "turnIndex": "ضمنی سوال نمبر",
         "user": "صارف"
       },
-      "title": "ڈیٹا طلب کریں۔",
-      "turnIndex": "{count} وقت",
-      "turnIndexHelp": "اسی سیکھنے کے ریکارڈ میں پوچھ گچھ کے وقت کی ترتیب کے مطابق سوالات کے دوروں کو ترتیب دیا جاتا ہے۔"
+      "title": "ضمنی سوالات کا ڈیٹا",
+      "turnIndex": "ضمنی سوال نمبر {count}",
+      "turnIndexHelp": "ایک ہی سیکھنے کے ریکارڈ میں ضمنی سوالات کو ان کے وقت کے مطابق ترتیب دے کر نمبر دیا جاتا ہے۔"
     },
     "learningPermission": {
       "free": "مفت",
@@ -396,8 +396,8 @@
     "loadCoursesFailed": "کورس کی فہرست لوڈ کرنا ناکام ہو گیا، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
     "loadCreditUsageDetailsFailed": "کریڈٹ کی کھپت کی تفصیلات لوڈ ہونے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "loadCreditUsageFailed": "کریڈٹ کی کھپت کا ڈیٹا لوڈ ہونے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
-    "loadFollowUpDetailFailed": "فالو اپ تفصیلات لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
-    "loadFollowUpsFailed": "ڈیٹا لوڈ کرنا ناکام ہو گیا، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "loadFollowUpDetailFailed": "ضمنی سوال کی تفصیلات لوڈ نہیں ہو سکیں، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadFollowUpsFailed": "ضمنی سوالات کا ڈیٹا لوڈ نہیں ہو سکا، براہ کرم صفحہ ریفریش کر کے دوبارہ کوشش کریں۔",
     "loadPromptDetailFailed": "کورس پرامپٹ لوڈ ہونے میں ناکام رہے، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "loadRatingsFailed": "درجہ بندی کا ڈیٹا لوڈ کرنے میں ناکام، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
     "transferCreatorFailed": "کورس کی ذمہ داری منتقل نہیں ہو سکی، براہ کرم بعد میں دوبارہ کوشش کریں۔"

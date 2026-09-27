@@ -16,41 +16,41 @@
     "courseIdLabel": "کورس کی شناخت",
     "followUps": {
       "drawer": {
-        "currentRecordHint": "موجودہ فالو اپ سوالات اور متعلقہ جوابات دیکھیں تاکہ یہ تعین کرنے میں مدد ملے کہ آیا طلباء پوائنٹس پر پھنس گئے ہیں اور آیا کورس کا اظہار واضح ہے۔",
+        "currentRecordHint": "موجودہ ضمنی سوال اور اس کا جواب دیکھیں تاکہ سمجھ سکیں کہ طالب علم کو کہاں مشکل پیش آ رہی ہے اور کورس کی وضاحت کتنی واضح ہے۔",
         "fields": {
           "currentAnswer": "موجودہ جواب",
-          "currentFollowUp": "موجودہ سوال",
-          "followUpTime": "سوال کا وقت",
+          "currentFollowUp": "موجودہ ضمنی سوال",
+          "followUpTime": "ضمنی سوال کا وقت",
           "lesson": "متعلقہ ابواب",
           "nickname": "عرفی نام",
-          "turnIndex": "چکر",
+          "turnIndex": "ضمنی سوال نمبر",
           "user": "طالب علم"
         },
         "sections": {
           "basicInfo": "بنیادی معلومات",
           "currentRecord": "موجودہ ریکارڈ",
-          "timeline": "ٹائم لائن کے بارے میں پوچھیں۔"
+          "timeline": "ضمنی سوالات کی ٹائم لائن"
         },
         "timeline": {
           "current": "موجودہ",
           "student": "طالب علم",
           "teacher": "کورس کے جوابات"
         },
-        "title": "تفصیلات طلب کریں۔"
+        "title": "ضمنی سوال کی تفصیلات"
       },
       "filters": {
         "chapterKeyword": "باب",
         "chapterKeywordPlaceholder": "باب/سیکشن کا نام",
-        "followUpTime": "سوال کا وقت",
+        "followUpTime": "ضمنی سوال کا وقت",
         "lessonKeyword": "سیکشن",
         "lessonKeywordPlaceholder": "سیکشن کا نام",
         "reset": "ری سیٹ کریں",
         "resultCount": "کل {count} اندراجات",
         "search": "استفسار",
-        "sourceStatus": "اصل آؤٹ پٹ پوزیشننگ",
+        "sourceStatus": "اصل جواب کی شناخت",
         "sourceStatusAll": "تمام حالتیں",
-        "sourceStatusMissing": "خام آؤٹ پٹ واقع نہیں ہے۔",
-        "sourceStatusResolved": "اصل آؤٹ پٹ واقع ہے۔",
+        "sourceStatusMissing": "اصل جواب نہیں ملا",
+        "sourceStatusResolved": "اصل جواب مل گیا",
         "timePlaceholder": "وقت آغاز ~ اختتامی وقت",
         "userKeyword": "طالب علم",
         "userKeywordPlaceholderEmail": "ای میل/ عرفیت",
@@ -58,7 +58,7 @@
       },
       "summary": {
         "followUpCount": "ضمنی سوالات کی مجموعی تعداد",
-        "latestFollowUpAt": "آخری سوال کا وقت",
+        "latestFollowUpAt": "آخری ضمنی سوال کا وقت",
         "lessonCount": "شامل حصوں کی تعداد",
         "scopeHint": "طلباء کی طرف سے کورس کے مواد کے بارے میں اٹھائے گئے سوالات کو چیک کریں تاکہ ہائی فریکوئنسی کے پھنسے ہوئے پوائنٹس اور ان ابواب کی شناخت میں مدد ملے جن کو اصلاح کی ضرورت ہے۔",
         "userCount": "ضمنی سوال پوچھنے والے طلباء کی تعداد"
@@ -66,20 +66,20 @@
       "table": {
         "action": "کارروائیاں",
         "chapter": "باب",
-        "content": "سوال کا مواد",
-        "createdAt": "سوال کا وقت",
+        "content": "ضمنی سوال کا متن",
+        "createdAt": "ضمنی سوال کا وقت",
         "detailAction": "تفصیلات",
-        "empty": "ابھی تک کوئی فالو اپ ڈیٹا نہیں ہے۔",
+        "empty": "ابھی ضمنی سوالات کا کوئی ڈیٹا نہیں ہے۔",
         "lesson": "سیکشن",
-        "sourceMissing": "خام آؤٹ پٹ واقع نہیں ہے۔",
-        "sourceResolved": "اصل آؤٹ پٹ واقع ہے۔",
-        "title": "سوالوں کی فہرست",
-        "turnIndex": "چکر",
+        "sourceMissing": "اصل جواب نہیں ملا",
+        "sourceResolved": "اصل جواب مل گیا",
+        "title": "ضمنی سوالات کی فہرست",
+        "turnIndex": "ضمنی سوال نمبر",
         "user": "طالب علم"
       },
-      "title": "ڈیٹا طلب کریں۔",
-      "turnIndex": "گول {count}",
-      "turnIndexHelp": "اسی سیکھنے کے ریکارڈ میں پوچھ گچھ کے وقت کی ترتیب کے مطابق سوالات کے دوروں کو ترتیب دیا جاتا ہے۔"
+      "title": "ضمنی سوالات کا ڈیٹا",
+      "turnIndex": "ضمنی سوال نمبر {count}",
+      "turnIndexHelp": "ایک ہی سیکھنے کے ریکارڈ میں ضمنی سوالات کو ان کے وقت کے مطابق ترتیب دے کر نمبر دیا جاتا ہے۔"
     },
     "learners": {
       "columns": {
@@ -217,8 +217,8 @@
   "messages": {
     "loadCourseDetailFailed": "کورس کی تفصیلات لوڈ ہونے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "loadCoursesFailed": "کورس کی فہرست لوڈ کرنا ناکام ہو گیا، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
-    "loadFollowUpDetailFailed": "فالو اپ تفصیلات لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
-    "loadFollowUpsFailed": "ڈیٹا لوڈ کرنا ناکام ہو گیا، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "loadFollowUpDetailFailed": "ضمنی سوال کی تفصیلات لوڈ نہیں ہو سکیں، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadFollowUpsFailed": "ضمنی سوالات کا ڈیٹا لوڈ نہیں ہو سکا، براہ کرم صفحہ ریفریش کر کے دوبارہ کوشش کریں۔",
     "loadLearnersFailed": "طلباء کی فہرست لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "loadRatingsFailed": "درجہ بندی کا ڈیٹا لوڈ کرنے میں ناکام، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔"
   },
