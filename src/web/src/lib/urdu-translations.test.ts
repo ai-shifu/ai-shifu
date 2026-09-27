@@ -9,6 +9,8 @@ import billing from '../../../i18n/ur-PK/modules/billing.json';
 import chat from '../../../i18n/ur-PK/modules/chat.json';
 import operationsOrder from '../../../i18n/ur-PK/modules/operations-order.json';
 import profileOnboarding from '../../../i18n/ur-PK/modules/profile-onboarding.json';
+import shifuSetting from '../../../i18n/ur-PK/modules/shifu-setting.json';
+import { LIVE_VOICE_STYLE_I18N_KEYS } from '../components/shifu-setting/live-voice-style';
 
 const i18n = i18next.createInstance().use(new ICU());
 
@@ -21,7 +23,14 @@ beforeAll(async () => {
         translation: {
           common: { core },
           component: { header },
-          module: { auth, billing, chat, operationsOrder, profileOnboarding },
+          module: {
+            auth,
+            billing,
+            chat,
+            operationsOrder,
+            profileOnboarding,
+            shifuSetting,
+          },
         },
       },
     },
@@ -64,4 +73,13 @@ test('preserves executable MarkdownFlow syntax in the onboarding prompt', () => 
   expect(prompt.match(/\?\[/g)).toHaveLength(3);
   expect(prompt).not.toMatch(/\u061f\[/);
   expect(prompt).not.toMatch(/[\u3400-\u9fff]/);
+});
+
+test('gives each selectable live voice style a distinct Urdu label', () => {
+  const labels = Object.values(LIVE_VOICE_STYLE_I18N_KEYS).map(key => {
+    const label = i18n.t(key);
+    expect(label).not.toBe(key);
+    return label;
+  });
+  expect(new Set(labels).size).toBe(labels.length);
 });
