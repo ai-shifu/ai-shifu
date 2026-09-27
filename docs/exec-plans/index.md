@@ -78,6 +78,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Promotion Ops State Rules](./completed/operator-promotion-ops-state-rules.md)
 - [Operator User Contact Change](./completed/operator-user-contact-change.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
+- [Optional model output limits](./completed/optional-model-output-limits.md)
 - [ExecPlan: Package Campaigns](./completed/package-campaigns.md)
 - [Password Login Account Rate Limit](./completed/password-login-rate-limit.md)
 - [Separate course permission contact validation](./completed/permission-contact-validation.md)
