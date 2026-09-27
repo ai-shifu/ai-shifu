@@ -119,7 +119,7 @@
     "cancellationOperator": "اکاؤنٹ حذف کرنے والا منتظم",
     "cancellationReason": "اکاؤنٹ حذف کرنے کی وجہ",
     "cancelledAt": "اکاؤنٹ حذف کرنے کا وقت",
-    "createdCourses": "تخلیقی کورس",
+    "createdCourses": "بنائے گئے کورسز",
     "creditExpireAtHint": "ایک سے زیادہ میعاد کی مدت کے لیے، سب سے پہلے ختم ہونے کی تاریخ پہلے ظاہر کی جائے گی۔",
     "creditExpireAtHintAriaLabel": "کریڈٹس کی میعاد ختم ہونے کی تاریخ کی ہدایات دیکھیں",
     "creditLedger": "کریڈٹس کی تفصیلات",
@@ -278,7 +278,7 @@
     "loadingCredits": "لوڈ ہو رہا ہے۔",
     "overview": "ڈیٹا کا جائزہ",
     "tabs": {
-      "createdCourses": "تخلیقی کورس",
+      "createdCourses": "بنائے گئے کورسز",
       "credits": "کریڈٹس کی تفصیلات",
       "learningCourses": "مطالعہ کے کورسز"
     },
@@ -457,7 +457,7 @@
     "action": "کارروائیاں",
     "availableCredits": "کل کریڈٹس",
     "createdAt": "تخلیق کا وقت",
-    "createdCourses": "تخلیقی کورس",
+    "createdCourses": "بنائے گئے کورسز",
     "creditsExpireAt": "کریڈٹس کی میعاد ختم ہونے کا وقت",
     "email": "ای میل",
     "guestUser": "مہمان صارف",
