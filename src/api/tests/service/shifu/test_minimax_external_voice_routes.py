@@ -96,3 +96,9 @@ def test_minimax_voice_list_returns_only_current_owners_registered_voices(
     assert [voice["voice_id"] for voice in payload["data"]["voices"]] == [
         "AiShifu_xxxxxxxxxx"
     ]
+    assert [voice["voice_bid"] for voice in payload["data"]["voices"]] == [
+        "owned-voice-bid"
+    ]
+    assert [voice["owner_user_bid"] for voice in payload["data"]["voices"]] == [
+        "creator-route"
+    ]
