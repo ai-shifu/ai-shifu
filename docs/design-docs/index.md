@@ -31,7 +31,7 @@ Implementation and architecture decisions that shape repository behavior live he
 - [Native China Payments](../design-docs/native-cn-payments.md)
   - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Official Client Model Gateway](../design-docs/official-client-model-gateway.md)
-  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-09-23` | Canonical: `true`
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-09-27` | Canonical: `true`
 - [Operator Course/User Request Optimization](../design-docs/operator-course-user-request-optimization.md)
   - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
 - [老带新邀请奖励](../design-docs/referral-invitation-rewards.md)

@@ -121,27 +121,40 @@ def numbered_gateway_catalog(monkeypatch: pytest.MonkeyPatch) -> tuple[dict, lis
 
 @pytest.mark.no_mock_llm
 @pytest.mark.parametrize(
-    ("model_one", "ineligible_model", "reason", "expected"),
+    ("model_one", "ineligible_model", "reason", "expected", "expected_ids"),
     [
-        (None, None, None, "test/default"),
-        ("", None, None, None),
-        (" \t", None, None, None),
-        ("test/advanced", None, None, "test/advanced"),
-        ("test/missing", None, None, None),
-        ("test/advanced", "test/advanced", "unavailable", None),
-        ("test/advanced", "test/advanced", "unrated", None),
-        (None, "test/default", "unavailable", None),
-        (None, "test/default", "unrated", None),
-        (None, "test/default", "incomplete_rates", None),
+        (
+            None,
+            None,
+            None,
+            "test/default",
+            ["test/default", "test/advanced"],
+        ),
+        ("", None, None, None, ["test/advanced", "test/default"]),
+        (" \t", None, None, None, ["test/advanced", "test/default"]),
+        (
+            "test/advanced",
+            None,
+            None,
+            "test/advanced",
+            ["test/advanced", "test/default"],
+        ),
+        ("test/missing", None, None, None, ["test/advanced", "test/default"]),
+        ("test/advanced", "test/advanced", "unavailable", None, ["test/default"]),
+        ("test/advanced", "test/advanced", "unrated", None, ["test/default"]),
+        (None, "test/default", "unavailable", None, ["test/advanced"]),
+        (None, "test/default", "unrated", None, ["test/advanced"]),
+        (None, "test/default", "incomplete_rates", None, ["test/advanced"]),
     ],
 )
-def test_numbered_catalog_preserves_gateway_default_alias(
+def test_numbered_catalog_preserves_unlisted_gateway_default_alias(
     monkeypatch: pytest.MonkeyPatch,
     numbered_gateway_catalog: tuple[dict, list],
     model_one: str | None,
     ineligible_model: str | None,
     reason: str | None,
     expected: str | None,
+    expected_ids: list[str],
 ) -> None:
     from flaskr.api import llm
     from flaskr.route import model_gateway as gateway
@@ -161,21 +174,18 @@ def test_numbered_catalog_preserves_gateway_default_alias(
     app = Flask("numbered-gateway-catalog")
     catalog = gateway._gateway_models(app)
     model_ids = [model["id"] for model in catalog]
-    assert len(model_ids) == len(set(model_ids))
-    defaults = [model for model in catalog if model["id"] == "ai-shifu-default"]
+    assert model_ids == expected_ids
+    assert "ai-shifu-default" not in model_ids
     request = {
         "model": "ai-shifu-default",
         "messages": [{"role": "user", "content": "Hello"}],
     }
     if expected is None:
-        assert defaults == []
         with pytest.raises(gateway.GatewayRequestError) as error:
             gateway._resolve_model_alias(app, request)
         assert error.value.status_code == 400
         assert error.value.code == "model_not_available"
     else:
-        assert len(defaults) == 1
-        assert defaults[0]["resolved_model"] == expected
         assert gateway._resolve_model_alias(app, request) == {
             **request,
             "model": expected,
@@ -185,6 +195,49 @@ def test_numbered_catalog_preserves_gateway_default_alias(
         for model in llm.get_course_model_options(app)
         if model["is_default"]
     ] == (["1"] if str(config["LLM_MODEL_1_ID"]).strip() else [])
+
+
+@pytest.mark.no_mock_llm
+def test_gateway_models_returns_configured_models_in_slot_order(
+    numbered_gateway_catalog: tuple[dict, list],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.route import model_gateway as gateway
+
+    config, _rows = numbered_gateway_catalog
+    config.update(
+        LLM_MODEL_1_ID="test/advanced",
+        LLM_MODEL_1_NAME="Advanced Model",
+        LLM_MODEL_3_ID="test/default",
+        LLM_MODEL_3_NAME="Standard Model",
+    )
+    app = Flask("configured-gateway-catalog")
+    app.config["MODEL_GATEWAY_CLIENT_ALLOWLIST"] = ["ai-shifu-desktop"]
+    monkeypatch.setattr(gateway, "validate_user", lambda _app, _token: None)
+    register_model_gateway_handler(app)
+
+    response = app.test_client().get("/api/gateway/v1/models", headers=_headers())
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "object": "list",
+        "data": [
+            {
+                "id": "test/advanced",
+                "object": "model",
+                "owned_by": "ai-shifu",
+                "display_name": "Advanced Model",
+                "credit_multiplier": 2,
+            },
+            {
+                "id": "test/default",
+                "object": "model",
+                "owned_by": "ai-shifu",
+                "display_name": "Standard Model",
+                "credit_multiplier": 1,
+            },
+        ],
+    }
 
 
 @pytest.mark.parametrize("endpoint", ["models", "chat", "stream"])

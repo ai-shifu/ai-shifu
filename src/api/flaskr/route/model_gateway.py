@@ -112,7 +112,7 @@ def _gateway_models(app: Flask) -> list[dict[str, object]]:
         if model.get("credit_multiplier") is not None
         and has_complete_llm_rates(str(model.get("model") or ""))
     ]
-    data = [
+    return [
         {
             "id": model["model"],
             "object": "model",
@@ -122,34 +122,20 @@ def _gateway_models(app: Flask) -> list[dict[str, object]]:
         }
         for model in rated
     ]
-    default = next((model for model in rated if model.get("is_default")), None)
-    if default is not None:
-        data.insert(
-            0,
-            {
-                "id": _DEFAULT_MODEL_ALIAS,
-                "object": "model",
-                "owned_by": "ai-shifu",
-                "display_name": "AI-Shifu Default",
-                "credit_multiplier": default.get("credit_multiplier"),
-                "resolved_model": default.get("model"),
-            },
-        )
-    return data
 
 
 def _resolve_model_alias(app: Flask, payload: dict[str, object]) -> dict[str, object]:
+    """Accept the unlisted default alias for existing gateway clients."""
     if str(payload.get("model") or "").strip() != _DEFAULT_MODEL_ALIAS:
         return payload
+    from flaskr.api.llm.model_selection import get_default_llm_model
+
+    default_model = get_default_llm_model()
     default = next(
-        (
-            model
-            for model in _gateway_models(app)
-            if model.get("id") == _DEFAULT_MODEL_ALIAS
-        ),
+        (model for model in _gateway_models(app) if model.get("id") == default_model),
         None,
     )
-    resolved = str((default or {}).get("resolved_model") or "")
+    resolved = str((default or {}).get("id") or "")
     if not resolved:
         raise GatewayRequestError(
             400,

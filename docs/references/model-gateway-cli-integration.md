@@ -1,6 +1,6 @@
 ---
 title: Model Gateway CLI Integration
-last_reviewed: 2026-09-19
+last_reviewed: 2026-09-27
 canonical: true
 ---
 
@@ -197,14 +197,6 @@ X-AI-Shifu-Client-ID: example-cli
   "object": "list",
   "data": [
     {
-      "id": "ai-shifu-default",
-      "object": "model",
-      "owned_by": "ai-shifu",
-      "display_name": "AI-Shifu Default",
-      "credit_multiplier": 1,
-      "resolved_model": "configured-rated-model"
-    },
-    {
       "id": "configured-rated-model",
       "object": "model",
       "owned_by": "ai-shifu",
@@ -217,9 +209,13 @@ X-AI-Shifu-Client-ID: example-cli
 
 The list is the source of truth for client model selection. Do not hardcode
 provider names or assume that every model configured on the server is billable.
-The `ai-shifu-default` alias uses the physical binding of numbered model 1.
-The alias is listed only when that binding is configured, routable and fully
-rated; it never switches to another model because model 1 is unavailable.
+Eligible physical models are returned in numbered slot order (1 through 9),
+with repeated model IDs listed once using their first configured display name.
+The list contains no `ai-shifu-default` entry; use a returned `id` for chat.
+
+Existing clients may still send the unlisted `ai-shifu-default` alias. It resolves
+to model 1's physical binding only when that binding is configured, routable and
+fully rated; it never switches to another model because model 1 is unavailable.
 
 ## Non-streaming Chat Completions
 
@@ -235,7 +231,7 @@ X-AI-Shifu-Client-ID: example-cli
 Content-Type: application/json
 
 {
-  "model": "ai-shifu-default",
+  "model": "configured-rated-model",
   "messages": [
     {"role": "user", "content": "Explain recursion in one paragraph."}
   ],
@@ -293,7 +289,7 @@ Tool definitions use the OpenAI Chat Completions format:
 
 ```json
 {
-  "model": "ai-shifu-default",
+  "model": "configured-rated-model",
   "messages": [
     {"role": "user", "content": "What is the weather in Shanghai?"}
   ],

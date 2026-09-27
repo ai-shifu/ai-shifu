@@ -2,7 +2,7 @@
 title: Official Client Model Gateway
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-27
 canonical: true
 ---
 
@@ -35,7 +35,7 @@ covering course learning and client calls together.
 | `POST` | `/api/user/device/authorize` | Existing device authorization. |
 | `POST` | `/api/user/device/token` | Existing authorization polling and session token. |
 | `GET` | `/api/gateway/account` | User, available/reserved wallet credits, and billing URL. |
-| `GET` | `/api/gateway/v1/models` | Rated model list and eligible default alias. |
+| `GET` | `/api/gateway/v1/models` | Eligible configured models in numbered slot order. |
 | `POST` | `/api/gateway/v1/chat/completions` | OpenAI-compatible JSON or SSE output. |
 
 Gateway user authentication accepts only `Authorization: Bearer <token>`.
@@ -79,11 +79,14 @@ maximum credit cost. With billing enabled, positive eligible credits admit a
 request even when the maximum output allowance would cost more than that balance.
 
 Models must be configured and have complete active input/cache/output rates,
-using the existing charge resolver. Only eligible models are advertised.
-`ai-shifu-default` uses the physical binding of numbered model 1. That binding
-must be in the configured catalog, routable and fully rated for the alias to be
-advertised. An unavailable or unrated model 1 does not make another model the
-default.
+using the existing charge resolver. The model list contains only eligible
+physical models, ordered by numbered slot (1 through 9), with repeated model IDs
+listed once using their first configured display name. No default alias is
+advertised. Clients send a returned model ID in chat requests.
+
+For existing clients, chat requests still accept the unlisted `ai-shifu-default`
+alias when model 1's physical binding is configured, routable and fully rated.
+An unavailable or unrated model 1 does not make another model the default.
 
 Chat bodies are limited to 1 MiB, messages to 256, and tools to 128 before
 tokenization. `stream` must be a JSON boolean when supplied. `max_tokens`
