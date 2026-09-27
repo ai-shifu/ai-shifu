@@ -10,7 +10,7 @@
         "failureCode": "ناکامی کوڈ",
         "failureMessage": "ناکامی کی وجہ",
         "grantSourceId": "اجراء کے ماخذ کی ID",
-        "grantSourceType": "ریلیز کے ذریعہ کی قسم",
+        "grantSourceType": "اجراء کے ماخذ کی قسم",
         "grantedCredits": "کریڈٹس موصول ہوئے۔",
         "orderType": "آرڈر کی قسم",
         "paidAt": "ادائیگی کا وقت",
