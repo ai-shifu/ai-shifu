@@ -196,7 +196,7 @@
   "permissionLimit": "{count} تک صارفین کو شیئر کیا جا سکتا ہے۔",
   "permissionLoading": "لوڈ ہو رہا ہے…",
   "permissionManage": "شیئرنگ کی اجازتیں۔",
-  "permissionOwnerNotAllowed": "کورس کے سربراہ کو خود اجازت نہیں دی جا سکتی",
+  "permissionOwnerNotAllowed": "کورس کے ذمہ دار کو خود مشترکہ رسائی نہیں دی جا سکتی۔",
   "permissionPhoneInvalid": "براہ کرم درست موبائل فون نمبر درج کریں: {values}",
   "permissionPhoneLabel": "موبائل فون نمبر",
   "permissionPhonePlaceholder": "جن افراد کو مشترکہ رسائی دینی ہے، ان کے موبائل فون نمبر درج کریں؛ ایک ساتھ کئی نمبروں کے لیے رسائی دی جا سکتی ہے۔",

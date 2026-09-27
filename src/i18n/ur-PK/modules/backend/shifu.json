@@ -21,7 +21,7 @@
     "shifuNotFound": "کورس موجود نہیں ہے۔",
     "shifuPriceTooLow": "کورس کی قیمت {min_shifu_price} یوآن سے کم نہیں ہو سکتی",
     "shifuStructNotFound": "کورس کا ڈھانچہ موجود نہیں ہے۔",
-    "transferCreatorDemoNotAllowed": "بلٹ ان گائیڈڈ کورسز کورس لیڈرز کی منتقلی کی حمایت نہیں کرتے ہیں۔",
+    "transferCreatorDemoNotAllowed": "پہلے سے شامل رہنمائی کورسز کے ذمہ دار کو تبدیل نہیں کیا جا سکتا۔",
     "transferCreatorSameUser": "ہدف صارف پہلے سے ہی موجودہ انچارج شخص ہے۔",
     "transferCreatorTargetNotFound": "ہدف کا ذمہ دار صارف نہیں ملا",
     "ttsNotEnabled": "متن سے آواز کی تیاری فعال نہیں ہے۔",
