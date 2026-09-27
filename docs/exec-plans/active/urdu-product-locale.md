@@ -24,7 +24,8 @@ Authored course content keeps its own language.
 - [x] 2026-09-27 UTC: Complete all-files repository gates and prepare the ready PR.
 - [x] 2026-09-27 UTC: Publish ready PR #2988.
 - [x] 2026-09-27 UTC: Review Chinese-source accuracy and correct 382 strings across 35 files.
-- [ ] 2026-09-27 UTC: Publish the focused PR and verify hosted CI acceptance.
+- [x] 2026-09-27 UTC: Extend the arena renderer, RTL propagation and locale regression checks to Urdu.
+- [ ] 2026-09-27 UTC: Complete review feedback and verify hosted CI acceptance.
 
 ## Surprises & Discoveries
 
@@ -71,6 +72,13 @@ sites. Real i18next/ICU, locale/legal and backend email/billing translation chec
 pass (15 frontend tests, 58 backend tests). Terminology and meaning constraints
 are recorded in the Urdu section of the canonical i18n guide. This is an agent
 accuracy review, not native-speaker linguistic certification.
+Review follow-up extends the arena's frozen locale contract to `ur-PK`, preserves
+RTL in reading/slides/HTML sandboxes, and checks Urdu library controls without a
+dependency change. Its 11 renderer boundary tests, 24 frozen-metadata tests and
+18 browser locale cases pass. The broader engine test file has four existing
+observer-fixture failures (`tool_calls_are_output` is not accepted by the mocks);
+the same four failures reproduce with the pre-change test file. They are outside
+the locale work and are not corrected here.
 
 ## Context and Orientation
 
