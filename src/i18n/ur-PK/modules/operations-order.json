@@ -1,0 +1,164 @@
+{
+  "__namespace__": "module.operationsOrder",
+  "creditOrders": {
+    "creditAmountValue": "{credits}",
+    "detail": {
+      "description": "کریڈٹس آرڈر کی تفصیلات دیکھیں",
+      "labels": {
+        "creatorId": "یوزر آئی ڈی",
+        "failedAt": "ناکامی کا وقت",
+        "failureCode": "ناکامی کوڈ",
+        "failureMessage": "ناکامی کی وجہ",
+        "grantSourceId": "ایشو سورس ID",
+        "grantSourceType": "ریلیز کے ذریعہ کی قسم",
+        "grantedCredits": "کریڈٹس موصول ہوئے۔",
+        "orderType": "آرڈر کی قسم",
+        "paidAt": "ادائیگی کا وقت",
+        "productCode": "پروڈکٹ کوڈ",
+        "providerReference": "ادائیگی کا سیریل نمبر",
+        "validFrom": "موثر وقت"
+      },
+      "sections": {
+        "creator": "صارف کی معلومات",
+        "grant": "آمد کا ریکارڈ",
+        "metadata": "توسیعی معلومات",
+        "payment": "ادائیگی کی معلومات",
+        "product": "کریڈٹس پیکیج کی معلومات",
+        "summary": "آرڈر کی معلومات"
+      },
+      "title": "کریڈٹس آرڈر کی تفصیلات"
+    },
+    "emptyList": "ابھی تک کوئی کریڈٹ آرڈر ڈیٹا نہیں ہے۔",
+    "filters": {
+      "creatorKeyword": "صارف",
+      "creatorKeywordPlaceholderEmail": "ای میل",
+      "creatorKeywordPlaceholderPhone": "موبائل فون نمبر",
+      "orderKind": "آرڈر کی قسم",
+      "paymentProvider": "ادائیگی سروس فراہم کنندہ",
+      "productKeyword": "کریڈٹس پیکیج کی تلاش",
+      "productKeywordPlaceholder": "کریڈٹس پیکیج/کریڈٹ پیکیج کا نام"
+    },
+    "kind": {
+      "other": "دوسرے",
+      "plan": "کریڈٹ پلان",
+      "topup": "کریڈٹ پیک"
+    },
+    "longTerm": "ایک طویل وقت کے لئے مؤثر",
+    "overview": {
+      "metrics": {
+        "creditAmount": "فی الحال دستیاب کریڈٹس",
+        "paidAmount": "اصل رقم ادا کی گئی۔",
+        "paidOrders": "ادا کیا",
+        "totalOrders": "آرڈرز کی کل تعداد"
+      },
+      "tooltips": {
+        "creditAmount": "تمام موجودہ اساتذہ کے اکاؤنٹس میں کریڈٹس کی کل تعداد جو استعمال نہیں ہوئے ہیں اور اب بھی سیکھنے، پیش نظارہ کرنے اور ڈیبگنگ کے لیے استعمال کیے جا سکتے ہیں۔",
+        "paidAmount": "ادا شدہ کریڈٹس آرڈرز کی کل رقم",
+        "paidOrders": "آرڈرز کے لیے ادا کیے گئے کریڈٹس کی تعداد",
+        "totalOrders": "کل کریڈٹس آرڈرز"
+      }
+    },
+    "paymentChannel": {
+      "checkoutSession": "Checkout Session"
+    },
+    "productIntervals": {
+      "day": "دن",
+      "month": "ماہانہ",
+      "year": "سالانہ"
+    },
+    "productNameFormat": "{interval}-{name}",
+    "table": {
+      "creator": "صارف",
+      "creditAmount": "کریڈٹس کی تعداد",
+      "orderId": "کریڈٹس آرڈر ID",
+      "orderKind": "آرڈر کی قسم",
+      "paymentChannel": "ادائیگی کا طریقہ",
+      "product": "کریڈٹ پلان",
+      "validTo": "تک درست ہے۔"
+    }
+  },
+  "detail": {
+    "fallback": "آرڈر کی تفصیلات",
+    "sections": {
+      "activities": "واقعہ کی معلومات",
+      "coupons": "ریڈیم کوڈ",
+      "course": "کورس کی معلومات",
+      "payment": "رقم اور ادائیگی",
+      "summary": "آرڈر کی معلومات",
+      "user": "صارف کی معلومات"
+    },
+    "title": "آرڈر کی تفصیلات"
+  },
+  "emptyList": "ابھی تک کوئی آرڈر ڈیٹا نہیں ہے۔",
+  "filters": {
+    "course": "کورس",
+    "courseId": "کورس کی شناخت",
+    "courseIdPlaceholder": "کورس کی شناخت",
+    "courseName": "کورس کا نام",
+    "courseNamePlaceholder": "کورس کا نام",
+    "courseQueryPlaceholder": "کورس ID/کورس کا نام",
+    "createdAt": "آرڈر کا وقت",
+    "endTime": "اختتامی وقت",
+    "orderId": "آرڈر کی شناخت",
+    "orderIdPlaceholder": "آرڈر کی شناخت",
+    "paymentChannel": "ادائیگی چینل",
+    "reset": "ری سیٹ کریں",
+    "search": "استفسار",
+    "source": "آرڈر کا ذریعہ",
+    "startTime": "وقت شروع",
+    "status": "حالت",
+    "timeRangePlaceholder": "وقت آغاز ~ اختتامی وقت",
+    "userKeyword": "صارف",
+    "userKeywordPlaceholder": "موبائل فون نمبر/ای میل",
+    "userKeywordPlaceholderEmail": "ای میل",
+    "userKeywordPlaceholderPhone": "موبائل فون نمبر"
+  },
+  "messages": {
+    "loadCreditOrderDetailFailed": "کریڈٹس آرڈر کی تفصیلات لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadDetailFailed": "آرڈر کی تفصیلات لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔"
+  },
+  "overview": {
+    "activeFilter": "موجودہ فلٹر",
+    "metrics": {
+      "paidAmount": "اصل رقم ادا کی گئی۔",
+      "paidOrders": "ادا کیا",
+      "totalOrders": "آرڈرز کی کل تعداد"
+    },
+    "staleData": "ڈیٹا کا مجموعی جائزہ لوڈ کرنے میں ناکام، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "title": "ڈیٹا کا جائزہ",
+    "tooltips": {
+      "paidAmount": "ادا شدہ سیکھنے کے آرڈرز کی کل اصل ادائیگی کی رقم",
+      "paidOrders": "ادا شدہ سیکھنے کے آرڈرز کی تعداد",
+      "totalOrders": "مطالعہ کے آرڈرز کی کل تعداد"
+    }
+  },
+  "source": {
+    "couponRedeem": "کوڈ کو چھڑانا",
+    "importActivation": "درآمد کھولیں۔",
+    "openApi": "API ایکٹیویشن کھولیں۔",
+    "userPurchase": "صارف آرڈر دیتا ہے۔"
+  },
+  "table": {
+    "action": "کارروائیاں",
+    "coupons": "ریڈیم کوڈ",
+    "course": "کورس",
+    "createdAt": "آرڈر کا وقت",
+    "discountAmount": "رعایت",
+    "empty": "ابھی تک کوئی آرڈر ڈیٹا نہیں ہے۔",
+    "orderId": "آرڈر کی شناخت",
+    "paidAmount": "اصل رسید",
+    "paymentChannel": "ادائیگی چینل",
+    "source": "آرڈر کا ذریعہ",
+    "status": "حالت",
+    "updatedAt": "آرڈر کی تازہ کاری کا وقت",
+    "user": "صارف",
+    "userId": "یوزر آئی ڈی",
+    "view": "تفصیلات دیکھیں"
+  },
+  "tabs": {
+    "credits": "کریڈٹس آرڈر",
+    "learn": "مطالعہ کا حکم"
+  },
+  "title": "آرڈر مینجمنٹ",
+  "totalCount": "{count, plural, one {کل # آرڈر} other {کل # آرڈرز}}"
+}

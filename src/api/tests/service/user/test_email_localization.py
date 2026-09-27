@@ -14,6 +14,9 @@ import pytest
         ("---", "en-US"),
         ("en_GB", "en-US"),
         ("ar-SA", "ar-SA"),
+        ("ur-PK", "ur-PK"),
+        ("ur_IN", "ur-PK"),
+        ("UR", "ur-PK"),
         ("AR_ae", "ar-SA"),
         ("th", "th-TH"),
         ("fr_CA", "fr-FR"),
@@ -39,8 +42,13 @@ def test_email_locale_matches_rendered_translations(
             )
             assert actual == expected
             subject, plain_body, html_body = actual
-            direction = "rtl" if canonical_language == "ar-SA" else "ltr"
+            direction = "rtl" if canonical_language in {"ar-SA", "ur-PK"} else "ltr"
             assert f'<html lang="{canonical_language}" dir="{direction}">' in html_body
+            assert '<div dir="ltr"' in html_body
+            if canonical_language == "ur-PK":
+                assert subject == "AI-Shifu تصدیقی کوڈ"
+                assert "تصدیقی کوڈ: 1234" in plain_body
+                assert "5 منٹ" in plain_body
             if canonical_language == "en-US":
                 assert subject == "AI-Shifu verification code"
                 assert "Verification code: 1234" in plain_body

@@ -14,6 +14,7 @@ const agreements = {
   'es-ES': EN_Agreement,
   'fr-FR': EN_Agreement,
   'ar-SA': EN_Agreement,
+  'ur-PK': EN_Agreement,
   'th-TH': EN_Agreement,
   en: EN_Agreement,
 };

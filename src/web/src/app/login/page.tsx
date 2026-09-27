@@ -208,7 +208,9 @@ export default function AuthPage() {
     const preferred = userInfo?.language
       ? normalizeLanguage(userInfo.language)
       : null;
-    const nextLanguage = normalizeLanguage(preferred ?? browserLanguage);
+    const nextLanguage = normalizeLanguage(
+      preferred ?? (i18n.language || browserLanguage),
+    );
 
     if (!nextLanguage) {
       return;

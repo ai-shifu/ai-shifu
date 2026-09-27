@@ -898,7 +898,7 @@ export default function AskBlock({
       >
         <div
           className={isLive && liveVoice ? styles.liveInput : undefined}
-          dir={isRtlLocale(markdownFlowLocale) ? 'rtl' : 'ltr'}
+          dir={isRtlLocale(hostLanguage) ? 'rtl' : 'ltr'}
         >
           <MarkdownFlowInput
             disabled={

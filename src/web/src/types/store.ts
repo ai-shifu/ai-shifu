@@ -7,7 +7,8 @@ export type SupportedLocale =
   | 'es-ES'
   | 'fr-FR'
   | 'ar-SA'
-  | 'th-TH';
+  | 'th-TH'
+  | 'ur-PK';
 
 export type LearningMode = 'listen' | 'read' | 'classroom';
 

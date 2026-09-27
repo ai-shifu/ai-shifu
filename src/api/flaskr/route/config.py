@@ -94,6 +94,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                     "fr-FR": get_config("LEGAL_AGREEMENT_URL_FR_FR", "") or "",
                     "ar-SA": get_config("LEGAL_AGREEMENT_URL_AR_SA", "") or "",
                     "th-TH": get_config("LEGAL_AGREEMENT_URL_TH_TH", "") or "",
+                    "ur-PK": get_config("LEGAL_AGREEMENT_URL_UR_PK", "") or "",
                 }
             ),
             privacy=RuntimeLocalizedUrlDTO(
@@ -105,6 +106,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                     "fr-FR": get_config("LEGAL_PRIVACY_URL_FR_FR", "") or "",
                     "ar-SA": get_config("LEGAL_PRIVACY_URL_AR_SA", "") or "",
                     "th-TH": get_config("LEGAL_PRIVACY_URL_TH_TH", "") or "",
+                    "ur-PK": get_config("LEGAL_PRIVACY_URL_UR_PK", "") or "",
                 }
             ),
         )

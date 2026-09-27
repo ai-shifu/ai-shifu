@@ -143,40 +143,43 @@ describe('ProfileOnboardingConversation', () => {
     mockScrollToBottomControl.mockClear();
   });
 
-  test('leaves unknown onboarding content language unset with Spanish renderer controls', async () => {
-    mockLanguage = 'es-ES';
-    const runSession = jest.fn(({ onMessage }) => {
-      queueMicrotask(() => {
-        onMessage({
-          type: 'element',
-          content: {
-            element_bid: 'spanish-content',
-            element_type: 'text',
-            content: 'English prompt',
-          },
+  test.each(['es-ES', 'ur-PK'])(
+    'leaves unknown onboarding content language unset with %s renderer controls',
+    async language => {
+      mockLanguage = language;
+      const runSession = jest.fn(({ onMessage }) => {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'element',
+            content: {
+              element_bid: 'spanish-content',
+              element_type: 'text',
+              content: 'English prompt',
+            },
+          });
         });
+        return { close: jest.fn() };
       });
-      return { close: jest.fn() };
-    });
-    render(
-      <ProfileOnboardingConversation
-        createSession={async () => ({ session_id: 'spanish-session' })}
-        runSession={runSession}
-        onDraftReady={jest.fn()}
-        onError={jest.fn()}
-      />,
-    );
+      render(
+        <ProfileOnboardingConversation
+          createSession={async () => ({ session_id: 'spanish-session' })}
+          runSession={runSession}
+          onDraftReady={jest.fn()}
+          onError={jest.fn()}
+        />,
+      );
 
-    await screen.findByText('English prompt');
-    expect(screen.getByTestId('profile-onboarding-renderer')).toHaveAttribute(
-      'data-locale',
-      'es-ES',
-    );
-    expect(screen.getByTestId('profile-onboarding-renderer')).toHaveAttribute(
-      'lang',
-      '',
-    );
-  });
+      await screen.findByText('English prompt');
+      expect(screen.getByTestId('profile-onboarding-renderer')).toHaveAttribute(
+        'data-locale',
+        language,
+      );
+      expect(screen.getByTestId('profile-onboarding-renderer')).toHaveAttribute(
+        'lang',
+        '',
+      );
+    },
+  );
 
   test('matches backend run-input limits using Unicode code points', () => {
     const emoji = '🧠';

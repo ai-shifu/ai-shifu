@@ -1,0 +1,234 @@
+{
+  "__namespace__": "module.dashboard",
+  "detail": {
+    "basicInfo": {
+      "chapterCount": "ابواب کی تعداد",
+      "courseName": "کورس کا نام",
+      "createdAt": "تخلیق کا وقت",
+      "learnerCount": "شرکاء کی کل تعداد",
+      "status": "کورس کی حیثیت",
+      "statusLabels": {
+        "published": "شائع شدہ",
+        "unpublished": "غیر مطبوعہ"
+      },
+      "title": "بنیادی معلومات"
+    },
+    "courseIdLabel": "کورس کی شناخت",
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "موجودہ فالو اپ سوالات اور متعلقہ جوابات دیکھیں تاکہ یہ تعین کرنے میں مدد ملے کہ آیا طلباء پوائنٹس پر پھنس گئے ہیں اور آیا کورس کا اظہار واضح ہے۔",
+        "fields": {
+          "currentAnswer": "موجودہ جواب",
+          "currentFollowUp": "موجودہ سوال",
+          "followUpTime": "سوال کا وقت",
+          "lesson": "متعلقہ ابواب",
+          "nickname": "عرفی نام",
+          "turnIndex": "چکر",
+          "user": "طالب علم"
+        },
+        "sections": {
+          "basicInfo": "بنیادی معلومات",
+          "currentRecord": "موجودہ ریکارڈ",
+          "timeline": "ٹائم لائن کے بارے میں پوچھیں۔"
+        },
+        "timeline": {
+          "current": "موجودہ",
+          "student": "طالب علم",
+          "teacher": "کورس کے جوابات"
+        },
+        "title": "تفصیلات طلب کریں۔"
+      },
+      "filters": {
+        "chapterKeyword": "باب",
+        "chapterKeywordPlaceholder": "باب/سیکشن کا نام",
+        "followUpTime": "سوال کا وقت",
+        "lessonKeyword": "سیکشن",
+        "lessonKeywordPlaceholder": "سیکشن کا نام",
+        "reset": "ری سیٹ کریں",
+        "resultCount": "کل {count} اندراجات",
+        "search": "استفسار",
+        "sourceStatus": "اصل آؤٹ پٹ پوزیشننگ",
+        "sourceStatusAll": "تمام حالتیں",
+        "sourceStatusMissing": "خام آؤٹ پٹ واقع نہیں ہے۔",
+        "sourceStatusResolved": "اصل آؤٹ پٹ واقع ہے۔",
+        "timePlaceholder": "وقت آغاز ~ اختتامی وقت",
+        "userKeyword": "طالب علم",
+        "userKeywordPlaceholderEmail": "ای میل/ عرفیت",
+        "userKeywordPlaceholderPhone": "موبائل فون نمبر/ عرفیت"
+      },
+      "summary": {
+        "followUpCount": "سوالات کی مجموعی تعداد",
+        "latestFollowUpAt": "آخری سوال کا وقت",
+        "lessonCount": "شامل حصوں کی تعداد",
+        "scopeHint": "طلباء کی طرف سے کورس کے مواد کے بارے میں اٹھائے گئے سوالات کو چیک کریں تاکہ ہائی فریکوئنسی کے پھنسے ہوئے پوائنٹس اور ان ابواب کی شناخت میں مدد ملے جن کو اصلاح کی ضرورت ہے۔",
+        "userCount": "طلباء کی تعداد کے بارے میں پوچھیں۔"
+      },
+      "table": {
+        "action": "کارروائیاں",
+        "chapter": "باب",
+        "content": "سوال کا مواد",
+        "createdAt": "سوال کا وقت",
+        "detailAction": "تفصیلات",
+        "empty": "ابھی تک کوئی فالو اپ ڈیٹا نہیں ہے۔",
+        "lesson": "سیکشن",
+        "sourceMissing": "خام آؤٹ پٹ واقع نہیں ہے۔",
+        "sourceResolved": "اصل آؤٹ پٹ واقع ہے۔",
+        "title": "سوالوں کی فہرست",
+        "turnIndex": "چکر",
+        "user": "طالب علم"
+      },
+      "title": "ڈیٹا طلب کریں۔",
+      "turnIndex": "گول {count}",
+      "turnIndexHelp": "اسی سیکھنے کے ریکارڈ میں پوچھ گچھ کے وقت کی ترتیب کے مطابق سوالات کے دوروں کو ترتیب دیا جاتا ہے۔"
+    },
+    "learners": {
+      "columns": {
+        "joinedAt": "وقت میں شامل ہوں۔",
+        "lastLearningAt": "حالیہ مطالعہ کا وقت",
+        "name": "طالب علم",
+        "progress": "سیکھنے کی ترقی",
+        "questions": "سوالات کی مجموعی تعداد",
+        "status": "سیکھنے کی حیثیت"
+      },
+      "empty": "ابھی تک کوئی طالب علم نہیں۔",
+      "filters": {
+        "lastLearningTime": "حالیہ مطالعہ کا وقت",
+        "lastLearningTimePlaceholder": "وقت آغاز ~ اختتامی وقت",
+        "learningStatus": "سیکھنے کی حیثیت",
+        "statusAll": "سب",
+        "userKeyword": "طالب علم"
+      },
+      "searchPlaceholderEmail": "ای میل/ عرفیت",
+      "searchPlaceholderPhone": "موبائل فون نمبر/ عرفیت",
+      "status": {
+        "completed": "مکمل",
+        "learning": "پڑھائی",
+        "notStarted": "شروع نہیں ہوا۔"
+      },
+      "title": "طلباء کی فہرست",
+      "totalCount": "کل {count} طلباء",
+      "viewFollowUps": "مزید سوالات دیکھیں",
+      "viewFollowUpsForLearner": "{learner} کا سوال دیکھیں"
+    },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "فی کس کھپت",
+        "consumedCredits": "کریڈٹس استعمال کریں۔",
+        "consumptionSpeed": "پچھلے 7 دنوں میں روزانہ کی اوسط کھپت",
+        "mode": "سیکھنے کی شکل",
+        "participants": "صارفین کی تعداد"
+      },
+      "empty": "ابھی تک کوئی سیکھنے کے فارم کا ڈیٹا نہیں ہے۔",
+      "modes": {
+        "classroom": "کلاس روم",
+        "listen": "سنیں",
+        "read": "پڑھیں"
+      },
+      "scopeHint": "کریڈٹ کی کھپت کا خلاصہ تین شکلوں کے مطابق کیا جاتا ہے: پڑھنا، لیکچر سننا، اور کلاسز، اس بات کا تعین کرنے میں مدد کرنے کے لیے کہ طالب علموں کے ذریعہ سیکھنے کا کون سا طریقہ زیادہ استعمال ہوتا ہے۔",
+      "title": "سیکھنے کی شکل"
+    },
+    "metrics": {
+      "completedLearners": "کورس مکمل کرنے والے افراد کی تعداد",
+      "completionRate": "کورس کی تکمیل کی شرح",
+      "learningLearners": "اندراج شدہ طلباء کی تعداد",
+      "orderAmount": "آرڈر کی رقم",
+      "orderCount": "آرڈرز کی تعداد",
+      "rating": "کورس کی درجہ بندی",
+      "title": "بنیادی ڈیٹا",
+      "totalQuestions": "سوالات کی تعداد"
+    },
+    "metricsTooltips": {
+      "completedLearners": "طلباء کی تعداد جنہوں نے کورس کا تمام مواد مکمل کر لیا ہے۔",
+      "completionRate": "کورس کے تمام مواد کو مکمل کرنے والے کل شرکاء کا تناسب۔",
+      "learningLearners": "طلباء کی تعداد جنہوں نے پڑھنا شروع کر دیا ہے لیکن کورس کا تمام مواد مکمل نہیں کیا ہے۔",
+      "orderAmount": "اس کورس کے لیے صارف کی طرف سے ادا کی گئی کل رقم؛ ریڈیمپشن کوڈ آرڈرز رقم میں شامل نہیں ہیں۔",
+      "orderCount": "اس کورس کے کامیاب آرڈرز کی کل تعداد میں ادا شدہ آرڈرز اور ریڈیمپشن کوڈ آرڈرز شامل ہیں۔",
+      "rating": "طلباء نے کورس کے مواد کو 5 میں سے اوسط اسکور دیا۔",
+      "totalQuestions": "سیکھنے کے عمل کے دوران طلباء نے AI سے سوالات پوچھنے کی کل تعداد؛ مخصوص سوالات دیکھنے کے لیے کلک کریں۔"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "باب",
+        "chapterKeywordPlaceholder": "باب/سیکشن کا نام",
+        "commentStatus": "مواد کا جائزہ لیں۔",
+        "commentStatusAll": "سب",
+        "commentStatusCommented": "صرف جائزے دیکھیں",
+        "ratingTime": "درجہ بندی کا وقت",
+        "reset": "ری سیٹ کریں",
+        "resultCount": "کل {count} اندراجات",
+        "score": "درجہ بندی",
+        "scoreAll": "تمام ریٹنگز",
+        "search": "استفسار",
+        "timePlaceholder": "وقت آغاز ~ اختتامی وقت",
+        "userKeyword": "طالب علم",
+        "userKeywordPlaceholderEmail": "ای میل/ عرفیت",
+        "userKeywordPlaceholderPhone": "موبائل فون نمبر/ عرفیت"
+      },
+      "scoreValue": "{score} پوائنٹس",
+      "summary": {
+        "averageScore": "اوسط درجہ بندی",
+        "latestRatedAt": "آخری درجہ بندی کا وقت",
+        "ratingCount": "درجہ بندی نمبر",
+        "scopeHint": "کورس کے ابواب پر طلباء کی ریٹنگز اور فیڈ بیک دیکھیں تاکہ کورس کی اطمینان اور مواد کا تعین کرنے میں مدد ملے جس میں اضافہ کی ضرورت ہے۔",
+        "userCount": "درجہ بندی شدہ طلباء کی تعداد"
+      },
+      "table": {
+        "comment": "مواد کا جائزہ لیں۔",
+        "empty": "ابھی تک کوئی درجہ بندی کا ڈیٹا نہیں ہے۔",
+        "guestUser": "گمنام طالب علم",
+        "lesson": "باب",
+        "ratedAt": "درجہ بندی کا وقت",
+        "score": "درجہ بندی",
+        "title": "درجہ بندی کی فہرست",
+        "user": "طالب علم"
+      },
+      "title": "درجہ بندی کا ڈیٹا"
+    },
+    "subtitle": "بنیادی کورس کی معلومات، بنیادی اشارے اور طالب علم کے سیکھنے کا ڈیٹا سبھی حقیقی وقت کے اعدادوشمار ہیں۔",
+    "title": "کورس کی تفصیلات"
+  },
+  "entry": {
+    "kpi": {
+      "courses": "کورسز کی تعداد",
+      "learners": "طلباء کی کل تعداد",
+      "orderAmount": "آرڈر کی کل رقم",
+      "orders": "آرڈرز کی کل تعداد"
+    },
+    "table": {
+      "action": "کارروائیاں",
+      "course": "کورس",
+      "empty": "ابھی تک کوئی کورسز نہیں ہیں۔",
+      "footnote": "کورسز کی تعداد: {count} (شماریاتی دائرہ کار کی تفصیل: صرف آپ کے بنائے اور ملکیت والے کورسز کا ڈیٹا شمار کیا جاتا ہے؛ باہمی تعاون کے کورسز کا ڈیٹا شامل نہیں کیا جاتا ہے۔)",
+      "lastActive": "حال ہی میں فعال",
+      "learners": "طلباء کی تعداد",
+      "orderAmount": "آرڈر کی رقم",
+      "orders": "آرڈرز کی تعداد",
+      "reset": "ری سیٹ کریں",
+      "scopeNote": "شماریاتی دائرہ کار کی تفصیل: صرف آپ کے بنائے اور ملکیت والے کورسز کا ڈیٹا شمار کیا جاتا ہے۔ تعاونی کورسز کا ڈیٹا شامل نہیں ہے۔",
+      "search": "استفسار",
+      "searchPlaceholder": "کورس ID/کورس کا نام",
+      "title": "کورس کی فہرست",
+      "totalCount": "کل {count}",
+      "viewCourse": "کورسز دیکھیں",
+      "viewOrders": "آرڈر دیکھیں"
+    }
+  },
+  "filters": {
+    "dateRangePlaceholder": "وقت آغاز ~ اختتامی وقت",
+    "reset": "ری سیٹ کریں"
+  },
+  "messages": {
+    "loadCourseDetailFailed": "کورس کی تفصیلات لوڈ ہونے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadCoursesFailed": "کورس کی فہرست لوڈ کرنا ناکام ہو گیا، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "loadFollowUpDetailFailed": "فالو اپ تفصیلات لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadFollowUpsFailed": "ڈیٹا لوڈ کرنا ناکام ہو گیا، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "loadLearnersFailed": "طلباء کی فہرست لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadRatingsFailed": "درجہ بندی کا ڈیٹا لوڈ کرنے میں ناکام، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔"
+  },
+  "pagination": {
+    "next": "اگلا صفحہ",
+    "prev": "پچھلا صفحہ"
+  },
+  "title": "ڈیٹا"
+}

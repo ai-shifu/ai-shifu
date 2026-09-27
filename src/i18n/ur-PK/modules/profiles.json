@@ -1,0 +1,18 @@
+{
+  "__namespace__": "module.profiles",
+  "add": "شامل کریں",
+  "addNewVariable": "نیا متغیر شامل کریں۔",
+  "cancel": "منسوخ کریں",
+  "confirm": "تصدیق کریں",
+  "confirmDelete": "حذف کرنے کی تصدیق کریں۔",
+  "confirmDeleteDescription": "آپ کے آپریشن کی وجہ سے موجودہ مواد ضائع ہو جائے گا۔ کیا آپ کو یقین ہے؟",
+  "createNewCustomVariable": "ایک نیا حسب ضرورت متغیر بنائیں۔",
+  "customVariable": "حسب ضرورت متغیرات",
+  "defaultValue": "پہلے سے طے شدہ قدر",
+  "editVariable": "متغیرات میں ترمیم کریں۔",
+  "modifyExistingVariable": "موجودہ متغیر خصوصیات میں ترمیم کریں۔",
+  "noVariableFound": "متغیر نہیں ملا",
+  "save": "محفوظ کریں",
+  "systemVariable": "نظام متغیرات",
+  "variableName": "متغیر نام"
+}

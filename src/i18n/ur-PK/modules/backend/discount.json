@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.discount",
+  "__flat__": {
+    "couponCodeGenerationFailed": "ڈسکاؤنٹ کوڈ بنانے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "discountAlreadyExpired": "ریڈیمپشن کوڈ کی میعاد ختم ہو گئی ہے۔",
+    "discountAlreadyUsed": "چھٹکارا کوڈ استعمال کیا گیا ہے۔",
+    "discountLimitExceeded": "ریڈیمپشن کوڈ کو جتنی بار استعمال کیا جا سکتا ہے اس کی تعداد اوپری حد کو پہنچ چکی ہے۔",
+    "discountNotApply": "ریڈیمپشن کوڈ اس کورس پر لاگو نہیں ہوتا ہے۔",
+    "discountNotFound": "ریڈیمپشن کوڈ موجود نہیں ہے۔",
+    "discountNotStart": "ریڈیمپشن کوڈ ابھی شروع نہیں ہوا ہے۔",
+    "orderDiscountAlreadyUsed": "آرڈر پر ریڈمپشن کوڈ استعمال کیا گیا ہے۔"
+  }
+}

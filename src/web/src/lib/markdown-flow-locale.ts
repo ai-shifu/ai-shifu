@@ -8,6 +8,7 @@ const MARKDOWN_FLOW_LOCALES: readonly MarkdownFlowLocale[] = [
   'zh-CN',
   'ar-SA',
   'th-TH',
+  'ur-PK',
 ];
 
 const localeByBaseCode: Record<string, MarkdownFlowLocale> = Object.assign(
@@ -19,6 +20,7 @@ const localeByBaseCode: Record<string, MarkdownFlowLocale> = Object.assign(
     zh: 'zh-CN',
     ar: 'ar-SA',
     th: 'th-TH',
+    ur: 'ur-PK',
   },
 );
 

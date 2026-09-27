@@ -48,6 +48,10 @@ LANGUAGE_NAME_MAP = {
     "ar-SA": "العربية",  # Arabic (Saudi Arabia)
     "ar-AE": "العربية",  # Arabic (UAE)
     "ar": "العربية",
+    # Urdu
+    "ur-PK": "اردو",
+    "ur-IN": "اردو",
+    "ur": "اردو",
     # Hindi
     "hi-IN": "हिन्दी",
     "hi": "हिन्दी",

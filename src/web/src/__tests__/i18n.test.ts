@@ -16,6 +16,7 @@ describe('i18n language normalization', () => {
         'fr-FR': { label: 'Français' },
         'ar-SA': { label: 'العربية', rtl: true },
         'th-TH': { label: 'ไทย', rtl: false },
+        'ur-PK': { label: 'اردو', rtl: true },
       },
     };
 
@@ -41,6 +42,9 @@ describe('i18n language normalization', () => {
       expect(normalizeLanguage('fr-CA')).toBe('fr-FR');
       expect(normalizeLanguage('de')).toBe('de-DE');
       expect(normalizeLanguage('de-AT')).toBe('de-DE');
+      for (const language of ['ur', 'ur-PK', 'ur_IN', 'UR_pk']) {
+        expect(normalizeLanguage(language)).toBe('ur-PK');
+      }
 
       // restore window to avoid side effects
       globalAny.window = prevWindow;
@@ -126,6 +130,44 @@ describe('i18n language normalization', () => {
     }
   });
 
+  test('persists an Urdu preference after a successful switch', async () => {
+    jest.resetModules();
+    process.env.NEXT_PUBLIC_I18N_META = JSON.stringify({
+      default: 'en-US',
+      locales: {
+        'en-US': { label: 'English' },
+        'ur-PK': { label: 'اردو', rtl: true },
+      },
+    });
+    window.localStorage.removeItem('preferred_language');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mocked = require('i18next') as {
+      isInitialized: boolean;
+      changeLanguage: jest.Mock;
+      use: jest.Mock;
+      init: jest.Mock;
+    };
+    mocked.isInitialized = true;
+    mocked.changeLanguage.mockResolvedValueOnce(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const runtime = require('../i18n')
+      .default as typeof import('../i18n').default;
+    await runtime.changeLanguage('ur_IN');
+    expect(window.localStorage.getItem('preferred_language')).toBe('ur-PK');
+    jest.resetModules();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const reloaded = require('i18next') as typeof mocked;
+    reloaded.isInitialized = false;
+    reloaded.use = jest.fn(() => reloaded);
+    reloaded.init = jest.fn(() => Promise.resolve());
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../i18n');
+    expect(reloaded.init).toHaveBeenCalledWith(
+      expect.objectContaining({ lng: 'ur-PK' }),
+    );
+    window.localStorage.removeItem('preferred_language');
+  });
+
   test('does not persist a preferred language when the switch fails', async () => {
     jest.resetModules();
     window.localStorage.setItem('preferred_language', 'zh-CN');
@@ -169,6 +211,7 @@ describe('i18n language normalization', () => {
         'fr-FR': { label: 'Français' },
         'ar-SA': { label: 'العربية', rtl: true },
         'th-TH': { label: 'ไทย', rtl: false },
+        'ur-PK': { label: 'اردو', rtl: true },
       },
       namespaces: ['common.core'],
     };
@@ -185,9 +228,12 @@ describe('i18n language normalization', () => {
       'fr-FR',
       'ar-SA',
       'th-TH',
+      'ur-PK',
     ]);
     expect(getLocaleLabel('fr-FR')).toBe('Français');
     expect(isRtlLocale('ar-SA')).toBe(true);
+    expect(getLocaleLabel('ur-PK')).toBe('اردو');
+    expect(isRtlLocale('ur-PK')).toBe(true);
     expect(isRtlLocale('th-TH')).toBe(false);
     expect(namespaces).toEqual(['common.core']);
   });

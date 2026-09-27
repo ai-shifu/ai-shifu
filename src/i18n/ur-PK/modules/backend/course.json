@@ -1,0 +1,7 @@
+{
+  "__namespace__": "server.shifu",
+  "__flat__": {
+    "courseNotFound": "کورس نہیں ملا",
+    "lessonNotFoundInCourse": "یہ سیکشن اس کورس میں نہیں ملا"
+  }
+}

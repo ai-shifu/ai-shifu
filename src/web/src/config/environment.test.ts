@@ -107,3 +107,38 @@ describe('German legal document URLs', () => {
     });
   });
 });
+
+describe('Urdu legal document URLs', () => {
+  const originalAgreementUrl = process.env.LEGAL_AGREEMENT_URL_UR_PK;
+  const originalPrivacyUrl = process.env.LEGAL_PRIVACY_URL_UR_PK;
+
+  afterEach(() => {
+    if (originalAgreementUrl === undefined) {
+      delete process.env.LEGAL_AGREEMENT_URL_UR_PK;
+    } else {
+      process.env.LEGAL_AGREEMENT_URL_UR_PK = originalAgreementUrl;
+    }
+    if (originalPrivacyUrl === undefined) {
+      delete process.env.LEGAL_PRIVACY_URL_UR_PK;
+    } else {
+      process.env.LEGAL_PRIVACY_URL_UR_PK = originalPrivacyUrl;
+    }
+  });
+
+  it('exposes configured ur-PK agreement and privacy URLs', async () => {
+    process.env.LEGAL_AGREEMENT_URL_UR_PK =
+      'https://example.test/urdu-agreement';
+    process.env.LEGAL_PRIVACY_URL_UR_PK = 'https://example.test/urdu-privacy';
+
+    await jest.isolateModulesAsync(async () => {
+      const { environment } = await import('./environment');
+
+      expect(environment.legalUrls.agreement['ur-PK']).toBe(
+        'https://example.test/urdu-agreement',
+      );
+      expect(environment.legalUrls.privacy['ur-PK']).toBe(
+        'https://example.test/urdu-privacy',
+      );
+    });
+  });
+});

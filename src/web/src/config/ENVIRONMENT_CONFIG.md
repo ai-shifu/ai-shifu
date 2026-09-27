@@ -67,7 +67,7 @@ The public response is an allowlisted projection, not an environment dump.
 | Legal links | `LEGAL_AGREEMENT_URL_<LOCALE>`, `LEGAL_PRIVACY_URL_<LOCALE>`                                    | Locale-indexed `legalUrls`                                                        |
 
 Legal suffixes use uppercase locale codes with underscores, for example
-`EN_US` and `ZH_CN`. Supported locales are defined by
+`EN_US`, `ZH_CN` and `UR_PK`. Supported locales are defined by
 [locales.json](../../../i18n/locales.json); the backend DTO and route enumerate
 the supported legal fields. Missing configuration is returned as an empty URL;
 UI fallback behavior belongs to the legal-link components.

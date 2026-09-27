@@ -1,0 +1,9 @@
+{
+  "__namespace__": "component.menus",
+  "navigationMenus": {
+    "adminConsole": "انتظامی پینل کھولیں",
+    "createCourse": "کورس بنائیں",
+    "language": "زبان",
+    "personalInfo": "ذاتی ترجیحات"
+  }
+}

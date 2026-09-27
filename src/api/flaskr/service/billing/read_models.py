@@ -187,6 +187,7 @@ _OPERATOR_PRODUCT_FILTER_LANGUAGES = (
     "fr-FR",
     "ar-SA",
     "th-TH",
+    "ur-PK",
 )
 _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
     "rapid_growth",

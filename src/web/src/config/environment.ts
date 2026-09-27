@@ -49,11 +49,25 @@ interface EnvironmentConfig {
   // Legal Documents Configuration
   legalUrls: {
     agreement: Record<
-      'zh-CN' | 'en-US' | 'de-DE' | 'es-ES' | 'fr-FR' | 'ar-SA' | 'th-TH',
+      | 'zh-CN'
+      | 'en-US'
+      | 'de-DE'
+      | 'es-ES'
+      | 'fr-FR'
+      | 'ar-SA'
+      | 'th-TH'
+      | 'ur-PK',
       string
     >;
     privacy: Record<
-      'zh-CN' | 'en-US' | 'de-DE' | 'es-ES' | 'fr-FR' | 'ar-SA' | 'th-TH',
+      | 'zh-CN'
+      | 'en-US'
+      | 'de-DE'
+      | 'es-ES'
+      | 'fr-FR'
+      | 'ar-SA'
+      | 'th-TH'
+      | 'ur-PK',
       string
     >;
   };
@@ -352,6 +366,7 @@ function getLegalUrls(): {
     'fr-FR': string;
     'ar-SA': string;
     'th-TH': string;
+    'ur-PK': string;
   };
   privacy: {
     'zh-CN': string;
@@ -361,6 +376,7 @@ function getLegalUrls(): {
     'fr-FR': string;
     'ar-SA': string;
     'th-TH': string;
+    'ur-PK': string;
   };
 } {
   return {
@@ -393,6 +409,10 @@ function getLegalUrls(): {
         getRuntimeEnv('LEGAL_AGREEMENT_URL_TH_TH') ||
         process.env.LEGAL_AGREEMENT_URL_TH_TH ||
         '',
+      'ur-PK':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_UR_PK') ||
+        process.env.LEGAL_AGREEMENT_URL_UR_PK ||
+        '',
     },
     privacy: {
       'zh-CN':
@@ -422,6 +442,10 @@ function getLegalUrls(): {
       'th-TH':
         getRuntimeEnv('LEGAL_PRIVACY_URL_TH_TH') ||
         process.env.LEGAL_PRIVACY_URL_TH_TH ||
+        '',
+      'ur-PK':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_UR_PK') ||
+        process.env.LEGAL_PRIVACY_URL_UR_PK ||
         '',
     },
   };

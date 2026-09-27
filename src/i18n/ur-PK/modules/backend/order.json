@@ -1,0 +1,32 @@
+{
+  "__namespace__": "server.order",
+  "__flat__": {
+    "checkout": "ادا کرنا",
+    "courseNotPaid": "کورس نہیں خریدا گیا ہے، براہ کرم پہلے کورس خریدیں۔",
+    "emailAlreadyActivated": "ای میل {email} کے لیے یہ کورس پہلے ہی فعال ہے۔",
+    "importActivationFailed": "امپورٹ ایکٹیویشن ناکام ہو گیا، براہ کرم اس قطار میں ڈیٹا چیک کریں اور دوبارہ کوشش کریں۔",
+    "learnStatusBranch": "شاخ",
+    "learnStatusCompleted": "مکمل",
+    "learnStatusInProgress": "پڑھائی",
+    "learnStatusLocked": "کھلا نہیں ہے۔",
+    "learnStatusNotStarted": "سیکھنے کے قابل",
+    "learnStatusRefund": "رقم کی واپسی",
+    "learnStatusReset": "ری سیٹ کریں",
+    "learnStatusUnavailable": "دستیاب نہیں۔",
+    "mobileAlreadyActivated": "موبائل نمبر {mobile} کے لیے یہ کورس پہلے ہی فعال ہے۔",
+    "orderHasPaid": "آرڈر ادا کر دیا گیا ہے۔",
+    "orderNotFound": "آرڈر نہیں ملا",
+    "orderPayExpired": "آرڈر کی میعاد ختم ہو گئی ہے، براہ کرم دوسرا آرڈر کریں۔",
+    "orderRefundError": "رقم کی واپسی ناکام ہوگئی",
+    "orderStatusError": "موجودہ آرڈر کی صورتحال اس آپریشن کو سپورٹ نہیں کرتی ہے۔",
+    "orderStatusInit": "کوئی ادائیگی شروع نہیں کی گئی۔",
+    "orderStatusRefund": "رقم کی واپسی",
+    "orderStatusSuccess": "خریداری کامیاب",
+    "orderStatusTimeout": "میعاد ختم",
+    "orderStatusToBePaid": "ادائیگی کا منتظر",
+    "payItemBasePrice": "بنیادی قیمت",
+    "payItemCoupon": "رعایت",
+    "payItemProduct": "سامان",
+    "payItemPromotion": "سرگرمیاں"
+  }
+}

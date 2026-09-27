@@ -488,40 +488,49 @@ def test_spanish_prompt_backfill_generation_failure_keeps_saved_config(
     assert publication.read_profile_onboarding_database(app) == original
 
 
-def test_german_prompt_backfill_preserves_existing_locales(
-    app: object, publication: object, monkeypatch: object
+@pytest.mark.parametrize("locale", ["de-DE", "ur-PK"])
+def test_new_locale_prompt_backfill_preserves_existing_locales(
+    app: object, publication: object, monkeypatch: object, locale: str
 ) -> None:
     from flaskr.service.common import profile_onboarding as config
 
     existing_prompts = {
-        locale: f"Saved {locale}" for locale in get_i18n_list() if locale != "de-DE"
+        code: f"Saved {code}" for code in get_i18n_list() if code != locale
     }
     original = _seed_saved_prompt_config(app, publication, existing_prompts)
     monkeypatch.setattr(config, "validate_profile_onboarding_markdownflow", Mock())
-    localizer = Mock(return_value={"de-DE": "Generated German"})
+    localizer = Mock(return_value={locale: "Generated translation"})
     monkeypatch.setattr(
         config, "localize_profile_onboarding_assistant_prompt", localizer
     )
 
     assert config.backfill_profile_onboarding_assistant_locale(
-        app, locale="de-DE", apply=False
-    ) == {"locale": "de-DE", "config_revision": 8, "status": "pending"}
+        app, locale=locale, apply=False
+    ) == {"locale": locale, "config_revision": 8, "status": "pending"}
     assert publication.read_profile_onboarding_database(app) == original
     localizer.assert_not_called()
 
     assert config.backfill_profile_onboarding_assistant_locale(
-        app, locale="de-DE", apply=True
+        app, locale=locale, apply=True
     ) == {
-        "locale": "de-DE",
+        "locale": locale,
         "config_revision": 9,
-        "generated_locales": ["de-DE"],
+        "generated_locales": [locale],
         "status": "backfilled",
     }
     saved = json.loads(publication.read_profile_onboarding_database(app))
     assert saved["assistant_prompts"] == {
         **existing_prompts,
-        "de-DE": "Generated German",
+        locale: "Generated translation",
     }
     localizer.assert_called_once_with(
-        app, "Saved master prompt", target_locales={"de-DE"}
+        app, "Saved master prompt", target_locales={locale}
     )
+
+    assert (
+        config.backfill_profile_onboarding_assistant_locale(
+            app, locale=locale, apply=True
+        )["status"]
+        == "already_present"
+    )
+    assert localizer.call_count == 1

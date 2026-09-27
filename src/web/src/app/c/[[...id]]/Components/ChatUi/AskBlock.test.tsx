@@ -32,7 +32,7 @@ jest.mock('i18next', () => ({
 
 // Production embeds locale metadata through Next config; Jest has no build env.
 jest.mock('@/lib/i18n-locales', () => ({
-  isRtlLocale: (locale: string) => locale === 'ar-SA',
+  isRtlLocale: (locale: string) => ['ar-SA', 'ur-PK'].includes(locale),
 }));
 
 jest.mock('@/lib/markdownUtils', () => ({
@@ -338,26 +338,29 @@ describe('AskBlock', () => {
       expect(mockTrackEvent).not.toHaveBeenCalled();
     },
   );
-  it('mirrors the in-input microphone with the existing Send action in RTL', () => {
-    mockLanguage = 'ar-SA';
-    render(
-      <AskBlock
-        shifu_bid='course-1'
-        outline_bid='lesson-1'
-        element_bid='element-1'
-        isExpanded
-        followUpMode='live_voice'
-        liveVoice={mockLiveVoiceController()}
-      />,
-    );
-    const composer = screen.getByTestId('ask-input-wrapper').parentElement;
-    expect(composer).toHaveAttribute('dir', 'rtl');
-    expect(composer).toContainElement(
-      screen.getByRole('button', {
-        name: 'module.chat.liveVoiceStartMicrophone',
-      }),
-    );
-  });
+  it.each(['ar-SA', 'ur-PK'])(
+    'mirrors the in-input microphone with the existing Send action in %s',
+    language => {
+      mockLanguage = language;
+      render(
+        <AskBlock
+          shifu_bid='course-1'
+          outline_bid='lesson-1'
+          element_bid='element-1'
+          isExpanded
+          followUpMode='live_voice'
+          liveVoice={mockLiveVoiceController()}
+        />,
+      );
+      const composer = screen.getByTestId('ask-input-wrapper').parentElement;
+      expect(composer).toHaveAttribute('dir', 'rtl');
+      expect(composer).toContainElement(
+        screen.getByRole('button', {
+          name: 'module.chat.liveVoiceStartMicrophone',
+        }),
+      );
+    },
+  );
 
   it('leaves the ordinary text input without a voice adornment', () => {
     render(
