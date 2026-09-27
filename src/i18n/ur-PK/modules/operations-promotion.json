@@ -124,7 +124,7 @@
     "packageCampaignProviderPublished": "Stripe کے ساتھ ہم آہنگ ہو گیا",
     "packageCampaignProviderRetired": "Stripe کی پیشکش رک گئی ہے۔",
     "packageCampaignProviderRetried": "Stripe دوبارہ مطابقت پذیر ہو گئی۔",
-    "packageCampaignProviderSyncRequired": "رعایتی سرگرمی نے ابھی تک Stripe کی مطابقت پذیری مکمل نہیں کی ہے۔ براہ کرم پہلے Stripe سے ہم آہنگ کریں اور سرگرمی کو چالو کرنے سے پہلے تصدیق کریں کہ اسٹیٹس کامیاب ہے۔",
+    "packageCampaignProviderSyncRequired": "رعایتی سرگرمی نے ابھی تک Stripe کی مطابقت پذیری مکمل نہیں کی ہے۔ براہ کرم پہلے Stripe پر ہم آہنگ کریں اور سرگرمی کو چالو کرنے سے پہلے تصدیق کریں کہ اسٹیٹس کامیاب ہے۔",
     "referralCampaignDisabledSuccess": "دعوتی تقریب غیر فعال ہے۔",
     "referralCampaignEnabledSuccess": "دعوتی پروگرام فعال ہے۔",
     "updateSuccess": "کامیابی سے محفوظ ہو گیا۔"
