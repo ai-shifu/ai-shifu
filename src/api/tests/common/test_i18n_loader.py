@@ -96,6 +96,7 @@ def test_locale_labels_follow_shared_metadata_order() -> None:
         "es-ES": "Español (España)",
         "fr-FR": "Français",
         "th-TH": "ไทย",
+        "ur-PK": "اردو",
         "zh-CN": "中文",
     }
 
@@ -142,3 +143,11 @@ def test_flat_section_namespace_loading() -> None:
         t("server.common.operationFailed")
         == "Erreur du service, veuillez réessayer plus tard"
     )
+
+
+def test_urdu_loads_frontend_and_backend_translations() -> None:
+    app = Flask(__name__)
+    load_translations(app)
+    set_language("ur-PK")
+    assert t("module.chat.ask") == "مزید پوچھیں"
+    assert t("server.user.userNotFound") == "صارف نہیں ملا"

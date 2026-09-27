@@ -226,6 +226,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
                     "fr-FR": "/legal/agreement/fr",
                     "ar-SA": "/legal/agreement/ar",
                     "th-TH": "/legal/agreement/th",
+                    "ur-PK": "",
                 }
             ),
             privacy=RuntimeLocalizedUrlDTO(
@@ -280,6 +281,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         "fr-FR": "/legal/agreement/fr",
         "ar-SA": "/legal/agreement/ar",
         "th-TH": "/legal/agreement/th",
+        "ur-PK": "",
     }
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 2

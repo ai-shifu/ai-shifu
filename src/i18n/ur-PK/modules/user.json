@@ -1,0 +1,10 @@
+{
+  "__namespace__": "module.user",
+  "confirmLogoutContent": "کیا آپ کو لاگ آؤٹ کرنا یقینی ہے؟",
+  "confirmLogoutTitle": "لاگ آؤٹ کرنے کی تصدیق کریں؟",
+  "defaultUserName": "گمنام صارف",
+  "login": "لاگ ان",
+  "loginMainButton": "لاگ ان/رجسٹر",
+  "logout": "لاگ آؤٹ کریں۔",
+  "notLogin": "لاگ ان نہیں ہے۔"
+}

@@ -25,6 +25,10 @@
       "label": "ไทย",
       "rtl": false
     },
+    "ur-PK": {
+      "label": "اردو",
+      "rtl": true
+    },
     "zh-CN": {
       "label": "中文",
       "rtl": false

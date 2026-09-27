@@ -13,6 +13,7 @@ const privacyPolicies = {
   'es-ES': EN_PrivacyPolicy,
   'fr-FR': EN_PrivacyPolicy,
   'ar-SA': EN_PrivacyPolicy,
+  'ur-PK': EN_PrivacyPolicy,
   'th-TH': EN_PrivacyPolicy,
   en: EN_PrivacyPolicy,
 };

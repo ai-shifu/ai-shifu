@@ -53,6 +53,7 @@ export function normalizeArtifact(value) {
     "zh-CN",
     "ar-SA",
     "th-TH",
+    "ur-PK",
   ].includes(value.metadata?.locale)
     ? value.metadata.locale
     : "zh-CN";

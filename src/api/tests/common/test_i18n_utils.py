@@ -46,3 +46,8 @@ def test_french_native_name_reaches_content_and_interaction_prompts() -> None:
     content_messages, interaction_messages = provider.calls
     assert "OUTPUT: 100% Français" in content_messages[-1]["content"]
     assert "100% Français OUTPUT REQUIRED" in interaction_messages[0]["content"]
+
+
+def test_urdu_variants_use_native_output_language_name() -> None:
+    for locale in ("ur", "ur-PK", "ur_IN", "UR_pk", "اردو"):
+        assert resolve_markdownflow_output_language(locale) == "اردو"

@@ -98,6 +98,7 @@ _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = (
     "fr-FR",
     "ar-SA",
     "th-TH",
+    "ur-PK",
 )
 
 _OPTIONAL_TOKEN_AUTH_ERROR_CODES = frozenset(

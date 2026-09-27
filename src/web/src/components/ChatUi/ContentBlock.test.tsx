@@ -11,10 +11,12 @@ jest.mock('@/api/studyV2', () => ({
   },
 }));
 
+let mockLanguage = 'es-ES';
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
-    i18n: { language: 'es-ES', resolvedLanguage: 'es-ES' },
+    i18n: { language: mockLanguage, resolvedLanguage: mockLanguage },
   }),
 }));
 
@@ -65,18 +67,25 @@ const renderContent = (
   );
 
 describe('ContentBlock content language', () => {
-  it('keeps the English guide body marked as English under Spanish controls', () => {
-    renderContent('en-US');
-
-    expect(screen.getByTestId('course-content')).toHaveAttribute(
-      'data-locale',
-      'es-ES',
-    );
-    expect(screen.getByTestId('course-content')).toHaveAttribute(
-      'lang',
-      'en-US',
-    );
+  beforeEach(() => {
+    mockLanguage = 'es-ES';
   });
+  it.each(['es-ES', 'ur-PK'])(
+    'keeps the English guide body marked as English under %s controls',
+    language => {
+      mockLanguage = language;
+      renderContent('en-US');
+
+      expect(screen.getByTestId('course-content')).toHaveAttribute(
+        'data-locale',
+        language,
+      );
+      expect(screen.getByTestId('course-content')).toHaveAttribute(
+        'lang',
+        'en-US',
+      );
+    },
+  );
 
   it('preserves an explicitly known Spanish content language', () => {
     renderContent('es-ES');

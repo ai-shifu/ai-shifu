@@ -1,0 +1,11 @@
+{
+  "__namespace__": "server.common",
+  "__flat__": {
+    "nicknameNotAllowed": "درج کردہ نام قواعد کے مطابق نہیں۔",
+    "operationFailed": "سروس میں خرابی ہے، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "paramsError": "پیرامیٹر کی خرابی {param_message}",
+    "systemError": "سسٹم کی خرابی۔",
+    "unexpectedError": "سروس عارضی طور پر دستیاب نہیں ہے، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "unknownError": "نامعلوم غلطی"
+  }
+}

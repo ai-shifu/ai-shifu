@@ -28,8 +28,9 @@ jest.mock('@/lib/i18n-locales', () => ({
     ['de-DE', { label: 'Deutsch' }],
     ['es-ES', { label: 'Español (España)' }],
     ['fr-FR', { label: 'Français' }],
+    ['ur-PK', { label: 'اردو', rtl: true }],
   ],
-  localeCodes: ['en-US', 'de-DE', 'es-ES', 'fr-FR'],
+  localeCodes: ['en-US', 'de-DE', 'es-ES', 'fr-FR', 'ur-PK'],
 }));
 
 jest.mock('@/hooks/useTracking', () => ({
@@ -77,7 +78,7 @@ describe('LanguageSelect analytics', () => {
   });
 
   it.each(['login', 'learner_menu', 'admin_menu'] as const)(
-    'records a Spanish choice on the %s surface with the exact safe payload',
+    'records an Urdu choice on the %s surface with the exact safe payload',
     analyticsSurface => {
       const onSetLanguage = jest.fn();
       render(
@@ -90,22 +91,22 @@ describe('LanguageSelect analytics', () => {
 
       expect(mockTrackEvent).not.toHaveBeenCalled();
       fireEvent.change(screen.getByRole('combobox', { name: 'Language' }), {
-        target: { value: 'es-ES' },
+        target: { value: 'ur-PK' },
       });
 
       expect(mockTrackEvent.mock.calls).toEqual([
         [
           'user_language_selected',
-          { selected_locale: 'es-ES', surface: analyticsSurface },
+          { selected_locale: 'ur-PK', surface: analyticsSurface },
         ],
       ]);
       expect(mockTrackEvent.mock.invocationCallOrder[0]).toBeLessThan(
         mockChangeLanguage.mock.invocationCallOrder[0],
       );
-      expect(mockChangeLanguage).toHaveBeenCalledWith('es-ES');
-      expect(onSetLanguage).toHaveBeenCalledWith('es-ES');
+      expect(mockChangeLanguage).toHaveBeenCalledWith('ur-PK');
+      expect(onSetLanguage).toHaveBeenCalledWith('ur-PK');
       expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
-        /Español|https?:|email|token|title|error/,
+        /اردو|https?:|email|token|title|error/,
       );
     },
   );
@@ -187,8 +188,8 @@ describe('LanguageSelect analytics', () => {
     );
 
     act(() => {
-      mockSelectValueChange('es-ES');
-      mockSelectValueChange('es-ES');
+      mockSelectValueChange('ur-PK');
+      mockSelectValueChange('ur-PK');
     });
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
     expect(mockChangeLanguage).toHaveBeenCalledTimes(1);
@@ -196,7 +197,7 @@ describe('LanguageSelect analytics', () => {
     await act(async () => {
       rejectChange(new Error('language bundle unavailable'));
     });
-    act(() => mockSelectValueChange('es-ES'));
+    act(() => mockSelectValueChange('ur-PK'));
     expect(mockTrackEvent).toHaveBeenCalledTimes(2);
     expect(mockChangeLanguage).toHaveBeenCalledTimes(2);
     expect(onSetLanguage).toHaveBeenCalledTimes(2);
@@ -224,13 +225,13 @@ describe('LanguageSelect analytics', () => {
       );
 
       fireEvent.change(screen.getByRole('combobox', { name: 'Language' }), {
-        target: { value: 'es-ES' },
+        target: { value: 'ur-PK' },
       });
       await act(async () => {});
 
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
-      expect(mockChangeLanguage).toHaveBeenCalledWith('es-ES');
-      expect(onSetLanguage).toHaveBeenCalledWith('es-ES');
+      expect(mockChangeLanguage).toHaveBeenCalledWith('ur-PK');
+      expect(onSetLanguage).toHaveBeenCalledWith('ur-PK');
     },
   );
 });

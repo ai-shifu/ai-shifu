@@ -939,30 +939,33 @@ describe('ShifuEdit draft conflict checks', () => {
     }
   });
 
-  test('leaves unknown authored language unset with Spanish editor controls', async () => {
-    setLessonNode();
-    const mockI18nState = getMockI18nState();
-    const originalResolvedLanguage = mockI18nState.resolvedLanguage;
-    const originalLanguage = mockI18nState.language;
+  test.each(['es-ES', 'ur-PK'])(
+    'leaves unknown authored language unset with %s editor controls',
+    async language => {
+      setLessonNode();
+      const mockI18nState = getMockI18nState();
+      const originalResolvedLanguage = mockI18nState.resolvedLanguage;
+      const originalLanguage = mockI18nState.language;
 
-    try {
-      mockI18nState.resolvedLanguage = 'es-ES';
-      mockI18nState.language = 'es-ES';
+      try {
+        mockI18nState.resolvedLanguage = language;
+        mockI18nState.language = language;
 
-      render(<ScriptEditor id='shifu-1' />);
+        render(<ScriptEditor id='shifu-1' />);
 
-      await waitFor(() => {
-        expect(mockMarkdownFlowEditor).toHaveBeenCalled();
-      });
+        await waitFor(() => {
+          expect(mockMarkdownFlowEditor).toHaveBeenCalled();
+        });
 
-      expect(mockMarkdownFlowEditor.mock.calls.at(-1)?.[0]).toEqual(
-        expect.objectContaining({ locale: 'es-ES', lang: '' }),
-      );
-    } finally {
-      mockI18nState.resolvedLanguage = originalResolvedLanguage;
-      mockI18nState.language = originalLanguage;
-    }
-  });
+        expect(mockMarkdownFlowEditor.mock.calls.at(-1)?.[0]).toEqual(
+          expect.objectContaining({ locale: language, lang: '' }),
+        );
+      } finally {
+        mockI18nState.resolvedLanguage = originalResolvedLanguage;
+        mockI18nState.language = originalLanguage;
+      }
+    },
+  );
 
   test('renders the history entry as a same-window link for the current lesson', async () => {
     setLessonNode();

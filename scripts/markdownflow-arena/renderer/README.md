@@ -18,11 +18,11 @@ existing ElementDTO `content`, `element_type` (or frontend `type`), `is_marker`,
 `sequence_number` fields. Preserve marker flags and sequence order from the
 backend adapter. Audio and identity metadata are excluded from rendering.
 The backend freezes the case's output language in `metadata.locale`. Supported
-values are `zh-CN`, `en-US`, `de-DE`, `es-ES`, `fr-FR`, `ar-SA`, and `th-TH`; missing or unsupported
+values are `zh-CN`, `en-US`, `de-DE`, `es-ES`, `fr-FR`, `ar-SA`, `th-TH`, and `ur-PK`; missing or unsupported
 values default to `zh-CN`. The host document and rendered content retain that
-language and direction: Arabic uses RTL and the other languages use LTR.
-`markdown-flow-ui@0.2.29` receives `es-ES` for Spanish content and renders its
-built-in controls in Spanish.
+language and direction: Arabic and Urdu use RTL and the other languages use LTR.
+`markdown-flow-ui@0.2.29` receives `es-ES` for Spanish content and `ur-PK` for Urdu
+content and renders its built-in controls in those languages.
 German content retains `lang=de-DE`, while built-in controls use the pinned
 component's English fallback until that library adds German separately.
 
@@ -106,6 +106,6 @@ HTML, multiple slide pages, scrollable slides, harmless emoji line-box overflow,
 a blocked local-network image, and genuinely clipped HTML/emoji. Outputs go to a
 temporary directory printed in the final JSON for visual inspection. Set
 `ARENA_BROWSER_PATH` only when the default Playwright browser is unavailable.
-Run `node renderer/locale.smoke.mjs` to verify all six content locales
+Run `node renderer/locale.smoke.mjs` to verify all eight content locales
 and RTL/LTR propagation through the installed reading and slide components.
-The smoke also verifies a Spanish label on a built-in reading control.
+The smoke also verifies Spanish and Urdu labels on a built-in reading control.

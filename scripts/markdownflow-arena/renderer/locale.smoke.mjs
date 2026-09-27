@@ -71,10 +71,19 @@ try {
   );
   await page.goto(origin);
   await page.waitForFunction(() => typeof window.renderArena === "function");
-  const locales = ["ar-SA", "de-DE", "en-US", "es-ES", "fr-FR", "th-TH", "zh-CN"];
+  const locales = [
+    "ar-SA",
+    "de-DE",
+    "en-US",
+    "es-ES",
+    "fr-FR",
+    "th-TH",
+    "ur-PK",
+    "zh-CN",
+  ];
   for (const mode of ["reading", "slides"]) {
     for (const locale of locales) {
-      const direction = locale === "ar-SA" ? "rtl" : "ltr";
+      const direction = ["ar-SA", "ur-PK"].includes(locale) ? "rtl" : "ltr";
       const content = `<article id="locale-fixture" style="padding:32px"><h1>${locale}</h1><p>Locale fixture</p></article>`;
       const artifact = normalizeArtifact({
         content,
@@ -93,7 +102,10 @@ try {
             }
           : {}),
       });
-      assert.equal(artifact.markdownFlowLocale, locale === "de-DE" ? "en-US" : locale);
+      assert.equal(
+        artifact.markdownFlowLocale,
+        locale === "de-DE" ? "en-US" : locale,
+      );
       await page.evaluate((value) => window.renderArena(value), artifact);
       await page.waitForFunction(
         ({ locale, direction }) => {
@@ -128,17 +140,22 @@ try {
       );
     }
   }
-  const spanishCode = normalizeArtifact({
-    content: "```text\nhola\n```",
-    metadata: { locale: "es-ES" },
-  });
-  await page.evaluate((value) => window.renderArena(value), spanishCode);
-  await page
-    .locator("#capture")
-    .getByRole("button", { name: "Copiar", exact: true })
-    .waitFor({ state: "visible" });
+  for (const [locale, label] of [
+    ["es-ES", "Copiar"],
+    ["ur-PK", "کاپی کریں"],
+  ]) {
+    const code = normalizeArtifact({
+      content: "```text\nhello\n```",
+      metadata: { locale },
+    });
+    await page.evaluate((value) => window.renderArena(value), code);
+    await page
+      .locator("#capture")
+      .getByRole("button", { name: label, exact: true })
+      .waitFor({ state: "visible" });
+  }
   process.stdout.write(
-    JSON.stringify({ status: "complete", locales, component_cases: 13 }) + "\n",
+    JSON.stringify({ status: "complete", locales, component_cases: 18 }) + "\n",
   );
 } finally {
   await browser?.close();
