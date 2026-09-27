@@ -19,7 +19,6 @@
       "status": "Prämienstatus"
     },
     "queueTitle": "Einladungsverlauf",
-    "refresh": "Aktualisieren",
     "rewardRecordValue": "{cycles, plural, one {# Monat} other {# Monate}} Basic-Tarif (einschließlich {credits} Credits)",
     "rewardRulesTitle": "Kampagnenregeln",
     "rules": {
@@ -87,9 +86,7 @@
       "prevAria": "Vorherige Seite"
     },
     "refresh": "Aktualisieren",
-    "statusUpdated": "Status aktualisiert",
     "table": {
-      "action": "Aktion",
       "boundAt": "Gebunden am",
       "campaign": "Kampagne",
       "inviteCode": "Einladungscode",

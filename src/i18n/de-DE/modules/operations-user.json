@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "Gültigkeit der Credits",
       "creditsHint": "Bei der Kontoschließung wird das Credit-Guthaben auf null gesetzt und nicht erstattet.",
       "creditsLabel": "Credit-Guthaben",
-      "creditsValue": "{count}",
-      "draftsHint": "Entwurfskurse bleiben nach der Kontoschließung eingefroren erhalten.",
-      "draftsLabel": "Entwurf von Kursen",
-      "draftsValue": "{count}",
       "paidPackages": "Bezahlte Tarife:",
       "preorders": "Bezahlte, noch nicht aktive Vorausbestellungen:",
-      "renewals": "Bei der Kontoschließung beendete aktive Abonnements: {count}",
-      "sessionsHint": "Alle aktiven Login-Sitzungen werden sofort widerrufen.",
-      "sessionsLabel": "Aktive Sitzungen",
-      "sessionsValue": "{count}",
       "subscriptions": "Abonnements mit automatischer Verlängerung:"
     },
     "title": "Konto schließen",
     "transfer": "Mit einem Klick übertragen",
     "transferEmailPlaceholder": "E-Mail-Adresse der neuen kursverantwortlichen Person",
     "transferPhonePlaceholder": "Mobilnummer der neuen kursverantwortlichen Person",
-    "transferPlaceholder": "Mobilnummer oder E-Mail-Adresse der neuen kursverantwortlichen Person",
     "transferRequired": "Übertragen Sie zuerst die Verantwortung für {count} veröffentlichte Kurse."
   },
   "contactChange": {
@@ -356,7 +347,6 @@
       "product": "Paket auswählen",
       "productLoading": "Pakete werden geladen...",
       "referralRewardAmount": "Anzahl der Bonus-Credits eingeben",
-      "source": "Quelle auswählen",
       "validityPreset": "Laufzeit auswählen"
     },
     "referralReward": {
@@ -385,8 +375,7 @@
       "availableCredits": "Credit-Guthaben",
       "currentExpireAt": "Gültig bis",
       "currentPackage": "Aktueller Tarif",
-      "nickname": "Nickname",
-      "package": "Paket"
+      "nickname": "Nickname"
     },
     "title": "Credits oder Tarif vergeben",
     "validation": {

@@ -19,7 +19,6 @@
       "status": "สถานะรางวัล"
     },
     "queueTitle": "ประวัติการเชิญ",
-    "refresh": "รีเฟรช",
     "rewardRecordValue": "แพ็กเกจพื้นฐาน {cycles} เดือน (รวม {credits} เครดิต)",
     "rewardRulesTitle": "กติกากิจกรรม",
     "rules": {
@@ -87,9 +86,7 @@
       "prevAria": "หน้าก่อนหน้า"
     },
     "refresh": "รีเฟรช",
-    "statusUpdated": "อัปเดตสถานะแล้ว",
     "table": {
-      "action": "การดำเนินการ",
       "boundAt": "เวลาผูก",
       "campaign": "กิจกรรม",
       "inviteCode": "รหัสเชิญ",

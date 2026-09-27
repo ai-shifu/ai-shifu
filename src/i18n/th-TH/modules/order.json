@@ -25,41 +25,29 @@
   "emptyValue": "ไม่มีข้อมูล",
   "fields": {
     "activityPrice": "ส่วนลดกิจกรรม",
-    "chargeId": "หมายเลขรายการชำระเงิน",
-    "checkoutSession": "เซสชันชำระเงิน",
     "couponType": "ประเภทส่วนลด",
     "couponValue": "มูลค่าส่วนลด",
     "createdAt": "เวลาสร้าง",
     "currency": "สกุลเงิน",
     "discount": "ส่วนลด",
-    "latestCharge": "การเรียกเก็บเงินล่าสุด",
     "paid": "ชำระจริง",
     "payable": "ยอดที่ต้องชำระ",
-    "paymentAmount": "ยอดชำระเงิน",
     "paymentChannel": "ช่องทางการชำระเงิน",
-    "paymentCreatedAt": "เวลาสร้างการชำระเงิน",
-    "paymentIntent": "เจตนาการชำระเงิน",
-    "paymentMethod": "วิธีการชำระเงิน",
     "paymentStatus": "สถานะการชำระเงิน",
-    "paymentUpdatedAt": "เวลาอัปเดตการชำระเงิน",
-    "receipt": "ลิงก์ใบเสร็จ",
     "shifu": "หลักสูตร",
     "status": "สถานะ",
     "transactionNo": "หมายเลขธุรกรรม",
-    "updatedAt": "เวลาอัปเดต",
     "user": "ผู้ใช้"
   },
   "filters": {
     "all": "ทั้งหมด",
     "channel": "ช่องทางการชำระเงิน",
     "dateRangePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
-    "endTime": "วันที่สิ้นสุด",
     "orderBid": "รหัสคำสั่งซื้อ",
     "reset": "รีเซ็ต",
     "search": "ค้นหา",
     "searchCourseOrId": "รหัสหลักสูตร / ชื่อหลักสูตร",
     "shifuBid": "ชื่อหลักสูตร",
-    "startTime": "วันที่เริ่มต้น",
     "status": "สถานะ",
     "userBid": "อีเมลหรือโทรศัพท์",
     "userBidEmail": "อีเมล",
@@ -149,15 +137,13 @@
   "sections": {
     "activities": "กิจกรรม",
     "coupons": "คูปอง",
-    "payment": "การชำระเงิน",
-    "summary": "สรุป"
+    "payment": "การชำระเงิน"
   },
   "statusLabels": {
     "timeout": "หมดอายุ (ไม่ชำระเงินเกิน {minutes} นาที)"
   },
   "table": {
     "action": "การดำเนินการ",
-    "amount": "ยอดชำระเงิน",
     "createdAt": "เวลาสร้าง",
     "orderId": "รหัสคำสั่งซื้อ",
     "payment": "การชำระเงิน",

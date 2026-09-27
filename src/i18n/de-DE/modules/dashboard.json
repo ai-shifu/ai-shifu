@@ -185,7 +185,6 @@
       },
       "title": "Bewertungsdaten"
     },
-    "subtitle": "Echtzeitdaten zu Kursinformationen, Kennzahlen und Lernaktivität.",
     "title": "Kursdetails"
   },
   "entry": {
@@ -205,11 +204,8 @@
       "orderAmount": "Betrag",
       "orders": "Bestellungen",
       "reset": "Zurücksetzen",
-      "scopeNote": "Es zählen nur Kurse, die Sie selbst erstellt haben und für die Sie verantwortlich sind. Daten zu gemeinsam verwalteten Kursen sind nicht enthalten.",
       "search": "Suchen",
       "searchPlaceholder": "Kurs-ID / Kurs-Name",
-      "title": "Kursliste",
-      "totalCount": "Insgesamt {count}",
       "viewCourse": "Kurs anzeigen",
       "viewOrders": "Bestellungen anzeigen"
     }

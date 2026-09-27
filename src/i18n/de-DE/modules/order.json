@@ -25,41 +25,29 @@
   "emptyValue": "—",
   "fields": {
     "activityPrice": "Aktionsrabatt",
-    "chargeId": "Zahlungs-ID",
-    "checkoutSession": "Checkout-Sitzung",
     "couponType": "Coupon-Typ",
     "couponValue": "Gutscheinwert",
     "createdAt": "Erstellt am",
     "currency": "Währung",
     "discount": "Rabatt",
-    "latestCharge": "Letzte Abbuchung",
     "paid": "Bezahlt",
     "payable": "Zu zahlen",
-    "paymentAmount": "Zahlungsbetrag",
     "paymentChannel": "Zahlungskanal",
-    "paymentCreatedAt": "Zahlung erstellt am",
-    "paymentIntent": "Zahlungsabsicht",
-    "paymentMethod": "Zahlungsmethode",
     "paymentStatus": "Zahlungsstatus",
-    "paymentUpdatedAt": "Zahlung aktualisiert am",
-    "receipt": "Beleglink",
     "shifu": "Kurs",
     "status": "Status",
     "transactionNo": "Transaktionsnr.",
-    "updatedAt": "Aktualisiert am",
     "user": "Nutzer"
   },
   "filters": {
     "all": "Alle",
     "channel": "Zahlungskanal",
     "dateRangePlaceholder": "Startdatum bis Enddatum",
-    "endTime": "Enddatum",
     "orderBid": "Bestell-ID",
     "reset": "Zurücksetzen",
     "search": "Suchen",
     "searchCourseOrId": "Kurs-ID oder Kursname",
     "shifuBid": "Kursname",
-    "startTime": "Startdatum",
     "status": "Status",
     "userBid": "E-Mail oder Telefonnummer",
     "userBidEmail": "E-Mail-Adresse",
@@ -149,15 +137,13 @@
   "sections": {
     "activities": "Aktionen",
     "coupons": "Gutscheine",
-    "payment": "Zahlung",
-    "summary": "Zusammenfassung"
+    "payment": "Zahlung"
   },
   "statusLabels": {
     "timeout": "Abgelaufen (unbezahlt für mehr als {minutes} min)"
   },
   "table": {
     "action": "Aktion",
-    "amount": "Zahlungsbetrag",
     "createdAt": "Erstellt",
     "orderId": "Bestell-ID",
     "payment": "Zahlung",

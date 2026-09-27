@@ -135,7 +135,9 @@ jobs:
         run: python scripts/check_translations.py
 
       - name: Verify translation key usage
-        run: python scripts/check_translation_usage.py --fail-on-unused
+        run: |
+          python -m unittest discover -s scripts -p 'test_translation_usage.py'
+          python scripts/check_translation_usage.py --fail-on-unused
 
       - name: Ensure locales metadata is up to date
         run: |

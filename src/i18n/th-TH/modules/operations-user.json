@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "อายุเครดิต",
       "creditsHint": "ยอดเครดิตจะถูกล้างโดยไม่มีการคืนเงิน",
       "creditsLabel": "ยอดเครดิต",
-      "creditsValue": "{count} (ล้างโดยไม่คืนเงิน)",
-      "draftsHint": "คอร์สฉบับร่างจะถูกเก็บและระงับไว้หลังยกเลิก",
-      "draftsLabel": "คอร์สฉบับร่าง",
-      "draftsValue": "{count} (เก็บและระงับไว้)",
       "paidPackages": "แพ็กเกจแบบชำระเงิน:",
       "preorders": "แพ็กเกจชำระล่วงหน้าที่รอมีผล:",
-      "renewals": "การสมัครใช้งานที่ยังใช้งานอยู่จะสิ้นสุดเมื่อยกเลิกบัญชี: {count}",
-      "sessionsHint": "เซสชันเข้าสู่ระบบทั้งหมดจะถูกยกเลิกทันที",
-      "sessionsLabel": "เซสชันที่ใช้งานอยู่",
-      "sessionsValue": "{count} (ยกเลิกทั้งหมด)",
       "subscriptions": "การสมัครสมาชิกต่ออายุอัตโนมัติ:"
     },
     "title": "ยกเลิกบัญชี",
     "transfer": "โอนทั้งหมด",
     "transferEmailPlaceholder": "อีเมลของผู้รับผิดชอบใหม่",
     "transferPhonePlaceholder": "หมายเลขโทรศัพท์ของผู้รับผิดชอบใหม่",
-    "transferPlaceholder": "โทรศัพท์หรืออีเมลผู้รับผิดชอบใหม่",
     "transferRequired": "โอนคอร์สที่เผยแพร่ {count} คอร์สก่อน"
   },
   "contactChange": {
@@ -356,7 +347,6 @@
       "product": "เลือกแพ็กเกจ",
       "productLoading": "กำลังโหลดแพ็กเกจ...",
       "referralRewardAmount": "กรอกเครดิตรางวัล",
-      "source": "เลือกแหล่งที่มา",
       "validityPreset": "เลือกอายุการใช้งาน"
     },
     "referralReward": {
@@ -385,8 +375,7 @@
       "availableCredits": "เครดิตคงเหลือ",
       "currentExpireAt": "หมดอายุวันที่",
       "currentPackage": "แพ็กเกจปัจจุบัน",
-      "nickname": "ชื่อเล่น",
-      "package": "แพ็กเกจ"
+      "nickname": "ชื่อเล่น"
     },
     "title": "มอบเครดิต/แพ็กเกจ",
     "validation": {

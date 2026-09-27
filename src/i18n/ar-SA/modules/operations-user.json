@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "صلاحية الرصيد",
       "creditsHint": "سيتم مسح الرصيد دون استرداد.",
       "creditsLabel": "رصيد الائتمان",
-      "creditsValue": "{count} (يُمسح دون استرداد)",
-      "draftsHint": "سيتم الاحتفاظ بمسودات الدورات وتجميدها.",
-      "draftsLabel": "مسودات الدورات",
-      "draftsValue": "{count} (تُحفظ وتُجمّد)",
       "paidPackages": "الباقة المدفوعة:",
       "preorders": "الباقة مسبقة الدفع المعلقة:",
-      "renewals": "سيتم إيقاف التجديد التلقائي لـ {count, plural, zero {0 اشتراك نشط} one {اشتراك نشط واحد} two {اشتراكين نشطين} few {# اشتراكات نشطة} many {# اشتراكًا نشطًا} other {# اشتراك نشط}} عند إلغاء الحساب، وتظل الاشتراكات سارية حتى نهاية الفترة الحالية.",
-      "sessionsHint": "سيتم إلغاء جميع جلسات الدخول النشطة فورًا.",
-      "sessionsLabel": "الجلسات النشطة",
-      "sessionsValue": "{count} (تُلغى جميعها)",
       "subscriptions": "الاشتراك المتجدد تلقائيًا:"
     },
     "title": "إلغاء الحساب",
     "transfer": "نقل الكل",
     "transferEmailPlaceholder": "بريد المسؤول الجديد",
     "transferPhonePlaceholder": "رقم هاتف المسؤول الجديد",
-    "transferPlaceholder": "هاتف أو بريد المسؤول الجديد",
     "transferRequired": "{count, plural, zero {لا توجد دورات منشورة يلزم نقلها} one {يجب نقل دورة منشورة واحدة أولًا} two {يجب نقل دورتين منشورتين أولًا} few {يجب نقل # دورات منشورة أولًا} many {يجب نقل # دورة منشورة أولًا} other {يجب نقل # دورة منشورة أولًا}}"
   },
   "contactChange": {
@@ -356,7 +347,6 @@
       "product": "اختر الباقة",
       "productLoading": "جارٍ تحميل الباقات...",
       "referralRewardAmount": "أدخل أرصدة المكافأة",
-      "source": "اختر المصدر",
       "validityPreset": "اختر مدة الصلاحية"
     },
     "referralReward": {
@@ -385,8 +375,7 @@
       "availableCredits": "الرصيد المتاح",
       "currentExpireAt": "تنتهي الصلاحية في",
       "currentPackage": "الباقة الحالية",
-      "nickname": "اسم الشهرة",
-      "package": "الباقة"
+      "nickname": "اسم الشهرة"
     },
     "title": "منح الأرصدة/الباقة",
     "validation": {

@@ -9,13 +9,11 @@
   },
   "history": {
     "backToDocument": "Zurück zum Dokument",
-    "collapse": "Einklappen",
     "confirmDescription": "Nach Bestätigung wird der aktuelle Unterrichtsinhalt vollständig durch diese Version ersetzt.",
     "confirmLoadFailed": "Dieser Versionsinhalt konnte nicht geladen werden. Bitte versuchen Sie es später noch einmal.",
     "confirmTitle": "Wiederherstellen bestätigen",
     "contentEmpty": "Diese Version hat keinen Inhalt",
     "empty": "Noch kein Versionsverlauf",
-    "expand": "Vollständig anzeigen",
     "loading": "Laden...",
     "restore": "Wiederherstellen dieser Version",
     "restoreLessonDeleted": "Diese Lektion wurde von einem anderen Editor gelöscht und kann nicht wiederhergestellt werden. Bitte aktualisieren und versuchen Sie es erneut.",

@@ -148,7 +148,6 @@
     "course": "หลักสูตร",
     "createdAt": "เวลาสร้าง",
     "failure": "สาเหตุที่ล้มเหลว",
-    "minimax": "MiniMax",
     "owner": "ครู",
     "provider": "ผู้ให้บริการ",
     "status": "สถานะ",

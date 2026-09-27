@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "积分有效期",
       "creditsHint": "注销后积分余额将清零，不退款。",
       "creditsLabel": "积分余额",
-      "creditsValue": "{count}",
-      "draftsHint": "草稿课程将在注销后冻结保留。",
-      "draftsLabel": "草稿课程",
-      "draftsValue": "{count}",
       "paidPackages": "付费套餐：",
       "preorders": "待生效预付费：",
-      "renewals": "注销时将终止有效订阅：{count} 个",
-      "sessionsHint": "注销后，当前账号的全部登录会话将立即失效。",
-      "sessionsLabel": "有效登录会话",
-      "sessionsValue": "{count}",
       "subscriptions": "自动续费订阅："
     },
     "title": "注销用户账号",
     "transfer": "一键转移",
     "transferEmailPlaceholder": "新负责人的邮箱",
     "transferPhonePlaceholder": "新负责人的手机号",
-    "transferPlaceholder": "新负责人的手机号或邮箱",
     "transferRequired": "需先转移 {count} 门已发布课程"
   },
   "contactChange": {
@@ -356,7 +347,6 @@
       "product": "请选择套餐",
       "productLoading": "套餐加载中...",
       "referralRewardAmount": "请输入奖励积分",
-      "source": "请选择来源",
       "validityPreset": "请选择有效期"
     },
     "referralReward": {
@@ -385,8 +375,7 @@
       "availableCredits": "积分余额",
       "currentExpireAt": "有效期到",
       "currentPackage": "当前套餐",
-      "nickname": "昵称",
-      "package": "套餐"
+      "nickname": "昵称"
     },
     "title": "发放积分/套餐",
     "validation": {

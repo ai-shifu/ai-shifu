@@ -9,13 +9,11 @@
   },
   "history": {
     "backToDocument": "Volver al documento",
-    "collapse": "Contraer",
     "confirmDescription": "Al confirmar, esta versión sustituirá por completo el contenido actual de la lección.",
     "confirmLoadFailed": "No se ha podido cargar el contenido de esta versión. Inténtalo de nuevo más tarde.",
     "confirmTitle": "Confirmar restauración",
     "contentEmpty": "Esta versión no tiene contenido",
     "empty": "Todavía no hay historial",
-    "expand": "Mostrar texto completo",
     "loading": "Cargando...",
     "restore": "Restaurar esta versión",
     "restoreLessonDeleted": "Otro editor ha eliminado esta lección y no se puede restaurar. Actualiza la página e inténtalo de nuevo.",

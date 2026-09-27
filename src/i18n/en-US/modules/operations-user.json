@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "Credit validity",
       "creditsHint": "The credit balance will be cleared without a refund.",
       "creditsLabel": "Credit balance",
-      "creditsValue": "{count} (cleared without refund)",
-      "draftsHint": "Draft courses will be retained and frozen after cancellation.",
-      "draftsLabel": "Draft courses",
-      "draftsValue": "{count} (retained and frozen)",
       "paidPackages": "Paid plan:",
       "preorders": "Pending prepaid plan:",
-      "renewals": "Active subscriptions terminated on cancellation: {count}",
-      "sessionsHint": "All active login sessions will be revoked immediately.",
-      "sessionsLabel": "Active sessions",
-      "sessionsValue": "{count} (all revoked on cancellation)",
       "subscriptions": "Auto-renewing subscription:"
     },
     "title": "Cancel account",
     "transfer": "Transfer all",
     "transferEmailPlaceholder": "New owner email",
     "transferPhonePlaceholder": "New owner phone number",
-    "transferPlaceholder": "New owner phone or email",
     "transferRequired": "Transfer {count} published courses first"
   },
   "contactChange": {
@@ -356,7 +347,6 @@
       "product": "Select a package",
       "productLoading": "Loading packages...",
       "referralRewardAmount": "Enter reward credits",
-      "source": "Select source",
       "validityPreset": "Select validity"
     },
     "referralReward": {
@@ -385,8 +375,7 @@
       "availableCredits": "Credit Balance",
       "currentExpireAt": "Valid Until",
       "currentPackage": "Current Package",
-      "nickname": "Nickname",
-      "package": "Package"
+      "nickname": "Nickname"
     },
     "title": "Grant Credits/Package",
     "validation": {

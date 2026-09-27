@@ -25,41 +25,29 @@
   "emptyValue": "N/A",
   "fields": {
     "activityPrice": "Remise d’activité",
-    "chargeId": "ID de débit",
-    "checkoutSession": "Session de paiement",
     "couponType": "Type de coupon",
     "couponValue": "Valeur du coupon",
     "createdAt": "Créé le",
     "currency": "Devise",
     "discount": "Remise",
-    "latestCharge": "Dernier débit",
     "paid": "Payé",
     "payable": "À payer",
-    "paymentAmount": "Montant du paiement",
     "paymentChannel": "Canal de paiement",
-    "paymentCreatedAt": "Paiement créé le",
-    "paymentIntent": "Intention de paiement",
-    "paymentMethod": "Méthode de paiement",
     "paymentStatus": "Statut du paiement",
-    "paymentUpdatedAt": "Paiement mis à jour le",
-    "receipt": "URL du reçu",
     "shifu": "Cours",
     "status": "Statut",
     "transactionNo": "N° de transaction",
-    "updatedAt": "Mis à jour le",
     "user": "Utilisateur"
   },
   "filters": {
     "all": "Tous",
     "channel": "Canal de paiement",
     "dateRangePlaceholder": "Heure de début ~ Heure de fin",
-    "endTime": "Date de fin",
     "orderBid": "ID de commande",
     "reset": "Réinitialiser",
     "search": "Rechercher",
     "searchCourseOrId": "ID du cours / Nom du cours",
     "shifuBid": "Nom du cours",
-    "startTime": "Date de début",
     "status": "Statut",
     "userBid": "E-mail ou mobile",
     "userBidEmail": "E-mail",
@@ -149,15 +137,13 @@
   "sections": {
     "activities": "Activités",
     "coupons": "Coupons",
-    "payment": "Paiement",
-    "summary": "Résumé"
+    "payment": "Paiement"
   },
   "statusLabels": {
     "timeout": "Expiré (impayé depuis plus de {minutes} min)"
   },
   "table": {
     "action": "Action",
-    "amount": "Montant du paiement",
     "createdAt": "Créé",
     "orderId": "ID de commande",
     "payment": "Paiement",
