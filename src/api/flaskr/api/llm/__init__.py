@@ -402,6 +402,23 @@ def _is_litellm_repeated_stream_chunk_error(exc: Exception) -> bool:
     )
 
 
+def _get_llm_max_output_tokens(requested_model: str, invoke_model: str) -> int | None:
+    """Return a known output ceiling; missing metadata does not imply unavailability."""
+    # Routed ids distinguish providers that expose the same upstream model id.
+    configured = MODEL_MAX_OUTPUT_TOKENS.get(requested_model)
+    if configured is not None:
+        return configured
+    try:
+        limit = litellm.get_max_tokens(invoke_model)
+    except Exception as exc:
+        _log_warning(f"get max tokens for {invoke_model} failed: {exc}")
+        return None
+    # Partial catalogue entries can contain null, zero or malformed limits.
+    if isinstance(limit, int) and not isinstance(limit, bool) and limit > 0:
+        return limit
+    return None
+
+
 def _stream_litellm_completion(
     app: Flask,
     requested_model: str,
@@ -411,15 +428,7 @@ def _stream_litellm_completion(
     kwargs: dict,
 ) -> object:
     try:
-        # Routed ids are the application-level identity. LiteLLM completion uses
-        # the stripped provider model id, which can collide across routes (for
-        # example, a Qwen-hosted DeepSeek model and the direct DeepSeek provider).
-        max_tokens = MODEL_MAX_OUTPUT_TOKENS.get(requested_model)
-        if max_tokens is None:
-            try:
-                max_tokens = litellm.get_max_tokens(model)
-            except Exception as exc:
-                _log_warning(f"get max tokens for {model} failed: {exc}")
+        max_tokens = _get_llm_max_output_tokens(requested_model, model)
         if max_tokens is not None:
             requested_max_tokens = kwargs.get("max_tokens")
             if (
@@ -1631,24 +1640,18 @@ def count_llm_chat_input_tokens(
 
 
 def resolve_llm_max_output_tokens(model: str, requested: object = None) -> int:
-    """Resolve the gateway output limit without silently exceeding model limits."""
-    _params, invoke_model, _provider_key = get_litellm_params_and_model(model)
-    configured = MODEL_MAX_OUTPUT_TOKENS.get(model)
-    if configured is None:
-        try:
-            configured = int(litellm.get_max_tokens(invoke_model) or 0)
-        except Exception as exc:
-            _log_warning(f"get max tokens for {invoke_model} failed: {exc}")
-            configured = 0
-    if configured <= 0:
+    """Validate gateway output tokens against an optional known model ceiling."""
+    params, invoke_model, _provider_key = get_litellm_params_and_model(model)
+    if not params:
         raise_error_with_args("server.llm.modelNotSupported", model=model)
-
-    resolved = min(4096, configured) if requested is None else requested
+    configured = _get_llm_max_output_tokens(model, invoke_model)
+    default = min(4096, configured) if configured is not None else 4096
+    resolved = default if requested is None else requested
     if not isinstance(resolved, int) or isinstance(resolved, bool) or resolved <= 0:
         raise_error_with_args(
             "server.llm.requestFailed", model=model, message="max_tokens"
         )
-    if resolved > configured:
+    if configured is not None and resolved > configured:
         raise_error_with_args(
             "server.llm.requestFailed",
             model=model,

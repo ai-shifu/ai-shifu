@@ -2,7 +2,7 @@
 title: Official Client Model Gateway
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-27
 canonical: true
 ---
 
@@ -87,7 +87,12 @@ default.
 
 Chat bodies are limited to 1 MiB, messages to 256, and tools to 128 before
 tokenization. `stream` must be a JSON boolean when supplied. `max_tokens`
-still respects the model's limit; it is not a credit reservation.
+must be a positive integer and respects any known model output limit; it is not
+a credit reservation. Output-limit configuration and LiteLLM metadata are
+optional for model eligibility. Without a known limit, the gateway forwards a
+valid explicit value or defaults to 4096, for both streaming and non-streaming
+requests. See the [CLI integration contract](../references/model-gateway-cli-integration.md)
+for the complete parameter rules.
 
 ## Usage ownership and settlement
 

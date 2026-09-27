@@ -102,6 +102,7 @@ _install_openai_responses_stub()
 from flaskr.api import llm
 from flaskr.api.llm import model_selection
 from flaskr.dao import db
+from flaskr.route import model_gateway_runtime as gateway_runtime
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_CACHE_TOKENS,
     BILLING_METRIC_LLM_INPUT_TOKENS,
@@ -2877,6 +2878,100 @@ def test_stream_retry_noop_when_exception_types_unavailable(
     assert calls["count"] == 1
 
 
+@pytest.mark.skipif(
+    _installed_litellm_version() is None,
+    reason="install requirements.txt to run the native LiteLLM adapter contract",
+)
+def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> None:
+    script = textwrap.dedent(
+        """
+        import json
+        from unittest.mock import MagicMock
+
+        import httpx
+        import litellm
+        from flask import Flask
+        from openai import OpenAI
+        from flaskr.api import llm
+        from flaskr.route import model_gateway_runtime as runtime
+
+        app = Flask(__name__)
+        runtime.admit_creator_usage = lambda *args, **kwargs: None
+        runtime.has_complete_llm_rates = lambda model: True
+        runtime._claim_gateway_request = lambda *args: None
+        runtime._trace_for_request = lambda request: MagicMock()
+        llm.MODEL_MAX_OUTPUT_TOKENS = {}
+        messages = [{"role": "user", "content": "hello"}]
+        for provider, model, upstream in [
+            ("qwen", "qwen/deepseek-v4.1-flash", "deepseek-v4.1-flash"),
+            ("openai", "gpt-6-sol", "gpt-6-sol"),
+        ]:
+            adapter = "dashscope" if provider == "qwen" else "openai"
+            for name in (model, upstream, f"{adapter}/{upstream}"):
+                litellm.model_cost.pop(name, None)
+            if provider == "openai":
+                litellm.register_model({model: {
+                    "litellm_provider": "openai", "supports_none_reasoning_effort": True,
+                }})
+            assert llm._get_llm_max_output_tokens(model, upstream) is None
+            for stream in (False, True):
+                for requested in (None, 8192):
+                    captured = []
+                    recorded = []
+                    usage = {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5}
+                    payload = {
+                        "id": "reply", "created": 1, "model": upstream,
+                        "object": "chat.completion.chunk" if stream else "chat.completion",
+                        "choices": [{"index": 0, "finish_reason": "stop",
+                            "delta" if stream else "message": {"role": "assistant", "content": "ok"}}],
+                        "usage": usage,
+                    }
+                    def respond(request):
+                        captured.append(json.loads(request.content))
+                        if stream:
+                            content = "data: " + json.dumps(payload) + "\\n\\ndata: [DONE]\\n\\n"
+                            return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=content, request=request)
+                        return httpx.Response(200, json=payload, request=request)
+                    with httpx.Client(transport=httpx.MockTransport(respond), trust_env=False) as http:
+                        client = OpenAI(api_key="test", base_url="https://llm.invalid/v1", http_client=http)
+                        llm.MODEL_ALIAS_MAP = {model: (provider, upstream)}
+                        llm.PROVIDER_STATES = {provider: llm.ProviderState(
+                            enabled=True, models=[model], params={"api_key": "test", "custom_llm_provider": adapter, "client": client},
+                        )}
+                        llm.record_llm_usage = lambda app, context, **kwargs: recorded.append((context, kwargs))
+                        body = {"model": model, "messages": messages, "stream": stream}
+                        if requested is not None:
+                            body["max_tokens"] = requested
+                        request = runtime.prepare_gateway_chat_request(app, creator_bid="user", idempotency_key="native", payload=body)
+                        assert request.input_tokens > 0
+                        if stream:
+                            chunks = list(runtime.stream_gateway_chat_request(app, request))
+                            assert any(c.get("choices") and c["choices"][0]["delta"].get("content") == "ok" for c in chunks)
+                        else:
+                            assert runtime.complete_gateway_chat_request(app, request)["choices"][0]["message"]["content"] == "ok"
+                        assert len(captured) == 1
+                        body_tokens = captured[0].get("max_tokens", captured[0].get("max_completion_tokens"))
+                        assert body_tokens == (4096 if requested is None else requested)
+                        assert len(recorded) == 1
+                        context, record = recorded[0]
+                        assert context.billable == 1
+                        assert record["status"] == 0
+                        assert (record["input"], record["output"], record["total"]) == (3, 2, 5)
+        print("native gateway fallback passed")
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "LITELLM_LOCAL_MODEL_COST_MAP": "True"},
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "native gateway fallback passed" in completed.stdout
+
+
 def test_gateway_token_count_and_default_output_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2904,6 +2999,142 @@ def test_gateway_token_count_and_default_output_limit(
 
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"small-model": 2048})
     assert llm.resolve_llm_max_output_tokens("small-model") == 2048
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "model", ["qwen/deepseek-v4.1-flash", "gpt-6-sol", "gemini-3.8-flash"]
+)
+@pytest.mark.parametrize("requested", [None, 32, 8192])
+def test_gateway_missing_limits_reaches_provider_and_records_actual_usage(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    stream: bool,
+    model: str,
+    requested: int | None,
+) -> None:
+    provider = (
+        "qwen"
+        if model.startswith("qwen/")
+        else "gemini"
+        if model.startswith("gemini")
+        else "openai"
+    )
+    invoke_model = model.removeprefix("qwen/")
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {model: (provider, invoke_model)})
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            provider: llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test", "custom_llm_provider": provider},
+                models=[model],
+            )
+        },
+    )
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
+
+    def unknown_limit(_model: str) -> None:
+        message = "Model is not mapped yet"
+        raise ValueError(message)
+
+    monkeypatch.setattr(llm.litellm, "get_max_tokens", unknown_limit)
+    monkeypatch.setattr(
+        llm.litellm, "get_supported_openai_params", lambda **_kwargs: []
+    )
+    monkeypatch.setattr(
+        llm.litellm, "token_counter", lambda **_kwargs: 12, raising=False
+    )
+    admitted = []
+    claimed = []
+    monkeypatch.setattr(
+        gateway_runtime,
+        "admit_creator_usage",
+        lambda _app, **kwargs: admitted.append(kwargs),
+    )
+    monkeypatch.setattr(gateway_runtime, "has_complete_llm_rates", lambda _model: True)
+    monkeypatch.setattr(
+        gateway_runtime,
+        "_claim_gateway_request",
+        lambda _app, user, key: claimed.append((user, key)),
+    )
+    monkeypatch.setattr(
+        gateway_runtime, "_trace_for_request", lambda _request: DummySpan()
+    )
+    recorded = []
+    monkeypatch.setattr(
+        llm,
+        "record_llm_usage",
+        lambda _app, context, **kwargs: recorded.append((context, kwargs)),
+    )
+    captured = {}
+    usage = SimpleNamespace(
+        prompt_tokens=12,
+        completion_tokens=2,
+        total_tokens=14,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=3),
+    )
+    response = FakeOpenAIResponse(
+        {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]}, usage
+    )
+    chunk = FakeOpenAIResponse(
+        {"choices": [{"delta": {"content": "ok"}, "finish_reason": "stop"}]}, usage
+    )
+    chunk.choices = FakeResponse("reply", content="ok", finish_reason="stop").choices
+
+    def complete(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([chunk]) if stream else response
+
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": stream,
+    }
+    if requested is not None:
+        payload["max_tokens"] = requested
+    request = gateway_runtime.prepare_gateway_chat_request(
+        app,
+        creator_bid="gateway-user",
+        idempotency_key="missing-limit",
+        payload=payload,
+    )
+    if stream:
+        chunks = list(gateway_runtime.stream_gateway_chat_request(app, request))
+        assert chunks[0]["choices"][0]["delta"]["content"] == "ok"
+        assert captured["stream_options"] == {"include_usage": True}
+    else:
+        assert (
+            gateway_runtime.complete_gateway_chat_request(app, request)["choices"][0][
+                "message"
+            ]["content"]
+            == "ok"
+        )
+    assert captured["model"] == invoke_model
+    assert captured["stream"] is stream
+    assert captured["max_tokens"] == (4096 if requested is None else requested)
+    assert admitted == [
+        {"creator_bid": "gateway-user", "usage_scene": BILL_USAGE_SCENE_PROD}
+    ]
+    assert claimed == [("gateway-user", request.request_id)]
+    assert len(recorded) == 1
+    context, record = recorded[0]
+    assert context.user_bid == "gateway-user"
+    assert context.request_id == request.request_id
+    assert context.billable == 1
+    assert record["model"] == model
+    assert record["status"] == 0
+    assert (
+        record["input"],
+        record["input_cache"],
+        record["output"],
+        record["total"],
+    ) == (12, 3, 2, 14)
+    assert record["extra"]["billing_source"] == "model_gateway"
+    assert record["extra"]["usage_source"] == "litellm"
+    assert "enqueue_settlement" not in record
 
 
 @pytest.mark.parametrize("stream", [False, True])
