@@ -86,7 +86,6 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
         task_cls=FlaskTask,
         include=(
             "flaskr.service.billing.tasks",
-            "flaskr.service.tts.tasks",
             "flaskr.service.user.tasks",
         ),
     )
@@ -138,7 +137,6 @@ def _build_celery_config(flask_app: Flask) -> dict[str, object]:
         "timezone": flask_app.config.get("TZ", "UTC"),
         "imports": (
             "flaskr.service.billing.tasks",
-            "flaskr.service.tts.tasks",
             "flaskr.service.user.tasks",
         ),
         "beat_schedule": _build_billing_beat_schedule(flask_app),
@@ -261,7 +259,6 @@ def _load_flask_app() -> Flask:
 
 def _register_default_tasks() -> None:
     importlib.import_module("flaskr.service.billing.tasks")
-    importlib.import_module("flaskr.service.tts.tasks")
     importlib.import_module("flaskr.service.user.tasks")
 
 

@@ -28,8 +28,6 @@ Implementation and architecture decisions that shape repository behavior live he
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-08-17` | Canonical: `true`
 - [Learner follow-up input shortcuts](../design-docs/learner-follow-up-input-shortcuts.md)
   - Status: `implemented` | Owner: `learner-web` | Last reviewed: `2026-09-04` | Canonical: `true`
-- [MiniMax Voice Cloning](../design-docs/minimax-voice-cloning.md)
-  - Status: `proposed` | Owner: `shared` | Last reviewed: `2026-06-18` | Canonical: `true`
 - [Native China Payments](../design-docs/native-cn-payments.md)
   - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Official Client Model Gateway](../design-docs/official-client-model-gateway.md)

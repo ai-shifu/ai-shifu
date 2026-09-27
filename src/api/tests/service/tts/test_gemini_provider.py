@@ -229,7 +229,6 @@ def test_provider_config_exposes_models_locked_ranges_and_voices(
     assert config.pitch.min == config.pitch.max == config.pitch.default == 0
     assert config.supports_emotion is False
     assert config.supports_custom_voice_id is False
-    assert config.supports_voice_cloning is False
     assert provider.get_default_voice_settings().voice_id == "Zephyr"
     assert provider.get_default_audio_settings().format == "mp3"
 

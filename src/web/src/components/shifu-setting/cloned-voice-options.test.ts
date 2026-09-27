@@ -1,15 +1,11 @@
 import {
   buildClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
-  executeMiniMaxVoiceAction,
-  getMiniMaxCloneSubmitBlockReason,
-  getMiniMaxRecordingElapsedSeconds,
   isValidMiniMaxCustomVoiceId,
   isValidVolcengineCustomVoiceId,
-  loadMiniMaxVoiceRefreshData,
   providerSupportsClonedVoices,
   shouldPreserveCustomMiniMaxVoice,
-} from './minimax-voice-clone';
+} from './cloned-voice-options';
 
 describe('minimax voice clone helpers', () => {
   it('validates local MiniMax custom voice ids', () => {
@@ -49,7 +45,6 @@ describe('minimax voice clone helpers', () => {
           voice_id: 'AiShifu_ready_voice',
           display_name: 'Teacher',
           status: 'ready',
-          minimax_demo_audio_url: 'https://cdn.example.com/ready.mp3',
         },
         {
           voice_bid: 'voice-2',
@@ -77,7 +72,6 @@ describe('minimax voice clone helpers', () => {
       source: 'cloned',
       disabled: false,
       voice_bid: 'voice-1',
-      minimax_demo_audio_url: 'https://cdn.example.com/ready.mp3',
     });
     expect(options[1]).toMatchObject({
       label: 'Assistant 语音clone 音色 · Processing',
@@ -159,56 +153,6 @@ describe('minimax voice clone helpers', () => {
     });
   });
 
-  it('reports MiniMax voice action failures without running success callbacks', async () => {
-    const onError = jest.fn();
-    const onSuccess = jest.fn();
-
-    const result = await executeMiniMaxVoiceAction({
-      action: jest.fn().mockRejectedValue(new Error('retry failed')),
-      onSuccess,
-      onError,
-    });
-
-    expect(result).toBe(false);
-    expect(onSuccess).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledWith(new Error('retry failed'));
-  });
-
-  it('runs MiniMax voice action success callbacks after the action succeeds', async () => {
-    const onError = jest.fn();
-    const onSuccess = jest.fn();
-
-    const result = await executeMiniMaxVoiceAction({
-      action: jest.fn().mockResolvedValue(undefined),
-      onSuccess,
-      onError,
-    });
-
-    expect(result).toBe(true);
-    expect(onSuccess).toHaveBeenCalledTimes(1);
-    expect(onError).not.toHaveBeenCalled();
-  });
-
-  it('keeps cloned voices when clone cost refresh fails', async () => {
-    const readyVoice = {
-      voice_bid: 'voice-1',
-      voice_id: 'AiShifu_ready_voice',
-      display_name: 'Ready Voice',
-      status: 'ready',
-    };
-
-    const result = await loadMiniMaxVoiceRefreshData({
-      fetchVoices: jest.fn().mockResolvedValue({ voices: [readyVoice] }),
-      fetchCloneCost: jest
-        .fn()
-        .mockRejectedValue(new Error('clone cost unavailable')),
-    });
-
-    expect(result.voices).toEqual([readyVoice]);
-    expect(result.cloneCost).toBeNull();
-    expect(result.errors).toHaveLength(1);
-  });
-
   it('requests owner-wide cloned voices without current shifu filtering', () => {
     expect(
       buildClonedVoiceListParams('minimax', '3aab99292889400f9f3c935a45ab2b0e'),
@@ -263,85 +207,5 @@ describe('minimax voice clone helpers', () => {
       manualVoiceValidator: isValidVolcengineCustomVoiceId,
     });
     expect(rejected).toHaveLength(0);
-  });
-
-  it('allows clone submission once source recording is long enough', () => {
-    expect(
-      getMiniMaxCloneSubmitBlockReason({
-        sourceFileSelected: true,
-        sourceElapsed: 12,
-        recordingKind: null,
-        submitting: false,
-        cloneInProgress: false,
-        canSubmitByCredits: true,
-      }),
-    ).toBeNull();
-  });
-
-  it('uses ten recorded seconds as the hard source-audio submit gate', () => {
-    expect(
-      getMiniMaxCloneSubmitBlockReason({
-        sourceFileSelected: true,
-        sourceElapsed: 9,
-        recordingKind: null,
-        submitting: false,
-        cloneInProgress: false,
-        canSubmitByCredits: true,
-      }),
-    ).toBe('source_recording_too_short');
-
-    expect(
-      getMiniMaxCloneSubmitBlockReason({
-        sourceFileSelected: true,
-        sourceElapsed: 10,
-        recordingKind: null,
-        submitting: false,
-        cloneInProgress: false,
-        canSubmitByCredits: true,
-      }),
-    ).toBeNull();
-  });
-
-  it('does not round source recording duration up to the ten-second gate', () => {
-    expect(getMiniMaxRecordingElapsedSeconds(1_000, 10_999)).toBe(9);
-    expect(getMiniMaxRecordingElapsedSeconds(1_000, 11_000)).toBe(10);
-    expect(getMiniMaxRecordingElapsedSeconds(1_000, 500)).toBe(0);
-  });
-
-  it('explains source audio submission blockers', () => {
-    expect(
-      getMiniMaxCloneSubmitBlockReason({
-        sourceFileSelected: false,
-        sourceElapsed: 0,
-        recordingKind: null,
-        submitting: false,
-        cloneInProgress: false,
-        canSubmitByCredits: true,
-      }),
-    ).toBe('missing_source_audio');
-
-    expect(
-      getMiniMaxCloneSubmitBlockReason({
-        sourceFileSelected: true,
-        sourceElapsed: 8,
-        recordingKind: null,
-        submitting: false,
-        cloneInProgress: false,
-        canSubmitByCredits: true,
-      }),
-    ).toBe('source_recording_too_short');
-  });
-
-  it('blocks duplicate submission while a clone job is polling', () => {
-    expect(
-      getMiniMaxCloneSubmitBlockReason({
-        sourceFileSelected: true,
-        sourceElapsed: 0,
-        recordingKind: null,
-        submitting: false,
-        cloneInProgress: true,
-        canSubmitByCredits: true,
-      }),
-    ).toBe('clone_in_progress');
   });
 });

@@ -91,6 +91,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
+- [Remove In-Product MiniMax Voice Cloning](./completed/remove-minimax-in-product-voice-cloning.md)
 - [Rename The Cook Web Directory](./completed/rename-cook-web-directory.md)
 - [Repository Knowledge Cleanup](./completed/repository-knowledge-cleanup.md)
 - [Restrict learner order actions to their owner](./completed/restrict-learner-order-actions.md)

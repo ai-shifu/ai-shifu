@@ -26,7 +26,6 @@ export interface TTSProviderConfig {
   pitch: { min: number; max: number; step: number; default: number };
   supports_emotion: boolean;
   supports_custom_voice_id?: boolean;
-  supports_voice_cloning?: boolean;
   models: { value: string; label: string }[];
   voices: { value: string; label: string; resource_id?: string }[];
   emotions: { value: string; label: string }[];

@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING, Any
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
-from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
@@ -22,9 +20,7 @@ from .bucket_categories import (
     load_billing_order_type_by_bid,
     wallet_bucket_requires_active_subscription,
 )
-from .charges import build_metric_charge
 from .consts import (
-    BILLING_METRIC_TTS_REQUEST_COUNT,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_LEDGER_ENTRY_TYPE_HOLD,
@@ -53,15 +49,6 @@ def _lock_active_creator(creator_bid: str) -> None:
     )
     if user is not None and user.deleted:
         raise_error("server.user.accountAlreadyCancelled")
-
-
-@dataclass(slots=True, frozen=True)
-class OperationCreditEstimate:
-    """Estimate credits required for one metered operation."""
-
-    consumed_credits: Decimal
-    billing_metric: int = BILLING_METRIC_TTS_REQUEST_COUNT
-    status: str = "rated"
 
 
 @dataclass(slots=True, frozen=True)
@@ -96,33 +83,6 @@ class OperationCreditReleaseResult:
     reservation_bid: str
     ledger_bid: str
     amount: Decimal
-
-
-def estimate_voice_clone_operation_credits(app: Flask) -> OperationCreditEstimate:
-    """Estimate MiniMax voice-clone cost using only configured active rates."""
-    with app.app_context():
-        now = now_utc()
-        usage = BillUsageRecord(
-            usage_type=BILL_USAGE_TYPE_TTS,
-            usage_scene=BILL_USAGE_SCENE_PREVIEW,
-            provider="minimax",
-            model="voice_clone",
-        )
-        charge = build_metric_charge(
-            usage,
-            billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
-            raw_amount=1,
-            settlement_at=now,
-        )
-        if charge is None:
-            return OperationCreditEstimate(consumed_credits=_ZERO, status="no_rate")
-        return OperationCreditEstimate(
-            consumed_credits=billing_primitives.quantize_credit_amount(
-                charge.consumed_credits
-            ),
-            billing_metric=int(charge.billing_metric),
-            status="rated",
-        )
 
 
 def reserve_operation_credits(
