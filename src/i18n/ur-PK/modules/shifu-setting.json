@@ -186,7 +186,7 @@
   "permissionEditSuccess": "اجازت کی تبدیلیاں محفوظ ہو گئیں۔",
   "permissionEmailInvalid": "براہ کرم درست ای میل ایڈریس درج کریں: {values}",
   "permissionEmailLabel": "ای میل",
-  "permissionEmailPlaceholder": "کوما یا نئی لائنوں سے الگ کرکے اپنا ای میل پتہ درج کریں۔",
+  "permissionEmailPlaceholder": "جن افراد کو مشترکہ رسائی دینی ہے، ان کے ای میل پتے درج کریں؛ انہیں کوما یا نئی لائن سے الگ کریں۔",
   "permissionEmpty": "ابھی تک اشتراک کرنے والے کوئی صارف نہیں ہیں۔",
   "permissionGrant": "کھولیں۔",
   "permissionGrantConfirmDesc": "<strong>{permission}</strong> کی اجازت مندرجہ ذیل {contactType} کے لیے کھول دی جائے گی",
