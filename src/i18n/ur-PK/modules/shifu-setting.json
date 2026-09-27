@@ -162,11 +162,11 @@
   "minimaxManualVoiceApply": "استعمال کریں",
   "minimaxManualVoiceBadge": "اپنی مرضی کے مطابق",
   "minimaxManualVoiceInvalid": "براہ کرم ایک درست MiniMax کسٹم ٹون ID درج کریں۔",
-  "minimaxManualVoiceLabel": "دستی طور پر پیچ ID کو پُر کریں۔",
+  "minimaxManualVoiceLabel": "وائس ID دستی طور پر درج کریں",
   "minimaxManualVoicePlaceholder": "MiniMax کسٹم voice_id درج کریں۔",
   "minimaxVoiceGroupBuiltIn": "بلٹ ان آوازیں۔",
   "minimaxVoiceGroupCloned": "میری کلون آواز",
-  "minimaxVoiceGroupManual": "دستی پیچ ID",
+  "minimaxVoiceGroupManual": "دستی وائس ID",
   "modelOptions": {
     "hint": "ماڈل کورس آؤٹ پٹ کی رفتار اور معیار کا تعین کرتا ہے۔",
     "liveVoice": "حقیقی وقت کی آواز",
