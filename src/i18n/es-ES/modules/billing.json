@@ -283,11 +283,15 @@
       },
       "toast": {
         "activateFailed": "No se ha podido publicar el precio",
+        "activateSuccess": "Precio publicado",
         "createFailed": "No se ha podido guardar el precio",
         "createSuccess": "Precio guardado",
         "restoreFailed": "No se ha podido devolver el precio a borrador",
+        "restoreSuccess": "Precio devuelto a borrador",
         "retireFailed": "No se ha podido retirar el precio",
-        "validateFailed": "Ha fallado la verificación del precio"
+        "retireSuccess": "Precio retirado",
+        "validateFailed": "Ha fallado la verificación del precio",
+        "validateSuccess": "Verificación del precio completada"
       }
     },
     "reports": {

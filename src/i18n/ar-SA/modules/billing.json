@@ -283,11 +283,15 @@
       },
       "toast": {
         "activateFailed": "فشل طرح السعر",
+        "activateSuccess": "تم طرح السعر",
         "createFailed": "فشل حفظ السعر",
         "createSuccess": "تم حفظ السعر",
         "restoreFailed": "فشل استعادة السعر",
+        "restoreSuccess": "تمت استعادة السعر إلى بانتظار التفعيل",
         "retireFailed": "فشل سحب السعر",
-        "validateFailed": "فشل التحقق من السعر"
+        "retireSuccess": "تم سحب السعر",
+        "validateFailed": "فشل التحقق من السعر",
+        "validateSuccess": "اكتمل التحقق من السعر"
       }
     },
     "reports": {

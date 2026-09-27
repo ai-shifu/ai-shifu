@@ -283,11 +283,15 @@
       },
       "toast": {
         "activateFailed": "Preis konnte nicht veröffentlicht werden",
+        "activateSuccess": "Preis veröffentlicht",
         "createFailed": "Speichern des Preises fehlgeschlagen",
         "createSuccess": "Preis gespeichert",
         "restoreFailed": "Preis konnte nicht wiederhergestellt werden",
+        "restoreSuccess": "Preis als Entwurf wiederhergestellt",
         "retireFailed": "Preis konnte nicht aus dem Angebot entfernt werden",
-        "validateFailed": "Preisprüfung fehlgeschlagen"
+        "retireSuccess": "Preis aus dem Angebot entfernt",
+        "validateFailed": "Preisprüfung fehlgeschlagen",
+        "validateSuccess": "Preisprüfung abgeschlossen"
       }
     },
     "reports": {

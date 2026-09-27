@@ -9,8 +9,8 @@ This repository includes a small set of scripts focused on internationalization 
     translator arguments, dynamic key templates, and shared backend namespace
     aliases. Conditional arguments and forwarded literal-union key contracts are
     included; unrelated dotted strings and translation options are excluded.
-    Dynamic templates
-    conservatively retain defined keys matching their fixed segments.
+    Dynamic templates, including multiline interpolations, conservatively retain
+    defined keys matching their fixed segments.
   - Existing messages listed in the backend runtime error-code registry are
     retained as compatibility contracts even without a current literal caller.
   - Persisted configuration can supply arbitrary keys; inspect those consumers

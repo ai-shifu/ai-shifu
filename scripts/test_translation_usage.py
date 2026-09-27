@@ -88,6 +88,37 @@ class TranslationUsageTest(unittest.TestCase):
         assert " - module.example.retired" in output
         assert " - module.example.status." not in output
 
+    def test_multiline_dynamic_templates_with_consecutive_interpolations(self) -> None:
+        self.define(
+            "module.example",
+            {"toast.activateSuccess": "Activated", "toast.activateFailed": "Failed"},
+        )
+        (self.web / "page.tsx").write_text(
+            "t(`module.example.toast.${action}${\n  failed ? 'Failed' : 'Success'\n}`);"
+        )
+        assert self.run_check()[0] == 0
+
+    def test_multiline_namespaced_templates_do_not_preserve_unrelated_keys(
+        self,
+    ) -> None:
+        self.define(
+            "module.example",
+            {
+                "toast.validateSuccess": "Valid",
+                "toast.validateFailed": "Invalid",
+                "cache.title": "Old",
+            },
+        )
+        (self.web / "page.tsx").write_text(
+            "const { t } = useTranslation('module.example');\n"
+            "t(`toast.${\n failed ? 'validateFailed' : 'validateSuccess'\n}`);\n"
+            "const cacheKey = `cache.${\n field\n}`;"
+        )
+        status, output = self.run_check()
+        assert status == 1
+        assert " - module.example.cache.title" in output
+        assert " - module.example.toast." not in output
+
     def test_namespaced_and_forwarded_relative_translators(self) -> None:
         self.define("module.example", {"save": "Save", "dialog.title": "Title"})
         (self.web / "page.tsx").write_text(

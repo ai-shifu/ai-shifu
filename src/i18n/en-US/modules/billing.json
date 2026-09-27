@@ -283,11 +283,15 @@
       },
       "toast": {
         "activateFailed": "Failed to list price",
+        "activateSuccess": "Price listed",
         "createFailed": "Failed to save price",
         "createSuccess": "Price saved",
         "restoreFailed": "Failed to restore price",
+        "restoreSuccess": "Price restored to draft",
         "retireFailed": "Failed to unlist price",
-        "validateFailed": "Price check failed"
+        "retireSuccess": "Price unlisted",
+        "validateFailed": "Price check failed",
+        "validateSuccess": "Price check finished"
       }
     },
     "reports": {

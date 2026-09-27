@@ -283,11 +283,15 @@
       },
       "toast": {
         "activateFailed": "价格上架失败",
+        "activateSuccess": "价格已上架",
         "createFailed": "价格保存失败",
         "createSuccess": "价格已保存",
         "restoreFailed": "价格恢复失败",
+        "restoreSuccess": "价格已恢复为待启用",
         "retireFailed": "价格下架失败",
-        "validateFailed": "价格校验失败"
+        "retireSuccess": "价格已下架",
+        "validateFailed": "价格校验失败",
+        "validateSuccess": "价格校验已完成"
       }
     },
     "reports": {

@@ -27,6 +27,10 @@ and product names supplied by billing data.
   Added five regressions and removed 12 newly exposed unused keys in all locales.
 - [x] 2026-09-27 UTC: Restored the registered `server.order.orderHasPaid`
   message in all locales and added error-registry coverage to the usage checker.
+- [x] 2026-09-27 UTC: Fixed multiline template-interpolation detection,
+  restored four provider-price success messages in all locales, and added two
+  regressions for multiline and consecutive interpolation syntax. Re-audited the
+  full original key inventory against runtime usage with the repaired checker.
 
 ## Surprises & Discoveries
 
@@ -42,7 +46,7 @@ and product names supplied by billing data.
   comments or inside nested templates. Match key-shaped literals independently.
 - The additional candidates belong to retired notification-template/type
   editors, old promotion summaries/advanced controls, superseded billing copy,
-  old onboarding views, and other unused UI labels. Five backend messages have
+  old onboarding views, and other unused UI labels. Four backend messages have
   no remaining literal, dynamic, alias, or producer references. Current delivery
   status/error families, billing product-name families, and `server.profile.sex*`
   remain intact.
@@ -65,7 +69,7 @@ and product names supplied by billing data.
 
 ## Outcomes & Retrospective
 
-Removed 380 unique keys (2,660 localized values) and two retired frontend
+Removed 376 unique keys (2,632 localized values) and two retired frontend
 namespaces. All remaining translation values are identical to the base commit.
 The repaired checker and its CI regressions preserve dynamic, relative, and
 aliased consumers and report no missing or unused keys without allowlists.

@@ -21,7 +21,7 @@ WEB_DIR = ROOT / "src" / "web" / "src"
 
 KEY_LITERAL = re.compile(r"(['\"`])([A-Za-z0-9_.-]+)\1")
 DYNAMIC_KEY_LITERAL = re.compile(
-    r"(['\"`])([A-Za-z][A-Za-z0-9_.-]*\.(?:(?:\$\{[^}\n]*\}|\{[^}\n]*\})|[A-Za-z0-9_.-])+)\1"
+    r"(['\"`])([A-Za-z][A-Za-z0-9_.-]*\.(?:(?:\$\{[^}]*\}|\{[^}]*\})|[A-Za-z0-9_.-])+)\1"
 )
 TRANSLATION_KEY_LITERAL = re.compile(
     r"^(?:common|component|module|server)\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+$"

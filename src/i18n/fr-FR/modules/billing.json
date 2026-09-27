@@ -283,11 +283,15 @@
       },
       "toast": {
         "activateFailed": "Échec de la mise en ligne du prix",
+        "activateSuccess": "Prix mis en ligne",
         "createFailed": "Échec de l’enregistrement",
         "createSuccess": "Prix enregistré",
         "restoreFailed": "Échec de la restauration du prix",
+        "restoreSuccess": "Prix restauré en brouillon",
         "retireFailed": "Échec du retrait du prix",
-        "validateFailed": "Échec du contrôle"
+        "retireSuccess": "Prix retiré",
+        "validateFailed": "Échec du contrôle",
+        "validateSuccess": "Contrôle du prix terminé"
       }
     },
     "reports": {

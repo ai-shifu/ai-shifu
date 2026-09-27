@@ -283,11 +283,15 @@
       },
       "toast": {
         "activateFailed": "เผยแพร่ราคาไม่สำเร็จ",
+        "activateSuccess": "เผยแพร่ราคาแล้ว",
         "createFailed": "บันทึกราคาไม่สำเร็จ",
         "createSuccess": "บันทึกราคาแล้ว",
         "restoreFailed": "คืนสถานะราคาไม่สำเร็จ",
+        "restoreSuccess": "คืนสถานะราคาเป็นรอเปิดใช้แล้ว",
         "retireFailed": "ถอดราคาออกไม่สำเร็จ",
-        "validateFailed": "ตรวจสอบราคาไม่สำเร็จ"
+        "retireSuccess": "ถอดราคาออกแล้ว",
+        "validateFailed": "ตรวจสอบราคาไม่สำเร็จ",
+        "validateSuccess": "ตรวจสอบราคาเสร็จแล้ว"
       }
     },
     "reports": {
