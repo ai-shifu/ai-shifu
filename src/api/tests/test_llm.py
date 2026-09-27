@@ -1073,7 +1073,7 @@ def test_stream_litellm_completion_falls_back_to_litellm_limit(
 
 @pytest.mark.parametrize(
     ("requested_max_tokens", "expected_max_tokens"),
-    [(None, 131072), (4096, 4096), (200000, 131072)],
+    [(None, 131072), (4096, 4096)],
 )
 def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
     monkeypatch: object,
@@ -2746,10 +2746,7 @@ def _patch_scripted_streams(monkeypatch: object, scripts: object) -> object:
         _messages: object,
         _params: object,
         _kwargs: object,
-        *,
-        default_to_model_limit: bool = True,
     ) -> object:
-        _ = default_to_model_limit
         script = scripts[min(calls["count"], len(scripts) - 1)]
         calls["count"] += 1
 
@@ -2977,7 +2974,7 @@ def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> 
     assert "native gateway fallback passed" in completed.stdout
 
 
-def test_gateway_token_count_preserves_provider_default_output_limit(
+def test_gateway_token_count_uses_known_output_limit_as_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -2999,14 +2996,14 @@ def test_gateway_token_count_preserves_provider_default_output_limit(
         )
         == 12
     )
-    assert llm.resolve_llm_max_output_tokens("rated-model") is None
+    assert llm.resolve_llm_max_output_tokens("rated-model") == 8192
     assert llm.resolve_llm_max_output_tokens("rated-model", 2048) == 2048
 
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"small-model": 2048})
-    assert llm.resolve_llm_max_output_tokens("small-model") is None
+    assert llm.resolve_llm_max_output_tokens("small-model") == 2048
 
 
-def test_gateway_stream_retries_keep_provider_default_with_a_known_ceiling(
+def test_shared_stream_retries_keep_known_ceiling_as_default(
     monkeypatch: pytest.MonkeyPatch, app: object
 ) -> None:
     _patch_retryable_stream_errors(monkeypatch)
@@ -3034,12 +3031,11 @@ def test_gateway_stream_retries_keep_provider_default_with_a_known_ceiling(
             [],
             {},
             {},
-            default_to_model_limit=False,
         )
     )
     assert chunks[0].choices[0].delta.content == "ok"
     assert len(captured) == 2
-    assert all("max_tokens" not in call for call in captured)
+    assert all(call["max_tokens"] == 16384 for call in captured)
     assert all("default_to_model_limit" not in call for call in captured)
 
 
@@ -3161,7 +3157,10 @@ def test_gateway_optional_limits_reaches_provider_and_records_actual_usage(
     assert captured["model"] == invoke_model
     assert captured["stream"] is stream
     if requested in (None, "omitted"):
-        assert "max_tokens" not in captured
+        if limit is None:
+            assert "max_tokens" not in captured
+        else:
+            assert captured["max_tokens"] == limit
     else:
         assert captured["max_tokens"] == requested
     assert "default_to_model_limit" not in captured
@@ -3495,6 +3494,64 @@ def _use_fake_provider(monkeypatch: object) -> None:
     )
     monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
     monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+
+
+@pytest.mark.parametrize("method", ["invoke_llm", "chat_llm"])
+@pytest.mark.parametrize("metadata", ["configured", "catalogue", "unknown"])
+@pytest.mark.parametrize("requested", ["omitted", None, 32])
+def test_learning_calls_share_gateway_output_token_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    method: str,
+    metadata: str,
+    requested: object,
+) -> None:
+    """Exercise learning entry points with the same optional-limit policy."""
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm,
+        "MODEL_MAX_OUTPUT_TOKENS",
+        {"gpt-test": 16384} if metadata == "configured" else {},
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_max_tokens",
+        lambda _model: 8192 if metadata == "catalogue" else None,
+    )
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
+    captured = {}
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("reply", content="ok", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    arguments = {
+        "app": app,
+        "user_id": "learning-user",
+        "span": DummySpan(),
+        "model": "gpt-test",
+    }
+    if requested != "omitted":
+        arguments["max_tokens"] = requested
+    if method == "invoke_llm":
+        list(llm.invoke_llm(message="hello", **arguments))
+    else:
+        list(llm.chat_llm(messages=[{"role": "user", "content": "hello"}], **arguments))
+    expected = llm.resolve_llm_max_output_tokens(
+        "gpt-test", None if requested == "omitted" else requested
+    )
+    if requested == 32:
+        assert expected == 32
+    else:
+        assert (
+            expected
+            == {"configured": 16384, "catalogue": 8192, "unknown": None}[metadata]
+        )
+    if expected is None:
+        assert "max_tokens" not in captured
+    else:
+        assert captured["max_tokens"] == expected
 
 
 def _tool_call_chunk(

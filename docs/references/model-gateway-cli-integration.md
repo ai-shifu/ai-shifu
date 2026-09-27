@@ -250,14 +250,17 @@ request fields are `temperature`, `top_p`, `stop`, `seed`, `presence_penalty`,
 `parallel_tool_calls`.
 
 `max_tokens` must be a positive JSON integer (booleans, strings and fractions
-are rejected). If omitted or `null`, the gateway omits the output-token option in
-both completion modes, leaving the provider/adapter to choose its default. It does
-not inject a fixed application default or the model's known ceiling as a default.
+are rejected). Gateway and learning calls share the same output-token policy.
+If omitted or `null`, use the known model output limit as the default; if no valid
+limit is known, omit the option and let the provider/adapter choose its default.
+The same rule applies to streaming and non-streaming calls, with no fixed 4096
+application allowance or gateway-specific default switch.
 An explicit value above a known limit is rejected rather than silently changed.
 Limits come from the optional `LLM_MODEL_MAX_OUTPUT_TOKENS`
 mapping of full routed model IDs, then valid LiteLLM metadata. Missing or invalid
 LiteLLM limits do not make an otherwise eligible model unavailable: a valid
-explicit value is forwarded unchanged, and an omitted value remains omitted.
+explicit value is forwarded unchanged, and an omitted value remains omitted when
+no valid model limit is known.
 The provider remains responsible for enforcing limits unknown to the gateway.
 
 The request body is limited to 1 MiB, with at most 256 messages and 128 tools.

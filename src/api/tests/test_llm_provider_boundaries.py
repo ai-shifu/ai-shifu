@@ -303,10 +303,7 @@ def test_gateway_allows_models_without_a_known_positive_limit(
     )
     monkeypatch.setattr(llm.litellm, "get_max_tokens", get)
     assert llm.resolve_llm_max_output_tokens("model", requested) == expected
-    if requested is None:
-        get.assert_not_called()
-    else:
-        get.assert_called_once_with("upstream-model")
+    get.assert_called_once_with("upstream-model")
 
 
 @pytest.mark.usefixtures("gateway")
@@ -332,7 +329,7 @@ def test_gateway_uses_valid_litellm_ceiling_when_config_is_absent(
     monkeypatch: pytest.MonkeyPatch, limit: int
 ) -> None:
     monkeypatch.setattr(llm.litellm, "get_max_tokens", Mock(return_value=limit))
-    assert llm.resolve_llm_max_output_tokens("model") is None
+    assert llm.resolve_llm_max_output_tokens("model") == limit
     assert llm.resolve_llm_max_output_tokens("model", limit) == limit
     with pytest.raises(AppError):
         llm.resolve_llm_max_output_tokens("model", limit + 1)
@@ -394,6 +391,58 @@ def test_shared_stream_ignores_invalid_metadata_and_preserves_caller_tokens(
         assert "max_tokens" not in complete.call_args.kwargs
     else:
         assert complete.call_args.kwargs["max_tokens"] == requested
+
+
+@pytest.mark.usefixtures("gateway")
+@pytest.mark.parametrize(
+    "method",
+    [
+        "invoke_llm",
+        "chat_llm",
+        "stream_openai_chat_completion",
+        "complete_openai_chat_completion",
+    ],
+)
+@pytest.mark.parametrize("requested", [True, False, 0, -1, "100", 1.5, 1025])
+def test_all_completion_paths_reject_invalid_limits_before_provider_call(
+    monkeypatch: pytest.MonkeyPatch, app: object, method: str, requested: object
+) -> None:
+    """Shared validation must not send invalid or excessive budgets upstream."""
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"model": 1024})
+    complete = Mock()
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    monkeypatch.setattr(llm, "record_llm_usage", Mock())
+    reject = Mock(wraps=llm.raise_error_with_args)
+    monkeypatch.setattr(llm, "raise_error_with_args", reject)
+    arguments = {
+        "app": app,
+        "user_id": "user",
+        "span": Mock(),
+        "model": "model",
+        "max_tokens": requested,
+    }
+    if method == "invoke_llm":
+        arguments["message"] = "hello"
+    else:
+        arguments["messages"] = [{"role": "user", "content": "hello"}]
+    if "openai" in method:
+        arguments.update(request_id="invalid-budget", fallback_input_tokens=12)
+
+    def invoke() -> None:
+        result = getattr(llm, method)(**arguments)
+        if method != "complete_openai_chat_completion":
+            list(result)
+
+    with pytest.raises(AppError):
+        invoke()
+    reject.assert_called_once_with(
+        "server.llm.requestFailed",
+        model="model",
+        message="max_tokens exceeds model limit 1024"
+        if requested == 1025
+        else "max_tokens",
+    )
+    complete.assert_not_called()
 
 
 @pytest.mark.usefixtures("gateway")

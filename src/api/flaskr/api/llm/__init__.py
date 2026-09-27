@@ -426,25 +426,9 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
-    *,
-    default_to_model_limit: bool = True,
 ) -> object:
+    _apply_llm_max_output_tokens(requested_model, model, kwargs)
     try:
-        max_tokens = (
-            _get_llm_max_output_tokens(requested_model, model)
-            if default_to_model_limit or kwargs.get("max_tokens") is not None
-            else None
-        )
-        if max_tokens is not None:
-            requested_max_tokens = kwargs.get("max_tokens")
-            if (
-                isinstance(requested_max_tokens, int)
-                and not isinstance(requested_max_tokens, bool)
-                and requested_max_tokens > 0
-            ):
-                kwargs["max_tokens"] = min(requested_max_tokens, max_tokens)
-            else:
-                kwargs["max_tokens"] = max_tokens
         app.logger.info(
             "stream_litellm_completion: %s %s %s %s", model, messages, params, kwargs
         )
@@ -497,7 +481,6 @@ def _iter_stream_with_precontent_retry(
     kwargs: dict,
     *,
     tool_calls_are_output: bool = False,
-    default_to_model_limit: bool = True,
 ) -> Generator[ModelResponseStream, None, None]:
     """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
 
@@ -513,9 +496,6 @@ def _iter_stream_with_precontent_retry(
     `tool_calls_are_output` extends "content" to tool-call fragments. A caller reading those
     (`chat_llm(..., emit_tool_calls=True)`) has already been handed them, so replaying the request
     would deliver the same arguments twice and could run one tool call as two.
-
-    `default_to_model_limit=False` keeps an omitted output-token option omitted
-    across retries, allowing gateway requests to use provider defaults.
     """
     attempts = 0
     while True:
@@ -526,7 +506,6 @@ def _iter_stream_with_precontent_retry(
             messages,
             params,
             kwargs,
-            default_to_model_limit=default_to_model_limit,
         )
         saw_content = False
         pending_reasoning_chunks = []
@@ -1651,12 +1630,18 @@ def count_llm_chat_input_tokens(
 
 
 def resolve_llm_max_output_tokens(model: str, requested: object = None) -> int | None:
-    """Validate gateway output tokens against an optional known model ceiling."""
+    """Validate routed output tokens with the same policy as learning calls."""
     params, invoke_model, _provider_key = get_litellm_params_and_model(model)
     if not params:
         raise_error_with_args("server.llm.modelNotSupported", model=model)
+    return _resolve_llm_max_output_tokens(model, invoke_model, requested)
+
+
+def _resolve_llm_max_output_tokens(
+    model: str, invoke_model: str, requested: object
+) -> int | None:
     if requested is None:
-        return None
+        return _get_llm_max_output_tokens(model, invoke_model)
     if not isinstance(requested, int) or isinstance(requested, bool) or requested <= 0:
         raise_error_with_args(
             "server.llm.requestFailed", model=model, message="max_tokens"
@@ -1669,6 +1654,18 @@ def resolve_llm_max_output_tokens(model: str, requested: object = None) -> int |
             message=f"max_tokens exceeds model limit {configured}",
         )
     return requested
+
+
+def _apply_llm_max_output_tokens(
+    model: str, invoke_model: str, kwargs: dict[str, object]
+) -> None:
+    resolved = _resolve_llm_max_output_tokens(
+        model, invoke_model, kwargs.get("max_tokens")
+    )
+    if resolved is None:
+        kwargs.pop("max_tokens", None)
+    else:
+        kwargs["max_tokens"] = resolved
 
 
 def _gateway_output_token_count(invoke_model: str, output: str) -> int:
@@ -1808,6 +1805,7 @@ def complete_openai_chat_completion(
 
     completion_kwargs = dict(kwargs)
     completion_kwargs.pop("stream", None)
+    _apply_llm_max_output_tokens(requested_model, invoke_model, completion_kwargs)
     completion_kwargs = _prepare_litellm_request_kwargs(
         provider_key or "",
         invoke_model,
@@ -1926,7 +1924,6 @@ def stream_openai_chat_completion(
             messages,
             params,
             stream_kwargs,
-            default_to_model_limit=False,
         )
         for chunk in response:
             chunk_usage = getattr(chunk, "usage", None)

@@ -23,6 +23,8 @@ is outside this task. The durable parameter contract lives in
 - [x] 2026-09-27 UTC: Complete repository gates and review the final diff.
 - [x] 2026-09-27 UTC: Follow-up: preserve provider defaults for omitted/null tokens
   and verify both modes, known/unknown ceilings and streaming retries.
+- [x] 2026-09-27 UTC: Unify gateway and learning output-token resolution,
+  remove gateway-specific defaults flags and validate 752 relevant tests.
 
 ## Surprises & Discoveries
 
@@ -42,6 +44,14 @@ registration must stay independent of output limits.
 - 2026-09-27 UTC: Preserve course streaming behavior: apply a known ceiling and
   omit the option when neither a ceiling nor a caller value exists.
 - 2026-09-27 UTC: Reuse current HTTP validation/error and billing contracts.
+- 2026-09-27 UTC: Unification follow-up: both surfaces should use the same
+  output-token resolver. The user chose the learning default policy: known
+  ceilings are defaults and unknown ceilings leave the option omitted. This
+  supersedes the prior gateway-only provider-default policy. Explicit invalid
+  or excessive values are rejected by the shared resolver in both surfaces.
+  Learning calls previously clamped excessive values or replaced invalid values
+  when a ceiling existed; these now fail before provider invocation. Normal
+  learning calls omit this option and retain their default behavior.
 
 ## Outcomes & Retrospective
 
@@ -55,10 +65,15 @@ validation, architecture boundaries and repository harness pass. Existing audioo
 and Pydantic deprecation warnings remain. Local LiteLLM and MarkdownFlow had to be
 aligned to their existing requirements pins before the full selection could pass.
 No production call or deployment was performed or required for acceptance.
-Follow-up validation passes 502 tests. Omitted/null gateway values stay absent
-for known and unknown ceilings in both modes and across pre-content stream retries.
-Native mocked HTTP confirms no max_tokens/max_completion_tokens field is sent for
-null gateway values by OpenAI and DashScope. Existing course defaults remain intact.
+The intermediate provider-default follow-up passed 502 tests. The final shared
+policy supersedes that default and passes 752 tests: both learning entry points
+and both gateway modes use known ceilings by default and omit unknown limits.
+Streaming retries retain the resolved default. All four completion entry points
+reject invalid/excessive explicit values before provider invocation. Native
+mocked HTTP confirms no max_tokens/max_completion_tokens field is sent for null
+gateway values when metadata is unknown, for OpenAI and DashScope. Additional
+learning context, ask-provider and agent-adapter regressions pass. Existing
+course defaults remain intact; no gateway-specific output policy flag remains.
 
 ## Context and Orientation
 
@@ -97,8 +112,9 @@ to restore the earlier metadata requirement.
 
 ## Interfaces and Dependencies
 
-`resolve_llm_max_output_tokens(model, requested)` returns a positive integer for
-an explicit valid request and `None` for omitted/null values. Preparation omits
-the option in the latter case, and gateway streaming disables implicit ceiling
-defaults across retries. Its metadata lookup is optional. No new package or environment
+`resolve_llm_max_output_tokens(model, requested)` uses a shared resolver that
+returns a valid explicit value, a known ceiling for omitted/null input, or None
+when neither is available. The same resolver prepares learning streams, gateway
+streams, gateway preparation and non-streaming completions, with no policy flag.
+Its metadata lookup is optional. No new package or environment
 variable is introduced. Existing LiteLLM registration and billing APIs stay intact.
