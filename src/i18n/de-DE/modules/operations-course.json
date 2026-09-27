@@ -241,9 +241,9 @@
       "turnIndexHelp": "Die Reihenfolge der Rückfragen richtet sich nach ihrem Zeitpunkt innerhalb desselben Lernverlaufs."
     },
     "learningPermission": {
-      "free": "Frei",
+      "free": "Kostenlos",
       "guest": "Kein Login",
-      "paid": "Bezahlt",
+      "paid": "Kostenpflichtig",
       "unknown": "Unbekannt"
     },
     "metrics": "Metrik",

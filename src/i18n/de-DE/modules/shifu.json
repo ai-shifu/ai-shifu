@@ -31,7 +31,7 @@
     "copy": "Abschnitt kopieren",
     "copyTooltip": "Fügen Sie diesen Abschnitt links in die Lehranweisungen ein. Beim nächsten Test wird er verwendet.",
     "description": "Erleben Sie die Sicht der Lernenden und prüfen Sie, wie die Lehranweisungen den Kurs personalisieren.",
-    "disabled": "Wählen Sie vor dem Debuggen eine Einheit aus.",
+    "disabled": "Wählen Sie eine bestimmte Lektion aus, bevor Sie den Test starten.",
     "empty": "Geben Sie links Lehranweisungen ein und klicken Sie auf „Testen“, um die Lernsimulation zu starten.",
     "loading": "Lernsimulation wird erstellt …",
     "open": "Lernsimulation erweitern",

@@ -132,6 +132,7 @@
 | `docs/exec-plans/completed/safe-outbound-url-validation.md` | Safe Outbound URL Validation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/spanish-es-es-localization.md` | Spanish (Spain) Product Localization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/stripe-payment-sync-security.md` | Secure learner Stripe payment synchronization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/translation-source-review.md` | Review product translations against the Chinese source | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/trusted-client-ip.md` | Trusted Client IP Resolution | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/tts-provider-capabilities.md` | TTS Provider Capabilities | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/umami-contract-remediation.md` | Remediate Cook Web Umami contracts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |

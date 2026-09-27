@@ -6,7 +6,7 @@
   "gender": {
     "female": "Female",
     "male": "Male",
-    "secret": "Secret"
+    "secret": "Prefer not to say"
   },
   "login": "Login",
   "loginMainButton": "Login/Register",

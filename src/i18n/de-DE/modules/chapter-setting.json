@@ -6,7 +6,7 @@
   "chapterPrompt": "Kapitel-Prompt",
   "chapterPromptHint": "Legen Sie fest, welche Inhalte für dieses Kapitel erstellt werden, für wen sie bestimmt sind, welchen Ton sie haben und welche Vorgaben gelten.",
   "chapterSettingsTitle": "Kapiteleinstellungen",
-  "free": "Frei",
+  "free": "Kostenlos",
   "guest": "Login-frei",
   "hidden": "Versteckt",
   "isHidden": "Sichtbarkeit",
@@ -17,7 +17,7 @@
   "lessonPromptHint": "Legen Sie fest, welche Inhalte für diese Lektion erstellt werden, für wen sie bestimmt sind, welchen Ton sie haben und welche Vorgaben gelten.",
   "lessonPromptPlaceholder": "Optionaler Prompt für diese Lektion. Wenn das Feld leer bleibt, gelten die Vorgaben aus dem Kapitel-Prompt.",
   "lessonSettingsTitle": "Lektionseinstellungen",
-  "paid": "Bezahlt",
+  "paid": "Kostenpflichtig",
   "promptPlaceholder": "Prompt eingeben",
   "visible": "Sichtbar"
 }

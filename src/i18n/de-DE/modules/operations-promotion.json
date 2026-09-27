@@ -148,7 +148,7 @@
     "packageCampaignProviderPublished": "Mit Stripe synchronisiert",
     "packageCampaignProviderRetired": "Stripe-Rabatt gestoppt",
     "packageCampaignProviderRetried": "Stripe resync gestartet",
-    "packageCampaignProviderSyncRequired": "Diese Rabatt-Kampagne ist noch nicht vollständig mit Stripe synchronisiert. Synchronisieren Sie sie mit Stripe, bevor Sie sie aktivieren.",
+    "packageCampaignProviderSyncRequired": "Diese Rabattkampagne ist noch nicht vollständig mit Stripe synchronisiert. Synchronisieren Sie sie mit Stripe und bestätigen Sie die erfolgreiche Synchronisierung, bevor Sie die Kampagne aktivieren.",
     "referralCampaignDisabledSuccess": "Einladungskampagne deaktiviert",
     "referralCampaignEnabledSuccess": "Einladungskampagne aktiviert",
     "statusUpdated": "Status aktualisiert",
@@ -213,7 +213,7 @@
   },
   "referralCampaign": {
     "advancedSettings": "Erweiterte Einstellungen",
-    "advancedSettingsHelper": "Die erweiterten Einstellungen werden derzeit über Systemstandards verwaltet. Wenden Sie sich an das Entwicklungsteam, wenn Sie Feature-Flags oder besondere Teilnahmebedingungen benötigen.",
+    "advancedSettingsHelper": "Die erweiterten Einstellungen werden derzeit über Systemstandards verwaltet. Das Betriebsteam sollte sie nicht direkt ändern. Wenden Sie sich für eine schrittweise Freischaltung oder besondere Teilnahmebedingungen an das Entwicklungsteam.",
     "cap": "Prämienobergrenze",
     "capCount": "Maximale Anzahl von Prämien",
     "capCountPlaceholder": "Maximale Anzahl eingeben",

@@ -33,7 +33,7 @@
     "emailVerificationTitle": "Bestätigen Sie Ihr AI-Shifu-Konto",
     "googleOAuthStateInvalid": "Der Google-Anmeldestatus ist abgelaufen oder ungültig. Bitte versuchen Sie es erneut.",
     "invalidCredentials": "Falsches Passwort",
-    "ipBanned": "Anfragen aus dieser IP werden vorübergehend blockiert",
+    "ipBanned": "Zu viele Anfragen von dieser IP-Adresse. Der Zugriff wurde vorübergehend gesperrt.",
     "languageNotFound": "Die Spracheinstellung ist ungültig.",
     "login": "Anmelden",
     "mailCheckError": "Der E-Mail-Bestätigungscode ist falsch.",

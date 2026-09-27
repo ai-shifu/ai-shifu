@@ -10,7 +10,7 @@
       "title": "Zurück zur Kursliste"
     },
     "listenMode": {
-      "description": "Wenn sie an ist, können die Lernenden diesen Kurs mit Dias und Stimme studieren.",
+      "description": "Wenn der Hörmodus aktiviert ist, können Lernende diesen Kurs mit Folien und Audio verfolgen.",
       "title": "Hörmodus umschalten"
     },
     "publish": {

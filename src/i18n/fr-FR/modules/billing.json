@@ -316,62 +316,62 @@
       },
       "attentionReasons": {
         "active_production": "Usage en production actif",
-        "debug_preview_heavy": "Debug et preview dominants",
-        "high_consumption": "Consommation elevee",
-        "high_frequency": "Appels frequents",
-        "rapid_growth": "Croissance rapide",
-        "sustained_activity": "Actif sur 3+ jours recents"
+        "debug_preview_heavy": "Consommation élevée en débogage",
+        "high_consumption": "Consommation élevée",
+        "high_frequency": "Appels fréquents",
+        "rapid_growth": "Consommation en forte hausse",
+        "sustained_activity": "Activité soutenue sur les 7 derniers jours"
       },
-      "description": "Resume les enseignants avec une consommation recente, une activite ou une structure d usage inhabituelle afin de prioriser le suivi operationnel.",
-      "empty": "Aucun enseignant ne necessite un suivi prioritaire pour le moment.",
-      "emptyHint": "Les enseignants apparaissent apres une consommation elevee, des appels frequents, une activite production, une part debug elevee, une activite soutenue ou une croissance rapide.",
+      "description": "Recense les enseignants dont la consommation récente, l’activité ou la répartition des usages est inhabituelle, afin d’aider les équipes opérationnelles à prioriser le suivi.",
+      "empty": "Aucun enseignant ne nécessite un suivi prioritaire pour le moment.",
+      "emptyHint": "Les enseignants sont affichés lorsqu’ils remplissent au moins une condition : consommation élevée, appels fréquents, usage actif en production, forte part de débogage, activité soutenue ou consommation en forte hausse.",
       "filters": {
-        "active_production": "Production active",
-        "all": "Tous les prioritaires",
-        "debug_preview_heavy": "Debug dominant",
-        "rapid_growth": "Croissance rapide"
+        "active_production": "Usage actif en production",
+        "all": "Tous les enseignants à suivre",
+        "debug_preview_heavy": "Consommation élevée en débogage",
+        "rapid_growth": "Consommation en forte hausse"
       },
       "sections": {
         "usage": {
-          "description": "Seuls les enseignants qui declenchent des regles de suivi sont affiches. Tri possible par croissance, part de debug ou consommation sur 30 j.",
-          "title": "Enseignants a suivre"
+          "description": "Seuls les enseignants remplissant les conditions de suivi sont affichés. Triez par croissance, part de débogage ou consommation des 30 derniers jours.",
+          "title": "Enseignants à suivre"
         }
       },
       "sort": {
         "label": "Trier par",
         "options": {
-          "credits_30d": "Credits sur 30 j",
-          "debug_ratio": "Part de debug",
-          "growth": "Priorite a la croissance"
+          "credits_30d": "Consommation des 30 derniers jours",
+          "debug_ratio": "Part de débogage",
+          "growth": "Croissance en priorité"
         }
       },
       "summary": {
         "activeTeachers7d": "Encore actifs sur 7 j",
-        "activeTeachers7dHint": "Enseignants suivis avec des usages sur les 7 derniers jours",
-        "debugHeavyCount": "Debug dominant",
-        "debugHeavyCountHint": "Enseignants dont le debug/preview est eleve sur 30 j",
-        "focusCount": "Enseignants a examiner",
-        "focusCountHint": "Declenche une ou plusieurs regles de suivi d usage",
-        "totalCredits": "Credits 30 j des suivis",
-        "totalCreditsHint": "Total 30 j des enseignants actuellement affiches"
+        "activeTeachers7dHint": "Enseignants suivis ayant des consommations enregistrées au cours des 7 derniers jours",
+        "debugHeavyCount": "Part de débogage élevée",
+        "debugHeavyCountHint": "Enseignants dont la part de consommation en débogage ou aperçu est élevée sur les 30 derniers jours",
+        "focusCount": "Nombre d’enseignants à suivre",
+        "focusCountHint": "Remplit au moins une condition de suivi de la consommation",
+        "totalCredits": "Consommation des enseignants suivis sur 30 jours",
+        "totalCreditsHint": "Consommation cumulée des enseignants actuellement suivis sur les 30 derniers jours"
       },
       "table": {
         "actions": "Actions",
         "activeDays7d": "Jours actifs sur 7 j",
-        "attentionReasons": "Regles de suivi",
-        "attentionReasonsMore": "{count} elements",
+        "attentionReasons": "Conditions de suivi",
+        "attentionReasonsMore": "{count} éléments",
         "creator": "Enseignant",
-        "credits30d": "Credits sur 30 j",
-        "credits30dBreakdown": "Production {production} · Debug/preview {debugPreview}",
-        "credits30dDebugPreview": "Debug/preview {debugPreview}",
+        "credits30d": "Consommation sur 30 jours",
+        "credits30dBreakdown": "Production {production} · Débogage/aperçu {debugPreview}",
+        "credits30dDebugPreview": "Débogage/aperçu {debugPreview}",
         "credits30dProduction": "Production {production}",
-        "credits7d": "Credits sur 7 j",
-        "latestActivity": "Derniere activite",
+        "credits7d": "Consommation sur 7 jours",
+        "latestActivity": "Dernière activité",
         "latestActivityHint": "Actif {days} jours sur les 7 derniers jours",
-        "productionRatio": "Part de credits production",
+        "productionRatio": "Part de consommation en production",
         "recordCount7d": "Appels sur 7 j"
       },
-      "title": "Synthese du suivi d usage"
+      "title": "Vue d’ensemble des usages à suivre"
     },
     "subscriptions": {
       "description": "Consultez les abonnements a suivre, avec le solde de credits et les actions a venir.",
@@ -436,7 +436,7 @@
   },
   "capabilities": {
     "description": "Cette zone résume les modules directement utilisables dans le back-office marque et paiements. À configurer signifie que le code existe mais reste désactivé par défaut. Flux interne signifie que la capacité ne vit que dans des tâches, compensations ou outils ops et ne s’affiche pas comme fonction de page.",
-    "fallbackDescription": "Le statut des capacités est suivi depuis le grand livre de facturation.",
+    "fallbackDescription": "Le statut des fonctionnalités est défini par le registre des fonctionnalités de facturation.",
     "fallbackTitle": "Capacité de facturation",
     "items": {
       "adminEntitlements": {
@@ -473,7 +473,7 @@
       },
       "creatorWalletLedger": {
         "description": "Les réserves de crédits du compte et les modèles de lecture du grand livre restent activés.",
-        "title": "Compte créateur et grand livre"
+        "title": "Compte enseignant et registre des crédits"
       },
       "dailyAggregateRebuild": {
         "description": "Les flux de reconstruction et finalisation des agrégats quotidiens restent internes uniquement.",
@@ -1059,7 +1059,7 @@
   },
   "renewal": {
     "eventType": {
-      "cancelEffective": "Annuler effective",
+      "cancelEffective": "Annulation effective",
       "downgradeEffective": "Rétrogradation effective",
       "expire": "Expiration",
       "reconcile": "Rapprochement",
@@ -1107,7 +1107,7 @@
   "result": {
     "countdown": "Redirection vers le centre de facturation dans {seconds} s",
     "errorTitle": "Échec de la synchronisation de facturation",
-    "missingOrder": "Commande de facturation introuvable. Ouvrez le centre de facturation et réessayez depuis votre liste de commandes.",
+    "missingOrder": "Le numéro de commande de facturation est manquant. Retournez au centre des abonnements et relancez la synchronisation depuis la liste des commandes.",
     "openBilling": "Ouvrir le centre de facturation",
     "pending": "Le paiement est encore en cours de traitement. Vous pourrez réessayer la synchronisation dans un instant.",
     "pendingTitle": "En attente de confirmation de facturation",
@@ -1140,7 +1140,7 @@
   },
   "status": {
     "active": "Actif",
-    "cancelScheduled": "Annuler scheduled",
+    "cancelScheduled": "Annulation programmée",
     "canceled": "Annulé",
     "draft": "Brouillon",
     "expired": "Expiré",

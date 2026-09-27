@@ -36,7 +36,7 @@
     "reload": "Neu laden",
     "restartPreview": "Vorschau neu starten",
     "save": "Einstellungen speichern",
-    "saveCacheRefreshPending": "Gespeichert, aber neue Sitzungen können vorübergehend die vorherige Version verwenden.",
+    "saveCacheRefreshPending": "Gespeichert, aber neue Sitzungen können vorübergehend die vorherige Version verwenden. Bitte speichern Sie später erneut.",
     "saveFailed": "Speichern fehlgeschlagen. Ihre Änderungen sind weiterhin vorhanden. Bitte versuchen Sie es erneut.",
     "saveSuccess": "Die interaktiven Fragen und der KI-Antwortprompt wurden gespeichert. Neue Personalisierungssitzungen verwenden ab jetzt die neueste Version.",
     "title": "Personalisierungseinstellungen",

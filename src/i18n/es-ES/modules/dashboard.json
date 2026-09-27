@@ -170,7 +170,7 @@
         "averageScore": "Valoración media",
         "latestRatedAt": "Última valoración",
         "ratingCount": "Número de valoraciones",
-        "scopeHint": "Consulta las valoraciones y los comentarios de los alumnos sobre las lecciones para detectar cambios de satisfacción y contenidos que conviene mejorar.",
+        "scopeHint": "Consulta las valoraciones y los comentarios de los alumnos sobre las lecciones para evaluar su satisfacción con el curso e identificar contenidos que conviene mejorar.",
         "userCount": "Alumnos que han valorado el curso"
       },
       "table": {

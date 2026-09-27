@@ -17,7 +17,7 @@
       "unsettled_payment": "Resuelve los {count} pedidos sin liquidar antes de dar de baja esta cuenta."
     },
     "confirm": "Dar de baja la cuenta",
-    "confirmDescription": "La cuenta {user} se dará de baja de forma permanente.",
+    "confirmDescription": "La cuenta {user} se dará de baja de forma permanente. Revisa de nuevo la cuenta y el motivo. Una vez enviada la solicitud, no se podrá deshacer.",
     "confirmPaidPreorder": "Esta cuenta tiene {count} planes de prepago pendientes de activación. Confirma que se han completado los reembolsos manuales u otras gestiones necesarias.",
     "confirmTitle": "Confirmar la baja de la cuenta",
     "continue": "Dar de baja la cuenta",
@@ -31,7 +31,7 @@
       "processingTimeout": "La baja aún se está procesando. Actualiza la lista de usuarios más tarde para comprobar el resultado.",
       "transfer": "No se han podido transferir los cursos"
     },
-    "irreversible": "Se eliminarán el perfil y los datos de acceso; se conservará el historial comercial obligatorio.",
+    "irreversible": "Tras la baja, se eliminarán los datos de identidad y las credenciales de acceso, el saldo de créditos quedará a cero y las sesiones actuales dejarán de ser válidas. El historial comercial y los datos de los cursos se conservarán según las normas aplicables.",
     "processing": "Dando de baja…",
     "reasonCounter": "{count}/500",
     "reasonHint": "El motivo se conservará en el registro de auditoría de operaciones.",

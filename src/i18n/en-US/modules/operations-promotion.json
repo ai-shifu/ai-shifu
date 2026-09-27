@@ -148,7 +148,7 @@
     "packageCampaignProviderPublished": "Synced to Stripe",
     "packageCampaignProviderRetired": "Stripe discount stopped",
     "packageCampaignProviderRetried": "Stripe resync started",
-    "packageCampaignProviderSyncRequired": "This discount campaign is not fully synced to Stripe yet. Sync it to Stripe before enabling it.",
+    "packageCampaignProviderSyncRequired": "This discount campaign is not fully synced to Stripe yet. Sync it to Stripe and confirm that the sync succeeded before enabling it.",
     "referralCampaignDisabledSuccess": "Referral campaign disabled",
     "referralCampaignEnabledSuccess": "Referral campaign enabled",
     "statusUpdated": "Status updated",
@@ -213,7 +213,7 @@
   },
   "referralCampaign": {
     "advancedSettings": "Advanced Settings",
-    "advancedSettingsHelper": "Advanced configuration is maintained by system defaults. Contact engineering if you need feature flags or custom eligibility rules.",
+    "advancedSettingsHelper": "Advanced configuration is currently maintained by system defaults. Operations staff should avoid changing it directly. Contact engineering if you need gradual rollout controls or custom eligibility rules.",
     "cap": "Reward Cap",
     "capCount": "Cap Count",
     "capCountPlaceholder": "Enter cap count",
