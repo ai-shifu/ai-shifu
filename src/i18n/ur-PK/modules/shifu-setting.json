@@ -124,7 +124,7 @@
   "inputKeywords": "مطلوبہ الفاظ درج کریں اور شامل کرنے کے لیے Enter دبائیں۔",
   "keywords": "کورس کے مطلوبہ الفاظ",
   "liveVoiceDescription": "براہ راست صوتی سوال و جواب کے لیے Gemini کی پہلے سے فراہم کردہ آوازوں میں سے انتخاب کریں۔",
-  "liveVoiceLabel": "ریئل ٹائم ڈائیلاگ کی آوازیں آتی ہیں۔",
+  "liveVoiceLabel": "ریئل ٹائم گفتگو کی آواز",
   "liveVoicePreviewHint": "پہلے ترتیبات محفوظ کریں، پھر مکمل صوتی گفتگو سننے کے لیے کورس کے پیش نظارہ میں \"مزید پوچھیں\" پر کلک کریں۔",
   "liveVoiceStyles": {
     "breathy": "سانس آمیز",
@@ -164,7 +164,7 @@
   "minimaxManualVoiceLabel": "وائس ID دستی طور پر درج کریں",
   "minimaxManualVoicePlaceholder": "MiniMax کسٹم voice_id درج کریں۔",
   "minimaxVoiceGroupBuiltIn": "بلٹ ان آوازیں۔",
-  "minimaxVoiceGroupCloned": "میری کلون آواز",
+  "minimaxVoiceGroupCloned": "میری کلون کی گئی آوازیں",
   "minimaxVoiceGroupManual": "دستی وائس ID",
   "modelOptions": {
     "hint": "ماڈل کورس آؤٹ پٹ کی رفتار اور معیار کا تعین کرتا ہے۔",
