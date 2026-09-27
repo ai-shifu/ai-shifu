@@ -257,7 +257,6 @@
     "couponBid": "ID del cupón",
     "course": "Curso aplicable",
     "createdAt": "Fecha de creación",
-    "discountAmount": "Descuento total",
     "discountRule": "Descuento",
     "name": "Nombre del cupón",
     "orderBid": "ID del pedido",

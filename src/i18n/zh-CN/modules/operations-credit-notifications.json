@@ -128,12 +128,7 @@
     },
     "title": "通知配置",
     "typeTable": {
-      "rules": {
-        "creditExpiring": "提醒窗口：{windows}",
-        "creditGranted": "积分到账后触发",
-        "lowBalanceEstimated": "余额阈值：{thresholds}；预计 {days} 天内用完时提醒",
-        "lowBalanceFixed": "余额阈值：{thresholds}"
-      }
+      "rules": {}
     },
     "unsavedDialog": {
       "cancel": "继续编辑",
@@ -332,7 +327,6 @@
     "createdAt": "创建时间",
     "creator": "老师",
     "error": "原因/错误说明",
-    "mobile": "手机号",
     "notification": "通知类型",
     "source": "触发场景",
     "status": "投递状态"

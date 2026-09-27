@@ -257,7 +257,6 @@
     "couponBid": "兑换码ID",
     "course": "适用课程",
     "createdAt": "创建时间",
-    "discountAmount": "优惠总额",
     "discountRule": "优惠内容",
     "name": "兑换码名称",
     "orderBid": "订单 ID",

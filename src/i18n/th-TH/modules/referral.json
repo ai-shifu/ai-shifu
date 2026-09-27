@@ -87,7 +87,6 @@
     },
     "refresh": "รีเฟรช",
     "table": {
-      "action": "การดำเนินการ",
       "boundAt": "เวลาผูก",
       "campaign": "กิจกรรม",
       "inviteCode": "รหัสเชิญ",

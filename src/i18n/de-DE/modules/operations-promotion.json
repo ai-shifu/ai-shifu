@@ -257,7 +257,6 @@
     "couponBid": "Gutschein-ID",
     "course": "Anwendbarer Kurs",
     "createdAt": "Erstellt am",
-    "discountAmount": "Gesamtrabatt",
     "discountRule": "Rabatt",
     "name": "Gutscheinname",
     "orderBid": "Bestell-ID",

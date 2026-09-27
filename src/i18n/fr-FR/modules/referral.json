@@ -87,7 +87,6 @@
     },
     "refresh": "Actualiser",
     "table": {
-      "action": "Action",
       "boundAt": "Date de liaison",
       "campaign": "Campagne",
       "inviteCode": "Code",

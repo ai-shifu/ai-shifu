@@ -108,6 +108,76 @@ class TranslationUsageTest(unittest.TestCase):
         )
         assert self.run_check()[0] == 0
 
+    def test_unrelated_relative_literals_do_not_hide_unused_keys(self) -> None:
+        self.define("module.example", {"dialog.title": "Title", "save": "Save"})
+        (self.web / "page.tsx").write_text(
+            "const cacheKey = 'dialog.title'; cache.get('dialog.title');\n"
+            "const { t } = useTranslation('module.example');\n"
+            "t('module.example.save', { cache: 'dialog.title' });"
+        )
+        (self.backend / "service.py").write_text(
+            'cache_key = "dialog.title"\ncache.get("dialog.title")\n'
+        )
+        status, output = self.run_check()
+        assert status == 1
+        assert " - module.example.dialog.title" in output
+
+    def test_typed_forwarded_aliases_and_conditional_arguments(self) -> None:
+        self.define(
+            "module.example", {"dialog.title": "Title", "dialog.cancel": "Cancel"}
+        )
+        (self.web / "page.tsx").write_text(
+            "type Props = { tExample: TranslationFn };\n"
+            "tExample(ready ? 'dialog.title' : 'dialog.cancel');"
+        )
+        assert self.run_check()[0] == 0
+
+    def test_literal_union_is_used_only_when_forwarded_to_a_translator(self) -> None:
+        self.define(
+            "module.example",
+            {
+                "message.ready": "Ready",
+                "message.failed": "Failed",
+                "cache.title": "Old",
+            },
+        )
+        (self.web / "page.tsx").write_text(
+            "const { t: translate } = useTranslation('module.example');\n"
+            "function show(key: 'message.ready' | 'message.failed') { translate(key); }\n"
+            "function cache(key: 'cache.title') { cacheStore.get(key); }"
+        )
+        status, output = self.run_check()
+        assert status == 1
+        assert " - module.example.cache.title" in output
+        assert " - module.example.message." not in output
+
+    def test_namespaced_calls_do_not_preserve_other_namespaces(self) -> None:
+        self.define(
+            "module.example", {"dialog.title": "Title", "status.ready": "Ready"}
+        )
+        self.define("module.retired", {"dialog.title": "Old", "status.ready": "Old"})
+        (self.web / "page.tsx").write_text(
+            "const { t: translate } = useTranslation('module.example');\n"
+            "translate('dialog.title'); translate(`status.${status}`);"
+        )
+        status, output = self.run_check()
+        assert status == 1
+        assert " - module.retired.dialog.title" in output
+        assert " - module.retired.status.ready" in output
+        assert " - module.example." not in output
+
+    def test_forwarded_dynamic_calls_and_unrelated_templates(self) -> None:
+        self.define("module.example", {"status.ready": "Ready", "dialog.title": "Old"})
+        (self.web / "page.tsx").write_text(
+            "props.translate(`status.${status}`);\n"
+            "const cacheKey = `dialog.${field}`; cache.get(`dialog.${field}`);"
+        )
+        (self.backend / "service.py").write_text('cache_key = f"dialog.{field}"\n')
+        status, output = self.run_check()
+        assert status == 1
+        assert " - module.example.dialog.title" in output
+        assert " - module.example.status.ready" not in output
+
     def test_backend_constants_and_dynamic_error_keys(self) -> None:
         self.define(
             "server.user",

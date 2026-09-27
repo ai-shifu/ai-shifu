@@ -128,12 +128,7 @@
     },
     "title": "Benachrichtigungseinstellungen",
     "typeTable": {
-      "rules": {
-        "creditExpiring": "Erinnerungsfenster: {windows}",
-        "creditGranted": "Wird nach einer Credit-Gutschrift ausgelöst",
-        "lowBalanceEstimated": "Guthabenschwellen: {thresholds}; Benachrichtigung, wenn das Guthaben voraussichtlich innerhalb von {days} Tagen aufgebraucht ist.",
-        "lowBalanceFixed": "Guthabenschwellen: {thresholds}"
-      }
+      "rules": {}
     },
     "unsavedDialog": {
       "cancel": "Bearbeiten fortsetzen",
@@ -332,7 +327,6 @@
     "createdAt": "Erstellt am",
     "creator": "Lehrkraft",
     "error": "Fehlerdetails",
-    "mobile": "Mobilnummer",
     "notification": "Art der Meldung",
     "source": "Auslösungsszenario",
     "status": "Versandstatus"

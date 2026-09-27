@@ -128,12 +128,7 @@
     },
     "title": "Notification Config",
     "typeTable": {
-      "rules": {
-        "creditExpiring": "Reminder windows: {windows}",
-        "creditGranted": "Triggered after credits are granted",
-        "lowBalanceEstimated": "Balance thresholds: {thresholds}; remind when credits may run out within {days} days",
-        "lowBalanceFixed": "Balance thresholds: {thresholds}"
-      }
+      "rules": {}
     },
     "unsavedDialog": {
       "cancel": "Keep editing",
@@ -332,7 +327,6 @@
     "createdAt": "Created at",
     "creator": "Teacher",
     "error": "Reason / error details",
-    "mobile": "Mobile",
     "notification": "Notification type",
     "source": "Trigger scenario",
     "status": "Delivery status"

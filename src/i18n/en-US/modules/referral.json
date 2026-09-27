@@ -87,7 +87,6 @@
     },
     "refresh": "Refresh",
     "table": {
-      "action": "Action",
       "boundAt": "Bound at",
       "campaign": "Campaign",
       "inviteCode": "Invite code",

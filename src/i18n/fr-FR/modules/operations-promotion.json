@@ -257,7 +257,6 @@
     "couponBid": "ID du coupon",
     "course": "Cours applicables",
     "createdAt": "Créé le",
-    "discountAmount": "Total des remises",
     "discountRule": "Remise",
     "name": "Nom du coupon",
     "orderBid": "ID de commande",

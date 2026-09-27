@@ -128,12 +128,7 @@
     },
     "title": "Configuración de notificaciones",
     "typeTable": {
-      "rules": {
-        "creditExpiring": "Ventanas de recordatorio: {windows}",
-        "creditGranted": "Se activa después de conceder los créditos",
-        "lowBalanceEstimated": "Umbrales de saldo: {thresholds}; aviso si los créditos pueden agotarse en {days} días",
-        "lowBalanceFixed": "Umbrales de saldo: {thresholds}"
-      }
+      "rules": {}
     },
     "unsavedDialog": {
       "cancel": "Seguir editando",
@@ -332,7 +327,6 @@
     "createdAt": "Fecha de creación",
     "creator": "Profesor",
     "error": "Motivo / Detalles del error",
-    "mobile": "Móvil",
     "notification": "Tipo de notificación",
     "source": "Contexto de activación",
     "status": "Estado de la entrega"

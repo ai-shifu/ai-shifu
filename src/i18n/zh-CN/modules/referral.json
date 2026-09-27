@@ -87,7 +87,6 @@
     },
     "refresh": "刷新",
     "table": {
-      "action": "操作",
       "boundAt": "绑定时间",
       "campaign": "活动",
       "inviteCode": "邀请码",

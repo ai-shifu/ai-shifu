@@ -128,12 +128,7 @@
     },
     "title": "Configuration des notifications",
     "typeTable": {
-      "rules": {
-        "creditExpiring": "Fenêtres de rappel : {windows}",
-        "creditGranted": "Déclenché après l’attribution des crédits",
-        "lowBalanceEstimated": "Seuils de solde : {thresholds} ; rappeler si les crédits peuvent être épuisés sous {days} jours",
-        "lowBalanceFixed": "Seuils de solde : {thresholds}"
-      }
+      "rules": {}
     },
     "unsavedDialog": {
       "cancel": "Continuer la modification",
@@ -332,7 +327,6 @@
     "createdAt": "Créé le",
     "creator": "Enseignant",
     "error": "Raison / détails de l’erreur",
-    "mobile": "Téléphone",
     "notification": "Type de notification",
     "source": "Type de déclencheur",
     "status": "Statut d’envoi"

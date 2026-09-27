@@ -128,12 +128,7 @@
     },
     "title": "ตั้งค่าการแจ้งเตือน",
     "typeTable": {
-      "rules": {
-        "creditExpiring": "ช่วงเวลาแจ้งเตือน: {windows}",
-        "creditGranted": "แจ้งหลังจากเครดิตเข้าบัญชี",
-        "lowBalanceEstimated": "เกณฑ์ยอดคงเหลือ: {thresholds}; แจ้งเมื่อเครดิตอาจหมดภายใน {days} วัน",
-        "lowBalanceFixed": "เกณฑ์ยอดคงเหลือ: {thresholds}"
-      }
+      "rules": {}
     },
     "unsavedDialog": {
       "cancel": "แก้ไขต่อ",
@@ -332,7 +327,6 @@
     "createdAt": "เวลาสร้าง",
     "creator": "ครู",
     "error": "สาเหตุ/คำอธิบายข้อผิดพลาด",
-    "mobile": "หมายเลขโทรศัพท์",
     "notification": "ประเภทการแจ้งเตือน",
     "source": "ฉากทริกเกอร์",
     "status": "สถานะการส่ง"

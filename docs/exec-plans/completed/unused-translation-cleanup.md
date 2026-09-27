@@ -22,6 +22,9 @@ and product names supplied by billing data.
 - [x] 2026-09-27 UTC: Passed 37 frontend suites / 532 tests, nine checker tests,
   40 knowledge-index tests, frontend type checking, repository harness,
   architecture validation, strict tooling checks, and the all-files pre-commit gate.
+- [x] 2026-09-27 UTC: Addressed PR #2989 review by restricting relative key
+  detection to translator arguments and forwarded literal-union contracts.
+  Added five regressions and removed 12 newly exposed unused keys in all locales.
 
 ## Surprises & Discoveries
 
@@ -60,7 +63,7 @@ and product names supplied by billing data.
 
 ## Outcomes & Retrospective
 
-Removed 369 unique keys (2,583 localized values) and two retired frontend
+Removed 381 unique keys (2,667 localized values) and two retired frontend
 namespaces. All remaining translation values are identical to the base commit.
 The repaired checker and its CI regressions preserve dynamic, relative, and
 aliased consumers and report no missing or unused keys without allowlists.

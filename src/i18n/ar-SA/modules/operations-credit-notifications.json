@@ -128,12 +128,7 @@
     },
     "title": "إعدادات الإشعارات",
     "typeTable": {
-      "rules": {
-        "creditExpiring": "نوافذ التذكير: {windows}",
-        "creditGranted": "يتم التشغيل بعد إضافة الرصيد",
-        "lowBalanceEstimated": "حدود الرصيد: {thresholds}؛ يُرسل التنبيه عند توقع نفاد الرصيد خلال {days, plural, zero {0 يوم} one {يوم واحد} two {يومين} few {# أيام} many {# يومًا} other {# يوم}}",
-        "lowBalanceFixed": "حدود الرصيد: {thresholds}"
-      }
+      "rules": {}
     },
     "unsavedDialog": {
       "cancel": "متابعة التعديل",
@@ -332,7 +327,6 @@
     "createdAt": "وقت الإنشاء",
     "creator": "المعلم",
     "error": "السبب/وصف الخطأ",
-    "mobile": "رقم الهاتف",
     "notification": "نوع الإشعار",
     "source": "مشهد التشغيل",
     "status": "حالة التسليم"

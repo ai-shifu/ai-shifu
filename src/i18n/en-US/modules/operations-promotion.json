@@ -257,7 +257,6 @@
     "couponBid": "Coupon ID",
     "course": "Applicable Course",
     "createdAt": "Created At",
-    "discountAmount": "Discount Total",
     "discountRule": "Discount",
     "name": "Coupon Name",
     "orderBid": "Order ID",
