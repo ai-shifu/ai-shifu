@@ -199,7 +199,7 @@
   "permissionOwnerNotAllowed": "کورس کے سربراہ کو خود اجازت نہیں دی جا سکتی",
   "permissionPhoneInvalid": "براہ کرم درست موبائل فون نمبر درج کریں: {values}",
   "permissionPhoneLabel": "موبائل فون نمبر",
-  "permissionPhonePlaceholder": "اشتراک کی اجازتوں کے بیچ ایکٹیویشن کو فعال کرنے کے لیے اپنا موبائل فون نمبر درج کریں۔",
+  "permissionPhonePlaceholder": "جن افراد کو مشترکہ رسائی دینی ہے، ان کے موبائل فون نمبر درج کریں؛ ایک ساتھ کئی نمبروں کے لیے رسائی دی جا سکتی ہے۔",
   "permissionPublish": "شائع کریں",
   "permissionPublishHint": "اشاعت کی اجازت میں ترمیم کی اجازت بھی شامل ہے",
   "permissionPublishHintWrapped": "（{hint}）",
