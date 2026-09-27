@@ -221,12 +221,12 @@
         "billing_interval_count_mismatch": "بلنگ سائیکل کی مقدار مقامی مصنوعات سے مطابقت نہیں رکھتی",
         "billing_interval_mismatch": "بلنگ سائیکل مقامی مصنوعات کے ساتھ مطابقت نہیں رکھتا ہے۔",
         "currency_mismatch": "کرنسی مقامی مصنوعات سے مطابقت نہیں رکھتی",
-        "local_plan_billing_mode_invalid": "مقامی پیکیج بلنگ کے طریقہ کار کی ترتیب کی خرابی۔",
-        "local_topup_billing_interval_count_invalid": "مقامی کریڈٹ پیکیج کی مدت کی تعداد 0 ہونی چاہیے۔",
-        "local_topup_billing_interval_invalid": "مقامی کریڈٹ پیکجز کو مدت کے ساتھ ترتیب نہیں دیا جانا چاہیے۔",
-        "local_topup_billing_mode_invalid": "مقامی کریڈٹس پیکج بلنگ کا طریقہ غلط طریقے سے ترتیب دیا گیا ہے۔",
-        "plan_requires_licensed_recurring_price": "پیکیجز کو licensed سائیکل کی قیمتوں کا استعمال کرنا چاہیے۔",
-        "plan_requires_recurring_price": "پیکجز کو Stripe سائیکل کی قیمتوں کا پابند ہونا چاہیے۔",
+        "local_plan_billing_mode_invalid": "مقامی پلان بلنگ کے طریقہ کار کی ترتیب کی خرابی۔",
+        "local_topup_billing_interval_count_invalid": "مقامی کریڈٹ پیک کی مدت کی تعداد 0 ہونی چاہیے۔",
+        "local_topup_billing_interval_invalid": "مقامی کریڈٹ پیکز کو مدت کے ساتھ ترتیب نہیں دیا جانا چاہیے۔",
+        "local_topup_billing_mode_invalid": "مقامی کریڈٹ پیک بلنگ کا طریقہ غلط طریقے سے ترتیب دیا گیا ہے۔",
+        "plan_requires_licensed_recurring_price": "پلانز کو licensed سائیکل کی قیمتوں کا استعمال کرنا چاہیے۔",
+        "plan_requires_recurring_price": "پلانز کو Stripe سائیکل کی قیمتوں کا پابند ہونا چاہیے۔",
         "price_livemode_mismatch": "Stripe کی قیمتوں کا ماحول موجودہ ترتیب سے مطابقت نہیں رکھتا ہے۔",
         "price_metadata_billing_interval_mismatch": "Stripe پرائس بلنگ سائیکل metadata متضاد ہے۔",
         "price_metadata_billing_interval_missing": "Stripe کی قیمتوں میں بلنگ سائیکل metadata غائب ہے۔",
@@ -238,8 +238,8 @@
         "product_livemode_mismatch": "Stripe پروڈکٹ کا ماحول موجودہ کنفیگریشن سے مطابقت نہیں رکھتا",
         "product_metadata_market_mismatch": "Stripe پروڈکٹ مارکیٹ metadata متضاد ہے۔",
         "product_metadata_market_missing": "Stripe پروڈکٹ میں مارکیٹ metadata موجود نہیں ہے۔",
-        "product_metadata_plan_tier_mismatch": "Stripe پروڈکٹ پیکیج لیول metadata متضاد ہے۔",
-        "product_metadata_plan_tier_missing": "Stripe پروڈکٹس میں پیکیج لیول metadata کی کمی ہے۔",
+        "product_metadata_plan_tier_mismatch": "Stripe پروڈکٹ پلان لیول metadata متضاد ہے۔",
+        "product_metadata_plan_tier_missing": "Stripe پروڈکٹس میں پلان لیول metadata کی کمی ہے۔",
         "product_metadata_product_type_mismatch": "Stripe پروڈکٹ کی قسم کا metadata متضاد ہے۔",
         "product_metadata_product_type_missing": "Stripe پروڈکٹ میں پروڈکٹ کی قسم کا metadata غائب ہے۔",
         "provider_account_mismatch": "Stripe اکاؤنٹ متضاد ہے۔",
@@ -252,13 +252,13 @@
         "retired_mapping_cannot_be_validated": "فروخت سے ہٹائی گئی قیمت کی دوبارہ تصدیق نہیں کی جا سکتی۔",
         "stripe_catalog_reference_missing": "Stripe پروڈکٹ ID یا قیمت ID غائب ہے۔",
         "stripe_catalog_retrieve_failed": "Stripe سے اشیاء یا قیمتیں پڑھنے سے قاصر",
-        "topup_requires_one_time_price": "کریڈٹس پیکج کو Stripe ایک بار کی قیمت کا پابند ہونا چاہیے۔",
+        "topup_requires_one_time_price": "کریڈٹ پیک کو Stripe ایک بار کی قیمت کا پابند ہونا چاہیے۔",
         "unit_amount_mismatch": "ادائیگی کی رقم صفحہ پر فروخت کی قیمت سے مطابقت نہیں رکھتی",
         "unknown": "نامعلوم مسئلہ",
         "unsupported_product_type": "اس پروڈکٹ کی قسم فی الحال ادائیگی کی قیمت کو ترتیب دینے کی حمایت نہیں کرتی ہے۔"
       },
-      "loadError": "پیکیج کی قیمت کی ترتیب اس وقت لوڈ نہیں کی جا سکتی ہے۔",
-      "menuTitle": "پیکیج مینجمنٹ",
+      "loadError": "پلان کی قیمت کی ترتیب اس وقت لوڈ نہیں کی جا سکتی ہے۔",
+      "menuTitle": "پلان مینجمنٹ",
       "pageDescription": "بیرون ملک پلانز اور کریڈٹ پیکس کی وصولی کی قیمتیں ترتیب دیں تاکہ دکھائی جانے والی قیمت، اصل ادائیگی اور بعد میں حساب کی مطابقت یکساں ہو۔",
       "productType": {
         "plan": "پلان",
@@ -387,7 +387,7 @@
         "availableCredits": "دستیاب کریڈٹس",
         "creator": "استاد",
         "currentPeriodEnd": "میعاد ختم ہونے کی تاریخ",
-        "product": "موجودہ پیکیج",
+        "product": "موجودہ پلان",
         "provider": "ادائیگی کا طریقہ",
         "renewal": "تجدید/میعاد ختم ہونے کی حیثیت",
         "renewalStatus": "تجدید کی حیثیت",
@@ -545,8 +545,8 @@
     },
     "topups": {
       "default": {
-        "description": "یہ موجودہ پیکیج کی مدت کے دوران کریڈٹس کو بھرنے کے لیے استعمال کیا جاتا ہے، اور غیر استعمال شدہ حصہ پیکج کے ساتھ ختم ہو جائے گا۔",
-        "title": "{credits} کریڈٹس پیکج"
+        "description": "یہ موجودہ پلان کی مدت کے دوران کریڈٹس کو بھرنے کے لیے استعمال کیا جاتا ہے، اور غیر استعمال شدہ حصہ پلان کے ساتھ ختم ہو جائے گا۔",
+        "title": "{credits} کریڈٹ پیک"
       }
     }
   },
@@ -561,8 +561,8 @@
     "expired": "آرڈر کی میعاد ختم ہو گئی ہے، براہ کرم دوسرا آرڈر کریں۔",
     "expiresInLabel": "باقی ماندہ مدت",
     "expiresInValue": "{countdown} کے بعد میعاد ختم ہو جائے گی",
-    "planDescription": "کریڈٹس سبسکرپشن پیکج کے لیے ادائیگی کا عمل درج ذیل ہے۔",
-    "preorderDescription": "پیکیج ابھی پری پیڈ ہوگا اور موجودہ سائیکل کے اختتام کے بعد مؤثر ہوگا۔",
+    "planDescription": "کریڈٹس سبسکرپشن پلان کے لیے ادائیگی کا عمل درج ذیل ہے۔",
+    "preorderDescription": "پلان ابھی پری پیڈ ہوگا اور موجودہ سائیکل کے اختتام کے بعد مؤثر ہوگا۔",
     "prepaidOffsetLabel": "پری آرڈر ڈسکاؤنٹ",
     "priceLabel": "قیمت",
     "processing": "پروسیسنگ...",
@@ -582,7 +582,7 @@
       }
     },
     "title": "خریداری کی تصدیق کریں۔",
-    "topupDescription": "آپ ایک بار کریڈٹس پیکج کی خریداری کے لیے ادائیگی کی تصدیق کے عمل میں داخل ہوں گے۔",
+    "topupDescription": "آپ ایک بار کریڈٹ پیک کی خریداری کے لیے ادائیگی کی تصدیق کے عمل میں داخل ہوں گے۔",
     "unsupported": "موجودہ ادائیگی کا طریقہ فی الحال دستیاب نہیں ہے۔",
     "upgradeDescription": "یہ اپ گریڈ فوری طور پر نافذ العمل ہوگا۔",
     "upgradeWithPreorderDescription": "یہ اپ گریڈ فوری طور پر نافذ ہو جائے گا اور پہلے سے آرڈر کی موجودہ ادائیگیوں کو کریڈٹ کر دیا جائے گا۔"
@@ -659,13 +659,13 @@
       "cancelConfirmTitle": "خودکار تجدید منسوخ کریں؟",
       "cancelScheduled": "خودکار تجدید منسوخ کر دی گئی۔",
       "cancelSuccess": "خودکار تجدید کو منسوخ کر دیا گیا ہے، اور اس سائیکل کے حقوق اور مفادات متاثر نہیں ہوں گے۔",
-      "currentPlan": "موجودہ پیکیج",
+      "currentPlan": "موجودہ پلان",
       "nextRenewal": "اگلی تجدید",
       "paused": "سبسکرپشن روک دی گئی۔",
       "renewalStatus": "تجدید کی حیثیت",
       "resumeAction": "خودکار تجدید دوبارہ شروع کریں۔",
       "resumeConfirmAction": "خودکار تجدید دوبارہ شروع کرنے کی تصدیق کریں۔",
-      "resumeConfirmDescription": "بحالی کے بعد، {date} پر اصل پیکیج کے مطابق سبسکرپشن خود بخود تجدید ہو جائے گی۔",
+      "resumeConfirmDescription": "بحالی کے بعد، {date} پر اصل پلان کے مطابق سبسکرپشن خود بخود تجدید ہو جائے گی۔",
       "resumeConfirmTitle": "خودکار تجدید دوبارہ شروع کریں؟",
       "resumeSuccess": "از خود تجدید دوبارہ شروع کر دی گئی ہے۔"
     },
@@ -676,7 +676,7 @@
       "validUntil": "میعاد ختم ہونے کی تاریخ"
     },
     "topupAvailabilityLabel": "غیر معینہ مدت تک",
-    "topupAvailabilityTooltip": "اسے کسی بھی درست پیکج کو چالو کرنے کے بعد ہی استعمال کیا جا سکتا ہے۔",
+    "topupAvailabilityTooltip": "اسے کسی بھی درست پلان کو چالو کرنے کے بعد ہی استعمال کیا جا سکتا ہے۔",
     "totalCreditsDescription": "پہلے پلان کے کریڈٹس، پھر کریڈٹ پیک استعمال ہوتا ہے",
     "totalCreditsLabel": "بیلنس",
     "usageTable": {
@@ -740,7 +740,7 @@
     "actions": {
       "buyCredits": "کریڈٹس خریدیں",
       "checkoutLoading": "ادائیگی شروع ہو رہی ہے...",
-      "choosePlan": "ایک پیکیج کا انتخاب کریں۔",
+      "choosePlan": "کریڈٹ پلان منتخب کریں",
       "cycleSwitchDisabled": "سوئچنگ سائیکل ابھی تک تعاون یافتہ نہیں ہے۔",
       "viewMonthly": "ماہانہ ادائیگی کے منصوبے دیکھیں"
     },
@@ -835,7 +835,7 @@
       "subscriptionRenewal": "سبسکرپشن کی تجدید",
       "subscriptionStart": "سبسکرپشن ایکٹیویشن",
       "subscriptionUpgrade": "سبسکرپشن اپ گریڈ",
-      "topup": "کریڈٹس پیکج آرڈر"
+      "topup": "کریڈٹ پیک آرڈر"
     }
   },
   "overview": {
@@ -858,8 +858,8 @@
       "nonMemberTooltip": "فی الحال ایک غیر رکن، کسی کارروائی کی ضرورت نہیں ہے۔",
       "preorderDowngrade": "پیشگی آرڈر ڈاؤن گریڈ",
       "preorderLocked": "پیشگی آرڈر مقفل",
-      "preorderLockedTooltip": "پہلے سے ہی پیکیج کے پری آرڈرز موجود ہیں جو لاگو ہونے کا انتظار کر رہے ہیں۔ فی الحال، صرف فوری اپ گریڈ کی حمایت کی جاتی ہے۔",
-      "preorderProviderUnsupportedTooltip": "پیکیج پری پرچیز صرف موجودہ خود نظم شدہ ادائیگی کے چینلز کو سپورٹ کرتا ہے۔",
+      "preorderLockedTooltip": "پہلے سے ہی پلان کے پری آرڈرز موجود ہیں جو لاگو ہونے کا انتظار کر رہے ہیں۔ فی الحال، صرف فوری اپ گریڈ کی حمایت کی جاتی ہے۔",
+      "preorderProviderUnsupportedTooltip": "پلان پری پرچیز صرف موجودہ خود نظم شدہ ادائیگی کے چینلز کو سپورٹ کرتا ہے۔",
       "preorderRenewal": "پری پیڈ تجدید",
       "preorderScheduled": "پیشگی آرڈر",
       "subscribeNow": "ابھی سبسکرائب کریں۔",
@@ -960,7 +960,7 @@
       "unavailable": "—",
       "value": "تقریبا {minutes} منٹ"
     },
-    "loading": "پیکجز لوڈ ہو رہے ہیں...",
+    "loading": "پلانز لوڈ ہو رہے ہیں...",
     "preorder": {
       "pending": "فعال ہونے کا منتظر پیشگی آرڈر: {plan} {date} کو فعال ہوگا۔"
     },
@@ -1061,12 +1061,12 @@
   "sidebar": {
     "creditsLabel": "باقی کریڈٹس",
     "cta": "ممبر سینٹر پر جائیں۔",
-    "dailyBalanceTitle": "روزانہ پیکیج بیلنس",
+    "dailyBalanceTitle": "روزانہ پلان بیلنس",
     "dailyTitle": "روزانہ کی رکنیت",
     "description": "ممبر کی حیثیت، کریڈٹس بیلنس اور اس کے بعد اکاؤنٹنگ کی کارروائیوں کو چیک کریں۔",
     "expired": "میعاد ختم",
     "expiresInDays": "{days} دنوں میں ختم ہو جائے گا۔",
-    "monthlyBalanceTitle": "ماہانہ پیکیج بیلنس",
+    "monthlyBalanceTitle": "ماہانہ پلان بیلنس",
     "monthlyTitle": "ماہانہ رکنیت",
     "nonMemberBalanceTitle": "کریڈٹس بیلنس",
     "nonMemberTitle": "غیر رکن",
@@ -1076,7 +1076,7 @@
     "summaryTitle": "کریڈٹس",
     "upgradeCta": "اپ گریڈ کریں۔",
     "usageCta": "تفصیلات دیکھیں",
-    "yearlyBalanceTitle": "سالانہ پیکیج بیلنس",
+    "yearlyBalanceTitle": "سالانہ پلان بیلنس",
     "yearlyTitle": "سالانہ رکنیت"
   },
   "status": {

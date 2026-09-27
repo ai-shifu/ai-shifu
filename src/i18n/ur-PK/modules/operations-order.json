@@ -23,7 +23,7 @@
         "grant": "آمد کا ریکارڈ",
         "metadata": "توسیعی معلومات",
         "payment": "ادائیگی کی معلومات",
-        "product": "کریڈٹس پیکیج کی معلومات",
+        "product": "کریڈٹ پلان کی معلومات",
         "summary": "آرڈر کی معلومات"
       },
       "title": "کریڈٹس آرڈر کی تفصیلات"
@@ -35,7 +35,7 @@
       "creatorKeywordPlaceholderPhone": "موبائل فون نمبر",
       "orderKind": "آرڈر کی قسم",
       "paymentProvider": "ادائیگی سروس فراہم کنندہ",
-      "productKeyword": "کریڈٹس پیکیج کی تلاش",
+      "productKeyword": "کریڈٹ پلان کی تلاش",
       "productKeywordPlaceholder": "کریڈٹ پلان / کریڈٹ پیک کا نام"
     },
     "kind": {
