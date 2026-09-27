@@ -83,7 +83,7 @@
     },
     "learners": {
       "columns": {
-        "joinedAt": "وقت میں شامل ہوں۔",
+        "joinedAt": "شامل ہونے کا وقت",
         "lastLearningAt": "حالیہ مطالعہ کا وقت",
         "name": "طالب علم",
         "progress": "سیکھنے کی ترقی",
