@@ -17,8 +17,8 @@
       "configStatus": {
         "completed": "مکمل",
         "exception": "کنفیگریشن استثناء",
-        "in_progress": "ترتیب دینا",
-        "pending": "ترتیب دینا"
+        "in_progress": "ترتیب جاری ہے",
+        "pending": "ترتیب کا منتظر"
       },
       "configStatusHelp": {
         "completed": "آپریشنز نے کنفیگریشن فالو اپ کے اس دور کو مکمل کر لیا ہے۔",
