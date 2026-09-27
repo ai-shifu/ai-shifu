@@ -75,7 +75,7 @@
       "smsUnitCost": "ایس ایم ایس یونٹ کی قیمت",
       "softlimitEnabled": "بیلنس کے تحفظ کو فعال کریں۔",
       "softlimitSms": "بیلنس پروٹیکشن ایس ایم ایس بھیجیں۔",
-      "softlimitThreshold": "ٹرگر بیلنس کی حفاظت کریں۔",
+      "softlimitThreshold": "وہ بیلنس جس پر تحفظ فعال ہوتا ہے",
       "teacherPageAlert": "بیک اینڈ پیج کی یاد دہانی",
       "timezone": "ٹائم زون"
     },
