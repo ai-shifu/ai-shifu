@@ -13,7 +13,7 @@
   "askPreviewQuestionRequired": "براہ کرم ایک ٹیسٹ سوال درج کریں۔",
   "askPreviewResult": "ٹیسٹ کے نتائج",
   "askPreviewUsedFallback": "{provider} کال ناکام ہوگئی اور اس کی بجائے پہلے سے شامل ماڈل استعمال کیا گیا ہے۔",
-  "askPreviewUsedProvider": "اس بار استعمال کریں: {provider}",
+  "askPreviewUsedProvider": "اس بار استعمال کیا گیا: {provider}",
   "askProviderConfigInvalidJson": "{field} ایک درست JSON آبجیکٹ ہونا چاہیے۔",
   "askProviderConfigOutOfRange": "{field} {min}-{max} کے درمیان ہونا ضروری ہے",
   "askProviderConfigRequired": "{field} درکار ہے۔",
