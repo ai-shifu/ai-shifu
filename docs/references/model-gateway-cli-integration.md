@@ -250,12 +250,16 @@ request fields are `temperature`, `top_p`, `stop`, `seed`, `presence_penalty`,
 `parallel_tool_calls`.
 
 `max_tokens` must be a positive JSON integer (booleans, strings and fractions
-are rejected). Gateway and learning calls share the same output-token policy.
+are rejected). Gateway and learning calls share default resolution and provider
+parameter preparation.
 If omitted or `null`, use the known model output limit as the default; if no valid
 limit is known, omit the option and let the provider/adapter choose its default.
 The same rule applies to streaming and non-streaming calls, with no fixed 4096
 application allowance or gateway-specific default switch.
-An explicit value above a known limit is rejected rather than silently changed.
+An explicit gateway value above a known limit is rejected at the request boundary
+rather than silently changed. Shared provider preparation caps trusted internal
+task budgets to a known ceiling, preserving onboarding prompt compilation,
+localization and profile optimization on models with smaller output limits.
 Limits come from the optional `LLM_MODEL_MAX_OUTPUT_TOKENS`
 mapping of full routed model IDs, then valid LiteLLM metadata. Missing or invalid
 LiteLLM limits do not make an otherwise eligible model unavailable: a valid

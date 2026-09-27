@@ -1630,16 +1630,24 @@ def count_llm_chat_input_tokens(
 
 
 def resolve_llm_max_output_tokens(model: str, requested: object = None) -> int | None:
-    """Validate routed output tokens with the same policy as learning calls."""
+    """Validate a gateway budget before shared provider parameter preparation."""
     params, invoke_model, _provider_key = get_litellm_params_and_model(model)
     if not params:
         raise_error_with_args("server.llm.modelNotSupported", model=model)
-    return _resolve_llm_max_output_tokens(model, invoke_model, requested)
+    resolved = _resolve_llm_max_output_tokens(model, invoke_model, requested)
+    if requested is not None and resolved is not None and requested > resolved:
+        raise_error_with_args(
+            "server.llm.requestFailed",
+            model=model,
+            message=f"max_tokens exceeds model limit {resolved}",
+        )
+    return resolved
 
 
 def _resolve_llm_max_output_tokens(
     model: str, invoke_model: str, requested: object
 ) -> int | None:
+    """Fit a valid task budget to the optional model output ceiling."""
     if requested is None:
         return _get_llm_max_output_tokens(model, invoke_model)
     if not isinstance(requested, int) or isinstance(requested, bool) or requested <= 0:
@@ -1647,13 +1655,7 @@ def _resolve_llm_max_output_tokens(
             "server.llm.requestFailed", model=model, message="max_tokens"
         )
     configured = _get_llm_max_output_tokens(model, invoke_model)
-    if configured is not None and requested > configured:
-        raise_error_with_args(
-            "server.llm.requestFailed",
-            model=model,
-            message=f"max_tokens exceeds model limit {configured}",
-        )
-    return requested
+    return min(requested, configured) if configured is not None else requested
 
 
 def _apply_llm_max_output_tokens(

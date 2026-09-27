@@ -94,6 +94,8 @@ valid explicit value. Gateway and learning calls share output-token resolution:
 omitted/null values use a known model ceiling as the default, or omit the option
 when the ceiling is unknown. Both completion modes follow this rule, with no
 fixed application allowance or gateway-specific default switch.
+Gateway request validation rejects explicit budgets above a known ceiling;
+shared provider preparation caps internal task budgets to that ceiling.
 See the [CLI integration contract](../references/model-gateway-cli-integration.md)
 for the complete parameter rules.
 

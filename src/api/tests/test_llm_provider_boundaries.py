@@ -403,11 +403,11 @@ def test_shared_stream_ignores_invalid_metadata_and_preserves_caller_tokens(
         "complete_openai_chat_completion",
     ],
 )
-@pytest.mark.parametrize("requested", [True, False, 0, -1, "100", 1.5, 1025])
+@pytest.mark.parametrize("requested", [True, False, 0, -1, "100", 1.5])
 def test_all_completion_paths_reject_invalid_limits_before_provider_call(
     monkeypatch: pytest.MonkeyPatch, app: object, method: str, requested: object
 ) -> None:
-    """Shared validation must not send invalid or excessive budgets upstream."""
+    """Shared validation must not send invalid budgets upstream."""
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"model": 1024})
     complete = Mock()
     monkeypatch.setattr(llm.litellm, "completion", complete)
@@ -438,10 +438,44 @@ def test_all_completion_paths_reject_invalid_limits_before_provider_call(
     reject.assert_called_once_with(
         "server.llm.requestFailed",
         model="model",
-        message="max_tokens exceeds model limit 1024"
-        if requested == 1025
-        else "max_tokens",
+        message="max_tokens",
     )
+    complete.assert_not_called()
+
+
+@pytest.mark.usefixtures("gateway")
+@pytest.mark.parametrize("stream", [False, True])
+def test_gateway_rejects_excessive_budget_before_claim_or_provider_call(
+    monkeypatch: pytest.MonkeyPatch, app: object, stream: bool
+) -> None:
+    """External budgets remain strict even though shared preparation caps task budgets."""
+    from flaskr.route import model_gateway_runtime as runtime
+
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"model": 1024})
+    monkeypatch.setattr(runtime, "admit_creator_usage", Mock())
+    monkeypatch.setattr(runtime, "has_complete_llm_rates", lambda _model: True)
+    claim = Mock()
+    complete = Mock()
+    counter = Mock()
+    monkeypatch.setattr(runtime, "_claim_gateway_request", claim)
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    monkeypatch.setattr(llm.litellm, "token_counter", counter)
+    with pytest.raises(runtime.GatewayRequestError) as caught:
+        runtime.prepare_gateway_chat_request(
+            app,
+            creator_bid="user",
+            idempotency_key="excessive-budget",
+            payload={
+                "model": "model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 8192,
+                "stream": stream,
+            },
+        )
+    assert caught.value.status_code == 400
+    assert caught.value.code == "model_not_available"
+    claim.assert_not_called()
+    counter.assert_not_called()
     complete.assert_not_called()
 
 

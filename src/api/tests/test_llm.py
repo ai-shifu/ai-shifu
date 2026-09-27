@@ -1073,7 +1073,7 @@ def test_stream_litellm_completion_falls_back_to_litellm_limit(
 
 @pytest.mark.parametrize(
     ("requested_max_tokens", "expected_max_tokens"),
-    [(None, 131072), (4096, 4096)],
+    [(None, 131072), (4096, 4096), (200000, 131072)],
 )
 def test_stream_litellm_completion_applies_configured_limit_as_ceiling(
     monkeypatch: object,
@@ -3552,6 +3552,82 @@ def test_learning_calls_share_gateway_output_token_defaults(
         assert "max_tokens" not in captured
     else:
         assert captured["max_tokens"] == expected
+
+
+@pytest.mark.parametrize("task", ["compile", "localize", "optimize"])
+@pytest.mark.parametrize("metadata", ["configured", "catalogue", "unknown"])
+def test_internal_profile_tasks_fit_output_budgets_to_known_limits(
+    monkeypatch: pytest.MonkeyPatch, app: object, task: str, metadata: str
+) -> None:
+    """Exercise real internal consumers through invoke_llm, including low ceilings."""
+    from flaskr.service.common import profile_onboarding_prompt
+    from flaskr.service.profile import learner_profile_optimizer
+
+    module = (
+        learner_profile_optimizer if task == "optimize" else profile_onboarding_prompt
+    )
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm,
+        "MODEL_MAX_OUTPUT_TOKENS",
+        {"gpt-test": 1024} if metadata == "configured" else {},
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_max_tokens",
+        lambda _model: 1024 if metadata == "catalogue" else None,
+    )
+    monkeypatch.setattr(module, "invoke_llm", llm.invoke_llm)
+    monkeypatch.setattr(module, "get_default_llm_model", lambda _app: "gpt-test")
+    monkeypatch.setattr(
+        module, "create_trace_with_root_span", lambda **_kwargs: (object(), DummySpan())
+    )
+    monkeypatch.setattr(module, "finalize_langfuse_trace", lambda **_kwargs: None)
+    monkeypatch.setattr(module, "get_langfuse_client", lambda: None)
+    records = []
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: records.append(kwargs)
+    )
+    captured = {}
+    output = "Generated prompt"
+    if task == "localize":
+        monkeypatch.setattr(module, "get_locale_labels", lambda: {"en-US": "English"})
+        output = json.dumps(
+            {
+                "source_locale": "en-US",
+                "assistant_prompts": {"en-US": "Generated prompt"},
+                "complete": True,
+            }
+        )
+    if task == "optimize":
+        monkeypatch.setattr(module, "check_text_content", lambda *_args: True)
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("reply", content=output, finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    if task == "compile":
+        assert (
+            module.compile_profile_onboarding_assistant_prompt(app, "?[...Answer]")
+            == output
+        )
+        budget = 8192
+    elif task == "localize":
+        assert module.localize_profile_onboarding_assistant_prompt(
+            app, "Generated prompt"
+        ) == {"en-US": "Generated prompt"}
+        budget = 16384
+    else:
+        result = module.optimize_learner_profile(
+            app, user_id="user", learner_profile="Learner context"
+        )
+        assert result["optimized_learner_profile"] == output
+        budget = 1200
+    assert captured["max_tokens"] == (budget if metadata == "unknown" else 1024)
+    assert captured["model"] == "gpt-test"
+    assert len(records) == 1
+    assert records[0]["status"] == 0
 
 
 def _tool_call_chunk(
