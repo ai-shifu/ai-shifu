@@ -11,6 +11,8 @@ This repository includes a small set of scripts focused on internationalization 
     included; unrelated dotted strings and translation options are excluded.
     Dynamic templates
     conservatively retain defined keys matching their fixed segments.
+  - Existing messages listed in the backend runtime error-code registry are
+    retained as compatibility contracts even without a current literal caller.
   - Persisted configuration can supply arbitrary keys; inspect those consumers
     before deleting a reported candidate. This checker reports usage and does not
     edit translation files.

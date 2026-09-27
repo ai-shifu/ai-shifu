@@ -25,6 +25,8 @@ and product names supplied by billing data.
 - [x] 2026-09-27 UTC: Addressed PR #2989 review by restricting relative key
   detection to translator arguments and forwarded literal-union contracts.
   Added five regressions and removed 12 newly exposed unused keys in all locales.
+- [x] 2026-09-27 UTC: Restored the registered `server.order.orderHasPaid`
+  message in all locales and added error-registry coverage to the usage checker.
 
 ## Surprises & Discoveries
 
@@ -63,7 +65,7 @@ and product names supplied by billing data.
 
 ## Outcomes & Retrospective
 
-Removed 381 unique keys (2,667 localized values) and two retired frontend
+Removed 380 unique keys (2,660 localized values) and two retired frontend
 namespaces. All remaining translation values are identical to the base commit.
 The repaired checker and its CI regressions preserve dynamic, relative, and
 aliased consumers and report no missing or unused keys without allowlists.

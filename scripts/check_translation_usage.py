@@ -350,6 +350,16 @@ def collect_backend_keys() -> set[str]:
     patterns = BACKEND_PATTERNS
     used: set[str] = set()
     defined_keys = translation_aliases(collect_defined_keys())
+    error_codes_path = BACKEND_DIR / "error_codes.json"
+    if error_codes_path.is_file():
+        error_codes = json.loads(error_codes_path.read_text(encoding="utf-8"))
+        registered_keys = {
+            key for key, code in error_codes.items() if isinstance(code, int)
+        }
+        # The runtime error registry is a compatibility contract even when a
+        # particular code has no current literal raise site. Preserve existing
+        # messages without treating legacy untranslated entries as new calls.
+        used.update(translation_aliases(registered_keys) & defined_keys)
     for file_path in BACKEND_DIR.rglob("*.py"):
         if any(
             part in {"tests", ".venv", "venv"}

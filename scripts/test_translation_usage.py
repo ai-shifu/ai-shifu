@@ -190,6 +190,23 @@ class TranslationUsageTest(unittest.TestCase):
         )
         assert self.run_check()[0] == 0
 
+    def test_registered_error_messages_survive_without_literal_callers(self) -> None:
+        self.define("server.order", {"orderHasPaid": "Already paid", "retired": "Old"})
+        (self.backend / "error_codes.json").write_text(
+            json.dumps(
+                {
+                    "server.order.orderHasPaid": 3008,
+                    "server.order.retired": "not a code",
+                    "server.order.legacyUntranslated": 3000,
+                }
+            )
+        )
+        status, output = self.run_check()
+        assert status == 1
+        assert " - server.order.retired" in output
+        assert " - server.order.orderHasPaid" not in output
+        assert "Missing translation keys" not in output
+
     def test_frontend_legacy_aliases_keep_canonical_backend_keys(self) -> None:
         self.define("server.common", {"operationFailed": "Failed"})
         self.define("server.shifu", {"courseNotFound": "Missing"})

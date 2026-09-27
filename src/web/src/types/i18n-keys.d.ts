@@ -3758,6 +3758,7 @@ export type I18nKey =
   | 'server.order.learnStatusReset'
   | 'server.order.learnStatusUnavailable'
   | 'server.order.mobileAlreadyActivated'
+  | 'server.order.orderHasPaid'
   | 'server.order.orderNotFound'
   | 'server.order.orderPayExpired'
   | 'server.order.orderRefundError'

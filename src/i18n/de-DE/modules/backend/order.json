@@ -14,6 +14,7 @@
     "learnStatusReset": "Zurücksetzen",
     "learnStatusUnavailable": "Nicht verfügbar",
     "mobileAlreadyActivated": "Die Mobilnummer {mobile} wurde für diesen Kurs bereits freigeschaltet.",
+    "orderHasPaid": "Die Bestellung wurde bezahlt",
     "orderNotFound": "Bestellung nicht gefunden",
     "orderPayExpired": "Diese Bestellung ist abgelaufen. Bitte geben Sie eine neue Bestellung auf.",
     "orderRefundError": "Rückerstattung fehlgeschlagen",
