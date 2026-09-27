@@ -316,11 +316,11 @@
       },
       "attentionReasons": {
         "active_production": "Produktionsnutzung aktiv",
-        "debug_preview_heavy": "Debug und Vorschau schwer",
+        "debug_preview_heavy": "Hoher Debug-Verbrauch",
         "high_consumption": "Hoher Verbrauch",
-        "high_frequency": "Hohes Rufvolumen",
-        "rapid_growth": "Verwendung wächst schnell",
-        "sustained_activity": "Aktiv an 3+ letzten Tagen"
+        "high_frequency": "Häufige Aufrufe",
+        "rapid_growth": "Stark steigender Verbrauch",
+        "sustained_activity": "Anhaltende Aktivität in den letzten 7 Tagen"
       },
       "description": "Diese Übersicht zeigt Lehrkräfte mit auffälligem jüngstem Verbrauch, Aktivitätsniveau oder Nutzungsmuster. So kann das Betriebsteam die Reihenfolge der Nachverfolgung festlegen.",
       "empty": "Derzeit gibt es keine Lehrkräfte, die besondere Aufmerksamkeit erfordern.",
@@ -329,7 +329,7 @@
         "active_production": "Produktivnutzung aktiv",
         "all": "Alle Lehrkräfte im Fokus",
         "debug_preview_heavy": "Hoher Debug- und Vorschauverbrauch",
-        "rapid_growth": "Schnell wachsen"
+        "rapid_growth": "Stark steigender Verbrauch"
       },
       "sections": {
         "usage": {
@@ -346,18 +346,18 @@
         }
       },
       "summary": {
-        "activeTeachers7d": "Noch aktiv in 7d",
+        "activeTeachers7d": "Aktiv in den letzten 7 Tagen",
         "activeTeachers7dHint": "Anzahl der beobachteten Lehrkräfte mit Verbrauch in den letzten 7 Tagen",
         "debugHeavyCount": "Lehrkräfte mit hohem Debug-Anteil",
         "debugHeavyCountHint": "Lehrkräfte mit hohem Anteil von Debug- und Vorschauverbrauch in den letzten 30 Tagen",
         "focusCount": "Lehrkräfte mit besonderem Handlungsbedarf",
-        "focusCountHint": "Passt zu einer oder mehreren Nutzungsaufmerksamkeitsregeln",
+        "focusCountHint": "Erfüllt mindestens eine Bedingung zur Beobachtung des Verbrauchs",
         "totalCredits": "Verbrauch der beobachteten Lehrkräfte (30 Tage)",
         "totalCreditsHint": "Gesamtverbrauch der derzeit beobachteten Lehrkräfte in den letzten 30 Tagen"
       },
       "table": {
         "actions": "Maßnahmen",
-        "activeDays7d": "7-tägige aktive Tage",
+        "activeDays7d": "Aktive Tage in den letzten 7 Tagen",
         "attentionReasons": "Schwerpunktregeln",
         "attentionReasonsMore": "{count} Einträge",
         "creator": "Lehrkraft",
@@ -371,7 +371,7 @@
         "productionRatio": "Anteil des Produktivverbrauchs",
         "recordCount7d": "Anzahl der Aufrufe (7 Tage)"
       },
-      "title": "Zusammenfassung der Anwendung"
+      "title": "Übersicht zum beobachteten Verbrauch"
     },
     "subscriptions": {
       "description": "Sehen Sie Abonnements von Lehrkräften ein, bei denen eine Nachverfolgung erforderlich ist, sowie deren Credit-Guthaben und den Status der weiteren Bearbeitung.",

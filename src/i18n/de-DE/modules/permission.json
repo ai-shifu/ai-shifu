@@ -16,7 +16,7 @@
   },
   "permission": {
     "requestDescription": "Bitte erläutern Sie kurz, warum Sie Zugang benötigen, und wir werden Ihre Anfrage so schnell wie möglich bearbeiten.",
-    "requestError": "Bitte versuchen Sie es später noch einmal.",
+    "requestError": "Die Zugriffsanfrage konnte nicht gesendet werden. Bitte versuchen Sie es später erneut.",
     "requestPlaceholder": "Bitte geben Sie Ihren Grund ein (z.B. Arbeitsanforderungen, Lernzwecke, etc.)",
     "requestSubmit": "Anfrage senden",
     "requestSuccess": "Ihre Zugriffsanfrage wurde gesendet. Wir bearbeiten sie so bald wie möglich.",

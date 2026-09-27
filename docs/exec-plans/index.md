@@ -101,6 +101,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Safe Outbound URL Validation](./completed/safe-outbound-url-validation.md)
 - [Spanish (Spain) Product Localization](./completed/spanish-es-es-localization.md)
 - [Secure learner Stripe payment synchronization](./completed/stripe-payment-sync-security.md)
+- [Review product translations against the Chinese source](./completed/translation-source-review.md)
 - [Trusted Client IP Resolution](./completed/trusted-client-ip.md)
 - [TTS Provider Capabilities](./completed/tts-provider-capabilities.md)
 - [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)

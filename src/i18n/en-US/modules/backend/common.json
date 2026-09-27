@@ -2,7 +2,7 @@
   "__namespace__": "server.common",
   "__flat__": {
     "dataLoadFailed": "Failed to load data, please try again later",
-    "nicknameNotAllowed": "Oops, illegal nickname.",
+    "nicknameNotAllowed": "The nickname you entered is not allowed.",
     "operationFailed": "Service error, please try again later",
     "paramsError": "Params Error {param_message}",
     "stateInvalid": "This action is not available in the current state",

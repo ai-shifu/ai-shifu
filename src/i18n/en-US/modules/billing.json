@@ -320,7 +320,7 @@
         "high_consumption": "High consumption",
         "high_frequency": "High call volume",
         "rapid_growth": "Usage growing fast",
-        "sustained_activity": "Active on 3+ recent days"
+        "sustained_activity": "Sustained activity in the last 7 days"
       },
       "description": "Summarizes teachers with unusual recent consumption, activity, or usage mix so operators can prioritize follow-up.",
       "empty": "No teachers need priority attention right now.",
@@ -1107,7 +1107,7 @@
   "result": {
     "countdown": "Redirecting to the billing center in {seconds}s",
     "errorTitle": "Billing sync failed",
-    "missingOrder": "Missing billing order. Open the billing center and retry from your order list.",
+    "missingOrder": "The billing order number is missing. Return to the membership center and sync again from the order list.",
     "openBilling": "Open billing center",
     "pending": "Payment is still processing. You can retry sync in a moment.",
     "pendingTitle": "Waiting for billing confirmation",

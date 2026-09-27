@@ -1,9 +1,9 @@
 {
   "__namespace__": "server.metering",
   "__flat__": {
-    "usageSceneDebug": "Fehler",
+    "usageSceneDebug": "Debugging",
     "usageScenePreview": "Vorschau",
-    "usageSceneProduction": "Erzeugung",
+    "usageSceneProduction": "Produktivnutzung",
     "usageTypeLlm": "LLM",
     "usageTypeTts": "TTS"
   }

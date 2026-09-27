@@ -1,7 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
-    "agentRewindUnavailable": "Dieser Schritt kann derzeit nicht neu generiert werden. Um eine frühere Antwort zu ändern, klicken Sie auf „Lektion wiederholen“ und lernen Sie diese Lektion erneut.",
+    "agentRewindUnavailable": "Dieser Schritt kann derzeit nicht neu erstellt werden. Um eine frühere Antwort zu ändern, klicken Sie auf „Wiederholen“ und lernen Sie diese Lektion erneut.",
     "agentTurnCapacity": "Zurzeit lernen viele Personen gleichzeitig. Bitte versuchen Sie es später erneut.",
     "askProviderAuthFailed": "Die Authentifizierung auf Wissensbasis ist fehlgeschlagen. Bitte überprüfen Sie die API-Schlüssel- und Client-ID.",
     "askProviderNoResults": "Es wurde kein relevanter Inhalt der Wissensbasis gefunden.",

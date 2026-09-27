@@ -320,7 +320,7 @@
         "high_consumption": "Alto consumo",
         "high_frequency": "Alta frecuencia de llamadas",
         "rapid_growth": "Consumo en rápido crecimiento",
-        "sustained_activity": "Activo al menos 3 días en los últimos 7 días"
+        "sustained_activity": "Actividad continuada en los últimos 7 días"
       },
       "description": "Resume los profesores con consumo, actividad o patrones de uso recientes que requieren atención para ayudar a operaciones a priorizar el seguimiento.",
       "empty": "No hay profesores que requieran atención prioritaria en este momento.",

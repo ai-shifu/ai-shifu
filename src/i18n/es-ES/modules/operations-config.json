@@ -81,8 +81,8 @@
     "unconfigured": "Tarifa sin configurar"
   },
   "tabs": {
-    "llm": "Consumo de créditos de LLM",
-    "tts": "Consumo de créditos de TTS"
+    "llm": "Multiplicadores de consumo de LLM",
+    "tts": "Multiplicadores de consumo de TTS"
   },
   "title": "Gestión de tarifas"
 }

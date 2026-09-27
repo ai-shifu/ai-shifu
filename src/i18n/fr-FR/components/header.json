@@ -3,7 +3,7 @@
   "close": "Fermer",
   "copyClassroomModeLink": "Copier le lien du mode classe",
   "copyLearningLink": "Copier le lien d'apprentissage",
-  "copyLinkFailed": "Impossible de copier le lien",
+  "copyLinkFailed": "Échec de la copie. Veuillez copier le lien manuellement.",
   "copyLinkSuccess": "Lien copié",
   "copyListenModeLink": "Copier le lien du mode écoute",
   "copyReadModeLink": "Copier le lien du mode lecture",

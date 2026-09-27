@@ -148,7 +148,7 @@
     "packageCampaignProviderPublished": "Sincronizado con Stripe",
     "packageCampaignProviderRetired": "Descuento de Stripe detenido",
     "packageCampaignProviderRetried": "Se ha iniciado una nueva sincronización con Stripe",
-    "packageCampaignProviderSyncRequired": "Esta campaña de descuentos aún no se ha sincronizado por completo con Stripe. Sincronízala antes de activarla.",
+    "packageCampaignProviderSyncRequired": "Esta campaña de descuentos aún no se ha sincronizado por completo con Stripe. Sincronízala con Stripe y confirma que la sincronización se haya completado correctamente antes de activarla.",
     "referralCampaignDisabledSuccess": "Campaña de invitaciones desactivada",
     "referralCampaignEnabledSuccess": "Campaña de invitaciones activada",
     "statusUpdated": "Estado actualizado",
@@ -213,7 +213,7 @@
   },
   "referralCampaign": {
     "advancedSettings": "Configuración avanzada",
-    "advancedSettingsHelper": "La configuración avanzada se mantiene con los valores predeterminados del sistema. Contacta con el equipo técnico si necesitas indicadores de función o reglas de elegibilidad personalizadas.",
+    "advancedSettingsHelper": "El sistema mantiene actualmente la configuración avanzada con sus valores predeterminados. No se recomienda que el personal de operaciones la modifique directamente. Si necesitas controles de despliegue gradual o reglas de elegibilidad especiales, contacta con el equipo de desarrollo.",
     "cap": "Límite de recompensas",
     "capCount": "Cantidad máxima",
     "capCountPlaceholder": "Introduce la cantidad máxima",

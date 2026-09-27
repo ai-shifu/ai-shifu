@@ -7,7 +7,7 @@
     "discountLimitExceeded": "تم بلوغ الحد الأقصى لاستخدام رمز الاسترداد",
     "discountNotApply": "لا ينطبق رمز الاسترداد على هذه الدورة",
     "discountNotFound": "رمز الاسترداد غير موجود",
-    "discountNotStart": "لم يبدأ رمز الاسترداد بعد",
+    "discountNotStart": "رمز الاسترداد غير ساري بعد",
     "orderDiscountAlreadyUsed": "استخدم الطلب رمز الاسترداد بالفعل"
   }
 }

@@ -14,7 +14,7 @@
     "outlineNameTooLong": "Outline name is too long",
     "outlineStructureBroken": "The course outline structure is broken (some units share the same position). Please fix it and try again.",
     "parentOutlineNotFound": "Parent outline not found",
-    "permissionContactLimit": "Shared permissions exceed the limit ({count})",
+    "permissionContactLimit": "Shared access supports at most {count} users.",
     "shifuDescriptionTooLong": "Course description is too long (max 500 characters)",
     "shifuNameRequired": "Course name is required",
     "shifuNameTooLong": "Course name is too long (max {max_length} characters)",

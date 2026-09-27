@@ -7,7 +7,7 @@
     "discountLimitExceeded": "Die maximale Anzahl der Einlösungen dieses Gutscheincodes wurde erreicht.",
     "discountNotApply": "Der Gutscheincode gilt nicht für diesen Kurs.",
     "discountNotFound": "Der Gutscheincode existiert nicht.",
-    "discountNotStart": "Der Gutscheincode hat noch nicht begonnen.",
+    "discountNotStart": "Der Gutscheincode ist noch nicht gültig.",
     "orderDiscountAlreadyUsed": "Für diese Bestellung wurde bereits ein Gutscheincode verwendet."
   }
 }

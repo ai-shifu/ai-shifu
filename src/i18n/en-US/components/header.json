@@ -3,7 +3,7 @@
   "close": "Close",
   "copyClassroomModeLink": "Copy Classroom mode link",
   "copyLearningLink": "Copy learning link",
-  "copyLinkFailed": "Failed to copy link",
+  "copyLinkFailed": "Failed to copy. Please copy the link manually.",
   "copyLinkSuccess": "Link copied",
   "copyListenModeLink": "Copy Listen mode link",
   "copyReadModeLink": "Copy Read mode link",

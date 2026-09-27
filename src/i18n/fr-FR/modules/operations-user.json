@@ -17,7 +17,7 @@
       "unsettled_payment": "Traitez les {count} commandes en attente avant de résilier ce compte."
     },
     "confirm": "Confirmer la résiliation",
-    "confirmDescription": "Le compte {user} sera définitivement résilié.",
+    "confirmDescription": "Le compte {user} sera définitivement supprimé. Vérifiez à nouveau le compte et le motif de suppression. Une fois la demande envoyée, cette action est irréversible.",
     "confirmPaidPreorder": "Ce compte a {count} forfaits prépayés en attente d’activation. Confirmez que les remboursements manuels ou le traitement requis sont terminés.",
     "confirmTitle": "Confirmer la résiliation",
     "continue": "Résilier le compte",
@@ -31,7 +31,7 @@
       "processingTimeout": "La tâche est toujours en cours. Actualisez la liste des utilisateurs ultérieurement.",
       "transfer": "Échec du transfert"
     },
-    "irreversible": "Le profil et les identifiants seront effacés; l’historique requis sera conservé.",
+    "irreversible": "Après la suppression, les informations d’identité du compte et les identifiants de connexion seront effacés, le solde de crédits sera remis à zéro et les sessions de connexion en cours prendront fin. Les historiques commerciaux et les données des cours seront conservés selon les règles applicables.",
     "processing": "Résiliation en cours…",
     "reasonCounter": "{count}/500",
     "reasonHint": "Ce motif sera conservé dans le journal d’audit.",

@@ -157,7 +157,7 @@
     "clearSuccess": "Supprimé",
     "clearTitle": "Supprimer ces informations ?",
     "confirmClear": "Supprimer les informations",
-    "description": "Les cours utilisent le parcours et les préférences ci-dessous pour choisir des exemples plus familiers et expliquer les notions dans le style que vous préférez. Vous pouvez les modifier, les supprimer ou les mettre à jour à tout moment.",
+    "description": "Les cours utilisent le parcours et les préférences ci-dessous pour choisir des exemples plus familiers et expliquer les notions dans le style que vous préférez. Vous pouvez modifier ou supprimer ces informations, ou répondre de nouveau aux questions, à tout moment.",
     "emptyProfile": "Cette présentation ne peut pas être vide. Pour la supprimer, utilisez Supprimer ces informations.",
     "loadFailed": "Impossible de charger ces informations. Réessayez plus tard.",
     "loading": "Chargement…",

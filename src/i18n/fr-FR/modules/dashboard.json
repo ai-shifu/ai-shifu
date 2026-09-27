@@ -170,7 +170,7 @@
         "averageScore": "Note moyenne",
         "latestRatedAt": "Dernière note",
         "ratingCount": "Nombre de notes",
-        "scopeHint": "Consultez les notes et commentaires utiles au créateur afin d’identifier les évolutions de satisfaction et les leçons à améliorer.",
+        "scopeHint": "Consultez les notes et commentaires des apprenants sur les leçons pour évaluer leur satisfaction envers le cours et repérer les contenus à améliorer.",
         "userCount": "Apprenants ayant noté"
       },
       "table": {

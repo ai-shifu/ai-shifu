@@ -170,7 +170,7 @@
         "averageScore": "Average Rating",
         "latestRatedAt": "Latest Rating",
         "ratingCount": "Ratings",
-        "scopeHint": "Review lesson ratings and creator-relevant feedback so you can spot satisfaction shifts and lessons that need refinement.",
+        "scopeHint": "Review learners’ lesson ratings and feedback to assess course satisfaction and identify content that needs improvement.",
         "userCount": "Learners Who Rated"
       },
       "table": {

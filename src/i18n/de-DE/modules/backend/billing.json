@@ -12,7 +12,7 @@
     "creditInsufficient": "Ihre Credits reichen nicht aus. Bitte schließen Sie ein Abonnement ab oder kaufen Sie Credits, bevor Sie fortfahren.",
     "customDomainDisabled": "Benutzerdefinierte Domains sind für diese Lehrkraft nicht freigeschaltet.",
     "debugDisabledBySoftLimit": "Credits liegen unterhalb der konfigurierten Erinnerungsschwelle. Schließen Sie ein Abonnement ab oder kaufen Sie Credits, bevor Sie die Debug-Vorschau fortsetzen.",
-    "disabled": "Die Abrechnung ist derzeit deaktiviert.",
+    "disabled": "Die Abrechnung über Credits ist derzeit deaktiviert.",
     "domainBindingNotFound": "Die angeforderte benutzerdefinierte Domain-Bindung wurde nicht gefunden.",
     "domainHostConflict": "Diese benutzerdefinierte Domain ist bereits an eine andere Lehrkraft gebunden.",
     "manualCreditGrantFailed": "Credits konnten nicht gutgeschrieben werden. Bitte versuchen Sie es später erneut.",
@@ -27,7 +27,7 @@
     "subscriptionPreorderProviderUnsupported": "Paketvorbestellung wird derzeit nur für selbst verwaltete Zahlungskanäle unterstützt.",
     "subscriptionPreorderTargetInvalid": "Mit einer Tarif-Vorausbestellung können Sie nur denselben Tarif verlängern oder zum Ende des Abrechnungszeitraums zu einem günstigeren Tarif wechseln.",
     "subscriptionPreorderUnavailable": "Paketvorbestellung ist für das aktuelle Abonnement nicht verfügbar.",
-    "subscriptionUpgradeAmountInvalid": "Dieses Upgrade kann nicht abgeschlossen werden, da der zahlbare Betrag nach Vorbestellung nicht positiv ist. Bitte kontaktieren Sie den Support, um die Preisgestaltung anzupassen.",
+    "subscriptionUpgradeAmountInvalid": "Der zu zahlende Upgrade-Betrag muss nach Abzug der Vorausbestellung größer als 0 sein. Bitten Sie einen Administrator, den Tarifpreis anzupassen, und versuchen Sie es erneut.",
     "subscriptionUpgradeOnly": "Solange der aktuelle Tarif gültig ist, können Sie nur zu einem höheren Tarif wechseln. Ein Tarif derselben oder einer niedrigeren Stufe kann nicht gekauft werden."
   }
 }

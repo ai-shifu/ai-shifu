@@ -33,7 +33,7 @@
   "lessonUpdateRetakeAccessibleLabel": "Diese Lektion erneut lernen",
   "lessonUpdateRetakeAction": "Erneut lernen",
   "listenAudioBackfillFailed": "Die Audiodatei konnte nicht erstellt werden. Bitte versuchen Sie es erneut oder lesen Sie weiter.",
-  "listenInteractionHint": "Beantworten Sie diesen Schritt, um mit dem Kurs fortzufahren.",
+  "listenInteractionHint": "Schließen Sie diesen Schritt ab, bevor Sie weiter zuhören.",
   "listenModeTtsDisabled": "Der Hörmodus ist für diesen Kurs nicht aktiviert.",
   "listenPlaybackSpeedAriaLabel": "Wiedergabegeschwindigkeit: {speed}",
   "listenPlaybackSpeedLabel": "Wiedergabegeschwindigkeit",

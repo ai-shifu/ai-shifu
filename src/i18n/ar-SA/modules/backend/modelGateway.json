@@ -10,7 +10,7 @@
     "invalid_token": "يلزم رمز Authorization Bearer صالح.",
     "messages_invalid": "يجب أن تحتوي messages على 1 إلى 256 كائن رسالة.",
     "missing_client_id": "يلزم إرسال ترويسة X-AI-Shifu-Client-ID.",
-    "model_not_available": "النموذج غير متاح أو لم يتم إعداد حدوده أو أسعار النقاط.",
+    "model_not_available": "النموذج غير متاح، أو لم يتم إعداد حدوده أو أسعار الأرصدة بعد.",
     "model_required": "يجب تحديد نموذج.",
     "provider_error": "فشل طلب النموذج.",
     "request_too_large": "يتجاوز محتوى الطلب حد البوابة البالغ 1 ميبيبايت.",

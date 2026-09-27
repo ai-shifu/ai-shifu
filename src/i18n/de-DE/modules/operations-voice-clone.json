@@ -127,7 +127,7 @@
     "teacherSearchPlaceholder": "Mobil / E-Mail",
     "title": "Klonierte Stimme registrieren",
     "voiceIdHint": "Geben Sie die auf der MiniMax-Konsole geklonte Voice-ID ein.",
-    "voiceIdHintVolcengine": "Geben Sie die Lautsprecher-ID ein, die auf der Volcengine-Konsole trainiert wurde (ein Sprachsteckplatz, der mit S_ beginnt).",
+    "voiceIdHintVolcengine": "Geben Sie die nach abgeschlossenem Training in der Volcengine-Konsole verfügbare Stimmen-ID ein (ein Stimmenslot mit dem Präfix S_).",
     "voiceIdInvalid": "Das Format der Voice ID ist ungültig.",
     "voiceIdLabel": "Voice ID",
     "voiceIdPlaceholder": "z.B. AiShifu_xxxxxxxxxx",

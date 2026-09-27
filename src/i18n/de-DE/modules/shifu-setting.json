@@ -4,15 +4,15 @@
   "archive": "Kurs Archivieren",
   "archiveConfirm": "Archivierung bewegt diesen Kurs zu \"Archiviert\". Sie können ihn später wiederherstellen; Bearbeitung und Lernen bleiben während des Archivierens verfügbar.",
   "archiveSuccess": "Kurs archiviert",
-  "archiveTitle": "Archivkurs?",
-  "askModel": "Antwort auf die Rückfragemodell",
-  "askPreview": "Antwort auf die Nachprüfung",
+  "archiveTitle": "Kurs archivieren?",
+  "askModel": "Modell für Rückfragen",
+  "askPreview": "Rückfragen testen",
   "askPreviewLoading": "Testen...",
   "askPreviewQuestion": "Lernender könnte fragen:",
-  "askPreviewQuestionPlaceholder": "Geben Sie eine Frage ein, die ein Lernender stellen könnte",
+  "askPreviewQuestionPlaceholder": "Geben Sie eine Frage ein, um zu prüfen, ob die Modellantwort Ihren Erwartungen entspricht.",
   "askPreviewQuestionRequired": "Bitte geben Sie eine Testfrage ein",
   "askPreviewResult": "Prüfergebnis",
-  "askPreviewUsedFallback": "{provider} fehlgeschlagen, auf die eingebaute LLM umgeschaltet",
+  "askPreviewUsedFallback": "Der Aufruf von {provider} ist fehlgeschlagen. Das integrierte Modell wird verwendet.",
   "askPreviewUsedProvider": "Dieses Mal verwendet: {provider}",
   "askProviderConfigInvalidJson": "{field} muss gültiges JSON-Objekt sein",
   "askProviderConfigOutOfRange": "{field} muss zwischen {min} und {max} liegen",
@@ -21,14 +21,14 @@
     "coze": "Verwenden Sie einen Coze-Bot, um die Fragen zu beantworten.",
     "coze_workflow": "Verwenden Sie einen Coze-Workflow, um Lerner-Rückfragen zu beantworten.",
     "dify": "Verwenden Sie eine Dify-Chat-App, um Lerner-Rückfragen zu beantworten.",
-    "get_biji_knowledge": "Holen Sie sich von einer Dedao Brain Wissensbasis, dann lassen Sie die eingebaute LLM Lerner Rückfragen beantworten.",
-    "llm": "Verwenden Sie das eingebaute LLM, um Lerner-Rückfragen zu beantworten.",
-    "volc_knowledge": "Suchen Sie eine Volcengine-Wissensdatenbank, bevor Sie Fragen beantworten."
+    "get_biji_knowledge": "Informationen aus einer Dedao-Brain-Wissensdatenbank abrufen und vom integrierten Modell zusammenfassen lassen, um Rückfragen der Lernenden zu beantworten.",
+    "llm": "Das integrierte Modell verwenden, um Rückfragen der Lernenden zu beantworten.",
+    "volc_knowledge": "Eine Volcengine-Wissensdatenbank durchsuchen und anschließend Rückfragen der Lernenden beantworten."
   },
   "askProviderFields": {
     "coze": {
       "api_key": {
-        "hint": "Coze persönlichen Zugang Token.",
+        "hint": "Persönlicher Zugriffstoken für Coze.",
         "label": "API-Schlüssel"
       },
       "bot_id": {
@@ -70,7 +70,7 @@
         "label": "Anzahl der Ergebnisse"
       },
       "topic_id": {
-        "hint": "Dedao Gehirn Wissensdatenbank ID.",
+        "hint": "ID der Dedao-Brain-Wissensdatenbank.",
         "label": "Wissensdatenbank-ID"
       }
     },
@@ -95,15 +95,15 @@
   },
   "askProviderModes": {
     "provider_only": "Nur ausgewählten Anbieter verwenden",
-    "provider_then_llm": "Verwenden Sie zuerst Anbieter, dann LLM, wenn es fehlschlägt"
+    "provider_then_llm": "Zuerst den Anbieter verwenden, bei Fehlern zum integrierten Modell wechseln"
   },
   "askProviderOptions": {
     "coze": "Coze",
     "coze_workflow": "Coze-Workflow",
     "dify": "Dify",
-    "get_biji_knowledge": "Dedao Gehirn Wissensgrundlage",
-    "llm": "Eingebaute LLM",
-    "volc_knowledge": "Volcengine Knowledge Base"
+    "get_biji_knowledge": "Dedao-Brain-Wissensdatenbank",
+    "llm": "Integriertes Modell",
+    "volc_knowledge": "Volcengine-Wissensdatenbank"
   },
   "askProviderSelect": "Wählen Sie die Quelle für Antworten auf Rückfragen aus.",
   "askTemperature": "Temperatur für Rückfragen",
@@ -112,21 +112,21 @@
   "defaultListenModeDescription": "Wenn diese Option aktiviert ist, starten Lernende diesen Kurs standardmäßig im Hörmodus.",
   "defaultListenModeTitle": "Standardmäßig im Hörmodus starten",
   "draftConflictDescription": "Dieser Kurs wurde von {phone} aktualisiert. Laden Sie den neuesten Inhalt, um die Bearbeitung sicher fortzusetzen.",
-  "draftConflictRefresh": "Letztes laden",
-  "draftConflictSynced": "Diese Lektion wurde von {phone} aktualisiert.",
+  "draftConflictRefresh": "Aktuellen Inhalt laden",
+  "draftConflictSynced": "Diese Lektion wurde von {phone} aktualisiert. Der aktuelle Inhalt wurde synchronisiert.",
   "draftConflictTitle": "Kurs aktualisiert",
   "draftConflictUnknownUser": "ein anderer Benutzer",
   "draftSelfUpdateDescription": "Diese Lektion wurde in einer anderen Seite oder einem anderen Tool aktualisiert. Laden Sie den neuesten Inhalt, um die Bearbeitung sicher zu halten.",
-  "draftSelfUpdateSynced": "Diese Lektion wurde in einer anderen Seite oder einem anderen Tool aktualisiert.",
+  "draftSelfUpdateSynced": "Diese Lektion wurde auf einer anderen Seite oder mit einem anderen Tool aktualisiert. Der aktuelle Inhalt wurde synchronisiert.",
   "draftSelfUpdateTitle": "Inhalt an anderer Stelle aktualisiert",
   "fileSizeLimit": "Dateigröße darf 2MB nicht überschreiten",
   "imageFormatHint": "Verwendung auf der Kurskarte und Lernseite. JPG oder PNG, bis 2MB, 1:1 empfohlen",
   "inputKeywords": "Geben Sie ein Stichwort ein und drücken Sie Enter",
   "keywords": "Kurs-Schlüsselbegriffe",
   "learningUrl": "Lern-URL",
-  "liveVoiceDescription": "Wählen Sie eine Gemini-Voreinstellung für Live-Follow-up-Gespräche.",
+  "liveVoiceDescription": "Wählen Sie eine offizielle voreingestellte Gemini-Stimme für Rückfragen per Echtzeit-Sprachdialog.",
   "liveVoiceLabel": "Live-Gesprächsstimme",
-  "liveVoicePreviewHint": "Speichern Sie zuerst die Einstellungen. Klicken Sie dann in der Kursvorschau auf „Rückfrage“, um sich den vollständigen Sprachdialog anzuhören.",
+  "liveVoicePreviewHint": "Speichern Sie zuerst die Einstellungen. Klicken Sie dann in der Kursvorschau auf „Nachfragen“, um den vollständigen Sprachdialog auszuprobieren.",
   "liveVoiceStyles": {
     "breathy": "Hauchig",
     "breezy": "Beschwingt",
@@ -135,7 +135,7 @@
     "clear": "Klar",
     "easyGoing": "Entspannt",
     "even": "Gleichmäßig",
-    "excitable": "Aufregend",
+    "excitable": "Aufgeregt",
     "firm": "Bestimmt",
     "forward": "Direkt",
     "friendly": "Freundlich",
@@ -159,7 +159,7 @@
     "ready": "Fertig"
   },
   "minimaxCloneVoiceOptionLabel": "{name}",
-  "minimaxManualVoiceApply": "Verwendung",
+  "minimaxManualVoiceApply": "Verwenden",
   "minimaxManualVoiceBadge": "Benutzerdefiniert",
   "minimaxManualVoiceInvalid": "Geben Sie eine gültige MiniMax benutzerdefinierte Sprach-ID ein",
   "minimaxManualVoiceLabel": "Sprach-ID manuell eingeben",
@@ -170,7 +170,7 @@
   "modelOptions": {
     "hint": "Das Modell bestimmt die Geschwindigkeit und Qualität der Ausgabe",
     "liveVoice": "Live-Stimme",
-    "text": "Text Q&A",
+    "text": "Fragen und Antworten als Text",
     "unavailable": "Nicht verfügbar"
   },
   "number": "Geben Sie eine Zahl ein",
@@ -232,7 +232,7 @@
   "shifuPrompt": "KI-Lehranweisungen",
   "shifuPromptHint": "Anforderungen und Einschränkungen für den KI-Unterricht",
   "shifuPromptMaxLength": "Der Kurs-Prompt darf höchstens 20.000 Zeichen umfassen.",
-  "shifuPromptPlaceholder": "Beispiel: Verwenden Sie für Anfänger einen freundlichen Ton, zeigen Sie ein Beispiel, bevor Sie jedes Konzept erklären",
+  "shifuPromptPlaceholder": "Erklären Sie der KI, wer Sie sind, für wen der Kurs gedacht ist, welchen Ton und Unterrichtsstil sie verwenden soll, wie die Folien gestaltet werden sollen, welche Regeln sie einhalten und welche Fehler sie vermeiden muss.",
   "shifuTemperature": "Erzeugungstemperatur des Inhalts",
   "shifuTemperatureFormat": "Temperatur muss eine gültige Zahl sein",
   "shifuTemperatureMax": "Temperatur darf 2 nicht überschreiten",
@@ -247,7 +247,7 @@
   "ttsModel": "Sprachmodell",
   "ttsPitch": "Tonhöhe",
   "ttsPitchHint": "Passen Sie die Tonhöhe innerhalb des Wertebereichs des ausgewählten Anbieters an.",
-  "ttsPreview": "Aktuelle Stimme anzeigen",
+  "ttsPreview": "Aktuelle Stimme anhören",
   "ttsPreviewLoading": "Vorschau erzeugen...",
   "ttsPreviewStop": "Anhalten",
   "ttsProvider": "Anbieter",
