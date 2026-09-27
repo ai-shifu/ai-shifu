@@ -113,7 +113,7 @@
     "learningModePerformance": {
       "columns": {
         "averageConsumedCredits": "فی کس کھپت",
-        "consumedCredits": "کریڈٹس استعمال کریں۔",
+        "consumedCredits": "استعمال شدہ کریڈٹس",
         "consumptionSpeed": "پچھلے 7 دنوں میں روزانہ کی اوسط کھپت",
         "mode": "سیکھنے کی شکل",
         "participants": "صارفین کی تعداد"
