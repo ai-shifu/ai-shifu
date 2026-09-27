@@ -786,8 +786,8 @@
       "page": "صفحہ {page} / {pageCount}، کل {total} لیجرز"
     },
     "source": {
-      "campaignBonus": "سرگرمیاں کریڈٹس دیتی ہیں۔",
-      "gift": "کریڈٹس دے دیں۔",
+      "campaignBonus": "پروموشن کے بونس کریڈٹس",
+      "gift": "بونس کریڈٹس",
       "manual": "دستی ایڈجسٹمنٹ",
       "refund": "پیسے واپس",
       "subscription": "پلان کے کریڈٹس",
@@ -866,7 +866,7 @@
       "upgradeNow": "ابھی اپ گریڈ کریں۔"
     },
     "campaign": {
-      "bonusBadge": "{credits} کریڈٹس دیں۔",
+      "bonusBadge": "بونس {credits} کریڈٹس",
       "discountBadge": "محدود وقت کی پیشکش",
       "paymentOnly": "پیشکش صرف اس ادائیگی پر لاگو ہوتی ہے۔"
     },
