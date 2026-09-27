@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "Validez de los créditos",
       "creditsHint": "El saldo de créditos se eliminará sin reembolso.",
       "creditsLabel": "Saldo de créditos",
-      "creditsValue": "{count} (se eliminarán sin reembolso)",
-      "draftsHint": "Los borradores se conservarán bloqueados tras la baja.",
-      "draftsLabel": "Borradores de cursos",
-      "draftsValue": "{count} (se conservarán bloqueados)",
       "paidPackages": "Plan pagado:",
       "preorders": "Plan de prepago pendiente:",
-      "renewals": "Suscripciones activas que finalizarán al dar de baja la cuenta: {count}",
-      "sessionsHint": "Todas las sesiones iniciadas se cerrarán inmediatamente.",
-      "sessionsLabel": "Sesiones activas",
-      "sessionsValue": "{count} (se cerrarán al dar de baja la cuenta)",
       "subscriptions": "Suscripción con renovación automática:"
     },
     "title": "Dar de baja la cuenta",
     "transfer": "Transferir todos",
     "transferEmailPlaceholder": "Correo electrónico del nuevo responsable",
     "transferPhonePlaceholder": "Móvil del nuevo responsable",
-    "transferPlaceholder": "Móvil o correo electrónico del nuevo responsable",
     "transferRequired": "Transfiere primero {count} cursos publicados"
   },
   "contactChange": {
@@ -356,7 +347,6 @@
       "product": "Selecciona un plan",
       "productLoading": "Cargando planes...",
       "referralRewardAmount": "Introduce los créditos de recompensa",
-      "source": "Selecciona un origen",
       "validityPreset": "Selecciona un periodo de validez"
     },
     "referralReward": {
@@ -385,8 +375,7 @@
       "availableCredits": "Saldo de créditos",
       "currentExpireAt": "Válido hasta",
       "currentPackage": "Plan actual",
-      "nickname": "Apodo",
-      "package": "Plan"
+      "nickname": "Apodo"
     },
     "title": "Asignar créditos o plan",
     "validation": {

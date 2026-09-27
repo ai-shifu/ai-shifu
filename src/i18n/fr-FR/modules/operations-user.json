@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "Validité des crédits",
       "creditsHint": "Le solde sera supprimé sans remboursement.",
       "creditsLabel": "Solde de crédits",
-      "creditsValue": "{count} (supprimés sans remboursement)",
-      "draftsHint": "Les cours brouillons seront conservés et gelés.",
-      "draftsLabel": "Cours brouillons",
-      "draftsValue": "{count} (conservés et gelés)",
       "paidPackages": "Forfait payant :",
       "preorders": "Forfait prépayé en attente :",
-      "renewals": "Abonnements actifs résiliés lors de la suppression : {count}",
-      "sessionsHint": "Toutes les sessions actives seront immédiatement révoquées.",
-      "sessionsLabel": "Sessions actives",
-      "sessionsValue": "{count} (toutes révoquées)",
       "subscriptions": "Abonnement renouvelé automatiquement :"
     },
     "title": "Résilier le compte",
     "transfer": "Tout transférer",
     "transferEmailPlaceholder": "E-mail du nouveau responsable",
     "transferPhonePlaceholder": "Téléphone du nouveau responsable",
-    "transferPlaceholder": "Téléphone ou e-mail du nouveau responsable",
     "transferRequired": "Transférez d’abord {count} cours publiés"
   },
   "contactChange": {
@@ -356,7 +347,6 @@
       "product": "Sélectionnez un forfait",
       "productLoading": "Chargement des forfaits…",
       "referralRewardAmount": "Saisir les crédits de récompense",
-      "source": "Sélectionnez une source",
       "validityPreset": "Sélectionnez une validité"
     },
     "referralReward": {
@@ -385,8 +375,7 @@
       "availableCredits": "Solde de crédits",
       "currentExpireAt": "Valide jusqu’au",
       "currentPackage": "Forfait actuel",
-      "nickname": "Pseudo",
-      "package": "Forfait"
+      "nickname": "Pseudo"
     },
     "title": "Attribuer crédits/forfait",
     "validation": {

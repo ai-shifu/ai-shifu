@@ -14,7 +14,6 @@
     "learnStatusReset": "Restablecido",
     "learnStatusUnavailable": "No disponible",
     "mobileAlreadyActivated": "El móvil {mobile} ya tiene acceso a este curso.",
-    "orderHasPaid": "El pedido ya se ha pagado.",
     "orderNotFound": "No se ha encontrado el pedido.",
     "orderPayExpired": "El pedido ha caducado. Haz uno nuevo.",
     "orderRefundError": "No se ha podido tramitar el reembolso.",

@@ -185,7 +185,6 @@
       },
       "title": "Datos de valoraciones"
     },
-    "subtitle": "La información básica, las métricas principales y la actividad de los alumnos se actualizan en tiempo real.",
     "title": "Detalle del curso"
   },
   "entry": {
@@ -205,11 +204,8 @@
       "orderAmount": "Importe de los pedidos",
       "orders": "Pedidos",
       "reset": "Restablecer",
-      "scopeNote": "Solo se incluyen los datos de los cursos que has creado y de los que eres responsable. Se excluyen los cursos en los que colaboras.",
       "search": "Buscar",
       "searchPlaceholder": "ID o nombre del curso",
-      "title": "Lista de cursos",
-      "totalCount": "Total: {count}",
       "viewCourse": "Ver curso",
       "viewOrders": "Ver pedidos"
     }

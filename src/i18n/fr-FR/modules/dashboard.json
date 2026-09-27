@@ -185,7 +185,6 @@
       },
       "title": "Données de notation"
     },
-    "subtitle": "Les informations de base, les indicateurs clés et les données d’apprentissage des apprenants utilisent désormais des données en direct.",
     "title": "Détail du cours"
   },
   "entry": {
@@ -205,11 +204,8 @@
       "orderAmount": "Montant de commande",
       "orders": "Commandes",
       "reset": "Réinitialiser",
-      "scopeNote": "Périmètre : seules les données des cours que vous avez créés et possédez sont incluses. Les cours collaboratifs sont exclus.",
       "search": "Rechercher",
       "searchPlaceholder": "ID du cours / Nom du cours",
-      "title": "Liste des cours",
-      "totalCount": "Total : {count}",
       "viewCourse": "Voir le cours",
       "viewOrders": "Voir les commandes"
     }

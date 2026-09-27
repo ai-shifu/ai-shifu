@@ -25,24 +25,15 @@
   "emptyValue": "لا يوجد",
   "fields": {
     "activityPrice": "خصم الحملة",
-    "chargeId": "رقم معاملة الدفع",
-    "checkoutSession": "جلسة الدفع",
     "couponType": "نوع الخصم",
     "couponValue": "قيمة الخصم",
     "createdAt": "وقت الإنشاء",
     "currency": "العملة",
     "discount": "الخصم",
-    "latestCharge": "أحدث عملية خصم",
     "paid": "المدفوع فعليًا",
     "payable": "المستحق الدفع",
-    "paymentAmount": "مبلغ الدفع",
     "paymentChannel": "قناة الدفع",
-    "paymentCreatedAt": "وقت إنشاء الدفع",
-    "paymentIntent": "نية الدفع",
-    "paymentMethod": "طريقة الدفع",
     "paymentStatus": "حالة الدفع",
-    "paymentUpdatedAt": "وقت تحديث الدفع",
-    "receipt": "رابط الإيصال",
     "shifu": "الدورة",
     "status": "الحالة",
     "transactionNo": "رقم المعاملة",
@@ -149,15 +140,13 @@
   "sections": {
     "activities": "الحملات",
     "coupons": "القسائم",
-    "payment": "الدفع",
-    "summary": "الملخص"
+    "payment": "الدفع"
   },
   "statusLabels": {
     "timeout": "منتهي الصلاحية (لم يتم الدفع لأكثر من {minutes} دقيقة)"
   },
   "table": {
     "action": "الإجراء",
-    "amount": "مبلغ الدفع",
     "createdAt": "وقت الإنشاء",
     "orderId": "معرّف الطلب",
     "payment": "الدفع",

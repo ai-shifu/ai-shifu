@@ -144,7 +144,6 @@
     "course": "الدورة",
     "createdAt": "وقت الطلب",
     "discountAmount": "الخصم",
-    "empty": "لا توجد بيانات طلبات حاليًا",
     "orderId": "معرّف الطلب",
     "paidAmount": "المبلغ المحصّل",
     "paymentChannel": "قناة الدفع",

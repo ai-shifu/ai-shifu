@@ -1,11 +1,9 @@
 {
   "__namespace__": "server.common",
   "__flat__": {
-    "dataLoadFailed": "Failed to load data, please try again later",
     "nicknameNotAllowed": "The nickname you entered is not allowed.",
     "operationFailed": "Service error, please try again later",
     "paramsError": "Params Error {param_message}",
-    "stateInvalid": "This action is not available in the current state",
     "systemError": "System Error",
     "unexpectedError": "The service is temporarily unavailable. Please try again later.",
     "unknownError": "Unknown Error"

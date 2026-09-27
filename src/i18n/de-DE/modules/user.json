@@ -3,11 +3,6 @@
   "confirmLogoutContent": "Möchten Sie sich wirklich abmelden?",
   "confirmLogoutTitle": "Abmelden bestätigen",
   "defaultUserName": "Anonymer Benutzer",
-  "gender": {
-    "female": "Weiblich",
-    "male": "Männlich",
-    "secret": "Keine Angabe"
-  },
   "login": "Anmeldung",
   "loginMainButton": "Anmelden oder registrieren",
   "logout": "Abmelden",

@@ -25,24 +25,15 @@
   "emptyValue": "ไม่มีข้อมูล",
   "fields": {
     "activityPrice": "ส่วนลดกิจกรรม",
-    "chargeId": "หมายเลขรายการชำระเงิน",
-    "checkoutSession": "เซสชันชำระเงิน",
     "couponType": "ประเภทส่วนลด",
     "couponValue": "มูลค่าส่วนลด",
     "createdAt": "เวลาสร้าง",
     "currency": "สกุลเงิน",
     "discount": "ส่วนลด",
-    "latestCharge": "การเรียกเก็บเงินล่าสุด",
     "paid": "ชำระจริง",
     "payable": "ยอดที่ต้องชำระ",
-    "paymentAmount": "ยอดชำระเงิน",
     "paymentChannel": "ช่องทางการชำระเงิน",
-    "paymentCreatedAt": "เวลาสร้างการชำระเงิน",
-    "paymentIntent": "เจตนาการชำระเงิน",
-    "paymentMethod": "วิธีการชำระเงิน",
     "paymentStatus": "สถานะการชำระเงิน",
-    "paymentUpdatedAt": "เวลาอัปเดตการชำระเงิน",
-    "receipt": "ลิงก์ใบเสร็จ",
     "shifu": "หลักสูตร",
     "status": "สถานะ",
     "transactionNo": "หมายเลขธุรกรรม",
@@ -149,15 +140,13 @@
   "sections": {
     "activities": "กิจกรรม",
     "coupons": "คูปอง",
-    "payment": "การชำระเงิน",
-    "summary": "สรุป"
+    "payment": "การชำระเงิน"
   },
   "statusLabels": {
     "timeout": "หมดอายุ (ไม่ชำระเงินเกิน {minutes} นาที)"
   },
   "table": {
     "action": "การดำเนินการ",
-    "amount": "ยอดชำระเงิน",
     "createdAt": "เวลาสร้าง",
     "orderId": "รหัสคำสั่งซื้อ",
     "payment": "การชำระเงิน",

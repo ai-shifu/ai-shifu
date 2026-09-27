@@ -25,24 +25,15 @@
   "emptyValue": "No disponible",
   "fields": {
     "activityPrice": "Descuento de la promoción",
-    "chargeId": "ID del cargo",
-    "checkoutSession": "Sesión de pago",
     "couponType": "Tipo de cupón",
     "couponValue": "Valor del cupón",
     "createdAt": "Fecha de creación",
     "currency": "Moneda",
     "discount": "Descuento",
-    "latestCharge": "Último cargo",
     "paid": "Importe pagado",
     "payable": "Importe a pagar",
-    "paymentAmount": "Importe del pago",
     "paymentChannel": "Canal de pago",
-    "paymentCreatedAt": "Fecha de creación del pago",
-    "paymentIntent": "Intento de pago",
-    "paymentMethod": "Método de pago",
     "paymentStatus": "Estado del pago",
-    "paymentUpdatedAt": "Fecha de actualización del pago",
-    "receipt": "Enlace al recibo",
     "shifu": "Curso",
     "status": "Estado",
     "transactionNo": "Número de transacción",
@@ -149,15 +140,13 @@
   "sections": {
     "activities": "Promociones",
     "coupons": "Cupones",
-    "payment": "Pago",
-    "summary": "Resumen"
+    "payment": "Pago"
   },
   "statusLabels": {
     "timeout": "Caducado (sin pagar durante más de {minutes} minutos)"
   },
   "table": {
     "action": "Acción",
-    "amount": "Importe del pago",
     "createdAt": "Fecha de creación",
     "orderId": "ID del pedido",
     "payment": "Pago",

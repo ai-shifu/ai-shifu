@@ -14,7 +14,6 @@
     "learnStatusReset": "รีเซ็ต",
     "learnStatusUnavailable": "ใช้ไม่ได้",
     "mobileAlreadyActivated": "หมายเลขโทรศัพท์ {mobile} เปิดใช้งานหลักสูตรนี้แล้ว",
-    "orderHasPaid": "ชำระเงินคำสั่งซื้อแล้ว",
     "orderNotFound": "ไม่พบคำสั่งซื้อ",
     "orderPayExpired": "คำสั่งซื้อหมดอายุแล้ว โปรดสร้างคำสั่งซื้อใหม่",
     "orderRefundError": "คืนเงินไม่สำเร็จ",

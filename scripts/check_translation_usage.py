@@ -19,9 +19,12 @@ I18N_DIR = ROOT / "src" / "i18n"
 BACKEND_DIR = ROOT / "src" / "api"
 WEB_DIR = ROOT / "src" / "web" / "src"
 
-STRING_LITERAL = re.compile(r"['\"][^'\"]+['\"]")
+KEY_LITERAL = re.compile(r"(['\"`])([A-Za-z0-9_.-]+)\1")
+DYNAMIC_KEY_LITERAL = re.compile(
+    r"(['\"`])([A-Za-z][A-Za-z0-9_.-]*\.(?:(?:\$\{[^}\n]*\}|\{[^}\n]*\})|[A-Za-z0-9_.-])+)\1"
+)
 TRANSLATION_KEY_LITERAL = re.compile(
-    r"^(?:module|server)\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+$"
+    r"^(?:common|component|module|server)\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+$"
 )
 
 BACKEND_PATTERNS = [
@@ -53,6 +56,69 @@ USE_TRANSLATION_ALIAS_PATTERN = re.compile(
     """,
     re.VERBOSE,
 )
+
+
+def translation_aliases(keys: set[str]) -> set[str]:
+    """Include the shared backend namespace and domain compatibility aliases."""
+    aliases = set(keys)
+    for key in keys:
+        if key.startswith("module.backend.course."):
+            aliases.add("server.shifu." + key.removeprefix("module.backend.course."))
+        elif key.startswith("module.backend.lesson."):
+            tail = key.removeprefix("module.backend.lesson.")
+            aliases.update({"server.outline." + tail, "server.outlineItem." + tail})
+        elif key.startswith("module.backend."):
+            aliases.add("server." + key.removeprefix("module.backend."))
+        elif key.startswith("server.shifu."):
+            aliases.add("module.backend.course." + key.removeprefix("server.shifu."))
+        elif key.startswith(("server.outline.", "server.outlineItem.")):
+            aliases.add("module.backend.lesson." + key.split(".", 2)[2])
+        elif key.startswith("server."):
+            aliases.add("module.backend." + key.removeprefix("server."))
+    return aliases
+
+
+def collect_literal_keys(text: str, defined_keys: set[str]) -> set[str]:
+    """Recognize key constants, forwarded relative keys, and dynamic families.
+
+    A template preserves only the defined keys matching its fixed segments.
+    Values for interpolated enums can come from API data, so do not guess their
+    population. Dotted relative literals support translators passed as props;
+    bare words alone must never preserve an entire namespace.
+    """
+    used: set[str] = set()
+    relative_keys: dict[str, set[str]] = {}
+    for key in defined_keys:
+        parts = key.split(".")
+        for index in range(1, len(parts) - 1):
+            relative_keys.setdefault(".".join(parts[index:]), set()).add(key)
+
+    for match in KEY_LITERAL.finditer(text):
+        literal = match.group(2)
+        if TRANSLATION_KEY_LITERAL.fullmatch(literal):
+            used.add(literal)
+            continue
+        if literal in relative_keys:
+            used.update(relative_keys[literal])
+    for match in DYNAMIC_KEY_LITERAL.finditer(text):
+        literal = match.group(2)
+        is_python_template = match.start() > 0 and text[match.start() - 1] in {"f", "F"}
+        if "${" in literal:
+            segments = re.split(r"\$\{[^}]*\}", literal)
+        elif is_python_template and "{" in literal:
+            segments = re.split(r"\{[^}]*\}", literal)
+        else:
+            continue
+        if len(segments) < 2 or not re.fullmatch(
+            r"[A-Za-z][A-Za-z0-9_.-]*\.", segments[0]
+        ):
+            continue
+        pattern = re.compile("^" + ".*".join(re.escape(s) for s in segments) + "$")
+        used.update(key for key in defined_keys if pattern.fullmatch(key))
+        for relative, keys in relative_keys.items():
+            if pattern.fullmatch(relative):
+                used.update(keys)
+    return used
 
 
 def collect_frontend_namespaced_keys(text: str) -> set[str]:
@@ -191,10 +257,15 @@ def collect_backend_keys() -> set[str]:
     """Collect backend keys."""
     patterns = BACKEND_PATTERNS
     used: set[str] = set()
+    defined_keys = translation_aliases(collect_defined_keys())
     for file_path in BACKEND_DIR.rglob("*.py"):
-        if file_path.suffix != ".py":
+        if any(
+            part in {"tests", ".venv", "venv"}
+            for part in file_path.relative_to(BACKEND_DIR).parts
+        ):
             continue
         text = file_path.read_text(encoding="utf-8", errors="ignore")
+        used.update(collect_literal_keys(text, defined_keys))
         for pattern in patterns:
             for match in pattern.findall(text):
                 if "." not in match:
@@ -247,6 +318,7 @@ def collect_frontend_keys() -> set[str]:
 
     patterns = FRONTEND_PATTERNS
     used: set[str] = set()
+    defined_keys = translation_aliases(collect_defined_keys())
     extensions = (".ts", ".tsx", ".js", ".jsx")
     for file_path in WEB_DIR.rglob("*"):
         if file_path.suffix not in extensions:
@@ -254,6 +326,8 @@ def collect_frontend_keys() -> set[str]:
         if (
             ".test." in file_path.name
             or ".spec." in file_path.name
+            or ".test-support." in file_path.name
+            or file_path.name.endswith(".d.ts")
             or "__tests__" in file_path.parts
         ):
             continue
@@ -263,12 +337,7 @@ def collect_frontend_keys() -> set[str]:
                 used.add(match)
         used.update(collect_frontend_namespaced_keys(text))
         used.update(collect_frontend_trans_keys(text))
-        # Catch translation keys referenced as bare string literals
-        # (e.g. in arrays or maps) that are later passed to t().
-        for match in STRING_LITERAL.findall(text):
-            candidate = match[1:-1]
-            if TRANSLATION_KEY_LITERAL.fullmatch(candidate):
-                used.add(candidate)
+        used.update(collect_literal_keys(text, defined_keys))
     return used
 
 
@@ -346,7 +415,7 @@ def main() -> int:
     defined_with_alias = set(defined_primary) | aliases
     backend_used = collect_backend_keys()
     frontend_used = collect_frontend_keys()
-    used_keys = backend_used | frontend_used
+    used_keys = translation_aliases(backend_used | frontend_used)
     # Limit missing calculation to namespaces declared in shared metadata
     allowed_namespaces = load_metadata_namespaces()
 

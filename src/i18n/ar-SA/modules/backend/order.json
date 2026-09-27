@@ -14,7 +14,6 @@
     "learnStatusReset": "إعادة ضبط",
     "learnStatusUnavailable": "غير متاح",
     "mobileAlreadyActivated": "تم تفعيل هذه الدورة لرقم الهاتف {mobile} بالفعل",
-    "orderHasPaid": "تم دفع الطلب بالفعل",
     "orderNotFound": "لم يتم العثور على الطلب",
     "orderPayExpired": "انتهت صلاحية الطلب، يرجى إنشاء طلب جديد",
     "orderRefundError": "فشل استرداد المبلغ",

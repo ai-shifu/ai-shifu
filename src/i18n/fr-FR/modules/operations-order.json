@@ -144,7 +144,6 @@
     "course": "Cours",
     "createdAt": "Créé le",
     "discountAmount": "Remise",
-    "empty": "Aucune donnée de commande",
     "orderId": "ID de commande",
     "paidAmount": "Payé",
     "paymentChannel": "Canal de paiement",

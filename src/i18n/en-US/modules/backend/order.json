@@ -14,7 +14,6 @@
     "learnStatusReset": "Reset",
     "learnStatusUnavailable": "Unavailable",
     "mobileAlreadyActivated": "Mobile {mobile} already activated for this course",
-    "orderHasPaid": "Order Has Paid",
     "orderNotFound": "Order Not Found",
     "orderPayExpired": "This order has expired. Please place a new order.",
     "orderRefundError": "Refund failed",

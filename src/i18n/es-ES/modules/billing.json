@@ -155,10 +155,6 @@
         "startedAt": "Activo desde {date}"
       }
     },
-    "navigation": {
-      "description": "Consulta planes, pedidos, prestaciones, dominios e informes. El estado de las funciones seguirá visible en la parte superior.",
-      "title": "Consultar por tema"
-    },
     "pagination": {
       "page": "Página {page} de {pageCount} · {total} registros",
       "total": "{total} registros"
@@ -184,17 +180,12 @@
         "restore": "¿Devolver {productName} a borrador? Tendrás que verificar el precio antes de volver a publicarlo.",
         "retire": "¿Retirar {productName}? El producto dejará de ofrecer temporalmente el pago a precio fijo."
       },
-      "description": "Gestiona los precios de los planes internacionales y los paquetes de créditos para que coincidan el precio mostrado, el importe cobrado y las prestaciones otorgadas.",
       "dialog": {
         "autoDetectHint": "El sistema verifica automáticamente el importe, la moneda, el periodo y el entorno. Activa el precio cuando supere la verificación.",
         "description": "Copia de Stripe el ID del producto y el ID del precio. El sistema leerá los detalles automáticamente.",
         "title": "Configurar el precio de cobro"
       },
       "empty": "No hay planes ni paquetes de crédito disponibles para la configuración.",
-      "environment": {
-        "live": "Producción",
-        "test": "Prueba"
-      },
       "fields": {
         "priceId": "ID del precio de Stripe",
         "product": "Producto",
@@ -216,16 +207,13 @@
         "warning": "Requiere revisión"
       },
       "interval": {
-        "day": "Cada {count} días",
         "month": "Cada {count} meses",
-        "oneTime": "Pago único",
         "year": "Cada {count} años"
       },
       "issueDrawer": {
         "description": "Muestra las causas para el equipo de operaciones y conserva los códigos originales para el diagnóstico técnico.",
         "issues": "Causas de las incidencias",
         "noIssues": "No hay detalles de la cuestión todavía",
-        "priceId": "ID del precio de Stripe",
         "raw": "Detalles originales",
         "title": "Incidencias en la verificación del precio"
       },
@@ -270,10 +258,8 @@
         "unsupported_product_type": "Este tipo de producto aún no admite un precio de cobro"
       },
       "loadError": "No se puede cargar la configuración de precios de los planes en este momento.",
-      "loading": "Cargando precios del paquete...",
       "menuTitle": "Gestión de paquetes",
       "pageDescription": "Gestiona los precios de los planes internacionales y los paquetes de créditos para que coincidan la página, el cobro y la conciliación posterior.",
-      "productCredits": "{credits} créditos",
       "productType": {
         "plan": "Plan",
         "topup": "Paquete de créditos"
@@ -288,7 +274,6 @@
       },
       "table": {
         "actions": "Acciones",
-        "benefit": "Prestaciones",
         "localPrice": "Precio mostrado",
         "product": "Producto",
         "productType": "Tipo",
@@ -296,18 +281,13 @@
         "stripePrice": "Precio de cobro",
         "validatedAt": "Última verificación"
       },
-      "title": "Gestión de paquetes",
       "toast": {
         "activateFailed": "No se ha podido publicar el precio",
-        "activateSuccess": "Precio publicado",
         "createFailed": "No se ha podido guardar el precio",
         "createSuccess": "Precio guardado",
         "restoreFailed": "No se ha podido devolver el precio a borrador",
-        "restoreSuccess": "Precio devuelto a borrador",
         "retireFailed": "No se ha podido retirar el precio",
-        "retireSuccess": "Precio retirado",
-        "validateFailed": "Ha fallado la verificación del precio",
-        "validateSuccess": "Verificación del precio completada"
+        "validateFailed": "Ha fallado la verificación del precio"
       }
     },
     "reports": {
@@ -413,9 +393,7 @@
       "title": "Seguimiento de las suscripciones"
     },
     "subtitle": "Espacio de operaciones para seguir las suscripciones, el consumo y la configuración de marca y cobro.",
-    "table": {},
     "tabs": {
-      "domains": "Dominios",
       "entitlements": "Configuración de marca y cobro",
       "reports": "Consumo que requiere atención",
       "subscriptions": "Seguimiento de las suscripciones"
@@ -435,7 +413,6 @@
     "subscriptionPastDue": "La renovación de la suscripción está bloqueada. Revise los registros de pago y sincronice el estado del proveedor más reciente."
   },
   "capabilities": {
-    "description": "Aquí se resumen los módulos disponibles en el panel de administración de marca y cobros. «Pendiente de configuración» significa que el código está integrado pero desactivado por defecto. «Solo proceso interno» significa que se usa en tareas, recuperación u operaciones y no aparece directamente en la página.",
     "fallbackDescription": "El registro de funciones de facturación determina el estado de cada función.",
     "fallbackTitle": "Capacidad de facturación",
     "items": {
@@ -516,13 +493,7 @@
       "active": "Listo para usar",
       "defaultDisabled": "Pendiente de configuración",
       "internalOnly": "Solo proceso interno"
-    },
-    "summary": {
-      "active": "{count} disponibles",
-      "defaultDisabled": "{count} pendientes de configuración",
-      "internalOnly": "{count} flujos de trabajo internos"
-    },
-    "title": "Módulos disponibles"
+    }
   },
   "catalog": {
     "actions": {
@@ -625,8 +596,6 @@
   "customization": {
     "actions": {
       "clear": "Limpiar",
-      "saveConfiguration": "Guardar configuración",
-      "saveIntegration": "Guardar configuración de pago",
       "secretSaved": "Guardado. Introduzca un nuevo valor para reemplazarlo."
     },
     "branding": {
@@ -635,11 +604,8 @@
       "homeUrl": "URL del enlace del logotipo",
       "homeUrlHint": "Dirección a la que irá el alumno al pulsar el logotipo en la página de aprendizaje. Déjala en blanco para usar la predeterminada.",
       "homeUrlPlaceholder": "Por ejemplo, https://www.example.com",
-      "invalidFile": "Utilice un archivo PNG, JPEG o WebP no mayor de 2 MB",
-      "resizeNotice": "La imagen no coincide completamente con el tamaño recomendado. Todavía se subirá y escalará normalmente después de guardarla.",
       "squareHint": "Se recomienda un logotipo cuadrado de 32 × 32 px. También se admiten imágenes de mayor resolución.",
       "squareLogo": "Logotipo cuadrado",
-      "title": "Logotipos de marca",
       "uploadFailed": "Fallo al subir la imagen. Inténtalo de nuevo más tarde.",
       "uploadFavicon": "Subir icono del sitio web",
       "uploadSquare": "Subir logotipo cuadrado",
@@ -648,22 +614,12 @@
       "wideHint": "Recomendado: un logotipo ancho con 32px de altura y hasta 220px de ancho. También se admiten variantes de mayor resolución.",
       "wideLogo": "Logotipo horizontal"
     },
-    "disable": "Desactivar",
     "domain": {
-      "bind": "Vincular dominio",
-      "disableSuccess": "El dominio ha sido desactivado.",
-      "dnsTitle": "Agregue el siguiente registro TXT en su consola DNS",
-      "lastError": "Último resultado de la verificación: {reason}",
       "placeholder": "Por ejemplo, learn.example.com",
       "record": "{name} = {value}",
-      "recordName": "Nombre del registro",
-      "recordType": "Tipo de registro",
-      "recordValue": "Valor del registro",
-      "status": "{status} · SSL {sslStatus}",
       "title": "Dominio personalizado",
       "verify": "Verificar DNS",
       "verifyFailed": "La verificación DNS aún no ha pasado. Compruebe el registro TXT e inténtelo de nuevo.",
-      "verifyInstruction": "Cuando se propaguen los registros DNS, verifica el dominio aquí. Después se tramitará el certificado HTTPS.",
       "verifySuccess": "Se ha aprobado la verificación DNS. Se ha actualizado el estado del dominio."
     },
     "integrationStatus": {
@@ -673,24 +629,17 @@
       "unconfigured": "Sin configurar",
       "verified": "Activado"
     },
-    "integrations": {
-      "title": "Configuración de WeChat y pagos"
-    },
-    "loading": "Cargando detalles de configuración...",
-    "locked": "Tu plan actual no incluye esta función. Cambia a un plan superior o contacta con el equipo de operaciones para habilitarla.",
     "paymentProvider": {
       "description": "Elige uno o varios métodos de pago para los alumnos. Después de guardar, se generarán códigos QR para los métodos configurados.",
       "title": "Métodos de pago"
     },
-    "pendingActivation": "Guarda primero la función habilitada. Cuando esté activa, podrás guardar y verificar esta configuración.",
     "providers": {
       "alipay": "Alipay",
       "pingxx": "Ping++",
       "stripe": "Stripe",
       "wechat_oauth": "Cuenta oficial de WeChat",
       "wechatpay": "WeChat Pay"
-    },
-    "verify": "Verificar y activar"
+    }
   },
   "details": {
     "actions": {
@@ -910,16 +859,12 @@
       "preorderRenewal": "Pagar la renovación por adelantado",
       "preorderScheduled": "Compra anticipada programada",
       "subscribeNow": "Suscribirse ahora",
-      "upgradeNow": "Cambiar a un plan superior",
-      "upgradeOnlyTooltip": "Tu plan actual sigue vigente. Solo puedes cambiar a un plan superior."
+      "upgradeNow": "Cambiar a un plan superior"
     },
     "campaign": {
       "bonusBadge": "{credits} créditos de regalo",
       "discountBadge": "Oferta limitada",
       "paymentOnly": "El descuento se aplica únicamente a este pago."
-    },
-    "creditPeriod": {
-      "oneTime": "Pago único"
     },
     "creditSummary": {
       "daily": "Créditos diarios {credits}",
@@ -937,11 +882,8 @@
         "techBasic": "Asistencia técnica básica"
       },
       "common": {
-        "allLearning": "Todas las características de aprendizaje",
         "allTeachingAndLearning": "Todas las funciones de creación y enseñanza",
-        "createDebugPublish": "Crear, depurar y publicar cursos",
-        "higherConcurrency": "Mayor capacidad de uso simultáneo",
-        "unlimitedCourses": "Cursos ilimitados"
+        "higherConcurrency": "Mayor capacidad de uso simultáneo"
       },
       "daily": {
         "preview": "Ideal para pruebas y experiencias breves",
@@ -989,7 +931,6 @@
         }
       }
     },
-    "featuresTitle": "Ventajas incluidas:",
     "footnote": {
       "learningTime": "Estas estimaciones se basan en datos históricos y son orientativas. El contenido del curso, el modelo elegido y las interacciones afectan al consumo real de créditos. La síntesis de voz consume créditos adicionales.",
       "validity": "Vigencia de los créditos: en los planes mensuales, 30 días desde que se reciben (incluido ese día); en los anuales, según el año natural desde su recepción. En ambos casos vencen a las 23:59 del último día."
@@ -1021,12 +962,10 @@
     },
     "subtitle": "Elige el plan de crédito adecuado.",
     "table": {
-      "creditsRowLabel": "Créditos por ciclo",
       "emptyValue": "—",
       "featuresRowLabel": "Ventajas",
       "validityRowLabel": "Validez del crédito"
     },
-    "title": "Comprar créditos",
     "topup": {
       "creditLabel": "{credits} créditos",
       "noteFrozen": "Los créditos de un paquete solo se pueden utilizar si la cuenta tiene un plan de créditos vigente.",
@@ -1051,7 +990,6 @@
   "page": {
     "adminLink": "Abrir el panel de facturación",
     "tabs": {
-      "customization": "Marca y cobros",
       "ledger": "Detalles de los créditos",
       "plans": "Comprar créditos"
     },
@@ -1128,7 +1066,6 @@
     "monthlyTitle": "Plan mensual",
     "nonMemberBalanceTitle": "Saldo de créditos",
     "nonMemberTitle": "Sin suscripción",
-    "periodLabel": "Período",
     "placeholderValue": "--",
     "subscriptionPending": "Próximamente",
     "subscriptionStatusLabel": "Suscripción",

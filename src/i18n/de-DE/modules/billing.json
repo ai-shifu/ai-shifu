@@ -155,10 +155,6 @@
         "startedAt": "Gestartet bei {date}"
       }
     },
-    "navigation": {
-      "description": "Wechseln Sie zwischen Tarifen, Bestellungen, Berechtigungen, Domains und Berichten. Der Status der Funktionen bleibt oben sichtbar.",
-      "title": "Nach Thema durchsuchen"
-    },
     "pagination": {
       "page": "Seite {page} / {pageCount} · {total} Datensätze",
       "total": "{total} Aufzeichnungen"
@@ -184,17 +180,12 @@
         "restore": "Wiederherstellen {productName}? Es wird zum Entwurf zurückkehren und muss vor der Auflistung erneut überprüft werden.",
         "retire": "Preis für {productName} entfernen? Danach ist für dieses Produkt vorübergehend keine Zahlung zum Festpreis möglich."
       },
-      "description": "Verwalten Sie die Preise internationaler Tarife und Credit-Pakete bei Zahlungsanbietern, damit angezeigte Preise, tatsächliche Zahlungen und enthaltene Leistungen übereinstimmen.",
       "dialog": {
         "autoDetectHint": "Das System überprüft Betrag, Währung, Intervall und Modus automatisch. Aktivieren Sie den Preis nach dem Check-Pass.",
         "description": "Kopieren Sie die Produkt-ID und Preis-ID von Stripe. Das System liest die Preisangaben automatisch.",
         "title": "Zahlungspreis einrichten"
       },
       "empty": "Es gibt keine Tarife oder Credit-Pakete, für die Preise konfiguriert werden können.",
-      "environment": {
-        "live": "Live-Modus",
-        "test": "Testmodus"
-      },
       "fields": {
         "priceId": "ID des Stripe-Preises",
         "product": "Produkt",
@@ -216,16 +207,13 @@
         "warning": "Notwendigkeit einer Überprüfung"
       },
       "interval": {
-        "day": "Jeder {count} Tag(e)",
         "month": "Jeder {count} Monat(e)",
-        "oneTime": "Einmalig",
         "year": "Jedes {count} Jahr(e)"
       },
       "issueDrawer": {
         "description": "Zeigt bedienungsfreundliche Gründe und hält die Rohcodes für die technische Fehlersuche.",
         "issues": "Problemursachen",
         "noIssues": "Noch keine Angaben",
-        "priceId": "ID des Stripe-Preises",
         "raw": "Rohe Angaben",
         "title": "Probleme bei der Preisprüfung"
       },
@@ -270,10 +258,8 @@
         "unsupported_product_type": "Dieser Warentyp kann nicht mit einem Zahlungspreis verknüpft werden."
       },
       "loadError": "Die Preiskonfiguration der Tarife konnte vorübergehend nicht geladen werden.",
-      "loading": "Paketpreise werden geladen...",
       "menuTitle": "Paketverwaltung",
       "pageDescription": "Verwalten Sie die Preise internationaler Tarife und Credit-Pakete bei Zahlungsanbietern, damit angezeigte Preise, Zahlungen und spätere Abgleiche übereinstimmen.",
-      "productCredits": "{credits} Credits",
       "productType": {
         "plan": "Plan",
         "topup": "Credit-Paket"
@@ -288,7 +274,6 @@
       },
       "table": {
         "actions": "Maßnahmen",
-        "benefit": "Vorteile",
         "localPrice": "Angezeigter Preis",
         "product": "Produkt",
         "productType": "Art",
@@ -296,18 +281,13 @@
         "stripePrice": "Zahlungspreis",
         "validatedAt": "Zuletzt geprüft"
       },
-      "title": "Paketverwaltung",
       "toast": {
         "activateFailed": "Preis konnte nicht veröffentlicht werden",
-        "activateSuccess": "Preis veröffentlicht",
         "createFailed": "Speichern des Preises fehlgeschlagen",
         "createSuccess": "Preis gespeichert",
         "restoreFailed": "Preis konnte nicht wiederhergestellt werden",
-        "restoreSuccess": "Preis als Entwurf wiederhergestellt",
         "retireFailed": "Preis konnte nicht aus dem Angebot entfernt werden",
-        "retireSuccess": "Preis aus dem Angebot entfernt",
-        "validateFailed": "Preisprüfung fehlgeschlagen",
-        "validateSuccess": "Preisprüfung abgeschlossen"
+        "validateFailed": "Preisprüfung fehlgeschlagen"
       }
     },
     "reports": {
@@ -413,9 +393,7 @@
       "title": "Folgemaßnahmen zum Abonnement"
     },
     "subtitle": "Zentrale Übersicht zu Abonnementstatus, Nutzungswarnungen und Marken- und Zahlungskonfigurationen.",
-    "table": {},
     "tabs": {
-      "domains": "Domänen",
       "entitlements": "Einrichtung der Marke & Zahlung",
       "reports": "Verwendung Achtung",
       "subscriptions": "Folgemaßnahmen zum Abonnement"
@@ -435,7 +413,6 @@
     "subscriptionPastDue": "Die Verlängerung des Abonnements befindet sich derzeit in einem fehlerhaften Status. Prüfen Sie die Zahlungsbelege und synchronisieren Sie den aktuellen Status beim Zahlungsanbieter."
   },
   "capabilities": {
-    "description": "Hier sehen Sie die Module, die derzeit in der Verwaltung für Marke und Zahlungen verfügbar sind. „Konfiguration erforderlich“ bedeutet, dass der Code bereits eingebunden, aber standardmäßig deaktiviert ist. „Nur interne Abläufe“ bedeutet, dass ein Modul nur für Aufgaben, Ausgleichsmaßnahmen oder Betriebsabläufe genutzt wird und keine direkte Funktion auf einer Seite bereitstellt.",
     "fallbackDescription": "Der Status richtet sich nach der Übersicht der Abrechnungsfunktionen.",
     "fallbackTitle": "Abrechnungsfunktionen",
     "items": {
@@ -516,13 +493,7 @@
       "active": "Gebrauchsfertig",
       "defaultDisabled": "Konfiguration erforderlich",
       "internalOnly": "Interner Workflow"
-    },
-    "summary": {
-      "active": "{count} gebrauchsfertig",
-      "defaultDisabled": "{count} erfordern eine Konfiguration",
-      "internalOnly": "{count} interne Workflows"
-    },
-    "title": "Verfügbare Module"
+    }
   },
   "catalog": {
     "actions": {
@@ -625,8 +596,6 @@
   "customization": {
     "actions": {
       "clear": "Leeren",
-      "saveConfiguration": "Konfiguration speichern",
-      "saveIntegration": "Zahlungseinstellungen speichern",
       "secretSaved": "Gespeichert. Geben Sie einen neuen Wert ein, um ihn zu ersetzen."
     },
     "branding": {
@@ -635,11 +604,8 @@
       "homeUrl": "Logo-Link-URL",
       "homeUrlHint": "Wo die Lernseite navigiert, wenn das Logo angeklickt wird. Leer lassen, um den Standard zu verwenden.",
       "homeUrlPlaceholder": "z.B. https://www.example.com",
-      "invalidFile": "Verwenden Sie eine PNG-, JPEG- oder WebP-Datei nicht größer als 2 MB",
-      "resizeNotice": "Das Bild weicht von den empfohlenen Abmessungen ab und wird nach dem Speichern passend skaliert.",
       "squareHint": "Empfohlen: ein 32x32px quadratisches Logo. Es werden auch Varianten mit höherer Auflösung unterstützt.",
       "squareLogo": "Quadratisches Logo",
-      "title": "Markenlogos",
       "uploadFailed": "Bild-Upload fehlgeschlagen. Versuchen Sie es später noch einmal.",
       "uploadFavicon": "Website-Symbol hochladen",
       "uploadSquare": "Quadrat-Logo hochladen",
@@ -648,22 +614,12 @@
       "wideHint": "Empfohlen: ein breites Logo mit 32px Höhe und bis zu 220px Breite. Auch hochauflösende Varianten werden unterstützt.",
       "wideLogo": "Breites Logo"
     },
-    "disable": "Deaktivieren",
     "domain": {
-      "bind": "Bindungsdomäne",
-      "disableSuccess": "Domain wurde deaktiviert.",
-      "dnsTitle": "Fügen Sie den folgenden TXT-Record in Ihrer DNS-Konsole hinzu",
-      "lastError": "Letztes Verifizierungsergebnis: {reason}",
       "placeholder": "z.B. learn.example.com",
       "record": "{name} = {value}",
-      "recordName": "DNS-Hostname",
-      "recordType": "DNS-Eintragstyp",
-      "recordValue": "DNS-Eintragswert",
-      "status": "{status} · SSL {sslStatus}",
       "title": "Benutzerdefinierte Domäne",
       "verify": "DNS überprüfen",
       "verifyFailed": "Die DNS-Verifikation ist noch nicht abgeschlossen. Überprüfen Sie den TXT-Record und versuchen Sie es erneut.",
-      "verifyInstruction": "Sobald die DNS-Änderungen übernommen wurden, starten Sie hier die Prüfung. Nach erfolgreicher Prüfung wird das HTTPS-Zertifikat eingerichtet.",
       "verifySuccess": "Der DNS-Eintrag wurde erfolgreich geprüft. Der Domainstatus wurde aktualisiert."
     },
     "integrationStatus": {
@@ -673,24 +629,17 @@
       "unconfigured": "Nicht konfiguriert",
       "verified": "Aktiviert"
     },
-    "integrations": {
-      "title": "WeChat und Zahlungseinstellungen"
-    },
-    "loading": "Konfigurationsdetails werden geladen...",
-    "locked": "Diese Funktion ist in Ihrem aktuellen Tarif nicht enthalten. Upgraden Sie Ihren Tarif oder wenden Sie sich an das Betriebsteam.",
     "paymentProvider": {
       "description": "Wählen Sie eine oder mehrere Zahlungsmethoden für den Checkout der Lernenden aus. Nach dem Speichern werden für die konfigurierten Methoden im Lernbereich Zahlungs-QR-Codes erstellt.",
       "title": "Zahlungsmethoden"
     },
-    "pendingActivation": "Speichern Sie zuerst die gewünschte Freischaltung. Sobald die Berechtigung aktiv ist, können Sie diese Konfiguration speichern und prüfen.",
     "providers": {
       "alipay": "Alipay",
       "pingxx": "Ping++",
       "stripe": "Stripe",
       "wechat_oauth": "Offizielles Konto von WeChat",
       "wechatpay": "WeChat Pay"
-    },
-    "verify": "Prüfen und aktivieren"
+    }
   },
   "details": {
     "actions": {
@@ -910,16 +859,12 @@
       "preorderRenewal": "Verlängerung im Voraus bezahlen",
       "preorderScheduled": "Vorbestellt",
       "subscribeNow": "Jetzt abonnieren",
-      "upgradeNow": "Jetzt upgraden",
-      "upgradeOnlyTooltip": "Solange Ihr aktueller Tarif gültig ist, können Sie nur zu einem höheren Tarif wechseln. Ein Tarif derselben oder einer niedrigeren Stufe kann nicht gekauft werden."
+      "upgradeNow": "Jetzt upgraden"
     },
     "campaign": {
       "bonusBadge": "{credits} Credits geschenkt",
       "discountBadge": "Begrenztes Angebot",
       "paymentOnly": "Der Rabatt gilt nur für diese Zahlung."
-    },
-    "creditPeriod": {
-      "oneTime": "Einmalig"
     },
     "creditSummary": {
       "daily": "{credits} Credits pro Tag",
@@ -937,11 +882,8 @@
         "techBasic": "Grundlegender technischer Support"
       },
       "common": {
-        "allLearning": "Alle Lernfunktionen",
         "allTeachingAndLearning": "Alle Funktionen für Kurserstellung und Lernen",
-        "createDebugPublish": "Kurse erstellen, testen und veröffentlichen",
-        "higherConcurrency": "Mehr gleichzeitige Aufgaben",
-        "unlimitedCourses": "Unbegrenzte Kurse"
+        "higherConcurrency": "Mehr gleichzeitige Aufgaben"
       },
       "daily": {
         "preview": "Geeignet für kurze Tests und einen schnellen Einstieg",
@@ -989,7 +931,6 @@
         }
       }
     },
-    "featuresTitle": "Eingeschlossene Leistungen:",
     "footnote": {
       "learningTime": "Die Lernzeit ist eine Schätzung anhand bisheriger Daten. Kursinhalt, gewähltes Modell und Interaktionen beeinflussen den tatsächlichen Creditverbrauch. Sprachsynthese verbraucht zusätzliche Credits.",
       "validity": "Gültigkeit der Credits: Monatstarife gelten ab dem Erwerbsdatum 30 Tage lang, einschließlich des Erwerbstags. Jahrestarife gelten ab dem Erwerbsdatum nach Kalenderjahren. In beiden Fällen endet die Gültigkeit am Ablaufdatum um 23:59 Uhr."
@@ -1021,12 +962,10 @@
     },
     "subtitle": "Wählen Sie einen passenden Creditplan.",
     "table": {
-      "creditsRowLabel": "Credits pro Zyklus",
       "emptyValue": "—",
       "featuresRowLabel": "Enthaltene Leistungen",
       "validityRowLabel": "Gültigkeit der Credits"
     },
-    "title": "Credits kaufen",
     "topup": {
       "creditLabel": "{credits} Credits",
       "noteFrozen": "Credits aus Credit-Paketen können nur verwendet werden, solange für das Konto ein gültiger Credit-Tarif besteht.",
@@ -1051,7 +990,6 @@
   "page": {
     "adminLink": "Verwaltungsansicht für Abrechnungen öffnen",
     "tabs": {
-      "customization": "Marken & Zahlungen",
       "ledger": "Creditdetails",
       "plans": "Credits kaufen"
     },
@@ -1128,7 +1066,6 @@
     "monthlyTitle": "Monatlicher Plan",
     "nonMemberBalanceTitle": "Credit-Guthaben",
     "nonMemberTitle": "Keine Mitgliedschaft",
-    "periodLabel": "Tarifzeitraum",
     "placeholderValue": "--",
     "subscriptionPending": "Demnächst verfügbar",
     "subscriptionStatusLabel": "Abonnementstatus",

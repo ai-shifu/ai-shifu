@@ -14,7 +14,6 @@
     "learnStatusReset": "重置",
     "learnStatusUnavailable": "不可用",
     "mobileAlreadyActivated": "手机号 {mobile} 已开通过该课程",
-    "orderHasPaid": "订单已经支付",
     "orderNotFound": "没有找到订单",
     "orderPayExpired": "订单已过期，请重新下单",
     "orderRefundError": "退款失败",

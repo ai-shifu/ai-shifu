@@ -144,7 +144,6 @@
     "course": "Course",
     "createdAt": "Created At",
     "discountAmount": "Discount",
-    "empty": "No order data",
     "orderId": "Order ID",
     "paidAmount": "Paid",
     "paymentChannel": "Payment Channel",

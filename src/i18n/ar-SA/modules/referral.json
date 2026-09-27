@@ -19,7 +19,6 @@
       "status": "حالة المكافأة"
     },
     "queueTitle": "سجل الدعوات",
-    "refresh": "تحديث",
     "rewardRecordValue": "الباقة الأساسية لمدة {cycles} شهرًا (تتضمن {credits} رصيدًا)",
     "rewardRulesTitle": "قواعد الحملة",
     "rules": {
@@ -87,7 +86,6 @@
       "prevAria": "الصفحة السابقة"
     },
     "refresh": "تحديث",
-    "statusUpdated": "تم تحديث الحالة",
     "table": {
       "action": "الإجراء",
       "boundAt": "وقت الربط",

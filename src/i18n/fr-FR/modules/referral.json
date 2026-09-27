@@ -19,7 +19,6 @@
       "status": "Statut"
     },
     "queueTitle": "Invitations",
-    "refresh": "Actualiser",
     "rewardRecordValue": "{cycles} mois d’abonnement Basic ({credits} crédits inclus)",
     "rewardRulesTitle": "Règles de campagne",
     "rules": {
@@ -87,7 +86,6 @@
       "prevAria": "Page précédente"
     },
     "refresh": "Actualiser",
-    "statusUpdated": "Statut mis à jour",
     "table": {
       "action": "Action",
       "boundAt": "Date de liaison",

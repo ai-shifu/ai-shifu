@@ -144,7 +144,6 @@
     "course": "Curso",
     "createdAt": "Fecha del pedido",
     "discountAmount": "Descuento",
-    "empty": "No hay pedidos",
     "orderId": "ID del pedido",
     "paidAmount": "Importe cobrado",
     "paymentChannel": "Canal de pago",

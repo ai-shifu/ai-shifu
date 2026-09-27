@@ -144,7 +144,6 @@
     "course": "课程",
     "createdAt": "下单时间",
     "discountAmount": "优惠",
-    "empty": "暂无订单数据",
     "orderId": "订单ID",
     "paidAmount": "实收",
     "paymentChannel": "支付渠道",

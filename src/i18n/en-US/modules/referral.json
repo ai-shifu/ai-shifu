@@ -19,7 +19,6 @@
       "status": "Status"
     },
     "queueTitle": "Invite records",
-    "refresh": "Refresh",
     "rewardRecordValue": "{cycles, plural, one {# month} other {# months}} of the Basic plan ({credits} credits included)",
     "rewardRulesTitle": "Campaign rules",
     "rules": {
@@ -87,7 +86,6 @@
       "prevAria": "Previous page"
     },
     "refresh": "Refresh",
-    "statusUpdated": "Status updated",
     "table": {
       "action": "Action",
       "boundAt": "Bound at",
