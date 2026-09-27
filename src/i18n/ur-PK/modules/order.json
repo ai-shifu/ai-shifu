@@ -105,7 +105,7 @@
     "wechatpay": "WeChat پے"
   },
   "paymentStatus": {
-    "closed": "غیر فعال",
+    "closed": "بند کر دی گئی",
     "failed": "ناکام",
     "paid": "ادا کیا",
     "pending": "زیر التواء",
