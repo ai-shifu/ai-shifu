@@ -246,7 +246,7 @@
     "priority": "ترجیح",
     "priorityPlaceholder": "براہ کرم ترجیح درج کریں۔",
     "records": {
-      "codeEntered": "دعوتی کوڈ درج کریں۔",
+      "codeEntered": "دعوتی کوڈ درج کرنے کی تعداد",
       "generatedAt": "نسل کا وقت",
       "invitationsTab": "دعوتی کوڈ کی تفصیلات",
       "inviteCode": "دعوتی کوڈ",
@@ -254,10 +254,10 @@
       "inviterEmailPlaceholder": "دعوت دینے والے کا ای میل",
       "inviterMobilePlaceholder": "دعوت دینے والے کا موبائل نمبر",
       "latestEventAt": "حالیہ واقعات",
-      "linkClicked": "لنک پر کلک کریں",
-      "pageViewed": "لینڈنگ پیج پر جائیں۔",
+      "linkClicked": "لنک پر کلکس کی تعداد",
+      "pageViewed": "لینڈنگ پیج کے مشاہدات کی تعداد",
       "relationsTab": "دعوت نامے کا ریکارڈ",
-      "submitted": "دعوت نامہ جمع کروائیں۔",
+      "submitted": "دعوتی کوڈ جمع کرانے کی تعداد",
       "successfulRelations": "کامیاب شرکت",
       "title": "دعوتی تقریب کا ڈیٹا",
       "total": "کل {total} آئٹمز"
