@@ -256,6 +256,8 @@ export type AdminOperationUserCreditGrantRequest = {
   grant_type?: string;
   grant_source: string;
   validity_preset: string;
+  validity_value?: number | null;
+  validity_unit?: 'day' | 'month' | 'year' | null;
   note?: string;
 };
 
@@ -265,6 +267,8 @@ export type AdminOperationUserCreditGrantResponse = {
   grant_type: string;
   grant_source: string;
   validity_preset: string;
+  validity_value?: number | null;
+  validity_unit?: 'day' | 'month' | 'year' | null;
   expires_at: string;
   wallet_bucket_bid: string;
   ledger_bid: string;

@@ -318,6 +318,20 @@
       "validityPreset": "Geltungsdauer"
     },
     "confirmTitle": "Credit-Vergabe bestätigen",
+    "customValidity": {
+      "actualExpiry": "Tatsächlicher Ablauf: {date}",
+      "estimatedExpiry": "Voraussichtlicher Ablauf (bei Vergabe bestätigt)",
+      "hint": "Sofort gültig. Tage entsprechen 24 Stunden; Monate und Jahre folgen dem Kalender. Fehlende Daten werden auf das Monatsende gesetzt.",
+      "invalid": "Geben Sie eine gültige positive ganze Zahl ein und wählen Sie Tage, Monate oder Jahre.",
+      "summary": "Sofort gültig für {value} {unit}",
+      "unitLabel": "Zeiteinheit",
+      "units": {
+        "day": "Tag(e)",
+        "month": "Monat(e)",
+        "year": "Jahr(e)"
+      },
+      "valueLabel": "Dauer"
+    },
     "description": "Verwenden Sie diesen Dialog, um Lehrkräften oder Mitarbeitenden des Betriebsteams Credits oder einen Tarif zuzuweisen.",
     "fields": {
       "amount": "Credits",
@@ -346,8 +360,7 @@
       "note": "Optional. Notiz zur Vergabe",
       "product": "Paket auswählen",
       "productLoading": "Pakete werden geladen...",
-      "referralRewardAmount": "Anzahl der Bonus-Credits eingeben",
-      "validityPreset": "Laufzeit auswählen"
+      "referralRewardAmount": "Anzahl der Bonus-Credits eingeben"
     },
     "referralReward": {
       "bootstrapError": "Empfehlungsprämien konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
@@ -382,17 +395,7 @@
       "amountRequired": "Geben Sie eine Anzahl an Credits größer als 0 ein.",
       "productRequired": "Paket auswählen",
       "referralRewardAmountRequired": "Geben Sie eine positive ganze Anzahl an Credits ein.",
-      "sourceRequired": "Eine Quelle auswählen",
-      "validityPresetRequired": "Wählen Sie eine Laufzeit aus."
-    },
-    "validityHint": "Ohne gültigen Tarif kann die Laufzeit nicht an das Ablaufdatum des aktuellen Tarifs angepasst werden.",
-    "validityOptions": {
-      "alignSubscription": "An das Ablaufdatum des aktuellen Tarifs anpassen",
-      "oneDay": "1 Tag ab Vergabe",
-      "oneMonth": "1 Monat ab Vergabe",
-      "oneYear": "1 Jahr ab Vergabe",
-      "sevenDays": "7 Tage ab Vergabe",
-      "threeMonths": "3 Monate ab Vergabe"
+      "sourceRequired": "Eine Quelle auswählen"
     }
   },
   "loginMethodLabels": {

@@ -134,7 +134,15 @@ def grant_operator_user_credits(
             raise_param_error("grant_source")
 
         normalized_validity_preset = str(payload.validity_preset or "").strip().lower()
-        if normalized_validity_preset not in OPERATOR_USER_CREDIT_VALIDITY_PRESETS:
+        if normalized_validity_preset not in {
+            *OPERATOR_USER_CREDIT_VALIDITY_PRESETS,
+            "custom",
+        }:
+            raise_param_error("validity_preset")
+
+        if normalized_validity_preset != "custom" and (
+            {"validity_value", "validity_unit"} & payload.model_fields_set
+        ):
             raise_param_error("validity_preset")
 
         normalized_request_id = str(payload.request_id or "").strip()
@@ -164,6 +172,8 @@ def grant_operator_user_credits(
                 amount=payload.amount,
                 grant_source=normalized_grant_source,
                 validity_preset=normalized_validity_preset,
+                validity_value=payload.validity_value,
+                validity_unit=payload.validity_unit,
                 display_name=normalized_display_name,
                 note=normalized_note,
             )
@@ -196,6 +206,8 @@ def grant_operator_user_credits(
             grant_type=resolved_grant_type,
             grant_source=resolved_grant_source,
             validity_preset=resolved_validity_preset,
+            validity_value=persisted_metadata.get("validity_value"),
+            validity_unit=persisted_metadata.get("validity_unit"),
             expires_at=grant_result.expires_at,
             display_name=str(persisted_metadata.get("display_name") or "").strip(),
             note=str(persisted_metadata.get("note") or "").strip(),
