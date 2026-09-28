@@ -30,6 +30,7 @@ from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.i18n import _
 from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
 from flaskr.service.learn.agent.engine.engine import (
     ContinueTurn,
@@ -54,6 +55,7 @@ from flaskr.service.learn.agent.lesson_record import (
     apply_outline_progression,
     claim_for_writing,
     mark_lesson_finished,
+    record_next_lesson_interaction,
     record_turn_content,
     retire_unused_block,
     stage_turn_block,
@@ -74,7 +76,12 @@ from flaskr.service.learn.agent.session_store import (
     load_agent_session,
     save_agent_session,
 )
-from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.learn_dtos import (
+    GeneratedType,
+    LearnStatus,
+    RunMarkdownFlowDTO,
+)
 from flaskr.service.learn.learn_funcs import resolve_outline_progression
 from flaskr.service.learn.memory import (
     MemoryUpdate,
@@ -800,6 +807,43 @@ def _outline_progression(
             generated_block_bid="",
             type=GeneratedType.OUTLINE_ITEM_UPDATE,
             content=update,
+        )
+    next_lesson = next(
+        (
+            update
+            for update in updates
+            if update.outline_bid != outline_bid
+            and update.status == LearnStatus.IN_PROGRESS
+            and not update.has_children
+        ),
+        None,
+    )
+    if next_lesson is None:
+        return
+    button = f"?[{_('server.learn.nextChapterButton')}//{CONTEXT_INTERACTION_NEXT}]"
+    try:
+        block_bid = record_next_lesson_interaction(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            content=button,
+        )
+    except Exception:
+        app.logger.warning(
+            "could not record next lesson interaction: user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+            exc_info=True,
+        )
+        return
+    if block_bid:
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=block_bid,
+            type=GeneratedType.INTERACTION,
+            content=button,
         )
 
 

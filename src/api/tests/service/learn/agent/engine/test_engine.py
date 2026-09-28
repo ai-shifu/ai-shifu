@@ -1096,6 +1096,24 @@ async def test_a_short_line_said_twice_is_not_the_end() -> None:
     assert session.finished is False
 
 
+async def test_a_short_closing_line_repeated_after_a_long_turn_is_silent() -> None:
+    """A continue that repeats only the prior closing sentence has taught nothing new."""
+    closing = "Let's move on."
+    body = (
+        "Here is the full explanation of the learner's answer and what to do next. " * 2
+    )
+    model, _ = _repeating_model(body + closing, closing)
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+
+    second = await collect(engine.run_turn(session))
+
+    assert _said(second) == ""
+    assert second[-1].reason == "finished"
+    assert session.finished is True
+
+
 def _said(events: list[object]) -> str:
     return "".join(e.text for e in events if isinstance(e, ContentDelta))
 
