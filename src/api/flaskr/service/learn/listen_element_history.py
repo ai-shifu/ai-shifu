@@ -713,7 +713,7 @@ def get_listen_element_record(
     user_bid: str,
     include_non_navigable: bool = False,
     build_record_from_legacy: Callable[[LegacyLearnRecord], LearnElementRecordDTO],
-    load_fallback_record: Callable[[], LegacyLearnRecord],
+    load_fallback_record: Callable[[str | None], LegacyLearnRecord],
     build_legacy_record_for_progress_fn: Callable[
         ..., LegacyLearnRecord
     ] = build_legacy_record_for_progress,
@@ -743,6 +743,9 @@ def get_listen_element_record(
             latest_progress_updated_at_dt = updated_at
     latest_progress_updated_at = to_utc_iso(latest_progress_updated_at_dt)
     progress_records = _dedupe_progress_records_by_block_position(progress_records)
+    latest_progress = max(
+        progress_records, key=lambda record: int(record.id or 0), default=None
+    )
     progress_record_bids = [
         pr.progress_record_bid for pr in progress_records if pr.progress_record_bid
     ]
@@ -767,38 +770,58 @@ def get_listen_element_record(
             build_legacy_record_for_progress_fn=build_legacy_record_for_progress_fn,
         )
         if collected_elements:
-            # The 2.0 completion path used to save only text and outline updates. Its legacy
-            # record can synthesize the missing Next lesson control, but this persisted-element
-            # path returned before consulting it. Keep completed attempts usable after reload,
-            # including those written before the control began being persisted on new runs.
-            if any(
-                record.status == LEARN_STATUS_COMPLETED for record in progress_records
-            ) and not any(
-                element.element_type == ElementType.INTERACTION
-                and CONTEXT_INTERACTION_NEXT in element.content
-                for element in collected_elements
-            ):
-                navigation_records = [
+            # Only the latest attempt can navigate. The legacy builder also checks the current
+            # outline, so a hidden or removed successor invalidates even a persisted control.
+            navigation_records = (
+                [
                     record
-                    for record in load_fallback_record().records
+                    for record in load_fallback_record(
+                        latest_progress.progress_record_bid
+                    ).records
                     if record.block_type == BlockType.INTERACTION
                     and CONTEXT_INTERACTION_NEXT in record.content
                 ]
-                if navigation_records:
-                    navigation = build_record_from_legacy(
-                        LegacyLearnRecord(records=navigation_records)
-                    )
-                    collected_elements.extend(
-                        _normalize_record_element(element)
-                        for element in navigation.elements
-                    )
+                if latest_progress is not None
+                and latest_progress.status == LEARN_STATUS_COMPLETED
+                else []
+            )
+            valid_navigation_bids = {
+                record.generated_block_bid for record in navigation_records
+            }
+            has_current_navigation = False
+            current_elements: list[ElementDTO] = []
+            for element in collected_elements:
+                is_navigation = (
+                    element.element_type == ElementType.INTERACTION
+                    and CONTEXT_INTERACTION_NEXT in element.content
+                )
+                if not is_navigation:
+                    current_elements.append(element)
+                elif (
+                    element.generated_block_bid in valid_navigation_bids
+                    and not has_current_navigation
+                ):
+                    current_elements.append(element)
+                    has_current_navigation = True
+            if navigation_records and not has_current_navigation:
+                navigation = build_record_from_legacy(
+                    LegacyLearnRecord(records=navigation_records[:1])
+                )
+                current_elements.extend(
+                    _normalize_record_element(element)
+                    for element in navigation.elements
+                )
             return LearnElementRecordDTO(
-                elements=collected_elements,
+                elements=current_elements,
                 events=collected_events,
                 last_progress_updated_at=latest_progress_updated_at,
             )
 
-    built_record = build_record_from_legacy(load_fallback_record())
+    built_record = build_record_from_legacy(
+        load_fallback_record(
+            latest_progress.progress_record_bid if latest_progress is not None else None
+        )
+    )
     return LearnElementRecordDTO(
         elements=[
             _normalize_record_element(element) for element in built_record.elements
