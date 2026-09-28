@@ -1744,10 +1744,25 @@ def test_a_finished_lesson_tells_the_outline_before_the_stream_ends(
     monkeypatch.setattr(
         run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
     )
+    recorded: list[dict] = []
+
+    def _record(_app: object, **kwargs: object) -> str:
+        recorded.append(kwargs)
+        return "next-control"
+
+    monkeypatch.setattr(run_agent, "record_next_lesson_interaction", _record)
     events = _run(_finished_engine())
     types = [e.type for e in events]
-    assert types == [GeneratedType.OUTLINE_ITEM_UPDATE] * 2 + [GeneratedType.DONE]
+    assert types == [
+        GeneratedType.OUTLINE_ITEM_UPDATE,
+        GeneratedType.OUTLINE_ITEM_UPDATE,
+        GeneratedType.INTERACTION,
+        GeneratedType.DONE,
+    ]
     assert [e.outline_bid for e in events[:2]] == ["outline-bid", "next-lesson"]
+    assert events[2].generated_block_bid == "next-control"
+    assert "_sys_next_chapter" in events[2].content
+    assert len(recorded) == 1
 
 
 @pytest.mark.usefixtures("calls")

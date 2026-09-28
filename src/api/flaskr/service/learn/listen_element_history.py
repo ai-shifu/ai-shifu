@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
+    BlockType,
     ElementAudioDTO,
     ElementDTO,
     ElementPayloadDTO,
@@ -28,7 +30,7 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
-from flaskr.service.order.consts import LEARN_STATUS_RESET
+from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, LEARN_STATUS_RESET
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
@@ -765,6 +767,31 @@ def get_listen_element_record(
             build_legacy_record_for_progress_fn=build_legacy_record_for_progress_fn,
         )
         if collected_elements:
+            # The 2.0 completion path used to save only text and outline updates. Its legacy
+            # record can synthesize the missing Next lesson control, but this persisted-element
+            # path returned before consulting it. Keep completed attempts usable after reload,
+            # including those written before the control began being persisted on new runs.
+            if any(
+                record.status == LEARN_STATUS_COMPLETED for record in progress_records
+            ) and not any(
+                element.element_type == ElementType.INTERACTION
+                and CONTEXT_INTERACTION_NEXT in element.content
+                for element in collected_elements
+            ):
+                navigation_records = [
+                    record
+                    for record in load_fallback_record().records
+                    if record.block_type == BlockType.INTERACTION
+                    and CONTEXT_INTERACTION_NEXT in record.content
+                ]
+                if navigation_records:
+                    navigation = build_record_from_legacy(
+                        LegacyLearnRecord(records=navigation_records)
+                    )
+                    collected_elements.extend(
+                        _normalize_record_element(element)
+                        for element in navigation.elements
+                    )
             return LearnElementRecordDTO(
                 elements=collected_elements,
                 events=collected_events,

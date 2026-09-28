@@ -179,6 +179,10 @@ def _text_of(messages: Iterable[object]) -> str:
 # every one of them 1 to 3 characters; the lesson that repeated itself and stopped was 330. The
 # floor sits well clear of the first and well under the second.
 _REPEAT_FLOOR_CHARS = 40
+# A short closing line repeated after a substantial turn is also a repeat. Keep the floor above
+# the 1-3 character adjacent lines found in published scripts, and do not treat a whole short
+# drill line repeated as the end of the lesson.
+_CLOSING_REPEAT_FLOOR_CHARS = 6
 
 # How much of a host-initiated continue is held back before any of it is shown, in visible
 # characters. A model with nothing left often says so before it calls `finish` -- "The script has
@@ -204,8 +208,16 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
     text = "".join(held)
     visible = "".join(text.split())
     if visible in said:
-        # All of it was said before: a repeat, unless too short to be one.
-        return "" if len(visible) >= _REPEAT_FLOOR_CHARS else text
+        # The model can repeat only the closing sentence of a much longer turn. The usual floor
+        # would show that sentence again even though the learner just read it.
+        short_closing_repeat = (
+            len(said) >= _REPEAT_FLOOR_CHARS
+            and len(visible) >= _CLOSING_REPEAT_FLOOR_CHARS
+            and said.endswith(visible)
+        )
+        return (
+            "" if len(visible) >= _REPEAT_FLOOR_CHARS or short_closing_repeat else text
+        )
     cut, seen = 0, ""
     for i, ch in enumerate(text):
         if not ch.isspace():
@@ -246,9 +258,14 @@ def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool
     repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
     """
     now = _text_of(messages[history_len:])
-    if len(now) < _REPEAT_FLOOR_CHARS:
-        return False
-    return _previous_turn_text(messages, history_len).startswith(now)
+    previous = _previous_turn_text(messages, history_len)
+    if len(now) >= _REPEAT_FLOOR_CHARS:
+        return previous.startswith(now)
+    return (
+        len(previous) >= _REPEAT_FLOOR_CHARS
+        and len(now) >= _CLOSING_REPEAT_FLOOR_CHARS
+        and previous.endswith(now)
+    )
 
 
 def _finished_in(messages: Sequence[object]) -> str | None:
