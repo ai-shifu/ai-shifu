@@ -58,8 +58,10 @@ def test_opening_quote_at_current_buffer_end_is_not_consumed(
     assert matches[0].quote_state == ()
 
 
-@pytest.mark.parametrize("quote_run", ['"', "'", '""', "''", "\"'", "'\"", '")'])
-def test_live_buffer_keeps_the_entire_unmatched_symmetric_quote_run(
+@pytest.mark.parametrize(
+    "quote_run", ['"', "'", '""', "''", "\"'", "'\"", '")', "»", "›", "”", "’"]
+)
+def test_live_buffer_keeps_the_entire_unmatched_quote_run(
     pattern: SentenceBoundaryPattern, quote_run: str
 ) -> None:
     source = f"First.{quote_run}"
@@ -72,19 +74,22 @@ def test_live_buffer_keeps_the_entire_unmatched_symmetric_quote_run(
     assert next(pattern.finditer(source)).end() == len(source)
 
 
-@pytest.mark.parametrize("quote", ['"', "'"])
-def test_unconsumed_symmetric_quote_opens_the_next_streamed_sentence(
-    pattern: SentenceBoundaryPattern, quote: str
+@pytest.mark.parametrize(
+    ("opener", "closer"),
+    [('"', '"'), ("'", "'"), ("»", "«"), ("›", "‹"), ("”", "”"), ("’", "’")],
+)
+def test_unconsumed_quote_opens_the_next_streamed_sentence(
+    pattern: SentenceBoundaryPattern, opener: str, closer: str
 ) -> None:
-    first_chunk = f"First.{quote}"
+    first_chunk = f"First.{opener}"
     first_match = next(pattern.finditer(first_chunk, is_final=False))
-    remaining = first_chunk[first_match.end() :] + f"Next.{quote}"
+    remaining = first_chunk[first_match.end() :] + f"Next.{closer}"
     matches = list(
         pattern.finditer(
             remaining, initial_quote_state=first_match.quote_state, is_final=False
         )
     )
-    assert remaining == f"{quote}Next.{quote}"
+    assert remaining == f"{opener}Next.{closer}"
     assert matches[0].end() == len(remaining)
     assert matches[0].quote_state == ()
 

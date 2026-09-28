@@ -103,12 +103,28 @@ class TestFinalizeSegmentation:
 
     @pytest.mark.parametrize(
         ("opener", "closer"),
-        [('"', '"'), ("'", "'"), ("\"'", "'\"")],
-        ids=["double", "single", "nested"],
+        [
+            ('"', '"'),
+            ("'", "'"),
+            ("\"'", "'\""),
+            ("»", "«"),
+            ("›", "‹"),
+            ("”", "”"),
+            ("’", "’"),
+        ],
+        ids=[
+            "double",
+            "single",
+            "nested",
+            "guillemets",
+            "single-guillemets",
+            "swedish",
+            "curly-single",
+        ],
     )
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
-    def test_ascii_openers_at_chunk_end_remain_with_the_next_sentence(
+    def test_quote_openers_at_chunk_end_remain_with_the_next_sentence(
         self,
         mock_is_configured: object,
         mock_executor: object,
@@ -141,19 +157,23 @@ class TestFinalizeSegmentation:
         assert processor._raw_offset == raw_length
         assert processor._buffer == ""
 
-    @pytest.mark.parametrize("quote", ['"', "'"])
+    @pytest.mark.parametrize(
+        ("opener", "closer"),
+        [('"', '"'), ("'", "'"), ("»", "«"), ("›", "‹"), ("”", "”"), ("’", "’")],
+    )
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
-    def test_matched_ascii_closer_at_chunk_end_is_submitted_immediately(
+    def test_matched_quote_closer_at_chunk_end_is_submitted_immediately(
         self,
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
-        quote: str,
+        opener: str,
+        closer: str,
     ) -> None:
         mock_is_configured.return_value = True
         processor = create_test_processor(mock_app, tts_provider="aliyun")
-        first = f"{quote}First.{quote}"
+        first = f"{opener}First.{closer}"
 
         list(processor.process_chunk(first))
         assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
@@ -204,9 +224,18 @@ class TestFinalizeSegmentation:
         ("first", "continuation", "expected_before_body"),
         [
             ("First.", "«!!", ["First.", "«!!"]),
+            ("First.", "»!!", ["First.", "»!!"]),
+            ("First.", "›!!", ["First.", "›!!"]),
+            ("First.", "”!!", ["First.", "”!!"]),
             ("„Hallo!", "!!“", ["„Hallo!"]),
         ],
-        ids=["new-opener-provider-content", "matched-closer-continuation"],
+        ids=[
+            "new-opener-provider-content",
+            "reversed-guillemet-provider-content",
+            "reversed-single-guillemet-provider-content",
+            "swedish-quote-provider-content",
+            "matched-closer-continuation",
+        ],
     )
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")

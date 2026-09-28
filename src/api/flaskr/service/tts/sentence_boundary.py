@@ -42,7 +42,6 @@ _QUOTE_PAIRS: dict[str, tuple[str, ...]] = {
 }
 _QUOTATION_MARK = regex.compile(r"\p{Quotation_Mark}")
 _APOSTROPHES = frozenset({"'", "\u2019", "\uff07"})
-_ASCII_SYMMETRIC_QUOTES = frozenset({'"', "'"})
 _WORD_FINAL_QUOTE_MARKS = _APOSTROPHES | frozenset({'"', "\uff02", "\u201d"})
 
 
@@ -150,8 +149,8 @@ class SentenceBoundaryPattern:
         """Yield boundaries, retaining ambiguous trailing quotes in live streams.
 
         A live buffer ending is not necessarily a text ending. An unmatched
-        ASCII quote in its trailing punctuation run may open the next sentence;
-        leave that run outside the boundary until more text or finalization.
+        mark that can open a quotation may begin the next sentence; leave its
+        trailing run outside the boundary until more text or finalization.
         """
         state = list(initial_quote_state)
         state_before = tuple(state)
@@ -200,7 +199,7 @@ class SentenceBoundaryPattern:
                         state.pop()
                     elif (
                         not is_final
-                        and char in _ASCII_SYMMETRIC_QUOTES
+                        and char in _QUOTE_PAIRS
                         and cursor >= trailing_quote_start
                     ) or not self._is_unmatched_closer(text, cursor):
                         break

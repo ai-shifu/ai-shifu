@@ -565,13 +565,11 @@ class StreamingTTSProcessor:
                 )
                 segment_text = SENTENCE_CLOSER_CONTINUATION.sub("", segment_text)
             # A stream chunk can contain only the rest of a punctuation run
-            # after the preceding sentence has already been submitted.
+            # after the preceding sentence has already been submitted. The
+            # contextual match excludes new opening quotes even when Unicode
+            # classifies those marks as closing punctuation.
             if len(segment_text) >= 2 and not (
-                after_sentence_boundary
-                and (
-                    SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(segment_text)
-                    or segment_text == match.group()
-                )
+                after_sentence_boundary and segment_text == match.group()
             ):
                 self._submit_tts_task(segment_text)
                 logger.debug(
