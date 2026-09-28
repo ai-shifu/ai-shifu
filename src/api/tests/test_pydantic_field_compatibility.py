@@ -130,6 +130,8 @@ def test_operator_grant_request_required_fields_and_defaults_are_preserved() -> 
         "grant_type": "manual_credit",
         "grant_source": "reward",
         "validity_preset": "30_days",
+        "validity_value": None,
+        "validity_unit": None,
         "display_name": "",
         "note": "",
     }
@@ -164,6 +166,8 @@ def test_actual_openapi_keeps_standard_required_arrays() -> None:
         "grant_type",
         "grant_source",
         "validity_preset",
+        "validity_value",
+        "validity_unit",
         "display_name",
         "note",
     ]
