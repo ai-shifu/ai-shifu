@@ -30,15 +30,22 @@ expiry, transaction, notification and legacy API semantics. No schema migration.
   dev02 history and local course-share-preview files.
 - [x] 2026-09-28: Main-based branch passed 171 backend tests, 36 frontend
   tests, type-check, developer-tool check and all 20 full pre-commit gates.
+- [x] 2026-09-28: Aligned CLI input with custom durations: require value/unit,
+  remove the preset flag and implicit subscription alignment, and include
+  duration value/unit in generated request IDs.
+- [x] 2026-09-28: Verified CLI duration persistence, rejected inputs and retry
+  behavior (109 CLI/failure-contract tests), plus 142 shared validity, wallet,
+  admin, compensation-script and DTO compatibility tests. All 20 repository
+  pre-commit gates passed with the pinned local tooling.
 - [ ] Read back actual test database bucket and ledger expiry timestamps.
 - [ ] Production release (separate from this PR preparation).
 
 ## Surprises & Discoveries
 
 - System Python has no pytest; use an isolated temporary Python 3.12 environment.
-- The legacy preset tuple is also the CLI choice list. Keep it unchanged and
-  accept custom separately in the shared service, so CLI help never advertises
-  a custom mode without value/unit flags.
+- Legacy presets remain accepted by the API and shared service. The CLI now
+  forwards custom durations only; the compensation script calls the shared
+  service directly and retains its explicit subscription alignment.
 - Existing request-id reuse returns the first persisted grant, even when a
   retry supplies a different valid amount/source/preset. Preserve this contract.
 - The unrelated untracked course-share-preview directory must remain untouched.
@@ -46,7 +53,12 @@ expiry, transaction, notification and legacy API semantics. No schema migration.
 ## Decision Log
 
 - Use `validity_preset=custom`, `validity_value` (strict positive integer), and
-  `validity_unit` (`day|month|year`). Keep legacy preset calls compatible.
+  `validity_unit` (`day|month|year`). Keep legacy API/service preset calls compatible.
+- 2026-09-28: The user requested removing the CLI preset parameter. Require
+  `--validity-value` and `--validity-unit`, with no implicit validity default.
+  Generate daily request IDs from the custom value/unit too; explicit IDs still
+  return the original persisted result. Retrying a former preset CLI grant must
+  reuse its original request ID explicitly.
 - Reject custom fields with legacy presets and custom validity for referral grants.
 - No business maximum; reject unrepresentable datetime values before writes.
 - Days are 24 hours; calendar month/year addition clips missing days to month end.
@@ -56,6 +68,11 @@ expiry, transaction, notification and legacy API semantics. No schema migration.
   the persisted expiry. This tolerance does not relax retry or duration rules.
 
 ## Outcomes & Retrospective
+
+The CLI now requires an explicit custom duration and no longer accepts preset
+flags. Focused verification passed 251 backend tests, including the two formerly
+failing DTO compatibility assertions. No live credit issuance was used for this
+CLI verification; the separate deployed-database acceptance below remains open.
 
 The test deployment includes the feature and follow-up UI fixes through
 commit a3971f047. Independent CICD success was followed by browser verification;
@@ -89,6 +106,8 @@ The operator dialog submits the user grant DTO to the shifu operator service,
 which calls billing/manual_credit_grants.py. That helper computes effective_to
 and delegates to the existing wallet/ledger transaction. Only the input and
 expiry-resolution layers change; the wallet implementation remains unchanged.
+The billing CLI calls the same helper with `validity_preset=custom` and the two
+required duration options; it does not calculate expiry independently.
 
 ## Plan of Work
 
@@ -113,12 +132,18 @@ invalid/mixed/overflow inputs with zero writes, persisted retry results, concurr
 wallet uniqueness, notifications, historical metadata, consumption priority and
 exact expiry boundaries. Keep package/referral tests green. UI tests cover empty
 value, units, refreshed preview, submit/retry, privacy and tracking failure.
+CLI coverage checks required positive integer/unit input, removed preset flags,
+UTC duration persistence, generated-ID separation, and persisted explicit-ID
+retries. The existing DTO serialization and Swagger assertions must include the
+additive nullable duration fields.
 Test-environment smoke must read back bucket, ledger, balance and expiry for
 15-day and 6-month grants; local SQLite tests are not deployed-environment proof.
 
 ## Idempotence and Recovery
 
-Keep request-id semantics and notification dispatch unchanged. Deploy compatible
+Keep explicit request-id semantics and notification dispatch unchanged. CLI
+automation must migrate to the two custom duration options; the generated ID
+now incorporates both duration fields. Deploy compatible
 backend first, then frontend. Revert frontend first if necessary; retain backend
 read support for custom metadata and never rewrite already-issued expiry dates.
 

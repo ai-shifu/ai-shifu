@@ -1646,8 +1646,8 @@ The existing user credits grant endpoint accepts the additive request fields
 `validity_preset: "custom"`, `validity_value` (strict positive integer) and
 `validity_unit` (`day`, `month`, `year`). Custom fields are required together and
 must not accompany a legacy preset. Null custom fields supplied with a legacy
-preset are rejected too. All six old presets and existing CLI calls remain
-supported. Referral rewards reject custom validity.
+preset are rejected too. All six old presets remain supported by the API and
+shared service. Referral rewards reject custom validity.
 
 The billing service resolves expiry from server `now_utc()`: days are exact
 24-hour periods; months and years use existing calendar helpers and clip dates
@@ -1664,6 +1664,34 @@ request ID returns the original persisted result, including its original
 custom value/unit (null for legacy records), and does not grant or notify again.
 Wallet category, consumption priority, expiry, notification and transaction
 semantics are unchanged. There is no database migration.
+
+### Operator grant CLI
+
+`flask console billing grant-credits` uses the same custom duration service as
+the operator dialog. Both `--validity-value` (a positive integer) and
+`--validity-unit` (`day`, `month`, or `year`) are required. There is no implicit
+subscription-based validity, and `--validity-preset` is no longer accepted.
+For example:
+
+```bash
+flask console billing grant-credits --user-bid "<user-bid>" --amount 10 \
+  --validity-value 15 --validity-unit day --request-id "<request-id>"
+```
+
+For six calendar months, use `--validity-value 6 --validity-unit month`.
+Missing, invalid, or unrepresentable durations fail before any credit write.
+The JSON result includes the persisted duration value/unit and actual UTC expiry.
+
+When `--request-id` is omitted, the daily generated ID includes the duration
+value and unit, so changing either creates a distinct request. Repeating the
+same inputs on the same UTC day returns the first saved grant. An explicit
+request ID retains the existing idempotency contract, including returning the
+original expiry when a retry supplies another valid duration. To retry a grant
+issued with the former preset CLI, reuse its returned request ID explicitly;
+the new custom-duration fingerprint differs from the former preset fingerprint.
+Existing automation must replace the removed flag with both duration options.
+Scripts that call the shared service directly may still request
+`align_subscription`; package and referral grant rules are unchanged.
 
 ### Operator grant analytics
 

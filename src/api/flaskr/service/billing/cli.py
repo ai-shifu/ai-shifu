@@ -86,8 +86,7 @@ from .daily_aggregates import (
 )
 from .manual_credit_grants import (
     MANUAL_CREDIT_GRANT_SOURCES,
-    MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
-    MANUAL_CREDIT_VALIDITY_PRESETS,
+    MANUAL_CREDIT_VALIDITY_CUSTOM,
     grant_manual_credits_to_user,
 )
 from .models import (
@@ -726,11 +725,16 @@ def register_billing_commands(console: object) -> None:
         help="Operator grant source.",
     )
     @click.option(
-        "--validity-preset",
-        type=click.Choice(MANUAL_CREDIT_VALIDITY_PRESETS),
-        default=MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
-        show_default=True,
-        help="Grant validity preset. Defaults to the current subscription period.",
+        "--validity-value",
+        type=click.IntRange(min=1),
+        required=True,
+        help="Positive whole-number duration, effective immediately.",
+    )
+    @click.option(
+        "--validity-unit",
+        type=click.Choice(("day", "month", "year")),
+        required=True,
+        help="Days are 24 hours; months and years use UTC calendar arithmetic.",
     )
     @click.option("--name", "display_name", default="", help="User-visible name.")
     @click.option("--note", default="", help="User-visible note.")
@@ -746,7 +750,8 @@ def register_billing_commands(console: object) -> None:
         amount: str,
         request_id: str,
         grant_source: str,
-        validity_preset: str,
+        validity_value: int,
+        validity_unit: str,
         display_name: str,
         note: str,
         operator_user_bid: str,
@@ -758,7 +763,8 @@ def register_billing_commands(console: object) -> None:
             amount=amount,
             request_id=request_id,
             grant_source=grant_source,
-            validity_preset=validity_preset,
+            validity_value=validity_value,
+            validity_unit=validity_unit,
             display_name=display_name,
             note=note,
             operator_user_bid=operator_user_bid,
@@ -2344,7 +2350,8 @@ def grant_operator_credits_by_cli(
     amount: str,
     request_id: str,
     grant_source: str = "compensation",
-    validity_preset: str,
+    validity_value: int,
+    validity_unit: str,
     display_name: str = "",
     note: str = "",
     operator_user_bid: str = "",
@@ -2390,7 +2397,8 @@ def grant_operator_credits_by_cli(
             user_bid=aggregate.user_bid,
             amount=amount,
             grant_source=grant_source,
-            validity_preset=validity_preset,
+            validity_value=validity_value,
+            validity_unit=validity_unit,
             display_name=normalized_display_name,
             note=normalized_note,
         )
@@ -2402,7 +2410,9 @@ def grant_operator_credits_by_cli(
         request_id=normalized_request_id,
         amount=str(amount or "").strip(),
         grant_source=str(grant_source or "").strip(),
-        validity_preset=str(validity_preset or "").strip(),
+        validity_preset=MANUAL_CREDIT_VALIDITY_CUSTOM,
+        validity_value=validity_value,
+        validity_unit=validity_unit,
         display_name=normalized_display_name,
         note=normalized_note,
         grant_channel="operator_cli",
@@ -2426,7 +2436,8 @@ def _build_cli_credit_grant_request_id(
     user_bid: str,
     amount: str,
     grant_source: str,
-    validity_preset: str,
+    validity_value: int,
+    validity_unit: str,
     display_name: str,
     note: str,
 ) -> str:
@@ -2435,7 +2446,9 @@ def _build_cli_credit_grant_request_id(
             str(user_bid or "").strip(),
             str(amount or "").strip(),
             str(grant_source or "").strip().lower(),
-            str(validity_preset or "").strip().lower(),
+            MANUAL_CREDIT_VALIDITY_CUSTOM,
+            str(validity_value),
+            validity_unit,
             str(display_name or "").strip(),
             str(note or "").strip(),
         ]

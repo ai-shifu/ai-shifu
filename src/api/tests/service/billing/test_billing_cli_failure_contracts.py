@@ -149,7 +149,18 @@ def test_manual_credit_command_rejects_ambiguous_missing_and_oversized_inputs(
     extra: list[str], message: str, billing_cli_db_app: Flask
 ) -> None:
     result = billing_cli_db_app.test_cli_runner().invoke(
-        args=["console", "billing", "grant-credits", "--amount", "5", *extra]
+        args=[
+            "console",
+            "billing",
+            "grant-credits",
+            "--amount",
+            "5",
+            "--validity-value",
+            "1",
+            "--validity-unit",
+            "day",
+            *extra,
+        ]
     )
     assert result.exit_code == 1
     assert message in result.output
