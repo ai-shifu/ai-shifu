@@ -5,6 +5,8 @@
 Recognize sentence-ending punctuation across writing systems when generating
 subtitles, without maintaining separate Chinese/English punctuation lists.
 Keep subtitle timing derived from the existing audio/provider alignment paths.
+Preserve multilingual expressive punctuation and closing quotes when rendering
+subtitles under the existing trailing-punctuation display policy.
 
 ## Progress
 
@@ -29,11 +31,19 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
       closing punctuation. Grouped Tencent cues now remain monotonic, and
       punctuation filtering requires a previously consumed sentence boundary.
       All 797 TTS tests and an independent final review passed.
+- [x] 2026-09-28 UTC: Extended frontend trailing-punctuation handling
+      to multilingual question/exclamation marks, Unicode closing punctuation,
+      and code points outside the BMP. All 145 focused frontend and renderer
+      tests, type checking, and lint passed, including persisted and streaming
+      cue paths and unchanged timing metadata.
 
 ## Surprises & Discoveries
 
 - Frontend subtitle utilities normalize cues and remove selected trailing
   punctuation; sentence boundaries originate in backend TTS paths.
+- The frontend's Chinese/English preservation list removed Arabic question
+  marks and French closing quotes. UTF-16 indexing also missed supplementary
+  punctuation, while spaces inside quotes stopped punctuation removal early.
 - Three copies of the same Chinese/English delimiter set serve streaming TTS,
   pipeline batching, and Tencent alignment. Updating only one would leave
   provider-dependent segmentation.
@@ -69,6 +79,17 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
   punctuation still reach the provider-aware `skip_non_speakable_text` decision.
 - Leave Tencent TextToVoice request-size splitting unchanged: that provider
   supplies no subtitles and its length-limit handling is separate work.
+- Preserve the frontend display policy: remove ordinary trailing punctuation
+  while keeping question/exclamation marks, ellipses, and closing quotes or
+  brackets. Use Unicode `Pe`, `Pf`, and `Quotation_Mark` for closing punctuation
+  and a Unicode 17.0 name-derived set for expressive punctuation, for which
+  JavaScript has no equivalent semantic property. Iterate by code point and
+  retain whitespace inside closing quotes. This is a display-only correction
+  with no new interaction or analytics event.
+- Do not normalize source text or infer its language. Explicit U+037E Greek
+  question marks are preserved; ASCII semicolons keep their existing removal
+  policy. Greek text using the canonically equivalent ASCII semicolon remains
+  ambiguous without a content-language contract.
 
 ## Outcomes & Retrospective
 
@@ -79,6 +100,9 @@ passed, including complete and chunked multilingual punctuation, finalization,
 and source alignment cases. Independent review verified the punctuation-only
 request fix; the full repository pre-commit gate passed. No service deployment
 or persisted subtitle migration is part of this change.
+The frontend also preserves multilingual expressive punctuation and closing
+quotes before passing cues to the existing slide library. No library release,
+dependency update, or subtitle timing change is needed for this display fix.
 
 ## Context and Orientation
 
@@ -87,6 +111,8 @@ or persisted subtitle migration is part of this change.
 `pipeline.py` uses boundaries when batching complete text. Tencent's provider
 in `src/api/flaskr/api/tts/tencent_provider.py` additionally maps sentence
 ranges onto provider timestamps. Tests live in `src/api/tests/service/tts/`.
+`src/web/src/lib/subtitleUtils.ts` owns trailing-punctuation display cleanup;
+`listenModeUtils.ts` applies it to persisted and streaming subtitle cues.
 
 ## Plan of Work
 
@@ -99,6 +125,8 @@ stream finalization, and fallback timing through the existing entry points.
 1. Pin `regex` and update the common pattern and pipeline consumer.
 2. Consolidate Tencent text/range splitting and terminal checks on that pattern.
 3. Run focused tests, then the complete TTS suite and repository gates.
+4. Update frontend punctuation display rules and cover utility behavior plus
+   persisted and streaming cue integration without changing cue metadata.
 
 ## Validation and Acceptance
 
@@ -119,6 +147,11 @@ Symbol-only content and punctuation other than sentence-ending/closer fragments
 must still reach the provider-aware non-speakable-text check. Standalone
 sentence-ending/closer input also follows that policy; only continuations of
 an already consumed sentence boundary are filtered before submission.
+Frontend output must retain Arabic question marks, French/German closing quotes,
+spacing inside quotes, and expressive punctuation variants. Ordinary trailing
+punctuation, including supplementary-plane sentence endings, remains hidden.
+Both persisted and streaming paths must retain cue timing, position, and segment
+indices and leave the source cue objects unchanged.
 
 ## Idempotence and Recovery
 
