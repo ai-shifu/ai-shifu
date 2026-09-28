@@ -257,6 +257,10 @@ def test_indexed_sentences_clamp_short_later_cues_without_extending_total_durati
         ('"First!?"', "Second."),
         ("\u201c第一句\uff1f\uff01\u201d", "第二句\u3002"),
         ("(First!?)", "Second."),
+        ("„Hallo!“", "„Weiter.“"),
+        ("»Hallo!«", "»Weiter.«"),
+        ("‹Hallo!›", "‹Weiter.›"),
+        ("›Hallo!‹", "›Weiter.‹"),
     ],
 )
 def test_multilingual_sentence_ranges_preserve_source_indices_and_provider_timing(
@@ -297,6 +301,38 @@ def test_multilingual_sentence_ranges_preserve_source_indices_and_provider_timin
     assert result == [_cue(first, 310, 350, 3, 5), _cue(second, 400, 500, 3, 5)]
 
 
+def test_adjacent_quoted_sentence_keeps_its_opening_quote_and_source_indices() -> None:
+    first = "第一句。"
+    second = "「第二句。」"
+    source = first + second
+    assert tencent._split_tencent_sentence_units_with_ranges(source) == [
+        (first, 0, len(first)),
+        (second, len(first), len(source)),
+    ]
+
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {
+                "Text": first,
+                "BeginTime": 10,
+                "EndTime": 50,
+                "BeginIndex": 0,
+                "EndIndex": len(first),
+            },
+            {
+                "Text": second,
+                "BeginTime": 100,
+                "EndTime": 200,
+                "BeginIndex": len(first),
+                "EndIndex": len(source),
+            },
+        ],
+        source_text=source,
+    )
+
+    assert result == [_cue(first, 10, 50), _cue(second, 100, 200)]
+
+
 @pytest.mark.parametrize(
     "ending", ["\u061f", "\u0964", "\u0965", "\u104b", '!?"', "\u3002\u201d"]
 )
@@ -321,6 +357,10 @@ def test_multilingual_word_cues_finish_at_sentence_endings_and_closing_quotes(
         ("ပထမ\u104b", "ပထမ\u104b"),
         (' "First!?" ', '"First!?"'),
         ("\u201c第一句\u3002\u201d", "\u201c第一句\u3002\u201d"),
+        ("„Hallo!“", "„Hallo!“"),
+        ("»Hallo!«", "»Hallo!«"),
+        ("‹Hallo!›", "‹Hallo!›"),
+        ("›Hallo!‹", "›Hallo!‹"),
         ("First? tail", "First? tail."),
         ("你好", "你好\u3002"),
         ("", ""),

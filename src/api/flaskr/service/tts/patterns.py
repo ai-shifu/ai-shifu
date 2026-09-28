@@ -1,12 +1,13 @@
-"""Centralized regex patterns for TTS text processing and AV segmentation.
+"""Centralized text patterns for TTS processing and AV segmentation.
 
-All compiled regex patterns used across the TTS service layer are defined
-here. Import patterns from this module rather than defining them locally.
+Compiled regex patterns and the shared sentence-boundary matcher are defined
+here. Import them from this module rather than defining them locally.
 """
 
 import re
 
 import regex
+from flaskr.service.tts.sentence_boundary import SentenceBoundaryPattern
 
 # ---------------------------------------------------------------------------
 # Markdown text cleaning (used by preprocess_for_tts)
@@ -92,21 +93,24 @@ FIXED_MARKER_TAIL = re.compile(r"^[\s!=]*$")
 # ---------------------------------------------------------------------------
 # Use Unicode's sentence-terminal property instead of a language-specific list.
 # Semicolons remain pause boundaries for compatibility, including their Arabic
-# and Greek forms. Keep adjacent terminal marks and closing quotes/brackets with
-# the sentence so they do not become standalone subtitle or synthesis fragments.
+# and Greek forms. Pairing context distinguishes closing quotes from the next
+# sentence's opening quotes, including languages that reverse quote direction.
 # This is punctuation-based streaming segmentation, not language-specific NLP.
 _SENTENCE_TERMINALS = r"\p{Sentence_Terminal};\uFF1B\u061B\u037E"
 _SENTENCE_CLOSERS = r"\p{Pe}\p{Pf}\"'"
-SENTENCE_ENDINGS = regex.compile(rf"[{_SENTENCE_TERMINALS}]+[{_SENTENCE_CLOSERS}]*")
+SENTENCE_ENDINGS = SentenceBoundaryPattern(
+    rf"[{_SENTENCE_TERMINALS}]+", rf"[{_SENTENCE_CLOSERS}]"
+)
 # Only discard fragments created by our boundary punctuation. Leave symbols
 # and other punctuation to the provider's non-speakable-text policy.
 SENTENCE_PUNCTUATION_FRAGMENT = regex.compile(
     rf"[{_SENTENCE_TERMINALS}{_SENTENCE_CLOSERS}\s]+"
 )
-# A consumed sentence's closing marks can arrive alongside the next sentence.
-# Only strip detached Unicode closers: ASCII quotes or marks touching text can
-# open a new quotation or belong to a contraction instead.
-SENTENCE_CLOSER_CONTINUATION = regex.compile(r"^(?:[\p{Pe}\p{Pf}]+\s+)+")
+# Detached non-quote brackets remain safe to strip after a consumed boundary.
+# Quote continuations need the preceding sentence's pairing context instead.
+SENTENCE_CLOSER_CONTINUATION = regex.compile(
+    r"^(?:(?:(?!\p{Quotation_Mark})[\p{Pe}\p{Pf}])+\s+)+"
+)
 
 # ---------------------------------------------------------------------------
 # HTML tag extraction helpers

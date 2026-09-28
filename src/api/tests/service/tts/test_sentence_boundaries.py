@@ -26,6 +26,8 @@ from flaskr.service.tts.pipeline import _split_by_sentence_and_newline
         ),
         ("“Ready?!” Next... Done.", ["“Ready?!”", "Next...", "Done."]),
         ("«جاهز؟» نعم۔", ["«جاهز؟»", "نعم۔"]),
+        ("第一句。「第二句。」", ["第一句。", "「第二句。」"]),
+        ("First.“Next.”", ["First.", "“Next.”"]),
         ('[Ready!] (Yes.) "Go!"', ["[Ready!]", "(Yes.)", '"Go!"']),
         ("First\r\nSecond\n\nTail", ["First", "Second", "Tail"]),
         ("مرحبا، بالعالم", ["مرحبا، بالعالم"]),
@@ -45,6 +47,32 @@ def test_sentence_matches_retain_source_offsets() -> None:
     assert [text[: match.end()] for match in matches] == [
         "  «جاهز؟!»",
         "  «جاهز؟!»  पहला वाक्य॥",
+    ]
+
+
+@pytest.mark.parametrize(
+    "quoted_sentence", ["„Hallo!“", "»Hallo!«", "‹Hallo!›", "›Hallo!‹"]
+)
+def test_locale_dependent_quotes_keep_closers_and_next_sentence_openers(
+    quoted_sentence: str,
+) -> None:
+    text = f"  First.  {quoted_sentence}  Weiter."
+    matches = list(SENTENCE_ENDINGS.finditer(text))
+
+    assert [match.group() for match in matches] == [
+        ".",
+        f"!{quoted_sentence[-1]}",
+        ".",
+    ]
+    assert [text[: match.end()] for match in matches] == [
+        "  First.",
+        f"  First.  {quoted_sentence}",
+        text,
+    ]
+    assert _split_by_sentence_and_newline(text) == [
+        "First.",
+        quoted_sentence,
+        "Weiter.",
     ]
 
 

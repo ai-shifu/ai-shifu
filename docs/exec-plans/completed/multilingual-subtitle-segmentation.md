@@ -40,6 +40,11 @@ subtitles under the existing trailing-punctuation display policy.
       the follow-up review. Detached Unicode closers no longer migrate into
       the next sentence. All 810 TTS tests passed, including raw offsets,
       final tails, opening quotations, and provider symbol handling.
+- [x] 2026-09-28 UTC: Replaced quote-category assumptions with shared pairing
+      context for German reversed quotes, spaced French closers, and opening
+      quotes at chunk boundaries. All 881 TTS tests passed, including source
+      offsets, Tencent terminal handling, provider punctuation policies, and
+      word-initial apostrophes inside a quotation.
 
 ## Surprises & Discoveries
 
@@ -96,18 +101,22 @@ subtitles under the existing trailing-punctuation display policy.
   ambiguous without a content-language contract.
 - After a consumed sentence boundary, strip detached Unicode closing-mark
   tokens before submitting a mixed punctuation/speech segment or final tail.
-  Keep raw buffers and boundary offsets unchanged. ASCII quotes and marks
-  touching the following text remain intact because they can open a new
-  quotation or contraction; this does not introduce quotation-pair inference.
+  Quote roles use a shared pairing context carried through streamed sentence
+  boundaries, so reversed closing quotes stay with their sentence while a
+  following opening quote remains in the next sentence. Only quotes that close
+  a pending pair are removed from a later chunk's prefix; detached non-quote
+  brackets retain the existing cleanup policy. Keep raw buffers and boundary
+  offsets unchanged.
 
 ## Outcomes & Retrospective
 
 Subtitle-producing paths now share Unicode sentence-terminal recognition.
 Provider indices remain unchanged; indexed Tencent cues spanning multiple
-sentences are apportioned within their original interval. All 810 TTS tests
+sentences are apportioned within their original interval. All 881 TTS tests
 passed, including complete and chunked multilingual punctuation, finalization,
-and source alignment cases. Independent review verified the punctuation-only
-request fix; the full repository pre-commit gate passed. No service deployment
+contextual quotation pairing, and source alignment cases. Independent review
+verified the punctuation-only request fix; the full repository pre-commit gate
+passed. No service deployment
 or persisted subtitle migration is part of this change.
 The frontend also preserves multilingual expressive punctuation and closing
 quotes before passing cues to the existing slide library. No library release,
@@ -116,6 +125,7 @@ dependency update, or subtitle timing change is needed for this display fix.
 ## Context and Orientation
 
 `src/api/flaskr/service/tts/patterns.py` owns shared compiled patterns.
+`sentence_boundary.py` owns quote-aware matching and its immutable quote state.
 `streaming_tts.py` uses the sentence pattern for synthesis and fallback cues.
 `pipeline.py` uses boundaries when batching complete text. Tencent's provider
 in `src/api/flaskr/api/tts/tencent_provider.py` additionally maps sentence
@@ -161,6 +171,11 @@ spacing inside quotes, and expressive punctuation variants. Ordinary trailing
 punctuation, including supplementary-plane sentence endings, remains hidden.
 Both persisted and streaming paths must retain cue timing, position, and segment
 indices and leave the source cue objects unchanged.
+German reversed closing quotes must not gain an extra Tencent terminal mark or
+migrate to the next subtitle. Adjacent CJK/Latin opening quotes, including an
+opening quote at a stream chunk's end, must remain attached to the next sentence.
+Quote continuations split across chunks must preserve raw offsets and avoid
+swallowing a new quoted phrase.
 
 ## Idempotence and Recovery
 
