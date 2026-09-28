@@ -330,7 +330,7 @@
     "customValidity": {
       "actualExpiry": "实际到期时间：{date}",
       "estimatedExpiry": "预计到期时间（以实际发放为准）",
-      "hint": "立即生效。天按 24 小时计算；月、年按自然日历计算，遇到不存在的日期取月末。",
+      "hint": "立即生效。每天按 24 小时计，月、年按日历顺延，无对应日期时取月末。",
       "invalid": "请输入有效的正整数时长，并选择天、月或年。",
       "summary": "立即生效，有效期 {value} {unit}",
       "unitLabel": "时间单位",
