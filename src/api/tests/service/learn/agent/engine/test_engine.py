@@ -1096,6 +1096,28 @@ async def test_a_short_line_said_twice_is_not_the_end() -> None:
     assert session.finished is False
 
 
+async def test_a_short_closing_line_repeated_after_a_long_turn_can_be_a_step() -> None:
+    """A repeated scripted line does not prove that later steps are exhausted."""
+    closing = "Let's move on."
+    body = (
+        "Here is the full explanation of the learner's answer and what to do next. " * 2
+    )
+    outputs = iter([body + closing, closing, "The next scripted step follows."])
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield next(outputs)
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("script")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == closing
+    assert second[-1].reason == "end"
+    assert session.finished is False
+    third = await collect(engine.run_turn(session))
+    assert _said(third) == "The next scripted step follows."
+
+
 def _said(events: list[object]) -> str:
     return "".join(e.text for e in events if isinstance(e, ContentDelta))
 

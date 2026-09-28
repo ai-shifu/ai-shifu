@@ -203,11 +203,12 @@ def get_listen_element_record(
         build_record_from_legacy=lambda legacy_record: (
             build_listen_elements_from_legacy_record(app, legacy_record)
         ),
-        load_fallback_record=lambda: get_learn_record(
+        load_fallback_record=lambda progress_record_bid: get_learn_record(
             app,
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             user_bid=user_bid,
             preview_mode=preview_mode,
+            progress_record_bid=progress_record_bid,
         ),
     )

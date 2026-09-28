@@ -18,14 +18,19 @@ from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT, ROLE_TEACHER
 from flaskr.service.learn.learn_dtos import LearnStatus, OutlineItemUpdateDTO
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_RESET,
 )
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
@@ -284,3 +289,52 @@ def apply_outline_progression(
                 # may be revisiting it, and reporting it unfinished would lose a completion.
                 record.status = LEARN_STATUS_IN_PROGRESS
     return True
+
+
+def record_next_lesson_interaction(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    progress_record_bid: str,
+    content: str,
+) -> str | None:
+    """Persist the navigation control before its live element is sent.
+
+    The 2.0 lesson has already saved its completion and outline updates. A reset can still land
+    between those writes and this one, so the control belongs only to the same live progress row.
+    Element history reads persisted rows directly and cannot recover a control sent only on SSE.
+    """
+    with app_context_scope(app), unit_of_work():
+        record = _this_turn_s_record(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+        )
+        if record is None or record.status != LEARN_STATUS_COMPLETED:
+            return None
+        existing = LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.progress_record_bid == progress_record_bid,
+            LearnGeneratedBlock.user_bid == user_bid,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.block_content_conf.contains(CONTEXT_INTERACTION_NEXT),
+        ).first()
+        if existing is not None:
+            return None
+        block = init_generated_block(
+            app,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            user_bid=user_bid,
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            mdflow=content,
+            block_index=record.block_position,
+        )
+        block.role = ROLE_TEACHER
+        db.session.add(block)
+        return block.generated_block_bid

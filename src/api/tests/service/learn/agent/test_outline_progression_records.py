@@ -11,9 +11,12 @@ import uuid
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.learn.agent.lesson_record import apply_outline_progression
+from flaskr.service.learn.agent.lesson_record import (
+    apply_outline_progression,
+    record_next_lesson_interaction,
+)
 from flaskr.service.learn.learn_dtos import LearnStatus, OutlineItemUpdateDTO
-from flaskr.service.learn.models import LearnProgressRecord
+from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -33,6 +36,9 @@ def learner(app: object) -> str:
     identity = uuid.uuid4().hex
     yield identity
     with app.app_context():
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.user_bid == identity
+        ).delete()
         LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == identity
         ).delete()
@@ -127,6 +133,47 @@ def test_the_lesson_handed_to_is_recorded_as_started(app: object, learner: str) 
 
         assert _live_status(learner, LESSON) == LEARN_STATUS_COMPLETED
         assert _live_status(learner, NEXT) == LEARN_STATUS_IN_PROGRESS
+
+
+def test_next_lesson_control_is_persisted_once_for_the_finished_attempt(
+    app: object, learner: str
+) -> None:
+    """The live control and the record loaded tomorrow refer to the same stored block."""
+    button = "?[Next lesson//_sys_next_chapter]"
+    with app.app_context():
+        taught = _record(learner, LESSON, LEARN_STATUS_COMPLETED)
+        db.session.commit()
+        kwargs = {
+            "user_bid": learner,
+            "shifu_bid": SHIFU,
+            "outline_bid": LESSON,
+            "progress_record_bid": taught,
+            "content": button,
+        }
+        block_bid = record_next_lesson_interaction(app, **kwargs)
+        assert block_bid
+        assert record_next_lesson_interaction(app, **kwargs) is None
+        block = LearnGeneratedBlock.query.filter_by(generated_block_bid=block_bid).one()
+        assert block.progress_record_bid == taught
+        assert block.block_content_conf == button
+
+
+def test_reset_attempt_gets_no_next_lesson_control(app: object, learner: str) -> None:
+    """A reset between completion and the tail must not revive its navigation control."""
+    with app.app_context():
+        taught = _record(learner, LESSON, LEARN_STATUS_RESET)
+        db.session.commit()
+        assert (
+            record_next_lesson_interaction(
+                app,
+                user_bid=learner,
+                shifu_bid=SHIFU,
+                outline_bid=LESSON,
+                progress_record_bid=taught,
+                content="?[Next lesson//_sys_next_chapter]",
+            )
+            is None
+        )
 
 
 def test_a_lesson_already_finished_is_not_reopened_by_being_handed_to(
