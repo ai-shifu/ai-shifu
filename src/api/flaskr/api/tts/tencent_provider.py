@@ -622,23 +622,49 @@ def _group_tencent_subtitle_cues_by_source_indices(
     if not sentence_ranges or not indexed_cues:
         return []
 
+    sentence_intervals: list[list[tuple[int, int]]] = [[] for _ in sentence_ranges]
+    for cue in indexed_cues:
+        cue_start = int(cue.get("begin_index", 0) or 0)
+        cue_end = int(cue.get("end_index", cue_start) or cue_start)
+        overlapping: list[tuple[int, int]] = []
+        for index, (_unit, sentence_start, sentence_end) in enumerate(sentence_ranges):
+            if cue_end > sentence_start and cue_start < sentence_end:
+                overlap_text = source_text[
+                    max(cue_start, sentence_start) : min(cue_end, sentence_end)
+                ]
+                overlapping.append(
+                    (index, max(_tencent_speech_weight(overlap_text), 1))
+                )
+        if not overlapping:
+            continue
+
+        start_ms = int(cue.get("start_ms", 0) or 0)
+        end_ms = max(int(cue.get("end_ms", start_ms) or start_ms), start_ms)
+        total_weight = sum(weight for _index, weight in overlapping)
+        consumed_weight = 0
+        cursor_ms = start_ms
+        for index, weight in overlapping:
+            consumed_weight += weight
+            # Partition a shared alignment instead of repeating its full span.
+            # Cumulative rounding keeps adjacent pieces continuous, preserves
+            # the provider's endpoints, and permits zero-length short pieces.
+            boundary_ms = start_ms + round(
+                (end_ms - start_ms) * consumed_weight / total_weight
+            )
+            sentence_intervals[index].append((cursor_ms, boundary_ms))
+            cursor_ms = boundary_ms
+
     first_cue = cues[0]
     segment_index = int(first_cue.get("segment_index", 0) or 0)
     position = int(first_cue.get("position", 0) or 0)
     grouped: list[dict[str, Any]] = []
-    for unit, sentence_start, sentence_end in sentence_ranges:
-        overlapping = []
-        for cue in indexed_cues:
-            cue_start = int(cue.get("begin_index", 0) or 0)
-            cue_end = int(cue.get("end_index", cue_start) or cue_start)
-            if cue_end > sentence_start and cue_start < sentence_end:
-                overlapping.append(cue)
-        if not overlapping:
+    for (unit, _start, _end), intervals in zip(
+        sentence_ranges, sentence_intervals, strict=True
+    ):
+        if not intervals:
             return []
-        start_ms = min(int(cue.get("start_ms", 0) or 0) for cue in overlapping)
-        end_ms = max(
-            int(cue.get("end_ms", start_ms) or start_ms) for cue in overlapping
-        )
+        start_ms = min(start for start, _end in intervals)
+        end_ms = max(end for _start, end in intervals)
         grouped.append(
             {
                 "text": unit,

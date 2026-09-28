@@ -85,6 +85,113 @@ def test_indexed_subtitles_preserve_source_punctuation_and_trim_inter_sentence_s
     assert result == [_cue("A!", 310, 350, 3, 5), _cue("BB?", 400, 500, 3, 5)]
 
 
+def test_indexed_cue_spanning_unicode_sentences_divides_duration_without_overlap() -> (
+    None
+):
+    source = "مرحبا؟ نعم۔"
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {
+                "Text": source,
+                "BeginTime": 0,
+                "EndTime": 1000,
+                "BeginIndex": 0,
+                "EndIndex": len(source),
+            }
+        ],
+        source_text=source,
+        offset_ms=100,
+        segment_index=2,
+        position=4,
+    )
+
+    assert result == [_cue("مرحبا؟", 100, 725, 2, 4), _cue("نعم۔", 725, 1100, 2, 4)]
+
+
+@pytest.mark.parametrize(
+    ("duration_ms", "boundaries"),
+    [
+        (0, (10, 10, 10, 10)),
+        (1, (10, 10, 10, 11)),
+        (5, (10, 11, 12, 15)),
+    ],
+)
+def test_indexed_cue_spanning_three_sentences_rounds_cumulative_boundaries(
+    duration_ms: int, boundaries: tuple[int, int, int, int]
+) -> None:
+    source = "  A؟  BB।  CCC။  "
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {
+                "Text": source,
+                "BeginTime": 10,
+                "EndTime": 10 + duration_ms,
+                "BeginIndex": 0,
+                "EndIndex": len(source),
+            }
+        ],
+        source_text=source,
+    )
+
+    assert result == [
+        _cue("A؟", boundaries[0], boundaries[1]),
+        _cue("BB।", boundaries[1], boundaries[2]),
+        _cue("CCC။", boundaries[2], boundaries[3]),
+    ]
+
+
+@pytest.mark.parametrize("with_anchors", [False, True], ids=["crossing", "anchored"])
+def test_indexed_cue_splits_use_overlap_weights_and_preserve_sentence_anchors(
+    with_anchors: bool,
+) -> None:
+    source = "AA؟ BBBB۔ CCC।"
+    second_start = source.index("BBBB")
+    split_at = second_start + 1
+    subtitles = [
+        {
+            "Text": source[:split_at],
+            "BeginTime": 100,
+            "EndTime": 400,
+            "BeginIndex": 0,
+            "EndIndex": split_at,
+        },
+        {
+            "Text": source[split_at:],
+            "BeginTime": 500,
+            "EndTime": 1000,
+            "BeginIndex": split_at,
+            "EndIndex": len(source),
+        },
+    ]
+    if with_anchors:
+        subtitles.extend(
+            [
+                {
+                    "Text": "A",
+                    "BeginTime": 20,
+                    "EndTime": 80,
+                    "BeginIndex": 0,
+                    "EndIndex": 1,
+                },
+                {
+                    "Text": "C",
+                    "BeginTime": 1020,
+                    "EndTime": 1100,
+                    "BeginIndex": source.index("CCC") + 2,
+                    "EndIndex": source.index("CCC") + 3,
+                },
+            ]
+        )
+
+    result = tencent.normalize_tencent_subtitle_cues(subtitles, source_text=source)
+
+    assert result == [
+        _cue("AA؟", 20 if with_anchors else 100, 300),
+        _cue("BBBB۔", 300, 750),
+        _cue("CCC।", 750, 1100 if with_anchors else 1000),
+    ]
+
+
 @pytest.mark.parametrize(
     ("first", "second"),
     [

@@ -18,6 +18,9 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
 - [x] 2026-09-28 UTC: Passed all 771 TTS tests, Ruff, repository harness,
       architecture checks, and the complete lefthook pre-commit gate. Reviewed
       scope and acceptance before moving the plan to completed.
+- [x] 2026-09-28 UTC: Addressed PR #2999's shared-alignment timing review:
+      partitioned cross-sentence indexed Tencent cues and passed all 777 TTS
+      tests, including short-duration rounding and single-sentence anchors.
 
 ## Surprises & Discoveries
 
@@ -29,6 +32,9 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
 - Grouping consecutive punctuation exposed the existing length-only submission
   check: a punctuation run in a later chunk could become a TTS request. Reusing
   `has_speakable_text` for completed sentences and final tails prevents this.
+- PR review identified that one indexed Tencent alignment can span multiple
+  source sentences. Reusing its entire interval for each sentence creates
+  overlapping subtitles after recognizing additional Unicode boundaries.
 
 ## Decision Log
 
@@ -41,13 +47,18 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
 - Keep provider timestamps, source indices, audio offsets, duration weighting,
   metering, and subtitle DTOs in their existing owners. No frontend interaction
   or analytics contract changes are required.
+- Partition an indexed Tencent cue across the source sentences it overlaps,
+  using the existing speech-weight helper on each source intersection. Use
+  cumulative rounding so adjacent intervals meet and the provider's outer
+  endpoints survive. Cues contained in one sentence retain their full interval.
 - Leave Tencent TextToVoice request-size splitting unchanged: that provider
   supplies no subtitles and its length-limit handling is separate work.
 
 ## Outcomes & Retrospective
 
 Subtitle-producing paths now share Unicode sentence-terminal recognition.
-Provider indices and timestamp allocation remain unchanged. All 771 TTS tests
+Provider indices remain unchanged; indexed Tencent cues spanning multiple
+sentences are apportioned within their original interval. All 777 TTS tests
 passed, including complete and chunked multilingual punctuation, finalization,
 and source alignment cases. Independent review verified the punctuation-only
 request fix; the full repository pre-commit gate passed. No service deployment
@@ -82,6 +93,10 @@ and closing quotes received together must stay with the preceding sentence.
 Unterminated stream fragments must survive until finalization. Source ranges
 must still map exactly to original text, and fallback cue duration must end at
 the supplied audio offset plus duration. Existing TTS tests must remain green.
+When a Tencent alignment spans multiple sentences, its time must be divided
+between those source intersections instead of duplicated. Cumulative rounding
+must preserve endpoints even for zero- or one-millisecond alignments; separate
+alignments contained in one sentence must retain their original times.
 
 ## Idempotence and Recovery
 
