@@ -30,6 +30,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
 - [Agent-First Harness Phase 2](./completed/agent-first-harness-phase-2.md)
 - [Arabic and Thai Product i18n](./completed/arabic-thai-i18n.md)
+- [Atomic Sibling Reorder](./completed/atomic-sibling-reorder.md)
 - [Backend Overhaul Master Plan: Inventory and Optimization](./completed/backend-overhaul-master.md)
 - [Backend Test Coverage Above 95 Percent](./completed/backend-test-coverage-95.md)
 - [ExecPlan: Billing Credit Notifications](./completed/billing-credit-notifications.md)

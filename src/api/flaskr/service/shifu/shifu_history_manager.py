@@ -257,7 +257,9 @@ def get_shifu_draft_meta(
         return _build_draft_meta(latest)
 
 
-def get_shifu_history(app: object, shifu_bid: str) -> HistoryItem:
+def get_shifu_history(
+    app: object, shifu_bid: str, *, for_update: bool = False
+) -> HistoryItem:
     """Get shifu history.
 
     Reads through ``app_context_scope`` so the query joins the caller's
@@ -272,18 +274,19 @@ def get_shifu_history(app: object, shifu_bid: str) -> HistoryItem:
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
+        for_update: Read current committed history while holding the course lock.
+
     Returns:
         HistoryItem: History item.
 
     """
     with app_context_scope(app):
-        shifu_history = (
-            LogDraftStruct.query.filter_by(
-                shifu_bid=shifu_bid,
-            )
-            .order_by(LogDraftStruct.id.desc())
-            .first()
-        )
+        query = LogDraftStruct.query.filter_by(
+            shifu_bid=shifu_bid,
+        ).order_by(LogDraftStruct.id.desc())
+        if for_update:
+            query = query.populate_existing().with_for_update()
+        shifu_history = query.first()
         if not shifu_history:
             return HistoryItem(bid=shifu_bid, id=0, type="shifu", children=[])
         return HistoryItem.from_json(shifu_history.struct)
@@ -515,6 +518,8 @@ def save_outline_tree_history(
     shifu_bid: str,
     outline_tree: list[HistoryItem],
     shifu_id: int | None = None,
+    *,
+    for_update: bool = False,
 ) -> None:
     """Save outline tree history.
 
@@ -524,11 +529,17 @@ def save_outline_tree_history(
         shifu_bid: Shifu bid
         outline_tree: Outline tree
         shifu_id: Optional shifu database id to ensure root node id is correct
+        for_update: Preserve current history even in an older read snapshot.
+
     Returns:
         None.
 
     """
-    history = get_shifu_history(app, shifu_bid)
+    history = (
+        get_shifu_history(app, shifu_bid, for_update=True)
+        if for_update
+        else get_shifu_history(app, shifu_bid)
+    )
     if shifu_id is not None:
         history.id = shifu_id
     q = queue.Queue()

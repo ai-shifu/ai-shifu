@@ -61,6 +61,7 @@
 | `docs/exec-plans/completed/agent-first-harness-migration.md` | Agent-First Harness Migration | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/arabic-thai-i18n.md` | Arabic and Thai Product i18n | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/atomic-sibling-reorder.md` | Atomic Sibling Reorder | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/backend-overhaul-master.md` | Backend Overhaul Master Plan: Inventory and Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/backend-test-coverage-95.md` | Backend Test Coverage Above 95 Percent | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/billing-credit-notifications.md` | ExecPlan: Billing Credit Notifications | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -161,6 +162,7 @@
 | `docs/history/ruff-rule-minimization-through-2026-09-26.md` | Ruff rule delivery journal through 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/shared-admin-table-component.md` | Shared Admin Table Component | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/product-specs/account-session-analytics.md` | Account Session Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-09-28` | `true` |
+| `docs/product-specs/atomic-sibling-reorder.md` | Atomic Sibling Reorder | `product-spec` | `implemented` | `api` | `2026-09-28` | `true` |
 | `docs/product-specs/billing-credit-notifications.md` | 积分通知中心需求文档 | `product-spec` | `needs-review` | `backend` | `-` | `true` |
 | `docs/product-specs/billing-learning-hours-estimate.md` | Billing learning-time estimates | `product-spec` | `implemented` | `shared` | `2026-09-21` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page Contract | `product-spec` | `implemented` | `shared` | `2026-09-26` | `true` |

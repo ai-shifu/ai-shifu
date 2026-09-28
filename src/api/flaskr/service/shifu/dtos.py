@@ -500,6 +500,13 @@ class ReorderOutlineDto:
 
 
 @register_schema_to_swagger
+class ReorderOutlineSiblingsDto:
+    """Reorder one complete sibling group; mutually exclusive with outlines."""
+
+    order: list[str]
+
+
+@register_schema_to_swagger
 class MdflowDTOParseResult(BaseModel):
     """Represent the MarkdownFlow DTO parse result API payload."""
 

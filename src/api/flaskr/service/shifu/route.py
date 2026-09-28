@@ -130,6 +130,7 @@ from flaskr.service.shifu.shifu_outline_funcs import (
     get_outline_tree,
     get_unit_by_id,
     modify_unit,
+    reorder_outline_siblings,
     reorder_outline_tree,
 )
 from flaskr.service.shifu.shifu_permission_funcs import (
@@ -1086,7 +1087,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     def update_chapter_order_api(shifu_bid: str) -> str:
         """Update chapter order.
 
-        Reset the chapter order to the order of the chapter IDs.
+        Reorder one complete sibling group, or submit the legacy full tree.
+        Supply exactly one of order and outlines.
 
         ---
         tags:
@@ -1100,7 +1102,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
               required: true
               schema:
                 type: object
-                $ref: "#/components/schemas/ReorderOutlineDto"
+                oneOf:
+                    - $ref: "#/components/schemas/ReorderOutlineDto"
+                    - $ref: "#/components/schemas/ReorderOutlineSiblingsDto"
 
 
         responses:
@@ -1117,14 +1121,18 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: string
                                     description: message
                                 data:
-                                    type: array
-                                    items:
-                                        $ref: "#/components/schemas/OutlineDto"
+                                    type: boolean
         """
         user_id = request.user.user_id
         request_json = request.get_json(silent=True)
         if not isinstance(request_json, dict):
             raise_param_error("outlines")
+        if "order" in request_json:
+            if "outlines" in request_json:
+                raise_param_error("order")
+            return make_common_response(
+                reorder_outline_siblings(app, user_id, shifu_bid, request_json["order"])
+            )
         outlines = request_json.get("outlines")
         app.logger.info(type(outlines))
         app.logger.info(
