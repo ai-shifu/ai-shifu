@@ -658,22 +658,29 @@ def _group_tencent_subtitle_cues_by_source_indices(
     segment_index = int(first_cue.get("segment_index", 0) or 0)
     position = int(first_cue.get("position", 0) or 0)
     grouped: list[dict[str, Any]] = []
+    timeline_cursor_ms = 0
     for (unit, _start, _end), intervals in zip(
         sentence_ranges, sentence_intervals, strict=True
     ):
         if not intervals:
             return []
+        # Provider anchors may overlap an earlier sentence even after each
+        # shared alignment has been partitioned. Keep the grouped timeline
+        # monotonic without extending it beyond the latest provider endpoint.
         start_ms = min(start for start, _end in intervals)
         end_ms = max(end for _start, end in intervals)
+        start_ms = max(start_ms, timeline_cursor_ms)
+        end_ms = max(end_ms, start_ms)
         grouped.append(
             {
                 "text": unit,
                 "start_ms": start_ms,
-                "end_ms": max(end_ms, start_ms),
+                "end_ms": end_ms,
                 "segment_index": segment_index,
                 "position": position,
             }
         )
+        timeline_cursor_ms = end_ms
 
     return normalize_subtitle_cues(grouped)
 

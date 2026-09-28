@@ -192,6 +192,62 @@ def test_indexed_cue_splits_use_overlap_weights_and_preserve_sentence_anchors(
     ]
 
 
+def test_indexed_shared_cue_clamps_overlapping_sentence_anchor() -> None:
+    source = "AA؟ B۔"
+    second_start = source.index("B")
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {
+                "Text": source,
+                "BeginTime": 100,
+                "EndTime": 400,
+                "BeginIndex": 0,
+                "EndIndex": len(source),
+            },
+            {
+                "Text": "B",
+                "BeginTime": 250,
+                "EndTime": 260,
+                "BeginIndex": second_start,
+                "EndIndex": second_start + 1,
+            },
+        ],
+        source_text=source,
+    )
+
+    assert result == [_cue("AA؟", 100, 300), _cue("B۔", 300, 400)]
+
+
+def test_indexed_sentences_clamp_short_later_cues_without_extending_total_duration() -> (
+    None
+):
+    source = "A؟ B। C။"
+    subtitles = [
+        {
+            "Text": text,
+            "BeginTime": start,
+            "EndTime": end,
+            "BeginIndex": source.index(text),
+            "EndIndex": source.index(text) + len(text),
+        }
+        for text, start, end in [("A", 100, 600), ("B", 250, 260), ("C", 300, 500)]
+    ]
+    result = tencent.normalize_tencent_subtitle_cues(
+        subtitles,
+        source_text=source,
+        offset_ms=50,
+        segment_index=2,
+        position=4,
+    )
+
+    assert result == [
+        _cue("A؟", 150, 650, 2, 4),
+        _cue("B।", 650, 650, 2, 4),
+        _cue("C။", 650, 650, 2, 4),
+    ]
+    assert result[-1]["end_ms"] == max(item["EndTime"] for item in subtitles) + 50
+
+
 @pytest.mark.parametrize(
     ("first", "second"),
     [
