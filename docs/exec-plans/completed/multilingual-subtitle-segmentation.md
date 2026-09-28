@@ -56,6 +56,9 @@ subtitles under the existing trailing-punctuation display policy.
       All 924 TTS tests passed; known paired closers still submit immediately,
       and new reversed quotes around provider content are not filtered as
       punctuation continuations.
+- [x] 2026-09-28 UTC: Added both vertical corner-quotation pairs and audited
+      every current Unicode `Quotation_Mark` character for a pairing role.
+      All 934 TTS tests passed, including vertical quotes split across chunks.
 
 ## Surprises & Discoveries
 
@@ -127,7 +130,7 @@ subtitles under the existing trailing-punctuation display policy.
 
 Subtitle-producing paths now share Unicode sentence-terminal recognition.
 Provider indices remain unchanged; indexed Tencent cues spanning multiple
-sentences are apportioned within their original interval. All 924 TTS tests
+sentences are apportioned within their original interval. All 934 TTS tests
 passed, including complete and chunked multilingual punctuation, finalization,
 contextual quotation pairing, and source alignment cases. Independent review
 verified the punctuation-only request fix; the full repository pre-commit gate

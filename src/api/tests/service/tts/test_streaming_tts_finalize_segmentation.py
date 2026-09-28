@@ -280,12 +280,33 @@ class TestFinalizeSegmentation:
             (["„Hallo!", "“ Weiter."], ["„Hallo!", "Weiter."]),
             (["„Hallo!", "“", " Weiter."], ["„Hallo!", "Weiter."]),
             (["„Hallo!", "“"], ["„Hallo!"]),
+            (["﹁你好。﹂ 下一句。"], ["﹁你好。﹂", "下一句。"]),
+            (["﹁你好。", "﹂下一句。"], ["﹁你好。", "下一句。"]),
+            (["﹁你好。", "﹂", "下一句。"], ["﹁你好。", "下一句。"]),
+            (["﹁你好。", "﹂"], ["﹁你好。"]),
+            (["﹃你好。﹄ 下一句。"], ["﹃你好。﹄", "下一句。"]),
+            (["﹃你好。", "﹄下一句。"], ["﹃你好。", "下一句。"]),
+            (["﹃你好。", "﹄", "下一句。"], ["﹃你好。", "下一句。"]),
+            (["﹃你好。", "﹄"], ["﹃你好。"]),
         ],
-        ids=["whole", "mixed-closer", "standalone-closer", "finalize-closer"],
+        ids=[
+            "german-whole",
+            "german-mixed-closer",
+            "german-standalone-closer",
+            "german-finalize-closer",
+            "vertical-corner-whole",
+            "vertical-corner-mixed-closer",
+            "vertical-corner-standalone-closer",
+            "vertical-corner-finalize-closer",
+            "vertical-white-corner-whole",
+            "vertical-white-corner-mixed-closer",
+            "vertical-white-corner-standalone-closer",
+            "vertical-white-corner-finalize-closer",
+        ],
     )
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
-    def test_german_closing_quotes_do_not_leak_into_following_segments(
+    def test_paired_closing_quotes_do_not_leak_into_following_segments(
         self,
         mock_is_configured: object,
         mock_executor: object,
@@ -299,7 +320,7 @@ class TestFinalizeSegmentation:
         for index, chunk in enumerate(chunks):
             list(processor.process_chunk(chunk))
             if index == 0 and len(chunks) > 1:
-                assert mock_executor.submit.call_args.args[1].text == "„Hallo!"
+                assert mock_executor.submit.call_args.args[1].text == chunk
                 assert processor._raw_offset == len(chunk)
 
         raw_length = len(processor._buffer)
