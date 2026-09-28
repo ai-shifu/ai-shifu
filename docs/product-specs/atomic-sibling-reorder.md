@@ -31,6 +31,11 @@ order. It preserves other groups' current order and
 positions, except descendant positions that must follow a moved ancestor.
 Only the requested group is renumbered; descendants keep their relative ordinal
 suffixes when their ancestor prefix changes, including sparse or wider ordinals.
+Affected descendants must start with their original parent's position and have
+a canonical positive ASCII decimal suffix (`09` or `100`, not an empty suffix, `00`,
+or `009`). Inconsistent affected paths are rejected rather than repaired, even
+when a descendant already uses the requested new prefix. The final current tree
+must also have unique positions; any failure rolls back the entire reorder.
 Content, access settings, and node identity are preserved in cloned revisions.
 The complete tree history is saved in the same transaction, using a current read
 to retain root metadata and legacy block children. Invalid parent graphs fail

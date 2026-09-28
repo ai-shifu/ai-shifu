@@ -360,7 +360,7 @@ def test_moved_root_preserves_descendant_ordinal_suffixes(
         assert nodes[bid].id == row.id
 
 
-def test_moved_ancestor_rebases_descendants_through_an_unchanged_position(
+def test_moved_ancestor_rejects_an_already_rebased_inconsistent_child(
     app: object,
     sibling_course: SimpleNamespace,
 ) -> None:
@@ -374,23 +374,72 @@ def test_moved_ancestor_rebases_descendants_through_an_unchanged_position(
     db.session.add(grandchild)
     db.session.commit()
     child_id, grandchild_id = child.id, grandchild.id
+    before_counts = _counts(course)
+    before_history = get_shifu_history(app, course.bid).to_json()
 
-    outlines.reorder_outline_siblings(
-        app, "teacher", course.bid, ["chapter-b", "sparse", "chapter-a"]
-    )
+    with pytest.raises(AppError) as error:
+        outlines.reorder_outline_siblings(
+            app, "teacher", course.bid, ["chapter-b", "sparse", "chapter-a"]
+        )
+    assert error.value.code == ERROR_CODE["server.shifu.outlineStructureBroken"]
+    assert _counts(course) == before_counts
+    assert get_shifu_history(app, course.bid).to_json() == before_history
     latest = _latest(course)
-    assert latest["sparse"].position == "02"
+    assert latest["sparse"].position == "04"
     assert latest["sparse-child"].position == "0209"
     assert latest["sparse-child"].id == child_id
-    assert latest["sparse-grandchild"].position == "020907"
-    assert latest["sparse-grandchild"].id != grandchild_id
-    assert latest["sparse-grandchild"].content == grandchild.content
-    assert latest["sparse-grandchild"].parent_bid == "sparse-child"
-    history = get_shifu_history(app, course.bid)
-    nodes = _history_nodes(history)
-    assert set(nodes) == set(latest) | {"legacy-block"}
-    assert nodes["sparse-child"].id == child_id
-    assert nodes["sparse-grandchild"].id == latest["sparse-grandchild"].id
+    assert latest["sparse-grandchild"].position == "040907"
+    assert latest["sparse-grandchild"].id == grandchild_id
+
+
+@pytest.mark.parametrize(
+    "position",
+    ["", "0", "04", "9909", "040", "0400", "04009", "04\u0669", "04-1", "0409x"],
+)
+def test_reorder_rejects_malformed_affected_descendant_positions(
+    app: object,
+    sibling_course: SimpleNamespace,
+    position: str,
+) -> None:
+    course = sibling_course
+    course.rows["sparse-child"].position = position
+    db.session.commit()
+    before_counts = _counts(course)
+    before_rows = {bid: (row.id, row.position) for bid, row in _latest(course).items()}
+    before_history = get_shifu_history(app, course.bid).to_json()
+
+    with pytest.raises(AppError) as error:
+        outlines.reorder_outline_siblings(
+            app, "teacher", course.bid, ["chapter-b", "sparse", "chapter-a"]
+        )
+    assert error.value.code == ERROR_CODE["server.shifu.outlineStructureBroken"]
+    assert _counts(course) == before_counts
+    assert {
+        bid: (row.id, row.position) for bid, row in _latest(course).items()
+    } == before_rows
+    assert get_shifu_history(app, course.bid).to_json() == before_history
+
+
+def test_reorder_rolls_back_when_final_positions_collide_across_groups(
+    app: object,
+    sibling_course: SimpleNamespace,
+) -> None:
+    course = sibling_course
+    course.rows["b1"].position = "010101"
+    db.session.commit()
+    before_counts = _counts(course)
+    before_rows = {bid: (row.id, row.position) for bid, row in _latest(course).items()}
+    assert len({position for _, position in before_rows.values()}) == len(before_rows)
+    before_history = get_shifu_history(app, course.bid).to_json()
+
+    with pytest.raises(AppError) as error:
+        outlines.reorder_outline_siblings(app, "teacher", course.bid, ["a2", "a1"])
+    assert error.value.code == ERROR_CODE["server.shifu.outlineStructureBroken"]
+    assert _counts(course) == before_counts
+    assert {
+        bid: (row.id, row.position) for bid, row in _latest(course).items()
+    } == before_rows
+    assert get_shifu_history(app, course.bid).to_json() == before_history
 
 
 def test_current_reads_lock_direct_selects_without_snapshot_subqueries(

@@ -796,6 +796,14 @@ def _persist_outline_order(
             elif moved_ancestor:
                 # Rebase the parent prefix while keeping this group's ordinals.
                 suffix = item.position[len(old_parent_position) :]
+                if (
+                    not item.position.startswith(old_parent_position)
+                    or not suffix.isascii()
+                    or not suffix.isdigit()
+                    or int(suffix) <= 0
+                    or suffix != f"{int(suffix):02d}"
+                ):
+                    raise_error("server.shifu.outlineStructureBroken")
                 new_position = f"{parent_position}{suffix}"
             else:
                 new_position = item.position
@@ -835,6 +843,10 @@ def _persist_outline_order(
                 )
 
     rebuild_positions(outline_dtos, history_infos=history_infos)
+    if sibling_parent_bid is not None:
+        assert_outline_items_publishable(
+            app, shifu_id, list(existing_items_map.values())
+        )
     for outline_bid in changed_outline_bids:
         cleanup_outline_history_versions(app, shifu_id, outline_bid)
     if sibling_parent_bid is None:

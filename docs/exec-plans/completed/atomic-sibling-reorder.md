@@ -17,6 +17,8 @@ The durable API and rollout contract is in
   implementation and acceptance review before archiving this code-change plan.
 - [x] 2026-09-28 CST: Narrow the current-read lock footprint using the existing
   composite index and verify that historical revisions remain independently writable.
+- [x] 2026-09-28 CST: Reject malformed affected descendant paths and final position
+  collisions; verify row and history rollback, including previously rebased paths.
 
 ## Surprises & Discoveries
 
@@ -44,6 +46,10 @@ The durable API and rollout contract is in
   reduce the contention benefit. No migration or dependency is needed.
 - Keep scope to sibling-order merges. Other structural writers and the existing
   full-tree API retain their current behavior and are not claimed race-free.
+- Reject affected descendants whose stored positions do not contain their
+  original parent prefix plus a canonical positive ordinal. Do not infer or
+  repair mixed old/new prefixes. Validate final positions against the current
+  in-memory rows before saving history, and roll back on any collision.
 - Deploy the backend capability before the companion CLI update in skills PR
   170. The CLI sends only `order`; older backends reject it without a full-tree
   fallback.
@@ -52,7 +58,7 @@ The durable API and rollout contract is in
 
 The API now merges one sibling order into current locked state and preserves the
 complete history. The legacy full-tree mode is unchanged. After review fixes,
-the sibling service tests passed (25), the shifu suite passed (1146), and three
+the sibling service tests passed (36), the shifu suite passed (1157), and three
 opt-in MySQL tests passed against separate connections under REPEATABLE READ.
 The default suite skips those three tests unless explicitly enabled. The new
 history-lock regression failed with a lock timeout before the optimization and
