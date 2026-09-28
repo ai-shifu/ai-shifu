@@ -164,15 +164,9 @@ def test_actual_openapi_keeps_standard_required_arrays() -> None:
     assert schemas["AdminOperationUserCreditGrantRequestDTO"]["required"] == [
         "request_id",
         "amount",
-        "grant_type",
         "grant_source",
-        "validity_value",
-        "validity_unit",
-        "display_name",
-        "note",
     ]
     assert schemas["AdminOperationUserPackageGrantRequestDTO"]["required"] == [
         "request_id",
         "product_bid",
-        "note",
     ]

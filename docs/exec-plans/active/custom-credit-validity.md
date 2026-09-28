@@ -41,6 +41,9 @@ use duration-only requests across API, UI and CLI. No schema migration.
 - [x] 2026-09-28: Removed all ordinary preset inputs, branches and response fields;
   migrated subscription compensation to exact expiry. Verified 279 backend
   tests and 36 frontend tests, including historical retries and rollback paths.
+- [x] 2026-09-28: All 20 full pre-commit gates passed for duration-only grants.
+  Corrected OpenAPI required-field metadata in a separate review fix; 105
+  schema/DTO/admin tests passed, including two new schema regressions.
 - [ ] Read back actual test database bucket and ledger expiry timestamps.
 - [ ] Production release (separate from this PR preparation).
 
