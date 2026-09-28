@@ -7,6 +7,12 @@ import { v4 as uuidv4 } from 'uuid';
 import api from '@/api';
 import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
 import { useToast } from '@/hooks/useToast';
+import { useTracking } from '@/hooks/useTracking';
+import {
+  CREDIT_VALIDITY_UNITS,
+  estimateCreditExpiry,
+  type CreditValidityUnit,
+} from './creditValidity';
 import { ErrorWithCode } from '@/lib/request';
 import {
   formatBillingCompactDateTime,
@@ -74,7 +80,8 @@ type GrantMode = 'credits' | 'package' | 'referralReward';
 type CreditFormState = {
   source: string;
   amount: string;
-  validityPreset: string;
+  validityValue: string;
+  validityUnit: CreditValidityUnit;
   note: string;
 };
 
@@ -100,7 +107,9 @@ type FormErrors = Partial<
   >
 >;
 
-const BASE_CREDIT_FORM_STATE: Omit<CreditFormState, 'validityPreset'> = {
+const BASE_CREDIT_FORM_STATE: CreditFormState = {
+  validityValue: '',
+  validityUnit: 'day',
   source: 'reward',
   amount: '',
   note: '',
@@ -115,18 +124,6 @@ const BASE_REFERRAL_REWARD_FORM_STATE: ReferralRewardFormState = {
   amount: '1000',
   note: '',
 };
-
-const resolveDefaultValidityPreset = (
-  hasActiveSubscription: boolean,
-): CreditFormState['validityPreset'] =>
-  hasActiveSubscription ? 'align_subscription' : '1d';
-
-const buildDefaultCreditFormState = (
-  hasActiveSubscription: boolean,
-): CreditFormState => ({
-  ...BASE_CREDIT_FORM_STATE,
-  validityPreset: resolveDefaultValidityPreset(hasActiveSubscription),
-});
 
 const resolveCurrentExpiry = (
   user: AdminOperationUserItem | null,
@@ -307,8 +304,8 @@ const ConfirmSummaryItem = ({
   label: ReactNode;
   value: string;
 }) => (
-  <div className='grid grid-cols-[132px_minmax(0,1fr)] items-start gap-3'>
-    <div className='flex items-center gap-1 whitespace-nowrap text-muted-foreground'>
+  <div className='grid min-w-0 grid-cols-[minmax(0,132px)_minmax(0,1fr)] items-start gap-3'>
+    <div className='min-w-0 whitespace-normal text-muted-foreground [overflow-wrap:anywhere]'>
       {label}
     </div>
     <span className='min-w-0 break-words text-foreground'>{value}</span>
@@ -400,14 +397,9 @@ export default function UserCreditGrantDialog({
   const { t, i18n } = useTranslation();
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
   const { toast } = useToast();
-  const hasActiveSubscription = Boolean(user?.has_active_subscription);
-  const defaultCreditFormState = useMemo(
-    () => buildDefaultCreditFormState(hasActiveSubscription),
-    [hasActiveSubscription],
-  );
   const [grantMode, setGrantMode] = useState<GrantMode>('credits');
   const [creditFormState, setCreditFormState] = useState<CreditFormState>(
-    defaultCreditFormState,
+    BASE_CREDIT_FORM_STATE,
   );
   const [packageFormState, setPackageFormState] = useState<PackageFormState>(
     BASE_PACKAGE_FORM_STATE,
@@ -418,6 +410,32 @@ export default function UserCreditGrantDialog({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [requestId, setRequestId] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const { trackEvent } = useTracking();
+  const [creditPreviewAt, setCreditPreviewAt] = useState<Date | null>(null);
+  const creditExpiryPreview = creditPreviewAt
+    ? estimateCreditExpiry(
+        creditPreviewAt,
+        creditFormState.validityValue,
+        creditFormState.validityUnit,
+      )
+    : null;
+  const trackCreditGrant = (
+    phase: 'attempt' | 'result',
+    outcome?: 'success' | 'failed',
+  ) => {
+    try {
+      void Promise.resolve(
+        trackEvent(`operator_credit_grant_${phase}`, {
+          surface: 'operator_user_management',
+          unit: creditFormState.validityUnit,
+          ...(outcome ? { outcome } : {}),
+        }),
+      ).catch(() => {});
+    } catch {
+      // Analytics must never affect a credit grant.
+    }
+  };
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
   const [bootstrapPayload, setBootstrapPayload] =
     useState<AdminOperationUserGrantBootstrapResponse | null>(null);
@@ -427,15 +445,17 @@ export default function UserCreditGrantDialog({
 
   useEffect(() => {
     setGrantMode('credits');
-    setCreditFormState(defaultCreditFormState);
+    setCreditFormState(BASE_CREDIT_FORM_STATE);
     setPackageFormState(BASE_PACKAGE_FORM_STATE);
     setReferralRewardFormState(BASE_REFERRAL_REWARD_FORM_STATE);
     setFormErrors({});
     setConfirmOpen(false);
     setRequestId(open ? uuidv4().replace(/-/g, '') : '');
+    submittingRef.current = false;
     setSubmitting(false);
+    setCreditPreviewAt(null);
     setGrantedAt(open ? new Date() : null);
-  }, [defaultCreditFormState, open]);
+  }, [currentUserBid, open]);
 
   useEffect(() => {
     if (!open || !currentUserBid) {
@@ -516,44 +536,6 @@ export default function UserCreditGrantDialog({
       },
     ],
     [tOperationsUsers],
-  );
-
-  const validityOptions = useMemo(
-    () => [
-      {
-        value: 'align_subscription',
-        label: tOperationsUsers(
-          'grantDialog.validityOptions.alignSubscription',
-        ),
-        disabled: !hasActiveSubscription,
-      },
-      {
-        value: '1d',
-        label: tOperationsUsers('grantDialog.validityOptions.oneDay'),
-        disabled: false,
-      },
-      {
-        value: '7d',
-        label: tOperationsUsers('grantDialog.validityOptions.sevenDays'),
-        disabled: false,
-      },
-      {
-        value: '1m',
-        label: tOperationsUsers('grantDialog.validityOptions.oneMonth'),
-        disabled: false,
-      },
-      {
-        value: '3m',
-        label: tOperationsUsers('grantDialog.validityOptions.threeMonths'),
-        disabled: false,
-      },
-      {
-        value: '1y',
-        label: tOperationsUsers('grantDialog.validityOptions.oneYear'),
-        disabled: false,
-      },
-    ],
-    [hasActiveSubscription, tOperationsUsers],
   );
 
   const accountLabel = user?.email || user?.mobile || user?.user_bid || '--';
@@ -640,6 +622,7 @@ export default function UserCreditGrantDialog({
     setFormErrors(current => ({
       ...current,
       [key]: undefined,
+      validityPreset: undefined,
       submit: undefined,
     }));
   };
@@ -683,16 +666,15 @@ export default function UserCreditGrantDialog({
           'grantDialog.validation.amountRequired',
         );
       }
-      if (!creditFormState.validityPreset) {
-        nextErrors.validityPreset = tOperationsUsers(
-          'grantDialog.validation.validityPresetRequired',
-        );
-      } else if (
-        creditFormState.validityPreset === 'align_subscription' &&
-        !hasActiveSubscription
+      if (
+        !estimateCreditExpiry(
+          new Date(),
+          creditFormState.validityValue,
+          creditFormState.validityUnit,
+        )
       ) {
         nextErrors.validityPreset = tOperationsUsers(
-          'grantDialog.validityHint',
+          'grantDialog.customValidity.invalid',
         );
       }
     } else if (grantMode === 'package') {
@@ -725,14 +707,16 @@ export default function UserCreditGrantDialog({
     if (!validateForm()) {
       return;
     }
+    setCreditPreviewAt(new Date());
     setConfirmOpen(true);
   };
 
   const handleSubmit = async () => {
-    if (!user || submitting) {
+    if (!user || submittingRef.current || !validateForm()) {
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     setFormErrors(current => ({ ...current, submit: undefined }));
 
@@ -745,13 +729,21 @@ export default function UserCreditGrantDialog({
           request_id: requestId,
           amount: creditFormState.amount.trim(),
           grant_source: creditFormState.source,
-          validity_preset: creditFormState.validityPreset,
+          validity_value: Number(creditFormState.validityValue),
+          validity_unit: creditFormState.validityUnit,
           note: creditFormState.note.trim(),
         };
-        result = (await api.grantAdminOperationUserCredits({
-          user_bid: user.user_bid,
-          ...payload,
-        })) as AdminOperationUserCreditGrantResponse;
+        trackCreditGrant('attempt');
+        try {
+          result = (await api.grantAdminOperationUserCredits({
+            user_bid: user.user_bid,
+            ...payload,
+          })) as AdminOperationUserCreditGrantResponse;
+        } catch (error) {
+          trackCreditGrant('result', 'failed');
+          throw error;
+        }
+        trackCreditGrant('result', 'success');
       } else if (grantMode === 'package') {
         const payload: AdminOperationUserPackageGrantRequest = {
           request_id: requestId,
@@ -768,7 +760,6 @@ export default function UserCreditGrantDialog({
           amount: referralRewardFormState.amount.trim(),
           grant_type: 'referral_reward',
           grant_source: 'reward',
-          validity_preset: '1m',
           note: referralRewardFormState.note.trim(),
         };
         result = (await api.grantAdminOperationUserCredits({
@@ -779,6 +770,19 @@ export default function UserCreditGrantDialog({
 
       toast({
         title: tOperationsUsers('grantDialog.submitSuccess'),
+        ...(grantMode === 'credits'
+          ? {
+              description: tOperationsUsers(
+                'grantDialog.customValidity.actualExpiry',
+                {
+                  date: formatOperatorUtcDateTime(
+                    (result as AdminOperationUserCreditGrantResponse)
+                      .expires_at,
+                  ),
+                },
+              ),
+            }
+          : {}),
       });
       setConfirmOpen(false);
       onOpenChange(false);
@@ -791,6 +795,7 @@ export default function UserCreditGrantDialog({
         submit: resolvedError.message || t('common.core.networkError'),
       }));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -821,10 +826,21 @@ export default function UserCreditGrantDialog({
             label: tOperationsUsers(
               'grantDialog.confirmSummary.validityPreset',
             ),
-            value:
-              validityOptions.find(
-                option => option.value === creditFormState.validityPreset,
-              )?.label || '--',
+            value: tOperationsUsers('grantDialog.customValidity.summary', {
+              value: creditFormState.validityValue,
+              unit: tOperationsUsers(
+                `grantDialog.customValidity.units.${creditFormState.validityUnit}`,
+              ),
+            }),
+          },
+          {
+            id: 'estimatedExpiry',
+            label: tOperationsUsers(
+              'grantDialog.customValidity.estimatedExpiry',
+            ),
+            value: creditExpiryPreview
+              ? formatOperatorUtcDateTime(creditExpiryPreview.toISOString())
+              : '--',
           },
           {
             id: 'note',
@@ -1075,34 +1091,60 @@ export default function UserCreditGrantDialog({
                       <div className='text-sm font-semibold leading-10 text-foreground/90'>
                         {tOperationsUsers('grantDialog.fields.validityPreset')}
                       </div>
-                      <Select
-                        value={creditFormState.validityPreset}
-                        onValueChange={value =>
-                          updateCreditField('validityPreset', value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={tOperationsUsers(
-                              'grantDialog.placeholders.validityPreset',
+                      <div className='flex gap-2'>
+                        <Input
+                          className='h-10'
+                          value={creditFormState.validityValue}
+                          inputMode='numeric'
+                          aria-label={tOperationsUsers(
+                            'grantDialog.customValidity.valueLabel',
+                          )}
+                          placeholder={tOperationsUsers(
+                            'grantDialog.customValidity.valueLabel',
+                          )}
+                          onChange={event =>
+                            updateCreditField(
+                              'validityValue',
+                              event.target.value,
+                            )
+                          }
+                          disabled={submitting}
+                        />
+                        <Select
+                          value={creditFormState.validityUnit}
+                          onValueChange={value =>
+                            updateCreditField(
+                              'validityUnit',
+                              value as CreditValidityUnit,
+                            )
+                          }
+                          disabled={submitting}
+                        >
+                          <SelectTrigger
+                            className='w-32 shrink-0'
+                            aria-label={tOperationsUsers(
+                              'grantDialog.customValidity.unitLabel',
                             )}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {validityOptions.map(option => (
-                            <SelectItem
-                              key={option.value}
-                              value={option.value}
-                              disabled={option.disabled}
-                            >
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CREDIT_VALIDITY_UNITS.map(unit => (
+                              <SelectItem
+                                key={unit}
+                                value={unit}
+                              >
+                                {tOperationsUsers(
+                                  `grantDialog.customValidity.units.${unit}`,
+                                )}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className='pl-[92px] text-xs text-muted-foreground'>
-                      {tOperationsUsers('grantDialog.validityHint')}
+                      {tOperationsUsers('grantDialog.customValidity.hint')}
                     </div>
                     {formErrors.validityPreset ? (
                       <div className='text-xs text-destructive'>

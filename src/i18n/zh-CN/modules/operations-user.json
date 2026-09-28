@@ -318,6 +318,20 @@
       "validityPreset": "有效期"
     },
     "confirmTitle": "确认发放积分",
+    "customValidity": {
+      "actualExpiry": "实际到期时间：{date}",
+      "estimatedExpiry": "预计到期时间（以实际发放为准）",
+      "hint": "立即生效。每天按 24 小时计，月、年按日历顺延，无对应日期时取月末。",
+      "invalid": "请输入有效的正整数时长，并选择天、月或年。",
+      "summary": "立即生效，有效期 {value} {unit}",
+      "unitLabel": "时间单位",
+      "units": {
+        "day": "天",
+        "month": "个月",
+        "year": "年"
+      },
+      "valueLabel": "有效时长"
+    },
     "description": "用于运营后台给老师或运营发放积分或套餐。",
     "fields": {
       "amount": "积分",
@@ -346,8 +360,7 @@
       "note": "可选，记录本次发放说明",
       "product": "请选择套餐",
       "productLoading": "套餐加载中...",
-      "referralRewardAmount": "请输入奖励积分",
-      "validityPreset": "请选择有效期"
+      "referralRewardAmount": "请输入奖励积分"
     },
     "referralReward": {
       "bootstrapError": "拉新奖励数据加载失败，请稍后重试。",
@@ -382,17 +395,7 @@
       "amountRequired": "请输入大于 0 的积分数值",
       "productRequired": "请选择套餐",
       "referralRewardAmountRequired": "请输入大于 0 的整数积分",
-      "sourceRequired": "请选择来源",
-      "validityPresetRequired": "请选择有效期"
-    },
-    "validityHint": "无有效套餐时，无法设置有效期为“与当前套餐有效期一致”。",
-    "validityOptions": {
-      "alignSubscription": "与当前套餐有效期一致",
-      "oneDay": "发放后 1 天",
-      "oneMonth": "发放后 1 个月",
-      "oneYear": "发放后 1 年",
-      "sevenDays": "发放后 7 天",
-      "threeMonths": "发放后 3 个月"
+      "sourceRequired": "请选择来源"
     }
   },
   "loginMethodLabels": {

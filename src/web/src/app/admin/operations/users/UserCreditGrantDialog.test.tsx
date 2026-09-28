@@ -8,8 +8,14 @@ import {
 } from '@testing-library/react';
 import api from '@/api';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
+import { formatOperatorUtcDateTime } from './dateTime';
 
 const mockToast = jest.fn();
+const mockTranslationValues = jest.fn();
+const mockTrackEvent = jest.fn();
+jest.mock('@/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
 const mockGetAdminOperationUserGrantBootstrap =
   api.getAdminOperationUserGrantBootstrap as jest.Mock;
 const mockGrantAdminOperationUserCredits =
@@ -23,7 +29,10 @@ const baseTranslation = (namespace?: string | string[]) => {
   const cacheKey = ns || 'translation';
   if (!translationCache.has(cacheKey)) {
     translationCache.set(cacheKey, {
-      t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
+      t: (key: string, values?: Record<string, unknown>) => {
+        mockTranslationValues(key, values);
+        return ns && ns !== 'translation' ? `${ns}.${key}` : key;
+      },
     });
   }
   return translationCache.get(cacheKey)!;
@@ -250,6 +259,8 @@ const baseUser = {
 describe('UserCreditGrantDialog', () => {
   beforeEach(() => {
     mockToast.mockReset();
+    mockTranslationValues.mockReset();
+    mockTrackEvent.mockReset();
     mockGetAdminOperationUserGrantBootstrap.mockReset();
     mockGrantAdminOperationUserCredits.mockReset();
     mockGrantAdminOperationUserPackage.mockReset();
@@ -262,7 +273,8 @@ describe('UserCreditGrantDialog', () => {
       amount: '10',
       grant_type: 'manual_credit',
       grant_source: 'reward',
-      validity_preset: '1d',
+      validity_value: 15,
+      validity_unit: 'day',
       expires_at: '2026-04-22T00:00:00Z',
       wallet_bucket_bid: 'bucket-1',
       ledger_bid: 'ledger-1',
@@ -353,10 +365,11 @@ describe('UserCreditGrantDialog', () => {
         target: { value: '10' },
       },
     );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsUser.grantDialog.validityOptions.oneDay',
-      }),
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsUser.grantDialog.customValidity.valueLabel',
+      ),
+      { target: { value: '15' } },
     );
     fireEvent.change(
       screen.getByPlaceholderText(
@@ -389,7 +402,8 @@ describe('UserCreditGrantDialog', () => {
         request_id: 'testrequestid',
         amount: '10',
         grant_source: 'reward',
-        validity_preset: '1d',
+        validity_value: 15,
+        validity_unit: 'day',
         note: 'ops note',
       });
     });
@@ -399,9 +413,20 @@ describe('UserCreditGrantDialog', () => {
         ledger_bid: 'ledger-1',
       }),
     );
+    expect(mockTranslationValues).toHaveBeenCalledWith(
+      'grantDialog.customValidity.actualExpiry',
+      {
+        date: formatOperatorUtcDateTime(
+          (await mockGrantAdminOperationUserCredits.mock.results[0].value)
+            .expires_at,
+        ),
+      },
+    );
     expect(handleOpenChange).toHaveBeenCalledWith(false);
     expect(mockToast).toHaveBeenCalledWith({
       title: 'module.operationsUser.grantDialog.submitSuccess',
+      description:
+        'module.operationsUser.grantDialog.customValidity.actualExpiry',
     });
   });
 
@@ -520,6 +545,7 @@ describe('UserCreditGrantDialog', () => {
     expect(mockToast).toHaveBeenCalledWith({
       title: 'module.operationsUser.grantDialog.submitSuccess',
     });
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   test('submits a referral reward grant with preview summary', async () => {
@@ -542,7 +568,8 @@ describe('UserCreditGrantDialog', () => {
       amount: '1200',
       grant_type: 'referral_reward',
       grant_source: 'reward',
-      validity_preset: '1m',
+      validity_value: null,
+      validity_unit: null,
       expires_at: '2026-06-21T00:00:00Z',
       wallet_bucket_bid: 'bucket-referral',
       ledger_bid: 'ledger-referral',
@@ -663,7 +690,6 @@ describe('UserCreditGrantDialog', () => {
         amount: '1200',
         grant_type: 'referral_reward',
         grant_source: 'reward',
-        validity_preset: '1m',
         note: 'referral note',
       });
     });
@@ -675,6 +701,7 @@ describe('UserCreditGrantDialog', () => {
       }),
     );
     expect(handleOpenChange).toHaveBeenCalledWith(false);
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   test('prefetches package bootstrap on open and shows a loading placeholder without disabling the package field', async () => {
@@ -778,64 +805,80 @@ describe('UserCreditGrantDialog', () => {
     });
   });
 
-  test('disables align subscription preset and falls back to one day without active subscription', async () => {
+  test('requires custom validity even without a subscription and accepts six months', async () => {
     render(
       <UserCreditGrantDialog
         open
-        user={{
-          ...baseUser,
-          has_active_subscription: false,
-          credits_expire_at: '',
-        }}
+        user={{ ...baseUser, has_active_subscription: false }}
         onOpenChange={jest.fn()}
         onGranted={jest.fn()}
       />,
     );
-
     expect(
-      screen.getByRole('button', {
-        name: 'module.operationsUser.grantDialog.validityOptions.alignSubscription',
-      }),
-    ).toBeDisabled();
-
+      screen.queryByText(
+        'module.operationsUser.grantDialog.validityOptions.alignSubscription',
+      ),
+    ).not.toBeInTheDocument();
     fireEvent.change(
       screen.getByPlaceholderText(
         'module.operationsUser.grantDialog.placeholders.amount',
       ),
-      {
-        target: { value: '8' },
-      },
+      { target: { value: '8' } },
     );
-
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsUser.grantDialog.confirmButton',
       }),
     );
-
     expect(
-      await screen.findByText('module.operationsUser.grantDialog.confirmTitle'),
+      screen.getByText(
+        'module.operationsUser.grantDialog.customValidity.invalid',
+      ),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByText(
-        'module.operationsUser.grantDialog.validityOptions.oneDay',
-      ).length,
-    ).toBeGreaterThan(0);
-
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsUser.grantDialog.customValidity.valueLabel',
+      ),
+      { target: { value: '6' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.customValidity.units.month',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.confirmButton',
+      }),
+    );
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsUser.grantDialog.submitButton',
       }),
     );
-
-    await waitFor(() => {
+    await waitFor(() =>
       expect(mockGrantAdminOperationUserCredits).toHaveBeenCalledWith(
         expect.objectContaining({
-          request_id: 'testrequestid',
-          validity_preset: '1d',
+          validity_value: 6,
+          validity_unit: 'month',
         }),
-      );
-    });
+      ),
+    );
+    expect(mockTrackEvent.mock.calls).toEqual([
+      [
+        'operator_credit_grant_attempt',
+        { surface: 'operator_user_management', unit: 'month' },
+      ],
+      [
+        'operator_credit_grant_result',
+        {
+          surface: 'operator_user_management',
+          unit: 'month',
+          outcome: 'success',
+        },
+      ],
+    ]);
   });
 
   test('closes the confirm dialog and shows submit errors in the main dialog', async () => {
@@ -861,6 +904,12 @@ describe('UserCreditGrantDialog', () => {
       },
     );
 
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsUser.grantDialog.customValidity.valueLabel',
+      ),
+      { target: { value: '15' } },
+    );
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsUser.grantDialog.confirmButton',
@@ -891,5 +940,185 @@ describe('UserCreditGrantDialog', () => {
       ).not.toBeInTheDocument();
     });
     expect(screen.getByText('grant failed')).toBeInTheDocument();
+  });
+
+  const fillCustomGrant = (value = '15') => {
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsUser.grantDialog.placeholders.amount',
+      ),
+      { target: { value: '10' } },
+    );
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsUser.grantDialog.customValidity.valueLabel',
+      ),
+      { target: { value } },
+    );
+  };
+  const confirmGrant = () =>
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.confirmButton',
+      }),
+    );
+  const submitGrant = () =>
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.submitButton',
+      }),
+    );
+
+  test.each(['0', '-1', '1.5', '1e2', '999999999999'])(
+    'rejects invalid or unrepresentable duration %s without tracking',
+    value => {
+      render(
+        <UserCreditGrantDialog
+          open
+          user={baseUser}
+          onOpenChange={jest.fn()}
+          onGranted={jest.fn()}
+        />,
+      );
+      fillCustomGrant(value);
+      confirmGrant();
+      expect(
+        screen.getByText(
+          'module.operationsUser.grantDialog.customValidity.invalid',
+        ),
+      ).toBeInTheDocument();
+      expect(mockGrantAdminOperationUserCredits).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  test('recomputes the UTC expiry when opening confirmation, not when opening the form', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-31T12:00:00Z'));
+    try {
+      render(
+        <UserCreditGrantDialog
+          open
+          user={baseUser}
+          onOpenChange={jest.fn()}
+          onGranted={jest.fn()}
+        />,
+      );
+      await act(async () => {});
+      fillCustomGrant('1');
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.operationsUser.grantDialog.customValidity.units.month',
+        }),
+      );
+      jest.setSystemTime(new Date('2026-02-01T12:00:00Z'));
+      confirmGrant();
+      expect(
+        screen.getByText(formatOperatorUtcDateTime('2026-03-01T12:00:00Z')),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(formatOperatorUtcDateTime('2026-02-28T12:00:00Z')),
+      ).not.toBeInTheDocument();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test.each(['throw', 'reject'])(
+    'tracking %s does not affect successful grants',
+    async failure => {
+      mockTrackEvent.mockImplementation(() => {
+        if (failure === 'throw') throw new Error('tracking unavailable');
+        return Promise.reject(new Error('tracking unavailable'));
+      });
+      const onGranted = jest.fn();
+      render(
+        <UserCreditGrantDialog
+          open
+          user={baseUser}
+          onOpenChange={jest.fn()}
+          onGranted={onGranted}
+        />,
+      );
+      fillCustomGrant();
+      confirmGrant();
+      submitGrant();
+      await waitFor(() => expect(onGranted).toHaveBeenCalledTimes(1));
+      expect(mockGrantAdminOperationUserCredits).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('retries a failed request with the same ID and counts request outcomes only', async () => {
+    mockGrantAdminOperationUserCredits.mockRejectedValueOnce(
+      new Error('temporary failure'),
+    );
+    render(
+      <UserCreditGrantDialog
+        open
+        user={baseUser}
+        onOpenChange={jest.fn()}
+        onGranted={jest.fn()}
+      />,
+    );
+    fillCustomGrant();
+    confirmGrant();
+    submitGrant();
+    await screen.findByText('temporary failure');
+    confirmGrant();
+    submitGrant();
+    await waitFor(() => expect(mockTrackEvent).toHaveBeenCalledTimes(4));
+    expect(
+      mockGrantAdminOperationUserCredits.mock.calls[0][0].request_id,
+    ).toEqual(mockGrantAdminOperationUserCredits.mock.calls[1][0].request_id);
+    expect(mockTrackEvent.mock.calls).toEqual([
+      [
+        'operator_credit_grant_attempt',
+        { surface: 'operator_user_management', unit: 'day' },
+      ],
+      [
+        'operator_credit_grant_result',
+        { surface: 'operator_user_management', unit: 'day', outcome: 'failed' },
+      ],
+      [
+        'operator_credit_grant_attempt',
+        { surface: 'operator_user_management', unit: 'day' },
+      ],
+      [
+        'operator_credit_grant_result',
+        {
+          surface: 'operator_user_management',
+          unit: 'day',
+          outcome: 'success',
+        },
+      ],
+    ]);
+  });
+
+  test('deduplicates clicks while the grant request is pending', async () => {
+    let resolveRequest!: (value: unknown) => void;
+    mockGrantAdminOperationUserCredits.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveRequest = resolve;
+        }),
+    );
+    render(
+      <UserCreditGrantDialog
+        open
+        user={baseUser}
+        onOpenChange={jest.fn()}
+        onGranted={jest.fn()}
+      />,
+    );
+    fillCustomGrant();
+    confirmGrant();
+    submitGrant();
+    submitGrant();
+    expect(mockGrantAdminOperationUserCredits).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      resolveRequest({ expires_at: '2026-02-15T00:00:00Z' }),
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(2);
   });
 });

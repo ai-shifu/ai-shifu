@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+import pytest
 from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
@@ -32,7 +33,6 @@ from flaskr.service.billing.wallets import (
 from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
-    import pytest
     from flask import Flask
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
@@ -139,9 +139,17 @@ def test_grant_manual_credit_wallet_balance_returns_existing_ledger_payload(
         assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
 
 
+@pytest.mark.parametrize(
+    "validity",
+    [
+        {"validity_preset": "1d"},
+        {"validity_preset": "custom", "validity_value": 6, "validity_unit": "month"},
+    ],
+)
 def test_grant_manual_credit_wallet_balance_returns_noop_existing_after_integrity_error(
     billing_wallet_lifecycle_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
+    validity: dict[str, object],
 ) -> None:
     existing = CreditLedgerEntry(
         ledger_bid="ledger-existing-manual-grant",
@@ -158,7 +166,7 @@ def test_grant_manual_credit_wallet_balance_returns_noop_existing_after_integrit
         consumable_from=datetime(2026, 4, 8, 12, 0, 0),
         metadata_json={
             "grant_source": "reward",
-            "validity_preset": "1d",
+            **validity,
         },
     )
 
@@ -196,6 +204,9 @@ def test_grant_manual_credit_wallet_balance_returns_noop_existing_after_integrit
     assert result["ledger_bid"] == "ledger-existing-manual-grant"
     assert result["amount"] == 3
     assert result["metadata_json"]["grant_source"] == "reward"
+
+    for key, value in validity.items():
+        assert result["metadata_json"][key] == value
 
 
 def test_grant_refund_return_credits_maps_topup_orders_back_to_topup_bucket(

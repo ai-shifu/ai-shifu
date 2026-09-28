@@ -318,6 +318,20 @@
       "validityPreset": "Validité"
     },
     "confirmTitle": "Confirmer l’attribution de crédits",
+    "customValidity": {
+      "actualExpiry": "Expiration réelle : {date}",
+      "estimatedExpiry": "Expiration estimée (confirmée à l’attribution)",
+      "hint": "Effet immédiat. Un jour dure 24 heures ; les mois et années suivent le calendrier, avec ajustement au dernier jour du mois si nécessaire.",
+      "invalid": "Saisissez une durée entière positive valide et choisissez jours, mois ou années.",
+      "summary": "Effet immédiat, valable {value} {unit}",
+      "unitLabel": "Unité de durée",
+      "units": {
+        "day": "jour(s)",
+        "month": "mois",
+        "year": "an(s)"
+      },
+      "valueLabel": "Durée"
+    },
     "description": "Utilisez cette fenêtre pour attribuer des crédits ou un forfait aux enseignants et opérateurs depuis les opérations.",
     "fields": {
       "amount": "Crédits",
@@ -346,8 +360,7 @@
       "note": "Optionnel. Indiquez la raison de cette attribution",
       "product": "Sélectionnez un forfait",
       "productLoading": "Chargement des forfaits…",
-      "referralRewardAmount": "Saisir les crédits de récompense",
-      "validityPreset": "Sélectionnez une validité"
+      "referralRewardAmount": "Saisir les crédits de récompense"
     },
     "referralReward": {
       "bootstrapError": "Impossible de charger les données de récompense de parrainage. Veuillez réessayer plus tard.",
@@ -382,17 +395,7 @@
       "amountRequired": "Saisissez un montant de crédits supérieur à 0",
       "productRequired": "Sélectionnez un forfait",
       "referralRewardAmountRequired": "Saisissez un nombre entier positif de crédits",
-      "sourceRequired": "Sélectionnez une source",
-      "validityPresetRequired": "Sélectionnez une validité"
-    },
-    "validityHint": "S’il n’existe aucun abonnement actif, la validité ne peut pas être définie sur « Aligner sur l’expiration de l’abonnement actuel ».",
-    "validityOptions": {
-      "alignSubscription": "Aligner sur l’expiration de l’abonnement actuel",
-      "oneDay": "1 jour après l’attribution",
-      "oneMonth": "1 mois après l’attribution",
-      "oneYear": "1 an après l’attribution",
-      "sevenDays": "7 jours après l’attribution",
-      "threeMonths": "3 mois après l’attribution"
+      "sourceRequired": "Sélectionnez une source"
     }
   },
   "loginMethodLabels": {

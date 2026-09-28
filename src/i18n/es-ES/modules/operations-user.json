@@ -318,6 +318,20 @@
       "validityPreset": "Validez"
     },
     "confirmTitle": "Confirmar asignación de créditos",
+    "customValidity": {
+      "actualExpiry": "Vencimiento real: {date}",
+      "estimatedExpiry": "Vencimiento estimado (se confirma al otorgar)",
+      "hint": "Vigencia inmediata. Los días son de 24 horas; los meses y años siguen el calendario y las fechas inexistentes se ajustan al último día del mes.",
+      "invalid": "Introduce una duración entera positiva válida y elige días, meses o años.",
+      "summary": "Vigencia inmediata durante {value} {unit}",
+      "unitLabel": "Unidad de duración",
+      "units": {
+        "day": "día(s)",
+        "month": "mes(es)",
+        "year": "año(s)"
+      },
+      "valueLabel": "Duración"
+    },
     "description": "Asigna créditos o planes a profesores u operadores desde el panel de operaciones.",
     "fields": {
       "amount": "Créditos",
@@ -346,8 +360,7 @@
       "note": "Opcional. Indica el motivo de la asignación",
       "product": "Selecciona un plan",
       "productLoading": "Cargando planes...",
-      "referralRewardAmount": "Introduce los créditos de recompensa",
-      "validityPreset": "Selecciona un periodo de validez"
+      "referralRewardAmount": "Introduce los créditos de recompensa"
     },
     "referralReward": {
       "bootstrapError": "No se han podido cargar los datos de recompensas por invitaciones. Inténtalo más tarde.",
@@ -382,17 +395,7 @@
       "amountRequired": "Introduce un número de créditos mayor que 0",
       "productRequired": "Selecciona un plan",
       "referralRewardAmountRequired": "Introduce un número entero de créditos mayor que 0",
-      "sourceRequired": "Selecciona un origen",
-      "validityPresetRequired": "Selecciona un periodo de validez"
-    },
-    "validityHint": "Si no hay ningún plan activo, no se puede establecer la validez como «Igual que la del plan actual».",
-    "validityOptions": {
-      "alignSubscription": "Igual que la del plan actual",
-      "oneDay": "1 día tras la asignación",
-      "oneMonth": "1 mes tras la asignación",
-      "oneYear": "1 año tras la asignación",
-      "sevenDays": "7 días tras la asignación",
-      "threeMonths": "3 meses tras la asignación"
+      "sourceRequired": "Selecciona un origen"
     }
   },
   "loginMethodLabels": {

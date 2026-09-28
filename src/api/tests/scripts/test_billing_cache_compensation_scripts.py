@@ -6,7 +6,9 @@ import sys
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Self
+from unittest.mock import Mock
 
 import pytest
 
@@ -15,6 +17,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import grant_cache_overcharge_bonus_plan as bonus_plan  # noqa: E402
+import grant_cache_overcharge_credit_compensation as credit_compensation  # noqa: E402
 import grant_cache_overcharge_teacher_bonus_plan as teacher_bonus_plan  # noqa: E402
 from billing_cache_compensation_common import (  # noqa: E402
     AMOUNT_HEADER,
@@ -29,7 +32,6 @@ from flaskr.service.billing.consts import (  # noqa: E402
 )
 from flaskr.service.billing.manual_credit_grants import (  # noqa: E402
     MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
-    MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
 )
 from flaskr.service.billing.models import (  # noqa: E402
     BillingOrder,
@@ -134,7 +136,7 @@ def test_existing_credit_grant_reports_amount_mismatch() -> None:
         expires_at=datetime(2026, 9, 1, 0, 0, 0),
         metadata_json={
             "grant_source": MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
-            "validity_preset": MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
+            "validity_preset": "align_subscription",
         },
     )
 
@@ -147,7 +149,16 @@ def test_existing_credit_grant_reports_amount_mismatch() -> None:
     assert "amount" in mismatch
 
 
-def test_existing_credit_grant_uses_stored_period_end_after_renewal() -> None:
+@pytest.mark.parametrize(
+    "validity_metadata",
+    [
+        {"validity_preset": "align_subscription"},
+        {"grant_channel": "cache_overcharge_compensation_script"},
+    ],
+)
+def test_existing_credit_grant_uses_stored_period_end_after_renewal(
+    validity_metadata: dict[str, object],
+) -> None:
     row = type(
         "Row",
         (),
@@ -160,7 +171,7 @@ def test_existing_credit_grant_uses_stored_period_end_after_renewal() -> None:
         expires_at=datetime(2026, 9, 1, 0, 0, 0),
         metadata_json={
             "grant_source": MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
-            "validity_preset": MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
+            **validity_metadata,
             "compensation_period_end_at": "2026-09-01T00:00:00Z",
         },
     )
@@ -171,7 +182,7 @@ def test_existing_credit_grant_uses_stored_period_end_after_renewal() -> None:
         request_id="batch:credit:user-a",
     )
 
-    assert "expires_at" not in mismatch
+    assert mismatch == {}
 
 
 def test_existing_bonus_order_reports_product_mismatch() -> None:
@@ -481,3 +492,88 @@ def _teacher_bonus_argv(template_code: str = "SMS_TEST") -> list[str]:
 
 def _create_fake_app() -> _FakeApp:
     return _FakeApp()
+
+
+def test_credit_compensation_passes_exact_subscription_expiry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    csv_path = tmp_path / "input.csv"
+    csv_path.write_text(
+        f"{USER_BID_HEADER},{AMOUNT_HEADER}\nuser-a,100\n", encoding="utf-8"
+    )
+    expires_at = datetime(2026, 9, 30, 8, 12, 34, 123456)
+    subscription = SimpleNamespace(
+        subscription_bid="subscription-a", current_period_end_at=expires_at
+    )
+    grant = Mock(
+        return_value=SimpleNamespace(
+            status="granted",
+            ledger_bid="ledger-a",
+            wallet_bucket_bid="bucket-a",
+            expires_at=expires_at,
+        )
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "grant_cache_overcharge_credit_compensation.py",
+            "--input",
+            str(csv_path),
+            "--apply",
+        ],
+    )
+    monkeypatch.setattr(credit_compensation, "create_app", _create_fake_app)
+    monkeypatch.setattr(credit_compensation, "load_user_aggregate", lambda _: object())
+    monkeypatch.setattr(
+        credit_compensation,
+        "load_primary_active_subscription",
+        lambda *_, **__: subscription,
+    )
+    monkeypatch.setattr(
+        credit_compensation, "_load_existing_credit_grant", lambda _: None
+    )
+    monkeypatch.setattr(credit_compensation, "grant_manual_credits_with_expiry", grant)
+    monkeypatch.setattr(
+        credit_compensation, "_write_compensation_grant_metadata", lambda **_: None
+    )
+    monkeypatch.setattr(credit_compensation, "dump_json", lambda _: None)
+
+    assert credit_compensation.main() == 0
+    grant.assert_called_once()
+    assert grant.call_args.kwargs["expires_at"] == expires_at
+    assert "validity_preset" not in grant.call_args.kwargs
+    assert "validity_value" not in grant.call_args.kwargs
+    assert "validity_unit" not in grant.call_args.kwargs
+
+
+@pytest.mark.parametrize(
+    "validity_metadata",
+    [
+        {"validity_preset": "1m"},
+        {"grant_channel": "operator_user_management"},
+        {
+            "grant_channel": "cache_overcharge_compensation_script",
+            "validity_value": 1,
+            "validity_unit": "month",
+        },
+    ],
+)
+def test_credit_compensation_rejects_other_grant_contracts(
+    validity_metadata: dict[str, object],
+) -> None:
+    ledger = CreditLedgerEntry(
+        creator_bid="user-a",
+        amount=Decimal(100),
+        idempotency_key="operator_manual_grant:batch:credit:user-a",
+        expires_at=datetime(2026, 9, 1),
+        metadata_json={
+            "grant_source": MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
+            **validity_metadata,
+        },
+    )
+    assert _compare_existing_credit_grant(
+        ledger,
+        row=SimpleNamespace(user_bid="user-a", amount=Decimal(100)),
+        request_id="batch:credit:user-a",
+    )

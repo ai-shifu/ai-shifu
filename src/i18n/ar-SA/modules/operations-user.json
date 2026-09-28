@@ -318,6 +318,20 @@
       "validityPreset": "مدة الصلاحية"
     },
     "confirmTitle": "تأكيد منح الأرصدة",
+    "customValidity": {
+      "actualExpiry": "الانتهاء الفعلي: {date}",
+      "estimatedExpiry": "الانتهاء المتوقع (يُؤكد عند المنح)",
+      "hint": "تسري فورًا. اليوم 24 ساعة؛ تتبع الأشهر والسنوات التقويم، وتُضبط التواريخ غير الموجودة إلى آخر يوم في الشهر.",
+      "invalid": "أدخل مدة صحيحة موجبة صالحة واختر الأيام أو الأشهر أو السنوات.",
+      "summary": "تسري فورًا لمدة {value} {unit}",
+      "unitLabel": "وحدة المدة",
+      "units": {
+        "day": "يوم",
+        "month": "شهر",
+        "year": "سنة"
+      },
+      "valueLabel": "المدة"
+    },
     "description": "تُستخدم هذه الوظيفة في لوحة العمليات لمنح الأرصدة أو الباقات للمعلمين أو مسؤولي العمليات.",
     "fields": {
       "amount": "الأرصدة",
@@ -346,8 +360,7 @@
       "note": "اختياري، سجّل ملاحظة المنح الحالية",
       "product": "اختر الباقة",
       "productLoading": "جارٍ تحميل الباقات...",
-      "referralRewardAmount": "أدخل أرصدة المكافأة",
-      "validityPreset": "اختر مدة الصلاحية"
+      "referralRewardAmount": "أدخل أرصدة المكافأة"
     },
     "referralReward": {
       "bootstrapError": "فشل تحميل بيانات مكافآت الدعوة، يرجى المحاولة مرة أخرى لاحقًا.",
@@ -382,17 +395,7 @@
       "amountRequired": "أدخل عدد أرصدة أكبر من 0",
       "productRequired": "اختر الباقة",
       "referralRewardAmountRequired": "أدخل عدد أرصدة صحيحًا أكبر من 0",
-      "sourceRequired": "اختر المصدر",
-      "validityPresetRequired": "اختر مدة الصلاحية"
-    },
-    "validityHint": "عند عدم وجود باقة سارية، لا يمكن ضبط مدة الصلاحية لتتطابق مع مدة صلاحية الباقة الحالية.",
-    "validityOptions": {
-      "alignSubscription": "مطابقة مدة صلاحية الباقة الحالية",
-      "oneDay": "يوم واحد بعد المنح",
-      "oneMonth": "شهر واحد بعد المنح",
-      "oneYear": "سنة واحدة بعد المنح",
-      "sevenDays": "7 أيام بعد المنح",
-      "threeMonths": "3 أشهر بعد المنح"
+      "sourceRequired": "اختر المصدر"
     }
   },
   "loginMethodLabels": {
