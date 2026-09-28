@@ -778,6 +778,7 @@ def _persist_outline_order(
         parent_bid: str = "",
         history_infos: list[HistoryItem] | None = None,
         moved_ancestor: bool = False,
+        old_parent_position: str = "",
     ) -> None:
         if history_infos is None:
             history_infos = []
@@ -785,14 +786,14 @@ def _persist_outline_order(
             if outline_dto.bid not in existing_items_map:
                 continue
             item = existing_items_map[outline_dto.bid]
-            rewrite_position = (
-                sibling_parent_bid is None
-                or parent_bid == sibling_parent_bid
-                or moved_ancestor
-            )
-            new_position = (
-                f"{parent_position}{i + 1:02d}" if rewrite_position else item.position
-            )
+            if sibling_parent_bid is None or parent_bid == sibling_parent_bid:
+                new_position = f"{parent_position}{i + 1:02d}"
+            elif moved_ancestor:
+                # Rebase the parent prefix while keeping this group's ordinals.
+                suffix = item.position[len(old_parent_position) :]
+                new_position = f"{parent_position}{suffix}"
+            else:
+                new_position = item.position
             new_parent_bid = parent_bid or ""
             position_changed = item.position != new_position
             if position_changed or (item.parent_bid or "") != new_parent_bid:
@@ -825,6 +826,7 @@ def _persist_outline_order(
                     outline_dto.bid,
                     history_info.children,
                     moved_ancestor=position_changed,
+                    old_parent_position=item.position,
                 )
 
     rebuild_positions(outline_dtos, history_infos=history_infos)

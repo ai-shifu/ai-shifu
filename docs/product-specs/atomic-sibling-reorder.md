@@ -26,6 +26,8 @@ locking current reads with refreshed ORM state. It selects the newest row per
 outline BID before removing deleted nodes, validates the parent tree, and merges
 only the requested sibling order. It preserves other groups' current order and
 positions, except descendant positions that must follow a moved ancestor.
+Only the requested group is renumbered; descendants keep their relative ordinal
+suffixes when their ancestor prefix changes, including sparse or wider ordinals.
 Content, access settings, and node identity are preserved in cloned revisions.
 The complete tree history is saved in the same transaction, using a current read
 to retain root metadata and legacy block children. Invalid parent graphs fail

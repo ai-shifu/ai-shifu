@@ -305,6 +305,61 @@ def test_late_history_failure_rolls_back_all_cloned_rows(
     assert _latest(sibling_course)["a1"].position == "0101"
 
 
+@pytest.mark.parametrize(
+    ("old_root_position", "child_suffix", "grandchild_suffix"),
+    [("04", "09", "07"), ("100", "100", "107")],
+)
+def test_moved_root_preserves_descendant_ordinal_suffixes(
+    app: object,
+    sibling_course: SimpleNamespace,
+    old_root_position: str,
+    child_suffix: str,
+    grandchild_suffix: str,
+) -> None:
+    course = sibling_course
+    course.rows["sparse"].position = old_root_position
+    child = course.rows["sparse-child"]
+    child.position = f"{old_root_position}{child_suffix}"
+    grandchild = child.clone()
+    grandchild.outline_item_bid = "sparse-grandchild"
+    grandchild.parent_bid = child.outline_item_bid
+    grandchild.position = f"{child.position}{grandchild_suffix}"
+    db.session.add(grandchild)
+    db.session.commit()
+    original = {
+        row.outline_item_bid: (
+            row.id,
+            row.parent_bid,
+            row.content,
+            row.llm_system_prompt,
+        )
+        for row in (child, grandchild)
+    }
+
+    outlines.reorder_outline_siblings(
+        app, "teacher", course.bid, ["chapter-b", "sparse", "chapter-a"]
+    )
+    latest = _latest(course)
+    assert latest["sparse"].position == "02"
+    assert latest["sparse-child"].position == f"02{child_suffix}"
+    assert (
+        latest["sparse-grandchild"].position == f"02{child_suffix}{grandchild_suffix}"
+    )
+    history = get_shifu_history(app, course.bid)
+    nodes = _history_nodes(history)
+    assert history.id == course.root_id
+    assert set(nodes) == set(latest) | {"legacy-block"}
+    for bid, (old_id, parent, content, prompt) in original.items():
+        row = latest[bid]
+        assert row.id != old_id
+        assert (row.parent_bid, row.content, row.llm_system_prompt) == (
+            parent,
+            content,
+            prompt,
+        )
+        assert nodes[bid].id == row.id
+
+
 def test_current_reads_lock_direct_selects_without_snapshot_subqueries(
     app: object,
     sibling_course: SimpleNamespace,
