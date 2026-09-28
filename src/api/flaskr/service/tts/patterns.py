@@ -106,10 +106,11 @@ SENTENCE_ENDINGS = SentenceBoundaryPattern(
 SENTENCE_PUNCTUATION_FRAGMENT = regex.compile(
     rf"[{_SENTENCE_TERMINALS}{_SENTENCE_CLOSERS}\s]+"
 )
-# Detached non-quote brackets remain safe to strip after a consumed boundary.
+# Non-quote brackets remain safe to strip after a consumed boundary, even when
+# the following speech touches the bracket without whitespace.
 # Quote continuations need the preceding sentence's pairing context instead.
 SENTENCE_CLOSER_CONTINUATION = regex.compile(
-    r"^(?:(?:(?!\p{Quotation_Mark})[\p{Pe}\p{Pf}])+\s+)+"
+    r"^(?:(?:(?!\p{Quotation_Mark})[\p{Pe}\p{Pf}])+\s*)+"
 )
 
 # ---------------------------------------------------------------------------

@@ -53,6 +53,54 @@ def create_test_processor(mock_app: object, **kwargs: object) -> object:
 class TestFinalizeSegmentation:
     """Tests for finalize segmentation improvements."""
 
+    @pytest.mark.parametrize("after_boundary", [False, True], ids=["initial", "after"])
+    @pytest.mark.parametrize(
+        ("closer", "complete_sentence"),
+        [(")", True), ("]", False), ("）", False), ("】", True)],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_adjacent_nonquote_closer_only_strips_after_consumed_boundary(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        closer: str,
+        complete_sentence: bool,
+        after_boundary: bool,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+        expected = []
+        if after_boundary:
+            list(processor.process_chunk("First."))
+            expected.append("First.")
+
+        ending = "." if complete_sentence else ""
+        list(processor.process_chunk(f"{closer}**Next**{ending} Tail fragment"))
+        prefix = "" if after_boundary else closer
+        if complete_sentence:
+            expected.append(f"{prefix}Next.")
+            assert processor._buffer[processor._raw_offset :] == " Tail fragment"
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == (
+            expected
+        )
+
+        raw_length = len(processor._buffer)
+        list(processor.finalize())
+        expected.append(
+            "Tail fragment" if complete_sentence else f"{prefix}Next Tail fragment"
+        )
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == expected
+        assert [segment.index for segment in submitted_segments] == list(
+            range(len(expected))
+        )
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
     @pytest.mark.parametrize(
         ("opener", "closer"),
         [('"', '"'), ("'", "'"), ("\"'", "'\"")],

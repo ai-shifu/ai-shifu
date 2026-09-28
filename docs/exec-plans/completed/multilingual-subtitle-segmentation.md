@@ -48,6 +48,9 @@ subtitles under the existing trailing-punctuation display policy.
 - [x] 2026-09-28 UTC: Deferred unmatched ASCII quotation marks at the end of
       incomplete stream windows. All 897 TTS tests passed, including nested
       quote suffixes, immediate matched closers, and Markdown/finalize offsets.
+- [x] 2026-09-28 UTC: Removed delayed non-quote closing brackets even when the
+      following speech has no separating whitespace. All 905 TTS tests passed;
+      initial standalone content, source offsets, and final tails stay intact.
 
 ## Surprises & Discoveries
 
@@ -107,9 +110,9 @@ subtitles under the existing trailing-punctuation display policy.
   Quote roles use a shared pairing context carried through streamed sentence
   boundaries, so reversed closing quotes stay with their sentence while a
   following opening quote remains in the next sentence. Only quotes that close
-  a pending pair are removed from a later chunk's prefix; detached non-quote
-  brackets retain the existing cleanup policy. Keep raw buffers and boundary
-  offsets unchanged.
+  a pending pair are removed from a later chunk's prefix; non-quote closing
+  brackets are removed with or without separating whitespace. Keep raw buffers
+  and boundary offsets unchanged.
 - Preserve unmatched ASCII quote suffixes in incomplete stream buffers until
   subsequent text establishes their role. Consume already paired closers
   immediately; complete-text and finalization callers retain their existing
@@ -119,7 +122,7 @@ subtitles under the existing trailing-punctuation display policy.
 
 Subtitle-producing paths now share Unicode sentence-terminal recognition.
 Provider indices remain unchanged; indexed Tencent cues spanning multiple
-sentences are apportioned within their original interval. All 897 TTS tests
+sentences are apportioned within their original interval. All 905 TTS tests
 passed, including complete and chunked multilingual punctuation, finalization,
 contextual quotation pairing, and source alignment cases. Independent review
 verified the punctuation-only request fix; the full repository pre-commit gate
