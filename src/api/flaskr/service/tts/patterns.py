@@ -95,8 +95,13 @@ FIXED_MARKER_TAIL = re.compile(r"^[\s!=]*$")
 # and Greek forms. Keep adjacent terminal marks and closing quotes/brackets with
 # the sentence so they do not become standalone subtitle or synthesis fragments.
 # This is punctuation-based streaming segmentation, not language-specific NLP.
-SENTENCE_ENDINGS = regex.compile(
-    r"[\p{Sentence_Terminal};\uFF1B\u061B\u037E]+[\p{Pe}\p{Pf}\"']*"
+_SENTENCE_TERMINALS = r"\p{Sentence_Terminal};\uFF1B\u061B\u037E"
+_SENTENCE_CLOSERS = r"\p{Pe}\p{Pf}\"'"
+SENTENCE_ENDINGS = regex.compile(rf"[{_SENTENCE_TERMINALS}]+[{_SENTENCE_CLOSERS}]*")
+# Only discard fragments created by our boundary punctuation. Leave symbols
+# and other punctuation to the provider's non-speakable-text policy.
+SENTENCE_PUNCTUATION_FRAGMENT = regex.compile(
+    rf"[{_SENTENCE_TERMINALS}{_SENTENCE_CLOSERS}\s]+"
 )
 
 # ---------------------------------------------------------------------------

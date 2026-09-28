@@ -11,7 +11,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from flaskr.api.tts import TTSResult
 from flaskr.service.learn.learn_dtos import GeneratedType
-from flaskr.service.tts.streaming_tts import StreamingTTSProcessor, TTSSegment
+from flaskr.service.tts.streaming_tts import (
+    StreamingTTSProcessor,
+    TTSSegment,
+    _should_skip_non_speakable_tts_text,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -48,6 +52,40 @@ def create_test_processor(mock_app: object, **kwargs: object) -> object:
 
 class TestFinalizeSegmentation:
     """Tests for finalize segmentation improvements."""
+
+    @pytest.mark.parametrize(
+        ("tts_provider", "tail"),
+        [("aliyun", "😀😀"), ("baidu", "∞∞"), ("volcengine_http", "--")],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_symbol_segments_preserve_provider_non_speakable_text_policy(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        tts_provider: str,
+        tail: str,
+    ) -> None:
+        """Leave symbol-only content to providers that accept non-speakable text."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider=tts_provider)
+        for text in ["😀!", "∞!", tail]:
+            assert not _should_skip_non_speakable_tts_text(text, tts_provider)
+
+        list(processor.process_chunk(f"😀! ∞! {tail}"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "😀!",
+            "∞!",
+        ]
+
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == ["😀!", "∞!", tail]
+        assert [segment.index for segment in submitted_segments] == [0, 1, 2]
+        assert processor._buffer == ""
 
     @pytest.mark.parametrize("chunked", [False, True], ids=["whole", "chunked"])
     @pytest.mark.parametrize(

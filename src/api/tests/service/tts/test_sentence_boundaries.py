@@ -1,7 +1,7 @@
 """Keep multilingual sentence boundaries consistent across TTS paths."""
 
 import pytest
-from flaskr.service.tts.patterns import SENTENCE_ENDINGS
+from flaskr.service.tts.patterns import SENTENCE_ENDINGS, SENTENCE_PUNCTUATION_FRAGMENT
 from flaskr.service.tts.pipeline import _split_by_sentence_and_newline
 
 
@@ -46,3 +46,15 @@ def test_sentence_matches_retain_source_offsets() -> None:
         "  «جاهز؟!»",
         "  «جاهز؟!»  पहला वाक्य॥",
     ]
+
+
+@pytest.mark.parametrize("text", ["!!", "؟!\u201d", "\u201d\u00bb", "!\u00a0\u2003!"])
+def test_sentence_punctuation_fragments_are_recognized(text: str) -> None:
+    assert SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(text)
+
+
+@pytest.mark.parametrize("text", ["😀!", "∞!", "---", ",,", "\u0301!"])
+def test_other_symbols_and_punctuation_remain_subject_to_provider_policy(
+    text: str,
+) -> None:
+    assert not SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(text)

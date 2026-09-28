@@ -21,6 +21,10 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
 - [x] 2026-09-28 UTC: Addressed PR #2999's shared-alignment timing review:
       partitioned cross-sentence indexed Tencent cues and passed all 777 TTS
       tests, including short-duration rounding and single-sentence anchors.
+- [x] 2026-09-28 UTC: Narrowed pre-submit filtering to sentence-ending
+      punctuation and closer fragments after provider-policy review. All 789
+      TTS tests passed, including symbol-only completed sentences and final
+      tails for Aliyun, Baidu, and Volcengine HTTP.
 
 ## Surprises & Discoveries
 
@@ -31,7 +35,8 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
   provider-dependent segmentation.
 - Grouping consecutive punctuation exposed the existing length-only submission
   check: a punctuation run in a later chunk could become a TTS request. Reusing
-  `has_speakable_text` for completed sentences and final tails prevents this.
+  the shared sentence-terminal and closer character classes to skip punctuation
+  fragments prevents this without discarding symbols supported by providers.
 - PR review identified that one indexed Tencent alignment can span multiple
   source sentences. Reusing its entire interval for each sentence creates
   overlapping subtitles after recognizing additional Unicode boundaries.
@@ -51,6 +56,9 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
   using the existing speech-weight helper on each source intersection. Use
   cumulative rounding so adjacent intervals meet and the provider's outer
   endpoints survive. Cues contained in one sentence retain their full interval.
+- Filter only sentence-ending punctuation/closer fragments before submitting
+  synthesis tasks. Emoji, mathematical symbols, and other punctuation still
+  reach the existing provider-aware `skip_non_speakable_text` decision.
 - Leave Tencent TextToVoice request-size splitting unchanged: that provider
   supplies no subtitles and its length-limit handling is separate work.
 
@@ -58,7 +66,7 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
 
 Subtitle-producing paths now share Unicode sentence-terminal recognition.
 Provider indices remain unchanged; indexed Tencent cues spanning multiple
-sentences are apportioned within their original interval. All 777 TTS tests
+sentences are apportioned within their original interval. All 789 TTS tests
 passed, including complete and chunked multilingual punctuation, finalization,
 and source alignment cases. Independent review verified the punctuation-only
 request fix; the full repository pre-commit gate passed. No service deployment
@@ -97,6 +105,8 @@ When a Tencent alignment spans multiple sentences, its time must be divided
 between those source intersections instead of duplicated. Cumulative rounding
 must preserve endpoints even for zero- or one-millisecond alignments; separate
 alignments contained in one sentence must retain their original times.
+Symbol-only content and punctuation other than sentence-ending/closer fragments
+must still reach the provider-aware non-speakable-text check.
 
 ## Idempotence and Recovery
 

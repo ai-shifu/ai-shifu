@@ -67,6 +67,7 @@ from flaskr.service.tts.minimax_run_tts import (
 )
 from flaskr.service.tts.patterns import (
     SENTENCE_ENDINGS,
+    SENTENCE_PUNCTUATION_FRAGMENT,
 )
 from flaskr.service.tts.pipeline import (
     _find_next_av_boundary,
@@ -535,7 +536,9 @@ class StreamingTTSProcessor:
             segment_text = remaining_text[cursor:split_pos].strip()
             # A stream chunk can contain only the rest of a punctuation run
             # after the preceding sentence has already been submitted.
-            if len(segment_text) >= 2 and has_speakable_text(segment_text):
+            if len(segment_text) >= 2 and not SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(
+                segment_text
+            ):
                 self._submit_tts_task(segment_text)
                 logger.debug(
                     "Submitted finalize segment: %s chars, remaining: %s chars",
@@ -546,7 +549,9 @@ class StreamingTTSProcessor:
 
         if include_trailing_fragment:
             tail_text = remaining_text[cursor:].strip()
-            if len(tail_text) >= 2 and has_speakable_text(tail_text):
+            if len(tail_text) >= 2 and not SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(
+                tail_text
+            ):
                 self._submit_tts_task(tail_text)
                 logger.debug(
                     "Submitted finalize trailing fragment: %s chars", len(tail_text)
