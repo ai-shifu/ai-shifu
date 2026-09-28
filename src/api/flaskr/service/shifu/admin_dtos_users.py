@@ -11,7 +11,7 @@ from typing import Literal
 
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.billing.dtos import BillingPlanDTO
-from pydantic import BaseModel, Field, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
 
 @register_schema_to_swagger
@@ -260,6 +260,8 @@ class AdminOperationUserCreditSummaryDTO(BaseModel):
 class AdminOperationUserCreditGrantRequestDTO(BaseModel):
     """Operator credits grant request payload."""
 
+    model_config = ConfigDict(extra="forbid")
+
     request_id: str = Field(
         ...,
         description="Client request identifier for idempotent credit grants",
@@ -270,9 +272,12 @@ class AdminOperationUserCreditGrantRequestDTO(BaseModel):
         description="Grant type: manual_credit or referral_reward",
     )
     grant_source: str = Field(..., description="Grant source: reward or compensation")
-    validity_preset: str = Field(..., description="Grant validity preset or custom")
-    validity_value: StrictInt | None = Field(default=None, gt=0)
-    validity_unit: Literal["day", "month", "year"] | None = None
+    validity_value: StrictInt | None = Field(
+        default=None, gt=0, description="Required duration for manual credits only"
+    )
+    validity_unit: Literal["day", "month", "year"] | None = Field(
+        default=None, description="Required duration unit for manual credits only"
+    )
     display_name: str = Field(
         default="",
         description="Optional user-visible grant display name",
@@ -296,7 +301,6 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
         description="Grant type: manual_credit or referral_reward",
     )
     grant_source: str = Field(..., description="Grant source: reward or compensation")
-    validity_preset: str = Field(..., description="Applied validity preset")
     validity_value: int | None = None
     validity_unit: Literal["day", "month", "year"] | None = None
     expires_at: datetime | None = Field(

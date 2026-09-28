@@ -729,7 +729,6 @@ export default function UserCreditGrantDialog({
           request_id: requestId,
           amount: creditFormState.amount.trim(),
           grant_source: creditFormState.source,
-          validity_preset: 'custom',
           validity_value: Number(creditFormState.validityValue),
           validity_unit: creditFormState.validityUnit,
           note: creditFormState.note.trim(),
@@ -761,7 +760,6 @@ export default function UserCreditGrantDialog({
           amount: referralRewardFormState.amount.trim(),
           grant_type: 'referral_reward',
           grant_source: 'reward',
-          validity_preset: '1m',
           note: referralRewardFormState.note.trim(),
         };
         result = (await api.grantAdminOperationUserCredits({

@@ -86,7 +86,6 @@ from .daily_aggregates import (
 )
 from .manual_credit_grants import (
     MANUAL_CREDIT_GRANT_SOURCES,
-    MANUAL_CREDIT_VALIDITY_CUSTOM,
     grant_manual_credits_to_user,
 )
 from .models import (
@@ -2410,7 +2409,6 @@ def grant_operator_credits_by_cli(
         request_id=normalized_request_id,
         amount=str(amount or "").strip(),
         grant_source=str(grant_source or "").strip(),
-        validity_preset=MANUAL_CREDIT_VALIDITY_CUSTOM,
         validity_value=validity_value,
         validity_unit=validity_unit,
         display_name=normalized_display_name,
@@ -2446,7 +2444,8 @@ def _build_cli_credit_grant_request_id(
             str(user_bid or "").strip(),
             str(amount or "").strip(),
             str(grant_source or "").strip().lower(),
-            MANUAL_CREDIT_VALIDITY_CUSTOM,
+            # Preserve existing duration-based IDs across the preset removal.
+            "custom",
             str(validity_value),
             validity_unit,
             str(display_name or "").strip(),

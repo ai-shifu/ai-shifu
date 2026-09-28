@@ -1044,7 +1044,7 @@ def test_billing_grant_credits_cli_grants_visible_manual_credits(
     assert payload["mobile"] == "13800138001"
     assert payload["amount"] == 12.5
     assert payload["grant_source"] == "compensation"
-    assert payload["validity_preset"] == "custom"
+    assert "validity_preset" not in payload
     assert payload["validity_value"] == value
     assert payload["validity_unit"] == unit
     assert datetime.fromisoformat(payload["expires_at"]) == expiry
@@ -1065,7 +1065,7 @@ def test_billing_grant_credits_cli_grants_visible_manual_credits(
         assert wallet.available_credits == Decimal("12.5000000000")
         assert bucket.available_credits == Decimal("12.5000000000")
         assert bucket.metadata_json["grant_source"] == "compensation"
-        assert bucket.metadata_json["validity_preset"] == "custom"
+        assert "validity_preset" not in bucket.metadata_json
         assert bucket.metadata_json["validity_value"] == value
         assert bucket.metadata_json["validity_unit"] == unit
         assert bucket.effective_from == start
@@ -1133,6 +1133,8 @@ def test_billing_grant_credits_cli_reuses_request_id(
     second_payload = json.loads(second.output)
     assert first_payload["status"] == "granted"
     assert second_payload["status"] == "noop_existing"
+    # Removing the API preset must not change already-issued CLI request IDs.
+    assert first_payload["request_id"] == "cli:20260131:24099f4f90bb63f0"
     assert second_payload["request_id"] == first_payload["request_id"]
     assert second_payload["ledger_bid"] == first_payload["ledger_bid"]
     assert second_payload["expires_at"] == first_payload["expires_at"]

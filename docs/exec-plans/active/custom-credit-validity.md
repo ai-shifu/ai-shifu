@@ -4,7 +4,8 @@
 
 Allow ordinary operator reward/compensation grants to take a positive integer
 and day/month/year unit, effective immediately. Preserve wallet, consumption,
-expiry, transaction, notification and legacy API semantics. No schema migration.
+expiry, transaction, notification and persisted retry semantics. Ordinary grants
+use duration-only requests across API, UI and CLI. No schema migration.
 
 ## Progress
 
@@ -37,29 +38,37 @@ expiry, transaction, notification and legacy API semantics. No schema migration.
   behavior (109 CLI/failure-contract tests), plus 142 shared validity, wallet,
   admin, compensation-script and DTO compatibility tests. All 20 repository
   pre-commit gates passed with the pinned local tooling.
+- [x] 2026-09-28: Removed all ordinary preset inputs, branches and response fields;
+  migrated subscription compensation to exact expiry. Verified 279 backend
+  tests and 36 frontend tests, including historical retries and rollback paths.
 - [ ] Read back actual test database bucket and ledger expiry timestamps.
 - [ ] Production release (separate from this PR preparation).
 
 ## Surprises & Discoveries
 
 - System Python has no pytest; use an isolated temporary Python 3.12 environment.
-- Legacy presets remain accepted by the API and shared service. The CLI now
-  forwards custom durations only; the compensation script calls the shared
-  service directly and retains its explicit subscription alignment.
+- Ordinary presets are no longer accepted. Subscription compensation requires
+  an exact absolute expiry, so it uses a separate internal entry point sharing
+  the wallet and notification implementation with duration-based grants.
 - Existing request-id reuse returns the first persisted grant, even when a
   retry supplies a different valid amount/source/preset. Preserve this contract.
 - The unrelated untracked course-share-preview directory must remain untouched.
 
 ## Decision Log
 
-- Use `validity_preset=custom`, `validity_value` (strict positive integer), and
-  `validity_unit` (`day|month|year`). Keep legacy API/service preset calls compatible.
+- 2026-09-28: The user approved removing ordinary preset compatibility entirely.
+  Require `validity_value` (strict positive integer) and `validity_unit`
+  (`day|month|year`); reject the removed `validity_preset` request field. Results
+  omit the preset field. Historical metadata and already-issued expiries stay
+  intact. Referral rewards retain their independent one-month rule and reject
+  duration inputs; subscription compensation supplies its exact UTC expiry.
 - 2026-09-28: The user requested removing the CLI preset parameter. Require
   `--validity-value` and `--validity-unit`, with no implicit validity default.
   Generate daily request IDs from the custom value/unit too; explicit IDs still
   return the original persisted result. Retrying a former preset CLI grant must
   reuse its original request ID explicitly.
-- Reject custom fields with legacy presets and custom validity for referral grants.
+- Preserve the existing duration CLI fingerprint when removing the API marker;
+  same-day retries must continue resolving to the original request ID.
 - No business maximum; reject unrepresentable datetime values before writes.
 - Days are 24 hours; calendar month/year addition clips missing days to month end.
 - Backend UTC time is authoritative. UI previews are estimates only.
@@ -68,6 +77,13 @@ expiry, transaction, notification and legacy API semantics. No schema migration.
   the persisted expiry. This tolerance does not relax retry or duration rules.
 
 ## Outcomes & Retrospective
+
+Ordinary grants now have one duration-only contract across UI, API and CLI.
+Subscription compensation uses the exact-expiry internal service, while referral
+rewards retain their independent calendar-month rule. The latest 279 backend
+and 36 frontend tests passed. Local type-check remains limited by the shared
+node_modules installation (markdown-flow-ui 0.2.26 lacks the es-ES and ur-PK
+locales in the pinned 0.2.29 package); the dependency was not changed here.
 
 The CLI now requires an explicit custom duration and no longer accepts preset
 flags. Focused verification passed 251 backend tests, including the two formerly
@@ -106,36 +122,40 @@ The operator dialog submits the user grant DTO to the shifu operator service,
 which calls billing/manual_credit_grants.py. That helper computes effective_to
 and delegates to the existing wallet/ledger transaction. Only the input and
 expiry-resolution layers change; the wallet implementation remains unchanged.
-The billing CLI calls the same helper with `validity_preset=custom` and the two
-required duration options; it does not calculate expiry independently.
+The billing CLI calls the same helper with the two required duration options;
+it does not calculate expiry independently. The compensation script uses an
+internal absolute-expiry entry point without exposing that mode in public input.
 
 ## Plan of Work
 
-Extend request/response DTOs and the shared grant helper; persist duration
-metadata and return it from the saved grant. Replace preset UI with value/unit,
-show a refreshed UTC preview and authoritative success expiry. Update every
-supported locale, design contract, tests and generated knowledge indexes.
+Use duration-only request/response DTOs and the shared grant helper; persist
+duration metadata and return it from the saved grant. The UI uses value/unit,
+a refreshed UTC preview and authoritative success expiry. Remove redundant
+ordinary preset constants and dispatch, migrate all callers, and preserve
+subscription compensation with the internal exact-expiry entry point. Keep
+supported locales, design contract, tests and generated knowledge indexes aligned.
 
 ## Concrete Steps
 
 1. Record existing grant, package/referral and idempotency regression results.
-2. Implement and test additive backend validity inputs, forwarding and outputs.
+2. Implement and test duration-only validity inputs, forwarding and outputs.
 3. Implement UI state, validation, confirmation, success and tracking.
 4. Run backend and frontend focused tests, type/lint, harness, boundaries and UOW.
 5. Run dev-tool and pre-commit gates before any commit; report unavailable gates.
 
 ## Validation and Acceptance
 
-Freeze time and compare all five duration presets against custom equivalents.
-Cover active/inactive alignment, 15 days, 6/18 months, leap days, UTC serialization,
-invalid/mixed/overflow inputs with zero writes, persisted retry results, concurrent
+Freeze time and verify duration expiry, including 15 days, 6/18 months, leap
+days and UTC serialization. Cover exact subscription compensation timestamps,
+invalid/missing/removed-preset/overflow inputs with zero writes, historical
+retry results, concurrent
 wallet uniqueness, notifications, historical metadata, consumption priority and
 exact expiry boundaries. Keep package/referral tests green. UI tests cover empty
 value, units, refreshed preview, submit/retry, privacy and tracking failure.
 CLI coverage checks required positive integer/unit input, removed preset flags,
 UTC duration persistence, generated-ID separation, and persisted explicit-ID
-retries. The existing DTO serialization and Swagger assertions must include the
-additive nullable duration fields.
+retries. The DTO serialization assertions must exclude presets and include nullable
+duration fields for historical records and independent referral grants.
 Test-environment smoke must read back bucket, ledger, balance and expiry for
 15-day and 6-month grants; local SQLite tests are not deployed-environment proof.
 
@@ -143,14 +163,16 @@ Test-environment smoke must read back bucket, ledger, balance and expiry for
 
 Keep explicit request-id semantics and notification dispatch unchanged. CLI
 automation must migrate to the two custom duration options; the generated ID
-now incorporates both duration fields. Deploy compatible
-backend first, then frontend. Revert frontend first if necessary; retain backend
-read support for custom metadata and never rewrite already-issued expiry dates.
+incorporates both duration fields, preserving the existing duration fingerprint.
+Deploy matching API and frontend versions together and migrate external callers;
+old preset requests are deliberately rejected. Roll back matching versions
+together; retain read support for saved metadata and never rewrite issued expiry dates.
 
 ## Interfaces and Dependencies
 
 No new runtime dependencies. Optional result value/unit are read only from saved
-metadata (null for old records). Public API preserves preset and expires_at.
+metadata (null for old records). Public API preserves expires_at and removes
+validity_preset. The canonical design describes the coordinated rollout.
 See [billing design](../../design-docs/billing-subscription-design.md) for the
 canonical duration and analytics contract.
 

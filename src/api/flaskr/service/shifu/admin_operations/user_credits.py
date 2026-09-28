@@ -52,8 +52,6 @@ from flaskr.service.shifu.admin import (
     OPERATOR_USER_CREDIT_TYPE_CONSUME,
     OPERATOR_USER_CREDIT_TYPE_GRANT,
     OPERATOR_USER_CREDIT_TYPE_OTHER,
-    OPERATOR_USER_CREDIT_VALIDITY_1M,
-    OPERATOR_USER_CREDIT_VALIDITY_PRESETS,
     OPERATOR_USER_LIST_MAX_PAGE_SIZE,
     _allocate_usage_detail_credits,
     _assert_operator_user_grant_target_supported,
@@ -133,18 +131,6 @@ def grant_operator_user_credits(
         if normalized_grant_source not in OPERATOR_USER_CREDIT_GRANT_SOURCES:
             raise_param_error("grant_source")
 
-        normalized_validity_preset = str(payload.validity_preset or "").strip().lower()
-        if normalized_validity_preset not in {
-            *OPERATOR_USER_CREDIT_VALIDITY_PRESETS,
-            "custom",
-        }:
-            raise_param_error("validity_preset")
-
-        if normalized_validity_preset != "custom" and (
-            {"validity_value", "validity_unit"} & payload.model_fields_set
-        ):
-            raise_param_error("validity_preset")
-
         normalized_request_id = str(payload.request_id or "").strip()
         if not normalized_request_id:
             raise_param_error("request_id")
@@ -153,8 +139,9 @@ def grant_operator_user_credits(
         if normalized_grant_type == OPERATOR_USER_CREDIT_GRANT_TYPE_REFERRAL_REWARD:
             if normalized_grant_source != OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD:
                 raise_param_error("grant_source")
-            if normalized_validity_preset != OPERATOR_USER_CREDIT_VALIDITY_1M:
-                raise_param_error("validity_preset")
+            for field in ("validity_value", "validity_unit"):
+                if field in payload.model_fields_set:
+                    raise_param_error(field)
             grant_result = grant_referral_reward_credits_to_user(
                 app,
                 user_bid=normalized_user_bid,
@@ -164,6 +151,10 @@ def grant_operator_user_credits(
                 note=normalized_note,
             )
         else:
+            if payload.validity_value is None:
+                raise_param_error("validity_value")
+            if payload.validity_unit is None:
+                raise_param_error("validity_unit")
             grant_result = grant_manual_credits_to_user(
                 app,
                 user_bid=normalized_user_bid,
@@ -171,7 +162,6 @@ def grant_operator_user_credits(
                 request_id=normalized_request_id,
                 amount=payload.amount,
                 grant_source=normalized_grant_source,
-                validity_preset=normalized_validity_preset,
                 validity_value=payload.validity_value,
                 validity_unit=payload.validity_unit,
                 display_name=normalized_display_name,
@@ -185,9 +175,6 @@ def grant_operator_user_credits(
         )
         resolved_grant_source = str(
             persisted_metadata.get("grant_source") or normalized_grant_source
-        ).strip()
-        resolved_validity_preset = str(
-            persisted_metadata.get("validity_preset") or normalized_validity_preset
         ).strip()
         resolved_amount = _format_decimal(
             _quantize_credit_amount(Decimal(str(grant_result.amount or 0)))
@@ -205,7 +192,6 @@ def grant_operator_user_credits(
             amount=resolved_amount,
             grant_type=resolved_grant_type,
             grant_source=resolved_grant_source,
-            validity_preset=resolved_validity_preset,
             validity_value=persisted_metadata.get("validity_value"),
             validity_unit=persisted_metadata.get("validity_unit"),
             expires_at=grant_result.expires_at,

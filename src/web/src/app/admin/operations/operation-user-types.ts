@@ -253,20 +253,26 @@ export type AdminOperationUserCreditUsageDetailResponse = {
 export type AdminOperationUserCreditGrantRequest = {
   request_id: string;
   amount: string;
-  grant_type?: string;
   grant_source: string;
-  validity_preset: string;
-  validity_value?: number | null;
-  validity_unit?: 'day' | 'month' | 'year' | null;
   note?: string;
-};
+} & (
+  | {
+      grant_type?: 'manual_credit';
+      validity_value: number;
+      validity_unit: 'day' | 'month' | 'year';
+    }
+  | {
+      grant_type: 'referral_reward';
+      validity_value?: never;
+      validity_unit?: never;
+    }
+);
 
 export type AdminOperationUserCreditGrantResponse = {
   user_bid: string;
   amount: string;
   grant_type: string;
   grant_source: string;
-  validity_preset: string;
   validity_value?: number | null;
   validity_unit?: 'day' | 'month' | 'year' | null;
   expires_at: string;
