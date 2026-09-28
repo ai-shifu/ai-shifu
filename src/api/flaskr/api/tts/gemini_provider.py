@@ -1,9 +1,9 @@
 """Google Gemini text-to-speech provider.
 
-Synthesis goes through the Gemini Developer API ``generateContent`` endpoint
-with ``responseModalities=["AUDIO"]``. Gemini only returns raw 16-bit PCM, so
-the provider transcodes every response to MP3 before handing it to the shared
-streaming, storage, and playback paths, which all assume MP3.
+Preview models use the Gemini Developer API ``generateContent`` endpoint;
+Gemini 3.8 models use the Interactions endpoint. The provider requests raw
+16-bit PCM and transcodes it to MP3 for the shared streaming, storage, and
+playback paths.
 """
 
 from __future__ import annotations
@@ -230,24 +230,57 @@ def _find_inline_audio(candidate: dict[str, Any]) -> tuple[str, str]:
     return "", ""
 
 
-def _find_interaction_audio(body: dict[str, Any]) -> tuple[str, str]:
-    """Return the last audio block from an Interactions model output step."""
+def _find_interaction_audio(body: dict[str, Any]) -> list[tuple[str, str]]:
+    """Return ordered audio blocks from Interactions model output steps."""
     steps = body.get("steps")
     if not isinstance(steps, list):
-        return "", ""
-    for step in reversed(steps):
+        return []
+    blocks: list[tuple[str, str]] = []
+    for step in steps:
         if not isinstance(step, dict) or step.get("type") != "model_output":
             continue
         content = step.get("content")
         if not isinstance(content, list):
             continue
-        for item in reversed(content):
+        for item in content:
             if not isinstance(item, dict) or item.get("type") != "audio":
                 continue
             data = str(item.get("data") or "").strip()
             if data:
-                return data, str(item.get("mime_type") or "")
-    return "", ""
+                blocks.append((data, str(item.get("mime_type") or "")))
+    return blocks
+
+
+def _decode_pcm_audio_blocks(blocks: list[tuple[str, str]]) -> tuple[bytes, int]:
+    """Decode and join PCM blocks only when their audio formats agree."""
+    if not blocks:
+        raise ValueError(_EMPTY_AUDIO_MESSAGE)
+    chunks: list[bytes] = []
+    sample_rate: int | None = None
+    for encoded_audio, mime_type in blocks:
+        if not encoded_audio:
+            continue
+        try:
+            chunk = base64.b64decode(encoded_audio, validate=False)
+        except (binascii.Error, ValueError) as exc:
+            message = "Gemini TTS returned undecodable audio payload"
+            raise ValueError(message) from exc
+        if not chunk:
+            continue
+        is_pcm, block_rate = _parse_audio_mime_type(mime_type)
+        if not is_pcm:
+            message = (
+                f"Unsupported Gemini TTS audio mime type: {mime_type or '<empty>'}"
+            )
+            raise ValueError(message)
+        if sample_rate is not None and block_rate != sample_rate:
+            message = "Gemini TTS returned audio blocks with different sample rates"
+            raise ValueError(message)
+        sample_rate = block_rate
+        chunks.append(chunk)
+    if not chunks:
+        raise ValueError(_EMPTY_AUDIO_MESSAGE)
+    return b"".join(chunks), sample_rate or GEMINI_TTS_DEFAULT_SAMPLE_RATE
 
 
 def _coerce_finite_float(value: object, field_name: str) -> float:
@@ -263,7 +296,7 @@ def _coerce_finite_float(value: object, field_name: str) -> float:
 
 
 class GeminiTTSProvider(BaseTTSProvider):
-    """TTS provider using the Gemini Developer API generateContent endpoint."""
+    """TTS provider using Gemini generateContent and Interactions endpoints."""
 
     capabilities = ProviderCapabilities(
         requires_model=True,
@@ -327,7 +360,7 @@ class GeminiTTSProvider(BaseTTSProvider):
         audio_settings: AudioSettings | None = None,
         model: str | None = None,
     ) -> TTSResult:
-        """Synthesize speech through generateContent and return MP3 bytes."""
+        """Synthesize speech through the model's API endpoint and return MP3."""
         del audio_settings  # Output is fixed to MP3 for the shared audio pipeline.
 
         if not text or not text.strip():
@@ -493,27 +526,12 @@ class GeminiTTSProvider(BaseTTSProvider):
             message = f"Gemini TTS content blocked: {finish_reason}"
             raise ValueError(message)
 
-        encoded_audio, mime_type = (
+        audio_blocks = (
             _find_interaction_audio(body)
             if model_id in _GEMINI_INTERACTION_MODEL_IDS
-            else _find_inline_audio(candidate)
+            else [_find_inline_audio(candidate)]
         )
-        if not encoded_audio:
-            raise ValueError(_EMPTY_AUDIO_MESSAGE)
-        try:
-            pcm_audio = base64.b64decode(encoded_audio, validate=False)
-        except (binascii.Error, ValueError) as exc:
-            message = "Gemini TTS returned undecodable audio payload"
-            raise ValueError(message) from exc
-        if not pcm_audio:
-            raise ValueError(_EMPTY_AUDIO_MESSAGE)
-
-        is_pcm, sample_rate = _parse_audio_mime_type(mime_type)
-        if not is_pcm:
-            message = (
-                f"Unsupported Gemini TTS audio mime type: {mime_type or '<empty>'}"
-            )
-            raise ValueError(message)
+        pcm_audio, sample_rate = _decode_pcm_audio_blocks(audio_blocks)
 
         mp3_audio = export_pcm_to_mp3(pcm_audio, sample_rate=sample_rate)
         if not mp3_audio:
@@ -523,7 +541,7 @@ class GeminiTTSProvider(BaseTTSProvider):
 
         usage = body.get("usageMetadata") or body.get("usage")
         audio_tokens = (
-            usage.get("candidatesTokenCount") or usage.get("output_tokens")
+            usage.get("candidatesTokenCount") or usage.get("total_output_tokens")
             if isinstance(usage, dict)
             else None
         )

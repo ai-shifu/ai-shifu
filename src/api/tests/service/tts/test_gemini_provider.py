@@ -76,6 +76,7 @@ def _interaction_audio_response(
     pcm: bytes = _ONE_SECOND_PCM,
     *,
     mime_type: str = "audio/l16; rate=24000; channels=1",
+    audio_blocks: list[tuple[bytes, str]] | None = None,
 ) -> dict[str, object]:
     return {
         "steps": [
@@ -84,13 +85,16 @@ def _interaction_audio_response(
                 "content": [
                     {
                         "type": "audio",
-                        "mime_type": mime_type,
-                        "data": base64.b64encode(pcm).decode("ascii"),
+                        "mime_type": block_mime,
+                        "data": base64.b64encode(block_pcm).decode("ascii"),
                     }
+                    for block_pcm, block_mime in (
+                        audio_blocks if audio_blocks is not None else [(pcm, mime_type)]
+                    )
                 ],
             }
         ],
-        "usage": {"output_tokens": 25},
+        "usage": {"total_output_tokens": 25},
     }
 
 
@@ -392,6 +396,51 @@ def test_synthesize_3_8_rejects_missing_audio(monkeypatch: pytest.MonkeyPatch) -
     )
 
     with pytest.raises(ValueError, match="No audio data"):
+        module.GeminiTTSProvider().synthesize("Hello", model="gemini-3.8-flash-tts")
+
+
+def test_synthesize_3_8_joins_ordered_audio_blocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_config(monkeypatch)
+    transcodes = _patch_transcoder(monkeypatch)
+    audio_response = _interaction_audio_response(
+        audio_blocks=[
+            (_ONE_SECOND_PCM, "audio/l16; rate=24000; channels=1"),
+            (_ONE_SECOND_PCM, "audio/l16; rate=24000; channels=1"),
+        ]
+    )
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: _JsonResponse(audio_response),
+    )
+
+    result = module.GeminiTTSProvider().synthesize(
+        "Hello", model="gemini-3.8-flash-tts"
+    )
+
+    assert transcodes == [{"pcm": _ONE_SECOND_PCM * 2, "sample_rate": 24000}]
+    assert result.duration_ms == 2000
+
+
+def test_synthesize_3_8_rejects_mixed_audio_rates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_config(monkeypatch)
+    audio_response = _interaction_audio_response(
+        audio_blocks=[
+            (_ONE_SECOND_PCM, "audio/l16; rate=24000"),
+            (_ONE_SECOND_PCM, "audio/l16; rate=16000"),
+        ]
+    )
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: _JsonResponse(audio_response),
+    )
+
+    with pytest.raises(ValueError, match="different sample rates"):
         module.GeminiTTSProvider().synthesize("Hello", model="gemini-3.8-flash-tts")
 
 

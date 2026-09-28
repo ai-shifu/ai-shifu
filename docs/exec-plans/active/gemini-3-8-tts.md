@@ -50,7 +50,7 @@ Both 3.8 models appear in the US TTS picker and synthesize playable MP3 through 
 
 ## Idempotence and Recovery
 
-The code change can be reverted independently. Restore the previous US allowlist to remove the 3.8 choices. No database migration is required for provider support.
+The code change requires no schema migration. To roll back after course selections have been migrated, first map active 3.8 Flash-Lite selections back to 2.5 Flash Preview and active 3.8 Flash selections back to 3.1 Flash Preview. Then restore the old US allowlist and restart the API and workers before reverting the backend. Review any courses edited after rollout before reversing their selections. Keep the new rate rows as historical configuration.
 
 ## Interfaces and Dependencies
 
