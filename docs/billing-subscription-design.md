@@ -1604,3 +1604,58 @@ type CreatorBrandingConfig = {
 - provider webhook 乱序或重复回调导致的状态覆盖问题
 - 费率 wildcard fallback 配置错误导致的错误扣分
 - 报表层聚合与真相源不一致时的 rebuild 成本
+
+
+## Manual operator credit validity
+
+Ordinary reward and compensation credits take effect immediately. The operator
+enters a positive integer duration and selects days, months or years. The duration value
+starts empty and the unit defaults to days; subscription status does not select
+a validity default. Package and referral reward grants retain their own rules.
+
+The existing user credits grant endpoint accepts the additive request fields
+`validity_preset: "custom"`, `validity_value` (strict positive integer) and
+`validity_unit` (`day`, `month`, `year`). Custom fields are required together and
+must not accompany a legacy preset. Null custom fields supplied with a legacy
+preset are rejected too. All six old presets and existing CLI calls remain
+supported. Referral rewards reject custom validity.
+
+The billing service resolves expiry from server `now_utc()`: days are exact
+24-hour periods; months and years use existing calendar helpers and clip dates
+to month end (January 31 plus one month is February's last day). Unrepresentable
+dates fail parameter validation before any wallet write. There is no new
+business duration cap. The UI shows an estimate refreshed on confirmation and
+shows the actual server expiry after success. API datetimes remain UTC ISO-8601
+with a trailing Z; display conversion is browser-local.
+
+The existing grant transaction stores the resolved `effective_to` and ledger
+`expires_at`. Custom value/unit are retained in existing metadata and returned
+as nullable response fields; historical rows are not backfilled. Reusing a
+request ID returns the original persisted result, including its original
+custom value/unit (null for legacy records), and does not grant or notify again.
+Wallet category, consumption priority, expiry, notification and transaction
+semantics are unchanged. There is no database migration.
+
+### Operator grant analytics
+
+`operator_credit_grant_attempt` fires once per accepted custom ordinary grant
+HTTP request; `operator_credit_grant_result` fires once when that request resolves
+or rejects. Only the operator user-management surface participates: exclude
+package/referral grants, invalid submissions and duplicate clicks while pending.
+A deliberate retry is a new request attempt, not proof of another grant.
+
+Payload allowlist: `surface="operator_user_management"`, `unit=day|month|year`;
+result adds `outcome=success|failed`. No account, target identifier, amount,
+duration value, dates, note, request ID or raw error is included. Use shared
+tracking, fire-and-forget, and isolate both throws and rejected promises.
+
+The intended consumer is operations grant-experience reporting, measuring
+request success rate by unit within a selected reporting period. These are
+new additive events with no legacy consumer migration. No correlation IDs are
+collected; losses can distort aggregate ratios, so they are approximate and
+must not serve as issuance, financial or auditing truth. See the
+[analytics contract](references/frontend-product-analytics.md).
+
+Roll out the compatible backend before the new frontend. Revert the frontend
+first if necessary, retain backend read support, and never rewrite issued
+expiries during rollback.

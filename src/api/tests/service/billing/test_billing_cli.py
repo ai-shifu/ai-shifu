@@ -2172,3 +2172,13 @@ def test_billing_provider_price_cli_invalid_validation_exits_nonzero(
 
     assert result.exit_code == 1
     assert json.loads(result.output)["status"] == "invalid"
+
+
+def test_billing_grant_credits_cli_keeps_legacy_validity_choices(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+    result = runner.invoke(args=["console", "billing", "grant-credits", "--help"])
+    assert result.exit_code == 0
+    assert "align_subscription|1d|7d|1m|3m|1y" in result.output
+    assert "custom" not in result.output

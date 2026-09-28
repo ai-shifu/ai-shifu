@@ -4428,10 +4428,19 @@ def test_admin_operation_user_credits_route_rejects_inverted_time_range(
     assert payload["message"] == "Params Error start_time"
 
 
+@pytest.mark.parametrize(
+    "validity",
+    [
+        {"validity_preset": "1d"},
+        {"validity_preset": "custom", "validity_value": 15, "validity_unit": "day"},
+        {"validity_preset": "custom", "validity_value": 6, "validity_unit": "month"},
+    ],
+)
 def test_admin_operation_user_credit_grant_route_returns_payload(
     app: object,
     test_client: object,
     monkeypatch: object,
+    validity: dict[str, object],
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4454,7 +4463,7 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
             "request_id": "route-grant-request-1",
             "amount": "3",
             "grant_source": "reward",
-            "validity_preset": "1d",
+            **validity,
             "note": "route check",
         },
         headers={"Token": "test-token"},
@@ -4466,7 +4475,9 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
     assert payload["data"]["user_bid"] == "user-credit-grant-route"
     assert payload["data"]["amount"] == "3"
     assert payload["data"]["grant_source"] == "reward"
-    assert payload["data"]["validity_preset"] == "1d"
+    assert payload["data"]["validity_preset"] == validity["validity_preset"]
+    assert payload["data"]["validity_value"] == validity.get("validity_value")
+    assert payload["data"]["validity_unit"] == validity.get("validity_unit")
     assert payload["data"]["expires_at"].endswith("Z")
     assert payload["data"]["ledger_bid"]
     assert payload["data"]["wallet_bucket_bid"]
@@ -4974,3 +4985,60 @@ def test_contact_map_skips_user_query_when_users_argument_is_empty(
     assert result["user-1"]["mobile"] == "13800000000"
     assert result["user-1"]["login_methods"] == ["phone"]
     assert result["user-2"] == {"mobile": "", "email": "", "login_methods": []}
+
+
+@pytest.mark.parametrize(
+    "validity",
+    [
+        {"validity_preset": "custom", "validity_value": 1.5, "validity_unit": "day"},
+        {"validity_preset": "custom", "validity_value": True, "validity_unit": "day"},
+        {"validity_preset": "custom", "validity_value": 15},
+        {"validity_preset": "custom", "validity_value": 15, "validity_unit": "week"},
+        {"validity_preset": "1d", "validity_value": 15, "validity_unit": "day"},
+        {"validity_preset": "1m", "validity_value": None},
+        {
+            "validity_preset": "custom",
+            "validity_value": 15,
+            "validity_unit": "day",
+            "grant_type": "referral_reward",
+        },
+    ],
+)
+def test_custom_credit_grant_route_rejects_invalid_or_mixed_payload_without_writes(
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+    validity: dict[str, object],
+) -> None:
+    _mock_operator(monkeypatch)
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="custom-invalid",
+            identify="custom-invalid@example.com",
+            nickname="Test",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 1, 1),
+            updated_at=datetime(2026, 1, 1),
+            providers=[("email", "custom-invalid@example.com")],
+        )
+    response = test_client.post(
+        "/api/shifu/admin/operations/users/custom-invalid/credits/grant",
+        json={
+            "request_id": "invalid-custom",
+            "amount": "10",
+            "grant_source": "reward",
+            **validity,
+        },
+        headers={"Token": "test-token"},
+    )
+    assert response.get_json()["code"] == ERROR_CODE["server.common.paramsError"]
+    with app.app_context():
+        assert (
+            CreditLedgerEntry.query.filter_by(creator_bid="custom-invalid").count() == 0
+        )
+        assert (
+            CreditWalletBucket.query.filter_by(creator_bid="custom-invalid").count()
+            == 0
+        )

@@ -37,6 +37,7 @@ MANUAL_CREDIT_VALIDITY_7D = "7d"
 MANUAL_CREDIT_VALIDITY_1M = "1m"
 MANUAL_CREDIT_VALIDITY_3M = "3m"
 MANUAL_CREDIT_VALIDITY_1Y = "1y"
+MANUAL_CREDIT_VALIDITY_CUSTOM = "custom"
 
 MANUAL_CREDIT_GRANT_SOURCES = (
     MANUAL_CREDIT_GRANT_SOURCE_REWARD,
@@ -70,8 +71,25 @@ def _resolve_manual_credit_grant_expiry(
     creator_bid: str,
     validity_preset: str,
     granted_at: datetime,
+    validity_value: int | None = None,
+    validity_unit: str | None = None,
 ) -> datetime | None:
     normalized_preset = _normalize_bid(validity_preset)
+    if normalized_preset == MANUAL_CREDIT_VALIDITY_CUSTOM:
+        if type(validity_value) is not int or validity_value <= 0:
+            raise_param_error("validity_value")
+        if validity_unit not in ("day", "month", "year"):
+            raise_param_error("validity_unit")
+        try:
+            if validity_unit == "day":
+                return granted_at + timedelta(days=validity_value)
+            if validity_unit == "month":
+                return _add_months(granted_at, validity_value)
+            return _add_years(granted_at, validity_value)
+        except (OverflowError, ValueError):
+            raise_param_error("validity_value")
+    if validity_value is not None or validity_unit is not None:
+        raise_param_error("validity_preset")
     if normalized_preset == MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION:
         subscription = load_primary_active_subscription(
             creator_bid,
@@ -107,6 +125,8 @@ def grant_manual_credits_to_user(
     amount: str,
     grant_source: str,
     validity_preset: str,
+    validity_value: int | None = None,
+    validity_unit: str | None = None,
     display_name: str = "",
     note: str = "",
     grant_channel: str = "operator_user_management",
@@ -129,7 +149,10 @@ def grant_manual_credits_to_user(
             raise_param_error("request_id")
         if normalized_grant_source not in MANUAL_CREDIT_GRANT_SOURCES:
             raise_param_error("grant_source")
-        if normalized_validity_preset not in MANUAL_CREDIT_VALIDITY_PRESETS:
+        if normalized_validity_preset not in (
+            *MANUAL_CREDIT_VALIDITY_PRESETS,
+            MANUAL_CREDIT_VALIDITY_CUSTOM,
+        ):
             raise_param_error("validity_preset")
         if len(normalized_display_name) > 128:
             raise_param_error("display_name")
@@ -142,6 +165,8 @@ def grant_manual_credits_to_user(
             creator_bid=normalized_user_bid,
             validity_preset=normalized_validity_preset,
             granted_at=granted_at,
+            validity_value=validity_value,
+            validity_unit=validity_unit,
         )
         grant_result = grant_manual_credit_wallet_balance(
             app,
@@ -156,6 +181,11 @@ def grant_manual_credits_to_user(
                 "grant_type": "manual_grant",
                 "grant_source": normalized_grant_source,
                 "validity_preset": normalized_validity_preset,
+                **(
+                    {"validity_value": validity_value, "validity_unit": validity_unit}
+                    if normalized_validity_preset == MANUAL_CREDIT_VALIDITY_CUSTOM
+                    else {}
+                ),
                 "operator_user_bid": normalized_operator_user_bid,
                 "grant_channel": grant_channel,
             },
@@ -187,6 +217,8 @@ def grant_manual_credits_to_user(
                 persisted_metadata.get("validity_preset") or normalized_validity_preset
             ).strip(),
             expires_at=grant_result.expires_at,
+            validity_value=persisted_metadata.get("validity_value"),
+            validity_unit=persisted_metadata.get("validity_unit"),
             display_name=str(persisted_metadata.get("display_name") or "").strip(),
             note=str(persisted_metadata.get("note") or "").strip(),
             wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),

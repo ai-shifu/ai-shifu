@@ -327,6 +327,20 @@
       "validityPreset": "Validity"
     },
     "confirmTitle": "Confirm Credit Grant",
+    "customValidity": {
+      "actualExpiry": "Actual expiry: {date}",
+      "estimatedExpiry": "Estimated expiry (confirmed on grant)",
+      "hint": "Effective immediately. Days are 24 hours; months and years follow the calendar, clipping missing dates to month end.",
+      "invalid": "Enter a valid positive whole-number duration and select days, months, or years.",
+      "summary": "Effective immediately, valid for {value} {unit}",
+      "unitLabel": "Duration unit",
+      "units": {
+        "day": "day(s)",
+        "month": "month(s)",
+        "year": "year(s)"
+      },
+      "valueLabel": "Duration"
+    },
     "description": "Use this dialog to grant credits or a package to teacher or operator users from Operations.",
     "fields": {
       "amount": "Credits",
@@ -356,8 +370,7 @@
       "product": "Select a package",
       "productLoading": "Loading packages...",
       "referralRewardAmount": "Enter reward credits",
-      "source": "Select source",
-      "validityPreset": "Select validity"
+      "source": "Select source"
     },
     "referralReward": {
       "bootstrapError": "Failed to load referral reward data. Please try again later.",
@@ -393,17 +406,7 @@
       "amountRequired": "Enter a credit amount greater than 0",
       "productRequired": "Select a package",
       "referralRewardAmountRequired": "Enter a positive integer credit amount",
-      "sourceRequired": "Select a source",
-      "validityPresetRequired": "Select a validity preset"
-    },
-    "validityHint": "If there is no active subscription, the validity cannot be set to \"Match current subscription expiry\".",
-    "validityOptions": {
-      "alignSubscription": "Match current subscription expiry",
-      "oneDay": "1 day after grant",
-      "oneMonth": "1 month after grant",
-      "oneYear": "1 year after grant",
-      "sevenDays": "7 days after grant",
-      "threeMonths": "3 months after grant"
+      "sourceRequired": "Select a source"
     }
   },
   "loginMethodLabels": {
