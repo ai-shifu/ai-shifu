@@ -103,6 +103,10 @@ SENTENCE_ENDINGS = regex.compile(rf"[{_SENTENCE_TERMINALS}]+[{_SENTENCE_CLOSERS}
 SENTENCE_PUNCTUATION_FRAGMENT = regex.compile(
     rf"[{_SENTENCE_TERMINALS}{_SENTENCE_CLOSERS}\s]+"
 )
+# A consumed sentence's closing marks can arrive alongside the next sentence.
+# Only strip detached Unicode closers: ASCII quotes or marks touching text can
+# open a new quotation or belong to a contraction instead.
+SENTENCE_CLOSER_CONTINUATION = regex.compile(r"^(?:[\p{Pe}\p{Pf}]+\s+)+")
 
 # ---------------------------------------------------------------------------
 # HTML tag extraction helpers

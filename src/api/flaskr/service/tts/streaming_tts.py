@@ -66,6 +66,7 @@ from flaskr.service.tts.minimax_run_tts import (
     should_use_minimax_http_stream,
 )
 from flaskr.service.tts.patterns import (
+    SENTENCE_CLOSER_CONTINUATION,
     SENTENCE_ENDINGS,
     SENTENCE_PUNCTUATION_FRAGMENT,
 )
@@ -539,6 +540,8 @@ class StreamingTTSProcessor:
         for match in SENTENCE_ENDINGS.finditer(remaining_text):
             split_pos = match.end()
             segment_text = remaining_text[cursor:split_pos].strip()
+            if after_sentence_boundary:
+                segment_text = SENTENCE_CLOSER_CONTINUATION.sub("", segment_text)
             # A stream chunk can contain only the rest of a punctuation run
             # after the preceding sentence has already been submitted.
             if len(segment_text) >= 2 and not (
@@ -556,6 +559,8 @@ class StreamingTTSProcessor:
 
         if include_trailing_fragment:
             tail_text = remaining_text[cursor:].strip()
+            if after_sentence_boundary:
+                tail_text = SENTENCE_CLOSER_CONTINUATION.sub("", tail_text)
             if len(tail_text) >= 2 and not (
                 after_sentence_boundary
                 and SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(tail_text)

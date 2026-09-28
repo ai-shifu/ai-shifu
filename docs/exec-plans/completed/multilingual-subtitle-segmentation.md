@@ -36,6 +36,10 @@ subtitles under the existing trailing-punctuation display policy.
       and code points outside the BMP. All 145 focused frontend and renderer
       tests, type checking, and lint passed, including persisted and streaming
       cue paths and unchanged timing metadata.
+- [x] 2026-09-28 UTC: Addressed mixed closing-punctuation/speech chunks from
+      the follow-up review. Detached Unicode closers no longer migrate into
+      the next sentence. All 810 TTS tests passed, including raw offsets,
+      final tails, opening quotations, and provider symbol handling.
 
 ## Surprises & Discoveries
 
@@ -90,12 +94,17 @@ subtitles under the existing trailing-punctuation display policy.
   question marks are preserved; ASCII semicolons keep their existing removal
   policy. Greek text using the canonically equivalent ASCII semicolon remains
   ambiguous without a content-language contract.
+- After a consumed sentence boundary, strip detached Unicode closing-mark
+  tokens before submitting a mixed punctuation/speech segment or final tail.
+  Keep raw buffers and boundary offsets unchanged. ASCII quotes and marks
+  touching the following text remain intact because they can open a new
+  quotation or contraction; this does not introduce quotation-pair inference.
 
 ## Outcomes & Retrospective
 
 Subtitle-producing paths now share Unicode sentence-terminal recognition.
 Provider indices remain unchanged; indexed Tencent cues spanning multiple
-sentences are apportioned within their original interval. All 797 TTS tests
+sentences are apportioned within their original interval. All 810 TTS tests
 passed, including complete and chunked multilingual punctuation, finalization,
 and source alignment cases. Independent review verified the punctuation-only
 request fix; the full repository pre-commit gate passed. No service deployment

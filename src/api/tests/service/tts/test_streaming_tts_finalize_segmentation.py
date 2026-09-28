@@ -53,6 +53,125 @@ def create_test_processor(mock_app: object, **kwargs: object) -> object:
 class TestFinalizeSegmentation:
     """Tests for finalize segmentation improvements."""
 
+    @pytest.mark.parametrize("after_boundary", [False, True], ids=["initial", "after"])
+    @pytest.mark.parametrize(
+        "complete_sentence", [False, True], ids=["tail", "sentence"]
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_mixed_closer_prefix_keeps_markdown_offsets_and_following_text(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        after_boundary: bool,
+        complete_sentence: bool,
+    ) -> None:
+        """Consume a preceding sentence's closer without borrowing the next text."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+        first = "«هل تسمعني؟"
+        expected_texts = []
+        if after_boundary:
+            list(processor.process_chunk(first))
+            expected_texts.append(first)
+        ending = "۔" if complete_sentence else ""
+        mixed_chunk = f"» **نعم**{ending} 尾部内容"
+
+        list(processor.process_chunk(mixed_chunk))
+        if complete_sentence:
+            expected_texts.append("نعم۔" if after_boundary else "» نعم۔")
+            assert processor._buffer[processor._raw_offset :] == " 尾部内容"
+        else:
+            assert processor._buffer[processor._raw_offset :] == mixed_chunk
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == (
+            expected_texts
+        )
+
+        raw_length = len(processor._buffer)
+        list(processor.finalize())
+        expected_texts.append(
+            "尾部内容"
+            if complete_sentence
+            else ("نعم 尾部内容" if after_boundary else "» نعم 尾部内容")
+        )
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == expected_texts
+        assert [segment.index for segment in submitted_segments] == list(
+            range(len(expected_texts))
+        )
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        ("next_sentence", "expected"),
+        [
+            ('"Next."', '"Next."'),
+            ("«Next.»", "«Next.»"),
+            ('" Next."', '" Next."'),
+            ("’tis fine.", "’tis fine."),
+            ("»Hallo«.", "»Hallo«."),
+            ('» "Next."', '"Next."'),
+        ],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_sentence_boundary_preserves_next_sentence_opening_quote(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        next_sentence: str,
+        expected: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+
+        list(processor.process_chunk("First."))
+        list(processor.process_chunk(f" {next_sentence}"))
+        list(processor.finalize())
+
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "First.",
+            expected,
+        ]
+
+    @pytest.mark.parametrize(
+        ("tts_provider", "body", "tail"),
+        [
+            ("aliyun", "😀!", "😀😀"),
+            ("baidu", "∞!", "∞∞"),
+            ("volcengine_http", "😀!", "--"),
+        ],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_mixed_closer_prefix_preserves_provider_symbol_content(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        tts_provider: str,
+        body: str,
+        tail: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider=tts_provider)
+        assert not _should_skip_non_speakable_tts_text(body, tts_provider)
+        assert not _should_skip_non_speakable_tts_text(tail, tts_provider)
+
+        list(processor.process_chunk("«هل تسمعني؟"))
+        list(processor.process_chunk(f"» {body} {tail}"))
+        list(processor.finalize())
+
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "«هل تسمعني؟",
+            body,
+            tail,
+        ]
+
     @pytest.mark.parametrize(
         ("tts_provider", "chunks", "complete_sentence"),
         [
