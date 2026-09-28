@@ -17,7 +17,7 @@
       "unsettled_payment": "Resolve the {count} unsettled orders before cancelling this account."
     },
     "confirm": "Cancel account",
-    "confirmDescription": "Account {user} will be cancelled permanently.",
+    "confirmDescription": "Account {user} will be permanently cancelled. Check the account and cancellation reason again. Once submitted, this action cannot be undone.",
     "confirmPaidPreorder": "This account has {count} paid prepaid plans awaiting activation. Confirm that manual refunds or related handling are complete.",
     "confirmTitle": "Confirm account cancellation",
     "continue": "Cancel account",
@@ -31,7 +31,7 @@
       "processingTimeout": "The cancellation task is still processing. Refresh the user list later to check the result.",
       "transfer": "Course transfer failed"
     },
-    "irreversible": "Profile and login credentials will be erased while required business history is retained.",
+    "irreversible": "After cancellation, account identity information and login credentials will be erased, the credit balance will be set to zero, and current sign-in sessions will end. Historical business records and course data will be retained according to the applicable rules.",
     "processing": "Cancelling…",
     "reasonCounter": "{count}/500",
     "reasonHint": "This reason is retained in the operation audit log.",
@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "Credit validity",
       "creditsHint": "The credit balance will be cleared without a refund.",
       "creditsLabel": "Credit balance",
-      "creditsValue": "{count} (cleared without refund)",
-      "draftsHint": "Draft courses will be retained and frozen after cancellation.",
-      "draftsLabel": "Draft courses",
-      "draftsValue": "{count} (retained and frozen)",
       "paidPackages": "Paid plan:",
       "preorders": "Pending prepaid plan:",
-      "renewals": "Active subscriptions terminated on cancellation: {count}",
-      "sessionsHint": "All active login sessions will be revoked immediately.",
-      "sessionsLabel": "Active sessions",
-      "sessionsValue": "{count} (all revoked on cancellation)",
       "subscriptions": "Auto-renewing subscription:"
     },
     "title": "Cancel account",
     "transfer": "Transfer all",
     "transferEmailPlaceholder": "New owner email",
     "transferPhonePlaceholder": "New owner phone number",
-    "transferPlaceholder": "New owner phone or email",
     "transferRequired": "Transfer {count} published courses first"
   },
   "contactChange": {
@@ -327,6 +318,20 @@
       "validityPreset": "Validity"
     },
     "confirmTitle": "Confirm Credit Grant",
+    "customValidity": {
+      "actualExpiry": "Actual expiry: {date}",
+      "estimatedExpiry": "Estimated expiry (confirmed on grant)",
+      "hint": "Effective immediately. Days are 24 hours; months and years follow the calendar, clipping missing dates to month end.",
+      "invalid": "Enter a valid positive whole-number duration and select days, months, or years.",
+      "summary": "Effective immediately, valid for {value} {unit}",
+      "unitLabel": "Duration unit",
+      "units": {
+        "day": "day(s)",
+        "month": "month(s)",
+        "year": "year(s)"
+      },
+      "valueLabel": "Duration"
+    },
     "description": "Use this dialog to grant credits or a package to teacher or operator users from Operations.",
     "fields": {
       "amount": "Credits",
@@ -355,9 +360,7 @@
       "note": "Optional. Record the reason for this grant",
       "product": "Select a package",
       "productLoading": "Loading packages...",
-      "referralRewardAmount": "Enter reward credits",
-      "source": "Select source",
-      "validityPreset": "Select validity"
+      "referralRewardAmount": "Enter reward credits"
     },
     "referralReward": {
       "bootstrapError": "Failed to load referral reward data. Please try again later.",
@@ -385,25 +388,14 @@
       "availableCredits": "Credit Balance",
       "currentExpireAt": "Valid Until",
       "currentPackage": "Current Package",
-      "nickname": "Nickname",
-      "package": "Package"
+      "nickname": "Nickname"
     },
     "title": "Grant Credits/Package",
     "validation": {
       "amountRequired": "Enter a credit amount greater than 0",
       "productRequired": "Select a package",
       "referralRewardAmountRequired": "Enter a positive integer credit amount",
-      "sourceRequired": "Select a source",
-      "validityPresetRequired": "Select a validity preset"
-    },
-    "validityHint": "If there is no active subscription, the validity cannot be set to \"Match current subscription expiry\".",
-    "validityOptions": {
-      "alignSubscription": "Match current subscription expiry",
-      "oneDay": "1 day after grant",
-      "oneMonth": "1 month after grant",
-      "oneYear": "1 year after grant",
-      "sevenDays": "7 days after grant",
-      "threeMonths": "3 months after grant"
+      "sourceRequired": "Select a source"
     }
   },
   "loginMethodLabels": {

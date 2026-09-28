@@ -1,5 +1,7 @@
 # Make payment attempts safe across retries and coupon repricing
 
+> Lifecycle review, 2026-09-26: Awaiting real payment-provider smoke; mocked or local database tests do not prove external provider behavior.
+
 ## Purpose / Big Picture
 
 One business order may need more than one provider payment attempt when a

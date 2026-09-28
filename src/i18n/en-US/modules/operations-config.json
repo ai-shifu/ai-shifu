@@ -81,8 +81,8 @@
     "unconfigured": "Rate not set"
   },
   "tabs": {
-    "llm": "LLM Credit Consumption",
-    "tts": "TTS Credit Consumption"
+    "llm": "LLM Consumption Multipliers",
+    "tts": "TTS Consumption Multipliers"
   },
   "title": "Rate Management"
 }

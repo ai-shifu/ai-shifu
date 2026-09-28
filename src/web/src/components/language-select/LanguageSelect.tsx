@@ -85,7 +85,12 @@ export default function LanguageSelect(props: languageProps) {
       <SelectTrigger className={triggerClass}>
         <SelectValue placeholder={t('common.language.name')} />
       </SelectTrigger>
-      <SelectContent className={cn(props.contentClassName)}>
+      <SelectContent
+        className={cn(
+          'max-h-[min(24rem,var(--radix-select-content-available-height))]',
+          props.contentClassName,
+        )}
+      >
         {localeEntries.map(([code, info]) => (
           <SelectItem
             key={code}

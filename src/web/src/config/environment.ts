@@ -49,11 +49,25 @@ interface EnvironmentConfig {
   // Legal Documents Configuration
   legalUrls: {
     agreement: Record<
-      'zh-CN' | 'en-US' | 'es-ES' | 'fr-FR' | 'ar-SA' | 'th-TH',
+      | 'zh-CN'
+      | 'en-US'
+      | 'de-DE'
+      | 'es-ES'
+      | 'fr-FR'
+      | 'ar-SA'
+      | 'th-TH'
+      | 'ur-PK',
       string
     >;
     privacy: Record<
-      'zh-CN' | 'en-US' | 'es-ES' | 'fr-FR' | 'ar-SA' | 'th-TH',
+      | 'zh-CN'
+      | 'en-US'
+      | 'de-DE'
+      | 'es-ES'
+      | 'fr-FR'
+      | 'ar-SA'
+      | 'th-TH'
+      | 'ur-PK',
       string
     >;
   };
@@ -347,18 +361,22 @@ function getLegalUrls(): {
   agreement: {
     'zh-CN': string;
     'en-US': string;
+    'de-DE': string;
     'es-ES': string;
     'fr-FR': string;
     'ar-SA': string;
     'th-TH': string;
+    'ur-PK': string;
   };
   privacy: {
     'zh-CN': string;
     'en-US': string;
+    'de-DE': string;
     'es-ES': string;
     'fr-FR': string;
     'ar-SA': string;
     'th-TH': string;
+    'ur-PK': string;
   };
 } {
   return {
@@ -370,6 +388,10 @@ function getLegalUrls(): {
       'en-US':
         getRuntimeEnv('LEGAL_AGREEMENT_URL_EN_US') ||
         process.env.LEGAL_AGREEMENT_URL_EN_US ||
+        '',
+      'de-DE':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_DE_DE') ||
+        process.env.LEGAL_AGREEMENT_URL_DE_DE ||
         '',
       'es-ES':
         getRuntimeEnv('LEGAL_AGREEMENT_URL_ES_ES') ||
@@ -387,6 +409,10 @@ function getLegalUrls(): {
         getRuntimeEnv('LEGAL_AGREEMENT_URL_TH_TH') ||
         process.env.LEGAL_AGREEMENT_URL_TH_TH ||
         '',
+      'ur-PK':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_UR_PK') ||
+        process.env.LEGAL_AGREEMENT_URL_UR_PK ||
+        '',
     },
     privacy: {
       'zh-CN':
@@ -396,6 +422,10 @@ function getLegalUrls(): {
       'en-US':
         getRuntimeEnv('LEGAL_PRIVACY_URL_EN_US') ||
         process.env.LEGAL_PRIVACY_URL_EN_US ||
+        '',
+      'de-DE':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_DE_DE') ||
+        process.env.LEGAL_PRIVACY_URL_DE_DE ||
         '',
       'es-ES':
         getRuntimeEnv('LEGAL_PRIVACY_URL_ES_ES') ||
@@ -412,6 +442,10 @@ function getLegalUrls(): {
       'th-TH':
         getRuntimeEnv('LEGAL_PRIVACY_URL_TH_TH') ||
         process.env.LEGAL_PRIVACY_URL_TH_TH ||
+        '',
+      'ur-PK':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_UR_PK') ||
+        process.env.LEGAL_PRIVACY_URL_UR_PK ||
         '',
     },
   };

@@ -65,6 +65,7 @@ def _search_order() -> tuple:
         ("lesson package", True),
         ("课程积分包", True),
         ("crédits pédagogiques", True),
+        ("کورس کریڈٹ پلان", True),
         ("NaN", False),
         ("Infinity", False),
         ("no-product-matches", False),
@@ -81,6 +82,7 @@ def test_operator_product_search_matches_code_numeric_price_credits_and_localize
         "en-US": "Lesson package",
         "zh-CN": "课程积分包",
         "fr-FR": "Crédits pédagogiques",
+        "ur-PK": "کورس کریڈٹ پلان",
     }
 
     def translate(key: str) -> str:

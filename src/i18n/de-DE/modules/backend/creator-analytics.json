@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.creatorAnalytics",
+  "__flat__": {
+    "invalidAggregate": "Die Abfrage verwendet eine nicht unterstützte Aggregationsmethode.",
+    "invalidColumn": "Das abgefragte Feld ist nicht in der Zulassungsliste enthalten.",
+    "invalidDsl": "Die Abfragebeschreibung ist ungültig.",
+    "invalidLimit": "Limit oder Offset liegt außerhalb des zulässigen Bereichs.",
+    "invalidOperator": "Die Abfrage verwendet einen nicht unterstützten Operator.",
+    "invalidTable": "Die abgefragte Tabelle ist nicht in der Zulassungsliste enthalten.",
+    "noPermission": "Sie haben keine Berechtigung, die Analyse dieses Kurses abzufragen.",
+    "queryTimeout": "Die Abfrage hat das Zeitlimit überschritten. Schränken Sie den Umfang ein und versuchen Sie es erneut."
+  }
+}

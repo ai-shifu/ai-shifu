@@ -7,7 +7,7 @@
     "discountLimitExceeded": "โค้ดแลกรับถูกใช้ครบจำนวนครั้งสูงสุดแล้ว",
     "discountNotApply": "โค้ดแลกรับใช้กับหลักสูตรนี้ไม่ได้",
     "discountNotFound": "ไม่พบโค้ดแลกรับ",
-    "discountNotStart": "โค้ดแลกรับยังไม่เริ่มใช้งาน",
+    "discountNotStart": "โค้ดแลกรับยังไม่ถึงเวลาเริ่มใช้งาน",
     "orderDiscountAlreadyUsed": "คำสั่งซื้อนี้ใช้โค้ดแลกรับแล้ว"
   }
 }

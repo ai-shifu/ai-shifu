@@ -19,6 +19,10 @@ describe('resolveMarkdownFlowLocale', () => {
     ['zh-Hant', 'zh-CN'],
     ['ar', 'ar-SA'],
     ['th', 'th-TH'],
+    ['ur-PK', 'ur-PK'],
+    ['ur_IN', 'ur-PK'],
+    ['UR_pk', 'ur-PK'],
+    ['ur', 'ur-PK'],
   ])('maps %s to %s', (language, expected) => {
     expect(resolveMarkdownFlowLocale(language)).toBe(expected);
   });

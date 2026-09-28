@@ -2,19 +2,14 @@
   "__namespace__": "module.operationsCreditNotifications",
   "actions": {
     "applyConfig": "Guardar configuración",
-    "applyTemplate": "Aplicar plantilla",
-    "changeTemplate": "Cambiar plantilla",
     "detail": "Detalles",
     "disable": "Desactivar",
     "dryRun": "Simular envío",
     "enable": "Activar",
     "more": "Más",
-    "refresh": "Actualizar",
     "requeue": "Volver a enviar",
     "reset": "Restablecer",
-    "search": "Buscar",
-    "syncTemplate": "Consultar plantilla",
-    "syncingTemplate": "Consultando..."
+    "search": "Buscar"
   },
   "config": {
     "deliveryRules": {
@@ -42,20 +37,11 @@
     "emptyBlockedCreators": "Todavía no hay profesores bloqueados.",
     "emptyOptedOutCreators": "Todavía no hay profesores que se hayan dado de baja de las notificaciones.",
     "fieldTips": {
-      "blockedCreatorList": "Muestra los profesores de la lista de bloqueo. Los cambios se aplicarán después de guardar la configuración.",
-      "creatorIdentifierList": "Introduce números de móvil o ID de profesor separados por comas.",
       "creatorIdentifierListEmail": "Introduce correos electrónicos o ID de profesor separados por comas.",
       "creatorIdentifierListPhone": "Introduce números de móvil o ID de profesor separados por comas.",
-      "creatorList": "Introduce ID de profesor separados por comas.",
       "dailySmsLimit": "Al alcanzar este límite diario, no se enviarán más SMS ese día.",
       "enabled": "Controla las notificaciones de créditos por SMS. Solo afecta a las notificaciones futuras.",
       "enabledEmail": "Controla las notificaciones de créditos por correo. Solo afecta a las notificaciones futuras.",
-      "estimatedDays": "Activa un aviso de saldo bajo cuando los días de uso restantes estimados alcanzan este valor.",
-      "fallbackFixedValue": "Si los datos de consumo son insuficientes, se usa un umbral fijo de saldo.",
-      "lookbackDays": "Número de días recientes que se usan para calcular el consumo diario medio.",
-      "minConsumedDays": "Si hay menos días con consumo válido que este valor, no se aplica la regla de días estimados.",
-      "mobileList": "Introduzca números de móvil separados por comas.",
-      "optedOutCreators": "Las listas de baja se generan cuando los usuarios cancelan las notificaciones y son de solo lectura.",
       "perCreatorPerTypePerDay": "Número máximo de mensajes diarios por profesor y tipo de notificación.",
       "perMobilePerDay": "Número máximo diario de SMS de créditos por móvil.",
       "perRecipientPerDay": "Número máximo diario de correos de créditos por destinatario.",
@@ -63,15 +49,9 @@
       "quietStart": "Hora de inicio del periodo de silencio, por ejemplo 22:00.",
       "smsUnitCost": "Se usa para estimar el coste de los SMS. El cargo real depende del proveedor de SMS.",
       "softlimitThreshold": "Un saldo inferior a este valor activa avisos en la página, SMS o bloqueos de depuración.",
-      "templateCode": "Selecciona la plantilla SMS de este tipo de notificación. Después de cambiarla, aplícala para completar la verificación.",
-      "templateSelect": "Selecciona la plantilla SMS de este tipo de notificación. Después de cambiarla, aplícala para completar la verificación.",
-      "thresholds": "Por ejemplo, 100,50,10; se envía un aviso cuando el saldo baja de uno de los umbrales configurados.",
-      "timezone": "Zona horaria de las horas de silencio, por ejemplo Asia/Shanghai.",
-      "windows": "Por ejemplo, 7d,3d,1d,0d: avisos 7 días antes, 3 días antes, 1 día antes y el día del vencimiento."
+      "timezone": "Zona horaria de las horas de silencio, por ejemplo Asia/Shanghai."
     },
     "fields": {
-      "blacklistCreatorBids": "ID de profesores bloqueados por operaciones",
-      "blacklistMobiles": "Móviles bloqueados por operaciones",
       "blockedCreatorList": "Profesores bloqueados",
       "blockedCreators": "Profesores bloqueados",
       "dailySmsLimit": "Límite diario de envíos",
@@ -85,8 +65,6 @@
       "lookbackDays": "Días de consumo considerados",
       "mergeSameCreator": "Agrupar por profesor",
       "minConsumedDays": "Días mínimos de consumo válidos",
-      "optOutCreatorBids": "ID de profesores dados de baja",
-      "optOutMobiles": "Móviles dados de baja",
       "optedOutCreators": "Profesores dados de baja",
       "perCreatorPerTypePerDay": "Límite diario por profesor y tipo",
       "perMobilePerDay": "Límite diario por móvil",
@@ -99,11 +77,7 @@
       "softlimitSms": "Enviar SMS de protección por saldo bajo",
       "softlimitThreshold": "Umbral de protección del saldo",
       "teacherPageAlert": "Aviso en el panel de administración",
-      "templateCode": "Plantilla SMS",
-      "templateSelect": "Seleccionar plantilla SMS",
-      "thresholds": "Umbrales de aviso por saldo",
-      "timezone": "Zona horaria",
-      "windows": "Plazos de aviso antes del vencimiento"
+      "timezone": "Zona horaria"
     },
     "inputPlaceholders": {
       "blockedCreatorsEmail": "Correos electrónicos o ID de profesor, separados por comas",
@@ -128,51 +102,12 @@
       "optedOutDescription": "La lista de profesores dados de baja es de solo lectura. Busca por contacto o apodo.",
       "optedOutSummary": "{count} profesores dados de baja",
       "searchPlaceholderEmail": "Correo electrónico / Apodo",
-      "searchPlaceholderPhone": "Móvil / Apodo",
-      "view": "Ver"
+      "searchPlaceholderPhone": "Móvil / Apodo"
     },
     "loadFailed": "No se ha podido cargar la política de notificaciones. Actualiza la página y vuelve a intentarlo.",
     "loadRequired": "La política de notificaciones no se ha cargado correctamente, así que no se puede guardar la configuración.",
     "masterSwitchDescription": "Al desactivar esta opción, no se generarán nuevas notificaciones de créditos por SMS. Los registros anteriores no cambian.",
     "masterSwitchDescriptionEmail": "Al desactivar esta opción, no se generarán nuevas notificaciones de créditos por correo. Los registros anteriores no cambian.",
-    "placeholders": {
-      "available": "Marcadores de posición disponibles",
-      "available_credits": "Créditos disponibles",
-      "avg_daily_consumption": "Consumo diario medio",
-      "collapse": "Plegar",
-      "credits": "Cantidad de créditos",
-      "estimated_remaining_days": "Días restantes estimados",
-      "expand": "Desplegar",
-      "expires_at": "Fecha de vencimiento",
-      "groups": {
-        "creditExpiring": "Variables de avisos de vencimiento",
-        "creditGranted": "Variables de avisos de concesión",
-        "lowBalanceEstimated": "Variables de días restantes",
-        "lowBalanceFixed": "Variables de saldo fijo o respaldo"
-      },
-      "guideHint": "Comprobar cuando se cambien las plantillas",
-      "guideTitle": {
-        "credit_expiring": "Guía de variables para el vencimiento de créditos",
-        "credit_granted": "Guía de variables para la concesión de créditos",
-        "low_balance": "Guía de variables para el saldo de créditos"
-      },
-      "lookback_days": "Días de consumo considerados",
-      "notes": {
-        "emptyVariables": "En un mismo tipo de notificación, las variables que no se usan en la regla activada se envían como cadenas vacías.",
-        "estimatedLowBalance": "Los avisos por días restantes estiman los días de uso a partir del consumo diario medio; las variables de umbral fijo quedan vacías.",
-        "expiresAtOptional": "Si los créditos concedidos no tienen fecha de vencimiento, la variable de vencimiento queda vacía.",
-        "fallbackLowBalance": "Si los datos de consumo son insuficientes y hay un umbral de respaldo, se usa la regla de saldo fijo. Sus variables se rellenan y las de días estimados quedan vacías.",
-        "fixedLowBalance": "Los avisos por saldo fijo solo rellenan las variables de saldo, umbral y tipo de umbral.",
-        "unsupportedValidation": "Las plantillas con variables que el sistema no admite se bloquean al sincronizarlas o al guardar la configuración activa.",
-        "windowSource": "La variable de plazo del aviso proviene de la configuración de vencimiento, por ejemplo 7d, 3d, 1d o 0d."
-      },
-      "source": "Origen de la concesión",
-      "threshold": "Umbral de saldo fijo",
-      "threshold_kind": "Tipo de umbral",
-      "tolerance": "Las plantillas SMS pueden usar solo algunas variables; las que no se usen no impedirán guardar ni enviar.",
-      "trigger_days": "Días restantes que activan el aviso",
-      "window": "Plazo del aviso"
-    },
     "saveStickyHint": "Guarda los cambios para que se apliquen a las notificaciones futuras.",
     "saved": "Configuración guardada.",
     "sectionDescriptions": {
@@ -188,85 +123,12 @@
       "deliveryPolicy": "Reglas de envío",
       "frequency": "Límites diarios de envío",
       "lists": "Listas de exclusión",
-      "masterSwitch": "Interruptor general",
       "quietHours": "Horas de silencio",
-      "softlimit": "Protección por saldo bajo para profesores",
-      "types": "Tipos de notificación"
-    },
-    "templateList": {
-      "editPlaceholder": "Selecciona o introduce una plantilla para este tipo",
-      "error": "No se ha podido cargar la lista del proveedor. Se muestran las plantillas consultadas localmente o la entrada manual.",
-      "fallbackManual": "No se han podido cargar las plantillas del proveedor de SMS. Introduce el código de la plantilla manualmente.",
-      "fallbackWithCache": "No se han podido cargar las plantillas del proveedor de SMS. Se muestran las plantillas guardadas en caché.",
-      "itemSource": {
-        "local": "Plantilla guardada en caché",
-        "provider": "Plantilla del proveedor"
-      },
-      "placeholder": "Selecciona una plantilla o introduce su código",
-      "source": {
-        "empty": "Todavía no hay plantillas disponibles. Introduce un código de plantilla manualmente.",
-        "local": "La lista de plantillas se carga desde la caché local.",
-        "provider": "La lista de plantillas se carga desde el proveedor de SMS."
-      }
-    },
-    "templateSync": {
-      "compatible": "Las variables de la plantilla son compatibles",
-      "content": "Contenido de la plantilla",
-      "error": "Error de sincronización",
-      "incompatible": "La plantilla contiene variables no compatibles",
-      "status": "Estado de revisión",
-      "syncFailed": "No se ha podido consultar la plantilla. Vuelve a intentarlo más tarde.",
-      "templateCodeRequired": "Introduce primero el código de la plantilla SMS.",
-      "unsupported": "Variables de plantilla no compatibles",
-      "unused": "Variables del sistema no utilizadas",
-      "variables": "Variables de plantilla"
+      "softlimit": "Protección por saldo bajo para profesores"
     },
     "title": "Configuración de notificaciones",
-    "typeDescriptions": {
-      "credit_expiring": "Recuerda a los profesores que usen sus créditos antes de que caduquen.",
-      "credit_granted": "Avisa a los profesores cuando se les conceden créditos.",
-      "low_balance": "Avisa a los profesores si su saldo de créditos baja de un umbral o les quedan pocos días de uso estimados."
-    },
-    "typeEditor": {
-      "descriptions": {
-        "basic": "Controla si este tipo de notificación se enviará en el futuro.",
-        "template": "Selecciona o verifica la plantilla SMS. La guía de variables permanece plegada hasta que necesites revisar la plantilla."
-      },
-      "done": "Terminar edición",
-      "draftHint": "Los cambios quedan como borrador en esta página. Pulsa «Guardar configuración» abajo para aplicarlos.",
-      "ruleDescriptions": {
-        "credit_expiring": "Configura cuándo avisar a los profesores antes de que caduquen los créditos y si se agrupan varios lotes que vencen para un mismo profesor.",
-        "credit_granted": "Esta notificación se activa una vez concedidos los créditos y no necesita ajustes de activación adicionales.",
-        "low_balance": "Configura umbrales de saldo fijo o avisa según los días de uso restantes estimados."
-      },
-      "sections": {
-        "basic": "Configuración básica",
-        "rules": "Reglas de activación",
-        "template": "Plantilla SMS"
-      }
-    },
     "typeTable": {
-      "actions": "Acciones",
-      "channel": "Canal",
-      "edit": "Editar",
-      "editDescription": "Edita la plantilla y las reglas de activación de este tipo de notificación. Los cambios solo afectarán a las notificaciones futuras después de guardar.",
-      "emailChannelComingSoon": "Correo electrónico · Próximamente",
-      "enabled": "Activado",
-      "notificationType": "Tipo de notificación",
-      "rule": "Regla de activación",
-      "rules": {
-        "creditExpiring": "Ventanas de recordatorio: {windows}",
-        "creditGranted": "Se activa después de conceder los créditos",
-        "lowBalanceEstimated": "Umbrales de saldo: {thresholds}; aviso si los créditos pueden agotarse en {days} días",
-        "lowBalanceFixed": "Umbrales de saldo: {thresholds}"
-      },
-      "smsChannelAvailable": "SMS",
-      "statusCompatible": "Variables compatibles",
-      "statusIncompatible": "Variables incompatibles",
-      "statusUnknown": "Sin verificar",
-      "template": "Plantilla",
-      "templateNotSet": "Sin configurar",
-      "templateStatus": "Estado de la plantilla"
+      "rules": {}
     },
     "unsavedDialog": {
       "cancel": "Seguir editando",
@@ -343,7 +205,6 @@
     "title": "Detalles de la notificación"
   },
   "dryRun": {
-    "candidateCount": "{count} coincidencias estimadas",
     "description": "Calcula cuántas notificaciones cumplirían la configuración actual. No se enviará ningún SMS.",
     "descriptionEmail": "Calcula cuántas notificaciones cumplirían la configuración actual. No se enviará ningún correo.",
     "empty": "Todavía no hay resultados de la simulación.",
@@ -378,17 +239,12 @@
     "all": "Todos",
     "createdTime": "Fecha de creación",
     "creator": "Profesor",
-    "creatorBid": "ID del profesor",
-    "creatorPlaceholder": "Móvil / Apodo",
     "creatorPlaceholderEmail": "Correo electrónico / Apodo",
     "creatorPlaceholderPhone": "Móvil / Apodo",
-    "mobile": "Móvil",
     "notificationType": "Tipo de notificación",
     "skipReason": "Motivo por el que no se envió",
-    "sourceBid": "ID del objeto que activó la notificación",
     "sourceType": "Contexto de activación",
     "status": "Estado de la entrega",
-    "time": "Fecha",
     "timeRangePlaceholder": "Fecha de inicio ~ Fecha de fin"
   },
   "loadError": "No se han podido cargar las notificaciones de créditos. Actualiza la página y vuelve a intentarlo.",
@@ -433,10 +289,8 @@
     "editRule": "Editar regla de notificación",
     "empty": "No hay reglas de notificación configuradas todavía.",
     "fields": {
-      "emailTemplate": "Plantilla de correo electrónico",
       "enabled": "Activar regla",
       "englishFallbackTemplate": "Plantilla de respaldo en inglés",
-      "localizedTemplates": "Plantillas localizadas opcionales",
       "name": "Nombre de la regla",
       "template": "Plantilla SMS",
       "thresholds": "Umbrales de aviso por saldo bajo",
@@ -449,9 +303,7 @@
     "migrateLegacySmsRulesTitle": "Migrar reglas de SMS heredadas",
     "newRule": "Nueva regla",
     "noConditions": "Sin condiciones adicionales",
-    "noLocalizedTemplate": "Usar plantilla de respaldo en inglés",
     "saveRule": "Guardar regla",
-    "selectEmailTemplate": "Seleccionar plantilla de correo electrónico",
     "selectEnglishFallbackTemplate": "Selecciona la plantilla obligatoria en inglés",
     "selectTemplate": "Seleccionar plantilla de SMS",
     "title": "Reglas de notificación"
@@ -469,28 +321,15 @@
     "wallet": "Aviso de saldo de créditos",
     "wallet_bucket": "Aviso de vencimiento de créditos"
   },
-  "status": {
-    "failed_provider": "Falló el envío",
-    "pending": "Pendiente",
-    "sent": "Enviado",
-    "skipped": "No enviado",
-    "skipped_no_mobile": "Problema con los datos de contacto",
-    "skipped_opt_out": "Restricción de la política",
-    "suppressed_duplicate": "Notificación duplicada"
-  },
   "subtitle": "Consulta el estado de envío de los avisos de concesión, vencimiento y saldo bajo de créditos, y configura las políticas de notificación.",
   "table": {
     "action": "Más",
     "createdAt": "Fecha de creación",
     "creator": "Profesor",
-    "dedupeKey": "Clave de deduplicación",
     "error": "Motivo / Detalles del error",
-    "mobile": "Móvil",
     "notification": "Tipo de notificación",
     "source": "Contexto de activación",
-    "status": "Estado de la entrega",
-    "template": "Plantilla",
-    "templateParams": "Copia de los parámetros"
+    "status": "Estado de la entrega"
   },
   "tabs": {
     "config": "Configuración de notificaciones",
@@ -535,11 +374,7 @@
     },
     "emailLoadError": "La configuración del servidor SMTP está incompleta. Puedes seguir gestionando las plantillas, pero el envío de correos no está disponible.",
     "emailLocales": {
-      "arSA": "Árabe",
-      "enUS": "Inglés (Estados Unidos)",
-      "frFR": "Francés",
-      "thTH": "Tailandés",
-      "zhCN": "Chino (simplificado)"
+      "enUS": "Inglés (Estados Unidos)"
     },
     "emailSaveError": "No se ha podido guardar la plantilla de correo. Vuelve a intentarlo.",
     "emailStatus": {
@@ -582,11 +417,6 @@
       "6": "SMS internacionales y para Hong Kong, Macao y Taiwán"
     },
     "unbound": "No está en uso"
-  },
-  "templateName": {
-    "credit_expiring": "Plantilla de aviso de vencimiento de créditos",
-    "credit_granted": "Plantilla de aviso de concesión de créditos",
-    "low_balance": "Plantilla de aviso de saldo bajo de créditos"
   },
   "title": "Notificaciones de créditos",
   "type": {

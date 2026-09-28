@@ -44,6 +44,9 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.session_attribution import (
+    discard_session_skill_attribution,
+)
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
@@ -721,6 +724,7 @@ def cancel_user_account(
                 app.logger.exception(
                     "failed to evict a cancelled user's token cache entry"
                 )
+            discard_session_skill_attribution(app, token=token)
 
         return {
             "cancellation_bid": normalized_cancellation_bid,

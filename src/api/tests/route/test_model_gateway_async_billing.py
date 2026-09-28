@@ -56,8 +56,12 @@ def gateway_billing_app(monkeypatch: pytest.MonkeyPatch) -> Iterator[Flask]:
     )
     monkeypatch.setattr(llm, "count_llm_chat_input_tokens", lambda *_args, **_kwargs: 2)
     monkeypatch.setattr(
-        llm, "resolve_llm_max_output_tokens", lambda *_args, **_kwargs: 4096
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "example"),
     )
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {})
+    monkeypatch.setattr(llm.litellm, "get_max_tokens", lambda _model: None)
     with app.app_context():
         dao.db.create_all()
         wallet = CreditWallet(
@@ -155,6 +159,7 @@ def test_gateway_records_then_existing_worker_charges_account_without_holds(
     usage = SimpleNamespace(prompt_tokens=2, completion_tokens=3, total_tokens=5)
     response = SimpleNamespace(
         usage=usage,
+        choices=[SimpleNamespace(delta=SimpleNamespace(content="hello"))],
         model_dump=lambda **_kwargs: {
             "id": "reply-1",
             "choices": [{"delta" if stream else "message": {"content": "hello"}}],
@@ -167,14 +172,10 @@ def test_gateway_records_then_existing_worker_charges_account_without_holds(
         assert CreditWallet.query.one().reserved_credits == Decimal(0)
         assert "usage_metadata" not in kwargs
         assert "usage_bid" not in kwargs
-        return response
+        assert kwargs["max_tokens"] == 4096
+        return iter([response]) if stream else response
 
     monkeypatch.setattr(llm.litellm, "completion", complete)
-    monkeypatch.setattr(
-        llm,
-        "_iter_stream_with_precontent_retry",
-        lambda *_args, **_kwargs: iter([complete()]),
-    )
     request = _prepare(gateway_billing_app, "k" * 90)
     # A 4096-token allowance exceeds this wallet, but no worst-case hold is taken.
     assert request.provider_options["max_tokens"] == 4096
@@ -245,6 +246,45 @@ def test_empty_wallet_reuses_course_admission_rejection(
         _prepare(gateway_billing_app)
     assert CreditLedgerEntry.query.count() == 0
     assert BillUsageRecord.query.count() == 0
+
+
+def test_missing_output_metadata_does_not_bypass_complete_rate_check(
+    gateway_billing_app: Flask,
+) -> None:
+    rate = CreditUsageRate.query.filter_by(
+        billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS
+    ).one()
+    dao.db.session.delete(rate)
+    dao.db.session.commit()
+    with pytest.raises(runtime.GatewayRequestError) as raised:
+        _prepare(gateway_billing_app)
+    assert raised.value.status_code == 400
+    assert raised.value.code == "model_not_available"
+    assert BillUsageRecord.query.count() == 0
+    assert CreditLedgerEntry.query.count() == 0
+
+
+@pytest.mark.parametrize("requested", [True, False, 0, -1, "100", 1.5, {}, []])
+def test_invalid_output_tokens_without_metadata_reject_before_request_claim(
+    gateway_billing_app: Flask, monkeypatch: pytest.MonkeyPatch, requested: object
+) -> None:
+    claim = MagicMock()
+    monkeypatch.setattr(runtime, "_claim_gateway_request", claim)
+    with pytest.raises(runtime.GatewayRequestError) as raised:
+        runtime.prepare_gateway_chat_request(
+            gateway_billing_app,
+            creator_bid="gateway-user",
+            idempotency_key="invalid-output",
+            payload={
+                "model": "rated-model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": requested,
+            },
+        )
+    assert raised.value.status_code == 400
+    claim.assert_not_called()
+    assert BillUsageRecord.query.count() == 0
+    assert CreditLedgerEntry.query.count() == 0
 
 
 def test_request_guard_failure_is_closed_without_credit_mutation(

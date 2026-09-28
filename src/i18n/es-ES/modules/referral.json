@@ -19,7 +19,6 @@
       "status": "Estado"
     },
     "queueTitle": "Invitaciones",
-    "refresh": "Actualizar",
     "rewardRecordValue": "{cycles, plural, one {# mes} other {# meses}} de plan básico ({credits} créditos incluidos)",
     "rewardRulesTitle": "Normas de la promoción",
     "rules": {
@@ -87,9 +86,7 @@
       "prevAria": "Página anterior"
     },
     "refresh": "Actualizar",
-    "statusUpdated": "Estado actualizado",
     "table": {
-      "action": "Acción",
       "boundAt": "Fecha de vinculación",
       "campaign": "Campaña",
       "inviteCode": "Código de invitación",

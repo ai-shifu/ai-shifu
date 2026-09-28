@@ -7,17 +7,7 @@ import React, {
 } from 'react';
 import Link from 'next/link';
 import { SSE } from 'sse.js';
-import {
-  Plus,
-  Minus,
-  Settings,
-  Volume2,
-  Loader2,
-  Square,
-  Mic,
-  RotateCw,
-  Trash2,
-} from 'lucide-react';
+import { Plus, Minus, Settings, Volume2, Loader2, Square } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -98,21 +88,17 @@ import {
 } from '@/components/shifu-setting/ask-provider-schema';
 import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
 import { buildShifuSettingSaveAnalytics } from '@/components/shifu-setting/shifuSettingAnalytics';
-import MiniMaxVoiceCloneDialog from '@/components/shifu-setting/MiniMaxVoiceCloneDialog';
 import {
   buildClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
-  executeMiniMaxVoiceAction,
   getCustomVoiceIdValidator,
   isMiniMaxProvider,
   isValidMiniMaxCustomVoiceId,
-  loadMiniMaxVoiceRefreshData,
   providerSupportsClonedVoices,
   shouldPreserveCustomMiniMaxVoice,
   MINIMAX_PROVIDER,
-  type MiniMaxCloneCost,
-  type MiniMaxClonedVoice,
-} from '@/components/shifu-setting/minimax-voice-clone';
+  type RegisteredClonedVoice,
+} from '@/components/shifu-setting/cloned-voice-options';
 import {
   buildTtsModelOptionValue,
   filterTtsVoicesForModel,
@@ -191,11 +177,6 @@ const ASK_TEMPERATURE_MIN = 0;
 const ASK_TEMPERATURE_MAX = 2;
 const DEFAULT_LIVE_VOICE = 'Kore';
 const TTS_PREVIEW_CURRENT_TARGET = 'tts-current';
-type TtsPreviewOptions = {
-  voiceId?: string;
-  targetKey?: string;
-  demoAudioUrl?: string;
-};
 
 type InitialAskConfiguration = {
   model: string;
@@ -329,11 +310,8 @@ export default function ShifuSettingDialog({
   const [defaultListenModeEnabled, setDefaultListenModeEnabled] =
     useState(false);
   const [minimaxClonedVoices, setMinimaxClonedVoices] = useState<
-    MiniMaxClonedVoice[]
+    RegisteredClonedVoice[]
   >([]);
-  const [minimaxCloneCost, setMinimaxCloneCost] =
-    useState<MiniMaxCloneCost | null>(null);
-  const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
   const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
   const settingsRequestSeqRef = useRef(0);
@@ -407,7 +385,6 @@ export default function ShifuSettingDialog({
   const ttsPreviewStreamRef = useRef<any>(null);
   const ttsPreviewAudioContextRef = useRef<AudioContext | null>(null);
   const ttsPreviewSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const ttsPreviewHtmlAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsPreviewSegmentsRef = useRef<AudioSegment[]>([]);
   const ttsPreviewSegmentIndexRef = useRef(0);
   const ttsPreviewIsPlayingRef = useRef(false);
@@ -427,17 +404,6 @@ export default function ShifuSettingDialog({
     ttsPreviewWaitingRef.current = false;
     ttsPreviewSegmentsRef.current = [];
     ttsPreviewSegmentIndexRef.current = 0;
-
-    if (ttsPreviewHtmlAudioRef.current) {
-      const audio = ttsPreviewHtmlAudioRef.current;
-      audio.onplaying = null;
-      audio.onended = null;
-      audio.onerror = null;
-      audio.pause();
-      audio.removeAttribute('src');
-      audio.load();
-      ttsPreviewHtmlAudioRef.current = null;
-    }
 
     if (ttsPreviewSourceRef.current) {
       try {
@@ -602,36 +568,16 @@ export default function ShifuSettingDialog({
     providerSupportsClonedVoices(resolvedProvider);
 
   const refreshMinimaxVoiceData = useCallback(async () => {
-    if (!shifuId) return;
-    const result = await loadMiniMaxVoiceRefreshData({
-      fetchVoices: () =>
-        api.listMinimaxTtsVoices(
-          buildClonedVoiceListParams(resolvedProvider, shifuId),
-        ) as Promise<{
-          voices?: MiniMaxClonedVoice[];
-        }>,
-      // Clone-cost estimation only exists for the MiniMax self-serve flow;
-      // operator-registered voices (volcengine) are free for the teacher.
-      fetchCloneCost: () =>
-        isMiniMaxTtsProvider
-          ? (api.getMinimaxTtsCloneCost({
-              shifu_bid: shifuId,
-            }) as Promise<MiniMaxCloneCost>)
-          : Promise.resolve(null),
-    });
-    if (result.voices !== null) {
-      setMinimaxClonedVoices(result.voices);
+    if (!shifuId || !providerSupportsCloning) return;
+    try {
+      const result = (await api.listMinimaxTtsVoices(
+        buildClonedVoiceListParams(resolvedProvider, shifuId),
+      )) as { voices?: RegisteredClonedVoice[] };
+      setMinimaxClonedVoices(result?.voices || []);
+    } catch (error) {
+      console.error('Failed to refresh registered TTS voices:', error);
     }
-    if (result.cloneCost !== null) {
-      setMinimaxCloneCost(result.cloneCost);
-    }
-    if (result.errors.length > 0) {
-      console.error(
-        'Failed to refresh MiniMax voice clone data:',
-        result.errors,
-      );
-    }
-  }, [isMiniMaxTtsProvider, resolvedProvider, shifuId]);
+  }, [providerSupportsCloning, resolvedProvider, shifuId]);
   useEffect(() => {
     if (!ttsEnabled) return;
     const options = ttsConfig?.model_options || [];
@@ -666,61 +612,6 @@ export default function ShifuSettingDialog({
     [currentProviderConfig?.voices, ttsModel],
   );
 
-  const showMiniMaxVoiceActionError = useCallback(
-    (error: unknown) => {
-      toast({
-        title: t('common.core.actionFailed'),
-        description:
-          error instanceof Error
-            ? error.message
-            : t('common.core.unknownError'),
-        variant: 'destructive',
-      });
-    },
-    [t, toast],
-  );
-
-  const retryMiniMaxVoice = useCallback(
-    async (voiceBid: string) => {
-      await executeMiniMaxVoiceAction({
-        action: () =>
-          api.retryMinimaxTtsVoice({
-            voice_bid: voiceBid,
-          }),
-        onSuccess: refreshMinimaxVoiceData,
-        onError: showMiniMaxVoiceActionError,
-      });
-    },
-    [refreshMinimaxVoiceData, showMiniMaxVoiceActionError],
-  );
-
-  const deleteMiniMaxVoice = useCallback(
-    async (voice: MiniMaxClonedVoice) => {
-      await executeMiniMaxVoiceAction({
-        action: () =>
-          api.deleteMinimaxTtsVoice({
-            voice_bid: voice.voice_bid,
-          }),
-        onSuccess: () => {
-          if (ttsVoiceId === voice.voice_id) {
-            setTtsVoiceId(ttsVoiceOptions[0]?.value || '');
-          }
-          refreshMinimaxVoiceData();
-        },
-        onError: showMiniMaxVoiceActionError,
-      });
-    },
-    [
-      refreshMinimaxVoiceData,
-      showMiniMaxVoiceActionError,
-      ttsVoiceId,
-      ttsVoiceOptions,
-    ],
-  );
-
-  const supportsMiniMaxVoiceCloning =
-    isMiniMaxTtsProvider &&
-    currentProviderConfig?.supports_voice_cloning === true;
   const minimaxStatusLabels = useMemo(
     () => ({
       queued: t('module.shifuSetting.minimaxCloneStatus.queued'),
@@ -789,29 +680,6 @@ export default function ShifuSettingDialog({
     }
     refreshMinimaxVoiceData();
   }, [providerSupportsCloning, open, refreshMinimaxVoiceData, ttsEnabled]);
-
-  useEffect(() => {
-    if (!open || !providerSupportsCloning) {
-      return;
-    }
-    const hasPendingVoice = minimaxClonedVoices.some(voice =>
-      ['queued', 'processing', 'billing_pending'].includes(
-        String(voice.status || ''),
-      ),
-    );
-    if (!hasPendingVoice) {
-      return;
-    }
-    const timer = setInterval(() => {
-      refreshMinimaxVoiceData();
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [
-    providerSupportsCloning,
-    minimaxClonedVoices,
-    open,
-    refreshMinimaxVoiceData,
-  ]);
   const normalizeSpeed = useCallback(
     (value: number) => {
       const min = currentProviderConfig?.speed.min ?? 0.5;
@@ -1700,221 +1568,170 @@ export default function ShifuSettingDialog({
     }
   };
 
-  const handleTtsPreview = useCallback(
-    async (options: TtsPreviewOptions = {}) => {
-      const targetKey = options.targetKey || TTS_PREVIEW_CURRENT_TARGET;
-      const demoAudioUrl = (options.demoAudioUrl || '').trim();
-      const previewVoiceId = (options.voiceId ?? ttsVoiceId ?? '').trim();
-      const sameTargetActive =
-        (ttsPreviewPlaying || ttsPreviewLoading) &&
-        ttsPreviewTarget === targetKey;
+  const handleTtsPreview = useCallback(() => {
+    const targetKey = TTS_PREVIEW_CURRENT_TARGET;
+    const previewVoiceId = (ttsVoiceId || '').trim();
+    const sameTargetActive =
+      (ttsPreviewPlaying || ttsPreviewLoading) &&
+      ttsPreviewTarget === targetKey;
 
-      if (sameTargetActive) {
-        stopTtsPreview();
-        return;
-      }
-      if (
-        !shifuId ||
-        (currentShifu?.readonly && !demoAudioUrl) ||
-        creditInsufficientAudience === null
-      ) {
-        return;
-      }
-      if (ttsPreviewPlaying || ttsPreviewLoading) {
-        stopTtsPreview();
-      }
+    if (sameTargetActive) {
+      stopTtsPreview();
+      return;
+    }
+    if (
+      !shifuId ||
+      currentShifu?.readonly ||
+      creditInsufficientAudience === null
+    ) {
+      return;
+    }
+    if (ttsPreviewPlaying || ttsPreviewLoading) {
+      stopTtsPreview();
+    }
 
-      if (debugBlockedByCredits && !demoAudioUrl) {
-        showCreditInsufficientToast({
-          audience: creditInsufficientAudience,
-          code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
-        });
-        return;
-      }
-      if (!debugAllowed && !demoAudioUrl) {
-        return;
-      }
-
-      const sessionId = ttsPreviewSessionRef.current + 1;
-      ttsPreviewSessionRef.current = sessionId;
-      requestExclusive(stopTtsPreview);
-      setTtsPreviewTarget(targetKey);
-      setTtsPreviewLoading(true);
-      setTtsPreviewPlaying(true);
-      ttsPreviewIsPlayingRef.current = true;
-      ttsPreviewIsStreamingRef.current = !demoAudioUrl;
-      ttsPreviewWaitingRef.current = !demoAudioUrl;
-      ttsPreviewSegmentsRef.current = [];
-      ttsPreviewSegmentIndexRef.current = 0;
-      closeTtsPreviewStream();
-
-      if (demoAudioUrl) {
-        const audio = new Audio(demoAudioUrl);
-        ttsPreviewHtmlAudioRef.current = audio;
-        audio.onplaying = () => {
-          if (ttsPreviewSessionRef.current !== sessionId) {
-            return;
-          }
-          setTtsPreviewLoading(false);
-          setTtsPreviewPlaying(true);
-          ttsPreviewIsPlayingRef.current = true;
-        };
-        audio.onended = () => {
-          if (ttsPreviewSessionRef.current === sessionId) {
-            stopTtsPreview();
-          }
-        };
-        audio.onerror = () => {
-          if (ttsPreviewSessionRef.current !== sessionId) {
-            return;
-          }
-          toast({
-            title: t('module.shifuSetting.minimaxClonePreviewFailed'),
-            variant: 'destructive',
-          });
-          stopTtsPreview();
-        };
-
-        try {
-          await audio.play();
-          if (ttsPreviewSessionRef.current === sessionId) {
-            setTtsPreviewLoading(false);
-            setTtsPreviewPlaying(true);
-          }
-        } catch {
-          if (ttsPreviewSessionRef.current === sessionId) {
-            toast({
-              title: t('module.shifuSetting.minimaxClonePreviewFailed'),
-              variant: 'destructive',
-            });
-            stopTtsPreview();
-          }
-        }
-        return;
-      }
-
-      const baseUrl = getResolvedBaseURL();
-      const token = useUserStore.getState().getToken();
-      const traceHeaders = buildTraceHeaders({
-        'Content-Type': 'application/json',
-        ...(token
-          ? {
-              Authorization: `Bearer ${token}`,
-              Token: token,
-            }
-          : {}),
+    if (debugBlockedByCredits) {
+      showCreditInsufficientToast({
+        audience: creditInsufficientAudience,
+        code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
       });
-      const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
-        headers: traceHeaders.headers,
-        payload: JSON.stringify({
-          shifu_bid: shifuId,
-          provider: resolvedProvider,
-          model: ttsModel || '',
-          voice_id: previewVoiceId,
-          speed: speedValue,
-          pitch: 0,
-          emotion: '',
-        }),
+      return;
+    }
+    if (!debugAllowed) {
+      return;
+    }
+
+    const sessionId = ttsPreviewSessionRef.current + 1;
+    ttsPreviewSessionRef.current = sessionId;
+    requestExclusive(stopTtsPreview);
+    setTtsPreviewTarget(targetKey);
+    setTtsPreviewLoading(true);
+    setTtsPreviewPlaying(true);
+    ttsPreviewIsPlayingRef.current = true;
+    ttsPreviewIsStreamingRef.current = true;
+    ttsPreviewWaitingRef.current = true;
+    ttsPreviewSegmentsRef.current = [];
+    ttsPreviewSegmentIndexRef.current = 0;
+    closeTtsPreviewStream();
+
+    const baseUrl = getResolvedBaseURL();
+    const token = useUserStore.getState().getToken();
+    const traceHeaders = buildTraceHeaders({
+      'Content-Type': 'application/json',
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+            Token: token,
+          }
+        : {}),
+    });
+    const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
+      headers: traceHeaders.headers,
+      payload: JSON.stringify({
+        shifu_bid: shifuId,
+        provider: resolvedProvider,
+        model: ttsModel || '',
+        voice_id: previewVoiceId,
+        speed: speedValue,
+        pitch: 0,
+        emotion: '',
+      }),
+      method: 'POST',
+    });
+
+    attachSseBusinessResponseFallback(source, {
+      requestToken: token,
+      meta: {
+        url: `${baseUrl}/api/shifu/tts/preview`,
         method: 'POST',
-      });
-
-      attachSseBusinessResponseFallback(source, {
         requestToken: token,
-        meta: {
-          url: `${baseUrl}/api/shifu/tts/preview`,
-          method: 'POST',
-          requestToken: token,
-          requestId: traceHeaders.requestId,
-          harnessRunId: traceHeaders.harnessRunId,
-          creditInsufficientAudience,
-        },
-        onHandled: () => {
-          if (ttsPreviewSessionRef.current === sessionId) {
-            stopTtsPreview();
-          }
-        },
-      });
-
-      source.addEventListener('message', event => {
-        const raw = event?.data;
-        if (!raw) return;
-        const payload = String(raw).trim();
-        if (!payload) return;
-
-        try {
-          const response = JSON.parse(payload);
-          if (ttsPreviewSessionRef.current !== sessionId) {
-            return;
-          }
-
-          if (response?.type === 'audio_segment') {
-            const segmentPayload = response.content ?? response.data;
-            if (!segmentPayload) return;
-            const mappedSegment = normalizeAudioSegmentPayload(segmentPayload);
-            if (!mappedSegment) {
-              return;
-            }
-
-            const updatedSegments = mergeAudioSegmentByUniqueKey(
-              'tts-preview',
-              ttsPreviewSegmentsRef.current,
-              mappedSegment,
-            );
-            if (updatedSegments !== ttsPreviewSegmentsRef.current) {
-              ttsPreviewSegmentsRef.current = updatedSegments;
-            }
-
-            if (ttsPreviewWaitingRef.current) {
-              playPreviewSegment(ttsPreviewSegmentIndexRef.current, sessionId);
-            }
-            return;
-          }
-
-          if (response?.type === 'audio_complete') {
-            ttsPreviewIsStreamingRef.current = false;
-            setTtsPreviewLoading(false);
-            closeTtsPreviewStream();
-            if (ttsPreviewSegmentsRef.current.length === 0) {
-              stopTtsPreview();
-            }
-          }
-        } catch (error) {
-          console.warn('TTS preview stream parse error:', error);
+        requestId: traceHeaders.requestId,
+        harnessRunId: traceHeaders.harnessRunId,
+        creditInsufficientAudience,
+      },
+      onHandled: () => {
+        if (ttsPreviewSessionRef.current === sessionId) {
+          stopTtsPreview();
         }
-      });
+      },
+    });
 
-      source.addEventListener('error', error => {
+    source.addEventListener('message', event => {
+      const raw = event?.data;
+      if (!raw) return;
+      const payload = String(raw).trim();
+      if (!payload) return;
+
+      try {
+        const response = JSON.parse(payload);
         if (ttsPreviewSessionRef.current !== sessionId) {
           return;
         }
-        console.error('TTS preview stream failed:', error);
-        stopTtsPreview();
-      });
 
-      source.stream();
-      ttsPreviewStreamRef.current = source;
-    },
-    [
-      resolvedProvider,
-      shifuId,
-      currentShifu?.readonly,
-      creditInsufficientAudience,
-      ttsModel,
-      ttsVoiceId,
-      speedValue,
-      ttsPreviewPlaying,
-      ttsPreviewLoading,
-      ttsPreviewTarget,
-      closeTtsPreviewStream,
-      playPreviewSegment,
-      requestExclusive,
-      stopTtsPreview,
-      debugAllowed,
-      debugBlockedByCredits,
-      t,
-      toast,
-    ],
-  );
+        if (response?.type === 'audio_segment') {
+          const segmentPayload = response.content ?? response.data;
+          if (!segmentPayload) return;
+          const mappedSegment = normalizeAudioSegmentPayload(segmentPayload);
+          if (!mappedSegment) {
+            return;
+          }
+
+          const updatedSegments = mergeAudioSegmentByUniqueKey(
+            'tts-preview',
+            ttsPreviewSegmentsRef.current,
+            mappedSegment,
+          );
+          if (updatedSegments !== ttsPreviewSegmentsRef.current) {
+            ttsPreviewSegmentsRef.current = updatedSegments;
+          }
+
+          if (ttsPreviewWaitingRef.current) {
+            playPreviewSegment(ttsPreviewSegmentIndexRef.current, sessionId);
+          }
+          return;
+        }
+
+        if (response?.type === 'audio_complete') {
+          ttsPreviewIsStreamingRef.current = false;
+          setTtsPreviewLoading(false);
+          closeTtsPreviewStream();
+          if (ttsPreviewSegmentsRef.current.length === 0) {
+            stopTtsPreview();
+          }
+        }
+      } catch (error) {
+        console.warn('TTS preview stream parse error:', error);
+      }
+    });
+
+    source.addEventListener('error', error => {
+      if (ttsPreviewSessionRef.current !== sessionId) {
+        return;
+      }
+      console.error('TTS preview stream failed:', error);
+      stopTtsPreview();
+    });
+
+    source.stream();
+    ttsPreviewStreamRef.current = source;
+  }, [
+    resolvedProvider,
+    shifuId,
+    currentShifu?.readonly,
+    creditInsufficientAudience,
+    ttsModel,
+    ttsVoiceId,
+    speedValue,
+    ttsPreviewPlaying,
+    ttsPreviewLoading,
+    ttsPreviewTarget,
+    closeTtsPreviewStream,
+    playPreviewSegment,
+    requestExclusive,
+    stopTtsPreview,
+    debugAllowed,
+    debugBlockedByCredits,
+  ]);
 
   // Cleanup TTS preview audio on unmount
   useEffect(() => {
@@ -2798,157 +2615,6 @@ export default function ShifuSettingDialog({
                               </Button>
                             </div>
                           )}
-
-                        {supportsMiniMaxVoiceCloning && (
-                          <div className='space-y-2 rounded-md border p-3'>
-                            <div className='flex items-center justify-between gap-2'>
-                              <div className='min-w-0'>
-                                <p className='text-sm font-medium'>
-                                  {t(
-                                    'module.shifuSetting.minimaxCloneSectionTitle',
-                                  )}
-                                </p>
-                                <p className='truncate text-xs text-muted-foreground'>
-                                  {minimaxCloneCost?.estimated_credits &&
-                                  minimaxCloneCost.estimated_credits !== '0'
-                                    ? t(
-                                        'module.shifuSetting.minimaxCloneCostCredits',
-                                        {
-                                          credits:
-                                            minimaxCloneCost.estimated_credits,
-                                        },
-                                      )
-                                    : t(
-                                        'module.shifuSetting.minimaxCloneCostFree',
-                                      )}
-                                </p>
-                              </div>
-                              <Button
-                                type='button'
-                                variant='outline'
-                                size='sm'
-                                onClick={() => setMinimaxCloneDialogOpen(true)}
-                                disabled={currentShifu?.readonly}
-                              >
-                                <Mic className='mr-2 h-4 w-4' />
-                                {t('module.shifuSetting.minimaxCloneCreate')}
-                              </Button>
-                            </div>
-
-                            {minimaxClonedVoices.length === 0 ? (
-                              <p className='text-xs text-muted-foreground'>
-                                {t('module.shifuSetting.minimaxCloneEmpty')}
-                              </p>
-                            ) : (
-                              <div className='space-y-2'>
-                                {minimaxClonedVoices.map(voice => {
-                                  const previewTarget = `clone:${voice.voice_bid}`;
-                                  const previewLoading =
-                                    ttsPreviewTarget === previewTarget &&
-                                    ttsPreviewLoading;
-                                  const previewPlaying =
-                                    ttsPreviewTarget === previewTarget &&
-                                    ttsPreviewPlaying;
-                                  const ready = voice.status === 'ready';
-                                  const canPreview =
-                                    ready &&
-                                    ((!currentShifu?.readonly &&
-                                      debugAllowed) ||
-                                      Boolean(
-                                        (
-                                          voice.minimax_demo_audio_url || ''
-                                        ).trim(),
-                                      ));
-
-                                  return (
-                                    <div
-                                      key={voice.voice_bid}
-                                      className='flex items-center justify-between gap-2 text-sm'
-                                    >
-                                      <div className='min-w-0'>
-                                        <p className='truncate'>
-                                          {formatMiniMaxClonedVoiceLabel(
-                                            voice.display_name ||
-                                              voice.voice_id,
-                                          )}
-                                        </p>
-                                        <p className='truncate text-xs text-muted-foreground'>
-                                          {voice.voice_id}
-                                        </p>
-                                      </div>
-                                      <div className='flex shrink-0 items-center gap-1'>
-                                        <Badge variant='secondary'>
-                                          {t(
-                                            `module.shifuSetting.minimaxCloneStatus.${voice.status}`,
-                                          )}
-                                        </Badge>
-                                        <Button
-                                          type='button'
-                                          variant='ghost'
-                                          size='icon'
-                                          className='h-7 w-7'
-                                          onClick={() =>
-                                            handleTtsPreview({
-                                              voiceId: voice.voice_id,
-                                              targetKey: previewTarget,
-                                              demoAudioUrl:
-                                                voice.minimax_demo_audio_url ||
-                                                '',
-                                            })
-                                          }
-                                          disabled={!canPreview}
-                                          title={
-                                            canPreview
-                                              ? t(
-                                                  'module.shifuSetting.minimaxClonePreview',
-                                                )
-                                              : t(
-                                                  'module.shifuSetting.minimaxClonePreviewUnavailable',
-                                                )
-                                          }
-                                        >
-                                          {previewLoading ? (
-                                            <Loader2 className='h-4 w-4 animate-spin' />
-                                          ) : previewPlaying ? (
-                                            <Square className='h-4 w-4' />
-                                          ) : (
-                                            <Volume2 className='h-4 w-4' />
-                                          )}
-                                        </Button>
-                                        {voice.status === 'failed' && (
-                                          <Button
-                                            type='button'
-                                            variant='ghost'
-                                            size='icon'
-                                            className='h-7 w-7'
-                                            onClick={() =>
-                                              retryMiniMaxVoice(voice.voice_bid)
-                                            }
-                                            disabled={currentShifu?.readonly}
-                                          >
-                                            <RotateCw className='h-4 w-4' />
-                                          </Button>
-                                        )}
-                                        <Button
-                                          type='button'
-                                          variant='ghost'
-                                          size='icon'
-                                          className='h-7 w-7'
-                                          onClick={() =>
-                                            deleteMiniMaxVoice(voice)
-                                          }
-                                          disabled={currentShifu?.readonly}
-                                        >
-                                          <Trash2 className='h-4 w-4' />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
 
                       {/* Speed Adjustment */}
@@ -3142,30 +2808,6 @@ export default function ShifuSettingDialog({
           </Form>
         </SheetContent>
       </Sheet>
-      <MiniMaxVoiceCloneDialog
-        open={minimaxCloneDialogOpen}
-        onOpenChange={setMinimaxCloneDialogOpen}
-        shifuId={shifuId}
-        cloneCost={minimaxCloneCost}
-        onRefreshCost={refreshMinimaxVoiceData}
-        onVoiceChange={voice => {
-          setMinimaxClonedVoices(prev => {
-            const next = prev.filter(
-              item => item.voice_bid !== voice.voice_bid,
-            );
-            return [voice, ...next];
-          });
-        }}
-        onVoiceReady={voice => {
-          setTtsVoiceId(voice.voice_id);
-          setMinimaxClonedVoices(prev => {
-            const next = prev.filter(
-              item => item.voice_bid !== voice.voice_bid,
-            );
-            return [voice, ...next];
-          });
-        }}
-      />
     </>
   );
 }

@@ -186,7 +186,6 @@ def _load_existing_referral_reward_result(
             (existing_entry.metadata_json or {}).get("grant_source")
             or REFERRAL_REWARD_GRANT_SOURCE
         ),
-        validity_preset=REFERRAL_REWARD_VALIDITY_PRESET,
         expires_at=existing_entry.expires_at,
         wallet_bucket_bid=str(existing_entry.wallet_bucket_bid or "").strip(),
         ledger_bid=str(existing_entry.ledger_bid or "").strip(),
@@ -407,7 +406,6 @@ def _grant_referral_reward_credits_once(
             user_bid=normalized_user_bid,
             amount=_credit_decimal_to_number(granted_amount),
             grant_source=REFERRAL_REWARD_GRANT_SOURCE,
-            validity_preset=REFERRAL_REWARD_VALIDITY_PRESET,
             expires_at=new_effective_to,
             wallet_bucket_bid=str(bucket.wallet_bucket_bid or "").strip(),
             ledger_bid=str(ledger_entry.ledger_bid or "").strip(),

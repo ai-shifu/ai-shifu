@@ -13,7 +13,6 @@ describe('settings-config-options', () => {
           speed: { min: 0.5, max: 2, step: 0.1, default: 1 },
           pitch: { min: -12, max: 12, step: 1, default: 0 },
           supports_emotion: true,
-          supports_voice_cloning: true,
           models: [{ value: 'speech-2.8-turbo', label: 'Speech' }],
           voices: [{ value: 'voice-1', label: 'Voice 1' }],
           emotions: [{ value: 'happy', label: 'Happy' }],
@@ -23,7 +22,6 @@ describe('settings-config-options', () => {
       expect.objectContaining({
         name: 'minimax',
         label: 'MiniMax',
-        supports_voice_cloning: true,
         models: [{ value: 'speech-2.8-turbo', label: 'Speech' }],
       }),
     ]);

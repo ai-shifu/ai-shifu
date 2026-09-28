@@ -102,6 +102,7 @@ _install_openai_responses_stub()
 from flaskr.api import llm
 from flaskr.api.llm import model_selection
 from flaskr.dao import db
+from flaskr.route import model_gateway_runtime as gateway_runtime
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_CACHE_TOKENS,
     BILLING_METRIC_LLM_INPUT_TOKENS,
@@ -2877,7 +2878,103 @@ def test_stream_retry_noop_when_exception_types_unavailable(
     assert calls["count"] == 1
 
 
-def test_gateway_token_count_and_default_output_limit(
+@pytest.mark.skipif(
+    _installed_litellm_version() is None,
+    reason="install requirements.txt to run the native LiteLLM adapter contract",
+)
+def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> None:
+    script = textwrap.dedent(
+        """
+        import json
+        from unittest.mock import MagicMock
+
+        import httpx
+        import litellm
+        from flask import Flask
+        from openai import OpenAI
+        from flaskr.api import llm
+        from flaskr.route import model_gateway_runtime as runtime
+
+        app = Flask(__name__)
+        runtime.admit_creator_usage = lambda *args, **kwargs: None
+        runtime.has_complete_llm_rates = lambda model: True
+        runtime._claim_gateway_request = lambda *args: None
+        runtime._trace_for_request = lambda request: MagicMock()
+        llm.MODEL_MAX_OUTPUT_TOKENS = {}
+        messages = [{"role": "user", "content": "hello"}]
+        for provider, model, upstream in [
+            ("qwen", "qwen/deepseek-v4.1-flash", "deepseek-v4.1-flash"),
+            ("openai", "gpt-6-sol", "gpt-6-sol"),
+        ]:
+            adapter = "dashscope" if provider == "qwen" else "openai"
+            for name in (model, upstream, f"{adapter}/{upstream}"):
+                litellm.model_cost.pop(name, None)
+            if provider == "openai":
+                litellm.register_model({model: {
+                    "litellm_provider": "openai", "supports_none_reasoning_effort": True,
+                }})
+            assert llm._get_llm_max_output_tokens(model, upstream) is None
+            for stream in (False, True):
+                for requested in (None, 8192):
+                    captured = []
+                    recorded = []
+                    usage = {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5}
+                    payload = {
+                        "id": "reply", "created": 1, "model": upstream,
+                        "object": "chat.completion.chunk" if stream else "chat.completion",
+                        "choices": [{"index": 0, "finish_reason": "stop",
+                            "delta" if stream else "message": {"role": "assistant", "content": "ok"}}],
+                        "usage": usage,
+                    }
+                    def respond(request):
+                        captured.append(json.loads(request.content))
+                        if stream:
+                            content = "data: " + json.dumps(payload) + "\\n\\ndata: [DONE]\\n\\n"
+                            return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=content, request=request)
+                        return httpx.Response(200, json=payload, request=request)
+                    with httpx.Client(transport=httpx.MockTransport(respond), trust_env=False) as http:
+                        client = OpenAI(api_key="test", base_url="https://llm.invalid/v1", http_client=http)
+                        llm.MODEL_ALIAS_MAP = {model: (provider, upstream)}
+                        llm.PROVIDER_STATES = {provider: llm.ProviderState(
+                            enabled=True, models=[model], params={"api_key": "test", "custom_llm_provider": adapter, "client": client},
+                        )}
+                        llm.record_llm_usage = lambda app, context, **kwargs: recorded.append((context, kwargs))
+                        body = {"model": model, "messages": messages, "stream": stream}
+                        body["max_tokens"] = requested
+                        request = runtime.prepare_gateway_chat_request(app, creator_bid="user", idempotency_key="native", payload=body)
+                        assert request.input_tokens > 0
+                        if stream:
+                            chunks = list(runtime.stream_gateway_chat_request(app, request))
+                            assert any(c.get("choices") and c["choices"][0]["delta"].get("content") == "ok" for c in chunks)
+                        else:
+                            assert runtime.complete_gateway_chat_request(app, request)["choices"][0]["message"]["content"] == "ok"
+                        assert len(captured) == 1
+                        body_tokens = captured[0].get("max_tokens", captured[0].get("max_completion_tokens"))
+                        assert body_tokens == requested
+                        if requested is None:
+                            assert "max_tokens" not in captured[0]
+                            assert "max_completion_tokens" not in captured[0]
+                        assert len(recorded) == 1
+                        context, record = recorded[0]
+                        assert context.billable == 1
+                        assert record["status"] == 0
+                        assert (record["input"], record["output"], record["total"]) == (3, 2, 5)
+        print("native gateway fallback passed")
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "LITELLM_LOCAL_MODEL_COST_MAP": "True"},
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "native gateway fallback passed" in completed.stdout
+
+
+def test_gateway_token_count_uses_known_output_limit_as_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -2899,11 +2996,194 @@ def test_gateway_token_count_and_default_output_limit(
         )
         == 12
     )
-    assert llm.resolve_llm_max_output_tokens("rated-model") == 4096
+    assert llm.resolve_llm_max_output_tokens("rated-model") == 8192
     assert llm.resolve_llm_max_output_tokens("rated-model", 2048) == 2048
 
     monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"small-model": 2048})
     assert llm.resolve_llm_max_output_tokens("small-model") == 2048
+
+
+def test_shared_stream_retries_keep_known_ceiling_as_default(
+    monkeypatch: pytest.MonkeyPatch, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"rated-model": 16384})
+    captured = []
+
+    def complete(**kwargs: object) -> object:
+        captured.append(dict(kwargs))
+        attempt = len(captured)
+
+        def chunks() -> object:
+            if attempt == 1:
+                message = "connection died"
+                raise _FakeAPIConnectionError(message)
+            yield FakeResponse("reply", content="ok", finish_reason="stop")
+
+        return chunks()
+
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    chunks = list(
+        llm._iter_stream_with_precontent_retry(
+            app,
+            "rated-model",
+            "upstream-model",
+            [],
+            {},
+            {},
+        )
+    )
+    assert chunks[0].choices[0].delta.content == "ok"
+    assert len(captured) == 2
+    assert all(call["max_tokens"] == 16384 for call in captured)
+    assert all("default_to_model_limit" not in call for call in captured)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "model", ["qwen/deepseek-v4.1-flash", "gpt-6-sol", "gemini-3.8-flash"]
+)
+@pytest.mark.parametrize("requested", ["omitted", None, 32, 8192])
+@pytest.mark.parametrize("limit", [None, 16384])
+def test_gateway_optional_limits_reaches_provider_and_records_actual_usage(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    stream: bool,
+    model: str,
+    requested: object,
+    limit: int | None,
+) -> None:
+    provider = (
+        "qwen"
+        if model.startswith("qwen/")
+        else "gemini"
+        if model.startswith("gemini")
+        else "openai"
+    )
+    invoke_model = model.removeprefix("qwen/")
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {model: (provider, invoke_model)})
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            provider: llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test", "custom_llm_provider": provider},
+                models=[model],
+            )
+        },
+    )
+    monkeypatch.setattr(
+        llm, "MODEL_MAX_OUTPUT_TOKENS", {} if limit is None else {model: limit}
+    )
+
+    def unknown_limit(_model: str) -> None:
+        message = "Model is not mapped yet"
+        raise ValueError(message)
+
+    monkeypatch.setattr(llm.litellm, "get_max_tokens", unknown_limit)
+    monkeypatch.setattr(
+        llm.litellm, "get_supported_openai_params", lambda **_kwargs: []
+    )
+    monkeypatch.setattr(
+        llm.litellm, "token_counter", lambda **_kwargs: 12, raising=False
+    )
+    admitted = []
+    claimed = []
+    monkeypatch.setattr(
+        gateway_runtime,
+        "admit_creator_usage",
+        lambda _app, **kwargs: admitted.append(kwargs),
+    )
+    monkeypatch.setattr(gateway_runtime, "has_complete_llm_rates", lambda _model: True)
+    monkeypatch.setattr(
+        gateway_runtime,
+        "_claim_gateway_request",
+        lambda _app, user, key: claimed.append((user, key)),
+    )
+    monkeypatch.setattr(
+        gateway_runtime, "_trace_for_request", lambda _request: DummySpan()
+    )
+    recorded = []
+    monkeypatch.setattr(
+        llm,
+        "record_llm_usage",
+        lambda _app, context, **kwargs: recorded.append((context, kwargs)),
+    )
+    captured = {}
+    usage = SimpleNamespace(
+        prompt_tokens=12,
+        completion_tokens=2,
+        total_tokens=14,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=3),
+    )
+    response = FakeOpenAIResponse(
+        {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]}, usage
+    )
+    chunk = FakeOpenAIResponse(
+        {"choices": [{"delta": {"content": "ok"}, "finish_reason": "stop"}]}, usage
+    )
+    chunk.choices = FakeResponse("reply", content="ok", finish_reason="stop").choices
+
+    def complete(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([chunk]) if stream else response
+
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": stream,
+    }
+    if requested != "omitted":
+        payload["max_tokens"] = requested
+    request = gateway_runtime.prepare_gateway_chat_request(
+        app,
+        creator_bid="gateway-user",
+        idempotency_key="missing-limit",
+        payload=payload,
+    )
+    if stream:
+        chunks = list(gateway_runtime.stream_gateway_chat_request(app, request))
+        assert chunks[0]["choices"][0]["delta"]["content"] == "ok"
+        assert captured["stream_options"] == {"include_usage": True}
+    else:
+        assert (
+            gateway_runtime.complete_gateway_chat_request(app, request)["choices"][0][
+                "message"
+            ]["content"]
+            == "ok"
+        )
+    assert captured["model"] == invoke_model
+    assert captured["stream"] is stream
+    if requested in (None, "omitted"):
+        if limit is None:
+            assert "max_tokens" not in captured
+        else:
+            assert captured["max_tokens"] == limit
+    else:
+        assert captured["max_tokens"] == requested
+    assert "default_to_model_limit" not in captured
+    assert admitted == [
+        {"creator_bid": "gateway-user", "usage_scene": BILL_USAGE_SCENE_PROD}
+    ]
+    assert claimed == [("gateway-user", request.request_id)]
+    assert len(recorded) == 1
+    context, record = recorded[0]
+    assert context.user_bid == "gateway-user"
+    assert context.request_id == request.request_id
+    assert context.billable == 1
+    assert record["model"] == model
+    assert record["status"] == 0
+    assert (
+        record["input"],
+        record["input_cache"],
+        record["output"],
+        record["total"],
+    ) == (12, 3, 2, 14)
+    assert record["extra"]["billing_source"] == "model_gateway"
+    assert record["extra"]["usage_source"] == "litellm"
+    assert "enqueue_settlement" not in record
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -3214,6 +3494,140 @@ def _use_fake_provider(monkeypatch: object) -> None:
     )
     monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
     monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+
+
+@pytest.mark.parametrize("method", ["invoke_llm", "chat_llm"])
+@pytest.mark.parametrize("metadata", ["configured", "catalogue", "unknown"])
+@pytest.mark.parametrize("requested", ["omitted", None, 32])
+def test_learning_calls_share_gateway_output_token_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    method: str,
+    metadata: str,
+    requested: object,
+) -> None:
+    """Exercise learning entry points with the same optional-limit policy."""
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm,
+        "MODEL_MAX_OUTPUT_TOKENS",
+        {"gpt-test": 16384} if metadata == "configured" else {},
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_max_tokens",
+        lambda _model: 8192 if metadata == "catalogue" else None,
+    )
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
+    captured = {}
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("reply", content="ok", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    arguments = {
+        "app": app,
+        "user_id": "learning-user",
+        "span": DummySpan(),
+        "model": "gpt-test",
+    }
+    if requested != "omitted":
+        arguments["max_tokens"] = requested
+    if method == "invoke_llm":
+        list(llm.invoke_llm(message="hello", **arguments))
+    else:
+        list(llm.chat_llm(messages=[{"role": "user", "content": "hello"}], **arguments))
+    expected = llm.resolve_llm_max_output_tokens(
+        "gpt-test", None if requested == "omitted" else requested
+    )
+    if requested == 32:
+        assert expected == 32
+    else:
+        assert (
+            expected
+            == {"configured": 16384, "catalogue": 8192, "unknown": None}[metadata]
+        )
+    if expected is None:
+        assert "max_tokens" not in captured
+    else:
+        assert captured["max_tokens"] == expected
+
+
+@pytest.mark.parametrize("task", ["compile", "localize", "optimize"])
+@pytest.mark.parametrize("metadata", ["configured", "catalogue", "unknown"])
+def test_internal_profile_tasks_fit_output_budgets_to_known_limits(
+    monkeypatch: pytest.MonkeyPatch, app: object, task: str, metadata: str
+) -> None:
+    """Exercise real internal consumers through invoke_llm, including low ceilings."""
+    from flaskr.service.common import profile_onboarding_prompt
+    from flaskr.service.profile import learner_profile_optimizer
+
+    module = (
+        learner_profile_optimizer if task == "optimize" else profile_onboarding_prompt
+    )
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm,
+        "MODEL_MAX_OUTPUT_TOKENS",
+        {"gpt-test": 1024} if metadata == "configured" else {},
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_max_tokens",
+        lambda _model: 1024 if metadata == "catalogue" else None,
+    )
+    monkeypatch.setattr(module, "invoke_llm", llm.invoke_llm)
+    monkeypatch.setattr(module, "get_default_llm_model", lambda _app: "gpt-test")
+    monkeypatch.setattr(
+        module, "create_trace_with_root_span", lambda **_kwargs: (object(), DummySpan())
+    )
+    monkeypatch.setattr(module, "finalize_langfuse_trace", lambda **_kwargs: None)
+    monkeypatch.setattr(module, "get_langfuse_client", lambda: None)
+    records = []
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: records.append(kwargs)
+    )
+    captured = {}
+    output = "Generated prompt"
+    if task == "localize":
+        monkeypatch.setattr(module, "get_locale_labels", lambda: {"en-US": "English"})
+        output = json.dumps(
+            {
+                "source_locale": "en-US",
+                "assistant_prompts": {"en-US": "Generated prompt"},
+                "complete": True,
+            }
+        )
+    if task == "optimize":
+        monkeypatch.setattr(module, "check_text_content", lambda *_args: True)
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("reply", content=output, finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    if task == "compile":
+        assert (
+            module.compile_profile_onboarding_assistant_prompt(app, "?[...Answer]")
+            == output
+        )
+        budget = 8192
+    elif task == "localize":
+        assert module.localize_profile_onboarding_assistant_prompt(
+            app, "Generated prompt"
+        ) == {"en-US": "Generated prompt"}
+        budget = 16384
+    else:
+        result = module.optimize_learner_profile(
+            app, user_id="user", learner_profile="Learner context"
+        )
+        assert result["optimized_learner_profile"] == output
+        budget = 1200
+    assert captured["max_tokens"] == (budget if metadata == "unknown" else 1024)
+    assert captured["model"] == "gpt-test"
+    assert len(records) == 1
+    assert records[0]["status"] == 0
 
 
 def _tool_call_chunk(

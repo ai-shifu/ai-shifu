@@ -1,0 +1,260 @@
+{
+  "__namespace__": "module.shifuSetting",
+  "addKeyword": "مطلوبہ الفاظ شامل کریں۔",
+  "archive": "کورس آرکائیو کریں",
+  "archiveConfirm": "آرکائیو کرنے پر کورس “آرکائیو” میں منتقل ہوگا۔ اسے دوبارہ “غیر آرکائیو شدہ” حالت میں واپس لایا جا سکتا ہے۔ آرکائیو ہونے سے کورس میں ترمیم اور اسے سیکھنے پر کوئی اثر نہیں پڑتا۔",
+  "archiveSuccess": "کورس آرکائیو ہو گیا ہے۔",
+  "archiveTitle": "کیا کورس آرکائیو کرنا چاہتے ہیں؟",
+  "askModel": "ضمنی سوالات کا ماڈل",
+  "askPreview": "ضمنی سوال آزمائیں",
+  "askPreviewLoading": "جانچ ہو رہی ہے...",
+  "askPreviewQuestion": "ٹیسٹ کے سوالات",
+  "askPreviewQuestionPlaceholder": "ایک سوال درج کریں اور جانچیں کہ آیا ماڈل کا جواب توقع کے مطابق ہے۔",
+  "askPreviewQuestionRequired": "براہ کرم ایک ٹیسٹ سوال درج کریں۔",
+  "askPreviewResult": "ٹیسٹ کے نتائج",
+  "askPreviewUsedFallback": "{provider} کال ناکام ہوگئی اور اس کی بجائے پہلے سے شامل ماڈل استعمال کیا گیا ہے۔",
+  "askPreviewUsedProvider": "اس بار استعمال کیا گیا: {provider}",
+  "askProviderConfigInvalidJson": "{field} ایک درست JSON آبجیکٹ ہونا چاہیے۔",
+  "askProviderConfigOutOfRange": "{field} {min}-{max} کے درمیان ہونا ضروری ہے",
+  "askProviderConfigRequired": "{field} درکار ہے۔",
+  "askProviderDescriptions": {
+    "coze": "طالب علم کے مزید سوالات کے جواب دینے کے لیے Coze Bot استعمال کریں۔",
+    "coze_workflow": "طالب علم کے سوالات کے جوابات دینے کے لیے Coze ورک فلو کا استعمال کریں۔",
+    "dify": "طالب علم کے سوالات کے جوابات دینے کے لیے Dify گفتگو ایپ استعمال کریں۔",
+    "get_biji_knowledge": "GetNote نالج بیس میں معلومات تلاش کریں، پھر بلٹ ان ماڈل ان کا خلاصہ کر کے طالب علم کے ضمنی سوال کا جواب دے گا۔",
+    "llm": "طلباء کے سوالات کے جوابات دینے کے لیے پہلے سے موجود ماڈلز کا استعمال کریں۔",
+    "volc_knowledge": "Volcengine نالج بیس میں تلاش کر کے طالب علم کے ضمنی سوال کا جواب دیں۔"
+  },
+  "askProviderFields": {
+    "coze": {
+      "api_key": {
+        "hint": "Coze کا ذاتی رسائی ٹوکن۔",
+        "label": "API کلید"
+      },
+      "bot_id": {
+        "hint": "Coze Bot کا شناخت کنندہ۔",
+        "label": "Bot ID"
+      }
+    },
+    "coze_workflow": {
+      "api_key": {
+        "hint": "Coze ذاتی رسائی کا ٹوکن۔",
+        "label": "API کلید"
+      },
+      "workflow_id": {
+        "hint": "Coze ورک فلو شناخت کنندہ۔",
+        "label": "ورک فلو ID"
+      }
+    },
+    "dify": {
+      "api_key": {
+        "hint": "Dify ایپلیکیشن کی API Key۔",
+        "label": "API کلید"
+      },
+      "base_url": {
+        "hint": "Dify سروس کا پتہ، مثلاً https://api.dify.ai/v1",
+        "label": "سروس کا پتہ"
+      }
+    },
+    "get_biji_knowledge": {
+      "api_key": {
+        "hint": "GetNote اوپن پلیٹ فارم کی API Key۔",
+        "label": "API کلید"
+      },
+      "client_id": {
+        "hint": "GetNote اوپن پلیٹ فارم ایپلیکیشن کی Client ID۔",
+        "label": "Client ID"
+      },
+      "top_k": {
+        "hint": "معنوی تلاش 1-10 کے درمیان آئٹمز کی تعداد لوٹاتی ہے۔",
+        "label": "واپس کیے جانے والے نتائج کی تعداد"
+      },
+      "topic_id": {
+        "hint": "GetNote نالج بیس کی ID۔",
+        "label": "نالج بیس ID"
+      }
+    },
+    "volc_knowledge": {
+      "account_id": {
+        "hint": "V-Account-Id درخواست کے ہیڈر میں استعمال ہونے والی Volcengine اکاؤنٹ ID۔",
+        "label": "اکاؤنٹ ID"
+      },
+      "ak": {
+        "hint": "Volcengine کی Access Key۔",
+        "label": "Access Key (AK)"
+      },
+      "collection_name": {
+        "hint": "نالج بیس جمع کرنے کا نام۔",
+        "label": "علم کی بنیاد کا مجموعہ"
+      },
+      "sk": {
+        "hint": "Volcengine کی Secret Key۔",
+        "label": "Secret Key (SK)"
+      }
+    }
+  },
+  "askProviderModes": {
+    "provider_only": "صرف منتخب سروس فراہم کنندگان کا استعمال کریں۔",
+    "provider_then_llm": "سروس فراہم کرنے والے کو ترجیح دیں اور ناکامی کے بعد بلٹ ان ماڈل استعمال کریں۔"
+  },
+  "askProviderOptions": {
+    "coze": "Coze",
+    "coze_workflow": "Coze ورک فلو",
+    "dify": "Dify",
+    "get_biji_knowledge": "GetNote نالج بیس",
+    "llm": "بلٹ میں ماڈل",
+    "volc_knowledge": "Volcengine نالج بیس"
+  },
+  "askProviderSelect": "ضمنی سوالات کے لیے طریقہ منتخب کریں",
+  "askTemperature": "ضمنی سوالات کے جوابات کا ٹمپریچر",
+  "askTemperatureHint": "سوالوں کے جواب دینے کے انحراف کی ڈگری کو کنٹرول کریں (قدر کی حد 0-2، 0 کی سفارش کی جاتی ہے)",
+  "askTitle": "ضمنی سوالات کے لیے علم کا ذریعہ",
+  "defaultListenModeDescription": "اسے آن کرنے کے بعد، طلبا بطور ڈیفالٹ سیکھنے کے لیے لیکچر موڈ میں داخل ہوں گے۔",
+  "defaultListenModeTitle": "بطور ڈیفالٹ سننے کے موڈ میں کھولیں",
+  "draftConflictDescription": "کورس میں {phone} کی طرف سے ترمیم کی گئی ہے، تازہ ترین ریکارڈز حاصل کرنے کے لیے براہ کرم تازہ ترین مواد لوڈ کریں",
+  "draftConflictRefresh": "تازہ ترین مواد لوڈ کریں۔",
+  "draftConflictSynced": "اس باب کو {phone} نے اپ ڈیٹ کیا ہے، اور تازہ ترین مواد کو ہم آہنگ کیا گیا ہے۔",
+  "draftConflictTitle": "کورس اپ ڈیٹ ہو گیا۔",
+  "draftConflictUnknownUser": "دوسرے صارفین",
+  "draftSelfUpdateDescription": "اس باب کو دوسرے صفحات یا ٹولز میں اپ ڈیٹ کر دیا گیا ہے، براہ کرم تازہ ترین مواد لوڈ کریں اور ترمیم جاری رکھیں۔",
+  "draftSelfUpdateSynced": "اس باب کو دوسرے صفحات یا ٹولز میں اپ ڈیٹ کیا گیا ہے، اور تازہ ترین مواد کو ہم آہنگ کیا گیا ہے۔",
+  "draftSelfUpdateTitle": "مواد کو دوسرے صفحات پر اپ ڈیٹ کر دیا گیا ہے۔",
+  "fileSizeLimit": "فائل کا سائز 2MB سے زیادہ نہیں ہو سکتا",
+  "imageFormatHint": "یہ کورس کارڈز اور مطالعہ کے صفحات پر دکھایا جائے گا۔ JPG، PNG، زیادہ سے زیادہ 2MB، 1:1 تجویز کردہ کو سپورٹ کرتا ہے۔",
+  "inputKeywords": "مطلوبہ الفاظ درج کریں اور شامل کرنے کے لیے Enter دبائیں۔",
+  "keywords": "کورس کے مطلوبہ الفاظ",
+  "liveVoiceDescription": "براہ راست صوتی سوال و جواب کے لیے Gemini کی پہلے سے فراہم کردہ آوازوں میں سے انتخاب کریں۔",
+  "liveVoiceLabel": "ریئل ٹائم گفتگو کی آواز",
+  "liveVoicePreviewHint": "پہلے ترتیبات محفوظ کریں، پھر مکمل صوتی گفتگو سننے کے لیے کورس کے پیش نظارہ میں \"مزید پوچھیں\" پر کلک کریں۔",
+  "liveVoiceStyles": {
+    "breathy": "سانس آمیز",
+    "breezy": "ہلکی پھلکی",
+    "bright": "روشن",
+    "casual": "قدرتی اور آرام دہ",
+    "clear": "صاف",
+    "easyGoing": "بے تکلف",
+    "even": "ہموار",
+    "excitable": "پرجوش",
+    "firm": "پُرعزم",
+    "forward": "بے باک",
+    "friendly": "دوستانہ",
+    "gentle": "ملائم",
+    "gravelly": "کھردرا",
+    "informative": "معلومات سے بھرپور",
+    "knowledgeable": "علم سے بھرپور",
+    "lively": "جاندار",
+    "mature": "پختہ",
+    "smooth": "رواں",
+    "soft": "نرم",
+    "upbeat": "خوش مزاج",
+    "warm": "پُرتپاک",
+    "youthful": "جوانی بھرا"
+  },
+  "minimaxCloneStatus": {
+    "billing_pending": "کٹوتی پر کارروائی کی جا رہی ہے۔",
+    "failed": "ناکام",
+    "processing": "کارروائی جاری ہے",
+    "queued": "قطار میں",
+    "ready": "دستیاب ہے۔"
+  },
+  "minimaxCloneVoiceOptionLabel": "{name}",
+  "minimaxManualVoiceApply": "استعمال کریں",
+  "minimaxManualVoiceBadge": "اپنی مرضی کے مطابق",
+  "minimaxManualVoiceInvalid": "براہ کرم ایک درست MiniMax کسٹم ٹون ID درج کریں۔",
+  "minimaxManualVoiceLabel": "وائس ID دستی طور پر درج کریں",
+  "minimaxManualVoicePlaceholder": "MiniMax کسٹم voice_id درج کریں۔",
+  "minimaxVoiceGroupBuiltIn": "بلٹ ان آوازیں۔",
+  "minimaxVoiceGroupCloned": "میری کلون کی گئی آوازیں",
+  "minimaxVoiceGroupManual": "دستی وائس ID",
+  "modelOptions": {
+    "hint": "ماڈل کورس آؤٹ پٹ کی رفتار اور معیار کا تعین کرتا ہے۔",
+    "liveVoice": "حقیقی وقت کی آواز",
+    "text": "تحریری سوال و جواب",
+    "unavailable": "ابھی دستیاب نہیں ہے۔"
+  },
+  "number": "نمبر درج کریں۔",
+  "permissionContactRequired": "براہ کرم کم از کم ایک اکاؤنٹ درج کریں۔",
+  "permissionCount": "مشترکہ: {count}/{max}",
+  "permissionDialogTitle": "شیئرنگ کی اجازتیں۔",
+  "permissionDuplicate": "اکاؤنٹ نے اشتراک کی اجازتیں کھول دی ہیں: {values}",
+  "permissionEdit": "ترمیم کریں",
+  "permissionEditChangeItem": "{identifier}：{from} → {to}",
+  "permissionEditChangeTitle": "اجازت میں ترمیم",
+  "permissionEditConfirmTitle": "تبدیلیاں محفوظ کرنے کی تصدیق کریں؟",
+  "permissionEditNoChanges": "ابھی تک کوئی تبدیلیاں محفوظ نہیں ہیں۔",
+  "permissionEditRemoveTitle": "ہٹا دیا جائے گا",
+  "permissionEditSuccess": "اجازت کی تبدیلیاں محفوظ ہو گئیں۔",
+  "permissionEmailInvalid": "براہ کرم درست ای میل ایڈریس درج کریں: {values}",
+  "permissionEmailLabel": "ای میل",
+  "permissionEmailPlaceholder": "جن افراد کو مشترکہ رسائی دینی ہے، ان کے ای میل پتے درج کریں؛ انہیں کوما یا نئی لائن سے الگ کریں۔",
+  "permissionEmpty": "ابھی تک اشتراک کرنے والے کوئی صارف نہیں ہیں۔",
+  "permissionGrant": "کھولیں۔",
+  "permissionGrantConfirmDesc": "<strong>{permission}</strong> کی اجازت مندرجہ ذیل {contactType} کے لیے کھول دی جائے گی",
+  "permissionGrantConfirmTitle": "اشتراک کی اجازتوں کو چالو کرنے کی تصدیق کریں۔",
+  "permissionGrantSuccess": "ایکٹیویشن کامیاب",
+  "permissionLabel": "اختیارات کا دائرہ",
+  "permissionLimit": "{count} تک صارفین کو شیئر کیا جا سکتا ہے۔",
+  "permissionLoading": "لوڈ ہو رہا ہے…",
+  "permissionManage": "شیئرنگ کی اجازتیں۔",
+  "permissionOwnerNotAllowed": "کورس کے ذمہ دار کو خود مشترکہ رسائی نہیں دی جا سکتی۔",
+  "permissionPhoneInvalid": "براہ کرم درست موبائل فون نمبر درج کریں: {values}",
+  "permissionPhoneLabel": "موبائل فون نمبر",
+  "permissionPhonePlaceholder": "جن افراد کو مشترکہ رسائی دینی ہے، ان کے موبائل فون نمبر درج کریں؛ ایک ساتھ کئی نمبروں کے لیے رسائی دی جا سکتی ہے۔",
+  "permissionPublish": "شائع کریں",
+  "permissionPublishHint": "اشاعت کی اجازت میں ترمیم کی اجازت بھی شامل ہے",
+  "permissionPublishHintWrapped": "（{hint}）",
+  "permissionReadOnly": "صرف پڑھیں",
+  "permissionRemove": "ہٹا دیں۔",
+  "permissionRemoveUndo": "ہٹانے کو کالعدم کریں۔",
+  "permissionRemoved": "ہٹا دیا گیا۔",
+  "permissionTabGrant": "اجازتیں کھولیں۔",
+  "permissionTabList": "مشترکہ صارفین",
+  "price": "کورس کی قیمت",
+  "priceUnit": "کرنسی",
+  "selected": "منتخب",
+  "shifuAvatar": "استاد اوتار",
+  "shifuDescription": "کورس کا تعارف",
+  "shifuDescriptionEmpty": "کورس کا تعارف خالی نہیں ہو سکتا",
+  "shifuDescriptionMaxLength": "کورس کی تفصیل 500 حروف سے زیادہ نہیں ہو سکتی",
+  "shifuDescriptionPlaceholder": "مختصراً بیان کریں کہ یہ کورس کس کے لیے موزوں ہے اور کیا سیکھا جا سکتا ہے۔",
+  "shifuModel": "تدریسی ماڈل",
+  "shifuName": "کورس کا نام",
+  "shifuNameEmpty": "کورس کا نام خالی نہیں ہو سکتا",
+  "shifuNameMaxLength": "کورس کا نام {maxLength} حروف سے زیادہ نہیں ہو سکتا",
+  "shifuNamePlaceholder": "کورس کو ایک دلکش نام دیں۔",
+  "shifuPriceEmpty": "قیمت خالی نہیں ہو سکتی",
+  "shifuPriceFormat": "قیمت درست عددی شکل میں ہونی چاہیے۔",
+  "shifuPrompt": "کورس پرامپٹ",
+  "shifuPromptHint": "AI کی تعلیم پر تقاضے اور رکاوٹیں۔",
+  "shifuPromptMaxLength": "کورس کے پرامپٹ 20,000 حروف سے زیادہ نہیں ہو سکتے",
+  "shifuPromptPlaceholder": "AI کو بتائیں کہ آپ کون ہیں، یہ کورس کس کے لیے ہے، سکھانے کے لیے کون سا لہجہ اور انداز استعمال کیا جانا چاہیے، سلائیڈز کیسے بنائیں، کن اصولوں پر عمل کرنا چاہیے، کون سی غلطیاں نہیں کرنی چاہیے، وغیرہ۔",
+  "shifuTemperature": "تدریسی درجہ حرارت",
+  "shifuTemperatureFormat": "درجہ حرارت درست عددی شکل میں ہونا چاہیے۔",
+  "shifuTemperatureMax": "درجہ حرارت 2 سے زیادہ نہیں ہو سکتا",
+  "shifuTemperatureMin": "درجہ حرارت 0 سے کم نہیں ہو سکتا",
+  "supportedFormats": "صرف jpg اور png فارمیٹس کو سپورٹ کرتا ہے۔",
+  "temperatureHint": "لیکچرز کے انحراف کی ڈگری کو کنٹرول کریں (قدر کی حد 0-2، 0.3 کی سفارش کی جاتی ہے)",
+  "temperatureHint2": "قدر جتنی کم ہوگی، یہ اتنا ہی مستحکم ہے۔ قدر جتنی زیادہ ہوگی، یہ اتنا ہی مختلف ہوگا۔",
+  "title": "کورس کی ترتیبات",
+  "ttsDescription": "فعال کرنے پر طالب علم سننے کے موڈ میں سلائیڈز اور آواز کے ساتھ سیکھ سکتے ہیں۔",
+  "ttsModel": "تقریر ماڈل",
+  "ttsPreview": "موجودہ انتخاب کو سنیں۔",
+  "ttsPreviewLoading": "پیش منظر تیار ہو رہا ہے...",
+  "ttsPreviewStop": "روکیں",
+  "ttsProviderRequiredDesc": "لیکچر موڈ آن کرنے کے بعد، براہ کرم پہلے وائس سروس فراہم کنندہ کو منتخب کریں۔",
+  "ttsProviderRequiredTitle": "براہ کرم ایک صوتی سروس فراہم کنندہ منتخب کریں۔",
+  "ttsSelectVoice": "آواز منتخب کریں",
+  "ttsSpeed": "لیکچر کی رفتار",
+  "ttsSpeedHint": "صوتی پلے بیک کی رفتار کو ایڈجسٹ کریں۔",
+  "ttsTitle": "سننے کا موڈ",
+  "ttsVoice": "تدریسی آواز",
+  "unarchive": "آرکائیو سے نکالیں",
+  "unarchiveConfirm": "غیر آرکائیو کرنے کے بعد، کورس \"سب\" پر واپس آجائے گا اور آپ اب بھی ترمیم اور سیکھنا جاری رکھ سکتے ہیں۔",
+  "unarchiveSuccess": "آرکائیو سے نکال دیا گیا ہے۔",
+  "unarchiveTitle": "کیا کورس کو آرکائیو سے نکالنا چاہتے ہیں؟",
+  "upload": "اپ لوڈ کریں",
+  "uploadFailed": "اپ لوڈ ناکام ہوگیا، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+  "uploading": "اپ لوڈ ہو رہا ہے۔",
+  "useLearnerLanguageDescription": "ایک بار آن ہونے کے بعد، طلبہ کی منتخب کردہ زبان میں لیکچر خود بخود دئیے جائیں گے۔",
+  "useLearnerLanguageTitle": "کثیر لسانی تعلیم"
+}

@@ -1,4 +1,4 @@
-"""Backfill saved profile-onboarding assistant prompts for the Spanish locale."""
+"""Backfill saved profile-onboarding assistant prompts for a new locale."""
 
 from __future__ import annotations
 
@@ -18,8 +18,13 @@ os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 
 
 def main() -> int:
-    """Preview or apply the idempotent Spanish prompt backfill."""
+    """Preview or apply an idempotent prompt backfill for one locale."""
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--locale",
+        default="es-ES",
+        help="Supported locale to backfill (default: es-ES for existing scripts)",
+    )
     parser.add_argument(
         "--apply",
         action="store_true",
@@ -36,7 +41,7 @@ def main() -> int:
     with app.app_context():
         result = backfill_profile_onboarding_assistant_locale(
             app,
-            locale="es-ES",
+            locale=args.locale,
             apply=args.apply,
         )
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))

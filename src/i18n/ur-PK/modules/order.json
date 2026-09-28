@@ -1,0 +1,161 @@
+{
+  "__namespace__": "module.order",
+  "activeStatus": {
+    "active": "فعال",
+    "failed": "ناکام",
+    "unknown": "نامعلوم"
+  },
+  "couponStatus": {
+    "active": "چالو",
+    "inactive": "چالو نہیں ہوا۔",
+    "timeout": "میعاد ختم",
+    "unknown": "نامعلوم",
+    "used": "پہلے سے استعمال شدہ"
+  },
+  "couponType": {
+    "fixed": "مقررہ رقم",
+    "percent": "فیصد",
+    "unknown": "نامعلوم"
+  },
+  "detailFallback": "آرڈر کی تفصیلات",
+  "detailTitle": "آرڈر کی تفصیلات",
+  "emptyActivities": "ابھی تک کوئی سرگرمی نہیں ہے۔",
+  "emptyCoupons": "ابھی تک کوئی کوپن نہیں ہے۔",
+  "emptyList": "ابھی تک کوئی آرڈر نہیں ہے۔",
+  "emptyValue": "ابھی تک کوئی نہیں۔",
+  "fields": {
+    "activityPrice": "ایونٹ کی چھوٹ",
+    "couponType": "پیشکش کی قسم",
+    "couponValue": "رعایت کی رقم",
+    "createdAt": "تخلیق کا وقت",
+    "currency": "کرنسی",
+    "discount": "رعایت",
+    "paid": "اصل ادائیگی",
+    "payable": "قابل ادائیگی رقم",
+    "paymentChannel": "ادائیگی چینل",
+    "paymentStatus": "ادائیگی کی حیثیت",
+    "shifu": "کورس",
+    "status": "حالت",
+    "transactionNo": "ٹرانزیکشن نمبر",
+    "user": "صارف"
+  },
+  "filters": {
+    "all": "سب",
+    "channel": "ادائیگی چینل",
+    "dateRangePlaceholder": "وقت آغاز ~ اختتامی وقت",
+    "orderBid": "آرڈر کی شناخت",
+    "reset": "ری سیٹ کریں",
+    "search": "استفسار",
+    "searchCourseOrId": "کورس ID/کورس کا نام",
+    "shifuBid": "کورس کا نام",
+    "status": "حالت",
+    "userBid": "ای میل یا موبائل فون",
+    "userBidEmail": "ای میل",
+    "userBidPhone": "موبائل فون نمبر"
+  },
+  "importActivation": {
+    "action": "ایکٹیویشن درآمد کریں۔",
+    "confirmDescription": "{mobiles}، کل {count} موبائل نمبر درآمد ہوں گے۔ کیا درآمد کرنا چاہتے ہیں؟",
+    "confirmTitle": "موبائل فون نمبر درآمد کرنے کی تصدیق کریں۔",
+    "courseLabel": "کورس",
+    "coursePlaceholder": "براہ کرم شائع شدہ کورس منتخب کریں۔",
+    "courseRequired": "براہ کرم ایک کورس منتخب کریں۔",
+    "description": "0 یوآن کا آرڈر بنائیں اور کورس تک رسائی فعال کریں۔",
+    "emailConfirmDescription": "{mobiles}، کل {count} ای میل پتے درآمد ہوں گے۔ کیا درآمد کرنا چاہتے ہیں؟",
+    "emailConfirmTitle": "ای میل درآمد کرنے کی تصدیق کریں۔",
+    "emailDuplicate": "ایک ڈپلیکیٹ ای میل پتہ ہے: {numbers}، براہ کرم درآمد کرنے سے پہلے چیک کریں۔",
+    "emailInvalidLines": "مندرجہ ذیل مواد کے لیے ای میل پتہ نہیں پہچانا گیا: {values}",
+    "emailLabel": "ای میل",
+    "emailLimit": "ایک بار میں زیادہ سے زیادہ {count} ای میل پتے درآمد کیے جا سکتے ہیں۔",
+    "emailPlaceholder": "ایک وقت میں 50 تک ای میل یا ای میل + عرفی نام (خودکار لائن ریپنگ ریکگنیشن) چسپاں کرنے کی حمایت کریں",
+    "emailRequired": "براہ کرم اپنا ای میل درج کریں۔",
+    "emailSuccessSummary": "{count} میل باکسز کامیابی کے ساتھ درآمد کیے گئے۔",
+    "failed": "درآمد ایکٹیویشن ناکام ہو گیا۔",
+    "mobileDuplicate": "ایک ڈپلیکیٹ موبائل فون نمبر ہے: {numbers}، براہ کرم درآمد کرنے سے پہلے چیک کریں۔",
+    "mobileInvalidLines": "درج ذیل مواد نے موبائل فون نمبر کو نہیں پہچانا: {values}",
+    "mobileLabel": "موبائل فون نمبر",
+    "mobileLimit": "{count} تک کے موبائل فون نمبر ایک وقت میں درآمد کیے جا سکتے ہیں۔",
+    "mobilePlaceholder": "موبائل فون نمبر یا موبائل فون نمبر + عرفی نام (خودکار لائن ریپنگ ریکگنیشن) چسپاں کرنے کی حمایت کرتا ہے، ایک وقت میں 50 تک",
+    "mobileRequired": "براہ کرم موبائل فون نمبر درج کریں۔",
+    "nicknameLabel": "عرفی نام (اختیاری)",
+    "nicknamePlaceholder": "براہ کرم ایک عرفی نام درج کریں۔",
+    "partialSummary": "{successCount} کامیابی، {failedCount} ناکامی۔",
+    "submit": "درآمد",
+    "submitting": "درآمد کر رہا ہے...",
+    "success": "درآمد اور ایکٹیویشن کامیاب",
+    "successSummary": "{count} موبائل فون نمبرز کامیابی کے ساتھ درآمد ہو گئے۔",
+    "title": "ایکٹیویشن درآمد کریں۔"
+  },
+  "messages": {
+    "loadOrderDetailFailed": "آرڈر کی تفصیلات لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadOrdersFailed": "آرڈر کی فہرست لوڈ ہونے میں ناکام ہوگئی، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔"
+  },
+  "paginationJumpInputAriaLabel": "مخصوص صفحہ پر جائیں۔",
+  "paginationNext": "اگلا صفحہ",
+  "paginationNextAriaLabel": "اگلے صفحے پر جائیں۔",
+  "paginationPrev": "پچھلا صفحہ",
+  "paginationPrevAriaLabel": "پچھلے صفحے پر جائیں۔",
+  "paymentChannel": {
+    "alipay": "علی پے",
+    "manual": "دستی",
+    "open_api": "Open API",
+    "pingxx": "Ping++",
+    "stripe": "Stripe",
+    "unknown": "نامعلوم",
+    "wechatpay": "WeChat پے"
+  },
+  "paymentStatus": {
+    "closed": "بند کر دی گئی",
+    "failed": "ناکام",
+    "paid": "ادا کیا",
+    "pending": "زیر التواء",
+    "refunded": "رقم کی واپسی",
+    "unknown": "نامعلوم"
+  },
+  "redemptionCodes": {
+    "action": "ریڈیمپشن کوڈ بنائیں",
+    "courseLabel": "کورس",
+    "coursePlaceholder": "براہ کرم شائع شدہ کورس منتخب کریں۔",
+    "courseRequired": "براہ کرم ایک کورس منتخب کریں۔",
+    "createFailed": "ریڈیمپشن کوڈ بنانے میں ناکام",
+    "createSuccess": "کامیابی کے ساتھ بنایا گیا۔",
+    "dialogTitle": "ریڈیمپشن کوڈ بنائیں",
+    "editDialogTitle": "ریڈیمپشن کوڈ میں ترمیم کریں۔",
+    "emptyCourses": "ابھی تک کوئی شائع شدہ کورسز نہیں ہیں۔",
+    "emptyList": "ابھی تک کوئی ریڈیمپشن کوڈ نہیں ہے۔",
+    "loadCoursesFailed": "کورس کی فہرست لوڈ کرنا ناکام ہو گیا، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadFailed": "ریڈیمپشن کوڈ کی فہرست لوڈ ہونے میں ناکام ہوگئی، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "opsState": "حیثیت پرچم",
+    "submitting": "تخلیق کر رہا ہے...",
+    "tooManyCourses": "فی الحال، صرف کچھ پہلے شائع شدہ کورسز دکھائے گئے ہیں۔ اگر آپ کو مزید کورسز کی ضرورت ہے، تو براہ کرم فلٹرنگ کا دائرہ کم کریں۔",
+    "totalCount": "ریڈیمپشن کوڈز کی تعداد: {count}",
+    "updateSuccess": "کامیابی سے محفوظ ہو گیا۔",
+    "usageTypeHelp": "چھٹکارے کے کوڈ کی قسم کی تفصیل",
+    "usageTypeHelpGeneric": "عام: ایک ہی ریڈیمپشن کوڈ کو کئی بار چھڑایا جا سکتا ہے۔",
+    "usageTypeHelpSingleUse": "ایک واحد کوڈ: سسٹم ہر کوٹہ کے لیے ایک آزاد ذیلی کوڈ تیار کرتا ہے، اور ہر ذیلی کوڈ کو صرف ایک بار چھڑایا جا سکتا ہے۔"
+  },
+  "sections": {
+    "activities": "سرگرمیاں",
+    "coupons": "رعایتی کوپن",
+    "payment": "ادائیگی"
+  },
+  "statusLabels": {
+    "timeout": "میعاد ختم ہو گئی ({minutes} منٹ سے زیادہ بلا معاوضہ)"
+  },
+  "table": {
+    "action": "کارروائیاں",
+    "createdAt": "تخلیق کا وقت",
+    "orderId": "آرڈر کی شناخت",
+    "payment": "ادائیگی",
+    "shifu": "کورس",
+    "status": "حالت",
+    "user": "صارف",
+    "view": "دیکھیں"
+  },
+  "tabs": {
+    "orders": "آرڈر ریکارڈ",
+    "redemptionCodes": "ریڈیم کوڈ"
+  },
+  "title": "آرڈر",
+  "totalCount": "آرڈرز کی تعداد: {count}"
+}

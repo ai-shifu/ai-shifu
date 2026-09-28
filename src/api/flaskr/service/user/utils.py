@@ -325,7 +325,9 @@ def _format_email_verification_message(
 
     html_language = html.escape(resolved_language, quote=True)
     html_direction = (
-        "rtl" if resolved_language.split("-", maxsplit=1)[0].lower() == "ar" else "ltr"
+        "rtl"
+        if resolved_language.split("-", maxsplit=1)[0].lower() in {"ar", "ur"}
+        else "ltr"
     )
     html_body = f"""\
 <!doctype html>
@@ -343,7 +345,7 @@ def _format_email_verification_message(
       </tr>
       <tr>
         <td style="padding:0 32px 20px;">
-          <div style="display:inline-block;background:#eef4ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 24px;font-size:32px;line-height:40px;font-weight:700;letter-spacing:8px;color:#1d4ed8;">{html.escape(code)}</div>
+          <div dir="ltr" style="display:inline-block;background:#eef4ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 24px;font-size:32px;line-height:40px;font-weight:700;letter-spacing:8px;color:#1d4ed8;">{html.escape(code)}</div>
         </td>
       </tr>
       <tr>

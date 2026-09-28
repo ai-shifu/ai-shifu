@@ -1,11 +1,9 @@
 {
   "__namespace__": "server.common",
   "__flat__": {
-    "dataLoadFailed": "Échec du chargement des données, veuillez réessayer plus tard",
     "nicknameNotAllowed": "Pseudonyme non autorisé.",
     "operationFailed": "Erreur du service, veuillez réessayer plus tard",
     "paramsError": "Erreur de paramètres {param_message}",
-    "stateInvalid": "Cette action n'est pas disponible dans l'état actuel",
     "systemError": "Erreur système",
     "unexpectedError": "Le service est temporairement indisponible. Veuillez réessayer plus tard.",
     "unknownError": "Erreur inconnue"

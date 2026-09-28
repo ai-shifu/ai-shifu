@@ -25,41 +25,29 @@
   "emptyValue": "No disponible",
   "fields": {
     "activityPrice": "Descuento de la promoción",
-    "chargeId": "ID del cargo",
-    "checkoutSession": "Sesión de pago",
     "couponType": "Tipo de cupón",
     "couponValue": "Valor del cupón",
     "createdAt": "Fecha de creación",
     "currency": "Moneda",
     "discount": "Descuento",
-    "latestCharge": "Último cargo",
     "paid": "Importe pagado",
     "payable": "Importe a pagar",
-    "paymentAmount": "Importe del pago",
     "paymentChannel": "Canal de pago",
-    "paymentCreatedAt": "Fecha de creación del pago",
-    "paymentIntent": "Intento de pago",
-    "paymentMethod": "Método de pago",
     "paymentStatus": "Estado del pago",
-    "paymentUpdatedAt": "Fecha de actualización del pago",
-    "receipt": "Enlace al recibo",
     "shifu": "Curso",
     "status": "Estado",
     "transactionNo": "Número de transacción",
-    "updatedAt": "Fecha de actualización",
     "user": "Usuario"
   },
   "filters": {
     "all": "Todos",
     "channel": "Canal de pago",
     "dateRangePlaceholder": "Fecha de inicio ~ Fecha de fin",
-    "endTime": "Fecha de fin",
     "orderBid": "ID del pedido",
     "reset": "Restablecer",
     "search": "Buscar",
     "searchCourseOrId": "ID o nombre del curso",
     "shifuBid": "Nombre del curso",
-    "startTime": "Fecha de inicio",
     "status": "Estado",
     "userBid": "Correo electrónico o móvil",
     "userBidEmail": "Correo electrónico",
@@ -149,15 +137,13 @@
   "sections": {
     "activities": "Promociones",
     "coupons": "Cupones",
-    "payment": "Pago",
-    "summary": "Resumen"
+    "payment": "Pago"
   },
   "statusLabels": {
     "timeout": "Caducado (sin pagar durante más de {minutes} minutos)"
   },
   "table": {
     "action": "Acción",
-    "amount": "Importe del pago",
     "createdAt": "Fecha de creación",
     "orderId": "ID del pedido",
     "payment": "Pago",

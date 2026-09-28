@@ -17,7 +17,7 @@
       "unsettled_payment": "Resuelve los {count} pedidos sin liquidar antes de dar de baja esta cuenta."
     },
     "confirm": "Dar de baja la cuenta",
-    "confirmDescription": "La cuenta {user} se dará de baja de forma permanente.",
+    "confirmDescription": "La cuenta {user} se dará de baja de forma permanente. Revisa de nuevo la cuenta y el motivo. Una vez enviada la solicitud, no se podrá deshacer.",
     "confirmPaidPreorder": "Esta cuenta tiene {count} planes de prepago pendientes de activación. Confirma que se han completado los reembolsos manuales u otras gestiones necesarias.",
     "confirmTitle": "Confirmar la baja de la cuenta",
     "continue": "Dar de baja la cuenta",
@@ -31,7 +31,7 @@
       "processingTimeout": "La baja aún se está procesando. Actualiza la lista de usuarios más tarde para comprobar el resultado.",
       "transfer": "No se han podido transferir los cursos"
     },
-    "irreversible": "Se eliminarán el perfil y los datos de acceso; se conservará el historial comercial obligatorio.",
+    "irreversible": "Tras la baja, se eliminarán los datos de identidad y las credenciales de acceso, el saldo de créditos quedará a cero y las sesiones actuales dejarán de ser válidas. El historial comercial y los datos de los cursos se conservarán según las normas aplicables.",
     "processing": "Dando de baja…",
     "reasonCounter": "{count}/500",
     "reasonHint": "El motivo se conservará en el registro de auditoría de operaciones.",
@@ -46,23 +46,14 @@
       "creditsExpireAtLabel": "Validez de los créditos",
       "creditsHint": "El saldo de créditos se eliminará sin reembolso.",
       "creditsLabel": "Saldo de créditos",
-      "creditsValue": "{count} (se eliminarán sin reembolso)",
-      "draftsHint": "Los borradores se conservarán bloqueados tras la baja.",
-      "draftsLabel": "Borradores de cursos",
-      "draftsValue": "{count} (se conservarán bloqueados)",
       "paidPackages": "Plan pagado:",
       "preorders": "Plan de prepago pendiente:",
-      "renewals": "Suscripciones activas que finalizarán al dar de baja la cuenta: {count}",
-      "sessionsHint": "Todas las sesiones iniciadas se cerrarán inmediatamente.",
-      "sessionsLabel": "Sesiones activas",
-      "sessionsValue": "{count} (se cerrarán al dar de baja la cuenta)",
       "subscriptions": "Suscripción con renovación automática:"
     },
     "title": "Dar de baja la cuenta",
     "transfer": "Transferir todos",
     "transferEmailPlaceholder": "Correo electrónico del nuevo responsable",
     "transferPhonePlaceholder": "Móvil del nuevo responsable",
-    "transferPlaceholder": "Móvil o correo electrónico del nuevo responsable",
     "transferRequired": "Transfiere primero {count} cursos publicados"
   },
   "contactChange": {
@@ -327,6 +318,20 @@
       "validityPreset": "Validez"
     },
     "confirmTitle": "Confirmar asignación de créditos",
+    "customValidity": {
+      "actualExpiry": "Vencimiento real: {date}",
+      "estimatedExpiry": "Vencimiento estimado (se confirma al otorgar)",
+      "hint": "Vigencia inmediata. Los días son de 24 horas; los meses y años siguen el calendario y las fechas inexistentes se ajustan al último día del mes.",
+      "invalid": "Introduce una duración entera positiva válida y elige días, meses o años.",
+      "summary": "Vigencia inmediata durante {value} {unit}",
+      "unitLabel": "Unidad de duración",
+      "units": {
+        "day": "día(s)",
+        "month": "mes(es)",
+        "year": "año(s)"
+      },
+      "valueLabel": "Duración"
+    },
     "description": "Asigna créditos o planes a profesores u operadores desde el panel de operaciones.",
     "fields": {
       "amount": "Créditos",
@@ -355,9 +360,7 @@
       "note": "Opcional. Indica el motivo de la asignación",
       "product": "Selecciona un plan",
       "productLoading": "Cargando planes...",
-      "referralRewardAmount": "Introduce los créditos de recompensa",
-      "source": "Selecciona un origen",
-      "validityPreset": "Selecciona un periodo de validez"
+      "referralRewardAmount": "Introduce los créditos de recompensa"
     },
     "referralReward": {
       "bootstrapError": "No se han podido cargar los datos de recompensas por invitaciones. Inténtalo más tarde.",
@@ -385,25 +388,14 @@
       "availableCredits": "Saldo de créditos",
       "currentExpireAt": "Válido hasta",
       "currentPackage": "Plan actual",
-      "nickname": "Apodo",
-      "package": "Plan"
+      "nickname": "Apodo"
     },
     "title": "Asignar créditos o plan",
     "validation": {
       "amountRequired": "Introduce un número de créditos mayor que 0",
       "productRequired": "Selecciona un plan",
       "referralRewardAmountRequired": "Introduce un número entero de créditos mayor que 0",
-      "sourceRequired": "Selecciona un origen",
-      "validityPresetRequired": "Selecciona un periodo de validez"
-    },
-    "validityHint": "Si no hay ningún plan activo, no se puede establecer la validez como «Igual que la del plan actual».",
-    "validityOptions": {
-      "alignSubscription": "Igual que la del plan actual",
-      "oneDay": "1 día tras la asignación",
-      "oneMonth": "1 mes tras la asignación",
-      "oneYear": "1 año tras la asignación",
-      "sevenDays": "7 días tras la asignación",
-      "threeMonths": "3 meses tras la asignación"
+      "sourceRequired": "Selecciona un origen"
     }
   },
   "loginMethodLabels": {

@@ -9,7 +9,7 @@ import './render.css';
 const root = createRoot(document.getElementById('root'));
 
 window.renderArena = (artifact, step = 0) => {
-  const direction = artifact.locale === 'ar-SA' ? 'rtl' : 'ltr';
+  const direction = ['ar-SA', 'ur-PK'].includes(artifact.locale) ? 'rtl' : 'ltr';
   document.documentElement.lang = artifact.locale;
   document.documentElement.dir = direction;
   document.documentElement.dataset.mode = artifact.mode;

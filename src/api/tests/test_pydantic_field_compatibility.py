@@ -112,7 +112,8 @@ def test_operator_grant_request_required_fields_and_defaults_are_preserved() -> 
             {
                 "amount": "100",
                 "grant_source": "reward",
-                "validity_preset": "30_days",
+                "validity_value": 30,
+                "validity_unit": "day",
             }
         )
 
@@ -121,7 +122,8 @@ def test_operator_grant_request_required_fields_and_defaults_are_preserved() -> 
             "request_id": "grant-request-1",
             "amount": "100",
             "grant_source": "reward",
-            "validity_preset": "30_days",
+            "validity_value": 30,
+            "validity_unit": "day",
         }
     )
     assert credit_request.__json__() == {
@@ -129,7 +131,8 @@ def test_operator_grant_request_required_fields_and_defaults_are_preserved() -> 
         "amount": "100",
         "grant_type": "manual_credit",
         "grant_source": "reward",
-        "validity_preset": "30_days",
+        "validity_value": 30,
+        "validity_unit": "day",
         "display_name": "",
         "note": "",
     }
@@ -158,17 +161,13 @@ def test_actual_openapi_keeps_standard_required_arrays() -> None:
 
     assert response.status_code == 200
     schemas = response.get_json()["components"]["schemas"]
+    assert all(schema.get("required") != [] for schema in schemas.values())
     assert schemas["AdminOperationUserCreditGrantRequestDTO"]["required"] == [
         "request_id",
         "amount",
-        "grant_type",
         "grant_source",
-        "validity_preset",
-        "display_name",
-        "note",
     ]
     assert schemas["AdminOperationUserPackageGrantRequestDTO"]["required"] == [
         "request_id",
         "product_bid",
-        "note",
     ]

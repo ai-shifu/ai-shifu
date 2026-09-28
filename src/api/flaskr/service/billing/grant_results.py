@@ -17,13 +17,14 @@ class ManualCreditGrantResult:
     user_bid: str
     amount: int | float
     grant_source: str
-    validity_preset: str
     expires_at: datetime | None
     wallet_bucket_bid: str
     ledger_bid: str
     display_name: str = ""
     note: str = ""
     metadata_json: dict[str, Any] = field(default_factory=dict)
+    validity_value: int | None = None
+    validity_unit: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
         """Serialize this result as an API payload."""
@@ -32,7 +33,8 @@ class ManualCreditGrantResult:
             "user_bid": self.user_bid,
             "amount": self.amount,
             "grant_source": self.grant_source,
-            "validity_preset": self.validity_preset,
+            "validity_value": self.validity_value,
+            "validity_unit": self.validity_unit,
             "expires_at": self.expires_at,
             "display_name": self.display_name,
             "note": self.note,

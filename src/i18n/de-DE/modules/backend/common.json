@@ -1,0 +1,11 @@
+{
+  "__namespace__": "server.common",
+  "__flat__": {
+    "nicknameNotAllowed": "Der eingegebene Spitzname ist nicht zulässig.",
+    "operationFailed": "Servicefehler, bitte versuchen Sie es später noch einmal",
+    "paramsError": "Parameterfehler {param_message}",
+    "systemError": "Systemfehler",
+    "unexpectedError": "Der Service ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später noch einmal.",
+    "unknownError": "Unbekannter Fehler"
+  }
+}

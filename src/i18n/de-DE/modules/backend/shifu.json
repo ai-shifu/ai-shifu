@@ -1,0 +1,31 @@
+{
+  "__namespace__": "server.shifu",
+  "__flat__": {
+    "copyCourseDemoNotAllowed": "Eingebaute Demo-Kurse können nicht kopiert werden",
+    "copyCourseDraftNotFound": "Für diesen Kurs wurde kein aktueller Entwurf zum Kopieren gefunden.",
+    "copyCourseTitleFallback": "Kurs",
+    "copyCourseTitleSuffix": " – Kopie",
+    "defaultChapterName": "Kapitel ohne Titel",
+    "defaultLessonName": "Unbenannte Lektion",
+    "draftConflict": "Kursinhalt wurde von einem anderen Benutzer aktualisiert",
+    "importFileInvalid": "Die Importdatei ist ungültig.",
+    "noPermission": "Keine Genehmigung",
+    "outlineItemNotFound": "Das Gliederungselement wurde nicht gefunden.",
+    "outlineNameTooLong": "Der Name des Gliederungselements ist zu lang.",
+    "outlineStructureBroken": "Die Kursgliederung ist fehlerhaft (einige Einheiten haben dieselbe Position). Bitte prüfen und versuchen Sie es erneut.",
+    "parentOutlineNotFound": "Das übergeordnete Gliederungselement wurde nicht gefunden.",
+    "permissionContactLimit": "Die Freigabe ist auf {count} Nutzer begrenzt.",
+    "shifuDescriptionTooLong": "Die Kursbeschreibung ist zu lang (max. 500 Zeichen)",
+    "shifuNameRequired": "Kursname ist erforderlich",
+    "shifuNameTooLong": "Der Kursname ist zu lang (max {max_length} Zeichen)",
+    "shifuNotFound": "Kurs nicht gefunden",
+    "shifuPriceTooLow": "Der Kurspreis ist zu niedrig (min {min_shifu_price})",
+    "shifuStructNotFound": "Kursstruktur nicht gefunden",
+    "transferCreatorDemoNotAllowed": "Bei integrierten Einführungskursen kann die Kursverantwortung nicht übertragen werden.",
+    "transferCreatorSameUser": "Die ausgewählte Person ist bereits für den Kurs verantwortlich.",
+    "transferCreatorTargetNotFound": "Die ausgewählte kursverantwortliche Person wurde nicht gefunden.",
+    "ttsNotEnabled": "Text-zu-Speech ist nicht aktiviert",
+    "unitNameTooLong": "Der Name der Einheit ist zu lang.",
+    "unitNotFound": "Einheit nicht gefunden"
+  }
+}

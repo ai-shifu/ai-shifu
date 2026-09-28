@@ -69,12 +69,16 @@ def runtime_config_client(monkeypatch: object) -> Iterator[FlaskClient]:
         "CURRENCY_SYMBOL": "¥",
         "LEGAL_AGREEMENT_URL_ZH_CN": "/legal/agreement/zh",
         "LEGAL_AGREEMENT_URL_EN_US": "/legal/agreement/en",
+        "LEGAL_AGREEMENT_URL_DE_DE": "/legal/agreement/de",
         "LEGAL_AGREEMENT_URL_ES_ES": "/legal/agreement/es",
         "LEGAL_AGREEMENT_URL_FR_FR": "/legal/agreement/fr",
+        "LEGAL_AGREEMENT_URL_UR_PK": "/legal/agreement/ur",
         "LEGAL_PRIVACY_URL_ZH_CN": "/legal/privacy/zh",
         "LEGAL_PRIVACY_URL_EN_US": "/legal/privacy/en",
+        "LEGAL_PRIVACY_URL_DE_DE": "/legal/privacy/de",
         "LEGAL_PRIVACY_URL_ES_ES": "/legal/privacy/es",
         "LEGAL_PRIVACY_URL_FR_FR": "",
+        "LEGAL_PRIVACY_URL_UR_PK": "/legal/privacy/ur",
     }
 
     monkeypatch.setattr(
@@ -213,13 +217,16 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
         "home_url": "https://creator.example.com/home",
         "contact_us_url": "https://creator.example.com/contact",
     }
+    assert payload["legalUrls"]["privacy"]["ur-PK"] == "/legal/privacy/ur"
     assert payload["legalUrls"]["agreement"] == {
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
+        "de-DE": "/legal/agreement/de",
         "es-ES": "/legal/agreement/es",
         "fr-FR": "/legal/agreement/fr",
         "ar-SA": "",
         "th-TH": "",
+        "ur-PK": "/legal/agreement/ur",
     }
     assert payload["domain"] == {
         "request_host": "creator.example.com",
@@ -459,10 +466,12 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     assert config.__json__()["legalUrls"]["privacy"] == {
         "zh-CN": "/legal/privacy/zh",
         "en-US": "/legal/privacy/en",
+        "de-DE": "/legal/privacy/de",
         "es-ES": "/legal/privacy/es",
         "fr-FR": "",
         "ar-SA": "",
         "th-TH": "",
+        "ur-PK": "/legal/privacy/ur",
     }
 
 

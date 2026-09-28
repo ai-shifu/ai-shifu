@@ -1,6 +1,6 @@
 ---
 title: Model Gateway CLI Integration
-last_reviewed: 2026-09-19
+last_reviewed: 2026-09-27
 canonical: true
 ---
 
@@ -249,8 +249,23 @@ request fields are `temperature`, `top_p`, `stop`, `seed`, `presence_penalty`,
 `frequency_penalty`, `response_format`, `tools`, `tool_choice`, and
 `parallel_tool_calls`.
 
-If `max_tokens` is omitted, the gateway uses the smaller of 4096 and the model
-limit. A value above the model limit is rejected rather than silently changed.
+`max_tokens` must be a positive JSON integer (booleans, strings and fractions
+are rejected). Gateway and learning calls share default resolution and provider
+parameter preparation.
+If omitted or `null`, use the known model output limit as the default; if no valid
+limit is known, omit the option and let the provider/adapter choose its default.
+The same rule applies to streaming and non-streaming calls, with no fixed 4096
+application allowance or gateway-specific default switch.
+An explicit gateway value above a known limit is rejected at the request boundary
+rather than silently changed. Shared provider preparation caps trusted internal
+task budgets to a known ceiling, preserving onboarding prompt compilation,
+localization and profile optimization on models with smaller output limits.
+Limits come from the optional `LLM_MODEL_MAX_OUTPUT_TOKENS`
+mapping of full routed model IDs, then valid LiteLLM metadata. Missing or invalid
+LiteLLM limits do not make an otherwise eligible model unavailable: a valid
+explicit value is forwarded unchanged, and an omitted value remains omitted when
+no valid model limit is known.
+The provider remains responsible for enforcing limits unknown to the gateway.
 
 The request body is limited to 1 MiB, with at most 256 messages and 128 tools.
 `stream` must be a JSON boolean; strings such as `"false"`, numbers, and `null`
