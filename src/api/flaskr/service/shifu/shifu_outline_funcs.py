@@ -825,7 +825,7 @@ def _persist_outline_order(
                     new_position,
                     outline_dto.bid,
                     history_info.children,
-                    moved_ancestor=position_changed,
+                    moved_ancestor=moved_ancestor or position_changed,
                     old_parent_position=item.position,
                 )
 

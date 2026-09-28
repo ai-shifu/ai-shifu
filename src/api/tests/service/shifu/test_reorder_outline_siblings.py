@@ -360,6 +360,39 @@ def test_moved_root_preserves_descendant_ordinal_suffixes(
         assert nodes[bid].id == row.id
 
 
+def test_moved_ancestor_rebases_descendants_through_an_unchanged_position(
+    app: object,
+    sibling_course: SimpleNamespace,
+) -> None:
+    course = sibling_course
+    child = course.rows["sparse-child"]
+    child.position = "0209"
+    grandchild = child.clone()
+    grandchild.outline_item_bid = "sparse-grandchild"
+    grandchild.parent_bid = child.outline_item_bid
+    grandchild.position = "040907"
+    db.session.add(grandchild)
+    db.session.commit()
+    child_id, grandchild_id = child.id, grandchild.id
+
+    outlines.reorder_outline_siblings(
+        app, "teacher", course.bid, ["chapter-b", "sparse", "chapter-a"]
+    )
+    latest = _latest(course)
+    assert latest["sparse"].position == "02"
+    assert latest["sparse-child"].position == "0209"
+    assert latest["sparse-child"].id == child_id
+    assert latest["sparse-grandchild"].position == "020907"
+    assert latest["sparse-grandchild"].id != grandchild_id
+    assert latest["sparse-grandchild"].content == grandchild.content
+    assert latest["sparse-grandchild"].parent_bid == "sparse-child"
+    history = get_shifu_history(app, course.bid)
+    nodes = _history_nodes(history)
+    assert set(nodes) == set(latest) | {"legacy-block"}
+    assert nodes["sparse-child"].id == child_id
+    assert nodes["sparse-grandchild"].id == latest["sparse-grandchild"].id
+
+
 def test_current_reads_lock_direct_selects_without_snapshot_subqueries(
     app: object,
     sibling_course: SimpleNamespace,
