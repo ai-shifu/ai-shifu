@@ -48,6 +48,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Device Authorization Skill Analytics](./completed/device-auth-skill-analytics.md)
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
 - [Frontend Unused Function Cleanup Stack](./completed/frontend-unused-function-stack.md)
+- [Gemini 3.8 TTS migration](./completed/gemini-3-8-tts.md)
 - [Gemini TTS Provider](./completed/gemini-tts.md)
 - [Generated-slide timeline delivery](./completed/generated-slide-timeline.md)
 - [Global Billing Pricing Page](./completed/global-billing-pricing-page.md)
