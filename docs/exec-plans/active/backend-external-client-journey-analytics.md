@@ -24,7 +24,7 @@ no migrations, and no request may fail or wait for Umami.
       local self-review; delivery is waiting for user approval.
 - [x] 2026-09-28 14:05 CST: Bound course analytics to the credential selected
       by authentication, aligned attribution cleanup and expiry with session
-      lifecycle, narrowed the reporting claim, and passed 219 regression tests.
+      lifecycle, narrowed the reporting claim, and passed 220 regression tests.
 
 ## Surprises & Discoveries
 
@@ -76,7 +76,7 @@ collection, course creation, and publication without adding business storage.
 The token-scoped Redis context expires and revokes with its session, while a
 bounded fail-open sender isolates Umami from product behavior. The latest
 review fix also keeps attribution alive with any valid use of its token and
-cleans it during direct account cancellation. All 219 focused and adjacent
+cleans it during direct account cancellation. All 220 focused and adjacent
 tests passed, as did the architecture, unit-of-work, and repository harness
 gates. Final delivery checks also passed before the review fix was delivered.
 

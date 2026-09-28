@@ -5,6 +5,8 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
+from threading import BoundedSemaphore
 from typing import TYPE_CHECKING
 
 from flaskr.common.cache_provider import cache
@@ -15,6 +17,13 @@ from flaskr.service.common.skill_attribution import (
 
 if TYPE_CHECKING:
     from flask import Flask
+
+
+_TOUCH_EXECUTOR = ThreadPoolExecutor(
+    max_workers=2,
+    thread_name_prefix="session-attribution",
+)
+_TOUCH_CAPACITY = BoundedSemaphore(32)
 
 
 def _cache_key(app: Flask, token: str) -> str:
@@ -82,10 +91,7 @@ def discard_session_skill_attribution(app: Flask, *, token: str) -> None:
         return
 
 
-def touch_session_skill_attribution(app: Flask, *, token: str) -> None:
-    """Keep analytics context aligned with an actively used session token."""
-    if not token:
-        return
+def _renew_session_skill_attribution(app: Flask, token: str) -> None:
     try:
         cache.getex(
             _cache_key(app, token),
@@ -93,3 +99,19 @@ def touch_session_skill_attribution(app: Flask, *, token: str) -> None:
         )
     except Exception:
         return
+
+
+def touch_session_skill_attribution(app: Flask, *, token: str) -> None:
+    """Queue attribution renewal without putting Redis on the auth path."""
+    if not token or not _TOUCH_CAPACITY.acquire(blocking=False):
+        return
+    try:
+        future = _TOUCH_EXECUTOR.submit(
+            _renew_session_skill_attribution,
+            app,
+            token,
+        )
+    except Exception:
+        _TOUCH_CAPACITY.release()
+        return
+    future.add_done_callback(lambda _future: _TOUCH_CAPACITY.release())

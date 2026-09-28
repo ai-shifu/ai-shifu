@@ -1,9 +1,26 @@
 """Verify Skill identity follows only its device-issued token in Redis."""
 
+from collections.abc import Callable
+from concurrent.futures import Future
+
 from flaskr.service.common import session_attribution
 from flaskr.service.common.skill_attribution import SkillIdentityInput
 
 from tests.common.fixtures.fake_redis import FakeRedis
+
+
+class ImmediateExecutor:
+    """Run submitted work synchronously for deterministic assertions."""
+
+    def submit(self, function: Callable[..., object], *args: object) -> Future[object]:
+        future: Future[object] = Future()
+        try:
+            function(*args)
+        except Exception as exc:
+            future.set_exception(exc)
+        else:
+            future.set_result(None)
+        return future
 
 
 def test_session_attribution_round_trips_and_renews_ttl(
@@ -64,6 +81,11 @@ def test_active_session_refresh_renews_attribution_ttl(
 ) -> None:
     fake_cache = FakeRedis()
     monkeypatch.setattr(session_attribution, "cache", fake_cache)
+    monkeypatch.setattr(
+        session_attribution,
+        "_TOUCH_EXECUTOR",
+        ImmediateExecutor(),
+    )
     monkeypatch.setitem(app.config, "TOKEN_EXPIRE_TIME", 120)
     identity = SkillIdentityInput(
         host_platform="direct",
@@ -79,3 +101,28 @@ def test_active_session_refresh_renews_attribution_ttl(
     session_attribution.touch_session_skill_attribution(app, token="active-token")
 
     assert fake_cache.ttl(key) > 100
+
+
+def test_active_session_refresh_does_not_wait_for_redis(
+    app: object, monkeypatch: object
+) -> None:
+    submitted: list[tuple[Callable[..., object], tuple[object, ...]]] = []
+    deferred: Future[object] = Future()
+
+    class DeferredExecutor:
+        def submit(
+            self, function: Callable[..., object], *args: object
+        ) -> Future[object]:
+            submitted.append((function, args))
+            return deferred
+
+    monkeypatch.setattr(
+        session_attribution,
+        "_TOUCH_EXECUTOR",
+        DeferredExecutor(),
+    )
+
+    session_attribution.touch_session_skill_attribution(app, token="active-token")
+
+    assert len(submitted) == 1
+    deferred.set_result(None)
