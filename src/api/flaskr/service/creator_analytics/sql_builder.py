@@ -3,7 +3,7 @@
 The builder never accepts raw user strings into the SQL text — every column
 and operator passes through the whitelist enforced by
 :mod:`flaskr.service.creator_analytics.dsl`, and every value is bound via
-SQLAlchemy bindparam. Four cross-cutting predicates are applied automatically,
+SQLAlchemy bindparam. Cross-cutting predicates are applied automatically,
 driven by :class:`flaskr.service.creator_analytics.whitelist.TableSpec` flags:
 
 1. ``WHERE shifu_bid = :shifu_bid`` when ``has_shifu_bid`` is True — callers
@@ -19,6 +19,8 @@ driven by :class:`flaskr.service.creator_analytics.whitelist.TableSpec` flags:
    every result, so creator counts reflect the current learner experience.
 5. Course-learner scope for global user lookups — a matching user must have
    active progress or a successful manual-import order in the requested course.
+6. Course metadata selects the greatest non-deleted version id for the requested
+   course before ownership or caller filters, so historical titles stay hidden.
 
 The MySQL ``MAX_EXECUTION_TIME`` optimizer hint is injected only when the
 target dialect is MySQL — under SQLite (tests) the hint would not parse.
@@ -84,6 +86,17 @@ def build_statement(
         )
     if dsl.spec.has_deleted:
         where_clauses.append(table.c.deleted == 0)
+    if dsl.spec.latest_course_version_only:
+        versions = table.alias("course_versions")
+        latest_id = (
+            select(func.max(versions.c.id))
+            .where(
+                versions.c.shifu_bid == bindparam("__shifu_bid", value=dsl.shifu_bid),
+                versions.c.deleted == 0,
+            )
+            .scalar_subquery()
+        )
+        where_clauses.append(table.c.id == latest_id)
     if dsl.spec.creator_scoped_column:
         # Row-ownership enforcement on top of the shifu permission check in
         # funcs.run_dsl. The caller_user_id must be threaded through by the

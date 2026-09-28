@@ -322,6 +322,16 @@ def test_shifu_draft_injects_created_user_bid_predicate() -> None:
     assert "created_user_bid = 'teacher-2'" in sql
 
 
+@pytest.mark.parametrize("table_key", ["shifu_draft_shifus", "shifu_published_shifus"])
+def test_current_metadata_version_compiles_for_both_dialects(table_key: str) -> None:
+    """The greatest active version is scoped to the requested course in SQL."""
+    for compile_statement in (_compile_sqlite, _compile_mysql):
+        sql = compile_statement(_meta_payload(table_key), user_id="teacher-1")
+        assert "max(course_versions.id)" in sql
+        assert "course_versions.shifu_bid = 'shifu-abc'" in sql
+        assert "course_versions.deleted = 0" in sql
+
+
 def test_shifu_meta_without_caller_user_id_fails_compile() -> None:
     """Missing caller_user_id is a hard error — sql_builder refuses rather than emitting `WHERE created_user_bid = ''` which would accidentally match legacy rows."""
     with pytest.raises(ValueError, match="caller_user_id is required"):
