@@ -40,6 +40,7 @@ from flaskr.service.tts.audio_utils import (
     pcm_duration_ms,
     try_get_audio_duration_ms,
 )
+from flaskr.service.tts.patterns import SENTENCE_ENDINGS
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -153,8 +154,6 @@ TENCENT_DEFAULT_CODEC = "mp3"
 TENCENT_SSE_REQUEST_CODEC = "pcm"
 TENCENT_ENABLE_SUBTITLE = True
 TENCENT_MAX_SESSION_CHARS = 255
-
-_TERMINAL_PUNCTUATION = set(".!?;。！？；")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 TENCENT_EMOTIONS = [
     {
@@ -503,31 +502,25 @@ def _contains_cjk(text: str) -> bool:
     return any("\u4e00" <= char <= "\u9fff" for char in text or "")
 
 
+def _has_sentence_ending(text: str) -> bool:
+    return any(match.end() == len(text) for match in SENTENCE_ENDINGS.finditer(text))
+
+
 def ensure_tencent_terminal_punctuation(text: str) -> str:
     """Ensure tencent terminal punctuation."""
     normalized = str(text or "").strip()
     if not normalized:
         return normalized
-    if normalized[-1] in _TERMINAL_PUNCTUATION:
+    if _has_sentence_ending(normalized):
         return normalized
     punctuation = "。" if _contains_cjk(normalized) else "."
     return f"{normalized}{punctuation}"
 
 
 def _split_tencent_sentence_units(text: str) -> list[str]:
-    units: list[str] = []
-    cursor = 0
-    for index, char in enumerate(text or ""):
-        if char in _TERMINAL_PUNCTUATION:
-            unit = text[cursor : index + 1].strip()
-            if unit:
-                units.append(unit)
-            cursor = index + 1
-    tail = str(text or "")[cursor:].strip()
-    if tail:
-        units.append(tail)
-    normalized = str(text or "").strip()
-    return units or ([normalized] if normalized else [])
+    return [
+        unit for unit, _start, _end in _split_tencent_sentence_units_with_ranges(text)
+    ]
 
 
 def _trim_tencent_source_range(text: str, start: int, end: int) -> tuple[int, int]:
@@ -546,12 +539,11 @@ def _split_tencent_sentence_units_with_ranges(
     source = str(text or "")
     units: list[tuple[str, int, int]] = []
     cursor = 0
-    for index, char in enumerate(source):
-        if char in _TERMINAL_PUNCTUATION:
-            start, end = _trim_tencent_source_range(source, cursor, index + 1)
-            if start < end:
-                units.append((source[start:end], start, end))
-            cursor = index + 1
+    for match in SENTENCE_ENDINGS.finditer(source):
+        start, end = _trim_tencent_source_range(source, cursor, match.end())
+        if start < end:
+            units.append((source[start:end], start, end))
+        cursor = match.end()
     start, end = _trim_tencent_source_range(source, cursor, len(source))
     if start < end:
         units.append((source[start:end], start, end))
@@ -942,7 +934,7 @@ def _group_tencent_subtitle_cues_by_sentence(
                 start_ms,
             )
 
-        if text[-1] in _TERMINAL_PUNCTUATION:
+        if _has_sentence_ending(text):
             grouped.append(current)
             current = None
 

@@ -88,6 +88,7 @@ pytz==2024.1
 PyYAML==6.0.1
 redis==5.0.7
 referencing==0.35.1
+regex==2025.11.3
 requests==2.33.0
 requests-toolbelt==1.0.0
 dnspython==2.7.0

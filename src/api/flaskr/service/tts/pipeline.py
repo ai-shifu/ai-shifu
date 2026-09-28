@@ -55,6 +55,7 @@ from flaskr.service.tts.patterns import (
     AV_VIDEO_CLOSE,
     AV_VIDEO_OPEN,
     FIXED_MARKER_TAIL,
+    SENTENCE_ENDINGS,
     TAG_NAME_EXTRACT,
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
@@ -70,8 +71,6 @@ _AV_LATEX_BLOCK = AV_LATEX_BLOCK
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
-
-_DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 _AV_SPEAKABLE_SANDBOX_ROOT_TAGS = {"div", "section", "article", "main", "template"}
 
@@ -534,13 +533,12 @@ def _split_by_sentence_and_newline(text: str) -> list[str]:
             continue
 
         start = 0
-        for idx, ch in enumerate(line):
-            if ch in _DEFAULT_SENTENCE_ENDINGS:
-                end = idx + 1
-                piece = line[start:end].strip()
-                if piece:
-                    units.append(piece)
-                start = end
+        for match in SENTENCE_ENDINGS.finditer(line):
+            end = match.end()
+            piece = line[start:end].strip()
+            if piece:
+                units.append(piece)
+            start = end
 
         tail = line[start:].strip()
         if tail:

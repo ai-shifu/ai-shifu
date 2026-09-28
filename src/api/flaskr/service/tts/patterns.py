@@ -6,6 +6,8 @@ here. Import patterns from this module rather than defining them locally.
 
 import re
 
+import regex
+
 # ---------------------------------------------------------------------------
 # Markdown text cleaning (used by preprocess_for_tts)
 # ---------------------------------------------------------------------------
@@ -86,9 +88,16 @@ AV_SPEAKABLE_HINT = re.compile(r"<(p|li|h[1-6])\b", re.IGNORECASE)
 FIXED_MARKER_TAIL = re.compile(r"^[\s!=]*$")
 
 # ---------------------------------------------------------------------------
-# Streaming TTS
+# Sentence boundaries shared by TTS requests and subtitle alignment
 # ---------------------------------------------------------------------------
-SENTENCE_ENDINGS = re.compile(r"[.!?。！？；;]")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
+# Use Unicode's sentence-terminal property instead of a language-specific list.
+# Semicolons remain pause boundaries for compatibility, including their Arabic
+# and Greek forms. Keep adjacent terminal marks and closing quotes/brackets with
+# the sentence so they do not become standalone subtitle or synthesis fragments.
+# This is punctuation-based streaming segmentation, not language-specific NLP.
+SENTENCE_ENDINGS = regex.compile(
+    r"[\p{Sentence_Terminal};\uFF1B\u061B\u037E]+[\p{Pe}\p{Pf}\"']*"
+)
 
 # ---------------------------------------------------------------------------
 # HTML tag extraction helpers

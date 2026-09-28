@@ -49,6 +49,135 @@ def create_test_processor(mock_app: object, **kwargs: object) -> object:
 class TestFinalizeSegmentation:
     """Tests for finalize segmentation improvements."""
 
+    @pytest.mark.parametrize("chunked", [False, True], ids=["whole", "chunked"])
+    @pytest.mark.parametrize(
+        ("first", "punctuation", "second", "tail"),
+        [
+            ("Ready?", "!!", "Next.", "Final fragment"),
+            ("«هل تسمعني؟", "؟!»", "نعم أسمعك۔", "ثم نتابع"),
+            ("「यह पहला वाक्य है।", "।」", "यह दूसरा वाक्य है।", "आगे का पाठ"),
+            ("မင်္ဂလာပါ။", "။။", "နေကောင်းလား။", "ကျေးဇူးတင်ပါတယ်"),
+        ],
+        ids=["english", "arabic", "hindi", "burmese"],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_punctuation_continuations_do_not_submit_extra_segments(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        first: str,
+        punctuation: str,
+        second: str,
+        tail: str,
+        chunked: bool,
+    ) -> None:
+        """Punctuation arriving after a spoken sentence must not trigger TTS."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+        chunks = [first, punctuation, f" {second} {tail}"]
+        if chunked:
+            list(processor.process_chunk(chunks[0]))
+            assert mock_executor.submit.call_count == 1
+            list(processor.process_chunk(chunks[1]))
+            assert mock_executor.submit.call_count == 1
+            list(processor.process_chunk(chunks[2]))
+        else:
+            list(processor.process_chunk("".join(chunks)))
+
+        expected_first = first if chunked else first + punctuation
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            expected_first,
+            second,
+        ]
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == [
+            expected_first,
+            second,
+            tail,
+        ]
+        assert [segment.index for segment in submitted_segments] == [0, 1, 2]
+        assert processor._buffer == ""
+
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_finalize_does_not_submit_closing_quote_fragment(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+
+        list(processor.process_chunk("«“هل تسمعني؟"))
+        list(processor.process_chunk("”»"))
+        list(processor.finalize())
+
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "«“هل تسمعني؟"
+        ]
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        ("first", "second", "ending", "tail"),
+        [
+            ("هل تسمعني", "نعم أسمعك", "؟", "ثم نتابع"),
+            ("یہ پہلا جملہ ہے", "یہ دوسرا جملہ ہے", "۔", "مزید متن"),
+            ("यह पहला वाक्य है", "यह दूसरा वाक्य है", "।", "आगे का पाठ"),
+            ("မင်္ဂလာပါ", "နေကောင်းလား", "။", "ကျေးဇူးတင်ပါတယ်"),
+        ],
+        ids=["arabic", "urdu", "hindi", "burmese"],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_multilingual_stream_preserves_markdown_offsets_and_final_fragment(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        first: str,
+        second: str,
+        ending: str,
+        tail: str,
+    ) -> None:
+        """Submit Unicode sentence boundaries promptly without losing the tail."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+
+        list(processor.process_chunk(first))
+        mock_executor.submit.assert_not_called()
+
+        split_at = len(second) // 2
+        list(processor.process_chunk(f"{ending} **{second[:split_at]}"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            f"{first}{ending}"
+        ]
+        assert processor._raw_offset == len(first + ending)
+
+        list(processor.process_chunk(f"{second[split_at:]}**{ending} {tail}"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            f"{first}{ending}",
+            f"{second}{ending}",
+        ]
+        assert processor._buffer[processor._raw_offset :] == f" {tail}"
+
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == [
+            f"{first}{ending}",
+            f"{second}{ending}",
+            tail,
+        ]
+        assert [segment.index for segment in submitted_segments] == [0, 1, 2]
+        assert processor._buffer == ""
+
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_process_chunk_submits_only_after_sentence_boundary(

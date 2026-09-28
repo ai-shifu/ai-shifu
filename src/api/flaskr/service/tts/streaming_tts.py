@@ -533,7 +533,9 @@ class StreamingTTSProcessor:
         for match in SENTENCE_ENDINGS.finditer(remaining_text):
             split_pos = match.end()
             segment_text = remaining_text[cursor:split_pos].strip()
-            if segment_text and len(segment_text) >= 2:
+            # A stream chunk can contain only the rest of a punctuation run
+            # after the preceding sentence has already been submitted.
+            if len(segment_text) >= 2 and has_speakable_text(segment_text):
                 self._submit_tts_task(segment_text)
                 logger.debug(
                     "Submitted finalize segment: %s chars, remaining: %s chars",
@@ -544,7 +546,7 @@ class StreamingTTSProcessor:
 
         if include_trailing_fragment:
             tail_text = remaining_text[cursor:].strip()
-            if tail_text and len(tail_text) >= 2:
+            if len(tail_text) >= 2 and has_speakable_text(tail_text):
                 self._submit_tts_task(tail_text)
                 logger.debug(
                     "Submitted finalize trailing fragment: %s chars", len(tail_text)
