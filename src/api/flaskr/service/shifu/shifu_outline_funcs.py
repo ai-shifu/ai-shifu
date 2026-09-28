@@ -648,30 +648,35 @@ def create_outlines_batch(
 
 def _load_current_outline_items_for_reorder(shifu_bid: str) -> list[DraftOutlineItem]:
     """Read current versions after the course lock, even in an older RR snapshot."""
-    versions = (
+    # Keep MAX in the locking SELECT itself: a nested aggregate can read an old
+    # snapshot. The full index prefix enables grouping without scanning history.
+    latest = (
         db.session.query(
-            DraftOutlineItem.id,
+            DraftOutlineItem.shifu_bid,
             DraftOutlineItem.outline_item_bid,
-            DraftOutlineItem.deleted,
+            db.func.max(DraftOutlineItem.id).label("id"),
         )
         .filter_by(shifu_bid=shifu_bid)
-        .order_by(DraftOutlineItem.id.desc())
+        .group_by(DraftOutlineItem.shifu_bid, DraftOutlineItem.outline_item_bid)
+        .with_hint(
+            DraftOutlineItem,
+            "FORCE INDEX (ix_shifu_draft_outline_items_shifu_outline_id)",
+            dialect_name="mysql",
+        )
         .with_for_update()
         .all()
     )
-    latest = {}
-    for item in versions:
-        latest.setdefault(item.outline_item_bid, item)
-    # Filtering deleted before deduplication would resurrect tombstoned nodes.
-    active_ids = [item.id for item in latest.values() if item.deleted == 0]
-    if not active_ids:
+    current_ids = [item.id for item in latest]
+    if not current_ids:
         return []
-    return (
-        DraftOutlineItem.query.filter(DraftOutlineItem.id.in_(active_ids))
+    current = (
+        DraftOutlineItem.query.filter(DraftOutlineItem.id.in_(current_ids))
         .populate_existing()
         .with_for_update()
         .all()
     )
+    # Filtering deleted before selecting the newest IDs would resurrect tombstones.
+    return [item for item in current if item.deleted == 0]
 
 
 def _merge_sibling_order(

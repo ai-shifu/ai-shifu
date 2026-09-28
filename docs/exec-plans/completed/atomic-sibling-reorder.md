@@ -15,6 +15,8 @@ The durable API and rollout contract is in
 - [x] 2026-09-28 CST: Verify API, preservation, rollback, and MySQL repeatable-read cases.
 - [x] 2026-09-28 CST: Run shifu tests and repository gates; complete independent
   implementation and acceptance review before archiving this code-change plan.
+- [x] 2026-09-28 CST: Narrow the current-read lock footprint using the existing
+  composite index and verify that historical revisions remain independently writable.
 
 ## Surprises & Discoveries
 
@@ -22,15 +24,24 @@ The durable API and rollout contract is in
   A normal MAX subquery or history read can still return the prior tree.
 - The display-tree builder keys nodes by position and repairs orphans. The
   mutation instead needs a complete tree keyed by BID and explicit parent links.
+- Locking every outline revision makes contention grow with revision history.
+  A direct locking aggregate over the complete composite-index prefix can find
+  current IDs without locking every historical row; an outer lock around a
+  snapshot-reading aggregate subquery does not provide the same correctness.
 
 ## Decision Log
 
 - Add mutually exclusive `order` and legacy `outlines` modes to the existing
   PATCH route. Do not introduce a new endpoint or change the legacy payload.
-- After the course lock, directly lock outline versions and refresh ORM state;
-  deduplicate by BID before excluding tombstones. Lock and refresh history too.
-  Project version metadata first and fetch only selected current rows, avoiding
-  loading every historical revision's content.
+- After the course lock, select current outline IDs with a direct `MAX(id)`
+  locking read grouped by `(shifu_bid, outline_item_bid)`, using the existing
+  `ix_shifu_draft_outline_items_shifu_outline_id` index. Lock and refresh the
+  selected rows, then exclude tombstones. This replaces the initial all-revision
+  locking scan. Lock and refresh history too.
+- Keep the aggregate in the locking SELECT itself, without a nested snapshot
+  query. MySQL's leftmost-prefix GROUP BY optimization can skip older revisions;
+  an optimizer choosing a wider scan retains current-read correctness but may
+  reduce the contention benefit. No migration or dependency is needed.
 - Keep scope to sibling-order merges. Other structural writers and the existing
   full-tree API retain their current behavior and are not claimed race-free.
 - Deploy the backend capability before the companion CLI update in skills PR
@@ -40,10 +51,12 @@ The durable API and rollout contract is in
 ## Outcomes & Retrospective
 
 The API now merges one sibling order into current locked state and preserves the
-complete history. The legacy full-tree mode is unchanged. Focused route/service
-tests passed (126), the shifu suite passed (1142), and two opt-in MySQL tests
-passed against separate connections under REPEATABLE READ. The default suite
-skips those two tests unless explicitly enabled. All 20 repository pre-commit
+complete history. The legacy full-tree mode is unchanged. After review fixes,
+the sibling service tests passed (25), the shifu suite passed (1146), and three
+opt-in MySQL tests passed against separate connections under REPEATABLE READ.
+The default suite skips those three tests unless explicitly enabled. The new
+history-lock regression failed with a lock timeout before the optimization and
+passed afterward. All 20 repository pre-commit
 checks passed, including the repository, architecture, and unit-of-work gates.
 Independent review accepted both the implementation and the real-database
 evidence. Deployment is outside this code-change plan; the durable specification
@@ -82,6 +95,15 @@ cleans up its own random schema. It first proves that an earlier ordinary read
 cannot see another connection's newly committed row, then verifies the real
 service preserves that row and the complete current history. A second case
 checks stale ORM identity entries after another connection updates the same IDs.
+A third case creates 200 versions of one outline, verifies that another
+connection can update an interior historical row while the loader holds its
+locks, and confirms that the current row still rejects a competing lock.
+
+The local database evidence uses MySQL 26.7.0 (Homebrew). The deployment target
+is MySQL 8.0, whose [GROUP BY optimization documentation](https://dev.mysql.com/doc/refman/8.0/en/group-by-optimization.html)
+supports this index shape. MySQL 8.0 was not available locally; lock-footprint
+improvement on that target remains subject to its execution plan. The regression
+checks concurrent access rather than asserting a version-specific lock count.
 
 ## Validation and Acceptance
 

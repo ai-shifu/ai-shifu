@@ -413,9 +413,19 @@ def test_current_reads_lock_direct_selects_without_snapshot_subqueries(
     assert any("shifu_draft_shifus" in sql for sql in current)
     assert any("shifu_draft_outline_items" in sql for sql in current)
     assert any("shifu_log_draft_structs" in sql for sql in current)
-    assert all("max(" not in sql.lower() for sql in current)
+    assert all(sql.lower().count("select") == 1 for sql in current)
     outline_reads = [sql for sql in current if "shifu_draft_outline_items" in sql]
     assert len(outline_reads) == 2
+    assert "max(shifu_draft_outline_items.id)" in outline_reads[0]
+    assert (
+        "GROUP BY shifu_draft_outline_items.shifu_bid, "
+        "shifu_draft_outline_items.outline_item_bid"
+    ) in outline_reads[0]
+    assert (
+        "FORCE INDEX (ix_shifu_draft_outline_items_shifu_outline_id)"
+        in outline_reads[0]
+    )
+    assert "deleted" not in outline_reads[0]
     assert "content" not in outline_reads[0]
     assert "content" in outline_reads[1]
     assert " IN (" in outline_reads[1]

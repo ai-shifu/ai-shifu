@@ -19,11 +19,15 @@ from typing import TYPE_CHECKING
 import pytest
 from flask import Flask
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.shifu import shifu_outline_funcs as outlines
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
+from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.shifu.shifu_history_manager import HistoryItem, get_shifu_history
 from flaskr.service.shifu.shifu_outline_funcs import reorder_outline_siblings
 from sqlalchemy import create_engine, text, update
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -272,3 +276,42 @@ def test_locking_reads_refresh_same_id_identity_map_entries(
         history = get_shifu_history(app, COURSE_BID)
         assert history.id == 1234
         assert _history_nodes(history)["legacy-block"].id == 99
+
+
+def test_history_rows_remain_writable_while_current_rows_are_locked(
+    mysql_reorder_app: Flask,
+) -> None:
+    app = mysql_reorder_app
+    with app.app_context():
+        initial = _latest_items()["a2"]
+        versions = [initial.clone() for _ in range(200)]
+        db.session.add_all(versions)
+        db.session.flush()
+        historical_id, current_id = versions[99].id, versions[-1].id
+        db.session.commit()
+
+        with unit_of_work():
+            lock_shifu_for_outline_write(COURSE_BID)
+            current = outlines._load_current_outline_items_for_reorder(COURSE_BID)
+            assert (
+                next(row.id for row in current if row.outline_item_bid == "a2")
+                == current_id
+            )
+            # A second connection can edit interior history, but not current rows.
+            with app.app_context():
+                db.session.execute(text("SET SESSION innodb_lock_wait_timeout=1"))
+                db.session.execute(
+                    update(DraftOutlineItem.__table__)
+                    .where(DraftOutlineItem.id == historical_id)
+                    .values(content="Historical revision remains writable")
+                )
+                db.session.commit()
+                with pytest.raises(OperationalError) as locked:
+                    db.session.execute(
+                        text(
+                            "SELECT id FROM shifu_draft_outline_items "
+                            "WHERE id=:row_id FOR UPDATE NOWAIT"
+                        ),
+                        {"row_id": current_id},
+                    )
+                assert locked.value.orig.args[0] == 3572
