@@ -45,11 +45,17 @@ GEMINI_TTS_DEFAULT_SAMPLE_RATE = 24000
 GEMINI_TTS_DEFAULT_VOICE = "Kore"
 GEMINI_TTS_DEFAULT_MODEL = "gemini-2.5-flash-preview-tts"
 GEMINI_TTS_MODELS = [
+    {"value": "gemini-3.8-flash-tts", "label": "Gemini 3.8 Flash TTS"},
+    {"value": "gemini-3.8-flash-lite-tts", "label": "Gemini 3.8 Flash-Lite TTS"},
     {"value": "gemini-3.1-flash-tts-preview", "label": "Gemini 3.1 Flash TTS"},
     {"value": "gemini-2.5-flash-preview-tts", "label": "Gemini 2.5 Flash TTS"},
     {"value": "gemini-2.5-pro-preview-tts", "label": "Gemini 2.5 Pro TTS"},
 ]
 _GEMINI_TTS_MODEL_IDS = {item["value"] for item in GEMINI_TTS_MODELS}
+_GEMINI_INTERACTION_MODEL_IDS = {
+    "gemini-3.8-flash-tts",
+    "gemini-3.8-flash-lite-tts",
+}
 # Prebuilt voices published by Google, with the official character adjectives.
 GEMINI_TTS_VOICES = [
     {"value": "Zephyr", "label": "Zephyr (Bright)"},
@@ -224,6 +230,26 @@ def _find_inline_audio(candidate: dict[str, Any]) -> tuple[str, str]:
     return "", ""
 
 
+def _find_interaction_audio(body: dict[str, Any]) -> tuple[str, str]:
+    """Return the last audio block from an Interactions model output step."""
+    steps = body.get("steps")
+    if not isinstance(steps, list):
+        return "", ""
+    for step in reversed(steps):
+        if not isinstance(step, dict) or step.get("type") != "model_output":
+            continue
+        content = step.get("content")
+        if not isinstance(content, list):
+            continue
+        for item in reversed(content):
+            if not isinstance(item, dict) or item.get("type") != "audio":
+                continue
+            data = str(item.get("data") or "").strip()
+            if data:
+                return data, str(item.get("mime_type") or "")
+    return "", ""
+
+
 def _coerce_finite_float(value: object, field_name: str) -> float:
     try:
         number = float(value)
@@ -346,22 +372,52 @@ class GeminiTTSProvider(BaseTTSProvider):
             message = f"Gemini TTS pitch is fixed at 0: {settings.pitch!r}"
             raise ValueError(message)
 
-        url = f"{_resolve_api_base_url()}/models/{quote(model_id, safe='')}:generateContent"
         headers = {
             "x-goog-api-key": api_key,
             "Content-Type": "application/json",
         }
-        payload = {
-            "contents": [
-                {"parts": [{"text": self._build_prompt_text(text, settings.emotion)}]}
-            ],
-            "generationConfig": {
-                "responseModalities": ["AUDIO"],
-                "speechConfig": {
-                    "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice_id}}
+        if model_id in _GEMINI_INTERACTION_MODEL_IDS:
+            url = f"{_resolve_api_base_url()}/interactions"
+            payload = {
+                "model": model_id,
+                "input": [
+                    {
+                        "type": "user_input",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": self._build_prompt_text(text, settings.emotion),
+                            }
+                        ],
+                    }
+                ],
+                "response_format": {
+                    "type": "audio",
+                    "mime_type": "audio/l16",
+                    "sample_rate": GEMINI_TTS_DEFAULT_SAMPLE_RATE,
                 },
-            },
-        }
+                "generation_config": {"speech_config": [{"voice": voice_id}]},
+            }
+        else:
+            url = (
+                f"{_resolve_api_base_url()}/models/"
+                f"{quote(model_id, safe='')}:generateContent"
+            )
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": self._build_prompt_text(text, settings.emotion)}
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "responseModalities": ["AUDIO"],
+                    "speechConfig": {
+                        "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice_id}}
+                    },
+                },
+            }
 
         try:
             response = requests.post(
@@ -437,7 +493,11 @@ class GeminiTTSProvider(BaseTTSProvider):
             message = f"Gemini TTS content blocked: {finish_reason}"
             raise ValueError(message)
 
-        encoded_audio, mime_type = _find_inline_audio(candidate)
+        encoded_audio, mime_type = (
+            _find_interaction_audio(body)
+            if model_id in _GEMINI_INTERACTION_MODEL_IDS
+            else _find_inline_audio(candidate)
+        )
         if not encoded_audio:
             raise ValueError(_EMPTY_AUDIO_MESSAGE)
         try:
@@ -461,9 +521,11 @@ class GeminiTTSProvider(BaseTTSProvider):
             raise ValueError(message)
         duration_ms = pcm_duration_ms(pcm_audio, sample_rate=sample_rate)
 
-        usage = body.get("usageMetadata")
+        usage = body.get("usageMetadata") or body.get("usage")
         audio_tokens = (
-            usage.get("candidatesTokenCount") if isinstance(usage, dict) else None
+            usage.get("candidatesTokenCount") or usage.get("output_tokens")
+            if isinstance(usage, dict)
+            else None
         )
         logger.info(
             "Gemini TTS synthesis completed: model=%s voice=%s duration_ms=%s pcm_bytes=%s mp3_bytes=%s text_len=%s audio_tokens=%s finish_reason=%s",

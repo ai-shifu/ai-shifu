@@ -72,6 +72,28 @@ def _audio_response(
     }
 
 
+def _interaction_audio_response(
+    pcm: bytes = _ONE_SECOND_PCM,
+    *,
+    mime_type: str = "audio/l16; rate=24000; channels=1",
+) -> dict[str, object]:
+    return {
+        "steps": [
+            {
+                "type": "model_output",
+                "content": [
+                    {
+                        "type": "audio",
+                        "mime_type": mime_type,
+                        "data": base64.b64encode(pcm).decode("ascii"),
+                    }
+                ],
+            }
+        ],
+        "usage": {"output_tokens": 25},
+    }
+
+
 class _JsonResponse:
     reason = "OK"
     headers: ClassVar[dict[str, str]] = {"x-request-id": "req-1"}
@@ -215,6 +237,8 @@ def test_provider_config_exposes_models_locked_ranges_and_voices(
     assert config.name == "gemini"
     assert config.label == "Gemini"
     assert [item["value"] for item in config.models or []] == [
+        "gemini-3.8-flash-tts",
+        "gemini-3.8-flash-lite-tts",
         "gemini-3.1-flash-tts-preview",
         "gemini-2.5-flash-preview-tts",
         "gemini-2.5-pro-preview-tts",
@@ -295,6 +319,80 @@ def test_synthesize_sends_generate_content_request_and_returns_mp3(
     assert result.word_count == len("Hello there.")
     assert result.usage_characters == len("Hello there.")
     assert result.subtitle_cues == []
+
+
+@pytest.mark.parametrize(
+    "model",
+    ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"],
+)
+def test_synthesize_3_8_uses_interactions_and_returns_mp3(
+    monkeypatch: pytest.MonkeyPatch, model: str
+) -> None:
+    _patch_config(monkeypatch)
+    transcodes = _patch_transcoder(monkeypatch)
+    captured: dict[str, object] = {}
+
+    def fake_post(url: str, **kwargs: object) -> object:
+        captured["url"] = url
+        captured.update(kwargs)
+        return _JsonResponse(_interaction_audio_response())
+
+    monkeypatch.setattr(module.requests, "post", fake_post)
+
+    result = module.GeminiTTSProvider().synthesize(
+        "Hello there.",
+        voice_settings=VoiceSettings(voice_id="Kore", speed=1.0, pitch=0),
+        model=model,
+    )
+
+    assert (
+        captured["url"]
+        == "https://generativelanguage.googleapis.com/v1beta/interactions"
+    )
+    assert captured["json"] == {
+        "model": model,
+        "input": [
+            {
+                "type": "user_input",
+                "content": [{"type": "text", "text": "Hello there."}],
+            }
+        ],
+        "response_format": {
+            "type": "audio",
+            "mime_type": "audio/l16",
+            "sample_rate": 24000,
+        },
+        "generation_config": {"speech_config": [{"voice": "Kore"}]},
+    }
+    assert captured["headers"] == {
+        "x-goog-api-key": "test-gemini-key",
+        "Content-Type": "application/json",
+    }
+    assert transcodes == [{"pcm": _ONE_SECOND_PCM, "sample_rate": 24000}]
+    assert result.audio_data == _FAKE_MP3
+    assert result.duration_ms == 1000
+    assert result.usage_characters == len("Hello there.")
+
+
+def test_synthesize_3_8_rejects_missing_audio(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_config(monkeypatch)
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: _JsonResponse(
+            {
+                "steps": [
+                    {
+                        "type": "model_output",
+                        "content": [{"type": "text", "text": "no audio"}],
+                    }
+                ]
+            }
+        ),
+    )
+
+    with pytest.raises(ValueError, match="No audio data"):
+        module.GeminiTTSProvider().synthesize("Hello", model="gemini-3.8-flash-tts")
 
 
 def test_synthesize_defaults_model_and_voice(
