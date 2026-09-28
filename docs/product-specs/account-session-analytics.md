@@ -63,16 +63,23 @@ rejected unless the terminal states are recorded separately.
 | `skill_id`            | string  | `ai-shifu-course-creator`, `unattributed`                                        | low         | non-personal  | identifies the supported Skill funnel                              |
 | `skill_version_major` | string  | `v0` through `v9`, `unknown`, or `unattributed`                                  | low         | non-personal  | finds major-version-specific drop-offs without sending caller text |
 
-### backend-observed external client continuation
+### backend-observed external client stage counts
+
+This contract supports weekly comparison of backend-observed stage volumes and
+failure trends. It is not an installation metric or a person-level conversion
+funnel: the backend cannot observe blocked or completed Skill installation,
+cannot distinguish Skill import from ordinary course creation, and does not
+carry a shared request or course identifier across these events. A token may
+also create more than one course. Client-asserted channel fields are suitable
+for directional trends, not audited attribution.
 
 - Business question: after an attributed external client reaches AI Shifu,
   where does its observable authorization-to-publication journey stop?
 - Metric definition: count requested, approved, denied, token-collected,
   course-creation, and course-publication outcomes in a UTC calendar week,
-  grouped by `host_platform`, `skill_id`, and `skill_version_major`. For the
-  identified portion beginning at approval, reports may also count distinct
-  pseudonymous users. These are aggregate stages, not a row-level joined
-  funnel, because request, token, and course identifiers are excluded.
+  grouped by `host_platform`, `skill_id`, and `skill_version_major`. These are
+  aggregate stages, not distinct-user counts or a row-level joined funnel,
+  because user, request, token, and course identifiers are excluded.
 - Events:
   `external_device_authorization_requested`,
   `external_device_authorization_approved`,
@@ -94,11 +101,9 @@ rejected unless the terminal states are recorded separately.
   is stored in a separate Redis value under a token digest. It follows sliding
   token expiry, is removed on session revocation, and never enters a user or
   course business table.
-- Correlation: approval, token collection, and course events use the same
-  existing pseudonymous `user_bid` Umami identity used by authenticated web
-  analytics. The request and denial stages are aggregate-only. No token,
-  pairing code, handoff ID, session ID, course ID, title, prompt, contact,
-  raw error, request URL, or referrer is sent.
+- Correlation: all stages are aggregate-only. No user identifier, token,
+  pairing code, handoff ID, session ID, course ID, title, prompt, contact, raw
+  error, request URL, or referrer is sent.
 - Reliability: delivery is fail-open through a bounded background queue with a
   short timeout. Queue saturation, Redis loss, missing configuration, process
   termination, or Umami failure may lose events and must not change a business

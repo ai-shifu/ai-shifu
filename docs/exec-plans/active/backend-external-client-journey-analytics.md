@@ -2,12 +2,13 @@
 
 ## Purpose / Big Picture
 
-Measure the portion of an external Skill or client journey that reaches AI
-Shifu's backend after host platforms restricted Skill installation. The
-backend will send best-effort Umami events for device authorization, token
-collection, course creation, and publication. Analytics remains separate from
-business correctness: no user or course table changes, no migrations, and no
-request may fail or wait for Umami.
+Count backend-observed external-client actions by stage after host platforms
+restricted Skill installation. The backend sends best-effort Umami events for
+device authorization, token collection, course creation, and publication so
+weekly reports can compare stage volumes and failure trends. These counts are
+not Skill-install attribution or a person-level conversion funnel. Analytics
+remains separate from business correctness: no user or course table changes,
+no migrations, and no request may fail or wait for Umami.
 
 ## Progress
 
@@ -21,6 +22,9 @@ request may fail or wait for Umami.
       and publication with focused regression coverage.
 - [x] 2026-09-28 13:10 CST: Ran focused and repository gates and completed the
       local self-review; delivery is waiting for user approval.
+- [x] 2026-09-28 14:05 CST: Bound course analytics to the credential selected
+      by authentication, aligned attribution cleanup and expiry with session
+      lifecycle, narrowed the reporting claim, and passed 219 regression tests.
 
 ## Surprises & Discoveries
 
@@ -40,6 +44,10 @@ request may fail or wait for Umami.
 - Placing token attribution under the user service created a new cross-service
   import from course authoring. Moving the shared analytics-only context to the
   common service preserved the architecture baseline with zero new violations.
+- Reading the Token header again inside course analytics could combine a
+  cookie-authenticated user with another session's channel. Persisting the
+  selected credential in Flask request context makes authentication the sole
+  source of truth for both identity and attribution.
 
 ## Decision Log
 
@@ -53,6 +61,10 @@ request may fail or wait for Umami.
   permanently coloring a user.
 - Decision: report course creation and publication, but not import. Rationale:
   the backend has no reliable import discriminator in the current protocol.
+- Decision: describe the result as stage-level behavior counts, not a strict
+  conversion funnel. Rationale: events have no shared request or course
+  identifier, one token can create multiple courses, and installation happens
+  outside the backend.
 - Decision: treat the allowlisted channel as client-asserted, not
   cryptographically trusted. Rationale: the public device endpoint validates
   shape and values but does not authenticate a package identity.
@@ -62,10 +74,11 @@ request may fail or wait for Umami.
 The backend now observes attributed device authorization through token
 collection, course creation, and publication without adding business storage.
 The token-scoped Redis context expires and revokes with its session, while a
-bounded fail-open sender isolates Umami from product behavior. All 188 focused
-and adjacent tests passed, as did the architecture, unit-of-work, repository
-harness, diff, developer-tooling, and full pre-commit gates. The local change
-is complete; commit and pull-request delivery remain pending user approval.
+bounded fail-open sender isolates Umami from product behavior. The latest
+review fix also keeps attribution alive with any valid use of its token and
+cleans it during direct account cancellation. All 219 focused and adjacent
+tests passed, as did the architecture, unit-of-work, and repository harness
+gates. Final delivery checks also passed before the review fix was delivered.
 
 ## Context and Orientation
 

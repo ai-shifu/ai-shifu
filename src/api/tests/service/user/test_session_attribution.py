@@ -57,3 +57,25 @@ def test_corrupt_or_unavailable_attribution_never_blocks_business_flow(
         session_attribution.get_session_skill_attribution(app, token="secret-token")
         is None
     )
+
+
+def test_active_session_refresh_renews_attribution_ttl(
+    app: object, monkeypatch: object
+) -> None:
+    fake_cache = FakeRedis()
+    monkeypatch.setattr(session_attribution, "cache", fake_cache)
+    monkeypatch.setitem(app.config, "TOKEN_EXPIRE_TIME", 120)
+    identity = SkillIdentityInput(
+        host_platform="direct",
+        skill_id="ai-shifu-course-creator",
+        skill_version="2.0.0",
+    )
+    session_attribution.save_session_skill_attribution(
+        app, token="active-token", attribution=identity
+    )
+    key = session_attribution._cache_key(app, "active-token")
+    fake_cache._expires[key] = fake_cache._now() + 1
+
+    session_attribution.touch_session_skill_attribution(app, token="active-token")
+
+    assert fake_cache.ttl(key) > 100

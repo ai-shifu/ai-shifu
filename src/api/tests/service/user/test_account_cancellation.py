@@ -159,9 +159,15 @@ def test_cancel_deidentifies_account_and_preserves_draft(
 ) -> None:
     user_bid = uuid.uuid4().hex[:32]
     deleted_cache_keys: list[str] = []
+    discarded_attribution_tokens: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.user.account_cancellation.redis.delete",
         deleted_cache_keys.append,
+    )
+    monkeypatch.setattr(
+        account_cancellation,
+        "discard_session_skill_attribution",
+        lambda _app, *, token: discarded_attribution_tokens.append(token),
     )
     with app.app_context():
         _seed_user(
@@ -226,6 +232,7 @@ def test_cancel_deidentifies_account_and_preserves_draft(
             "ai-shifu:user:secret-token",
             "ai-shifu:user:secret-token:row",
         ]
+        assert discarded_attribution_tokens == ["secret-token"]
 
         cancelled_users = list_operator_users(app, 1, 20, {"user_status": "cancelled"})
         assert cancelled_users.total == 1

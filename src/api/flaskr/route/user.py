@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import ParamSpec, TypeVar
 
-from flask import Flask, Response, current_app, make_response, request
+from flask import Flask, Response, current_app, g, make_response, request
 
 from flaskr.common.client_ip import resolve_client_ip
 from flaskr.common.http import sensitive_body
@@ -282,6 +282,7 @@ def _optional_token_validation(
             else:
                 set_language(_resolve_runtime_language(user))
                 request.user = user
+                g.authenticated_session_token = token
         return f(*args, **kwargs)
 
     return decorated_function
@@ -327,19 +328,14 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         ):
             return
 
-        token = request.cookies.get("token", None)
-        if not token:
-            token = request.args.get("token", None)
-        if not token:
-            token = request.headers.get("Token", None)
-        if not token and request.method.upper() == "POST" and request.is_json:
-            token = request.get_json().get("token", None)
+        token = _extract_request_token()
         token = str(token)
         if not token and request.endpoint in by_pass_login_func:
             return
         user = validate_user(app, token)
         set_language(_resolve_runtime_language(user))
         request.user = user
+        g.authenticated_session_token = token
 
     register_profile_routes(
         app,

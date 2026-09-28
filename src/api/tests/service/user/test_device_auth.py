@@ -120,8 +120,8 @@ def test_attributed_device_journey_reaches_token_session(
         "external_device_token_collected",
     ]
     assert events[0][2] == ""
-    assert events[1][2] == USER_ID
-    assert events[2][2] == USER_ID
+    assert events[1][2] == ""
+    assert events[2][2] == ""
     assert saved == [(issued["token"], events[2][1])]
     assert attribution["handoff_id"] not in repr(events)
 

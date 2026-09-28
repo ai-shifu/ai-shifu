@@ -80,3 +80,16 @@ def discard_session_skill_attribution(app: Flask, *, token: str) -> None:
         cache.delete(_cache_key(app, token))
     except Exception:
         return
+
+
+def touch_session_skill_attribution(app: Flask, *, token: str) -> None:
+    """Keep analytics context aligned with an actively used session token."""
+    if not token:
+        return
+    try:
+        cache.getex(
+            _cache_key(app, token),
+            ex=int(app.config["TOKEN_EXPIRE_TIME"]),
+        )
+    except Exception:
+        return

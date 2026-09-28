@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
+from flaskr.service.config.funcs import get_config
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -30,7 +31,7 @@ _ALLOWED_EVENTS = frozenset(
 )
 _EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="umami-backend")
 _CAPACITY = BoundedSemaphore(32)
-_VERSION_MAJOR = re.compile(r"^[vV]?(\d+)(?:\.|$)")
+_VERSION_MAJOR = re.compile(r"^[vV]?([0-9]+)(?:\.|$)")
 
 
 def _collector_url(script_url: object) -> str:
@@ -39,7 +40,7 @@ def _collector_url(script_url: object) -> str:
         parsed = urlsplit(str(script_url or "").strip())
     except ValueError:
         return ""
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    if parsed.scheme != "https" or not parsed.netloc:
         return ""
     return urlunsplit((parsed.scheme, parsed.netloc, "/api/send", "", ""))
 
@@ -48,8 +49,8 @@ def _version_bucket(raw_version: str) -> str:
     match = _VERSION_MAJOR.match(str(raw_version or "").strip())
     if match is None:
         return "unknown"
-    major = int(match.group(1))
-    return f"v{major}" if 0 <= major <= 9 else "unknown"
+    major = match.group(1)
+    return f"v{major}" if len(major) == 1 else "unknown"
 
 
 def _deliver(url: str, payload: dict[str, object]) -> None:
@@ -66,17 +67,19 @@ def _deliver(url: str, payload: dict[str, object]) -> None:
 
 
 def track_external_client_event(
-    app: Flask,
+    _app: Flask,
     *,
     event_name: str,
     attribution: SkillIdentityInput | None,
-    user_id: str = "",
 ) -> None:
     """Queue one allowlisted event without exposing business or credential data."""
     if event_name not in _ALLOWED_EVENTS or attribution is None:
         return
-    collector_url = _collector_url(app.config.get("ANALYTICS_UMAMI_SCRIPT"))
-    website_id = str(app.config.get("ANALYTICS_UMAMI_SITE_ID") or "").strip()
+    try:
+        collector_url = _collector_url(get_config("ANALYTICS_UMAMI_SCRIPT", ""))
+        website_id = str(get_config("ANALYTICS_UMAMI_SITE_ID", "") or "").strip()
+    except Exception:
+        return
     if not collector_url or not website_id or not _CAPACITY.acquire(blocking=False):
         return
 
@@ -91,10 +94,6 @@ def track_external_client_event(
             "skill_version_major": _version_bucket(attribution.skill_version),
         },
     }
-    normalized_user_id = str(user_id or "").strip()
-    if normalized_user_id:
-        payload["id"] = normalized_user_id[:50]
-
     try:
         future = _EXECUTOR.submit(_deliver, collector_url, payload)
     except Exception:

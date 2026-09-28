@@ -3,6 +3,7 @@
 from concurrent.futures import Future
 from types import SimpleNamespace
 
+import pytest
 from flaskr.service.common import server_analytics
 from flaskr.service.common.skill_attribution import SkillIdentityInput
 
@@ -27,14 +28,20 @@ def test_backend_event_contains_only_allowlisted_dimensions(
         return future
 
     monkeypatch.setattr(server_analytics._EXECUTOR, "submit", submit)
-    app.config["ANALYTICS_UMAMI_SCRIPT"] = "https://analytics.example.test/script.js"
-    app.config["ANALYTICS_UMAMI_SITE_ID"] = "website-id"
+    settings = {
+        "ANALYTICS_UMAMI_SCRIPT": "https://analytics.example.test/script.js",
+        "ANALYTICS_UMAMI_SITE_ID": "website-id",
+    }
+    monkeypatch.setattr(
+        server_analytics,
+        "get_config",
+        lambda key, default="": settings.get(key, default),
+    )
 
     server_analytics.track_external_client_event(
         app,
         event_name="external_course_creation_completed",
         attribution=_identity(),
-        user_id="user-bid-1",
     )
 
     assert len(submitted) == 1
@@ -45,7 +52,6 @@ def test_backend_event_contains_only_allowlisted_dimensions(
         "hostname": "server.ai-shifu",
         "url": "/backend/external-client",
         "name": "external_course_creation_completed",
-        "id": "user-bid-1",
         "data": {
             "host_platform": "workbuddy",
             "skill_id": "ai-shifu-course-creator",
@@ -64,10 +70,14 @@ def test_backend_event_contains_only_allowlisted_dimensions(
         "course_title",
         "prompt",
         "error",
-        "url",
         "referrer",
+        "user_id",
+        "user_bid",
+        "id",
     ):
+        assert prohibited_key not in payload
         assert prohibited_key not in payload["data"]
+    assert "url" not in payload["data"]
 
 
 def test_missing_config_or_attribution_is_a_noop(
@@ -79,8 +89,7 @@ def test_missing_config_or_attribution_is_a_noop(
         submit.called = True
 
     monkeypatch.setattr(server_analytics._EXECUTOR, "submit", unexpected_submit)
-    app.config["ANALYTICS_UMAMI_SCRIPT"] = ""
-    app.config["ANALYTICS_UMAMI_SITE_ID"] = ""
+    monkeypatch.setattr(server_analytics, "get_config", lambda *_args: "")
 
     server_analytics.track_external_client_event(
         app,
@@ -94,6 +103,56 @@ def test_missing_config_or_attribution_is_a_noop(
     )
 
     assert submit.called is False
+
+
+def test_http_and_unicode_versions_are_rejected_without_interrupting(
+    app: object, monkeypatch: object
+) -> None:
+    submitted: list[object] = []
+    monkeypatch.setattr(
+        server_analytics._EXECUTOR,
+        "submit",
+        lambda *_args: submitted.append(object()),
+    )
+    settings = {
+        "ANALYTICS_UMAMI_SCRIPT": "http://analytics.example.test/script.js",
+        "ANALYTICS_UMAMI_SITE_ID": "website-id",
+    }
+    monkeypatch.setattr(
+        server_analytics,
+        "get_config",
+        lambda key, default="": settings.get(key, default),
+    )
+
+    server_analytics.track_external_client_event(
+        app,
+        event_name="external_device_authorization_requested",
+        attribution=_identity("１２３４５６７８９０"),
+    )
+
+    assert submitted == []
+    assert server_analytics._version_bucket("１２３４５６７８９０") == "unknown"
+
+
+def test_persisted_config_lookup_failure_is_fail_open(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr(
+        server_analytics,
+        "get_config",
+        lambda *_args: (_ for _ in ()).throw(LookupError),
+    )
+    monkeypatch.setattr(
+        server_analytics._EXECUTOR,
+        "submit",
+        lambda *_args: pytest.fail("event should not be queued"),
+    )
+
+    server_analytics.track_external_client_event(
+        app,
+        event_name="external_device_authorization_requested",
+        attribution=_identity(),
+    )
 
 
 def test_delivery_swallows_network_failures(monkeypatch: object) -> None:

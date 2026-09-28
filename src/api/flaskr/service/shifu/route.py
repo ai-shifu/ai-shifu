@@ -43,6 +43,7 @@ from flask import (
     Response,
     after_this_request,
     current_app,
+    g,
     has_request_context,
     request,
     send_file,
@@ -160,14 +161,12 @@ def _external_client_course_event(app: Flask, operation: str) -> Generator[None]
     """Report one attributed course operation without changing its outcome."""
     attribution = get_session_skill_attribution(
         app,
-        token=str(request.headers.get("Token") or "").strip(),
+        token=str(getattr(g, "authenticated_session_token", "") or "").strip(),
     )
-    user_id = str(getattr(request.user, "user_id", "") or "")
     track_external_client_event(
         app,
         event_name=f"external_course_{operation}_started",
         attribution=attribution,
-        user_id=user_id,
     )
     try:
         yield
@@ -176,14 +175,12 @@ def _external_client_course_event(app: Flask, operation: str) -> Generator[None]
             app,
             event_name=f"external_course_{operation}_failed",
             attribution=attribution,
-            user_id=user_id,
         )
         raise
     track_external_client_event(
         app,
         event_name=f"external_course_{operation}_completed",
         attribution=attribution,
-        user_id=user_id,
     )
 
 
