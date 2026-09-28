@@ -58,6 +58,47 @@ def test_opening_quote_at_current_buffer_end_is_not_consumed(
     assert matches[0].quote_state == ()
 
 
+@pytest.mark.parametrize("quote_run", ['"', "'", '""', "''", "\"'", "'\"", '")'])
+def test_live_buffer_keeps_the_entire_unmatched_symmetric_quote_run(
+    pattern: SentenceBoundaryPattern, quote_run: str
+) -> None:
+    source = f"First.{quote_run}"
+    match = next(pattern.finditer(source, is_final=False))
+    assert match.group() == "."
+    assert match.end() == len("First.")
+    assert source[match.end() :] == quote_run
+    assert match.quote_state == ()
+    # Complete-text consumers retain the established unmatched-closer policy.
+    assert next(pattern.finditer(source)).end() == len(source)
+
+
+@pytest.mark.parametrize("quote", ['"', "'"])
+def test_unconsumed_symmetric_quote_opens_the_next_streamed_sentence(
+    pattern: SentenceBoundaryPattern, quote: str
+) -> None:
+    first_chunk = f"First.{quote}"
+    first_match = next(pattern.finditer(first_chunk, is_final=False))
+    remaining = first_chunk[first_match.end() :] + f"Next.{quote}"
+    matches = list(
+        pattern.finditer(
+            remaining, initial_quote_state=first_match.quote_state, is_final=False
+        )
+    )
+    assert remaining == f"{quote}Next.{quote}"
+    assert matches[0].end() == len(remaining)
+    assert matches[0].quote_state == ()
+
+
+def test_live_buffer_consumes_a_known_closer_before_a_new_ambiguous_quote(
+    pattern: SentenceBoundaryPattern,
+) -> None:
+    source = '"First.""'
+    match = next(pattern.finditer(source, is_final=False))
+    assert source[: match.end()] == '"First."'
+    assert source[match.end() :] == '"'
+    assert match.quote_state == ()
+
+
 def test_source_offsets_and_nested_quote_state_are_preserved(
     pattern: SentenceBoundaryPattern,
 ) -> None:

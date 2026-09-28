@@ -45,6 +45,9 @@ subtitles under the existing trailing-punctuation display policy.
       quotes at chunk boundaries. All 881 TTS tests passed, including source
       offsets, Tencent terminal handling, provider punctuation policies, and
       word-initial apostrophes inside a quotation.
+- [x] 2026-09-28 UTC: Deferred unmatched ASCII quotation marks at the end of
+      incomplete stream windows. All 897 TTS tests passed, including nested
+      quote suffixes, immediate matched closers, and Markdown/finalize offsets.
 
 ## Surprises & Discoveries
 
@@ -107,12 +110,16 @@ subtitles under the existing trailing-punctuation display policy.
   a pending pair are removed from a later chunk's prefix; detached non-quote
   brackets retain the existing cleanup policy. Keep raw buffers and boundary
   offsets unchanged.
+- Preserve unmatched ASCII quote suffixes in incomplete stream buffers until
+  subsequent text establishes their role. Consume already paired closers
+  immediately; complete-text and finalization callers retain their existing
+  unmatched-closer behavior.
 
 ## Outcomes & Retrospective
 
 Subtitle-producing paths now share Unicode sentence-terminal recognition.
 Provider indices remain unchanged; indexed Tencent cues spanning multiple
-sentences are apportioned within their original interval. All 881 TTS tests
+sentences are apportioned within their original interval. All 897 TTS tests
 passed, including complete and chunked multilingual punctuation, finalization,
 contextual quotation pairing, and source alignment cases. Independent review
 verified the punctuation-only request fix; the full repository pre-commit gate

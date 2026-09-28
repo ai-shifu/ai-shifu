@@ -42,6 +42,7 @@ _QUOTE_PAIRS: dict[str, tuple[str, ...]] = {
 }
 _QUOTATION_MARK = regex.compile(r"\p{Quotation_Mark}")
 _APOSTROPHES = frozenset({"'", "\u2019", "\uff07"})
+_ASCII_SYMMETRIC_QUOTES = frozenset({'"', "'"})
 _WORD_FINAL_QUOTE_MARKS = _APOSTROPHES | frozenset({'"', "\uff02", "\u201d"})
 
 
@@ -140,11 +141,31 @@ class SentenceBoundaryPattern:
             state.append(char)
 
     def finditer(
-        self, text: str, *, initial_quote_state: QuoteState = ()
+        self,
+        text: str,
+        *,
+        initial_quote_state: QuoteState = (),
+        is_final: bool = True,
     ) -> Iterator[SentenceBoundaryMatch]:
-        """Yield sentence boundaries while scanning the original text once."""
+        """Yield boundaries, retaining ambiguous trailing quotes in live streams.
+
+        A live buffer ending is not necessarily a text ending. An unmatched
+        ASCII quote in its trailing punctuation run may open the next sentence;
+        leave that run outside the boundary until more text or finalization.
+        """
         state = list(initial_quote_state)
         state_before = tuple(state)
+        trailing_quote_start = len(text)
+        if not is_final:
+            while trailing_quote_start > 0:
+                char = text[trailing_quote_start - 1]
+                if not (
+                    char.isspace()
+                    or _QUOTATION_MARK.fullmatch(char)
+                    or self._legacy_closer.fullmatch(char)
+                ):
+                    break
+                trailing_quote_start -= 1
         cursor = 0
         while cursor < len(text):
             terminal = self._terminals.match(text, cursor)
@@ -177,7 +198,11 @@ class SentenceBoundaryPattern:
                         break
                     if _closes_pending_quote(char, state):
                         state.pop()
-                    elif not self._is_unmatched_closer(text, cursor):
+                    elif (
+                        not is_final
+                        and char in _ASCII_SYMMETRIC_QUOTES
+                        and cursor >= trailing_quote_start
+                    ) or not self._is_unmatched_closer(text, cursor):
                         break
                 elif not self._legacy_closer.fullmatch(char):
                     break

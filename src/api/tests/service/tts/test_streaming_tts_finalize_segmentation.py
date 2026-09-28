@@ -54,6 +54,105 @@ class TestFinalizeSegmentation:
     """Tests for finalize segmentation improvements."""
 
     @pytest.mark.parametrize(
+        ("opener", "closer"),
+        [('"', '"'), ("'", "'"), ("\"'", "'\"")],
+        ids=["double", "single", "nested"],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_ascii_openers_at_chunk_end_remain_with_the_next_sentence(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        opener: str,
+        closer: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+
+        list(processor.process_chunk(f"First.{opener}"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "First."
+        ]
+        assert processor._raw_offset == len("First.")
+        assert processor._buffer[processor._raw_offset :] == opener
+
+        list(processor.process_chunk(f"Next.{closer}"))
+        raw_length = len(processor._buffer)
+        assert processor._raw_offset == raw_length
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == [
+            "First.",
+            f"{opener}Next.{closer}",
+        ]
+        assert [segment.index for segment in submitted_segments] == [0, 1]
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize("quote", ['"', "'"])
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_matched_ascii_closer_at_chunk_end_is_submitted_immediately(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        quote: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+        first = f"{quote}First.{quote}"
+
+        list(processor.process_chunk(first))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            first
+        ]
+        assert processor._raw_offset == len(first)
+
+        list(processor.process_chunk(" Next."))
+        list(processor.finalize())
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            first,
+            "Next.",
+        ]
+
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_deferred_ascii_opener_survives_markdown_offsets_and_finalize_tail(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+
+        list(processor.process_chunk('**First**."'))
+        assert mock_executor.submit.call_args.args[1].text == "First."
+        assert processor._raw_offset == len("**First**.")
+        assert processor._buffer[processor._raw_offset :] == '"'
+
+        list(processor.process_chunk('Final **fragment**"'))
+        assert mock_executor.submit.call_count == 1
+        assert processor._buffer[processor._raw_offset :] == '"Final **fragment**"'
+        raw_length = len(processor._buffer)
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == [
+            "First.",
+            '"Final fragment"',
+        ]
+        assert [segment.index for segment in submitted_segments] == [0, 1]
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
         ("first", "continuation", "expected_before_body"),
         [
             ("First.", "«!!", ["First.", "«!!"]),

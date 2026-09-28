@@ -433,7 +433,9 @@ class StreamingTTSProcessor:
         initial_quote_state = self._sentence_quote_state
         sentence_matches = list(
             SENTENCE_ENDINGS.finditer(
-                processable_text, initial_quote_state=initial_quote_state
+                processable_text,
+                initial_quote_state=initial_quote_state,
+                is_final=False,
             )
         )
         if not sentence_matches:
