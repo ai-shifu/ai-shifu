@@ -1095,6 +1095,7 @@ export default function UserCreditGrantDialog({
                       </div>
                       <div className='flex gap-2'>
                         <Input
+                          className='h-10'
                           value={creditFormState.validityValue}
                           inputMode='numeric'
                           aria-label={tOperationsUsers(
