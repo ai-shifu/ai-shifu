@@ -167,8 +167,9 @@ def register_schema_to_swagger(cls: object) -> object:
         "type": "object",
         "description": comments.get(cls.__name__, ""),
         "properties": properties,
-        "required": required,
     }
+    if required:
+        schema["required"] = required
     swagger_config["components"]["schemas"][cls.__name__] = schema
 
     return cls

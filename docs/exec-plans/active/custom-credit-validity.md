@@ -44,6 +44,9 @@ use duration-only requests across API, UI and CLI. No schema migration.
 - [x] 2026-09-28: All 20 full pre-commit gates passed for duration-only grants.
   Corrected OpenAPI required-field metadata in a separate review fix; 105
   schema/DTO/admin tests passed, including two new schema regressions.
+- [x] 2026-09-28: Full frontend type-check passed with isolated lockfile
+  dependencies. Omit empty OpenAPI required arrays for all-default DTOs and
+  cover this boundary in schema and real endpoint regression checks.
 - [ ] Read back actual test database bucket and ledger expiry timestamps.
 - [ ] Production release (separate from this PR preparation).
 
@@ -84,9 +87,10 @@ use duration-only requests across API, UI and CLI. No schema migration.
 Ordinary grants now have one duration-only contract across UI, API and CLI.
 Subscription compensation uses the exact-expiry internal service, while referral
 rewards retain their independent calendar-month rule. The latest 279 backend
-and 36 frontend tests passed. Local type-check remains limited by the shared
-node_modules installation (markdown-flow-ui 0.2.26 lacks the es-ES and ur-PK
-locales in the pinned 0.2.29 package); the dependency was not changed here.
+and 36 frontend tests passed. Full type-check passed in an isolated checkout
+using lockfile dependencies. The shared node_modules installation
+(markdown-flow-ui 0.2.26 lacks the es-ES and ur-PK locales in the pinned 0.2.29
+package) was not changed.
 
 The CLI now requires an explicit custom duration and no longer accepts preset
 flags. Focused verification passed 251 backend tests, including the two formerly

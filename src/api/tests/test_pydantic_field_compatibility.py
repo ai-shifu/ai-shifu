@@ -161,6 +161,7 @@ def test_actual_openapi_keeps_standard_required_arrays() -> None:
 
     assert response.status_code == 200
     schemas = response.get_json()["components"]["schemas"]
+    assert all(schema.get("required") != [] for schema in schemas.values())
     assert schemas["AdminOperationUserCreditGrantRequestDTO"]["required"] == [
         "request_id",
         "amount",

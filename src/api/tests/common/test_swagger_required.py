@@ -16,6 +16,14 @@ class SwaggerRequiredFieldsFixture(BaseModel):
 
 
 @register_schema_to_swagger
+class SwaggerOptionalFieldsFixture(BaseModel):
+    """Exercise a request with no required fields."""
+
+    optional_value: str | None = None
+    factory_value: list[str] = Field(default_factory=list)
+
+
+@register_schema_to_swagger
 class SwaggerPlainFieldsFixture:
     """Preserve the existing non-Pydantic DTO contract."""
 
@@ -40,3 +48,9 @@ def test_pydantic_openapi_requiredness_matches_validation() -> None:
 def test_plain_dto_required_fields_are_unchanged() -> None:
     schema = swagger_config["components"]["schemas"]["SwaggerPlainFieldsFixture"]
     assert schema["required"] == ["value", "nullable_value"]
+
+
+def test_optional_dto_omits_empty_required_array() -> None:
+    schema = swagger_config["components"]["schemas"]["SwaggerOptionalFieldsFixture"]
+    assert "required" not in schema
+    assert set(schema["properties"]) == {"optional_value", "factory_value"}
