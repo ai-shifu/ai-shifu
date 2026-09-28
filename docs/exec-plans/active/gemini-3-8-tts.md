@@ -15,13 +15,13 @@ Support Gemini 3.8 Flash TTS and Flash-Lite TTS in the existing Gemini provider 
 
 - Gemini 3.8 TTS uses `POST /v1beta/interactions`; the existing provider uses `models/{model}:generateContent` for preview models.
 - Requesting `audio/l16` from Interactions preserves the existing PCM-to-MP3 pipeline. The default unary response is WAV.
-- The US database inspected on 2026-09-28 has no `credit_usage_rates` table, so rate creation must be treated separately from provider availability.
+- The US app connects through `SQLALCHEMY_DATABASE_URI`, not the legacy `MYSQL_DB` variables. Its actual database has active Gemini TTS rates and saved course selections that must be migrated during rollout.
 
 ## Decision Log
 
 - Keep preview-model support for other deployments and add a model-specific Interactions path for 3.8.
 - Keep the existing thirty prebuilt voices and character-based metering contract.
-- Do not change production model exposure until the new backend is deployed.
+- Do not change production model exposure until the new backend is deployed. Map 2.5 Flash Preview to 3.8 Flash-Lite and 3.1 Flash Preview to 3.8 Flash in active course settings.
 
 ## Outcomes & Retrospective
 
@@ -41,7 +41,8 @@ Add the two 3.8 model IDs, build the documented Interactions request for them, e
 2. Build and parse Interactions audio without exposing API credentials or audio payloads in logs.
 3. Test request, response, error, and legacy behavior.
 4. Run a credentialed synthesis smoke for both models.
-5. Switch the US allowlist and verify deployed picker and synthesis.
+5. Create exact rates for both new models, deploy the backend, and stage the US allowlist with both old and new models.
+6. Migrate active course selections, remove the old models from the allowlist, and verify picker and synthesis.
 
 ## Validation and Acceptance
 
