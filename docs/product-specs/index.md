@@ -6,6 +6,8 @@ User-facing workflow and page behavior specifications live here.
 
 - [Account Session Analytics](../product-specs/account-session-analytics.md)
   - Status: `implemented` | Owner: `frontend-backend` | Last reviewed: `2026-09-28` | Canonical: `true`
+- [Atomic Sibling Reorder](../product-specs/atomic-sibling-reorder.md)
+  - Status: `implemented` | Owner: `api` | Last reviewed: `2026-09-28` | Canonical: `true`
 - [积分通知中心需求文档](../product-specs/billing-credit-notifications.md)
   - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Billing learning-time estimates](../product-specs/billing-learning-hours-estimate.md)
