@@ -304,8 +304,8 @@ const ConfirmSummaryItem = ({
   label: ReactNode;
   value: string;
 }) => (
-  <div className='grid grid-cols-[132px_minmax(0,1fr)] items-start gap-3'>
-    <div className='flex items-center gap-1 whitespace-nowrap text-muted-foreground'>
+  <div className='grid min-w-0 grid-cols-[minmax(0,132px)_minmax(0,1fr)] items-start gap-3'>
+    <div className='min-w-0 whitespace-normal text-muted-foreground [overflow-wrap:anywhere]'>
       {label}
     </div>
     <span className='min-w-0 break-words text-foreground'>{value}</span>
