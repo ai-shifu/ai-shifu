@@ -692,7 +692,9 @@ def _merge_sibling_order(
 
     nodes = {bid: ReorderOutlineItemDto(bid=bid, children=[]) for bid in items}
     roots = []
-    for item in sorted(existing_items, key=lambda row: (row.position, row.id)):
+    for item in sorted(
+        existing_items, key=lambda row: (len(row.position), row.position, row.id)
+    ):
         parent = item.parent_bid or ""
         if parent and parent not in nodes:
             raise_error("server.shifu.outlineStructureBroken")

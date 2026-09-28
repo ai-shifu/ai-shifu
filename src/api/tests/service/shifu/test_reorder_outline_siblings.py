@@ -158,6 +158,35 @@ def test_root_reorder_preserves_all_subtrees(
     assert set(_history_nodes(history)) == set(latest) | {"legacy-block"}
 
 
+def test_untouched_groups_keep_display_order_with_mixed_position_widths(
+    app: object, sibling_course: SimpleNamespace
+) -> None:
+    course = sibling_course
+    positions = {
+        "chapter-b": "11",
+        "b1": "1101",
+        "b2": "1102",
+        "sparse": "100",
+        "sparse-child": "10009",
+    }
+    for bid, position in positions.items():
+        course.rows[bid].position = position
+    db.session.commit()
+    original_ids = {bid: course.rows[bid].id for bid in positions}
+
+    outlines.reorder_outline_siblings(app, "teacher", course.bid, ["a2", "a1"])
+
+    latest = _latest(course)
+    assert {bid: latest[bid].position for bid in positions} == positions
+    assert {bid: latest[bid].id for bid in positions} == original_ids
+    history = get_shifu_history(app, course.bid)
+    assert [item.bid for item in history.children] == [
+        "chapter-a",
+        "chapter-b",
+        "sparse",
+    ]
+
+
 @pytest.mark.parametrize(
     "order",
     [
