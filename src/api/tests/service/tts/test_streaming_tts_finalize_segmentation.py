@@ -54,6 +54,46 @@ class TestFinalizeSegmentation:
     """Tests for finalize segmentation improvements."""
 
     @pytest.mark.parametrize(
+        ("tts_provider", "chunks", "complete_sentence"),
+        [
+            ("aliyun", ["”»"], False),
+            ("baidu", ["”", "»"], False),
+            ("volcengine_http", ["”»!!"], True),
+        ],
+        ids=["whole-closers", "chunked-closers", "initial-punctuation"],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_initial_punctuation_preserves_provider_non_speakable_text_policy(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        tts_provider: str,
+        chunks: list[str],
+        complete_sentence: bool,
+    ) -> None:
+        """Initial punctuation is content, not a consumed sentence's continuation."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider=tts_provider)
+        text = "".join(chunks)
+        assert not _should_skip_non_speakable_tts_text(text, tts_provider)
+
+        for chunk in chunks:
+            list(processor.process_chunk(chunk))
+        submitted_texts = [
+            call.args[1].text for call in mock_executor.submit.call_args_list
+        ]
+        assert submitted_texts == ([text] if complete_sentence else [])
+
+        list(processor.finalize())
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            text
+        ]
+        assert mock_executor.submit.call_args.args[1].index == 0
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
         ("tts_provider", "tail"),
         [("aliyun", "😀😀"), ("baidu", "∞∞"), ("volcengine_http", "--")],
     )
@@ -141,6 +181,9 @@ class TestFinalizeSegmentation:
         assert [segment.index for segment in submitted_segments] == [0, 1, 2]
         assert processor._buffer == ""
 
+    @pytest.mark.parametrize(
+        "tts_provider", ["tencent", "aliyun", "baidu", "volcengine_http"]
+    )
     @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_finalize_does_not_submit_closing_quote_fragment(
@@ -148,9 +191,10 @@ class TestFinalizeSegmentation:
         mock_is_configured: object,
         mock_executor: object,
         mock_app: object,
+        tts_provider: str,
     ) -> None:
         mock_is_configured.return_value = True
-        processor = create_test_processor(mock_app, tts_provider="tencent")
+        processor = create_test_processor(mock_app, tts_provider=tts_provider)
 
         list(processor.process_chunk("«“هل تسمعني؟"))
         list(processor.process_chunk("”»"))

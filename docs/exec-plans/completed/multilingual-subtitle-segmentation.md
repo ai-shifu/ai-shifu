@@ -25,6 +25,10 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
       punctuation and closer fragments after provider-policy review. All 789
       TTS tests passed, including symbol-only completed sentences and final
       tails for Aliyun, Baidu, and Volcengine HTTP.
+- [x] 2026-09-28 UTC: Covered overlapping provider anchors and standalone
+      closing punctuation. Grouped Tencent cues now remain monotonic, and
+      punctuation filtering requires a previously consumed sentence boundary.
+      All 797 TTS tests and an independent final review passed.
 
 ## Surprises & Discoveries
 
@@ -55,10 +59,14 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
 - Partition an indexed Tencent cue across the source sentences it overlaps,
   using the existing speech-weight helper on each source intersection. Use
   cumulative rounding so adjacent intervals meet and the provider's outer
-  endpoints survive. Cues contained in one sentence retain their full interval.
+  endpoints survive. Non-overlapping cues contained in one sentence retain
+  their full interval. Clamp each grouped sentence to its predecessor's end
+  when provider anchors overlap, allowing zero-length cues without extending
+  the overall timeline.
 - Filter only sentence-ending punctuation/closer fragments before submitting
-  synthesis tasks. Emoji, mathematical symbols, and other punctuation still
-  reach the existing provider-aware `skip_non_speakable_text` decision.
+  synthesis tasks, and only after a sentence boundary was already consumed.
+  Standalone closing punctuation, emoji, mathematical symbols, and other
+  punctuation still reach the provider-aware `skip_non_speakable_text` decision.
 - Leave Tencent TextToVoice request-size splitting unchanged: that provider
   supplies no subtitles and its length-limit handling is separate work.
 
@@ -66,7 +74,7 @@ Keep subtitle timing derived from the existing audio/provider alignment paths.
 
 Subtitle-producing paths now share Unicode sentence-terminal recognition.
 Provider indices remain unchanged; indexed Tencent cues spanning multiple
-sentences are apportioned within their original interval. All 789 TTS tests
+sentences are apportioned within their original interval. All 797 TTS tests
 passed, including complete and chunked multilingual punctuation, finalization,
 and source alignment cases. Independent review verified the punctuation-only
 request fix; the full repository pre-commit gate passed. No service deployment
@@ -104,9 +112,13 @@ the supplied audio offset plus duration. Existing TTS tests must remain green.
 When a Tencent alignment spans multiple sentences, its time must be divided
 between those source intersections instead of duplicated. Cumulative rounding
 must preserve endpoints even for zero- or one-millisecond alignments; separate
-alignments contained in one sentence must retain their original times.
+non-overlapping alignments contained in one sentence retain their original
+times. Overlapping provider anchors must not move a later sentence backwards
+or extend the overall provider timeline.
 Symbol-only content and punctuation other than sentence-ending/closer fragments
-must still reach the provider-aware non-speakable-text check.
+must still reach the provider-aware non-speakable-text check. Standalone
+sentence-ending/closer input also follows that policy; only continuations of
+an already consumed sentence boundary are filtered before submission.
 
 ## Idempotence and Recovery
 

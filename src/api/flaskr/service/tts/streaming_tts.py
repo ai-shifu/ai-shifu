@@ -430,6 +430,7 @@ class StreamingTTSProcessor:
 
         last_match = sentence_matches[-1]
         completed_text = processable_text[: last_match.end()]
+        after_sentence_boundary = self._raw_offset > 0
 
         # Advance the raw offset.  We need to find how far into the raw
         # remaining text the last sentence ending corresponds.  Because
@@ -442,6 +443,7 @@ class StreamingTTSProcessor:
         self._submit_remaining_text_in_segments(
             completed_text,
             include_trailing_fragment=False,
+            after_sentence_boundary=after_sentence_boundary,
         )
 
     @staticmethod
@@ -511,6 +513,7 @@ class StreamingTTSProcessor:
         remaining_text: str,
         *,
         include_trailing_fragment: bool = True,
+        after_sentence_boundary: bool = False,
     ) -> None:
         """Submit text sentence-by-sentence.
 
@@ -521,6 +524,8 @@ class StreamingTTSProcessor:
             remaining_text: The text to be synthesized
             include_trailing_fragment: Whether to submit trailing text that does
                 not end with sentence punctuation.
+            after_sentence_boundary: Whether prior stream text has already been
+                consumed through a sentence ending.
 
         """
         if not remaining_text or len(remaining_text) < 2:
@@ -536,8 +541,9 @@ class StreamingTTSProcessor:
             segment_text = remaining_text[cursor:split_pos].strip()
             # A stream chunk can contain only the rest of a punctuation run
             # after the preceding sentence has already been submitted.
-            if len(segment_text) >= 2 and not SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(
-                segment_text
+            if len(segment_text) >= 2 and not (
+                after_sentence_boundary
+                and SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(segment_text)
             ):
                 self._submit_tts_task(segment_text)
                 logger.debug(
@@ -546,11 +552,13 @@ class StreamingTTSProcessor:
                     len(remaining_text) - split_pos,
                 )
             cursor = split_pos
+            after_sentence_boundary = True
 
         if include_trailing_fragment:
             tail_text = remaining_text[cursor:].strip()
-            if len(tail_text) >= 2 and not SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(
-                tail_text
+            if len(tail_text) >= 2 and not (
+                after_sentence_boundary
+                and SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(tail_text)
             ):
                 self._submit_tts_task(tail_text)
                 logger.debug(
@@ -1265,7 +1273,9 @@ class StreamingTTSProcessor:
             raw_remaining = self._buffer[self._raw_offset :]
             remaining_text = preprocess_for_tts(raw_remaining).strip()
             # Use segmented submission to maintain consistent pacing
-            self._submit_remaining_text_in_segments(remaining_text)
+            self._submit_remaining_text_in_segments(
+                remaining_text, after_sentence_boundary=self._raw_offset > 0
+            )
             self._raw_offset = len(self._buffer)
             self._buffer = ""
 
