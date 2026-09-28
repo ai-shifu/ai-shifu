@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 from flask import g, request
 from flaskr.route import user as user_route
+from flaskr.service.common import session_attribution
 from flaskr.service.common.skill_attribution import SkillIdentityInput
 from flaskr.service.shifu import route
 
@@ -24,8 +25,8 @@ def test_external_course_context_reports_start_and_success(
     events: list[tuple[str, object]] = []
     monkeypatch.setattr(
         route,
-        "get_session_skill_attribution",
-        lambda _app, *, token: identity if token == "cli-token" else None,
+        "get_session_skill_attribution_by_reference",
+        lambda _app, *, reference: identity if reference == "opaque-ref" else None,
     )
     monkeypatch.setattr(
         route,
@@ -37,7 +38,7 @@ def test_external_course_context_reports_start_and_success(
 
     with app.test_request_context(headers={"Token": "cli-token"}):
         request.user = SimpleNamespace(user_id="user-1")
-        g.authenticated_session_token = "cli-token"
+        g.authenticated_session_attribution = "opaque-ref"
         with route._external_client_course_event(app, "creation"):
             pass
 
@@ -52,8 +53,8 @@ def test_external_course_context_reports_failure_and_preserves_error(
 ) -> None:
     events: list[str] = []
 
-    def get_attribution(_app: object, *, token: str) -> SkillIdentityInput:
-        assert token == "cli-token"
+    def get_attribution(_app: object, *, reference: str) -> SkillIdentityInput:
+        assert reference == "opaque-ref"
         return identity
 
     def record_event(
@@ -67,7 +68,7 @@ def test_external_course_context_reports_failure_and_preserves_error(
 
     monkeypatch.setattr(
         route,
-        "get_session_skill_attribution",
+        "get_session_skill_attribution_by_reference",
         get_attribution,
     )
     monkeypatch.setattr(
@@ -79,7 +80,7 @@ def test_external_course_context_reports_failure_and_preserves_error(
     message = "original failure"
     with app.test_request_context(headers={"Token": "cli-token"}):
         request.user = SimpleNamespace(user_id="user-1")
-        g.authenticated_session_token = "cli-token"
+        g.authenticated_session_attribution = "opaque-ref"
         with (
             pytest.raises(RuntimeError, match=message),
             route._external_client_course_event(app, "publish"),
@@ -96,14 +97,23 @@ def test_external_course_context_uses_authenticated_cookie_token(
     app: object, monkeypatch: object, identity: SkillIdentityInput
 ) -> None:
     """A lower-priority header token cannot color a cookie-authenticated request."""
-    observed_tokens: list[str] = []
+    observed_references: list[str] = []
     events: list[tuple[str, object]] = []
 
-    def get_attribution(_app: object, *, token: str) -> SkillIdentityInput | None:
-        observed_tokens.append(token)
-        return identity if token == "cookie-token" else None
+    expected_reference = session_attribution.session_skill_attribution_reference(
+        app,
+        token="cookie-token",
+    )
 
-    monkeypatch.setattr(route, "get_session_skill_attribution", get_attribution)
+    def get_attribution(_app: object, *, reference: str) -> SkillIdentityInput | None:
+        observed_references.append(reference)
+        return identity if reference == expected_reference else None
+
+    monkeypatch.setattr(
+        route,
+        "get_session_skill_attribution_by_reference",
+        get_attribution,
+    )
     monkeypatch.setattr(
         route,
         "track_external_client_event",
@@ -119,11 +129,16 @@ def test_external_course_context_uses_authenticated_cookie_token(
         request.user = SimpleNamespace(user_id="cookie-user")
         selected_token = user_route._extract_request_token()
         assert selected_token == "cookie-token"
-        g.authenticated_session_token = selected_token
+        g.authenticated_session_attribution = (
+            session_attribution.session_skill_attribution_reference(
+                app,
+                token=selected_token,
+            )
+        )
         with route._external_client_course_event(app, "creation"):
             pass
 
-    assert observed_tokens == ["cookie-token"]
+    assert observed_references == [expected_reference]
     assert events == [
         ("external_course_creation_started", identity),
         ("external_course_creation_completed", identity),

@@ -32,6 +32,13 @@ def _cache_key(app: Flask, token: str) -> str:
     return f"{prefix}analytics-attribution:{digest}"
 
 
+def session_skill_attribution_reference(app: Flask, *, token: str) -> str:
+    """Return an opaque request-local reference without retaining the token."""
+    if not token:
+        return ""
+    return _cache_key(app, token)
+
+
 def save_session_skill_attribution(
     app: Flask,
     *,
@@ -66,9 +73,20 @@ def get_session_skill_attribution(
     """Read and renew analytics context without affecting token validation."""
     if not token:
         return None
-    key = _cache_key(app, token)
+    return get_session_skill_attribution_by_reference(
+        app,
+        reference=_cache_key(app, token),
+    )
+
+
+def get_session_skill_attribution_by_reference(
+    app: Flask, *, reference: str
+) -> SkillIdentityInput | None:
+    """Read analytics context through an authenticated opaque reference."""
+    if not reference:
+        return None
     try:
-        raw = cache.getex(key, ex=int(app.config["TOKEN_EXPIRE_TIME"]))
+        raw = cache.getex(reference, ex=int(app.config["TOKEN_EXPIRE_TIME"]))
         if raw is None:
             return None
         if isinstance(raw, bytes):
@@ -77,7 +95,7 @@ def get_session_skill_attribution(
         return parse_skill_identity(value, field_name="session_attribution")
     except Exception:
         with contextlib.suppress(Exception):
-            cache.delete(key)
+            cache.delete(reference)
         return None
 
 

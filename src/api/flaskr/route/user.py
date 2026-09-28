@@ -22,6 +22,9 @@ from flaskr.service.common.models import (
     raise_param_error,
 )
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.common.session_attribution import (
+    session_skill_attribution_reference,
+)
 from flaskr.service.feedback.funs import submit_feedback
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.funcs import (
@@ -282,7 +285,9 @@ def _optional_token_validation(
             else:
                 set_language(_resolve_runtime_language(user))
                 request.user = user
-                g.authenticated_session_token = token
+                g.authenticated_session_attribution = (
+                    session_skill_attribution_reference(current_app, token=token)
+                )
         return f(*args, **kwargs)
 
     return decorated_function
@@ -335,7 +340,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         user = validate_user(app, token)
         set_language(_resolve_runtime_language(user))
         request.user = user
-        g.authenticated_session_token = token
+        g.authenticated_session_attribution = session_skill_attribution_reference(
+            app,
+            token=token,
+        )
 
     register_profile_routes(
         app,
