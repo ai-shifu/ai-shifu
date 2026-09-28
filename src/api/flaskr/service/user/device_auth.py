@@ -31,7 +31,13 @@ from flaskr.common.config import get_redis_derived_prefix
 from flaskr.common.public_urls import build_public_url
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
-from flaskr.service.common.skill_attribution import parse_skill_attribution
+from flaskr.service.common.server_analytics import track_external_client_event
+from flaskr.service.common.session_attribution import save_session_skill_attribution
+from flaskr.service.common.skill_attribution import (
+    SkillIdentityInput,
+    parse_skill_attribution,
+    parse_skill_identity,
+)
 from flaskr.service.user.utils import generate_token
 
 if TYPE_CHECKING:
@@ -53,6 +59,26 @@ STATUS_DENIED = "denied"
 # Device metadata is attacker supplied and only ever displayed, so it is capped
 # to keep oversized payloads out of the cache and out of the approval page.
 _MAX_TEXT_FIELD_LENGTH = 64
+
+
+def _skill_identity_from_session(
+    payload: dict[str, Any],
+) -> SkillIdentityInput | None:
+    raw = payload.get("registration_attribution")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return parse_skill_identity(
+            {
+                "host_platform": raw.get("host_platform"),
+                "skill_id": raw.get("skill_id"),
+                "skill_version": raw.get("skill_version"),
+            },
+            field_name="registration_attribution",
+        )
+    except Exception:
+        # Corrupt analytics context must not change device authorization.
+        return None
 
 
 def _expire_seconds(app: Flask) -> int:
@@ -249,6 +275,11 @@ def create_device_authorization(
         }
     _store_session(app, device_code, payload, ttl_seconds)
     redis.set(_user_code_key(app, user_code), device_code, ex=ttl_seconds)
+    track_external_client_event(
+        app,
+        event_name="external_device_authorization_requested",
+        attribution=_skill_identity_from_session(payload),
+    )
 
     verification_uri = build_public_url(DEVICE_VERIFICATION_PATH)
     formatted_user_code = format_user_code(user_code)
@@ -353,6 +384,17 @@ def _record_decision(
     finally:
         lock.release()
 
+    event_name = {
+        STATUS_APPROVED: "external_device_authorization_approved",
+        STATUS_DENIED: "external_device_authorization_denied",
+    }.get(status)
+    if event_name:
+        track_external_client_event(
+            app,
+            event_name=event_name,
+            attribution=_skill_identity_from_session(payload),
+            user_id=user_id,
+        )
     return {"status": status}
 
 
@@ -427,6 +469,18 @@ def poll_device_authorization(app: Flask, *, device_code: str) -> dict[str, Any]
                     device_name=str(payload.get("device_name") or ""),
                     device_os=str(payload.get("device_os") or ""),
                 )
+            attribution = _skill_identity_from_session(payload)
+            save_session_skill_attribution(
+                app,
+                token=token,
+                attribution=attribution,
+            )
+            track_external_client_event(
+                app,
+                event_name="external_device_token_collected",
+                attribution=attribution,
+                user_id=user_id,
+            )
             # One-shot: the request is consumed so a leaked device code cannot
             # be replayed to mint a second token.
             _drop_session(app, normalized, user_code)

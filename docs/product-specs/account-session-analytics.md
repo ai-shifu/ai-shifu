@@ -1,8 +1,8 @@
 ---
 title: Account Session Analytics
 status: implemented
-owner_surface: frontend
-last_reviewed: 2026-09-26
+owner_surface: frontend-backend
+last_reviewed: 2026-09-28
 canonical: true
 ---
 
@@ -62,6 +62,57 @@ rejected unless the terminal states are recorded separately.
 | `host_platform`       | string  | `workbuddy`, `doubao`, `qclaw`, `lobster`, `codex`, `direct`, `unattributed`     | low         | non-personal  | compares host-platform funnels                                     |
 | `skill_id`            | string  | `ai-shifu-course-creator`, `unattributed`                                        | low         | non-personal  | identifies the supported Skill funnel                              |
 | `skill_version_major` | string  | `v0` through `v9`, `unknown`, or `unattributed`                                  | low         | non-personal  | finds major-version-specific drop-offs without sending caller text |
+
+### backend-observed external client continuation
+
+- Business question: after an attributed external client reaches AI Shifu,
+  where does its observable authorization-to-publication journey stop?
+- Metric definition: count requested, approved, denied, token-collected,
+  course-creation, and course-publication outcomes in a UTC calendar week,
+  grouped by `host_platform`, `skill_id`, and `skill_version_major`. For the
+  identified portion beginning at approval, reports may also count distinct
+  pseudonymous users. These are aggregate stages, not a row-level joined
+  funnel, because request, token, and course identifiers are excluded.
+- Events:
+  `external_device_authorization_requested`,
+  `external_device_authorization_approved`,
+  `external_device_authorization_denied`,
+  `external_device_token_collected`,
+  `external_course_creation_started`,
+  `external_course_creation_completed`,
+  `external_course_creation_failed`,
+  `external_course_publish_started`,
+  `external_course_publish_completed`, and
+  `external_course_publish_failed`.
+- Trigger: the backend emits authorization milestones after their Redis state
+  transition, token collection after durable token issuance, and course
+  terminal outcomes after the corresponding service returns or raises.
+- Population: only device requests carrying a complete allowlisted Skill
+  attribution object and course requests using the resulting token. Ordinary
+  browser sessions and unattributed device clients emit none of these events.
+- Attribution lifetime: after token collection, the three-field Skill identity
+  is stored in a separate Redis value under a token digest. It follows sliding
+  token expiry, is removed on session revocation, and never enters a user or
+  course business table.
+- Correlation: approval, token collection, and course events use the same
+  existing pseudonymous `user_bid` Umami identity used by authenticated web
+  analytics. The request and denial stages are aggregate-only. No token,
+  pairing code, handoff ID, session ID, course ID, title, prompt, contact,
+  raw error, request URL, or referrer is sent.
+- Reliability: delivery is fail-open through a bounded background queue with a
+  short timeout. Queue saturation, Redis loss, missing configuration, process
+  termination, or Umami failure may lose events and must not change a business
+  response. Retried operations may repeat start or failure events.
+- Interpretation: `host_platform` is an allowlisted client assertion, not
+  cryptographic package proof. The backend cannot observe Skill installation,
+  host-platform rejection, or distinguish CLI import from ordinary creation
+  under the current API contract.
+- Consumer: periodic external-client acquisition and course-journey reports.
+
+Every backend event has exactly these data fields:
+`host_platform`, `skill_id`, and `skill_version_major`. Their allowed values
+match the device-authorization table above except that an emitted backend event
+is always attributed and therefore never uses `unattributed`.
 
 ### session management
 

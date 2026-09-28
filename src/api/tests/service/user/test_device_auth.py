@@ -81,6 +81,83 @@ def test_registration_attribution_is_ephemeral_device_context(app: object) -> No
     assert attribution["handoff_id"] not in json.dumps(pending)
 
 
+def test_attributed_device_journey_reaches_token_session(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.service.user import device_auth
+
+    attribution = {
+        "host_platform": "qclaw",
+        "skill_id": "ai-shifu-course-creator",
+        "skill_version": "2.0.0",
+        "handoff_id": "123e4567-e89b-12d3-a456-426614174001",
+    }
+    events: list[tuple[str, object, str]] = []
+    saved: list[tuple[str, object]] = []
+    monkeypatch.setattr(
+        device_auth,
+        "track_external_client_event",
+        lambda _app, *, event_name, attribution, user_id="": events.append(
+            (event_name, attribution, user_id)
+        ),
+    )
+    monkeypatch.setattr(
+        device_auth,
+        "save_session_skill_attribution",
+        lambda _app, *, token, attribution: saved.append((token, attribution)),
+    )
+
+    with app.test_request_context():
+        started = create_device_authorization(app, registration_attribution=attribution)
+        approve_device_authorization(
+            app, user_code=started["user_code"], user_id=USER_ID
+        )
+        issued = poll_device_authorization(app, device_code=started["device_code"])
+
+    assert [event[0] for event in events] == [
+        "external_device_authorization_requested",
+        "external_device_authorization_approved",
+        "external_device_token_collected",
+    ]
+    assert events[0][2] == ""
+    assert events[1][2] == USER_ID
+    assert events[2][2] == USER_ID
+    assert saved == [(issued["token"], events[2][1])]
+    assert attribution["handoff_id"] not in repr(events)
+
+
+def test_unattributed_device_journey_emits_no_backend_events(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.service.user import device_auth
+
+    events: list[str] = []
+
+    def record_attributed_event(
+        _app: object,
+        *,
+        event_name: str,
+        attribution: object,
+        user_id: str = "",
+    ) -> None:
+        del user_id
+        if attribution is not None:
+            events.append(event_name)
+
+    monkeypatch.setattr(
+        device_auth, "track_external_client_event", record_attributed_event
+    )
+
+    with app.test_request_context():
+        started = _start(app)
+        approve_device_authorization(
+            app, user_code=started["user_code"], user_id=USER_ID
+        )
+        poll_device_authorization(app, device_code=started["device_code"])
+
+    assert events == []
+
+
 def test_pending_device_without_skill_attribution_keeps_existing_shape(
     app: object,
 ) -> None:

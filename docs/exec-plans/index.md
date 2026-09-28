@@ -6,6 +6,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 ## Active
 
+- [Backend External Client Journey Analytics](./active/backend-external-client-journey-analytics.md)
 - [Course Sharing](./active/course-sharing.md)
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)
 - [Credit Notification Email Delivery](./active/credit-notification-email-delivery.md)

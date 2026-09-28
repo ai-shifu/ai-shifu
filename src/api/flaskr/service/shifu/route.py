@@ -73,6 +73,8 @@ from flaskr.service.billing.api import (
     assert_creator_debug_allowed,
 )
 from flaskr.service.common.models import ERROR_CODE, raise_error, raise_param_error
+from flaskr.service.common.server_analytics import track_external_client_event
+from flaskr.service.common.session_attribution import get_session_skill_attribution
 from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
@@ -151,6 +153,38 @@ from .funcs import (
     upload_file,
     upload_url,
 )
+
+
+@contextlib.contextmanager
+def _external_client_course_event(app: Flask, operation: str) -> Generator[None]:
+    """Report one attributed course operation without changing its outcome."""
+    attribution = get_session_skill_attribution(
+        app,
+        token=str(request.headers.get("Token") or "").strip(),
+    )
+    user_id = str(getattr(request.user, "user_id", "") or "")
+    track_external_client_event(
+        app,
+        event_name=f"external_course_{operation}_started",
+        attribution=attribution,
+        user_id=user_id,
+    )
+    try:
+        yield
+    except Exception:
+        track_external_client_event(
+            app,
+            event_name=f"external_course_{operation}_failed",
+            attribution=attribution,
+            user_id=user_id,
+        )
+        raise
+    track_external_client_event(
+        app,
+        event_name=f"external_course_{operation}_completed",
+        attribution=attribution,
+        user_id=user_id,
+    )
 
 
 class ShifuPermission(Enum):
@@ -666,14 +700,14 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: object
                                     $ref: "#/components/schemas/ShifuDto"
         """
-        user_id = request.user.user_id
-        shifu_name = request.get_json().get("name")
-        if not shifu_name:
-            raise_param_error("name is required")
-        shifu_description = request.get_json().get("description")
-        shifu_avatar = request.get_json().get("avatar", "")
-        return make_common_response(
-            create_shifu_draft(
+        with _external_client_course_event(app, "creation"):
+            user_id = request.user.user_id
+            shifu_name = request.get_json().get("name")
+            if not shifu_name:
+                raise_param_error("name is required")
+            shifu_description = request.get_json().get("description")
+            shifu_avatar = request.get_json().get("avatar", "")
+            result = create_shifu_draft(
                 app,
                 user_id,
                 shifu_name,
@@ -681,7 +715,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 shifu_avatar,
                 [],
             )
-        )
+        return make_common_response(result)
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
@@ -992,11 +1026,11 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: string
                                     description: publish url
         """
-        user_id = request.user.user_id
-        base_url = _resolve_publish_base_url(app)
-        return make_common_response(
-            publish_shifu_draft(app, user_id, shifu_bid, base_url)
-        )
+        with _external_client_course_event(app, "publish"):
+            user_id = request.user.user_id
+            base_url = _resolve_publish_base_url(app)
+            result = publish_shifu_draft(app, user_id, shifu_bid, base_url)
+        return make_common_response(result)
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/preview", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
