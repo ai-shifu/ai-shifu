@@ -529,7 +529,13 @@ def get_outline_item_tree(
 
 
 def get_learn_record(
-    app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    preview_mode: bool,
+    *,
+    progress_record_bid: str | None = None,
 ) -> LegacyLearnRecord:
     """Rebuild the learner's legacy record from persisted progress."""
     with app.app_context():
@@ -546,13 +552,18 @@ def get_learn_record(
             )
             is_paid = bool(buy_record)
 
-        progress_record = LearnProgressRecord.query.filter(
+        progress_query = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
             LearnProgressRecord.outline_item_bid == outline_bid,
             LearnProgressRecord.deleted == 0,
             LearnProgressRecord.status != LEARN_STATUS_RESET,
-        ).first()
+        )
+        if progress_record_bid is not None:
+            progress_query = progress_query.filter(
+                LearnProgressRecord.progress_record_bid == progress_record_bid
+            )
+        progress_record = progress_query.first()
         if not progress_record:
             return LegacyLearnRecord(
                 records=[],
