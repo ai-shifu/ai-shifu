@@ -8,24 +8,28 @@ Support Gemini 3.8 Flash TTS and Flash-Lite TTS in the existing Gemini provider 
 
 - [x] 2026-09-28: Verified both models with the US cluster credential using Google's Interactions API; both returned nonempty raw PCM audio.
 - [x] 2026-09-28: Added the Interactions request and response path with focused regression coverage.
-- [x] 2026-09-28: Ran 713 TTS tests and a credentialed provider smoke test for both models; MP3 decoding and duration matched.
-- [ ] 2026-09-28: Coordinate the US allowlist change after the backend is available.
+- [x] 2026-09-28: Ran 715 TTS tests and a credentialed provider smoke test for both models; MP3 decoding and duration matched.
+- [x] 2026-09-28: Merged backend PR #2992 and deploy-config PR #34; deployed the new API image to US API and Celery Worker.
+- [x] 2026-09-28: Migrated 56 active draft and 3 active published course settings, inserted time-bounded 2026 and 2027 rates, and narrowed the US allowlist to the two 3.8 models.
+- [x] 2026-09-28: Verified both public model options, all API and worker replicas, exact saved rates, zero active old-model course references, and decoded MP3 from both final-config models.
 
 ## Surprises & Discoveries
 
 - Gemini 3.8 TTS uses `POST /v1beta/interactions`; the existing provider uses `models/{model}:generateContent` for preview models.
 - Requesting `audio/l16` from Interactions preserves the existing PCM-to-MP3 pipeline. The default unary response is WAV.
 - The US app connects through `SQLALCHEMY_DATABASE_URI`, not the legacy `MYSQL_DB` variables. Its actual database has active Gemini TTS rates and saved course selections that must be migrated during rollout.
+- Interactions may return multiple ordered audio blocks; all blocks must be joined before transcoding. Google announces a price increase for both 3.8 TTS models on 2027-01-01, so rate records need separate effective periods.
 
 ## Decision Log
 
 - Keep preview-model support for other deployments and add a model-specific Interactions path for 3.8.
 - Keep the existing thirty prebuilt voices and character-based metering contract.
 - Do not change production model exposure until the new backend is deployed. Map 2.5 Flash Preview to 3.8 Flash-Lite and 3.1 Flash Preview to 3.8 Flash in active course settings.
+- Preserve existing character-based billing and scale the old rate by the supplier's Standard audio-output price ratio: 0.0027777600 credits/character for Flash-Lite and 0.0041666400 for Flash through 2026, doubled from 2027-01-01 UTC.
 
 ## Outcomes & Retrospective
 
-Both 3.8 models returned playable MP3 through the provider with positive, matching durations and unchanged usage-character counts. US configuration rollout remains pending.
+Both 3.8 models returned playable MP3 through the deployed US API with positive, matching durations and unchanged usage-character counts. The public picker shows only the two 3.8 Gemini models. The migration updated 59 active course rows, and a readback confirmed zero active references to the two old models. The application database contains exact rates for the current period and the announced 2027 period. Volcengine remains the default and ElevenLabs remains available.
 
 ## Context and Orientation
 
@@ -33,7 +37,7 @@ The provider is `src/api/flaskr/api/tts/gemini_provider.py`. Focused tests are i
 
 ## Plan of Work
 
-Add the two 3.8 model IDs, build the documented Interactions request for them, extract the returned audio block, and feed raw PCM through the existing transcoder. Keep the old `generateContent` path for preview models. Update the US configuration only after adapter validation.
+Add the two 3.8 model IDs, build the documented Interactions request for them, extract all returned audio blocks, and feed raw PCM through the existing transcoder. Keep the old `generateContent` path for preview models. Update the US configuration only after adapter validation.
 
 ## Concrete Steps
 
@@ -54,4 +58,4 @@ The code change requires no schema migration. To roll back after course selectio
 
 ## Interfaces and Dependencies
 
-The new path uses Google's Gemini Developer API Interactions endpoint and the current `GEMINI_API_KEY`, `GEMINI_TTS_API_URL`, and enabled switch. Billing rate rows, if available in a target environment, remain separate operational configuration.
+The new path uses Google's Gemini Developer API Interactions endpoint and the current `GEMINI_API_KEY`, `GEMINI_TTS_API_URL`, and enabled switch. The US application database holds the active and future billing rate rows created by `k8s/us/migrate-gemini-tts-38.py` in deploy-config.
