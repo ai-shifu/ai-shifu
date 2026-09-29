@@ -31,6 +31,9 @@ mutating production during the audit.
   provenance in the grant transaction, preserving historical idempotency
   verification after expiry, and blocking possible compensation under another
   idempotency key.
+- [x] 2026-09-29 19:20 CST: Broadened recovery preflight to report every later
+  manual grant and block any later compensation regardless of amount before
+  an apply can write the first recovery.
 - [ ] Obtain explicit recovery scope approval before running the production
   script with `--apply`.
 

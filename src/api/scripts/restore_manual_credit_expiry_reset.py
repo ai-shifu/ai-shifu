@@ -40,6 +40,15 @@ REPAIR_CHANNEL = "manual_credit_expiry_reset_repair"
 
 
 @dataclass(frozen=True, slots=True)
+class LaterManualGrant:
+    """Describe a later manual grant that an operator must reconcile."""
+
+    ledger_bid: str
+    amount: Decimal
+    grant_source: str
+
+
+@dataclass(frozen=True, slots=True)
 class RecoveryCandidate:
     """Describe one independently evidenced manual-credit recovery."""
 
@@ -48,7 +57,7 @@ class RecoveryCandidate:
     amount: Decimal
     intended_expires_at: datetime
     source_expire_ledger_bid: str
-    later_compensation_ledger_bids: tuple[str, ...]
+    later_manual_grants: tuple[LaterManualGrant, ...]
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -148,18 +157,21 @@ def _load_candidate(wallet_bucket_bid: str) -> RecoveryCandidate:
     if not matched:
         _fail("cache_bonus_transition_not_found", wallet_bucket_bid)
 
-    later_compensation_ledger_bids = tuple(
-        str(entry.ledger_bid or "")
+    later_manual_grants = tuple(
+        LaterManualGrant(
+            ledger_bid=str(entry.ledger_bid or ""),
+            amount=Decimal(entry.amount or 0),
+            grant_source=str(
+                _json_object(entry.metadata_json).get("grant_source") or ""
+            ),
+        )
         for entry in CreditLedgerEntry.query.filter(
             CreditLedgerEntry.deleted == 0,
             CreditLedgerEntry.creator_bid == bucket.creator_bid,
             CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
             CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL,
             CreditLedgerEntry.created_at >= expire_entry.created_at,
-            CreditLedgerEntry.amount == amount,
         ).all()
-        if _json_object(entry.metadata_json).get("grant_source")
-        == MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION
     )
 
     return RecoveryCandidate(
@@ -168,7 +180,7 @@ def _load_candidate(wallet_bucket_bid: str) -> RecoveryCandidate:
         amount=amount,
         intended_expires_at=intended_expires_at,
         source_expire_ledger_bid=str(expire_entry.ledger_bid or ""),
-        later_compensation_ledger_bids=later_compensation_ledger_bids,
+        later_manual_grants=later_manual_grants,
     )
 
 
@@ -210,6 +222,33 @@ def _validate_existing_recovery(
         _fail("existing_recovery_mismatch", candidate.source_wallet_bucket_bid)
 
 
+def _unexpected_compensation_bids(
+    candidate: RecoveryCandidate,
+    *,
+    existing: CreditLedgerEntry | None,
+) -> set[str]:
+    expected_ledger_bid = str(existing.ledger_bid or "") if existing is not None else ""
+    return {
+        grant.ledger_bid
+        for grant in candidate.later_manual_grants
+        if grant.grant_source == MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION
+        and grant.ledger_bid != expected_ledger_bid
+    }
+
+
+def _later_manual_grants_payload(
+    candidate: RecoveryCandidate,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "ledger_bid": grant.ledger_bid,
+            "amount": format(grant.amount, "f"),
+            "grant_source": grant.grant_source,
+        }
+        for grant in candidate.later_manual_grants
+    ]
+
+
 def main() -> int:
     """Validate targets, then optionally create exact-expiry recovery grants."""
     args = _build_parser().parse_args()
@@ -223,6 +262,8 @@ def main() -> int:
     with app.app_context():
         now = now_utc()
         candidates = [_load_candidate(value) for value in bucket_bids]
+        existing_by_bucket: dict[str, CreditLedgerEntry | None] = {}
+        blockers_by_bucket: dict[str, set[str]] = {}
         for candidate in candidates:
             request_id = _request_id(args.campaign_id, candidate)
             existing = _existing_recovery(request_id)
@@ -232,21 +273,35 @@ def main() -> int:
                     campaign_id=args.campaign_id,
                     candidate=candidate,
                 )
-                unexpected_compensations = set(
-                    candidate.later_compensation_ledger_bids
-                ) - {str(existing.ledger_bid or "")}
-                if unexpected_compensations:
+            existing_by_bucket[candidate.source_wallet_bucket_bid] = existing
+            blockers_by_bucket[candidate.source_wallet_bucket_bid] = (
+                _unexpected_compensation_bids(candidate, existing=existing)
+            )
+        if args.apply:
+            for candidate in candidates:
+                if blockers_by_bucket[candidate.source_wallet_bucket_bid]:
                     _fail(
                         "possible_prior_compensation",
                         candidate.source_wallet_bucket_bid,
                     )
-                status = "existing_match"
-                ledger_bid = existing.ledger_bid
-            elif candidate.later_compensation_ledger_bids:
-                _fail(
-                    "possible_prior_compensation",
-                    candidate.source_wallet_bucket_bid,
+                if (
+                    existing_by_bucket[candidate.source_wallet_bucket_bid] is None
+                    and candidate.intended_expires_at <= now
+                ):
+                    _fail("not_recoverable_window", candidate.source_wallet_bucket_bid)
+
+        for candidate in candidates:
+            request_id = _request_id(args.campaign_id, candidate)
+            existing = existing_by_bucket[candidate.source_wallet_bucket_bid]
+            blockers = blockers_by_bucket[candidate.source_wallet_bucket_bid]
+            if existing is not None:
+                status = (
+                    "existing_match" if not blockers else "blocked_prior_compensation"
                 )
+                ledger_bid = existing.ledger_bid
+            elif blockers:
+                status = "blocked_prior_compensation"
+                ledger_bid = ""
             elif candidate.intended_expires_at <= now:
                 _fail("not_recoverable_window", candidate.source_wallet_bucket_bid)
             elif not args.apply:
@@ -276,6 +331,7 @@ def main() -> int:
                     "amount": format(candidate.amount, "f"),
                     "expires_at": to_utc_iso(candidate.intended_expires_at),
                     "recovery_ledger_bid": ledger_bid,
+                    "later_manual_grants": _later_manual_grants_payload(candidate),
                 }
             )
     dump_json(

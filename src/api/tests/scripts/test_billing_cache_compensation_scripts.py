@@ -166,7 +166,13 @@ def test_expiry_reset_existing_recovery_remains_verifiable_after_expiry(
         amount=Decimal(100),
         intended_expires_at=datetime(2026, 5, 15, 2, 14, 57),
         source_expire_ledger_bid="expire-ledger-a",
-        later_compensation_ledger_bids=("recovery-ledger-a",),
+        later_manual_grants=(
+            expiry_reset.LaterManualGrant(
+                ledger_bid="recovery-ledger-a",
+                amount=Decimal(100),
+                grant_source=MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
+            ),
+        ),
     )
     existing = CreditLedgerEntry(
         ledger_bid="recovery-ledger-a",
@@ -209,7 +215,7 @@ def test_expiry_reset_apply_includes_provenance_in_atomic_grant(
         amount=Decimal(100),
         intended_expires_at=datetime(2027, 5, 15, 2, 14, 57),
         source_expire_ledger_bid="expire-ledger-a",
-        later_compensation_ledger_bids=(),
+        later_manual_grants=(),
     )
     grant = Mock(
         return_value=SimpleNamespace(status="granted", ledger_bid="recovery-ledger-a")
@@ -249,7 +255,13 @@ def test_expiry_reset_rejects_possible_compensation_under_another_key(
         amount=Decimal(100),
         intended_expires_at=datetime(2027, 5, 15, 2, 14, 57),
         source_expire_ledger_bid="expire-ledger-a",
-        later_compensation_ledger_bids=("other-compensation-ledger",),
+        later_manual_grants=(
+            expiry_reset.LaterManualGrant(
+                ledger_bid="other-compensation-ledger",
+                amount=Decimal(75),
+                grant_source=MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
+            ),
+        ),
     )
 
     monkeypatch.setattr(
@@ -269,6 +281,52 @@ def test_expiry_reset_rejects_possible_compensation_under_another_key(
 
     with pytest.raises(ValueError, match="possible_prior_compensation"):
         expiry_reset.main()
+
+
+def test_expiry_reset_dry_run_reports_unrelated_later_reward(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = expiry_reset.RecoveryCandidate(
+        creator_bid="creator-a",
+        source_wallet_bucket_bid="source-bucket-a",
+        amount=Decimal(100),
+        intended_expires_at=datetime(2027, 5, 15, 2, 14, 57),
+        source_expire_ledger_bid="expire-ledger-a",
+        later_manual_grants=(
+            expiry_reset.LaterManualGrant(
+                ledger_bid="later-reward-ledger",
+                amount=Decimal(250),
+                grant_source="reward",
+            ),
+        ),
+    )
+    payloads: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "restore_manual_credit_expiry_reset.py",
+            "--wallet-bucket-bid",
+            candidate.source_wallet_bucket_bid,
+        ],
+    )
+    monkeypatch.setattr(expiry_reset, "create_app", _create_fake_app)
+    monkeypatch.setattr(expiry_reset, "now_utc", lambda: datetime(2026, 9, 29))
+    monkeypatch.setattr(expiry_reset, "_load_candidate", lambda _: candidate)
+    monkeypatch.setattr(expiry_reset, "_existing_recovery", lambda _: None)
+    monkeypatch.setattr(expiry_reset, "dump_json", payloads.append)
+
+    assert expiry_reset.main() == 0
+    result = payloads[0]["results"][0]
+    assert result["status"] == "eligible"
+    assert result["later_manual_grants"] == [
+        {
+            "ledger_bid": "later-reward-ledger",
+            "amount": "250",
+            "grant_source": "reward",
+        }
+    ]
 
 
 def test_reference_loader_rejects_duplicate_user_bid(tmp_path: Path) -> None:
