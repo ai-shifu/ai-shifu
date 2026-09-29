@@ -90,8 +90,8 @@ export default function UserDetailTabsSection({
 }: UserDetailTabsSectionProps) {
   return (
     <div
-      id='credits'
       ref={sectionRef}
+      data-testid='admin-operation-user-detail-tabs'
       className='flex min-h-0 flex-1 flex-col gap-5'
     >
       <UserDetailInfoCard
