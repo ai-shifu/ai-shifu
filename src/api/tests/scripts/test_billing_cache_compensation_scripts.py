@@ -150,14 +150,125 @@ def test_expiry_reset_candidate_requires_and_reconstructs_incident_evidence() ->
         dao.db.session.add_all([bucket, grant, expired, order])
         dao.db.session.commit()
 
-        candidate = expiry_reset._load_candidate(
-            bucket.wallet_bucket_bid,
-            as_of=datetime(2026, 9, 29, 0, 0, 0),
-        )
+        candidate = expiry_reset._load_candidate(bucket.wallet_bucket_bid)
 
         assert candidate.amount == Decimal("23950.14")
         assert candidate.intended_expires_at == datetime(2027, 5, 15, 2, 14, 57)
         assert candidate.source_expire_ledger_bid == expired.ledger_bid
+
+
+def test_expiry_reset_existing_recovery_remains_verifiable_after_expiry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = expiry_reset.RecoveryCandidate(
+        creator_bid="creator-a",
+        source_wallet_bucket_bid="source-bucket-a",
+        amount=Decimal(100),
+        intended_expires_at=datetime(2026, 5, 15, 2, 14, 57),
+        source_expire_ledger_bid="expire-ledger-a",
+        later_compensation_ledger_bids=("recovery-ledger-a",),
+    )
+    existing = CreditLedgerEntry(
+        ledger_bid="recovery-ledger-a",
+        creator_bid="creator-a",
+        amount=Decimal(100),
+        expires_at=candidate.intended_expires_at,
+        metadata_json={
+            "recovery_campaign_id": expiry_reset.DEFAULT_CAMPAIGN_ID,
+            "source_wallet_bucket_bid": candidate.source_wallet_bucket_bid,
+            "source_expire_ledger_bid": candidate.source_expire_ledger_bid,
+        },
+    )
+    payloads: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "restore_manual_credit_expiry_reset.py",
+            "--wallet-bucket-bid",
+            candidate.source_wallet_bucket_bid,
+        ],
+    )
+    monkeypatch.setattr(expiry_reset, "create_app", _create_fake_app)
+    monkeypatch.setattr(expiry_reset, "now_utc", lambda: datetime(2027, 1, 1))
+    monkeypatch.setattr(expiry_reset, "_load_candidate", lambda _: candidate)
+    monkeypatch.setattr(expiry_reset, "_existing_recovery", lambda _: existing)
+    monkeypatch.setattr(expiry_reset, "dump_json", payloads.append)
+
+    assert expiry_reset.main() == 0
+    assert payloads[0]["results"][0]["status"] == "existing_match"
+
+
+def test_expiry_reset_apply_includes_provenance_in_atomic_grant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = expiry_reset.RecoveryCandidate(
+        creator_bid="creator-a",
+        source_wallet_bucket_bid="source-bucket-a",
+        amount=Decimal(100),
+        intended_expires_at=datetime(2027, 5, 15, 2, 14, 57),
+        source_expire_ledger_bid="expire-ledger-a",
+        later_compensation_ledger_bids=(),
+    )
+    grant = Mock(
+        return_value=SimpleNamespace(status="granted", ledger_bid="recovery-ledger-a")
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "restore_manual_credit_expiry_reset.py",
+            "--wallet-bucket-bid",
+            candidate.source_wallet_bucket_bid,
+            "--apply",
+        ],
+    )
+    monkeypatch.setattr(expiry_reset, "create_app", _create_fake_app)
+    monkeypatch.setattr(expiry_reset, "now_utc", lambda: datetime(2026, 9, 29))
+    monkeypatch.setattr(expiry_reset, "_load_candidate", lambda _: candidate)
+    monkeypatch.setattr(expiry_reset, "_existing_recovery", lambda _: None)
+    monkeypatch.setattr(expiry_reset, "grant_manual_credits_with_expiry", grant)
+    monkeypatch.setattr(expiry_reset, "dump_json", lambda _: None)
+
+    assert expiry_reset.main() == 0
+    assert grant.call_args.kwargs["audit_metadata"] == {
+        "recovery_campaign_id": expiry_reset.DEFAULT_CAMPAIGN_ID,
+        "source_wallet_bucket_bid": candidate.source_wallet_bucket_bid,
+        "source_expire_ledger_bid": candidate.source_expire_ledger_bid,
+    }
+
+
+def test_expiry_reset_rejects_possible_compensation_under_another_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = expiry_reset.RecoveryCandidate(
+        creator_bid="creator-a",
+        source_wallet_bucket_bid="source-bucket-a",
+        amount=Decimal(100),
+        intended_expires_at=datetime(2027, 5, 15, 2, 14, 57),
+        source_expire_ledger_bid="expire-ledger-a",
+        later_compensation_ledger_bids=("other-compensation-ledger",),
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "restore_manual_credit_expiry_reset.py",
+            "--wallet-bucket-bid",
+            candidate.source_wallet_bucket_bid,
+            "--apply",
+        ],
+    )
+    monkeypatch.setattr(expiry_reset, "create_app", _create_fake_app)
+    monkeypatch.setattr(expiry_reset, "now_utc", lambda: datetime(2026, 9, 29))
+    monkeypatch.setattr(expiry_reset, "_load_candidate", lambda _: candidate)
+    monkeypatch.setattr(expiry_reset, "_existing_recovery", lambda _: None)
+
+    with pytest.raises(ValueError, match="possible_prior_compensation"):
+        expiry_reset.main()
 
 
 def test_reference_loader_rejects_duplicate_user_bid(tmp_path: Path) -> None:

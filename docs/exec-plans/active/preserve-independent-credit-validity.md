@@ -27,6 +27,10 @@ mutating production during the audit.
 - [x] 2026-09-29 18:54 CST: Added an evidence-gated, idempotent recovery script
   and ran it without `--apply` in a China production API pod. All five targets
   were eligible and the computed total matched 146,729.23 credits.
+- [x] 2026-09-29 19:08 CST: Addressed PR review by persisting recovery
+  provenance in the grant transaction, preserving historical idempotency
+  verification after expiry, and blocking possible compensation under another
+  idempotency key.
 - [ ] Obtain explicit recovery scope approval before running the production
   script with `--apply`.
 

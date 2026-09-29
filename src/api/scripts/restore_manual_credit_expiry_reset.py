@@ -16,7 +16,6 @@ ensure_api_root_on_path()
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 
 from app import create_app  # noqa: E402
-from flaskr.dao import db  # noqa: E402
 from flaskr.service.billing.consts import (  # noqa: E402
     CREDIT_BUCKET_STATUS_EXPIRED,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
@@ -49,6 +48,7 @@ class RecoveryCandidate:
     amount: Decimal
     intended_expires_at: datetime
     source_expire_ledger_bid: str
+    later_compensation_ledger_bids: tuple[str, ...]
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -88,7 +88,7 @@ def _fail(code: str, wallet_bucket_bid: str = "") -> NoReturn:
     raise ValueError(message)
 
 
-def _load_candidate(wallet_bucket_bid: str, *, as_of: datetime) -> RecoveryCandidate:
+def _load_candidate(wallet_bucket_bid: str) -> RecoveryCandidate:
     bucket = CreditWalletBucket.query.filter(
         CreditWalletBucket.deleted == 0,
         CreditWalletBucket.wallet_bucket_bid == wallet_bucket_bid,
@@ -116,7 +116,7 @@ def _load_candidate(wallet_bucket_bid: str, *, as_of: datetime) -> RecoveryCandi
     if grant.consumable_from is None or grant.expires_at is None:
         _fail("missing_grant_window", wallet_bucket_bid)
     intended_expires_at = add_years(grant.consumable_from, 1)
-    if intended_expires_at <= as_of or grant.expires_at >= intended_expires_at:
+    if grant.expires_at >= intended_expires_at:
         _fail("not_recoverable_window", wallet_bucket_bid)
 
     expire_entries = CreditLedgerEntry.query.filter(
@@ -148,12 +148,27 @@ def _load_candidate(wallet_bucket_bid: str, *, as_of: datetime) -> RecoveryCandi
     if not matched:
         _fail("cache_bonus_transition_not_found", wallet_bucket_bid)
 
+    later_compensation_ledger_bids = tuple(
+        str(entry.ledger_bid or "")
+        for entry in CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == bucket.creator_bid,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL,
+            CreditLedgerEntry.created_at >= expire_entry.created_at,
+            CreditLedgerEntry.amount == amount,
+        ).all()
+        if _json_object(entry.metadata_json).get("grant_source")
+        == MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION
+    )
+
     return RecoveryCandidate(
         creator_bid=str(bucket.creator_bid or ""),
         source_wallet_bucket_bid=wallet_bucket_bid,
         amount=amount,
         intended_expires_at=intended_expires_at,
         source_expire_ledger_bid=str(expire_entry.ledger_bid or ""),
+        later_compensation_ledger_bids=later_compensation_ledger_bids,
     )
 
 
@@ -168,6 +183,33 @@ def _existing_recovery(request_id: str) -> CreditLedgerEntry | None:
     ).one_or_none()
 
 
+def _recovery_provenance(
+    campaign_id: str, candidate: RecoveryCandidate
+) -> dict[str, object]:
+    return {
+        "recovery_campaign_id": campaign_id,
+        "source_wallet_bucket_bid": candidate.source_wallet_bucket_bid,
+        "source_expire_ledger_bid": candidate.source_expire_ledger_bid,
+    }
+
+
+def _validate_existing_recovery(
+    existing: CreditLedgerEntry,
+    *,
+    campaign_id: str,
+    candidate: RecoveryCandidate,
+) -> None:
+    metadata = _json_object(existing.metadata_json)
+    expected_provenance = _recovery_provenance(campaign_id, candidate)
+    if (
+        existing.creator_bid != candidate.creator_bid
+        or Decimal(existing.amount or 0) != candidate.amount
+        or existing.expires_at != candidate.intended_expires_at
+        or any(metadata.get(key) != value for key, value in expected_provenance.items())
+    ):
+        _fail("existing_recovery_mismatch", candidate.source_wallet_bucket_bid)
+
+
 def main() -> int:
     """Validate targets, then optionally create exact-expiry recovery grants."""
     args = _build_parser().parse_args()
@@ -180,22 +222,33 @@ def main() -> int:
     results: list[dict[str, object]] = []
     with app.app_context():
         now = now_utc()
-        candidates = [_load_candidate(value, as_of=now) for value in bucket_bids]
+        candidates = [_load_candidate(value) for value in bucket_bids]
         for candidate in candidates:
             request_id = _request_id(args.campaign_id, candidate)
             existing = _existing_recovery(request_id)
             if existing is not None:
-                if (
-                    existing.creator_bid != candidate.creator_bid
-                    or Decimal(existing.amount or 0) != candidate.amount
-                    or existing.expires_at != candidate.intended_expires_at
-                ):
+                _validate_existing_recovery(
+                    existing,
+                    campaign_id=args.campaign_id,
+                    candidate=candidate,
+                )
+                unexpected_compensations = set(
+                    candidate.later_compensation_ledger_bids
+                ) - {str(existing.ledger_bid or "")}
+                if unexpected_compensations:
                     _fail(
-                        "existing_recovery_mismatch",
+                        "possible_prior_compensation",
                         candidate.source_wallet_bucket_bid,
                     )
                 status = "existing_match"
                 ledger_bid = existing.ledger_bid
+            elif candidate.later_compensation_ledger_bids:
+                _fail(
+                    "possible_prior_compensation",
+                    candidate.source_wallet_bucket_bid,
+                )
+            elif candidate.intended_expires_at <= now:
+                _fail("not_recoverable_window", candidate.source_wallet_bucket_bid)
             elif not args.apply:
                 status = "eligible"
                 ledger_bid = ""
@@ -211,20 +264,9 @@ def main() -> int:
                     display_name="Manual credit validity restoration",
                     note="Restore credits after an incorrect expiry reset",
                     grant_channel=REPAIR_CHANNEL,
+                    audit_metadata=_recovery_provenance(args.campaign_id, candidate),
                 )
                 ledger_bid = grant.ledger_bid
-                ledger = CreditLedgerEntry.query.filter_by(ledger_bid=ledger_bid).one()
-                metadata = _json_object(ledger.metadata_json)
-                metadata.update(
-                    {
-                        "recovery_campaign_id": args.campaign_id,
-                        "source_wallet_bucket_bid": candidate.source_wallet_bucket_bid,
-                        "source_expire_ledger_bid": candidate.source_expire_ledger_bid,
-                    }
-                )
-                ledger.metadata_json = metadata
-                db.session.add(ledger)
-                db.session.commit()
                 status = grant.status
             results.append(
                 {
