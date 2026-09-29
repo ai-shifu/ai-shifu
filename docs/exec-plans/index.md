@@ -71,6 +71,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [MarkdownFlow 2.0: a lesson carries on until it waits or ends](./completed/mdf2-agent-lesson-carries-on.md)
 - [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
 - [Centralize model option display normalization](./completed/model-option-display-normalization.md)
+- [Multilingual Subtitle Segmentation](./completed/multilingual-subtitle-segmentation.md)
 - [Notification Channel Foundation](./completed/notification-channel-foundation.md)
 - [Numbered course models](./completed/numbered-course-models.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./completed/observability-artifacts-consistency-frontend-trace.md)

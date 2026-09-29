@@ -1,5 +1,7 @@
 """Verify streaming TTS subtitles behavior."""
 
+from itertools import pairwise
+
 from flask import Flask
 from flaskr import dao
 
@@ -26,6 +28,50 @@ class TestStreamingTtsSubtitles:
 
         with cls.app.app_context():
             dao.db.create_all()
+
+    def test_minimax_fallback_splits_unicode_sentences_with_exact_duration(
+        self, monkeypatch: object
+    ) -> None:
+        from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+
+        monkeypatch.setattr(
+            "flaskr.service.tts.streaming_tts.is_tts_configured",
+            lambda _provider: True,
+        )
+        processor = StreamingTTSProcessor(
+            app=self.app,
+            generated_block_bid="generated-multilingual-subtitles",
+            outline_bid="outline-multilingual-subtitles",
+            progress_record_bid="progress-multilingual-subtitles",
+            user_bid="user-multilingual-subtitles",
+            shifu_bid="shifu-multilingual-subtitles",
+            tts_provider="minimax",
+            position=4,
+        )
+        sentences = [
+            "«هل تسمعني؟!»",
+            "یہ ایک جملہ ہے۔",
+            "यह एक वाक्य है।",
+            "မင်္ဂလာပါ။",
+            "Trailing fragment",
+        ]
+        duration_ms = 1001
+        offset_ms = 275
+
+        cues = processor._build_minimax_fallback_subtitle_cues(
+            " ".join(sentences), duration_ms=duration_ms, offset_ms=offset_ms
+        )
+
+        assert [cue["text"] for cue in cues] == sentences
+        assert cues[0]["start_ms"] == offset_ms
+        assert cues[-1]["end_ms"] == offset_ms + duration_ms
+        assert all(cue["start_ms"] < cue["end_ms"] for cue in cues)
+        assert all(
+            previous["end_ms"] == following["start_ms"]
+            for previous, following in pairwise(cues)
+        )
+        assert [cue["position"] for cue in cues] == [4] * len(sentences)
+        assert [cue["segment_index"] for cue in cues] == [0] * len(sentences)
 
     def test_streaming_tts_processor_persists_subtitle_cues(
         self, monkeypatch: object
