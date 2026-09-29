@@ -24,8 +24,11 @@ mutating production during the audit.
   buckets were shortened by the cache-overcharge bonus subscription and later
   expired, totaling 146,729.23 credits. One separate still-active aligned
   compensation row was excluded from the loss set.
-- [ ] Obtain explicit recovery scope approval, then prepare and dry-run the
-  idempotent exact-expiry recovery before any production write.
+- [x] 2026-09-29 18:54 CST: Added an evidence-gated, idempotent recovery script
+  and ran it without `--apply` in a China production API pod. All five targets
+  were eligible and the computed total matched 146,729.23 credits.
+- [ ] Obtain explicit recovery scope approval before running the production
+  script with `--apply`.
 
 ## Surprises & Discoveries
 
@@ -51,8 +54,9 @@ mutating production during the audit.
 Pending implementation and verification.
 
 The preventive fix and production impact audit are complete. Production
-recovery remains intentionally pending explicit approval of whether to restore
-only the reported account or all five confirmed affected accounts.
+recovery tooling and its production dry-run are also complete. The write
+remains intentionally pending explicit approval of whether to restore only the
+reported account or all five confirmed affected accounts.
 
 ## Context and Orientation
 
