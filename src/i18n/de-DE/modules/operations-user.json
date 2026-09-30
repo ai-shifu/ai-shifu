@@ -2,6 +2,7 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "Konto schließen",
+    "deductCredits": "Credits abziehen",
     "grantCredits": "Credits oder Tarife vergeben",
     "moreForUser": "Weitere Aktionen für {user}"
   },
@@ -113,6 +114,33 @@
   },
   "credits": {
     "longTerm": "Langfristig gültig"
+  },
+  "deductionDialog": {
+    "account": "Account",
+    "amount": "Credits to Deduct",
+    "amountPlaceholder": "Enter a positive amount (up to 2 decimal places)",
+    "back": "Back",
+    "confirmButton": "Confirm Deduction",
+    "confirmDescription": "Paid credits are deducted first, followed by manually granted credits. Confirm before continuing.",
+    "confirmTitle": "Confirm Credit Deduction",
+    "continueButton": "Continue",
+    "currentBalance": "Current Credit Balance",
+    "description": "Deduct credits from this user. Gift and reward credits are not eligible.",
+    "errors": {
+      "amount": "Enter a positive credit amount with no more than 2 decimal places.",
+      "submitFailed": "Credit deduction failed. Please try again."
+    },
+    "note": "Note",
+    "notePlaceholder": "Optional internal operation note",
+    "reason": "Reason",
+    "reasons": {
+      "account_correction": "Account correction",
+      "incorrect_grant": "Incorrect grant",
+      "other": "Other"
+    },
+    "submitting": "Deducting...",
+    "success": "Credits deducted",
+    "title": "Deduct Credits"
   },
   "detail": {
     "basicInfo": "Grundlegende Informationen",

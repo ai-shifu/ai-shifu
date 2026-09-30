@@ -2,6 +2,7 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "注销账户",
+    "deductCredits": "扣除积分",
     "grantCredits": "发放积分/套餐",
     "moreForUser": "{user} 的更多操作"
   },
@@ -113,6 +114,33 @@
   },
   "credits": {
     "longTerm": "长期有效"
+  },
+  "deductionDialog": {
+    "account": "用户账号",
+    "amount": "扣除积分",
+    "amountPlaceholder": "请输入正数，最多保留两位小数",
+    "back": "返回修改",
+    "confirmButton": "确认扣除",
+    "confirmDescription": "系统将优先扣除付费积分，再扣除人工发放积分。请核对后确认。",
+    "confirmTitle": "确认扣除积分",
+    "continueButton": "继续",
+    "currentBalance": "当前积分余额",
+    "description": "从该用户账户扣除积分，赠送和奖励积分不在可扣除范围内。",
+    "errors": {
+      "amount": "请输入大于 0 且最多保留两位小数的积分数值。",
+      "submitFailed": "积分扣除失败，请稍后重试。"
+    },
+    "note": "备注",
+    "notePlaceholder": "可选，记录本次扣除说明",
+    "reason": "扣除原因",
+    "reasons": {
+      "account_correction": "账户纠正",
+      "incorrect_grant": "发放错误",
+      "other": "其他"
+    },
+    "submitting": "扣除中...",
+    "success": "积分扣除成功",
+    "title": "扣除积分"
   },
   "detail": {
     "basicInfo": "基础信息",

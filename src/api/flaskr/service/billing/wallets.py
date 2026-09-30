@@ -1802,6 +1802,195 @@ def adjust_credit_wallet_balance(
         )
 
 
+def deduct_operator_credit_wallet_balance(
+    app: Flask,
+    *,
+    creator_bid: str,
+    amount: Decimal | object,
+    request_id: str,
+    reason: str,
+    note: str = "",
+    operator_user_bid: str = "",
+) -> BillingLedgerAdjustResultDTO:
+    """Deduct paid credits before manual grants with request-level idempotency."""
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_amount = _quantize_credit_amount(amount)
+    normalized_request_id = str(request_id or "").strip()
+    normalized_reason = str(reason or "").strip()
+    normalized_note = str(note or "").strip()
+    normalized_operator_user_bid = str(operator_user_bid or "").strip()
+    if (
+        not normalized_creator_bid
+        or not normalized_request_id
+        or len(normalized_request_id) > 36
+        or normalized_amount <= _ZERO
+        or not normalized_reason
+    ):
+        return BillingLedgerAdjustResultDTO(
+            status="noop",
+            creator_bid=normalized_creator_bid or None,
+            amount=_credit_decimal_to_number(-normalized_amount),
+        )
+
+    with app_context_scope(app), unit_of_work():
+        wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
+        existing_entries = (
+            CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.creator_bid == normalized_creator_bid,
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL,
+                CreditLedgerEntry.source_bid == normalized_request_id,
+            )
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
+        )
+        if existing_entries:
+            original_metadata = existing_entries[0].metadata_json or {}
+            original_amount = _quantize_credit_amount(
+                original_metadata.get("requested_amount", 0)
+            )
+            if (
+                original_metadata.get("operation") != "operator_credit_deduction"
+                or original_amount != normalized_amount
+                or str(original_metadata.get("reason") or "") != normalized_reason
+                or str(original_metadata.get("note") or "") != normalized_note
+            ):
+                raise_error("server.billing.creditDeductionRequestConflict")
+            return BillingLedgerAdjustResultDTO(
+                status="noop_existing",
+                adjustment_bid=normalized_request_id,
+                creator_bid=normalized_creator_bid,
+                amount=_credit_decimal_to_number(-original_amount),
+                wallet=BillingWalletRefDTO(
+                    wallet_bid=wallet.wallet_bid,
+                    available_credits=_credit_decimal_to_number(
+                        wallet.available_credits
+                    ),
+                    reserved_credits=_credit_decimal_to_number(wallet.reserved_credits),
+                ),
+                wallet_bucket_bids=[
+                    entry.wallet_bucket_bid for entry in existing_entries
+                ],
+                ledger_bids=[entry.ledger_bid for entry in existing_entries],
+            )
+
+        eligible = _load_adjustable_credit_buckets(
+            normalized_creator_bid,
+            adjustment_at=now_utc(),
+            for_update=True,
+        )
+        paid_buckets: list[CreditWalletBucket] = []
+        manual_buckets: list[CreditWalletBucket] = []
+        for bucket in eligible:
+            if _is_operator_manual_credit_bucket(bucket):
+                manual_buckets.append(bucket)
+            elif int(bucket.source_type or 0) in {
+                CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                CREDIT_SOURCE_TYPE_TOPUP,
+            }:
+                paid_buckets.append(bucket)
+
+        ordered_buckets = [*paid_buckets, *manual_buckets]
+        total_available = sum(
+            (_to_decimal(bucket.available_credits) for bucket in ordered_buckets),
+            start=_ZERO,
+        )
+        if total_available < normalized_amount:
+            raise_error("server.billing.creditDeductionInsufficient")
+
+        deducted_at = now_utc()
+        remaining = normalized_amount
+        wallet_bucket_bids: list[str] = []
+        ledger_bids: list[str] = []
+        for bucket in ordered_buckets:
+            if remaining <= _ZERO:
+                break
+            available = _to_decimal(bucket.available_credits)
+            if available <= _ZERO:
+                continue
+            deducted_amount = _quantize_credit_amount(min(available, remaining))
+            bucket.available_credits = _quantize_credit_amount(
+                available - deducted_amount
+            )
+            bucket.consumed_credits = _quantize_credit_amount(
+                _to_decimal(bucket.consumed_credits) + deducted_amount
+            )
+            sync_credit_bucket_status(bucket)
+            db.session.add(bucket)
+            refresh_credit_wallet_snapshot(wallet, snapshot_at=deducted_at)
+            ledger_entry = CreditLedgerEntry(
+                ledger_bid=generate_id(app),
+                creator_bid=normalized_creator_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid=normalized_request_id,
+                idempotency_key=(
+                    "operator_credit_deduction:"
+                    f"{normalized_request_id}:{bucket.wallet_bucket_bid}"
+                ),
+                amount=-deducted_amount,
+                balance_after=_quantize_credit_amount(wallet.available_credits),
+                expires_at=bucket.effective_to,
+                consumable_from=bucket.effective_from,
+                metadata_json={
+                    "operation": "operator_credit_deduction",
+                    "direction": "debit",
+                    "request_id": normalized_request_id,
+                    "requested_amount": str(normalized_amount),
+                    "reason": normalized_reason,
+                    "note": normalized_note,
+                    "operator_user_bid": normalized_operator_user_bid,
+                    "credit_origin": ("manual" if bucket in manual_buckets else "paid"),
+                },
+            )
+            db.session.add(ledger_entry)
+            wallet_bucket_bids.append(bucket.wallet_bucket_bid)
+            ledger_bids.append(ledger_entry.ledger_bid)
+            remaining = _quantize_credit_amount(remaining - deducted_amount)
+
+        persist_credit_wallet_snapshot(
+            wallet,
+            available_credits=wallet.available_credits,
+            reserved_credits=wallet.reserved_credits,
+            updated_at=deducted_at,
+        )
+        return BillingLedgerAdjustResultDTO(
+            status="deducted",
+            adjustment_bid=normalized_request_id,
+            creator_bid=normalized_creator_bid,
+            amount=_credit_decimal_to_number(-normalized_amount),
+            wallet=BillingWalletRefDTO(
+                wallet_bid=wallet.wallet_bid,
+                available_credits=_credit_decimal_to_number(wallet.available_credits),
+                reserved_credits=_credit_decimal_to_number(wallet.reserved_credits),
+            ),
+            wallet_bucket_bids=wallet_bucket_bids,
+            ledger_bids=ledger_bids,
+        )
+
+
+def _is_operator_manual_credit_bucket(bucket: CreditWalletBucket) -> bool:
+    if int(bucket.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL:
+        return True
+    if int(bucket.source_type or 0) not in {
+        CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+        CREDIT_SOURCE_TYPE_TOPUP,
+    }:
+        return False
+    order = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.bill_order_bid == str(bucket.source_bid or "").strip(),
+        )
+        .order_by(BillingOrder.id.desc())
+        .first()
+    )
+    return order is not None and str(order.payment_provider or "").strip() == "manual"
+
+
 def grant_manual_credit_wallet_balance(
     app: Flask,
     *,
@@ -2912,19 +3101,19 @@ def _load_adjustable_credit_buckets(
     creator_bid: str,
     *,
     adjustment_at: datetime,
+    for_update: bool = False,
 ) -> list[CreditWalletBucket]:
-    rows = (
-        CreditWalletBucket.query.filter(
-            CreditWalletBucket.deleted == 0,
-            CreditWalletBucket.creator_bid == str(creator_bid or "").strip(),
-            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
-        )
-        .order_by(
-            CreditWalletBucket.priority.asc(),
-            CreditWalletBucket.id.asc(),
-        )
-        .all()
+    query = CreditWalletBucket.query.filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.creator_bid == str(creator_bid or "").strip(),
+        CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+    ).order_by(
+        CreditWalletBucket.priority.asc(),
+        CreditWalletBucket.id.asc(),
     )
+    if for_update:
+        query = query.with_for_update()
+    rows = query.all()
     eligible = [
         row
         for row in rows

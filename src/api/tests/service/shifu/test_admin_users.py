@@ -60,6 +60,7 @@ from flaskr.service.order.consts import (
 from flaskr.service.order.models import Order
 from flaskr.service.shifu import admin as admin_module
 from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditDeductionRequestDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserListDTO,
     AdminOperationUserOverviewDTO,
@@ -68,6 +69,7 @@ from flaskr.service.shifu.admin_dtos import (
 )
 from flaskr.service.shifu.admin_operations import user_credits as user_credits_module
 from flaskr.service.shifu.admin_operations.user_credits import (
+    deduct_operator_user_credits,
     get_operator_user_credit_usage_detail,
     get_operator_user_credits,
     get_operator_user_grant_bootstrap,
@@ -2836,6 +2838,55 @@ def test_get_operator_user_credits_serializes_ledger_time_using_app_timezone(
     assert len(result.items) == 1
     assert result.items[0].created_at == datetime(2026, 4, 22, 16, 29, 9)
     assert result.items[0].expires_at == datetime(2026, 4, 29, 16, 29, 9)
+
+
+def test_deduct_operator_user_credits_accepts_two_decimal_places_and_refreshes_summary(
+    app: object,
+) -> None:
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-deduction-target",
+            identify="credits-deduction-target@example.com",
+            nickname="Credits Deduction Target",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-deduction-target@example.com")],
+        )
+        grant_operator_user_credits(
+            app,
+            user_bid="credits-deduction-target",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserCreditGrantRequestDTO(
+                request_id="deduction-seed-grant",
+                amount="2.50",
+                grant_source="compensation",
+                validity_value=7,
+                validity_unit="day",
+            ),
+        )
+
+        result = deduct_operator_user_credits(
+            app,
+            user_bid="credits-deduction-target",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserCreditDeductionRequestDTO(
+                request_id="deduction-request-1",
+                amount="1.25",
+                reason="account_correction",
+                note="verified correction",
+            ),
+        )
+
+    assert result.status == "deducted"
+    assert result.amount == "1.25"
+    assert result.reason == "account_correction"
+    assert result.note == "verified correction"
+    assert result.summary.available_credits == "1.25"
+    assert len(result.wallet_bucket_bids) == 1
+    assert len(result.ledger_bids) == 1
 
 
 def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
