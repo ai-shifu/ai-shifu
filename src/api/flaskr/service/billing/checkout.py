@@ -87,6 +87,7 @@ from .models import (
     BillingProduct,
     BillingProductProviderPrice,
     BillingSubscription,
+    CreditWallet,
 )
 from .paid_side_effects import (
     BillingPaidOrderSideEffects,
@@ -172,6 +173,7 @@ from .subscriptions import (
 from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
+from .wallets import persist_credit_wallet_snapshot, refresh_credit_wallet_snapshot
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -1438,6 +1440,23 @@ def refund_billing_order(
                 ).to_metadata_json()
                 _sync_subscription_lifecycle_events(app, subscription)
                 db.session.add(subscription)
+
+                wallet = (
+                    CreditWallet.query.filter(
+                        CreditWallet.deleted == 0,
+                        CreditWallet.creator_bid == normalized_creator_bid,
+                    )
+                    .order_by(CreditWallet.id.desc())
+                    .first()
+                )
+                if wallet is not None:
+                    refresh_credit_wallet_snapshot(wallet, snapshot_at=now)
+                    persist_credit_wallet_snapshot(
+                        wallet,
+                        available_credits=wallet.available_credits,
+                        reserved_credits=wallet.reserved_credits,
+                        updated_at=now,
+                    )
 
         return BillingRefundResultDTO(
             bill_order_bid=order.bill_order_bid,

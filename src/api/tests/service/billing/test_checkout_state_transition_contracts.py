@@ -32,6 +32,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.subscriptions import grant_paid_order_credits
 from flaskr.service.common.models import AppError
 from flaskr.service.order.models import AlipayOrder, StripeOrder, WechatPayOrder
 from flaskr.service.order.payment_providers.base import (
@@ -177,6 +178,13 @@ def test_subscription_refund_commits_without_granting_credits_atomically(
     monkeypatch.setattr(checkout, "get_payment_provider", Mock(return_value=provider))
     with app.app_context():
         order, _, plan = _seed(status=BILLING_ORDER_STATUS_PAID, subscription=True)
+        with unit_of_work():
+            assert grant_paid_order_credits(app, order) is True
+        wallet_before_refund = CreditWallet.query.filter_by(
+            creator_bid=order.creator_bid
+        ).one()
+        wallet_before_refund.available_credits = Decimal(5)
+        db.session.commit()
         original_metadata = {
             "provider_extra": {
                 "payment_intent_id": "pi_refund",
@@ -246,13 +254,16 @@ def test_subscription_refund_commits_without_granting_credits_atomically(
         )
         assert plan.cancel_at_period_end == int(not late_failure)
         entries = CreditLedgerEntry.query.filter_by(creator_bid=order.creator_bid).all()
-        assert entries == []
+        assert len(entries) == 1
         wallets = CreditWallet.query.filter_by(creator_bid=order.creator_bid).all()
         buckets = CreditWalletBucket.query.filter_by(
             creator_bid=order.creator_bid
         ).all()
-        assert wallets == []
-        assert buckets == []
+        assert len(wallets) == 1
+        assert len(buckets) == 1
+        assert entries[0].amount == Decimal(5)
+        assert buckets[0].available_credits == 5
+        assert wallets[0].available_credits == (0 if late_failure is False else 5)
         if not late_failure:
             assert order.refunded_at is not None
             assert order.metadata_json["refund_reference_id"] == reference
@@ -269,8 +280,9 @@ def test_subscription_refund_commits_without_granting_credits_atomically(
             db.session.expire_all()
             assert (
                 CreditLedgerEntry.query.filter_by(creator_bid=order.creator_bid).count()
-                == 0
+                == 1
             )
+            assert wallets[0].available_credits == 0
         else:
             assert order.refunded_at is None
             assert order.metadata_json == original_metadata

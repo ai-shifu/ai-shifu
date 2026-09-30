@@ -24,6 +24,9 @@ affected accounts are explicitly separate follow-up work.
   focused regression coverage.
 - [x] 2026-09-30 12:10 CST: Aligned the billing design contract and ran the billing and repository
   verification gates.
+- [x] 2026-09-30 15:05 CST: Addressed review feedback by refreshing the
+  persisted wallet snapshot after subscription cancellation and clarifying
+  that usage-credit restoration has no production caller yet.
 
 ## Surprises & Discoveries
 
@@ -121,7 +124,9 @@ Then run from the repository root:
 ## Outcomes & Retrospective
 
 The direct Stripe refund path no longer creates a positive refund bucket or
-ledger entry. Focused refund and wallet tests passed. The complete billing
+ledger entry. A subscription refund also refreshes the wallet snapshot so
+admin reads and notification scans no longer retain the canceled package's
+credits. Focused refund and wallet tests passed. The complete billing
 suite passed 1,651 tests and exposed one unrelated state-leak failure in the
 creator-customization suite; that test passed when rerun in isolation. The
 repository harness, unit-of-work ratchet, and focused Ruff checks passed.
