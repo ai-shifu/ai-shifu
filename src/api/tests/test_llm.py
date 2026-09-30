@@ -112,6 +112,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import CreditUsageRate
 from flaskr.service.common import credit_rate_references
+from flaskr.service.common.models import AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -2858,7 +2859,7 @@ def test_stream_rate_limit_retries_are_bounded(
         [[_FakeRateLimitError("TPM exhausted")]],
     )
 
-    with pytest.raises(_FakeRateLimitError):
+    with pytest.raises(AppError):
         _collect_retry_stream(app)
 
     assert calls["count"] == 3
@@ -2929,7 +2930,7 @@ def test_stream_rate_limit_after_output_is_not_retried(
         [[_stream_chunk("partial"), _FakeRateLimitError("TPM exhausted")]],
     )
 
-    with pytest.raises(_FakeRateLimitError):
+    with pytest.raises(AppError):
         _collect_retry_stream(app)
 
     assert calls["count"] == 1
@@ -2952,7 +2953,7 @@ def test_stream_rate_limit_after_tool_call_is_not_retried(
         ],
     )
 
-    with pytest.raises(_FakeRateLimitError):
+    with pytest.raises(AppError):
         list(
             llm._iter_stream_with_precontent_retry(
                 app,

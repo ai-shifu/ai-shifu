@@ -598,6 +598,11 @@ def _iter_stream_with_precontent_retry(
                     rate_limit_attempts,
                     saw_content,
                 )
+                raise_error_with_args(
+                    "server.llm.requestFailed",
+                    model=invoke_model,
+                    message=str(exc),
+                )
             connection_attempts += 1
             retryable = _retryable_stream_error_types()
             if (
