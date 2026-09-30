@@ -311,6 +311,48 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(third.debug_session_id).not.toBe(first.debug_session_id);
   });
 
+  test('starts an edited 2.0 draft without submitting an answer from the old script', async () => {
+    const firstSource = buildMockSseSource();
+    const secondSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(firstSource)
+      .mockReturnValueOnce(secondSource);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+    const params = {
+      shifuBid: 'shifu-1',
+      outlineBid: 'lesson-1',
+      mdflow: 'Original draft',
+      max_block_count: 3,
+    };
+
+    await act(async () => result.current.startPreview(params));
+    act(() => {
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    await act(async () =>
+      result.current.startPreview({
+        ...params,
+        mdflow: 'Edited draft',
+        block_index: 1,
+        user_input: { answer: ['old choice'] },
+      }),
+    );
+
+    const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
+    const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
+    expect(second.content).toBe('Edited draft');
+    expect(second.block_index).toBe(0);
+    expect(second.user_input).toBeUndefined();
+    expect(second.debug_session_id).not.toBe(first.debug_session_id);
+  });
+
   test('drops stale interaction user input when continuation has no submission', () => {
     expect(
       buildInteractionContinuationPreviewParams({

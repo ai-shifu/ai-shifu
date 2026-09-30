@@ -80,10 +80,22 @@ interface StartPreviewParams {
 
 type PreviewSseSource = InstanceType<typeof SSE>;
 
-const newDebugSessionId = () =>
-  typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+const newDebugSessionId = () => {
+  if (typeof globalThis.crypto === 'undefined') {
+    return '';
+  }
+  const webCrypto: Partial<Crypto> = globalThis.crypto;
+  if (typeof webCrypto.randomUUID === 'function') {
+    return webCrypto.randomUUID();
+  }
+  if (typeof webCrypto.getRandomValues === 'function') {
+    const bytes = webCrypto.getRandomValues(new Uint8Array(16));
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join(
+      '',
+    );
+  }
+  return '';
+};
 
 export const buildInteractionContinuationPreviewParams = ({
   currentParams,
@@ -1454,7 +1466,7 @@ export function usePreviewChat({
       if (creditInsufficientAudience === null) {
         return;
       }
-      const normalizedUserInput =
+      let normalizedUserInput =
         user_input &&
         Object.values(user_input).some(value =>
           Array.isArray(value)
@@ -1463,6 +1475,16 @@ export function usePreviewChat({
         )
           ? user_input
           : undefined;
+      if (agentPreviewRef.current && mdflow !== sseParams.current.mdflow) {
+        // An answer to an edited question belongs to the old script. Start the
+        // new draft from its beginning with a new debug session instead.
+        resetPreview();
+        normalizedUserInput = undefined;
+        block_index = 0;
+      }
+      if (!debugSessionIdRef.current) {
+        debugSessionIdRef.current = newDebugSessionId();
+      }
       const mergedParams: StartPreviewParams = {
         ...sseParams.current,
         shifuBid,
@@ -1649,6 +1671,7 @@ export function usePreviewChat({
       invalidatePreviewRun,
       isCurrentPreviewRun,
       resolveBaseUrl,
+      resetPreview,
       setTrackedContentList,
       stopPreview,
       stopPreviewAndContinueIfNeeded,

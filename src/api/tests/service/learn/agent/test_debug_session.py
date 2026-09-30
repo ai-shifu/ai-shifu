@@ -118,3 +118,40 @@ def test_expired_debug_answer_does_not_start_a_new_lesson(
     with pytest.raises(AppError) as exc_info:
         next(stream)
     assert exc_info.value.code == 4019
+
+
+def test_question_closes_editor_response_without_ending_the_lesson(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.service.learn.agent import lesson_entry
+
+    def lesson_events(_app: object, **_kwargs: object) -> object:
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            generated_block_bid="question",
+            type=GeneratedType.INTERACTION,
+            content="Which option?",
+        )
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            generated_block_bid="question",
+            type=GeneratedType.BREAK,
+            content="",
+        )
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", lesson_events)
+    messages = list(
+        debug_session.stream_debug_preview(
+            app,
+            preview_request=PlaygroundPreviewRequest(
+                content="Current draft", block_index=0
+            ),
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_bid="teacher",
+            run_bid="question-run",
+        )
+    )
+
+    done_messages = [message for message in messages if message.type == "done"]
+    assert [message.is_terminal for message in done_messages] == [False, True]

@@ -104,7 +104,8 @@ def stream_debug_preview(
         user_bid=user_bid,
         run_session_bid=run_bid,
     )
-    yield from adapter.process(
+    last_message = None
+    for message in adapter.process(
         agent_lesson_events(
             app,
             user_bid=user_bid,
@@ -116,4 +117,15 @@ def stream_debug_preview(
             debug_store=store,
             preview_variables=preview_request.variables,
         )
-    )
+    ):
+        last_message = message
+        yield message
+    if last_message and last_message.type == "done" and not last_message.is_terminal:
+        # The lesson pauses at a question. Close this HTTP response for the editor;
+        # the next answer resumes the stored engine session in a new request.
+        yield RunElementSSEMessageDTO(
+            type="done",
+            event_type="done",
+            content="",
+            is_terminal=True,
+        )
