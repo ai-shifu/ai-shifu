@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from flaskr.api.llm import chat_llm
+from flaskr.service.learn.agent.bridge import turn_stop_requested
 from flaskr.util.datetime import now_utc
 from pydantic_ai.messages import (
     ModelMessage,
@@ -306,6 +307,7 @@ class GatewayModel(Model):
 
         kwargs: dict[str, object] = dict(self._chat_llm_kwargs)
         kwargs.update(_settings_to_kwargs(settings))
+        kwargs["retry_cancelled"] = turn_stop_requested
         if tools:
             kwargs["tools"] = tools
             # No `tool_choice`: some providers reject forcing a choice while reasoning, and the
