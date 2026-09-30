@@ -12,6 +12,11 @@ import {
 } from './usePreviewChat';
 
 const mockParseToRemarkFormat = jest.fn();
+const mockTrackEvent = jest.fn();
+
+jest.mock('@/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
 
 jest.mock('sse.js', () => ({
   SSE: jest.fn(),
@@ -112,6 +117,7 @@ jest.mock('react-i18next', () => ({
 describe('usePreviewChat helpers and business error rendering', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTrackEvent.mockReset();
   });
 
   afterEach(() => {
@@ -164,6 +170,145 @@ describe('usePreviewChat helpers and business error rendering', () => {
     ).resolves.toBeNull();
 
     expect(SSE).not.toHaveBeenCalled();
+  });
+
+  test('does not advance 1.0 block indices after a 2.0 debug turn', async () => {
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValueOnce(source);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Draft script',
+        max_block_count: 3,
+      });
+    });
+    const request = (SSE as jest.Mock).mock.calls[0][1];
+    expect(JSON.parse(request.payload)).toEqual(
+      expect.objectContaining({
+        content: 'Draft script',
+        debug_session_id: expect.any(String),
+      }),
+    );
+
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'turn-1',
+          content: 'The lesson.',
+        }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+
+    expect(SSE).toHaveBeenCalledTimes(1);
+    expect(source.close).toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_lesson_preview_engine_started',
+      {
+        engine: 'v2',
+        shifu_bid: 'shifu-1',
+        outline_bid: 'lesson-1',
+      },
+    );
+  });
+
+  test('tracks the preview engine once per debug session and ignores tracking failures', async () => {
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('analytics unavailable');
+    });
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValueOnce(source);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Private draft',
+      });
+    });
+
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '1.0' }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '1.0' }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'block',
+          content: 'Visible content',
+        }),
+      });
+    });
+
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_lesson_preview_engine_started',
+      {
+        engine: 'v1',
+        shifu_bid: 'shifu-1',
+        outline_bid: 'lesson-1',
+      },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'Private draft',
+    );
+    expect(result.current.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ content: 'Visible content' }),
+      ]),
+    );
+  });
+
+  test('keeps a debug session across answers and replaces it on reset', async () => {
+    const sources = [
+      buildMockSseSource(),
+      buildMockSseSource(),
+      buildMockSseSource(),
+    ];
+    sources.forEach(source => (SSE as jest.Mock).mockReturnValueOnce(source));
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+    const params = {
+      shifuBid: 'shifu-1',
+      outlineBid: 'lesson-1',
+      mdflow: 'Draft script',
+      max_block_count: 3,
+    };
+
+    await act(async () => {
+      await result.current.startPreview(params);
+      await result.current.startPreview({
+        ...params,
+        user_input: { answer: ['yes'] },
+      });
+    });
+    const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
+    const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
+    expect(second.debug_session_id).toBe(first.debug_session_id);
+    expect(second.user_input).toEqual({ answer: ['yes'] });
+
+    act(() => result.current.resetPreview());
+    await act(async () => result.current.startPreview(params));
+    const third = JSON.parse((SSE as jest.Mock).mock.calls[2][1].payload);
+    expect(third.debug_session_id).not.toBe(first.debug_session_id);
   });
 
   test('drops stale interaction user input when continuation has no submission', () => {
