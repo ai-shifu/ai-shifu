@@ -301,6 +301,12 @@ def agent_lesson_events(
                 heartbeat_interval=heartbeat_interval,
                 rewind=rewind,
             )
+            if outcome is not None and outcome.reason is None:
+                # The engine can return a bare ErrorEvent after a provider failure. It has
+                # already saved the usable session, but the legacy stream has no error DTO;
+                # raising here lets the outer SSE layer show a retryable failure instead of
+                # silently ending a lesson that remains in progress.
+                raise_error("server.common.unknownError")
             # A turn that ran out of content with the lesson not over is followed by the next,
             # as the host's own "continue": the learner's input and the rewind belonged to the
             # first turn only. The browser is not asked to do this. It never sees the boundary

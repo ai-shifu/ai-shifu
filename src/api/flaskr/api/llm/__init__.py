@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import secrets
 import time
 from dataclasses import dataclass, field, replace
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
@@ -441,6 +442,8 @@ def _stream_litellm_completion(
         )
     except Exception as exc:
         _log_warning(f"LiteLLM completion failed for {model}: {exc}")
+        if _is_rate_limit_error(exc):
+            raise
         raise_error_with_args(
             "server.llm.requestFailed",
             model=model,
@@ -449,8 +452,35 @@ def _stream_litellm_completion(
 
 
 # How many times to re-issue a streaming request whose connection died before
-# the first content token arrived.
+# the first content token arrived. Rate limits have a separate, longer budget.
 _STREAM_PRECONTENT_RETRY_ATTEMPTS = 1
+_STREAM_RATE_LIMIT_RETRY_DELAYS = (15.0, 45.0)
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """Recognize provider throttling without matching provider-specific message text."""
+    rate_limit_type = getattr(
+        getattr(litellm, "exceptions", None), "RateLimitError", None
+    )
+    return (isinstance(rate_limit_type, type) and isinstance(exc, rate_limit_type)) or (
+        getattr(exc, "status_code", None) == 429
+    )
+
+
+def _rate_limit_retry_delay(exc: Exception, attempt: int) -> float:
+    """Honor a bounded provider delay, or wait across the current TPM window."""
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None)
+    retry_after = headers.get("retry-after") if headers is not None else None
+    if retry_after is not None:
+        try:
+            delay = float(retry_after)
+        except (TypeError, ValueError):
+            pass
+        else:
+            if 0 < delay <= 60:
+                return delay
+    return _STREAM_RATE_LIMIT_RETRY_DELAYS[attempt - 1] + secrets.randbelow(6)
 
 
 def _retryable_stream_error_types() -> tuple:
@@ -482,7 +512,7 @@ def _iter_stream_with_precontent_retry(
     *,
     tool_calls_are_output: bool = False,
 ) -> Generator[ModelResponseStream, None, None]:
-    """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
+    """Yield stream chunks, retrying transient failures before any output arrives.
 
     The built-in openai/litellm retries only cover request setup; an
     established stream that dies mid-read (transient network corruption,
@@ -491,25 +521,27 @@ def _iter_stream_with_precontent_retry(
     seen: nothing user-visible can be duplicated. Hidden reasoning chunks are
     buffered until the attempt produces content or completes, so reasoning
     from an abandoned attempt does not leak into Langfuse. Once content
-    flowed, the error is re-raised unchanged.
+    flowed, the error is re-raised unchanged. Provider 429 responses may require
+    waiting for a TPM window, so they use a separate bounded delay schedule.
 
     `tool_calls_are_output` extends "content" to tool-call fragments. A caller reading those
     (`chat_llm(..., emit_tool_calls=True)`) has already been handed them, so replaying the request
     would deliver the same arguments twice and could run one tool call as two.
     """
-    attempts = 0
+    connection_attempts = 0
+    rate_limit_attempts = 0
     while True:
-        response = _stream_litellm_completion(
-            app,
-            requested_model,
-            invoke_model,
-            messages,
-            params,
-            kwargs,
-        )
         saw_content = False
         pending_reasoning_chunks = []
         try:
+            response = _stream_litellm_completion(
+                app,
+                requested_model,
+                invoke_model,
+                messages,
+                params,
+                kwargs,
+            )
             for res in response:
                 has_choices = bool(len(res.choices))
                 has_content = bool(has_choices and res.choices[0].delta.content)
@@ -529,18 +561,31 @@ def _iter_stream_with_precontent_retry(
                     yield res
             yield from pending_reasoning_chunks
         except Exception as exc:
-            attempts += 1
+            if not saw_content and _is_rate_limit_error(exc):
+                rate_limit_attempts += 1
+                if rate_limit_attempts <= len(_STREAM_RATE_LIMIT_RETRY_DELAYS):
+                    delay = _rate_limit_retry_delay(exc, rate_limit_attempts)
+                    app.logger.warning(
+                        "LLM provider rate limited %s before output; retrying in %.1fs (%s/%s)",
+                        invoke_model,
+                        delay,
+                        rate_limit_attempts,
+                        len(_STREAM_RATE_LIMIT_RETRY_DELAYS),
+                    )
+                    time.sleep(delay)
+                    continue
+            connection_attempts += 1
             retryable = _retryable_stream_error_types()
             if (
                 saw_content
-                or attempts > _STREAM_PRECONTENT_RETRY_ATTEMPTS
+                or connection_attempts > _STREAM_PRECONTENT_RETRY_ATTEMPTS
                 or not retryable
                 or not isinstance(exc, retryable)
             ):
                 raise
             _log_warning(
                 f"LLM stream for {invoke_model} failed before first content "
-                f"(attempt {attempts}/{_STREAM_PRECONTENT_RETRY_ATTEMPTS + 1}); "
+                f"(attempt {connection_attempts}/{_STREAM_PRECONTENT_RETRY_ATTEMPTS + 1}); "
                 f"reissuing request: {exc}"
             )
         else:

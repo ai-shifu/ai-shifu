@@ -2697,6 +2697,10 @@ class _FakeMidStreamFallbackError(Exception):
     """Stands in for litellm.exceptions.MidStreamFallbackError."""
 
 
+class _FakeRateLimitError(Exception):
+    """Stands in for litellm.exceptions.RateLimitError."""
+
+
 def _stream_chunk(content: object) -> object:
     return SimpleNamespace(
         choices=[
@@ -2730,6 +2734,7 @@ def _patch_retryable_stream_errors(monkeypatch: object) -> None:
         SimpleNamespace(
             APIConnectionError=_FakeAPIConnectionError,
             MidStreamFallbackError=_FakeMidStreamFallbackError,
+            RateLimitError=_FakeRateLimitError,
         ),
         raising=False,
     )
@@ -2789,6 +2794,134 @@ def test_stream_retries_connection_error_before_first_content(
 
     assert [c.choices[0].delta.content for c in chunks] == ["hello", " world"]
     assert calls["count"] == 2
+
+
+def test_stream_retries_rate_limit_before_first_output(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[_FakeRateLimitError("TPM exhausted")], [_stream_chunk("lesson")]],
+    )
+
+    chunks = _collect_retry_stream(app)
+
+    assert [chunk.choices[0].delta.content for chunk in chunks] == ["lesson"]
+    assert calls["count"] == 2
+    assert delays == [15.0]
+
+
+def test_stream_retries_rate_limit_during_request_setup(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    calls = {"count": 0}
+
+    def completion(*_args: object, **_kwargs: object) -> object:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            message = "TPM exhausted"
+            raise _FakeRateLimitError(message)
+        return iter([_stream_chunk("lesson")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+
+    chunks = _collect_retry_stream(app)
+
+    assert [chunk.choices[0].delta.content for chunk in chunks] == ["lesson"]
+    assert calls["count"] == 2
+    assert delays == [15.0]
+
+
+def test_stream_rate_limit_retries_are_bounded(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[_FakeRateLimitError("TPM exhausted")]],
+    )
+
+    with pytest.raises(_FakeRateLimitError):
+        _collect_retry_stream(app)
+
+    assert calls["count"] == 3
+    assert delays == [15.0, 45.0]
+
+
+def test_stream_rate_limit_honors_bounded_retry_after(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    error = _FakeRateLimitError("TPM exhausted")
+    error.response = SimpleNamespace(headers={"retry-after": "27"})
+    _patch_scripted_streams(
+        monkeypatch,
+        [[error], [_stream_chunk("lesson")]],
+    )
+
+    assert len(_collect_retry_stream(app)) == 1
+    assert delays == [27.0]
+
+
+def test_stream_rate_limit_after_output_is_not_retried(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[_stream_chunk("partial"), _FakeRateLimitError("TPM exhausted")]],
+    )
+
+    with pytest.raises(_FakeRateLimitError):
+        _collect_retry_stream(app)
+
+    assert calls["count"] == 1
+
+
+def test_stream_rate_limit_after_tool_call_is_not_retried(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [
+            [
+                FakeResponse(
+                    "c1",
+                    tool_calls=[_tool_call_chunk(0, "call_1", "interact", '{"type":')],
+                ),
+                _FakeRateLimitError("TPM exhausted"),
+            ]
+        ],
+    )
+
+    with pytest.raises(_FakeRateLimitError):
+        list(
+            llm._iter_stream_with_precontent_retry(
+                app,
+                "qwen/test-model",
+                "test-model",
+                [],
+                {},
+                {},
+                tool_calls_are_output=True,
+            )
+        )
+
+    assert calls["count"] == 1
 
 
 def test_stream_retry_discards_reasoning_from_failed_attempt(
