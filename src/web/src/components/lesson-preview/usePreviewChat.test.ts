@@ -312,6 +312,119 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(third.debug_session_id).not.toBe(first.debug_session_id);
   });
 
+  test('lets a restarted 2.0 debug session answer a question with a saved variable', async () => {
+    jest.useFakeTimers();
+    mockParseToRemarkFormat.mockImplementation((content: string) => ({
+      variableName: content.includes('multiAnswer') ? 'multiAnswer' : 'answer',
+      buttonTexts: ['old choice', 'new choice'],
+      buttonValues: ['old choice', 'new choice'],
+      isMultiSelect: content.includes('multiAnswer'),
+    }));
+    const firstSource = buildMockSseSource();
+    const answerSource = buildMockSseSource();
+    const multiAnswerSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(firstSource)
+      .mockReturnValueOnce(answerSource)
+      .mockReturnValueOnce(multiAnswerSource);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+
+    await act(async () =>
+      result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Ask for an answer',
+        variables: { answer: 'old choice', multiAnswer: 'old choice' },
+        max_block_count: 3,
+      }),
+    );
+    act(() => {
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'element',
+          content: {
+            element_bid: 'question-1',
+            generated_block_bid: '68bbca55db4b4134a5502a641aa0ca04',
+            element_type: 'interaction',
+            content: '?[answer]',
+          },
+        }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(SSE).toHaveBeenCalledTimes(1);
+    expect(
+      result.current.items.find(item => item.element_bid === 'question-1'),
+    ).toMatchObject({ user_input: '' });
+    expect(result.current.variables.answer).toBeUndefined();
+    expect(result.current.variables.multiAnswer).toBe('old choice');
+
+    await act(async () =>
+      result.current.onSend(
+        { variableName: 'answer', selectedValues: ['new choice'] },
+        'question-1',
+      ),
+    );
+    expect(SSE).toHaveBeenCalledTimes(2);
+    const firstRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[0][1].payload,
+    );
+    const answerRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[1][1].payload,
+    );
+    expect(answerRequest.debug_session_id).toBe(firstRequest.debug_session_id);
+    expect(answerRequest.user_input).toEqual({ answer: ['new choice'] });
+    expect(answerRequest.block_index).toBe(0);
+
+    act(() => {
+      answerSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      answerSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'element',
+          content: {
+            element_bid: 'question-2',
+            generated_block_bid: '4fcd3bed69243efa27a031be6c435c0',
+            element_type: 'interaction',
+            content: '?[multiAnswer]',
+          },
+        }),
+      });
+      answerSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    expect(result.current.variables.multiAnswer).toBeUndefined();
+    expect(
+      result.current.items.find(item => item.element_bid === 'question-2'),
+    ).toMatchObject({ user_input: '' });
+
+    await act(async () =>
+      result.current.onSend(
+        { variableName: 'multiAnswer', selectedValues: ['new choice'] },
+        'question-2',
+      ),
+    );
+    expect(SSE).toHaveBeenCalledTimes(3);
+    const multiAnswerRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[2][1].payload,
+    );
+    expect(multiAnswerRequest.user_input).toEqual({
+      multiAnswer: ['new choice'],
+    });
+    expect(multiAnswerRequest.block_index).toBe(0);
+  });
+
   test('omits the debug session ID when browser cryptography is unavailable', async () => {
     const cryptoProperty = Object.getOwnPropertyDescriptor(
       globalThis,
