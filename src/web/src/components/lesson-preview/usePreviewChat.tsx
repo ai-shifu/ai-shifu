@@ -543,6 +543,7 @@ export function usePreviewChat({
     useState<PreviewVariablesMap>({});
   const interactionParserRef = useRef(createInteractionParser());
   const autoSubmittedBlocksRef = useRef<Set<string>>(new Set());
+  const freshAgentInteractionBidsRef = useRef<Set<string>>(new Set());
   const tryAutoSubmitInteractionRef = useRef<
     (blockId: string, content?: string | null) => void
   >(() => {});
@@ -879,12 +880,36 @@ export function usePreviewChat({
     currentStreamingElementBidRef.current = null;
     submittedInteractionBlockBidRef.current = null;
     autoSubmittedBlocksRef.current.clear();
+    freshAgentInteractionBidsRef.current.clear();
     setVariablesSnapshot({});
     initialVariablesRef.current = null;
     debugSessionIdRef.current = newDebugSessionId();
     agentPreviewRef.current = false;
     trackedEngineSessionIdRef.current = null;
   }, [stopPreview, setTrackedContentList]);
+
+  const clearFreshAgentInteractionAnswer = useCallback(
+    (itemBid: string, variableName?: string) => {
+      if (
+        !agentPreviewRef.current ||
+        !variableName ||
+        freshAgentInteractionBidsRef.current.has(itemBid)
+      ) {
+        return;
+      }
+      freshAgentInteractionBidsRef.current.add(itemBid);
+      const currentVariables = (sseParams.current.variables ||
+        {}) as PreviewVariablesMap;
+      if (!(variableName in currentVariables)) {
+        return;
+      }
+      const nextVariables = { ...currentVariables };
+      delete nextVariables[variableName];
+      sseParams.current.variables = nextVariables;
+      setVariablesSnapshot(buildVariablesSnapshot(nextVariables));
+    },
+    [],
+  );
 
   const ensureContentItem = useCallback(
     (itemBid: string) => {
@@ -1076,6 +1101,9 @@ export function usePreviewChat({
         ? parseInteractionBlock(elementContent)
         : null;
       const variableName = interactionInfo?.variableName;
+      if (isInteractionElement) {
+        clearFreshAgentInteractionAnswer(itemBid, variableName);
+      }
       const currentVariables = (sseParams.current.variables ||
         {}) as PreviewVariablesMap;
       const rawValue =
@@ -1195,6 +1223,7 @@ export function usePreviewChat({
     },
     [
       buildAutoSendParams,
+      clearFreshAgentInteractionAnswer,
       finalizePreviewElementOutputInList,
       parseInteractionBlock,
       setTrackedContentList,
@@ -1242,6 +1271,14 @@ export function usePreviewChat({
           const interactionContent = resolveResponseStringPayload(response);
           const interactionInfo = parseInteractionBlock(interactionContent);
           const variableName = interactionInfo?.variableName;
+          const interactionBlockBid =
+            currentStreamingElementBidRef.current ||
+            currentContentIdRef.current ||
+            blockId ||
+            '';
+          if (interactionBlockBid) {
+            clearFreshAgentInteractionAnswer(interactionBlockBid, variableName);
+          }
           const currentVariables = (sseParams.current.variables ||
             {}) as PreviewVariablesMap;
           const rawValue =
@@ -1311,11 +1348,6 @@ export function usePreviewChat({
             nextList = [...nextList, interactionBlock];
             return appendLikeStatusIfMissing(nextList, currentBlockBid);
           });
-          const interactionBlockBid =
-            currentStreamingElementBidRef.current ||
-            currentContentIdRef.current ||
-            blockId ||
-            '';
           if (interactionBlockBid && !agentPreviewRef.current) {
             tryAutoSubmitInteractionRef.current(
               interactionBlockBid,
@@ -1433,6 +1465,7 @@ export function usePreviewChat({
     [
       appendLikeStatusIfMissing,
       buildAutoSendParams,
+      clearFreshAgentInteractionAnswer,
       ensureAudioItem,
       ensureContentItem,
       finalizePreviewElementOutputInList,

@@ -314,16 +314,19 @@ describe('usePreviewChat helpers and business error rendering', () => {
 
   test('lets a restarted 2.0 debug session answer a question with a saved variable', async () => {
     jest.useFakeTimers();
-    mockParseToRemarkFormat.mockReturnValue({
-      variableName: 'answer',
+    mockParseToRemarkFormat.mockImplementation((content: string) => ({
+      variableName: content.includes('multiAnswer') ? 'multiAnswer' : 'answer',
       buttonTexts: ['old choice', 'new choice'],
       buttonValues: ['old choice', 'new choice'],
-    });
+      isMultiSelect: content.includes('multiAnswer'),
+    }));
     const firstSource = buildMockSseSource();
     const answerSource = buildMockSseSource();
+    const multiAnswerSource = buildMockSseSource();
     (SSE as jest.Mock)
       .mockReturnValueOnce(firstSource)
-      .mockReturnValueOnce(answerSource);
+      .mockReturnValueOnce(answerSource)
+      .mockReturnValueOnce(multiAnswerSource);
     const { result } = renderHook(() =>
       usePreviewChat({ creditInsufficientAudience: 'teacher' }),
     );
@@ -333,7 +336,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'Ask for an answer',
-        variables: { answer: 'old choice' },
+        variables: { answer: 'old choice', multiAnswer: 'old choice' },
       }),
     );
     act(() => {
@@ -367,6 +370,8 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(
       result.current.items.find(item => item.element_bid === 'question-1'),
     ).toMatchObject({ user_input: '' });
+    expect(result.current.variables.answer).toBeUndefined();
+    expect(result.current.variables.multiAnswer).toBe('old choice');
 
     await act(async () =>
       result.current.onSend(
@@ -383,6 +388,50 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
     expect(answerRequest.debug_session_id).toBe(firstRequest.debug_session_id);
     expect(answerRequest.user_input).toEqual({ answer: ['new choice'] });
+
+    act(() => {
+      answerSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      answerSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'element',
+          content: {
+            element_bid: 'question-2',
+            element_type: 'interaction',
+            content: '?[multiAnswer]',
+          },
+        }),
+      });
+      answerSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'interaction',
+          generated_block_bid: 'question-2',
+          content: '?[multiAnswer]',
+        }),
+      });
+      answerSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    expect(result.current.variables.multiAnswer).toBeUndefined();
+    expect(
+      result.current.items.find(item => item.element_bid === 'question-2'),
+    ).toMatchObject({ user_input: '' });
+
+    await act(async () =>
+      result.current.onSend(
+        { variableName: 'multiAnswer', selectedValues: ['new choice'] },
+        'question-2',
+      ),
+    );
+    expect(SSE).toHaveBeenCalledTimes(3);
+    const multiAnswerRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[2][1].payload,
+    );
+    expect(multiAnswerRequest.user_input).toEqual({
+      multiAnswer: ['new choice'],
+    });
   });
 
   test('omits the debug session ID when browser cryptography is unavailable', async () => {
