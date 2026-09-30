@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
     from flask import Flask
+    from flaskr.service.learn.agent.debug_session import DebugSessionStore
     from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
 
 
@@ -79,6 +80,7 @@ def _resolve(
     shifu_bid: str,
     outline_bid: str,
     preview_mode: bool,
+    require_script: bool = True,
 ) -> tuple[str, str, LLMSettings]:
     """Read the script, the author's teaching brief, and the model settings for this lesson.
 
@@ -88,7 +90,7 @@ def _resolve(
     # Bound to the course as well as the lesson: an allowlisted course paired with another
     # course's outline would otherwise teach that course's script under this course's settings.
     outline = _latest(outline_model, outline_item_bid=outline_bid, shifu_bid=shifu_bid)
-    if outline is None or not (outline.content or "").strip():
+    if outline is None or (require_script and not (outline.content or "").strip()):
         message = f"outline {outline_bid!r} has no script in course {shifu_bid!r}"
         raise LessonNotTeachable(message)
 
@@ -100,7 +102,7 @@ def _resolve(
     course_model = selection_model(shifu)
     brief = _teaching_brief(outline_model, outline=outline, shifu=shifu)
     return (
-        outline.content,
+        outline.content or "",
         brief,
         LLMSettings(
             model=course_model,
@@ -206,6 +208,9 @@ def agent_lesson_events(
     heartbeat_interval: float = 0.5,
     reload_generated_block_bid: str | None = None,
     reload_element_bid: str | None = None,
+    script_override: str | None = None,
+    debug_store: DebugSessionStore | None = None,
+    preview_variables: dict[str, object] | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Teach an allowlisted lesson until it waits or ends, yielding the events 1.0 produces.
 
@@ -243,7 +248,13 @@ def agent_lesson_events(
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         preview_mode=preview_mode,
+        require_script=debug_store is None,
     )
+    if debug_store is not None:
+        if not preview_mode or script_override is None:
+            msg = "editor debug requires a draft script and preview mode"
+            raise ValueError(msg)
+        script = script_override
 
     trace, span = create_trace_with_root_span(
         client=get_langfuse_client(),
@@ -286,6 +297,11 @@ def agent_lesson_events(
     end_reason = "error"
     try:
         while True:
+            debug_options = (
+                {"debug_store": debug_store, "preview_variables": preview_variables}
+                if debug_store is not None
+                else {}
+            )
             outcome = yield from run_agent_lesson(
                 app,
                 engine=engine,
@@ -300,7 +316,14 @@ def agent_lesson_events(
                 shifu_model=_models(preview_mode)[1],
                 heartbeat_interval=heartbeat_interval,
                 rewind=rewind,
+                **debug_options,
             )
+            if outcome is not None and outcome.reason is None:
+                # The engine can return a bare ErrorEvent after a provider failure. It has
+                # already saved the usable session, but the legacy stream has no error DTO;
+                # raising here lets the outer SSE layer show a retryable failure instead of
+                # silently ending a lesson that remains in progress.
+                raise_error("server.common.unknownError")
             # A turn that ran out of content with the lesson not over is followed by the next,
             # as the host's own "continue": the learner's input and the rewind belonged to the
             # first turn only. The browser is not asked to do this. It never sees the boundary

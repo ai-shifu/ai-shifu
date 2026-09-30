@@ -32,6 +32,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.subscriptions import grant_paid_order_credits
 from flaskr.service.common.models import AppError
 from flaskr.service.order.models import AlipayOrder, StripeOrder, WechatPayOrder
 from flaskr.service.order.payment_providers.base import (
@@ -163,7 +164,7 @@ def test_refund_failure_leaves_subscription_and_credits_unchanged(
 
 
 @pytest.mark.parametrize("late_failure", [False, True])
-def test_subscription_refund_commits_order_subscription_and_return_credits_atomically(
+def test_subscription_refund_commits_without_granting_credits_atomically(
     late_failure: bool, app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     reference = f"re-{uuid4().hex}"
@@ -177,6 +178,13 @@ def test_subscription_refund_commits_order_subscription_and_return_credits_atomi
     monkeypatch.setattr(checkout, "get_payment_provider", Mock(return_value=provider))
     with app.app_context():
         order, _, plan = _seed(status=BILLING_ORDER_STATUS_PAID, subscription=True)
+        with unit_of_work():
+            assert grant_paid_order_credits(app, order) is True
+        wallet_before_refund = CreditWallet.query.filter_by(
+            creator_bid=order.creator_bid
+        ).one()
+        wallet_before_refund.available_credits = Decimal(5)
+        db.session.commit()
         original_metadata = {
             "provider_extra": {
                 "payment_intent_id": "pi_refund",
@@ -196,25 +204,25 @@ def test_subscription_refund_commits_order_subscription_and_return_credits_atomi
         )
         db.session.add(snapshot)
         db.session.commit()
-        original_grant = checkout.grant_refund_return_credits
+        original_sync = checkout._sync_subscription_lifecycle_events
         observed: list[str] = []
 
-        def grant_then_fail(*args: object, **kwargs: object) -> object:
-            result = original_grant(*args, **kwargs)
+        def sync_then_fail(*args: object, **kwargs: object) -> object:
+            result = original_sync(*args, **kwargs)
             db.session.flush()
-            assert (
-                CreditLedgerEntry.query.filter_by(creator_bid=order.creator_bid).count()
-                == 1
-            )
             observed.append(order.bill_order_bid)
             if late_failure:
-                message = "failure after credit grant"
+                message = "failure after subscription cancellation"
                 raise RuntimeError(message)
             return result
 
-        monkeypatch.setattr(checkout, "grant_refund_return_credits", grant_then_fail)
+        monkeypatch.setattr(
+            checkout, "_sync_subscription_lifecycle_events", sync_then_fail
+        )
         if late_failure:
-            with pytest.raises(RuntimeError, match="failure after credit grant"):
+            with pytest.raises(
+                RuntimeError, match="failure after subscription cancellation"
+            ):
                 checkout.refund_billing_order(
                     app,
                     order.creator_bid,
@@ -246,21 +254,17 @@ def test_subscription_refund_commits_order_subscription_and_return_credits_atomi
         )
         assert plan.cancel_at_period_end == int(not late_failure)
         entries = CreditLedgerEntry.query.filter_by(creator_bid=order.creator_bid).all()
-        assert len(entries) == int(not late_failure)
+        assert len(entries) == 1
         wallets = CreditWallet.query.filter_by(creator_bid=order.creator_bid).all()
         buckets = CreditWalletBucket.query.filter_by(
             creator_bid=order.creator_bid
         ).all()
-        assert len(wallets) == len(buckets) == int(not late_failure)
+        assert len(wallets) == 1
+        assert len(buckets) == 1
+        assert entries[0].amount == Decimal(5)
+        assert buckets[0].available_credits == 5
+        assert wallets[0].available_credits == (0 if late_failure is False else 5)
         if not late_failure:
-            assert entries[0].amount == Decimal(5)
-            assert buckets[0].available_credits == 5
-            # Subscription credits remain in the bucket after cancellation,
-            # but the wallet exposes only credits that can currently be used.
-            assert wallets[0].available_credits == 0
-            assert wallets[0].reserved_credits == buckets[0].reserved_credits == 0
-            assert entries[0].wallet_bucket_bid == buckets[0].wallet_bucket_bid
-            assert entries[0].balance_after == 0
             assert order.refunded_at is not None
             assert order.metadata_json["refund_reference_id"] == reference
             assert plan.metadata_json["latest_source"] == "api_refund"
@@ -269,17 +273,16 @@ def test_subscription_refund_commits_order_subscription_and_return_credits_atomi
                 "status": "succeeded",
             }
             assert json.loads(snapshot.metadata_json)["last_refund_id"] == reference
-            first_balance = wallets[0].available_credits
             checkout.refund_billing_order(
                 app, order.creator_bid, order.bill_order_bid, {}
             )
             provider.refund_payment.assert_called_once()
             db.session.expire_all()
-            assert wallets[0].available_credits == first_balance
             assert (
                 CreditLedgerEntry.query.filter_by(creator_bid=order.creator_bid).count()
                 == 1
             )
+            assert wallets[0].available_credits == 0
         else:
             assert order.refunded_at is None
             assert order.metadata_json == original_metadata

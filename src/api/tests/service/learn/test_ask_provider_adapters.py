@@ -1342,6 +1342,7 @@ def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
     app: object, monkeypatch: object
 ) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
+    monkeypatch.setattr(get_biji_knowledge_adapter, "_", lambda key: key)
 
     monkeypatch.setattr(
         get_biji_knowledge_adapter.requests,
@@ -1379,26 +1380,36 @@ def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
             )
         )
 
-    assert "membership" in (exc_info.value.user_message or "")
+    assert exc_info.value.user_message == "server.learn.askProviderNotMember"
 
 
 def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
     app: object, monkeypatch: object
 ) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
+    # Assert the selected message key independently of the active test locale.
+    monkeypatch.setattr(get_biji_knowledge_adapter, "_", lambda key: key)
     cases = [
         # Auth failures arrive as HTTP 401 with a business error body.
-        ({"code": 10004, "message": "unauthorized"}, 401, "API Key"),
-        ({"code": 10001, "message": "auth failed"}, 401, "API Key"),
+        (
+            {"code": 10004, "message": "unauthorized"},
+            401,
+            "server.learn.askProviderAuthFailed",
+        ),
+        (
+            {"code": 10001, "message": "auth failed"},
+            401,
+            "server.learn.askProviderAuthFailed",
+        ),
         (
             {"code": 10203, "message": "quota", "reason": "quota_daily_exceeded"},
             429,
-            "quota",
+            "server.learn.askProviderRateLimited",
         ),
         ({"code": 30000, "message": "internal"}, 500, None),
     ]
 
-    for error_body, status_code, expected_fragment in cases:
+    for error_body, status_code, expected_message_key in cases:
         monkeypatch.setattr(
             get_biji_knowledge_adapter.requests,
             "post",
@@ -1428,11 +1439,11 @@ def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
             )
 
         user_message = exc_info.value.user_message
-        if expected_fragment is None:
+        if expected_message_key is None:
             assert user_message is None, f"error {error_body} should have no mapping"
         else:
-            assert expected_fragment in (user_message or ""), (
-                f"error {error_body} should map to a message containing {expected_fragment}"
+            assert user_message == expected_message_key, (
+                f"error {error_body} should map to {expected_message_key}"
             )
 
 

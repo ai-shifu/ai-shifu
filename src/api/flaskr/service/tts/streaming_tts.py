@@ -66,7 +66,9 @@ from flaskr.service.tts.minimax_run_tts import (
     should_use_minimax_http_stream,
 )
 from flaskr.service.tts.patterns import (
+    SENTENCE_CLOSER_CONTINUATION,
     SENTENCE_ENDINGS,
+    SENTENCE_PUNCTUATION_FRAGMENT,
 )
 from flaskr.service.tts.pipeline import (
     _find_next_av_boundary,
@@ -78,6 +80,10 @@ from flaskr.service.tts.request_scoped_streams import (
     VolcengineTimestampStreamStrategy,
 )
 from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeoutError
+from flaskr.service.tts.sentence_boundary import (
+    QuoteState,
+    strip_leading_closing_quotes,
+)
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
@@ -337,6 +343,7 @@ class StreamingTTSProcessor:
         # State
         self._buffer = ""
         self._raw_offset = 0  # tracks position in raw (unprocessed) buffer
+        self._sentence_quote_state: QuoteState = ()
         self._segment_index = 0
         self._audio_bid = str(uuid.uuid4()).replace("-", "")
         self._usage_parent_bid = generate_id(app)
@@ -423,12 +430,20 @@ class StreamingTTSProcessor:
 
         # Only consume text up to the last complete sentence ending in the
         # currently processable stream window.
-        sentence_matches = list(SENTENCE_ENDINGS.finditer(processable_text))
+        initial_quote_state = self._sentence_quote_state
+        sentence_matches = list(
+            SENTENCE_ENDINGS.finditer(
+                processable_text,
+                initial_quote_state=initial_quote_state,
+                is_final=False,
+            )
+        )
         if not sentence_matches:
             return
 
         last_match = sentence_matches[-1]
         completed_text = processable_text[: last_match.end()]
+        after_sentence_boundary = self._raw_offset > 0
 
         # Advance the raw offset.  We need to find how far into the raw
         # remaining text the last sentence ending corresponds.  Because
@@ -437,10 +452,13 @@ class StreamingTTSProcessor:
         self._raw_offset += self._find_raw_consume_len(
             raw_remaining, last_match.end(), processable_text
         )
+        self._sentence_quote_state = last_match.quote_state
 
         self._submit_remaining_text_in_segments(
             completed_text,
             include_trailing_fragment=False,
+            after_sentence_boundary=after_sentence_boundary,
+            initial_quote_state=initial_quote_state,
         )
 
     @staticmethod
@@ -510,6 +528,8 @@ class StreamingTTSProcessor:
         remaining_text: str,
         *,
         include_trailing_fragment: bool = True,
+        after_sentence_boundary: bool = False,
+        initial_quote_state: QuoteState = (),
     ) -> None:
         """Submit text sentence-by-sentence.
 
@@ -520,6 +540,9 @@ class StreamingTTSProcessor:
             remaining_text: The text to be synthesized
             include_trailing_fragment: Whether to submit trailing text that does
                 not end with sentence punctuation.
+            after_sentence_boundary: Whether prior stream text has already been
+                consumed through a sentence ending.
+            initial_quote_state: Unclosed quotations carried from consumed text.
 
         """
         if not remaining_text or len(remaining_text) < 2:
@@ -530,10 +553,24 @@ class StreamingTTSProcessor:
         )
 
         cursor = 0
-        for match in SENTENCE_ENDINGS.finditer(remaining_text):
+        quote_state = initial_quote_state
+        for match in SENTENCE_ENDINGS.finditer(
+            remaining_text, initial_quote_state=initial_quote_state
+        ):
             split_pos = match.end()
             segment_text = remaining_text[cursor:split_pos].strip()
-            if segment_text and len(segment_text) >= 2:
+            if after_sentence_boundary:
+                segment_text = strip_leading_closing_quotes(
+                    segment_text, match.quote_state_before
+                )
+                segment_text = SENTENCE_CLOSER_CONTINUATION.sub("", segment_text)
+            # A stream chunk can contain only the rest of a punctuation run
+            # after the preceding sentence has already been submitted. The
+            # contextual match excludes new opening quotes even when Unicode
+            # classifies those marks as closing punctuation.
+            if len(segment_text) >= 2 and not (
+                after_sentence_boundary and segment_text == match.group()
+            ):
                 self._submit_tts_task(segment_text)
                 logger.debug(
                     "Submitted finalize segment: %s chars, remaining: %s chars",
@@ -541,10 +578,18 @@ class StreamingTTSProcessor:
                     len(remaining_text) - split_pos,
                 )
             cursor = split_pos
+            after_sentence_boundary = True
+            quote_state = match.quote_state
 
         if include_trailing_fragment:
             tail_text = remaining_text[cursor:].strip()
-            if tail_text and len(tail_text) >= 2:
+            if after_sentence_boundary:
+                tail_text = strip_leading_closing_quotes(tail_text, quote_state)
+                tail_text = SENTENCE_CLOSER_CONTINUATION.sub("", tail_text)
+            if len(tail_text) >= 2 and not (
+                after_sentence_boundary
+                and SENTENCE_PUNCTUATION_FRAGMENT.fullmatch(tail_text)
+            ):
                 self._submit_tts_task(tail_text)
                 logger.debug(
                     "Submitted finalize trailing fragment: %s chars", len(tail_text)
@@ -1258,7 +1303,11 @@ class StreamingTTSProcessor:
             raw_remaining = self._buffer[self._raw_offset :]
             remaining_text = preprocess_for_tts(raw_remaining).strip()
             # Use segmented submission to maintain consistent pacing
-            self._submit_remaining_text_in_segments(remaining_text)
+            self._submit_remaining_text_in_segments(
+                remaining_text,
+                after_sentence_boundary=self._raw_offset > 0,
+                initial_quote_state=self._sentence_quote_state,
+            )
             self._raw_offset = len(self._buffer)
             self._buffer = ""
 

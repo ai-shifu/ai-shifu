@@ -758,6 +758,90 @@ def test_previewing_still_stores_its_own_session(calls: list) -> None:
     assert kwargs["preview_mode"] is True
 
 
+def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
+    calls: list,
+) -> None:
+    class DebugStore:
+        def __init__(self) -> None:
+            self.saved: list[_Session] = []
+
+        def load(self, *, script: str) -> None:
+            assert script == SCRIPT
+
+        def save(self, session: _Session) -> None:
+            self.saved.append(session)
+
+    store = DebugStore()
+    session = _Session()
+    session.finished = True
+    engine = _Engine(
+        [ContentDelta(text="debug text"), TurnDone(reason="finished")], session
+    )
+    events = list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            debug_store=store,
+            preview_variables={"purpose": "test"},
+            iter_turn=_drive,
+        )
+    )
+
+    assert store.saved == [session]
+    assert session.user_memory == {"purpose": "test"}
+    assert calls == []
+    assert any(event.type == GeneratedType.CONTENT for event in events)
+
+
+def test_editor_debug_answer_resumes_its_pending_agent_interaction(
+    calls: list,
+) -> None:
+    class DebugStore:
+        def __init__(self, stored: _Session) -> None:
+            self.stored = stored
+            self.saved: list[_Session] = []
+
+        def load(self, *, script: str) -> _Session:
+            assert script == SCRIPT
+            return self.stored
+
+        def save(self, session: _Session) -> None:
+            self.saved.append(session)
+
+    pending = _Session(started=True, pending=[object()])
+    pending.user_memory = {"learned": "persisted"}
+    store = DebugStore(pending)
+    engine = _Engine([TurnDone(reason="interaction")])
+
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input={"answer": ["yes"]},
+            preview_mode=True,
+            debug_store=store,
+            preview_variables={"goal": "new"},
+            iter_turn=_drive,
+        )
+    )
+
+    assert engine.new_session_calls == []
+    assert engine.turns[0].type == "interaction.response"
+    assert engine.turns[0].values == ["yes"]
+    assert store.saved == [pending]
+    assert pending.user_memory == {"learned": "persisted", "goal": "new"}
+    assert calls == []
+
+
 # --- what the turn taught ----------------------------------------------------------------
 
 

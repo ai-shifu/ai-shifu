@@ -397,6 +397,7 @@ async def test_the_gateway_sends_tools_but_never_forces_a_choice() -> None:
     assert [t["function"]["name"] for t in captured["tools"]] == ["interact"]
     assert "tool_choice" not in captured
     assert captured["emit_tool_calls"] is True
+    assert captured["retry_cancelled"]() is False
 
 
 def test_agent_instructions_reach_the_model_as_the_system_message() -> None:

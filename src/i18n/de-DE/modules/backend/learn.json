@@ -10,6 +10,7 @@
     "askProviderTimeout": "Die externe Wissensquelle hat nicht rechtzeitig geantwortet. Bitte versuchen Sie es später erneut.",
     "askProviderUnavailable": "Der externe Wissensdienst ist vorübergehend nicht verfügbar.",
     "continueButton": "Weiter",
+    "debugSessionExpired": "Diese Debug-Sitzung ist abgelaufen oder das Skript wurde geändert. Starten Sie das Debugging erneut.",
     "generatedBlockNotFound": "Generierter Block nicht gefunden",
     "invalidAction": "Ungültige Maßnahme",
     "lessonFeedbackCommentPlaceholder": "Optional: Lassen Sie Ihr Feedback",

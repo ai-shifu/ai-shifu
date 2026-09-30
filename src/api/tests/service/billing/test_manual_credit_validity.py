@@ -48,7 +48,12 @@ def _grant(
     )
 
 
-def _grant_with_expiry(app: object, expires_at: object) -> object:
+def _grant_with_expiry(
+    app: object,
+    expires_at: object,
+    *,
+    audit_metadata: dict[str, object] | None = None,
+) -> object:
     return grants.grant_manual_credits_with_expiry(
         app,
         user_bid="compensation",
@@ -58,6 +63,7 @@ def _grant_with_expiry(app: object, expires_at: object) -> object:
         grant_source="compensation",
         expires_at=expires_at,
         grant_channel="cache_overcharge_compensation_script",
+        audit_metadata=audit_metadata,
     )
 
 
@@ -265,6 +271,32 @@ def test_absolute_expiry_is_exact_utc_and_idempotent(
             assert "validity_preset" not in metadata
             assert "validity_value" not in metadata
             assert "validity_unit" not in metadata
+    frozen_grants.assert_called_once()
+
+
+def test_absolute_expiry_persists_audit_metadata_with_initial_grant(
+    billing_wallet_lifecycle_app: object, frozen_grants: Mock
+) -> None:
+    audit_metadata = {
+        "recovery_campaign_id": "campaign-a",
+        "source_wallet_bucket_bid": "source-bucket-a",
+        "source_expire_ledger_bid": "source-expire-a",
+    }
+
+    result = _grant_with_expiry(
+        billing_wallet_lifecycle_app,
+        START + timedelta(days=1),
+        audit_metadata=audit_metadata,
+    )
+
+    assert all(
+        result.metadata_json[key] == value for key, value in audit_metadata.items()
+    )
+    with billing_wallet_lifecycle_app.app_context():
+        ledger = CreditLedgerEntry.query.one()
+        assert all(
+            ledger.metadata_json[key] == value for key, value in audit_metadata.items()
+        )
     frozen_grants.assert_called_once()
 
 

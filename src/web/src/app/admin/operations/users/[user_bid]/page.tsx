@@ -149,6 +149,7 @@ export default function AdminOperationUserDetailPage() {
   const router = useRouter();
   const params = useParams<UserBidParams>();
   const { isReady } = useOperatorGuard();
+  const detailScrollRef = useRef<HTMLDivElement | null>(null);
   const detailTabsSectionRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDetailTabRef = useRef(false);
   const [activeTab, setActiveTab] = useState<DetailTab>('credits');
@@ -194,9 +195,16 @@ export default function AdminOperationUserDetailPage() {
   });
 
   const scrollToDetailTabsSection = useCallback(() => {
-    detailTabsSectionRef.current?.scrollIntoView({
+    const scrollContainer = detailScrollRef.current;
+    const detailTabsSection = detailTabsSectionRef.current;
+    if (!scrollContainer || !detailTabsSection) {
+      return;
+    }
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const sectionRect = detailTabsSection.getBoundingClientRect();
+    scrollContainer.scrollTo({
+      top: scrollContainer.scrollTop + sectionRect.top - containerRect.top,
       behavior: 'smooth',
-      block: 'start',
     });
   }, []);
   const syncDetailTabHash = useCallback((nextTab: DetailTab) => {
@@ -276,7 +284,7 @@ export default function AdminOperationUserDetailPage() {
 
     setActiveTab(hashTab);
     scrollToDetailTabsSection();
-  }, [detailLoading, scrollToDetailTabsSection]);
+  }, [detail.user_bid, detailLoading, scrollToDetailTabsSection]);
 
   if (!isReady || detailLoading) {
     return <Loading />;
@@ -328,6 +336,7 @@ export default function AdminOperationUserDetailPage() {
           </div>
 
           <div
+            ref={detailScrollRef}
             className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-stone-50 pr-1'
             data-testid='admin-operation-user-detail-scroll'
           >

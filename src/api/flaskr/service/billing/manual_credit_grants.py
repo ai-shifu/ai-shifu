@@ -104,6 +104,7 @@ def grant_manual_credits_to_user(
             "validity_value": validity_value,
             "validity_unit": validity_unit,
         },
+        audit_metadata=None,
         display_name=display_name,
         note=note,
         grant_channel=grant_channel,
@@ -122,6 +123,7 @@ def grant_manual_credits_with_expiry(
     display_name: str = "",
     note: str = "",
     grant_channel: str,
+    audit_metadata: dict[str, object] | None = None,
 ) -> ManualCreditGrantResult:
     """Grant internal compensation with an authoritative absolute UTC expiry.
 
@@ -148,6 +150,7 @@ def grant_manual_credits_with_expiry(
         granted_at=granted_at,
         expires_at=expires_at,
         validity_metadata={},
+        audit_metadata=audit_metadata,
         display_name=display_name,
         note=note,
         grant_channel=grant_channel,
@@ -165,6 +168,7 @@ def _grant_manual_credits(
     granted_at: datetime,
     expires_at: datetime,
     validity_metadata: dict[str, object],
+    audit_metadata: dict[str, object] | None,
     display_name: str,
     note: str,
     grant_channel: str,
@@ -191,6 +195,14 @@ def _grant_manual_credits(
             raise_param_error("note")
 
         granted_amount = _normalize_credit_amount(amount)
+        grant_metadata = {
+            "checkout_type": "manual_grant",
+            "grant_type": "manual_grant",
+            "grant_source": normalized_grant_source,
+            **validity_metadata,
+            "operator_user_bid": normalized_operator_user_bid,
+            "grant_channel": grant_channel,
+        }
         grant_result = grant_manual_credit_wallet_balance(
             app,
             creator_bid=normalized_user_bid,
@@ -199,15 +211,10 @@ def _grant_manual_credits(
             effective_from=granted_at,
             effective_to=expires_at,
             idempotency_key=f"operator_manual_grant:{normalized_request_id}",
-            metadata={
-                "checkout_type": "manual_grant",
-                "grant_type": "manual_grant",
-                "grant_source": normalized_grant_source,
-                **validity_metadata,
-                "operator_user_bid": normalized_operator_user_bid,
-                "grant_channel": grant_channel,
-            },
+            metadata=grant_metadata,
             ledger_metadata={
+                **dict(audit_metadata or {}),
+                **grant_metadata,
                 "display_name": normalized_display_name,
                 "name": normalized_display_name,
                 "note": normalized_note,

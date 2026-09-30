@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import contextvars
 import queue
 import threading
 import time
@@ -134,6 +135,17 @@ class _Stop:
     requested: bool = False
 
 
+_turn_stop: contextvars.ContextVar[_Stop | None] = contextvars.ContextVar(
+    "mdf2_turn_stop", default=None
+)
+
+
+def turn_stop_requested() -> bool:
+    """Let the synchronous gateway wait notice a disconnected turn."""
+    stop = _turn_stop.get()
+    return bool(stop is not None and stop.requested)
+
+
 @dataclass
 class TurnStream:
     """One engine turn, consumed as a synchronous iterator.
@@ -192,6 +204,7 @@ def _iter_turn(
 
     def produce() -> None:
         loop = asyncio.new_event_loop()
+        stop_token = _turn_stop.set(stream.stop)
         try:
             asyncio.set_event_loop(loop)
             agen = make_events()
@@ -240,6 +253,7 @@ def _iter_turn(
                 loop.run_until_complete(loop.shutdown_asyncgens())
             asyncio.set_event_loop(None)
             loop.close()
+            _turn_stop.reset(stop_token)
             _InFlight.release()
             stream.events.put(_DONE)
 

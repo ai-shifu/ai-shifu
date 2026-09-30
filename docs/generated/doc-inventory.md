@@ -40,6 +40,7 @@
 | `docs/design-docs/operator-course-user-request-optimization.md` | Operator Course/User Request Optimization | `design-doc` | `needs-review` | `frontend` | `-` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `reference` | `reference` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/admin-mdf2-preview.md` | Use the 2.0 lesson runtime in teacher debug preview | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/backend-external-client-journey-analytics.md` | Backend External Client Journey Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -51,9 +52,11 @@
 | `docs/exec-plans/active/mdf2-agent-lesson-rewind.md` | MarkdownFlow 2.0: rewind a lesson to an earlier turn | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/preserve-independent-credit-validity.md` | Preserve Independent Credit Validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/stripe-refund-credit-reversal.md` | Stop Stripe Refund Credit Regrant | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/urdu-product-locale.md` | Urdu product locale | `exec-plan-active` | `active` | `cross-surface` | `2026-09-27` | `true` |
 | `docs/exec-plans/completed/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -102,6 +105,7 @@
 | `docs/exec-plans/completed/mdf2-agent-lesson-carries-on.md` | MarkdownFlow 2.0: a lesson carries on until it waits or ends | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mobile-personalization-dialog.md` | Mobile Learner Personalization Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/model-option-display-normalization.md` | Centralize model option display normalization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/multilingual-subtitle-segmentation.md` | Multilingual Subtitle Segmentation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/notification-channel-foundation.md` | Notification Channel Foundation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/numbered-course-models.md` | Numbered course models | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/observability-artifacts-consistency-frontend-trace.md` | Observability Artifacts, Consistency Probes, and Frontend Trace IDs | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |

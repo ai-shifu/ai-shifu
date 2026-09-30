@@ -6,6 +6,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 ## Active
 
+- [Use the 2.0 lesson runtime in teacher debug preview](./active/admin-mdf2-preview.md)
 - [Backend External Client Journey Analytics](./active/backend-external-client-journey-analytics.md)
 - [Course Sharing](./active/course-sharing.md)
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)
@@ -17,9 +18,11 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
+- [Preserve Independent Credit Validity](./active/preserve-independent-credit-validity.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
+- [Stop Stripe Refund Credit Regrant](./active/stripe-refund-credit-reversal.md)
 - [Urdu product locale](./active/urdu-product-locale.md)
 
 ## Completed
@@ -71,6 +74,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [MarkdownFlow 2.0: a lesson carries on until it waits or ends](./completed/mdf2-agent-lesson-carries-on.md)
 - [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
 - [Centralize model option display normalization](./completed/model-option-display-normalization.md)
+- [Multilingual Subtitle Segmentation](./completed/multilingual-subtitle-segmentation.md)
 - [Notification Channel Foundation](./completed/notification-channel-foundation.md)
 - [Numbered course models](./completed/numbered-course-models.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./completed/observability-artifacts-consistency-frontend-trace.md)

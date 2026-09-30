@@ -10,6 +10,7 @@
     "askProviderTimeout": "بیرونی علمی بنیاد کے جواب کا وقت ختم ہو گیا، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "askProviderUnavailable": "بیرونی علم کی بنیاد عارضی طور پر دستیاب نہیں ہے۔",
     "continueButton": "جاری رکھیں",
+    "debugSessionExpired": "یہ ڈیبگ سیشن ختم ہو گیا ہے یا اسکرپٹ بدل گیا ہے۔ دوبارہ ڈیبگنگ شروع کریں۔",
     "generatedBlockNotFound": "تیار کردہ بلاک نہیں ملا",
     "invalidAction": "غلط آپریشن",
     "lessonFeedbackCommentPlaceholder": "اختیاری: ہمیں اپنی تجاویز بتائیں",
