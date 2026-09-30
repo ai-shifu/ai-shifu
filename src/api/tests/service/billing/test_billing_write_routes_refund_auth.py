@@ -14,9 +14,7 @@ from tests.service.billing.billing_write_routes_test_helpers import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_REFUNDED,
     CREDIT_BUCKET_CATEGORY_TOPUP,
-    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_REFUND,
-    CREDIT_SOURCE_TYPE_TOPUP,
     BillingOrder,
     CreditLedgerEntry,
     CreditWallet,
@@ -114,12 +112,12 @@ class TestBillingWriteRoutesRefundAuth:
             refund_bucket = CreditWalletBucket.query.filter_by(
                 creator_bid="creator-1",
                 source_bid="re_billing_test",
-            ).one()
+            ).first()
             refund_ledger = CreditLedgerEntry.query.filter_by(
                 creator_bid="creator-1",
                 source_type=CREDIT_SOURCE_TYPE_REFUND,
                 source_bid="re_billing_test",
-            ).one()
+            ).first()
             raw_order = StripeOrder.query.filter_by(
                 biz_domain="billing",
                 bill_order_bid=bill_order_bid,
@@ -127,14 +125,11 @@ class TestBillingWriteRoutesRefundAuth:
             assert order.status == BILLING_ORDER_STATUS_REFUNDED
             assert order.refunded_at is not None
             assert order.metadata_json["latest_event_type"] == "refund_payment"
-            assert wallet.available_credits == 40
+            assert wallet.available_credits == 20
             assert len(topup_buckets) == 1
-            assert refund_bucket.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP
-            assert refund_bucket.source_type == CREDIT_SOURCE_TYPE_TOPUP
-            assert refund_bucket.available_credits == 40
-            assert refund_bucket.metadata_json["bill_order_bid"] == bill_order_bid
-            assert refund_ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND
-            assert refund_ledger.amount == 20
+            assert topup_buckets[0].available_credits == 20
+            assert refund_bucket is None
+            assert refund_ledger is None
             assert raw_order.status == 2
             assert "last_refund_id" in raw_order.metadata_json
             assert (
