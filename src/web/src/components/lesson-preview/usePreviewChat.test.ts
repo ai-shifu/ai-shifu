@@ -312,6 +312,79 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(third.debug_session_id).not.toBe(first.debug_session_id);
   });
 
+  test('lets a restarted 2.0 debug session answer a question with a saved variable', async () => {
+    jest.useFakeTimers();
+    mockParseToRemarkFormat.mockReturnValue({
+      variableName: 'answer',
+      buttonTexts: ['old choice', 'new choice'],
+      buttonValues: ['old choice', 'new choice'],
+    });
+    const firstSource = buildMockSseSource();
+    const answerSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(firstSource)
+      .mockReturnValueOnce(answerSource);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+
+    await act(async () =>
+      result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Ask for an answer',
+        variables: { answer: 'old choice' },
+      }),
+    );
+    act(() => {
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'element',
+          content: {
+            element_bid: 'question-1',
+            element_type: 'interaction',
+            content: '?[answer]',
+          },
+        }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'interaction',
+          generated_block_bid: 'question-1',
+          content: '?[answer]',
+        }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(SSE).toHaveBeenCalledTimes(1);
+    expect(
+      result.current.items.find(item => item.element_bid === 'question-1'),
+    ).toMatchObject({ user_input: '' });
+
+    await act(async () =>
+      result.current.onSend(
+        { variableName: 'answer', selectedValues: ['new choice'] },
+        'question-1',
+      ),
+    );
+    expect(SSE).toHaveBeenCalledTimes(2);
+    const firstRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[0][1].payload,
+    );
+    const answerRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[1][1].payload,
+    );
+    expect(answerRequest.debug_session_id).toBe(firstRequest.debug_session_id);
+    expect(answerRequest.user_input).toEqual({ answer: ['new choice'] });
+  });
+
   test('omits the debug session ID when browser cryptography is unavailable', async () => {
     const cryptoProperty = Object.getOwnPropertyDescriptor(
       globalThis,
