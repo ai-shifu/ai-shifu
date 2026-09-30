@@ -112,6 +112,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import CreditUsageRate
 from flaskr.service.common import credit_rate_references
+from flaskr.service.common.models import AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -2697,6 +2698,10 @@ class _FakeMidStreamFallbackError(Exception):
     """Stands in for litellm.exceptions.MidStreamFallbackError."""
 
 
+class _FakeRateLimitError(Exception):
+    """Stands in for litellm.exceptions.RateLimitError."""
+
+
 def _stream_chunk(content: object) -> object:
     return SimpleNamespace(
         choices=[
@@ -2730,6 +2735,7 @@ def _patch_retryable_stream_errors(monkeypatch: object) -> None:
         SimpleNamespace(
             APIConnectionError=_FakeAPIConnectionError,
             MidStreamFallbackError=_FakeMidStreamFallbackError,
+            RateLimitError=_FakeRateLimitError,
         ),
         raising=False,
     )
@@ -2789,6 +2795,223 @@ def test_stream_retries_connection_error_before_first_content(
 
     assert [c.choices[0].delta.content for c in chunks] == ["hello", " world"]
     assert calls["count"] == 2
+
+
+def test_stream_retries_rate_limit_before_first_output(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[_FakeRateLimitError("TPM exhausted")], [_stream_chunk("lesson")]],
+    )
+
+    chunks = _collect_retry_stream(app)
+
+    assert [chunk.choices[0].delta.content for chunk in chunks] == ["lesson"]
+    assert calls["count"] == 2
+    assert delays == [15.0]
+
+
+def test_stream_retries_rate_limit_during_request_setup(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    calls = {"count": 0}
+
+    def completion(*_args: object, **_kwargs: object) -> object:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            message = "TPM exhausted"
+            raise _FakeRateLimitError(message)
+        return iter([_stream_chunk("lesson")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+
+    chunks = _collect_retry_stream(app)
+
+    assert [chunk.choices[0].delta.content for chunk in chunks] == ["lesson"]
+    assert calls["count"] == 2
+    assert delays == [15.0]
+
+
+def test_stream_rate_limit_retries_are_bounded(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    errors = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    monkeypatch.setattr(
+        app.logger,
+        "exception",
+        lambda message, *args: errors.append(message % args),
+    )
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[_FakeRateLimitError("TPM exhausted")]],
+    )
+
+    with pytest.raises(AppError):
+        _collect_retry_stream(app)
+
+    assert calls["count"] == 3
+    assert delays == [15.0, 45.0]
+    assert "LLM provider rate limit stopped stream" in errors[0]
+
+
+def test_disconnect_during_rate_limit_wait_releases_agent_turn(
+    monkeypatch: object, app: object
+) -> None:
+    from flaskr.service.learn.agent import bridge
+
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(llm, "_STREAM_RATE_LIMIT_RETRY_DELAYS", (5.0,))
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    _patch_scripted_streams(
+        monkeypatch,
+        [[_FakeRateLimitError("TPM exhausted")]],
+    )
+
+    async def events() -> object:
+        for chunk in llm._iter_stream_with_precontent_retry(
+            app,
+            "qwen/test-model",
+            "test-model",
+            [],
+            {},
+            {},
+            retry_cancelled=bridge.turn_stop_requested,
+        ):
+            yield chunk
+
+    starting_slots = bridge._InFlight.count
+    stream = bridge.iter_turn(
+        events, heartbeat_interval=0.02, heartbeat=lambda: "waiting"
+    )
+    assert next(stream) == "waiting"
+    started = llm.time.monotonic()
+    stream.close()
+
+    assert llm.time.monotonic() - started < bridge.PRODUCER_EXIT_TIMEOUT
+    assert bridge._InFlight.count == starting_slots
+
+
+def test_stream_rate_limit_honors_bounded_retry_after(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    error = _FakeRateLimitError("TPM exhausted")
+    error.response = SimpleNamespace(headers={"retry-after": "27"})
+    _patch_scripted_streams(
+        monkeypatch,
+        [[error], [_stream_chunk("lesson")]],
+    )
+
+    assert len(_collect_retry_stream(app)) == 1
+    assert delays == [27.0]
+
+
+def test_stream_rate_limit_after_output_is_not_retried(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[_stream_chunk("partial"), _FakeRateLimitError("TPM exhausted")]],
+    )
+
+    with pytest.raises(AppError):
+        _collect_retry_stream(app)
+
+    assert calls["count"] == 1
+
+
+def test_stream_rate_limit_after_tool_call_is_not_retried(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [
+            [
+                FakeResponse(
+                    "c1",
+                    tool_calls=[_tool_call_chunk(0, "call_1", "interact", '{"type":')],
+                ),
+                _FakeRateLimitError("TPM exhausted"),
+            ]
+        ],
+    )
+
+    with pytest.raises(AppError):
+        list(
+            llm._iter_stream_with_precontent_retry(
+                app,
+                "qwen/test-model",
+                "test-model",
+                [],
+                {},
+                {},
+                tool_calls_are_output=True,
+            )
+        )
+
+    assert calls["count"] == 1
+
+
+def test_raw_gateway_does_not_replay_tool_call_after_rate_limit(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm, "_record_gateway_llm_usage", lambda *_args, **_kwargs: None
+    )
+    fragment = _tool_call_chunk(0, "call_1", "interact", '{"type":')
+    first = FakeResponse("c1", tool_calls=[fragment])
+    first.model_dump = lambda **_kwargs: {
+        "choices": [
+            {"delta": {"tool_calls": [{"function": {"arguments": '{"type":'}}]}}
+        ]
+    }
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[first, _FakeRateLimitError("TPM exhausted")]],
+    )
+
+    stream = llm.stream_openai_chat_completion(
+        app,
+        user_id="u",
+        span=DummySpan(),
+        model="test-model",
+        messages=[],
+        request_id="request-1",
+        fallback_input_tokens=1,
+    )
+    assert next(stream)["choices"][0]["delta"]["tool_calls"]
+    with pytest.raises(AppError):
+        next(stream)
+
+    assert calls["count"] == 1
 
 
 def test_stream_retry_discards_reasoning_from_failed_attempt(
