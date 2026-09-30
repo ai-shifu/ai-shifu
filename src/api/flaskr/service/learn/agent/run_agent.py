@@ -96,6 +96,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Generator, Iterable
 
     from flask import Flask
+    from flaskr.service.learn.agent.debug_session import DebugSessionStore
     from flaskr.service.learn.agent.engine.engine import Engine, TurnInput
     from flaskr.service.learn.agent.engine.events import Event
     from flaskr.service.learn.agent.engine.session import Session
@@ -186,6 +187,8 @@ def _load_or_start(
     teaching_brief: str = "",
     preview_mode: bool,
     rewind: RewindPlan | None = None,
+    debug_store: DebugSessionStore | None = None,
+    preview_variables: dict[str, Any] | None = None,
 ) -> tuple[Callable[[], Any], bool]:
     """Build the coroutine factory the bridge runs on its producer thread.
 
@@ -201,14 +204,17 @@ def _load_or_start(
     snapshot taken when it was last saved, so an author editing a learner's profile would otherwise
     never reach the lesson already in progress.
     """
-    try:
-        stored = load_agent_session(
-            app, user_bid, outline_bid, preview_mode=preview_mode
-        )
-    except StoredSessionUnusable:
-        # Written by code whose sessions this one cannot read. Starting over loses the
-        # conversation, which is the point of comparing versions rather than parsing hopefully.
-        stored = None
+    if debug_store is not None:
+        stored = debug_store.load(script=script)
+    else:
+        try:
+            stored = load_agent_session(
+                app, user_bid, outline_bid, preview_mode=preview_mode
+            )
+        except StoredSessionUnusable:
+            # Written by code whose sessions this one cannot read. Starting over loses the
+            # conversation, which is the point of comparing versions rather than parsing hopefully.
+            stored = None
     if rewind is not None:
         if stored is None:
             # The rows say where to go back to, but there is no conversation to take back.
@@ -216,11 +222,19 @@ def _load_or_start(
         # Taken back before the turn is built, so the turn is whatever this state calls for: the
         # question the learner is now answering differently, or the turn being regenerated.
         restore(stored, rewind.checkpoint)
-    user_memory = load_memory(app, user_bid, shifu_bid).as_variables()
+    user_memory = (
+        dict(preview_variables or {})
+        if debug_store is not None
+        else load_memory(app, user_bid, shifu_bid).as_variables()
+    )
 
     async def make_session() -> Session:
         if stored is not None:
-            stored.user_memory = dict(user_memory)
+            stored.user_memory = (
+                {**stored.user_memory, **user_memory}
+                if debug_store is not None
+                else dict(user_memory)
+            )
             # The brief is re-read too, for the same reason the memory is: a stored session
             # carries the snapshot taken when it was last saved. A lesson already in progress
             # when an author writes or edits one would otherwise never see it, and a lesson
@@ -263,6 +277,8 @@ def run_agent_lesson(
     heartbeat_interval: float = 0.5,
     iter_turn: Callable[..., Any] | None = None,
     rewind: RewindPlan | None = None,
+    debug_store: DebugSessionStore | None = None,
+    preview_variables: dict[str, Any] | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
 
@@ -287,6 +303,8 @@ def run_agent_lesson(
         teaching_brief=teaching_brief,
         preview_mode=preview_mode,
         rewind=rewind,
+        debug_store=debug_store,
+        preview_variables=preview_variables,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.
@@ -378,6 +396,7 @@ def run_agent_lesson(
                 progress_record_bid=progress_record_bid,
                 generated_block_bid=generated_block_bid,
                 heartbeat_interval=heartbeat_interval,
+                debug_store=debug_store,
             )
         )
     except BaseException:
@@ -862,6 +881,7 @@ def _stream_turn(
     progress_record_bid: str,
     generated_block_bid: str,
     heartbeat_interval: float,
+    debug_store: DebugSessionStore | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
     pending_memory: list[MemoryUpdated] = []
@@ -973,20 +993,24 @@ def _stream_turn(
             session = session_holder.get("session")
             if session is not None:
                 persisted = True
-                kept = _persist(
-                    app,
-                    session,
-                    memory=pending_memory,
-                    user_bid=user_bid,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    preview_mode=preview_mode,
-                    progress_record_bid=progress_record_bid,
-                    generated_block_bid=generated_block_bid,
-                    taught="".join(taught),
-                    turn_record=session_holder.get("turn_record", ""),
-                    rewind=session_holder.get("rewind"),
-                )
+                if debug_store is not None:
+                    debug_store.save(session)
+                    kept = True
+                else:
+                    kept = _persist(
+                        app,
+                        session,
+                        memory=pending_memory,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=preview_mode,
+                        progress_record_bid=progress_record_bid,
+                        generated_block_bid=generated_block_bid,
+                        taught="".join(taught),
+                        turn_record=session_holder.get("turn_record", ""),
+                        rewind=session_holder.get("rewind"),
+                    )
                 pending_memory = []
                 if session.finished and kept:  # not for a turn a reset discarded
                     # Before the terminal event, because the browser stops reading the stream on
@@ -1095,20 +1119,23 @@ def _stream_turn(
         yield from voice.finish()
     session = session_holder.get("session")
     if not persisted and session is not None:
-        _persist(
-            app,
-            session,
-            memory=pending_memory,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            preview_mode=preview_mode,
-            progress_record_bid=progress_record_bid,
-            generated_block_bid=generated_block_bid,
-            taught="".join(taught),
-            turn_record=session_holder.get("turn_record", ""),
-            rewind=session_holder.get("rewind"),
-        )
+        if debug_store is not None:
+            debug_store.save(session)
+        else:
+            _persist(
+                app,
+                session,
+                memory=pending_memory,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                preview_mode=preview_mode,
+                progress_record_bid=progress_record_bid,
+                generated_block_bid=generated_block_bid,
+                taught="".join(taught),
+                turn_record=session_holder.get("turn_record", ""),
+                rewind=session_holder.get("rewind"),
+            )
 
     return TurnOutcome(
         reason=session_holder.get("reason"),
