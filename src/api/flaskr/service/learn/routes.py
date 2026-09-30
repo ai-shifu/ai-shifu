@@ -589,7 +589,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         )
 
         debug_run_bid = payload.get("debug_session_id")
-        if debug_run_bid is not None and not (
+        if debug_run_bid not in (None, "") and not (
             isinstance(debug_run_bid, str)
             and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", debug_run_bid)
         ):

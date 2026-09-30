@@ -526,6 +526,7 @@ export function usePreviewChat({
   const currentContentIdRef = useRef<string | null>(null);
   const currentStreamingElementBidRef = useRef<string | null>(null);
   const sseParams = useRef<StartPreviewParams>({});
+  const initialVariablesRef = useRef<Record<string, unknown> | null>(null);
   const sseRef = useRef<PreviewSseSource | null>(null);
   const ttsSseRef = useRef<Record<string, PreviewSseSource>>({});
   const previewRunIdRef = useRef(0);
@@ -879,6 +880,7 @@ export function usePreviewChat({
     submittedInteractionBlockBidRef.current = null;
     autoSubmittedBlocksRef.current.clear();
     setVariablesSnapshot({});
+    initialVariablesRef.current = null;
     debugSessionIdRef.current = newDebugSessionId();
     agentPreviewRef.current = false;
     trackedEngineSessionIdRef.current = null;
@@ -1478,9 +1480,13 @@ export function usePreviewChat({
       if (agentPreviewRef.current && mdflow !== sseParams.current.mdflow) {
         // An answer to an edited question belongs to the old script. Start the
         // new draft from its beginning with a new debug session instead.
+        variables = { ...(initialVariablesRef.current || {}) };
         resetPreview();
         normalizedUserInput = undefined;
         block_index = 0;
+      }
+      if (initialVariablesRef.current === null) {
+        initialVariablesRef.current = { ...(variables || {}) };
       }
       if (!debugSessionIdRef.current) {
         debugSessionIdRef.current = newDebugSessionId();
@@ -1566,7 +1572,9 @@ export function usePreviewChat({
           content: finalMdflow,
           variables: finalVariables,
           visual_mode: finalVisualMode,
-          debug_session_id: debugSessionIdRef.current,
+          ...(debugSessionIdRef.current
+            ? { debug_session_id: debugSessionIdRef.current }
+            : {}),
         };
         if (normalizedUserInput) {
           payload.user_input = normalizedUserInput;
@@ -1707,6 +1715,19 @@ export function usePreviewChat({
     continuePreviewFromLatestStateRef.current = continuePreviewFromLatestState;
   }, [continuePreviewFromLatestState]);
 
+  const restartAgentPreview = useCallback(() => {
+    const currentParams = { ...sseParams.current };
+    const initialVariables = { ...(initialVariablesRef.current || {}) };
+    resetPreview();
+    void startPreview({
+      ...currentParams,
+      mdflow: resolveLatestMdflow(),
+      variables: initialVariables,
+      block_index: 0,
+      user_input: undefined,
+    });
+  }, [resetPreview, resolveLatestMdflow, startPreview]);
+
   const updateContentListWithUserOperate = useCallback(
     (
       params: OnSendContentParams,
@@ -1801,6 +1822,13 @@ export function usePreviewChat({
         showOutputInProgressToast();
         return false;
       }
+      if (
+        agentPreviewRef.current &&
+        resolveLatestMdflow() !== sseParams.current.mdflow
+      ) {
+        restartAgentPreview();
+        return true;
+      }
 
       const { variableName } = content;
       const normalizedVariableName =
@@ -1828,14 +1856,7 @@ export function usePreviewChat({
       if (agentPreviewRef.current && isReGenerate) {
         // Editor debug has no persisted turn blocks to rewind. Start a new lesson
         // rather than send an old answer to the current 2.0 session.
-        const currentParams = { ...sseParams.current };
-        resetPreview();
-        void startPreview({
-          ...currentParams,
-          mdflow: resolveLatestMdflow(),
-          block_index: 0,
-          user_input: undefined,
-        });
+        restartAgentPreview();
         return true;
       }
 
@@ -1923,7 +1944,7 @@ export function usePreviewChat({
       prefillInteractionBlock,
       resolveLastActionableBlockBid,
       resolveLatestMdflow,
-      resetPreview,
+      restartAgentPreview,
     ],
   );
 
@@ -1938,14 +1959,7 @@ export function usePreviewChat({
       }
 
       if (agentPreviewRef.current) {
-        const currentParams = { ...sseParams.current };
-        resetPreview();
-        void startPreview({
-          ...currentParams,
-          mdflow: resolveLatestMdflow(),
-          block_index: 0,
-          user_input: undefined,
-        });
+        restartAgentPreview();
         return;
       }
 
@@ -2001,7 +2015,7 @@ export function usePreviewChat({
     [
       creditInsufficientAudience,
       resolveLatestMdflow,
-      resetPreview,
+      restartAgentPreview,
       removeAutoSubmittedBlocks,
       setTrackedContentList,
       showOutputInProgressToast,

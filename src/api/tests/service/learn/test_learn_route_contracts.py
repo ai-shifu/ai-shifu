@@ -605,6 +605,8 @@ def test_editor_preview_keeps_legacy_path_without_matching_client_and_allowlist(
     payload = {"content": "Lesson", "block_index": 0}
     if not allowlisted:
         payload["debug_session_id"] = "editor-run-1"
+    else:
+        payload["debug_session_id"] = ""
 
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
