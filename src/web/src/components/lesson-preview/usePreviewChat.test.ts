@@ -337,6 +337,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         outlineBid: 'lesson-1',
         mdflow: 'Ask for an answer',
         variables: { answer: 'old choice', multiAnswer: 'old choice' },
+        max_block_count: 3,
       }),
     );
     act(() => {
@@ -348,16 +349,10 @@ describe('usePreviewChat helpers and business error rendering', () => {
           type: 'element',
           content: {
             element_bid: 'question-1',
+            generated_block_bid: '68bbca55db4b4134a5502a641aa0ca04',
             element_type: 'interaction',
             content: '?[answer]',
           },
-        }),
-      });
-      firstSource.listeners.message?.({
-        data: JSON.stringify({
-          type: 'interaction',
-          generated_block_bid: 'question-1',
-          content: '?[answer]',
         }),
       });
       firstSource.listeners.message?.({
@@ -388,6 +383,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
     expect(answerRequest.debug_session_id).toBe(firstRequest.debug_session_id);
     expect(answerRequest.user_input).toEqual({ answer: ['new choice'] });
+    expect(answerRequest.block_index).toBe(0);
 
     act(() => {
       answerSource.listeners.message?.({
@@ -398,16 +394,10 @@ describe('usePreviewChat helpers and business error rendering', () => {
           type: 'element',
           content: {
             element_bid: 'question-2',
+            generated_block_bid: '4fcd3bed69243efa27a031be6c435c0',
             element_type: 'interaction',
             content: '?[multiAnswer]',
           },
-        }),
-      });
-      answerSource.listeners.message?.({
-        data: JSON.stringify({
-          type: 'interaction',
-          generated_block_bid: 'question-2',
-          content: '?[multiAnswer]',
         }),
       });
       answerSource.listeners.message?.({
@@ -432,6 +422,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(multiAnswerRequest.user_input).toEqual({
       multiAnswer: ['new choice'],
     });
+    expect(multiAnswerRequest.block_index).toBe(0);
   });
 
   test('omits the debug session ID when browser cryptography is unavailable', async () => {

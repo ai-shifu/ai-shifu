@@ -16,6 +16,12 @@ describe('preview submission helpers', () => {
     expect(resolvePreviewRequestBlockIndex('3', 7)).toBe(3);
   });
 
+  it('does not parse the numeric prefix of an opaque 2.0 block ID', () => {
+    expect(
+      resolvePreviewRequestBlockIndex('68bbca55db4b4134a5502a641aa0ca04', 1),
+    ).toBe(1);
+  });
+
   it('uses input as fallback user_input key when variable name is empty', () => {
     expect(buildPreviewInteractionUserInput('', ['A'])).toEqual({
       input: ['A'],

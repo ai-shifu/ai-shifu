@@ -1957,10 +1957,12 @@ export function usePreviewChat({
       const nextParams = buildInteractionContinuationPreviewParams({
         currentParams: sseParams.current,
         latestMdflow: resolveLatestMdflow(),
-        blockIndex: resolvePreviewRequestBlockIndex(
-          targetGeneratedBlockBid,
-          sseParams.current.block_index ?? 0,
-        ),
+        blockIndex: agentPreviewRef.current
+          ? (sseParams.current.block_index ?? 0)
+          : resolvePreviewRequestBlockIndex(
+              targetGeneratedBlockBid,
+              sseParams.current.block_index ?? 0,
+            ),
         variables: requestVariables,
         userInput: userInputPayload,
       });

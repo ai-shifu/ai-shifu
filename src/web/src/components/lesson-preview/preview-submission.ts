@@ -4,8 +4,11 @@ export const resolvePreviewRequestBlockIndex = (
   generatedBlockBid: string,
   fallbackBlockIndex = 0,
 ): number => {
-  const parsedValue = Number.parseInt(generatedBlockBid, 10);
-  return Number.isNaN(parsedValue) ? fallbackBlockIndex : parsedValue;
+  // 1.0 uses decimal block indices; 2.0 uses opaque generated block IDs.
+  // parseInt accepts a numeric prefix of a UUID and can skip the next request.
+  return /^\d+$/.test(generatedBlockBid)
+    ? Number(generatedBlockBid)
+    : fallbackBlockIndex;
 };
 
 export const resolvePreviewRegenerateStartIndex = (
