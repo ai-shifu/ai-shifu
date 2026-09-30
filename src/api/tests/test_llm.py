@@ -2969,6 +2969,51 @@ def test_stream_rate_limit_after_tool_call_is_not_retried(
     assert calls["count"] == 1
 
 
+def test_raw_gateway_does_not_replay_tool_call_after_rate_limit(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm, "_record_gateway_llm_usage", lambda *_args, **_kwargs: None
+    )
+    fragment = _tool_call_chunk(0, "call_1", "interact", '{"type":')
+    first = FakeResponse("c1", tool_calls=[fragment])
+    first.model_dump = lambda **_kwargs: {
+        "choices": [
+            {"delta": {"tool_calls": [{"function": {"arguments": '{"type":'}}]}}
+        ]
+    }
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[first, _FakeRateLimitError("TPM exhausted")]],
+    )
+
+    stream = llm.stream_openai_chat_completion(
+        app,
+        user_id="u",
+        span=DummySpan(),
+        model="test-model",
+        messages=[],
+        request_id="request-1",
+        fallback_input_tokens=1,
+    )
+    assert next(stream)["choices"][0]["delta"]["tool_calls"]
+    with pytest.raises(AppError):
+        next(stream)
+
+    assert calls["count"] == 1
+
+
 def test_stream_retry_discards_reasoning_from_failed_attempt(
     monkeypatch: object, app: object
 ) -> None:

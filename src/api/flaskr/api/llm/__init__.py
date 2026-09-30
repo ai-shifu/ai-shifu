@@ -2002,6 +2002,7 @@ def stream_openai_chat_completion(
             messages,
             params,
             stream_kwargs,
+            tool_calls_are_output=True,
         )
         for chunk in response:
             chunk_usage = getattr(chunk, "usage", None)
