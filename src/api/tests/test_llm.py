@@ -2845,8 +2845,14 @@ def test_stream_rate_limit_retries_are_bounded(
 ) -> None:
     _patch_retryable_stream_errors(monkeypatch)
     delays = []
+    errors = []
     monkeypatch.setattr(llm.time, "sleep", delays.append)
     monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    monkeypatch.setattr(
+        app.logger,
+        "exception",
+        lambda message, *args: errors.append(message % args),
+    )
     calls = _patch_scripted_streams(
         monkeypatch,
         [[_FakeRateLimitError("TPM exhausted")]],
@@ -2857,6 +2863,44 @@ def test_stream_rate_limit_retries_are_bounded(
 
     assert calls["count"] == 3
     assert delays == [15.0, 45.0]
+    assert "LLM provider rate limit stopped stream" in errors[0]
+
+
+def test_disconnect_during_rate_limit_wait_releases_agent_turn(
+    monkeypatch: object, app: object
+) -> None:
+    from flaskr.service.learn.agent import bridge
+
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(llm, "_STREAM_RATE_LIMIT_RETRY_DELAYS", (5.0,))
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    _patch_scripted_streams(
+        monkeypatch,
+        [[_FakeRateLimitError("TPM exhausted")]],
+    )
+
+    async def events() -> object:
+        for chunk in llm._iter_stream_with_precontent_retry(
+            app,
+            "qwen/test-model",
+            "test-model",
+            [],
+            {},
+            {},
+            retry_cancelled=bridge.turn_stop_requested,
+        ):
+            yield chunk
+
+    starting_slots = bridge._InFlight.count
+    stream = bridge.iter_turn(
+        events, heartbeat_interval=0.02, heartbeat=lambda: "waiting"
+    )
+    assert next(stream) == "waiting"
+    started = llm.time.monotonic()
+    stream.close()
+
+    assert llm.time.monotonic() - started < bridge.PRODUCER_EXIT_TIMEOUT
+    assert bridge._InFlight.count == starting_slots
 
 
 def test_stream_rate_limit_honors_bounded_retry_after(

@@ -483,6 +483,21 @@ def _rate_limit_retry_delay(exc: Exception, attempt: int) -> float:
     return _STREAM_RATE_LIMIT_RETRY_DELAYS[attempt - 1] + secrets.randbelow(6)
 
 
+def _wait_before_retry(delay: float, cancelled: Callable[[], bool] | None) -> None:
+    """Wake promptly when an agent turn disconnects during a provider limit wait."""
+    if cancelled is None:
+        time.sleep(delay)
+        return
+    deadline = time.monotonic() + delay
+    while True:
+        if cancelled():
+            raise asyncio.CancelledError
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(remaining, 0.1))
+
+
 def _retryable_stream_error_types() -> tuple:
     """Connection-level litellm stream errors that are safe to retry.
 
@@ -511,6 +526,7 @@ def _iter_stream_with_precontent_retry(
     kwargs: dict,
     *,
     tool_calls_are_output: bool = False,
+    retry_cancelled: Callable[[], bool] | None = None,
 ) -> Generator[ModelResponseStream, None, None]:
     """Yield stream chunks, retrying transient failures before any output arrives.
 
@@ -561,9 +577,11 @@ def _iter_stream_with_precontent_retry(
                     yield res
             yield from pending_reasoning_chunks
         except Exception as exc:
-            if not saw_content and _is_rate_limit_error(exc):
+            if _is_rate_limit_error(exc):
                 rate_limit_attempts += 1
-                if rate_limit_attempts <= len(_STREAM_RATE_LIMIT_RETRY_DELAYS):
+                if not saw_content and rate_limit_attempts <= len(
+                    _STREAM_RATE_LIMIT_RETRY_DELAYS
+                ):
                     delay = _rate_limit_retry_delay(exc, rate_limit_attempts)
                     app.logger.warning(
                         "LLM provider rate limited %s before output; retrying in %.1fs (%s/%s)",
@@ -572,8 +590,14 @@ def _iter_stream_with_precontent_retry(
                         rate_limit_attempts,
                         len(_STREAM_RATE_LIMIT_RETRY_DELAYS),
                     )
-                    time.sleep(delay)
+                    _wait_before_retry(delay, retry_cancelled)
                     continue
+                app.logger.exception(
+                    "LLM provider rate limit stopped stream: model=%s attempts=%s output_started=%s",
+                    invoke_model,
+                    rate_limit_attempts,
+                    saw_content,
+                )
             connection_attempts += 1
             retryable = _retryable_stream_error_types()
             if (
@@ -1442,6 +1466,7 @@ def chat_llm(
     kwargs.pop("stream", None)
     # Off by default: the 1.0 runtime only reads text, and a tool-call-only chunk carries none.
     emit_tool_calls = bool(kwargs.pop("emit_tool_calls", False))
+    retry_cancelled = kwargs.pop("retry_cancelled", None)
     usage_scene = (
         usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
     )
@@ -1497,6 +1522,7 @@ def chat_llm(
             params,
             kwargs,
             tool_calls_are_output=emit_tool_calls,
+            retry_cancelled=retry_cancelled,
         )
         try:
             for res in response:
