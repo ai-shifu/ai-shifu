@@ -320,7 +320,7 @@ v1 冻结 subscription lifecycle 规则：
 - provider 把订阅推进到 `past_due` 后，v1 一律进入宽限期模式：`grace_period_end_at` 默认等于当前 `current_period_end_at`，原 `renewal/cancel_effective/downgrade_effective` 事件让位给 `retry`，直到续费成功或订阅被取消/过期
 - `paused` 属于 provider 驱动状态，当前批次不提供主动 pause API；若 provider 事件把订阅置为 `paused`，creator 只能通过已有 `resume` 接口恢复
 - 退款底层规则暂时保留：Stripe 已支付订单可进入退款流程，Pingxx 返回 `unsupported`；若退款订单绑定了订阅，则关联订阅立即进入 `canceled` 并取消后续 renewal event，不再保留 `cancel_scheduled` 或宽限期。老师侧公开退款接口在积分冲正规则完成前暂停注册；运营审核后在线下支付渠道人工退款时，必须同时核对并通过后台人工调整积分账本
-- refund 造成的积分返还不恢复原 subscription/topup bucket；如需返还 credit，一律按上一节的 `refund return -> free bucket` 规则执行
+- 支付订单退款不再正向发放商品积分：套餐退款后订阅立即取消，其套餐积分因订阅失效而不可用；积分包退款暂不冲销原积分。此规则与用量计费退回已消耗 credit 是两个独立概念
 
 ### 3.3 `bill_orders`
 
@@ -838,7 +838,7 @@ v1 的改造要求：
 - 当前实现中，`src/api/flaskr/service/billing/settlement.py` 会在 creator 归属解析完成后，按 `creator_bid` 获取 `billing:settle_usage:{creator_bid}` cache lock，串行执行同一 creator 的 usage settlement 并在异常时释放锁
 - 当前实现中，`credit_ledger_entries` 继续只做 append-only 新增写入；`credit_wallets.version` 已用于 optimistic update，grant / settlement 会按 `id + version` compare-and-set 持久化账户快照，冲突时抛出 `credit_wallet_version_conflict`
 - 当前实现中，`credit_ledger_entries.wallet_bucket_bid` 已成为必填字段；usage consume 的 `idempotency_key` 采用 `usage:{usage_bid}:{billing_metric}:{wallet_bucket_bid}:consume`，grant 也会把 ledger 与 bucket 一一关联
-- 当前实现中，`src/api/flaskr/service/billing/wallets.py` 已提供 bucket 生命周期 helper：扣空 bucket 进入 `exhausted`；`expire_credit_wallet_buckets` 会把到期 bucket 迁移为 `expired` 并写 `expire` ledger；`grant_refund_return_credits` 会把 refund return 新增为 `subscription/topup` bucket + `refund` ledger，不回原 bucket
+- 当前实现中，`src/api/flaskr/service/billing/wallets.py` 已提供 bucket 生命周期 helper：扣空 bucket 进入 `exhausted`；`expire_credit_wallet_buckets` 会把到期 bucket 迁移为 `expired` 并写 `expire` ledger；`grant_refund_return_credits` 目前无生产调用方，仅保留为未来退回已消耗用量积分的领域 helper，不得用于支付订单退款
 - 当前实现中，admission 前置拦截只认可“当前可消费”的 bucket：必须 `status=active`、`available_credits>0`、`effective_from<=now` 且 `effective_to>now/null`；已到期 bucket、未来生效 bucket 和失效订阅都不会放行 learn / preview / debug 请求
 - 当前实现中，`replay_bill_usage_settlement` / `billing.replay_usage_settlement` 已落地：重放时会复用既有 usage 幂等检查，已结算 usage 返回 `already_settled` 而不会重复扣分；若传入的 `creator_bid` 与 usage 实际归属不一致，则直接返回 `creator_mismatch`
 - 旧 `service/order/payment_providers/` 继续作为 provider 能力来源；如需 billing-specific 参数或返回结构，可在 adapter 层做最小扩展，但不把 creator billing 挂回旧订单表
