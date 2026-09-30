@@ -1081,7 +1081,7 @@ export function usePreviewChat({
       const rawValue =
         variableName && currentVariables ? currentVariables[variableName] : '';
       const autoParams =
-        rawValue && interactionInfo
+        !agentPreviewRef.current && rawValue && interactionInfo
           ? buildAutoSendParams(interactionInfo, rawValue)
           : null;
       const nextItemType = isInteractionElement
@@ -1189,7 +1189,7 @@ export function usePreviewChat({
       currentContentIdRef.current = itemBid;
       currentStreamingElementBidRef.current = itemBid;
 
-      if (isInteractionElement) {
+      if (isInteractionElement && !agentPreviewRef.current) {
         tryAutoSubmitInteractionRef.current(itemBid, elementContent);
       }
     },
@@ -1249,7 +1249,7 @@ export function usePreviewChat({
               ? currentVariables[variableName]
               : undefined;
           const autoParams =
-            rawValue && interactionInfo
+            !agentPreviewRef.current && rawValue && interactionInfo
               ? buildAutoSendParams(interactionInfo, rawValue)
               : null;
 
@@ -1316,7 +1316,7 @@ export function usePreviewChat({
             currentContentIdRef.current ||
             blockId ||
             '';
-          if (interactionBlockBid) {
+          if (interactionBlockBid && !agentPreviewRef.current) {
             tryAutoSubmitInteractionRef.current(
               interactionBlockBid,
               interactionContent,
