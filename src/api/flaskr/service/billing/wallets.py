@@ -1902,7 +1902,9 @@ def deduct_operator_credit_wallet_balance(
                         CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
                         CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
                         CreditLedgerEntry.amount > _ZERO,
-                    ).first()
+                    )
+                    .with_for_update()
+                    .first()
                     is not None
                 )
                 if has_non_refund_grant:
