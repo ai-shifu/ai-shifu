@@ -1844,6 +1844,7 @@ def deduct_operator_credit_wallet_balance(
                 CreditLedgerEntry.source_bid == normalized_request_id,
             )
             .order_by(CreditLedgerEntry.id.asc())
+            .with_for_update()
             .all()
         )
         if existing_entries:
@@ -1895,6 +1896,17 @@ def deduct_operator_credit_wallet_balance(
                 bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}
             )
             if metadata.get("refund_return") is True:
+                has_non_refund_grant = (
+                    CreditLedgerEntry.query.filter(
+                        CreditLedgerEntry.deleted == 0,
+                        CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+                        CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                        CreditLedgerEntry.amount > _ZERO,
+                    ).first()
+                    is not None
+                )
+                if has_non_refund_grant:
+                    raise_error("server.billing.creditDeductionOriginAmbiguous")
                 continue
             if (
                 not has_active_subscription
@@ -1955,7 +1967,9 @@ def deduct_operator_credit_wallet_balance(
                 source_type=CREDIT_SOURCE_TYPE_MANUAL,
                 source_bid=normalized_request_id,
                 idempotency_key=(
-                    "operator_credit_deduction:"
+                    f"operator_credit_deduction:{normalized_request_id}"
+                    if not ledger_bids
+                    else "operator_credit_deduction:"
                     f"{normalized_request_id}:{bucket.wallet_bucket_bid}"
                 ),
                 amount=-deducted_amount,

@@ -140,6 +140,13 @@ def test_operator_deduction_uses_paid_credits_before_manual_credits(
             Decimal("-600.25"),
             Decimal("-200.15"),
         ]
+        assert entries[0].idempotency_key == (
+            "operator_credit_deduction:deduction-request-1"
+        )
+        assert entries[1].idempotency_key == (
+            "operator_credit_deduction:deduction-request-1:"
+            f"{manual_bucket.wallet_bucket_bid}"
+        )
 
         replay = deduct_operator_credit_wallet_balance(
             billing_wallet_lifecycle_app,
@@ -412,6 +419,101 @@ def test_operator_deduction_rejects_mixed_origin_package_bucket(
                 reason="account_correction",
             )
         assert bucket.available_credits == Decimal(60)
+
+
+def test_operator_deduction_rejects_refund_return_mixed_with_paid_bucket(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        now = now_utc()
+        creator_bid = "creator-deduction-refund-mixed"
+        wallet = CreditWallet(
+            wallet_bid="wallet-deduction-refund-mixed",
+            creator_bid=creator_bid,
+            available_credits=Decimal(10),
+            reserved_credits=0,
+            lifetime_granted_credits=Decimal(10),
+            lifetime_consumed_credits=0,
+            version=0,
+        )
+        paid_bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-deduction-refund-mixed-paid",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-deduction-refund-mixed-paid",
+            priority=20,
+            original_credits=Decimal(10),
+            available_credits=Decimal(10),
+            reserved_credits=0,
+            consumed_credits=0,
+            expired_credits=0,
+            effective_from=now - timedelta(days=1),
+            effective_to=now + timedelta(days=30),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"payment_provider": "stripe"},
+        )
+        dao.db.session.add_all(
+            [
+                wallet,
+                paid_bucket,
+                BillingSubscription(
+                    subscription_bid="subscription-deduction-refund-mixed",
+                    creator_bid=creator_bid,
+                    product_bid="product-deduction-refund-mixed",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    current_period_start_at=now - timedelta(days=1),
+                    current_period_end_at=now + timedelta(days=30),
+                ),
+                CreditLedgerEntry(
+                    ledger_bid="ledger-deduction-refund-mixed-paid",
+                    creator_bid=creator_bid,
+                    wallet_bid=wallet.wallet_bid,
+                    wallet_bucket_bid=paid_bucket.wallet_bucket_bid,
+                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                    source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                    source_bid="order-deduction-refund-mixed-paid",
+                    idempotency_key="grant-deduction-refund-mixed-paid",
+                    amount=Decimal(10),
+                    balance_after=Decimal(10),
+                    metadata_json={"payment_provider": "stripe"},
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        grant_refund_return_credits(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            amount=Decimal(2),
+            refund_bid="refund-deduction-mixed",
+        )
+        manual_result = grant_manual_credit_wallet_balance(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            amount=Decimal(5),
+            source_bid="manual-deduction-refund-mixed",
+            effective_from=now,
+            effective_to=now + timedelta(days=30),
+            metadata={"grant_source": "compensation"},
+            idempotency_key="grant-manual-deduction-refund-mixed",
+        )
+
+        with pytest.raises(AppError):
+            deduct_operator_credit_wallet_balance(
+                billing_wallet_lifecycle_app,
+                creator_bid=creator_bid,
+                amount=Decimal(5),
+                request_id="deduction-refund-mixed",
+                reason="account_correction",
+            )
+        dao.db.session.refresh(paid_bucket)
+        manual_bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid=manual_result.wallet_bucket_bid
+        ).one()
+        assert paid_bucket.available_credits == Decimal(12)
+        assert manual_bucket.available_credits == Decimal(5)
 
 
 def test_grant_refund_return_credits_creates_subscription_bucket_and_refund_ledger(
