@@ -10,6 +10,7 @@
     "campaignProviderDiscountLocked": "Cette campagne de forfaits possède déjà des remises Stripe actives. Créez une nouvelle version de campagne ou arrêtez les remises Stripe avant de modifier les produits, les règles ou les dates.",
     "campaignProviderDiscountSyncRequired": "Cette campagne de forfaits n’est pas encore entièrement synchronisée avec Stripe. Synchronisez-la avec Stripe et confirmez le statut avant de l’activer.",
     "creditDeductionInsufficient": "Le solde de crédits déductibles est insuffisant. Réduisez le montant et réessayez.",
+    "creditDeductionOriginAmbiguous": "Ce compte contient des crédits de forfait d’origines mixtes qui ne peuvent pas être déduits automatiquement. Vérifiez-les manuellement.",
     "creditDeductionRequestConflict": "Cette demande de déduction a déjà été utilisée avec un montant différent.",
     "creditInsufficient": "Crédits insuffisants. Abonnez-vous ou achetez des crédits avant de continuer.",
     "customDomainDisabled": "Les domaines personnalisés ne sont pas activés pour cet enseignant.",

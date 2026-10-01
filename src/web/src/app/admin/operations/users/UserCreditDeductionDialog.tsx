@@ -60,6 +60,7 @@ export default function UserCreditDeductionDialog({
   const [submitting, setSubmitting] = useState(false);
   const requestIdRef = useRef('');
   const submittingRef = useRef(false);
+  const workflowRef = useRef('');
   const accountIdentifier =
     user?.mobile?.trim() || user?.email?.trim() || user?.user_bid || '';
 
@@ -81,6 +82,7 @@ export default function UserCreditDeductionDialog({
 
   useEffect(() => {
     if (!open) return;
+    if (submittingRef.current) return;
     setAmount('');
     setReason('account_correction');
     setNote('');
@@ -89,6 +91,7 @@ export default function UserCreditDeductionDialog({
     setSubmitting(false);
     submittingRef.current = false;
     requestIdRef.current = uuidv4();
+    workflowRef.current = `${user?.user_bid || ''}:${requestIdRef.current}`;
   }, [open, user?.user_bid]);
 
   const continueToConfirmation = () => {
@@ -108,6 +111,7 @@ export default function UserCreditDeductionDialog({
   const submit = async () => {
     if (!user || submittingRef.current) return;
     submittingRef.current = true;
+    const workflowId = workflowRef.current;
     setSubmitting(true);
     setError('');
     const trackingIdentityGeneration = getTrackingIdentityGeneration();
@@ -120,6 +124,7 @@ export default function UserCreditDeductionDialog({
         reason,
         note: note.trim(),
       })) as AdminOperationUserCreditDeductionResponse;
+      if (workflowRef.current !== workflowId) return;
       if (getTrackingIdentityGeneration() === trackingIdentityGeneration) {
         trackDeduction('operator_credit_deduction_result', 'success');
       }
@@ -127,6 +132,7 @@ export default function UserCreditDeductionDialog({
       onOpenChange(false);
       onDeducted(result);
     } catch (value) {
+      if (workflowRef.current !== workflowId) return;
       if (getTrackingIdentityGeneration() === trackingIdentityGeneration) {
         trackDeduction('operator_credit_deduction_result', 'failed');
       }
@@ -136,15 +142,20 @@ export default function UserCreditDeductionDialog({
       );
       setConfirming(false);
     } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
+      if (workflowRef.current === workflowId) {
+        submittingRef.current = false;
+        setSubmitting(false);
+      }
     }
   };
 
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={nextOpen => {
+        if (!nextOpen && submittingRef.current) return;
+        onOpenChange(nextOpen);
+      }}
     >
       <DialogContent className='gap-5 sm:max-w-md'>
         <DialogHeader>

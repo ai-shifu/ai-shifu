@@ -1729,6 +1729,11 @@ is preserved within each tier. Gift, reward, refund-return, future, expired and
 reserved credits are excluded. If the eligible paid-plus-manual balance is
 insufficient, the whole request fails without mutation.
 
+Package buckets may contain grants from both paid and manually issued orders.
+The operation inspects their persisted grant-ledger provider evidence. A bucket
+with both origins is not auto-deducted because the pooled remaining balance
+cannot be attributed safely; the request fails for manual review instead.
+
 Each affected bucket moves the deducted amount from available to consumed and
 receives one negative manual-adjustment ledger row. The request ID makes replay
 idempotent; reusing it with another amount is rejected. The operator dialog

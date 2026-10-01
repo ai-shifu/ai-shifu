@@ -10,6 +10,7 @@
     "campaignProviderDiscountLocked": "This package campaign already has active Stripe discounts. Create a new campaign version or stop the Stripe discounts before changing products, rules, or dates.",
     "campaignProviderDiscountSyncRequired": "This package campaign is not fully synced to Stripe yet. Sync it to Stripe and confirm the status before enabling it.",
     "creditDeductionInsufficient": "The eligible credit balance is insufficient. Reduce the deduction amount and try again.",
+    "creditDeductionOriginAmbiguous": "This account contains mixed-origin package credits that cannot be deducted automatically. Review it manually.",
     "creditDeductionRequestConflict": "This deduction request was already used with a different amount.",
     "creditInsufficient": "Insufficient credits. Subscribe or buy credits before continuing.",
     "customDomainDisabled": "Custom domains are not enabled for this teacher.",

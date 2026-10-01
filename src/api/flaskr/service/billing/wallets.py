@@ -1910,7 +1910,13 @@ def deduct_operator_credit_wallet_balance(
                 CREDIT_SOURCE_TYPE_SUBSCRIPTION,
                 CREDIT_SOURCE_TYPE_TOPUP,
             }:
-                paid_buckets.append(bucket)
+                package_origin = _resolve_operator_package_bucket_origin(bucket)
+                if package_origin == "ambiguous":
+                    raise_error("server.billing.creditDeductionOriginAmbiguous")
+                if package_origin == "manual":
+                    manual_buckets.append(bucket)
+                else:
+                    paid_buckets.append(bucket)
 
         ordered_buckets = [*paid_buckets, *manual_buckets]
         total_available = sum(
@@ -2001,6 +2007,37 @@ def _is_operator_manual_credit_bucket(bucket: CreditWalletBucket) -> bool:
         str(metadata.get("grant_source") or "").strip().lower() != "reward"
         and str(metadata.get("grant_type") or "").strip().lower() != "referral_reward"
     )
+
+
+def _resolve_operator_package_bucket_origin(bucket: CreditWalletBucket) -> str:
+    grant_entries = CreditLedgerEntry.query.filter(
+        CreditLedgerEntry.deleted == 0,
+        CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+        CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        CreditLedgerEntry.amount > _ZERO,
+    ).all()
+    providers = {
+        str((entry.metadata_json or {}).get("payment_provider") or "").strip().lower()
+        for entry in grant_entries
+        if isinstance(entry.metadata_json, dict)
+        and str((entry.metadata_json or {}).get("payment_provider") or "").strip()
+    }
+    has_manual = "manual" in providers
+    has_paid = any(provider != "manual" for provider in providers)
+    if has_manual and has_paid:
+        return "ambiguous"
+    if has_manual:
+        return "manual"
+    if has_paid:
+        return "paid"
+
+    metadata = bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}
+    provider = str(metadata.get("payment_provider") or "").strip().lower()
+    if provider == "manual":
+        return "manual"
+    if provider:
+        return "paid"
+    return "ambiguous"
 
 
 def grant_manual_credit_wallet_balance(

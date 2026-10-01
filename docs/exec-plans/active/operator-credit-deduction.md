@@ -48,7 +48,9 @@ inactive, future, or expired credits.
 - Decision: Deduct eligible subscription/top-up package buckets first and
   eligible direct manual-credit grant buckets second. Preserve the existing
   expiry/creation/database-ID ordering inside each tier. Reward and
-  refund-return metadata is explicitly excluded.
+  refund-return metadata is explicitly excluded. If persisted grant ledgers
+  show both manual and paid package origins in one shared bucket, reject the
+  operation for manual review rather than guess which balance remains.
 - Decision: Reject the entire request when paid plus manual eligible credits
   are insufficient. Do not touch other gift/refund buckets or reserved credit.
 - Decision: Accept positive decimal strings with at most two fractional digits

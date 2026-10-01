@@ -180,6 +180,55 @@ describe('UserCreditDeductionDialog', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
+  it('keeps one pending request when the dialog is closed and reopened', async () => {
+    let resolveRequest: (value: { status: string }) => void = () => undefined;
+    mockDeduct.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveRequest = resolve;
+        }),
+    );
+    const onOpenChange = jest.fn();
+    const onDeducted = jest.fn();
+    const { rerender } = render(
+      <UserCreditDeductionDialog
+        open
+        user={user}
+        onOpenChange={onOpenChange}
+        onDeducted={onDeducted}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('deductionDialog.amount'), {
+      target: { value: '3' },
+    });
+    fireEvent.click(screen.getByText('deductionDialog.continueButton'));
+    fireEvent.click(screen.getByText('deductionDialog.confirmButton'));
+    expect(mockDeduct).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <UserCreditDeductionDialog
+        open={false}
+        user={user}
+        onOpenChange={onOpenChange}
+        onDeducted={onDeducted}
+      />,
+    );
+    rerender(
+      <UserCreditDeductionDialog
+        open
+        user={user}
+        onOpenChange={onOpenChange}
+        onDeducted={onDeducted}
+      />,
+    );
+    fireEvent.click(screen.getByText('deductionDialog.submitting'));
+    expect(mockDeduct).toHaveBeenCalledTimes(1);
+
+    resolveRequest({ status: 'deducted' });
+    await waitFor(() => expect(onDeducted).toHaveBeenCalledTimes(1));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it.each(['throw', 'reject'])(
     'keeps a successful deduction working when analytics %s',
     async failure => {

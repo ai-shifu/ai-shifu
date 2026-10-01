@@ -10,6 +10,7 @@
     "campaignProviderDiscountLocked": "Für diese Tarifaktion sind bereits Stripe-Rabatte aktiv. Erstellen Sie eine neue Aktionsversion oder beenden Sie zuerst die Stripe-Rabatte, bevor Sie Produkte, Rabattregeln oder den Zeitraum ändern.",
     "campaignProviderDiscountSyncRequired": "Diese Paket-Kampagne ist noch nicht vollständig mit Stripe synchronisiert. Synchronisieren Sie sie mit Stripe und bestätigen Sie den Status, bevor Sie ihn aktivieren.",
     "creditDeductionInsufficient": "Das verfügbare abzugsfähige Guthaben reicht nicht aus. Verringern Sie den Betrag und versuchen Sie es erneut.",
+    "creditDeductionOriginAmbiguous": "Dieses Konto enthält Paket-Credits gemischter Herkunft, die nicht automatisch abgezogen werden können. Bitte manuell prüfen.",
     "creditDeductionRequestConflict": "Diese Abbuchungsanfrage wurde bereits mit einem anderen Betrag verwendet.",
     "creditInsufficient": "Ihre Credits reichen nicht aus. Bitte schließen Sie ein Abonnement ab oder kaufen Sie Credits, bevor Sie fortfahren.",
     "customDomainDisabled": "Benutzerdefinierte Domains sind für diese Lehrkraft nicht freigeschaltet.",
