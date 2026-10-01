@@ -16,6 +16,7 @@ const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const originalLocation = window.location;
 const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
+const mockDeductionDialogPrefix = 'deduction-dialog-';
 const mockCancellationDialogPrefix = 'cancellation-dialog-';
 const buildGrantDialogLabel = (userBid: string) =>
   `${mockGrantDialogPrefix}${userBid}`;
@@ -162,6 +163,22 @@ jest.mock('./UserCreditGrantDialog', () => ({
           {mockGrantSuccessLabel}
         </button>
       </div>
+    ) : null,
+}));
+
+jest.mock('./UserCreditDeductionDialog', () => ({
+  __esModule: true,
+  default: ({
+    open,
+    user,
+  }: {
+    open: boolean;
+    user: { user_bid: string } | null;
+  }) =>
+    open ? (
+      <div
+        data-testid={`${mockDeductionDialogPrefix}${user?.user_bid || ''}`}
+      />
     ) : null,
 }));
 
@@ -653,7 +670,7 @@ describe('AdminOperationUsersPage', () => {
           created_course_count: 0,
           created_courses: [],
           total_paid_amount: '0',
-          available_credits: '0',
+          available_credits: '5',
           subscription_credits: '0',
           topup_credits: '0',
           credits_expire_at: '',
@@ -740,6 +757,20 @@ describe('AdminOperationUsersPage', () => {
     );
 
     expect(await screen.findByText('grant-dialog-user-1')).toBeInTheDocument();
+  });
+
+  test('opens the credit deduction dialog from the action menu', async () => {
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.deductCredits',
+      }),
+    );
+
+    expect(
+      await screen.findByTestId('deduction-dialog-user-1'),
+    ).toBeInTheDocument();
   });
 
   test('opens account cancellation for an eligible user', async () => {
@@ -837,6 +868,11 @@ describe('AdminOperationUsersPage', () => {
     });
 
     expect(actionButton).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.deductCredits',
+      }),
+    ).toBeDisabled();
   });
 
   test('revalidates billing overview after credits are granted successfully', async () => {

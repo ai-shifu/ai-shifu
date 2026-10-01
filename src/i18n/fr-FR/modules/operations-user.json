@@ -2,6 +2,7 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "Résilier le compte",
+    "deductCredits": "Déduire des crédits",
     "grantCredits": "Attribuer crédits/forfait",
     "moreForUser": "Plus d’actions pour {user}"
   },
@@ -113,6 +114,33 @@
   },
   "credits": {
     "longTerm": "Valide à long terme"
+  },
+  "deductionDialog": {
+    "account": "Compte",
+    "amount": "Crédits à déduire",
+    "amountPlaceholder": "Saisissez un nombre positif avec 2 décimales maximum",
+    "back": "Retour",
+    "confirmButton": "Confirmer la déduction",
+    "confirmDescription": "Les crédits payants sont déduits en premier, puis les crédits attribués manuellement. Vérifiez avant de continuer.",
+    "confirmTitle": "Confirmer la déduction de crédits",
+    "continueButton": "Continuer",
+    "currentBalance": "Solde actuel de crédits",
+    "description": "Déduisez des crédits de ce compte. Les crédits cadeaux et récompenses sont exclus.",
+    "errors": {
+      "amount": "Saisissez un montant positif avec 2 décimales maximum.",
+      "submitFailed": "La déduction des crédits a échoué. Réessayez."
+    },
+    "note": "Note",
+    "notePlaceholder": "Note interne facultative",
+    "reason": "Motif",
+    "reasons": {
+      "account_correction": "Correction du compte",
+      "incorrect_grant": "Attribution incorrecte",
+      "other": "Autre"
+    },
+    "submitting": "Déduction en cours...",
+    "success": "Crédits déduits",
+    "title": "Déduire des crédits"
   },
   "detail": {
     "basicInfo": "Informations de base",

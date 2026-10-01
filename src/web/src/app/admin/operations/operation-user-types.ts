@@ -281,6 +281,29 @@ export type AdminOperationUserCreditGrantResponse = {
   summary: AdminOperationUserCreditSummary;
 };
 
+export type AdminOperationUserCreditDeductionReason =
+  | 'incorrect_grant'
+  | 'account_correction'
+  | 'other';
+
+export type AdminOperationUserCreditDeductionRequest = {
+  request_id: string;
+  amount: string;
+  reason: AdminOperationUserCreditDeductionReason;
+  note?: string;
+};
+
+export type AdminOperationUserCreditDeductionResponse = {
+  status: 'deducted' | 'noop_existing' | LooseString;
+  user_bid: string;
+  amount: string;
+  reason: AdminOperationUserCreditDeductionReason;
+  note: string;
+  wallet_bucket_bids: string[];
+  ledger_bids: string[];
+  summary: AdminOperationUserCreditSummary;
+};
+
 export type AdminOperationUserReferralRewardSummary = {
   available_credits: string;
   expires_at: string;

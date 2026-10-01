@@ -16,6 +16,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Gemini Live follow-up acceptance](./active/gemini-live-voice-follow-up.md)
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)
+- [Operator Credit Deduction](./active/operator-credit-deduction.md)
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
 - [Preserve Independent Credit Validity](./active/preserve-independent-credit-validity.md)

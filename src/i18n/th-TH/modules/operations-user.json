@@ -2,6 +2,7 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "ยกเลิกบัญชี",
+    "deductCredits": "หักเครดิต",
     "grantCredits": "มอบเครดิต/แพ็กเกจ",
     "moreForUser": "การดำเนินการเพิ่มเติมของ {user}"
   },
@@ -113,6 +114,33 @@
   },
   "credits": {
     "longTerm": "ใช้ได้ระยะยาว"
+  },
+  "deductionDialog": {
+    "account": "บัญชี",
+    "amount": "เครดิตที่จะหัก",
+    "amountPlaceholder": "กรอกจำนวนบวก ทศนิยมไม่เกิน 2 ตำแหน่ง",
+    "back": "ย้อนกลับ",
+    "confirmButton": "ยืนยันการหัก",
+    "confirmDescription": "ระบบจะหักเครดิตที่ชำระเงินก่อน แล้วจึงหักเครดิตที่มอบให้ด้วยตนเอง โปรดตรวจสอบก่อนดำเนินการต่อ",
+    "confirmTitle": "ยืนยันการหักเครดิต",
+    "continueButton": "ดำเนินการต่อ",
+    "currentBalance": "ยอดเครดิตปัจจุบัน",
+    "description": "หักเครดิตจากบัญชีผู้ใช้นี้ โดยไม่รวมเครดิตของขวัญและรางวัล",
+    "errors": {
+      "amount": "กรอกจำนวนบวกที่มีทศนิยมไม่เกิน 2 ตำแหน่ง",
+      "submitFailed": "หักเครดิตไม่สำเร็จ โปรดลองอีกครั้ง"
+    },
+    "note": "หมายเหตุ",
+    "notePlaceholder": "หมายเหตุภายใน (ไม่บังคับ)",
+    "reason": "เหตุผล",
+    "reasons": {
+      "account_correction": "แก้ไขบัญชี",
+      "incorrect_grant": "มอบเครดิตผิดพลาด",
+      "other": "อื่นๆ"
+    },
+    "submitting": "กำลังหักเครดิต...",
+    "success": "หักเครดิตแล้ว",
+    "title": "หักเครดิต"
   },
   "detail": {
     "basicInfo": "ข้อมูลพื้นฐาน",

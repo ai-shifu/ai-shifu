@@ -69,6 +69,7 @@ from flaskr.service.billing.renewal_event_transitions import (
 )
 from flaskr.service.billing.subscriptions import cancel_billing_subscription
 from flaskr.service.billing.wallets import (
+    deduct_operator_credit_wallet_balance,
     persist_credit_wallet_snapshot,
     refresh_credit_wallet_snapshot,
     sync_credit_bucket_status,
@@ -143,6 +144,7 @@ __all__ = [
     "cancel_subscription_renewal_events",
     "capture_reserved_operation_credits",
     "credit_decimal_to_number",
+    "deduct_operator_credit_wallet_balance",
     "dry_run_credit_notifications",
     "get_credit_notification_detail",
     "get_operator_credit_notification_overview",

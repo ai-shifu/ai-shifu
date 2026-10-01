@@ -194,6 +194,8 @@ const api = {
     'GET /shifu/admin/operations/users/{user_bid}/credit-grant/bootstrap',
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
+  deductAdminOperationUserCredits:
+    'POST /shifu/admin/operations/users/{user_bid}/credits/deduct',
   grantAdminOperationUserPackage:
     'POST /shifu/admin/operations/users/{user_bid}/packages/grant',
   getAdminOperationCreditNotifications:

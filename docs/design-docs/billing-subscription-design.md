@@ -1718,6 +1718,38 @@ result adds `outcome=success|failed`. No account, target identifier, amount,
 duration value, dates, note, request ID or raw error is included. Use shared
 tracking, fire-and-forget, and isolate both throws and rejected promises.
 
+### Operator credit deduction
+
+User Management exposes a separate destructive credit-deduction action. The
+request accepts a positive decimal string with at most two fractional digits,
+a stable reason, an optional internal note, and a client request ID. The wallet
+deducts active, currently spendable subscription/top-up package buckets first,
+then eligible direct manual-credit grant buckets. Existing runtime ordering
+is preserved within each tier. Gift, reward, refund-return, future, expired and
+reserved credits are excluded. If the eligible paid-plus-manual balance is
+insufficient, the whole request fails without mutation.
+
+Package buckets may contain grants from both paid and manually issued orders.
+The operation inspects their persisted grant-ledger provider evidence. A bucket
+with both origins is not auto-deducted because the pooled remaining balance
+cannot be attributed safely; the request fails for manual review instead.
+
+Each affected bucket moves the deducted amount from available to consumed and
+receives one negative manual-adjustment ledger row. The request ID makes replay
+idempotent; reusing it with another amount is rejected. The operator dialog
+requires a second confirmation and refreshes the user and billing summaries
+after success. This operation is an audited balance correction, not a refund,
+package cancellation or usage settlement.
+
+`operator_credit_deduction_attempt` fires after valid final confirmation and
+before the request; `operator_credit_deduction_result` fires when it succeeds or
+fails. Their only shared property is
+`surface="operator_user_management"`; the result adds
+`outcome=success|failed`. Target identifiers, contacts, names, amount, balance,
+reason, note, request and bucket IDs, dates and raw errors are excluded. Events
+are fire-and-forget, guarded against duplicate pending submission, and are not
+billing or audit truth.
+
 The intended consumer is operations grant-experience reporting, measuring
 request success rate by unit within a selected reporting period. These are
 new additive events with no legacy consumer migration. No correlation IDs are
