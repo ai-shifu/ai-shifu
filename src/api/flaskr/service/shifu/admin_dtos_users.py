@@ -360,6 +360,18 @@ class AdminOperationUserCreditDeductionResultDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationUserSubscriptionTerminationRequestDTO(BaseModel):
+    """Operator request to immediately terminate a paid subscription."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str = Field(
+        ..., min_length=1, max_length=36, description="Idempotent request identifier"
+    )
+    reason: str = Field(..., min_length=1, max_length=255)
+
+
+@register_schema_to_swagger
 class AdminOperationUserReferralRewardSummaryDTO(BaseModel):
     """Current referral reward pool shown in the operator grant dialog."""
 

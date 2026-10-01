@@ -48,6 +48,9 @@ from flaskr.service.billing.operation_credits import (
     release_reserved_operation_credits,
     reserve_operation_credits,
 )
+from flaskr.service.billing.operator_subscription_termination import (
+    terminate_operator_paid_subscription,
+)
 from flaskr.service.billing.ownership import resolve_shifu_creator_bid
 from flaskr.service.billing.preorders import is_active_preorder_order
 from flaskr.service.billing.read_models import (
@@ -179,6 +182,7 @@ __all__ = [
     "save_credit_notification_policy",
     "sync_credit_bucket_status",
     "sync_credit_notification_template",
+    "terminate_operator_paid_subscription",
     "to_decimal",
     "update_credit_notification_email_template_status",
 ]

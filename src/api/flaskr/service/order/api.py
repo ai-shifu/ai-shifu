@@ -11,6 +11,7 @@ from flaskr.service.order.admin import (
     get_operator_order_overview,
     list_operator_orders,
 )
+from flaskr.service.order.payment_providers import get_payment_provider
 
 __all__ = [
     "ORDER_STATUS_KEY_MAP",
@@ -19,5 +20,6 @@ __all__ = [
     "_load_user_map",
     "get_operator_order_detail",
     "get_operator_order_overview",
+    "get_payment_provider",
     "list_operator_orders",
 ]

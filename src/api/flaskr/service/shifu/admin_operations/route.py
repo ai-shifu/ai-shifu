@@ -16,6 +16,7 @@ from flaskr.service.billing.api import (
     build_operator_credit_orders_overview,
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
+    terminate_operator_paid_subscription,
 )
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.api import (
@@ -55,6 +56,7 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditDeductionRequestDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserPackageGrantRequestDTO,
+    AdminOperationUserSubscriptionTerminationRequestDTO,
 )
 from flaskr.service.shifu.admin_operations.config_rates import (
     get_operator_rate_config,
@@ -2407,6 +2409,32 @@ def register_admin_operations_routes(
                 user_bid=user_bid,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
                 payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/subscription/terminate",
+        methods=["POST"],
+    )
+    def admin_operation_user_subscription_terminate(user_bid: str) -> str:
+        """Immediately terminate the user's current paid subscription."""
+        _require_operator()
+        payload_data = request.get_json(silent=True) or {}
+        try:
+            payload = (
+                AdminOperationUserSubscriptionTerminationRequestDTO.model_validate(
+                    payload_data
+                )
+            )
+        except ValidationError:
+            raise_param_error("subscription_termination_payload")
+        return make_common_response(
+            terminate_operator_paid_subscription(
+                app,
+                creator_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                request_id=payload.request_id,
+                reason=payload.reason,
             )
         )
 

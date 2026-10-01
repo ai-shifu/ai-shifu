@@ -67,6 +67,7 @@ import { formatOperatorUtcDateTime } from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
 import UserCreditDeductionDialog from './UserCreditDeductionDialog';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
+import UserSubscriptionTerminationDialog from './UserSubscriptionTerminationDialog';
 import UserCancellationDialog from './UserCancellationDialog';
 import UserContactChangeDialog from './[user_bid]/UserContactChangeDialog';
 import useOperatorGuard from '../useOperatorGuard';
@@ -397,6 +398,8 @@ export default function AdminOperationUsersPage() {
   const [grantDialogUser, setGrantDialogUser] =
     useState<AdminOperationUserItem | null>(null);
   const [deductionDialogUser, setDeductionDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [terminationDialogUser, setTerminationDialogUser] =
     useState<AdminOperationUserItem | null>(null);
   const [cancellationDialogUser, setCancellationDialogUser] =
     useState<AdminOperationUserItem | null>(null);
@@ -804,6 +807,12 @@ export default function AdminOperationUsersPage() {
 
   const handleDeductionSuccess = useCallback(() => {
     setDeductionDialogUser(null);
+    void fetchUsers(pageIndex, appliedFilters, quickFilter);
+    void mutate(buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY));
+  }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
+
+  const handleTerminationSuccess = useCallback(() => {
+    setTerminationDialogUser(null);
     void fetchUsers(pageIndex, appliedFilters, quickFilter);
     void mutate(buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY));
   }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
@@ -1537,6 +1546,16 @@ export default function AdminOperationUsersPage() {
                                   onClick: () => setDeductionDialogUser(user),
                                 },
                                 {
+                                  key: 'terminate-subscription',
+                                  label: tOperationsUsers(
+                                    'actions.terminateSubscription',
+                                  ),
+                                  disabled:
+                                    user.user_status === 'cancelled' ||
+                                    !user.has_active_subscription,
+                                  onClick: () => setTerminationDialogUser(user),
+                                },
+                                {
                                   key: 'cancel-account',
                                   label: tOperationsUsers(
                                     'actions.cancelAccount',
@@ -1705,6 +1724,14 @@ export default function AdminOperationUsersPage() {
               if (!nextOpen) setDeductionDialogUser(null);
             }}
             onDeducted={handleDeductionSuccess}
+          />
+          <UserSubscriptionTerminationDialog
+            open={Boolean(terminationDialogUser)}
+            user={terminationDialogUser}
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setTerminationDialogUser(null);
+            }}
+            onTerminated={handleTerminationSuccess}
           />
           <UserCancellationDialog
             open={Boolean(cancellationDialogUser)}

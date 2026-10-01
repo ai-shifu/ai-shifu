@@ -4,7 +4,8 @@
     "cancelAccount": "Konto schließen",
     "deductCredits": "Credits abziehen",
     "grantCredits": "Credits oder Tarife vergeben",
-    "moreForUser": "Weitere Aktionen für {user}"
+    "moreForUser": "Weitere Aktionen für {user}",
+    "terminateSubscription": "Terminate paid plan"
   },
   "cancellation": {
     "back": "Zurück",
@@ -506,6 +507,21 @@
     "totalPaidAmount": "Insgesamt gezahlter Betrag",
     "updatedAt": "Aktualisiert am",
     "userId": "Benutzer-ID"
+  },
+  "terminationDialog": {
+    "account": "Account",
+    "cancel": "Cancel",
+    "confirm": "Terminate now",
+    "description": "The paid plan becomes invalid immediately and renewal stops. Remaining paid plan credits are cleared; credit packs, manual plans, and rewards are preserved.",
+    "errors": {
+      "reason": "Enter a termination reason.",
+      "submitFailed": "Plan termination failed. Please try again."
+    },
+    "reason": "Reason",
+    "reasonPlaceholder": "Record why this paid plan is being terminated",
+    "submitting": "Terminating...",
+    "success": "Paid plan terminated",
+    "title": "Terminate paid plan"
   },
   "title": "Benutzerverwaltung"
 }

@@ -151,6 +151,16 @@ export type AdminOperationUserContactChangeResponse = {
   revoked_sessions: number;
 };
 
+export type AdminOperationUserSubscriptionTerminationResponse = {
+  status: 'terminated' | LooseString;
+  user_bid: string;
+  subscription_bid: string;
+  provider: string;
+  forfeited_credits: string;
+  ledger_bid?: string;
+  replayed: boolean;
+};
+
 export type AdminOperationUserCreditSummary = {
   available_credits: string;
   subscription_credits: string;
