@@ -19,6 +19,7 @@ from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+    CREDIT_SOURCE_TYPE_TOPUP,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -34,6 +35,7 @@ from flaskr.service.billing.wallets import (
 )
 from flaskr.service.common.models import AppError
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
 from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
@@ -187,6 +189,143 @@ def test_operator_deduction_rejects_insufficient_paid_and_manual_credits(
             ).count()
             == 0
         )
+
+
+@pytest.mark.parametrize(
+    ("source_type", "bucket_category", "metadata", "with_subscription"),
+    [
+        (
+            CREDIT_SOURCE_TYPE_MANUAL,
+            CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            {"grant_source": "reward", "grant_type": "manual_grant"},
+            False,
+        ),
+        (
+            CREDIT_SOURCE_TYPE_MANUAL,
+            CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            {"grant_type": "referral_reward"},
+            False,
+        ),
+        (
+            CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            {"refund_return": True},
+            True,
+        ),
+        (
+            CREDIT_SOURCE_TYPE_TOPUP,
+            CREDIT_BUCKET_CATEGORY_TOPUP,
+            {"refund_return": True},
+            True,
+        ),
+    ],
+)
+def test_operator_deduction_excludes_reward_and_refund_return_buckets(
+    billing_wallet_lifecycle_app: Flask,
+    source_type: int,
+    bucket_category: int,
+    metadata: dict[str, object],
+    with_subscription: bool,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        now = now_utc()
+        creator_bid = f"creator-excluded-{source_type}-{bucket_category}-{metadata}"
+        wallet = CreditWallet(
+            wallet_bid=generate_id(billing_wallet_lifecycle_app),
+            creator_bid=creator_bid,
+            available_credits=Decimal(5),
+            reserved_credits=0,
+            lifetime_granted_credits=Decimal(5),
+            lifetime_consumed_credits=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid=generate_id(billing_wallet_lifecycle_app),
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=bucket_category,
+            source_type=source_type,
+            source_bid=generate_id(billing_wallet_lifecycle_app),
+            priority=20,
+            original_credits=Decimal(5),
+            available_credits=Decimal(5),
+            reserved_credits=0,
+            consumed_credits=0,
+            expired_credits=0,
+            effective_from=now - timedelta(days=1),
+            effective_to=now + timedelta(days=30),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json=metadata,
+        )
+        rows: list[object] = [wallet, bucket]
+        if with_subscription:
+            rows.append(
+                BillingSubscription(
+                    subscription_bid=generate_id(billing_wallet_lifecycle_app),
+                    creator_bid=creator_bid,
+                    product_bid=generate_id(billing_wallet_lifecycle_app),
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    current_period_start_at=now - timedelta(days=1),
+                    current_period_end_at=now + timedelta(days=30),
+                )
+            )
+        dao.db.session.add_all(rows)
+        dao.db.session.commit()
+
+        with pytest.raises(AppError):
+            deduct_operator_credit_wallet_balance(
+                billing_wallet_lifecycle_app,
+                creator_bid=creator_bid,
+                amount=Decimal(1),
+                request_id=generate_id(billing_wallet_lifecycle_app),
+                reason="account_correction",
+            )
+        assert bucket.available_credits == Decimal(5)
+
+
+def test_operator_deduction_excludes_paid_bucket_without_active_subscription(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        now = now_utc()
+        wallet = CreditWallet(
+            wallet_bid="wallet-deduction-inactive-subscription",
+            creator_bid="creator-deduction-inactive-subscription",
+            available_credits=0,
+            reserved_credits=0,
+            lifetime_granted_credits=Decimal(5),
+            lifetime_consumed_credits=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-deduction-inactive-subscription",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=wallet.creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid="order-deduction-inactive-subscription",
+            priority=30,
+            original_credits=Decimal(5),
+            available_credits=Decimal(5),
+            reserved_credits=0,
+            consumed_credits=0,
+            expired_credits=0,
+            effective_from=now - timedelta(days=1),
+            effective_to=now + timedelta(days=30),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+        )
+        dao.db.session.add_all([wallet, bucket])
+        dao.db.session.commit()
+
+        with pytest.raises(AppError):
+            deduct_operator_credit_wallet_balance(
+                billing_wallet_lifecycle_app,
+                creator_bid=wallet.creator_bid,
+                amount=Decimal(1),
+                request_id="deduction-inactive-subscription",
+                reason="account_correction",
+            )
+        assert bucket.available_credits == Decimal(5)
 
 
 def test_grant_refund_return_credits_creates_subscription_bucket_and_refund_ledger(

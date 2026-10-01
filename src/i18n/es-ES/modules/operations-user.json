@@ -116,31 +116,31 @@
     "longTerm": "Sin fecha de caducidad"
   },
   "deductionDialog": {
-    "account": "Account",
-    "amount": "Credits to Deduct",
-    "amountPlaceholder": "Enter a positive amount (up to 2 decimal places)",
-    "back": "Back",
-    "confirmButton": "Confirm Deduction",
-    "confirmDescription": "Paid credits are deducted first, followed by manually granted credits. Confirm before continuing.",
-    "confirmTitle": "Confirm Credit Deduction",
-    "continueButton": "Continue",
-    "currentBalance": "Current Credit Balance",
-    "description": "Deduct credits from this user. Gift and reward credits are not eligible.",
+    "account": "Cuenta",
+    "amount": "Créditos que se descontarán",
+    "amountPlaceholder": "Introduce un número positivo con hasta 2 decimales",
+    "back": "Volver",
+    "confirmButton": "Confirmar descuento",
+    "confirmDescription": "Primero se descuentan los créditos pagados y después los asignados manualmente. Revisa los datos antes de continuar.",
+    "confirmTitle": "Confirmar descuento de créditos",
+    "continueButton": "Continuar",
+    "currentBalance": "Saldo actual de créditos",
+    "description": "Descuenta créditos de esta cuenta. Los créditos de regalo y recompensa no están incluidos.",
     "errors": {
-      "amount": "Enter a positive credit amount with no more than 2 decimal places.",
-      "submitFailed": "Credit deduction failed. Please try again."
+      "amount": "Introduce una cantidad positiva con un máximo de 2 decimales.",
+      "submitFailed": "No se pudieron descontar los créditos. Inténtalo de nuevo."
     },
-    "note": "Note",
-    "notePlaceholder": "Optional internal operation note",
-    "reason": "Reason",
+    "note": "Nota",
+    "notePlaceholder": "Nota interna opcional",
+    "reason": "Motivo",
     "reasons": {
-      "account_correction": "Account correction",
-      "incorrect_grant": "Incorrect grant",
-      "other": "Other"
+      "account_correction": "Corrección de cuenta",
+      "incorrect_grant": "Asignación incorrecta",
+      "other": "Otro"
     },
-    "submitting": "Deducting...",
-    "success": "Credits deducted",
-    "title": "Deduct Credits"
+    "submitting": "Descontando...",
+    "success": "Créditos descontados",
+    "title": "Descontar créditos"
   },
   "detail": {
     "basicInfo": "Información básica",

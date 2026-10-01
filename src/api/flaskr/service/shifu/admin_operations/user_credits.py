@@ -234,6 +234,7 @@ def deduct_operator_user_credits(
             or normalized_amount <= 0
             or _quantize_credit_amount(normalized_amount, precision=2)
             != normalized_amount
+            or _quantize_credit_amount(normalized_amount) != normalized_amount
         ):
             raise_param_error("amount")
 

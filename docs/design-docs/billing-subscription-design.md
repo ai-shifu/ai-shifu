@@ -1723,8 +1723,8 @@ tracking, fire-and-forget, and isolate both throws and rejected promises.
 User Management exposes a separate destructive credit-deduction action. The
 request accepts a positive decimal string with at most two fractional digits,
 a stable reason, an optional internal note, and a client request ID. The wallet
-deducts active, currently spendable paid subscription/top-up buckets first,
-then ordinary or package-shaped manual grant buckets. Existing runtime ordering
+deducts active, currently spendable subscription/top-up package buckets first,
+then eligible direct manual-credit grant buckets. Existing runtime ordering
 is preserved within each tier. Gift, reward, refund-return, future, expired and
 reserved credits are excluded. If the eligible paid-plus-manual balance is
 insufficient, the whole request fails without mutation.

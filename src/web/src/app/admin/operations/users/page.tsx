@@ -1532,6 +1532,7 @@ export default function AdminOperationUsersPage() {
                                   ),
                                   disabled:
                                     user.user_status === 'cancelled' ||
+                                    !canGrantBenefitsToUser(user) ||
                                     Number(user.available_credits) <= 0,
                                   onClick: () => setDeductionDialogUser(user),
                                 },

@@ -116,31 +116,31 @@
     "longTerm": "سارية لفترة طويلة"
   },
   "deductionDialog": {
-    "account": "Account",
-    "amount": "Credits to Deduct",
-    "amountPlaceholder": "Enter a positive amount (up to 2 decimal places)",
-    "back": "Back",
-    "confirmButton": "Confirm Deduction",
-    "confirmDescription": "Paid credits are deducted first, followed by manually granted credits. Confirm before continuing.",
-    "confirmTitle": "Confirm Credit Deduction",
-    "continueButton": "Continue",
-    "currentBalance": "Current Credit Balance",
-    "description": "Deduct credits from this user. Gift and reward credits are not eligible.",
+    "account": "الحساب",
+    "amount": "الأرصدة المراد خصمها",
+    "amountPlaceholder": "أدخل رقمًا موجبًا بمنزلتين عشريتين كحد أقصى",
+    "back": "رجوع",
+    "confirmButton": "تأكيد الخصم",
+    "confirmDescription": "تُخصم الأرصدة المدفوعة أولًا، ثم الأرصدة الممنوحة يدويًا. راجع البيانات قبل المتابعة.",
+    "confirmTitle": "تأكيد خصم الأرصدة",
+    "continueButton": "متابعة",
+    "currentBalance": "رصيد الأرصدة الحالي",
+    "description": "خصم أرصدة من حساب هذا المستخدم. لا يشمل ذلك أرصدة الهدايا والمكافآت.",
     "errors": {
-      "amount": "Enter a positive credit amount with no more than 2 decimal places.",
-      "submitFailed": "Credit deduction failed. Please try again."
+      "amount": "أدخل مبلغًا موجبًا بمنزلتين عشريتين كحد أقصى.",
+      "submitFailed": "تعذر خصم الأرصدة. حاول مرة أخرى."
     },
-    "note": "Note",
-    "notePlaceholder": "Optional internal operation note",
-    "reason": "Reason",
+    "note": "ملاحظة",
+    "notePlaceholder": "ملاحظة تشغيلية داخلية اختيارية",
+    "reason": "السبب",
     "reasons": {
-      "account_correction": "Account correction",
-      "incorrect_grant": "Incorrect grant",
-      "other": "Other"
+      "account_correction": "تصحيح الحساب",
+      "incorrect_grant": "منح غير صحيح",
+      "other": "أخرى"
     },
-    "submitting": "Deducting...",
-    "success": "Credits deducted",
-    "title": "Deduct Credits"
+    "submitting": "جارٍ الخصم...",
+    "success": "تم خصم الأرصدة",
+    "title": "خصم الأرصدة"
   },
   "detail": {
     "basicInfo": "المعلومات الأساسية",

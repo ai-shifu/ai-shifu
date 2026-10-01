@@ -670,7 +670,7 @@ describe('AdminOperationUsersPage', () => {
           created_course_count: 0,
           created_courses: [],
           total_paid_amount: '0',
-          available_credits: '0',
+          available_credits: '5',
           subscription_credits: '0',
           topup_credits: '0',
           credits_expire_at: '',
@@ -868,6 +868,11 @@ describe('AdminOperationUsersPage', () => {
     });
 
     expect(actionButton).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.deductCredits',
+      }),
+    ).toBeDisabled();
   });
 
   test('revalidates billing overview after credits are granted successfully', async () => {

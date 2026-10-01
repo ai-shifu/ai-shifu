@@ -116,31 +116,31 @@
     "longTerm": "Langfristig gültig"
   },
   "deductionDialog": {
-    "account": "Account",
-    "amount": "Credits to Deduct",
-    "amountPlaceholder": "Enter a positive amount (up to 2 decimal places)",
-    "back": "Back",
-    "confirmButton": "Confirm Deduction",
-    "confirmDescription": "Paid credits are deducted first, followed by manually granted credits. Confirm before continuing.",
-    "confirmTitle": "Confirm Credit Deduction",
-    "continueButton": "Continue",
-    "currentBalance": "Current Credit Balance",
-    "description": "Deduct credits from this user. Gift and reward credits are not eligible.",
+    "account": "Konto",
+    "amount": "Abzuziehende Credits",
+    "amountPlaceholder": "Positive Zahl mit höchstens 2 Dezimalstellen eingeben",
+    "back": "Zurück",
+    "confirmButton": "Abzug bestätigen",
+    "confirmDescription": "Zuerst werden bezahlte Credits, danach manuell vergebene Credits abgezogen. Bitte vor dem Fortfahren prüfen.",
+    "confirmTitle": "Credit-Abzug bestätigen",
+    "continueButton": "Weiter",
+    "currentBalance": "Aktueller Credit-Stand",
+    "description": "Credits von diesem Nutzerkonto abziehen. Geschenk- und Belohnungs-Credits sind ausgeschlossen.",
     "errors": {
-      "amount": "Enter a positive credit amount with no more than 2 decimal places.",
-      "submitFailed": "Credit deduction failed. Please try again."
+      "amount": "Geben Sie einen positiven Betrag mit höchstens 2 Dezimalstellen ein.",
+      "submitFailed": "Der Credit-Abzug ist fehlgeschlagen. Bitte versuchen Sie es erneut."
     },
-    "note": "Note",
-    "notePlaceholder": "Optional internal operation note",
-    "reason": "Reason",
+    "note": "Notiz",
+    "notePlaceholder": "Optionale interne Notiz",
+    "reason": "Grund",
     "reasons": {
-      "account_correction": "Account correction",
-      "incorrect_grant": "Incorrect grant",
-      "other": "Other"
+      "account_correction": "Kontokorrektur",
+      "incorrect_grant": "Fehlerhafte Vergabe",
+      "other": "Sonstiges"
     },
-    "submitting": "Deducting...",
-    "success": "Credits deducted",
-    "title": "Deduct Credits"
+    "submitting": "Credits werden abgezogen...",
+    "success": "Credits wurden abgezogen",
+    "title": "Credits abziehen"
   },
   "detail": {
     "basicInfo": "Grundlegende Informationen",

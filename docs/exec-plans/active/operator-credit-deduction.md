@@ -34,19 +34,21 @@ inactive, future, or expired credits.
   buckets alongside paid subscription buckets. It therefore cannot satisfy
   request replay or paid-first behavior directly.
 - Ordinary manual credit grants have `source_type=MANUAL` and their own bucket.
-  Paid subscription/top-up buckets use their matching source types. Manually
-  granted packages use a paid-shaped bucket backed by a `payment_provider=manual`
-  order; the deduction classifier must treat that order as manual rather than
-  genuinely paid when evidence is available.
+  Subscription/top-up buckets use their matching source types. Manually granted
+  packages can share those category buckets with paid orders, so the current
+  `source_bid` cannot prove the remaining balance's payment provenance; package
+  buckets stay in the package tier instead of being guessed from the latest
+  order.
 
 ## Decision Log
 
 - Decision: Add a dedicated deduction API instead of accepting negative values
   in the grant API. Rationale: permissions, validation, analytics, copy, and
   idempotency are different contracts.
-- Decision: Deduct eligible paid buckets first and ordinary/manual-plan grant
-  buckets second. Preserve the existing expiry/creation/database-ID ordering
-  inside each tier.
+- Decision: Deduct eligible subscription/top-up package buckets first and
+  eligible direct manual-credit grant buckets second. Preserve the existing
+  expiry/creation/database-ID ordering inside each tier. Reward and
+  refund-return metadata is explicitly excluded.
 - Decision: Reject the entire request when paid plus manual eligible credits
   are insufficient. Do not touch other gift/refund buckets or reserved credit.
 - Decision: Accept positive decimal strings with at most two fractional digits

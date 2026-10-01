@@ -1834,6 +1834,7 @@ def deduct_operator_credit_wallet_balance(
 
     with app_context_scope(app), unit_of_work():
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
+        db.session.refresh(wallet, with_for_update=True)
         existing_entries = (
             CreditLedgerEntry.query.filter(
                 CreditLedgerEntry.deleted == 0,
@@ -1882,7 +1883,27 @@ def deduct_operator_credit_wallet_balance(
         )
         paid_buckets: list[CreditWalletBucket] = []
         manual_buckets: list[CreditWalletBucket] = []
+        has_active_subscription = (
+            load_primary_active_subscription(
+                normalized_creator_bid,
+                as_of=now_utc(),
+            )
+            is not None
+        )
         for bucket in eligible:
+            metadata = (
+                bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}
+            )
+            if metadata.get("refund_return") is True:
+                continue
+            if (
+                not has_active_subscription
+                and wallet_bucket_requires_active_subscription(
+                    bucket,
+                    load_order_type=load_billing_order_type_by_bid,
+                )
+            ):
+                continue
             if _is_operator_manual_credit_bucket(bucket):
                 manual_buckets.append(bucket)
             elif int(bucket.source_type or 0) in {
@@ -1973,22 +1994,13 @@ def deduct_operator_credit_wallet_balance(
 
 
 def _is_operator_manual_credit_bucket(bucket: CreditWalletBucket) -> bool:
-    if int(bucket.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL:
-        return True
-    if int(bucket.source_type or 0) not in {
-        CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-        CREDIT_SOURCE_TYPE_TOPUP,
-    }:
+    if int(bucket.source_type or 0) != CREDIT_SOURCE_TYPE_MANUAL:
         return False
-    order = (
-        BillingOrder.query.filter(
-            BillingOrder.deleted == 0,
-            BillingOrder.bill_order_bid == str(bucket.source_bid or "").strip(),
-        )
-        .order_by(BillingOrder.id.desc())
-        .first()
+    metadata = bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}
+    return (
+        str(metadata.get("grant_source") or "").strip().lower() != "reward"
+        and str(metadata.get("grant_type") or "").strip().lower() != "referral_reward"
     )
-    return order is not None and str(order.payment_provider or "").strip() == "manual"
 
 
 def grant_manual_credit_wallet_balance(

@@ -116,31 +116,31 @@
     "longTerm": "ایک طویل وقت کے لئے مؤثر"
   },
   "deductionDialog": {
-    "account": "Account",
-    "amount": "Credits to Deduct",
-    "amountPlaceholder": "Enter a positive amount (up to 2 decimal places)",
-    "back": "Back",
-    "confirmButton": "Confirm Deduction",
-    "confirmDescription": "Paid credits are deducted first, followed by manually granted credits. Confirm before continuing.",
-    "confirmTitle": "Confirm Credit Deduction",
-    "continueButton": "Continue",
-    "currentBalance": "Current Credit Balance",
-    "description": "Deduct credits from this user. Gift and reward credits are not eligible.",
+    "account": "اکاؤنٹ",
+    "amount": "منہا کیے جانے والے کریڈٹس",
+    "amountPlaceholder": "مثبت رقم درج کریں، زیادہ سے زیادہ 2 اعشاری مقامات",
+    "back": "واپس",
+    "confirmButton": "کٹوتی کی تصدیق کریں",
+    "confirmDescription": "پہلے ادا شدہ کریڈٹس اور پھر دستی طور پر جاری کردہ کریڈٹس منہا ہوں گے۔ جاری رکھنے سے پہلے جائزہ لیں۔",
+    "confirmTitle": "کریڈٹ کٹوتی کی تصدیق کریں",
+    "continueButton": "جاری رکھیں",
+    "currentBalance": "موجودہ کریڈٹ بیلنس",
+    "description": "اس صارف کے اکاؤنٹ سے کریڈٹس منہا کریں۔ تحفہ اور انعامی کریڈٹس شامل نہیں ہیں۔",
     "errors": {
-      "amount": "Enter a positive credit amount with no more than 2 decimal places.",
-      "submitFailed": "Credit deduction failed. Please try again."
+      "amount": "زیادہ سے زیادہ 2 اعشاری مقامات کے ساتھ مثبت رقم درج کریں۔",
+      "submitFailed": "کریڈٹ کٹوتی ناکام رہی۔ دوبارہ کوشش کریں۔"
     },
-    "note": "Note",
-    "notePlaceholder": "Optional internal operation note",
-    "reason": "Reason",
+    "note": "نوٹ",
+    "notePlaceholder": "اختیاری اندرونی آپریشن نوٹ",
+    "reason": "وجہ",
     "reasons": {
-      "account_correction": "Account correction",
-      "incorrect_grant": "Incorrect grant",
-      "other": "Other"
+      "account_correction": "اکاؤنٹ کی درستی",
+      "incorrect_grant": "غلط اجرا",
+      "other": "دیگر"
     },
-    "submitting": "Deducting...",
-    "success": "Credits deducted",
-    "title": "Deduct Credits"
+    "submitting": "منہا کیا جا رہا ہے...",
+    "success": "کریڈٹس منہا کر دیے گئے",
+    "title": "کریڈٹس منہا کریں"
   },
   "detail": {
     "basicInfo": "بنیادی معلومات",

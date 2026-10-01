@@ -2889,6 +2889,52 @@ def test_deduct_operator_user_credits_accepts_two_decimal_places_and_refreshes_s
     assert len(result.ledger_bids) == 1
 
 
+def test_deduct_operator_user_credits_rejects_amount_beyond_billing_precision(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-deduction-precision-target",
+            identify="credits-deduction-precision-target@example.com",
+            nickname="Credits Deduction Precision Target",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-deduction-precision-target@example.com")],
+        )
+
+        original_quantize = user_credits_module._quantize_credit_amount
+
+        def quantize_with_one_digit(
+            value: object,
+            *,
+            precision: int | None = None,
+        ) -> Decimal:
+            if precision is not None:
+                return original_quantize(value, precision=precision)
+            return Decimal(str(value)).quantize(Decimal("0.1"))
+
+        monkeypatch.setattr(
+            user_credits_module,
+            "_quantize_credit_amount",
+            quantize_with_one_digit,
+        )
+        with pytest.raises(AppError):
+            deduct_operator_user_credits(
+                app,
+                user_bid="credits-deduction-precision-target",
+                operator_user_bid="operator-1",
+                payload=AdminOperationUserCreditDeductionRequestDTO(
+                    request_id="deduction-precision-request",
+                    amount="1.25",
+                    reason="account_correction",
+                ),
+            )
+
+
 def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
     app: object,
 ) -> None:
