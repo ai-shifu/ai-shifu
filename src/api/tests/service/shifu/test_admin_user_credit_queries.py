@@ -9,6 +9,7 @@ import pytest
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -262,7 +263,7 @@ def test_legacy_manual_plan_is_terminable_but_referral_plan_is_not(
             BillingOrder(
                 bill_order_bid=f"order-{subscription_bid}",
                 creator_bid=creator_bid,
-                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                order_type=BILLING_ORDER_TYPE_MANUAL,
                 product_bid=f"product-{creator_bid}",
                 subscription_bid=subscription_bid,
                 payment_provider="manual",
@@ -279,6 +280,44 @@ def test_legacy_manual_plan_is_terminable_but_referral_plan_is_not(
 
     assert summaries[legacy_creator_bid]["can_terminate_paid_subscription"] is True
     assert summaries[referral_creator_bid]["can_terminate_paid_subscription"] is False
+
+
+def test_historical_manual_order_type_plan_is_terminable(
+    usage_scope: dict,
+) -> None:
+    now = now_utc()
+    creator_bid = usage_scope["user_bid"]
+    subscription_bid = "subscription-historical-manual-order-type"
+    db.session.add(
+        BillingSubscription(
+            subscription_bid=subscription_bid,
+            creator_bid=creator_bid,
+            product_bid="product-historical-manual-order-type",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="manual",
+            current_period_start_at=now - timedelta(days=1),
+            current_period_end_at=now + timedelta(days=30),
+        )
+    )
+    db.session.add(
+        BillingOrder(
+            bill_order_bid="order-historical-manual-order-type",
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_MANUAL,
+            product_bid="product-historical-manual-order-type",
+            subscription_bid=subscription_bid,
+            payment_provider="manual",
+            status=BILLING_ORDER_STATUS_PAID,
+            metadata_json={},
+        )
+    )
+    db.session.flush()
+
+    summary = credit_service._load_operator_user_credit_summary_map([creator_bid])[
+        creator_bid
+    ]
+
+    assert summary["can_terminate_paid_subscription"] is True
 
 
 def test_termination_eligibility_uses_the_same_primary_subscription_as_execution(

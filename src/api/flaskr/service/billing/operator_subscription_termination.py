@@ -13,6 +13,7 @@ from flaskr.util.uuid import generate_id
 
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -48,6 +49,7 @@ _PAID_PLAN_ORDER_TYPES = {
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
 }
+_MANUAL_PLAN_ORDER_TYPES = _PAID_PLAN_ORDER_TYPES | {BILLING_ORDER_TYPE_MANUAL}
 _LOCAL_PREPAID_PROVIDERS = {"pingxx", "alipay", "wechatpay"}
 _OPERATION_METADATA_KEY = "operator_paid_subscription_termination"
 
@@ -69,7 +71,9 @@ def is_operator_terminable_plan_order(order: BillingOrder) -> bool:
     """Return whether an order proves a paid or operator-granted plan."""
     provider_name = str(order.payment_provider or "").strip().lower()
     if provider_name != "manual":
-        return True
+        return int(order.order_type or 0) in _PAID_PLAN_ORDER_TYPES
+    if int(order.order_type or 0) not in _MANUAL_PLAN_ORDER_TYPES:
+        return False
     metadata = (
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
     )
@@ -116,7 +120,7 @@ def _load_paid_orders(subscription: BillingSubscription) -> list[BillingOrder]:
             BillingOrder.creator_bid == subscription.creator_bid,
             BillingOrder.subscription_bid == subscription.subscription_bid,
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-            BillingOrder.order_type.in_(_PAID_PLAN_ORDER_TYPES),
+            BillingOrder.order_type.in_(_MANUAL_PLAN_ORDER_TYPES),
         )
         .order_by(BillingOrder.id.asc())
         .with_for_update()
@@ -169,7 +173,7 @@ def _load_forfeitable_bucket(
             BillingOrder.deleted == 0,
             BillingOrder.bill_order_bid.in_(order_bids),
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-            BillingOrder.order_type.in_(_PAID_PLAN_ORDER_TYPES),
+            BillingOrder.order_type.in_(_MANUAL_PLAN_ORDER_TYPES),
             BillingOrder.subscription_bid == subscription.subscription_bid,
         )
         .with_for_update()
