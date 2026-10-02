@@ -16,8 +16,10 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.models import (
@@ -320,7 +322,7 @@ def test_historical_manual_order_type_plan_is_terminable(
     assert summary["can_terminate_paid_subscription"] is True
 
 
-def test_termination_eligibility_uses_the_same_primary_subscription_as_execution(
+def test_termination_eligibility_prefers_the_subscription_backing_available_credits(
     usage_scope: dict,
 ) -> None:
     now = now_utc()
@@ -352,8 +354,44 @@ def test_termination_eligibility_uses_the_same_primary_subscription_as_execution
         payment_provider="alipay",
         status=BILLING_ORDER_STATUS_PAID,
     )
+    bucket = CreditWalletBucket(
+        wallet_bucket_bid="bucket-current-plan",
+        wallet_bid="wallet-current-plan",
+        creator_bid=creator_bid,
+        bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+        source_bid=qualifying_order.bill_order_bid,
+        priority=20,
+        available_credits=Decimal(10),
+        reserved_credits=0,
+        original_credits=Decimal(10),
+        consumed_credits=0,
+        expired_credits=0,
+        effective_from=now - timedelta(days=1),
+        effective_to=now + timedelta(days=10),
+        status=CREDIT_BUCKET_STATUS_ACTIVE,
+    )
+    grant = CreditLedgerEntry(
+        ledger_bid="ledger-current-plan",
+        creator_bid=creator_bid,
+        wallet_bid=bucket.wallet_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+        source_bid=qualifying_order.bill_order_bid,
+        amount=Decimal(10),
+        balance_after=Decimal(10),
+        consumable_from=now - timedelta(days=1),
+        expires_at=now + timedelta(days=10),
+    )
     db.session.add_all(
-        [qualifying_subscription, primary_subscription, qualifying_order]
+        [
+            qualifying_subscription,
+            primary_subscription,
+            qualifying_order,
+            bucket,
+            grant,
+        ]
     )
     db.session.flush()
 
@@ -361,7 +399,7 @@ def test_termination_eligibility_uses_the_same_primary_subscription_as_execution
         creator_bid
     ]
 
-    assert summary["can_terminate_paid_subscription"] is False
+    assert summary["can_terminate_paid_subscription"] is True
 
 
 def test_credit_usage_keyword_limits_results_to_matching_account(

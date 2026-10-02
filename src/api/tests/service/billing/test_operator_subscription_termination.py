@@ -290,6 +290,15 @@ def test_historical_manual_order_type_plan_terminates_and_forfeits_credits(
             current_period_start_at=now - timedelta(days=1),
             current_period_end_at=now + timedelta(days=30),
         )
+        competing_subscription = BillingSubscription(
+            subscription_bid="subscription-terminate-competing",
+            creator_bid=creator_bid,
+            product_bid="product-terminate-competing",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="manual",
+            current_period_start_at=now - timedelta(days=1),
+            current_period_end_at=now + timedelta(days=60),
+        )
         order = BillingOrder(
             bill_order_bid="order-terminate-historical-manual",
             creator_bid=creator_bid,
@@ -338,7 +347,9 @@ def test_historical_manual_order_type_plan_terminates_and_forfeits_credits(
             amount=Decimal(5),
             balance_after=Decimal(5),
         )
-        dao.db.session.add_all([subscription, order, wallet, bucket, grant])
+        dao.db.session.add_all(
+            [subscription, competing_subscription, order, wallet, bucket, grant]
+        )
         dao.db.session.commit()
 
         result = terminate_operator_paid_subscription(
@@ -353,6 +364,7 @@ def test_historical_manual_order_type_plan_terminates_and_forfeits_credits(
         dao.db.session.refresh(bucket)
         assert result["forfeited_credits"] == "5"
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
+        assert competing_subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
         assert bucket.available_credits == Decimal(0)
 
 
