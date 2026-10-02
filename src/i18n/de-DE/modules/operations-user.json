@@ -5,7 +5,7 @@
     "deductCredits": "Credits abziehen",
     "grantCredits": "Credits oder Tarife vergeben",
     "moreForUser": "Weitere Aktionen für {user}",
-    "terminateSubscription": "Terminate paid plan"
+    "terminateSubscription": "Bezahltes Abo beenden"
   },
   "cancellation": {
     "back": "Zurück",
@@ -509,19 +509,19 @@
     "userId": "Benutzer-ID"
   },
   "terminationDialog": {
-    "account": "Account",
-    "cancel": "Cancel",
-    "confirm": "Terminate now",
-    "description": "The paid plan becomes invalid immediately and renewal stops. Remaining paid plan credits are cleared; credit packs, manual plans, and rewards are preserved.",
+    "account": "Konto",
+    "cancel": "Abbrechen",
+    "confirm": "Jetzt beenden",
+    "description": "Das bezahlte Abo wird sofort ungültig und nicht mehr verlängert. Verbleibende Abo-Punkte werden entfernt; Punktepakete, manuelle Abos und Prämien bleiben erhalten.",
     "errors": {
-      "reason": "Enter a termination reason.",
-      "submitFailed": "Plan termination failed. Please try again."
+      "reason": "Geben Sie einen Grund für die Beendigung ein.",
+      "submitFailed": "Das Abo konnte nicht beendet werden. Bitte versuchen Sie es erneut."
     },
-    "reason": "Reason",
-    "reasonPlaceholder": "Record why this paid plan is being terminated",
-    "submitting": "Terminating...",
-    "success": "Paid plan terminated",
-    "title": "Terminate paid plan"
+    "reason": "Grund",
+    "reasonPlaceholder": "Grund für die Beendigung dieses bezahlten Abos",
+    "submitting": "Wird beendet...",
+    "success": "Bezahltes Abo beendet",
+    "title": "Bezahltes Abo beenden"
   },
   "title": "Benutzerverwaltung"
 }

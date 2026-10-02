@@ -89,6 +89,8 @@ export default function UserSubscriptionTerminationDialog({
       })) as AdminOperationUserSubscriptionTerminationResponse;
       track('success');
       toast({ title: t('terminationDialog.success') });
+      submittingRef.current = false;
+      setSubmitting(false);
       onTerminated(result);
     } catch (requestError) {
       track('failed');

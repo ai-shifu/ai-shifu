@@ -814,6 +814,7 @@ describe('AdminOperationUsersPage', () => {
           topup_credits: '0',
           credits_expire_at: '2026-11-01T00:00:00Z',
           has_active_subscription: true,
+          can_terminate_paid_subscription: true,
           last_login_at: '',
           last_learning_at: '',
           created_at: '2026-10-01T00:00:00Z',

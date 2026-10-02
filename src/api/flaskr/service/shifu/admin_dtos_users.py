@@ -107,6 +107,10 @@ class AdminOperationUserSummaryDTO(BaseModel):
         default=False,
         description="Whether the user currently has an active subscription",
     )
+    can_terminate_paid_subscription: bool = Field(
+        default=False,
+        description="Whether a paid subscription can be terminated or resumed",
+    )
     last_login_at: datetime | None = Field(
         default=None,
         description="Latest login timestamp",

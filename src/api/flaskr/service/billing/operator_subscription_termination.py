@@ -21,7 +21,6 @@ from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-    CREDIT_LEDGER_ENTRY_TYPE_HOLD,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
 from .models import (
@@ -31,6 +30,7 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from .preorders import load_active_preorder_order
 from .queries import load_primary_active_subscription
 from .renewal_event_transitions import cancel_subscription_renewal_events
 from .wallets import (
@@ -128,35 +128,11 @@ def _load_forfeitable_bucket(
         .with_for_update()
         .one()
     )
-    reserved = Decimal(str(bucket.reserved_credits or 0))
-    if reserved > 0:
-        holds = (
-            CreditLedgerEntry.query.filter(
-                CreditLedgerEntry.deleted == 0,
-                CreditLedgerEntry.creator_bid == subscription.creator_bid,
-                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_HOLD,
-            )
-            .with_for_update()
-            .all()
-        )
-        for hold in holds:
-            capture_prefix = f"operation_reservation:{hold.ledger_bid}:capture:"
-            release_key = f"operation_reservation:{hold.ledger_bid}:release"
-            terminal = (
-                CreditLedgerEntry.query.filter(
-                    CreditLedgerEntry.deleted == 0,
-                    CreditLedgerEntry.creator_bid == subscription.creator_bid,
-                    db.or_(
-                        CreditLedgerEntry.idempotency_key.startswith(capture_prefix),
-                        CreditLedgerEntry.idempotency_key == release_key,
-                    ),
-                )
-                .with_for_update()
-                .first()
-            )
-            if terminal is None:
-                raise_error("server.billing.creditDeductionOriginAmbiguous")
-    forfeitable = Decimal(str(bucket.available_credits or 0)) + reserved
+    # Reserved balance can belong to an in-flight usage hold or a paid future
+    # cycle. Neither is current-plan balance that this operation may forfeit.
+    if Decimal(str(bucket.reserved_credits or 0)) > 0:
+        raise_error("server.billing.creditDeductionOriginAmbiguous")
+    forfeitable = Decimal(str(bucket.available_credits or 0))
     if forfeitable <= 0:
         return bucket, Decimal(0)
 
@@ -249,6 +225,13 @@ def terminate_operator_paid_subscription(
                     ):
                         raise_error("server.order.orderStatusError")
                     normalized_request_id = str(pending_operation["request_id"]).strip()
+                    normalized_operator_bid = str(
+                        pending_operation.get("operator_user_bid")
+                        or normalized_operator_bid
+                    ).strip()
+                    normalized_reason = str(
+                        pending_operation.get("reason") or normalized_reason
+                    ).strip()
                 else:
                     subscription = load_primary_active_subscription(
                         normalized_creator_bid, as_of=now_utc()
@@ -262,9 +245,20 @@ def terminate_operator_paid_subscription(
                     raise_error("server.order.orderStatusError")
                 if provider_name not in _LOCAL_PREPAID_PROVIDERS | {"stripe"}:
                     raise_error("server.order.orderStatusError")
-                if not _load_paid_orders(subscription):
+                if (
+                    provider_name == "stripe"
+                    and not str(subscription.provider_subscription_id or "").strip()
+                ):
                     raise_error("server.order.orderStatusError")
-                _load_forfeitable_bucket(subscription)
+                if (
+                    load_active_preorder_order(subscription.subscription_bid)
+                    is not None
+                ):
+                    raise_error("server.order.orderStatusError")
+                paid_orders = _load_paid_orders(subscription)
+                if not paid_orders:
+                    raise_error("server.order.orderStatusError")
+                bucket, _ = _load_forfeitable_bucket(subscription)
                 if subscription.status != BILLING_SUBSCRIPTION_STATUS_TERMINATING:
                     prepared_at = now_utc()
                     metadata = _metadata(subscription)
@@ -275,6 +269,13 @@ def terminate_operator_paid_subscription(
                         "reason": normalized_reason,
                         "previous_status": int(subscription.status or 0),
                         "prepared_at": prepared_at.isoformat(),
+                        "paid_order_bids": [row.bill_order_bid for row in paid_orders],
+                        "bucket_bid": bucket.wallet_bucket_bid if bucket else "",
+                        "bucket_updated_at": (
+                            bucket.updated_at.isoformat()
+                            if bucket is not None and bucket.updated_at is not None
+                            else ""
+                        ),
                     }
                     subscription.metadata_json = metadata
                     subscription.status = BILLING_SUBSCRIPTION_STATUS_TERMINATING
@@ -324,7 +325,22 @@ def terminate_operator_paid_subscription(
             ):
                 raise_error("server.order.orderStatusError")
 
+            paid_orders = _load_paid_orders(subscription)
+            if [row.bill_order_bid for row in paid_orders] != list(
+                operation.get("paid_order_bids") or []
+            ):
+                raise_error("server.order.orderStatusError")
+
             bucket, forfeited = _load_forfeitable_bucket(subscription)
+            if (bucket.wallet_bucket_bid if bucket else "") != str(
+                operation.get("bucket_bid") or ""
+            ) or (
+                bucket is not None
+                and bucket.updated_at is not None
+                and bucket.updated_at.isoformat()
+                != str(operation.get("bucket_updated_at") or "")
+            ):
+                raise_error("server.order.orderStatusError")
             terminated_at = now_utc()
             wallet = (
                 CreditWallet.query.filter(
@@ -343,6 +359,14 @@ def terminate_operator_paid_subscription(
                     Decimal(str(bucket.expired_credits or 0)) + forfeited
                 )
                 bucket.effective_to = terminated_at
+                bucket.metadata_json = {
+                    **(
+                        bucket.metadata_json
+                        if isinstance(bucket.metadata_json, dict)
+                        else {}
+                    ),
+                    "operator_terminated_subscription_bid": subscription.subscription_bid,
+                }
                 sync_credit_bucket_status(bucket)
                 ledger_bid = generate_id(app)
                 ledger_entry = CreditLedgerEntry(

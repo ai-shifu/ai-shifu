@@ -5,7 +5,7 @@
     "deductCredits": "خصم الأرصدة",
     "grantCredits": "منح الأرصدة/الباقة",
     "moreForUser": "المزيد من إجراءات {user}",
-    "terminateSubscription": "Terminate paid plan"
+    "terminateSubscription": "إنهاء الخطة المدفوعة"
   },
   "cancellation": {
     "back": "رجوع",
@@ -509,19 +509,19 @@
     "userId": "معرّف المستخدم"
   },
   "terminationDialog": {
-    "account": "Account",
-    "cancel": "Cancel",
-    "confirm": "Terminate now",
-    "description": "The paid plan becomes invalid immediately and renewal stops. Remaining paid plan credits are cleared; credit packs, manual plans, and rewards are preserved.",
+    "account": "الحساب",
+    "cancel": "إلغاء",
+    "confirm": "إنهاء الآن",
+    "description": "تصبح الخطة المدفوعة غير صالحة فورًا ويتوقف التجديد. تُحذف أرصدة الخطة المتبقية، بينما تبقى حزم الرصيد والخطط الممنوحة يدويًا والمكافآت.",
     "errors": {
-      "reason": "Enter a termination reason.",
-      "submitFailed": "Plan termination failed. Please try again."
+      "reason": "أدخل سبب الإنهاء.",
+      "submitFailed": "تعذر إنهاء الخطة. يرجى المحاولة مرة أخرى."
     },
-    "reason": "Reason",
-    "reasonPlaceholder": "Record why this paid plan is being terminated",
-    "submitting": "Terminating...",
-    "success": "Paid plan terminated",
-    "title": "Terminate paid plan"
+    "reason": "السبب",
+    "reasonPlaceholder": "سجّل سبب إنهاء هذه الخطة المدفوعة",
+    "submitting": "جارٍ الإنهاء...",
+    "success": "تم إنهاء الخطة المدفوعة",
+    "title": "إنهاء الخطة المدفوعة"
   },
   "title": "إدارة المستخدمين"
 }

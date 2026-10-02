@@ -960,6 +960,10 @@ def load_primary_credit_bucket_by_category(
         row
         for row in rows
         if int(row.source_type or 0) != CREDIT_SOURCE_TYPE_MANUAL
+        and not (
+            isinstance(row.metadata_json, dict)
+            and row.metadata_json.get("operator_terminated_subscription_bid")
+        )
         and resolve_wallet_bucket_runtime_category(
             row,
             load_order_type=load_billing_order_type_by_bid,

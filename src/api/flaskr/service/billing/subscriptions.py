@@ -36,6 +36,7 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    BILLING_SUBSCRIPTION_STATUS_TERMINATING,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
@@ -831,6 +832,9 @@ def _activate_subscription_for_paid_order(
 
     subscription = subscription or _load_subscription_by_bid(order.subscription_bid)
     if subscription is None:
+        return False
+    db.session.refresh(subscription, with_for_update=True)
+    if int(subscription.status or 0) == BILLING_SUBSCRIPTION_STATUS_TERMINATING:
         return False
 
     effective_from = _resolve_credit_bucket_effective_from(

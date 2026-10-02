@@ -5,7 +5,7 @@
     "deductCredits": "Déduire des crédits",
     "grantCredits": "Attribuer crédits/forfait",
     "moreForUser": "Plus d’actions pour {user}",
-    "terminateSubscription": "Terminate paid plan"
+    "terminateSubscription": "Résilier l’abonnement payant"
   },
   "cancellation": {
     "back": "Retour",
@@ -509,19 +509,19 @@
     "userId": "ID d’utilisateur"
   },
   "terminationDialog": {
-    "account": "Account",
-    "cancel": "Cancel",
-    "confirm": "Terminate now",
-    "description": "The paid plan becomes invalid immediately and renewal stops. Remaining paid plan credits are cleared; credit packs, manual plans, and rewards are preserved.",
+    "account": "Compte",
+    "cancel": "Annuler",
+    "confirm": "Résilier maintenant",
+    "description": "L’abonnement payant devient immédiatement invalide et son renouvellement est arrêté. Les crédits restants de l’abonnement sont supprimés ; les packs de crédits, abonnements manuels et récompenses sont conservés.",
     "errors": {
-      "reason": "Enter a termination reason.",
-      "submitFailed": "Plan termination failed. Please try again."
+      "reason": "Saisissez un motif de résiliation.",
+      "submitFailed": "La résiliation a échoué. Veuillez réessayer."
     },
-    "reason": "Reason",
-    "reasonPlaceholder": "Record why this paid plan is being terminated",
-    "submitting": "Terminating...",
-    "success": "Paid plan terminated",
-    "title": "Terminate paid plan"
+    "reason": "Motif",
+    "reasonPlaceholder": "Indiquez pourquoi cet abonnement payant est résilié",
+    "submitting": "Résiliation...",
+    "success": "Abonnement payant résilié",
+    "title": "Résilier l’abonnement payant"
   },
   "title": "Gestion des utilisateurs"
 }

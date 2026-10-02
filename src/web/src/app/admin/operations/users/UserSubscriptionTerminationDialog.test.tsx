@@ -99,5 +99,75 @@ describe('UserSubscriptionTerminationDialog', () => {
       'operator_subscription_termination_result',
       { surface: 'operator_user_management', outcome: 'success' },
     );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      '15500000000',
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain('user-1');
+  });
+
+  test('keeps submission single-flight and tracking failures do not block it', async () => {
+    let resolveRequest: (value: object) => void = () => {};
+    mockTerminate.mockReturnValue(
+      new Promise(resolve => {
+        resolveRequest = resolve;
+      }),
+    );
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    const onTerminated = jest.fn();
+    render(
+      <UserSubscriptionTerminationDialog
+        open
+        user={user}
+        onOpenChange={jest.fn()}
+        onTerminated={onTerminated}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('terminationDialog.reason'), {
+      target: { value: 'customer request' },
+    });
+    const confirm = screen.getByText('terminationDialog.confirm');
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(mockTerminate).toHaveBeenCalledTimes(1);
+
+    resolveRequest({
+      status: 'terminated',
+      user_bid: 'user-1',
+      subscription_bid: 'subscription-1',
+      provider: 'stripe',
+      forfeited_credits: '10',
+      replayed: false,
+    });
+    await waitFor(() => expect(onTerminated).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('terminationDialog.confirm')).toBeEnabled();
+  });
+
+  test('tracks a failed terminal outcome without exposing request data', async () => {
+    mockTerminate.mockRejectedValue(new Error('provider unavailable'));
+    render(
+      <UserSubscriptionTerminationDialog
+        open
+        user={user}
+        onOpenChange={jest.fn()}
+        onTerminated={jest.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('terminationDialog.reason'), {
+      target: { value: 'private operator note' },
+    });
+    fireEvent.click(screen.getByText('terminationDialog.confirm'));
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'operator_subscription_termination_result',
+        { surface: 'operator_user_management', outcome: 'failed' },
+      ),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private operator note',
+    );
   });
 });

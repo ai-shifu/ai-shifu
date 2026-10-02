@@ -5,7 +5,7 @@
     "deductCredits": "Descontar créditos",
     "grantCredits": "Asignar créditos o plan",
     "moreForUser": "Más acciones para {user}",
-    "terminateSubscription": "Terminate paid plan"
+    "terminateSubscription": "Finalizar plan de pago"
   },
   "cancellation": {
     "back": "Volver",
@@ -509,19 +509,19 @@
     "userId": "ID de usuario"
   },
   "terminationDialog": {
-    "account": "Account",
-    "cancel": "Cancel",
-    "confirm": "Terminate now",
-    "description": "The paid plan becomes invalid immediately and renewal stops. Remaining paid plan credits are cleared; credit packs, manual plans, and rewards are preserved.",
+    "account": "Cuenta",
+    "cancel": "Cancelar",
+    "confirm": "Finalizar ahora",
+    "description": "El plan de pago deja de ser válido de inmediato y se detiene la renovación. Se eliminan los créditos restantes del plan; los paquetes de créditos, planes manuales y recompensas se conservan.",
     "errors": {
-      "reason": "Enter a termination reason.",
-      "submitFailed": "Plan termination failed. Please try again."
+      "reason": "Introduce un motivo de finalización.",
+      "submitFailed": "No se pudo finalizar el plan. Inténtalo de nuevo."
     },
-    "reason": "Reason",
-    "reasonPlaceholder": "Record why this paid plan is being terminated",
-    "submitting": "Terminating...",
-    "success": "Paid plan terminated",
-    "title": "Terminate paid plan"
+    "reason": "Motivo",
+    "reasonPlaceholder": "Indica por qué se finaliza este plan de pago",
+    "submitting": "Finalizando...",
+    "success": "Plan de pago finalizado",
+    "title": "Finalizar plan de pago"
   },
   "title": "Gestión de usuarios"
 }

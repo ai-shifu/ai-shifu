@@ -83,12 +83,12 @@ menu is in `src/web/src/app/admin/operations/users/page.tsx`.
 
 ## Plan of Work
 
-Create a read-only preview that returns the current paid plan, provider, period,
-and paid plan balance eligible for forfeiture. Add a termination service that
-validates the preview, performs the provider action outside the database unit
-of work, then locks and finalizes subscription, renewal events, paid plan
+Add a termination service that locks and validates the current paid plan and
+its forfeitable balance, performs the provider action outside the database unit
+of work, then revalidates and finalizes subscription, renewal events, paid plan
 bucket, ledger, and wallet state atomically. Expose this through an
-operator-only endpoint and a destructive two-step confirmation dialog.
+operator-only endpoint and one destructive confirmation dialog that identifies
+the account, explains the effects, and requires a reason before submission.
 
 ## Analytics Contract
 
