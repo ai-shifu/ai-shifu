@@ -65,6 +65,26 @@ def _metadata(subscription: BillingSubscription) -> dict[str, Any]:
     )
 
 
+def is_operator_terminable_plan_order(order: BillingOrder) -> bool:
+    """Return whether an order proves a paid or operator-granted plan."""
+    provider_name = str(order.payment_provider or "").strip().lower()
+    if provider_name != "manual":
+        return True
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
+    if metadata.get("referral_invitation_reward") is True:
+        return False
+    checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
+    if checkout_type == "referral_invitation_reward":
+        return False
+    return (
+        str(order.provider_reference_id or "").startswith("admin-plan-grant:")
+        or metadata.get("manual_grant") is True
+        or checkout_type == "manual_grant"
+    )
+
+
 def _load_replay_subscription(
     creator_bid: str, request_id: str
 ) -> BillingSubscription | None:
@@ -96,22 +116,19 @@ def _load_pending_subscription(creator_bid: str) -> BillingSubscription | None:
 
 
 def _load_paid_orders(subscription: BillingSubscription) -> list[BillingOrder]:
-    return (
+    rows = (
         BillingOrder.query.filter(
             BillingOrder.deleted == 0,
             BillingOrder.creator_bid == subscription.creator_bid,
             BillingOrder.subscription_bid == subscription.subscription_bid,
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
             BillingOrder.order_type.in_(_PAID_PLAN_ORDER_TYPES),
-            db.or_(
-                BillingOrder.payment_provider != "manual",
-                BillingOrder.provider_reference_id.startswith("admin-plan-grant:"),
-            ),
         )
         .order_by(BillingOrder.id.asc())
         .with_for_update()
         .all()
     )
+    return [row for row in rows if is_operator_terminable_plan_order(row)]
 
 
 def _load_forfeitable_bucket(
@@ -153,21 +170,20 @@ def _load_forfeitable_bucket(
     if not grants:
         raise_error("server.billing.creditDeductionOriginAmbiguous")
     order_bids = {str(item.source_bid or "").strip() for item in grants}
-    paid_orders = (
+    candidate_orders = (
         BillingOrder.query.filter(
             BillingOrder.deleted == 0,
             BillingOrder.bill_order_bid.in_(order_bids),
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
             BillingOrder.order_type.in_(_PAID_PLAN_ORDER_TYPES),
-            db.or_(
-                BillingOrder.payment_provider != "manual",
-                BillingOrder.provider_reference_id.startswith("admin-plan-grant:"),
-            ),
             BillingOrder.subscription_bid == subscription.subscription_bid,
         )
         .with_for_update()
         .all()
     )
+    paid_orders = [
+        row for row in candidate_orders if is_operator_terminable_plan_order(row)
+    ]
     if len(paid_orders) != len(order_bids):
         raise_error("server.billing.creditDeductionOriginAmbiguous")
     return bucket, forfeitable
@@ -440,4 +456,7 @@ def terminate_operator_paid_subscription(
             }
 
 
-__all__ = ["terminate_operator_paid_subscription"]
+__all__ = [
+    "is_operator_terminable_plan_order",
+    "terminate_operator_paid_subscription",
+]

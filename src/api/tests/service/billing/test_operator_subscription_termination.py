@@ -254,8 +254,13 @@ def test_zero_balance_manual_plan_still_terminates(
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
             payment_provider="manual",
-            provider_reference_id="admin-plan-grant:mixed",
+            provider_reference_id="",
             status=BILLING_ORDER_STATUS_PAID,
+            metadata_json={
+                "checkout_type": "manual_grant",
+                "manual_grant": True,
+                "manual_grant_source": "cli",
+            },
         )
         dao.db.session.add_all([subscription, order])
         dao.db.session.commit()

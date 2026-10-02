@@ -1216,6 +1216,25 @@ def _resolve_operator_user_credit_grant_filter_key(
     return ""
 
 
+def _is_operator_terminable_plan_order(order: BillingOrder) -> bool:
+    provider_name = str(order.payment_provider or "").strip().lower()
+    if provider_name != "manual":
+        return True
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
+    if metadata.get("referral_invitation_reward") is True:
+        return False
+    checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
+    if checkout_type == "referral_invitation_reward":
+        return False
+    return (
+        str(order.provider_reference_id or "").startswith("admin-plan-grant:")
+        or metadata.get("manual_grant") is True
+        or checkout_type == "manual_grant"
+    )
+
+
 def _load_operator_user_credit_summary_map(
     user_bids: Sequence[str],
 ) -> dict[str, dict[str, object]]:
@@ -1232,9 +1251,8 @@ def _load_operator_user_credit_summary_map(
         normalized_user_bids,
         as_of=now,
     )
-    termination_eligible_creator_bids = {
-        str(creator_bid or "").strip()
-        for (creator_bid,) in db.session.query(BillingSubscription.creator_bid)
+    termination_candidate_rows = (
+        db.session.query(BillingSubscription.creator_bid, BillingOrder)
         .join(
             BillingOrder,
             (BillingOrder.subscription_bid == BillingSubscription.subscription_bid)
@@ -1254,13 +1272,13 @@ def _load_operator_user_credit_summary_map(
                     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
                 )
             ),
-            or_(
-                BillingOrder.payment_provider != "manual",
-                BillingOrder.provider_reference_id.startswith("admin-plan-grant:"),
-            ),
         )
-        .distinct()
         .all()
+    )
+    termination_eligible_creator_bids = {
+        str(creator_bid or "").strip()
+        for creator_bid, order in termination_candidate_rows
+        if _is_operator_terminable_plan_order(order)
     }
     buckets = (
         CreditWalletBucket.query.filter(

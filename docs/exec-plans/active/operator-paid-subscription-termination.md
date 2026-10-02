@@ -43,8 +43,10 @@ credits can still be terminated.
 ## Decision Log
 
 - Decision: Target an effective subscription backed by either a paid provider
-  order or an operator manual-plan grant (`admin-plan-grant:`). Referral reward
-  plans and other manual-provider orders are not termination candidates.
+  order or an operator manual-plan grant. Recognize both current
+  `admin-plan-grant:` references and legacy CLI orders carrying
+  `manual_grant` / `checkout_type=manual_grant` metadata. Referral reward plans,
+  trials, and unrelated manual-provider orders are not termination candidates.
 - Decision: Stripe is terminated immediately through a dedicated provider
   adapter method. Self-managed domestic prepaid plans are terminated locally
   and all future renewal/preorder lifecycle events are canceled.
