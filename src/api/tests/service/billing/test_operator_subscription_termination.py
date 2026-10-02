@@ -256,11 +256,7 @@ def test_zero_balance_manual_plan_still_terminates(
             payment_provider="manual",
             provider_reference_id="",
             status=BILLING_ORDER_STATUS_PAID,
-            metadata_json={
-                "checkout_type": "manual_grant",
-                "manual_grant": True,
-                "manual_grant_source": "cli",
-            },
+            metadata_json={},
         )
         dao.db.session.add_all([subscription, order])
         dao.db.session.commit()
@@ -381,6 +377,98 @@ def test_terminating_subscription_is_obsolete_for_renewal_worker() -> None:
     subscription = BillingSubscription(status=BILLING_SUBSCRIPTION_STATUS_TERMINATING)
 
     assert _is_subscription_obsolete(subscription) is True
+
+
+def test_pending_termination_reconciles_a_stale_valid_bucket_snapshot(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        now = now_utc()
+        creator_bid = "creator-terminate-stale-snapshot"
+        request_id = "terminate-request-stale-snapshot"
+        subscription = BillingSubscription(
+            subscription_bid="subscription-terminate-stale-snapshot",
+            creator_bid=creator_bid,
+            product_bid="product-terminate-stale-snapshot",
+            status=BILLING_SUBSCRIPTION_STATUS_TERMINATING,
+            billing_provider="manual",
+            current_period_start_at=now - timedelta(days=1),
+            current_period_end_at=now + timedelta(days=30),
+            metadata_json={
+                "operator_paid_subscription_termination": {
+                    "request_id": request_id,
+                    "status": "prepared",
+                    "operator_user_bid": "operator-terminate",
+                    "reason": "operator correction",
+                    "paid_order_bids": ["order-terminate-stale-snapshot"],
+                    "bucket_bid": "bucket-terminate-stale-snapshot",
+                    "bucket_updated_at": "2000-01-01T00:00:00",
+                }
+            },
+        )
+        order = BillingOrder(
+            bill_order_bid="order-terminate-stale-snapshot",
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            payment_provider="manual",
+            status=BILLING_ORDER_STATUS_PAID,
+        )
+        wallet = CreditWallet(
+            wallet_bid="wallet-terminate-stale-snapshot",
+            creator_bid=creator_bid,
+            available_credits=Decimal(3),
+            reserved_credits=0,
+            lifetime_granted_credits=Decimal(3),
+            lifetime_consumed_credits=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-terminate-stale-snapshot",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order.bill_order_bid,
+            priority=20,
+            original_credits=Decimal(3),
+            available_credits=Decimal(3),
+            reserved_credits=0,
+            consumed_credits=0,
+            expired_credits=0,
+            effective_from=now - timedelta(days=1),
+            effective_to=now + timedelta(days=30),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            updated_at=now,
+        )
+        grant = CreditLedgerEntry(
+            ledger_bid="ledger-terminate-stale-snapshot",
+            creator_bid=creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order.bill_order_bid,
+            idempotency_key="grant:order-terminate-stale-snapshot",
+            amount=Decimal(3),
+            balance_after=Decimal(3),
+        )
+        dao.db.session.add_all([subscription, order, wallet, bucket, grant])
+        dao.db.session.commit()
+
+        result = terminate_operator_paid_subscription(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            operator_user_bid="different-operator",
+            request_id="different-request",
+            reason="different reason",
+        )
+
+        dao.db.session.refresh(subscription)
+        assert result["status"] == "terminated"
+        assert result["forfeited_credits"] == "3"
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
 
 
 def test_reserved_balance_rejects_without_changing_subscription(

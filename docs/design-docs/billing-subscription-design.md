@@ -318,7 +318,7 @@ v1 冻结 subscription lifecycle 规则：
 - `cancel` 规则固定为“周期末取消”：API cancel 只把 `cancel_at_period_end=1` 且 `status=cancel_scheduled`，当前已发放积分和当前周期有效期继续保留到 `current_period_end_at`；不会立即关停当前周期
 - `pingxx`、直连 `alipay/wechatpay` 与 `manual` grant 等不支持 provider 自动账期的链路使用平台自管套餐有效期：月套餐按 `30 * interval_count` 天且含购买当日，到第 N 天 `23:59:59` 结束；年套餐按自然年到次年同月同日 `23:59:59`，`2 月 29 日` 购买时到次年 `3 月 1 日 23:59:59`；日套餐同样按含当日的到期日 `23:59:59` 结束。Stripe 继续以 provider 返回的周期为准，避免本地有效期和 provider 账期漂移。
 - `resume` 只允许从 `cancel_scheduled` 或 provider 标记的 `paused` 状态恢复；恢复时必须清空 `cancel_at_period_end`，把订阅回到 `active`，并重新启用后续 `renewal`
-- 运营“终止套餐”与老师自助周期末取消不同：可选择有真实支付订单或运营人工套餐订单的当前套餐；人工套餐同时兼容新版 `admin-plan-grant:` 标识及历史 CLI 的 `manual_grant` 元数据，但试用、邀请奖励和无关 manual 订单不进入该操作。执行后立即停止 Stripe 订阅或国内预付套餐的本地续期，并清除可证明仅来自目标套餐的剩余套餐积分；人工套餐只做本地失效。积分包和邀请奖励不扣除；套餐余额为零不阻塞终止；非零混合来源桶因无法安全拆分而拒绝并转人工核账
+- 运营“终止套餐”与老师自助周期末取消不同：可选择有真实支付订单或人工套餐订单的当前套餐；人工套餐兼容新版 `admin-plan-grant:`、历史 CLI 元数据以及更早的无标识 manual 套餐订单，但试用和邀请奖励按其明确元数据排除。执行后立即停止 Stripe 订阅或国内预付套餐的本地续期，并清除可证明仅来自目标套餐的剩余套餐积分；人工套餐只做本地失效。积分包和邀请奖励不扣除；套餐余额为零不阻塞终止；非零混合来源桶因无法安全拆分而拒绝并转人工核账
 - provider 把订阅推进到 `past_due` 后，v1 一律进入宽限期模式：`grace_period_end_at` 默认等于当前 `current_period_end_at`，原 `renewal/cancel_effective/downgrade_effective` 事件让位给 `retry`，直到续费成功或订阅被取消/过期
 - `paused` 属于 provider 驱动状态，当前批次不提供主动 pause API；若 provider 事件把订阅置为 `paused`，creator 只能通过已有 `resume` 接口恢复
 - 退款底层规则暂时保留：Stripe 已支付订单可进入退款流程，Pingxx 返回 `unsupported`；若退款订单绑定了订阅，则关联订阅立即进入 `canceled` 并取消后续 renewal event，不再保留 `cancel_scheduled` 或宽限期。老师侧公开退款接口在积分冲正规则完成前暂停注册；运营审核后在线下支付渠道人工退款时，必须同时核对并通过后台人工调整积分账本

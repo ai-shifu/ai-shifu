@@ -236,7 +236,7 @@ def test_legacy_manual_plan_is_terminable_but_referral_plan_is_not(
         (
             legacy_creator_bid,
             "subscription-legacy-manual",
-            {"checkout_type": "manual_grant", "manual_grant": True},
+            {},
         ),
         (
             referral_creator_bid,
@@ -279,6 +279,50 @@ def test_legacy_manual_plan_is_terminable_but_referral_plan_is_not(
 
     assert summaries[legacy_creator_bid]["can_terminate_paid_subscription"] is True
     assert summaries[referral_creator_bid]["can_terminate_paid_subscription"] is False
+
+
+def test_termination_eligibility_uses_the_same_primary_subscription_as_execution(
+    usage_scope: dict,
+) -> None:
+    now = now_utc()
+    creator_bid = usage_scope["user_bid"]
+    qualifying_subscription = BillingSubscription(
+        subscription_bid="subscription-non-primary-paid",
+        creator_bid=creator_bid,
+        product_bid="product-non-primary",
+        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        billing_provider="alipay",
+        current_period_start_at=now - timedelta(days=1),
+        current_period_end_at=now + timedelta(days=10),
+    )
+    primary_subscription = BillingSubscription(
+        subscription_bid="subscription-primary-unqualified",
+        creator_bid=creator_bid,
+        product_bid="product-primary",
+        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        billing_provider="manual",
+        current_period_start_at=now - timedelta(days=1),
+        current_period_end_at=now + timedelta(days=30),
+    )
+    qualifying_order = BillingOrder(
+        bill_order_bid="order-non-primary-paid",
+        creator_bid=creator_bid,
+        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+        product_bid=qualifying_subscription.product_bid,
+        subscription_bid=qualifying_subscription.subscription_bid,
+        payment_provider="alipay",
+        status=BILLING_ORDER_STATUS_PAID,
+    )
+    db.session.add_all(
+        [qualifying_subscription, primary_subscription, qualifying_order]
+    )
+    db.session.flush()
+
+    summary = credit_service._load_operator_user_credit_summary_map([creator_bid])[
+        creator_bid
+    ]
+
+    assert summary["can_terminate_paid_subscription"] is False
 
 
 def test_credit_usage_keyword_limits_results_to_matching_account(
