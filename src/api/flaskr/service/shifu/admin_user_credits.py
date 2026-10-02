@@ -941,6 +941,84 @@ def _load_active_subscription_product_display_name_i18n_key(
     return str(getattr(product, "display_name_i18n_key", "") or "").strip()
 
 
+def _load_termination_subscription_bid_map(
+    creator_bids: Sequence[str],
+    *,
+    as_of: datetime,
+) -> dict[str, str]:
+    normalized_creator_bids = [
+        str(creator_bid or "").strip() for creator_bid in creator_bids if creator_bid
+    ]
+    if not normalized_creator_bids:
+        return {}
+    product_sort_order = case(
+        (BillingProduct.sort_order.is_(None), -1),
+        else_=BillingProduct.sort_order,
+    )
+    active_rows = (
+        db.session.query(
+            BillingSubscription.creator_bid,
+            BillingSubscription.subscription_bid,
+            BillingSubscription.current_period_end_at,
+            product_sort_order.label("product_sort_order"),
+            BillingSubscription.created_at,
+            BillingSubscription.id,
+        )
+        .outerjoin(
+            BillingProduct,
+            (BillingProduct.product_bid == BillingSubscription.product_bid)
+            & (BillingProduct.deleted == 0),
+        )
+        .filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid.in_(normalized_creator_bids),
+            BillingSubscription.status.in_(ACTIVE_SUBSCRIPTION_STATUSES),
+            or_(
+                BillingSubscription.current_period_start_at.is_(None),
+                BillingSubscription.current_period_start_at <= as_of,
+            ),
+            BillingSubscription.current_period_end_at.isnot(None),
+            BillingSubscription.current_period_end_at > as_of,
+        )
+        .all()
+    )
+    best_active: dict[str, tuple[tuple, str]] = {}
+    for row in active_rows:
+        sort_key = (
+            row.product_sort_order if row.product_sort_order is not None else -1,
+            row.current_period_end_at,
+            row.created_at or NAIVE_DATETIME_MIN,
+            row.id,
+        )
+        current = best_active.get(row.creator_bid)
+        if current is None or sort_key > current[0]:
+            best_active[row.creator_bid] = (sort_key, row.subscription_bid)
+
+    selected = {
+        creator_bid: subscription_bid
+        for creator_bid, (_, subscription_bid) in best_active.items()
+    }
+    pending_rows = (
+        db.session.query(
+            BillingSubscription.creator_bid,
+            BillingSubscription.subscription_bid,
+        )
+        .filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid.in_(normalized_creator_bids),
+            BillingSubscription.status == BILLING_SUBSCRIPTION_STATUS_TERMINATING,
+        )
+        .order_by(BillingSubscription.creator_bid.asc(), BillingSubscription.id.desc())
+        .all()
+    )
+    seen_pending: set[str] = set()
+    for creator_bid, subscription_bid in pending_rows:
+        if creator_bid not in seen_pending:
+            selected[creator_bid] = subscription_bid
+            seen_pending.add(creator_bid)
+    return selected
+
+
 def _load_billing_order_map(source_bids: Sequence[str]) -> dict[str, BillingOrder]:
     normalized_source_bids = [
         str(source_bid or "").strip()
@@ -1226,13 +1304,7 @@ def _is_operator_terminable_plan_order(order: BillingOrder) -> bool:
     if metadata.get("referral_invitation_reward") is True:
         return False
     checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
-    if checkout_type == "referral_invitation_reward":
-        return False
-    return (
-        str(order.provider_reference_id or "").startswith("admin-plan-grant:")
-        or metadata.get("manual_grant") is True
-        or checkout_type == "manual_grant"
-    )
+    return checkout_type not in {"referral_invitation_reward", "trial_bootstrap"}
 
 
 def _load_operator_user_credit_summary_map(
@@ -1251,34 +1323,30 @@ def _load_operator_user_credit_summary_map(
         normalized_user_bids,
         as_of=now,
     )
-    termination_candidate_rows = (
-        db.session.query(BillingSubscription.creator_bid, BillingOrder)
-        .join(
-            BillingOrder,
-            (BillingOrder.subscription_bid == BillingSubscription.subscription_bid)
-            & (BillingOrder.deleted == 0),
-        )
-        .filter(
-            BillingSubscription.deleted == 0,
-            BillingSubscription.creator_bid.in_(normalized_user_bids),
-            BillingSubscription.status.in_(
-                (*ACTIVE_SUBSCRIPTION_STATUSES, BILLING_SUBSCRIPTION_STATUS_TERMINATING)
-            ),
-            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-            BillingOrder.order_type.in_(
-                (
-                    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-                    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-                    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-                )
-            ),
-        )
-        .all()
+    termination_subscription_bid_map = _load_termination_subscription_bid_map(
+        normalized_user_bids,
+        as_of=now,
     )
+    termination_candidate_rows = BillingOrder.query.filter(
+        BillingOrder.deleted == 0,
+        BillingOrder.subscription_bid.in_(
+            list(termination_subscription_bid_map.values())
+        ),
+        BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+        BillingOrder.order_type.in_(
+            (
+                BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            )
+        ),
+    ).all()
     termination_eligible_creator_bids = {
-        str(creator_bid or "").strip()
-        for creator_bid, order in termination_candidate_rows
+        str(order.creator_bid or "").strip()
+        for order in termination_candidate_rows
         if _is_operator_terminable_plan_order(order)
+        and termination_subscription_bid_map.get(str(order.creator_bid or "").strip())
+        == order.subscription_bid
     }
     buckets = (
         CreditWalletBucket.query.filter(

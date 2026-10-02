@@ -76,13 +76,7 @@ def is_operator_terminable_plan_order(order: BillingOrder) -> bool:
     if metadata.get("referral_invitation_reward") is True:
         return False
     checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
-    if checkout_type == "referral_invitation_reward":
-        return False
-    return (
-        str(order.provider_reference_id or "").startswith("admin-plan-grant:")
-        or metadata.get("manual_grant") is True
-        or checkout_type == "manual_grant"
-    )
+    return checkout_type not in {"referral_invitation_reward", "trial_bootstrap"}
 
 
 def _load_replay_subscription(
@@ -363,7 +357,15 @@ def terminate_operator_paid_subscription(
                 and bucket.updated_at.isoformat()
                 != str(operation.get("bucket_updated_at") or "")
             ):
-                raise_error("server.order.orderStatusError")
+                operation["bucket_bid"] = bucket.wallet_bucket_bid if bucket else ""
+                operation["bucket_updated_at"] = (
+                    bucket.updated_at.isoformat()
+                    if bucket is not None and bucket.updated_at is not None
+                    else ""
+                )
+                metadata = _metadata(subscription)
+                metadata[_OPERATION_METADATA_KEY] = operation
+                subscription.metadata_json = metadata
             terminated_at = now_utc()
             wallet = (
                 CreditWallet.query.filter(
