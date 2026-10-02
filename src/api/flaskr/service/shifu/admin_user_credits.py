@@ -18,6 +18,10 @@ from flaskr.service.billing.bucket_categories import (
 )
 from flaskr.service.billing.consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_SUBSCRIPTION_STATUS_TERMINATING,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1229,15 +1233,32 @@ def _load_operator_user_credit_summary_map(
         as_of=now,
     )
     termination_eligible_creator_bids = {
-        str(row.creator_bid or "").strip()
-        for row in BillingSubscription.query.filter(
+        str(creator_bid or "").strip()
+        for (creator_bid,) in db.session.query(BillingSubscription.creator_bid)
+        .join(
+            BillingOrder,
+            (BillingOrder.subscription_bid == BillingSubscription.subscription_bid)
+            & (BillingOrder.deleted == 0),
+        )
+        .filter(
             BillingSubscription.deleted == 0,
             BillingSubscription.creator_bid.in_(normalized_user_bids),
             BillingSubscription.status.in_(
                 (*ACTIVE_SUBSCRIPTION_STATUSES, BILLING_SUBSCRIPTION_STATUS_TERMINATING)
             ),
             BillingSubscription.billing_provider != "manual",
-        ).all()
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            BillingOrder.order_type.in_(
+                (
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                )
+            ),
+            BillingOrder.payment_provider != "manual",
+        )
+        .distinct()
+        .all()
     }
     buckets = (
         CreditWalletBucket.query.filter(

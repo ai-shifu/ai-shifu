@@ -220,6 +220,7 @@ def test_subscription_without_product_retains_end_date_but_has_no_display_name(
         "topup_credits": 0,
         "credits_expire_at": ends,
         "has_active_subscription": True,
+        "can_terminate_paid_subscription": False,
     }
 
 
