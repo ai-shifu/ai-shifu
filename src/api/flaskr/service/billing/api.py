@@ -49,6 +49,7 @@ from flaskr.service.billing.operation_credits import (
     reserve_operation_credits,
 )
 from flaskr.service.billing.operator_subscription_termination import (
+    load_operator_termination_subscription_bid_map,
     terminate_operator_paid_subscription,
 )
 from flaskr.service.billing.ownership import resolve_shifu_creator_bid
@@ -163,6 +164,7 @@ __all__ = [
     "list_credit_notifications",
     "load_credit_notification_policy",
     "load_credit_notification_policy_for_operator",
+    "load_operator_termination_subscription_bid_map",
     "load_referral_reward_summary",
     "persist_credit_wallet_snapshot",
     "quantize_credit_amount",

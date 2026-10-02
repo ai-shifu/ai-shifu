@@ -22,6 +22,9 @@ credits can still be terminated.
   translations, and privacy-bounded analytics.
 - [x] 2026-10-01 CST: Added focused subscription, wallet, provider-boundary,
   route, dialog, and page coverage; all repository pre-commit gates passed.
+- [x] 2026-10-02 CST: Aligned list eligibility and execution to prefer the
+  active subscription proven by the currently available plan-credit grant;
+  zero-balance accounts retain the product-priority fallback.
 
 ## Surprises & Discoveries
 
@@ -35,6 +38,9 @@ credits can still be terminated.
   alone cannot safely identify the paid remainder.
 - Referral rewards use their own manual-source subscription-category buckets;
   credit packs use top-up buckets. Neither may be forfeited by this operation.
+- A creator can retain multiple effective subscription rows. Product priority
+  alone can select a different row from the order that granted the currently
+  available plan credits.
 - The local Python environment does not install the optional `stripe` package,
   so the existing Stripe provider contract module cannot collect locally. The
   shared provider boundary test and all repository gates pass; CI remains the
@@ -47,6 +53,10 @@ credits can still be terminated.
   `admin-plan-grant:` references and historical unmarked manual subscription
   orders. Referral reward plans and trials remain excluded by their explicit
   metadata.
+- Decision: When available plan credits exist, resolve the termination target
+  through the active bucket's current grant ledger and eligible order before
+  applying product priority. When no balance-backed grant exists, fall back to
+  the existing effective-plan priority so zero-balance plans remain terminable.
 - Decision: Stripe is terminated immediately through a dedicated provider
   adapter method. Self-managed domestic prepaid plans are terminated locally
   and all future renewal/preorder lifecycle events are canceled.

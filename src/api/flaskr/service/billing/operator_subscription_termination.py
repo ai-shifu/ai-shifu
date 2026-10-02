@@ -8,10 +8,12 @@ from typing import TYPE_CHECKING, Any
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy import case, or_
 
 from .consts import (
+    ACTIVE_SUBSCRIPTION_STATUSES,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -20,19 +22,20 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_TERMINATING,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
 from .models import (
     BillingOrder,
+    BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
 )
 from .preorders import load_active_preorder_order
-from .queries import load_primary_active_subscription
 from .renewal_event_transitions import cancel_subscription_renewal_events
 from .wallets import (
     load_primary_credit_bucket_by_category,
@@ -42,6 +45,9 @@ from .wallets import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
+
     from flask import Flask
 
 _PAID_PLAN_ORDER_TYPES = {
@@ -81,6 +87,151 @@ def is_operator_terminable_plan_order(order: BillingOrder) -> bool:
         return False
     checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
     return checkout_type not in {"referral_invitation_reward", "trial_bootstrap"}
+
+
+def load_operator_termination_subscription_bid_map(
+    creator_bids: Sequence[str],
+    *,
+    as_of: datetime,
+) -> dict[str, str]:
+    """Resolve the subscription that an operator termination would affect."""
+    normalized_creator_bids = [
+        str(creator_bid or "").strip()
+        for creator_bid in creator_bids
+        if str(creator_bid or "").strip()
+    ]
+    if not normalized_creator_bids:
+        return {}
+
+    product_sort_order = case(
+        (BillingProduct.sort_order.is_(None), -1),
+        else_=BillingProduct.sort_order,
+    )
+    active_rows = (
+        db.session.query(
+            BillingSubscription.creator_bid,
+            BillingSubscription.subscription_bid,
+            BillingSubscription.current_period_end_at,
+            product_sort_order.label("product_sort_order"),
+            BillingSubscription.created_at,
+            BillingSubscription.id,
+        )
+        .outerjoin(
+            BillingProduct,
+            (BillingProduct.product_bid == BillingSubscription.product_bid)
+            & (BillingProduct.deleted == 0),
+        )
+        .filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid.in_(normalized_creator_bids),
+            BillingSubscription.status.in_(ACTIVE_SUBSCRIPTION_STATUSES),
+            or_(
+                BillingSubscription.current_period_start_at.is_(None),
+                BillingSubscription.current_period_start_at <= as_of,
+            ),
+            BillingSubscription.current_period_end_at.isnot(None),
+            BillingSubscription.current_period_end_at > as_of,
+        )
+        .all()
+    )
+    best_active: dict[str, tuple[tuple, str]] = {}
+    active_subscription_bids: set[str] = set()
+    for row in active_rows:
+        active_subscription_bids.add(str(row.subscription_bid or "").strip())
+        sort_key = (
+            row.product_sort_order if row.product_sort_order is not None else -1,
+            row.current_period_end_at,
+            row.created_at or NAIVE_DATETIME_MIN,
+            row.id,
+        )
+        current = best_active.get(row.creator_bid)
+        if current is None or sort_key > current[0]:
+            best_active[row.creator_bid] = (sort_key, row.subscription_bid)
+
+    selected = {
+        creator_bid: subscription_bid
+        for creator_bid, (_, subscription_bid) in best_active.items()
+    }
+
+    if active_subscription_bids:
+        credit_backed_rows = (
+            db.session.query(
+                BillingOrder,
+                CreditLedgerEntry.created_at.label("grant_created_at"),
+                CreditLedgerEntry.id.label("grant_id"),
+            )
+            .join(
+                CreditLedgerEntry,
+                (CreditLedgerEntry.source_bid == BillingOrder.bill_order_bid)
+                & (CreditLedgerEntry.deleted == 0)
+                & (CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT)
+                & (CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION)
+                & (CreditLedgerEntry.amount > 0),
+            )
+            .join(
+                CreditWalletBucket,
+                (
+                    CreditWalletBucket.wallet_bucket_bid
+                    == CreditLedgerEntry.wallet_bucket_bid
+                )
+                & (CreditWalletBucket.deleted == 0)
+                & (
+                    CreditWalletBucket.bucket_category
+                    == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+                )
+                & (CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE)
+                & (CreditWalletBucket.available_credits > 0),
+            )
+            .filter(
+                BillingOrder.deleted == 0,
+                BillingOrder.creator_bid.in_(normalized_creator_bids),
+                BillingOrder.subscription_bid.in_(active_subscription_bids),
+                BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+                BillingOrder.order_type.in_(_MANUAL_PLAN_ORDER_TYPES),
+                or_(
+                    CreditLedgerEntry.consumable_from.is_(None),
+                    CreditLedgerEntry.consumable_from <= as_of,
+                ),
+                or_(
+                    CreditLedgerEntry.expires_at.is_(None),
+                    CreditLedgerEntry.expires_at > as_of,
+                ),
+            )
+            .order_by(
+                BillingOrder.creator_bid.asc(),
+                CreditLedgerEntry.created_at.desc(),
+                CreditLedgerEntry.id.desc(),
+            )
+            .all()
+        )
+        seen_credit_backed: set[str] = set()
+        for order, _grant_created_at, _grant_id in credit_backed_rows:
+            creator_bid = str(order.creator_bid or "").strip()
+            if creator_bid in seen_credit_backed:
+                continue
+            if is_operator_terminable_plan_order(order):
+                selected[creator_bid] = str(order.subscription_bid or "").strip()
+                seen_credit_backed.add(creator_bid)
+
+    pending_rows = (
+        db.session.query(
+            BillingSubscription.creator_bid,
+            BillingSubscription.subscription_bid,
+        )
+        .filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.creator_bid.in_(normalized_creator_bids),
+            BillingSubscription.status == BILLING_SUBSCRIPTION_STATUS_TERMINATING,
+        )
+        .order_by(BillingSubscription.creator_bid.asc(), BillingSubscription.id.desc())
+        .all()
+    )
+    seen_pending: set[str] = set()
+    for creator_bid, subscription_bid in pending_rows:
+        if creator_bid not in seen_pending:
+            selected[creator_bid] = subscription_bid
+            seen_pending.add(creator_bid)
+    return selected
 
 
 def _load_replay_subscription(
@@ -253,8 +404,19 @@ def terminate_operator_paid_subscription(
                         pending_operation.get("reason") or normalized_reason
                     ).strip()
                 else:
-                    subscription = load_primary_active_subscription(
-                        normalized_creator_bid, as_of=now_utc()
+                    target_bid = load_operator_termination_subscription_bid_map(
+                        [normalized_creator_bid], as_of=now_utc()
+                    ).get(normalized_creator_bid)
+                    subscription = (
+                        BillingSubscription.query.filter(
+                            BillingSubscription.deleted == 0,
+                            BillingSubscription.creator_bid == normalized_creator_bid,
+                            BillingSubscription.subscription_bid == target_bid,
+                        )
+                        .with_for_update()
+                        .first()
+                        if target_bid
+                        else None
                     )
                 if subscription is None:
                     raise_error("server.order.orderStatusError")
