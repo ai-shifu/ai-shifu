@@ -10,6 +10,7 @@ import pytest
 from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
@@ -272,6 +273,87 @@ def test_zero_balance_manual_plan_still_terminates(
         assert result["provider"] == "manual"
         dao.db.session.refresh(subscription)
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
+
+
+def test_historical_manual_order_type_plan_terminates_and_forfeits_credits(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        now = now_utc()
+        creator_bid = "creator-terminate-historical-manual"
+        subscription = BillingSubscription(
+            subscription_bid="subscription-terminate-historical-manual",
+            creator_bid=creator_bid,
+            product_bid="product-terminate-historical-manual",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="manual",
+            current_period_start_at=now - timedelta(days=1),
+            current_period_end_at=now + timedelta(days=30),
+        )
+        order = BillingOrder(
+            bill_order_bid="order-terminate-historical-manual",
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_MANUAL,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            payment_provider="manual",
+            status=BILLING_ORDER_STATUS_PAID,
+            metadata_json={},
+        )
+        wallet = CreditWallet(
+            wallet_bid="wallet-terminate-historical-manual",
+            creator_bid=creator_bid,
+            available_credits=Decimal(5),
+            reserved_credits=0,
+            lifetime_granted_credits=Decimal(5),
+            lifetime_consumed_credits=0,
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-terminate-historical-manual",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order.bill_order_bid,
+            priority=20,
+            original_credits=Decimal(5),
+            available_credits=Decimal(5),
+            reserved_credits=0,
+            consumed_credits=0,
+            expired_credits=0,
+            effective_from=now - timedelta(days=1),
+            effective_to=now + timedelta(days=30),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+        )
+        grant = CreditLedgerEntry(
+            ledger_bid="ledger-terminate-historical-manual",
+            creator_bid=creator_bid,
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order.bill_order_bid,
+            idempotency_key=f"grant:{order.bill_order_bid}",
+            amount=Decimal(5),
+            balance_after=Decimal(5),
+        )
+        dao.db.session.add_all([subscription, order, wallet, bucket, grant])
+        dao.db.session.commit()
+
+        result = terminate_operator_paid_subscription(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            operator_user_bid="operator-terminate",
+            request_id="terminate-request-historical-manual",
+            reason="operator correction",
+        )
+
+        dao.db.session.refresh(subscription)
+        dao.db.session.refresh(bucket)
+        assert result["forfeited_credits"] == "5"
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
+        assert bucket.available_credits == Decimal(0)
 
 
 def test_mixed_paid_and_manual_plan_bucket_terminates_together(

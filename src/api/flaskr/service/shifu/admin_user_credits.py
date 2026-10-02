@@ -19,6 +19,7 @@ from flaskr.service.billing.bucket_categories import (
 from flaskr.service.billing.consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -1297,7 +1298,18 @@ def _resolve_operator_user_credit_grant_filter_key(
 def _is_operator_terminable_plan_order(order: BillingOrder) -> bool:
     provider_name = str(order.payment_provider or "").strip().lower()
     if provider_name != "manual":
-        return True
+        return int(order.order_type or 0) in {
+            BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+            BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        }
+    if int(order.order_type or 0) not in {
+        BILLING_ORDER_TYPE_MANUAL,
+        BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+        BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+        BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    }:
+        return False
     metadata = (
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
     )
@@ -1338,6 +1350,7 @@ def _load_operator_user_credit_summary_map(
                 BILLING_ORDER_TYPE_SUBSCRIPTION_START,
                 BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
                 BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                BILLING_ORDER_TYPE_MANUAL,
             )
         ),
     ).all()
