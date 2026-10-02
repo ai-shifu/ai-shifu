@@ -19,6 +19,7 @@ import {
 import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isPaySystemInteractionContent,
+  isSystemInteractionContent,
   localizeSystemInteractionContent,
 } from '@/lib/system-interaction';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
@@ -28,6 +29,7 @@ interface ContentBlockProps {
   item: ChatContentItem;
   mobileStyle: boolean;
   blockBid: string;
+  contentLanguage?: string;
   contentRenderKey?: string;
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
@@ -46,6 +48,7 @@ const ContentBlock = memo(
     item,
     mobileStyle,
     blockBid,
+    contentLanguage,
     contentRenderKey,
     onClickCustomButtonAfterContent,
     onSend,
@@ -59,9 +62,8 @@ const ContentBlock = memo(
     enableStreamingTypewriter = false,
   }: ContentBlockProps) => {
     const { t, i18n } = useTranslation();
-    const markdownFlowLocale = resolveMarkdownFlowLocale(
-      i18n.resolvedLanguage ?? i18n.language,
-    );
+    const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
+    const markdownFlowLocale = resolveMarkdownFlowLocale(hostLanguage);
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
     }, [blockBid, onClickCustomButtonAfterContent]);
@@ -96,6 +98,10 @@ const ContentBlock = memo(
     const isPayInteraction =
       item.type === ChatContentItemType.INTERACTION &&
       isPaySystemInteractionContent(item.content);
+    const usesCourseLanguage =
+      item.type === ChatContentItemType.CONTENT ||
+      (item.type === ChatContentItemType.INTERACTION &&
+        !isSystemInteractionContent(item.content));
     const resolvedReadonly = printMode
       ? true
       : isPayInteraction
@@ -142,6 +148,9 @@ const ContentBlock = memo(
         <ContentRender
           key={contentRenderKey}
           locale={markdownFlowLocale}
+          // MarkdownFlow falls back to the controls locale for nullish lang.
+          // Empty lang keeps unknown authored text from claiming that language.
+          lang={usesCourseLanguage ? (contentLanguage ?? '') : ''}
           enableTypewriter={shouldEnableTypewriter}
           typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
           typewriterPacing='content-aware'
@@ -201,6 +210,7 @@ const ContentBlock = memo(
       prevProps.item.user_input === nextProps.item.user_input &&
       prevProps.item.readonly === nextProps.item.readonly &&
       prevProps.item.content === nextProps.item.content &&
+      prevProps.contentLanguage === nextProps.contentLanguage &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.contentRenderKey === nextProps.contentRenderKey &&

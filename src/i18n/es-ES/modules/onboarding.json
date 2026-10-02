@@ -1,0 +1,25 @@
+{
+  "__namespace__": "module.onboarding",
+  "common": {
+    "continue": "Haz clic en cualquier lugar para continuar",
+    "skip": "Omitir"
+  },
+  "courseEditor": {
+    "backHome": {
+      "description": "Vuelve a la lista de cursos para seguir gestionando otros cursos, pedidos y planes.",
+      "title": "Volver a la lista de cursos"
+    },
+    "listenMode": {
+      "description": "Cuando está activado, los alumnos pueden estudiar este curso con diapositivas y voz.",
+      "title": "Activar modo Escuchar"
+    },
+    "publish": {
+      "description": "Los alumnos solo verán esta versión del contenido del curso cuando la publiques.",
+      "title": "Publicar la última versión"
+    },
+    "settingsEntry": {
+      "description": "Configura aquí las instrucciones del curso, el modelo de IA, el precio y el modo Escuchar.",
+      "title": "Ajustes del curso"
+    }
+  }
+}

@@ -560,3 +560,59 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     ).get_json(force=True)
     assert response["code"] == ERROR_CODE["server.common.paramsError"]
     preview.assert_not_called()
+
+
+def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks(
+    monkeypatch: object, test_client: object, feedback_course: object
+) -> None:
+    from flaskr.service.learn.agent import debug_session
+
+    marker = {"type": "preview_engine", "content": "2.0"}
+    agent = Mock(return_value=iter([marker]))
+    legacy = Mock(return_value=iter([{"type": "done"}]))
+    monkeypatch.setattr(routes, "uses_agent_engine", lambda *_: True)
+    monkeypatch.setattr(debug_session, "stream_debug_preview", agent)
+    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", legacy)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
+        json={
+            "content": "Current editor draft",
+            "block_index": 0,
+            "debug_session_id": "editor-run-1",
+        },
+        headers={"Token": "test-token"},
+    )
+
+    assert '"preview_engine"' in response.get_data(as_text=True)
+    assert agent.call_args.kwargs["preview_request"].content == "Current editor draft"
+    assert agent.call_args.kwargs["run_bid"] == "editor-run-1"
+    legacy.assert_not_called()
+
+
+@pytest.mark.parametrize("allowlisted", [False, True])
+def test_editor_preview_keeps_legacy_path_without_matching_client_and_allowlist(
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    allowlisted: bool,
+) -> None:
+    legacy = Mock(return_value=iter([{"type": "done"}]))
+    monkeypatch.setattr(routes, "uses_agent_engine", lambda *_: allowlisted)
+    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", legacy)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+    payload = {"content": "Lesson", "block_index": 0}
+    if not allowlisted:
+        payload["debug_session_id"] = "editor-run-1"
+    else:
+        payload["debug_session_id"] = ""
+
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
+        json=payload,
+        headers={"Token": "test-token"},
+    )
+
+    assert '"done"' in response.get_data(as_text=True)
+    legacy.assert_called_once()

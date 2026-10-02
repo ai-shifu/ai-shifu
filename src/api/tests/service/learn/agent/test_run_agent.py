@@ -45,6 +45,19 @@ class _Session:
         self.turn = 0
         self.finished = False
         self.script = ScriptBundle(script=SCRIPT)
+        self.messages: list = []
+        self.memory: dict = {}
+        self.answers: dict = {}
+
+    def to_dict(self) -> dict:
+        """Return the fields a checkpoint reads, the way a real session serializes them."""
+        return {
+            "memory": self.memory,
+            "pending": [repr(item) for item in self.pending],
+            "answers": self.answers,
+            "turn": self.turn,
+            "finished": self.finished,
+        }
 
 
 class _Record:
@@ -176,6 +189,34 @@ def test_a_started_lesson_with_nothing_said_carries_on(calls: list) -> None:
     _run(engine)
     assert engine.turns[0].type == "continue"
     assert calls
+
+
+def test_a_finished_lesson_asked_for_a_turn_says_it_is_over_and_writes_nothing(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Opening a finished lesson used to write an empty block and an element on every visit.
+
+    The browser asks for a turn whenever a lesson's history ends on text, and a finished lesson's
+    does. Seen on the simulation environment, 2026-09-24: boundary lessons 3-2 and 3-3 gained an
+    empty block, an empty element and the outline's rows each time they were revisited.
+    """
+    finished = _Session(started=True)
+    finished.finished = True
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: finished)
+    opened: list = []
+    monkeypatch.setattr(
+        run_agent, "_open_turn", lambda *_a, **k: opened.append(k) or PROGRESS
+    )
+    engine = _Engine([TurnDone(reason="end")], session=finished)
+
+    events = _run(engine)
+
+    # Not even a terminal event: the stream closes the lesson's events itself, and one yielded
+    # here was written down as an element belonging to no block.
+    assert events == []
+    assert engine.turns == []
+    assert opened == []
+    assert calls == []
 
 
 def test_input_while_a_question_is_pending_is_read_as_its_answer(calls: list) -> None:
@@ -427,6 +468,28 @@ def test_only_what_outlives_the_session_is_written_to_the_profile(calls: list) -
     _run(engine)
     (staged,) = [update for name, update in calls if name == "stage_memory"]
     assert [(v.key, v.value) for v in staged.variables] == [("pace", "slow")]
+
+
+def test_an_answer_to_a_scripted_question_is_written_to_the_profile(
+    calls: list,
+) -> None:
+    """A script collects `%{{purpose}}` in one lesson and uses `{{purpose}}` in the next.
+
+    1.0 writes every answer a question collects to the learner's profile, which is what a later
+    lesson reads. Kept only in the session, the answer never left the lesson that asked it: on
+    the general-education course the second lesson showed the learner "你的学习目标是 {{purpose}}"
+    word for word, and a later lesson asked for the purpose again.
+    """
+    engine = _Engine(
+        [
+            MemoryUpdated(key="purpose", value="还没想好", source="interaction"),
+            MemoryUpdated(key="current_exercise", value="fractions", scope="session"),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+    (staged,) = [update for name, update in calls if name == "stage_memory"]
+    assert [(v.key, v.value) for v in staged.variables] == [("purpose", "还没想好")]
 
 
 @pytest.mark.usefixtures("calls")
@@ -693,6 +756,90 @@ def test_previewing_still_stores_its_own_session(calls: list) -> None:
 
     kwargs = next(kw for name, kw in calls if name == "save_session")
     assert kwargs["preview_mode"] is True
+
+
+def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
+    calls: list,
+) -> None:
+    class DebugStore:
+        def __init__(self) -> None:
+            self.saved: list[_Session] = []
+
+        def load(self, *, script: str) -> None:
+            assert script == SCRIPT
+
+        def save(self, session: _Session) -> None:
+            self.saved.append(session)
+
+    store = DebugStore()
+    session = _Session()
+    session.finished = True
+    engine = _Engine(
+        [ContentDelta(text="debug text"), TurnDone(reason="finished")], session
+    )
+    events = list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            debug_store=store,
+            preview_variables={"purpose": "test"},
+            iter_turn=_drive,
+        )
+    )
+
+    assert store.saved == [session]
+    assert session.user_memory == {"purpose": "test"}
+    assert calls == []
+    assert any(event.type == GeneratedType.CONTENT for event in events)
+
+
+def test_editor_debug_answer_resumes_its_pending_agent_interaction(
+    calls: list,
+) -> None:
+    class DebugStore:
+        def __init__(self, stored: _Session) -> None:
+            self.stored = stored
+            self.saved: list[_Session] = []
+
+        def load(self, *, script: str) -> _Session:
+            assert script == SCRIPT
+            return self.stored
+
+        def save(self, session: _Session) -> None:
+            self.saved.append(session)
+
+    pending = _Session(started=True, pending=[object()])
+    pending.user_memory = {"learned": "persisted"}
+    store = DebugStore(pending)
+    engine = _Engine([TurnDone(reason="interaction")])
+
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input={"answer": ["yes"]},
+            preview_mode=True,
+            debug_store=store,
+            preview_variables={"goal": "new"},
+            iter_turn=_drive,
+        )
+    )
+
+    assert engine.new_session_calls == []
+    assert engine.turns[0].type == "interaction.response"
+    assert engine.turns[0].values == ["yes"]
+    assert store.saved == [pending]
+    assert pending.user_memory == {"learned": "persisted", "goal": "new"}
+    assert calls == []
 
 
 # --- what the turn taught ----------------------------------------------------------------
@@ -1347,6 +1494,73 @@ def test_a_question_the_lesson_just_asked_is_not_asked_again() -> None:
     assert any(e.type == GeneratedType.INTERACTION for e in events)
 
 
+def _asked_after(narration: str, prompt: str) -> list[str]:
+    engine = _Engine(
+        [
+            ContentDelta(text=narration),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="text", prompt=prompt, placeholder="写下来", options=[]
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    return _contents(_run(engine))
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_just_asked_in_other_words_is_not_asked_again() -> None:
+    """The narration ends on the question; the prompt says it with a word or two changed.
+
+    General-education course (2026-09-24): the learner read the question the narration ended
+    on and, right under it, the prompt asking it again with three characters dropped -- the
+    same question twice, missed because the two were not character for character the same.
+    """
+    narration = (
+        "任何一项复杂工作，都能拆成一条工作流。\n\n"
+        "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。"
+    )
+    prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
+    assert _asked_after(narration, prompt) == [narration]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_different_question_after_the_narration_is_still_asked() -> None:
+    """Only a near copy of the question the narration ends on is dropped, not a related one."""
+    narration = "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。"
+    prompt = "这件事里，哪一步最适合交给 AI？"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_with_one_word_changed_is_still_asked() -> None:
+    """A changed word can turn the question around; dropped, its controls would sit under the wrong one.
+
+    Review of #2958: "largest" and "smallest" are alike by character, not by meaning.
+    """
+    narration = "我们看这组数：3、9、4。这组数里最大的数是哪一个？请从下面选。"
+    prompt = "这组数里最小的数是哪一个？请从下面选。"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_followed_by_a_short_aside_is_not_asked_again() -> None:
+    """The narration asks, adds a line of encouragement, and the prompt asks again."""
+    narration = "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。别担心，随便说说就行。"
+    prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
+    assert _asked_after(narration, prompt) == [narration]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_short_prompt_is_not_matched_loosely() -> None:
+    """A two-word prompt can resemble any ending; only an exact repeat of it is dropped."""
+    narration = "准备好了吗？我们继续。"
+    prompt = "准备好了？"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
 def test_the_model_s_copy_of_its_memory_never_reaches_the_learner(calls: list) -> None:
     """A model wrote its memory note as text instead of calling `remember`, and it was shown.
 
@@ -1387,6 +1601,33 @@ def test_a_memory_block_interrupted_by_a_tool_call_is_still_removed(
     assert _narration(events) == "好，开始。"
     staged = next(kw for name, kw in calls if name == "record_content")
     assert staged["content"] == "好，开始。"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_put_again_sends_its_controls_but_not_its_text_again() -> None:
+    """An unusable answer puts the same question again; its text is already on the screen.
+
+    Sent again, the question's text appeared as a second line under the first each time the
+    learner's answer was refused.
+    """
+    engine = _Engine(
+        [
+            ErrorEvent(message="interaction 'q1' needs an answer", retryable=True),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="multi",
+                    prompt="你读过哪些？",
+                    options=[Option(display="A"), Option(display="B")],
+                ),
+                asked_before=True,
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == []
+    assert any(e.type == GeneratedType.INTERACTION for e in events)
 
 
 @pytest.mark.usefixtures("calls")
@@ -1587,10 +1828,25 @@ def test_a_finished_lesson_tells_the_outline_before_the_stream_ends(
     monkeypatch.setattr(
         run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
     )
+    recorded: list[dict] = []
+
+    def _record(_app: object, **kwargs: object) -> str:
+        recorded.append(kwargs)
+        return "next-control"
+
+    monkeypatch.setattr(run_agent, "record_next_lesson_interaction", _record)
     events = _run(_finished_engine())
     types = [e.type for e in events]
-    assert types == [GeneratedType.OUTLINE_ITEM_UPDATE] * 2 + [GeneratedType.DONE]
+    assert types == [
+        GeneratedType.OUTLINE_ITEM_UPDATE,
+        GeneratedType.OUTLINE_ITEM_UPDATE,
+        GeneratedType.INTERACTION,
+        GeneratedType.DONE,
+    ]
     assert [e.outline_bid for e in events[:2]] == ["outline-bid", "next-lesson"]
+    assert events[2].generated_block_bid == "next-control"
+    assert "_sys_next_chapter" in events[2].content
+    assert len(recorded) == 1
 
 
 @pytest.mark.usefixtures("calls")
@@ -2047,3 +2303,224 @@ def test_a_brief_an_author_deleted_stops_reaching_a_resumed_lesson(
         )
     )
     assert stored.script.constraints is None
+
+
+# --- going back to an earlier turn ----------------------------------------------------------
+
+
+def _waiting_session() -> object:
+    """Build a real session that has just asked "Which way?"."""
+    from flaskr.service.learn.agent.engine.script import ScriptBundle
+    from flaskr.service.learn.agent.engine.session import PendingInteraction, Session
+    from pydantic_ai.messages import (
+        ModelRequest,
+        ModelResponse,
+        TextPart,
+        UserPromptPart,
+    )
+
+    return Session(
+        script=ScriptBundle(script=SCRIPT),
+        messages=[
+            ModelRequest(parts=[UserPromptPart(content="start")]),
+            ModelResponse(parts=[TextPart(content="Pick one.")]),
+        ],
+        pending=[
+            PendingInteraction(
+                "q1",
+                InteractionSpec(
+                    type="single",
+                    prompt="Which way?",
+                    options=[Option(display="Left"), Option(display="Right")],
+                ),
+            )
+        ],
+        turn=1,
+    )
+
+
+def _rewind_run(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list,
+    *,
+    plan: object,
+    user_input: object = None,
+    stored: object = "session",
+) -> tuple[_Engine, object]:
+    from flaskr.service.learn.agent.rewind import checkpoint_of
+
+    session = _waiting_session()
+    if plan is not None and getattr(plan, "checkpoint", None) == "waiting":
+        plan.checkpoint = checkpoint_of(session)
+    # The lesson went on after the question: answered, taught further, finished.
+    from pydantic_ai.messages import ModelResponse, TextPart
+
+    session.messages.append(ModelResponse(parts=[TextPart(content="You went left.")]))
+    session.pending = []
+    session.turn = 3
+    session.finished = True
+    loaded = session if stored == "session" else None
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: loaded)
+    monkeypatch.setattr(
+        run_agent,
+        "stage_retirement",
+        lambda plan, **_kw: calls.append(("stage_retirement", plan.retired_block_bids)),
+    )
+    engine = _Engine([TurnDone(reason="end")], session=session)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=user_input,
+            iter_turn=_drive,
+            rewind=plan,
+        )
+    )
+    return engine, session
+
+
+def test_answering_again_restores_the_question_and_sends_the_new_answer(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.agent.engine.engine import InteractionResponseTurn
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    engine, session = _rewind_run(
+        monkeypatch, calls, plan=plan, user_input={"way": ["Right"]}
+    )
+
+    # The engine was handed the lesson as it stood when the question was asked.
+    assert len(session.messages) == 2
+    assert [p.tool_call_id for p in session.pending] == ["q1"]
+    assert session.finished is False
+    assert isinstance(engine.turns[0], InteractionResponseTurn)
+    assert engine.turns[0].values == ["Right"]
+    # Written with the turn: the superseded rows retired.
+    assert ("stage_retirement", ["B2"]) in calls
+
+
+def test_going_back_does_not_reopen_a_completed_lesson(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The completion was earned; reopening only this lesson would leave its chapter ahead of it."""
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    record = _Record()
+    record.status = 603  # LEARN_STATUS_COMPLETED
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: record)
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    _rewind_run(monkeypatch, calls, plan=plan, user_input={"way": ["Right"]})
+    assert record.status == 603
+
+
+def test_regenerating_runs_the_turn_again_with_the_input_it_had(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.agent.engine.engine import InteractionResponseTurn
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=["Left"], retired_block_bids=["B2"]
+    )
+    engine, _session = _rewind_run(monkeypatch, calls, plan=plan, user_input="")
+
+    assert isinstance(engine.turns[0], InteractionResponseTurn)
+    assert engine.turns[0].values == ["Left"]
+
+
+def test_going_back_without_a_stored_session_is_refused(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.agent.rewind import RewindPlan, RewindUnavailableError
+
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    with pytest.raises(RewindUnavailableError):
+        _rewind_run(monkeypatch, calls, plan=plan, user_input="x", stored=None)
+    assert not [c for c in calls if c[0] in {"stage_retirement", "save_session"}]
+
+
+def test_every_turn_keeps_the_state_it_started_from_on_its_block(calls: list) -> None:
+    """Without it, the turn could never be gone back to."""
+    import json
+
+    engine = _Engine([ContentDelta(text="Hello."), TurnDone(reason="end")])
+    _run(engine, user_input="hi")
+
+    staged = next(kw for name, kw in calls if name == "record_content")
+    record = json.loads(staged["turn_record"])["agent_turn"]
+    assert record["values"] == ["hi"]
+    assert record["checkpoint"]["messages"] == 0
+
+
+# --- how the turn ended, for the caller -------------------------------------------------------
+
+
+def _outcome(engine: _Engine) -> run_agent.TurnOutcome | None:
+    """Drain a turn and return what it hands back, the way `yield from` would."""
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    while True:
+        try:
+            next(stream)
+        except StopIteration as stop:
+            return stop.value
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_turn_reports_how_it_ended_and_whether_it_said_anything() -> None:
+    """What the entry point reads to decide whether the lesson goes on in this request."""
+    said = _outcome(
+        _Engine(
+            [ContentDelta(text="Part one.\n"), TurnDone(reason="end")],
+            session=_Session(started=True),
+        )
+    )
+    assert said == run_agent.TurnOutcome(reason="end", taught=True)
+
+    silent = _outcome(_Engine([TurnDone(reason="end")], session=_Session(started=True)))
+    assert silent == run_agent.TurnOutcome(reason="end", taught=False)
+
+    over = _outcome(
+        _Engine(
+            [ContentDelta(text="Bye.\n"), TurnDone(reason="finished")],
+            session=_Session(started=True),
+        )
+    )
+    assert over.reason == "finished"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_model_typed_is_reported_as_a_wait() -> None:
+    """The engine ended the turn out of content, but the learner has a question to answer.
+
+    The host shows the last `?[...]` the model wrote as a question; a caller reading the
+    engine's "end" would carry the lesson on past it before the learner could answer.
+    """
+    outcome = _outcome(
+        _Engine(
+            [
+                ContentDelta(text="Pick one.\n\n?[Left | Right]\n"),
+                TurnDone(reason="end"),
+            ],
+            session=_Session(started=True),
+        )
+    )
+    assert outcome.reason == "interaction"

@@ -29,6 +29,10 @@ to.
   docs before changing behavior.
 - Reuse existing modules, DTOs, stores, provider wrappers, and request paths
   before creating new abstractions.
+- When changing a shared contract, update all affected producers and consumers
+  in the same task, including compatibility handling and relevant regression
+  tests. This applies to DTO fields, exception codes, and hook, store, type, and
+  utility interfaces; subtree files inherit this coordination requirement.
 - Use ExecPlans for complex work. `PLANS.md` defines the format, and active
   plans live under `docs/exec-plans/active/`.
 - Whenever creating a Git worktree for this repository, copy existing local
@@ -83,6 +87,10 @@ to.
   product documentation, compatibility plan, and regression tests together.
 - Keep code-facing text in English and keep user-facing text in shared i18n
   JSON under `src/i18n/`.
+- For product translation or a new locale, follow the end-to-end checklist in
+  `docs/references/i18n.md`. A dependency library's own translations are
+  separate library work: do not translate, publish, or bump a library solely
+  to complete the product locale task.
 - Store and compute all timestamps in UTC. On the backend, use the shared
   `now_utc()` helper in `src/api/flaskr/util/datetime.py` for any time written
   to the database, and default new model timestamp columns to
@@ -206,6 +214,10 @@ ai-shifu consumes two MarkdownFlow component libraries. Changing either is
 usually done in order to use it here, so the overall flow is: **change the
 library → publish a build → point ai-shifu at it → debug locally / on test / in
 prod**.
+
+Product localization is an exception to this cross-repository flow. Use the
+currently pinned library's supported locales and document any untranslated
+library controls; translate and release that library only as separate work.
 
 | Library            | Kind             | Pinned in                                            | Published from                                                            |
 | ------------------ | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |

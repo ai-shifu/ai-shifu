@@ -41,9 +41,6 @@ _GUARDED = (
     ("service/billing/trials.py", "_backfill_missing_creator_trial_credits"),
     ("service/user/utils.py", "_prepare_verification_challenge"),
     ("service/user/onboarding.py", "complete_onboarding_scene"),
-    ("service/tts/minimax_voice_clone.py", "submit_minimax_voice_clone"),
-    ("service/tts/minimax_voice_clone.py", "run_minimax_voice_clone"),
-    ("service/tts/minimax_voice_clone.py", "retry_minimax_voice_clone"),
 )
 
 

@@ -25,6 +25,7 @@ export const ChatMobileHeader = ({
   chapterId,
   lessonId,
   lessonTitle,
+  titleLanguage,
 }) => {
   const { t } = useTranslation();
   const { onOpen: onIconPopoverOpen, onClose: onIconPopoverClose } =
@@ -64,7 +65,7 @@ export const ChatMobileHeader = ({
         />
       ) : null}
       <div className={styles.headerRow}>
-        <CourseHeaderSummary />
+        <CourseHeaderSummary titleLanguage={titleLanguage} />
 
         <div className={styles.actionGroup}>
           {showLearningModeToggle ? <LearningModeSwitch /> : null}

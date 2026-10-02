@@ -186,5 +186,14 @@ describe('UserContactChangeDialog', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'Verified user request',
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'contactChange.back' }));
+    fireEvent.change(
+      screen.getByPlaceholderText('contactChange.email.newPlaceholder'),
+      {
+        target: { value: 'another@example.com' },
+      },
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

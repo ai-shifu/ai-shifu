@@ -101,10 +101,6 @@ const api = {
   ttsPreview: 'POST /shifu/tts/preview',
   ttsConfig: 'GET /shifu/tts/config',
   listMinimaxTtsVoices: 'GET /shifu/tts/minimax/voices',
-  getMinimaxTtsVoice: 'GET /shifu/tts/minimax/voices/{voice_bid}',
-  retryMinimaxTtsVoice: 'POST /shifu/tts/minimax/voices/{voice_bid}/retry',
-  deleteMinimaxTtsVoice: 'DELETE /shifu/tts/minimax/voices/{voice_bid}',
-  getMinimaxTtsCloneCost: 'GET /shifu/tts/minimax/voices/clone-cost',
   validateMinimaxTtsVoiceId: 'POST /shifu/tts/minimax/voices/validate-id',
   // admin order api
   getAdminOrders: 'GET /order/admin/orders',
@@ -198,6 +194,10 @@ const api = {
     'GET /shifu/admin/operations/users/{user_bid}/credit-grant/bootstrap',
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
+  deductAdminOperationUserCredits:
+    'POST /shifu/admin/operations/users/{user_bid}/credits/deduct',
+  terminateAdminOperationUserSubscription:
+    'POST /shifu/admin/operations/users/{user_bid}/subscription/terminate',
   grantAdminOperationUserPackage:
     'POST /shifu/admin/operations/users/{user_bid}/packages/grant',
   getAdminOperationCreditNotifications:

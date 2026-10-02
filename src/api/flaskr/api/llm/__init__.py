@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import secrets
 import time
 from dataclasses import dataclass, field, replace
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
@@ -402,6 +403,23 @@ def _is_litellm_repeated_stream_chunk_error(exc: Exception) -> bool:
     )
 
 
+def _get_llm_max_output_tokens(requested_model: str, invoke_model: str) -> int | None:
+    """Return a known output ceiling; missing metadata does not imply unavailability."""
+    # Routed ids distinguish providers that expose the same upstream model id.
+    configured = MODEL_MAX_OUTPUT_TOKENS.get(requested_model)
+    if configured is not None:
+        return configured
+    try:
+        limit = litellm.get_max_tokens(invoke_model)
+    except Exception as exc:
+        _log_warning(f"get max tokens for {invoke_model} failed: {exc}")
+        return None
+    # Partial catalogue entries can contain null, zero or malformed limits.
+    if isinstance(limit, int) and not isinstance(limit, bool) and limit > 0:
+        return limit
+    return None
+
+
 def _stream_litellm_completion(
     app: Flask,
     requested_model: str,
@@ -410,26 +428,8 @@ def _stream_litellm_completion(
     params: dict,
     kwargs: dict,
 ) -> object:
+    _apply_llm_max_output_tokens(requested_model, model, kwargs)
     try:
-        # Routed ids are the application-level identity. LiteLLM completion uses
-        # the stripped provider model id, which can collide across routes (for
-        # example, a Qwen-hosted DeepSeek model and the direct DeepSeek provider).
-        max_tokens = MODEL_MAX_OUTPUT_TOKENS.get(requested_model)
-        if max_tokens is None:
-            try:
-                max_tokens = litellm.get_max_tokens(model)
-            except Exception as exc:
-                _log_warning(f"get max tokens for {model} failed: {exc}")
-        if max_tokens is not None:
-            requested_max_tokens = kwargs.get("max_tokens")
-            if (
-                isinstance(requested_max_tokens, int)
-                and not isinstance(requested_max_tokens, bool)
-                and requested_max_tokens > 0
-            ):
-                kwargs["max_tokens"] = min(requested_max_tokens, max_tokens)
-            else:
-                kwargs["max_tokens"] = max_tokens
         app.logger.info(
             "stream_litellm_completion: %s %s %s %s", model, messages, params, kwargs
         )
@@ -442,6 +442,8 @@ def _stream_litellm_completion(
         )
     except Exception as exc:
         _log_warning(f"LiteLLM completion failed for {model}: {exc}")
+        if _is_rate_limit_error(exc):
+            raise
         raise_error_with_args(
             "server.llm.requestFailed",
             model=model,
@@ -450,8 +452,50 @@ def _stream_litellm_completion(
 
 
 # How many times to re-issue a streaming request whose connection died before
-# the first content token arrived.
+# the first content token arrived. Rate limits have a separate, longer budget.
 _STREAM_PRECONTENT_RETRY_ATTEMPTS = 1
+_STREAM_RATE_LIMIT_RETRY_DELAYS = (15.0, 45.0)
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """Recognize provider throttling without matching provider-specific message text."""
+    rate_limit_type = getattr(
+        getattr(litellm, "exceptions", None), "RateLimitError", None
+    )
+    return (isinstance(rate_limit_type, type) and isinstance(exc, rate_limit_type)) or (
+        getattr(exc, "status_code", None) == 429
+    )
+
+
+def _rate_limit_retry_delay(exc: Exception, attempt: int) -> float:
+    """Honor a bounded provider delay, or wait across the current TPM window."""
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None)
+    retry_after = headers.get("retry-after") if headers is not None else None
+    if retry_after is not None:
+        try:
+            delay = float(retry_after)
+        except (TypeError, ValueError):
+            pass
+        else:
+            if 0 < delay <= 60:
+                return delay
+    return _STREAM_RATE_LIMIT_RETRY_DELAYS[attempt - 1] + secrets.randbelow(6)
+
+
+def _wait_before_retry(delay: float, cancelled: Callable[[], bool] | None) -> None:
+    """Wake promptly when an agent turn disconnects during a provider limit wait."""
+    if cancelled is None:
+        time.sleep(delay)
+        return
+    deadline = time.monotonic() + delay
+    while True:
+        if cancelled():
+            raise asyncio.CancelledError
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(remaining, 0.1))
 
 
 def _retryable_stream_error_types() -> tuple:
@@ -482,8 +526,9 @@ def _iter_stream_with_precontent_retry(
     kwargs: dict,
     *,
     tool_calls_are_output: bool = False,
+    retry_cancelled: Callable[[], bool] | None = None,
 ) -> Generator[ModelResponseStream, None, None]:
-    """Yield litellm stream chunks, re-issuing the request when the stream dies on a connection-level error before any content token arrived.
+    """Yield stream chunks, retrying transient failures before any output arrives.
 
     The built-in openai/litellm retries only cover request setup; an
     established stream that dies mid-read (transient network corruption,
@@ -492,25 +537,27 @@ def _iter_stream_with_precontent_retry(
     seen: nothing user-visible can be duplicated. Hidden reasoning chunks are
     buffered until the attempt produces content or completes, so reasoning
     from an abandoned attempt does not leak into Langfuse. Once content
-    flowed, the error is re-raised unchanged.
+    flowed, the error is re-raised unchanged. Provider 429 responses may require
+    waiting for a TPM window, so they use a separate bounded delay schedule.
 
     `tool_calls_are_output` extends "content" to tool-call fragments. A caller reading those
     (`chat_llm(..., emit_tool_calls=True)`) has already been handed them, so replaying the request
     would deliver the same arguments twice and could run one tool call as two.
     """
-    attempts = 0
+    connection_attempts = 0
+    rate_limit_attempts = 0
     while True:
-        response = _stream_litellm_completion(
-            app,
-            requested_model,
-            invoke_model,
-            messages,
-            params,
-            kwargs,
-        )
         saw_content = False
         pending_reasoning_chunks = []
         try:
+            response = _stream_litellm_completion(
+                app,
+                requested_model,
+                invoke_model,
+                messages,
+                params,
+                kwargs,
+            )
             for res in response:
                 has_choices = bool(len(res.choices))
                 has_content = bool(has_choices and res.choices[0].delta.content)
@@ -530,18 +577,44 @@ def _iter_stream_with_precontent_retry(
                     yield res
             yield from pending_reasoning_chunks
         except Exception as exc:
-            attempts += 1
+            if _is_rate_limit_error(exc):
+                rate_limit_attempts += 1
+                if not saw_content and rate_limit_attempts <= len(
+                    _STREAM_RATE_LIMIT_RETRY_DELAYS
+                ):
+                    delay = _rate_limit_retry_delay(exc, rate_limit_attempts)
+                    app.logger.warning(
+                        "LLM provider rate limited %s before output; retrying in %.1fs (%s/%s)",
+                        invoke_model,
+                        delay,
+                        rate_limit_attempts,
+                        len(_STREAM_RATE_LIMIT_RETRY_DELAYS),
+                    )
+                    _wait_before_retry(delay, retry_cancelled)
+                    continue
+                app.logger.exception(
+                    "LLM provider rate limit stopped stream: model=%s attempts=%s output_started=%s",
+                    invoke_model,
+                    rate_limit_attempts,
+                    saw_content,
+                )
+                raise_error_with_args(
+                    "server.llm.requestFailed",
+                    model=invoke_model,
+                    message=str(exc),
+                )
+            connection_attempts += 1
             retryable = _retryable_stream_error_types()
             if (
                 saw_content
-                or attempts > _STREAM_PRECONTENT_RETRY_ATTEMPTS
+                or connection_attempts > _STREAM_PRECONTENT_RETRY_ATTEMPTS
                 or not retryable
                 or not isinstance(exc, retryable)
             ):
                 raise
             _log_warning(
                 f"LLM stream for {invoke_model} failed before first content "
-                f"(attempt {attempts}/{_STREAM_PRECONTENT_RETRY_ATTEMPTS + 1}); "
+                f"(attempt {connection_attempts}/{_STREAM_PRECONTENT_RETRY_ATTEMPTS + 1}); "
                 f"reissuing request: {exc}"
             )
         else:
@@ -1398,6 +1471,7 @@ def chat_llm(
     kwargs.pop("stream", None)
     # Off by default: the 1.0 runtime only reads text, and a tool-call-only chunk carries none.
     emit_tool_calls = bool(kwargs.pop("emit_tool_calls", False))
+    retry_cancelled = kwargs.pop("retry_cancelled", None)
     usage_scene = (
         usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
     )
@@ -1453,6 +1527,7 @@ def chat_llm(
             params,
             kwargs,
             tool_calls_are_output=emit_tool_calls,
+            retry_cancelled=retry_cancelled,
         )
         try:
             for res in response:
@@ -1630,31 +1705,45 @@ def count_llm_chat_input_tokens(
     return normalized
 
 
-def resolve_llm_max_output_tokens(model: str, requested: object = None) -> int:
-    """Resolve the gateway output limit without silently exceeding model limits."""
-    _params, invoke_model, _provider_key = get_litellm_params_and_model(model)
-    configured = MODEL_MAX_OUTPUT_TOKENS.get(model)
-    if configured is None:
-        try:
-            configured = int(litellm.get_max_tokens(invoke_model) or 0)
-        except Exception as exc:
-            _log_warning(f"get max tokens for {invoke_model} failed: {exc}")
-            configured = 0
-    if configured <= 0:
+def resolve_llm_max_output_tokens(model: str, requested: object = None) -> int | None:
+    """Validate a gateway budget before shared provider parameter preparation."""
+    params, invoke_model, _provider_key = get_litellm_params_and_model(model)
+    if not params:
         raise_error_with_args("server.llm.modelNotSupported", model=model)
-
-    resolved = min(4096, configured) if requested is None else requested
-    if not isinstance(resolved, int) or isinstance(resolved, bool) or resolved <= 0:
-        raise_error_with_args(
-            "server.llm.requestFailed", model=model, message="max_tokens"
-        )
-    if resolved > configured:
+    resolved = _resolve_llm_max_output_tokens(model, invoke_model, requested)
+    if requested is not None and resolved is not None and requested > resolved:
         raise_error_with_args(
             "server.llm.requestFailed",
             model=model,
-            message=f"max_tokens exceeds model limit {configured}",
+            message=f"max_tokens exceeds model limit {resolved}",
         )
     return resolved
+
+
+def _resolve_llm_max_output_tokens(
+    model: str, invoke_model: str, requested: object
+) -> int | None:
+    """Fit a valid task budget to the optional model output ceiling."""
+    if requested is None:
+        return _get_llm_max_output_tokens(model, invoke_model)
+    if not isinstance(requested, int) or isinstance(requested, bool) or requested <= 0:
+        raise_error_with_args(
+            "server.llm.requestFailed", model=model, message="max_tokens"
+        )
+    configured = _get_llm_max_output_tokens(model, invoke_model)
+    return min(requested, configured) if configured is not None else requested
+
+
+def _apply_llm_max_output_tokens(
+    model: str, invoke_model: str, kwargs: dict[str, object]
+) -> None:
+    resolved = _resolve_llm_max_output_tokens(
+        model, invoke_model, kwargs.get("max_tokens")
+    )
+    if resolved is None:
+        kwargs.pop("max_tokens", None)
+    else:
+        kwargs["max_tokens"] = resolved
 
 
 def _gateway_output_token_count(invoke_model: str, output: str) -> int:
@@ -1794,6 +1883,7 @@ def complete_openai_chat_completion(
 
     completion_kwargs = dict(kwargs)
     completion_kwargs.pop("stream", None)
+    _apply_llm_max_output_tokens(requested_model, invoke_model, completion_kwargs)
     completion_kwargs = _prepare_litellm_request_kwargs(
         provider_key or "",
         invoke_model,
@@ -1912,6 +2002,7 @@ def stream_openai_chat_completion(
             messages,
             params,
             stream_kwargs,
+            tool_calls_are_output=True,
         )
         for chunk in response:
             chunk_usage = getattr(chunk, "usage", None)

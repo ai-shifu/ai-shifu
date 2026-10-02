@@ -1,0 +1,1097 @@
+{
+  "__namespace__": "module.billing",
+  "admin": {
+    "attention": "توجہ کی ضرورت ہے۔",
+    "backToCreatorBilling": "ممبر سینٹر پر واپس جائیں۔",
+    "entitlements": {
+      "actions": {
+        "viewDetail": "ترتیب میں ترمیم کریں۔"
+      },
+      "configProgress": {
+        "complete": "ترتیب مکمل",
+        "exception": "غیر معمولی",
+        "loading": "لوڈ ہو رہا ہے۔",
+        "partial": "جزوی ترتیب",
+        "unconfigured": "کنفیگر نہیں ہے۔"
+      },
+      "configStatus": {
+        "completed": "مکمل",
+        "exception": "کنفیگریشن استثناء",
+        "in_progress": "ترتیب جاری ہے",
+        "pending": "ترتیب کا منتظر"
+      },
+      "configStatusHelp": {
+        "completed": "آپریشنز نے کنفیگریشن فالو اپ کے اس دور کو مکمل کر لیا ہے۔",
+        "exception": "ترتیب کے عمل کے دوران رکاوٹ یا استثناء ہے، اور مزید فالو اپ پروسیسنگ کی ضرورت ہے۔",
+        "in_progress": "ڈیٹا یا کنفیگریشن پر کارروائی ہو رہی ہے اور ابھی تک مکمل نہیں ہوئی ہے۔",
+        "pending": "اہلیت کو چالو کر دیا گیا ہے، لیکن متعلقہ ترتیب ابھی تک مکمل نہیں ہوئی ہے۔"
+      },
+      "customization": {
+        "integrationStatus": {
+          "disabled": "غیر فعال",
+          "draft": "مسودہ",
+          "failed": "غیر معمولی",
+          "unconfigured": "کنفیگر نہیں ہے۔",
+          "verified": "تصدیق شدہ"
+        },
+        "loading": "کنفیگریشن لوڈ ہو رہا ہے...",
+        "logoReady": "اپ لوڈ کیا گیا",
+        "providers": {
+          "alipay": "علی پے",
+          "pingxx": "Ping++",
+          "stripe": "Stripe",
+          "wechat_oauth": "WeChat سروس اکاؤنٹ",
+          "wechatpay": "WeChat پے"
+        }
+      },
+      "description": "ان اساتذہ کو چیک کریں جنہوں نے آزاد برانڈز یا ادائیگی جمع کرنے کی صلاحیتوں کو چالو کیا ہے، اور آپریشن کنفیگریشن کی پیشرفت کو فالو اپ کرے گا۔",
+      "empty": "فی الحال، ایسے کوئی اساتذہ نہیں ہیں جنہوں نے آزادانہ طور پر برانڈز یا جمع کرنے کی صلاحیتیں کھولی ہوں۔",
+      "followDefault": "پہلے سے طے شدہ ترتیب",
+      "grant": {
+        "brandingInlineDescription": "برانڈ کا لوگو اپ لوڈ کریں۔ آپ براہ راست تصویر کا پتہ بھر سکتے ہیں یا تصویری فائل اپ لوڈ کر سکتے ہیں۔",
+        "cancel": "منسوخ کریں",
+        "configStatusHint": "اسٹیٹس کو براہ راست فہرست میں تبدیل کیا جا سکتا ہے۔ یہاں صرف موجودہ حیثیت ظاہر ہوتی ہے۔",
+        "configurationSection": "کنفیگریشن کا مواد",
+        "configurationSectionDescription": "برانڈ کا لوگو، آزاد ڈومین نام، WeChat آفیشل اکاؤنٹ اور ادائیگی کے چینل کی ترتیب کی تکمیل کریں، اور محفوظ کرنے کے بعد تازہ ترین نتائج بیک وقت ڈسپلے کریں۔",
+        "createdContinue": "برانڈ اور ادائیگی کی ترتیب کو {creator} میں شامل کر دیا گیا ہے۔ آپ ذیل میں تفصیلات شامل کرنا جاری رکھ سکتے ہیں۔",
+        "creatorBidPlaceholder": "کورس کے ذمہ دار BID درج کریں۔",
+        "creatorEmailPlaceholder": "کورس کے ذمہ دار کا ای میل ایڈریس درج کریں۔",
+        "creatorMobilePlaceholder": "کورس کے ذمہ دار کا موبائل فون نمبر درج کریں۔",
+        "description": "اساتذہ کے لیے برانڈ، ڈومین کا نام، WeChat اور ادائیگی کی ترتیب کو متحد اور برقرار رکھیں، اور محفوظ کرنے کے بعد متعلقہ صلاحیتوں کو بیک وقت اپ ڈیٹ کریں۔",
+        "disabled": "چالو نہیں ہوا۔",
+        "domainInlineDescription": "آزاد ڈومین کا نام پُر کریں اور تصدیق کو مکمل کریں تاکہ بعد میں تصدیق کی جاسکے کہ آیا یہ سرکاری طور پر دستیاب ہے۔",
+        "edit": "ترمیم کریں",
+        "editTitle": "برانڈنگ اور ادائیگی کی ترتیب میں ترمیم کریں۔",
+        "emailHint": "براہ کرم کورس کے ذمہ دار کا ای میل ایڈریس درج کریں۔ اگر یہ ای میل ایڈریس ابھی رجسٹرڈ نہیں ہے، تو سسٹم پہلے ایک اکاؤنٹ بنائے گا اور اسے بطور استاد فعال کرے گا۔",
+        "enabled": "پہلے ہی فعال ہے۔",
+        "errors": {
+          "creatorBidRequired": "براہ کرم کورس کے ذمہ دار BID درج کریں۔",
+          "creatorEmailInvalid": "براہ کرم ایک درست ای میل ایڈریس درج کریں۔",
+          "creatorEmailRequired": "براہ کرم کورس کے ذمہ دار کا ای میل ایڈریس درج کریں۔",
+          "creatorMobileInvalid": "براہ کرم ایک درست موبائل فون نمبر درج کریں۔",
+          "creatorMobileRequired": "براہ کرم کورس کے ذمہ دار کا موبائل فون نمبر درج کریں۔"
+        },
+        "fields": {
+          "branding_enabled": "برانڈ لوگو",
+          "configStatus": "ترتیب کی حیثیت",
+          "creatorBid": "کورس کے ذمہ دار BID",
+          "creatorEmail": "کورس کے ذمہ دار کا ای میل",
+          "creatorMobile": "کورس کے ذمہ دار کا موبائل نمبر",
+          "custom_domain_enabled": "آزاد ڈومین نام",
+          "custom_payment_enabled": "آزاد ادائیگی کی ترتیب",
+          "custom_wechat_enabled": "آزاد WeChat عوامی اکاؤنٹ",
+          "note": "آپریشنل نوٹس"
+        },
+        "mobileHint": "براہ کرم کورس کے ذمہ دار کا موبائل فون نمبر درج کریں۔ اگر یہ نمبر ابھی رجسٹرڈ نہیں ہے، تو سسٹم پہلے ایک اکاؤنٹ بنائے گا اور اسے بطور استاد فعال کرے گا۔",
+        "notePlaceholder": "موجودہ پیشرفت، اضافی کرنے کے لیے ڈیٹا یا استثنا کی تفصیل کو پُر کریں۔",
+        "open": "نئی ترتیب",
+        "paymentInlineDescription": "ادائیگی کے چینل کے پیرامیٹرز کو پُر کریں اور تصدیق کرنے کے لیے مکمل تصدیق کریں کہ آیا ادائیگی کی اہلیت عام طور پر استعمال کی جا سکتی ہے۔",
+        "pendingConfiguration": {
+          "branding_enabled": "اس ایکٹیویشن آئٹم کو محفوظ کرنے کے بعد، آپ برانڈ کا لوگو اپ لوڈ کرنا جاری رکھ سکتے ہیں۔",
+          "custom_domain_enabled": "اس ایکٹیویشن آئٹم کو محفوظ کرنے کے بعد، آپ آزاد ڈومین نام کو بھرنا اور اس کی تصدیق کرنا جاری رکھ سکتے ہیں۔",
+          "custom_payment_enabled": "اس ایکٹیویشن آئٹم کو محفوظ کرنے کے بعد، آپ ادائیگی کے چینل کے پیرامیٹرز کی تکمیل جاری رکھ سکتے ہیں۔",
+          "custom_wechat_enabled": "اس ایکٹیویشن آئٹم کو محفوظ کرنے کے بعد، آپ اکاؤنٹ کے آفیشل کنفیگریشن پیرامیٹرز کی تکمیل جاری رکھ سکتے ہیں۔",
+          "title": "محفوظ کرنے کے بعد کنفیگریشن شامل کرنا جاری رکھیں"
+        },
+        "submit": "ترتیب کو محفوظ کریں۔",
+        "submitting": "محفوظ کر رہا ہے...",
+        "success": "{creator} کے برانڈ اور ادائیگی کی ترتیب کو اپ ڈیٹ کر دیا گیا ہے۔",
+        "title": "برانڈ اور وصولی کی نئی ترتیب شامل کریں",
+        "wechatInlineDescription": "آفیشل اکاؤنٹ کے پیرامیٹرز کو پُر کریں اور تصدیق کریں کہ آیا اجازت کی معلومات اور کال بیک کنفیگریشن مکمل ہے۔"
+      },
+      "loadError": "انتظامی سہولتوں کا ڈیٹا لوڈ نہیں ہو سکا۔",
+      "logoPreview": {
+        "next": "اگلا لوگو",
+        "open": "پیش نظارہ {label}",
+        "previous": "پچھلا لوگو",
+        "title": "لوگو کا پیش نظارہ"
+      },
+      "notEnabled": "چالو نہیں ہوا۔",
+      "realEffect": {
+        "branding": "Logo",
+        "domain": "ڈومین کا نام",
+        "payment": "ادائیگی",
+        "status": {
+          "active": "پہلے سے ہی موثر ہے۔",
+          "exception": "غیر معمولی",
+          "inactive": "موثر نہیں۔",
+          "pending": "کارروائی جاری ہے",
+          "unconfigured": "کنفیگر نہیں ہے۔"
+        },
+        "wechat": "WeChat"
+      },
+      "source": {
+        "default": "پہلے سے طے شدہ حقوق",
+        "productPayload": "پلان کے مطابق",
+        "snapshot": "موجودہ موثر ریکارڈ"
+      },
+      "sourceReference": "ریکارڈ: {value}",
+      "statusReason": {
+        "exceptionDefault": "ترتیب غیر معمولی ہے اور اسے دوبارہ اجازت دینے اور دوبارہ شروع کرنے کی ضرورت ہے۔",
+        "inProgress": "کنفیگریشن پر ابھی بھی کارروائی ہو رہی ہے، ڈیٹا کی تکمیل یا تصدیق باقی ہے۔",
+        "inactive": "کنفیگریشن ابھی شروع نہیں ہوئی ہے اور آپریشنل فالو اپ پروسیسنگ کا انتظار کر رہی ہے۔"
+      },
+      "table": {
+        "actions": "کارروائیاں",
+        "analytics": "ادائیگیاں وصول کرنے کی سہولت",
+        "configProgress": "کنفیگریشن کی پیشرفت",
+        "creator": "استاد",
+        "domain": "ڈومین کا نام",
+        "features": "کنفیگریشن آئٹمز",
+        "logo": "Logo",
+        "payment": "ادائیگی کا طریقہ",
+        "priority": "برانڈ کی صلاحیت",
+        "realEffect": "اصل تاثیر",
+        "source": "موجودہ سہولتیں",
+        "status": "فالو اپ اسٹیٹس",
+        "support": "سپورٹ لیول",
+        "wechat": "WeChat کنفیگریشن",
+        "window": "اپ ڈیٹ کا وقت / مدتِ اعتبار"
+      },
+      "title": "سہولتوں کا جائزہ",
+      "window": {
+        "activeNow": "فی الحال اثر میں ہے۔",
+        "endsAt": "{date} تک درست ہے۔",
+        "startedAt": "{date} میں مؤثر"
+      }
+    },
+    "pagination": {
+      "page": "صفحہ {page} / {pageCount}، کل {total} ریکارڈز",
+      "total": "کل {total} ریکارڈز"
+    },
+    "providerPrices": {
+      "actions": {
+        "activate": "فروخت کے لیے فعال کریں",
+        "cancel": "منسوخ کریں",
+        "configure": "ترتیب کی قیمت",
+        "create": "قیمت شامل کریں۔",
+        "restore": "زیر التواء پر واپس جائیں۔",
+        "retire": "فروخت سے ہٹائیں",
+        "saveDraft": "ڈرافٹ محفوظ کریں",
+        "validate": "تصدیق کریں۔",
+        "viewIssues": "مسائل دیکھیں"
+      },
+      "billingLabel": {
+        "monthly": "ماہانہ ادائیگی",
+        "yearly": "سالانہ ادائیگی"
+      },
+      "confirm": {
+        "activate": "کیا {productName} کو فروخت کے لیے فعال کرنا چاہتے ہیں؟ اس کے بعد اس پروڈکٹ کی ادائیگیوں کے لیے وصولی کی یہی قیمت استعمال ہوگی۔",
+        "restore": "کیا {productName} کو بحال کرنا چاہتے ہیں؟ یہ دوبارہ فعال ہونے کا منتظر ہوگا۔ فروخت کے لیے فعال کرنے سے پہلے دوبارہ تصدیق ضروری ہے۔",
+        "retire": "کیا {productName} کو فروخت سے ہٹانا چاہتے ہیں؟ اس کے بعد عارضی طور پر اس پروڈکٹ کے لیے مقررہ قیمت پر ادائیگی نہیں ہو سکے گی۔"
+      },
+      "dialog": {
+        "autoDetectHint": "نظام خود بخود رقم، کرنسی، سائیکل اور موجودہ ماحول کی تصدیق کرے گا۔ اسے فعال کرنے سے پہلے تصدیق کریں کہ یہ درست ہے۔",
+        "description": "Stripe بیک اینڈ سے پروڈکٹ ID اور قیمت کی ID کاپی کریں۔ محفوظ کرنے کے بعد، نظام خود بخود قیمت کی معلومات پڑھ لے گا۔",
+        "title": "ادائیگی کی قیمت کو ترتیب دیں۔"
+      },
+      "empty": "فی الحال ترتیب دینے کے لیے کوئی پلان یا کریڈٹ پیک دستیاب نہیں۔",
+      "fields": {
+        "priceId": "Stripe قیمت ID",
+        "product": "سامان",
+        "productId": "Stripe پروڈکٹ ID",
+        "productPlaceholder": "پروڈکٹ کا انتخاب کریں۔"
+      },
+      "filters": {
+        "allProducts": "تمام مصنوعات",
+        "product": "سامان",
+        "status": "حالت"
+      },
+      "health": {
+        "active": "فروخت کے لیے فعال",
+        "draft": "چالو کیا جائے۔",
+        "healthy": "عام",
+        "invalid": "تصدیق ناکام ہوگئی",
+        "missing": "کنفیگر نہیں ہے۔",
+        "retired": "فروخت سے ہٹا دیا گیا",
+        "warning": "تصدیق کرنے کی ضرورت ہے۔"
+      },
+      "interval": {
+        "month": "ہر {count} مہینے",
+        "year": "ہر {count} سال"
+      },
+      "issueDrawer": {
+        "description": "تکنیکی خرابیوں کا ازالہ کرنے کے لیے اصل کوڈ کو برقرار رکھتے ہوئے وجوہات کی آپریشن پر مبنی وضاحت دکھائیں۔",
+        "issues": "پریشانی کی وجہ",
+        "noIssues": "ابھی تک کوئی مسئلہ نہیں تفصیلات",
+        "raw": "اصل معلومات",
+        "title": "قیمت کی تصدیق کا مسئلہ"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "بلنگ سائیکل کی مقدار مقامی مصنوعات سے مطابقت نہیں رکھتی",
+        "billing_interval_mismatch": "بلنگ سائیکل مقامی مصنوعات کے ساتھ مطابقت نہیں رکھتا ہے۔",
+        "currency_mismatch": "کرنسی مقامی مصنوعات سے مطابقت نہیں رکھتی",
+        "local_plan_billing_mode_invalid": "مقامی پلان بلنگ کے طریقہ کار کی ترتیب کی خرابی۔",
+        "local_topup_billing_interval_count_invalid": "مقامی کریڈٹ پیک کی مدت کی تعداد 0 ہونی چاہیے۔",
+        "local_topup_billing_interval_invalid": "مقامی کریڈٹ پیکز کو مدت کے ساتھ ترتیب نہیں دیا جانا چاہیے۔",
+        "local_topup_billing_mode_invalid": "مقامی کریڈٹ پیک بلنگ کا طریقہ غلط طریقے سے ترتیب دیا گیا ہے۔",
+        "plan_requires_licensed_recurring_price": "پلانز کو licensed سائیکل کی قیمتوں کا استعمال کرنا چاہیے۔",
+        "plan_requires_recurring_price": "پلانز کو Stripe سائیکل کی قیمتوں کا پابند ہونا چاہیے۔",
+        "price_livemode_mismatch": "Stripe کی قیمتوں کا ماحول موجودہ ترتیب سے مطابقت نہیں رکھتا ہے۔",
+        "price_metadata_billing_interval_mismatch": "Stripe پرائس بلنگ سائیکل metadata متضاد ہے۔",
+        "price_metadata_billing_interval_missing": "Stripe کی قیمتوں میں بلنگ سائیکل metadata غائب ہے۔",
+        "price_metadata_credit_amount_mismatch": "Stripe قیمت کریڈٹس کا metadata متضاد ہے۔",
+        "price_metadata_credit_amount_missing": "Stripe کی قیمت میں کریڈٹس metadata غائب ہے۔",
+        "price_metadata_product_code_mismatch": "Stripe کی قیمت پروڈکٹ انکوڈنگ metadata متضاد ہے۔",
+        "price_metadata_product_code_missing": "Stripe کی قیمت میں پروڈکٹ کوڈ metadata غائب ہے۔",
+        "price_product_mismatch": "Stripe کی قیمت موجودہ آئٹم سے تعلق نہیں رکھتی",
+        "product_livemode_mismatch": "Stripe پروڈکٹ کا ماحول موجودہ کنفیگریشن سے مطابقت نہیں رکھتا",
+        "product_metadata_market_mismatch": "Stripe پروڈکٹ مارکیٹ metadata متضاد ہے۔",
+        "product_metadata_market_missing": "Stripe پروڈکٹ میں مارکیٹ metadata موجود نہیں ہے۔",
+        "product_metadata_plan_tier_mismatch": "Stripe پروڈکٹ پلان لیول metadata متضاد ہے۔",
+        "product_metadata_plan_tier_missing": "Stripe پروڈکٹس میں پلان لیول metadata کی کمی ہے۔",
+        "product_metadata_product_type_mismatch": "Stripe پروڈکٹ کی قسم کا metadata متضاد ہے۔",
+        "product_metadata_product_type_missing": "Stripe پروڈکٹ میں پروڈکٹ کی قسم کا metadata غائب ہے۔",
+        "provider_account_mismatch": "Stripe اکاؤنٹ متضاد ہے۔",
+        "provider_price_inactive": "Stripe کی قیمتوں کا تعین غیر فعال ہے۔",
+        "provider_price_mismatch": "Stripe پرائس ID موجودہ کنفیگریشن سے مطابقت نہیں رکھتی",
+        "provider_price_unit_amount_missing": "Stripe کی قیمت مقررہ رقم غائب ہے۔",
+        "provider_product_inactive": "Stripe پروڈکٹ غیر فعال ہے۔",
+        "provider_product_mismatch": "Stripe پروڈکٹ ID موجودہ کنفیگریشن سے مطابقت نہیں رکھتی",
+        "retired_mapping_cannot_be_activated": "فروخت سے ہٹائی گئی قیمت دوبارہ فعال نہیں کی جا سکتی۔",
+        "retired_mapping_cannot_be_validated": "فروخت سے ہٹائی گئی قیمت کی دوبارہ تصدیق نہیں کی جا سکتی۔",
+        "stripe_catalog_reference_missing": "Stripe پروڈکٹ ID یا قیمت ID غائب ہے۔",
+        "stripe_catalog_retrieve_failed": "Stripe سے اشیاء یا قیمتیں پڑھنے سے قاصر",
+        "topup_requires_one_time_price": "کریڈٹ پیک کو Stripe ایک بار کی قیمت کا پابند ہونا چاہیے۔",
+        "unit_amount_mismatch": "ادائیگی کی رقم صفحہ پر فروخت کی قیمت سے مطابقت نہیں رکھتی",
+        "unknown": "نامعلوم مسئلہ",
+        "unsupported_product_type": "اس پروڈکٹ کی قسم فی الحال ادائیگی کی قیمت کو ترتیب دینے کی حمایت نہیں کرتی ہے۔"
+      },
+      "loadError": "پلان کی قیمت کی ترتیب اس وقت لوڈ نہیں کی جا سکتی ہے۔",
+      "menuTitle": "پلان مینجمنٹ",
+      "pageDescription": "بیرون ملک پلانز اور کریڈٹ پیکس کی وصولی کی قیمتیں ترتیب دیں تاکہ دکھائی جانے والی قیمت، اصل ادائیگی اور بعد میں حساب کی مطابقت یکساں ہو۔",
+      "productType": {
+        "plan": "پلان",
+        "topup": "کریڈٹ پیک"
+      },
+      "status": {
+        "active": "فروخت کے لیے فعال",
+        "all": "تمام حالتیں",
+        "draft": "چالو کیا جائے۔",
+        "invalid": "تصدیق ناکام ہوگئی",
+        "missing": "کنفیگر نہیں ہے۔",
+        "retired": "فروخت سے ہٹا دیا گیا"
+      },
+      "table": {
+        "actions": "کارروائیاں",
+        "localPrice": "صفحہ فروخت کی قیمت",
+        "product": "سامان",
+        "productType": "قسم",
+        "status": "حالت",
+        "stripePrice": "وصولی کی قیمت",
+        "validatedAt": "تازہ ترین چیک"
+      },
+      "toast": {
+        "activateFailed": "قیمت کی فہرست بندی ناکام ہو گئی۔",
+        "activateSuccess": "قیمت فروخت کے لیے فعال ہو گئی ہے۔",
+        "createFailed": "قیمت محفوظ نہیں ہو سکی۔",
+        "createSuccess": "قیمت بچ گئی۔",
+        "restoreFailed": "قیمت کی وصولی ناکام ہوگئی",
+        "restoreSuccess": "قیمت کو زیر التواء پر بحال کر دیا گیا ہے۔",
+        "retireFailed": "قیمت ہٹانا ناکام ہو گیا۔",
+        "retireSuccess": "قیمت فروخت سے ہٹا دی گئی ہے۔",
+        "validateFailed": "قیمت کی توثیق ناکام ہو گئی۔",
+        "validateSuccess": "قیمت کی تصدیق مکمل ہو گئی۔"
+      }
+    },
+    "reports": {
+      "actions": {
+        "viewOrders": "آرڈر دیکھیں"
+      },
+      "attentionReasons": {
+        "active_production": "پروڈکشن میں فعال استعمال",
+        "debug_preview_heavy": "ڈیبگنگ کی کھپت زیادہ ہے۔",
+        "high_consumption": "زیادہ کھپت",
+        "high_frequency": "ہائی فریکوئنسی کالز",
+        "rapid_growth": "کھپت میں تیزی سے اضافہ ہوتا ہے۔",
+        "sustained_activity": "پچھلے 7 دنوں میں فعال"
+      },
+      "description": "عمل کی پیروی کی ترجیحات کا تعین کرنے میں مدد کرنے کے لیے حالیہ کھپت، سرگرمی، اور استعمال کے ڈھانچے کی غیر معمولیات کے ساتھ اساتذہ کا خلاصہ کریں۔",
+      "empty": "فی الحال توجہ دینے کے لیے کوئی اساتذہ نہیں ہیں۔",
+      "emptyHint": "صرف ان اکاؤنٹس کو دکھایا جاتا ہے جو ان میں سے کسی شرط پر پورے اتریں: زیادہ کریڈٹس کا استعمال، کثرت سے کالز، پروڈکشن میں فعال استعمال، ڈیبگنگ کا زیادہ تناسب، مسلسل سرگرمی یا استعمال میں تیزی سے اضافہ۔",
+      "filters": {
+        "active_production": "پروڈکشن میں فعال استعمال",
+        "all": "تمام کلیدی اشیاء",
+        "debug_preview_heavy": "ڈیبگنگ کی کھپت زیادہ ہے۔",
+        "rapid_growth": "کھپت میں تیزی سے اضافہ ہوتا ہے۔"
+      },
+      "sections": {
+        "usage": {
+          "description": "صرف وہی اساتذہ دکھائے جاتے ہیں جو توجہ کے معیار کو پورا کرتے ہیں۔ آپ پچھلے 30 دنوں میں نمو، ڈیبگنگ تناسب، یا کھپت کے لحاظ سے ترتیب دے سکتے ہیں۔",
+          "title": "توجہ کے مستحق اساتذہ کی فہرست"
+        }
+      },
+      "sort": {
+        "label": "ترتیب کا طریقہ",
+        "options": {
+          "credits_30d": "پچھلے 30 دنوں میں کھپت کی بنیاد پر",
+          "debug_ratio": "ڈیبگنگ کے تناسب کے مطابق",
+          "growth": "زیادہ اضافے کے لحاظ سے ترتیب"
+        }
+      },
+      "summary": {
+        "activeTeachers7d": "پچھلے 7 دنوں میں اب بھی فعال ہے۔",
+        "activeTeachers7dHint": "مندرجہ ذیل اشیاء میں سے پچھلے 7 دنوں میں استعمال کے ریکارڈ رکھنے والے اساتذہ",
+        "debugHeavyCount": "ڈیبگنگ کا تناسب نسبتاً زیادہ ہے۔",
+        "debugHeavyCountHint": "پچھلے 30 دنوں میں ڈیبگنگ/پیش نظارہ کی کھپت کے اعلی تناسب کے ساتھ اساتذہ",
+        "focusCount": "توجہ دینے کے لیے اساتذہ کی تعداد",
+        "focusCountHint": "استعمال پر توجہ کی ایک یا زیادہ شرائط پوری ہوتی ہیں",
+        "totalCredits": "مندرجہ ذیل اشیاء کی 30 دن کی کھپت",
+        "totalCreditsHint": "زیر نگرانی اساتذہ کا گزشتہ 30 دن کا مجموعی استعمال"
+      },
+      "table": {
+        "actions": "کارروائیاں",
+        "activeDays7d": "7 فعال دن",
+        "attentionReasons": "نگرانی کے قواعد",
+        "attentionReasonsMore": "کل {count} آئٹمز",
+        "creator": "استاد",
+        "credits30d": "30 دن کی کھپت",
+        "credits30dBreakdown": "پروڈکشن میں استعمال {production} · ڈیبگنگ/پیش نظارہ {debugPreview}",
+        "credits30dDebugPreview": "ڈیبگنگ/پریویو {debugPreview}",
+        "credits30dProduction": "پروڈکشن میں استعمال {production}",
+        "credits7d": "7 دن کی کھپت",
+        "latestActivity": "آخری فعال وقت",
+        "latestActivityHint": "پچھلے 7 دنوں میں فعال {days} دن",
+        "productionRatio": "پیداوار اور کھپت کا تناسب",
+        "recordCount7d": "7 دنوں میں کالوں کی تعداد"
+      },
+      "title": "استعمال کی نگرانی کا جائزہ"
+    },
+    "subscriptions": {
+      "description": "اساتذہ کی سبسکرپشنز، کریڈٹ بیلنس، اور فالو اپ پروسیسنگ اسٹیٹس دیکھیں جس کے لیے فالو اپ کی ضرورت ہے۔",
+      "empty": "فالو اپ کرنے کے لیے فی الحال کوئی سبسکرپشنز نہیں ہیں۔",
+      "filters": {
+        "reset": "ری سیٹ کریں",
+        "search": "استفسار",
+        "searchPlaceholderEmail": "استاد کا ای میل",
+        "searchPlaceholderPhone": "استاد کا موبائل فون نمبر",
+        "status": "رکنیت کی حیثیت",
+        "statusAll": "سبھی رکنیت کی حیثیت",
+        "teacherField": "استاد"
+      },
+      "loadError": "پس منظر کی رکنیت کا ڈیٹا پڑھنے میں ناکام، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+      "preorderTarget": "پری آرڈر: {product}",
+      "results": {
+        "cancelAtPeriodEnd": "میعاد ختم ہونے پر کوئی تجدید نہیں۔",
+        "cancelAtPeriodEndWithDate": "{date} پر ختم ہو جائے گا۔",
+        "expire": "میعاد ختم ہونے پر کوئی تجدید نہیں۔",
+        "expireWithDate": "{date} پر ختم ہو جائے گا۔",
+        "preorder": "میعاد ختم ہونے کے بعد {product} پر سوئچ کریں۔",
+        "preorderWithDate": "{date} سے {product} میں تبدیل ہو جائے گا۔",
+        "renewalFailed": "تجدید ناکام اور زیر التواء ہے۔",
+        "renewalFailedWithError": "تجدید ناکام اور زیر التواء ہے۔",
+        "renewalScheduled": "منصوبہ خود بخود تجدید ہو جاتا ہے۔",
+        "renewalScheduledWithDate": "{date} کو خودکار تجدید مقرر ہے"
+      },
+      "table": {
+        "availableCredits": "دستیاب کریڈٹس",
+        "creator": "استاد",
+        "currentPeriodEnd": "میعاد ختم ہونے کی تاریخ",
+        "product": "موجودہ پلان",
+        "provider": "ادائیگی کا طریقہ",
+        "renewal": "تجدید/میعاد ختم ہونے کی حیثیت",
+        "renewalStatus": "تجدید کی حیثیت",
+        "scheduled": "کے لئے منصوبہ بندی کی",
+        "status": "رکنیت کی حیثیت"
+      },
+      "title": "سبسکرپشن کی پیروی"
+    },
+    "subtitle": "سبسکرپشن کی حیثیت، استعمال کے خدشات، اور برانڈ جمع کرنے کی ترتیب کی متحد ٹریکنگ۔",
+    "tabs": {
+      "entitlements": "برانڈ اور ادائیگی کی ترتیب",
+      "reports": "استعمال کی نگرانی",
+      "subscriptions": "سبسکرپشن کی پیروی"
+    },
+    "title": "کمرشل آپریشن"
+  },
+  "alerts": {
+    "actions": {
+      "checkoutTopup": "کریڈٹس خریدیں",
+      "openOrders": "ادائیگی کی تاریخ دیکھیں",
+      "resumeSubscription": "سبسکرپشن بحال کریں"
+    },
+    "cancelScheduled": "موجودہ رکنیت کو مدت ختم ہونے کے بعد منسوخ کرنے کے لیے مقرر کیا گیا ہے۔ اگر آپ وقفے وقفے سے کریڈٹس جاری کرنا چاہتے ہیں، تو براہ کرم سبسکرپشن کو دوبارہ شروع کریں۔",
+    "lowBalance": "موجودہ اساتذہ کے اکاؤنٹ میں کوئی کریڈٹس دستیاب نہیں ہیں۔ براہ کرم اگلی سیٹلمنٹ سے پہلے سبسکرپشن یا خریداری کریڈٹس کو چالو کریں۔",
+    "lowBalanceDescription": "کریڈٹس استعمال ہو چکے ہیں اور آپ AI کے تیار کردہ مواد کا مزید تجربہ نہیں کر سکتے۔",
+    "lowBalanceTitle": "آپ کے کریڈٹس ختم ہو گئے ہیں اور AI ہڑتال پر ہے۔",
+    "subscriptionPastDue": "سبسکرپشن کی تجدید فی الحال غیر معمولی حالت میں ہے۔ براہ کرم پہلے ادائیگی کا ریکارڈ چیک کریں اور فراہم کنندہ کی تازہ ترین حیثیت کو ہم آہنگ کریں۔"
+  },
+  "capabilities": {
+    "fallbackDescription": "قابلیت کی حیثیت بلنگ کی اہلیت کی رجسٹری سے مشروط ہے۔",
+    "fallbackTitle": "بلنگ کی اہلیت",
+    "items": {
+      "adminEntitlements": {
+        "description": "بیک اسٹیج بینیفٹ ویونگ فی الحال دستیاب ہے۔",
+        "title": "پس پردہ حقوق"
+      },
+      "adminLedgerAdjust": {
+        "description": "بیک اینڈ مینوئل لیجر کی اصلاح فی الحال دستیاب ہے۔",
+        "title": "بیک اینڈ لیجر کی اصلاح"
+      },
+      "adminReports": {
+        "description": "بیک اینڈ استعمال اور لیجر رپورٹس فی الحال دستیاب ہیں۔",
+        "title": "بیک اینڈ رپورٹ"
+      },
+      "adminSubscriptions": {
+        "description": "بیک اینڈ سبسکرپشن دیکھنا اب بھی دستیاب ہے۔",
+        "title": "پس منظر کی رکنیت"
+      },
+      "billingFeatureFlag": {
+        "description": "بلنگ فنکشن سوئچ اب بھی سیڈ کنفیگریشن میں بطور ڈیفالٹ آف ہے۔",
+        "title": "بلنگ فنکشن سوئچ"
+      },
+      "creatorCatalog": {
+        "description": "پلانز اور کریڈٹ پیکس کا کیٹلاگ ابھی active ہے۔",
+        "title": "اساتذہ کی مصنوعات کا کیٹلاگ"
+      },
+      "creatorOrders": {
+        "description": "اساتذہ کے آرڈرز، sync، checkout اور topup کے مراحل ابھی فعال ہیں۔",
+        "title": "اساتذہ کے آرڈرز"
+      },
+      "creatorSubscriptionCheckout": {
+        "description": "اساتذہ کی رکنیت کی خریداری، منسوخی، اور بحالی فی الحال فعال ہیں۔",
+        "title": "استاد سبسکرپشن لائف سائیکل"
+      },
+      "creatorWalletLedger": {
+        "description": "اکاؤنٹ کریڈٹس بالٹی اور لیجر کے نظارے ابھی بھی فعال ہیں۔",
+        "title": "استاد اکاؤنٹس اور لیجرز"
+      },
+      "dailyAggregateRebuild": {
+        "description": "روزانہ رپورٹ کی تعمیر نو اور حتمی شکل دینا اب بھی اندرونی صلاحیتیں ہیں۔",
+        "title": "روزانہ رپورٹ کی تعمیر نو"
+      },
+      "domainVerifyRefresh": {
+        "description": "ڈومین نام کی توثیق ریفریش اب بھی ایک داخلی صلاحیت ہے۔",
+        "title": "ڈومین نام کی توثیق ریفریش"
+      },
+      "lowBalanceAlerts": {
+        "description": "کم بیلنس کی اطلاعات تیار کرنا ابھی صرف نظام کے اندر دستیاب ہے۔",
+        "title": "کم بیلنس کا الارم"
+      },
+      "providerReconcile": {
+        "description": "فراہم کنندہ کا مفاہمت اب بھی اندرونی ریکوری لنک سے تعلق رکھتا ہے۔",
+        "title": "فراہم کنندہ مفاہمت کا معاوضہ"
+      },
+      "renewalCompensation": {
+        "description": "تجدید اور دوبارہ کوشش معاوضہ اب بھی اندرونی صلاحیتیں ہیں۔",
+        "title": "تجدید معاوضہ"
+      },
+      "renewalTaskQueue": {
+        "description": "تجدید کارکن پر عملدرآمد ابھی بھی بیج کی ترتیب میں بطور ڈیفالٹ بند ہے۔",
+        "title": "تجدید کام کی قطار"
+      },
+      "runtimeBillingExtensions": {
+        "description": "runtime-config فی الحال بلنگ کے استحقاق اور ڈومین سیاق و سباق کو آؤٹ پٹ کرتا ہے۔",
+        "title": "رن ٹائم بلنگ کی توسیع"
+      },
+      "usageSettlement": {
+        "description": "استعمال کا تصفیہ اور ری پلے اب بھی اندرونی کام/CLI عمل ہیں۔",
+        "title": "استعمال کا تصفیہ"
+      },
+      "walletBucketExpiration": {
+        "description": "اکاؤنٹ کریڈٹس کی بالٹی کی میعاد ختم ہونے والی اسکیننگ اب بھی اندرونی صلاحیت ہے۔",
+        "title": "کریڈٹ بالٹی ایکسپائری اسکین"
+      }
+    },
+    "status": {
+      "active": "براہ راست استعمال کیا جا سکتا ہے۔",
+      "defaultDisabled": "ترتیب دینا",
+      "internalOnly": "صرف پس منظر کا عمل"
+    }
+  },
+  "catalog": {
+    "actions": {
+      "processing": "پروسیسنگ..."
+    },
+    "badges": {
+      "bestValue": "بہتر سودا",
+      "recommended": "مقبول"
+    },
+    "labels": {
+      "everyDays": "ہر {count} دن",
+      "everyMonths": "ہر {count} مہینے",
+      "everyYears": "ہر {count} سال",
+      "perDay": "روزانہ",
+      "perMonth": "ماہانہ",
+      "perYear": "ہر سال",
+      "providerAlipay": "علی پے",
+      "providerManual": "دستی ایکٹیویشن",
+      "providerPingxx": "Pingxx",
+      "providerStripe": "Stripe",
+      "providerWechatpay": "WeChat پے",
+      "providerWithChannel": "{provider} / {channel}"
+    },
+    "plans": {
+      "creatorMonthly": {
+        "description": "ہلکے وزن کے کورس کے تجربے کے لیے موزوں",
+        "title": "ہلکا ورژن"
+      },
+      "creatorMonthlyPro": {
+        "description": "قلیل تعداد میں طلباء کی خدمت کے لیے موزوں",
+        "title": "بنیادی پلان"
+      },
+      "creatorYearly": {
+        "description": "بڑی تنظیموں کے لیے موزوں ہے۔",
+        "title": "اعلیٰ پلان"
+      },
+      "creatorYearlyLite": {
+        "description": "چھوٹے اور درمیانے درجے کی تنظیموں کے لیے موزوں",
+        "title": "ترقی یافتہ پلان"
+      },
+      "creatorYearlyPremium": {
+        "description": "بہت بڑی تنظیموں کے لیے موزوں ہے۔",
+        "title": "حتمی ورژن"
+      }
+    },
+    "topups": {
+      "default": {
+        "description": "یہ موجودہ پلان کی مدت کے دوران کریڈٹس کو بھرنے کے لیے استعمال کیا جاتا ہے، اور غیر استعمال شدہ حصہ پلان کے ساتھ ختم ہو جائے گا۔",
+        "title": "{credits} کریڈٹ پیک"
+      }
+    }
+  },
+  "checkout": {
+    "agreementLink": "کریڈٹس کی خریداری کا معاہدہ",
+    "agreementPrefix": "میں نے پڑھا اور اتفاق کیا۔",
+    "bonusCreditsLabel": "{baseCredits} + مفت {bonusCredits}",
+    "cancel": "منسوخ کریں",
+    "completed": "ادائیگی مکمل ہو چکی ہے۔",
+    "confirm": "ادا کرنا جاری رکھیں",
+    "creditsLabel": "کریڈٹس",
+    "expired": "آرڈر کی میعاد ختم ہو گئی ہے، براہ کرم دوسرا آرڈر کریں۔",
+    "expiresInLabel": "باقی ماندہ مدت",
+    "expiresInValue": "{countdown} کے بعد میعاد ختم ہو جائے گی",
+    "planDescription": "کریڈٹس سبسکرپشن پلان کے لیے ادائیگی کا عمل درج ذیل ہے۔",
+    "preorderDescription": "پلان ابھی پری پیڈ ہوگا اور موجودہ سائیکل کے اختتام کے بعد مؤثر ہوگا۔",
+    "prepaidOffsetLabel": "پری آرڈر ڈسکاؤنٹ",
+    "priceLabel": "قیمت",
+    "processing": "پروسیسنگ...",
+    "productLabel": "سامان",
+    "providerLabel": "ادائیگی چینل",
+    "redirect": {
+      "creating": "آرڈر بنایا جا رہا ہے...",
+      "description": "براہ کرم صفحہ بند نہ کریں؛ اگر یہ خود بخود نہیں چھلانگ لگاتا ہے، تو آپ دوبارہ کوشش کرنے کے لیے نیچے دیئے گئے بٹن پر کلک کر سکتے ہیں۔",
+      "openingStripe": "Stripe محفوظ ادائیگیوں کے صفحہ پر ری ڈائریکٹ کیا جا رہا ہے...",
+      "retry": "ادائیگی کا صفحہ دوبارہ کھولیں۔"
+    },
+    "subject": {
+      "plan": {
+        "day": "روزانہ پلان",
+        "month": "ماہانہ پلان",
+        "year": "سالانہ پلان"
+      }
+    },
+    "title": "خریداری کی تصدیق کریں۔",
+    "topupDescription": "آپ ایک بار کریڈٹ پیک کی خریداری کے لیے ادائیگی کی تصدیق کے عمل میں داخل ہوں گے۔",
+    "unsupported": "موجودہ ادائیگی کا طریقہ فی الحال دستیاب نہیں ہے۔",
+    "upgradeDescription": "یہ اپ گریڈ فوری طور پر نافذ العمل ہوگا۔",
+    "upgradeWithPreorderDescription": "یہ اپ گریڈ فوری طور پر نافذ ہو جائے گا اور پہلے سے آرڈر کی موجودہ ادائیگیوں کو کریڈٹ کر دیا جائے گا۔"
+  },
+  "common": {
+    "empty": "ابھی تک کوئی نہیں۔"
+  },
+  "creditInsufficient": {
+    "learner": "موجودہ کورس میں ناکافی کریڈٹس ہیں، اس لیے آپ فی الحال مواد تیار کرنا جاری نہیں رکھ سکتے۔ براہ کرم کورس استاد سے رابطہ کریں۔",
+    "purchaseActionAltText": "کریڈٹس کی خریداری کے صفحے پر جائیں۔",
+    "teacher": "کریڈٹس بیلنس ناکافی ہے اور اسے عارضی طور پر استعمال نہیں کیا جا سکتا۔",
+    "teacherCollaborator": "کورس کے ذمہ دار کے پاس کافی کریڈٹس نہیں ہیں، اس لیے فی الحال مزید مواد تیار نہیں ہو سکتا۔ براہ کرم کورس کے ذمہ دار سے رابطہ کریں۔",
+    "teacherSoftlimit": "کریڈٹس بیلنس یاد دہانی کی حد سے نیچے آ گیا ہے اور ڈیبگنگ فی الحال جاری نہیں رہ سکتی۔"
+  },
+  "customization": {
+    "actions": {
+      "clear": "صاف",
+      "secretSaved": "محفوظ کیا گیا، دوبارہ بھرا اور اوور رائٹ کیا جا سکتا ہے۔"
+    },
+    "branding": {
+      "favicon": "ویب سائٹ کا آئیکن Favicon",
+      "faviconHint": "براؤزر ٹیب کا آئیکن۔ PNG/JPEG/WebP (خود بخود ICO میں تبدیل) کو سپورٹ کرتا ہے یا .ico کو براہ راست اپ لوڈ کرتا ہے۔ اپ لوڈ نہ کرتے وقت مربع لوگو استعمال کریں۔",
+      "homeUrl": "لوگو جمپ ایڈریس",
+      "homeUrlHint": "وہ URL جو آپ کے سیکھنے کے صفحہ پر لوگو پر کلک کرنے پر ری ڈائریکٹ ہو جائے گا۔ اگر خالی چھوڑ دیا جائے تو پہلے سے طے شدہ پتہ استعمال کیا جائے گا۔",
+      "homeUrlPlaceholder": "مثال کے طور پر https://www.example.com",
+      "squareHint": "32x32px مربع لوگو اپ لوڈ کرنے کی سفارش کی جاتی ہے، اور زیادہ ریزولوشن والی تصاویر بھی معاون ہیں۔",
+      "squareLogo": "مربع لوگو",
+      "uploadFailed": "تصویر اپ لوڈ ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+      "uploadFavicon": "فیویکن اپ لوڈ کریں۔",
+      "uploadSquare": "مربع لوگو اپ لوڈ کریں۔",
+      "uploadWide": "افقی لوگو اپ لوڈ کریں۔",
+      "urlPlaceholder": "آپ براہ راست تصویر کا پتہ بھی بھر سکتے ہیں۔",
+      "wideHint": "32px اونچائی اور زیادہ سے زیادہ 220px چوڑائی والا افقی لوگو اپ لوڈ کریں۔ زیادہ ریزولوشن والی تصاویر بھی استعمال کی جا سکتی ہیں۔",
+      "wideLogo": "افقی لوگو"
+    },
+    "domain": {
+      "placeholder": "مثال کے طور پر learn.example.com",
+      "record": "{name} = {value}",
+      "title": "آزاد ڈومین نام",
+      "verify": "DNS کی تصدیق کریں۔",
+      "verifyFailed": "DNS کی تصدیق ابھی مکمل نہیں ہوئی۔ TXT ریکارڈ فعال ہونے کی تصدیق کر کے دوبارہ کوشش کریں۔",
+      "verifySuccess": "DNS کی توثیق گزر گئی اور ڈومین نام کی حیثیت کو تازہ کر دیا گیا ہے۔"
+    },
+    "integrationStatus": {
+      "disabled": "غیر فعال",
+      "draft": "چالو کیا جائے۔",
+      "failed": "فعال کرنے میں ناکام",
+      "unconfigured": "کنفیگر نہیں ہے۔",
+      "verified": "فعال"
+    },
+    "paymentProvider": {
+      "description": "آپ ایک یا زیادہ سیکھنے کے ٹرمینل ادائیگی کے طریقے منتخب کر سکتے ہیں۔ محفوظ کرنے کے بعد، لرننگ ٹرمینل ترتیب شدہ طریقہ کے مطابق ادائیگی کا QR کوڈ تیار کرے گا۔",
+      "title": "ادائیگی کا طریقہ"
+    },
+    "providers": {
+      "alipay": "علی پے",
+      "pingxx": "Ping++",
+      "stripe": "Stripe",
+      "wechat_oauth": "WeChat عوامی اکاؤنٹ",
+      "wechatpay": "WeChat پے"
+    }
+  },
+  "details": {
+    "actions": {
+      "upgradeNow": "ابھی اپ گریڈ کریں۔"
+    },
+    "emptyValidityLabel": "--",
+    "subscription": {
+      "accessUntil": "کے لیے دستیاب ہے۔",
+      "autoRenew": "خودکار تجدید",
+      "cancelAction": "خودکار تجدید منسوخ کریں۔",
+      "cancelConfirmAction": "خودکار تجدید کی منسوخی کی تصدیق کریں۔",
+      "cancelConfirmDescription": "منسوخی کے بعد، اس سائیکل میں موجود حقوق اور کریڈٹس اب بھی {date} تک استعمال کیے جا سکتے ہیں، اور میعاد ختم ہونے کے بعد خود بخود تجدید نہیں ہوں گے۔",
+      "cancelConfirmTitle": "خودکار تجدید منسوخ کریں؟",
+      "cancelScheduled": "خودکار تجدید منسوخ کر دی گئی۔",
+      "cancelSuccess": "خودکار تجدید کو منسوخ کر دیا گیا ہے، اور اس سائیکل کے حقوق اور مفادات متاثر نہیں ہوں گے۔",
+      "currentPlan": "موجودہ پلان",
+      "nextRenewal": "اگلی تجدید",
+      "paused": "سبسکرپشن روک دی گئی۔",
+      "renewalStatus": "تجدید کی حیثیت",
+      "resumeAction": "خودکار تجدید دوبارہ شروع کریں۔",
+      "resumeConfirmAction": "خودکار تجدید دوبارہ شروع کرنے کی تصدیق کریں۔",
+      "resumeConfirmDescription": "بحالی کے بعد، {date} پر اصل پلان کے مطابق سبسکرپشن خود بخود تجدید ہو جائے گی۔",
+      "resumeConfirmTitle": "خودکار تجدید دوبارہ شروع کریں؟",
+      "resumeSuccess": "از خود تجدید دوبارہ شروع کر دی گئی ہے۔"
+    },
+    "subtitle": "موجودہ استاد اسپیس کے کل کریڈٹس، مختلف کریڈٹس کا بیلنس اور متعلقہ میعاد کی مدت کو چیک کریں۔",
+    "table": {
+      "balance": "بیلنس",
+      "creditType": "قسم",
+      "validUntil": "میعاد ختم ہونے کی تاریخ"
+    },
+    "topupAvailabilityLabel": "غیر معینہ مدت تک",
+    "topupAvailabilityTooltip": "اسے کسی بھی درست پلان کو چالو کرنے کے بعد ہی استعمال کیا جا سکتا ہے۔",
+    "totalCreditsDescription": "پہلے پلان کے کریڈٹس، پھر کریڈٹ پیک استعمال ہوتا ہے",
+    "totalCreditsLabel": "بیلنس",
+    "usageTable": {
+      "columns": {
+        "scene": "کھپت کی اشیاء"
+      },
+      "title": "کھپت کی تفصیلات"
+    }
+  },
+  "domains": {
+    "records": {
+      "neverVerified": "ابھی تصدیق نہیں ہوئی۔"
+    },
+    "ssl": {
+      "active": "SSL اثر میں ہے۔",
+      "failed": "SSL استثناء",
+      "issued": "ایس ایس ایل جاری کیا گیا۔",
+      "not_requested": "SSL لاگو نہیں ہوا۔",
+      "pending": "SSL پروسیسنگ",
+      "provisioning": "SSL پروسیسنگ"
+    },
+    "status": {
+      "disabled": "غیر فعال",
+      "failed": "تصدیق ناکام ہوگئی",
+      "pending": "تصدیق کی جائے۔",
+      "verified": "تصدیق شدہ"
+    }
+  },
+  "entitlements": {
+    "analytics": {
+      "advanced": "اعلی درجے کے تجزیات",
+      "basic": "بنیادی تجزیہ",
+      "enterprise": "کاروباری تجزیہ"
+    },
+    "flags": {
+      "branding": "برانڈ لوگو",
+      "customDomain": "آزاد ڈومین نام",
+      "customPayment": "ادائیگی کا طریقہ",
+      "customWechat": "آزاد WeChat عوامی اکاؤنٹ",
+      "disabled": "آن نہیں ہوا۔",
+      "enabled": "فعال"
+    },
+    "metrics": {
+      "analyticsTier": "تجزیہ کی سطح",
+      "maxConcurrency": "زیادہ سے زیادہ ہم آہنگی۔",
+      "priorityClass": "ترجیح",
+      "supportTier": "سپورٹ لیول"
+    },
+    "priority": {
+      "priority": "ترجیحی ضمانت",
+      "standard": "معیاری",
+      "vip": "VIP"
+    },
+    "support": {
+      "businessHours": "کاروباری اوقات کی حمایت",
+      "priority": "ترجیحی حمایت",
+      "selfServe": "سیلف سروس سپورٹ"
+    }
+  },
+  "globalPricing": {
+    "actions": {
+      "buyCredits": "کریڈٹس خریدیں",
+      "checkoutLoading": "ادائیگی شروع ہو رہی ہے...",
+      "choosePlan": "کریڈٹ پلان منتخب کریں",
+      "cycleSwitchDisabled": "سوئچنگ سائیکل ابھی تک تعاون یافتہ نہیں ہے۔",
+      "viewMonthly": "ماہانہ ادائیگی کے منصوبے دیکھیں"
+    },
+    "annualSavings": "ماہانہ ادائیگی کے مقابلے میں ہر سال {amount} کی بچت کریں۔",
+    "monthlyOnly": "صرف ماہانہ ادائیگی کی حمایت کرتا ہے۔",
+    "plans": {
+      "business": {
+        "name": "Business"
+      },
+      "growth": {
+        "name": "Growth"
+      },
+      "scale": {
+        "name": "Scale"
+      },
+      "studio": {
+        "name": "Studio"
+      }
+    },
+    "renewalPrice": "پھر {price} / {period} کے مطابق تجدید کریں۔"
+  },
+  "ledger": {
+    "bucketDescription": "کریڈٹس سورس بالٹی، موجودہ بیلنس، اور اس ترتیب کو دیکھیں جس میں بعد میں اصل کٹوتیاں کی جائیں گی۔",
+    "category": {
+      "subscription": "پلان کے کریڈٹس",
+      "topup": "کریڈٹ پیک"
+    },
+    "empty": "فی الحال کوئی کریڈٹ سورس کریڈٹ بالٹی نہیں ہے، جو پہلے جاری ہونے کے بعد یہاں دکھایا جائے گا۔",
+    "entriesDescription": "اگلے بلنگ ٹاسک میں اکاؤنٹ کے بہاؤ جیسے گرانٹ / استعمال / رقم کی واپسی / ختم ہونے تک رسائی حاصل کی جائے گی۔",
+    "entriesTitle": "لیجر کے اندراجات",
+    "entryType": {
+      "adjustment": "ایڈجسٹمنٹ",
+      "consume": "استعمال",
+      "expire": "میعاد ختم",
+      "grant": "اجراء",
+      "hold": "منجمد",
+      "refund": "پیسے واپس",
+      "release": "محفوظ کریڈٹس کی بحالی"
+    },
+    "loadError": "کریڈٹس کا ماخذ پڑھنے میں ناکام، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "neverExpires": "پلان کے کریڈٹس کی میعاد کے مطابق",
+    "pagination": {
+      "page": "صفحہ {page} / {pageCount}، کل {total} لیجرز"
+    },
+    "source": {
+      "campaignBonus": "پروموشن کے بونس کریڈٹس",
+      "gift": "بونس کریڈٹس",
+      "manual": "دستی ایڈجسٹمنٹ",
+      "refund": "پیسے واپس",
+      "subscription": "پلان کے کریڈٹس",
+      "topup": "کریڈٹ پیک",
+      "usage": "استعمال کا تصفیہ"
+    },
+    "summary": {
+      "activeBuckets": "مؤثر کریڈٹس بالٹی",
+      "nextExpiry": "قریب ترین میعاد ختم ہونے کی تاریخ",
+      "totalAvailable": "کل سورس کریڈٹس"
+    },
+    "table": {
+      "action": "کارروائیاں",
+      "amount": "مقدار",
+      "availableCredits": "دستیاب کریڈٹس",
+      "balanceAfter": "تبدیلی کے بعد بیلنس",
+      "createdAt": "وقت",
+      "detail": "تفصیلات دیکھیں",
+      "effectiveWindow": "موثر وقت",
+      "entryType": "لیجر کی قسم",
+      "priority": "ترجیح",
+      "source": "کریڈٹس کا ذریعہ",
+      "status": "حالت"
+    },
+    "usageScene": {
+      "debug": "ڈیبگنگ",
+      "preview": "پیش نظارہ",
+      "production": "سیکھنے کا عمل",
+      "tts": "آواز"
+    }
+  },
+  "orders": {
+    "status": {
+      "canceled": "منسوخ",
+      "failed": "ناکام",
+      "init": "بنایا",
+      "paid": "ادا کیا",
+      "pending": "کارروائی جاری ہے",
+      "refunded": "رقم کی واپسی",
+      "timeout": "وقت ختم"
+    },
+    "type": {
+      "manual": "دستی آرڈر",
+      "refund": "رقم کی واپسی کا آرڈر",
+      "subscriptionRenewal": "سبسکرپشن کی تجدید",
+      "subscriptionStart": "سبسکرپشن ایکٹیویشن",
+      "subscriptionUpgrade": "سبسکرپشن اپ گریڈ",
+      "topup": "کریڈٹ پیک آرڈر"
+    }
+  },
+  "overview": {
+    "availableCreditsLabel": "دستیاب کریڈٹس",
+    "feedback": {
+      "cancelSuccess": "موجودہ سبسکرپشن اس سائیکل کے اختتام پر منسوخ ہو جائے گی۔",
+      "resumeSuccess": "رکنیت کی تجدید دوبارہ شروع کر دی گئی ہے۔"
+    },
+    "loadError": "اکاؤنٹنگ ڈیٹا لوڈ کرنے میں ناکام، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "walletTitle": "کریڈٹس کا جائزہ"
+  },
+  "package": {
+    "actions": {
+      "buyNow": "ابھی خریدیں",
+      "currentSubscription": "موجودہ رکنیت",
+      "currentUsing": "فی الحال استعمال میں ہے",
+      "downgradeDisabled": "ڈاؤن گریڈ تعاون یافتہ نہیں ہے۔",
+      "freeTrial": "میعاد ختم",
+      "monthlySwitchDisabled": "ماہانہ ادائیگی پر سوئچ کرنا فی الحال تعاون یافتہ نہیں ہے۔",
+      "nonMemberTooltip": "فی الحال ایک غیر رکن، کسی کارروائی کی ضرورت نہیں ہے۔",
+      "preorderDowngrade": "پیشگی آرڈر ڈاؤن گریڈ",
+      "preorderLocked": "پیشگی آرڈر مقفل",
+      "preorderLockedTooltip": "پہلے سے ہی پلان کے پری آرڈرز موجود ہیں جو لاگو ہونے کا انتظار کر رہے ہیں۔ فی الحال، صرف فوری اپ گریڈ کی حمایت کی جاتی ہے۔",
+      "preorderProviderUnsupportedTooltip": "پلان پری پرچیز صرف موجودہ خود نظم شدہ ادائیگی کے چینلز کو سپورٹ کرتا ہے۔",
+      "preorderRenewal": "پری پیڈ تجدید",
+      "preorderScheduled": "پیشگی آرڈر",
+      "subscribeNow": "ابھی سبسکرائب کریں۔",
+      "upgradeNow": "ابھی اپ گریڈ کریں۔"
+    },
+    "campaign": {
+      "bonusBadge": "بونس {credits} کریڈٹس",
+      "discountBadge": "محدود وقت کی پیشکش",
+      "paymentOnly": "پیشکش صرف اس ادائیگی پر لاگو ہوتی ہے۔"
+    },
+    "creditSummary": {
+      "daily": "روزانہ کریڈٹس {credits}",
+      "days": "کریڈٹس فی {count} دن {credits}",
+      "monthly": "ماہانہ کریڈٹس {credits}",
+      "months": "کریڈٹس فی {count} ماہ {credits}",
+      "yearly": "سالانہ کریڈٹس کی تعداد {credits}",
+      "years": "ہر {count} سال میں {credits} کریڈٹس"
+    },
+    "features": {
+      "advanced": {
+        "includesLabel": "بنیادی پلان کی تمام سہولتیں، نیز:",
+        "parallelProcessing": "متوازی پروسیسنگ کی اعلی صلاحیتیں۔",
+        "taskPriority": "کاموں کی ترجیحی پروسیسنگ",
+        "techBasic": "تکنیکی بنیادی مدد"
+      },
+      "common": {
+        "allTeachingAndLearning": "تدریسی تحقیق اور تدریس کی تمام سہولتیں",
+        "higherConcurrency": "بیک وقت زیادہ کاموں کی سہولت"
+      },
+      "daily": {
+        "preview": "مختصر سائیکل کی توثیق اور فوری تجربے کے لیے موزوں",
+        "publish": "مختصر مدت کے لیے کورس شائع کرنے اور آسانی سے آغاز کرنے کی سہولت",
+        "support": "روزانہ سبسکرپشن آپریشن سپورٹ"
+      },
+      "free": {
+        "preview": "طلباء کو کورس کی فراہمی اور تعلیمی اکاؤنٹس کی درآمد",
+        "publish": "کورس کی تخلیق اور مواد کا ذخیرہ"
+      },
+      "monthly": {
+        "preview": "طلباء کو کورس کی فراہمی اور تعلیمی اکاؤنٹس کی درآمد",
+        "publish": "کورس کی تخلیق اور مواد کا ذخیرہ"
+      },
+      "premium": {
+        "concurrencyQuota": "بیک وقت کاموں کی زیادہ حد",
+        "dedicatedSupport": "سرشار تکنیکی مدد",
+        "includesLabel": "اعلیٰ پلان کی تمام سہولتیں، نیز:",
+        "onboarding": "خصوصی کورس پروڈکشن ٹریننگ"
+      },
+      "pro": {
+        "branding": "اپنی مرضی کے مطابق برانڈ کی شناخت",
+        "customDomain": "حسب ضرورت ڈومین نام",
+        "includesLabel": "ترقی یافتہ پلان کی تمام سہولتیں، نیز:",
+        "techPriority": "تکنیکی ترجیحی معاونت"
+      },
+      "yearly": {
+        "lite": {
+          "ops": "متوازی پروسیسنگ کی اعلی صلاحیتیں۔",
+          "publish": "کاموں کی ترجیحی پروسیسنگ"
+        },
+        "premium": {
+          "analytics": "بیک وقت کاموں کی زیادہ حد",
+          "branding": "اپنی مرضی کے مطابق برانڈ کی شناخت",
+          "domain": "حسب ضرورت ڈومین نام",
+          "priority": "سرشار تکنیکی مدد",
+          "support": "خصوصی کورس پروڈکشن ٹریننگ"
+        },
+        "pro": {
+          "analytics": "تکنیکی ترجیحی معاونت",
+          "branding": "اپنی مرضی کے مطابق برانڈ کی شناخت",
+          "domain": "حسب ضرورت ڈومین نام",
+          "priority": "متوازی پروسیسنگ کی اعلی صلاحیتیں۔",
+          "support": "تکنیکی بنیادی مدد"
+        }
+      }
+    },
+    "footnote": {
+      "learningTime": "مدت کا تخمینہ تاریخی ڈیٹا کی بنیاد پر لگایا گیا ہے اور صرف حوالہ کے لیے ہے۔ کورس کا مواد، منتخب کردہ ماڈل، اور تعاملات سبھی اصل کریڈٹ کی کھپت کو متاثر کرتے ہیں۔ اگر متن سے آواز کی تیاری کو فعال کیا جاتا ہے، تو مزید کریڈٹس استعمال کیے جائیں گے۔",
+      "validity": "کریڈٹس کی مدتِ اعتبار: ماہانہ پلان حاصل کرنے کے دن سمیت 30 دن تک درست ہے؛ سالانہ پلان حاصل کرنے کی تاریخ سے ایک کیلنڈر سال تک درست ہے۔ دونوں کی میعاد آخری دن 23:59 پر ختم ہوتی ہے۔"
+    },
+    "free": {
+      "creditSummary": "بونس کریڈٹس کی تعداد {credits}",
+      "description": "پہلی بار کے تجربے کے لیے موزوں",
+      "priceNote": "/ نئی رجسٹریشن {days} دنوں کے اندر درست ہے۔",
+      "priceNoteGranted": "/ {grantedAt} میں فعال، {expiresAt} تک درست",
+      "title": "آزمائشی ورژن"
+    },
+    "intervalTabs": {
+      "daily": "روزانہ پلان",
+      "monthly": "ماہانہ پلان",
+      "plans": "کریڈٹ پلان",
+      "topup": "کریڈٹ پیک",
+      "yearly": "سالانہ پلان"
+    },
+    "learningTime": {
+      "compactValue": "تقریبا {minutes} منٹ",
+      "label": "سیکھنے کے لیے اندازاً دستیاب وقت",
+      "lessThanOne": "تقریباً 1 منٹ سے بھی کم",
+      "unavailable": "—",
+      "value": "تقریبا {minutes} منٹ"
+    },
+    "loading": "پلانز لوڈ ہو رہے ہیں...",
+    "preorder": {
+      "pending": "فعال ہونے کا منتظر پیشگی آرڈر: {plan} {date} کو فعال ہوگا۔"
+    },
+    "subtitle": "اپنے لیے مناسب کریڈٹ پلان منتخب کریں",
+    "table": {
+      "emptyValue": "—",
+      "featuresRowLabel": "شامل سہولتیں",
+      "validityRowLabel": "کریڈٹس کی میعاد کی مدت"
+    },
+    "topup": {
+      "creditLabel": "{credits} کریڈٹس",
+      "noteFrozen": "کریڈٹ پیک استعمال کرنے کے لیے اکاؤنٹ میں میعاد کے اندر موجود ایک کریڈٹ پلان ضروری ہے",
+      "noteInstant": "یہ خریداری کے فوراً بعد لاگو ہوتا ہے اور کریڈٹس کبھی ختم نہیں ہوتے۔"
+    },
+    "topupComingSoon": "جلد دستیاب ہوگا",
+    "validity": {
+      "daily": "مدتِ اعتبار: خریداری کے دن سے روزانہ مؤثر",
+      "days": "مدتِ اعتبار: خریداری کے دن سے ہر {count} دن بعد تجدید",
+      "free": "میعاد کی مدت: رجسٹریشن کی تاریخ سے {days} دنوں کے لیے درست ہے۔",
+      "monthly": "میعاد کی مدت: خریداری کی تاریخ سے 30 دن کے اندر درست (اسی دن سمیت)",
+      "months": "مدتِ اعتبار: خریداری کے دن سمیت ہر {count} × 30 دن بعد تجدید",
+      "yearly": "میعاد کی مدت: خریداری کی تاریخ سے ایک کیلنڈر سال کے لیے درست",
+      "years": "مدتِ اعتبار: خریداری کی تاریخ سے ہر {count} کیلنڈر سال بعد تجدید"
+    },
+    "validityShort": {
+      "free": "{days} دن",
+      "monthly": "{count} مہینے",
+      "yearly": "{count} سال"
+    }
+  },
+  "page": {
+    "adminLink": "بیک اینڈ اکاؤنٹنگ ویو کھولیں۔",
+    "tabs": {
+      "ledger": "کریڈٹس کی تفصیلات",
+      "plans": "کریڈٹس کی خریداری"
+    },
+    "title": "رکنیت اور کریڈٹس"
+  },
+  "renewal": {
+    "eventType": {
+      "cancelEffective": "منسوخی لاگو ہوتی ہے۔",
+      "downgradeEffective": "ڈاؤن گریڈ لاگو ہوتا ہے۔",
+      "expire": "میعاد ختم ہونے کی پروسیسنگ",
+      "reconcile": "مفاہمت کی اصلاح",
+      "renewal": "خودکار تجدید",
+      "retry": "ناکامی پر دوبارہ کوشش کریں۔"
+    },
+    "status": {
+      "canceled": "منسوخ",
+      "failed": "ناکام",
+      "pending": "پھانسی دی جائے۔",
+      "processing": "کارروائی جاری ہے",
+      "succeeded": "مکمل"
+    }
+  },
+  "reports": {
+    "empty": "فی الحال روزانہ کی رپورٹ کا کوئی ڈیٹا نہیں ہے۔",
+    "loadError": "اکاؤنٹنگ رپورٹ کو فی الحال لوڈ نہیں کیا جا سکتا۔",
+    "metric": {
+      "llmCacheTokens": "LLM کیشے ٹوکنز",
+      "llmInputTokens": "LLM ان پٹ ٹوکن",
+      "llmOutputTokens": "LLM آؤٹ پٹ ٹوکنز",
+      "ttsInputChars": "TTS ان پٹ حروف",
+      "ttsOutputChars": "TTS آؤٹ پٹ حروف",
+      "ttsRequestCount": "TTS درخواستوں کی تعداد"
+    },
+    "table": {
+      "count": "اندراجات کی تعداد",
+      "credits": "کریڈٹس",
+      "date": "تاریخ",
+      "entryType": "لیجر کی قسم",
+      "metric": "بلنگ میٹرکس",
+      "provider": "Provider / Model",
+      "rawAmount": "اصل استعمال",
+      "scene": "منظر",
+      "shifu": "Shifu",
+      "source": "ماخذ",
+      "usageType": "استعمال کی قسم",
+      "window": "شماریات ونڈو"
+    },
+    "usageType": {
+      "llm": "ماڈل کال",
+      "tts": "متن سے آواز کی تیاری"
+    }
+  },
+  "result": {
+    "countdown": "{seconds}s کے بعد خودکار طور پر ممبر سینٹر پر واپس آجائیں۔",
+    "errorTitle": "اکاؤنٹ کی مطابقت پذیری ناکام ہو گئی۔",
+    "missingOrder": "بلنگ آرڈر نمبر غائب ہے۔ براہ کرم ممبر سینٹر پر واپس جائیں اور آرڈر لسٹ سے دوبارہ مطابقت پذیر ہوں۔",
+    "openBilling": "ممبر سینٹر کھولیں۔",
+    "pending": "ادائیگی کے نتائج پر ابھی بھی کارروائی ہو رہی ہے اور بعد میں دوبارہ ہم آہنگ کیا جا سکتا ہے۔",
+    "pendingTitle": "اکاؤنٹنگ کی تصدیق کا انتظار ہے۔",
+    "processing": "ادائیگی کی حیثیت کو ہم آہنگ کرنا",
+    "retry": "دوبارہ مطابقت پذیری",
+    "success": "ادائیگی کی تصدیق ہو گئی ہے اور آپ کی رکنیت اور کریڈٹس کا ڈیٹا ریفریش کیا جا رہا ہے۔",
+    "successTitle": "اکاؤنٹس کو اپ ڈیٹ کر دیا گیا ہے۔"
+  },
+  "sidebar": {
+    "creditsLabel": "باقی کریڈٹس",
+    "cta": "ممبر سینٹر پر جائیں۔",
+    "dailyBalanceTitle": "روزانہ پلان بیلنس",
+    "dailyTitle": "روزانہ کی رکنیت",
+    "description": "ممبر کی حیثیت، کریڈٹس بیلنس اور اس کے بعد اکاؤنٹنگ کی کارروائیوں کو چیک کریں۔",
+    "expired": "میعاد ختم",
+    "expiresInDays": "{days} دنوں میں ختم ہو جائے گا۔",
+    "monthlyBalanceTitle": "ماہانہ پلان بیلنس",
+    "monthlyTitle": "ماہانہ رکنیت",
+    "nonMemberBalanceTitle": "کریڈٹس بیلنس",
+    "nonMemberTitle": "غیر رکن",
+    "placeholderValue": "--",
+    "subscriptionPending": "جلد ہی کھل رہا ہے۔",
+    "subscriptionStatusLabel": "رکنیت کی حیثیت",
+    "summaryTitle": "کریڈٹس",
+    "upgradeCta": "اپ گریڈ کریں۔",
+    "usageCta": "تفصیلات دیکھیں",
+    "yearlyBalanceTitle": "سالانہ پلان بیلنس",
+    "yearlyTitle": "سالانہ رکنیت"
+  },
+  "status": {
+    "active": "فعال",
+    "cancelScheduled": "منصوبہ بند منسوخ",
+    "canceled": "منسوخ",
+    "draft": "ادائیگی کا منتظر",
+    "expired": "میعاد ختم",
+    "none": "چالو نہیں ہوا۔",
+    "pastDue": "تجدید ناکام ہو گئی۔",
+    "paused": "معطل"
+  },
+  "welcomeTrial": {
+    "confirm": "ٹھیک ہے، آئیے شروع کریں!",
+    "description": "نئے صارفین کو {days} دن کا بنیادی پلان ملتا ہے، جس میں {credits} کریڈٹس شامل ہیں۔ اپنا پہلا کورس ابھی بنائیں!",
+    "title": "{appName} میں خوش آمدید"
+  }
+}

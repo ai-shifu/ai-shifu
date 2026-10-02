@@ -7,6 +7,7 @@ from flaskr.i18n import get_i18n_list
 from flaskr.service.common.dtos import UserInfo, UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.common.session_attribution import touch_session_skill_attribution
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.funcs import save_user_profiles
 
@@ -50,23 +51,26 @@ def validate_user(app: Flask, token: str) -> UserInfo:
             raise_error("server.user.userNotLogin")
         try:
             if app.config.get("ENVERIMENT", "prod") == "dev":
-                return _load_user_info(token)
-            user_id = _decode_token_user_id(app, token)
-            app.logger.info("user_id: %s", user_id)
-            ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)
-            lookup = token_store.get_and_refresh(
-                app,
-                token=token,
-                expected_user_id=user_id,
-                ttl_seconds=ttl_seconds,
-            )
-            if lookup is None:
-                raise_error("server.user.userTokenExpired")
-            return _load_user_info(lookup.user_id)
+                user = _load_user_info(token)
+            else:
+                user_id = _decode_token_user_id(app, token)
+                app.logger.info("user_id: %s", user_id)
+                ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)
+                lookup = token_store.get_and_refresh(
+                    app,
+                    token=token,
+                    expected_user_id=user_id,
+                    ttl_seconds=ttl_seconds,
+                )
+                if lookup is None:
+                    raise_error("server.user.userTokenExpired")
+                user = _load_user_info(lookup.user_id)
         except jwt.exceptions.ExpiredSignatureError:
             raise_error("server.user.userTokenExpired")
         except jwt.exceptions.InvalidTokenError:
             raise_error("server.user.userNotFound")
+        touch_session_skill_attribution(app, token=token)
+        return user
 
     if has_app_context():
         return _validate()

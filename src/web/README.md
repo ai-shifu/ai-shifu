@@ -1,45 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Web Frontend
 
-## Getting Started
+AI-Shifu's Next.js frontend serves learners, teachers, and operators.
+It shares translations with the backend under `../i18n/` and uses the npm
+lockfile in this directory.
 
-First, run the development server:
+## Local Development
+
+Use Node.js 22.16.0, as pinned in [package.json](package.json). Start the
+backend on port 5800 using the
+[local installation steps](../../INSTALL_MANUAL.md#step-5-manual-installation-development).
+
+In a second terminal, run from the repository root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd src/web
+npm ci
+cp -n .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set the backend origin in `.env.local`, keeping any existing local settings:
 
-## Authentication configuration
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
+```
 
-The Cook Web login page reads authentication options from the backend `/api/config` endpoint. Set the following environment variables (or configure them on the Flask backend) to enable Google OAuth locally:
+Use an origin without an `/api` suffix. Then start the frontend:
 
-- `NEXT_PUBLIC_LOGIN_METHODS_ENABLED`: comma-separated list such as `phone,google`.
-- `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`: default tab to show (for Google use `google`).
+```bash
+npm run dev -- --hostname 127.0.0.1
+```
 
-Ensure the backend exposes `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` so `/api/user/oauth/google` emits the correct authorization URL.
+Bind the frontend to loopback as well as the backend: its development proxy
+can reach an API configured with the Docker template's demo authentication.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open [http://localhost:3000](http://localhost:3000). Routes live under
+`src/app/`; the authoring and operator entry is `/admin`, and the legacy
+`/main` entry redirects there.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+During `npm run dev`, Next.js rewrites backend `/api/*` requests to the
+configured API origin, defaulting to `http://127.0.0.1:5800`. This proxy is
+disabled for production builds. The repository's Docker Compose setup supplies
+the production ingress; see the [installation manual](../../INSTALL_MANUAL.md)
+for deployment.
 
-## Learn More
+## Runtime And Authentication Configuration
 
-To learn more about Next.js, take a look at the following resources:
+The frontend's `/api/config` route returns only `apiBaseUrl`. The backend
+`/api/runtime-config` endpoint supplies login methods and other runtime
+settings. See the [environment reference](src/config/ENVIRONMENT_CONFIG.md)
+for the full configuration contract.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To enable Google login, configure the backend environment:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+LOGIN_METHODS_ENABLED=phone,google
+DEFAULT_LOGIN_METHOD=google
+```
 
-## Deploy on Vercel
+Also configure `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` on
+the backend. Register the frontend callback URL with Google; for this local
+setup it is `http://localhost:3000/login/google-callback`. Set the backend's
+`GOOGLE_OAUTH_REDIRECT_URI` to that exact URL to make the callback explicit.
+Without that override, the backend uses `HOST_URL` or the request origin plus
+`/login/google-callback`. Keep the client secret on the backend.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The frontend variables `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` and
+`NEXT_PUBLIC_DEFAULT_LOGIN_METHOD` in `.env.example` are build-time fallbacks;
+they do not enable backend authentication methods. Restart the affected dev
+servers after changing environment settings.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Validation
+
+Run these commands from `src/web/`, choosing the checks relevant to the change:
+
+| Check              | Command                                        |
+| ------------------ | ---------------------------------------------- |
+| Focused unit tests | `npm test -- --runInBand path/to/file.test.ts` |
+| Unit suite         | `npm run test:ci`                              |
+| Type checking      | `npm run type-check`                           |
+| Lint               | `npm run lint`                                 |
+| Formatting         | `npm run format:check`                         |
+| Browser tests      | `npm run test:e2e`                             |
+
+Browser tests expect a running Docker dev stack at `http://localhost:8080`
+by default; `AI_SHIFU_BASE_URL` overrides the target. They do not start the
+stack. Install the browser once with `npx playwright install chromium`.
+To run only the smoke project and its authentication setup, use
+`npm run test:e2e -- --project=runtime-harness-smoke`.
+Follow the [repository reliability guide](../../docs/RELIABILITY.md)
+when diagnosing smoke failures.
+
+## Contributor References
+
+- [Frontend collaboration rules](AGENTS.md)
+- [Frontend workflow skills](SKILL.md)
+- [Engineering baseline](../../docs/engineering-baseline.md)
+- [Product localization guide](../../docs/references/i18n.md)
+- [Product analytics contracts](../../docs/references/frontend-product-analytics.md)

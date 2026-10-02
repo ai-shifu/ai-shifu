@@ -40,6 +40,7 @@ from flaskr.service.tts.audio_utils import (
     pcm_duration_ms,
     try_get_audio_duration_ms,
 )
+from flaskr.service.tts.patterns import SENTENCE_ENDINGS
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -153,8 +154,6 @@ TENCENT_DEFAULT_CODEC = "mp3"
 TENCENT_SSE_REQUEST_CODEC = "pcm"
 TENCENT_ENABLE_SUBTITLE = True
 TENCENT_MAX_SESSION_CHARS = 255
-
-_TERMINAL_PUNCTUATION = set(".!?;。！？；")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 TENCENT_EMOTIONS = [
     {
@@ -503,31 +502,25 @@ def _contains_cjk(text: str) -> bool:
     return any("\u4e00" <= char <= "\u9fff" for char in text or "")
 
 
+def _has_sentence_ending(text: str) -> bool:
+    return any(match.end() == len(text) for match in SENTENCE_ENDINGS.finditer(text))
+
+
 def ensure_tencent_terminal_punctuation(text: str) -> str:
     """Ensure tencent terminal punctuation."""
     normalized = str(text or "").strip()
     if not normalized:
         return normalized
-    if normalized[-1] in _TERMINAL_PUNCTUATION:
+    if _has_sentence_ending(normalized):
         return normalized
     punctuation = "。" if _contains_cjk(normalized) else "."
     return f"{normalized}{punctuation}"
 
 
 def _split_tencent_sentence_units(text: str) -> list[str]:
-    units: list[str] = []
-    cursor = 0
-    for index, char in enumerate(text or ""):
-        if char in _TERMINAL_PUNCTUATION:
-            unit = text[cursor : index + 1].strip()
-            if unit:
-                units.append(unit)
-            cursor = index + 1
-    tail = str(text or "")[cursor:].strip()
-    if tail:
-        units.append(tail)
-    normalized = str(text or "").strip()
-    return units or ([normalized] if normalized else [])
+    return [
+        unit for unit, _start, _end in _split_tencent_sentence_units_with_ranges(text)
+    ]
 
 
 def _trim_tencent_source_range(text: str, start: int, end: int) -> tuple[int, int]:
@@ -546,12 +539,11 @@ def _split_tencent_sentence_units_with_ranges(
     source = str(text or "")
     units: list[tuple[str, int, int]] = []
     cursor = 0
-    for index, char in enumerate(source):
-        if char in _TERMINAL_PUNCTUATION:
-            start, end = _trim_tencent_source_range(source, cursor, index + 1)
-            if start < end:
-                units.append((source[start:end], start, end))
-            cursor = index + 1
+    for match in SENTENCE_ENDINGS.finditer(source):
+        start, end = _trim_tencent_source_range(source, cursor, match.end())
+        if start < end:
+            units.append((source[start:end], start, end))
+        cursor = match.end()
     start, end = _trim_tencent_source_range(source, cursor, len(source))
     if start < end:
         units.append((source[start:end], start, end))
@@ -630,32 +622,65 @@ def _group_tencent_subtitle_cues_by_source_indices(
     if not sentence_ranges or not indexed_cues:
         return []
 
+    sentence_intervals: list[list[tuple[int, int]]] = [[] for _ in sentence_ranges]
+    for cue in indexed_cues:
+        cue_start = int(cue.get("begin_index", 0) or 0)
+        cue_end = int(cue.get("end_index", cue_start) or cue_start)
+        overlapping: list[tuple[int, int]] = []
+        for index, (_unit, sentence_start, sentence_end) in enumerate(sentence_ranges):
+            if cue_end > sentence_start and cue_start < sentence_end:
+                overlap_text = source_text[
+                    max(cue_start, sentence_start) : min(cue_end, sentence_end)
+                ]
+                overlapping.append(
+                    (index, max(_tencent_speech_weight(overlap_text), 1))
+                )
+        if not overlapping:
+            continue
+
+        start_ms = int(cue.get("start_ms", 0) or 0)
+        end_ms = max(int(cue.get("end_ms", start_ms) or start_ms), start_ms)
+        total_weight = sum(weight for _index, weight in overlapping)
+        consumed_weight = 0
+        cursor_ms = start_ms
+        for index, weight in overlapping:
+            consumed_weight += weight
+            # Partition a shared alignment instead of repeating its full span.
+            # Cumulative rounding keeps adjacent pieces continuous, preserves
+            # the provider's endpoints, and permits zero-length short pieces.
+            boundary_ms = start_ms + round(
+                (end_ms - start_ms) * consumed_weight / total_weight
+            )
+            sentence_intervals[index].append((cursor_ms, boundary_ms))
+            cursor_ms = boundary_ms
+
     first_cue = cues[0]
     segment_index = int(first_cue.get("segment_index", 0) or 0)
     position = int(first_cue.get("position", 0) or 0)
     grouped: list[dict[str, Any]] = []
-    for unit, sentence_start, sentence_end in sentence_ranges:
-        overlapping = []
-        for cue in indexed_cues:
-            cue_start = int(cue.get("begin_index", 0) or 0)
-            cue_end = int(cue.get("end_index", cue_start) or cue_start)
-            if cue_end > sentence_start and cue_start < sentence_end:
-                overlapping.append(cue)
-        if not overlapping:
+    timeline_cursor_ms = 0
+    for (unit, _start, _end), intervals in zip(
+        sentence_ranges, sentence_intervals, strict=True
+    ):
+        if not intervals:
             return []
-        start_ms = min(int(cue.get("start_ms", 0) or 0) for cue in overlapping)
-        end_ms = max(
-            int(cue.get("end_ms", start_ms) or start_ms) for cue in overlapping
-        )
+        # Provider anchors may overlap an earlier sentence even after each
+        # shared alignment has been partitioned. Keep the grouped timeline
+        # monotonic without extending it beyond the latest provider endpoint.
+        start_ms = min(start for start, _end in intervals)
+        end_ms = max(end for _start, end in intervals)
+        start_ms = max(start_ms, timeline_cursor_ms)
+        end_ms = max(end_ms, start_ms)
         grouped.append(
             {
                 "text": unit,
                 "start_ms": start_ms,
-                "end_ms": max(end_ms, start_ms),
+                "end_ms": end_ms,
                 "segment_index": segment_index,
                 "position": position,
             }
         )
+        timeline_cursor_ms = end_ms
 
     return normalize_subtitle_cues(grouped)
 
@@ -942,7 +967,7 @@ def _group_tencent_subtitle_cues_by_sentence(
                 start_ms,
             )
 
-        if text[-1] in _TERMINAL_PUNCTUATION:
+        if _has_sentence_ending(text):
             grouped.append(current)
             current = None
 

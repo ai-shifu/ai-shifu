@@ -4,6 +4,19 @@ This repository includes a small set of scripts focused on internationalization 
 
 - scripts/check_translation_usage.py
   - Scans the backend (Flask) and web frontend to find all translation key usages and ensures they exist in shared JSON under `src/i18n/`.
+  - Excludes generated TypeScript declarations and test files from runtime usage.
+  - Recognizes key constants, dotted relative keys in namespaced or typed forwarded
+    translator arguments, dynamic key templates, and shared backend namespace
+    aliases. Conditional arguments and forwarded literal-union key contracts are
+    included; unrelated dotted strings and translation options are excluded.
+    Dynamic templates, including multiline interpolations, conservatively retain
+    defined keys matching their fixed segments.
+  - Existing messages listed in the backend runtime error-code registry are
+    retained as compatibility contracts even without a current literal caller.
+  - Persisted configuration can supply arbitrary keys; inspect those consumers
+    before deleting a reported candidate. This checker reports usage and does not
+    edit translation files.
+  - Regression tests: `python -m unittest discover -s scripts -p 'test_translation_usage.py'`.
   - Options:
     - `--fail-on-unused`: exit non‑zero if there are defined keys that are not referenced anywhere (helps keep JSON clean).
   - Resilient to legacy allowlist paths and treats missing allowlists as empty.

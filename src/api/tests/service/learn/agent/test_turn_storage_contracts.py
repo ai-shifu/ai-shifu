@@ -107,7 +107,7 @@ def test_unfinished_agent_turn_retires_reserved_block_and_preview_writes_no_prog
     preview: bool,
     failure: str,
 ) -> None:
-    monkeypatch.setattr(run_agent, "_load_or_start", Mock())
+    monkeypatch.setattr(run_agent, "_load_or_start", Mock(return_value=(Mock(), False)))
     provider_error = RuntimeError("provider failed")
 
     def stream_turn(_app: object, **kwargs: object) -> object:
@@ -160,7 +160,7 @@ def test_retirement_database_failure_does_not_replace_original_provider_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     original = RuntimeError("provider interrupted")
-    monkeypatch.setattr(run_agent, "_load_or_start", Mock())
+    monkeypatch.setattr(run_agent, "_load_or_start", Mock(return_value=(Mock(), False)))
     monkeypatch.setattr(run_agent, "_stream_turn", Mock(side_effect=original))
     retire = Mock(side_effect=RuntimeError("cleanup database unavailable"))
     monkeypatch.setattr(run_agent, "retire_unused_block", retire)

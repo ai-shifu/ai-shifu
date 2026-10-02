@@ -26,8 +26,7 @@ from app import create_app  # noqa: E402
 from flaskr.dao import db  # noqa: E402
 from flaskr.service.billing.manual_credit_grants import (  # noqa: E402
     MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
-    MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
-    grant_manual_credits_to_user,
+    grant_manual_credits_with_expiry,
 )
 from flaskr.service.billing.models import CreditLedgerEntry  # noqa: E402
 from flaskr.service.billing.queries import (  # noqa: E402
@@ -148,14 +147,14 @@ def main() -> int:
                 )
                 continue
 
-            grant_result = grant_manual_credits_to_user(
+            grant_result = grant_manual_credits_with_expiry(
                 app,
                 user_bid=row.user_bid,
                 operator_user_bid=args.operator_user_bid,
                 request_id=request_id,
                 amount=str(row.amount),
                 grant_source=MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
-                validity_preset=MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
+                expires_at=subscription.current_period_end_at,
                 display_name="LLM cache overcharge compensation",
                 note="LLM cache overcharge compensation",
                 grant_channel="cache_overcharge_compensation_script",
@@ -251,12 +250,24 @@ def _compare_existing_credit_grant(
         expected=MANUAL_CREDIT_GRANT_SOURCE_COMPENSATION,
         actual=metadata.get("grant_source"),
     )
-    add_mismatch(
-        mismatch,
-        "validity_preset",
-        expected=MANUAL_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
-        actual=metadata.get("validity_preset"),
-    )
+    # Historical compensation used a preset. New grants preserve the same
+    # absolute expiry without storing a preset or a relative duration.
+    if "validity_preset" in metadata:
+        add_mismatch(
+            mismatch,
+            "validity_preset",
+            expected="align_subscription",
+            actual=metadata.get("validity_preset"),
+        )
+    else:
+        add_mismatch(
+            mismatch,
+            "grant_channel",
+            expected="cache_overcharge_compensation_script",
+            actual=metadata.get("grant_channel"),
+        )
+        for field in ("validity_value", "validity_unit"):
+            add_mismatch(mismatch, field, expected=None, actual=metadata.get(field))
     expected_expires_at = (
         metadata.get("compensation_period_end_at") or ledger.expires_at
     )

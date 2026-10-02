@@ -121,8 +121,9 @@ After Docker starts:
 ## Internationalization (i18n)
 
 - Shared translations live in `src/i18n/<locale>/**/*.json` and are consumed by both Backend and Cook Web.
-- See the consolidated guide for conventions, scripts, and CI checks: `docs/i18n.md`.
-- Frontend language list only exposes `en-US` and `zh-CN`.
+- See the [consolidated i18n guide](docs/references/i18n.md) for the product-locale
+  checklist, conventions, scripts, and CI checks.
+- Supported frontend languages are declared in `src/i18n/locales.json`.
 
 ## Text-to-Speech (TTS)
 

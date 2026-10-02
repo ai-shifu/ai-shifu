@@ -5,8 +5,16 @@
       "label": "العربية",
       "rtl": true
     },
+    "de-DE": {
+      "label": "Deutsch",
+      "rtl": false
+    },
     "en-US": {
       "label": "English",
+      "rtl": false
+    },
+    "es-ES": {
+      "label": "Español (España)",
       "rtl": false
     },
     "fr-FR": {
@@ -16,6 +24,10 @@
     "th-TH": {
       "label": "ไทย",
       "rtl": false
+    },
+    "ur-PK": {
+      "label": "اردو",
+      "rtl": true
     },
     "zh-CN": {
       "label": "中文",
@@ -53,8 +65,6 @@
     "module.permission",
     "module.preview",
     "module.profileOnboarding",
-    "module.profiles",
-    "module.profilesManage",
     "module.referral",
     "module.settings",
     "module.shifu",

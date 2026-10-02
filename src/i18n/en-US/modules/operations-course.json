@@ -445,7 +445,7 @@
   "title": "Course Management",
   "transferCreatorDialog": {
     "confirm": "Transfer",
-    "confirmDescription": "Transfer the creator of {courseName} from {currentCreator} to {targetCreator}.",
+    "confirmDescription": "Transfer responsibility for “{courseName}” from {currentCreator} to {targetCreator}.",
     "confirmTitle": "Confirm Creator Transfer",
     "contactPlaceholderEmail": "Enter target creator email",
     "contactPlaceholderPhone": "Enter target creator mobile",

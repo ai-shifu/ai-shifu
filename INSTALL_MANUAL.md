@@ -9,18 +9,19 @@ AI-Shifu consists of two main components:
 ```bash
 src/
 ├── api/          # Backend API service (Flask/Python)
-└── web/          # Cook Web frontend (Next.js)
+└── web/          # Frontend (Next.js)
 ```
 
 - **api**: Backend API service built with Flask
-- **web**: Cook Web frontend for creating, managing, and learning courses, built with Next.js
+- **web**: Frontend for creating, managing, and learning courses, built with Next.js
 
 ### Required Tools and Services
 
-- **Python 3.11+** for backend API
-- **Node.js 22.16.0** for frontend applications
-- **MySQL 8.0+** for database storage
-- **Redis** for caching and session management
+- **Python 3.11** for the backend, matching the Docker image
+- **Node.js 22.16.0** for the frontend
+- **MySQL 8.0** for database storage, matching the Compose stack
+- **Redis 7** for caching, Live session coordination, and background jobs
+- **FFmpeg** for audio processing when running the backend outside Docker
 - **Docker & Docker Compose** (recommended for easy deployment)
 
 ### Required LLM Configuration
@@ -63,7 +64,7 @@ For Docker-based workflows, configure at least one LLM provider key (for example
 
 ### Step 3: Configure Environment Variables
 
-Edit the `.env` file and configure the required settings.
+Edit `docker/.env` and configure the required settings.
 
 #### Required Variables (MUST be configured)
 
@@ -71,7 +72,8 @@ These variables are essential for the application to run:
 
 1. **Database Connection**
    - `SQLALCHEMY_DATABASE_URI`: MySQL connection string
-   - Example: `mysql://root:password@localhost:3306/ai-shifu?charset=utf8mb4`
+   - Bundled Compose default: `mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4`
+   - For manual installation, use the local connection settings in Step 5.2.
 
 2. **Security**
    - `SECRET_KEY`: JWT signing key for authentication
@@ -80,7 +82,7 @@ These variables are essential for the application to run:
 
 3. **LLM Provider** (at least one required)
    - Choose from: OpenAI, ERNIE, ARK, SiliconFlow, GLM, DeepSeek, Qwen
-   - See `.env.example.full` for specific provider configurations
+   - See `docker/.env.example.full` for specific provider configurations
 
 4. **Numbered Course Models**
    - `LLM_MODEL_1_ID`: required physical text model ID served by the configured provider; no default. Model 1 is always the course default.
@@ -90,7 +92,7 @@ These variables are essential for the application to run:
 
 #### Configuration Reference
 
-- `docker/.env.example.full`: canonical template that lists every environment variable with defaults, descriptions, and grouping (Database, Redis, Auth, LLM, etc.). Copy it to `.env` and edit in place.
+- `docker/.env.example.full`: canonical template that lists every environment variable with defaults, descriptions, and grouping (Database, Redis, Auth, LLM, etc.). Copy it to `docker/.env` and edit in place.
 - **Docker reminder**: configure a provider API key and `LLM_MODEL_1_ID` for latest-image, pinned-release and local-development Compose modes. Update database/Redis URLs if you are not using the bundled services.
 
 #### Important Notes
@@ -237,7 +239,11 @@ cd docker
 docker compose -f docker-compose.latest.yml up -d
 ```
 
-`docker-compose.latest.yml` always uses the most recent images (from Docker Hub or your own local builds). Use `docker-compose.yml` instead if you need pinned release tags for reproducible environments.
+`docker-compose.latest.yml` uses images tagged `:latest`, including local
+builds. That tag does not guarantee a cached image is current: run
+`docker compose -f docker-compose.latest.yml pull` before `up -d` when you
+want to replace local images with the published ones. Use `docker-compose.yml`
+instead if you need pinned release tags for reproducible environments.
 
 ### Step 5: Manual Installation (Development)
 
@@ -249,28 +255,45 @@ Start MySQL and Redis services on your local machine or use Docker:
 
 ```bash
 # Using Docker for databases only
-docker run -d --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=ai-shifu -e MYSQL_DATABASE=ai-shifu mysql:latest
-docker run -d --name redis -p 6379:6379 redis:latest
+docker run -d --name mysql -p 127.0.0.1:3306:3306 -e MYSQL_ROOT_PASSWORD=ai-shifu -e MYSQL_DATABASE=ai-shifu mysql:8.0
+docker run -d --name redis -p 127.0.0.1:6379:6379 redis:7-alpine
 ```
 
 #### Step 5.2: Configure Environment for Local Development
 
-Keep the provider key and required `LLM_MODEL_1_ID` mapping from Step 3, and update your `.env` file for local development:
+For a fresh local setup, copy the Docker configuration from Step 3 to the
+backend directory. Run this from the repository root; keep an existing
+`src/api/.env` if it already contains local settings.
+
+```bash
+cp -n docker/.env src/api/.env
+```
+
+The Docker template includes demo authentication settings such as
+`UNIVERSAL_VERIFICATION_CODE`. The API and frontend commands below bind to
+loopback so those settings are not exposed through either development server.
+Before making the application remotely accessible, clear the universal code,
+replace the demo `SECRET_KEY`, and configure a real login provider.
+
+Edit `src/api/.env`, retaining the provider key and required `LLM_MODEL_1_ID`
+mapping. Replace Docker service hostnames with the addresses of your local
+services:
 
 ```bash
 # Update database URLs for local services
-SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@localhost:3306/ai-shifu"
-
-# Update API base URL
-REACT_APP_BASEURL="http://localhost:5800"
+SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@127.0.0.1:3306/ai-shifu?charset=utf8mb4"
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+CELERY_BROKER_URL=redis://127.0.0.1:6379/0
+CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/1
+FLASK_APP=app.py
 ```
 
 #### Step 5.3: Start Backend API
 
 ```bash
+# From the repository root
 cd src/api
-# Copy the environment configuration from docker directory
-cp ../../docker/.env .env
 
 # Install Python dependencies
 pip install -r requirements.txt
@@ -279,21 +302,67 @@ pip install -r requirements.txt
 flask db upgrade
 
 # Start the API server
-gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
+gunicorn -w 4 -b 127.0.0.1:5800 'app:app' --timeout 300 --log-level debug
 ```
 
-#### Step 5.4: Start Web Frontend & CMS
+The HTTP server does not process queued jobs. For background billing, TTS,
+and user tasks, open another terminal with the same Python environment and
+`src/api/.env`, then run:
 
 ```bash
-cd src/web
-# Install Node.js dependencies
-npm install  # or use pnpm install
-
-# Start development server
-npm run dev
+cd src/api
+python -m celery -A celery_app:celery_app worker --loglevel info
 ```
 
-Cook Web (which now serves both the learner experience and authoring console) will be available at `http://localhost:3000`.
+For scheduled billing jobs, run one beat scheduler in another terminal:
+
+```bash
+cd src/api
+python -m celery -A celery_app:celery_app beat --loglevel info
+```
+
+The bundled Compose stack starts these processes as separate services.
+
+Verify the local worker connection and registered task names from `src/api`:
+
+```bash
+python -m celery -A celery_app:celery_app inspect ping
+python -m celery -A celery_app:celery_app inspect registered
+```
+
+A `pong` proves worker connectivity, not successful business processing. On a
+local disposable dataset, trigger the background operation being developed and
+check both its worker `received` / `succeeded` messages and the expected saved
+result. For scheduled jobs, also verify the single beat process dispatches the
+due task. HTTP health and an idle worker alone do not validate that path.
+The isolated Celery configuration and entrypoint tests cover wiring without
+sending billing tasks to a running environment.
+
+#### Step 5.4: Start Frontend
+
+```bash
+# In a second terminal, from the repository root
+cd src/web
+# Install the versions pinned in package-lock.json
+npm ci
+
+# For a fresh setup; preserve an existing local configuration
+cp -n .env.example .env.local
+```
+
+Set the backend origin in `src/web/.env.local` (without an `/api` suffix):
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
+```
+
+```bash
+# Start development server
+npm run dev -- --hostname 127.0.0.1
+```
+
+The frontend is available at `http://localhost:3000`. See the [frontend README](src/web/README.md) for
+authentication configuration and frontend validation commands.
 
 #### Step 5.5: Install the Code-Quality Hooks (Contributors)
 
@@ -347,8 +416,38 @@ courses still referencing it automatically resume using it. Do not reuse numbers
 without considering those references. Existing physical-model callers and Live
 voice follow-up retain their separate contracts.
 
-See the [numbered-model deployment runbook](docs/exec-plans/active/numbered-course-models.md#deployment-runbook).
+See the [numbered-model deployment runbook](docs/exec-plans/completed/numbered-course-models.md#deployment-runbook).
 Do not roll back to a build that treats newly saved numeric choices as physical IDs.
+
+## Upgrading existing profile-onboarding prompts for Spanish
+
+When upgrading an installation that already saved the profile-onboarding
+assistant prompt, run the Spanish prompt backfill from the upgraded API runtime
+before exposing `es-ES` in the learner UI. The runtime needs database and LLM
+access. For the Docker Compose installation above, run from the repository root:
+
+```bash
+cd docker
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py --apply
+```
+
+For a source-checkout installation, run from the repository root instead:
+
+```bash
+cd src/api
+python scripts/backfill_profile_onboarding_assistant_prompts.py
+python scripts/backfill_profile_onboarding_assistant_prompts.py --apply
+```
+
+The first command previews whether a prompt is missing; the second generates
+and publishes it, also filling any other missing supported locales in the
+saved map. `already_present` is a successful no-op. If generation or a
+concurrent operator edit fails, the saved configuration stays unchanged; rerun
+after resolving the error. See the
+[script notes](src/api/scripts/README.md)
+for the other statuses. This is an explicit rollout step; database migrations
+do not call the LLM.
 
 ## Troubleshooting
 
@@ -371,7 +470,7 @@ Do not roll back to a build that treats newly saved numeric choices as physical 
 
 4. **Frontend Build Failures**
    - Ensure Node.js version is 22.16.0
-   - Clear node_modules and reinstall: `rm -rf node_modules && npm install`
+   - Reinstall the locked dependencies from `src/web`: `npm ci`
    - Check for environment variable issues
 
 5. **Pre-commit Hooks Not Running / "command not found"**
@@ -380,18 +479,23 @@ Do not roll back to a build that treats newly saved numeric choices as physical 
 
 ### Log Files
 
-- API logs: Check gunicorn output or `/var/log/ai-shifu.log`
+- API logs: Check terminal/container output and `LOGGING_PATH`, which defaults
+  to `logs/ai-shifu.log` relative to the backend's working directory
+  (`src/api/logs/ai-shifu.log` for the manual commands above).
 - Frontend logs: Check browser console or terminal output
 
 ## Access the Application
 
 ### Manual Installation
 
-- User Interface: `http://localhost:3000` (or configured PORT)
-- Script Editor: `http://localhost:3001`
+- Frontend: `http://localhost:3000` (or configured `PORT`)
+- Course authoring and administration: `http://localhost:3000/admin`
 - API: `http://localhost:5800`
 
-### Default Login
+### Local Demo Login
 
-- Use any phone number for registration/login
-- Default verification code: `1024`
+With the unmodified Docker template, phone login is enabled and
+`UNIVERSAL_VERIFICATION_CODE=1024` accepts the demo code without SMS delivery.
+Use a valid test phone number. This shortcut applies only while that setting
+is enabled; installations with it cleared require their configured login
+provider.

@@ -11,7 +11,7 @@ from typing import Literal
 
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.billing.dtos import BillingPlanDTO
-from pydantic import BaseModel, Field, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
 
 @register_schema_to_swagger
@@ -106,6 +106,10 @@ class AdminOperationUserSummaryDTO(BaseModel):
     has_active_subscription: bool = Field(
         default=False,
         description="Whether the user currently has an active subscription",
+    )
+    can_terminate_paid_subscription: bool = Field(
+        default=False,
+        description="Whether a paid subscription can be terminated or resumed",
     )
     last_login_at: datetime | None = Field(
         default=None,
@@ -260,6 +264,8 @@ class AdminOperationUserCreditSummaryDTO(BaseModel):
 class AdminOperationUserCreditGrantRequestDTO(BaseModel):
     """Operator credits grant request payload."""
 
+    model_config = ConfigDict(extra="forbid")
+
     request_id: str = Field(
         ...,
         description="Client request identifier for idempotent credit grants",
@@ -270,9 +276,12 @@ class AdminOperationUserCreditGrantRequestDTO(BaseModel):
         description="Grant type: manual_credit or referral_reward",
     )
     grant_source: str = Field(..., description="Grant source: reward or compensation")
-    validity_preset: str = Field(..., description="Grant validity preset or custom")
-    validity_value: StrictInt | None = Field(default=None, gt=0)
-    validity_unit: Literal["day", "month", "year"] | None = None
+    validity_value: StrictInt | None = Field(
+        default=None, gt=0, description="Required duration for manual credits only"
+    )
+    validity_unit: Literal["day", "month", "year"] | None = Field(
+        default=None, description="Required duration unit for manual credits only"
+    )
     display_name: str = Field(
         default="",
         description="Optional user-visible grant display name",
@@ -296,7 +305,6 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
         description="Grant type: manual_credit or referral_reward",
     )
     grant_source: str = Field(..., description="Grant source: reward or compensation")
-    validity_preset: str = Field(..., description="Applied validity preset")
     validity_value: int | None = None
     validity_unit: Literal["day", "month", "year"] | None = None
     expires_at: datetime | None = Field(
@@ -319,6 +327,52 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
     def __json__(self) -> dict[str, object]:
         """Return the operator user credit grant result as JSON-compatible data."""
         return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditDeductionRequestDTO(BaseModel):
+    """Operator credit deduction request payload."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str = Field(
+        ..., min_length=1, max_length=36, description="Idempotent request identifier"
+    )
+    amount: str = Field(..., description="Positive credits amount to deduct")
+    reason: Literal["incorrect_grant", "account_correction", "other"] = Field(
+        ..., description="Stable deduction reason"
+    )
+    note: str = Field(default="", max_length=255, description="Operator note")
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditDeductionResultDTO(BaseModel):
+    """Operator credit deduction response payload."""
+
+    status: str = Field(..., description="Deduction result status")
+    user_bid: str = Field(..., description="Target user business identifier")
+    amount: str = Field(..., description="Deducted positive credits amount")
+    reason: str = Field(..., description="Deduction reason")
+    note: str = Field(default="", description="Operator note")
+    wallet_bucket_bids: list[str] = Field(default_factory=list)
+    ledger_bids: list[str] = Field(default_factory=list)
+    summary: AdminOperationUserCreditSummaryDTO
+
+    def __json__(self) -> dict[str, object]:
+        """Return the deduction result as JSON-compatible data."""
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserSubscriptionTerminationRequestDTO(BaseModel):
+    """Operator request to immediately terminate a paid subscription."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str = Field(
+        ..., min_length=1, max_length=36, description="Idempotent request identifier"
+    )
+    reason: str = Field(..., min_length=1, max_length=255)
 
 
 @register_schema_to_swagger

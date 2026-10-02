@@ -85,6 +85,10 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_TRIAL,
 )
+from flaskr.service.shifu.dtos import (
+    get_demo_course_content_language,
+    get_demo_course_title_language,
+)
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
@@ -505,6 +509,8 @@ def get_outline_item_tree(
             return LearnOutlineItemsWithBannerInfoDTO(
                 banner_info=banner_info_dto,
                 outline_items=outline_items,
+                title_language=get_demo_course_title_language(shifu_bid),
+                content_language=get_demo_course_content_language(shifu_bid),
             )
         if not is_paid and add_banner:
             banner_info_dto = LearnBannerInfoDTO(
@@ -517,11 +523,19 @@ def get_outline_item_tree(
         return LearnOutlineItemsWithBannerInfoDTO(
             banner_info=banner_info_dto,
             outline_items=outline_items,
+            title_language=get_demo_course_title_language(shifu_bid),
+            content_language=get_demo_course_content_language(shifu_bid),
         )
 
 
 def get_learn_record(
-    app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    preview_mode: bool,
+    *,
+    progress_record_bid: str | None = None,
 ) -> LegacyLearnRecord:
     """Rebuild the learner's legacy record from persisted progress."""
     with app.app_context():
@@ -538,13 +552,18 @@ def get_learn_record(
             )
             is_paid = bool(buy_record)
 
-        progress_record = LearnProgressRecord.query.filter(
+        progress_query = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
             LearnProgressRecord.outline_item_bid == outline_bid,
             LearnProgressRecord.deleted == 0,
             LearnProgressRecord.status != LEARN_STATUS_RESET,
-        ).first()
+        )
+        if progress_record_bid is not None:
+            progress_query = progress_query.filter(
+                LearnProgressRecord.progress_record_bid == progress_record_bid
+            )
+        progress_record = progress_query.first()
         if not progress_record:
             return LegacyLearnRecord(
                 records=[],

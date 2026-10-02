@@ -208,7 +208,9 @@ export default function AuthPage() {
     const preferred = userInfo?.language
       ? normalizeLanguage(userInfo.language)
       : null;
-    const nextLanguage = normalizeLanguage(preferred ?? browserLanguage);
+    const nextLanguage = normalizeLanguage(
+      preferred ?? (i18n.language || browserLanguage),
+    );
 
     if (!nextLanguage) {
       return;
@@ -470,6 +472,7 @@ export default function AuthPage() {
             </h2>
             <div className='absolute top-0 right-0 z-10'>
               <LanguageSelect
+                analyticsSurface='login'
                 language={language}
                 onSetLanguage={handleManualLanguageChange}
                 variant='login'

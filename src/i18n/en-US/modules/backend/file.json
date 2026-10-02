@@ -8,7 +8,6 @@
     "videoBilibiliApiRequestFailed": "Request Bilibili API Failed",
     "videoGetInfoError": "Error Getting Video Info",
     "videoInvalidBilibiliLink": "Invalid Bilibili Link",
-    "videoInvalidUrlFormat": "Invalid video URL format",
     "videoNetworkError": "Video network error",
     "videoParseError": "Video parse error",
     "videoUnsupportedVideoSite": "Unsupported Video Site",

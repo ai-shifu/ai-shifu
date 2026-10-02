@@ -1,0 +1,7 @@
+{
+  "__namespace__": "server.shifu",
+  "__flat__": {
+    "courseNotFound": "No se ha encontrado el curso.",
+    "lessonNotFoundInCourse": "No se ha encontrado la lección en este curso."
+  }
+}

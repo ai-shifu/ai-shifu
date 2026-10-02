@@ -6,14 +6,13 @@ admin, auth, settings, preview, and chat-oriented experiences.
 Entry files in this directory: `auth/EmailLogin.tsx`,
 `shifu-edit/ShifuEdit.tsx`, `ui/Button.tsx`.
 
+Shared compatibility, i18n, privacy and verification rules are inherited from
+the root and `src/web/AGENTS.md`; the constraints below are local.
+
 ## Do
 
 - Preserve learner mobile, modal, branding, and chat styling and props when
   moving shared components.
-- Keep user-facing strings routed through shared i18n and component props
-  instead of hardcoded labels.
-- Preserve stable component contracts for callers before making broad prop or
-  state-shape changes.
 - Treat chat, preview, and auth components as shared behavior that often needs
   coordinated store and skill updates.
 

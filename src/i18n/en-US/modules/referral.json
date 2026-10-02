@@ -19,15 +19,14 @@
       "status": "Status"
     },
     "queueTitle": "Invite records",
-    "refresh": "Refresh",
-    "rewardRecordValue": "{cycles} month basic plan ({credits} credits included)",
+    "rewardRecordValue": "{cycles, plural, one {# month} other {# months}} of the Basic plan ({credits} credits included)",
     "rewardRulesTitle": "Campaign rules",
     "rules": {
       "cap": "Invite rewards are issued automatically and can accumulate up to {cap} months. For example, inviting 12 friends can earn 12 months of the basic plan.",
       "defer": "If you currently have an active plan, invite rewards will automatically start after your current plan ends.",
       "firstRegistration": "When a friend completes their first registration through your invite link, the invite counts as successful.",
       "inviteeBenefit": "After registration, invited friends receive the new-user 1000-credit trial plan, valid for 15 days.",
-      "inviterReward": "For each friend who registers successfully, you receive {cycles} month of the basic plan ({credits} credits included, valued at RMB 199).",
+      "inviterReward": "For each friend who registers successfully through your invitation, you receive {cycles, plural, one {# month} other {# months}} of the Basic plan ({credits} credits included, valued at RMB 199).",
       "unregistered": "Share your invite link with new users who have not registered for AI Shifu before."
     },
     "shareMessage": "I am using AI Shifu to turn knowledge and experience into one-on-one interactive courses. I recommend trying AI Shifu too. Register to get a free 15-day trial plan: {url}",
@@ -87,9 +86,7 @@
       "prevAria": "Previous page"
     },
     "refresh": "Refresh",
-    "statusUpdated": "Status updated",
     "table": {
-      "action": "Action",
       "boundAt": "Bound at",
       "campaign": "Campaign",
       "inviteCode": "Invite code",

@@ -288,6 +288,7 @@ def test_password_login_finds_password_by_account_across_identifier_types(
 ) -> None:
     aggregate = SimpleNamespace(user_bid="account-1")
     credential = AuthCredential(
+        credential_bid="password-credential-1",
         user_bid="account-1",
         provider_name="password",
         identifier="another-login@example.com",
@@ -322,4 +323,9 @@ def test_password_login_finds_password_by_account_across_identifier_types(
     assert result.token.token == "issued-token"
     assert result.credential is credential
     assert result.is_new_user is False
-    assert result.metadata == {"user_bid": "account-1"}
+    assert result.metadata == {
+        "user_bid": "account-1",
+        "verified_identifier": normalized,
+        "password_credential_bid": "password-credential-1",
+        "password_credential_identifier": "another-login@example.com",
+    }

@@ -646,99 +646,215 @@ def create_outlines_batch(
         return _insert(prepared, parent_id or "")
 
 
+def _load_current_outline_items_for_reorder(shifu_bid: str) -> list[DraftOutlineItem]:
+    """Read current versions after the course lock, even in an older RR snapshot."""
+    # Keep MAX in the locking SELECT itself: a nested aggregate can read an old
+    # snapshot. The full index prefix enables grouping without scanning history.
+    latest = (
+        db.session.query(
+            DraftOutlineItem.shifu_bid,
+            DraftOutlineItem.outline_item_bid,
+            db.func.max(DraftOutlineItem.id).label("id"),
+        )
+        .filter_by(shifu_bid=shifu_bid)
+        .group_by(DraftOutlineItem.shifu_bid, DraftOutlineItem.outline_item_bid)
+        .with_hint(
+            DraftOutlineItem,
+            "FORCE INDEX (ix_shifu_draft_outline_items_shifu_outline_id)",
+            dialect_name="mysql",
+        )
+        .with_for_update()
+        .all()
+    )
+    current_ids = [item.id for item in latest]
+    if not current_ids:
+        return []
+    current = (
+        DraftOutlineItem.query.filter(DraftOutlineItem.id.in_(current_ids))
+        .populate_existing()
+        .with_for_update()
+        .all()
+    )
+    # Filtering deleted before selecting the newest IDs would resurrect tombstones.
+    return [item for item in current if item.deleted == 0]
+
+
+def _merge_sibling_order(
+    existing_items: list[DraftOutlineItem], order: list[str]
+) -> tuple[list[ReorderOutlineItemDto], str]:
+    """Merge one complete group into a BID-keyed tree without losing any node."""
+    items = {item.outline_item_bid: item for item in existing_items}
+    if any(bid not in items for bid in order):
+        raise_param_error("order")
+    parent_bid = items[order[0]].parent_bid or ""
+    siblings = {
+        item.outline_item_bid
+        for item in existing_items
+        if (item.parent_bid or "") == parent_bid
+    }
+    if set(order) != siblings:
+        raise_param_error("order")
+
+    nodes = {bid: ReorderOutlineItemDto(bid=bid, children=[]) for bid in items}
+    roots = []
+    for item in sorted(
+        existing_items, key=lambda row: (len(row.position), row.position, row.id)
+    ):
+        parent = item.parent_bid or ""
+        if parent and parent not in nodes:
+            raise_error("server.shifu.outlineStructureBroken")
+        children = nodes[parent].children if parent else roots
+        children.append(nodes[item.outline_item_bid])
+    pending = list(roots)
+    reachable = set()
+    while pending:
+        node = pending.pop()
+        if node.bid in reachable:
+            raise_error("server.shifu.outlineStructureBroken")
+        reachable.add(node.bid)
+        pending.extend(node.children)
+    if len(reachable) != len(nodes):
+        raise_error("server.shifu.outlineStructureBroken")
+
+    group = nodes[parent_bid].children if parent_bid else roots
+    group[:] = [nodes[bid] for bid in order]
+    return roots, parent_bid
+
+
+def reorder_outline_siblings(
+    app: object, user_id: str, shifu_id: str, order: object
+) -> bool:
+    """Reorder exactly one current sibling group in a single locked transaction."""
+    if (
+        not isinstance(order, list)
+        or not order
+        or any(not isinstance(bid, str) or not bid.strip() for bid in order)
+        or len(set(order)) != len(order)
+    ):
+        raise_param_error("order")
+    with app_context_scope(app), unit_of_work():
+        __lock_shifu_for_outline_write(shifu_id)
+        existing_items = _load_current_outline_items_for_reorder(shifu_id)
+        outline_dtos, parent_bid = _merge_sibling_order(existing_items, order)
+        _persist_outline_order(
+            app,
+            user_id,
+            shifu_id,
+            outline_dtos,
+            existing_items,
+            sibling_parent_bid=parent_bid,
+        )
+        return True
+
+
 def reorder_outline_tree(
     app: object, user_id: str, shifu_id: str, outlines: list[ReorderOutlineItemDto]
 ) -> bool:
-    """Reorder outline tree.
-
-    usage:
-    1. reorder outline tree.
-
-    Args:
-        app: Flask application instance
-        user_id: User ID
-        shifu_id: Shifu ID
-        outlines: Outline items
-    Returns:
-        bool: True if reordered, False otherwise
-
-    """
+    """Persist the legacy full-tree reorder payload under the course lock."""
     with app_context_scope(app), unit_of_work():
         app.logger.info(
             "reorder outline tree, user_id: %s, shifu_id: %s", user_id, shifu_id
         )
-        now_time = now_utc()
         __lock_shifu_for_outline_write(shifu_id)
-
-        # get existing outlines
         existing_items = load_existing_outline_items(shifu_id)
-        existing_items_map = {item.outline_item_bid: item for item in existing_items}
-        changed_outline_bids = set()
-
-        history_infos = []
-
-        # rebuild positions
-        def rebuild_positions(
-            outline_dtos: list[ReorderOutlineItemDto],
-            parent_position: object = "",
-            parent_bid: object = "",
-            history_infos: list[HistoryItem] | None = None,
-        ) -> None:
-            if history_infos is None:
-                history_infos = []
-            for i, outline_dto in enumerate(outline_dtos):
-                if outline_dto.bid in existing_items_map:
-                    item = existing_items_map[outline_dto.bid]
-                    new_position = f"{parent_position}{i + 1:02d}"
-                    new_parent_bid = parent_bid or ""
-                    if (
-                        item.position != new_position
-                        or (item.parent_bid or "") != new_parent_bid
-                    ):
-                        # create new version
-                        new_item: DraftOutlineItem = item.clone()
-                        new_item.position = new_position
-                        new_item.parent_bid = new_parent_bid
-                        new_item.updated_user_bid = user_id
-                        new_item.updated_at = now_time
-                        db.session.add(new_item)
-                        db.session.flush()
-                        history_info = HistoryItem(
-                            bid=outline_dto.bid,
-                            id=new_item.id,
-                            type="outline",
-                            children=[],
-                        )
-                        changed_outline_bids.add(outline_dto.bid)
-                        existing_items_map[outline_dto.bid] = new_item
-                    else:
-                        history_info = HistoryItem(
-                            bid=outline_dto.bid, id=item.id, type="outline", children=[]
-                        )
-                    if history_info.child_count == 0 and bool(item.content):
-                        mdflow = MarkdownFlow(item.content).set_output_language(
-                            get_markdownflow_output_language()
-                        )
-                        block_list = mdflow.get_all_blocks()
-                        history_info.child_count = len(block_list)
-
-                    history_infos.append(history_info)
-
-                    # recursively process children
-                    if outline_dto.children:
-                        rebuild_positions(
-                            outline_dto.children,
-                            new_position,
-                            outline_dto.bid,
-                            history_info.children,
-                        )
-
         outline_dtos = convert_outline_to_reorder_outline_item_dto(outlines)
-        rebuild_positions(outline_dtos, history_infos=history_infos)
-        for outline_bid in changed_outline_bids:
-            cleanup_outline_history_versions(app, shifu_id, outline_bid)
-        save_outline_tree_history(app, user_id, shifu_id, history_infos)
+        _persist_outline_order(app, user_id, shifu_id, outline_dtos, existing_items)
         return True
+
+
+def _persist_outline_order(
+    app: object,
+    user_id: str,
+    shifu_id: str,
+    outline_dtos: list[ReorderOutlineItemDto],
+    existing_items: list[DraftOutlineItem],
+    *,
+    sibling_parent_bid: str | None = None,
+) -> None:
+    """Persist a prepared tree using exactly the rows read by the locked caller."""
+    now_time = now_utc()
+    existing_items_map = {item.outline_item_bid: item for item in existing_items}
+    changed_outline_bids = set()
+    history_infos = []
+
+    def rebuild_positions(
+        nodes: list[ReorderOutlineItemDto],
+        parent_position: str = "",
+        parent_bid: str = "",
+        history_infos: list[HistoryItem] | None = None,
+        moved_ancestor: bool = False,
+        old_parent_position: str = "",
+    ) -> None:
+        if history_infos is None:
+            history_infos = []
+        for i, outline_dto in enumerate(nodes):
+            if outline_dto.bid not in existing_items_map:
+                continue
+            item = existing_items_map[outline_dto.bid]
+            if sibling_parent_bid is None or parent_bid == sibling_parent_bid:
+                new_position = f"{parent_position}{i + 1:02d}"
+            elif moved_ancestor:
+                # Rebase the parent prefix while keeping this group's ordinals.
+                suffix = item.position[len(old_parent_position) :]
+                if (
+                    not item.position.startswith(old_parent_position)
+                    or not suffix.isascii()
+                    or not suffix.isdigit()
+                    or int(suffix) <= 0
+                    or suffix != f"{int(suffix):02d}"
+                ):
+                    raise_error("server.shifu.outlineStructureBroken")
+                new_position = f"{parent_position}{suffix}"
+            else:
+                new_position = item.position
+            new_parent_bid = parent_bid or ""
+            position_changed = item.position != new_position
+            if position_changed or (item.parent_bid or "") != new_parent_bid:
+                new_item: DraftOutlineItem = item.clone()
+                new_item.position = new_position
+                new_item.parent_bid = new_parent_bid
+                new_item.updated_user_bid = user_id
+                new_item.updated_at = now_time
+                db.session.add(new_item)
+                db.session.flush()
+                history_info = HistoryItem(
+                    bid=outline_dto.bid, id=new_item.id, type="outline", children=[]
+                )
+                changed_outline_bids.add(outline_dto.bid)
+                existing_items_map[outline_dto.bid] = new_item
+            else:
+                history_info = HistoryItem(
+                    bid=outline_dto.bid, id=item.id, type="outline", children=[]
+                )
+            if history_info.child_count == 0 and bool(item.content):
+                mdflow = MarkdownFlow(item.content).set_output_language(
+                    get_markdownflow_output_language()
+                )
+                history_info.child_count = len(mdflow.get_all_blocks())
+            history_infos.append(history_info)
+            if outline_dto.children:
+                rebuild_positions(
+                    outline_dto.children,
+                    new_position,
+                    outline_dto.bid,
+                    history_info.children,
+                    moved_ancestor=moved_ancestor or position_changed,
+                    old_parent_position=item.position,
+                )
+
+    rebuild_positions(outline_dtos, history_infos=history_infos)
+    if sibling_parent_bid is not None:
+        assert_outline_items_publishable(
+            app, shifu_id, list(existing_items_map.values())
+        )
+    for outline_bid in changed_outline_bids:
+        cleanup_outline_history_versions(app, shifu_id, outline_bid)
+    if sibling_parent_bid is None:
+        save_outline_tree_history(app, user_id, shifu_id, history_infos)
+    else:
+        save_outline_tree_history(
+            app, user_id, shifu_id, history_infos, for_update=True
+        )
 
 
 def get_unit_by_id(

@@ -42,13 +42,14 @@ from flaskr.service.billing.manual_credit_grants import grant_manual_credits_to_
 from flaskr.service.billing.manual_plan_grants import grant_manual_plan_to_user
 from flaskr.service.billing.operation_credits import (
     OperationCreditCaptureResult,
-    OperationCreditEstimate,
     OperationCreditReleaseResult,
     OperationCreditReservationResult,
     capture_reserved_operation_credits,
-    estimate_voice_clone_operation_credits,
     release_reserved_operation_credits,
     reserve_operation_credits,
+)
+from flaskr.service.billing.operator_subscription_termination import (
+    terminate_operator_paid_subscription,
 )
 from flaskr.service.billing.ownership import resolve_shifu_creator_bid
 from flaskr.service.billing.preorders import is_active_preorder_order
@@ -71,6 +72,7 @@ from flaskr.service.billing.renewal_event_transitions import (
 )
 from flaskr.service.billing.subscriptions import cancel_billing_subscription
 from flaskr.service.billing.wallets import (
+    deduct_operator_credit_wallet_balance,
     persist_credit_wallet_snapshot,
     refresh_credit_wallet_snapshot,
     sync_credit_bucket_status,
@@ -130,7 +132,6 @@ def admit_creator_preview_usage(
 __all__ = [
     "CreatorUsageAdmission",
     "OperationCreditCaptureResult",
-    "OperationCreditEstimate",
     "OperationCreditReleaseResult",
     "OperationCreditReservationResult",
     "ReferralPlanRewardRequest",
@@ -146,8 +147,8 @@ __all__ = [
     "cancel_subscription_renewal_events",
     "capture_reserved_operation_credits",
     "credit_decimal_to_number",
+    "deduct_operator_credit_wallet_balance",
     "dry_run_credit_notifications",
-    "estimate_voice_clone_operation_credits",
     "get_credit_notification_detail",
     "get_operator_credit_notification_overview",
     "get_operator_credit_order_detail",
@@ -181,6 +182,7 @@ __all__ = [
     "save_credit_notification_policy",
     "sync_credit_bucket_status",
     "sync_credit_notification_template",
+    "terminate_operator_paid_subscription",
     "to_decimal",
     "update_credit_notification_email_template_status",
 ]

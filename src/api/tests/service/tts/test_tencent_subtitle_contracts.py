@@ -85,6 +85,293 @@ def test_indexed_subtitles_preserve_source_punctuation_and_trim_inter_sentence_s
     assert result == [_cue("A!", 310, 350, 3, 5), _cue("BB?", 400, 500, 3, 5)]
 
 
+def test_indexed_cue_spanning_unicode_sentences_divides_duration_without_overlap() -> (
+    None
+):
+    source = "مرحبا؟ نعم۔"
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {
+                "Text": source,
+                "BeginTime": 0,
+                "EndTime": 1000,
+                "BeginIndex": 0,
+                "EndIndex": len(source),
+            }
+        ],
+        source_text=source,
+        offset_ms=100,
+        segment_index=2,
+        position=4,
+    )
+
+    assert result == [_cue("مرحبا؟", 100, 725, 2, 4), _cue("نعم۔", 725, 1100, 2, 4)]
+
+
+@pytest.mark.parametrize(
+    ("duration_ms", "boundaries"),
+    [
+        (0, (10, 10, 10, 10)),
+        (1, (10, 10, 10, 11)),
+        (5, (10, 11, 12, 15)),
+    ],
+)
+def test_indexed_cue_spanning_three_sentences_rounds_cumulative_boundaries(
+    duration_ms: int, boundaries: tuple[int, int, int, int]
+) -> None:
+    source = "  A؟  BB।  CCC။  "
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {
+                "Text": source,
+                "BeginTime": 10,
+                "EndTime": 10 + duration_ms,
+                "BeginIndex": 0,
+                "EndIndex": len(source),
+            }
+        ],
+        source_text=source,
+    )
+
+    assert result == [
+        _cue("A؟", boundaries[0], boundaries[1]),
+        _cue("BB।", boundaries[1], boundaries[2]),
+        _cue("CCC။", boundaries[2], boundaries[3]),
+    ]
+
+
+@pytest.mark.parametrize("with_anchors", [False, True], ids=["crossing", "anchored"])
+def test_indexed_cue_splits_use_overlap_weights_and_preserve_sentence_anchors(
+    with_anchors: bool,
+) -> None:
+    source = "AA؟ BBBB۔ CCC।"
+    second_start = source.index("BBBB")
+    split_at = second_start + 1
+    subtitles = [
+        {
+            "Text": source[:split_at],
+            "BeginTime": 100,
+            "EndTime": 400,
+            "BeginIndex": 0,
+            "EndIndex": split_at,
+        },
+        {
+            "Text": source[split_at:],
+            "BeginTime": 500,
+            "EndTime": 1000,
+            "BeginIndex": split_at,
+            "EndIndex": len(source),
+        },
+    ]
+    if with_anchors:
+        subtitles.extend(
+            [
+                {
+                    "Text": "A",
+                    "BeginTime": 20,
+                    "EndTime": 80,
+                    "BeginIndex": 0,
+                    "EndIndex": 1,
+                },
+                {
+                    "Text": "C",
+                    "BeginTime": 1020,
+                    "EndTime": 1100,
+                    "BeginIndex": source.index("CCC") + 2,
+                    "EndIndex": source.index("CCC") + 3,
+                },
+            ]
+        )
+
+    result = tencent.normalize_tencent_subtitle_cues(subtitles, source_text=source)
+
+    assert result == [
+        _cue("AA؟", 20 if with_anchors else 100, 300),
+        _cue("BBBB۔", 300, 750),
+        _cue("CCC।", 750, 1100 if with_anchors else 1000),
+    ]
+
+
+def test_indexed_shared_cue_clamps_overlapping_sentence_anchor() -> None:
+    source = "AA؟ B۔"
+    second_start = source.index("B")
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {
+                "Text": source,
+                "BeginTime": 100,
+                "EndTime": 400,
+                "BeginIndex": 0,
+                "EndIndex": len(source),
+            },
+            {
+                "Text": "B",
+                "BeginTime": 250,
+                "EndTime": 260,
+                "BeginIndex": second_start,
+                "EndIndex": second_start + 1,
+            },
+        ],
+        source_text=source,
+    )
+
+    assert result == [_cue("AA؟", 100, 300), _cue("B۔", 300, 400)]
+
+
+def test_indexed_sentences_clamp_short_later_cues_without_extending_total_duration() -> (
+    None
+):
+    source = "A؟ B। C။"
+    subtitles = [
+        {
+            "Text": text,
+            "BeginTime": start,
+            "EndTime": end,
+            "BeginIndex": source.index(text),
+            "EndIndex": source.index(text) + len(text),
+        }
+        for text, start, end in [("A", 100, 600), ("B", 250, 260), ("C", 300, 500)]
+    ]
+    result = tencent.normalize_tencent_subtitle_cues(
+        subtitles,
+        source_text=source,
+        offset_ms=50,
+        segment_index=2,
+        position=4,
+    )
+
+    assert result == [
+        _cue("A؟", 150, 650, 2, 4),
+        _cue("B।", 650, 650, 2, 4),
+        _cue("C။", 650, 650, 2, 4),
+    ]
+    assert result[-1]["end_ms"] == max(item["EndTime"] for item in subtitles) + 50
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ("مرحبا\u061f", "التالي\u06d4"),
+        ("पहला\u0964", "दूसरा\u0965"),
+        ("ပထမ\u104b", "ဒုတိယ\u104b"),
+        ('"First!?"', "Second."),
+        ("\u201c第一句\uff1f\uff01\u201d", "第二句\u3002"),
+        ("(First!?)", "Second."),
+        ("„Hallo!“", "„Weiter.“"),
+        ("»Hallo!«", "»Weiter.«"),
+        ("‹Hallo!›", "‹Weiter.›"),
+        ("›Hallo!‹", "›Weiter.‹"),
+    ],
+)
+def test_multilingual_sentence_ranges_preserve_source_indices_and_provider_timing(
+    first: str, second: str
+) -> None:
+    source = f"  {first}  {second}  "
+    first_start = source.index(first)
+    second_start = source.index(second)
+    ranges = [
+        (first, first_start, first_start + len(first)),
+        (second, second_start, second_start + len(second)),
+    ]
+    assert tencent._split_tencent_sentence_units_with_ranges(source) == ranges
+    assert tencent._split_tencent_sentence_units(source) == [first, second]
+
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {
+                "Text": "first",
+                "BeginTime": 10,
+                "EndTime": 50,
+                "BeginIndex": ranges[0][1],
+                "EndIndex": ranges[0][2],
+            },
+            {
+                "Text": "second",
+                "BeginTime": 100,
+                "EndTime": 200,
+                "BeginIndex": ranges[1][1],
+                "EndIndex": ranges[1][2],
+            },
+        ],
+        source_text=source,
+        offset_ms=300,
+        segment_index=3,
+        position=5,
+    )
+    assert result == [_cue(first, 310, 350, 3, 5), _cue(second, 400, 500, 3, 5)]
+
+
+def test_adjacent_quoted_sentence_keeps_its_opening_quote_and_source_indices() -> None:
+    first = "第一句。"
+    second = "「第二句。」"
+    source = first + second
+    assert tencent._split_tencent_sentence_units_with_ranges(source) == [
+        (first, 0, len(first)),
+        (second, len(first), len(source)),
+    ]
+
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {
+                "Text": first,
+                "BeginTime": 10,
+                "EndTime": 50,
+                "BeginIndex": 0,
+                "EndIndex": len(first),
+            },
+            {
+                "Text": second,
+                "BeginTime": 100,
+                "EndTime": 200,
+                "BeginIndex": len(first),
+                "EndIndex": len(source),
+            },
+        ],
+        source_text=source,
+    )
+
+    assert result == [_cue(first, 10, 50), _cue(second, 100, 200)]
+
+
+@pytest.mark.parametrize(
+    "ending", ["\u061f", "\u0964", "\u0965", "\u104b", '!?"', "\u3002\u201d"]
+)
+def test_multilingual_word_cues_finish_at_sentence_endings_and_closing_quotes(
+    ending: str,
+) -> None:
+    result = tencent.normalize_tencent_subtitle_cues(
+        [
+            {"Text": "first", "BeginTime": 10, "EndTime": 30},
+            {"Text": ending, "BeginTime": 30, "EndTime": 40},
+            {"Text": "tail", "BeginTime": 50, "EndTime": 100},
+        ]
+    )
+    assert result == [_cue(f"first{ending}", 10, 40), _cue("tail", 50, 100)]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("مرحبا\u061f", "مرحبا\u061f"),
+        ("पहला\u0964", "पहला\u0964"),
+        ("ပထမ\u104b", "ပထမ\u104b"),
+        (' "First!?" ', '"First!?"'),
+        ("\u201c第一句\u3002\u201d", "\u201c第一句\u3002\u201d"),
+        ("„Hallo!“", "„Hallo!“"),
+        ("»Hallo!«", "»Hallo!«"),
+        ("‹Hallo!›", "‹Hallo!›"),
+        ("›Hallo!‹", "›Hallo!‹"),
+        ("First? tail", "First? tail."),
+        ("你好", "你好\u3002"),
+        ("", ""),
+    ],
+)
+def test_terminal_punctuation_preserves_unicode_endings_and_adds_only_missing_ones(
+    text: str, expected: str
+) -> None:
+    assert tencent.ensure_tencent_terminal_punctuation(text) == expected
+
+
 def test_missing_sentence_indices_fall_back_to_weighted_source_alignment() -> None:
     result = tencent.normalize_tencent_subtitle_cues(
         [

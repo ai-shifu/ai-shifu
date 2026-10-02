@@ -49,3 +49,19 @@ validates Checkout evidence before moving the order to a terminal state.
 ## Interfaces and Dependencies
 
 No schema, API response, provider configuration, or deployment setting changes.
+
+## Outcomes & Retrospective
+
+The recorded focused Checkout and timeout-task tests verify the narrow expired/unpaid compatibility path and reject paid or foreign evidence. No real-provider rollout is inferred.
+
+## Plan of Work
+
+Permit historical missing metadata only for a matching expired unpaid session; keep paid synchronization and entitlement grants behind strict provider ownership checks.
+
+## Concrete Steps
+
+Run the adjacent billing Checkout synchronization and timeout-task tests, including missing, partially foreign and paid metadata cases, before changing this compatibility path.
+
+## Idempotence and Recovery
+
+Repeated expiry handling must not grant credits or activate a subscription. Revert the compatibility branch if its ownership checks regress; do not repair orders by fabricating paid evidence.

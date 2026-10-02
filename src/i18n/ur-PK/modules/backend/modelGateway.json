@@ -1,0 +1,20 @@
+{
+  "__namespace__": "server.modelGateway",
+  "__flat__": {
+    "client_not_allowed": "اس کلائنٹ کو ماڈل گیٹ وے تک رسائی کی اجازت نہیں ہے۔",
+    "gateway_unavailable": "ماڈل گیٹ وے عارضی طور پر دستیاب نہیں ہے، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "idempotency_conflict": "Idempotency-Key پہلے ہی استعمال میں ہے۔",
+    "idempotency_key_required": "Idempotency-Key 1 سے 90 حروف لمبی ہونی چاہیے۔",
+    "insufficient_credits": "اکاؤنٹ میں کوئی پرس یا ناکافی کریڈٹس دستیاب نہیں ہیں۔",
+    "invalid_request": "غلط درخواست۔",
+    "invalid_token": "درست Authorization Bearer لاگ ان اسناد درکار ہیں۔",
+    "messages_invalid": "messages میں 1 سے 256 پیغامات کے آبجیکٹ ہونے چاہئیں۔",
+    "missing_client_id": "X-AI-Shifu-Client-ID درخواست کا ہیڈر فراہم کرنے کی ضرورت ہے۔",
+    "model_not_available": "ماڈل دستیاب نہیں ہے، یا ماڈل کی حدیں اور کریڈٹ ریٹس کو کنفیگر نہیں کیا گیا ہے۔",
+    "model_required": "ماڈل کی وضاحت کرنے کی ضرورت ہے۔",
+    "provider_error": "ماڈل کی درخواست ناکام ہوگئی۔",
+    "request_too_large": "درخواست کا باڈی ماڈل گیٹ وے کی 1 MiB کی حد سے زیادہ ہے۔",
+    "stream_invalid": "stream کی قدر JSON boolean ہونی چاہیے۔",
+    "tools_invalid": "tools ایک فہرست ہونی چاہیے جس میں زیادہ سے زیادہ 128 عناصر ہوں۔"
+  }
+}

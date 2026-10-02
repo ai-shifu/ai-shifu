@@ -187,6 +187,8 @@ interface ListenModeSlideRendererProps {
   isLoading?: boolean;
   isGenerating?: boolean;
   sectionTitle?: string;
+  titleLanguage?: string;
+  contentLanguage?: string;
   courseName?: string;
   courseAvatar?: string;
   lessonId?: string;
@@ -752,6 +754,8 @@ const ListenModeSlideRenderer = ({
   isLoading = false,
   isGenerating = false,
   sectionTitle,
+  titleLanguage,
+  contentLanguage,
   courseName = '',
   courseAvatar = '',
   lessonId = '',
@@ -770,9 +774,8 @@ const ListenModeSlideRenderer = ({
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
-  const markdownFlowLocale = resolveMarkdownFlowLocale(
-    i18n.resolvedLanguage ?? i18n.language,
-  );
+  const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const markdownFlowLocale = resolveMarkdownFlowLocale(hostLanguage);
   const presentationProfile = resolveListenSlidePresentationProfile(variant);
   const {
     includeAudio,
@@ -2184,12 +2187,18 @@ const ListenModeSlideRenderer = ({
           ) : null}
           <div className='flex min-w-0 flex-col justify-center'>
             {courseName ? (
-              <span className='truncate text-base font-bold leading-5 text-current'>
+              <span
+                className='truncate text-base font-bold leading-5 text-current'
+                lang={titleLanguage}
+              >
                 {courseName}
               </span>
             ) : null}
             {sectionTitle ? (
-              <span className='truncate text-xs leading-4 text-current opacity-80'>
+              <span
+                className='truncate text-xs leading-4 text-current opacity-80'
+                lang={titleLanguage}
+              >
                 {sectionTitle}
               </span>
             ) : null}
@@ -2204,7 +2213,7 @@ const ListenModeSlideRenderer = ({
         )}
       </div>
     );
-  }, [courseAvatar, courseName, previewMode, sectionTitle]);
+  }, [courseAvatar, courseName, previewMode, sectionTitle, titleLanguage]);
   const fullscreenHeader = useMemo(
     () => ({
       content: fullscreenHeaderContent,
@@ -2433,6 +2442,8 @@ const ListenModeSlideRenderer = ({
             isMobileFullscreen && 'listen-slide-root--landscape',
           )}
           locale={markdownFlowLocale}
+          // Known guide output language is independent of its title and UI.
+          lang={contentLanguage ?? ''}
           elementList={renderedElementList}
           interactionTexts={{
             title: t('module.chat.listenInteractionHint'),

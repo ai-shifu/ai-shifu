@@ -155,10 +155,6 @@
         "startedAt": "Started at {date}"
       }
     },
-    "navigation": {
-      "description": "Switch between plans, orders, entitlements, domains, and reports while keeping capability status visible above.",
-      "title": "Browse by topic"
-    },
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} records",
       "total": "{total} records"
@@ -184,17 +180,12 @@
         "restore": "Restore {productName}? It will return to draft and must be checked again before listing.",
         "retire": "Unlist {productName}? The product will temporarily have no fixed-price checkout."
       },
-      "description": "Manage payment prices for overseas plans and credit packs so displayed prices, checkout amounts, and granted benefits stay aligned.",
       "dialog": {
         "autoDetectHint": "The system checks amount, currency, interval, and mode automatically. Enable the price after the check passes.",
         "description": "Copy the product ID and price ID from Stripe. The system will read the price details automatically.",
         "title": "Configure payment price"
       },
       "empty": "No plans or credit packs are available for configuration.",
-      "environment": {
-        "live": "Live",
-        "test": "Test"
-      },
       "fields": {
         "priceId": "Stripe price ID",
         "product": "Product",
@@ -216,16 +207,13 @@
         "warning": "Needs review"
       },
       "interval": {
-        "day": "Every {count} day(s)",
         "month": "Every {count} month(s)",
-        "oneTime": "One-time",
         "year": "Every {count} year(s)"
       },
       "issueDrawer": {
         "description": "Shows operator-friendly reasons and keeps the raw codes for technical troubleshooting.",
         "issues": "Issue reasons",
         "noIssues": "No issue details yet",
-        "priceId": "Stripe price ID",
         "raw": "Raw details",
         "title": "Price validation issues"
       },
@@ -270,10 +258,8 @@
         "unsupported_product_type": "This item type cannot be linked to a payment price"
       },
       "loadError": "Unable to load package price settings right now.",
-      "loading": "Loading package prices...",
       "menuTitle": "Package Management",
       "pageDescription": "Manage payment prices for overseas plans and credit packs so package display, checkout, and reconciliation stay aligned.",
-      "productCredits": "{credits} credits",
       "productType": {
         "plan": "Plan",
         "topup": "Credit pack"
@@ -288,7 +274,6 @@
       },
       "table": {
         "actions": "Actions",
-        "benefit": "Benefits",
         "localPrice": "Display price",
         "product": "Product",
         "productType": "Type",
@@ -296,7 +281,6 @@
         "stripePrice": "Payment price",
         "validatedAt": "Last checked"
       },
-      "title": "Package Management",
       "toast": {
         "activateFailed": "Failed to list price",
         "activateSuccess": "Price listed",
@@ -320,7 +304,7 @@
         "high_consumption": "High consumption",
         "high_frequency": "High call volume",
         "rapid_growth": "Usage growing fast",
-        "sustained_activity": "Active on 3+ recent days"
+        "sustained_activity": "Sustained activity in the last 7 days"
       },
       "description": "Summarizes teachers with unusual recent consumption, activity, or usage mix so operators can prioritize follow-up.",
       "empty": "No teachers need priority attention right now.",
@@ -413,9 +397,7 @@
       "title": "Subscription Follow-up"
     },
     "subtitle": "Operations workspace for subscription follow-up, usage attention, and brand payment setup.",
-    "table": {},
     "tabs": {
-      "domains": "Domains",
       "entitlements": "Brand & payment setup",
       "reports": "Usage Attention",
       "subscriptions": "Subscription Follow-up"
@@ -435,7 +417,6 @@
     "subscriptionPastDue": "Subscription renewal is blocked. Review the payment records and sync the latest provider status."
   },
   "capabilities": {
-    "description": "This area summarizes the modules that operators can use on the brand and payments admin page. Needs setup means the code path exists but stays off by default. Internal workflow means it only runs in jobs, recovery flows, or ops tooling and does not appear as a direct page feature.",
     "fallbackDescription": "Capability status is tracked from the billing registry.",
     "fallbackTitle": "Billing capability",
     "items": {
@@ -516,13 +497,7 @@
       "active": "Ready to use",
       "defaultDisabled": "Needs setup",
       "internalOnly": "Internal workflow"
-    },
-    "summary": {
-      "active": "{count} ready to use",
-      "defaultDisabled": "{count} need setup",
-      "internalOnly": "{count} internal workflows"
-    },
-    "title": "Available modules"
+    }
   },
   "catalog": {
     "actions": {
@@ -625,8 +600,6 @@
   "customization": {
     "actions": {
       "clear": "Clear",
-      "saveConfiguration": "Save configuration",
-      "saveIntegration": "Save payment settings",
       "secretSaved": "Saved. Enter a new value to replace it."
     },
     "branding": {
@@ -635,11 +608,8 @@
       "homeUrl": "Logo link URL",
       "homeUrlHint": "Where the learner page navigates when the logo is clicked. Leave empty to use the default.",
       "homeUrlPlaceholder": "e.g. https://www.example.com",
-      "invalidFile": "Use a PNG, JPEG, or WebP file no larger than 2 MB",
-      "resizeNotice": "The image does not fully match the recommended size. It will still be uploaded and scaled normally after saving.",
       "squareHint": "Recommended: a 32x32px square logo. Higher-resolution variants are also supported.",
       "squareLogo": "Square logo",
-      "title": "Brand logos",
       "uploadFailed": "Image upload failed. Try again later.",
       "uploadFavicon": "Upload site icon",
       "uploadSquare": "Upload square logo",
@@ -648,22 +618,12 @@
       "wideHint": "Recommended: a wide logo with 32px height and up to 220px width. Higher-resolution variants are also supported.",
       "wideLogo": "Wide logo"
     },
-    "disable": "Disable",
     "domain": {
-      "bind": "Bind domain",
-      "disableSuccess": "Domain has been disabled.",
-      "dnsTitle": "Add the following TXT record in your DNS console",
-      "lastError": "Latest verification result: {reason}",
       "placeholder": "e.g. learn.example.com",
       "record": "{name} = {value}",
-      "recordName": "Host record",
-      "recordType": "Record type",
-      "recordValue": "Record value",
-      "status": "{status} · SSL {sslStatus}",
       "title": "Custom domain",
       "verify": "Verify DNS",
       "verifyFailed": "DNS verification has not passed yet. Check the TXT record and try again.",
-      "verifyInstruction": "After DNS propagates, verify it here. HTTPS certificate setup continues after verification.",
       "verifySuccess": "DNS verification passed. Domain status has been refreshed."
     },
     "integrationStatus": {
@@ -673,24 +633,17 @@
       "unconfigured": "Not configured",
       "verified": "Enabled"
     },
-    "integrations": {
-      "title": "WeChat and payment settings"
-    },
-    "loading": "Loading configuration details...",
-    "locked": "Your current plan does not include this feature. Upgrade or contact support.",
     "paymentProvider": {
       "description": "Choose one or more learner checkout payment methods. After saving, learner checkout will generate QR codes for the configured methods.",
       "title": "Payment methods"
     },
-    "pendingActivation": "Save the enabled capability first. After it takes effect, you can save and verify this configuration.",
     "providers": {
       "alipay": "Alipay",
       "pingxx": "Ping++",
       "stripe": "Stripe",
       "wechat_oauth": "WeChat Official Account",
       "wechatpay": "WeChat Pay"
-    },
-    "verify": "Verify and enable"
+    }
   },
   "details": {
     "actions": {
@@ -910,16 +863,12 @@
       "preorderRenewal": "Prepay renewal",
       "preorderScheduled": "Preorder scheduled",
       "subscribeNow": "Subscribe now",
-      "upgradeNow": "Upgrade now",
-      "upgradeOnlyTooltip": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
+      "upgradeNow": "Upgrade now"
     },
     "campaign": {
       "bonusBadge": "{credits} bonus credits",
       "discountBadge": "Limited offer",
       "paymentOnly": "The discount applies to this payment only."
-    },
-    "creditPeriod": {
-      "oneTime": "One-time"
     },
     "creditSummary": {
       "daily": "Daily credits {credits}",
@@ -937,11 +886,8 @@
         "techBasic": "Basic technical support"
       },
       "common": {
-        "allLearning": "All learning features",
         "allTeachingAndLearning": "All teaching & research features",
-        "createDebugPublish": "Create, debug, and publish courses",
-        "higherConcurrency": "Higher concurrency support",
-        "unlimitedCourses": "Unlimited courses"
+        "higherConcurrency": "Higher concurrency support"
       },
       "daily": {
         "preview": "Fast-turn daily access for short validation cycles",
@@ -989,7 +935,6 @@
         }
       }
     },
-    "featuresTitle": "Included benefits:",
     "footnote": {
       "learningTime": "These estimates are based on historical data and are for reference only. Course content, the selected model and interactions all affect actual credit usage. If speech synthesis is enabled, more credits will be used.",
       "validity": "Credit validity: Monthly plans are valid for 30 days from the day you receive them (inclusive); yearly plans are valid by calendar year from the day you receive them. Both end at 23:59 on the expiry day."
@@ -1021,12 +966,10 @@
     },
     "subtitle": "Choose the right credit plan.",
     "table": {
-      "creditsRowLabel": "Credits per cycle",
       "emptyValue": "—",
       "featuresRowLabel": "Entitlements",
       "validityRowLabel": "Credit validity"
     },
-    "title": "Buy Credits",
     "topup": {
       "creditLabel": "{credits} credits",
       "noteFrozen": "Credit pack credits can be used only when the account has an active credit plan.",
@@ -1051,7 +994,6 @@
   "page": {
     "adminLink": "Open billing ops",
     "tabs": {
-      "customization": "Brand & Payments",
       "ledger": "Credit Details",
       "plans": "Buy Credits"
     },
@@ -1107,7 +1049,7 @@
   "result": {
     "countdown": "Redirecting to the billing center in {seconds}s",
     "errorTitle": "Billing sync failed",
-    "missingOrder": "Missing billing order. Open the billing center and retry from your order list.",
+    "missingOrder": "The billing order number is missing. Return to the membership center and sync again from the order list.",
     "openBilling": "Open billing center",
     "pending": "Payment is still processing. You can retry sync in a moment.",
     "pendingTitle": "Waiting for billing confirmation",
@@ -1128,7 +1070,6 @@
     "monthlyTitle": "Monthly plan",
     "nonMemberBalanceTitle": "Credit balance",
     "nonMemberTitle": "Non-member",
-    "periodLabel": "Period",
     "placeholderValue": "--",
     "subscriptionPending": "Coming soon",
     "subscriptionStatusLabel": "Subscription",

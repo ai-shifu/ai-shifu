@@ -17,7 +17,6 @@ class ManualCreditGrantResult:
     user_bid: str
     amount: int | float
     grant_source: str
-    validity_preset: str
     expires_at: datetime | None
     wallet_bucket_bid: str
     ledger_bid: str
@@ -34,7 +33,6 @@ class ManualCreditGrantResult:
             "user_bid": self.user_bid,
             "amount": self.amount,
             "grant_source": self.grant_source,
-            "validity_preset": self.validity_preset,
             "validity_value": self.validity_value,
             "validity_unit": self.validity_unit,
             "expires_at": self.expires_at,

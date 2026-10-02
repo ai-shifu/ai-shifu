@@ -332,10 +332,16 @@ const creditsResponse = {
 };
 
 describe('AdminOperationUserDetailPage', () => {
+  const mockScrollTo = jest.fn();
+
   beforeAll(() => {
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: mockScrollIntoView,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: mockScrollTo,
     });
   });
 
@@ -345,6 +351,7 @@ describe('AdminOperationUserDetailPage', () => {
     mockPush.mockReset();
     mockRefresh.mockReset();
     mockScrollIntoView.mockReset();
+    mockScrollTo.mockReset();
     mockBrowserTimeZone.mockReset();
     mockBrowserTimeZone.mockReturnValue('UTC');
     mockGetAdminOperationUserDetail.mockReset();
@@ -950,19 +957,75 @@ describe('AdminOperationUserDetailPage', () => {
   });
 
   test('activates the credits tab when the hash is present', async () => {
-    window.history.pushState({}, '', '/admin/operations/users/user-1#credits');
-
-    render(<AdminOperationUserDetailPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    const getBoundingClientRectSpy = jest
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function () {
+        const top =
+          this.getAttribute('data-testid') ===
+          'admin-operation-user-detail-scroll'
+            ? 120
+            : 460;
+        return {
+          x: 0,
+          y: top,
+          top,
+          right: 0,
+          bottom: top,
+          left: 0,
+          width: 0,
+          height: 0,
+          toJSON: () => ({}),
+        };
+      });
+    const originalScrollTopDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'scrollTop',
+    );
+    Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+      configurable: true,
+      get() {
+        return this.getAttribute('data-testid') ===
+          'admin-operation-user-detail-scroll'
+          ? 35
+          : 0;
+      },
     });
+    window.location.hash = '#credits';
 
-    expect(
-      screen.getByRole('tab', {
-        name: 'module.operationsUser.detail.tabs.credits',
-      }),
-    ).toHaveAttribute('data-state', 'active');
+    try {
+      render(<AdminOperationUserDetailPage />);
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+      });
+
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsUser.detail.tabs.credits',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+      await waitFor(() => {
+        expect(mockScrollTo).toHaveBeenCalledWith({
+          top: 375,
+          behavior: 'smooth',
+        });
+      });
+      expect(mockScrollIntoView).not.toHaveBeenCalled();
+      expect(
+        screen.getByTestId('admin-operation-user-detail-tabs'),
+      ).not.toHaveAttribute('id');
+    } finally {
+      getBoundingClientRectSpy.mockRestore();
+      if (originalScrollTopDescriptor) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'scrollTop',
+          originalScrollTopDescriptor,
+        );
+      } else {
+        delete HTMLElement.prototype.scrollTop;
+      }
+    }
   });
 
   test('activates the learning courses tab when the learning hash is present', async () => {
@@ -1015,7 +1078,8 @@ describe('AdminOperationUserDetailPage', () => {
         name: 'module.operationsUser.detail.tabs.learningCourses',
       }),
     ).toHaveAttribute('data-state', 'active');
-    expect(mockScrollIntoView).toHaveBeenCalled();
+    expect(mockScrollTo).toHaveBeenCalled();
+    expect(mockScrollIntoView).not.toHaveBeenCalled();
   });
 
   test('jumps to the created courses tab from the overview card', async () => {
@@ -1032,7 +1096,8 @@ describe('AdminOperationUserDetailPage', () => {
         name: 'module.operationsUser.detail.tabs.createdCourses',
       }),
     ).toHaveAttribute('data-state', 'active');
-    expect(mockScrollIntoView).toHaveBeenCalled();
+    expect(mockScrollTo).toHaveBeenCalled();
+    expect(mockScrollIntoView).not.toHaveBeenCalled();
   });
 
   test('resets the detail tab hash when switching to another user', async () => {

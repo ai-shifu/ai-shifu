@@ -43,6 +43,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.config.models import Config
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.user.consts import USER_STATE_REGISTERED
@@ -958,9 +959,47 @@ def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
         assert pending_events[0].scheduled_at == expected_period_end_at
 
 
+@pytest.fixture
+def manual_credit_cli_clock(monkeypatch: pytest.MonkeyPatch) -> list[datetime]:
+    clock = [datetime(2026, 1, 31, 12, 34, 56)]
+    for target in ("cli", "manual_credit_grants", "wallets"):
+        monkeypatch.setattr(
+            f"flaskr.service.billing.{target}.now_utc", lambda: clock[0]
+        )
+    monkeypatch.setattr(
+        "flaskr.service.billing.manual_credit_grants.stage_credit_granted_notification",
+        lambda *_args, **_kwargs: {},
+    )
+    return clock
+
+
+@pytest.mark.parametrize(
+    ("value", "unit", "start", "expiry"),
+    [
+        (2, "day", datetime(2026, 1, 31, 12, 34, 56), datetime(2026, 2, 2, 12, 34, 56)),
+        (
+            1,
+            "month",
+            datetime(2026, 1, 31, 12, 34, 56),
+            datetime(2026, 2, 28, 12, 34, 56),
+        ),
+        (
+            1,
+            "year",
+            datetime(2024, 2, 29, 12, 34, 56),
+            datetime(2025, 2, 28, 12, 34, 56),
+        ),
+    ],
+)
 def test_billing_grant_credits_cli_grants_visible_manual_credits(
     billing_cli_db_app: Flask,
+    manual_credit_cli_clock: list[datetime],
+    value: int,
+    unit: str,
+    start: datetime,
+    expiry: datetime,
 ) -> None:
+    manual_credit_cli_clock[0] = start
     runner = billing_cli_db_app.test_cli_runner()
 
     with billing_cli_db_app.app_context():
@@ -971,23 +1010,8 @@ def test_billing_grant_credits_cli_grants_visible_manual_credits(
             phone="13800138001",
             is_creator=True,
         )
-        dao.db.session.add(
-            BillingSubscription(
-                subscription_bid="sub-cli-credit-active",
-                creator_bid="creator-cli-credit",
-                product_bid="bill-product-plan-monthly",
-                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-                billing_provider="manual",
-                provider_subscription_id="",
-                provider_customer_id="",
-                current_period_start_at=now_utc() - timedelta(days=1),
-                current_period_end_at=now_utc() + timedelta(days=30),
-                cancel_at_period_end=0,
-                next_product_bid="",
-                metadata_json={},
-            )
-        )
         dao.db.session.commit()
+        assert BillingSubscription.query.count() == 0
 
     result = runner.invoke(
         args=[
@@ -1000,6 +1024,10 @@ def test_billing_grant_credits_cli_grants_visible_manual_credits(
             "12.5",
             "--grant-source",
             "compensation",
+            "--validity-value",
+            str(value),
+            "--validity-unit",
+            unit,
             "--name",
             "模型扣费补偿",
             "--note",
@@ -1016,7 +1044,10 @@ def test_billing_grant_credits_cli_grants_visible_manual_credits(
     assert payload["mobile"] == "13800138001"
     assert payload["amount"] == 12.5
     assert payload["grant_source"] == "compensation"
-    assert payload["validity_preset"] == "align_subscription"
+    assert "validity_preset" not in payload
+    assert payload["validity_value"] == value
+    assert payload["validity_unit"] == unit
+    assert datetime.fromisoformat(payload["expires_at"]) == expiry
     assert payload["display_name"] == "模型扣费补偿"
     assert payload["note"] == "DeepSeek 费率补偿"
     assert payload["operator_user_bid"] == "operator-cli-1"
@@ -1034,7 +1065,11 @@ def test_billing_grant_credits_cli_grants_visible_manual_credits(
         assert wallet.available_credits == Decimal("12.5000000000")
         assert bucket.available_credits == Decimal("12.5000000000")
         assert bucket.metadata_json["grant_source"] == "compensation"
-        assert bucket.metadata_json["validity_preset"] == "align_subscription"
+        assert "validity_preset" not in bucket.metadata_json
+        assert bucket.metadata_json["validity_value"] == value
+        assert bucket.metadata_json["validity_unit"] == unit
+        assert bucket.effective_from == start
+        assert bucket.effective_to == expiry
         assert "display_name" not in bucket.metadata_json
         assert "note" not in bucket.metadata_json
         assert ledger.wallet_bucket_bid == bucket.wallet_bucket_bid
@@ -1045,6 +1080,9 @@ def test_billing_grant_credits_cli_grants_visible_manual_credits(
         assert ledger.metadata_json["note"] == "DeepSeek 费率补偿"
         assert ledger.metadata_json["operator_user_bid"] == "operator-cli-1"
         assert ledger.metadata_json["grant_channel"] == "operator_cli"
+        assert ledger.metadata_json["validity_value"] == value
+        assert ledger.metadata_json["validity_unit"] == unit
+        assert ledger.expires_at == expiry
         assert (
             ledger.idempotency_key == f"operator_manual_grant:{payload['request_id']}"
         )
@@ -1052,6 +1090,7 @@ def test_billing_grant_credits_cli_grants_visible_manual_credits(
 
 def test_billing_grant_credits_cli_reuses_request_id(
     billing_cli_db_app: Flask,
+    manual_credit_cli_clock: list[datetime],
 ) -> None:
     runner = billing_cli_db_app.test_cli_runner()
 
@@ -1075,14 +1114,17 @@ def test_billing_grant_credits_cli_reuses_request_id(
         "3",
         "--grant-source",
         "reward",
-        "--validity-preset",
-        "1d",
+        "--validity-value",
+        "2",
+        "--validity-unit",
+        "day",
         "--name",
         "运营奖励",
         "--note",
         "活动奖励",
     ]
     first = runner.invoke(args=args)
+    manual_credit_cli_clock[0] += timedelta(hours=1)
     second = runner.invoke(args=args)
 
     assert first.exit_code == 0, first.output
@@ -1091,8 +1133,13 @@ def test_billing_grant_credits_cli_reuses_request_id(
     second_payload = json.loads(second.output)
     assert first_payload["status"] == "granted"
     assert second_payload["status"] == "noop_existing"
+    # Removing the API preset must not change already-issued CLI request IDs.
+    assert first_payload["request_id"] == "cli:20260131:24099f4f90bb63f0"
     assert second_payload["request_id"] == first_payload["request_id"]
     assert second_payload["ledger_bid"] == first_payload["ledger_bid"]
+    assert second_payload["expires_at"] == first_payload["expires_at"]
+    assert second_payload["validity_value"] == first_payload["validity_value"] == 2
+    assert second_payload["validity_unit"] == first_payload["validity_unit"] == "day"
 
     with billing_cli_db_app.app_context():
         wallet = CreditWallet.query.filter_by(
@@ -1105,6 +1152,191 @@ def test_billing_grant_credits_cli_reuses_request_id(
             ).count()
             == 1
         )
+
+
+@pytest.mark.parametrize(
+    ("validity_args", "error"),
+    [
+        ([], "Missing option '--validity-value'"),
+        (["--validity-value", "1"], "Missing option '--validity-unit'"),
+        (["--validity-unit", "day"], "Missing option '--validity-value'"),
+        (
+            ["--validity-value", "0", "--validity-unit", "day"],
+            "Invalid value for '--validity-value'",
+        ),
+        (
+            ["--validity-value", "-1", "--validity-unit", "day"],
+            "Invalid value for '--validity-value'",
+        ),
+        (
+            ["--validity-value", "1.5", "--validity-unit", "day"],
+            "Invalid value for '--validity-value'",
+        ),
+        (
+            ["--validity-value", "true", "--validity-unit", "day"],
+            "Invalid value for '--validity-value'",
+        ),
+        (
+            ["--validity-value", "1", "--validity-unit", "week"],
+            "Invalid value for '--validity-unit'",
+        ),
+        (
+            [
+                "--validity-value",
+                "1",
+                "--validity-unit",
+                "day",
+                "--validity-preset",
+                "1d",
+            ],
+            "No such option: --validity-preset",
+        ),
+    ],
+)
+def test_billing_grant_credits_cli_rejects_invalid_duration_before_writes(
+    billing_cli_db_app: Flask,
+    validity_args: list[str],
+    error: str,
+) -> None:
+    result = billing_cli_db_app.test_cli_runner().invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-credits",
+            "--user-bid",
+            "target",
+            "--amount",
+            "3",
+            *validity_args,
+        ]
+    )
+    assert result.exit_code == 2
+    assert error in result.output
+    assert CreditWallet.query.count() == 0
+    assert CreditWalletBucket.query.count() == 0
+    assert CreditLedgerEntry.query.count() == 0
+
+
+@pytest.mark.usefixtures("manual_credit_cli_clock")
+def test_billing_grant_credits_cli_rejects_expiry_overflow_before_writes(
+    billing_cli_db_app: Flask,
+) -> None:
+    _seed_billing_cli_user(
+        billing_cli_db_app,
+        user_bid="overflow-target",
+        identify="overflow-target",
+        is_creator=True,
+    )
+    dao.db.session.commit()
+    result = billing_cli_db_app.test_cli_runner().invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-credits",
+            "--user-bid",
+            "overflow-target",
+            "--amount",
+            "3",
+            "--validity-value",
+            "100000000000",
+            "--validity-unit",
+            "day",
+        ]
+    )
+    assert result.exit_code == 1
+    assert isinstance(result.exception, AppError)
+    assert result.exception.code == ERROR_CODE["server.common.paramsError"]
+    assert CreditWallet.query.count() == 0
+    assert CreditWalletBucket.query.count() == 0
+    assert CreditLedgerEntry.query.count() == 0
+
+
+@pytest.mark.usefixtures("manual_credit_cli_clock")
+def test_billing_grant_credits_cli_distinguishes_duration_in_generated_request_ids(
+    billing_cli_db_app: Flask,
+) -> None:
+    _seed_billing_cli_user(
+        billing_cli_db_app,
+        user_bid="duration-target",
+        identify="duration-target",
+        is_creator=True,
+    )
+    dao.db.session.commit()
+    runner = billing_cli_db_app.test_cli_runner()
+    request_ids = set()
+    for value, unit in ((2, "day"), (3, "day"), (2, "month")):
+        result = runner.invoke(
+            args=[
+                "console",
+                "billing",
+                "grant-credits",
+                "--user-bid",
+                "duration-target",
+                "--amount",
+                "3",
+                "--validity-value",
+                str(value),
+                "--validity-unit",
+                unit,
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["status"] == "granted"
+        request_ids.add(payload["request_id"])
+    assert len(request_ids) == 3
+    assert CreditWallet.query.one().available_credits == Decimal(9)
+    assert CreditWalletBucket.query.count() == 3
+    assert CreditLedgerEntry.query.count() == 3
+
+
+def test_billing_grant_credits_cli_explicit_request_id_keeps_original_duration(
+    billing_cli_db_app: Flask,
+    manual_credit_cli_clock: list[datetime],
+) -> None:
+    _seed_billing_cli_user(
+        billing_cli_db_app,
+        user_bid="explicit-request-target",
+        identify="explicit-request-target",
+        is_creator=True,
+    )
+    dao.db.session.commit()
+    runner = billing_cli_db_app.test_cli_runner()
+    base_args = [
+        "console",
+        "billing",
+        "grant-credits",
+        "--user-bid",
+        "explicit-request-target",
+        "--amount",
+        "3",
+        "--request-id",
+        "explicit-grant-request",
+    ]
+    first = runner.invoke(
+        args=[*base_args, "--validity-value", "2", "--validity-unit", "month"]
+    )
+    manual_credit_cli_clock[0] += timedelta(days=3)
+    second = runner.invoke(
+        args=[*base_args, "--validity-value", "8", "--validity-unit", "year"]
+    )
+    assert first.exit_code == 0, first.output
+    assert second.exit_code == 0, second.output
+    first_payload = json.loads(first.output)
+    second_payload = json.loads(second.output)
+    assert first_payload["status"] == "granted"
+    assert second_payload["status"] == "noop_existing"
+    for field in ("request_id", "ledger_bid", "wallet_bucket_bid", "expires_at"):
+        assert second_payload[field] == first_payload[field]
+    assert second_payload["request_id"] == "explicit-grant-request"
+    assert second_payload["validity_value"] == 2
+    assert second_payload["validity_unit"] == "month"
+    assert CreditWallet.query.one().available_credits == Decimal(3)
+    bucket = CreditWalletBucket.query.one()
+    ledger = CreditLedgerEntry.query.one()
+    assert bucket.effective_to == ledger.expires_at == datetime(2026, 3, 31, 12, 34, 56)
+    assert ledger.metadata_json["validity_value"] == 2
+    assert ledger.metadata_json["validity_unit"] == "month"
 
 
 def test_billing_backfill_trial_plans_cli_grants_missing_trials_for_creators(
@@ -2174,11 +2406,13 @@ def test_billing_provider_price_cli_invalid_validation_exits_nonzero(
     assert json.loads(result.output)["status"] == "invalid"
 
 
-def test_billing_grant_credits_cli_keeps_legacy_validity_choices(
+def test_billing_grant_credits_cli_documents_custom_duration_options(
     billing_cli_db_app: Flask,
 ) -> None:
     runner = billing_cli_db_app.test_cli_runner()
     result = runner.invoke(args=["console", "billing", "grant-credits", "--help"])
     assert result.exit_code == 0
-    assert "align_subscription|1d|7d|1m|3m|1y" in result.output
-    assert "custom" not in result.output
+    assert "--validity-value" in result.output
+    assert "--validity-unit [day|month|year]" in result.output
+    assert "--validity-preset" not in result.output
+    assert "align_subscription" not in result.output

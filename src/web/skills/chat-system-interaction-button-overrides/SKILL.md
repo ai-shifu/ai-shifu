@@ -1,3 +1,8 @@
+---
+name: chat-system-interaction-button-overrides
+description: Use when system interaction buttons must remain repeatable despite historical input or renderer readonly state.
+---
+
 # 系统交互按钮例外处理
 
 ## 适用场景

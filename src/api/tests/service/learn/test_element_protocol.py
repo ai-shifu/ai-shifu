@@ -1335,6 +1335,108 @@ def test_interaction_elements_backfill_user_input_from_generated_blocks(
     assert element.payload.user_input == "agree"
 
 
+def test_a_turn_block_s_lesson_text_is_not_read_as_the_learner_s_answer(
+    app: object,
+) -> None:
+    """A 2.0 turn keeps its question in the block that holds what it taught.
+
+    That block's generated content is the lesson text, not an answer. Read as the learner's
+    input, it pre-filled the question with the sentence before it, enabled its submit button
+    with nothing chosen, and sent the sentence as the answer.
+    """
+    _require_app(app)
+    import json
+
+    from flaskr.dao import db
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+
+    user_bid = "user-turn-block"
+    shifu_bid = "shifu-turn-block"
+    outline_bid = "outline-turn-block"
+    progress_bid = "progress-turn-block"
+    generated_block_bid = "generated-turn-block"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        interaction_block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            role="teacher",
+            block_content_conf="",
+            generated_content="Pick one of these, then we go on:",
+            status=1,
+            deleted=0,
+            position=0,
+        )
+        interaction_element = LearnGeneratedElement(
+            element_bid="el-turn-block",
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-turn-block",
+            run_event_seq=1,
+            event_type="element",
+            role="ui",
+            element_index=0,
+            element_type="interaction",
+            element_type_code=205,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=1,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=0,
+            is_final=1,
+            content_text="?[Agree//agree][Disagree//disagree]",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all([progress, interaction_block, interaction_element])
+        db.session.commit()
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+    assert len(result.elements) == 1
+    element = result.elements[0]
+    assert element.payload is not None
+    assert not element.payload.user_input
+
+
 def test_live_interaction_events_use_ui_role_and_generated_input(
     adapter_app: object,
 ) -> None:

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from flaskr.dao import db
 from flaskr.service.billing.api import (
     build_billing_catalog,
+    deduct_operator_credit_wallet_balance,
     grant_manual_credits_to_user,
     grant_manual_plan_to_user,
     grant_referral_reward_credits_to_user,
@@ -52,8 +53,6 @@ from flaskr.service.shifu.admin import (
     OPERATOR_USER_CREDIT_TYPE_CONSUME,
     OPERATOR_USER_CREDIT_TYPE_GRANT,
     OPERATOR_USER_CREDIT_TYPE_OTHER,
-    OPERATOR_USER_CREDIT_VALIDITY_1M,
-    OPERATOR_USER_CREDIT_VALIDITY_PRESETS,
     OPERATOR_USER_LIST_MAX_PAGE_SIZE,
     _allocate_usage_detail_credits,
     _assert_operator_user_grant_target_supported,
@@ -87,6 +86,8 @@ from flaskr.service.shifu.admin import (
     _resolve_usage_detail_item_content,
 )
 from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditDeductionRequestDTO,
+    AdminOperationUserCreditDeductionResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditLedgerPageDTO,
@@ -133,18 +134,6 @@ def grant_operator_user_credits(
         if normalized_grant_source not in OPERATOR_USER_CREDIT_GRANT_SOURCES:
             raise_param_error("grant_source")
 
-        normalized_validity_preset = str(payload.validity_preset or "").strip().lower()
-        if normalized_validity_preset not in {
-            *OPERATOR_USER_CREDIT_VALIDITY_PRESETS,
-            "custom",
-        }:
-            raise_param_error("validity_preset")
-
-        if normalized_validity_preset != "custom" and (
-            {"validity_value", "validity_unit"} & payload.model_fields_set
-        ):
-            raise_param_error("validity_preset")
-
         normalized_request_id = str(payload.request_id or "").strip()
         if not normalized_request_id:
             raise_param_error("request_id")
@@ -153,8 +142,9 @@ def grant_operator_user_credits(
         if normalized_grant_type == OPERATOR_USER_CREDIT_GRANT_TYPE_REFERRAL_REWARD:
             if normalized_grant_source != OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD:
                 raise_param_error("grant_source")
-            if normalized_validity_preset != OPERATOR_USER_CREDIT_VALIDITY_1M:
-                raise_param_error("validity_preset")
+            for field in ("validity_value", "validity_unit"):
+                if field in payload.model_fields_set:
+                    raise_param_error(field)
             grant_result = grant_referral_reward_credits_to_user(
                 app,
                 user_bid=normalized_user_bid,
@@ -164,6 +154,10 @@ def grant_operator_user_credits(
                 note=normalized_note,
             )
         else:
+            if payload.validity_value is None:
+                raise_param_error("validity_value")
+            if payload.validity_unit is None:
+                raise_param_error("validity_unit")
             grant_result = grant_manual_credits_to_user(
                 app,
                 user_bid=normalized_user_bid,
@@ -171,7 +165,6 @@ def grant_operator_user_credits(
                 request_id=normalized_request_id,
                 amount=payload.amount,
                 grant_source=normalized_grant_source,
-                validity_preset=normalized_validity_preset,
                 validity_value=payload.validity_value,
                 validity_unit=payload.validity_unit,
                 display_name=normalized_display_name,
@@ -185,9 +178,6 @@ def grant_operator_user_credits(
         )
         resolved_grant_source = str(
             persisted_metadata.get("grant_source") or normalized_grant_source
-        ).strip()
-        resolved_validity_preset = str(
-            persisted_metadata.get("validity_preset") or normalized_validity_preset
         ).strip()
         resolved_amount = _format_decimal(
             _quantize_credit_amount(Decimal(str(grant_result.amount or 0)))
@@ -205,7 +195,6 @@ def grant_operator_user_credits(
             amount=resolved_amount,
             grant_type=resolved_grant_type,
             grant_source=resolved_grant_source,
-            validity_preset=resolved_validity_preset,
             validity_value=persisted_metadata.get("validity_value"),
             validity_unit=persisted_metadata.get("validity_unit"),
             expires_at=grant_result.expires_at,
@@ -213,6 +202,68 @@ def grant_operator_user_credits(
             note=str(persisted_metadata.get("note") or "").strip(),
             wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),
             ledger_bid=str(grant_result.ledger_bid or "").strip(),
+            summary=summary,
+        )
+
+
+def deduct_operator_user_credits(
+    app: Flask,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    payload: AdminOperationUserCreditDeductionRequestDTO,
+) -> AdminOperationUserCreditDeductionResultDTO:
+    """Deduct eligible user credits, prioritizing paid credits."""
+    with app.app_context():
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_operator_user_bid = str(operator_user_bid or "").strip()
+        if not normalized_operator_user_bid:
+            raise_param_error("operator_user_bid")
+        user = _load_operator_user_or_raise(normalized_user_bid)
+        _assert_operator_user_grant_target_supported(user)
+
+        normalized_request_id = str(payload.request_id or "").strip()
+        normalized_reason = str(payload.reason or "").strip().lower()
+        normalized_note = str(payload.note or "").strip()
+        try:
+            normalized_amount = Decimal(str(payload.amount or "").strip())
+        except Exception:
+            raise_param_error("amount")
+        if (
+            not normalized_amount.is_finite()
+            or normalized_amount <= 0
+            or _quantize_credit_amount(normalized_amount, precision=2)
+            != normalized_amount
+            or _quantize_credit_amount(normalized_amount) != normalized_amount
+        ):
+            raise_param_error("amount")
+
+        result = deduct_operator_credit_wallet_balance(
+            app,
+            creator_bid=normalized_user_bid,
+            amount=normalized_amount,
+            request_id=normalized_request_id,
+            reason=normalized_reason,
+            note=normalized_note,
+            operator_user_bid=normalized_operator_user_bid,
+        )
+        if result.status not in {"deducted", "noop_existing"}:
+            raise_param_error("credit_deduction_payload")
+        credit_summary_map = _load_operator_user_credit_summary_map(
+            [normalized_user_bid]
+        )
+        summary = _build_operator_user_credit_summary(
+            user=user,
+            credit_summary_map=credit_summary_map,
+        )
+        return AdminOperationUserCreditDeductionResultDTO(
+            status=result.status,
+            user_bid=normalized_user_bid,
+            amount=_format_decimal(normalized_amount),
+            reason=normalized_reason,
+            note=normalized_note,
+            wallet_bucket_bids=result.wallet_bucket_bids,
+            ledger_bids=result.ledger_bids,
             summary=summary,
         )
 

@@ -44,6 +44,8 @@ from flaskr.service.shifu.admin_dtos_courses import (
 from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserContactChangeRequestDTO,
     AdminOperationUserCourseSummaryDTO,
+    AdminOperationUserCreditDeductionRequestDTO,
+    AdminOperationUserCreditDeductionResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditLedgerItemDTO,
@@ -58,6 +60,7 @@ from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserPackageGrantRequestDTO,
     AdminOperationUserPackageGrantResultDTO,
     AdminOperationUserReferralRewardSummaryDTO,
+    AdminOperationUserSubscriptionTerminationRequestDTO,
     AdminOperationUserSummaryDTO,
 )
 from pydantic import BaseModel, ConfigDict, Field

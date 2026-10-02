@@ -90,6 +90,7 @@
   "server.profile.profileOnboardingConfigNotPersistable": 4016,
   "server.profile.profileOnboardingConfigBusy": 4017,
   "server.learn.liveFollowUpCapacityExceeded": 4018,
+  "server.learn.debugSessionExpired": 4019,
   "server.pay.payChannelNotSupport": 5001,
   "server.pay.wechatOpenIdRequired": 5002,
   "server.billing.creditInsufficient": 7101,
@@ -117,6 +118,9 @@
   "server.billing.manualCreditGrantFailed": 7123,
   "server.billing.rateConfigAlreadyExists": 7124,
   "server.billing.debugDisabledBySoftLimit": 7125,
+  "server.billing.creditDeductionRequestConflict": 7126,
+  "server.billing.creditDeductionInsufficient": 7127,
+  "server.billing.creditDeductionOriginAmbiguous": 7128,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

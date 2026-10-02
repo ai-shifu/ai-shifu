@@ -1,0 +1,22 @@
+{
+  "__namespace__": "component.courseCreationChoiceDialog",
+  "aiDescription": "Convierte tus materiales e ideas en un curso con tu asistente de IA para el trabajo.",
+  "aiExamples": "Por ejemplo, WorkBuddy, Doubao Work, Qwen Office o Codex",
+  "aiPrompt": "Busca e instala el skill de creación de cursos de AI Shifu (ai-shifu-course-creator). Si ya está instalado, dime directamente que puedo empezar a crear el curso.",
+  "aiTitle": "Crear un curso con IA",
+  "copiedAction": "Copiado",
+  "copyAction": "Copiar las instrucciones de instalación",
+  "copyFailed": "No se ha podido copiar. Inténtalo de nuevo.",
+  "copyHint": "Envíalas a tu asistente de IA para el trabajo. Omite este paso si ya lo tienes instalado.",
+  "copySuccess": "Instrucciones de instalación copiadas",
+  "copySuccessDescription": "Abre tu asistente de IA para el trabajo, pega las instrucciones y envíalas.",
+  "createExample": "«Usa el skill de creación de cursos de AI Shifu para ayudarme a crear un curso sobre…»",
+  "createStep": "Dile al asistente qué quieres enseñar",
+  "description": "Elige cómo quieres crear el curso.",
+  "guideAction": "¿Es tu primera vez? Consulta la guía",
+  "installStep": "Instalar el skill de creación de cursos",
+  "manualAction": "Crear un curso vacío",
+  "manualDescription": "Empieza a editar desde un curso vacío.",
+  "manualTitle": "Crear manualmente",
+  "title": "Crear curso"
+}

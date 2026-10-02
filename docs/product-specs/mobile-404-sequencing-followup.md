@@ -1,5 +1,5 @@
 ---
-title: Mobile 404 Follow-up: Sequencing Improvement Plan
+title: "Mobile 404 Follow-up: Sequencing Improvement Plan"
 status: implemented
 owner_surface: frontend
 last_reviewed: 2026-04-17

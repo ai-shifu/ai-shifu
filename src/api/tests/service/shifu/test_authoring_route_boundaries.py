@@ -84,6 +84,13 @@ def preview_model(monkeypatch: pytest.MonkeyPatch) -> Mock:
             ("teacher", "course", [{"id": "outline"}]),
         ),
         (
+            "PATCH",
+            f"{COURSE}/outlines/reorder",
+            "reorder_outline_siblings",
+            {"order": ["lesson-b", "lesson-a"]},
+            ("teacher", "course", ["lesson-b", "lesson-a"]),
+        ),
+        (
             "PUT",
             f"{COURSE}/outlines/batch",
             "create_outlines_batch",
@@ -149,6 +156,65 @@ def test_authoring_routes_preserve_service_parameters_and_response_data(
     response = test_client.open(path, method=method, json=body, headers=HEADERS)
     assert response.get_json(force=True)["data"] == {"revision": 3, "items": []}
     handler.assert_called_once_with(app, *arguments)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"order": ["a", "b"], "outlines": []},
+        {"order": ["a", "b"], "outlines": None},
+        {"order": None, "outlines": []},
+        {"order": None, "outlines": None},
+    ],
+)
+def test_reorder_rejects_both_payload_modes_before_calling_service(
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    body: dict,
+) -> None:
+    siblings, legacy = Mock(), Mock()
+    monkeypatch.setattr(shifu_routes, "reorder_outline_siblings", siblings)
+    monkeypatch.setattr(shifu_routes, "reorder_outline_tree", legacy)
+    response = test_client.patch(
+        f"{COURSE}/outlines/reorder", json=body, headers=HEADERS
+    )
+    assert (
+        response.get_json(force=True)["code"] == ERROR_CODE["server.common.paramsError"]
+    )
+    siblings.assert_not_called()
+    legacy.assert_not_called()
+
+
+@pytest.mark.parametrize("body", [{"order": None}, {}, None])
+def test_reorder_rejects_null_order_and_missing_payload(
+    test_client: object,
+    body: object,
+) -> None:
+    response = test_client.patch(
+        f"{COURSE}/outlines/reorder", json=body, headers=HEADERS
+    )
+    assert (
+        response.get_json(force=True)["code"] == ERROR_CODE["server.common.paramsError"]
+    )
+
+
+def test_sibling_reorder_requires_edit_permission_before_service_call(
+    test_client: object,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handler = Mock()
+    permission = Mock(return_value=False)
+    monkeypatch.setattr(shifu_routes, "reorder_outline_siblings", handler)
+    monkeypatch.setattr(shifu_routes, "shifu_permission_verification", permission)
+    response = test_client.patch(
+        f"{COURSE}/outlines/reorder", json={"order": ["a", "b"]}, headers=HEADERS
+    )
+    assert (
+        response.get_json(force=True)["code"] == ERROR_CODE["server.shifu.noPermission"]
+    )
+    permission.assert_called_once_with(app, "teacher", "course", "edit")
+    handler.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -888,13 +954,11 @@ def test_debug_preview_requires_an_authenticated_user_and_existing_course_owner(
     assert response.get_json(force=True)["code"] == ERROR_CODE[error_code]
 
 
-def test_voice_clone_requires_source_audio(test_client: object) -> None:
+def test_in_product_minimax_voice_clone_route_is_removed(test_client: object) -> None:
     response = test_client.post(
         f"{PREFIX}/tts/minimax/voices/clone", headers=HEADERS, data={}
     )
-    assert (
-        response.get_json(force=True)["code"] == ERROR_CODE["server.common.paramsError"]
-    )
+    assert response.get_json(force=True)["code"] == 404
 
 
 def test_tts_configuration_route_returns_provider_capabilities(

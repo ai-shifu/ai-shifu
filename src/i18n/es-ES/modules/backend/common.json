@@ -1,0 +1,11 @@
+{
+  "__namespace__": "server.common",
+  "__flat__": {
+    "nicknameNotAllowed": "El apodo introducido no está permitido.",
+    "operationFailed": "Se ha producido un error en el servicio. Inténtalo más tarde.",
+    "paramsError": "Parámetros incorrectos: {param_message}",
+    "systemError": "Error del sistema",
+    "unexpectedError": "El servicio no está disponible temporalmente. Inténtalo más tarde.",
+    "unknownError": "Error desconocido"
+  }
+}

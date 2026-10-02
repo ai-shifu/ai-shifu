@@ -25,8 +25,7 @@ SMTP delivery and email copy remain email-specific.
 - [x] 2026-08-31 16:13 CST: Passed focused tests, type-check, lint, translation,
   repository harness, architecture, Ruff, and full pre-commit checks after
   ratcheting the reduced unit-of-work commit-site baseline.
-- [ ] 2026-08-31 16:13 CST: Commit, push, update the PR description, and follow
-  the current head through CI and review convergence.
+- [x] 2026-09-26: Delivery confirmed in merged #1839 (`dd4df1867`); recorded focused frontend/backend acceptance remains the evidence for this scope.
 
 ## Surprises & Discoveries
 

@@ -56,8 +56,17 @@ jest.mock('@/store/useSystemStore', () => ({
 jest.mock(
   '../CourseHeaderSummary',
   () =>
-    function MockCourseHeaderSummary() {
-      return <div data-testid='course-summary' />;
+    function MockCourseHeaderSummary({
+      titleLanguage,
+    }: {
+      titleLanguage?: string;
+    }) {
+      return (
+        <div
+          data-testid='course-summary'
+          lang={titleLanguage}
+        />
+      );
     },
 );
 jest.mock(
@@ -120,7 +129,11 @@ const pdfAction = {
   onDownload: jest.fn(),
 };
 
-const createChatUi = (lessonId = 'lesson-1') => (
+const createChatUi = (
+  lessonId = 'lesson-1',
+  titleLanguage?: string,
+  contentLanguage?: string,
+) => (
   <ChatUi
     courseId='course-1'
     chapterId='chapter-1'
@@ -129,6 +142,8 @@ const createChatUi = (lessonId = 'lesson-1') => (
     lessonId={lessonId}
     lessonStatus='completed'
     lessonTitle='Lesson one'
+    titleLanguage={titleLanguage}
+    contentLanguage={contentLanguage}
     lessonUpdate={jest.fn()}
     onGoChapter={jest.fn()}
     onPurchased={jest.fn()}
@@ -146,6 +161,17 @@ describe('ChatUi lesson PDF action', () => {
     mockShowLearningModeToggle = false;
     mockLearningMode = 'read';
     mockChatComponentProps = {};
+  });
+
+  it('passes the guide title language to the desktop heading and chat runtime', () => {
+    render(createChatUi('lesson-1', 'en-US', 'zh-CN'));
+
+    expect(screen.getByTestId('course-summary')).toHaveAttribute(
+      'lang',
+      'en-US',
+    );
+    expect(mockChatComponentProps.titleLanguage).toBe('en-US');
+    expect(mockChatComponentProps.contentLanguage).toBe('zh-CN');
   });
 
   it('keeps the action visible and disabled before the lesson content is ready', () => {

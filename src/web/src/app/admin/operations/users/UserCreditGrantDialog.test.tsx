@@ -273,7 +273,8 @@ describe('UserCreditGrantDialog', () => {
       amount: '10',
       grant_type: 'manual_credit',
       grant_source: 'reward',
-      validity_preset: '1d',
+      validity_value: 15,
+      validity_unit: 'day',
       expires_at: '2026-04-22T00:00:00Z',
       wallet_bucket_bid: 'bucket-1',
       ledger_bid: 'ledger-1',
@@ -401,7 +402,6 @@ describe('UserCreditGrantDialog', () => {
         request_id: 'testrequestid',
         amount: '10',
         grant_source: 'reward',
-        validity_preset: 'custom',
         validity_value: 15,
         validity_unit: 'day',
         note: 'ops note',
@@ -568,7 +568,8 @@ describe('UserCreditGrantDialog', () => {
       amount: '1200',
       grant_type: 'referral_reward',
       grant_source: 'reward',
-      validity_preset: '1m',
+      validity_value: null,
+      validity_unit: null,
       expires_at: '2026-06-21T00:00:00Z',
       wallet_bucket_bid: 'bucket-referral',
       ledger_bid: 'ledger-referral',
@@ -689,7 +690,6 @@ describe('UserCreditGrantDialog', () => {
         amount: '1200',
         grant_type: 'referral_reward',
         grant_source: 'reward',
-        validity_preset: '1m',
         note: 'referral note',
       });
     });
@@ -860,7 +860,6 @@ describe('UserCreditGrantDialog', () => {
     await waitFor(() =>
       expect(mockGrantAdminOperationUserCredits).toHaveBeenCalledWith(
         expect.objectContaining({
-          validity_preset: 'custom',
           validity_value: 6,
           validity_unit: 'month',
         }),

@@ -18,6 +18,9 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
+from flaskr.service.common.session_attribution import (
+    discard_session_skill_attribution,
+)
 from flaskr.service.user.models import UserToken
 from flaskr.util.datetime import now_utc
 
@@ -109,6 +112,7 @@ def _forget(app: Flask, records: list[UserToken]) -> int:
         for attempt in range(2):
             try:
                 redis.delete(_cache_key(app, token))
+                discard_session_skill_attribution(app, token=token)
                 break
             except Exception:
                 app.logger.warning(

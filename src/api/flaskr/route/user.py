@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import ParamSpec, TypeVar
 
-from flask import Flask, Response, current_app, make_response, request
+from flask import Flask, Response, current_app, g, make_response, request
 
 from flaskr.common.client_ip import resolve_client_ip
 from flaskr.common.http import sensitive_body
@@ -22,6 +22,9 @@ from flaskr.service.common.models import (
     raise_param_error,
 )
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.common.session_attribution import (
+    session_skill_attribution_reference,
+)
 from flaskr.service.feedback.funs import submit_feedback
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.profile.funcs import (
@@ -38,6 +41,9 @@ from flaskr.service.user.auth.base import (
 )
 from flaskr.service.user.auth.providers.google import (
     resolve_state_return_origin,
+)
+from flaskr.service.user.auth.providers.password import (
+    confirm_password_login_for_token_issue,
 )
 from flaskr.service.user.captcha import (
     create_captcha_challenge,
@@ -90,9 +96,12 @@ _AUTH_SENSITIVE_BODY_MAX_BYTES = 32 * 1024
 _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = (
     "zh-CN",
     "en-US",
+    "de-DE",
+    "es-ES",
     "fr-FR",
     "ar-SA",
     "th-TH",
+    "ur-PK",
 )
 
 _OPTIONAL_TOKEN_AUTH_ERROR_CODES = frozenset(
@@ -276,6 +285,9 @@ def _optional_token_validation(
             else:
                 set_language(_resolve_runtime_language(user))
                 request.user = user
+                g.authenticated_session_attribution = (
+                    session_skill_attribution_reference(current_app, token=token)
+                )
         return f(*args, **kwargs)
 
     return decorated_function
@@ -321,19 +333,17 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         ):
             return
 
-        token = request.cookies.get("token", None)
-        if not token:
-            token = request.args.get("token", None)
-        if not token:
-            token = request.headers.get("Token", None)
-        if not token and request.method.upper() == "POST" and request.is_json:
-            token = request.get_json().get("token", None)
+        token = _extract_request_token()
         token = str(token)
         if not token and request.endpoint in by_pass_login_func:
             return
         user = validate_user(app, token)
         set_language(_resolve_runtime_language(user))
         request.user = user
+        g.authenticated_session_attribution = session_skill_attribution_reference(
+            app,
+            token=token,
+        )
 
     register_profile_routes(
         app,
@@ -1305,6 +1315,18 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         auth_result = provider.verify(app, vr)
         try:
             with unit_of_work():
+                confirm_password_login_for_token_issue(
+                    identifier=str(
+                        auth_result.metadata.get("verified_identifier") or ""
+                    ),
+                    user_bid=auth_result.user.user_id,
+                    credential_bid=str(
+                        auth_result.metadata.get("password_credential_bid") or ""
+                    ),
+                    credential_identifier=str(
+                        auth_result.metadata.get("password_credential_identifier") or ""
+                    ),
+                )
                 persist_token(
                     app,
                     user_id=auth_result.user.user_id,

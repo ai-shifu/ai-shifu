@@ -116,11 +116,15 @@ def test_a_listening_learner_is_also_taught_by_the_agent_engine(
         pytest.param({"reload_element_bid": "element-bid"}, id="element"),
     ],
 )
-def test_regenerating_past_content_keeps_the_script_engine(
+def test_regenerating_past_content_stays_with_the_agent_engine(
     reload_kwargs: dict,
 ) -> None:
-    """Those requests address rows 1.0 wrote; the agent engine has no equivalent of them."""
-    assert _routes_to_agent(**reload_kwargs) is False
+    """Going back is the agent's own to do.
+
+    Sent to the script engine, a reload regenerated from rows the agent wrote and left the agent's
+    session where it was, so the page and the lesson disagreed from then on.
+    """
+    assert _routes_to_agent(**reload_kwargs) is True
 
 
 @pytest.mark.usefixtures("allowlisted")
@@ -170,6 +174,53 @@ def test_a_lesson_with_no_script_falls_back_rather_than_failing(
         )
     )
     assert fell_back == [True]
+
+
+@pytest.mark.usefixtures("allowlisted")
+def test_going_back_in_a_lesson_with_no_script_is_refused_rather_than_sent_to_1_0(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """1.0 would rewrite history and leave the lesson's 2.0 session on its old branch."""
+    from flaskr.service.common.models import AppError
+    from flaskr.service.learn.agent import lesson_entry
+
+    def _no_script(*_args: object, **_kwargs: object) -> None:
+        raise lesson_entry.LessonNotTeachable
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", _no_script)
+    fell_back: list[bool] = []
+    monkeypatch.setattr(
+        runscript_v2, "run_script_inner", lambda **_kw: fell_back.append(True) or []
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_lesson_routing")
+
+    class _Adapter:
+        persist_only_final = True
+
+    with pytest.raises(AppError):
+        list(
+            runscript_v2._lesson_events(
+                app=_App(),
+                user_bid="user-bid",
+                shifu_bid=SHIFU,
+                outline_bid="outline-bid",
+                user_input={"way": ["Right"]},
+                input_type=None,
+                reload_generated_block_bid="block-bid",
+                reload_element_bid=None,
+                listen=False,
+                learning_mode="read",
+                preview_mode=False,
+                stop_event=None,
+                element_adapter=_Adapter(),
+                heartbeat_interval=0.5,
+            )
+        )
+    assert fell_back == []
 
 
 def test_the_script_engine_is_reached_with_what_it_expects(

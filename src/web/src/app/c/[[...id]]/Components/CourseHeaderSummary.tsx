@@ -10,6 +10,7 @@ interface CourseHeaderSummaryProps {
   className?: string;
   avatarClassName?: string;
   titleClassName?: string;
+  titleLanguage?: string;
 }
 
 export const CourseHeaderSummary = ({
@@ -18,6 +19,7 @@ export const CourseHeaderSummary = ({
   className,
   avatarClassName,
   titleClassName,
+  titleLanguage,
 }: CourseHeaderSummaryProps) => {
   const { storedCourseAvatar, storedCourseName } = useCourseStore(
     useShallow(state => ({
@@ -44,6 +46,7 @@ export const CourseHeaderSummary = ({
           titleClassName,
         )}
         title={title}
+        lang={titleLanguage}
       >
         {title}
       </span>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import AuthPage from './page';
+import i18n from '@/i18n';
 
 const replaceMock = jest.fn();
 const logoutMock = jest.fn(() => Promise.resolve());
@@ -133,7 +134,12 @@ jest.mock('@/components/auth/PasswordLogin', () => ({
 
 jest.mock('@/components/language-select', () => ({
   __esModule: true,
-  default: () => <div data-testid='language-select' />,
+  default: ({ analyticsSurface }: { analyticsSurface: string }) => (
+    <div
+      data-testid='language-select'
+      data-analytics-surface={analyticsSurface}
+    />
+  ),
 }));
 
 jest.mock('@/components/TermsCheckbox', () => ({
@@ -207,6 +213,8 @@ jest.mock('@/components/ui/Card', () => ({
 
 describe('AuthPage', () => {
   beforeEach(() => {
+    i18n.language = 'zh-CN';
+    i18n.resolvedLanguage = 'zh-CN';
     jest.clearAllMocks();
     mockPasswordLogin.mockClear();
     mockEmailLogin.mockClear();
@@ -217,6 +225,14 @@ describe('AuthPage', () => {
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockEnvState.runtimeConfigLoaded = true;
+  });
+
+  it('retains a stored Urdu interface language when no account preference exists', async () => {
+    i18n.language = 'ur-PK';
+    i18n.resolvedLanguage = 'ur-PK';
+    render(<AuthPage />);
+    await screen.findByTestId('language-select');
+    expect(i18n.changeLanguage).toHaveBeenCalledWith('ur-PK');
   });
 
   it('switches an authenticated browser session to a guest session on the login page', async () => {
@@ -232,9 +248,9 @@ describe('AuthPage', () => {
   it('does not reset an already-guest login page session', async () => {
     render(<AuthPage />);
 
-    await waitFor(() => {
-      expect(logoutMock).not.toHaveBeenCalled();
-    });
+    const languageSelect = await screen.findByTestId('language-select');
+    expect(logoutMock).not.toHaveBeenCalled();
+    expect(languageSelect).toHaveAttribute('data-analytics-surface', 'login');
   });
 
   it('does not reset the session created by a successful login on the login page', async () => {

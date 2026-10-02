@@ -39,3 +39,106 @@ describe('cached runtime API base URL', () => {
     },
   );
 });
+
+describe('Spanish legal document URLs', () => {
+  const originalAgreementUrl = process.env.LEGAL_AGREEMENT_URL_ES_ES;
+  const originalPrivacyUrl = process.env.LEGAL_PRIVACY_URL_ES_ES;
+
+  afterEach(() => {
+    if (originalAgreementUrl === undefined) {
+      delete process.env.LEGAL_AGREEMENT_URL_ES_ES;
+    } else {
+      process.env.LEGAL_AGREEMENT_URL_ES_ES = originalAgreementUrl;
+    }
+    if (originalPrivacyUrl === undefined) {
+      delete process.env.LEGAL_PRIVACY_URL_ES_ES;
+    } else {
+      process.env.LEGAL_PRIVACY_URL_ES_ES = originalPrivacyUrl;
+    }
+  });
+
+  it('exposes configured es-ES agreement and privacy URLs', async () => {
+    process.env.LEGAL_AGREEMENT_URL_ES_ES = 'https://example.test/acuerdo';
+    process.env.LEGAL_PRIVACY_URL_ES_ES = 'https://example.test/privacidad';
+
+    await jest.isolateModulesAsync(async () => {
+      const { environment } = await import('./environment');
+
+      expect(environment.legalUrls.agreement['es-ES']).toBe(
+        'https://example.test/acuerdo',
+      );
+      expect(environment.legalUrls.privacy['es-ES']).toBe(
+        'https://example.test/privacidad',
+      );
+    });
+  });
+});
+
+describe('German legal document URLs', () => {
+  const originalAgreementUrl = process.env.LEGAL_AGREEMENT_URL_DE_DE;
+  const originalPrivacyUrl = process.env.LEGAL_PRIVACY_URL_DE_DE;
+
+  afterEach(() => {
+    if (originalAgreementUrl === undefined) {
+      delete process.env.LEGAL_AGREEMENT_URL_DE_DE;
+    } else {
+      process.env.LEGAL_AGREEMENT_URL_DE_DE = originalAgreementUrl;
+    }
+    if (originalPrivacyUrl === undefined) {
+      delete process.env.LEGAL_PRIVACY_URL_DE_DE;
+    } else {
+      process.env.LEGAL_PRIVACY_URL_DE_DE = originalPrivacyUrl;
+    }
+  });
+
+  it('exposes configured de-DE agreement and privacy URLs', async () => {
+    process.env.LEGAL_AGREEMENT_URL_DE_DE = 'https://example.test/vereinbarung';
+    process.env.LEGAL_PRIVACY_URL_DE_DE = 'https://example.test/datenschutz';
+
+    await jest.isolateModulesAsync(async () => {
+      const { environment } = await import('./environment');
+
+      expect(environment.legalUrls.agreement['de-DE']).toBe(
+        'https://example.test/vereinbarung',
+      );
+      expect(environment.legalUrls.privacy['de-DE']).toBe(
+        'https://example.test/datenschutz',
+      );
+    });
+  });
+});
+
+describe('Urdu legal document URLs', () => {
+  const originalAgreementUrl = process.env.LEGAL_AGREEMENT_URL_UR_PK;
+  const originalPrivacyUrl = process.env.LEGAL_PRIVACY_URL_UR_PK;
+
+  afterEach(() => {
+    if (originalAgreementUrl === undefined) {
+      delete process.env.LEGAL_AGREEMENT_URL_UR_PK;
+    } else {
+      process.env.LEGAL_AGREEMENT_URL_UR_PK = originalAgreementUrl;
+    }
+    if (originalPrivacyUrl === undefined) {
+      delete process.env.LEGAL_PRIVACY_URL_UR_PK;
+    } else {
+      process.env.LEGAL_PRIVACY_URL_UR_PK = originalPrivacyUrl;
+    }
+  });
+
+  it('exposes configured ur-PK agreement and privacy URLs', async () => {
+    process.env.LEGAL_AGREEMENT_URL_UR_PK =
+      'https://example.test/urdu-agreement';
+    process.env.LEGAL_PRIVACY_URL_UR_PK = 'https://example.test/urdu-privacy';
+
+    await jest.isolateModulesAsync(async () => {
+      const { environment } = await import('./environment');
+
+      expect(environment.legalUrls.agreement['ur-PK']).toBe(
+        'https://example.test/urdu-agreement',
+      );
+      expect(environment.legalUrls.privacy['ur-PK']).toBe(
+        'https://example.test/urdu-privacy',
+      );
+    });
+  });
+});

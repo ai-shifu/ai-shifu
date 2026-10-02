@@ -1,0 +1,20 @@
+{
+  "__namespace__": "server.modelGateway",
+  "__flat__": {
+    "client_not_allowed": "Dieser Client ist nicht berechtigt, auf das Modell-Gateway zuzugreifen.",
+    "gateway_unavailable": "Das Modell-Gateway ist vorübergehend nicht verfügbar. Versuchen Sie es später noch einmal.",
+    "idempotency_conflict": "Idempotency-Key wurde bereits verwendet.",
+    "idempotency_key_required": "Der Idempotency-Key muss zwischen 1 und 90 Zeichen lang sein.",
+    "insufficient_credits": "Das Konto hat keine verfügbare Geldbörse oder unzureichende Credits.",
+    "invalid_request": "Die Anfrage ist ungültig.",
+    "invalid_token": "Es ist ein gültiger Authorization-Bearer-Token erforderlich.",
+    "messages_invalid": "`messages` muss zwischen 1 und 256 Nachrichtenobjekte enthalten.",
+    "missing_client_id": "Der Request-Header `X-AI-Shifu-Client-ID` ist erforderlich.",
+    "model_not_available": "Das Modell ist nicht verfügbar, oder seine Limits beziehungsweise Credit-Tarife sind nicht konfiguriert.",
+    "model_required": "Ein Modell ist erforderlich.",
+    "provider_error": "Die Modellanfrage ist fehlgeschlagen.",
+    "request_too_large": "Der Request-Body überschreitet das Limit des Modell-Gateways von 1 MiB.",
+    "stream_invalid": "`stream` muss ein JSON-Boolean sein.",
+    "tools_invalid": "`tools` muss eine Liste mit höchstens 128 Einträgen sein."
+  }
+}

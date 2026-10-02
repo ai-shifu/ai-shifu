@@ -29,13 +29,17 @@ type CourseSectionProps = {
   selected?: boolean;
   canLearning?: boolean;
   chapterId: string;
+  titleLanguage?: string;
   onSelect?: (params: { id: string }) => void;
   onTrySelect?: (params: { id: string }) => void;
 };
 
-const getCourseTitleLang = (title: string) => {
+const getCourseTitleLang = (title: string, interfaceLanguage?: string) => {
   const trimmed = title.trim();
-  if (!trimmed) {
+  const usesNonLatinScript = /^(zh|ar|th)(?:-|$)/i.test(
+    interfaceLanguage ?? '',
+  );
+  if (!trimmed || !usesNonLatinScript) {
     return undefined;
   }
   const containsLatin = /[A-Za-z]/.test(trimmed);
@@ -52,11 +56,13 @@ export const CourseSection = ({
   selected,
   canLearning = false,
   chapterId,
+  titleLanguage,
   onSelect,
   onTrySelect,
 }: CourseSectionProps) => {
-  const { t } = useTranslation();
-  const courseTitleLang = getCourseTitleLang(name);
+  const { t, i18n } = useTranslation();
+  const courseTitleLang =
+    titleLanguage ?? getCourseTitleLang(name, i18n?.language);
   const { mobileStyle } = useContext(AppContext);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const previewMode = useSystemStore(state => state.previewMode);

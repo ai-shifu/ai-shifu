@@ -93,7 +93,6 @@ class ProviderConfig:
     voices: list[dict[str, str]] = field(default_factory=list)
     emotions: list[dict[str, str]] = field(default_factory=list)
     supports_custom_voice_id: bool = False
-    supports_voice_cloning: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Return frontend config with serialized ranges and shared list values."""
@@ -104,7 +103,6 @@ class ProviderConfig:
             "pitch": self.pitch.to_dict(),
             "supports_emotion": self.supports_emotion,
             "supports_custom_voice_id": self.supports_custom_voice_id,
-            "supports_voice_cloning": self.supports_voice_cloning,
             "voices": self.voices,
             "emotions": self.emotions,
         }

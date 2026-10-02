@@ -618,7 +618,10 @@ def test_safety_rejection_preserves_existing_profile(
 
     assert loaded["learner_profile"] == "existing profile"
     assert stored.nickname == "Test learner"
-    assert caught_error.value.message == "please check the content"
+    assert (
+        caught_error.value.message
+        == "The entered content is not allowed. Please review it."
+    )
 
 
 @pytest.mark.parametrize(
@@ -701,7 +704,10 @@ def test_profile_moderation_rejects_only_explicit_reject(
         stored = UserInfo.query.filter_by(user_bid=user_bid).one()
         state = UserOnboardingState.query.filter_by(user_bid=user_bid).first()
 
-    assert caught_error.value.message == "please check the content"
+    assert (
+        caught_error.value.message
+        == "The entered content is not allowed. Please review it."
+    )
     assert loaded["learner_profile"] == "existing profile"
     assert stored.nickname == "Test learner"
     assert state is None
@@ -740,7 +746,10 @@ def test_nickname_rejection_rolls_back_profile_nickname_and_state(
         stored = UserInfo.query.filter_by(user_bid=user_bid).one()
         state = UserOnboardingState.query.filter_by(user_bid=user_bid).first()
 
-    assert caught_error.value.message == "please check the content"
+    assert (
+        caught_error.value.message
+        == "The entered content is not allowed. Please review it."
+    )
     assert checked == ["accepted new profile", "Rejected nickname"]
     assert loaded["learner_profile"] == "existing profile"
     assert stored.nickname == "Test learner"

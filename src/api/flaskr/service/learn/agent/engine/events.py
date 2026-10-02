@@ -55,6 +55,9 @@ class InteractionRequest(BaseModel):
     type: Literal["interaction.request"] = "interaction.request"
     id: str
     spec: InteractionSpec
+    # The same question put again because the answer to it was not usable. Its text is already in
+    # front of the learner; a host that shows the question's text should show only its controls.
+    asked_before: bool = False
 
 
 class ToolCall(BaseModel):

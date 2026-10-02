@@ -2,8 +2,10 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "Résilier le compte",
+    "deductCredits": "Déduire des crédits",
     "grantCredits": "Attribuer crédits/forfait",
-    "moreForUser": "Plus d’actions pour {user}"
+    "moreForUser": "Plus d’actions pour {user}",
+    "terminateSubscription": "Résilier l’abonnement"
   },
   "cancellation": {
     "back": "Retour",
@@ -17,7 +19,7 @@
       "unsettled_payment": "Traitez les {count} commandes en attente avant de résilier ce compte."
     },
     "confirm": "Confirmer la résiliation",
-    "confirmDescription": "Le compte {user} sera définitivement résilié.",
+    "confirmDescription": "Le compte {user} sera définitivement supprimé. Vérifiez à nouveau le compte et le motif de suppression. Une fois la demande envoyée, cette action est irréversible.",
     "confirmPaidPreorder": "Ce compte a {count} forfaits prépayés en attente d’activation. Confirmez que les remboursements manuels ou le traitement requis sont terminés.",
     "confirmTitle": "Confirmer la résiliation",
     "continue": "Résilier le compte",
@@ -31,7 +33,7 @@
       "processingTimeout": "La tâche est toujours en cours. Actualisez la liste des utilisateurs ultérieurement.",
       "transfer": "Échec du transfert"
     },
-    "irreversible": "Le profil et les identifiants seront effacés; l’historique requis sera conservé.",
+    "irreversible": "Après la suppression, les informations d’identité du compte et les identifiants de connexion seront effacés, le solde de crédits sera remis à zéro et les sessions de connexion en cours prendront fin. Les historiques commerciaux et les données des cours seront conservés selon les règles applicables.",
     "processing": "Résiliation en cours…",
     "reasonCounter": "{count}/500",
     "reasonHint": "Ce motif sera conservé dans le journal d’audit.",
@@ -46,23 +48,14 @@
       "creditsExpireAtLabel": "Validité des crédits",
       "creditsHint": "Le solde sera supprimé sans remboursement.",
       "creditsLabel": "Solde de crédits",
-      "creditsValue": "{count} (supprimés sans remboursement)",
-      "draftsHint": "Les cours brouillons seront conservés et gelés.",
-      "draftsLabel": "Cours brouillons",
-      "draftsValue": "{count} (conservés et gelés)",
       "paidPackages": "Forfait payant :",
       "preorders": "Forfait prépayé en attente :",
-      "renewals": "Abonnements actifs résiliés lors de la suppression : {count}",
-      "sessionsHint": "Toutes les sessions actives seront immédiatement révoquées.",
-      "sessionsLabel": "Sessions actives",
-      "sessionsValue": "{count} (toutes révoquées)",
       "subscriptions": "Abonnement renouvelé automatiquement :"
     },
     "title": "Résilier le compte",
     "transfer": "Tout transférer",
     "transferEmailPlaceholder": "E-mail du nouveau responsable",
     "transferPhonePlaceholder": "Téléphone du nouveau responsable",
-    "transferPlaceholder": "Téléphone ou e-mail du nouveau responsable",
     "transferRequired": "Transférez d’abord {count} cours publiés"
   },
   "contactChange": {
@@ -122,6 +115,33 @@
   },
   "credits": {
     "longTerm": "Valide à long terme"
+  },
+  "deductionDialog": {
+    "account": "Compte",
+    "amount": "Crédits à déduire",
+    "amountPlaceholder": "Saisissez un nombre positif avec 2 décimales maximum",
+    "back": "Retour",
+    "confirmButton": "Confirmer la déduction",
+    "confirmDescription": "Les crédits payants sont déduits en premier, puis les crédits attribués manuellement. Vérifiez avant de continuer.",
+    "confirmTitle": "Confirmer la déduction de crédits",
+    "continueButton": "Continuer",
+    "currentBalance": "Solde actuel de crédits",
+    "description": "Déduisez des crédits de ce compte. Les crédits cadeaux et récompenses sont exclus.",
+    "errors": {
+      "amount": "Saisissez un montant positif avec 2 décimales maximum.",
+      "submitFailed": "La déduction des crédits a échoué. Réessayez."
+    },
+    "note": "Note",
+    "notePlaceholder": "Note interne facultative",
+    "reason": "Motif",
+    "reasons": {
+      "account_correction": "Correction du compte",
+      "incorrect_grant": "Attribution incorrecte",
+      "other": "Autre"
+    },
+    "submitting": "Déduction en cours...",
+    "success": "Crédits déduits",
+    "title": "Déduire des crédits"
   },
   "detail": {
     "basicInfo": "Informations de base",
@@ -369,8 +389,7 @@
       "note": "Optionnel. Indiquez la raison de cette attribution",
       "product": "Sélectionnez un forfait",
       "productLoading": "Chargement des forfaits…",
-      "referralRewardAmount": "Saisir les crédits de récompense",
-      "source": "Sélectionnez une source"
+      "referralRewardAmount": "Saisir les crédits de récompense"
     },
     "referralReward": {
       "bootstrapError": "Impossible de charger les données de récompense de parrainage. Veuillez réessayer plus tard.",
@@ -398,8 +417,7 @@
       "availableCredits": "Solde de crédits",
       "currentExpireAt": "Valide jusqu’au",
       "currentPackage": "Forfait actuel",
-      "nickname": "Pseudo",
-      "package": "Forfait"
+      "nickname": "Pseudo"
     },
     "title": "Attribuer crédits/forfait",
     "validation": {
@@ -489,6 +507,21 @@
     "totalPaidAmount": "Total payé",
     "updatedAt": "Mis à jour le",
     "userId": "ID d’utilisateur"
+  },
+  "terminationDialog": {
+    "account": "Compte",
+    "cancel": "Annuler",
+    "confirm": "Résilier maintenant",
+    "description": "L’abonnement devient immédiatement invalide et son renouvellement est arrêté le cas échéant. Les crédits restants sont supprimés ; les packs de crédits et récompenses sont conservés.",
+    "errors": {
+      "reason": "Saisissez un motif de résiliation.",
+      "submitFailed": "La résiliation a échoué. Veuillez réessayer."
+    },
+    "reason": "Motif",
+    "reasonPlaceholder": "Indiquez pourquoi cet abonnement est résilié",
+    "submitting": "Résiliation...",
+    "success": "Abonnement résilié",
+    "title": "Résilier l’abonnement"
   },
   "title": "Gestion des utilisateurs"
 }

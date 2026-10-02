@@ -19,7 +19,6 @@
       "status": "奖励状态"
     },
     "queueTitle": "邀请记录",
-    "refresh": "刷新",
     "rewardRecordValue": "{cycles} 个月基础版套餐（含 {credits} 积分）",
     "rewardRulesTitle": "活动规则",
     "rules": {
@@ -87,9 +86,7 @@
       "prevAria": "上一页"
     },
     "refresh": "刷新",
-    "statusUpdated": "状态已更新",
     "table": {
-      "action": "操作",
       "boundAt": "绑定时间",
       "campaign": "活动",
       "inviteCode": "邀请码",

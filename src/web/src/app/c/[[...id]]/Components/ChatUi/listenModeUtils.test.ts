@@ -605,6 +605,66 @@ describe('listenModeUtils', () => {
     ]);
   });
 
+  it.each(['payload', 'streaming tracks'] as const)(
+    'normalizes multilingual punctuation from %s without changing cue metadata',
+    source => {
+      const sentences = [
+        { text: 'هل تسمعني؟', expected: 'هل تسمعني؟' },
+        { text: '«Bonjour.»', expected: '«Bonjour»' },
+        { text: '« Bonjour. »', expected: '« Bonjour »' },
+        { text: 'Attention‼', expected: 'Attention‼' },
+        { text: 'Really⁇', expected: 'Really⁇' },
+        { text: 'Surprised⁈', expected: 'Surprised⁈' },
+        { text: 'Incredible⁉', expected: 'Incredible⁉' },
+        { text: 'Είσαι καλά\u037e', expected: 'Είσαι καλά\u037e' },
+        { text: 'First clause;', expected: 'First clause' },
+        { text: 'Brahmi\u{11047}', expected: 'Brahmi' },
+      ];
+      const rawCues = sentences.map(({ text }, index) => ({
+        text,
+        start_ms: 125 + index * 250,
+        end_ms: 375 + index * 250,
+        segment_index: 10 + index,
+        ...(source === 'payload' ? { position: 3 } : {}),
+      }));
+      const expectedCues = rawCues.map((cue, index) => ({
+        ...cue,
+        text: sentences[index].expected,
+        position: 3,
+      }));
+      const item = createContentItem(
+        source === 'payload'
+          ? {
+              payload: {
+                audio: { subtitle_cues: rawCues },
+              },
+            }
+          : {
+              audioTracks: [
+                {
+                  position: 3,
+                  isAudioStreaming: true,
+                  audioSegments: [
+                    {
+                      segmentIndex: 10,
+                      audioData: 'streaming-audio',
+                      durationMs: 3000,
+                      isFinal: false,
+                      subtitleCues: rawCues,
+                    },
+                  ],
+                },
+              ],
+            },
+      );
+
+      expect(resolveListenSlideSubtitleCues(item)).toEqual(expectedCues);
+      expect(rawCues.map(cue => cue.text)).toEqual(
+        sentences.map(sentence => sentence.text),
+      );
+    },
+  );
+
   it('strips disallowed trailing punctuation from subtitle cues', () => {
     const subtitleCues = resolveListenSlideSubtitleCues(
       createContentItem({

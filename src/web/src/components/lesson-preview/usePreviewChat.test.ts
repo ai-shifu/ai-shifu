@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { SSE } from 'sse.js';
+import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
@@ -12,6 +13,12 @@ import {
 } from './usePreviewChat';
 
 const mockParseToRemarkFormat = jest.fn();
+const mockTrackEvent = jest.fn();
+const mockGetCurrentMdflow = jest.fn();
+
+jest.mock('@/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
 
 jest.mock('sse.js', () => ({
   SSE: jest.fn(),
@@ -45,9 +52,7 @@ jest.mock('@/store', () => {
   });
 
   return {
-    useShifu: () => ({
-      actions: {},
-    }),
+    useShifu: () => ({ actions: { getCurrentMdflow: mockGetCurrentMdflow } }),
     useUserStore,
   };
 });
@@ -112,6 +117,8 @@ jest.mock('react-i18next', () => ({
 describe('usePreviewChat helpers and business error rendering', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTrackEvent.mockReset();
+    mockGetCurrentMdflow.mockReturnValue(undefined);
   });
 
   afterEach(() => {
@@ -164,6 +171,397 @@ describe('usePreviewChat helpers and business error rendering', () => {
     ).resolves.toBeNull();
 
     expect(SSE).not.toHaveBeenCalled();
+  });
+
+  test('does not advance 1.0 block indices after a 2.0 debug turn', async () => {
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValueOnce(source);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Draft script',
+        max_block_count: 3,
+      });
+    });
+    const request = (SSE as jest.Mock).mock.calls[0][1];
+    expect(JSON.parse(request.payload)).toEqual(
+      expect.objectContaining({
+        content: 'Draft script',
+        debug_session_id: expect.any(String),
+      }),
+    );
+
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'turn-1',
+          content: 'The lesson.',
+        }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+
+    expect(SSE).toHaveBeenCalledTimes(1);
+    expect(source.close).toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_lesson_preview_engine_started',
+      {
+        engine: 'v2',
+        shifu_bid: 'shifu-1',
+        outline_bid: 'lesson-1',
+      },
+    );
+  });
+
+  test('tracks the preview engine once per debug session and ignores tracking failures', async () => {
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('analytics unavailable');
+    });
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValueOnce(source);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+    await act(async () => {
+      await result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Private draft',
+      });
+    });
+
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '1.0' }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '1.0' }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'block',
+          content: 'Visible content',
+        }),
+      });
+    });
+
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_lesson_preview_engine_started',
+      {
+        engine: 'v1',
+        shifu_bid: 'shifu-1',
+        outline_bid: 'lesson-1',
+      },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'Private draft',
+    );
+    expect(result.current.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ content: 'Visible content' }),
+      ]),
+    );
+  });
+
+  test('keeps a debug session across answers and replaces it on reset', async () => {
+    const sources = [
+      buildMockSseSource(),
+      buildMockSseSource(),
+      buildMockSseSource(),
+    ];
+    sources.forEach(source => (SSE as jest.Mock).mockReturnValueOnce(source));
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+    const params = {
+      shifuBid: 'shifu-1',
+      outlineBid: 'lesson-1',
+      mdflow: 'Draft script',
+      max_block_count: 3,
+    };
+
+    await act(async () => {
+      await result.current.startPreview(params);
+      await result.current.startPreview({
+        ...params,
+        user_input: { answer: ['yes'] },
+      });
+    });
+    const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
+    const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
+    expect(second.debug_session_id).toBe(first.debug_session_id);
+    expect(second.user_input).toEqual({ answer: ['yes'] });
+
+    act(() => result.current.resetPreview());
+    await act(async () => result.current.startPreview(params));
+    const third = JSON.parse((SSE as jest.Mock).mock.calls[2][1].payload);
+    expect(third.debug_session_id).not.toBe(first.debug_session_id);
+  });
+
+  test('lets a restarted 2.0 debug session answer a question with a saved variable', async () => {
+    jest.useFakeTimers();
+    mockParseToRemarkFormat.mockImplementation((content: string) => ({
+      variableName: content.includes('multiAnswer') ? 'multiAnswer' : 'answer',
+      buttonTexts: ['old choice', 'new choice'],
+      buttonValues: ['old choice', 'new choice'],
+      isMultiSelect: content.includes('multiAnswer'),
+    }));
+    const firstSource = buildMockSseSource();
+    const answerSource = buildMockSseSource();
+    const multiAnswerSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(firstSource)
+      .mockReturnValueOnce(answerSource)
+      .mockReturnValueOnce(multiAnswerSource);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+
+    await act(async () =>
+      result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Ask for an answer',
+        variables: { answer: 'old choice', multiAnswer: 'old choice' },
+        max_block_count: 3,
+      }),
+    );
+    act(() => {
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'element',
+          content: {
+            element_bid: 'question-1',
+            generated_block_bid: '68bbca55db4b4134a5502a641aa0ca04',
+            element_type: 'interaction',
+            content: '?[answer]',
+          },
+        }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(SSE).toHaveBeenCalledTimes(1);
+    expect(
+      result.current.items.find(item => item.element_bid === 'question-1'),
+    ).toMatchObject({ user_input: '' });
+    expect(result.current.variables.answer).toBeUndefined();
+    expect(result.current.variables.multiAnswer).toBe('old choice');
+
+    await act(async () =>
+      result.current.onSend(
+        { variableName: 'answer', selectedValues: ['new choice'] },
+        'question-1',
+      ),
+    );
+    expect(SSE).toHaveBeenCalledTimes(2);
+    const firstRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[0][1].payload,
+    );
+    const answerRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[1][1].payload,
+    );
+    expect(answerRequest.debug_session_id).toBe(firstRequest.debug_session_id);
+    expect(answerRequest.user_input).toEqual({ answer: ['new choice'] });
+    expect(answerRequest.block_index).toBe(0);
+
+    act(() => {
+      answerSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      answerSource.listeners.message?.({
+        data: JSON.stringify({
+          type: 'element',
+          content: {
+            element_bid: 'question-2',
+            generated_block_bid: '4fcd3bed69243efa27a031be6c435c0',
+            element_type: 'interaction',
+            content: '?[multiAnswer]',
+          },
+        }),
+      });
+      answerSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    expect(result.current.variables.multiAnswer).toBeUndefined();
+    expect(
+      result.current.items.find(item => item.element_bid === 'question-2'),
+    ).toMatchObject({ user_input: '' });
+
+    await act(async () =>
+      result.current.onSend(
+        { variableName: 'multiAnswer', selectedValues: ['new choice'] },
+        'question-2',
+      ),
+    );
+    expect(SSE).toHaveBeenCalledTimes(3);
+    const multiAnswerRequest = JSON.parse(
+      (SSE as jest.Mock).mock.calls[2][1].payload,
+    );
+    expect(multiAnswerRequest.user_input).toEqual({
+      multiAnswer: ['new choice'],
+    });
+    expect(multiAnswerRequest.block_index).toBe(0);
+  });
+
+  test('omits the debug session ID when browser cryptography is unavailable', async () => {
+    const cryptoProperty = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'crypto',
+    );
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      (SSE as jest.Mock).mockReturnValueOnce(buildMockSseSource());
+      const { result } = renderHook(() =>
+        usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      );
+      await act(async () =>
+        result.current.startPreview({
+          shifuBid: 'shifu-1',
+          outlineBid: 'lesson-1',
+          mdflow: 'Draft',
+        }),
+      );
+      const payload = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
+      expect(payload).not.toHaveProperty('debug_session_id');
+    } finally {
+      if (cryptoProperty) {
+        Object.defineProperty(globalThis, 'crypto', cryptoProperty);
+      }
+    }
+  });
+
+  test('starts an edited 2.0 draft without submitting an answer from the old script', async () => {
+    const firstSource = buildMockSseSource();
+    const secondSource = buildMockSseSource();
+    (SSE as jest.Mock)
+      .mockReturnValueOnce(firstSource)
+      .mockReturnValueOnce(secondSource);
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+    const params = {
+      shifuBid: 'shifu-1',
+      outlineBid: 'lesson-1',
+      mdflow: 'Original draft',
+      variables: { learnerName: 'Ada' },
+      max_block_count: 3,
+    };
+
+    await act(async () => result.current.startPreview(params));
+    act(() => {
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      firstSource.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+    });
+    act(() => result.current.onVariableChange('answer', 'old choice'));
+    await act(async () =>
+      result.current.startPreview({
+        ...params,
+        mdflow: 'Edited draft',
+        block_index: 1,
+        variables: { learnerName: 'Ada', answer: 'old choice' },
+        user_input: { answer: ['old choice'] },
+      }),
+    );
+
+    const first = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
+    const second = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
+    expect(second.content).toBe('Edited draft');
+    expect(second.block_index).toBe(0);
+    expect(second.user_input).toBeUndefined();
+    expect(second.variables).toEqual({ learnerName: 'Ada' });
+    expect(second.debug_session_id).not.toBe(first.debug_session_id);
+  });
+
+  test('discards the pending answer before restarting an edited 2.0 draft and on refresh', async () => {
+    jest.useFakeTimers();
+    mockParseToRemarkFormat.mockReturnValue({ variableName: 'answer' });
+    const sources = [
+      buildMockSseSource(),
+      buildMockSseSource(),
+      buildMockSseSource(),
+    ];
+    sources.forEach(source => (SSE as jest.Mock).mockReturnValueOnce(source));
+    const { result } = renderHook(() =>
+      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+    );
+
+    await act(async () =>
+      result.current.startPreview({
+        shifuBid: 'shifu-1',
+        outlineBid: 'lesson-1',
+        mdflow: 'Original draft',
+        variables: { learnerName: 'Ada' },
+      }),
+    );
+    act(() => {
+      sources[0].listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      sources[0].listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+      result.current.onVariableChange('answer', 'old choice');
+    });
+    mockGetCurrentMdflow.mockReturnValue('Edited draft');
+    await act(async () => {
+      result.current.onSend({} as OnSendContentParams, 'old-question');
+    });
+    const restarted = JSON.parse((SSE as jest.Mock).mock.calls[1][1].payload);
+    expect(restarted.content).toBe('Edited draft');
+    expect(restarted.variables).toEqual({ learnerName: 'Ada' });
+    expect(restarted.user_input).toBeUndefined();
+
+    act(() => {
+      sources[1].listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      sources[1].listeners.message?.({
+        data: JSON.stringify({
+          type: 'interaction',
+          generated_block_bid: 'new-question',
+          content: '?[answer]',
+        }),
+      });
+      sources[1].listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+      jest.advanceTimersByTime(1000);
+      result.current.onVariableChange('answer', 'new choice');
+    });
+    expect(SSE).toHaveBeenCalledTimes(2);
+    await act(async () => result.current.onRefresh('question'));
+    const refreshed = JSON.parse((SSE as jest.Mock).mock.calls[2][1].payload);
+    expect(refreshed.variables).toEqual({ learnerName: 'Ada' });
+    expect(refreshed.user_input).toBeUndefined();
   });
 
   test('drops stale interaction user input when continuation has no submission', () => {

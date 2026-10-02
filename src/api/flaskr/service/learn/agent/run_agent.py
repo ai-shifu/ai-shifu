@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import re
 import uuid
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.i18n import _
 from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
 from flaskr.service.learn.agent.engine.engine import (
     ContinueTurn,
@@ -53,6 +55,7 @@ from flaskr.service.learn.agent.lesson_record import (
     apply_outline_progression,
     claim_for_writing,
     mark_lesson_finished,
+    record_next_lesson_interaction,
     record_turn_content,
     retire_unused_block,
     stage_turn_block,
@@ -60,12 +63,25 @@ from flaskr.service.learn.agent.lesson_record import (
 from flaskr.service.learn.agent.listen import LessonVoice
 from flaskr.service.learn.agent.pagination import LessonPager
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
+from flaskr.service.learn.agent.rewind import (
+    RewindPlan,
+    RewindUnavailableError,
+    checkpoint_of,
+    restore,
+    stage_retirement,
+    turn_record,
+)
 from flaskr.service.learn.agent.session_store import (
     StoredSessionUnusable,
     load_agent_session,
     save_agent_session,
 )
-from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.learn_dtos import (
+    GeneratedType,
+    LearnStatus,
+    RunMarkdownFlowDTO,
+)
 from flaskr.service.learn.learn_funcs import resolve_outline_progression
 from flaskr.service.learn.memory import (
     MemoryUpdate,
@@ -80,6 +96,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Generator, Iterable
 
     from flask import Flask
+    from flaskr.service.learn.agent.debug_session import DebugSessionStore
     from flaskr.service.learn.agent.engine.engine import Engine, TurnInput
     from flaskr.service.learn.agent.engine.events import Event
     from flaskr.service.learn.agent.engine.session import Session
@@ -169,8 +186,14 @@ def _load_or_start(
     script: str,
     teaching_brief: str = "",
     preview_mode: bool,
-) -> Callable[[], Any]:
+    rewind: RewindPlan | None = None,
+    debug_store: DebugSessionStore | None = None,
+    preview_variables: dict[str, Any] | None = None,
+) -> tuple[Callable[[], Any], bool]:
     """Build the coroutine factory the bridge runs on its producer thread.
+
+    Also says whether the stored lesson is already finished, which is known here and decides
+    whether there is a turn to run at all.
 
     Reading happens out here because it needs the app context this thread has; the session itself
     is built in there, because everything the engine touches has to be created on the loop that
@@ -181,19 +204,37 @@ def _load_or_start(
     snapshot taken when it was last saved, so an author editing a learner's profile would otherwise
     never reach the lesson already in progress.
     """
-    try:
-        stored = load_agent_session(
-            app, user_bid, outline_bid, preview_mode=preview_mode
-        )
-    except StoredSessionUnusable:
-        # Written by code whose sessions this one cannot read. Starting over loses the
-        # conversation, which is the point of comparing versions rather than parsing hopefully.
-        stored = None
-    user_memory = load_memory(app, user_bid, shifu_bid).as_variables()
+    if debug_store is not None:
+        stored = debug_store.load(script=script)
+    else:
+        try:
+            stored = load_agent_session(
+                app, user_bid, outline_bid, preview_mode=preview_mode
+            )
+        except StoredSessionUnusable:
+            # Written by code whose sessions this one cannot read. Starting over loses the
+            # conversation, which is the point of comparing versions rather than parsing hopefully.
+            stored = None
+    if rewind is not None:
+        if stored is None:
+            # The rows say where to go back to, but there is no conversation to take back.
+            raise RewindUnavailableError
+        # Taken back before the turn is built, so the turn is whatever this state calls for: the
+        # question the learner is now answering differently, or the turn being regenerated.
+        restore(stored, rewind.checkpoint)
+    user_memory = (
+        dict(preview_variables or {})
+        if debug_store is not None
+        else load_memory(app, user_bid, shifu_bid).as_variables()
+    )
 
     async def make_session() -> Session:
         if stored is not None:
-            stored.user_memory = dict(user_memory)
+            stored.user_memory = (
+                {**stored.user_memory, **user_memory}
+                if debug_store is not None
+                else dict(user_memory)
+            )
             # The brief is re-read too, for the same reason the memory is: a stored session
             # carries the snapshot taken when it was last saved. A lesson already in progress
             # when an author writes or edits one would otherwise never see it, and a lesson
@@ -217,7 +258,7 @@ def _load_or_start(
         session.user_memory = dict(user_memory)
         return session
 
-    return make_session
+    return make_session, bool(stored is not None and stored.finished)
 
 
 def run_agent_lesson(
@@ -235,8 +276,16 @@ def run_agent_lesson(
     shifu_model: type | None = None,
     heartbeat_interval: float = 0.5,
     iter_turn: Callable[..., Any] | None = None,
-) -> Generator[RunMarkdownFlowDTO, None, None]:
+    rewind: RewindPlan | None = None,
+    debug_store: DebugSessionStore | None = None,
+    preview_variables: dict[str, Any] | None = None,
+) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
+
+    Returns how the turn ended (see `TurnOutcome`); the caller decides whether another follows.
+
+    `rewind` takes the lesson back to an earlier turn first (see `agent.rewind`): the session is
+    restored, the turn runs from there, and the rows it supersedes are retired when it is written.
 
     `iter_turn` is injectable so a test can drive the turn without a thread; the default is the
     bridge, which runs the engine on its own loop and yields events as they arrive.
@@ -244,7 +293,7 @@ def run_agent_lesson(
     from flaskr.service.learn.agent.bridge import iter_turn as bridge_iter_turn
 
     run_turn_on_thread = iter_turn or bridge_iter_turn
-    make_session = _load_or_start(
+    make_session, finished_already = _load_or_start(
         app,
         engine,
         user_bid=user_bid,
@@ -253,11 +302,29 @@ def run_agent_lesson(
         script=script,
         teaching_brief=teaching_brief,
         preview_mode=preview_mode,
+        rewind=rewind,
+        debug_store=debug_store,
+        preview_variables=preview_variables,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.
     generated_block_bid = uuid.uuid4().hex
-    values = learner_values(user_input)
+    if finished_already:
+        # The browser asks for a turn every time the learner opens a lesson whose history does
+        # not end on a question, a finished one included: it cannot tell the two apart. The
+        # engine refuses to run a finished session and says so at once, and there is nothing to
+        # write for that -- running it as a turn used to leave an empty block, an empty element
+        # and the outline's rows behind on every visit. Nothing is sent either: a terminal event
+        # yielded here is written down as an element of no block, while the stream's own closing
+        # event, which it sends whenever a lesson's events end without one, is not.
+        return TurnOutcome(reason="finished", taught=False)
+    # Regenerating content runs the turn again with the input it had; everything else, including
+    # a question answered differently, runs with what the learner just sent.
+    values = (
+        rewind.replay_values
+        if rewind is not None and rewind.replay_values is not None
+        else learner_values(user_input)
+    )
     # Resolved before the turn runs, and remembered: what it identifies is both where this turn's
     # elements will hang and the thing a reset marks, so a turn can tell afterwards whether the
     # lesson it started in is still the one it is finishing.
@@ -282,12 +349,15 @@ def run_agent_lesson(
             position=0,
         )
     )
-    session_holder: dict[str, Session] = {}
+    session_holder: dict[str, Any] = {"rewind": rewind}
 
     def make_events() -> AsyncIterator[Event]:
         async def events() -> AsyncIterator[Event]:
             session = await make_session()
             session_holder["session"] = session
+            # The state this turn starts from, kept on its block so the lesson can be taken back
+            # to it later.
+            session_holder["turn_record"] = turn_record(checkpoint_of(session), values)
             async for event in engine.run_turn(session, _turn_input(session, values)):
                 yield event
 
@@ -311,20 +381,23 @@ def run_agent_lesson(
     # reading lesson has no audio to bind and keeps the single-element shape it has today.
     pager = LessonPager() if listen else None
     try:
-        yield from _stream_turn(
-            app,
-            run_turn_on_thread=run_turn_on_thread,
-            voice=voice,
-            pager=pager,
-            make_events=make_events,
-            session_holder=session_holder,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            preview_mode=preview_mode,
-            progress_record_bid=progress_record_bid,
-            generated_block_bid=generated_block_bid,
-            heartbeat_interval=heartbeat_interval,
+        return (
+            yield from _stream_turn(
+                app,
+                run_turn_on_thread=run_turn_on_thread,
+                voice=voice,
+                pager=pager,
+                make_events=make_events,
+                session_holder=session_holder,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                preview_mode=preview_mode,
+                progress_record_bid=progress_record_bid,
+                generated_block_bid=generated_block_bid,
+                heartbeat_interval=heartbeat_interval,
+                debug_store=debug_store,
+            )
         )
     except BaseException:
         # The turn died before it could record what it taught -- an engine error, or the learner
@@ -476,7 +549,62 @@ def _already_asked(taught: str, prompt: str) -> bool:
         return False
     said = _condensed(taught)
     start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
-    return _stands_alone(asked, said, start)
+    return _stands_alone(asked, said, start) or _ends_asking(said, asked)
+
+
+# How much of the narration's closing words a prompt must account for to count as the same
+# question, and how long a prompt must be before anything short of an exact repeat is enough. A
+# model asking in the narration and again in the prompt drops a few words -- "挑一件你觉得最费时间"
+# became "挑一件最费时间" on the general-education course -- while a short prompt resembles too
+# many endings to be judged this way at all.
+_REWORDED_RATIO = 0.85
+_REWORDED_MIN_CHARS = 8
+_PUNCTUATION = re.compile(r"[\s\W_]+")
+# Where a sentence ends, so a question followed by a short aside is still found.
+# Full stop, exclamation and question marks (full-width and ASCII) and an ellipsis, then any
+# closing quote or bracket.
+_SENTENCE_END = re.compile(
+    r"[\u3002\uff01\uff1f!?\u2026]+[\u300d\u300f\u201d\"')\uff09]*"
+)
+
+
+def _ends_asking(said: str, asked: str) -> bool:
+    """Whether the narration just asked this question, with at most a few words left out.
+
+    Only words dropped, never changed: every word of the prompt must appear, in order, in the
+    stretch of narration it is compared with. A changed word can turn the question around --
+    "largest" for "smallest", "最大" for "最小" -- and a prompt dropped as a repeat of a different
+    question would leave its controls under the wrong one (review of #2958).
+
+    Compared with the narration's last sentence or two: its very end, or the end of a sentence
+    followed by a short aside, within `_ECHO_WINDOW_CHARS`. Never earlier, so a question the lesson
+    asked and has since moved on from does not stand in for the one now being put.
+    """
+    if len(asked) < _REWORDED_MIN_CHARS or not said:
+        return False
+    window_start = max(0, len(said) - (len(asked) + _ECHO_WINDOW_CHARS))
+    ends = {len(said)} | {
+        m.end() for m in _SENTENCE_END.finditer(said) if m.end() > window_start
+    }
+    longest = int(len(asked) / _REWORDED_RATIO) + 1
+    for end in ends:
+        for length in range(len(asked), min(longest, end) + 1):
+            if _only_words_added(asked, said[end - length : end]):
+                return True
+    return False
+
+
+def _only_words_added(asked: str, stretch: str) -> bool:
+    """Whether `stretch` is `asked` with a few words added and none changed.
+
+    Punctuation and spacing may differ; a model ends the same sentence with a full-width question
+    mark in one place and an ASCII one in the other.
+    """
+    matcher = SequenceMatcher(None, asked, stretch, autojunk=False)
+    for tag, a_start, a_end, _b_start, _b_end in matcher.get_opcodes():
+        if tag in ("replace", "delete") and _PUNCTUATION.sub("", asked[a_start:a_end]):
+            return False
+    return matcher.ratio() >= _REWORDED_RATIO
 
 
 def _question(
@@ -519,10 +647,13 @@ def _question(
             if prompt
             else []
         )
+    # A question put again after an unusable answer is already on the learner's screen; sending
+    # its text again added the same line under it each time.
     prompts = [
         d
         for d in translated
         if d.type == GeneratedType.CONTENT
+        and not event.asked_before
         and not _already_asked(taught, str(d.content or ""))
     ]
     controls = [d for d in translated if d.type != GeneratedType.CONTENT]
@@ -696,6 +827,43 @@ def _outline_progression(
             type=GeneratedType.OUTLINE_ITEM_UPDATE,
             content=update,
         )
+    next_lesson = next(
+        (
+            update
+            for update in updates
+            if update.outline_bid != outline_bid
+            and update.status == LearnStatus.IN_PROGRESS
+            and not update.has_children
+        ),
+        None,
+    )
+    if next_lesson is None:
+        return
+    button = f"?[{_('server.learn.nextChapterButton')}//{CONTEXT_INTERACTION_NEXT}]"
+    try:
+        block_bid = record_next_lesson_interaction(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            content=button,
+        )
+    except Exception:
+        app.logger.warning(
+            "could not record next lesson interaction: user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+            exc_info=True,
+        )
+        return
+    if block_bid:
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=block_bid,
+            type=GeneratedType.INTERACTION,
+            content=button,
+        )
 
 
 def _stream_turn(
@@ -705,7 +873,7 @@ def _stream_turn(
     voice: LessonVoice | None,
     pager: LessonPager | None,
     make_events: Callable[[], Any],
-    session_holder: dict[str, Session],
+    session_holder: dict[str, Any],
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
@@ -713,7 +881,8 @@ def _stream_turn(
     progress_record_bid: str,
     generated_block_bid: str,
     heartbeat_interval: float,
-) -> Generator[RunMarkdownFlowDTO, None, None]:
+    debug_store: DebugSessionStore | None = None,
+) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
     pending_memory: list[MemoryUpdated] = []
     taught: list[str] = []
@@ -813,6 +982,8 @@ def _stream_turn(
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
         # question emits one and then re-asks the question and ends the turn properly, so treating
         # it as terminal would write the turn twice and stage its block twice.
+        if isinstance(event, TurnDone):
+            session_holder["reason"] = event.reason
         if isinstance(event, TurnDone) and voice is not None:
             # Whatever is still mid-synthesis when the text runs out, which is usually the last
             # sentence of the turn.
@@ -822,18 +993,24 @@ def _stream_turn(
             session = session_holder.get("session")
             if session is not None:
                 persisted = True
-                kept = _persist(
-                    app,
-                    session,
-                    memory=pending_memory,
-                    user_bid=user_bid,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    preview_mode=preview_mode,
-                    progress_record_bid=progress_record_bid,
-                    generated_block_bid=generated_block_bid,
-                    taught="".join(taught),
-                )
+                if debug_store is not None:
+                    debug_store.save(session)
+                    kept = True
+                else:
+                    kept = _persist(
+                        app,
+                        session,
+                        memory=pending_memory,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=preview_mode,
+                        progress_record_bid=progress_record_bid,
+                        generated_block_bid=generated_block_bid,
+                        taught="".join(taught),
+                        turn_record=session_holder.get("turn_record", ""),
+                        rewind=session_holder.get("rewind"),
+                    )
                 pending_memory = []
                 if session.finished and kept:  # not for a turn a reset discarded
                     # Before the terminal event, because the browser stops reading the stream on
@@ -868,6 +1045,10 @@ def _stream_turn(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
             )
+            # The engine ended the turn out of content, but the learner has a question in front
+            # of them all the same, and a caller carrying the lesson on from an "end" would run it
+            # past that question before they could answer.
+            session_holder["reason"] = "interaction"
 
         try:
             yield from _on_this_page(
@@ -938,18 +1119,41 @@ def _stream_turn(
         yield from voice.finish()
     session = session_holder.get("session")
     if not persisted and session is not None:
-        _persist(
-            app,
-            session,
-            memory=pending_memory,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            preview_mode=preview_mode,
-            progress_record_bid=progress_record_bid,
-            generated_block_bid=generated_block_bid,
-            taught="".join(taught),
-        )
+        if debug_store is not None:
+            debug_store.save(session)
+        else:
+            _persist(
+                app,
+                session,
+                memory=pending_memory,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                preview_mode=preview_mode,
+                progress_record_bid=progress_record_bid,
+                generated_block_bid=generated_block_bid,
+                taught="".join(taught),
+                turn_record=session_holder.get("turn_record", ""),
+                rewind=session_holder.get("rewind"),
+            )
+
+    return TurnOutcome(
+        reason=session_holder.get("reason"),
+        taught=bool("".join(taught).strip()),
+    )
+
+
+@dataclass(frozen=True)
+class TurnOutcome:
+    """How a turn ended, for the caller that decides whether the lesson goes on.
+
+    `reason` is the engine's: "interaction" (waiting on the learner), "finished", "end" (out of
+    content for this turn, the lesson not over), or None when the turn died. `taught` says whether
+    the turn put any text in front of the learner.
+    """
+
+    reason: str | None
+    taught: bool
 
 
 class _TurnDiscardedError(Exception):
@@ -968,6 +1172,8 @@ def _persist(
     progress_record_bid: str,
     generated_block_bid: str,
     taught: str,
+    turn_record: str = "",
+    rewind: RewindPlan | None = None,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -1004,7 +1210,17 @@ def _persist(
         # them to the profile would leak a turn's working notes into preview, Ask and follow-up
         # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
         # session scope, so this is the common case, not the rare one.
-        durable = [update for update in memory if update.scope == "user"]
+        #
+        # An answer to one of the script's questions is not a working note: it is what the author
+        # asked the learner, stored under the name the script gave it, and 1.0 writes every such
+        # answer to the profile. Later lessons read it from there -- a script that asks for
+        # `%{{purpose}}` in one lesson uses `{{purpose}}` in the next -- and a lesson whose
+        # answer stayed in its own session showed the next one's learner the placeholder itself.
+        durable = [
+            update
+            for update in memory
+            if update.scope == "user" or update.source == "interaction"
+        ]
         if durable:
             stage_memory(
                 app,
@@ -1021,9 +1237,22 @@ def _persist(
                 ),
             )
         if record is not None:
-            record_turn_content(generated_block_bid=generated_block_bid, content=taught)
+            if rewind is not None:
+                # With the session it restored, or not at all: rows retired by a turn that was
+                # then discarded would leave history ending where the session does not.
+                stage_retirement(rewind, user_bid=user_bid, outline_bid=outline_bid)
+            record_turn_content(
+                generated_block_bid=generated_block_bid,
+                content=taught,
+                turn_record=turn_record,
+            )
             if session.finished:
                 mark_lesson_finished(record)
+            # A rewind does not reopen a lesson already completed. Going back to answer
+            # differently is revisiting it, and the completion was earned: reopening only this
+            # record would also leave its chapter completed and the next lesson started, ahead of
+            # a lesson that says it is unfinished -- which is why the outline never reopens a
+            # finished lesson either (see `apply_outline_progression`).
 
     try:
         save_agent_session(

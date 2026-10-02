@@ -2,8 +2,10 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "注销账户",
+    "deductCredits": "扣除积分",
     "grantCredits": "发放积分/套餐",
-    "moreForUser": "{user} 的更多操作"
+    "moreForUser": "{user} 的更多操作",
+    "terminateSubscription": "终止套餐"
   },
   "cancellation": {
     "back": "返回",
@@ -46,23 +48,14 @@
       "creditsExpireAtLabel": "积分有效期",
       "creditsHint": "注销后积分余额将清零，不退款。",
       "creditsLabel": "积分余额",
-      "creditsValue": "{count}",
-      "draftsHint": "草稿课程将在注销后冻结保留。",
-      "draftsLabel": "草稿课程",
-      "draftsValue": "{count}",
       "paidPackages": "付费套餐：",
       "preorders": "待生效预付费：",
-      "renewals": "注销时将终止有效订阅：{count} 个",
-      "sessionsHint": "注销后，当前账号的全部登录会话将立即失效。",
-      "sessionsLabel": "有效登录会话",
-      "sessionsValue": "{count}",
       "subscriptions": "自动续费订阅："
     },
     "title": "注销用户账号",
     "transfer": "一键转移",
     "transferEmailPlaceholder": "新负责人的邮箱",
     "transferPhonePlaceholder": "新负责人的手机号",
-    "transferPlaceholder": "新负责人的手机号或邮箱",
     "transferRequired": "需先转移 {count} 门已发布课程"
   },
   "contactChange": {
@@ -122,6 +115,33 @@
   },
   "credits": {
     "longTerm": "长期有效"
+  },
+  "deductionDialog": {
+    "account": "用户账号",
+    "amount": "扣除积分",
+    "amountPlaceholder": "请输入正数，最多保留两位小数",
+    "back": "返回修改",
+    "confirmButton": "确认扣除",
+    "confirmDescription": "系统将优先扣除付费积分，再扣除人工发放积分。请核对后确认。",
+    "confirmTitle": "确认扣除积分",
+    "continueButton": "继续",
+    "currentBalance": "当前积分余额",
+    "description": "从该用户账户扣除积分，赠送和奖励积分不在可扣除范围内。",
+    "errors": {
+      "amount": "请输入大于 0 且最多保留两位小数的积分数值。",
+      "submitFailed": "积分扣除失败，请稍后重试。"
+    },
+    "note": "备注",
+    "notePlaceholder": "可选，记录本次扣除说明",
+    "reason": "扣除原因",
+    "reasons": {
+      "account_correction": "账户纠正",
+      "incorrect_grant": "发放错误",
+      "other": "其他"
+    },
+    "submitting": "扣除中...",
+    "success": "积分扣除成功",
+    "title": "扣除积分"
   },
   "detail": {
     "basicInfo": "基础信息",
@@ -369,8 +389,7 @@
       "note": "可选，记录本次发放说明",
       "product": "请选择套餐",
       "productLoading": "套餐加载中...",
-      "referralRewardAmount": "请输入奖励积分",
-      "source": "请选择来源"
+      "referralRewardAmount": "请输入奖励积分"
     },
     "referralReward": {
       "bootstrapError": "拉新奖励数据加载失败，请稍后重试。",
@@ -398,8 +417,7 @@
       "availableCredits": "积分余额",
       "currentExpireAt": "有效期到",
       "currentPackage": "当前套餐",
-      "nickname": "昵称",
-      "package": "套餐"
+      "nickname": "昵称"
     },
     "title": "发放积分/套餐",
     "validation": {
@@ -489,6 +507,21 @@
     "totalPaidAmount": "累计付费金额",
     "updatedAt": "更新时间",
     "userId": "用户ID"
+  },
+  "terminationDialog": {
+    "account": "用户账号",
+    "cancel": "取消",
+    "confirm": "立即终止",
+    "description": "套餐将立即失效，并在适用时停止续费。剩余套餐积分会被清除，积分包和奖励积分不受影响。",
+    "errors": {
+      "reason": "请输入终止原因。",
+      "submitFailed": "套餐终止失败，请稍后重试。"
+    },
+    "reason": "终止原因",
+    "reasonPlaceholder": "记录本次终止套餐的原因",
+    "submitting": "终止中...",
+    "success": "套餐已终止",
+    "title": "终止套餐"
   },
   "title": "用户管理"
 }

@@ -1926,6 +1926,7 @@ const ScriptEditor = ({
                       locale={resolveMarkdownFlowLocale(
                         i18n.resolvedLanguage ?? i18n.language,
                       )}
+                      lang=''
                       disabled={currentShifu?.readonly}
                       content={editorContent}
                       variables={variablesList}

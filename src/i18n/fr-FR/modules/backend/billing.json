@@ -1,18 +1,21 @@
 {
   "__namespace__": "server.billing",
   "__flat__": {
-    "adminPlanGrantAlreadyActive": "Le même forfait est déjà actif pour cet utilisateur.",
+    "adminPlanGrantAlreadyActive": "Le même forfait est déjà actif pour cet utilisateur. Il ne peut pas être attribué de nouveau pour le moment.",
     "adminPlanGrantProviderManagedConflict": "Cet utilisateur dispose déjà d’un abonnement actif géré par un prestataire de paiement. L’attribution manuelle d’un forfait n’est pas prise en charge avant l’expiration de l’abonnement actuel.",
-    "adminPlanGrantRoleUnsupported": "Seuls les créateurs et les opérateurs peuvent recevoir des crédits ou des forfaits attribués manuellement.",
+    "adminPlanGrantRoleUnsupported": "Le rôle de cet utilisateur ne permet pas l’attribution de crédits ou de forfaits.",
     "campaignLockedAfterHit": "Cette campagne de forfaits comporte déjà des commandes payées. Les produits et les règles d’avantage ne peuvent plus être modifiés.",
     "campaignNotFound": "Campagne de forfaits introuvable.",
     "campaignOverlapActive": "Les produits {product_names} ont déjà une campagne de forfaits active sur la période sélectionnée. Ajustez la période de campagne ou choisissez d’autres produits.",
     "campaignProviderDiscountLocked": "Cette campagne de forfaits possède déjà des remises Stripe actives. Créez une nouvelle version de campagne ou arrêtez les remises Stripe avant de modifier les produits, les règles ou les dates.",
     "campaignProviderDiscountSyncRequired": "Cette campagne de forfaits n’est pas encore entièrement synchronisée avec Stripe. Synchronisez-la avec Stripe et confirmez le statut avant de l’activer.",
+    "creditDeductionInsufficient": "Le solde de crédits déductibles est insuffisant. Réduisez le montant et réessayez.",
+    "creditDeductionOriginAmbiguous": "Ce compte contient des crédits de forfait d’origines mixtes qui ne peuvent pas être déduits automatiquement. Vérifiez-les manuellement.",
+    "creditDeductionRequestConflict": "Cette demande de déduction a déjà été utilisée avec un montant différent.",
     "creditInsufficient": "Crédits insuffisants. Abonnez-vous ou achetez des crédits avant de continuer.",
     "customDomainDisabled": "Les domaines personnalisés ne sont pas activés pour cet enseignant.",
     "debugDisabledBySoftLimit": "Les crédits sont sous le seuil de rappel configuré. Abonnez-vous ou achetez des crédits avant de continuer les prévisualisations de débogage.",
-    "disabled": "La facturation est actuellement désactivée.",
+    "disabled": "La facturation par crédits est actuellement désactivée.",
     "domainBindingNotFound": "La liaison de domaine personnalisé demandée est introuvable.",
     "domainHostConflict": "Ce domaine personnalisé est déjà lié à un autre enseignant.",
     "manualCreditGrantFailed": "Échec de l’attribution des crédits. Veuillez réessayer plus tard.",
@@ -23,11 +26,11 @@
     "referralRewardProductMismatch": "La configuration du forfait de récompense d’invitation ne correspond pas au produit de facturation. Contactez un administrateur pour vérifier la campagne.",
     "subscriptionCheckoutBusy": "La demande d’achat du forfait est en cours de traitement. Veuillez réessayer plus tard.",
     "subscriptionInactive": "Veuillez d’abord acheter un forfait de crédits. Les packs de crédits ne peuvent être utilisés que lorsque le compte dispose d’un forfait de crédits actif.",
-    "subscriptionPreorderAlreadyExists": "Une précommande de forfait est déjà en attente pour cet abonnement.",
+    "subscriptionPreorderAlreadyExists": "Ce forfait a déjà une précommande en attente d’activation. Traitez-la avant de passer une nouvelle précommande.",
     "subscriptionPreorderProviderUnsupported": "La précommande de forfait est actuellement prise en charge uniquement pour les canaux de paiement autogérés.",
     "subscriptionPreorderTargetInvalid": "La précommande de forfait prend uniquement en charge le renouvellement du même forfait ou le passage à un forfait inférieur en fin de cycle.",
     "subscriptionPreorderUnavailable": "La précommande de forfait n’est pas disponible pour l’abonnement actuel.",
-    "subscriptionUpgradeAmountInvalid": "Cette mise à niveau ne peut pas être finalisée, car le montant à payer après déduction de la précommande n’est pas positif. Contactez le support pour ajuster le prix du forfait.",
+    "subscriptionUpgradeAmountInvalid": "Le montant à payer pour la mise à niveau après déduction de la précommande doit être supérieur à 0. Contactez un administrateur pour ajuster le prix du forfait, puis réessayez.",
     "subscriptionUpgradeOnly": "L’abonnement actuel est encore actif. Seules les mises à niveau vers une offre supérieure sont autorisées."
   }
 }

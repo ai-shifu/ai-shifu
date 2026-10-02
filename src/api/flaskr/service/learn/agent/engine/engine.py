@@ -26,6 +26,8 @@ from pydantic_ai.messages import (
     PartStartEvent,
     TextPart,
     TextPartDelta,
+    ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 
@@ -63,7 +65,15 @@ from .interaction import (
 from .script import ScriptBundle, detect_v1_syntax, render_first_prompt
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
-from .tools import Deps, finish, interact, remember, script_options
+from .tools import (
+    NO_PAUSE,
+    Deps,
+    finish,
+    interact,
+    remember,
+    script_options,
+    script_pauses,
+)
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -86,8 +96,11 @@ class StartTurn(BaseModel):
 # simulation environment read a lesson's entire text twice and then watched it stop.
 CONTINUE_PROMPT = (
     "continue\n\n"
-    "Deliver the next part of the script. If nothing in the script remains to be delivered, "
-    "do not write anything: call `finish`."
+    "Deliver the next part of the script: the rest of the step you were on if any of it is still "
+    "to be delivered, otherwise the first step you have not delivered yet. Do not summarise, "
+    "recap, restate or elaborate on anything you already delivered unless that step of the "
+    "script asks for it, and do not add a closing wrap-up of your own. If nothing in the script "
+    "remains to be delivered, write nothing at all -- no note, no summary -- and call `finish`."
 )
 
 
@@ -166,18 +179,52 @@ def _text_of(messages: Iterable[object]) -> str:
 # every one of them 1 to 3 characters; the lesson that repeated itself and stopped was 330. The
 # floor sits well clear of the first and well under the second.
 _REPEAT_FLOOR_CHARS = 40
+# How much of a host-initiated continue is held back before any of it is shown, in visible
+# characters. A model with nothing left often says so before it calls `finish` -- "The script has
+# been delivered in full -- ... Nothing remains." -- and that is addressed to the host, not the
+# learner. Seen on 3 of 40 lesson runs of the general-education course (2026-09-24), each 150 to
+# 180 visible characters. A continue with the next part to deliver goes past this in two or
+# three seconds, while the learner is still reading the turn before it.
+_CONTINUE_HOLD_CHARS = 280
 
 
-def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
-    """Whether the text written after `history_len` is the previous turn's text, again.
+# Where a repeat is cut from what follows it: the end of a line or of a sentence.
+_BREAKS = "\n\u3002\uff01\uff1f.!?"
+
+
+def _after_the_repeat(held: Sequence[str], said: str) -> str:
+    """Return what of the held text to show once it stops reading as what was `said`.
+
+    A repeat long enough to be one (`_REPEAT_FLOOR_CHARS`) at its start is left out, up to the
+    last line or sentence end inside it, so what is shown begins where a sentence does. A model
+    told to go on often starts by writing the last part again and only then gets to the new
+    one; everything else was new, and is shown whole.
+    """
+    text = "".join(held)
+    visible = "".join(text.split())
+    if visible in said:
+        return "" if len(visible) >= _REPEAT_FLOOR_CHARS else text
+    cut, seen = 0, ""
+    for i, ch in enumerate(text):
+        if not ch.isspace():
+            seen += ch
+        if ch in _BREAKS:
+            # A prefix that was not said cannot become said by growing, so the first one
+            # that was not ends the search.
+            if seen not in said:
+                break
+            cut = i + 1
+    if _visible_length(text[:cut]) < _REPEAT_FLOOR_CHARS:
+        return text
+    return text[cut:]
+
+
+def _previous_turn_text(messages: Sequence[object], history_len: int) -> str:
+    """Return the text of the turn before `history_len`, whitespace removed.
 
     A turn begins with the user's prompt, so the previous turn is everything from the last user
-    prompt before `history_len` up to `history_len`. Empty on either side is not a repeat: a turn
-    that wrote nothing has not repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
+    prompt before `history_len` up to `history_len`.
     """
-    now = _text_of(messages[history_len:])
-    if len(now) < _REPEAT_FLOOR_CHARS:
-        return False
     start = 0
     for index in range(history_len - 1, -1, -1):
         message = messages[index]
@@ -186,7 +233,45 @@ def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool
         ):
             start = index
             break
-    return now == _text_of(messages[start:history_len])
+    return _text_of(messages[start:history_len])
+
+
+def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
+    """Whether the text written after `history_len` is the previous turn's text, again.
+
+    The whole of it, or its beginning: a model that starts the previous turn over and stops part
+    way has still delivered nothing new. Empty is not a repeat: a turn that wrote nothing has not
+    repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
+    """
+    now = _text_of(messages[history_len:])
+    previous = _previous_turn_text(messages, history_len)
+    if len(now) >= _REPEAT_FLOOR_CHARS:
+        return previous.startswith(now)
+    return False
+
+
+def _finished_in(messages: Sequence[object]) -> str | None:
+    """Return the summary of a `finish` the model already called in this lesson, if it did.
+
+    Read from the history rather than kept on the session, so it goes wherever the history goes:
+    a question asked in the same response as `finish` is still shown, and the turn that takes its
+    answer then ends the lesson.
+    """
+    finished = {
+        part.tool_call_id
+        for message in messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, ToolReturnPart) and part.tool_name == "finish"
+    }
+    for message in messages:
+        if not isinstance(message, ModelResponse):
+            continue
+        for part in message.parts:
+            if isinstance(part, ToolCallPart) and part.tool_call_id in finished:
+                summary = str(part.args_as_dict().get("summary") or "").strip()
+                return summary or "done"
+    return None
 
 
 class Engine:
@@ -206,6 +291,7 @@ class Engine:
         turn_limit: int = 200,
         model_settings: ModelSettings | None = None,
         interaction_check: Callable[[InteractionSpec], str | None] | None = None,
+        pauses_from_notation: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -213,9 +299,16 @@ class Engine:
         `interact` call would defer, it returns None, or the reason the host cannot render it.
         A question it cannot render is refused to the model, which asks it again, rather than
         left pending with nothing on the learner's screen to answer it.
+
+        `pauses_from_notation` is how a host says its scripts pause only where their notation puts
+        a button (`?[继续]`), as a MarkdownFlow 1.0 lesson does: a lesson whose script has no such
+        button then never pauses, and a `confirm` in it is answered without asking the learner.
+        Where the script has buttons, the model places the pauses, since nothing says which part
+        of the script it has reached. Off, the model decides everywhere.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
+        self.pauses_from_notation = pauses_from_notation
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -327,8 +420,14 @@ class Engine:
             uses_v1_syntax=uses_v1_syntax,
             interaction_check=self.interaction_check,
             script_options=script_options(script_text) if uses_v1_syntax else {},
+            # The lesson's own script only: a brief or a reference document may show `?[继续]`
+            # as an example of the notation, which is not a pause in this lesson.
+            no_pauses=(
+                self.pauses_from_notation and script_pauses(session.script.script) == 0
+            ),
         )
         deps.history_len = len(session.messages) if session.started else 0
+        deps.finished = _finished_in(session.messages)
         kwargs: dict[str, Any] = {"deps": deps, "usage_limits": self.limits}
         resumed: set[str] = set()
         prompt: str | None
@@ -374,7 +473,9 @@ class Engine:
                     message=f"interaction {pending.tool_call_id!r} needs an answer",
                     retryable=True,
                 )
-                yield InteractionRequest(id=pending.tool_call_id, spec=pending.spec)
+                yield InteractionRequest(
+                    id=pending.tool_call_id, spec=pending.spec, asked_before=True
+                )
                 yield TurnDone(reason="interaction", usage=session.usage)
                 return
             session.answers[pending.tool_call_id] = format_answer_for_model(
@@ -451,6 +552,61 @@ class Engine:
         delivered = 0
         speak_after_finish: bool | None = None
 
+        # A turn the host began by telling the model to carry on. The previous turn ended with
+        # nothing left to deliver as far as the model was concerned, and the host could not tell;
+        # so what this turn writes may be nothing new -- see `_repeats_previous_turn` -- and that
+        # is known only once it has been written. Text is therefore held back for as long as it
+        # reads as something the previous turn already said, and released the moment it differs.
+        # A turn with something new to say loses nothing but a few characters' worth of delay; one
+        # that says the previous turn again is never shown. It was: a learner on the simulation
+        # environment watched a lesson's last piece appear a second time and only then stop.
+        #
+        # Anywhere in the previous turn, not only its start. A model with nothing left often
+        # writes the previous turn's closing line again and then calls `finish`: the learner read
+        # "理解「名字指向什么」是同一件事。" twice in a row (boundary lesson 6-3, 2026-09-24),
+        # and "你选了……" twice on 4-2.
+        #
+        # And never less than its opening `_CONTINUE_HOLD_CHARS`, new or not: a model with
+        # nothing left announces it before calling `finish`, and whatever is still held when that
+        # call comes is dropped with the turn.
+        carried_on = isinstance(turn, ContinueTurn) and prompt is not None
+        previous = (
+            _previous_turn_text(session.messages, deps.history_len)
+            if carried_on
+            else ""
+        )
+        held: list[str] = []
+        held_text = ""
+        holding = carried_on
+        hold_floor = _CONTINUE_HOLD_CHARS if carried_on else 0
+        # The same, within a turn: a pause the script did not write is answered with `NO_PAUSE`,
+        # which tells the model to go on -- and one that had delivered the whole lesson wrote it
+        # all again (general-education course, 2026-09-24). From that answer on, text is held
+        # back while it reads as something this turn already said.
+        said: list[str] = []
+        after_pause = False
+
+        def _out(text: str) -> list[Event]:
+            nonlocal delivered
+            delivered += _visible_length(text)
+            said.append("".join(text.split()))
+            out: list[Event] = [ContentDelta(text=text)]
+            if segmenter:
+                out.extend(self._segment(segmenter.feed(text), seg_state, session))
+            return out
+
+        def _text(text: str) -> list[Event]:
+            nonlocal holding, held_text
+            if not holding:
+                return _out(text)
+            held.append(text)
+            held_text += "".join(text.split())
+            if len(held_text) < hold_floor or held_text in previous:
+                return []
+            holding = False
+            released, held[:] = _after_the_repeat(held, previous), []
+            return _out(released) if released else []
+
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
                 async for ev in events:
@@ -464,32 +620,37 @@ class Engine:
                     # line, and a learner who is sent nothing for the turn has been robbed of
                     # it. Decided once, when the call is first seen: deciding it per chunk would
                     # let the first chunk through and cut the rest off mid-sentence.
+                    #
+                    # Not on a turn the host carried on, though. The closing line was written
+                    # by the turn before, or the model would not have stopped there; a model
+                    # that calls `finish` first on being told to carry on has nothing left, and
+                    # what it writes after that is a farewell, an announcement that the lesson
+                    # is over, or the closing line again -- each of which a learner has read.
+                    # Text held back so far was the previous turn again, and is dropped with it.
                     if deps.finished is not None and speak_after_finish is None:
-                        speak_after_finish = delivered == 0
+                        speak_after_finish = delivered == 0 and not carried_on
+                        if after_pause and held:
+                            # Held since the pause and still this turn's own words: a repeat,
+                            # unless too short to be one.
+                            if len(held_text) < _REPEAT_FLOOR_CHARS:
+                                for e in _out("".join(held)):
+                                    yield e
+                            held.clear()
+                            holding = False
+                        elif carried_on:
+                            held.clear()
                     silent = deps.finished is not None and not speak_after_finish
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
                         if ev.part.content and not silent:
-                            delivered += _visible_length(ev.part.content)
-                            yield ContentDelta(text=ev.part.content)
-                            if segmenter:
-                                for e in self._segment(
-                                    segmenter.feed(ev.part.content), seg_state, session
-                                ):
-                                    yield e
+                            for e in _text(ev.part.content):
+                                yield e
                     elif (
                         isinstance(ev, PartDeltaEvent)
                         and isinstance(ev.delta, TextPartDelta)
                         and not silent
                     ):
-                        delivered += _visible_length(ev.delta.content_delta)
-                        yield ContentDelta(text=ev.delta.content_delta)
-                        if segmenter:
-                            for e in self._segment(
-                                segmenter.feed(ev.delta.content_delta),
-                                seg_state,
-                                session,
-                            ):
-                                yield e
+                        for e in _text(ev.delta.content_delta):
+                            yield e
                     elif isinstance(ev, FunctionToolCallEvent):
                         if ev.part.tool_call_id in resumed:
                             continue
@@ -501,6 +662,23 @@ class Engine:
                     elif isinstance(ev, FunctionToolResultEvent):
                         if ev.part.tool_call_id in resumed:
                             continue
+                        if (
+                            ev.part.tool_name == "interact"
+                            and getattr(ev.part, "content", None) == NO_PAUSE
+                        ):
+                            # What was held so far came before the pause, and the model moved
+                            # on from it: it is shown, unless it was a repeat -- the lesson written
+                            # again after one untaken pause, and then a second pause.
+                            if held:
+                                released = _after_the_repeat(held, previous)
+                                if released:
+                                    for e in _out(released):
+                                        yield e
+                                held.clear()
+                            previous = (previous if carried_on else "") + "".join(said)
+                            held_text = ""
+                            holding = after_pause = True
+                            hold_floor = 0
                         if ev.part.tool_name == "finish":
                             continue
                         if ev.part.tool_name == "remember":
@@ -518,6 +696,33 @@ class Engine:
                     elif isinstance(ev, AgentRunResultEvent):
                         result = ev.result
                         session.messages = list(result.all_messages())
+                        repeated = carried_on and _repeats_previous_turn(
+                            session.messages, deps.history_len
+                        )
+                        if after_pause and holding and held:
+                            # Everything written since the pause was this turn over again. It is
+                            # not shown, but it does not end the lesson either: the model may have
+                            # paused before the script's end, and a repeat says only that this
+                            # response added nothing. The host carries the lesson on, and a
+                            # model with nothing left calls `finish` then.
+                            released = _after_the_repeat(held, previous)
+                            if released:
+                                for e in _out(released):
+                                    yield e
+                        elif held and not repeated:
+                            # Still reading as the previous turn when the turn ended, but too
+                            # little of it to be taken as a repeat: it is the model's text, and
+                            # nothing says it was not meant. Held only for its length, and new
+                            # after a repeat of the previous turn: the new part.
+                            holding = False
+                            released = (
+                                "".join(held)
+                                if held_text in previous
+                                else _after_the_repeat(held, previous)
+                            )
+                            for e in _out(released):
+                                yield e
+                        held.clear()
                         # Only now are the answers safely part of the history; clearing them any
                         # earlier would lose them if the request failed.
                         session.answers = {}
@@ -535,6 +740,11 @@ class Engine:
                             ):
                                 yield e
                         if isinstance(result.output, DeferredToolRequests):
+                            # Every question here was asked before `finish`, if the model called
+                            # it at all: `interact` defers nothing once the lesson is over. Asked
+                            # in the same response as `finish`, the script's last question is
+                            # still the learner's to answer, and the turn that takes the answer
+                            # ends the lesson (see `_finished_in`).
                             for call in result.output.calls:
                                 spec = InteractionSpec.model_validate(
                                     result.output.metadata.get(call.tool_call_id, {})
@@ -547,15 +757,18 @@ class Engine:
                                 )
                             yield TurnDone(reason="interaction", usage=session.usage)
                         elif deps.finished is not None:
+                            # The lesson is over, whatever the model did after saying so. Given
+                            # the `finish` result it sometimes started the lesson again and asked
+                            # its first question once more: taken as a question, that kept a
+                            # finished lesson going, every answer followed by the same lesson and
+                            # the same question (general-education course, 2026-09-24).
                             session.finished = True
                             yield TurnDone(
                                 reason="finished",
                                 usage=session.usage,
                                 summary=deps.finished,
                             )
-                        elif isinstance(turn, ContinueTurn) and _repeats_previous_turn(
-                            session.messages, deps.history_len
-                        ):
+                        elif repeated:
                             # Told to carry on, the model wrote the previous turn over again.
                             # There is nothing left in the script for it to deliver, whether or
                             # not it says so; carrying on again would only produce a third copy.
@@ -567,6 +780,15 @@ class Engine:
                             yield TurnDone(reason="end", usage=session.usage)
         # Surface any failure to the host and keep the session usable.
         except Exception as exc:
+            if deps.finished is not None:
+                # The lesson had ended before this failure -- typically a model that kept calling
+                # tools after `finish` until the request limit stopped it. What came after the
+                # end was never shown, and the end stands.
+                session.finished = True
+                yield TurnDone(
+                    reason="finished", usage=session.usage, summary=deps.finished
+                )
+                return
             yield ErrorEvent(message=f"{type(exc).__name__}: {exc}", retryable=True)
             return
         finally:

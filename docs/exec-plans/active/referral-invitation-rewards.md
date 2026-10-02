@@ -1,5 +1,7 @@
 # 老带新邀请奖励实施计划
 
+> Lifecycle review, 2026-09-26: Awaiting dev02 saved-row and product-configuration acceptance; do not infer it from merged implementation.
+
 ## Purpose / Big Picture
 
 基于可配置 referral campaign，实现 AI 师傅第一版“老用户邀请新用户”奖励链路。老用户获得邀请码和邀请链接；新手机号注册用户可以在注册时绑定一个邀请人；首发活动中，每个有效邀请给邀请人发放 1 个月配置好的 199 元套餐权益，最多 12 个月。
@@ -53,7 +55,7 @@
 开始实现前先读这些文件：
 
 - 设计来源：`docs/design-docs/referral-invitation-rewards.md`。
-- 计费设计：`docs/billing-subscription-design.md`。
+- 计费设计：`docs/design-docs/billing-subscription-design.md`。
 - 用户认证规则：`src/api/AGENTS.md`、`src/api/flaskr/service/user/AGENTS.md`、`src/api/skills/user-auth-flows/SKILL.md`。
 - 计费规则：`src/api/flaskr/service/billing/AGENTS.md`。
 - 前端规则：`src/web/AGENTS.md`、`src/web/src/app/AGENTS.md`，以及被修改目录下最近的 `AGENTS.md`。

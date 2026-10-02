@@ -1,0 +1,427 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "Guardar configuración",
+    "detail": "Detalles",
+    "disable": "Desactivar",
+    "dryRun": "Simular envío",
+    "enable": "Activar",
+    "more": "Más",
+    "requeue": "Volver a enviar",
+    "reset": "Restablecer",
+    "search": "Buscar"
+  },
+  "config": {
+    "deliveryRules": {
+      "active": "Activado",
+      "description": "Consulta en un solo lugar los límites diarios, las horas de silencio, la protección del uso de SMS y las reglas de saldo bajo para profesores.",
+      "descriptionEmail": "Consulta en un solo lugar los límites de frecuencia de correo, las horas de silencio y las reglas de saldo bajo para profesores.",
+      "dialogDescription": "Estas reglas controlan el número diario de SMS, las horas de silencio y los avisos a profesores con pocos créditos. Se aplicarán al guardar la configuración.",
+      "dialogDescriptionEmail": "Estas reglas controlan la frecuencia de los correos, las horas de silencio y los avisos a profesores con pocos créditos. Se aplicarán al guardar la configuración.",
+      "dialogTitle": "Protecciones del envío",
+      "edit": "Editar reglas de envío",
+      "inactive": "Desactivado",
+      "no": "No",
+      "summaries": {
+        "budget": "Límite diario: {limit}; coste por SMS: {cost}; simulación: {dryRun}.",
+        "frequency": "Móvil: {perMobile}/día; profesor y tipo: {perCreatorType}/día.",
+        "frequencyEmail": "Destinatario: {perRecipient}/día; profesor y tipo: {perCreatorType}/día.",
+        "quietHoursOff": "Las horas de silencio están desactivadas; las notificaciones se envían según el resultado de la revisión.",
+        "quietHoursOn": "Se pausa el envío de {start} a {end} en la zona horaria {timezone}.",
+        "softlimit": "Por debajo de {threshold} créditos; aviso {teacherAlert}; bloqueo de depuración {debugLock}; SMS {sms}.",
+        "softlimitEmail": "Por debajo de {threshold} créditos; aviso {teacherAlert}; bloqueo de depuración {debugLock}."
+      },
+      "yes": "Sí"
+    },
+    "description": "Gestiona en un solo lugar los interruptores, las plantillas, las reglas de envío, las horas de silencio y las listas de exclusión de las notificaciones de créditos.",
+    "emptyBlockedCreators": "Todavía no hay profesores bloqueados.",
+    "emptyOptedOutCreators": "Todavía no hay profesores que se hayan dado de baja de las notificaciones.",
+    "fieldTips": {
+      "creatorIdentifierListEmail": "Introduce correos electrónicos o ID de profesor separados por comas.",
+      "creatorIdentifierListPhone": "Introduce números de móvil o ID de profesor separados por comas.",
+      "dailySmsLimit": "Al alcanzar este límite diario, no se enviarán más SMS ese día.",
+      "enabled": "Controla las notificaciones de créditos por SMS. Solo afecta a las notificaciones futuras.",
+      "enabledEmail": "Controla las notificaciones de créditos por correo. Solo afecta a las notificaciones futuras.",
+      "perCreatorPerTypePerDay": "Número máximo de mensajes diarios por profesor y tipo de notificación.",
+      "perMobilePerDay": "Número máximo diario de SMS de créditos por móvil.",
+      "perRecipientPerDay": "Número máximo diario de correos de créditos por destinatario.",
+      "quietEnd": "Hora de fin del periodo de silencio, por ejemplo 08:00.",
+      "quietStart": "Hora de inicio del periodo de silencio, por ejemplo 22:00.",
+      "smsUnitCost": "Se usa para estimar el coste de los SMS. El cargo real depende del proveedor de SMS.",
+      "softlimitThreshold": "Un saldo inferior a este valor activa avisos en la página, SMS o bloqueos de depuración.",
+      "timezone": "Zona horaria de las horas de silencio, por ejemplo Asia/Shanghai."
+    },
+    "fields": {
+      "blockedCreatorList": "Profesores bloqueados",
+      "blockedCreators": "Profesores bloqueados",
+      "dailySmsLimit": "Límite diario de envíos",
+      "disableDebug": "Bloquear la depuración cuando el saldo sea bajo",
+      "dryRunRequired": "Exigir una simulación antes del envío",
+      "enabled": "Activar notificaciones de créditos por SMS",
+      "enabledEmail": "Activar notificaciones de créditos por correo",
+      "estimatedDays": "Días de uso restantes",
+      "estimatedDaysEnabled": "Avisar según los días de uso restantes",
+      "fallbackFixedValue": "Umbral de saldo de respaldo",
+      "lookbackDays": "Días de consumo considerados",
+      "mergeSameCreator": "Agrupar por profesor",
+      "minConsumedDays": "Días mínimos de consumo válidos",
+      "optedOutCreators": "Profesores dados de baja",
+      "perCreatorPerTypePerDay": "Límite diario por profesor y tipo",
+      "perMobilePerDay": "Límite diario por móvil",
+      "perRecipientPerDay": "Límite diario por destinatario",
+      "quietEnd": "Fin de las horas de silencio",
+      "quietHoursEnabled": "Activar horas de silencio",
+      "quietStart": "Inicio de las horas de silencio",
+      "smsUnitCost": "Coste por SMS",
+      "softlimitEnabled": "Activar protección por saldo bajo",
+      "softlimitSms": "Enviar SMS de protección por saldo bajo",
+      "softlimitThreshold": "Umbral de protección del saldo",
+      "teacherPageAlert": "Aviso en el panel de administración",
+      "timezone": "Zona horaria"
+    },
+    "inputPlaceholders": {
+      "blockedCreatorsEmail": "Correos electrónicos o ID de profesor, separados por comas",
+      "blockedCreatorsPhone": "Móviles o ID de profesor, separados por comas"
+    },
+    "invalidConfig": "No se ha podido guardar la configuración. Revisa los valores del formulario.",
+    "listDialog": {
+      "add": "Añadir",
+      "addedBlockedCreators": "Se han añadido {count} profesores.",
+      "blockedCreatorLimit": "Puedes añadir hasta {count} profesores cada vez.",
+      "blockedDescription": "Busca, consulta y elimina profesores bloqueados. Los cambios se aplicarán cuando guardes la configuración.",
+      "blockedSummary": "{count} profesores bloqueados",
+      "comingSoon": "Próximamente",
+      "delete": "Eliminar",
+      "duplicateBlockedCreators": "Ese valor ya está en la lista de bloqueo.",
+      "emptyPreview": "Aún no hay detalles",
+      "emptyResult": "No hay resultados coincidentes.",
+      "invalidBlockedCreators": "Contenido no reconocido: {values}",
+      "manage": "Gestionar",
+      "manageLists": "Gestionar listas",
+      "manageListsDescription": "Añade profesores a la lista manual de exclusión o consulta los que han cancelado las notificaciones.",
+      "optedOutDescription": "La lista de profesores dados de baja es de solo lectura. Busca por contacto o apodo.",
+      "optedOutSummary": "{count} profesores dados de baja",
+      "searchPlaceholderEmail": "Correo electrónico / Apodo",
+      "searchPlaceholderPhone": "Móvil / Apodo"
+    },
+    "loadFailed": "No se ha podido cargar la política de notificaciones. Actualiza la página y vuelve a intentarlo.",
+    "loadRequired": "La política de notificaciones no se ha cargado correctamente, así que no se puede guardar la configuración.",
+    "masterSwitchDescription": "Al desactivar esta opción, no se generarán nuevas notificaciones de créditos por SMS. Los registros anteriores no cambian.",
+    "masterSwitchDescriptionEmail": "Al desactivar esta opción, no se generarán nuevas notificaciones de créditos por correo. Los registros anteriores no cambian.",
+    "saveStickyHint": "Guarda los cambios para que se apliquen a las notificaciones futuras.",
+    "saved": "Configuración guardada.",
+    "sectionDescriptions": {
+      "budget": "Controla el límite diario de SMS y estima su coste.",
+      "frequency": "Limita cuántos mensajes SMS puede recibir el mismo móvil o profesor en un día.",
+      "frequencyEmail": "Limita cuántos correos electrónicos puede recibir el mismo destinatario o profesor en un día.",
+      "lists": "Los profesores de estas listas dejarán de recibir SMS de créditos. La lista de bajas se genera al cancelar las notificaciones y es de solo lectura.",
+      "quietHours": "Durante las horas de silencio, los SMS se retrasan o se omiten según la política.",
+      "softlimit": "Cuando el saldo baje del umbral de protección, avisa a los profesores y limita la depuración para evitar que sigan consumiendo créditos."
+    },
+    "sections": {
+      "budget": "Protección del uso de SMS",
+      "deliveryPolicy": "Reglas de envío",
+      "frequency": "Límites diarios de envío",
+      "lists": "Listas de exclusión",
+      "quietHours": "Horas de silencio",
+      "softlimit": "Protección por saldo bajo para profesores"
+    },
+    "title": "Configuración de notificaciones",
+    "typeTable": {
+      "rules": {}
+    },
+    "unsavedDialog": {
+      "cancel": "Seguir editando",
+      "description": "Si sales de esta página, se descartarán los cambios y se restaurará la última configuración guardada.",
+      "discard": "Salir sin guardar",
+      "save": "Guardar y salir",
+      "title": "Cambios sin guardar"
+    }
+  },
+  "deliveryStatus": {
+    "failed": "Falló el envío",
+    "not_sent": "No enviado",
+    "pending": "Pendiente",
+    "sent": "Enviado"
+  },
+  "detail": {
+    "description": "Consulta el recorrido del envío, las fechas y la respuesta del proveedor de esta notificación.",
+    "fallback": "No se ha seleccionado ningún registro",
+    "fields": {
+      "attemptedAt": "Último intento",
+      "createdAt": "Fecha de creación",
+      "dedupeKey": "Identificador de deduplicación",
+      "errorCode": "Código de error",
+      "errorMessage": "Motivo del fallo",
+      "metadata": "Metadatos",
+      "notificationBid": "ID del registro de notificación",
+      "policySnapshot": "Copia de la política de envío",
+      "providerResponse": "Respuesta del proveedor",
+      "requestedAt": "Fecha de solicitud de envío",
+      "sentAt": "Fecha de envío correcto",
+      "skipReason": "Motivo por el que no se envió",
+      "sourceBid": "ID del objeto que activó la notificación",
+      "sourceObject": "Objeto que activó la notificación",
+      "template": "Plantilla SMS",
+      "templateCode": "Código de la plantilla",
+      "templateName": "Nombre de la plantilla",
+      "templateParams": "Parámetros de plantilla",
+      "updatedAt": "Fecha de actualización"
+    },
+    "params": {
+      "available_credits": "Créditos disponibles",
+      "avg_daily_consumption": "Consumo diario medio",
+      "credits": "Créditos",
+      "estimated_remaining_days": "Días restantes estimados",
+      "expires_at": "Fecha de vencimiento",
+      "lookback_days": "Días de consumo considerados",
+      "source": "Origen de la concesión",
+      "threshold": "Umbral de alerta",
+      "threshold_kind": "Tipo de umbral",
+      "trigger_days": "Días restantes que activan el aviso",
+      "window": "Plazo del aviso"
+    },
+    "sections": {
+      "business": "Datos relacionados",
+      "delivery": "Secuencia del envío",
+      "diagnostics": "Diagnóstico",
+      "message": "Contenido de SMS",
+      "provider": "Proveedor",
+      "snapshots": "Copias de los parámetros",
+      "summary": "Resumen",
+      "time": "Fechas",
+      "trigger": "Información de activación"
+    },
+    "sourceObject": {
+      "ledger": "Movimiento de créditos",
+      "wallet": "Cuenta de saldo",
+      "wallet_bucket": "Lote de créditos"
+    },
+    "summary": {
+      "creator": "Profesor",
+      "notification": "Tipo de notificación",
+      "status": "Estado de la entrega"
+    },
+    "title": "Detalles de la notificación"
+  },
+  "dryRun": {
+    "description": "Calcula cuántas notificaciones cumplirían la configuración actual. No se enviará ningún SMS.",
+    "descriptionEmail": "Calcula cuántas notificaciones cumplirían la configuración actual. No se enviará ningún correo.",
+    "empty": "Todavía no hay resultados de la simulación.",
+    "metrics": {
+      "candidate": "Coincidencias estimadas",
+      "cost": "Coste estimado",
+      "created": "Registros que se generarían"
+    },
+    "rawResult": "Resultado original",
+    "title": "Simulación de envío"
+  },
+  "empty": "Todavía no hay registros de notificaciones de créditos.",
+  "errorReason": {
+    "blacklisted": "El profesor figura en la lista de exclusión; no se envió.",
+    "budget_daily_sms_limit": "Se ha alcanzado el límite diario de SMS; no se envió.",
+    "expiry_extended": "Se amplió la fecha de vencimiento de los créditos antes del envío; no se envió.",
+    "frequency_creator_type_daily": "Se ha alcanzado el límite diario para este profesor y tipo de notificación; no se envió.",
+    "frequency_mobile_daily": "Se ha alcanzado el límite diario para este móvil; no se envió.",
+    "invalid_mobile": "El número de móvil del profesor no es válido; no se envió.",
+    "missing_mobile": "Falta el número de móvil del profesor; no se envió.",
+    "missing_template_code": "La plantilla SMS no está configurada.",
+    "missing_template_params": "Los parámetros de plantilla de SMS están incompletos.",
+    "opt_out": "El profesor se ha dado de baja de las notificaciones; no se envió.",
+    "policy_disabled": "La política de notificaciones está desactivada; no se envió.",
+    "provider_exception": "Ha fallado la llamada al proveedor de SMS.",
+    "provider_failed": "El proveedor de SMS no ha confirmado el envío.",
+    "quiet_hours": "Está activo el periodo de silencio; no se envió.",
+    "unsupported_channel": "Este canal de notificaciones no está habilitado; no se envió.",
+    "zero_balance_missing_estimated_remaining_days": "Faltan los días restantes estimados para el aviso de saldo cero; no se envió."
+  },
+  "filters": {
+    "all": "Todos",
+    "createdTime": "Fecha de creación",
+    "creator": "Profesor",
+    "creatorPlaceholderEmail": "Correo electrónico / Apodo",
+    "creatorPlaceholderPhone": "Móvil / Apodo",
+    "notificationType": "Tipo de notificación",
+    "skipReason": "Motivo por el que no se envió",
+    "sourceType": "Contexto de activación",
+    "status": "Estado de la entrega",
+    "timeRangePlaceholder": "Fecha de inicio ~ Fecha de fin"
+  },
+  "loadError": "No se han podido cargar las notificaciones de créditos. Actualiza la página y vuelve a intentarlo.",
+  "messages": {
+    "requeueDone": "Se ha enviado la tarea de reenvío.",
+    "requeueFailed": "No se ha podido enviar la tarea de reenvío."
+  },
+  "overview": {
+    "activeFilter": "Filtro activo",
+    "failed": "Envíos fallidos",
+    "failedTooltip": "Notificaciones cuyo envío ha fallado en el proveedor de SMS y que se pueden reenviar desde la lista de detalles.",
+    "pending": "Pendiente",
+    "pendingTooltip": "Notificaciones creadas y a la espera de ser enviadas o procesadas.",
+    "sent": "Enviado",
+    "sentTooltip": "Notificaciones enviadas al proveedor de SMS y marcadas como enviadas.",
+    "skipped": "No enviado",
+    "skippedTooltip": "Notificaciones no enviadas debido a problemas de contacto, límites de política, duplicados o cambios en las condiciones de activación.",
+    "total": "Todos los registros de notificaciones",
+    "totalTooltip": "Todos los registros de notificaciones de créditos por SMS generados por el sistema."
+  },
+  "records": {
+    "totalCount": "{count} registros de notificaciones"
+  },
+  "ruleManagement": {
+    "cancel": "Cancelar",
+    "columns": {
+      "actions": "Acciones",
+      "conditions": "Condiciones",
+      "emailTemplate": "Plantilla de correo electrónico",
+      "enabled": "Estado",
+      "name": "Nombre de la regla",
+      "template": "Plantilla SMS",
+      "trigger": "Evento activador"
+    },
+    "delete": "Eliminar",
+    "deleteDescription": "El cambio se aplicará cuando guardes la configuración de notificaciones. ¿Continuar?",
+    "deleteTitle": "Eliminar regla de notificación",
+    "description": "Configura reglas de notificación que se pueden activar por separado según el evento, la plantilla SMS y las condiciones.",
+    "descriptionEmail": "Configura reglas de notificación que se pueden activar por separado según el evento, la plantilla de correo y las condiciones.",
+    "dialogDescription": "Después de guardar la configuración, esta regla se aplica a la entrega de notificaciones futuras.",
+    "edit": "Editar",
+    "editRule": "Editar regla de notificación",
+    "empty": "No hay reglas de notificación configuradas todavía.",
+    "fields": {
+      "enabled": "Activar regla",
+      "englishFallbackTemplate": "Plantilla de respaldo en inglés",
+      "name": "Nombre de la regla",
+      "template": "Plantilla SMS",
+      "thresholds": "Umbrales de aviso por saldo bajo",
+      "trigger": "Evento de activación",
+      "windows": "Plazos de aviso antes del vencimiento"
+    },
+    "legacySmsMigrationHint": "Se han detectado reglas SMS antiguas. Vincula plantillas de correo y activa las reglas migradas cuando estén listas.",
+    "migrateLegacySmsRules": "Migrar a reglas de correo",
+    "migrateLegacySmsRulesDescription": "Se sustituirán las tres reglas SMS antiguas, se conservarán sus condiciones de activación, se vaciarán las plantillas SMS y se crearán tres reglas de correo desactivadas. El cambio se aplicará cuando pulses «Guardar configuración» al pie de la página.",
+    "migrateLegacySmsRulesTitle": "Migrar reglas de SMS heredadas",
+    "newRule": "Nueva regla",
+    "noConditions": "Sin condiciones adicionales",
+    "saveRule": "Guardar regla",
+    "selectEnglishFallbackTemplate": "Selecciona la plantilla obligatoria en inglés",
+    "selectTemplate": "Seleccionar plantilla de SMS",
+    "title": "Reglas de notificación"
+  },
+  "skipReason": {
+    "channel": "Canal de notificación no disponible",
+    "contact": "Problema con los datos de contacto",
+    "duplicate": "Notificación duplicada",
+    "policy": "Restricción de la política",
+    "stale": "Ha cambiado la condición de activación",
+    "template_params": "Parámetros de plantilla incompletos"
+  },
+  "sourceType": {
+    "ledger": "Aviso de concesión de créditos",
+    "wallet": "Aviso de saldo de créditos",
+    "wallet_bucket": "Aviso de vencimiento de créditos"
+  },
+  "subtitle": "Consulta el estado de envío de los avisos de concesión, vencimiento y saldo bajo de créditos, y configura las políticas de notificación.",
+  "table": {
+    "action": "Más",
+    "createdAt": "Fecha de creación",
+    "creator": "Profesor",
+    "error": "Motivo / Detalles del error",
+    "notification": "Tipo de notificación",
+    "source": "Contexto de activación",
+    "status": "Estado de la entrega"
+  },
+  "tabs": {
+    "config": "Configuración de notificaciones",
+    "records": "Registros de notificaciones",
+    "templates": "Gestión de plantillas"
+  },
+  "templateManagement": {
+    "allEmailStatuses": "Todos los estados de plantilla",
+    "allStatuses": "Todos los estados de revisión",
+    "bindingsLoading": "Cargando relaciones de uso",
+    "bindingsUnavailable": "No se han podido cargar las relaciones de uso",
+    "columns": {
+      "action": "Acción",
+      "bindings": "Utilizado por",
+      "content": "Contenido",
+      "name": "Plantilla",
+      "status": "Estado de revisión",
+      "type": "Tipo de plantilla"
+    },
+    "create": "Crear plantilla",
+    "detail": {
+      "code": "Código de la plantilla",
+      "content": "Contenido completo",
+      "error": "Error de sincronización",
+      "status": "Estado de revisión",
+      "syncedAt": "Última sincronización",
+      "type": "Tipo de plantilla",
+      "variables": "Variables"
+    },
+    "detailDescription": "Consulta los detalles de la plantilla del proveedor y dónde se utiliza.",
+    "emailDescription": "Gestiona las plantillas de correo SMTP disponibles para las reglas de notificación internacionales.",
+    "emailFields": {
+      "htmlBody": "Cuerpo del correo",
+      "htmlBodyPlaceholder": "Introduce el cuerpo del correo en inglés (admite HTML)",
+      "locale": "Idioma",
+      "name": "Nombre de la plantilla",
+      "notificationTypes": "Tipos de notificación aplicables",
+      "notificationTypesHint": "Asocia solo los eventos seleccionados. Una vez activada la plantilla, solo estará disponible para esos eventos.",
+      "status": "Estado de la plantilla",
+      "subject": "Asunto del correo",
+      "subjectPlaceholder": "Introduce un asunto de correo en inglés"
+    },
+    "emailLoadError": "La configuración del servidor SMTP está incompleta. Puedes seguir gestionando las plantillas, pero el envío de correos no está disponible.",
+    "emailLocales": {
+      "enUS": "Inglés (Estados Unidos)"
+    },
+    "emailSaveError": "No se ha podido guardar la plantilla de correo. Vuelve a intentarlo.",
+    "emailStatus": {
+      "active": "Activado",
+      "disabled": "Desactivado",
+      "draft": "Borrador"
+    },
+    "emailStatusFilter": "Estado de la plantilla",
+    "emailTitle": "Plantillas de correo electrónico",
+    "emailVariables": {
+      "availableCredits": "Créditos disponibles",
+      "collapse": "Plegar variables",
+      "credits": "Créditos concedidos",
+      "estimatedRemainingDays": "Días de uso restantes estimados",
+      "expand": "Desplegar variables",
+      "expiresAt": "Fecha de vencimiento de los créditos",
+      "product": "Nombre del plan",
+      "window": "Plazo del aviso de vencimiento"
+    },
+    "empty": "No hay plantillas que coincidan con los filtros actuales.",
+    "loadError": "No se ha podido cargar la lista de plantillas de Alibaba Cloud. Si hay plantillas en caché, se mostrarán.",
+    "loading": "Cargando plantillas...",
+    "refresh": "Sincronizar plantillas SMS de Alibaba Cloud",
+    "reload": "Volver a cargar las plantillas",
+    "searchPlaceholder": "Buscar nombre, código o contenido de la plantilla",
+    "smsDescription": "Muestra todas las plantillas SMS sincronizadas desde Alibaba Cloud, incluidas las que aún no están vinculadas a una notificación de créditos.",
+    "smsTitle": "Plantillas de SMS de Alibaba Cloud",
+    "status": {
+      "AUDIT_SATE_CANCEL": "Cancelado",
+      "AUDIT_STATE_CANCEL": "Cancelado",
+      "AUDIT_STATE_INIT": "En revisión",
+      "AUDIT_STATE_NOT_PASS": "Rechazado",
+      "AUDIT_STATE_PASS": "Aprobado"
+    },
+    "statusFilter": "Estado de revisión",
+    "type": {
+      "0": "SMS de notificación",
+      "1": "SMS promocional",
+      "2": "Código de verificación",
+      "6": "SMS internacionales y para Hong Kong, Macao y Taiwán"
+    },
+    "unbound": "No está en uso"
+  },
+  "title": "Notificaciones de créditos",
+  "type": {
+    "credit_expiring": "Vencimiento de créditos",
+    "credit_granted": "Concesión de créditos",
+    "low_balance": "Saldo bajo"
+  }
+}

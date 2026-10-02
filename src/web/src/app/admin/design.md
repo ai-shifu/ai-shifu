@@ -548,9 +548,7 @@ admin 页面以桌面工作台为主，但仍需保持窄屏基本可用。
 
 新增或修改 admin 页面文案时，必须同步：
 
-- `src/i18n/zh-CN/...`
-- `src/i18n/en-US/...`
-- `src/i18n/fr-FR/...`
+- `src/i18n/locales.json` 所列每种语言下的对应 JSON 文件
 - `src/web/src/types/i18n-keys.d.ts`
 
 新增 i18n key 后运行：

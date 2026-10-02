@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ratchet check: no new ``db.session.commit()`` outside the dao layer.
 
-The backend overhaul (docs/exec-plans/active/backend-overhaul-master.md, B4)
+The backend overhaul (docs/exec-plans/completed/backend-overhaul-master.md, B4)
 migrates service code to the unit-of-work boundary in ``flaskr/dao/uow.py``.
 Legacy commit call sites are grandfathered in a committed baseline; this check
 fails when a file GAINS commit calls versus that baseline, and asks you to

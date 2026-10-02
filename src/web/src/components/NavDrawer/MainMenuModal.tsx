@@ -300,6 +300,9 @@ const MainMenuModal = ({
               </div>
               <div className={styles.languageRowRight}>
                 <LanguageSelect
+                  analyticsSurface={
+                    surface === 'admin' ? 'admin_menu' : 'learner_menu'
+                  }
                   onSetLanguage={updateLanguage}
                   contentClassName='z-[1001]'
                 />

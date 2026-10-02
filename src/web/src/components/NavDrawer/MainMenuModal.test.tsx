@@ -96,7 +96,14 @@ jest.mock('@/store/useSystemStore', () => ({
 
 jest.mock('@/components/language-select', () => ({
   __esModule: true,
-  default: () => <div>language-select</div>,
+  default: ({ analyticsSurface }: { analyticsSurface: string }) => (
+    <div
+      data-testid='language-select'
+      data-analytics-surface={analyticsSurface}
+    >
+      language-select
+    </div>
+  ),
 }));
 
 jest.mock('@/components/PopupModal', () => ({
@@ -228,6 +235,10 @@ describe('MainMenuModal', () => {
 
       expect(positions.every(position => position >= 0)).toBe(true);
       expect(positions).toEqual([...positions].sort((a, b) => a - b));
+      expect(screen.getByTestId('language-select')).toHaveAttribute(
+        'data-analytics-surface',
+        surface === 'admin' ? 'admin_menu' : 'learner_menu',
+      );
       expect(
         screen.getByRole('button', { name: 'module.settings.setPassword' }),
       ).toBeInTheDocument();

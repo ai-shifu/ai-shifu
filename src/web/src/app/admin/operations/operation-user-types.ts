@@ -50,6 +50,7 @@ export type AdminOperationUserItem = {
   topup_credits: string;
   credits_expire_at: string;
   has_active_subscription: boolean;
+  can_terminate_paid_subscription?: boolean;
   last_login_at: string;
   last_learning_at: string;
   created_at: string;
@@ -151,12 +152,23 @@ export type AdminOperationUserContactChangeResponse = {
   revoked_sessions: number;
 };
 
+export type AdminOperationUserSubscriptionTerminationResponse = {
+  status: 'terminated' | LooseString;
+  user_bid: string;
+  subscription_bid: string;
+  provider: string;
+  forfeited_credits: string;
+  ledger_bid?: string;
+  replayed: boolean;
+};
+
 export type AdminOperationUserCreditSummary = {
   available_credits: string;
   subscription_credits: string;
   topup_credits: string;
   credits_expire_at: string;
   has_active_subscription: boolean;
+  can_terminate_paid_subscription?: boolean;
 };
 
 export type AdminOperationUserCreditTypeFilter =
@@ -253,25 +265,54 @@ export type AdminOperationUserCreditUsageDetailResponse = {
 export type AdminOperationUserCreditGrantRequest = {
   request_id: string;
   amount: string;
-  grant_type?: string;
   grant_source: string;
-  validity_preset: string;
-  validity_value?: number | null;
-  validity_unit?: 'day' | 'month' | 'year' | null;
   note?: string;
-};
+} & (
+  | {
+      grant_type?: 'manual_credit';
+      validity_value: number;
+      validity_unit: 'day' | 'month' | 'year';
+    }
+  | {
+      grant_type: 'referral_reward';
+      validity_value?: never;
+      validity_unit?: never;
+    }
+);
 
 export type AdminOperationUserCreditGrantResponse = {
   user_bid: string;
   amount: string;
   grant_type: string;
   grant_source: string;
-  validity_preset: string;
   validity_value?: number | null;
   validity_unit?: 'day' | 'month' | 'year' | null;
   expires_at: string;
   wallet_bucket_bid: string;
   ledger_bid: string;
+  summary: AdminOperationUserCreditSummary;
+};
+
+export type AdminOperationUserCreditDeductionReason =
+  | 'incorrect_grant'
+  | 'account_correction'
+  | 'other';
+
+export type AdminOperationUserCreditDeductionRequest = {
+  request_id: string;
+  amount: string;
+  reason: AdminOperationUserCreditDeductionReason;
+  note?: string;
+};
+
+export type AdminOperationUserCreditDeductionResponse = {
+  status: 'deducted' | 'noop_existing' | LooseString;
+  user_bid: string;
+  amount: string;
+  reason: AdminOperationUserCreditDeductionReason;
+  note: string;
+  wallet_bucket_bids: string[];
+  ledger_bids: string[];
   summary: AdminOperationUserCreditSummary;
 };
 

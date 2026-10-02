@@ -1,0 +1,11 @@
+{
+  "__namespace__": "component.createShifuDialog",
+  "creating": "Creando...",
+  "descriptionLabel": "Descripción del curso",
+  "descriptionMaxLength": "La descripción del curso no puede superar los 500 caracteres",
+  "descriptionPlaceholder": "Introduce la descripción del curso",
+  "nameLabel": "Nombre del curso",
+  "nameMaxLength": "El nombre del curso no puede superar los {maxLength} caracteres",
+  "namePlaceholder": "Introduce el nombre del curso",
+  "nameRequired": "Introduce el nombre del curso"
+}

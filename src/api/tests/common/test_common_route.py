@@ -108,3 +108,49 @@ def test_common_handler_uses_json_language_for_patch_requests(
         "code": -1,
         "message": _translations["zh-CN"]["server.common.unexpectedError"],
     }
+
+
+def test_common_handler_maps_regional_spanish_to_supported_locale(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
+    app = Flask(__name__)
+    load_translations(app)
+    register_common_handler(app)
+
+    @app.route("/boom-es")
+    def _boom_es() -> None:
+        message = "unexpected failure"
+        raise RuntimeError(message)
+
+    with app.test_client() as client:
+        response = client.get("/boom-es", headers={"Accept-Language": "es-MX,es;q=0.9"})
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "code": -1,
+        "message": _translations["es-ES"]["server.common.unexpectedError"],
+    }
+
+
+def test_common_handler_maps_regional_german_to_supported_locale(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
+    app = Flask(__name__)
+    load_translations(app)
+    register_common_handler(app)
+
+    @app.route("/boom-de")
+    def _boom_de() -> None:
+        message = "unexpected failure"
+        raise RuntimeError(message)
+
+    with app.test_client() as client:
+        response = client.get("/boom-de", headers={"Accept-Language": "de-AT,de;q=0.9"})
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "code": -1,
+        "message": _translations["de-DE"]["server.common.unexpectedError"],
+    }

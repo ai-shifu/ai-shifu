@@ -1,0 +1,20 @@
+{
+  "__namespace__": "server.modelGateway",
+  "__flat__": {
+    "client_not_allowed": "Este cliente no tiene permiso para acceder a los modelos de la pasarela.",
+    "gateway_unavailable": "La pasarela de modelos no está disponible temporalmente. Inténtalo más tarde.",
+    "idempotency_conflict": "La Idempotency-Key ya se ha utilizado.",
+    "idempotency_key_required": "La Idempotency-Key debe contener entre 1 y 90 caracteres.",
+    "insufficient_credits": "La cuenta no tiene un monedero disponible o no dispone de suficientes créditos.",
+    "invalid_request": "La solicitud no es válida.",
+    "invalid_token": "Se requiere una credencial Authorization Bearer válida.",
+    "messages_invalid": "messages debe contener entre 1 y 256 objetos de mensaje.",
+    "missing_client_id": "Se requiere la cabecera X-AI-Shifu-Client-ID.",
+    "model_not_available": "El modelo no está disponible o aún no se han configurado sus límites o tarifas de créditos.",
+    "model_required": "Debes indicar un modelo.",
+    "provider_error": "Ha fallado la solicitud al modelo.",
+    "request_too_large": "El cuerpo de la solicitud supera el límite de 1 MiB de la pasarela de modelos.",
+    "stream_invalid": "stream debe ser un valor booleano JSON.",
+    "tools_invalid": "tools debe ser una lista de 128 elementos como máximo."
+  }
+}

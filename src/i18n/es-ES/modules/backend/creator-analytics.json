@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.creatorAnalytics",
+  "__flat__": {
+    "invalidAggregate": "La consulta utiliza una función de agregación no admitida.",
+    "invalidColumn": "El campo solicitado no está en la lista de permitidos.",
+    "invalidDsl": "La descripción de la consulta no es válida.",
+    "invalidLimit": "limit u offset están fuera del intervalo permitido.",
+    "invalidOperator": "La consulta utiliza un operador no admitido.",
+    "invalidTable": "La tabla solicitada no está en la lista de permitidos.",
+    "noPermission": "No tienes permiso para consultar los datos analíticos de este curso.",
+    "queryTimeout": "La consulta ha superado el tiempo permitido. Reduce el ámbito e inténtalo de nuevo."
+  }
+}
