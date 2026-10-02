@@ -5,7 +5,7 @@
     "deductCredits": "Descontar créditos",
     "grantCredits": "Asignar créditos o plan",
     "moreForUser": "Más acciones para {user}",
-    "terminateSubscription": "Finalizar plan de pago"
+    "terminateSubscription": "Finalizar plan"
   },
   "cancellation": {
     "back": "Volver",
@@ -512,16 +512,16 @@
     "account": "Cuenta",
     "cancel": "Cancelar",
     "confirm": "Finalizar ahora",
-    "description": "El plan de pago deja de ser válido de inmediato y se detiene la renovación. Se eliminan los créditos restantes del plan; los paquetes de créditos, planes manuales y recompensas se conservan.",
+    "description": "El plan deja de ser válido de inmediato y se detiene la renovación cuando corresponda. Se eliminan los créditos restantes; los paquetes de créditos y recompensas se conservan.",
     "errors": {
       "reason": "Introduce un motivo de finalización.",
       "submitFailed": "No se pudo finalizar el plan. Inténtalo de nuevo."
     },
     "reason": "Motivo",
-    "reasonPlaceholder": "Indica por qué se finaliza este plan de pago",
+    "reasonPlaceholder": "Indica por qué se finaliza este plan",
     "submitting": "Finalizando...",
-    "success": "Plan de pago finalizado",
-    "title": "Finalizar plan de pago"
+    "success": "Plan finalizado",
+    "title": "Finalizar plan"
   },
   "title": "Gestión de usuarios"
 }

@@ -1246,7 +1246,6 @@ def _load_operator_user_credit_summary_map(
             BillingSubscription.status.in_(
                 (*ACTIVE_SUBSCRIPTION_STATUSES, BILLING_SUBSCRIPTION_STATUS_TERMINATING)
             ),
-            BillingSubscription.billing_provider != "manual",
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
             BillingOrder.order_type.in_(
                 (
@@ -1255,7 +1254,10 @@ def _load_operator_user_credit_summary_map(
                     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
                 )
             ),
-            BillingOrder.payment_provider != "manual",
+            or_(
+                BillingOrder.payment_provider != "manual",
+                BillingOrder.provider_reference_id.startswith("admin-plan-grant:"),
+            ),
         )
         .distinct()
         .all()

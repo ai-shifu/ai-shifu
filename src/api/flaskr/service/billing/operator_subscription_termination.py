@@ -103,7 +103,10 @@ def _load_paid_orders(subscription: BillingSubscription) -> list[BillingOrder]:
             BillingOrder.subscription_bid == subscription.subscription_bid,
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
             BillingOrder.order_type.in_(_PAID_PLAN_ORDER_TYPES),
-            BillingOrder.payment_provider != "manual",
+            db.or_(
+                BillingOrder.payment_provider != "manual",
+                BillingOrder.provider_reference_id.startswith("admin-plan-grant:"),
+            ),
         )
         .order_by(BillingOrder.id.asc())
         .with_for_update()
@@ -156,7 +159,10 @@ def _load_forfeitable_bucket(
             BillingOrder.bill_order_bid.in_(order_bids),
             BillingOrder.status == BILLING_ORDER_STATUS_PAID,
             BillingOrder.order_type.in_(_PAID_PLAN_ORDER_TYPES),
-            BillingOrder.payment_provider != "manual",
+            db.or_(
+                BillingOrder.payment_provider != "manual",
+                BillingOrder.provider_reference_id.startswith("admin-plan-grant:"),
+            ),
             BillingOrder.subscription_bid == subscription.subscription_bid,
         )
         .with_for_update()
@@ -241,9 +247,10 @@ def terminate_operator_paid_subscription(
                 if subscription.status != BILLING_SUBSCRIPTION_STATUS_TERMINATING:
                     db.session.refresh(subscription, with_for_update=True)
                 provider_name = str(subscription.billing_provider or "").strip().lower()
-                if provider_name == "manual":
-                    raise_error("server.order.orderStatusError")
-                if provider_name not in _LOCAL_PREPAID_PROVIDERS | {"stripe"}:
+                if provider_name not in _LOCAL_PREPAID_PROVIDERS | {
+                    "manual",
+                    "stripe",
+                }:
                     raise_error("server.order.orderStatusError")
                 if (
                     provider_name == "stripe"

@@ -5,7 +5,7 @@
     "deductCredits": "扣除积分",
     "grantCredits": "发放积分/套餐",
     "moreForUser": "{user} 的更多操作",
-    "terminateSubscription": "终止付费套餐"
+    "terminateSubscription": "终止套餐"
   },
   "cancellation": {
     "back": "返回",
@@ -512,16 +512,16 @@
     "account": "用户账号",
     "cancel": "取消",
     "confirm": "立即终止",
-    "description": "付费套餐将立即失效并停止续费。剩余付费套餐积分会被清除，积分包、人工套餐和奖励积分不受影响。",
+    "description": "套餐将立即失效，并在适用时停止续费。剩余套餐积分会被清除，积分包和奖励积分不受影响。",
     "errors": {
       "reason": "请输入终止原因。",
       "submitFailed": "套餐终止失败，请稍后重试。"
     },
     "reason": "终止原因",
-    "reasonPlaceholder": "记录本次终止付费套餐的原因",
+    "reasonPlaceholder": "记录本次终止套餐的原因",
     "submitting": "终止中...",
-    "success": "付费套餐已终止",
-    "title": "终止付费套餐"
+    "success": "套餐已终止",
+    "title": "终止套餐"
   },
   "title": "用户管理"
 }

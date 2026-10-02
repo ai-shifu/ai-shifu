@@ -5,7 +5,7 @@
     "deductCredits": "Déduire des crédits",
     "grantCredits": "Attribuer crédits/forfait",
     "moreForUser": "Plus d’actions pour {user}",
-    "terminateSubscription": "Résilier l’abonnement payant"
+    "terminateSubscription": "Résilier l’abonnement"
   },
   "cancellation": {
     "back": "Retour",
@@ -512,16 +512,16 @@
     "account": "Compte",
     "cancel": "Annuler",
     "confirm": "Résilier maintenant",
-    "description": "L’abonnement payant devient immédiatement invalide et son renouvellement est arrêté. Les crédits restants de l’abonnement sont supprimés ; les packs de crédits, abonnements manuels et récompenses sont conservés.",
+    "description": "L’abonnement devient immédiatement invalide et son renouvellement est arrêté le cas échéant. Les crédits restants sont supprimés ; les packs de crédits et récompenses sont conservés.",
     "errors": {
       "reason": "Saisissez un motif de résiliation.",
       "submitFailed": "La résiliation a échoué. Veuillez réessayer."
     },
     "reason": "Motif",
-    "reasonPlaceholder": "Indiquez pourquoi cet abonnement payant est résilié",
+    "reasonPlaceholder": "Indiquez pourquoi cet abonnement est résilié",
     "submitting": "Résiliation...",
-    "success": "Abonnement payant résilié",
-    "title": "Résilier l’abonnement payant"
+    "success": "Abonnement résilié",
+    "title": "Résilier l’abonnement"
   },
   "title": "Gestion des utilisateurs"
 }

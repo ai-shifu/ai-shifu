@@ -232,7 +232,48 @@ def test_zero_balance_paid_plan_still_terminates(
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
 
 
-def test_mixed_paid_and_manual_plan_bucket_rejects_before_termination(
+def test_zero_balance_manual_plan_still_terminates(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        now = now_utc()
+        creator_bid = "creator-terminate-manual"
+        subscription = BillingSubscription(
+            subscription_bid="subscription-terminate-manual",
+            creator_bid=creator_bid,
+            product_bid="product-terminate-manual",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="manual",
+            current_period_start_at=now - timedelta(days=1),
+            current_period_end_at=now + timedelta(days=30),
+        )
+        order = BillingOrder(
+            bill_order_bid="order-terminate-manual",
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            payment_provider="manual",
+            provider_reference_id="admin-plan-grant:mixed",
+            status=BILLING_ORDER_STATUS_PAID,
+        )
+        dao.db.session.add_all([subscription, order])
+        dao.db.session.commit()
+
+        result = terminate_operator_paid_subscription(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            operator_user_bid="operator-terminate",
+            request_id="terminate-request-manual",
+            reason="operator correction",
+        )
+
+        assert result["provider"] == "manual"
+        dao.db.session.refresh(subscription)
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
+
+
+def test_mixed_paid_and_manual_plan_bucket_terminates_together(
     billing_wallet_lifecycle_app: Flask,
 ) -> None:
     with billing_wallet_lifecycle_app.app_context():
@@ -264,6 +305,7 @@ def test_mixed_paid_and_manual_plan_bucket_rejects_before_termination(
             product_bid=subscription.product_bid,
             subscription_bid=subscription.subscription_bid,
             payment_provider="manual",
+            provider_reference_id="admin-plan-grant:manual",
             status=BILLING_ORDER_STATUS_PAID,
             paid_at=now - timedelta(hours=12),
         )
@@ -315,19 +357,19 @@ def test_mixed_paid_and_manual_plan_bucket_rejects_before_termination(
         )
         dao.db.session.commit()
 
-        with pytest.raises(AppError):
-            terminate_operator_paid_subscription(
-                billing_wallet_lifecycle_app,
-                creator_bid=creator_bid,
-                operator_user_bid="operator-terminate",
-                request_id="terminate-request-mixed",
-                reason="customer request",
-            )
+        result = terminate_operator_paid_subscription(
+            billing_wallet_lifecycle_app,
+            creator_bid=creator_bid,
+            operator_user_bid="operator-terminate",
+            request_id="terminate-request-mixed",
+            reason="customer request",
+        )
 
         dao.db.session.refresh(subscription)
         dao.db.session.refresh(bucket)
-        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
-        assert bucket.available_credits == Decimal(12)
+        assert result["forfeited_credits"] == "12"
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
+        assert bucket.available_credits == Decimal(0)
 
 
 def test_terminating_subscription_is_obsolete_for_renewal_worker() -> None:
