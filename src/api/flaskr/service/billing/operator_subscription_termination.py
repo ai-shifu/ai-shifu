@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.order.api import get_payment_provider
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
@@ -292,6 +291,11 @@ def terminate_operator_paid_subscription(
 
         provider_payload: dict[str, object] = {}
         if provider_name == "stripe":
+            # Import the stable provider boundary only when provider I/O is needed.
+            # Importing it while billing.api is initializing creates a cycle through
+            # order -> learn -> tts -> billing.api.
+            from flaskr.service.order.api import get_payment_provider
+
             if not provider_subscription_id:
                 raise_error("server.order.orderStatusError")
             provider_result = get_payment_provider("stripe").terminate_subscription(
