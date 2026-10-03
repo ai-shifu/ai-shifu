@@ -5,9 +5,11 @@
 Add an operator-only User Management action that immediately terminates the
 user's current paid or operator-granted plan. Termination stops provider renewal
 where applicable, marks the subscription ineffective immediately, and forfeits
-the remaining credits attributable to that plan. Credit packs, referral rewards,
-and other promotional credits are not removed. A plan with zero remaining plan
-credits can still be terminated.
+all available credits in the current shared subscription bucket. This includes
+active trial or referral credits already mixed into that bucket. Separate credit
+packs are not removed. A plan with zero remaining plan credits can still be
+terminated; any reserved balance remains a safety blocker until deferred rewards
+can be separated in follow-up work.
 
 ## Progress
 
@@ -25,6 +27,10 @@ credits can still be terminated.
 - [x] 2026-10-02 CST: Aligned list eligibility and execution to prefer the
   active subscription proven by the currently available plan-credit grant;
   zero-balance accounts retain the product-priority fallback.
+- [x] 2026-10-03 CST: Completed the first mixed-bucket phase: terminate the
+  eligible plan and clear its entire available subscription bucket, including
+  active trial/referral credits mixed into it, while preserving the reserved
+  balance blocker and all separate top-up buckets.
 
 ## Surprises & Discoveries
 
@@ -37,7 +43,8 @@ credits can still be terminated.
   therefore share a bucket with historical manual plan grants. Bucket balance
   alone cannot safely identify the paid remainder.
 - Referral rewards use their own manual-source subscription-category buckets;
-  credit packs use top-up buckets. Neither may be forfeited by this operation.
+  credit packs use top-up buckets. Independently stored rewards and top-ups are
+  not forfeited, but historical trial/referral grants can share the paid bucket.
 - A creator can retain multiple effective subscription rows. Product priority
   alone can select a different row from the order that granted the currently
   available plan credits.
@@ -60,14 +67,15 @@ credits can still be terminated.
 - Decision: Stripe is terminated immediately through a dedicated provider
   adapter method. Self-managed domestic prepaid plans are terminated locally
   and all future renewal/preorder lifecycle events are canceled.
-- Decision: Forfeit available balance only from a subscription bucket whose
-  grant ledger proves exclusively eligible paid or operator-granted plan origins.
-  If a non-zero bucket contains reward, unknown, or conflicting grant
-  origin, reject the entire operation for manual reconciliation instead of
-  guessing. An open usage reservation also rejects until its in-flight operation
-  settles, avoiding a dangling hold. A zero-balance bucket never blocks
-  termination.
-- Decision: Do not mutate top-up or reward buckets.
+- Decision: Once an eligible paid/operator-granted subscription is proven,
+  forfeit the entire available balance of the current shared subscription
+  bucket. Active trial or referral rewards already mixed into that bucket are
+  inseparable and therefore end with the plan. Independently stored reward and
+  top-up buckets remain untouched.
+- Decision: Reject termination whenever the target subscription bucket has a
+  reserved balance. It may represent in-flight usage or a deferred invitation
+  reward; migrating future rewards into an independent bucket is explicitly
+  deferred to the next PR. A zero-balance bucket never blocks termination.
 - Decision: Record forfeiture as negative expiry ledger entries and move the
   bucket's available/reserved amounts into expired credits so wallet audit
   invariants remain balanced. The operation uses a client request ID for replay.
@@ -75,8 +83,8 @@ credits can still be terminated.
 ## Outcomes & Retrospective
 
 The implementation covers immediate Stripe termination, domestic prepaid and
-operator-granted local termination, eligible-plan credit forfeiture, mixed-origin refusal,
-zero-balance termination, request replay, operator UI, and analytics. Final
+operator-granted local termination, whole-current-bucket forfeiture, reserved-balance
+refusal, zero-balance termination, request replay, operator UI, and analytics. Final
 repository-wide verification has passed. Focused backend tests pass (5 domain
 and provider-boundary tests plus 94 operator-route tests), and focused frontend
 tests pass (33 dialog/page tests).
@@ -134,9 +142,10 @@ analytics is best-effort and never changes the termination result.
   subscription API.
 - Zero remaining paid plan credits still permits successful termination.
 - Credit-pack balances are unchanged.
-- Manual plan and referral reward balances are unchanged.
-- A non-zero mixed/unknown subscription bucket rejects without changing the
-  subscription, wallet, or provider.
+- A separate manual/reward bucket is unchanged. Active trial/referral credits
+  already mixed into the paid plan bucket are cleared with that bucket.
+- Any reserved balance in the target subscription bucket rejects without
+  changing the subscription, wallet, or provider.
 - Replaying one request does not repeat provider termination or ledger writes.
 - The operator UI clearly identifies the account and plan, warns that the
   action is immediate, requires confirmation, prevents duplicate submission,

@@ -512,7 +512,7 @@
     "account": "Compte",
     "cancel": "Annuler",
     "confirm": "Résilier maintenant",
-    "description": "L’abonnement devient immédiatement invalide et son renouvellement est arrêté le cas échéant. Les crédits restants sont supprimés ; les packs de crédits et récompenses sont conservés.",
+    "description": "L’abonnement devient immédiatement invalide et son renouvellement est arrêté le cas échéant. Tous les crédits disponibles de son solde d’abonnement actuel sont supprimés, y compris les récompenses d’essai ou de parrainage actives qui y sont mêlées ; les packs de crédits séparés sont conservés.",
     "errors": {
       "reason": "Saisissez un motif de résiliation.",
       "submitFailed": "La résiliation a échoué. Veuillez réessayer."

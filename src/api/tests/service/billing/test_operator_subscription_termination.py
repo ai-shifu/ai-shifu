@@ -368,8 +368,19 @@ def test_historical_manual_order_type_plan_terminates_and_forfeits_credits(
         assert bucket.available_credits == Decimal(0)
 
 
-def test_mixed_paid_and_manual_plan_bucket_terminates_together(
+@pytest.mark.parametrize(
+    "mixed_metadata",
+    [
+        {"checkout_type": "trial_bootstrap"},
+        {
+            "checkout_type": "referral_invitation_reward",
+            "referral_invitation_reward": True,
+        },
+    ],
+)
+def test_mixed_paid_and_active_reward_bucket_terminates_together(
     billing_wallet_lifecycle_app: Flask,
+    mixed_metadata: dict[str, object],
 ) -> None:
     with billing_wallet_lifecycle_app.app_context():
         now = now_utc()
@@ -393,16 +404,16 @@ def test_mixed_paid_and_manual_plan_bucket_terminates_together(
             status=BILLING_ORDER_STATUS_PAID,
             paid_at=now - timedelta(days=1),
         )
-        manual_order = BillingOrder(
+        reward_order = BillingOrder(
             bill_order_bid="order-terminate-mixed-manual",
             creator_bid=creator_bid,
             order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
             product_bid=subscription.product_bid,
-            subscription_bid=subscription.subscription_bid,
+            subscription_bid="subscription-reward-mixed-into-paid-bucket",
             payment_provider="manual",
-            provider_reference_id="admin-plan-grant:manual",
             status=BILLING_ORDER_STATUS_PAID,
             paid_at=now - timedelta(hours=12),
+            metadata_json=mixed_metadata,
         )
         wallet = CreditWallet(
             wallet_bid="wallet-terminate-mixed",
@@ -419,7 +430,7 @@ def test_mixed_paid_and_manual_plan_bucket_terminates_together(
             creator_bid=creator_bid,
             bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
             source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-            source_bid=manual_order.bill_order_bid,
+            source_bid=reward_order.bill_order_bid,
             priority=20,
             original_credits=Decimal(12),
             available_credits=Decimal(12),
@@ -444,11 +455,11 @@ def test_mixed_paid_and_manual_plan_bucket_terminates_together(
                 balance_after=amount,
             )
             for index, (order, amount) in enumerate(
-                ((paid_order, Decimal(10)), (manual_order, Decimal(2)))
+                ((paid_order, Decimal(10)), (reward_order, Decimal(2)))
             )
         ]
         dao.db.session.add_all(
-            [subscription, paid_order, manual_order, wallet, bucket, *grants]
+            [subscription, paid_order, reward_order, wallet, bucket, *grants]
         )
         dao.db.session.commit()
 
@@ -462,9 +473,12 @@ def test_mixed_paid_and_manual_plan_bucket_terminates_together(
 
         dao.db.session.refresh(subscription)
         dao.db.session.refresh(bucket)
+        dao.db.session.refresh(wallet)
         assert result["forfeited_credits"] == "12"
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
         assert bucket.available_credits == Decimal(0)
+        assert bucket.expired_credits == Decimal(12)
+        assert wallet.available_credits == Decimal(0)
 
 
 def test_terminating_subscription_is_obsolete_for_renewal_worker() -> None:
@@ -628,4 +642,9 @@ def test_reserved_balance_rejects_without_changing_subscription(
             )
 
         dao.db.session.refresh(subscription)
+        dao.db.session.refresh(bucket)
+        dao.db.session.refresh(wallet)
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        assert bucket.available_credits == Decimal(0)
+        assert bucket.reserved_credits == Decimal(2)
+        assert wallet.reserved_credits == Decimal(2)
