@@ -35,6 +35,9 @@ can be separated in follow-up work.
   resolved the target bucket through that subscription's eligible grant ledger,
   isolated it from concurrent new-plan grants, and blocked late activation of
   operator-terminated subscriptions.
+- [x] 2026-10-03 CST: Blocked termination while the target subscription has an
+  unsettled plan order and made cycle repair preserve operator termination as a
+  terminal state.
 - [ ] After #3009 merges: deliver PR 1.1 for termination operational hardening:
   protect the free-text reason from generic request-body logs and refresh the
   affected user row after a failed/uncertain request.
@@ -70,6 +73,11 @@ can be separated in follow-up work.
   old bucket as termination-pending prevents a concurrent new plan grant from
   reusing it; finalization must keep the stored bucket ID and never retarget to
   whichever bucket is current after provider I/O.
+- A pending upgrade can complete payment while termination is in progress.
+  Allowing both paths to succeed leaves a paid order with neither credits nor
+  an active plan because late activation is intentionally fenced.
+- Subscription cycle repair treats paid-order history as repair evidence, but
+  that evidence must not override an explicit operator termination decision.
 
 ## Decision Log
 
@@ -106,6 +114,14 @@ can be separated in follow-up work.
 - Decision: Paid-event activation and credit grant paths reject `TERMINATING`
   subscriptions and `CANCELED` subscriptions carrying a completed operator
   termination marker. Ordinary canceled subscriptions retain existing behavior.
+- Decision: Reject termination while an `INIT` or `PENDING` start, upgrade, or
+  renewal order exists for the target subscription. The order rows are locked
+  before the subscription enters `TERMINATING`, so payment completion wins or
+  termination rolls back; the system never locally cancels a possibly paid
+  provider order without provider reconciliation.
+- Decision: Cycle repair always skips `TERMINATING` subscriptions and canceled
+  subscriptions carrying the operator termination marker. Historical paid
+  cycles cannot restore their dates or status.
 - Decision: Record forfeiture as negative expiry ledger entries and move the
   bucket's available/reserved amounts into expired credits so wallet audit
   invariants remain balanced. The operation uses a client request ID for replay.
@@ -206,6 +222,11 @@ analytics is best-effort and never changes the termination result.
   a concurrent new plan receives a different bucket and survives old-plan
   finalization; late paid/manual event replay cannot revive the old plan.
 - Submitting a stale dialog after the target subscription changes is rejected.
+- A target subscription with an unsettled plan order is rejected without
+  changing either the order or subscription; after payment settles, the
+  operator can retry against the resulting current state.
+- Cycle repair leaves an operator-terminated subscription canceled with its
+  shortened terminal period.
 - The operator UI clearly identifies the account and plan, warns that the
   action is immediate, requires confirmation, prevents duplicate submission,
   refreshes user data, and reports a privacy-safe terminal result.

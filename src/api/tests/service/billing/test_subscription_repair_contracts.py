@@ -418,3 +418,38 @@ def test_subscription_cycle_repair_requires_evidence_and_replays_idempotently(
             assert repeat.status == "noop"
         else:
             assert plan.subscription_bid in result.skipped_subscription_bids
+
+
+def test_subscription_cycle_repair_skips_operator_terminated_plan(app: Flask) -> None:
+    with app.app_context():
+        order, _, plan = _seed(subscription=True, status=BILLING_ORDER_STATUS_PAID)
+        paid_start = now_utc() - timedelta(days=2)
+        paid_end = paid_start + timedelta(days=30)
+        terminated_at = now_utc()
+        order.paid_at = paid_start
+        order.metadata_json = {
+            "applied_cycle_start_at": paid_start.isoformat(),
+            "applied_cycle_end_at": paid_end.isoformat(),
+        }
+        plan.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
+        plan.current_period_start_at = paid_start
+        plan.current_period_end_at = terminated_at
+        plan.metadata_json = {
+            "operator_paid_subscription_termination": {
+                "status": "terminated",
+                "terminated_at": terminated_at.isoformat(),
+            }
+        }
+        db.session.commit()
+
+        result = subscriptions.repair_subscription_cycle_mismatches(
+            app,
+            creator_bid=order.creator_bid,
+            subscription_bid=plan.subscription_bid,
+        )
+
+        db.session.refresh(plan)
+        assert result.status == "noop"
+        assert plan.subscription_bid in result.skipped_subscription_bids
+        assert plan.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
+        assert plan.current_period_end_at == terminated_at

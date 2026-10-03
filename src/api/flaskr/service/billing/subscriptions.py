@@ -2059,6 +2059,9 @@ def repair_subscription_cycle_mismatches(
         skipped_subscription_bids: list[str] = []
 
         for subscription in subscriptions:
+            if _operator_termination_blocks_activation(subscription):
+                skipped_subscription_bids.append(subscription.subscription_bid)
+                continue
             evidence = _select_subscription_cycle_repair_evidence(
                 subscription,
                 as_of=repaired_at,

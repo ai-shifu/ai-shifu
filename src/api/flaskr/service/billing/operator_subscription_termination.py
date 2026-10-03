@@ -14,7 +14,9 @@ from sqlalchemy import case, or_
 
 from .consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
+    BILLING_ORDER_STATUS_INIT,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -57,6 +59,10 @@ _PAID_PLAN_ORDER_TYPES = {
 _MANUAL_PLAN_ORDER_TYPES = _PAID_PLAN_ORDER_TYPES | {BILLING_ORDER_TYPE_MANUAL}
 _LOCAL_PREPAID_PROVIDERS = {"pingxx", "alipay", "wechatpay"}
 _OPERATION_METADATA_KEY = "operator_paid_subscription_termination"
+_UNSETTLED_PLAN_ORDER_STATUSES = {
+    BILLING_ORDER_STATUS_INIT,
+    BILLING_ORDER_STATUS_PENDING,
+}
 
 
 def _credit_to_string(value: object) -> str:
@@ -69,6 +75,21 @@ def _metadata(subscription: BillingSubscription) -> dict[str, Any]:
         dict(subscription.metadata_json)
         if isinstance(subscription.metadata_json, dict)
         else {}
+    )
+
+
+def _has_unsettled_plan_order(subscription: BillingSubscription) -> bool:
+    """Lock and detect plan orders that may still complete payment."""
+    return (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.subscription_bid == subscription.subscription_bid,
+            BillingOrder.order_type.in_(_PAID_PLAN_ORDER_TYPES),
+            BillingOrder.status.in_(_UNSETTLED_PLAN_ORDER_STATUSES),
+        )
+        .with_for_update()
+        .first()
+        is not None
     )
 
 
@@ -461,6 +482,8 @@ def terminate_operator_paid_subscription(
                     load_active_preorder_order(subscription.subscription_bid)
                     is not None
                 ):
+                    raise_error("server.order.orderStatusError")
+                if _has_unsettled_plan_order(subscription):
                     raise_error("server.order.orderStatusError")
                 paid_orders = _load_paid_orders(subscription)
                 if not paid_orders:

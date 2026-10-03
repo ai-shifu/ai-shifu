@@ -10,8 +10,10 @@ import pytest
 from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_TERMINATING,
@@ -236,6 +238,59 @@ def test_zero_balance_paid_plan_still_terminates(
         assert result["forfeited_credits"] == "0"
         dao.db.session.refresh(subscription)
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
+
+
+def test_pending_upgrade_blocks_operator_termination(
+    billing_wallet_lifecycle_app: Flask,
+) -> None:
+    with billing_wallet_lifecycle_app.app_context():
+        now = now_utc()
+        creator_bid = "creator-terminate-pending-upgrade"
+        subscription = BillingSubscription(
+            subscription_bid="subscription-terminate-pending-upgrade",
+            creator_bid=creator_bid,
+            product_bid="product-current-plan",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="wechatpay",
+            current_period_start_at=now - timedelta(days=1),
+            current_period_end_at=now + timedelta(days=30),
+        )
+        paid_order = BillingOrder(
+            bill_order_bid="order-current-paid-plan",
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            product_bid=subscription.product_bid,
+            subscription_bid=subscription.subscription_bid,
+            payment_provider="wechatpay",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=now - timedelta(days=1),
+        )
+        pending_upgrade = BillingOrder(
+            bill_order_bid="order-pending-plan-upgrade",
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+            product_bid="product-upgraded-plan",
+            subscription_bid=subscription.subscription_bid,
+            payment_provider="wechatpay",
+            status=BILLING_ORDER_STATUS_PENDING,
+        )
+        dao.db.session.add_all([subscription, paid_order, pending_upgrade])
+        dao.db.session.commit()
+
+        with pytest.raises(AppError):
+            terminate_operator_paid_subscription(
+                billing_wallet_lifecycle_app,
+                creator_bid=creator_bid,
+                expected_subscription_bid=subscription.subscription_bid,
+                operator_user_bid="operator-terminate",
+                request_id="terminate-request-pending-upgrade",
+                reason="customer request",
+            )
+
+        dao.db.session.refresh(subscription)
+        dao.db.session.refresh(pending_upgrade)
+        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        assert pending_upgrade.status == BILLING_ORDER_STATUS_PENDING
 
 
 def test_zero_balance_paid_bucket_does_not_forfeit_independent_reward_bucket(
