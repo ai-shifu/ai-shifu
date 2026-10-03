@@ -9,8 +9,11 @@ from typing import TYPE_CHECKING
 import pytest
 from flaskr import dao
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_CANCELED,
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -35,6 +38,9 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.operator_subscription_termination import (
     terminate_operator_paid_subscription,
+)
+from flaskr.service.billing.provider_state import (
+    can_billing_order_become_paid_from_provider,
 )
 from flaskr.service.billing.renewal import _is_subscription_obsolete
 from flaskr.service.billing.subscriptions import grant_paid_order_credits
@@ -240,8 +246,18 @@ def test_zero_balance_paid_plan_still_terminates(
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
 
 
-def test_pending_upgrade_blocks_operator_termination(
+@pytest.mark.parametrize(
+    "payable_status",
+    [
+        BILLING_ORDER_STATUS_PENDING,
+        BILLING_ORDER_STATUS_FAILED,
+        BILLING_ORDER_STATUS_TIMEOUT,
+        BILLING_ORDER_STATUS_CANCELED,
+    ],
+)
+def test_provider_payable_upgrade_blocks_operator_termination(
     billing_wallet_lifecycle_app: Flask,
+    payable_status: int,
 ) -> None:
     with billing_wallet_lifecycle_app.app_context():
         now = now_utc()
@@ -272,7 +288,7 @@ def test_pending_upgrade_blocks_operator_termination(
             product_bid="product-upgraded-plan",
             subscription_bid=subscription.subscription_bid,
             payment_provider="wechatpay",
-            status=BILLING_ORDER_STATUS_PENDING,
+            status=payable_status,
         )
         dao.db.session.add_all([subscription, paid_order, pending_upgrade])
         dao.db.session.commit()
@@ -290,7 +306,17 @@ def test_pending_upgrade_blocks_operator_termination(
         dao.db.session.refresh(subscription)
         dao.db.session.refresh(pending_upgrade)
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
-        assert pending_upgrade.status == BILLING_ORDER_STATUS_PENDING
+        assert pending_upgrade.status == payable_status
+
+
+def test_replaced_canceled_order_cannot_block_operator_termination() -> None:
+    replaced_order = BillingOrder(
+        payment_provider="stripe",
+        status=BILLING_ORDER_STATUS_CANCELED,
+        metadata_json={"invalidated_reason": "replaced_by_new_package"},
+    )
+
+    assert can_billing_order_become_paid_from_provider(replaced_order) is False
 
 
 def test_zero_balance_paid_bucket_does_not_forfeit_independent_reward_bucket(

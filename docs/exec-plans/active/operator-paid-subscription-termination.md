@@ -114,11 +114,15 @@ can be separated in follow-up work.
 - Decision: Paid-event activation and credit grant paths reject `TERMINATING`
   subscriptions and `CANCELED` subscriptions carrying a completed operator
   termination marker. Ordinary canceled subscriptions retain existing behavior.
-- Decision: Reject termination while an `INIT` or `PENDING` start, upgrade, or
-  renewal order exists for the target subscription. The order rows are locked
-  before the subscription enters `TERMINATING`, so payment completion wins or
-  termination rolls back; the system never locally cancels a possibly paid
-  provider order without provider reconciliation.
+- Decision: Reject termination while any start, upgrade, or renewal order for
+  the target subscription can still become paid through provider sync or a
+  webhook. This includes `INIT`, `PENDING`, `FAILED`, `TIMEOUT`, and ordinary
+  `CANCELED` orders; a canceled order explicitly invalidated as
+  `replaced_by_new_package` is exempt because the payment state machine already
+  forbids its revival. The order rows are locked before the subscription enters
+  `TERMINATING`, so payment completion wins or termination rolls back; the
+  system never locally cancels a possibly paid provider order without provider
+  reconciliation.
 - Decision: Cycle repair always skips `TERMINATING` subscriptions and canceled
   subscriptions carrying the operator termination marker. Historical paid
   cycles cannot restore their dates or status.
@@ -222,8 +226,9 @@ analytics is best-effort and never changes the termination result.
   a concurrent new plan receives a different bucket and survives old-plan
   finalization; late paid/manual event replay cannot revive the old plan.
 - Submitting a stale dialog after the target subscription changes is rejected.
-- A target subscription with an unsettled plan order is rejected without
-  changing either the order or subscription; after payment settles, the
+- A target subscription with a plan order that provider sync or webhook can
+  still mark paid is rejected without changing either order or subscription;
+  after payment settles or provider reconciliation makes it terminal, the
   operator can retry against the resulting current state.
 - Cycle repair leaves an operator-terminated subscription canceled with its
   shortened terminal period.

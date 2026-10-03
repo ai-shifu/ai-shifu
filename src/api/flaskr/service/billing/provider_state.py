@@ -221,6 +221,19 @@ def _can_transition_billing_order_status(
     return True
 
 
+def can_billing_order_become_paid_from_provider(order: BillingOrder) -> bool:
+    """Return whether a late provider sync or webhook may still mark an order paid."""
+    if str(order.payment_provider or "").strip().lower() == "manual":
+        return False
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    return _can_transition_billing_order_status(
+        current_status=int(order.status or 0),
+        target_status=BILLING_ORDER_STATUS_PAID,
+        source="webhook",
+        invalidated_reason=str(metadata.get("invalidated_reason") or "").strip(),
+    )
+
+
 def _map_stripe_order_status(
     event_type: str,
     data_object: dict[str, object] | None = None,

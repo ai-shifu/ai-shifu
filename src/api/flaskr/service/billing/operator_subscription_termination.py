@@ -14,9 +14,7 @@ from sqlalchemy import case, or_
 
 from .consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
-    BILLING_ORDER_STATUS_INIT,
     BILLING_ORDER_STATUS_PAID,
-    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -38,6 +36,7 @@ from .models import (
     CreditWalletBucket,
 )
 from .preorders import load_active_preorder_order
+from .provider_state import can_billing_order_become_paid_from_provider
 from .renewal_event_transitions import cancel_subscription_renewal_events
 from .wallets import (
     persist_credit_wallet_snapshot,
@@ -59,10 +58,6 @@ _PAID_PLAN_ORDER_TYPES = {
 _MANUAL_PLAN_ORDER_TYPES = _PAID_PLAN_ORDER_TYPES | {BILLING_ORDER_TYPE_MANUAL}
 _LOCAL_PREPAID_PROVIDERS = {"pingxx", "alipay", "wechatpay"}
 _OPERATION_METADATA_KEY = "operator_paid_subscription_termination"
-_UNSETTLED_PLAN_ORDER_STATUSES = {
-    BILLING_ORDER_STATUS_INIT,
-    BILLING_ORDER_STATUS_PENDING,
-}
 
 
 def _credit_to_string(value: object) -> str:
@@ -80,17 +75,17 @@ def _metadata(subscription: BillingSubscription) -> dict[str, Any]:
 
 def _has_unsettled_plan_order(subscription: BillingSubscription) -> bool:
     """Lock and detect plan orders that may still complete payment."""
-    return (
+    orders = (
         BillingOrder.query.filter(
             BillingOrder.deleted == 0,
             BillingOrder.subscription_bid == subscription.subscription_bid,
             BillingOrder.order_type.in_(_PAID_PLAN_ORDER_TYPES),
-            BillingOrder.status.in_(_UNSETTLED_PLAN_ORDER_STATUSES),
+            BillingOrder.status != BILLING_ORDER_STATUS_PAID,
         )
         .with_for_update()
-        .first()
-        is not None
+        .all()
     )
+    return any(can_billing_order_become_paid_from_provider(order) for order in orders)
 
 
 def is_operator_terminable_plan_order(order: BillingOrder) -> bool:
