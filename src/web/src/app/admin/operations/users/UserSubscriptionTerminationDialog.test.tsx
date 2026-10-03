@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import type { AdminOperationUserItem } from '../operation-user-types';
 import UserSubscriptionTerminationDialog from './UserSubscriptionTerminationDialog';
 
 const mockTerminate = api.terminateAdminOperationUserSubscription as jest.Mock;
@@ -21,7 +22,7 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-const user = {
+const user: AdminOperationUserItem = {
   user_bid: 'user-1',
   mobile: '15500000000',
   email: '',
@@ -42,11 +43,13 @@ const user = {
   topup_credits: '0',
   credits_expire_at: '',
   has_active_subscription: true,
+  can_terminate_paid_subscription: true,
+  termination_subscription_bid: 'subscription-1',
   last_login_at: '',
   last_learning_at: '',
   created_at: '',
   updated_at: '',
-} as const;
+};
 
 describe('UserSubscriptionTerminationDialog', () => {
   beforeEach(() => {
@@ -71,6 +74,7 @@ describe('UserSubscriptionTerminationDialog', () => {
         onTerminated={onTerminated}
       />,
     );
+    expect(screen.getByText('subscription-1')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('terminationDialog.confirm'));
     expect(
@@ -86,6 +90,7 @@ describe('UserSubscriptionTerminationDialog', () => {
     await waitFor(() =>
       expect(mockTerminate).toHaveBeenCalledWith({
         user_bid: 'user-1',
+        subscription_bid: 'subscription-1',
         request_id: 'termination-request-id',
         reason: 'customer request',
       }),

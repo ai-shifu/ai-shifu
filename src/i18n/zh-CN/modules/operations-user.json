@@ -520,6 +520,7 @@
     "reason": "终止原因",
     "reasonPlaceholder": "记录本次终止套餐的原因",
     "submitting": "终止中...",
+    "subscriptionId": "套餐ID",
     "success": "套餐已终止",
     "title": "终止套餐"
   },

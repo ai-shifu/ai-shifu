@@ -520,6 +520,7 @@
     "reason": "Motif",
     "reasonPlaceholder": "Indiquez pourquoi cet abonnement est résilié",
     "submitting": "Résiliation...",
+    "subscriptionId": "ID de l’abonnement",
     "success": "Abonnement résilié",
     "title": "Résilier l’abonnement"
   },

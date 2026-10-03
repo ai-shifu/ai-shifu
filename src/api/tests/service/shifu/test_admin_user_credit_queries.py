@@ -226,6 +226,7 @@ def test_subscription_without_product_retains_end_date_but_has_no_display_name(
         "credits_expire_at": ends,
         "has_active_subscription": True,
         "can_terminate_paid_subscription": False,
+        "termination_subscription_bid": "",
     }
 
 
@@ -281,7 +282,11 @@ def test_legacy_manual_plan_is_terminable_but_referral_plan_is_not(
     )
 
     assert summaries[legacy_creator_bid]["can_terminate_paid_subscription"] is True
+    assert summaries[legacy_creator_bid]["termination_subscription_bid"] == (
+        "subscription-legacy-manual"
+    )
     assert summaries[referral_creator_bid]["can_terminate_paid_subscription"] is False
+    assert summaries[referral_creator_bid]["termination_subscription_bid"] == ""
 
 
 def test_historical_manual_order_type_plan_is_terminable(
@@ -320,6 +325,7 @@ def test_historical_manual_order_type_plan_is_terminable(
     ]
 
     assert summary["can_terminate_paid_subscription"] is True
+    assert summary["termination_subscription_bid"] == subscription_bid
 
 
 def test_termination_eligibility_prefers_the_subscription_backing_available_credits(
@@ -400,6 +406,9 @@ def test_termination_eligibility_prefers_the_subscription_backing_available_cred
     ]
 
     assert summary["can_terminate_paid_subscription"] is True
+    assert summary["termination_subscription_bid"] == (
+        qualifying_subscription.subscription_bid
+    )
 
 
 def test_credit_usage_keyword_limits_results_to_matching_account(

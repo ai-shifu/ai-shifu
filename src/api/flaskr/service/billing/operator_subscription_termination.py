@@ -38,7 +38,6 @@ from .models import (
 from .preorders import load_active_preorder_order
 from .renewal_event_transitions import cancel_subscription_renewal_events
 from .wallets import (
-    load_primary_credit_bucket_by_category,
     persist_credit_wallet_snapshot,
     refresh_credit_wallet_snapshot,
     sync_credit_bucket_status,
@@ -281,22 +280,63 @@ def _load_paid_orders(subscription: BillingSubscription) -> list[BillingOrder]:
 
 
 def _load_forfeitable_bucket(
-    creator_bid: str,
+    subscription: BillingSubscription,
+    paid_orders: Sequence[BillingOrder],
 ) -> tuple[CreditWalletBucket | None, Decimal]:
-    bucket = load_primary_credit_bucket_by_category(
-        creator_bid,
-        bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    paid_order_bids = [row.bill_order_bid for row in paid_orders]
+    if not paid_order_bids:
+        return None, Decimal(0)
+    bucket = (
+        CreditWalletBucket.query.join(
+            CreditLedgerEntry,
+            CreditLedgerEntry.wallet_bucket_bid == CreditWalletBucket.wallet_bucket_bid,
+        )
+        .filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid == subscription.creator_bid,
+            CreditWalletBucket.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == subscription.creator_bid,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            CreditLedgerEntry.source_bid.in_(paid_order_bids),
+            CreditLedgerEntry.amount > 0,
+        )
+        .order_by(CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc())
+        .with_for_update()
+        .first()
     )
     if bucket is None:
         return None, Decimal(0)
-    bucket = (
-        CreditWalletBucket.query.filter(
-            CreditWalletBucket.deleted == 0,
-            CreditWalletBucket.id == bucket.id,
+    bucket_orders = (
+        db.session.query(BillingOrder)
+        .join(
+            CreditLedgerEntry,
+            CreditLedgerEntry.source_bid == BillingOrder.bill_order_bid,
         )
+        .filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.creator_bid == subscription.creator_bid,
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            BillingOrder.order_type.in_(_MANUAL_PLAN_ORDER_TYPES),
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            CreditLedgerEntry.amount > 0,
+        )
+        .order_by(CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc())
         .with_for_update()
-        .one()
+        .all()
     )
+    latest_plan_order = next(
+        (row for row in bucket_orders if is_operator_terminable_plan_order(row)),
+        None,
+    )
+    if (
+        latest_plan_order is None
+        or latest_plan_order.subscription_bid != subscription.subscription_bid
+    ):
+        raise_error("server.order.orderStatusError")
     # Reserved balance can belong to an in-flight usage hold or a future reward.
     # Until deferred rewards can be moved to an independent bucket, do not
     # terminate a plan whose shared subscription bucket contains any hold.
@@ -310,17 +350,21 @@ def terminate_operator_paid_subscription(
     app: Flask,
     *,
     creator_bid: str,
+    expected_subscription_bid: str,
     operator_user_bid: str,
     request_id: str,
     reason: str,
 ) -> dict[str, object]:
     """Immediately terminate the current paid plan and its active plan bucket."""
     normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_expected_subscription_bid = str(expected_subscription_bid or "").strip()
     normalized_operator_bid = str(operator_user_bid or "").strip()
     normalized_request_id = str(request_id or "").strip()
     normalized_reason = str(reason or "").strip()
     if not normalized_creator_bid:
         raise_param_error("user_bid")
+    if not normalized_expected_subscription_bid:
+        raise_param_error("subscription_bid")
     if not normalized_operator_bid:
         raise_param_error("operator_user_bid")
     if not normalized_request_id:
@@ -335,6 +379,11 @@ def terminate_operator_paid_subscription(
             )
             if subscription is not None:
                 db.session.refresh(subscription, with_for_update=True)
+                if (
+                    subscription.subscription_bid
+                    != normalized_expected_subscription_bid
+                ):
+                    raise_error("server.order.orderStatusError")
                 operation = _metadata(subscription).get(_OPERATION_METADATA_KEY, {})
                 if (
                     subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
@@ -355,6 +404,11 @@ def terminate_operator_paid_subscription(
                 subscription = _load_pending_subscription(normalized_creator_bid)
                 if subscription is not None:
                     db.session.refresh(subscription, with_for_update=True)
+                    if (
+                        subscription.subscription_bid
+                        != normalized_expected_subscription_bid
+                    ):
+                        raise_error("server.order.orderStatusError")
                     pending_operation = _metadata(subscription).get(
                         _OPERATION_METADATA_KEY
                     )
@@ -375,6 +429,8 @@ def terminate_operator_paid_subscription(
                     target_bid = load_operator_termination_subscription_bid_map(
                         [normalized_creator_bid], as_of=now_utc()
                     ).get(normalized_creator_bid)
+                    if target_bid != normalized_expected_subscription_bid:
+                        raise_error("server.order.orderStatusError")
                     subscription = (
                         BillingSubscription.query.filter(
                             BillingSubscription.deleted == 0,
@@ -409,9 +465,22 @@ def terminate_operator_paid_subscription(
                 paid_orders = _load_paid_orders(subscription)
                 if not paid_orders:
                     raise_error("server.order.orderStatusError")
-                bucket, _ = _load_forfeitable_bucket(subscription.creator_bid)
                 if subscription.status != BILLING_SUBSCRIPTION_STATUS_TERMINATING:
+                    bucket, _ = _load_forfeitable_bucket(subscription, paid_orders)
                     prepared_at = now_utc()
+                    if bucket is not None:
+                        bucket.metadata_json = {
+                            **(
+                                bucket.metadata_json
+                                if isinstance(bucket.metadata_json, dict)
+                                else {}
+                            ),
+                            "operator_termination_pending_subscription_bid": (
+                                subscription.subscription_bid
+                            ),
+                        }
+                        bucket.updated_at = prepared_at
+                        db.session.add(bucket)
                     metadata = _metadata(subscription)
                     metadata[_OPERATION_METADATA_KEY] = {
                         "request_id": normalized_request_id,
@@ -476,30 +545,25 @@ def terminate_operator_paid_subscription(
             ):
                 raise_error("server.order.orderStatusError")
 
-            paid_orders = _load_paid_orders(subscription)
-            if [row.bill_order_bid for row in paid_orders] != list(
-                operation.get("paid_order_bids") or []
-            ):
-                raise_error("server.order.orderStatusError")
-
-            bucket, forfeited = _load_forfeitable_bucket(subscription.creator_bid)
-            if (bucket.wallet_bucket_bid if bucket else "") != str(
-                operation.get("bucket_bid") or ""
-            ) or (
-                bucket is not None
-                and bucket.updated_at is not None
-                and bucket.updated_at.isoformat()
-                != str(operation.get("bucket_updated_at") or "")
-            ):
-                operation["bucket_bid"] = bucket.wallet_bucket_bid if bucket else ""
-                operation["bucket_updated_at"] = (
-                    bucket.updated_at.isoformat()
-                    if bucket is not None and bucket.updated_at is not None
-                    else ""
+            bucket_bid = str(operation.get("bucket_bid") or "").strip()
+            bucket = (
+                CreditWalletBucket.query.filter(
+                    CreditWalletBucket.deleted == 0,
+                    CreditWalletBucket.creator_bid == normalized_creator_bid,
+                    CreditWalletBucket.wallet_bucket_bid == bucket_bid,
                 )
-                metadata = _metadata(subscription)
-                metadata[_OPERATION_METADATA_KEY] = operation
-                subscription.metadata_json = metadata
+                .with_for_update()
+                .first()
+                if bucket_bid
+                else None
+            )
+            if (bucket.wallet_bucket_bid if bucket else "") != bucket_bid:
+                raise_error("server.order.orderStatusError")
+            if bucket is not None and Decimal(str(bucket.reserved_credits or 0)) > 0:
+                raise_error("server.billing.creditDeductionOriginAmbiguous")
+            forfeited = (
+                Decimal(str(bucket.available_credits or 0)) if bucket else Decimal(0)
+            )
             terminated_at = now_utc()
             wallet = (
                 CreditWallet.query.filter(

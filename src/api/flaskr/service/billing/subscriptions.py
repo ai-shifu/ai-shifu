@@ -809,6 +809,27 @@ def _is_same_product_preorder_renewal(order: BillingOrder) -> bool:
     )
 
 
+def _operator_termination_blocks_activation(
+    subscription: BillingSubscription,
+) -> bool:
+    """Keep operator-terminated subscriptions from being revived by late events."""
+    status = int(subscription.status or 0)
+    if status == BILLING_SUBSCRIPTION_STATUS_TERMINATING:
+        return True
+    if status != BILLING_SUBSCRIPTION_STATUS_CANCELED:
+        return False
+    metadata = (
+        subscription.metadata_json
+        if isinstance(subscription.metadata_json, dict)
+        else {}
+    )
+    operation = metadata.get("operator_paid_subscription_termination")
+    return isinstance(operation, dict) and str(operation.get("status") or "") in {
+        "prepared",
+        "terminated",
+    }
+
+
 def _activate_subscription_for_paid_order(
     app: Flask,
     order: BillingOrder,
@@ -834,7 +855,7 @@ def _activate_subscription_for_paid_order(
     if subscription is None:
         return False
     db.session.refresh(subscription, with_for_update=True)
-    if int(subscription.status or 0) == BILLING_SUBSCRIPTION_STATUS_TERMINATING:
+    if _operator_termination_blocks_activation(subscription):
         return False
 
     effective_from = _resolve_credit_bucket_effective_from(
@@ -1485,6 +1506,16 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     grant_context = _resolve_credit_grant_context(order)
     if grant_context is None:
         return False
+
+    subscription = (
+        _load_subscription_by_bid(order.subscription_bid)
+        if order.subscription_bid
+        else None
+    )
+    if subscription is not None:
+        db.session.refresh(subscription, with_for_update=True)
+        if _operator_termination_blocks_activation(subscription):
+            return False
 
     product = _load_billing_product_by_bid(order.product_bid)
     if product is None:

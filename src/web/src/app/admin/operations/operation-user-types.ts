@@ -51,6 +51,7 @@ export type AdminOperationUserItem = {
   credits_expire_at: string;
   has_active_subscription: boolean;
   can_terminate_paid_subscription?: boolean;
+  termination_subscription_bid?: string;
   last_login_at: string;
   last_learning_at: string;
   created_at: string;
@@ -169,6 +170,7 @@ export type AdminOperationUserCreditSummary = {
   credits_expire_at: string;
   has_active_subscription: boolean;
   can_terminate_paid_subscription?: boolean;
+  termination_subscription_bid?: string;
 };
 
 export type AdminOperationUserCreditTypeFilter =

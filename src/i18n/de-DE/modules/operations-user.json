@@ -520,6 +520,7 @@
     "reason": "Grund",
     "reasonPlaceholder": "Grund für die Beendigung dieses Abos",
     "submitting": "Wird beendet...",
+    "subscriptionId": "Abo-ID",
     "success": "Abo beendet",
     "title": "Abo beenden"
   },

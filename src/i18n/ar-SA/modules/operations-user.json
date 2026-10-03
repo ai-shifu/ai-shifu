@@ -520,6 +520,7 @@
     "reason": "السبب",
     "reasonPlaceholder": "سجّل سبب إنهاء هذه الخطة",
     "submitting": "جارٍ الإنهاء...",
+    "subscriptionId": "معرّف الخطة",
     "success": "تم إنهاء الخطة",
     "title": "إنهاء الخطة"
   },

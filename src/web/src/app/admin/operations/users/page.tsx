@@ -1552,7 +1552,8 @@ export default function AdminOperationUsersPage() {
                                   ),
                                   disabled:
                                     user.user_status === 'cancelled' ||
-                                    !user.can_terminate_paid_subscription,
+                                    !user.can_terminate_paid_subscription ||
+                                    !user.termination_subscription_bid,
                                   onClick: () => setTerminationDialogUser(user),
                                 },
                                 {
