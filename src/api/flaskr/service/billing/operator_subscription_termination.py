@@ -14,10 +14,7 @@ from sqlalchemy import case, or_
 
 from .consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
-    BILLING_ORDER_STATUS_CANCELED,
-    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
-    BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -392,41 +389,6 @@ def terminate_operator_paid_subscription(
         raise_param_error("reason")
 
     with app_context_scope(app):
-        with unit_of_work():
-            reconcilable_orders = (
-                BillingOrder.query.filter(
-                    BillingOrder.deleted == 0,
-                    BillingOrder.creator_bid == normalized_creator_bid,
-                    BillingOrder.subscription_bid
-                    == normalized_expected_subscription_bid,
-                    BillingOrder.order_type.in_(_PAID_PLAN_ORDER_TYPES),
-                    BillingOrder.status.in_(
-                        {
-                            BILLING_ORDER_STATUS_FAILED,
-                            BILLING_ORDER_STATUS_CANCELED,
-                            BILLING_ORDER_STATUS_TIMEOUT,
-                        }
-                    ),
-                )
-                .order_by(BillingOrder.id.asc())
-                .all()
-            )
-            reconcilable_order_bids = [
-                order.bill_order_bid
-                for order in reconcilable_orders
-                if can_billing_order_become_paid_from_provider(order)
-            ]
-
-        if reconcilable_order_bids:
-            from .checkout import close_billing_order_payment_attempt
-
-            for bill_order_bid in reconcilable_order_bids:
-                close_billing_order_payment_attempt(
-                    app,
-                    creator_bid=normalized_creator_bid,
-                    bill_order_bid=bill_order_bid,
-                )
-
         with unit_of_work():
             subscription = _load_replay_subscription(
                 normalized_creator_bid, normalized_request_id

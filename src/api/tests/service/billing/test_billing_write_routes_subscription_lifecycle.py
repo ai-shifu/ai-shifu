@@ -401,10 +401,6 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert old_order.metadata_json["replaced_by_bill_order_bid"] == (
                 new_order.bill_order_bid
             )
-            assert (
-                old_order.metadata_json["provider_payment_terminal_evidence"]["status"]
-                == "canceled"
-            )
             assert new_order.status == BILLING_ORDER_STATUS_PENDING
 
     def test_expired_pending_order_is_timed_out_and_recreated_on_same_package_checkout(

@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
-from unittest.mock import Mock
 
 import pytest
 from flaskr import dao
@@ -47,7 +46,6 @@ from flaskr.service.billing.renewal import _is_subscription_obsolete
 from flaskr.service.billing.subscriptions import grant_paid_order_credits
 from flaskr.service.billing.wallets import load_or_create_credit_bucket_by_category
 from flaskr.service.common.models import AppError
-from flaskr.service.order.payment_providers.base import PaymentCancellationResult
 from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
@@ -311,96 +309,14 @@ def test_provider_payable_upgrade_blocks_operator_termination(
         assert pending_upgrade.status == payable_status
 
 
-def test_replaced_canceled_order_cannot_block_operator_termination() -> None:
+def test_replaced_canceled_order_still_blocks_without_provider_reconciliation() -> None:
     replaced_order = BillingOrder(
         payment_provider="stripe",
         status=BILLING_ORDER_STATUS_CANCELED,
-        metadata_json={
-            "invalidated_reason": "replaced_by_new_package",
-            "provider_payment_terminal_evidence": {
-                "provider": "stripe",
-                "provider_reference": "cs_replaced",
-                "status": "canceled",
-            },
-        },
-        provider_reference_id="cs_replaced",
+        metadata_json={"invalidated_reason": "replaced_by_new_package"},
     )
 
-    assert can_billing_order_become_paid_from_provider(replaced_order) is False
-
-
-def test_failed_upgrade_is_closed_before_operator_termination(
-    billing_wallet_lifecycle_app: Flask,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from flaskr.service.billing import checkout
-
-    provider = Mock()
-    provider.cancel_payment.return_value = PaymentCancellationResult(
-        provider_reference="failed-upgrade-attempt",
-        raw_response={"trade_state": "CLOSED"},
-        status="cancelled",
-    )
-    monkeypatch.setattr(checkout, "get_payment_provider", Mock(return_value=provider))
-
-    with billing_wallet_lifecycle_app.app_context():
-        now = now_utc()
-        creator_bid = "creator-terminate-failed-upgrade"
-        subscription = BillingSubscription(
-            subscription_bid="subscription-terminate-failed-upgrade",
-            creator_bid=creator_bid,
-            product_bid="product-current-plan",
-            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-            billing_provider="wechatpay",
-            current_period_start_at=now - timedelta(days=1),
-            current_period_end_at=now + timedelta(days=30),
-        )
-        paid_order = BillingOrder(
-            bill_order_bid="order-current-plan-for-failed-upgrade",
-            creator_bid=creator_bid,
-            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-            product_bid=subscription.product_bid,
-            subscription_bid=subscription.subscription_bid,
-            payment_provider="wechatpay",
-            status=BILLING_ORDER_STATUS_PAID,
-            paid_at=now - timedelta(days=1),
-        )
-        failed_upgrade = BillingOrder(
-            bill_order_bid="order-failed-plan-upgrade",
-            creator_bid=creator_bid,
-            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-            product_bid="product-upgraded-plan",
-            subscription_bid=subscription.subscription_bid,
-            payment_provider="wechatpay",
-            provider_reference_id="failed-upgrade-attempt",
-            status=BILLING_ORDER_STATUS_FAILED,
-        )
-        dao.db.session.add_all([subscription, paid_order, failed_upgrade])
-        dao.db.session.commit()
-
-        result = terminate_operator_paid_subscription(
-            billing_wallet_lifecycle_app,
-            creator_bid=creator_bid,
-            expected_subscription_bid=subscription.subscription_bid,
-            operator_user_bid="operator-terminate",
-            request_id="terminate-request-failed-upgrade",
-            reason="customer request",
-        )
-
-        dao.db.session.refresh(subscription)
-        dao.db.session.refresh(failed_upgrade)
-        assert result["status"] == "terminated"
-        assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCELED
-        assert failed_upgrade.status == BILLING_ORDER_STATUS_CANCELED
-        assert (
-            failed_upgrade.metadata_json["provider_payment_terminal_evidence"]["status"]
-            == "canceled"
-        )
-        provider.cancel_payment.assert_called_once_with(
-            provider_reference="failed-upgrade-attempt",
-            reference_type="payment",
-            app=billing_wallet_lifecycle_app,
-        )
+    assert can_billing_order_become_paid_from_provider(replaced_order) is True
 
 
 def test_zero_balance_paid_bucket_does_not_forfeit_independent_reward_bucket(

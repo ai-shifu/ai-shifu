@@ -38,9 +38,9 @@ can be separated in follow-up work.
 - [x] 2026-10-03 CST: Blocked termination while the target subscription has an
   unsettled plan order and made cycle repair preserve operator termination as a
   terminal state.
-- [x] 2026-10-03 CST: Added provider-terminal payment evidence, remote closure
-  of historical failed attempts, and a checkout lock-time lifecycle recheck so
-  payment creation cannot cross termination preparation.
+- [x] 2026-10-03 CST: Re-scoped #3009 to fail closed on every provider-payable
+  historical order. Removed automatic payment-attempt closure and terminal
+  evidence from this PR; retained checkout's lock-time subscription recheck.
 - [ ] After #3009 merges: deliver PR 1.1 for termination operational hardening:
   protect the free-text reason from generic request-body logs and refresh the
   affected user row after a failed/uncertain request.
@@ -79,12 +79,10 @@ can be separated in follow-up work.
 - A pending upgrade can complete payment while termination is in progress.
   Allowing both paths to succeed leaves a paid order with neither credits nor
   an active plan because late activation is intentionally fenced.
-- Local `FAILED`, `TIMEOUT`, or `CANCELED` is not proof that a provider attempt
-  can no longer collect money. Stripe expiry and native trade closure must be
-  confirmed remotely and persisted as terminal evidence.
-- A checkout can select an active subscription before waiting on its row lock.
-  The locked ORM identity must be refreshed and its lifecycle status rechecked;
-  otherwise it can create an upgrade after termination has begun.
+- Closing historical payment attempts inside termination expands this PR into
+  provider-specific payment lifecycle orchestration and can create side effects
+  even when a later termination eligibility check rejects the request. That
+  work must remain separate.
 - Subscription cycle repair treats paid-order history as repair evidence, but
   that evidence must not override an explicit operator termination decision.
 
@@ -126,24 +124,14 @@ can be separated in follow-up work.
 - Decision: Reject termination while any start, upgrade, or renewal order for
   the target subscription can still become paid through provider sync or a
   webhook. This includes `INIT`, `PENDING`, `FAILED`, `TIMEOUT`, and ordinary
-  `CANCELED` orders; a canceled order explicitly invalidated as
-  `replaced_by_new_package` is exempt because the payment state machine already
-  forbids its revival. The order rows are locked before the subscription enters
-  `TERMINATING`, so payment completion wins or termination rolls back; the
-  system never locally cancels a possibly paid provider order without provider
-  reconciliation.
-- Decision: Before termination, close historical failed/canceled/timed-out
-  payment attempts through their bound provider reference. A confirmed remote
-  cancellation is persisted as `provider_payment_terminal_evidence`; if the
-  provider reports payment instead, ordinary order synchronization fulfills it
-  before termination is reconsidered. Orders without a provider reference stay
-  blocked because provider creation may still be in flight.
-- Decision: Replacing a pending checkout closes Stripe, Ping++, Alipay, or
-  WeChat Pay remotely before assigning `replaced_by_new_package`. That local
-  reason alone is never terminal evidence.
-- Decision: Subscription checkout refreshes and revalidates the subscription
-  after acquiring its row lock. `TERMINATING` or terminal rows cannot create a
-  new start/upgrade/renewal order from a stale pre-lock read.
+  `CANCELED` orders. A local `replaced_by_new_package` marker is not remote
+  terminal evidence and receives no exemption. The order rows are locked before
+  the subscription enters `TERMINATING`, so payment completion wins or
+  termination rolls back. #3009 never closes or mutates a historical payment
+  attempt.
+- Decision: Checkout refreshes and revalidates the subscription after acquiring
+  its row lock. A stale pre-lock read cannot create an upgrade after the
+  subscription enters `TERMINATING`.
 - Decision: Cycle repair always skips `TERMINATING` subscriptions and canceled
   subscriptions carrying the operator termination marker. Historical paid
   cycles cannot restore their dates or status.
@@ -181,6 +169,10 @@ the account, explains the effects, and requires a reason before submission.
 
 ## Pull Request Sequence
 
+0. **Separate payment-lifecycle PR:** define provider-specific reconciliation
+   for Stripe Checkout, Stripe renewal invoices, Stripe asynchronous payment,
+   Ping++, Alipay, and WeChat Pay. This is intentionally outside #3009; until it
+   lands, affected accounts remain conservatively ineligible for termination.
 1. **PR 1 — #3009, core termination:** bind the confirmed subscription and
    grant-backed bucket, terminate provider/local lifecycle state, clear only the
    pinned active plan bucket, preserve independent rewards/top-ups, and close

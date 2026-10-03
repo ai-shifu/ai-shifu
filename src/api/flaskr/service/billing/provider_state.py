@@ -149,24 +149,6 @@ def _apply_billing_order_provider_update(
     ).to_metadata_json()
 
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-    if source in {"sync", "webhook"} and target_status in {
-        BILLING_ORDER_STATUS_CANCELED,
-        BILLING_ORDER_STATUS_TIMEOUT,
-    }:
-        terminal_status = (
-            "expired" if target_status == BILLING_ORDER_STATUS_TIMEOUT else "canceled"
-        )
-        metadata = {
-            **metadata,
-            "provider_payment_terminal_evidence": {
-                "provider": provider,
-                "provider_reference": provider_reference_id,
-                "status": terminal_status,
-                "confirmed_at": (event_time or now_utc()).isoformat(),
-                "source": source,
-            },
-        }
-        order.metadata_json = _normalize_json_object(metadata).to_metadata_json()
     invalidated_reason = str(metadata.get("invalidated_reason") or "").strip()
 
     if not _can_transition_billing_order_status(
@@ -243,23 +225,12 @@ def can_billing_order_become_paid_from_provider(order: BillingOrder) -> bool:
     """Return whether a late provider sync or webhook may still mark an order paid."""
     if str(order.payment_provider or "").strip().lower() == "manual":
         return False
-    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-    terminal_evidence = metadata.get("provider_payment_terminal_evidence")
-    evidence_matches_order = (
-        isinstance(terminal_evidence, dict)
-        and str(terminal_evidence.get("provider") or "").strip().lower()
-        == str(order.payment_provider or "").strip().lower()
-        and str(terminal_evidence.get("provider_reference") or "").strip()
-        == str(order.provider_reference_id or "").strip()
-    )
-    if evidence_matches_order and str(
-        terminal_evidence.get("status") or ""
-    ).strip().lower() in {"canceled", "expired"}:
-        return False
     return _can_transition_billing_order_status(
         current_status=int(order.status or 0),
         target_status=BILLING_ORDER_STATUS_PAID,
         source="webhook",
+        # Termination is deliberately fail-closed. A local replacement marker
+        # does not prove that the bound provider attempt can no longer collect.
         invalidated_reason="",
     )
 
