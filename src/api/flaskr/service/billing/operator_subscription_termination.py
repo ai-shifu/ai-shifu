@@ -281,10 +281,10 @@ def _load_paid_orders(subscription: BillingSubscription) -> list[BillingOrder]:
 
 
 def _load_forfeitable_bucket(
-    subscription: BillingSubscription,
+    creator_bid: str,
 ) -> tuple[CreditWalletBucket | None, Decimal]:
     bucket = load_primary_credit_bucket_by_category(
-        subscription.creator_bid,
+        creator_bid,
         bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     )
     if bucket is None:
@@ -297,44 +297,12 @@ def _load_forfeitable_bucket(
         .with_for_update()
         .one()
     )
-    # Reserved balance can belong to an in-flight usage hold or a paid future
-    # cycle. Neither is current-plan balance that this operation may forfeit.
+    # Reserved balance can belong to an in-flight usage hold or a future reward.
+    # Until deferred rewards can be moved to an independent bucket, do not
+    # terminate a plan whose shared subscription bucket contains any hold.
     if Decimal(str(bucket.reserved_credits or 0)) > 0:
         raise_error("server.billing.creditDeductionOriginAmbiguous")
     forfeitable = Decimal(str(bucket.available_credits or 0))
-    if forfeitable <= 0:
-        return bucket, Decimal(0)
-
-    grants = (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
-            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-            CreditLedgerEntry.amount > 0,
-        )
-        .order_by(CreditLedgerEntry.id.asc())
-        .with_for_update()
-        .all()
-    )
-    if not grants:
-        raise_error("server.billing.creditDeductionOriginAmbiguous")
-    order_bids = {str(item.source_bid or "").strip() for item in grants}
-    candidate_orders = (
-        BillingOrder.query.filter(
-            BillingOrder.deleted == 0,
-            BillingOrder.bill_order_bid.in_(order_bids),
-            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-            BillingOrder.order_type.in_(_MANUAL_PLAN_ORDER_TYPES),
-            BillingOrder.subscription_bid == subscription.subscription_bid,
-        )
-        .with_for_update()
-        .all()
-    )
-    paid_orders = [
-        row for row in candidate_orders if is_operator_terminable_plan_order(row)
-    ]
-    if len(paid_orders) != len(order_bids):
-        raise_error("server.billing.creditDeductionOriginAmbiguous")
     return bucket, forfeitable
 
 
@@ -346,7 +314,7 @@ def terminate_operator_paid_subscription(
     request_id: str,
     reason: str,
 ) -> dict[str, object]:
-    """Immediately terminate the current paid plan and its paid plan credits."""
+    """Immediately terminate the current paid plan and its active plan bucket."""
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_operator_bid = str(operator_user_bid or "").strip()
     normalized_request_id = str(request_id or "").strip()
@@ -441,7 +409,7 @@ def terminate_operator_paid_subscription(
                 paid_orders = _load_paid_orders(subscription)
                 if not paid_orders:
                     raise_error("server.order.orderStatusError")
-                bucket, _ = _load_forfeitable_bucket(subscription)
+                bucket, _ = _load_forfeitable_bucket(subscription.creator_bid)
                 if subscription.status != BILLING_SUBSCRIPTION_STATUS_TERMINATING:
                     prepared_at = now_utc()
                     metadata = _metadata(subscription)
@@ -514,7 +482,7 @@ def terminate_operator_paid_subscription(
             ):
                 raise_error("server.order.orderStatusError")
 
-            bucket, forfeited = _load_forfeitable_bucket(subscription)
+            bucket, forfeited = _load_forfeitable_bucket(subscription.creator_bid)
             if (bucket.wallet_bucket_bid if bucket else "") != str(
                 operation.get("bucket_bid") or ""
             ) or (

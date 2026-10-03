@@ -512,7 +512,7 @@
     "account": "Account",
     "cancel": "Cancel",
     "confirm": "Terminate now",
-    "description": "The plan becomes invalid immediately and renewal stops where applicable. Remaining plan credits are cleared; credit packs and rewards are preserved.",
+    "description": "The plan becomes invalid immediately and renewal stops where applicable. All available credits in its current plan bucket are cleared, including active trial or referral rewards mixed into that bucket; separate credit packs are preserved.",
     "errors": {
       "reason": "Enter a termination reason.",
       "submitFailed": "Plan termination failed. Please try again."

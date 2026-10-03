@@ -512,7 +512,7 @@
     "account": "Cuenta",
     "cancel": "Cancelar",
     "confirm": "Finalizar ahora",
-    "description": "El plan deja de ser válido de inmediato y se detiene la renovación cuando corresponda. Se eliminan los créditos restantes; los paquetes de créditos y recompensas se conservan.",
+    "description": "El plan deja de ser válido de inmediato y se detiene la renovación cuando corresponda. Se eliminan todos los créditos disponibles de su saldo de plan actual, incluidas las recompensas activas de prueba o invitación mezcladas en él; los paquetes de créditos independientes se conservan.",
     "errors": {
       "reason": "Introduce un motivo de finalización.",
       "submitFailed": "No se pudo finalizar el plan. Inténtalo de nuevo."
