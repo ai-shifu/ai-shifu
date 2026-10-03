@@ -111,6 +111,10 @@ class AdminOperationUserSummaryDTO(BaseModel):
         default=False,
         description="Whether a paid subscription can be terminated or resumed",
     )
+    termination_subscription_bid: str = Field(
+        default="",
+        description="Subscription identifier an operator termination must confirm",
+    )
     last_login_at: datetime | None = Field(
         default=None,
         description="Latest login timestamp",
@@ -371,6 +375,12 @@ class AdminOperationUserSubscriptionTerminationRequestDTO(BaseModel):
 
     request_id: str = Field(
         ..., min_length=1, max_length=36, description="Idempotent request identifier"
+    )
+    subscription_bid: str = Field(
+        ...,
+        min_length=1,
+        max_length=36,
+        description="Confirmed subscription identifier",
     )
     reason: str = Field(..., min_length=1, max_length=255)
 

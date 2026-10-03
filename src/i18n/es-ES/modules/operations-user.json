@@ -520,6 +520,7 @@
     "reason": "Motivo",
     "reasonPlaceholder": "Indica por qué se finaliza este plan",
     "submitting": "Finalizando...",
+    "subscriptionId": "ID del plan",
     "success": "Plan finalizado",
     "title": "Finalizar plan"
   },

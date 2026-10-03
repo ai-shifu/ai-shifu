@@ -1335,12 +1335,16 @@ def _load_operator_user_credit_summary_map(
                 "credits_expire_at": None,
                 "has_active_subscription": False,
                 "can_terminate_paid_subscription": False,
+                "termination_subscription_bid": "",
             },
         )
         if creator_bid in active_subscription_end_map:
             summary["has_active_subscription"] = True
         if creator_bid in termination_eligible_creator_bids:
             summary["can_terminate_paid_subscription"] = True
+            summary["termination_subscription_bid"] = (
+                termination_subscription_bid_map.get(creator_bid, "")
+            )
         runtime_category = resolve_wallet_bucket_runtime_category(
             bucket,
             load_order_type=load_order_type,
@@ -1385,6 +1389,11 @@ def _load_operator_user_credit_summary_map(
                 "can_terminate_paid_subscription": (
                     creator_bid in termination_eligible_creator_bids
                 ),
+                "termination_subscription_bid": (
+                    termination_subscription_bid_map.get(creator_bid, "")
+                    if creator_bid in termination_eligible_creator_bids
+                    else ""
+                ),
             },
         )
         summary["credits_expire_at"] = effective_to
@@ -1400,9 +1409,15 @@ def _load_operator_user_credit_summary_map(
                 "credits_expire_at": None,
                 "has_active_subscription": False,
                 "can_terminate_paid_subscription": True,
+                "termination_subscription_bid": termination_subscription_bid_map.get(
+                    creator_bid, ""
+                ),
             },
         )
         summary["can_terminate_paid_subscription"] = True
+        summary["termination_subscription_bid"] = termination_subscription_bid_map.get(
+            creator_bid, ""
+        )
 
     return summary_map
 
@@ -1438,9 +1453,6 @@ def _build_operator_user_credit_summary(
         ),
         has_active_subscription=bool(
             (credit_summary or {}).get("has_active_subscription", False)
-        ),
-        can_terminate_paid_subscription=bool(
-            (credit_summary or {}).get("can_terminate_paid_subscription", False)
         ),
     )
 

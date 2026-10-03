@@ -859,6 +859,9 @@ def _build_operator_user_summary(
         can_terminate_paid_subscription=bool(
             (credit_summary or {}).get("can_terminate_paid_subscription", False)
         ),
+        termination_subscription_bid=str(
+            (credit_summary or {}).get("termination_subscription_bid", "") or ""
+        ),
         last_login_at=last_login_map.get(user_bid),
         last_learning_at=last_learning_map.get(user_bid),
         created_at=user.created_at,

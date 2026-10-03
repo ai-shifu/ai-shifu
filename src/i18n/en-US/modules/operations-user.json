@@ -520,6 +520,7 @@
     "reason": "Reason",
     "reasonPlaceholder": "Record why this plan is being terminated",
     "submitting": "Terminating...",
+    "subscriptionId": "Plan ID",
     "success": "Plan terminated",
     "title": "Terminate plan"
   },

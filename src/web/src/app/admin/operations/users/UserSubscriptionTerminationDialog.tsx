@@ -71,7 +71,8 @@ export default function UserSubscriptionTerminationDialog({
   };
 
   const submit = async () => {
-    if (!user || submittingRef.current) return;
+    const subscriptionBid = user?.termination_subscription_bid?.trim() || '';
+    if (!user || !subscriptionBid || submittingRef.current) return;
     const normalizedReason = reason.trim();
     if (!normalizedReason) {
       setError(t('terminationDialog.errors.reason'));
@@ -84,6 +85,7 @@ export default function UserSubscriptionTerminationDialog({
     try {
       const result = (await api.terminateAdminOperationUserSubscription({
         user_bid: user.user_bid,
+        subscription_bid: subscriptionBid,
         request_id: requestIdRef.current,
         reason: normalizedReason,
       })) as AdminOperationUserSubscriptionTerminationResponse;
@@ -124,6 +126,14 @@ export default function UserSubscriptionTerminationDialog({
               </span>
               <span className='break-all text-right'>{account}</span>
             </div>
+            <div className='mt-3 flex justify-between gap-4'>
+              <span className='text-muted-foreground'>
+                {t('terminationDialog.subscriptionId')}
+              </span>
+              <span className='break-all text-right'>
+                {user?.termination_subscription_bid || ''}
+              </span>
+            </div>
           </div>
           <div>
             <label
@@ -152,7 +162,7 @@ export default function UserSubscriptionTerminationDialog({
             {t('terminationDialog.cancel')}
           </Button>
           <Button
-            disabled={submitting}
+            disabled={submitting || !user?.termination_subscription_bid}
             onClick={() => void submit()}
           >
             {t(

@@ -31,6 +31,10 @@ can be separated in follow-up work.
   eligible plan and clear its entire available subscription bucket, including
   active trial/referral credits mixed into it, while preserving the reserved
   balance blocker and all separate top-up buckets.
+- [x] 2026-10-03 CST: Bound confirmation and execution to one subscription ID,
+  resolved the target bucket through that subscription's eligible grant ledger,
+  isolated it from concurrent new-plan grants, and blocked late activation of
+  operator-terminated subscriptions.
 
 ## Surprises & Discoveries
 
@@ -52,6 +56,13 @@ can be separated in follow-up work.
   so the existing Stripe provider contract module cannot collect locally. The
   shared provider boundary test and all repository gates pass; CI remains the
   execution environment for the focused Stripe SDK mock test.
+- Selecting a bucket by runtime category is insufficient when the paid bucket
+  is empty: a separate reward bucket can become the primary category bucket.
+  The terminating order's grant ledger is the durable bucket identity.
+- A provider call creates an unavoidable transaction gap. Marking the pinned
+  old bucket as termination-pending prevents a concurrent new plan grant from
+  reusing it; finalization must keep the stored bucket ID and never retarget to
+  whichever bucket is current after provider I/O.
 
 ## Decision Log
 
@@ -76,6 +87,18 @@ can be separated in follow-up work.
   reserved balance. It may represent in-flight usage or a deferred invitation
   reward; migrating future rewards into an independent bucket is explicitly
   deferred to the next PR. A zero-balance bucket never blocks termination.
+- Decision: The list response exposes the exact eligible subscription ID. The
+  dialog displays and submits it, and the backend rejects the operation if the
+  currently selected subscription differs from the confirmed ID.
+- Decision: During provider I/O, pin the original bucket in operation metadata
+  and exclude a termination-pending bucket from runtime reuse. Finalization may
+  absorb changes to that exact old bucket but may never switch to a new bucket.
+  Bucket reuse takes a current-read row lock, and preparation rechecks the
+  latest eligible plan grant while holding the bucket lock, closing the race
+  where a grant selected the old bucket just before the marker committed.
+- Decision: Paid-event activation and credit grant paths reject `TERMINATING`
+  subscriptions and `CANCELED` subscriptions carrying a completed operator
+  termination marker. Ordinary canceled subscriptions retain existing behavior.
 - Decision: Record forfeiture as negative expiry ledger entries and move the
   bucket's available/reserved amounts into expired credits so wallet audit
   invariants remain balanced. The operation uses a client request ID for replay.
@@ -147,6 +170,10 @@ analytics is best-effort and never changes the termination result.
 - Any reserved balance in the target subscription bucket rejects without
   changing the subscription, wallet, or provider.
 - Replaying one request does not repeat provider termination or ledger writes.
+- A separate reward bucket remains intact when the paid bucket is exhausted;
+  a concurrent new plan receives a different bucket and survives old-plan
+  finalization; late paid/manual event replay cannot revive the old plan.
+- Submitting a stale dialog after the target subscription changes is rejected.
 - The operator UI clearly identifies the account and plan, warns that the
   action is immediate, requires confirmation, prevents duplicate submission,
   refreshes user data, and reports a privacy-safe terminal result.

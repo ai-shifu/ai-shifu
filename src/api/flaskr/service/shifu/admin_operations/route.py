@@ -2432,6 +2432,7 @@ def register_admin_operations_routes(
             terminate_operator_paid_subscription(
                 app,
                 creator_bid=user_bid,
+                expected_subscription_bid=payload.subscription_bid,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
                 request_id=payload.request_id,
                 reason=payload.reason,

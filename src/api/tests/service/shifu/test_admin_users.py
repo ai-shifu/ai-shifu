@@ -1392,12 +1392,16 @@ def test_list_operator_users_includes_creator_credit_summaries(app: object) -> N
     assert creator_item.credits_expire_at == active_end_at
     assert creator_item.has_active_subscription is True
     assert creator_item.can_terminate_paid_subscription is True
+    assert (
+        creator_item.termination_subscription_bid == "subscription-creator-credits-user"
+    )
     assert regular_item.available_credits == ""
     assert regular_item.subscription_credits == ""
     assert regular_item.topup_credits == ""
     assert regular_item.credits_expire_at is None
     assert regular_item.has_active_subscription is False
     assert regular_item.can_terminate_paid_subscription is False
+    assert regular_item.termination_subscription_bid == ""
 
 
 def test_list_operator_users_filters_by_learner_role(app: object) -> None:
@@ -4238,6 +4242,7 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "credits_expire_at": None,
             "has_active_subscription": False,
             "can_terminate_paid_subscription": False,
+            "termination_subscription_bid": "",
             "last_login_at": None,
             "last_learning_at": None,
             "created_at": _z(datetime(2026, 4, 6, 8, 0, 0)),
@@ -4330,6 +4335,7 @@ def test_admin_operation_user_detail_route_returns_payload(
         "credits_expire_at": None,
         "has_active_subscription": False,
         "can_terminate_paid_subscription": False,
+        "termination_subscription_bid": "",
         "last_login_at": None,
         "last_learning_at": None,
         "created_at": _z(datetime(2026, 4, 10, 8, 0, 0)),
