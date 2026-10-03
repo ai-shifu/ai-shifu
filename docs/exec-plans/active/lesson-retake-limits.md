@@ -165,9 +165,18 @@ Keep `LESSON_RETAKE_SHIFU_BIDS` empty during the code rollout. Install all three
 - Intermediate full repository gate passed after JSON ordering was normalized (39.12 seconds). Changes made after that checkpoint are covered by the final rerun below.
 
 
-### 2026-10-03 20:31 Asia/Shanghai — final local acceptance
+### 2026-10-03 20:30 Asia/Shanghai — final local acceptance
 
 - Final backend combined run: 323 passed (9.00 seconds). Final frontend combined run: 180 passed across eight suites (9.97 seconds).
 - Full `lefthook run pre-commit --all-files`: passed (39.75 seconds), including architecture, transaction boundaries, translations, analytics-producing frontend lint and repository harness. No rules or tests were disabled.
 - Full TypeScript checking: four unchanged baseline errors, with no new retake errors. The baseline comparison is documented above; do not represent this as a clean full type check.
 - The release remains default-off. The next checkpoint records the exact commit and dev02 push separately from runtime deployment/activation.
+
+
+### 2026-10-03 20:32 Asia/Shanghai — dev02 push receipt
+
+- Implementation commit: `c1cdd118f1441e607bb495346e600539989ed676` (`feat: let teachers manage retakes for each lesson`), following backend checkpoint `e46d3fd12`.
+- `git push origin HEAD:dev02` succeeded as a fast-forward from `e74ddb30a`; independent `git ls-remote origin refs/heads/dev02` returned the exact implementation commit above.
+- No forced push, main change, production release, rollout-variable update or course publication was performed. The original checkout's unrelated changes remain separate.
+- Browser readback confirmed access to the independent test-course editor. That page access does not identify the deployed commit or validate the new retake workflow.
+- Remaining delivery gates: MySQL last-slot/concurrent-first-study tests, actual CICD build and deployment identity, migration installation/database scope, explicit course-only enablement, first-study failure/continuation behavior, and teacher/learner browser acceptance with TTS. The current session has no callable CICD or SQL control tool; do not claim the feature is enabled or ready for the team to experience.
