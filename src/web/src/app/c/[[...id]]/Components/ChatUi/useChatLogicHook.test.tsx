@@ -4257,6 +4257,66 @@ describe('useChatLogicHook stream cleanup', () => {
       expect(result.current.showLessonUpdateNotice).toBe(false);
     });
   });
+  it.each([false, true])(
+    'continues the same lesson after reopening a failed run with saved content=%s even with no retakes',
+    async hasSavedContent => {
+      jest.mocked(getRetakeStatus).mockResolvedValue({
+        available: true,
+        limit: 0,
+        used: 0,
+        reserved: 0,
+        remaining: 0,
+        allowed: false,
+        in_progress: false,
+      });
+      const params = buildBaseParams();
+      const first = renderHook(() => useChatLogicHook(params), { wrapper });
+      await waitFor(() => expect(activeRun).toBeDefined());
+      await act(async () => {
+        activeRun?.onError(new Error('provider failed'));
+      });
+      expect(first.result.current.hasRunFailed).toBe(true);
+      first.unmount();
+      const callsBeforeReopen = mockGetRunMessage.mock.calls.length;
+      if (hasSavedContent) {
+        mockGetLessonStudyRecord.mockResolvedValue({
+          elements: [
+            {
+              element_type: 'content',
+              content: 'Previously saved teaching',
+              generated_block_bid: 'saved-1',
+              element_bid: 'saved-1',
+              like_status: 'none',
+              user_input: '',
+            },
+          ],
+        });
+      }
+      const reopened = renderHook(() => useChatLogicHook(params), { wrapper });
+      await waitFor(() =>
+        expect(mockGetRunMessage).toHaveBeenCalledTimes(callsBeforeReopen + 1),
+      );
+      const body = mockGetRunMessage.mock.calls.at(-1)?.[3];
+      expect(body).toEqual(
+        expect.objectContaining({
+          input: '',
+          input_type: SSE_INPUT_TYPE.NORMAL,
+        }),
+      );
+      expect(body.reload_generated_block_bid).toBeFalsy();
+      expect(body.reload_element_bid).toBeFalsy();
+      expect(getRetakeStatus).not.toHaveBeenCalled();
+      expect(reopened.result.current.hasRunFailed).toBe(false);
+      if (hasSavedContent) {
+        expect(reopened.result.current.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ content: 'Previously saved teaching' }),
+          ]),
+        );
+      }
+    },
+  );
+
   it.each(['policy', 'check_failed'])(
     'protects existing content from inline refresh when %s and tracking fails',
     async reason => {

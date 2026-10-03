@@ -768,3 +768,27 @@ def test_inline_regeneration_cannot_bypass_lesson_quota(
             == LEARN_STATUS_COMPLETED
         )
         assert get_allowance(app, **IDENTITY).used == 0
+
+
+def test_failed_first_study_can_continue_with_zero_retake_allowance(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    enable(monkeypatch)
+    configure_policy(app, namespace="test", shifu_bid="course", limit=0)
+
+    def failure() -> Iterator[str]:
+        reason = "provider failed before teaching"
+        raise ValueError(reason)
+        yield  # pragma: no cover -- keep the failing producer lazy
+
+    with pytest.raises(ValueError, match="provider failed before teaching"):
+        list(wrapped(app, failure()))
+    assert list(wrapped(app, iter(["continued first study"]))) == [
+        "continued first study"
+    ]
+    allowance = get_allowance(app, **IDENTITY)
+    assert allowance.used == 0
+    assert allowance.reserved == 0
+    with app.app_context():
+        assert LessonRetakeAttempt.query.count() == 0
+        assert LessonRetakeRun.query.one().finished_at is not None

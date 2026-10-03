@@ -12,7 +12,7 @@ Deliver a real, reusable per-learner, per-lesson retake capability, initially en
 - [x] 2026-10-03 Asia/Shanghai: T2a reusable rule/SQL ledger and deployment namespace isolation implemented; focused tests pass.
 - [x] 2026-10-03 19:55 Asia/Shanghai: T2b-1: Bind actual producer iteration and both durable teaching writers to the ledger; add atomic reset snapshots and failure restoration. Focused offline database tests pass.
 - [x] 2026-10-03 Asia/Shanghai: T2b-2 local integration: First-study/continuation producer guards, platform repair and reset admission implemented and tested.
-- [ ] T2b live gate: MySQL concurrent last-slot validation; do not enable the test course before this passes.
+- [x] 2026-10-03 20:55 Asia/Shanghai: T2b MySQL gate: Five concurrency cases passed on isolated local MySQL 8.4 using the three actual additive migrations. Deployed database identity and migration state remain part of T7.
 - [x] 2026-10-03 20:19 Asia/Shanghai: T3: Permissioned policy/status/reset HTTP contracts, localized errors and all-entry request identities implemented; HTTP regression passes.
 - [x] 2026-10-03 20:19 Asia/Shanghai: T4: Owner-only live setting in existing course settings; null/zero/positive limits, validation and save feedback implemented.
 - [x] 2026-10-03 20:19 Asia/Shanghai: T5: Shared balance hook/message on catalog and course-update entry points; loading, failure, last-attempt, exhausted and busy states implemented.
@@ -37,7 +37,7 @@ Deliver a real, reusable per-learner, per-lesson retake capability, initially en
 
 ## Outcomes & Retrospective
 
-Reusable implementation is complete locally: the ledger, producer guards, failure restoration, permissioned policy/status/reset APIs, teacher settings and learner prompts are integrated. Final validation: 323 backend tests and 180 frontend tests passed; full pre-commit gates passed. Full TypeScript checking still reports the same four errors reproduced on unchanged dev02 using the installed dependencies. Runtime deployment, MySQL concurrency, first-study retry/continuation and browser acceptance remain open. The feature is default-off and the independent test course remains unpublished; this is not yet a team-experience release.
+Reusable implementation is complete locally: the ledger, producer guards, failure restoration, permissioned policy/status/reset APIs, teacher settings and learner prompts are integrated. Final validation: 323 backend tests and 180 frontend tests passed; full pre-commit gates passed. Full TypeScript checking still reports the same four errors reproduced on unchanged dev02 using the installed dependencies. Local MySQL concurrency and first-study reopen/continuation checks now pass (see the later checkpoint). Runtime deployment and browser acceptance remain open. The feature is default-off and the independent test course remains unpublished; this is not yet a team-experience release.
 
 ## Context and Orientation
 
@@ -180,3 +180,17 @@ Keep `LESSON_RETAKE_SHIFU_BIDS` empty during the code rollout. Install all three
 - No forced push, main change, production release, rollout-variable update or course publication was performed. The original checkout's unrelated changes remain separate.
 - Browser readback confirmed access to the independent test-course editor. That page access does not identify the deployed commit or validate the new retake workflow.
 - Remaining delivery gates: MySQL last-slot/concurrent-first-study tests, actual CICD build and deployment identity, migration installation/database scope, explicit course-only enablement, first-study failure/continuation behavior, and teacher/learner browser acceptance with TTS. The current session has no callable CICD or SQL control tool; do not claim the feature is enabled or ready for the team to experience.
+
+
+### 2026-10-03 20:56 Asia/Shanghai — MySQL and failed-study continuation evidence
+
+- Installed MySQL 8.4.11 as a development dependency and started a temporary server bound only to 127.0.0.1:13307, using a separate temporary data directory. No production/test application database was accessed. No persistent service was enabled.
+- Added opt-in `test_retake_mysql_concurrency.py`. It refuses non-loopback URLs and URLs naming an application database, creates a random test schema, applies all three actual migrations, then drops only that schema. Five cases passed under REPEATABLE READ: concurrent last-slot requests, identical request replay, a stale snapshot after the last slot is spent, concurrent first-study ownership, and policy reduction after an ORM snapshot.
+- Reproduction: `RUN_LOCAL_MYSQL_RETAKE_TESTS=1 MYSQL_RETAKE_TEST_ADMIN_URI=mysql+pymysql://root@127.0.0.1:13307 python -m pytest tests/service/learn/test_retake_mysql_concurrency.py -q` from `src/api`, against the explicitly isolated temporary server. The URI is local-only test access, not application credentials.
+- Clarified the earlier retry limitation: legacy inline refresh is regeneration; reopening a lesson loads durable history and starts normal continuation with no reload parameters. Added two frontend regressions for reopening failed first study with empty or saved history while the course has zero retakes. Both preserve this existing path; saved teaching remains visible. The complete hook suite passes 78 tests.
+- Added a backend producer regression: a no-content first-study failure releases its producer guard; a later continuation succeeds with zero allowance and creates no retake attempt. The producer suite passes 31 tests. These checks prove orchestration/accounting, not a real model/TTS recovery in the deployed application. Live acceptance must still exercise that path. No new paragraph repair feature was introduced.
+- The current session has no CICD, SSH or SQL deployment control capability. GitHub exposes no deployment receipt for the pushed commit; this is not evidence that independent CICD failed. Browser readback of the test-course settings still has no retake control. Requested the deployment console entry or CICD connection while finishing independent verification.
+- Required dev02 configuration remains exactly `LESSON_RETAKE_NAMESPACE=dev02` and `LESSON_RETAKE_SHIFU_BIDS=c2cf49551ba94345b5a141c78d7b86e7`, merged into the existing environment group after schema/runtime checks. No wildcard, code hardcoded activation, or shared database switch is an acceptable substitute.
+- Status: code previously pushed; local concurrency and continuation evidence complete; actual deployment identity, test-course activation/publication, and live teacher/learner/TTS acceptance remain unverified. Source course and production remain untouched.
+
+- Follow-up release gate: `check_dev_tools.py` and full `lefthook run pre-commit --all-files` passed. The temporary MySQL schema count returned zero after fixture cleanup; the temporary server was shut down successfully.
