@@ -26,13 +26,22 @@ decisions.
   evidence, missing references, and replay.
 - [x] 2026-10-03 19:15 CST: Passed focused provider, billing state, callback,
   Ruff, architecture, repository harness, and full pre-commit gates.
-- [ ] 2026-10-03 19:20 CST: Push the branch and open a focused PR.
+- [x] 2026-10-03 19:20 CST: Pushed the branch and opened PR #3010.
+- [x] 2026-10-03 20:00 CST: Bound Stripe renewal closure to the order's exact
+  billing cycle, kept uncollectible invoices unresolved, and rejected terminal
+  evidence when the order's provider reference changes during closure.
+- [x] 2026-10-03 20:10 CST: Passed 106 provider contract tests, 4
+  reconciliation tests, 43 checkout state-transition tests, and 12 callback
+  tests after the review fixes.
+- [x] 2026-10-03 20:20 CST: Passed the final repository gate; review fixes are
+  ready to commit and push.
 
 ## Surprises & Discoveries
 
 - Stripe renewal orders bind the Stripe subscription ID instead of the Invoice
-  ID. Safe closure therefore has to inspect the subscription's latest invoice
-  and must not cancel the subscription itself.
+  ID. Safe closure therefore has to list that subscription's invoices and
+  select exactly one whose period matches the order's stored renewal cycle; it
+  must not assume `latest_invoice` belongs to every order.
 - A completed Stripe Checkout Session can still be unpaid for asynchronous
   methods. Session completion alone is not terminal payment evidence; its
   PaymentIntent must be canceled or shown as already canceled.
@@ -49,6 +58,8 @@ decisions.
 - Bind terminal evidence to provider name, provider reference, confirmation
   time, and reconciliation operation ID so it cannot be reused after the
   reference changes.
+- Treat Stripe `uncollectible` as unresolved because it can still transition to
+  paid; only a paid or void invoice is terminal evidence.
 - Expose this as a billing-service API only. Integration with operator
   termination remains a separate change after this capability merges.
 
@@ -56,9 +67,10 @@ decisions.
 
 The implementation now has a provider-neutral result contract and provider
 support for the Stripe cases that previously left termination unable to
-converge. Focused tests and repository gates pass. The branch and PR remain to
-be published; production provider behavior still requires test-environment
-acceptance before another feature consumes this operation.
+converge. Review follow-up now binds renewal invoices to exact billing cycles
+and closes reference-replacement races. Production provider behavior still
+requires test-environment acceptance before another feature consumes this
+operation.
 
 ## Context and Orientation
 
@@ -89,9 +101,11 @@ focused regression tests.
 2. Ask the provider adapter to close that exact reference.
 3. If closure is uncertain, use the existing order synchronization path and
    return `paid` only when normal paid-order processing confirms payment.
-4. After confirmed closure, lock the order and recheck payment status before
-   recording cancellation and terminal evidence.
-5. Return all per-order outcomes to the caller without performing subscription
+4. For Stripe renewal orders, require an exact invoice period match and keep
+   ambiguous or uncollectible invoices unresolved.
+5. After confirmed closure, lock the order and recheck payment status and the
+   provider reference before recording cancellation and terminal evidence.
+6. Return all per-order outcomes to the caller without performing subscription
    or credit mutations.
 
 ## Validation and Acceptance
@@ -100,32 +114,34 @@ focused regression tests.
 - Complete and unpaid asynchronous Stripe Checkout cancels its PaymentIntent or
   remains `unresolved`; it is never closed merely because the Session is
   complete.
-- A past-due Stripe renewal closes its unpaid latest invoice and becomes
-  `closed`; a paid invoice synchronizes the order and becomes `paid`.
+- A Stripe renewal closes only the single invoice matching the order's stored
+  billing cycle. Missing, duplicate, or uncollectible matches remain
+  `unresolved`; a paid match synchronizes the order and becomes `paid`.
 - Ping++, Alipay, and WeChat Pay use their existing provider cancellation
   contracts and persist terminal evidence only after confirmation.
 - A missing reference or provider error leaves the order unchanged and returns
   `unresolved`.
 - Replaying one operation does not repeat closure or paid side effects.
-- Focused acceptance is 41 Stripe provider tests, 43 billing state-transition
-  tests, 12 billing callback tests, and 2 reconciliation tests, plus the full
-  repository pre-commit gate.
+- If checkout reopens with a new provider reference while the previous attempt
+  is being closed, the new reference is not marked canceled.
 
 ## Idempotence and Recovery
 
 Replays first verify terminal evidence against the order's current provider and
 reference, so a confirmed closure is not sent again. A paid race is detected
-after locking the order and resolves to `paid`. Provider exceptions or ambiguous
-states remain `unresolved` and do not write terminal evidence, allowing a later
-retry to query and converge without claiming success prematurely.
+after locking the order and resolves to `paid`. A changed reference, provider
+exception, ambiguous invoice match, or nonterminal invoice remains `unresolved`
+and does not write terminal evidence, allowing a later retry to query and
+converge without claiming success prematurely.
 
 ## Interfaces and Dependencies
 
 - Reuse `PaymentProvider.cancel_payment`, `sync_billing_order`,
   `BillingOrder.metadata_json`, provider raw snapshots, and existing paid-order
   side effects.
-- Extend the Stripe adapter cancellation contract to support subscription
-  renewal references without changing other provider signatures.
+- Extend the provider cancellation contract with optional reconciliation
+  context; Stripe uses the expected renewal-cycle timestamps while other
+  providers ignore the context.
 - Export `PaymentAttemptReconciliation`,
   `SubscriptionPaymentReconciliationResult`, and
   `reconcile_subscription_payment_attempts` through the billing API.

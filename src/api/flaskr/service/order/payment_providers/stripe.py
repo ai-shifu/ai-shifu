@@ -290,6 +290,7 @@ class StripeProvider(PaymentProvider):
         provider_reference: str,
         reference_type: str,
         app: Flask,
+        context: dict[str, Any] | None = None,
     ) -> PaymentCancellationResult:
         """Expire Checkout or cancel an uncaptured PaymentIntent."""
         stripe, request_options = self._client_options(app)
@@ -314,15 +315,21 @@ class StripeProvider(PaymentProvider):
                 subscription = stripe.Subscription.retrieve(
                     provider_reference, **request_options
                 )
-                latest_invoice = subscription.get("latest_invoice")
-                invoice = (
-                    dict(latest_invoice)
-                    if isinstance(latest_invoice, dict)
-                    else stripe.Invoice.retrieve(latest_invoice, **request_options)
-                    if latest_invoice
-                    else {}
+                expected_cycle_start = (context or {}).get("cycle_start")
+                expected_cycle_end = (context or {}).get("cycle_end")
+                if expected_cycle_start is None or expected_cycle_end is None:
+                    _raise_missing_renewal_cycle()
+                invoice_list = stripe.Invoice.list(
+                    subscription=provider_reference,
+                    limit=100,
+                    **request_options,
                 )
-                if not invoice:
+                invoice = _find_invoice_for_cycle(
+                    invoice_list,
+                    cycle_start=int(expected_cycle_start),
+                    cycle_end=int(expected_cycle_end),
+                )
+                if invoice is None:
                     _raise_missing_renewal_invoice()
                 if (
                     bool(invoice.get("paid"))
@@ -336,14 +343,21 @@ class StripeProvider(PaymentProvider):
                         },
                         status="completed",
                     )
-                if str(invoice.get("status") or "").lower() in {
-                    "void",
-                    "uncollectible",
-                }:
+                invoice_status = str(invoice.get("status") or "").lower()
+                if invoice_status == "void":
                     response = invoice
+                elif invoice_status == "uncollectible":
+                    return PaymentCancellationResult(
+                        provider_reference=provider_reference,
+                        raw_response={
+                            "subscription": dict(subscription),
+                            "invoice": invoice,
+                        },
+                        status="pending",
+                    )
                 else:
                     response = stripe.Invoice.void_invoice(
-                        str(invoice.get("id") or latest_invoice),
+                        str(invoice.get("id") or ""),
                         **request_options,
                     )
         except Exception:
@@ -604,3 +618,42 @@ register_payment_provider(StripeProvider)
 def _raise_missing_renewal_invoice() -> None:
     message = "Stripe subscription has no renewal invoice to close"
     raise RuntimeError(message)
+
+
+def _raise_missing_renewal_cycle() -> None:
+    message = "Stripe renewal cancellation requires an expected billing cycle"
+    raise RuntimeError(message)
+
+
+def _find_invoice_for_cycle(
+    invoice_list: object,
+    *,
+    cycle_start: int,
+    cycle_end: int,
+) -> dict[str, Any] | None:
+    payload = (
+        invoice_list.to_dict()
+        if hasattr(invoice_list, "to_dict")
+        else dict(invoice_list)
+        if isinstance(invoice_list, dict)
+        else {}
+    )
+    raw_invoices = payload.get("data")
+    if not isinstance(raw_invoices, list):
+        return None
+    invoices = [
+        invoice.to_dict()
+        if hasattr(invoice, "to_dict")
+        else dict(invoice)
+        if isinstance(invoice, dict)
+        else {}
+        for invoice in raw_invoices
+    ]
+    matches = [
+        invoice
+        for invoice in invoices
+        if invoice
+        and int(invoice.get("period_start") or 0) == cycle_start
+        and int(invoice.get("period_end") or 0) == cycle_end
+    ]
+    return matches[0] if len(matches) == 1 else None

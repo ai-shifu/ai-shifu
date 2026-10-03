@@ -417,10 +417,16 @@ def test_subscription_cancellation_voids_unpaid_renewal_invoice(
         "status": "past_due",
         "latest_invoice": "in-test",
     }
-    stripe_client.Invoice.retrieve.return_value = {
-        "id": "in-test",
-        "status": "open",
-        "paid": False,
+    stripe_client.Invoice.list.return_value = {
+        "data": [
+            {
+                "id": "in-test",
+                "status": "open",
+                "paid": False,
+                "period_start": 100,
+                "period_end": 200,
+            }
+        ]
     }
     stripe_client.Invoice.void_invoice.return_value = {
         "id": "in-test",
@@ -431,6 +437,7 @@ def test_subscription_cancellation_voids_unpaid_renewal_invoice(
         provider_reference="sub-test",
         reference_type="subscription",
         app=Flask(__name__),
+        context={"cycle_start": 100, "cycle_end": 200},
     )
 
     assert result.status == "cancelled"
@@ -444,16 +451,98 @@ def test_subscription_cancellation_reports_paid_invoice(
 ) -> None:
     stripe_client.Subscription.retrieve.return_value = {
         "id": "sub-test",
-        "latest_invoice": {"id": "in-test", "status": "paid", "paid": True},
+        "latest_invoice": "in-test",
+    }
+    stripe_client.Invoice.list.return_value = {
+        "data": [
+            {
+                "id": "in-test",
+                "status": "paid",
+                "paid": True,
+                "period_start": 100,
+                "period_end": 200,
+            }
+        ]
     }
 
     result = stripe.StripeProvider().cancel_payment(
         provider_reference="sub-test",
         reference_type="subscription",
         app=Flask(__name__),
+        context={"cycle_start": 100, "cycle_end": 200},
     )
 
     assert result.status == "completed"
+    stripe_client.Invoice.void_invoice.assert_not_called()
+
+
+def test_subscription_cancellation_targets_the_expected_renewal_cycle(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.Subscription.retrieve.return_value = {
+        "id": "sub-test",
+        "latest_invoice": "in-new",
+    }
+    stripe_client.Invoice.list.return_value = {
+        "data": [
+            {
+                "id": "in-new",
+                "status": "open",
+                "period_start": 200,
+                "period_end": 300,
+            },
+            {
+                "id": "in-old",
+                "status": "open",
+                "period_start": 100,
+                "period_end": 200,
+            },
+        ]
+    }
+    stripe_client.Invoice.void_invoice.return_value = {
+        "id": "in-old",
+        "status": "void",
+    }
+
+    result = stripe.StripeProvider().cancel_payment(
+        provider_reference="sub-test",
+        reference_type="subscription",
+        app=Flask(__name__),
+        context={"cycle_start": 100, "cycle_end": 200},
+    )
+
+    assert result.status == "cancelled"
+    stripe_client.Invoice.void_invoice.assert_called_once_with(
+        "in-old", api_key="sk-test-scoped"
+    )
+
+
+def test_subscription_cancellation_keeps_uncollectible_invoice_unresolved(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.Subscription.retrieve.return_value = {
+        "id": "sub-test",
+        "latest_invoice": "in-test",
+    }
+    stripe_client.Invoice.list.return_value = {
+        "data": [
+            {
+                "id": "in-test",
+                "status": "uncollectible",
+                "period_start": 100,
+                "period_end": 200,
+            }
+        ]
+    }
+
+    result = stripe.StripeProvider().cancel_payment(
+        provider_reference="sub-test",
+        reference_type="subscription",
+        app=Flask(__name__),
+        context={"cycle_start": 100, "cycle_end": 200},
+    )
+
+    assert result.status == "pending"
     stripe_client.Invoice.void_invoice.assert_not_called()
 
 

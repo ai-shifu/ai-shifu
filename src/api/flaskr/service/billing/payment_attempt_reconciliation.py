@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC
 from typing import TYPE_CHECKING, Literal
 
 from flaskr.dao import db
@@ -21,7 +22,7 @@ from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
 )
 from .models import BillingOrder
-from .primitives import normalize_bid
+from .primitives import coerce_datetime, normalize_bid
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -135,16 +136,47 @@ def _reconcile_attempt(
             "missing_provider_reference",
         )
 
+    cancellation_context: dict[str, object] | None = None
+    if (
+        provider == "stripe"
+        and int(order.order_type or 0) == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+    ):
+        metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        cycle_start = coerce_datetime(metadata.get("renewal_cycle_start_at"))
+        cycle_end = coerce_datetime(metadata.get("renewal_cycle_end_at"))
+        if cycle_start is None or cycle_end is None:
+            return PaymentAttemptReconciliation(
+                order.bill_order_bid,
+                provider,
+                provider_reference,
+                "unresolved",
+                "missing_renewal_cycle",
+            )
+        cancellation_context = {
+            "cycle_start": int(cycle_start.replace(tzinfo=UTC).timestamp()),
+            "cycle_end": int(cycle_end.replace(tzinfo=UTC).timestamp()),
+        }
+
     try:
         cancellation = get_payment_provider(provider).cancel_payment(
             provider_reference=provider_reference,
             reference_type=reference_type,
             app=app,
+            context=cancellation_context,
         )
     except Exception:
         return _sync_after_uncertain_close(app, order=order)
-    if normalize_bid(cancellation.status) != "cancelled":
+    cancellation_status = normalize_bid(cancellation.status)
+    if cancellation_status == "completed":
         return _sync_after_uncertain_close(app, order=order)
+    if cancellation_status != "cancelled":
+        return PaymentAttemptReconciliation(
+            order.bill_order_bid,
+            provider,
+            provider_reference,
+            "unresolved",
+            "provider_attempt_still_payable",
+        )
 
     with app_context_scope(app), unit_of_work():
         locked = (
@@ -156,9 +188,22 @@ def _reconcile_attempt(
             .with_for_update()
             .one()
         )
-        if int(locked.status or 0) == BILLING_ORDER_STATUS_PAID:
+        if int(locked.status or 0) in {
+            BILLING_ORDER_STATUS_PAID,
+            BILLING_ORDER_STATUS_REFUNDED,
+        }:
             return PaymentAttemptReconciliation(
                 locked.bill_order_bid, provider, provider_reference, "paid"
+            )
+        locked_provider = normalize_bid(locked.payment_provider)
+        locked_reference = normalize_bid(locked.provider_reference_id)
+        if locked_provider != provider or locked_reference != provider_reference:
+            return PaymentAttemptReconciliation(
+                locked.bill_order_bid,
+                locked_provider,
+                locked_reference,
+                "unresolved",
+                "provider_reference_changed",
             )
         closed_at = now_utc()
         metadata = (
