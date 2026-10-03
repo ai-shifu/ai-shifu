@@ -19,6 +19,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator Credit Deduction](./active/operator-credit-deduction.md)
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
+- [Payment Attempt Reconciliation](./active/payment-attempt-reconciliation.md)
 - [Preserve Independent Credit Validity](./active/preserve-independent-credit-validity.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)

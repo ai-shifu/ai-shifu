@@ -28,6 +28,7 @@ def stripe_client(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     client = SimpleNamespace(
         PaymentIntent=Mock(),
         Subscription=Mock(),
+        Invoice=Mock(),
         Refund=Mock(),
         Coupon=Mock(),
         checkout=SimpleNamespace(Session=Mock()),
@@ -354,6 +355,106 @@ def test_successful_intent_cancellation_accepts_sdk_objects(
     stripe_client.PaymentIntent.cancel.assert_called_once_with(
         "pi-test", api_key="sk-test-scoped"
     )
+
+
+def test_complete_unpaid_checkout_cancels_async_payment_intent(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.checkout.Session.expire.side_effect = RuntimeError("complete")
+    stripe_client.checkout.Session.retrieve.return_value = {
+        "id": "cs-test",
+        "status": "complete",
+        "payment_status": "unpaid",
+        "payment_intent": "pi-async",
+    }
+    stripe_client.PaymentIntent.cancel.return_value = {
+        "id": "pi-async",
+        "status": "canceled",
+    }
+
+    result = stripe.StripeProvider().cancel_payment(
+        provider_reference="cs-test",
+        reference_type="checkout_session",
+        app=Flask(__name__),
+    )
+
+    assert result.status == "cancelled"
+    stripe_client.PaymentIntent.cancel.assert_called_once_with(
+        "pi-async", api_key="sk-test-scoped"
+    )
+
+
+def test_complete_unpaid_checkout_accepts_already_canceled_intent(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.checkout.Session.expire.side_effect = RuntimeError("complete")
+    stripe_client.checkout.Session.retrieve.return_value = {
+        "id": "cs-test",
+        "status": "complete",
+        "payment_status": "unpaid",
+        "payment_intent": "pi-async",
+    }
+    stripe_client.PaymentIntent.cancel.side_effect = RuntimeError("already canceled")
+    stripe_client.PaymentIntent.retrieve.return_value = {
+        "id": "pi-async",
+        "status": "canceled",
+    }
+
+    result = stripe.StripeProvider().cancel_payment(
+        provider_reference="cs-test",
+        reference_type="checkout_session",
+        app=Flask(__name__),
+    )
+
+    assert result.status == "cancelled"
+
+
+def test_subscription_cancellation_voids_unpaid_renewal_invoice(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.Subscription.retrieve.return_value = {
+        "id": "sub-test",
+        "status": "past_due",
+        "latest_invoice": "in-test",
+    }
+    stripe_client.Invoice.retrieve.return_value = {
+        "id": "in-test",
+        "status": "open",
+        "paid": False,
+    }
+    stripe_client.Invoice.void_invoice.return_value = {
+        "id": "in-test",
+        "status": "void",
+    }
+
+    result = stripe.StripeProvider().cancel_payment(
+        provider_reference="sub-test",
+        reference_type="subscription",
+        app=Flask(__name__),
+    )
+
+    assert result.status == "cancelled"
+    stripe_client.Invoice.void_invoice.assert_called_once_with(
+        "in-test", api_key="sk-test-scoped"
+    )
+
+
+def test_subscription_cancellation_reports_paid_invoice(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.Subscription.retrieve.return_value = {
+        "id": "sub-test",
+        "latest_invoice": {"id": "in-test", "status": "paid", "paid": True},
+    }
+
+    result = stripe.StripeProvider().cancel_payment(
+        provider_reference="sub-test",
+        reference_type="subscription",
+        app=Flask(__name__),
+    )
+
+    assert result.status == "completed"
+    stripe_client.Invoice.void_invoice.assert_not_called()
 
 
 @pytest.mark.parametrize("sdk_object", [False, True])

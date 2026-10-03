@@ -294,7 +294,11 @@ class StripeProvider(PaymentProvider):
         """Expire Checkout or cancel an uncaptured PaymentIntent."""
         stripe, request_options = self._client_options(app)
         normalized_type = str(reference_type or "").strip().lower()
-        if normalized_type not in {"checkout_session", "payment_intent"}:
+        if normalized_type not in {
+            "checkout_session",
+            "payment_intent",
+            "subscription",
+        }:
             message = f"Unsupported Stripe reference type: {reference_type}"
             raise RuntimeError(message)
         try:
@@ -302,22 +306,102 @@ class StripeProvider(PaymentProvider):
                 response = stripe.checkout.Session.expire(
                     provider_reference, **request_options
                 )
-            else:
+            elif normalized_type == "payment_intent":
                 response = stripe.PaymentIntent.cancel(
                     provider_reference, **request_options
                 )
-        except Exception:
-            if normalized_type == "checkout_session":
-                response = stripe.checkout.Session.retrieve(
+            else:
+                subscription = stripe.Subscription.retrieve(
                     provider_reference, **request_options
                 )
-                recovered_status = str(response.get("status") or "").lower()
-                terminal = recovered_status in {"complete", "expired"}
+                latest_invoice = subscription.get("latest_invoice")
+                invoice = (
+                    dict(latest_invoice)
+                    if isinstance(latest_invoice, dict)
+                    else stripe.Invoice.retrieve(latest_invoice, **request_options)
+                    if latest_invoice
+                    else {}
+                )
+                if not invoice:
+                    _raise_missing_renewal_invoice()
+                if (
+                    bool(invoice.get("paid"))
+                    or str(invoice.get("status") or "").lower() == "paid"
+                ):
+                    return PaymentCancellationResult(
+                        provider_reference=provider_reference,
+                        raw_response={
+                            "subscription": dict(subscription),
+                            "invoice": invoice,
+                        },
+                        status="completed",
+                    )
+                if str(invoice.get("status") or "").lower() in {
+                    "void",
+                    "uncollectible",
+                }:
+                    response = invoice
+                else:
+                    response = stripe.Invoice.void_invoice(
+                        str(invoice.get("id") or latest_invoice),
+                        **request_options,
+                    )
+        except Exception:
+            if normalized_type == "checkout_session":
+                session = stripe.checkout.Session.retrieve(
+                    provider_reference, **request_options
+                )
+                recovered_status = str(session.get("status") or "").lower()
+                payment_status = str(session.get("payment_status") or "").lower()
+                if recovered_status == "expired":
+                    response = session
+                    terminal = True
+                elif recovered_status == "complete" and payment_status in {
+                    "paid",
+                    "no_payment_required",
+                }:
+                    return PaymentCancellationResult(
+                        provider_reference=provider_reference,
+                        raw_response=dict(session),
+                        status="completed",
+                    )
+                elif recovered_status == "complete":
+                    payment_intent = session.get("payment_intent")
+                    intent_id = str(
+                        payment_intent.get("id")
+                        if isinstance(payment_intent, dict)
+                        else payment_intent or ""
+                    )
+                    if not intent_id:
+                        raise
+                    try:
+                        intent = stripe.PaymentIntent.cancel(
+                            intent_id, **request_options
+                        )
+                    except Exception:
+                        intent = stripe.PaymentIntent.retrieve(
+                            intent_id, **request_options
+                        )
+                    intent_payload = (
+                        intent.to_dict() if hasattr(intent, "to_dict") else dict(intent)
+                    )
+                    response = {
+                        "checkout_session": dict(session),
+                        "payment_intent": intent_payload,
+                    }
+                    terminal = (
+                        str(intent_payload.get("status") or "").lower() == "canceled"
+                    )
+                else:
+                    response = session
+                    terminal = False
             elif normalized_type == "payment_intent":
                 response = stripe.PaymentIntent.retrieve(
                     provider_reference, **request_options
                 )
                 terminal = str(response.get("status") or "").lower() == "canceled"
+            else:
+                raise
             if not terminal:
                 raise
         payload = response.to_dict() if hasattr(response, "to_dict") else dict(response)
@@ -325,6 +409,8 @@ class StripeProvider(PaymentProvider):
         if (
             normalized_type == "checkout_session"
             and str(payload.get("status") or "").lower() == "complete"
+            and str(payload.get("payment_status") or "").lower()
+            in {"paid", "no_payment_required"}
         ):
             cancellation_status = "completed"
         return PaymentCancellationResult(
@@ -513,3 +599,8 @@ class StripeProvider(PaymentProvider):
 
 
 register_payment_provider(StripeProvider)
+
+
+def _raise_missing_renewal_invoice() -> None:
+    message = "Stripe subscription has no renewal invoice to close"
+    raise RuntimeError(message)
