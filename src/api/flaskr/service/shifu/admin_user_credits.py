@@ -12,12 +12,18 @@ from typing import TYPE_CHECKING, Any
 
 from flask import current_app
 from flaskr.dao import db
+from flaskr.service.billing.api import load_operator_termination_subscription_bid_map
 from flaskr.service.billing.bucket_categories import (
     resolve_wallet_bucket_runtime_category,
     wallet_bucket_requires_active_subscription,
 )
 from flaskr.service.billing.consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_MANUAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
@@ -1211,6 +1217,30 @@ def _resolve_operator_user_credit_grant_filter_key(
     return ""
 
 
+def _is_operator_terminable_plan_order(order: BillingOrder) -> bool:
+    provider_name = str(order.payment_provider or "").strip().lower()
+    if provider_name != "manual":
+        return int(order.order_type or 0) in {
+            BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+            BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+        }
+    if int(order.order_type or 0) not in {
+        BILLING_ORDER_TYPE_MANUAL,
+        BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+        BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+        BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    }:
+        return False
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
+    if metadata.get("referral_invitation_reward") is True:
+        return False
+    checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
+    return checkout_type not in {"referral_invitation_reward", "trial_bootstrap"}
+
+
 def _load_operator_user_credit_summary_map(
     user_bids: Sequence[str],
 ) -> dict[str, dict[str, object]]:
@@ -1227,6 +1257,32 @@ def _load_operator_user_credit_summary_map(
         normalized_user_bids,
         as_of=now,
     )
+    termination_subscription_bid_map = load_operator_termination_subscription_bid_map(
+        normalized_user_bids,
+        as_of=now,
+    )
+    termination_candidate_rows = BillingOrder.query.filter(
+        BillingOrder.deleted == 0,
+        BillingOrder.subscription_bid.in_(
+            list(termination_subscription_bid_map.values())
+        ),
+        BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+        BillingOrder.order_type.in_(
+            (
+                BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                BILLING_ORDER_TYPE_MANUAL,
+            )
+        ),
+    ).all()
+    termination_eligible_creator_bids = {
+        str(order.creator_bid or "").strip()
+        for order in termination_candidate_rows
+        if _is_operator_terminable_plan_order(order)
+        and termination_subscription_bid_map.get(str(order.creator_bid or "").strip())
+        == order.subscription_bid
+    }
     buckets = (
         CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
@@ -1278,10 +1334,17 @@ def _load_operator_user_credit_summary_map(
                 "topup_credits": zero,
                 "credits_expire_at": None,
                 "has_active_subscription": False,
+                "can_terminate_paid_subscription": False,
+                "termination_subscription_bid": "",
             },
         )
         if creator_bid in active_subscription_end_map:
             summary["has_active_subscription"] = True
+        if creator_bid in termination_eligible_creator_bids:
+            summary["can_terminate_paid_subscription"] = True
+            summary["termination_subscription_bid"] = (
+                termination_subscription_bid_map.get(creator_bid, "")
+            )
         runtime_category = resolve_wallet_bucket_runtime_category(
             bucket,
             load_order_type=load_order_type,
@@ -1323,10 +1386,38 @@ def _load_operator_user_credit_summary_map(
                 "topup_credits": zero,
                 "credits_expire_at": None,
                 "has_active_subscription": True,
+                "can_terminate_paid_subscription": (
+                    creator_bid in termination_eligible_creator_bids
+                ),
+                "termination_subscription_bid": (
+                    termination_subscription_bid_map.get(creator_bid, "")
+                    if creator_bid in termination_eligible_creator_bids
+                    else ""
+                ),
             },
         )
         summary["credits_expire_at"] = effective_to
         summary["has_active_subscription"] = True
+
+    for creator_bid in termination_eligible_creator_bids:
+        summary = summary_map.setdefault(
+            creator_bid,
+            {
+                "available_credits": zero,
+                "subscription_credits": zero,
+                "topup_credits": zero,
+                "credits_expire_at": None,
+                "has_active_subscription": False,
+                "can_terminate_paid_subscription": True,
+                "termination_subscription_bid": termination_subscription_bid_map.get(
+                    creator_bid, ""
+                ),
+            },
+        )
+        summary["can_terminate_paid_subscription"] = True
+        summary["termination_subscription_bid"] = termination_subscription_bid_map.get(
+            creator_bid, ""
+        )
 
     return summary_map
 

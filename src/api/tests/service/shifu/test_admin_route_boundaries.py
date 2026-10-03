@@ -263,6 +263,7 @@ def test_operator_write_routes_forward_operator_identity_and_validated_payload(
         ("POST", "voice-clones"),
         ("POST", "users/user/credits/grant"),
         ("POST", "users/user/credits/deduct"),
+        ("POST", "users/user/subscription/terminate"),
         ("POST", "users/user/packages/grant"),
     ],
 )

@@ -113,6 +113,20 @@ class PaymentProvider(ABC):
         )
         raise NotImplementedError(message)
 
+    def terminate_subscription(
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: object,
+    ) -> SubscriptionUpdateResult:
+        """Terminate a provider-managed subscription immediately."""
+        message = (
+            f"{self.__class__.__name__} does not support immediate subscription "
+            "termination"
+        )
+        raise NotImplementedError(message)
+
     def resume_subscription(
         self,
         *,

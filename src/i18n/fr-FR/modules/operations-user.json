@@ -4,7 +4,8 @@
     "cancelAccount": "Résilier le compte",
     "deductCredits": "Déduire des crédits",
     "grantCredits": "Attribuer crédits/forfait",
-    "moreForUser": "Plus d’actions pour {user}"
+    "moreForUser": "Plus d’actions pour {user}",
+    "terminateSubscription": "Résilier l’abonnement"
   },
   "cancellation": {
     "back": "Retour",
@@ -506,6 +507,22 @@
     "totalPaidAmount": "Total payé",
     "updatedAt": "Mis à jour le",
     "userId": "ID d’utilisateur"
+  },
+  "terminationDialog": {
+    "account": "Compte",
+    "cancel": "Annuler",
+    "confirm": "Résilier maintenant",
+    "description": "L’abonnement devient immédiatement invalide et son renouvellement est arrêté le cas échéant. Tous les crédits disponibles de son solde d’abonnement actuel sont supprimés, y compris les récompenses d’essai ou de parrainage actives qui y sont mêlées ; les packs de crédits séparés sont conservés.",
+    "errors": {
+      "reason": "Saisissez un motif de résiliation.",
+      "submitFailed": "La résiliation a échoué. Veuillez réessayer."
+    },
+    "reason": "Motif",
+    "reasonPlaceholder": "Indiquez pourquoi cet abonnement est résilié",
+    "submitting": "Résiliation...",
+    "subscriptionId": "ID de l’abonnement",
+    "success": "Abonnement résilié",
+    "title": "Résilier l’abonnement"
   },
   "title": "Gestion des utilisateurs"
 }

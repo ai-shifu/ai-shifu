@@ -21,6 +21,7 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    BILLING_SUBSCRIPTION_STATUS_TERMINATING,
 )
 from .paid_side_effects import (
     BillingPaidOrderSideEffects,
@@ -220,6 +221,20 @@ def _can_transition_billing_order_status(
     return True
 
 
+def can_billing_order_become_paid_from_provider(order: BillingOrder) -> bool:
+    """Return whether a late provider sync or webhook may still mark an order paid."""
+    if str(order.payment_provider or "").strip().lower() == "manual":
+        return False
+    return _can_transition_billing_order_status(
+        current_status=int(order.status or 0),
+        target_status=BILLING_ORDER_STATUS_PAID,
+        source="webhook",
+        # Termination is deliberately fail-closed. A local replacement marker
+        # does not prove that the bound provider attempt can no longer collect.
+        invalidated_reason="",
+    )
+
+
 def _map_stripe_order_status(
     event_type: str,
     data_object: dict[str, object] | None = None,
@@ -387,6 +402,8 @@ def _apply_billing_subscription_provider_update(
     source: str = "webhook",
     allow_activation: bool = True,
 ) -> bool:
+    if _has_operator_termination(subscription):
+        return False
     event_time = _extract_provider_event_time(payload)
     if not _should_apply_subscription_event(subscription, event_time):
         return False
@@ -459,6 +476,8 @@ def _apply_subscription_checkout_success(
     event_type: str,
     source: str = "webhook",
 ) -> bool:
+    if _has_operator_termination(subscription):
+        return False
     event_time = _extract_provider_event_time(payload)
     if not _should_apply_subscription_event(subscription, event_time):
         return False
@@ -505,6 +524,8 @@ def _apply_subscription_checkout_failure(
     payload: dict[str, object],
     source: str = "webhook",
 ) -> bool:
+    if _has_operator_termination(subscription):
+        return False
     event_time = _extract_provider_event_time(payload)
     if not _should_apply_subscription_event(subscription, event_time):
         return False
@@ -540,6 +561,21 @@ def _should_apply_subscription_event(
     if latest_event_time is None:
         return True
     return event_time >= latest_event_time
+
+
+def _has_operator_termination(subscription: BillingSubscription) -> bool:
+    if int(subscription.status or 0) == BILLING_SUBSCRIPTION_STATUS_TERMINATING:
+        return True
+    metadata = (
+        subscription.metadata_json
+        if isinstance(subscription.metadata_json, dict)
+        else {}
+    )
+    operation = metadata.get("operator_paid_subscription_termination")
+    return isinstance(operation, dict) and operation.get("status") in {
+        "prepared",
+        "terminated",
+    }
 
 
 def _record_subscription_provider_event(

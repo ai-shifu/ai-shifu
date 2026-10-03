@@ -4,7 +4,8 @@
     "cancelAccount": "Konto schließen",
     "deductCredits": "Credits abziehen",
     "grantCredits": "Credits oder Tarife vergeben",
-    "moreForUser": "Weitere Aktionen für {user}"
+    "moreForUser": "Weitere Aktionen für {user}",
+    "terminateSubscription": "Abo beenden"
   },
   "cancellation": {
     "back": "Zurück",
@@ -506,6 +507,22 @@
     "totalPaidAmount": "Insgesamt gezahlter Betrag",
     "updatedAt": "Aktualisiert am",
     "userId": "Benutzer-ID"
+  },
+  "terminationDialog": {
+    "account": "Konto",
+    "cancel": "Abbrechen",
+    "confirm": "Jetzt beenden",
+    "description": "Das Abo wird sofort ungültig und gegebenenfalls nicht mehr verlängert. Alle verfügbaren Punkte im aktuellen Abo-Punktekonto werden entfernt, einschließlich darin enthaltener aktiver Test- oder Empfehlungsprämien; separate Punktepakete bleiben erhalten.",
+    "errors": {
+      "reason": "Geben Sie einen Grund für die Beendigung ein.",
+      "submitFailed": "Das Abo konnte nicht beendet werden. Bitte versuchen Sie es erneut."
+    },
+    "reason": "Grund",
+    "reasonPlaceholder": "Grund für die Beendigung dieses Abos",
+    "submitting": "Wird beendet...",
+    "subscriptionId": "Abo-ID",
+    "success": "Abo beendet",
+    "title": "Abo beenden"
   },
   "title": "Benutzerverwaltung"
 }
