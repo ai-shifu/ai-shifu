@@ -35,6 +35,13 @@ can be separated in follow-up work.
   resolved the target bucket through that subscription's eligible grant ledger,
   isolated it from concurrent new-plan grants, and blocked late activation of
   operator-terminated subscriptions.
+- [ ] After #3009 merges: deliver PR 1.1 for termination operational hardening:
+  protect the free-text reason from generic request-body logs and refresh the
+  affected user row after a failed/uncertain request.
+- [ ] After PR 1.1: deliver PR 2 to move deferred invitation rewards out of a
+  paid plan bucket while preserving their scheduled activation.
+- [ ] After PR 2: deliver PR 3 to permit termination when deferred invitation
+  rewards exist, while keeping genuine in-flight usage reservations blocked.
 
 ## Surprises & Discoveries
 
@@ -131,6 +138,31 @@ bucket, ledger, and wallet state atomically. Expose this through an
 operator-only endpoint and one destructive confirmation dialog that identifies
 the account, explains the effects, and requires a reason before submission.
 
+## Pull Request Sequence
+
+1. **PR 1 — #3009, core termination:** bind the confirmed subscription and
+   grant-backed bucket, terminate provider/local lifecycle state, clear only the
+   pinned active plan bucket, preserve independent rewards/top-ups, and close
+   replay and concurrent-purchase races.
+2. **PR 1.1 — operational hardening:** build from `main` after #3009. Mark the
+   termination endpoint request body as sensitive so the free-text `reason`
+   never enters generic request logs. On failed or uncertain termination,
+   refresh the affected user row and eligibility so `TERMINATING` or completed
+   state is visible and the operator cannot act on stale UI state. This is a
+   production-rollout gate but does not change credit ownership rules.
+3. **PR 2 — deferred reward separation:** move future/unactivated invitation
+   rewards from a paid plan bucket into an independent reward bucket, retaining
+   the original activation time, expiry, idempotency, and audit trail. Keep the
+   termination blocker in place while migration is incomplete.
+4. **PR 3 — reserved-reward-aware termination:** distinguish migrated deferred
+   rewards from genuine usage reservations, allow termination when only
+   deferred rewards exist, and verify those rewards still activate later.
+
+PR 1.1 deliberately precedes PR 2 and PR 3. It touches the termination route
+and dialog rather than the reward migration model, avoids mixing privacy/UI
+recovery with bucket migration, and ensures operational safeguards are present
+before the broader termination cases are enabled.
+
 ## Analytics Contract
 
 The UI emits `operator_subscription_termination_attempt` immediately before a
@@ -177,6 +209,9 @@ analytics is best-effort and never changes the termination result.
 - The operator UI clearly identifies the account and plan, warns that the
   action is immediate, requires confirmation, prevents duplicate submission,
   refreshes user data, and reports a privacy-safe terminal result.
+- Before production rollout, generic request logging does not record the
+  termination `reason`, and a failed/uncertain request refreshes the affected
+  row so the displayed state and available actions match the server.
 
 ## Idempotence and Recovery
 
