@@ -635,6 +635,45 @@ def test_subscription_cancellation_rejects_invoice_window_without_service_period
     stripe_client.Invoice.void_invoice.assert_not_called()
 
 
+def test_subscription_cancellation_rejects_incomplete_invoice_page(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.Subscription.retrieve.return_value = {
+        "id": "sub-test",
+        "latest_invoice": "in-test",
+    }
+    stripe_client.Invoice.list.return_value = {
+        "data": [
+            {
+                "id": "in-test",
+                "status": "open",
+                "subscription": "sub-test",
+                "lines": {
+                    "data": [
+                        {
+                            "type": "subscription",
+                            "subscription": "sub-test",
+                            "period": {"start": 100, "end": 200},
+                        }
+                    ],
+                    "has_more": False,
+                },
+            }
+        ],
+        "has_more": True,
+    }
+
+    result = stripe.StripeProvider().cancel_payment(
+        provider_reference="sub-test",
+        reference_type="subscription",
+        app=Flask(__name__),
+        context={"cycle_start": 100, "cycle_end": 200},
+    )
+
+    assert result.status == "pending"
+    stripe_client.Invoice.void_invoice.assert_not_called()
+
+
 @pytest.mark.parametrize("sdk_object", [False, True])
 def test_expiry_accepts_mapping_and_sdk_object(
     sdk_object: bool, stripe_client: SimpleNamespace

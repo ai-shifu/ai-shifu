@@ -649,7 +649,7 @@ def _find_invoice_for_cycle(
         else {}
     )
     raw_invoices = payload.get("data")
-    if not isinstance(raw_invoices, list):
+    if bool(payload.get("has_more")) or not isinstance(raw_invoices, list):
         return None
     invoices = [
         invoice.to_dict()

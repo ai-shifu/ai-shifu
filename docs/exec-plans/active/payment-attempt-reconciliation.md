@@ -41,6 +41,11 @@ decisions.
 - [x] 2026-10-03 21:10 CST: Passed 107 provider contract tests, 4
   reconciliation tests, 12 callback tests, and the full repository gate for
   the line-item matching fix.
+- [x] 2026-10-03 21:30 CST: Rejected incomplete top-level Stripe invoice-list
+  pages before selecting or voiding any invoice, with focused regression
+  coverage.
+- [x] 2026-10-03 21:35 CST: Passed 108 provider contract tests, 4
+  reconciliation tests, and the full repository gate for the pagination fix.
 
 ## Surprises & Discoveries
 
@@ -70,6 +75,8 @@ decisions.
 - Require the invoice's subscription identity and a complete embedded line-item
   set before matching. Missing, paginated, duplicate, or ambiguous evidence is
   unresolved and must not trigger `void_invoice`.
+- Treat both invoice-list pagination and line-item pagination as incomplete
+  evidence. Neither page may be matched until Stripe reports `has_more=false`.
 - Expose this as a billing-service API only. Integration with operator
   termination remains a separate change after this capability merges.
 
