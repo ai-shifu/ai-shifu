@@ -1,3 +1,7 @@
+import { getRetakeStatus } from '@/api/retake';
+jest.mock('@/api/retake', () => ({
+  getRetakeStatus: jest.fn().mockResolvedValue({ available: false }),
+}));
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { toast, toastOnce } from '@/hooks/useToast';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
@@ -214,6 +218,15 @@ describe('useChatLogicHook stream cleanup', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getRetakeStatus).mockReset().mockResolvedValue({
+      available: false,
+      limit: null,
+      used: 0,
+      reserved: 0,
+      remaining: null,
+      allowed: true,
+      in_progress: false,
+    });
     mockStreamGeneratedBlockAudio.mockReset();
     mockGetShifuDraftMeta.mockReset();
     globalThis.__chatHookIsCurrentUserCourseOwner__ = true;
@@ -3915,7 +3928,9 @@ describe('useChatLogicHook stream cleanup', () => {
         );
       });
 
-      expect(result.current.reGenerateConfirm.open).toBe(true);
+      await waitFor(() =>
+        expect(result.current.reGenerateConfirm.open).toBe(true),
+      );
       expect(toast).not.toHaveBeenCalled();
       expect(initialSource?.close).not.toHaveBeenCalled();
       expect(mockGetRunMessage).toHaveBeenCalledTimes(runCallCountBeforeRegen);
@@ -3929,7 +3944,9 @@ describe('useChatLogicHook stream cleanup', () => {
           'interaction-old',
         );
       });
-      expect(result.current.reGenerateConfirm.open).toBe(true);
+      await waitFor(() =>
+        expect(result.current.reGenerateConfirm.open).toBe(true),
+      );
 
       const initialSource = activeRun?.source;
       const runCallCountBeforeConfirm = mockGetRunMessage.mock.calls.length;
@@ -3963,7 +3980,9 @@ describe('useChatLogicHook stream cleanup', () => {
           'interaction-old',
         );
       });
-      expect(result.current.reGenerateConfirm.open).toBe(true);
+      await waitFor(() =>
+        expect(result.current.reGenerateConfirm.open).toBe(true),
+      );
 
       await act(async () => {
         result.current.reGenerateConfirm.onConfirm();
@@ -3988,6 +4007,37 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
 
+    it('directs an old answer change to lesson retake without stopping or truncating learning', async () => {
+      jest.mocked(getRetakeStatus).mockResolvedValue({
+        available: true,
+        limit: 2,
+        used: 0,
+        reserved: 0,
+        remaining: 2,
+        allowed: true,
+        in_progress: false,
+      });
+      const { result } = await renderWithStreamingRun();
+      const original = result.current.items;
+      const source = activeRun?.source;
+      const calls = mockGetRunMessage.mock.calls.length;
+      await act(async () => {
+        result.current.onSend(
+          { variableName: 'var_old', selectedValues: ['B'] },
+          'interaction-old',
+        );
+      });
+      await waitFor(() =>
+        expect(toast).toHaveBeenCalledWith({
+          title: 'module.lesson.retake.useChapter',
+        }),
+      );
+      expect(result.current.items).toEqual(original);
+      expect(result.current.reGenerateConfirm.open).toBe(false);
+      expect(source?.close).not.toHaveBeenCalled();
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(calls);
+    });
+
     it('keeps the running stream and discards the pending submit when the user cancels regenerate', async () => {
       const { result } = await renderWithStreamingRun();
       act(() => {
@@ -3996,7 +4046,9 @@ describe('useChatLogicHook stream cleanup', () => {
           'interaction-old',
         );
       });
-      expect(result.current.reGenerateConfirm.open).toBe(true);
+      await waitFor(() =>
+        expect(result.current.reGenerateConfirm.open).toBe(true),
+      );
 
       const initialSource = activeRun?.source;
       const runCallCountBeforeCancel = mockGetRunMessage.mock.calls.length;
@@ -4205,4 +4257,61 @@ describe('useChatLogicHook stream cleanup', () => {
       expect(result.current.showLessonUpdateNotice).toBe(false);
     });
   });
+  it.each(['policy', 'check_failed'])(
+    'protects existing content from inline refresh when %s and tracking fails',
+    async reason => {
+      const params = buildBaseParams();
+      const track = jest.fn();
+      params.trackEvent = track;
+      const { result } = renderHook(() => useChatLogicHook(params), {
+        wrapper,
+      });
+      await waitFor(() => expect(activeRun).toBeDefined());
+      await act(async () => {
+        await activeRun?.onMessage({
+          generated_block_bid: 'content-1',
+          type: SSE_OUTPUT_TYPE.ELEMENT,
+          content: {
+            element_bid: 'content-1',
+            generated_block_bid: 'content-1',
+            element_type: 'content',
+            content: 'PRIVATE teaching',
+            like_status: 'none',
+          },
+        });
+        activeRun?.onError(new Error('connection dropped'));
+      });
+      const before = result.current.items;
+      const calls = mockGetRunMessage.mock.calls.length;
+      track.mockClear().mockImplementation(() => {
+        throw new Error('analytics unavailable');
+      });
+      if (reason === 'policy')
+        jest.mocked(getRetakeStatus).mockResolvedValue({
+          available: true,
+          limit: 2,
+          used: 0,
+          reserved: 0,
+          remaining: 2,
+          allowed: true,
+          in_progress: false,
+        });
+      else
+        jest
+          .mocked(getRetakeStatus)
+          .mockRejectedValue(new Error('PRIVATE API error'));
+      await act(async () => {
+        await result.current.onRefresh('content-1');
+      });
+      expect(result.current.items).toEqual(before);
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(calls);
+      expect(track.mock.calls).toEqual([
+        [
+          'learner_inline_regeneration_blocked',
+          { shifu_bid: 'shifu-1', outline_bid: 'lesson-1', reason },
+        ],
+      ]);
+      expect(JSON.stringify(track.mock.calls)).not.toContain('PRIVATE');
+    },
+  );
 });

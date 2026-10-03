@@ -5,6 +5,21 @@
     "confirmTitle": "Confirmer la réinitialisation",
     "title": "Réinitialiser"
   },
+  "retake": {
+    "busy": "Cette leçon est en cours de génération ou de récupération. Réessayez plus tard.",
+    "exhausted": "Aucune reprise restante. Vous pouvez continuer, relire le contenu existant ou poser des questions.",
+    "invalid": "Saisissez un entier de 0 à 2147483647, ou laissez vide.",
+    "last": "Il reste 1 reprise. Pour réviser, pensez à relire le contenu existant.",
+    "loadFailed": "Impossible de vérifier le quota. Fermez puis réessayez.",
+    "loading": "Vérification des reprises…",
+    "remaining": "Il reste {count} reprises pour cette leçon. La première étude, la suite et la relecture ne sont pas décomptées.",
+    "save": "Enregistrer les reprises",
+    "saved": "Appliqué. Les utilisations sont conservées.",
+    "settingHelp": "Quota indépendant par apprenant et par leçon, hors première étude. Vide : illimité ; 0 : aucune reprise supplémentaire. L’enregistrement s’applique immédiatement à tous et conserve les utilisations.",
+    "settingTitle": "Reprises par leçon",
+    "unlimited": "Illimité",
+    "useChapter": "Les reprises sont gérées pour ce cours. Pour régénérer ou modifier une réponse envoyée, utilisez la reprise de la leçon. Le contenu existant reste disponible."
+  },
   "tooltip": {
     "paidExclusive": "Accès premium payant"
   }

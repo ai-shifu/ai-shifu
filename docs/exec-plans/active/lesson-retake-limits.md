@@ -11,10 +11,11 @@ Deliver a real, reusable per-learner, per-lesson retake capability, initially en
 - [x] 2026-10-03 Asia/Shanghai: T1 task breakdown and default-off rollout contract recorded; no historical debit is an explicit reviewable assumption.
 - [x] 2026-10-03 Asia/Shanghai: T2a reusable rule/SQL ledger and deployment namespace isolation implemented; focused tests pass.
 - [x] 2026-10-03 19:55 Asia/Shanghai: T2b-1: Bind actual producer iteration and both durable teaching writers to the ledger; add atomic reset snapshots and failure restoration. Focused offline database tests pass.
-- [ ] 2026-10-03 19:55 Asia/Shanghai: T2b-2: Finish admission/reset integration and MySQL concurrency validation, including an already-running first-study producer and process-loss recovery. Do not enable the test course before these release gates pass.
-- [ ] 2026-10-03 Asia/Shanghai: T3: Implement policy persistence, migration, permissioned API and all-entry enforcement.
-- [ ] 2026-10-03 Asia/Shanghai: T4: Add teacher configuration to existing course settings.
-- [ ] 2026-10-03 Asia/Shanghai: T5: Add learner balance, last-attempt and exhausted states to all reset entry points.
+- [x] 2026-10-03 Asia/Shanghai: T2b-2 local integration: First-study/continuation producer guards, platform repair and reset admission implemented and tested.
+- [ ] T2b live gate: MySQL concurrent last-slot validation; do not enable the test course before this passes.
+- [x] 2026-10-03 20:19 Asia/Shanghai: T3: Permissioned policy/status/reset HTTP contracts, localized errors and all-entry request identities implemented; HTTP regression passes.
+- [x] 2026-10-03 20:19 Asia/Shanghai: T4: Owner-only live setting in existing course settings; null/zero/positive limits, validation and save feedback implemented.
+- [x] 2026-10-03 20:19 Asia/Shanghai: T5: Shared balance hook/message on catalog and course-update entry points; loading, failure, last-attempt, exhausted and busy states implemented.
 - [ ] 2026-10-03 Asia/Shanghai: T6: Focused regression tests, analytics contract, migrations and repository gates.
 - [ ] 2026-10-03 Asia/Shanghai: T7: Integrate dev02, verify independent deployment and perform browser plus database acceptance on selected test course.
 
@@ -36,7 +37,7 @@ Deliver a real, reusable per-learner, per-lesson retake capability, initially en
 
 ## Outcomes & Retrospective
 
-In progress. The producer and actual legacy/2.0 content writers now have default-off hooks, with durable recovery snapshots. The HTTP reset endpoint, permissioned configuration API and teacher/learner UI remain unchanged; no live retake attempts can be created through the product yet. The final focused persistence/runtime suite passed 254 tests, including 22 execution/recovery cases. Ruff checks passed. The full `lefthook run pre-commit --all-files` gate passed after staging the generated document indexes. Existing unrelated frontend/deprecation warnings remain. SQLite migration round trips passed; MySQL concurrency and live migration remain unverified. No runtime deployment or existing learner data mutation. The independent test-course draft from the previous milestone is unchanged.
+Reusable implementation is complete locally: the ledger, producer guards, failure restoration, permissioned policy/status/reset APIs, teacher settings and learner prompts are integrated. Final validation: 323 backend tests and 180 frontend tests passed; full pre-commit gates passed. Full TypeScript checking still reports the same four errors reproduced on unchanged dev02 using the installed dependencies. Runtime deployment, MySQL concurrency, first-study retry/continuation and browser acceptance remain open. The feature is default-off and the independent test course remains unpublished; this is not yet a team-experience release.
 
 ## Context and Orientation
 
@@ -112,11 +113,61 @@ Result: 254 passed. Tests invoke no paid model/TTS provider. Deprecation warning
 
 ### Remaining release gates
 
-1. The current reset API has not been changed. Wire it only after atomically excluding a still-running first-study/continuation producer; a Redis response-status flag alone is insufficient because HTTP teardown can precede producer exit.
-2. Process death can leave a pending attempt. Never auto-refund merely on elapsed time. Implement a fenced recovery or explicit platform repair path with proof that the producer has stopped before enabling live use.
-3. Map rule outcomes to localized API errors and implement authorization, stable request identity, learner balances and teacher settings together. No generic server error should become the normal exhausted-state experience.
-4. Verify MySQL last-slot races, test deployment configuration, schema installation and learner flows. Passing SQLite tests is not evidence of test-environment deployment.
+1. Verify MySQL last-slot races before enabling a course. Current local tests use SQLite; no MySQL server or Docker runtime was available on this workstation.
+2. First opt-in of an already-active course must drain all old producers before setting a policy. Producers started before the policy existed were not tracked. This test copy is unpublished, so initialize it before admitting learners. General old-course self-service rollout remains a later gate.
+3. Verify deployment configuration, schema installation and browser/learner flows. No database connection or CICD mutation capability is available in the current tool set; a Git push alone is not runtime acceptance.
+4. Crash repair is platform-only and relies on an operator externally confirming worker termination. It must not be invoked merely because a learner closed the browser or a timeout elapsed.
 
 ### Rollback boundary
 
 Before exposure, keep deployment allowlist empty; the unbound hooks do not query or mutate the retake ledger. After exposure, stop new admissions and drain producers before disabling enforcement. Preserve attempt records and snapshots; reverting the new schema during live attempts would destroy recovery evidence.
+
+
+### 2026-10-03 20:19 Asia/Shanghai — reusable teacher and learner workflow
+
+- Added the third model-generated additive migration, `f5c8745b7e91`, for a per-learner/lesson producer guard. It excludes reset during first study and continuation as well as retakes. Pending retakes cannot be bypassed through reload. Preview and Ask remain outside retake accounting.
+- Process-loss recovery is explicit and platform-only. Exact producer identity and an operator's confirmed stop are required; no timeout refunds. Recovery restores old records and releases the reservation atomically. Delivered content stays charged, and failed restoration leaves the guard and reservation intact.
+- New owner GET/PUT `retake-policy` accepts exactly one `limit` field. GET `retake-status/<outline_bid>` returns only the authenticated learner's balance. Reset validates course/lesson membership and preview permission. Enabled courses require `X-Retake-Request-Id`.
+- Both learner reset entry points use one shared allowance hook. They show remaining opportunities, a final-opportunity reminder, exhausted/busy states and a recoverable balance-load error. Confirm stays disabled until status loads; server enforcement remains authoritative when the displayed balance becomes stale.
+- Browser request identities survive uncertain network responses and page refresh in session storage, scoped to learner/course/lesson/preview. They are cleared after acceptance or a confirmed released attempt. This is request deduplication, never the authoritative quota.
+- Teacher settings save immediately and separately from draft publication; used attempts remain unchanged. No arbitrary initial default was added. Empty means unlimited, 0 means no additional retakes. Controls are hidden outside the rollout and for read-only viewers.
+- Added translations for all eight existing locales. Defined three additive analytics events in the canonical analytics reference, with allowlisted fields, preview exclusions, per-open/per-submit deduplication and fail-open tracking.
+- Validation so far: 319 backend tests (including 61 HTTP contracts), 97 frontend tests, Frontend lint passed; full TypeScript verification is qualified by the baseline errors recorded below. Extra repair and update-entry tests and the final repository gate are recorded below when complete.
+- Live state remains unchanged: test copy is an unpublished draft; no source-course modifications, deployment-variable edits, live migrations or quota activation.
+
+#### Platform repair procedure
+
+1. Keep the affected lesson blocked. Identify its namespace/course/learner/lesson and `LessonRetakeRun.producer_id` from the deployment's database; preserve the attempt snapshot.
+2. Stop or replace the owning worker and externally verify that the previous process cannot resume. Elapsed time, HTTP disconnect and a bug report are insufficient evidence.
+3. In the corresponding deployment application shell call `repair_stopped_lesson_run(app, namespace=..., shifu_bid=..., user_bid=..., outline_bid=..., expected_producer_id=..., operator_bid=..., confirmed_stopped=True)`.
+4. Read back the attempt, current progress/session, run completion and repair audit. No-content attempts become released with old progress restored; delivered attempts remain committed. A mismatched producer or missing original record must fail without a partial refund.
+5. If the function rejects, investigate rather than deleting a guard or forcing a counter. No teacher or learner HTTP route exposes this operation.
+
+#### Test deployment sequence
+
+Keep `LESSON_RETAKE_SHIFU_BIDS` empty during the code rollout. Install all three additive migrations through the normal deployment process, then verify API/worker/Web commit identities and database scope. After the MySQL concurrency check, set `LESSON_RETAKE_NAMESPACE=dev02` and allowlist only `c2cf49551ba94345b5a141c78d7b86e7` in the dev02 environment group. Restart the matching workers/API as required by that deployment. Configure the still-unpublished course before opening learner access; confirm source course remains unavailable for this feature. Publish/open only the independent test copy for the authorized team trial, then exercise teacher changes and two-lesson learner balances with TTS. Never enable production or a wildcard allowlist.
+
+
+### 2026-10-03 20:22 Asia/Shanghai — verification checkpoint
+
+- Backend combined suite: 319 passed; two subsequent repair regressions also passed in the 28-test producer suite. Coverage now additionally proves delivered attempts are not refunded and missing originals roll back the entire repair.
+- Frontend: 104 tests passed across seven focused suites, including both reset entry points, last/exhausted/busy messages, teacher settings, uncertain retries, identity separation and analytics failure isolation. Lint passed; the subsequent full TypeScript result is qualified below.
+- The first full pre-commit run passed all semantic gates; the JSON formatter normalized key ordering and required a rerun. Formatting changes were reviewed and retained. Final gate result is recorded with the commit checkpoint.
+- `origin/dev02` remains `e74ddb30a`; the feature can integrate as a fast-forward without unrelated merges. The deployment-config repository confirms dev02 uses its own CICD environment group, but does not expose a current database identity or this deployment's runtime state. No available CICD/SQL tool was found in the session.
+
+
+### 2026-10-03 20:28 Asia/Shanghai — legacy regeneration boundary and baseline correction
+
+- Inspection found that legacy inline refresh and answer resubmission still rewind learning and generate content, despite removal of the paragraph regeneration control. Configured courses now reject non-Ask reload parameters on the server before touching progress or invoking providers. The two legacy UI actions preflight the policy before truncating content or stopping an active stream, then explain how to use the lesson retake. Preview, Ask, ordinary continuation and unconfigured courses retain their behavior. This deliberately keeps one counted regeneration unit in the pilot: the whole lesson.
+- UX limitation for team review: legacy inline failure retry on an enabled course also goes through the whole-lesson/recovery path. Do not claim a new free paragraph repair feature. Verify first-study empty-output retry and interrupted-stream continuation during live acceptance; if that path cannot resume safely, do not enable the course until it is repaired.
+- Added a narrowly scoped analytics event for blocked legacy regeneration, with no content or errors. Tests cover preserving current content, keeping a running stream alive, exact payload, failed policy lookup, and tracking failure. Backend tests prove reload parameters cannot invoke the underlying generator or debit a retake.
+- Corrected the earlier TypeScript status: `npm run type-check` reports four errors, two in the existing operations-user page tests and two in `markdown-flow-locale.ts` for installed-library locale types. Exporting untouched `e74ddb30a` into `/private/tmp/retake-baseline-types` and using the same installed dependencies reproduces exactly those four errors. No new retake type error was found. This is not a clean full TypeScript pass, and unrelated files/dependencies were not changed to hide it.
+- Intermediate full repository gate passed after JSON ordering was normalized (39.12 seconds). Changes made after that checkpoint are covered by the final rerun below.
+
+
+### 2026-10-03 20:31 Asia/Shanghai — final local acceptance
+
+- Final backend combined run: 323 passed (9.00 seconds). Final frontend combined run: 180 passed across eight suites (9.97 seconds).
+- Full `lefthook run pre-commit --all-files`: passed (39.75 seconds), including architecture, transaction boundaries, translations, analytics-producing frontend lint and repository harness. No rules or tests were disabled.
+- Full TypeScript checking: four unchanged baseline errors, with no new retake errors. The baseline comparison is documented above; do not represent this as a clean full type check.
+- The release remains default-off. The next checkpoint records the exact commit and dev02 push separately from runtime deployment/activation.

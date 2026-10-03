@@ -1,3 +1,4 @@
+import { getRetakeStatus } from '@/api/retake';
 import {
   useCallback,
   useEffect,
@@ -2819,11 +2820,36 @@ function useChatLogicHook({
     [outlineBid, shifuBid, stopActiveRunStream],
   );
 
+  const allowInlineRegeneration = useCallback(async () => {
+    if (effectivePreviewMode) return true;
+    let reason: 'policy' | 'check_failed';
+    try {
+      const status = await getRetakeStatus(shifuBid, outlineBid);
+      if (!status.available) return true;
+      reason = 'policy';
+      toast({ title: t('module.lesson.retake.useChapter') });
+    } catch {
+      reason = 'check_failed';
+      toast({ title: t('module.lesson.retake.loadFailed') });
+    }
+    try {
+      void Promise.resolve(
+        trackEvent('learner_inline_regeneration_blocked', {
+          shifu_bid: shifuBid,
+          outline_bid: outlineBid,
+          reason,
+        }),
+      ).catch(() => {});
+    } catch {}
+    return false;
+  }, [effectivePreviewMode, shifuBid, outlineBid, t, trackEvent]);
+
   /**
    * onRefresh replays a block from the server using the original inputs.
    */
   const onRefresh = useCallback(
     async (elementBid: string) => {
+      if (!(await allowInlineRegeneration())) return;
       if (await hasActiveRunInProgress({ swallowRequestError: true })) {
         showOutputInProgressToast();
         return;
@@ -2852,6 +2878,7 @@ function useChatLogicHook({
       });
     },
     [
+      allowInlineRegeneration,
       hasActiveRunInProgress,
       isTypeFinishedRef,
       resolveSourceGeneratedBlockBid,
@@ -3026,6 +3053,8 @@ function useChatLogicHook({
         return;
       }
 
+      if (isReGenerate && !(await allowInlineRegeneration())) return;
+
       if (isReGenerate && !options?.skipConfirm) {
         setPendingRegenerate({ content, blockBid });
         setShowRegenerateConfirm(true);
@@ -3083,6 +3112,7 @@ function useChatLogicHook({
       });
     },
     [
+      allowInlineRegeneration,
       creditInsufficientAudience,
       dismissLessonFeedbackPopup,
       getLessonFeedbackDefaults,

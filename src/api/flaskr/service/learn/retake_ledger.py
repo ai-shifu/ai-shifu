@@ -17,7 +17,11 @@ from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.service.learn.retake_models import CourseRetakePolicy, LessonRetakeAttempt
+from flaskr.service.learn.retake_models import (
+    CourseRetakePolicy,
+    LessonRetakeAttempt,
+    LessonRetakeRun,
+)
 from flaskr.service.learn.retake_policy import (
     RetakeAllowance,
     RetakeRuleError,
@@ -173,6 +177,20 @@ def reserve_attempt(
         )
         if existing is not None:
             return attempt_id, RetakeState(existing.state)
+        running = (
+            LessonRetakeRun.query.filter_by(
+                namespace=namespace,
+                shifu_bid=shifu_bid,
+                user_bid=user_bid,
+                outline_bid=outline_bid,
+                finished_at=None,
+            )
+            .with_for_update()
+            .first()
+        )
+        if running is not None:
+            reason = "retake_in_progress"
+            raise RetakeRuleError(reason)
         balance = _balance(policy, user_bid, outline_bid, locking=True)
         active_committed = (
             _attempts(namespace, shifu_bid, user_bid, outline_bid)

@@ -22,7 +22,11 @@ from flaskr.service.learn.retake_ledger import (
     get_allowance,
     reserve_attempt,
 )
-from flaskr.service.learn.retake_models import CourseRetakePolicy, LessonRetakeAttempt
+from flaskr.service.learn.retake_models import (
+    CourseRetakePolicy,
+    LessonRetakeAttempt,
+    LessonRetakeRun,
+)
 from flaskr.service.learn.retake_policy import RetakeRuleError, RetakeState
 from flaskr.service.learn.retake_recovery import stage_reset_records
 from flaskr.service.learn.run.recorder import RunRecorder
@@ -56,6 +60,7 @@ def app(tmp_path: object) -> Iterator[Flask]:
         for model in (
             CourseRetakePolicy,
             LessonRetakeAttempt,
+            LessonRetakeRun,
             LearnProgressRecord,
             LearnGeneratedBlock,
             LearnAgentSession,
@@ -439,7 +444,7 @@ def test_two_producers_cannot_claim_same_reserved_round(
     first = wrapped(app, events())
     assert next(first) == "started"
     second = wrapped(app, events())
-    with pytest.raises(RetakeRuleError, match="attempt_not_reserved"):
+    with pytest.raises(RetakeRuleError, match="retake_in_progress"):
         next(second)
     assert called == [True]
     first.close()
@@ -451,11 +456,9 @@ def test_two_producers_cannot_claim_same_reserved_round(
     [
         {"preview_mode": True},
         {"input_type": "ask"},
-        {"reload_generated_block_bid": "old-block"},
-        {"reload_element_bid": "old-element"},
     ],
 )
-def test_preview_ask_and_reload_leave_reserved_round_untouched(
+def test_preview_and_ask_leave_reserved_round_untouched(
     app: Flask, monkeypatch: pytest.MonkeyPatch, override: dict
 ) -> None:
     enable(monkeypatch)
@@ -544,3 +547,224 @@ def test_recovery_failure_keeps_reservation_and_does_not_partially_restore(
         assert row.state == RetakeState.RUNNING
         assert row.producer_finished_at is None
     assert get_allowance(app, **IDENTITY).reserved == 1
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"reload_generated_block_bid": "old-block"},
+        {"reload_element_bid": "old-element"},
+    ],
+)
+def test_reload_cannot_bypass_pending_retake(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, override: dict
+) -> None:
+    enable(monkeypatch)
+    execution = reserve(app)
+    with pytest.raises(RetakeRuleError, match="retake_in_progress"):
+        list(wrapped(app, iter(["must not generate"]), **override))
+    with app.app_context():
+        assert (
+            db.session.get(LessonRetakeAttempt, execution.attempt_id).state
+            == RetakeState.RESERVED
+        )
+
+
+def test_first_study_and_continuation_exclude_concurrent_reset(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    enable(monkeypatch)
+    first = wrapped(app, iter(["first study", "still running"]))
+    assert next(first) == "first study"
+    try:
+        with pytest.raises(RetakeRuleError, match="retake_in_progress"):
+            reserve(app)
+        assert get_allowance(app, **IDENTITY).used == 0
+    finally:
+        first.close()
+    # Once the actual producer stops, a reset is admitted normally.
+    reserve(app)
+
+
+def test_guard_is_held_until_child_generator_cleanup(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    enable(monkeypatch)
+    observations = []
+
+    def events() -> Iterator[str]:
+        try:
+            yield "first study"
+        finally:
+            try:
+                reserve(app)
+            except RetakeRuleError as exc:
+                observations.append(str(exc))
+
+    stream = wrapped(app, events())
+    next(stream)
+    stream.close()
+    assert observations == ["retake_in_progress"]
+    reserve(app)
+
+
+def test_platform_repair_requires_confirmed_stop_and_exact_worker(app: Flask) -> None:
+    from flaskr.service.learn.retake_ledger import claim_attempt
+    from flaskr.service.learn.retake_run_guard import (
+        acquire_lesson_run,
+        repair_stopped_lesson_run,
+    )
+
+    execution = reserve(app)
+    ownership = acquire_lesson_run(app, **IDENTITY)
+    claim_attempt(
+        app,
+        namespace="test",
+        shifu_bid="course",
+        attempt_id=execution.attempt_id,
+        producer_id=ownership.producer_id,
+    )
+    arguments = {
+        **IDENTITY,
+        "expected_producer_id": ownership.producer_id,
+        "operator_bid": "operator",
+    }
+    with pytest.raises(RetakeRuleError, match="repair_requires_confirmed_stop"):
+        repair_stopped_lesson_run(app, **arguments, confirmed_stopped=False)
+    with pytest.raises(RetakeRuleError, match="producer_mismatch"):
+        repair_stopped_lesson_run(
+            app,
+            **{**arguments, "expected_producer_id": "wrong"},
+            confirmed_stopped=True,
+        )
+    repair_stopped_lesson_run(app, **arguments, confirmed_stopped=True)
+    repair_stopped_lesson_run(app, **arguments, confirmed_stopped=True)
+    assert_restored(app, execution.attempt_id)
+    with app.app_context():
+        row = LessonRetakeRun.query.one()
+        assert len(row.repair_log) == 1
+        assert row.repair_log[0]["operator_bid"] == "operator"
+        assert row.repair_log[0]["repaired_at"].endswith("Z")
+
+
+def test_stale_worker_cannot_release_new_run(app: Flask) -> None:
+    from flaskr.service.learn.retake_run_guard import (
+        acquire_lesson_run,
+        release_lesson_run,
+        repair_stopped_lesson_run,
+    )
+
+    old = acquire_lesson_run(app, **IDENTITY)
+    repair_stopped_lesson_run(
+        app,
+        **IDENTITY,
+        expected_producer_id=old.producer_id,
+        operator_bid="operator",
+        confirmed_stopped=True,
+    )
+    new = acquire_lesson_run(app, **IDENTITY)
+    release_lesson_run(app, old)
+    with pytest.raises(RetakeRuleError, match="retake_in_progress"):
+        reserve(app)
+    with pytest.raises(RetakeRuleError, match="producer_mismatch"):
+        repair_stopped_lesson_run(
+            app,
+            **IDENTITY,
+            expected_producer_id=old.producer_id,
+            operator_bid="operator",
+            confirmed_stopped=True,
+        )
+    release_lesson_run(app, new)
+    reserve(app)
+
+
+def test_platform_repair_keeps_delivered_attempt_charged(app: Flask) -> None:
+    from flaskr.service.learn.retake_ledger import claim_attempt, finish_attempt
+    from flaskr.service.learn.retake_run_guard import (
+        acquire_lesson_run,
+        repair_stopped_lesson_run,
+    )
+
+    execution = reserve(app)
+    ownership = acquire_lesson_run(app, **IDENTITY)
+    args = {
+        "namespace": "test",
+        "shifu_bid": "course",
+        "attempt_id": execution.attempt_id,
+        "producer_id": ownership.producer_id,
+    }
+    claim_attempt(app, **args)
+    finish_attempt(app, **args, has_durable_content=True, producer_stopped=False)
+    repair_stopped_lesson_run(
+        app,
+        **IDENTITY,
+        expected_producer_id=ownership.producer_id,
+        operator_bid="operator",
+        confirmed_stopped=True,
+    )
+    with app.app_context():
+        assert get_allowance(app, **IDENTITY).used == 1
+        assert (
+            LearnProgressRecord.query.filter_by(progress_record_bid="original")
+            .one()
+            .status
+            == LEARN_STATUS_RESET
+        )
+        assert LessonRetakeAttempt.query.one().producer_finished_at is not None
+
+
+def test_platform_repair_rolls_back_if_original_records_cannot_be_restored(
+    app: Flask,
+) -> None:
+    from flaskr.service.learn.retake_run_guard import (
+        acquire_lesson_run,
+        repair_stopped_lesson_run,
+    )
+
+    execution = reserve(app)
+    ownership = acquire_lesson_run(app, **IDENTITY)
+    with app.app_context(), unit_of_work():
+        LearnProgressRecord.query.filter_by(progress_record_bid="original").delete()
+    with pytest.raises(RetakeRuleError):
+        repair_stopped_lesson_run(
+            app,
+            **IDENTITY,
+            expected_producer_id=ownership.producer_id,
+            operator_bid="operator",
+            confirmed_stopped=True,
+        )
+    with app.app_context():
+        assert (
+            LessonRetakeAttempt.query.filter_by(attempt_id=execution.attempt_id)
+            .one()
+            .state
+            == RetakeState.RESERVED
+        )
+        assert LessonRetakeRun.query.one().finished_at is None
+
+
+@pytest.mark.parametrize(
+    "reload_argument", ["reload_generated_block_bid", "reload_element_bid"]
+)
+def test_inline_regeneration_cannot_bypass_lesson_quota(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, reload_argument: str
+) -> None:
+    enable(monkeypatch)
+    invoked = []
+
+    def events() -> Iterator[str]:
+        invoked.append(True)
+        yield "should not run"
+
+    stream = wrapped(app, events(), **{reload_argument: "original-block"})
+    with pytest.raises(RetakeRuleError, match="retake_reload_not_supported"):
+        next(stream)
+    assert not invoked
+    with app.app_context():
+        assert (
+            LearnProgressRecord.query.filter_by(progress_record_bid="original")
+            .one()
+            .status
+            == LEARN_STATUS_COMPLETED
+        )
+        assert get_allowance(app, **IDENTITY).used == 0

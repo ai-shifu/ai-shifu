@@ -13,7 +13,11 @@ from flaskr.service.learn.retake_ledger import (
     get_allowance,
     reserve_attempt,
 )
-from flaskr.service.learn.retake_models import CourseRetakePolicy, LessonRetakeAttempt
+from flaskr.service.learn.retake_models import (
+    CourseRetakePolicy,
+    LessonRetakeAttempt,
+    LessonRetakeRun,
+)
 from flaskr.service.learn.retake_policy import RetakeRuleError, RetakeState
 
 BASE = {"namespace": "test", "shifu_bid": "course"}
@@ -30,6 +34,7 @@ def app(tmp_path: object) -> Iterator[Flask]:
         # Test-only schema; runtime installation uses the versioned migration.
         CourseRetakePolicy.__table__.create(db.engine)
         LessonRetakeAttempt.__table__.create(db.engine)
+        LessonRetakeRun.__table__.create(db.engine)
     yield application
     with application.app_context():
         db.session.remove()

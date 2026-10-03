@@ -44,3 +44,18 @@ class LessonRetakeAttempt(db.Model):
     recovery_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, nullable=False, default=now_utc)
     updated_at = Column(DateTime, nullable=False, default=now_utc, onupdate=now_utc)
+
+
+class LessonRetakeRun(db.Model):
+    """One producer slot per learner/lesson, including first study and continuation."""
+
+    __tablename__ = "lesson_retake_runs"
+
+    namespace = Column(String(32), primary_key=True)
+    shifu_bid = Column(String(36), primary_key=True)
+    user_bid = Column(String(36), primary_key=True)
+    outline_bid = Column(String(36), primary_key=True)
+    producer_id = Column(String(36), nullable=False)
+    started_at = Column(DateTime, nullable=False, default=now_utc)
+    finished_at = Column(DateTime, nullable=True)
+    repair_log = Column(JSON, nullable=True)

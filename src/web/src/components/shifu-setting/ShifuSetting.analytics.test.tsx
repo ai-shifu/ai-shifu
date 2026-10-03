@@ -9,6 +9,9 @@ import {
 import ShifuSettingDialog from './ShifuSetting';
 import { SSE } from 'sse.js';
 
+jest.mock('./RetakeSettingsSection', () => ({
+  RetakeSettingsSection: () => null,
+}));
 const mockTtsConfig = jest.fn();
 const mockListMinimaxTtsVoices = jest.fn();
 const mockAskConfig = jest.fn();

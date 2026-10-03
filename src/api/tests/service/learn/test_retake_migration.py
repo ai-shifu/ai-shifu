@@ -25,6 +25,15 @@ def test_migration_roundtrip_leaves_existing_learning_data_untouched() -> None:
     recovery = importlib.util.module_from_spec(recovery_spec)
     recovery_spec.loader.exec_module(recovery)
     assert recovery.down_revision == migration.revision
+    guard_spec = importlib.util.spec_from_file_location(
+        "retake_guard_migration",
+        migration_path.with_name(
+            "f5c8745b7e91_guard_active_lesson_producers_during_.py"
+        ),
+    )
+    guard = importlib.util.module_from_spec(guard_spec)
+    guard_spec.loader.exec_module(guard)
+    assert guard.down_revision == recovery.revision
     engine = create_engine("sqlite://")
     with engine.begin() as connection:
         connection.execute(
@@ -42,6 +51,9 @@ def test_migration_roundtrip_leaves_existing_learning_data_untouched() -> None:
                 for item in inspect(connection).get_columns("lesson_retake_attempts")
             }
             assert {"producer_finished_at", "recovery_data"} <= columns
+            guard.upgrade()
+            assert "lesson_retake_runs" in inspect(connection).get_table_names()
+            guard.downgrade()
             recovery.downgrade()
             migration.downgrade()
             assert inspect(connection).get_table_names() == ["existing_learning"]

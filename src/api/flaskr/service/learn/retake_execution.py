@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextvars
 import sys
-import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -32,10 +31,10 @@ from flaskr.service.learn.retake_ledger import (
     claim_attempt,
     finish_attempt,
 )
-from flaskr.service.learn.retake_models import LessonRetakeAttempt
 from flaskr.service.learn.retake_policy import RetakeRuleError, RetakeState
 from flaskr.service.learn.retake_recovery import stage_restore_records
 from flaskr.service.learn.retake_rollout import retake_namespace
+from flaskr.service.learn.retake_run_guard import acquire_lesson_run, release_lesson_run
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -160,44 +159,44 @@ def track_retake_events(
     reload_element_bid: str | None = None,
 ) -> Iterator:
     """Wrap the actual producer, leaving first study, preview and Ask unchanged."""
-    namespace = retake_namespace(shifu_bid)
-    if (
-        namespace is None
-        or preview_mode
-        or input_type == INPUT_TYPE_ASK
-        or reload_generated_block_bid
-        or reload_element_bid
-    ):
-        yield from events
-        return
-    with app_context_scope(app), unit_of_work():
-        pending = (
-            LessonRetakeAttempt.query.filter_by(
-                namespace=namespace,
-                shifu_bid=shifu_bid,
-                user_bid=user_bid,
-                outline_bid=outline_bid,
-                producer_finished_at=None,
-            )
-            .filter(
-                LessonRetakeAttempt.state.in_(
-                    [RetakeState.RESERVED, RetakeState.RUNNING, RetakeState.COMMITTED]
-                )
-            )
-            .first()
+    with app_context_scope(app):
+        namespace = retake_namespace(shifu_bid)
+        if namespace is None or preview_mode or input_type == INPUT_TYPE_ASK:
+            yield from events
+            return
+        ownership = acquire_lesson_run(
+            app,
+            namespace=namespace,
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            outline_bid=outline_bid,
+            reload=bool(reload_generated_block_bid or reload_element_bid),
         )
-        attempt_id = pending.attempt_id if pending is not None else None
-    if attempt_id is None:
-        yield from events
-        return
-    execution = RetakeExecution(
-        app=app,
-        namespace=namespace,
-        shifu_bid=shifu_bid,
-        user_bid=user_bid,
-        outline_bid=outline_bid,
-        attempt_id=attempt_id,
-        producer_id=uuid.uuid4().hex,
-    )
-    with owning_retake(execution):
-        yield from events
+        if ownership is None:
+            yield from events
+            return
+        try:
+            if ownership.attempt_id is None:
+                yield from events
+            else:
+                execution = RetakeExecution(
+                    app=app,
+                    namespace=namespace,
+                    shifu_bid=shifu_bid,
+                    user_bid=user_bid,
+                    outline_bid=outline_bid,
+                    attempt_id=ownership.attempt_id,
+                    producer_id=ownership.producer_id,
+                )
+                with owning_retake(execution):
+                    yield from events
+        finally:
+            # The child generator unwinds before the slot is released. A detached
+            # HTTP consumer cannot enter this producer-owned finally early.
+            exc = sys.exception()
+            if exc is not None and (
+                is_abnormal_stream_termination(exc) or is_protocol_interrupt_error(exc)
+            ):
+                invalidate_session(source="lesson run guard abort", session=db.session)
+            db.session.remove()
+            release_lesson_run(app, ownership)

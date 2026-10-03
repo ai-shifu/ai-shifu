@@ -8,6 +8,10 @@ import {
 } from '@testing-library/react';
 import { ResetChapterButton } from './ResetChapterButton';
 
+const mockAllowance = { blocked: false, loading: false, result: jest.fn() };
+jest.mock('@/hooks/useRetakeAllowance', () => ({
+  useRetakeAllowance: () => mockAllowance,
+}));
 const mockTrackEvent = jest.fn();
 const mockResetChapter = jest.fn();
 const mockUpdateLessonId = jest.fn();
@@ -128,6 +132,7 @@ const renderResetButton = (onConfirm = jest.fn()) => {
 describe('ResetChapterButton analytics producer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAllowance.blocked = false;
     mockCourseState.resettingLessonId = '';
     mockEnvState.courseId = 'course-1';
     mockSystemState.previewMode = false;
@@ -212,4 +217,14 @@ describe('ResetChapterButton analytics producer', () => {
     expect(mockResetChapter).toHaveBeenCalledWith('lesson-1');
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
+});
+
+it('keeps an exhausted confirmation from resetting progress', () => {
+  mockAllowance.blocked = true;
+  mockCourseState.resettingLessonId = '';
+  renderResetButton();
+  fireEvent.click(screen.getByText('module.lesson.reset.title'));
+  const calls = mockResetChapter.mock.calls.length;
+  fireEvent.click(screen.getByText('common.core.ok'));
+  expect(mockResetChapter.mock.calls.length).toBe(calls);
 });

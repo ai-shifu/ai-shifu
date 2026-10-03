@@ -1,3 +1,5 @@
+import { useRetakeAllowance } from '@/hooks/useRetakeAllowance';
+import { RetakeAllowanceMessage } from '@/components/RetakeAllowanceMessage';
 import { useCallback, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -44,15 +46,21 @@ export const LessonUpdateNotice = ({
   const isRetakingCurrentLesson =
     Boolean(resolvedLessonId) && resettingLessonId === resolvedLessonId;
   const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
+  const allowance = useRetakeAllowance(
+    showRetakeConfirm,
+    resolvedLessonId,
+    'update',
+  );
 
   const handleRetakeCurrentLesson = useSingleFlight(async () => {
-    if (!resolvedLessonId) {
+    if (!resolvedLessonId || allowance.blocked) {
       return false;
     }
 
     try {
       stopActiveLessonStream(resolvedLessonId);
       await resetChapter(resolvedLessonId);
+      allowance.result(true);
       updateLessonId(resolvedLessonId);
       shifu.resetTools.resetChapter({
         chapter_id: chapterId,
@@ -61,6 +69,7 @@ export const LessonUpdateNotice = ({
       });
       return true;
     } catch (error) {
+      allowance.result(false);
       fail(
         (error as Error).message || t('module.backend.common.operationFailed'),
       );
@@ -143,6 +152,7 @@ export const LessonUpdateNotice = ({
               {t('module.lesson.reset.confirmContent')}
             </DialogDescription>
           </DialogHeader>
+          <RetakeAllowanceMessage {...allowance} />
           <DialogFooter>
             <Button
               type='button'
@@ -161,7 +171,7 @@ export const LessonUpdateNotice = ({
                   }
                 });
               }}
-              disabled={isRetakingCurrentLesson}
+              disabled={isRetakingCurrentLesson || allowance.blocked}
             >
               {t('common.core.ok')}
             </Button>

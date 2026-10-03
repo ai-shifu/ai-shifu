@@ -333,13 +333,13 @@ def test_record_reset_route_uses_authenticated_learner(
     reset = Mock(return_value=True)
     monkeypatch.setattr(routes, "reset_learn_record", reset)
     response = test_client.delete(
-        f"/api/learn/shifu/{feedback_course.bid}/records/lesson",
+        f"/api/learn/shifu/{feedback_course.bid}/records/{feedback_course.bid}",
         headers={"Token": "test-token"},
     ).get_json(force=True)
     assert response["data"] is True
     assert reset.call_args.args[1:] == (
         feedback_course.bid,
-        "lesson",
+        feedback_course.bid,
         feedback_course.bid,
     )
 
@@ -616,3 +616,208 @@ def test_editor_preview_keeps_legacy_path_without_matching_client_and_allowlist(
 
     assert '"done"' in response.get_data(as_text=True)
     legacy.assert_called_once()
+
+
+@pytest.fixture
+def retake_course(app: object, feedback_course: object, monkeypatch: object) -> object:
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.models import LearnGeneratedBlock
+    from flaskr.service.learn.retake_models import (
+        CourseRetakePolicy,
+        LessonRetakeAttempt,
+        LessonRetakeRun,
+    )
+    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+
+    config = {
+        "LESSON_RETAKE_NAMESPACE": "http-test",
+        "LESSON_RETAKE_SHIFU_BIDS": [feedback_course.bid],
+    }
+    monkeypatch.setattr(
+        "flaskr.service.learn.retake_rollout.get_config",
+        lambda key, default=None: config.get(key, default),
+    )
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            LearnGeneratedBlock(
+                generated_block_bid=feedback_course.bid,
+                progress_record_bid=feedback_course.bid,
+                user_bid=feedback_course.bid,
+                shifu_bid=feedback_course.bid,
+                outline_item_bid=feedback_course.bid,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                role=ROLE_TEACHER,
+                generated_content="Existing teaching remains reviewable",
+                status=1,
+            )
+        )
+    yield feedback_course
+    with app.app_context(), unit_of_work():
+        for model in (
+            LessonRetakeRun,
+            LessonRetakeAttempt,
+            CourseRetakePolicy,
+            LearnGeneratedBlock,
+        ):
+            model.query.filter_by(shifu_bid=feedback_course.bid).delete()
+
+
+def _retake_http(
+    client: object, course: object, action: str, method: str = "get", **kwargs: object
+) -> dict:
+    return getattr(client, method)(
+        f"/api/learn/shifu/{course.bid}/{action}",
+        headers={"Token": "test-token", "X-Retake-Request-Id": "same-reset"},
+        **kwargs,
+    ).get_json(force=True)
+
+
+@pytest.mark.parametrize("limit", [None, 0, 3])
+def test_retake_policy_round_trip(
+    test_client: object, retake_course: object, limit: object
+) -> None:
+    result = _retake_http(
+        test_client, retake_course, "retake-policy", "put", json={"limit": limit}
+    )
+    assert result["code"] == 0
+    assert result["data"] == {"available": True, "configured": True, "limit": limit}
+    assert (
+        _retake_http(test_client, retake_course, "retake-policy")["data"]
+        == result["data"]
+    )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"limit": True},
+        {"limit": -1},
+        {"limit": 1.5},
+        {"limit": "3"},
+        {},
+        {"limit": 2, "user_bid": "other"},
+    ],
+)
+def test_retake_policy_rejects_invalid_limits(
+    test_client: object, retake_course: object, payload: object
+) -> None:
+    result = _retake_http(
+        test_client, retake_course, "retake-policy", "put", json=payload
+    )
+    assert result["code"] == ERROR_CODE["server.learn.retakeInvalidRequest"]
+    assert not _retake_http(test_client, retake_course, "retake-policy")["data"][
+        "configured"
+    ]
+
+
+def test_retake_http_reserves_once_and_uses_authenticated_learner(
+    app: object, test_client: object, retake_course: object
+) -> None:
+    from flaskr.service.learn.retake_models import LessonRetakeAttempt
+    from flaskr.service.order.consts import LEARN_STATUS_RESET
+
+    _retake_http(test_client, retake_course, "retake-policy", "put", json={"limit": 2})
+    for _ in range(2):
+        result = _retake_http(
+            test_client, retake_course, f"records/{retake_course.bid}", "delete"
+        )
+        assert result["code"] == 0
+    status = _retake_http(
+        test_client,
+        retake_course,
+        f"retake-status/{retake_course.bid}",
+        query_string={"user_bid": "other"},
+    )["data"]
+    assert status["remaining"] == 1
+    assert status["used"] == 0
+    assert status["reserved"] == 1
+    assert status["in_progress"] is True
+    assert status["allowed"] is False
+    with app.app_context():
+        assert (
+            LessonRetakeAttempt.query.filter_by(shifu_bid=retake_course.bid).count()
+            == 1
+        )
+        assert (
+            LearnProgressRecord.query.filter_by(progress_record_bid=retake_course.bid)
+            .one()
+            .status
+            == LEARN_STATUS_RESET
+        )
+
+
+def test_exhausted_reset_keeps_existing_learning(
+    app: object, test_client: object, retake_course: object
+) -> None:
+    from flaskr.service.learn.models import LearnGeneratedBlock
+    from flaskr.service.learn.retake_models import LessonRetakeAttempt
+
+    _retake_http(test_client, retake_course, "retake-policy", "put", json={"limit": 0})
+    result = _retake_http(
+        test_client, retake_course, f"records/{retake_course.bid}", "delete"
+    )
+    assert result["code"] == ERROR_CODE["server.learn.retakeLimitReached"]
+    with app.app_context():
+        assert (
+            LearnProgressRecord.query.filter_by(progress_record_bid=retake_course.bid)
+            .one()
+            .status
+            == LEARN_STATUS_COMPLETED
+        )
+        assert (
+            LearnGeneratedBlock.query.filter_by(shifu_bid=retake_course.bid).count()
+            == 1
+        )
+        assert (
+            LessonRetakeAttempt.query.filter_by(shifu_bid=retake_course.bid).count()
+            == 0
+        )
+
+
+@pytest.mark.parametrize(
+    "action",
+    ["retake-policy", "retake-status/foreign-lesson", "records/foreign-lesson"],
+)
+def test_retake_permissions_and_scope(
+    test_client: object, retake_course: object, action: str
+) -> None:
+    retake_course.user.is_creator = False
+    method = (
+        "put"
+        if action == "retake-policy"
+        else "delete"
+        if action.startswith("records")
+        else "get"
+    )
+    kwargs = {"json": {"limit": 5}} if method == "put" else {}
+    result = _retake_http(test_client, retake_course, action, method, **kwargs)
+    expected = (
+        "server.shifu.noPermission"
+        if action == "retake-policy"
+        else "server.shifu.lessonNotFoundInCourse"
+    )
+    assert result["code"] == ERROR_CODE[expected]
+
+
+def test_enabled_reset_requires_request_identity(
+    test_client: object, retake_course: object
+) -> None:
+    _retake_http(test_client, retake_course, "retake-policy", "put", json={"limit": 2})
+    result = test_client.delete(
+        f"/api/learn/shifu/{retake_course.bid}/records/{retake_course.bid}",
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+    assert result["code"] == ERROR_CODE["server.learn.retakeInvalidRequest"]
+
+
+def test_unconfigured_course_keeps_legacy_reset(
+    test_client: object, retake_course: object
+) -> None:
+    result = test_client.delete(
+        f"/api/learn/shifu/{retake_course.bid}/records/{retake_course.bid}",
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+    assert result["code"] == 0
+    assert not _retake_http(
+        test_client, retake_course, f"retake-status/{retake_course.bid}"
+    )["data"]["available"]

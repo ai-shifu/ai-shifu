@@ -18,6 +18,13 @@
     "llmStreamInterrupted": "Se ha interrumpido la conexión durante la generación. Actualiza la página e inténtalo de nuevo.",
     "nextChapterButton": "Siguiente lección",
     "outputInProgress": "El contenido aún se está generando. Espera a que termine antes de intentarlo de nuevo.",
+    "retakeInProgress": "Esta lección aún se está generando o recuperando. Inténtalo de nuevo en unos momentos.",
+    "retakeInvalidRequest": "Solicitud de repetición no válida. Actualiza la página e inténtalo de nuevo.",
+    "retakeLimitReached": "Has utilizado todas las repeticiones de esta lección. Puedes continuar, repasar el contenido existente o hacer preguntas.",
+    "retakeNotStarted": "Todavía no hay contenido de enseñanza para repetir. Continúa aprendiendo.",
+    "retakePreviousFailed": "La repetición anterior falló y se restituyó el cupo. Inicia una nueva repetición.",
+    "retakeUnavailable": "La configuración de repeticiones no está disponible. Inténtalo más tarde o contacta con soporte.",
+    "retakeUseChapter": "Este curso gestiona las repeticiones. Para regenerar o cambiar una respuesta enviada, reinicia esta lección. El contenido existente sigue disponible.",
     "ttsRateLimited": "El servicio de voz está ocupado. Inténtalo de nuevo en unos momentos."
   }
 }

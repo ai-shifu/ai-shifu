@@ -64,6 +64,7 @@ from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnProgressRecord,
 )
+from flaskr.service.learn.retake_service import try_limited_reset
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
@@ -713,9 +714,23 @@ def get_learn_record(
 
 
 def reset_learn_record(
-    app: Flask, shifu_bid: str, outline_bid: str, user_bid: str
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    *,
+    request_id: str | None = None,
+    preview_mode: bool = False,
 ) -> bool:
-    """Reset learn record."""
+    """Reset learning through the configured policy, or the legacy default path."""
+    if not preview_mode and try_limited_reset(
+        app,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        user_bid=user_bid,
+        request_id=request_id,
+    ):
+        return True
     with app_context_scope(app), unit_of_work():
         progress_records = (
             LearnProgressRecord.query.filter(

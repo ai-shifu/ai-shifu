@@ -41,6 +41,8 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.retake_execution import track_retake_events
+from flaskr.service.learn.retake_policy import RetakeRuleError
+from flaskr.service.learn.retake_service import raise_retake_error
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -1001,6 +1003,11 @@ def run_script(
                             "run_script producer stopped due to client disconnect: %s",
                             type(exc).__name__,
                         )
+                    elif isinstance(exc, RetakeRuleError):
+                        try:
+                            raise_retake_error(exc)
+                        except AppError as localized:
+                            output_queue.put(("error", localized))
                     else:
                         output_queue.put(("error", exc))
                 except BaseException as exc:

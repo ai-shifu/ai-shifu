@@ -5,6 +5,21 @@
     "confirmTitle": "Wiederholen bestätigen",
     "title": "Wiederholen"
   },
+  "retake": {
+    "busy": "Die Lektion wird noch generiert oder wiederhergestellt. Bitte später erneut versuchen.",
+    "exhausted": "Keine Wiederholungen übrig. Weiterlernen, vorhandene Inhalte ansehen und Fragen stellen bleibt möglich.",
+    "invalid": "Ganze Zahl von 0 bis 2147483647 eingeben oder leer lassen.",
+    "last": "Noch 1 Wiederholung. Zum Auffrischen können Sie vorhandene Inhalte ansehen.",
+    "loadFailed": "Kontingent konnte nicht geprüft werden. Schließen und erneut versuchen.",
+    "loading": "Wiederholungen werden geprüft…",
+    "remaining": "Noch {count} Wiederholungen für diese Lektion. Erstes Lernen, Fortsetzen und Nachlesen zählen nicht.",
+    "save": "Wiederholungen speichern",
+    "saved": "Übernommen. Bisherige Nutzung bleibt erhalten.",
+    "settingHelp": "Eigenes Kontingent pro Person und Lektion, ohne erstes Lernen. Leer bedeutet unbegrenzt, 0 keine zusätzlichen Wiederholungen. Speichern gilt sofort für alle; bisherige Nutzung bleibt erhalten.",
+    "settingTitle": "Wiederholungen pro Lektion",
+    "unlimited": "Unbegrenzt",
+    "useChapter": "Für diesen Kurs gelten Wiederholungsregeln. Zum Neugenerieren oder Ändern einer gesendeten Antwort starten Sie die Lektion erneut. Vorhandene Inhalte bleiben verfügbar."
+  },
   "tooltip": {
     "paidExclusive": "Bezahlter Premium-Zugang"
   }
