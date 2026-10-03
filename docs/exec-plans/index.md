@@ -15,6 +15,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Configurable Gemini Live admission capacity](./active/gemini-live-configurable-capacity.md)
 - [Gemini Live follow-up acceptance](./active/gemini-live-voice-follow-up.md)
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)
+- [Per-lesson retake limits: reusable test-environment core](./active/lesson-retake-limits.md)
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)
 - [Operator Credit Deduction](./active/operator-credit-deduction.md)
 - [Operator Paid Subscription Termination](./active/operator-paid-subscription-termination.md)

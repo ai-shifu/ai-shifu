@@ -21,6 +21,7 @@ from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT, ROLE_TEACHER
 from flaskr.service.learn.learn_dtos import LearnStatus, OutlineItemUpdateDTO
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.learn.retake_execution import stage_retake_content
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
@@ -178,6 +179,12 @@ def record_turn_content(
         LearnGeneratedBlock.deleted == 0,
     ).first()
     if block is not None:
+        stage_retake_content(
+            shifu_bid=block.shifu_bid,
+            user_bid=block.user_bid,
+            outline_bid=block.outline_item_bid,
+            content=content,
+        )
         block.generated_content = content
         if turn_record:
             block.block_content_conf = turn_record

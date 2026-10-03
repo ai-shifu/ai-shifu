@@ -35,7 +35,10 @@ a context back-reference — so the persistence surface stays portable.
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.learn.const import ROLE_TEACHER
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.learn.retake_execution import stage_retake_content
+from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
 
 
 class RunRecorder:
@@ -97,6 +100,7 @@ class RunRecorder:
         with unit_of_work():
             if not getattr(generated_block, "id", None):
                 db.session.add(generated_block)
+            self._stage_retake(generated_block)
             db.session.flush()
 
     def finalize_streamed_block(
@@ -126,6 +130,7 @@ class RunRecorder:
             generated_block.generation_prompt = generation_prompt or ""
             if not getattr(generated_block, "id", None):
                 db.session.add(generated_block)
+            self._stage_retake(generated_block)
             attend.status = status
             attend.block_position = block_position
             db.session.flush()
@@ -141,3 +146,14 @@ class RunRecorder:
         """
         with unit_of_work():
             db.session.flush()
+
+    @staticmethod
+    def _stage_retake(block: LearnGeneratedBlock) -> None:
+        """Only successful teaching, never answers, errors or feedback, counts."""
+        if block.type == BLOCK_TYPE_MDCONTENT_VALUE and block.role == ROLE_TEACHER:
+            stage_retake_content(
+                shifu_bid=block.shifu_bid,
+                user_bid=block.user_bid,
+                outline_bid=block.outline_item_bid,
+                content=block.generated_content,
+            )

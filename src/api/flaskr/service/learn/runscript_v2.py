@@ -40,6 +40,7 @@ from flaskr.service.learn.learn_dtos import (
     RunStatusDTO,
 )
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.learn.retake_execution import track_retake_events
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -966,6 +967,17 @@ def run_script(
                     stop_event=stop_event,
                     element_adapter=element_adapter,
                     heartbeat_interval=heartbeat_interval,
+                )
+                res = track_retake_events(
+                    res,
+                    app=app,
+                    shifu_bid=shifu_bid,
+                    user_bid=user_bid,
+                    outline_bid=outline_bid,
+                    preview_mode=preview_mode,
+                    input_type=input_type,
+                    reload_generated_block_bid=reload_generated_block_bid,
+                    reload_element_bid=reload_element_bid,
                 )
                 producer_exc: BaseException | None = None
                 exhausted = False

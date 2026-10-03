@@ -1918,6 +1918,22 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Default price assigned to a new shifu",
         group="shifu",
     ),
+    "LESSON_RETAKE_NAMESPACE": EnvVar(
+        name="LESSON_RETAKE_NAMESPACE",
+        default="",
+        type=str,
+        description="Deployment-local retake ledger namespace. Empty disables the feature.",
+        group="shifu",
+        required=False,
+    ),
+    "LESSON_RETAKE_SHIFU_BIDS": EnvVar(
+        name="LESSON_RETAKE_SHIFU_BIDS",
+        default=[],
+        type=list,
+        description="Explicit course allowlist for retake limits. Empty enables no courses.",
+        group="shifu",
+        required=False,
+    ),
     "FLOW_ENGINE_V2_SHIFU_BIDS": EnvVar(
         name="FLOW_ENGINE_V2_SHIFU_BIDS",
         default=[],
