@@ -36,6 +36,7 @@ from flaskr.service.billing.subscriptions import grant_paid_order_credits
 from flaskr.service.common.models import AppError
 from flaskr.service.order.models import AlipayOrder, StripeOrder, WechatPayOrder
 from flaskr.service.order.payment_providers.base import (
+    PaymentCancellationResult,
     PaymentNotificationResult,
     PaymentRefundResult,
 )
@@ -50,6 +51,41 @@ if TYPE_CHECKING:
     from flask import Flask
 
 __all__ = ["catalog_app"]
+
+
+def test_native_replacement_requires_remote_payment_closure(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = Mock()
+    provider.cancel_payment.return_value = PaymentCancellationResult(
+        provider_reference="native-attempt",
+        raw_response={"trade_status": "TRADE_CLOSED"},
+        status="cancelled",
+    )
+    monkeypatch.setattr(checkout, "get_payment_provider", Mock(return_value=provider))
+    order = BillingOrder(
+        bill_order_bid="native-replaced-order",
+        payment_provider="alipay",
+        provider_reference_id="native-attempt",
+        status=BILLING_ORDER_STATUS_PENDING,
+    )
+
+    checkout._prepare_pending_order_for_replacement(app, order)
+
+    provider.cancel_payment.assert_called_once_with(
+        provider_reference="native-attempt",
+        reference_type="payment",
+        app=app,
+    )
+    assert order.metadata_json["provider_payment_terminal_evidence"] == {
+        "provider": "alipay",
+        "provider_reference": "native-attempt",
+        "status": "canceled",
+        "confirmed_at": order.metadata_json["provider_payment_terminal_evidence"][
+            "confirmed_at"
+        ],
+        "source": "provider_cancel",
+    }
 
 
 def _seed(

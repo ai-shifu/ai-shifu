@@ -52,6 +52,7 @@ from .campaign_provider_discounts import (
 )
 from .campaigns import resolve_applied_billing_campaign
 from .consts import (
+    ACTIVE_SUBSCRIPTION_STATUSES,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_INTERVAL_LABELS,
     BILLING_ORDER_STATUS_CANCELED,
@@ -126,6 +127,7 @@ from .provider_price_mappings import (
 )
 from .provider_state import (
     BillingOrderProviderUpdateResult,
+    can_billing_order_become_paid_from_provider,
 )
 from .provider_state import (
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
@@ -588,6 +590,11 @@ def _prepare_subscription_checkout(
         )
         if current_subscription is not None:
             current_subscription = _lock_subscription_for_checkout(current_subscription)
+            if (
+                int(current_subscription.status or 0)
+                not in ACTIVE_SUBSCRIPTION_STATUSES
+            ):
+                raise_error("server.order.orderStatusError")
         prepaid_offset_amount = 0
         replaced_preorder_order = None
         if current_subscription is None:
@@ -1150,20 +1157,43 @@ def _prepare_existing_billing_order_checkout(
 
 
 def _prepare_pending_order_for_replacement(app: Flask, order: BillingOrder) -> None:
-    """Expire the stale provider session of an order about to be replaced.
+    """Close the provider payment attempt of an order about to be replaced.
 
-    This one deliberately stays inside the caller's transaction: the session
-    has to be expired at the provider BEFORE the order is canceled locally.
-    Deferring it past the commit would leave a payable Stripe session pointing
-    at an order that no longer accepts payment.
+    This deliberately stays inside the caller's transaction: the provider
+    attempt has to become unusable BEFORE the order is canceled locally.
+    Deferring it past the commit would leave a payable attempt pointing at an
+    order that no longer accepts payment.
     """
-    if _normalize_bid(order.payment_provider) != "stripe":
-        return
-    _reconcile_stored_stripe_checkout_before_replacement(
-        app,
-        bill_order_bid=order.bill_order_bid,
-        checkout_session_id=_stored_stripe_checkout_session_id(order),
+    provider_name = _normalize_bid(order.payment_provider)
+    provider_reference = _normalize_bid(order.provider_reference_id)
+    reference_type = _resolve_billing_order_provider_reference_type(order)
+    if not provider_reference or not reference_type:
+        raise_error("server.order.orderStatusError")
+    if provider_name == "stripe":
+        _reconcile_stored_stripe_checkout_before_replacement(
+            app,
+            bill_order_bid=order.bill_order_bid,
+            checkout_session_id=provider_reference,
+        )
+    else:
+        cancellation = get_payment_provider(provider_name).cancel_payment(
+            provider_reference=provider_reference,
+            reference_type=reference_type,
+            app=app,
+        )
+        if str(cancellation.status or "").strip().lower() != "cancelled":
+            raise_error("server.order.orderStatusError")
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
     )
+    metadata["provider_payment_terminal_evidence"] = {
+        "provider": provider_name,
+        "provider_reference": provider_reference,
+        "status": "canceled",
+        "confirmed_at": now_utc().isoformat(),
+        "source": "provider_cancel",
+    }
+    order.metadata_json = _normalize_json_object(metadata).to_metadata_json()
 
 
 def _build_stored_stripe_checkout_result(
@@ -1528,6 +1558,97 @@ def sync_billing_order(
         return _build_billing_order_sync_result(order)
 
 
+def close_billing_order_payment_attempt(
+    app: Flask,
+    *,
+    creator_bid: str,
+    bill_order_bid: str,
+) -> None:
+    """Close one non-paid provider attempt and persist terminal evidence."""
+    require_transaction_owner("billing order payment closure", app)
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    normalized_order_bid = _normalize_bid(bill_order_bid)
+
+    with app_context_scope(app), unit_of_work():
+        order = (
+            BillingOrder.query.filter(
+                BillingOrder.deleted == 0,
+                BillingOrder.creator_bid == normalized_creator_bid,
+                BillingOrder.bill_order_bid == normalized_order_bid,
+            )
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+        if order is None:
+            raise_error("server.order.orderNotFound")
+        if int(order.status or 0) == BILLING_ORDER_STATUS_PAID:
+            return
+        if not can_billing_order_become_paid_from_provider(order):
+            return
+        provider_name = _normalize_bid(order.payment_provider)
+        provider_reference = _normalize_bid(order.provider_reference_id)
+        reference_type = _resolve_billing_order_provider_reference_type(order)
+
+    if not provider_reference or not reference_type:
+        raise_error("server.order.orderStatusError")
+
+    try:
+        cancellation = get_payment_provider(provider_name).cancel_payment(
+            provider_reference=provider_reference,
+            reference_type=reference_type,
+            app=app,
+        )
+    except Exception:
+        sync_billing_order(
+            app,
+            normalized_creator_bid,
+            normalized_order_bid,
+            {"session_id": provider_reference if provider_name == "stripe" else ""},
+        )
+        return
+
+    if str(cancellation.status or "").strip().lower() != "cancelled":
+        sync_billing_order(
+            app,
+            normalized_creator_bid,
+            normalized_order_bid,
+            {"session_id": provider_reference if provider_name == "stripe" else ""},
+        )
+        return
+
+    with app_context_scope(app), unit_of_work():
+        order = (
+            BillingOrder.query.filter(
+                BillingOrder.deleted == 0,
+                BillingOrder.creator_bid == normalized_creator_bid,
+                BillingOrder.bill_order_bid == normalized_order_bid,
+            )
+            .populate_existing()
+            .with_for_update()
+            .one()
+        )
+        if int(order.status or 0) == BILLING_ORDER_STATUS_PAID:
+            return
+        closed_at = now_utc()
+        metadata = (
+            dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+        )
+        metadata["provider_payment_terminal_evidence"] = {
+            "provider": provider_name,
+            "provider_reference": provider_reference,
+            "status": "canceled",
+            "confirmed_at": closed_at.isoformat(),
+            "source": "provider_cancel",
+        }
+        order.metadata_json = _normalize_json_object(metadata).to_metadata_json()
+        order.status = BILLING_ORDER_STATUS_CANCELED
+        order.failed_at = order.failed_at or closed_at
+        order.failure_code = "operator_subscription_termination"
+        order.failure_message = "Payment attempt closed before plan termination"
+        order.updated_at = closed_at
+        db.session.add(order)
+
+
 def reconcile_billing_provider_reference(
     app: Flask,
     *,
@@ -1819,6 +1940,7 @@ def _lock_subscription_for_checkout(
             BillingSubscription.deleted == 0,
             BillingSubscription.subscription_bid == normalized_subscription_bid,
         )
+        .populate_existing()
         .with_for_update()
         .order_by(BillingSubscription.id.desc())
         .first()
