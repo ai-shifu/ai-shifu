@@ -423,8 +423,17 @@ def test_subscription_cancellation_voids_unpaid_renewal_invoice(
                 "id": "in-test",
                 "status": "open",
                 "paid": False,
-                "period_start": 100,
-                "period_end": 200,
+                "subscription": "sub-test",
+                "lines": {
+                    "data": [
+                        {
+                            "type": "subscription",
+                            "subscription": "sub-test",
+                            "period": {"start": 100, "end": 200},
+                        }
+                    ],
+                    "has_more": False,
+                },
             }
         ]
     }
@@ -459,8 +468,17 @@ def test_subscription_cancellation_reports_paid_invoice(
                 "id": "in-test",
                 "status": "paid",
                 "paid": True,
-                "period_start": 100,
-                "period_end": 200,
+                "subscription": "sub-test",
+                "lines": {
+                    "data": [
+                        {
+                            "type": "subscription",
+                            "subscription": "sub-test",
+                            "period": {"start": 100, "end": 200},
+                        }
+                    ],
+                    "has_more": False,
+                },
             }
         ]
     }
@@ -488,14 +506,36 @@ def test_subscription_cancellation_targets_the_expected_renewal_cycle(
             {
                 "id": "in-new",
                 "status": "open",
-                "period_start": 200,
-                "period_end": 300,
+                "period_start": 100,
+                "period_end": 200,
+                "subscription": "sub-test",
+                "lines": {
+                    "data": [
+                        {
+                            "type": "subscription",
+                            "subscription": "sub-test",
+                            "period": {"start": 200, "end": 300},
+                        }
+                    ],
+                    "has_more": False,
+                },
             },
             {
                 "id": "in-old",
                 "status": "open",
-                "period_start": 100,
-                "period_end": 200,
+                "period_start": 0,
+                "period_end": 100,
+                "subscription": "sub-test",
+                "lines": {
+                    "data": [
+                        {
+                            "type": "subscription",
+                            "subscription": "sub-test",
+                            "period": {"start": 100, "end": 200},
+                        }
+                    ],
+                    "has_more": False,
+                },
             },
         ]
     }
@@ -529,8 +569,57 @@ def test_subscription_cancellation_keeps_uncollectible_invoice_unresolved(
             {
                 "id": "in-test",
                 "status": "uncollectible",
+                "subscription": "sub-test",
+                "lines": {
+                    "data": [
+                        {
+                            "type": "subscription",
+                            "subscription": "sub-test",
+                            "period": {"start": 100, "end": 200},
+                        }
+                    ],
+                    "has_more": False,
+                },
+            }
+        ]
+    }
+
+    result = stripe.StripeProvider().cancel_payment(
+        provider_reference="sub-test",
+        reference_type="subscription",
+        app=Flask(__name__),
+        context={"cycle_start": 100, "cycle_end": 200},
+    )
+
+    assert result.status == "pending"
+    stripe_client.Invoice.void_invoice.assert_not_called()
+
+
+def test_subscription_cancellation_rejects_invoice_window_without_service_period(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.Subscription.retrieve.return_value = {
+        "id": "sub-test",
+        "latest_invoice": "in-next",
+    }
+    stripe_client.Invoice.list.return_value = {
+        "data": [
+            {
+                "id": "in-next",
+                "status": "open",
+                "subscription": "sub-test",
                 "period_start": 100,
                 "period_end": 200,
+                "lines": {
+                    "data": [
+                        {
+                            "type": "subscription",
+                            "subscription": "sub-test",
+                            "period": {"start": 200, "end": 300},
+                        }
+                    ],
+                    "has_more": False,
+                },
             }
         ]
     }

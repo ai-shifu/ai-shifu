@@ -326,11 +326,25 @@ class StripeProvider(PaymentProvider):
                 )
                 invoice = _find_invoice_for_cycle(
                     invoice_list,
+                    subscription_reference=provider_reference,
                     cycle_start=int(expected_cycle_start),
                     cycle_end=int(expected_cycle_end),
                 )
                 if invoice is None:
-                    _raise_missing_renewal_invoice()
+                    return PaymentCancellationResult(
+                        provider_reference=provider_reference,
+                        raw_response={
+                            "subscription": dict(subscription),
+                            "invoices": (
+                                invoice_list.to_dict()
+                                if hasattr(invoice_list, "to_dict")
+                                else dict(invoice_list)
+                                if isinstance(invoice_list, dict)
+                                else {}
+                            ),
+                        },
+                        status="pending",
+                    )
                 if (
                     bool(invoice.get("paid"))
                     or str(invoice.get("status") or "").lower() == "paid"
@@ -615,11 +629,6 @@ class StripeProvider(PaymentProvider):
 register_payment_provider(StripeProvider)
 
 
-def _raise_missing_renewal_invoice() -> None:
-    message = "Stripe subscription has no renewal invoice to close"
-    raise RuntimeError(message)
-
-
 def _raise_missing_renewal_cycle() -> None:
     message = "Stripe renewal cancellation requires an expected billing cycle"
     raise RuntimeError(message)
@@ -628,6 +637,7 @@ def _raise_missing_renewal_cycle() -> None:
 def _find_invoice_for_cycle(
     invoice_list: object,
     *,
+    subscription_reference: str,
     cycle_start: int,
     cycle_end: int,
 ) -> dict[str, Any] | None:
@@ -653,7 +663,106 @@ def _find_invoice_for_cycle(
         invoice
         for invoice in invoices
         if invoice
-        and int(invoice.get("period_start") or 0) == cycle_start
-        and int(invoice.get("period_end") or 0) == cycle_end
+        and _invoice_matches_subscription_cycle(
+            invoice,
+            subscription_reference=subscription_reference,
+            cycle_start=cycle_start,
+            cycle_end=cycle_end,
+        )
     ]
     return matches[0] if len(matches) == 1 else None
+
+
+def _invoice_matches_subscription_cycle(
+    invoice: dict[str, Any],
+    *,
+    subscription_reference: str,
+    cycle_start: int,
+    cycle_end: int,
+) -> bool:
+    if _stripe_reference_id(invoice.get("subscription")) != subscription_reference:
+        return False
+    lines = invoice.get("lines")
+    lines_payload = (
+        lines.to_dict()
+        if hasattr(lines, "to_dict")
+        else dict(lines)
+        if isinstance(lines, dict)
+        else {}
+    )
+    if bool(lines_payload.get("has_more")):
+        return False
+    raw_lines = lines_payload.get("data")
+    if not isinstance(raw_lines, list):
+        return False
+    for raw_line in raw_lines:
+        line = (
+            raw_line.to_dict()
+            if hasattr(raw_line, "to_dict")
+            else dict(raw_line)
+            if isinstance(raw_line, dict)
+            else {}
+        )
+        if not _is_subscription_service_line(line, subscription_reference):
+            continue
+        period = line.get("period")
+        period_payload = (
+            period.to_dict()
+            if hasattr(period, "to_dict")
+            else dict(period)
+            if isinstance(period, dict)
+            else {}
+        )
+        if (
+            int(period_payload.get("start") or 0) == cycle_start
+            and int(period_payload.get("end") or 0) == cycle_end
+        ):
+            return True
+    return False
+
+
+def _is_subscription_service_line(
+    line: dict[str, Any], subscription_reference: str
+) -> bool:
+    line_subscription = _stripe_reference_id(line.get("subscription"))
+    if line_subscription and line_subscription != subscription_reference:
+        return False
+    if str(line.get("type") or "").lower() == "subscription":
+        return True
+    if _stripe_reference_id(line.get("subscription_item")):
+        return True
+    parent = line.get("parent")
+    parent_payload = (
+        parent.to_dict()
+        if hasattr(parent, "to_dict")
+        else dict(parent)
+        if isinstance(parent, dict)
+        else {}
+    )
+    details = parent_payload.get("subscription_item_details")
+    details_payload = (
+        details.to_dict()
+        if hasattr(details, "to_dict")
+        else dict(details)
+        if isinstance(details, dict)
+        else {}
+    )
+    details_subscription = _stripe_reference_id(details_payload.get("subscription"))
+    return bool(
+        str(parent_payload.get("type") or "").lower() == "subscription_item_details"
+        and (
+            details_subscription == subscription_reference
+            or (
+                not details_subscription
+                and _stripe_reference_id(details_payload.get("subscription_item"))
+            )
+        )
+    )
+
+
+def _stripe_reference_id(value: object) -> str:
+    if isinstance(value, dict):
+        return str(value.get("id") or "").strip()
+    if hasattr(value, "get"):
+        return str(value.get("id") or "").strip()
+    return str(value or "").strip()

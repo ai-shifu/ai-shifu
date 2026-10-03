@@ -35,13 +35,20 @@ decisions.
   tests after the review fixes.
 - [x] 2026-10-03 20:20 CST: Passed the final repository gate; review fixes are
   ready to commit and push.
+- [x] 2026-10-03 21:00 CST: Replaced Stripe Invoice window matching with exact
+  subscription line-item service-period matching; incomplete or ambiguous
+  invoice evidence now remains unresolved without voiding an invoice.
+- [x] 2026-10-03 21:10 CST: Passed 107 provider contract tests, 4
+  reconciliation tests, 12 callback tests, and the full repository gate for
+  the line-item matching fix.
 
 ## Surprises & Discoveries
 
 - Stripe renewal orders bind the Stripe subscription ID instead of the Invoice
   ID. Safe closure therefore has to list that subscription's invoices and
-  select exactly one whose period matches the order's stored renewal cycle; it
-  must not assume `latest_invoice` belongs to every order.
+  select exactly one whose subscription line-item service period matches the
+  order's stored renewal cycle. Invoice-level `period_start` and `period_end`
+  describe the invoice item window and are not service-period evidence.
 - A completed Stripe Checkout Session can still be unpaid for asynchronous
   methods. Session completion alone is not terminal payment evidence; its
   PaymentIntent must be canceled or shown as already canceled.
@@ -60,6 +67,9 @@ decisions.
   reference changes.
 - Treat Stripe `uncollectible` as unresolved because it can still transition to
   paid; only a paid or void invoice is terminal evidence.
+- Require the invoice's subscription identity and a complete embedded line-item
+  set before matching. Missing, paginated, duplicate, or ambiguous evidence is
+  unresolved and must not trigger `void_invoice`.
 - Expose this as a billing-service API only. Integration with operator
   termination remains a separate change after this capability merges.
 
@@ -101,8 +111,9 @@ focused regression tests.
 2. Ask the provider adapter to close that exact reference.
 3. If closure is uncertain, use the existing order synchronization path and
    return `paid` only when normal paid-order processing confirms payment.
-4. For Stripe renewal orders, require an exact invoice period match and keep
-   ambiguous or uncollectible invoices unresolved.
+4. For Stripe renewal orders, require an exact subscription identity and
+   subscription line-item service-period match; keep incomplete, ambiguous, or
+   uncollectible invoices unresolved.
 5. After confirmed closure, lock the order and recheck payment status and the
    provider reference before recording cancellation and terminal evidence.
 6. Return all per-order outcomes to the caller without performing subscription
