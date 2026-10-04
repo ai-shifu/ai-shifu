@@ -46,6 +46,17 @@ decisions.
   coverage.
 - [x] 2026-10-03 21:35 CST: Passed 108 provider contract tests, 4
   reconciliation tests, and the full repository gate for the pagination fix.
+- [x] 2026-10-04 10:00 CST: Audited all open PR review threads and confirmed
+  that detached ORM reads and provider attempts retained only in billing raw
+  snapshots were still reachable.
+- [x] 2026-10-04 10:20 CST: Snapshotted order data before leaving transactions,
+  discovered and reconciled orphan provider references, and applied exact paid
+  renewal-invoice evidence through normal paid-order state changes.
+- [x] 2026-10-04 10:30 CST: Passed 108 provider tests, 8 reconciliation tests,
+  43 checkout state-transition tests, and 12 callback tests after the review
+  fixes.
+- [x] 2026-10-04 10:40 CST: Passed the repository gate; fixes are ready to push
+  before replying to and resolving every addressed review conversation.
 
 ## Surprises & Discoveries
 
@@ -60,6 +71,13 @@ decisions.
 - Backend tests that initialize different application fixtures in one process
   can share the singleton configuration. Running the existing state-transition
   contract in its own process avoids an unrelated logging-path collision.
+- Checkout deliberately persists a newly created provider attempt only in the
+  billing raw snapshot when the billing order settles during the provider call.
+  Reconciliation must therefore discover snapshot references as well as the
+  order's current reference, including for already-paid orders.
+- ORM rows loaded inside an owned app context become detached when that context
+  closes. Provider calls consume immutable scalar snapshots so they cannot
+  trigger detached reads or implicit database transactions.
 
 ## Decision Log
 
@@ -79,6 +97,14 @@ decisions.
   evidence. Neither page may be matched until Stripe reports `has_more=false`.
 - Expose this as a billing-service API only. Integration with operator
   termination remains a separate change after this capability merges.
+- Treat billing raw snapshot status as per-attempt terminal evidence. A closure
+  is written only after locking the row that still carries the exact provider
+  reference used for the external call.
+- Persist provider-confirmed payment on an orphan raw snapshot as paid so a
+  replay does not re-query or reclassify the same terminal attempt.
+- When an exactly matched renewal invoice is already paid, apply the invoice
+  evidence directly to the order and stage the existing paid-order side effects
+  instead of inferring payment from the subscription's current status.
 
 ## Outcomes & Retrospective
 
@@ -99,9 +125,10 @@ closure behavior lives in
 `src/api/flaskr/service/order/payment_providers/stripe.py`.
 
 Billing orders for subscription start, upgrade, and renewal are included. Paid
-and refunded orders are observations, not cancellation targets. Every provider
-mutation happens outside the database transaction; local evidence is persisted
-only after the provider confirms cancellation.
+and refunded order references are not cancellation targets, but their billing
+raw snapshots can contain a separate provider attempt created during a checkout
+race. Every provider mutation happens outside the database transaction; local
+evidence is persisted only after the provider confirms cancellation.
 
 ## Plan of Work
 
@@ -123,8 +150,11 @@ focused regression tests.
    uncollectible invoices unresolved.
 5. After confirmed closure, lock the order and recheck payment status and the
    provider reference before recording cancellation and terminal evidence.
-6. Return all per-order outcomes to the caller without performing subscription
-   or credit mutations.
+6. Return all per-attempt outcomes to the caller; only confirmed payment may
+   trigger the existing paid-order subscription and credit side effects.
+7. Discover billing raw snapshot references for every plan order, skip the
+   reference already represented by the order, and reconcile each remaining
+   provider attempt independently.
 
 ## Validation and Acceptance
 
@@ -142,6 +172,12 @@ focused regression tests.
 - Replaying one operation does not repeat closure or paid side effects.
 - If checkout reopens with a new provider reference while the previous attempt
   is being closed, the new reference is not marked canceled.
+- The service works without a pre-existing Flask app context and performs no
+  detached ORM reads during provider calls.
+- A provider reference retained only in a pending billing raw snapshot is still
+  closed even when the billing order has already become paid.
+- An exactly matched paid renewal invoice transitions the order through the
+  existing paid-order update and side-effect path.
 
 ## Idempotence and Recovery
 
