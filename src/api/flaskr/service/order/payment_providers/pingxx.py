@@ -255,8 +255,10 @@ class PingxxProvider(PaymentProvider):
         provider_reference: str,
         reference_type: str,
         app: Flask,
+        context: dict[str, object] | None = None,
     ) -> PaymentCancellationResult:
         """Reverse an unpaid Ping++ charge so its credential stops working."""
+        _ = context
         if str(reference_type or "").lower() not in {"charge", "payment"}:
             message = f"Unsupported Pingxx reference type: {reference_type}"
             raise RuntimeError(message)

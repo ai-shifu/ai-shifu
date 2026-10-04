@@ -290,11 +290,16 @@ class StripeProvider(PaymentProvider):
         provider_reference: str,
         reference_type: str,
         app: Flask,
+        context: dict[str, Any] | None = None,
     ) -> PaymentCancellationResult:
         """Expire Checkout or cancel an uncaptured PaymentIntent."""
         stripe, request_options = self._client_options(app)
         normalized_type = str(reference_type or "").strip().lower()
-        if normalized_type not in {"checkout_session", "payment_intent"}:
+        if normalized_type not in {
+            "checkout_session",
+            "payment_intent",
+            "subscription",
+        }:
             message = f"Unsupported Stripe reference type: {reference_type}"
             raise RuntimeError(message)
         try:
@@ -302,22 +307,129 @@ class StripeProvider(PaymentProvider):
                 response = stripe.checkout.Session.expire(
                     provider_reference, **request_options
                 )
-            else:
+            elif normalized_type == "payment_intent":
                 response = stripe.PaymentIntent.cancel(
                     provider_reference, **request_options
                 )
-        except Exception:
-            if normalized_type == "checkout_session":
-                response = stripe.checkout.Session.retrieve(
+            else:
+                subscription = stripe.Subscription.retrieve(
                     provider_reference, **request_options
                 )
-                recovered_status = str(response.get("status") or "").lower()
-                terminal = recovered_status in {"complete", "expired"}
+                expected_cycle_start = (context or {}).get("cycle_start")
+                expected_cycle_end = (context or {}).get("cycle_end")
+                if expected_cycle_start is None or expected_cycle_end is None:
+                    _raise_missing_renewal_cycle()
+                invoice_list = stripe.Invoice.list(
+                    subscription=provider_reference,
+                    limit=100,
+                    **request_options,
+                )
+                invoice = _find_invoice_for_cycle(
+                    invoice_list,
+                    subscription_reference=provider_reference,
+                    cycle_start=int(expected_cycle_start),
+                    cycle_end=int(expected_cycle_end),
+                )
+                if invoice is None:
+                    return PaymentCancellationResult(
+                        provider_reference=provider_reference,
+                        raw_response={
+                            "subscription": dict(subscription),
+                            "invoices": (
+                                invoice_list.to_dict()
+                                if hasattr(invoice_list, "to_dict")
+                                else dict(invoice_list)
+                                if isinstance(invoice_list, dict)
+                                else {}
+                            ),
+                        },
+                        status="pending",
+                    )
+                if (
+                    bool(invoice.get("paid"))
+                    or str(invoice.get("status") or "").lower() == "paid"
+                ):
+                    return PaymentCancellationResult(
+                        provider_reference=provider_reference,
+                        raw_response={
+                            "subscription": dict(subscription),
+                            "invoice": invoice,
+                        },
+                        status="completed",
+                    )
+                invoice_status = str(invoice.get("status") or "").lower()
+                if invoice_status == "void":
+                    response = invoice
+                elif invoice_status == "uncollectible":
+                    return PaymentCancellationResult(
+                        provider_reference=provider_reference,
+                        raw_response={
+                            "subscription": dict(subscription),
+                            "invoice": invoice,
+                        },
+                        status="pending",
+                    )
+                else:
+                    response = stripe.Invoice.void_invoice(
+                        str(invoice.get("id") or ""),
+                        **request_options,
+                    )
+        except Exception:
+            if normalized_type == "checkout_session":
+                session = stripe.checkout.Session.retrieve(
+                    provider_reference, **request_options
+                )
+                recovered_status = str(session.get("status") or "").lower()
+                payment_status = str(session.get("payment_status") or "").lower()
+                if recovered_status == "expired":
+                    response = session
+                    terminal = True
+                elif recovered_status == "complete" and payment_status in {
+                    "paid",
+                    "no_payment_required",
+                }:
+                    return PaymentCancellationResult(
+                        provider_reference=provider_reference,
+                        raw_response=dict(session),
+                        status="completed",
+                    )
+                elif recovered_status == "complete":
+                    payment_intent = session.get("payment_intent")
+                    intent_id = str(
+                        payment_intent.get("id")
+                        if isinstance(payment_intent, dict)
+                        else payment_intent or ""
+                    )
+                    if not intent_id:
+                        raise
+                    try:
+                        intent = stripe.PaymentIntent.cancel(
+                            intent_id, **request_options
+                        )
+                    except Exception:
+                        intent = stripe.PaymentIntent.retrieve(
+                            intent_id, **request_options
+                        )
+                    intent_payload = (
+                        intent.to_dict() if hasattr(intent, "to_dict") else dict(intent)
+                    )
+                    response = {
+                        "checkout_session": dict(session),
+                        "payment_intent": intent_payload,
+                    }
+                    terminal = (
+                        str(intent_payload.get("status") or "").lower() == "canceled"
+                    )
+                else:
+                    response = session
+                    terminal = False
             elif normalized_type == "payment_intent":
                 response = stripe.PaymentIntent.retrieve(
                     provider_reference, **request_options
                 )
                 terminal = str(response.get("status") or "").lower() == "canceled"
+            else:
+                raise
             if not terminal:
                 raise
         payload = response.to_dict() if hasattr(response, "to_dict") else dict(response)
@@ -325,6 +437,8 @@ class StripeProvider(PaymentProvider):
         if (
             normalized_type == "checkout_session"
             and str(payload.get("status") or "").lower() == "complete"
+            and str(payload.get("payment_status") or "").lower()
+            in {"paid", "no_payment_required"}
         ):
             cancellation_status = "completed"
         return PaymentCancellationResult(
@@ -513,3 +627,142 @@ class StripeProvider(PaymentProvider):
 
 
 register_payment_provider(StripeProvider)
+
+
+def _raise_missing_renewal_cycle() -> None:
+    message = "Stripe renewal cancellation requires an expected billing cycle"
+    raise RuntimeError(message)
+
+
+def _find_invoice_for_cycle(
+    invoice_list: object,
+    *,
+    subscription_reference: str,
+    cycle_start: int,
+    cycle_end: int,
+) -> dict[str, Any] | None:
+    payload = (
+        invoice_list.to_dict()
+        if hasattr(invoice_list, "to_dict")
+        else dict(invoice_list)
+        if isinstance(invoice_list, dict)
+        else {}
+    )
+    raw_invoices = payload.get("data")
+    if bool(payload.get("has_more")) or not isinstance(raw_invoices, list):
+        return None
+    invoices = [
+        invoice.to_dict()
+        if hasattr(invoice, "to_dict")
+        else dict(invoice)
+        if isinstance(invoice, dict)
+        else {}
+        for invoice in raw_invoices
+    ]
+    matches = [
+        invoice
+        for invoice in invoices
+        if invoice
+        and _invoice_matches_subscription_cycle(
+            invoice,
+            subscription_reference=subscription_reference,
+            cycle_start=cycle_start,
+            cycle_end=cycle_end,
+        )
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _invoice_matches_subscription_cycle(
+    invoice: dict[str, Any],
+    *,
+    subscription_reference: str,
+    cycle_start: int,
+    cycle_end: int,
+) -> bool:
+    if _stripe_reference_id(invoice.get("subscription")) != subscription_reference:
+        return False
+    lines = invoice.get("lines")
+    lines_payload = (
+        lines.to_dict()
+        if hasattr(lines, "to_dict")
+        else dict(lines)
+        if isinstance(lines, dict)
+        else {}
+    )
+    if bool(lines_payload.get("has_more")):
+        return False
+    raw_lines = lines_payload.get("data")
+    if not isinstance(raw_lines, list):
+        return False
+    for raw_line in raw_lines:
+        line = (
+            raw_line.to_dict()
+            if hasattr(raw_line, "to_dict")
+            else dict(raw_line)
+            if isinstance(raw_line, dict)
+            else {}
+        )
+        if not _is_subscription_service_line(line, subscription_reference):
+            continue
+        period = line.get("period")
+        period_payload = (
+            period.to_dict()
+            if hasattr(period, "to_dict")
+            else dict(period)
+            if isinstance(period, dict)
+            else {}
+        )
+        if (
+            int(period_payload.get("start") or 0) == cycle_start
+            and int(period_payload.get("end") or 0) == cycle_end
+        ):
+            return True
+    return False
+
+
+def _is_subscription_service_line(
+    line: dict[str, Any], subscription_reference: str
+) -> bool:
+    line_subscription = _stripe_reference_id(line.get("subscription"))
+    if line_subscription and line_subscription != subscription_reference:
+        return False
+    if str(line.get("type") or "").lower() == "subscription":
+        return True
+    if _stripe_reference_id(line.get("subscription_item")):
+        return True
+    parent = line.get("parent")
+    parent_payload = (
+        parent.to_dict()
+        if hasattr(parent, "to_dict")
+        else dict(parent)
+        if isinstance(parent, dict)
+        else {}
+    )
+    details = parent_payload.get("subscription_item_details")
+    details_payload = (
+        details.to_dict()
+        if hasattr(details, "to_dict")
+        else dict(details)
+        if isinstance(details, dict)
+        else {}
+    )
+    details_subscription = _stripe_reference_id(details_payload.get("subscription"))
+    return bool(
+        str(parent_payload.get("type") or "").lower() == "subscription_item_details"
+        and (
+            details_subscription == subscription_reference
+            or (
+                not details_subscription
+                and _stripe_reference_id(details_payload.get("subscription_item"))
+            )
+        )
+    )
+
+
+def _stripe_reference_id(value: object) -> str:
+    if isinstance(value, dict):
+        return str(value.get("id") or "").strip()
+    if hasattr(value, "get"):
+        return str(value.get("id") or "").strip()
+    return str(value or "").strip()

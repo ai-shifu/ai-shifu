@@ -154,6 +154,7 @@ class PaymentProvider(ABC):
         provider_reference: str,
         reference_type: str,
         app: object,
+        context: dict[str, Any] | None = None,
     ) -> PaymentCancellationResult:
         """Close an unpaid provider attempt before the order is repriced."""
         message = f"{self.__class__.__name__} does not support payment cancellation"
