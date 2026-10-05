@@ -62,7 +62,12 @@ from .interaction import (
     normalize_answer,
     stored_value,
 )
-from .script import ScriptBundle, detect_v1_syntax, render_first_prompt
+from .script import (
+    ScriptBundle,
+    detect_v1_syntax,
+    final_preserved_line,
+    render_first_prompt,
+)
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
 from .tools import (
@@ -575,6 +580,8 @@ class Engine:
             if carried_on
             else ""
         )
+        final_line = final_preserved_line(session.script.script) if carried_on else None
+        final_line_text = "".join(final_line.split()) if final_line else ""
         held: list[str] = []
         held_text = ""
         holding = carried_on
@@ -720,8 +727,20 @@ class Engine:
                                 if held_text in previous
                                 else _after_the_repeat(held, previous)
                             )
-                            for e in _out(released):
-                                yield e
+                            # The model may stop after repeating only the script's unique final
+                            # verbatim line, then call finish on a later continuation. Suppress
+                            # that exact display duplicate; the turn remains unfinished until
+                            # the existing completion rules actually settle it. Unmarked short
+                            # drills, learner requests, and author-written duplicates stay intact.
+                            final_line_repeated = (
+                                carried_on
+                                and bool(final_line_text)
+                                and held_text == final_line_text
+                                and previous.endswith(final_line_text)
+                            )
+                            if not final_line_repeated:
+                                for e in _out(released):
+                                    yield e
                         held.clear()
                         # Only now are the answers safely part of the history; clearing them any
                         # earlier would lose them if the request failed.

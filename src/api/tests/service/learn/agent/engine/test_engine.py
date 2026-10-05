@@ -1191,6 +1191,68 @@ async def test_a_short_continue_that_reads_like_the_last_turn_is_still_shown() -
     assert second[-1].reason == "end"
 
 
+async def test_a_final_preserved_line_repeated_without_finish_is_not_shown() -> None:
+    """Hide an exact terminal verbatim repeat without inferring lesson completion."""
+    closing = "The name still points to the same thing."
+    model, _ = _repeating_model("The explanation.\n\n" + closing, closing)
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(f"Explain names.\n\n==={closing}===\n")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == ""
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        "===Closing line.===\n\nExplain another step.",
+        "===Closing line.===\n\n===Closing line.===",
+        "===Closing  line.===\n\n===Closing line.===",
+        "Show this example:\n```\n===Closing line.===",
+    ],
+)
+async def test_other_short_preserved_repeats_still_reach_the_learner(
+    script: str,
+) -> None:
+    """Retain nonterminal, repeated author blocks, and notation inside fenced examples."""
+    model, _ = _repeating_model("The explanation.\n\nClosing line.", "Closing line.")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(script)
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == "Closing line."
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+async def test_new_text_after_the_final_preserved_line_is_still_shown() -> None:
+    model, _ = _repeating_model(
+        "The explanation.\n\nClosing line.", "Closing line. New point."
+    )
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Explain names.\n\n===Closing line.===")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert "New point." in _said(second)
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+async def test_a_learner_can_request_the_final_preserved_line_again() -> None:
+    """An explicit learner repeat is teaching, even for the terminal verbatim line."""
+    model, _ = _repeating_model("The explanation.\n\nClosing line.", "Closing line.")
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Explain names.\n\n===Closing line.===")
+    await collect(engine.run_turn(session))
+    second = await collect(
+        engine.run_turn(session, MessageTurn(text="Repeat the closing line."))
+    )
+    assert _said(second) == "Closing line."
+    assert second[-1].reason == "end"
+
+
 def _closing_again_model(
     first: list[str], then: list[str]
 ) -> Callable[..., StreamChunks]:
