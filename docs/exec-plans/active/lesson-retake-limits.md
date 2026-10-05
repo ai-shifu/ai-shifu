@@ -194,3 +194,13 @@ Keep `LESSON_RETAKE_SHIFU_BIDS` empty during the code rollout. Install all three
 - Status: code previously pushed; local concurrency and continuation evidence complete; actual deployment identity, test-course activation/publication, and live teacher/learner/TTS acceptance remain unverified. Source course and production remain untouched.
 
 - Follow-up release gate: `check_dev_tools.py` and full `lefthook run pre-commit --all-files` passed. The temporary MySQL schema count returned zero after fixture cleanup; the temporary server was shut down successfully.
+
+### 2026-10-05 14:03 Asia/Shanghai — fix false allowance-query failures
+
+- Reproduced the learner's disabled reset confirmation on the supplied dev02 test-course URL. Opened only the confirmation dialog; did not submit a reset or change learning records.
+- Root cause in `src/web/src/api/retake.ts`: the shared request layer already unwraps `{code, data}`, but all three retake wrappers accessed `.data` again. Successful allowance/policy responses became `undefined`; the learner hook threw while reading `available` and displayed the query-failed state, while the teacher policy control stayed hidden. Missing rollout configuration alone does not explain this failure.
+- Removed the second unwrap from policy read, policy save and allowance read. Actual HTTP/business failures still reject; no fail-open quota bypass or arbitrary unlimited fallback was added. Existing event names, eligibility and server enforcement remain unchanged.
+- Added API regressions using the real shared request layer and mocked HTTP responses, rather than mocking the retake API itself. Before the fix: three success-path tests failed with `undefined`, one business-error test passed. After the fix: 26 tests passed across API envelopes, shared request, learner allowance and teacher settings. Enabled and unconfigured course responses are both covered.
+- This corrects the earlier diagnosis boundary: the UI can show “query failed” even when the network request succeeds. Browser reproduction plus executable request-contract tests establish the client defect; deployment activation and database state are separate checks.
+- Next: complete required checks, push the focused fix to dev02, and revisit the supplied URL after deployment. Do not claim runtime repair from local tests or a push alone.
+- Verification: full pre-commit gate passed. TypeScript still reports exactly the four previously documented baseline errors in operations-user tests and markdown-flow locale typing; no retake error was added. No checks were disabled.

@@ -14,27 +14,19 @@ export type RetakeStatus = {
   allowed: boolean;
   in_progress: boolean;
 };
-export const getRetakePolicy = async (
-  courseId: string,
-): Promise<RetakePolicy> =>
-  (
-    await request.get(`/api/learn/shifu/${courseId}/retake-policy`, {
-      skipErrorToast: true,
-    })
-  ).data;
-export const setRetakePolicy = async (
+export const getRetakePolicy = (courseId: string): Promise<RetakePolicy> =>
+  request.get(`/api/learn/shifu/${courseId}/retake-policy`, {
+    skipErrorToast: true,
+  });
+export const setRetakePolicy = (
   courseId: string,
   limit: number | null,
 ): Promise<RetakePolicy> =>
-  (await request.put(`/api/learn/shifu/${courseId}/retake-policy`, { limit }))
-    .data;
-export const getRetakeStatus = async (
+  request.put(`/api/learn/shifu/${courseId}/retake-policy`, { limit });
+export const getRetakeStatus = (
   courseId: string,
   lessonId: string,
 ): Promise<RetakeStatus> =>
-  (
-    await request.get(
-      `/api/learn/shifu/${courseId}/retake-status/${lessonId}`,
-      { skipErrorToast: true },
-    )
-  ).data;
+  request.get(`/api/learn/shifu/${courseId}/retake-status/${lessonId}`, {
+    skipErrorToast: true,
+  });
