@@ -234,3 +234,22 @@ def test_snapshot_timestamp_does_not_restart_on_edit(app: Flask) -> None:
         assert (
             db.session.get(CourseRetakePolicy, ("test", "course")).created_at == started
         )
+
+
+def test_teacher_first_save_starts_counting_and_adjustments_preserve_usage(
+    app: Flask,
+) -> None:
+    assert get_allowance(app, **LEARNER) is None
+    configure_policy(app, **BASE, limit=2)
+    assert get_allowance(app, **LEARNER).remaining == 2
+    complete(app)
+    assert get_allowance(app, **LEARNER).remaining == 1
+    other = {**LEARNER, "outline_bid": "lesson-b"}
+    assert get_allowance(app, **other).remaining == 2
+    configure_policy(app, **BASE, limit=4)
+    assert get_allowance(app, **LEARNER).used == 1
+    assert get_allowance(app, **LEARNER).remaining == 3
+    configure_policy(app, **BASE, limit=0)
+    assert get_allowance(app, **LEARNER).used == 1
+    with pytest.raises(RetakeRuleError, match="retake_limit_reached"):
+        reserve_attempt(app, **LEARNER, request_id="after-reduction")

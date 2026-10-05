@@ -37,7 +37,7 @@ Deliver a real, reusable per-learner, per-lesson retake capability, initially en
 
 ## Outcomes & Retrospective
 
-Reusable implementation is complete locally: the ledger, producer guards, failure restoration, permissioned policy/status/reset APIs, teacher settings and learner prompts are integrated. Final validation: 323 backend tests and 180 frontend tests passed; full pre-commit gates passed. Full TypeScript checking still reports the same four errors reproduced on unchanged dev02 using the installed dependencies. Local MySQL concurrency and first-study reopen/continuation checks now pass (see the later checkpoint). Runtime deployment and browser acceptance remain open. The feature is default-off and the independent test course remains unpublished; this is not yet a team-experience release.
+Reusable implementation is complete locally: the ledger, producer guards, failure restoration, permissioned policy/status/reset APIs, teacher settings and learner prompts are integrated. Final validation: 323 backend tests and 180 frontend tests passed; full pre-commit gates passed. Full TypeScript checking still reports the same four errors reproduced on unchanged dev02 using the installed dependencies. Local MySQL concurrency and first-study reopen/continuation checks now pass (see the later checkpoint). Runtime deployment and browser acceptance remain open. The independent test course learner page was accessible on 2026-10-05, but no finite allowance or teacher setting was visible. Deployment activation and counted retakes remain unverified; this is not yet a team-experience release.
 
 ## Context and Orientation
 
@@ -204,3 +204,18 @@ Keep `LESSON_RETAKE_SHIFU_BIDS` empty during the code rollout. Install all three
 - This corrects the earlier diagnosis boundary: the UI can show “query failed” even when the network request succeeds. Browser reproduction plus executable request-contract tests establish the client defect; deployment activation and database state are separate checks.
 - Next: complete required checks, push the focused fix to dev02, and revisit the supplied URL after deployment. Do not claim runtime repair from local tests or a push alone.
 - Verification: full pre-commit gate passed. TypeScript still reports exactly the four previously documented baseline errors in operations-user tests and markdown-flow locale typing; no retake error was added. No checks were disabled.
+
+
+### 2026-10-05 — teacher-first configuration delivery plan
+
+- Approved: the teacher saves a per-lesson allowance before enforcement/accounting starts; no historical debit. The independent test course will use 2 extra retakes per lesson for acceptance.
+- [x] Clarify persisted teacher state separately from unsaved input: unconfigured, unlimited or saved numeric limit; expose policy-load failure rather than silently hiding it.
+- [x] Add teacher policy-load analytics, define its safe contract before implementation, and test failure isolation and stale-response exclusion.
+- [x] Verify no allowance before configuration, first save at 2, consumption, per-lesson independence and later increases/reductions preserving usage.
+- [ ] Run checks and push only this work to dev02.
+- [ ] Obtain deployment control entry; verify runtime/schema and merge the exact dev02 namespace/course allowlist. This capability is still missing and has been requested from the user.
+- [ ] In the test environment save 2 as teacher, verify learner confirmation, a real charged retake, exhaustion and adjustment. Do not mark delivery complete until this path works.
+
+No new schema or counter reset is planned. Existing deployment isolation remains; environment configuration is a platform responsibility, never a teacher task. Keep source course and production untouched. Roll back UI-only additions by reverting this focused commit; preserve existing ledger and running producers.
+
+- Local evidence for teacher-first follow-up: 19 frontend tests and 44 backend tests passed. TypeScript reports only the same four documented baseline errors. The JSON formatter normalized key order on the first complete gate; no rules were weakened. Runtime activation is still blocked on the deployment entry; the user approved 2 as the test allowance but has not supplied that entry.

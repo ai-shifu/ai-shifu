@@ -381,3 +381,15 @@ changes to whole-lesson retakes. Ask and normal continuation are excluded.
 No input, answer, title or error text is collected. Analytics failure must not
 change either the block or the existing content. This adds a new signal; it
 does not reinterpret the catalog/update exposure events.
+
+
+Retake teacher configuration load signal (additive v1):
+`teacher_retake_policy_loaded` measures whether course owners can reach the
+configuration step. Emit once when each mounted settings section's policy load
+settles and is still current. Payload is only `shifu_bid` and `result`
+(`available`, `unavailable`, `failed`). Eligible users are course owners in the
+editor settings; read-only collaborators and learner/preview surfaces do not
+mount this control. Cancelled/stale loads emit nothing. The retake pilot review
+compares load outcomes with existing save results; a load is not an activation.
+No error text, course title, or user input is included. Tracking is best-effort
+and cannot hide a setting or alter a save. Existing event contracts are unchanged.
