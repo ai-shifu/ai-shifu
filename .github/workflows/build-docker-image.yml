@@ -24,6 +24,9 @@ on:
       require-registry:
         type: boolean
         default: false
+      verify-registry-smoke:
+        type: boolean
+        default: false
       build-args:
         type: string
         default: ''
@@ -152,9 +155,14 @@ jobs:
         env:
           IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
           IMAGE_REPOSITORIES: ${{ steps.meta.outputs.images }}
+          VERIFY_REGISTRY_SMOKE: ${{ inputs.verify-registry-smoke }}
         run: |
+          acceptance=()
+          if [ "$VERIFY_REGISTRY_SMOKE" = true ]; then
+            acceptance+=(--pull-smoke)
+          fi
           python3 scripts/check_docker_image.py verify-published \
-            "$RUNNER_TEMP/docker-smoke.json" "$IMAGE_DIGEST" --images "$IMAGE_REPOSITORIES"
+            "$RUNNER_TEMP/docker-smoke.json" "$IMAGE_DIGEST" --images "$IMAGE_REPOSITORIES" "${acceptance[@]}"
 
       - name: Export image digest
         if: steps.meta.outputs.push-images == 'true'

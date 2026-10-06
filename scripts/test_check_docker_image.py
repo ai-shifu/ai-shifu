@@ -202,6 +202,100 @@ class ProductionImageTests(unittest.TestCase):
             )
         assert daemon.call_count == 2
 
+    def test_optional_registry_smoke_pulls_immutable_refs_on_each_native_platform(
+        self,
+    ) -> None:
+        for platform in ("linux/amd64", "linux/arm64"):
+            record = {"service": "web", "platform": platform, "config_digest": CONFIG}
+            with (
+                patch("check_docker_image.published_config", return_value=CONFIG),
+                patch("check_docker_image.docker") as daemon,
+                patch("check_docker_image.smoke", return_value=record) as run_smoke,
+            ):
+                verify_published(
+                    record,
+                    "dockerhub/web,registry.example.com/web",
+                    MANIFEST,
+                    pull_smoke=True,
+                )
+            assert [call.args for call in daemon.call_args_list] == [
+                ("pull", "--platform", platform, f"dockerhub/web@{MANIFEST}"),
+                (
+                    "pull",
+                    "--platform",
+                    platform,
+                    f"registry.example.com/web@{MANIFEST}",
+                ),
+            ]
+            assert [call.args for call in run_smoke.call_args_list] == [
+                ("web", f"dockerhub/web@{MANIFEST}", platform),
+                ("web", f"registry.example.com/web@{MANIFEST}", platform),
+            ]
+
+    def test_registry_pull_and_startup_failures_block_publication_handoff(self) -> None:
+        record = {"service": "api", "platform": "linux/amd64", "config_digest": CONFIG}
+        failure = subprocess.CalledProcessError(
+            1, "docker", stderr="registry pull failed"
+        )
+        with (
+            patch("check_docker_image.published_config", return_value=CONFIG),
+            patch("check_docker_image.docker", side_effect=failure) as daemon,
+            patch("check_docker_image.smoke") as run_smoke,
+            pytest.raises(subprocess.CalledProcessError),
+        ):
+            verify_published(
+                record,
+                "dockerhub/api,registry.example.com/api",
+                MANIFEST,
+                pull_smoke=True,
+            )
+        assert daemon.call_count == 1
+        run_smoke.assert_not_called()
+        with (
+            patch("check_docker_image.published_config", return_value=CONFIG),
+            patch("check_docker_image.docker") as daemon,
+            patch(
+                "check_docker_image.smoke", side_effect=ValueError("unhealthy startup")
+            ),
+            pytest.raises(ValueError, match="unhealthy startup"),
+        ):
+            verify_published(
+                record,
+                "dockerhub/api,registry.example.com/api",
+                MANIFEST,
+                pull_smoke=True,
+            )
+        assert daemon.call_count == 1
+
+    def test_registry_pulled_config_must_match_original_production_smoke(self) -> None:
+        record = {"service": "api", "platform": "linux/arm64", "config_digest": CONFIG}
+        with (
+            patch("check_docker_image.published_config", return_value=CONFIG),
+            patch("check_docker_image.docker"),
+            patch(
+                "check_docker_image.smoke",
+                return_value={**record, "config_digest": MANIFEST},
+            ),
+            pytest.raises(ValueError, match="Registry-pulled"),
+        ):
+            verify_published(
+                record, "registry.example.com/api", MANIFEST, pull_smoke=True
+            )
+
+    def test_default_registry_verification_preserves_config_only_behavior(self) -> None:
+        with (
+            patch("check_docker_image.published_config", return_value=CONFIG),
+            patch("check_docker_image.docker") as daemon,
+            patch("check_docker_image.smoke") as run_smoke,
+        ):
+            verify_published(
+                {"platform": "linux/amd64", "config_digest": CONFIG},
+                "registry/api",
+                MANIFEST,
+            )
+        daemon.assert_not_called()
+        run_smoke.assert_not_called()
+
     def test_invalid_fingerprint_does_not_query_registry(self) -> None:
         """A missing smoke record cannot be replaced by merely checking a pushed tag."""
         with (

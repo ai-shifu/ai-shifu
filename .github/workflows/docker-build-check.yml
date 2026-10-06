@@ -99,6 +99,7 @@ jobs:
       dockerfile: ${{ matrix.dockerfile }}
       push-images: true
       require-registry: true
+      verify-registry-smoke: true
       tags: |
         type=raw,value=candidate-${{ github.run_id }}-${{ github.run_attempt }}
       labels: |

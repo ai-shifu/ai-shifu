@@ -43,7 +43,13 @@ promotion across services and registries is not an atomic transaction.
 ## Isolated registry acceptance
 
 The packaging workflow's manual `publish-candidates` option builds and smoke-tests
-both services, publishes isolated candidates, then runs `complete-candidates`.
+both services and enables `verify-registry-smoke`. For every registry and native
+platform it pulls the exact exported digest with `docker pull --platform`, reruns
+the same production startup/HTTP/native-module smoke, and requires its config
+digest to equal the original local smoke record before any native handoff. Pull,
+startup, and content failures prevent successful service publication. Regular
+latest/release jobs retain config readback without this extra startup pass.
+The candidate path then publishes isolated manifests and runs `complete-candidates`.
 That job collects the same complete digest descriptor and exercises the identical
 index-copy/readback operation using
 `candidate-copy-<run_id>-<run_attempt>-<service>` tags in each configured registry.

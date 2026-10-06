@@ -226,7 +226,9 @@ def published_config(image: str, digest: str, platform: str) -> str:
     return raw.get("config", {}).get("digest", "")
 
 
-def verify_published(record: dict[str, str], images: str, digest: str) -> None:
+def verify_published(
+    record: dict[str, str], images: str, digest: str, *, pull_smoke: bool = False
+) -> None:
     """Require every registry's published filesystem/config to match the smoke-tested image."""
     expected = record.get("config_digest", "")
     platform = record.get("platform", "")
@@ -235,6 +237,7 @@ def verify_published(record: dict[str, str], images: str, digest: str) -> None:
         not DIGEST.fullmatch(expected)
         or not DIGEST.fullmatch(digest)
         or platform not in {"linux/amd64", "linux/arm64"}
+        or (pull_smoke and record.get("service") not in {"api", "web"})
         or any(
             not image or "@" in image or any(c.isspace() for c in image)
             for image in repositories
@@ -247,6 +250,14 @@ def verify_published(record: dict[str, str], images: str, digest: str) -> None:
             message = f"Published {platform} image differs from the smoke-tested image"
             raise ValueError(message)
         print(f"Verified smoke-tested content: {image} {platform}")
+        if pull_smoke:
+            reference = f"{image}@{digest}"
+            docker("pull", "--platform", platform, reference)
+            pulled = smoke(record["service"], reference, platform)
+            if pulled.get("config_digest") != expected:
+                message = "Registry-pulled production image differs from the original smoke config"
+                raise ValueError(message)
+            print(f"Verified registry-pulled production smoke: {image} {platform}")
 
 
 def main() -> None:
@@ -262,6 +273,7 @@ def main() -> None:
     verify.add_argument("record", type=Path)
     verify.add_argument("digest")
     verify.add_argument("--images", required=True)
+    verify.add_argument("--pull-smoke", action="store_true")
     args = parser.parse_args()
     try:
         if args.command == "smoke":
@@ -269,7 +281,10 @@ def main() -> None:
             args.record.write_text(json.dumps(record) + "\n")
         else:
             verify_published(
-                json.loads(args.record.read_text()), args.images, args.digest
+                json.loads(args.record.read_text()),
+                args.images,
+                args.digest,
+                pull_smoke=args.pull_smoke,
             )
     except (ValueError, KeyError, OSError, subprocess.SubprocessError) as error:
         if isinstance(error, subprocess.CalledProcessError):

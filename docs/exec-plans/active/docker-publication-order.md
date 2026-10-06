@@ -22,6 +22,9 @@ worker, scheduler, and web deployment. The canonical operational contract is
 - [x] 2026-10-07 UTC: Added guarded cached native-export retries, exact
   smoke/config metadata checks, retry-time main guards, and terminal main readback;
   all 55 publication plus foundation smoke tests pass.
+- [x] 2026-10-07 UTC: Added candidate-only registry pull/startup smoke for
+  every registry and native platform, preserving immutable references and the
+  original config gate; all 60 focused script checks pass.
 - [ ] External acceptance: verify cold/warm native smoke builds, actual index
   copies and annotations in both registries, partial recovery, and ordering.
 
