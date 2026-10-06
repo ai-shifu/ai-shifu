@@ -1,4 +1,4 @@
-FROM node:22.16.0-alpine AS builder
+FROM node:22.16.0-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS builder
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ COPY ${I18N_DIR}/ ./i18n
 
 RUN npm run build
 
-FROM node:22.16.0-alpine AS runner
+FROM node:22.16.0-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS runner
 
 WORKDIR /app
 
