@@ -50,7 +50,7 @@ def stage_reset_records(*, user_bid: str, shifu_bid: str, outline_bid: str) -> d
         LearnGeneratedBlock.status == 1,
         or_(
             LearnGeneratedBlock.role == ROLE_TEACHER,
-            # Historical agent turns used an empty source block and default role 0.
+            # Historical MDF teaching used an empty source block and default role 0.
             # Keep student/error blocks and source-backed legacy rows excluded.
             and_(
                 LearnGeneratedBlock.role == 0,

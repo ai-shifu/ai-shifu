@@ -832,3 +832,36 @@ def test_unknown_role_does_not_admit_non_agent_teaching(app: Flask, kind: str) -
     with pytest.raises(RetakeRuleError, match="nothing_to_retake"):
         reserve(app)
     assert get_allowance(app, **IDENTITY).used == 0
+
+
+@pytest.mark.parametrize("flush_before_finalize", [False, True])
+def test_legacy_factory_teaching_is_charged(
+    app: Flask, flush_before_finalize: bool
+) -> None:
+    from flaskr.service.learn.utils_v2 import init_generated_block
+
+    execution = reserve(app)
+    with owning_retake(execution):
+        progress, _ = new_records()
+        block = init_generated_block(
+            app,
+            shifu_bid="course",
+            outline_item_bid="lesson",
+            progress_record_bid="replacement",
+            user_bid="learner",
+            block_type=BLOCK_TYPE_MDCONTENT_VALUE,
+            mdflow="Teach one idea",
+            block_index=0,
+        )
+        if flush_before_finalize:
+            db.session.add(block)
+            db.session.flush()
+        RunRecorder(app).finalize_streamed_block(
+            block,
+            "Durable teaching from the real legacy factory",
+            progress,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=1,
+        )
+        assert block.role == ROLE_TEACHER
+    assert get_allowance(app, **IDENTITY).used == 1

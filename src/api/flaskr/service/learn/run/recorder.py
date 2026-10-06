@@ -150,6 +150,14 @@ class RunRecorder:
     @staticmethod
     def _stage_retake(block: LearnGeneratedBlock) -> None:
         """Only successful teaching, never answers, errors or feedback, counts."""
+        # Legacy MDF content uses an empty source block and leaves role unset.
+        # Normalize only teaching content; never reinterpret student or error rows.
+        if (
+            block.type == BLOCK_TYPE_MDCONTENT_VALUE
+            and block.role in (None, 0)
+            and block.block_bid == ""
+        ):
+            block.role = ROLE_TEACHER
         if block.type == BLOCK_TYPE_MDCONTENT_VALUE and block.role == ROLE_TEACHER:
             stage_retake_content(
                 shifu_bid=block.shifu_bid,
