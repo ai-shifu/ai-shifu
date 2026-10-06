@@ -12,6 +12,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)
 - [Credit Notification Email Delivery](./active/credit-notification-email-delivery.md)
 - [Custom manual credit validity](./active/custom-credit-validity.md)
+- [Main Docker build failures: evidence and repair strategy](./active/docker-build-failure-analysis.md)
 - [Docker build stability with native platform runners](./active/docker-build-stability.md)
 - [Configurable Gemini Live admission capacity](./active/gemini-live-configurable-capacity.md)
 - [Gemini Live follow-up acceptance](./active/gemini-live-voice-follow-up.md)

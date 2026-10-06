@@ -69,6 +69,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1
 
       - name: Build diagnostics
         run: |
@@ -107,20 +109,55 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile }}
           platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: ai-shifu-smoke:${{ inputs.service }}-${{ matrix.arch }}-${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
           provenance: false
           sbom: false
           # Distinct writers for each service/platform; latest and release can reuse layers.
           cache-from: type=gha,scope=ai-shifu-${{ inputs.service }}-${{ matrix.arch }}
           cache-to: type=gha,scope=ai-shifu-${{ inputs.service }}-${{ matrix.arch }},mode=max
           build-args: ${{ inputs.build-args }}
-          outputs: ${{ steps.meta.outputs.push-images == 'true' && format('type=image,"name={0}",push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.images) || 'type=cacheonly' }}
+
+      - name: Smoke-test production image
+        id: smoke
+        env:
+          IMAGE_SERVICE: ${{ inputs.service }}
+          IMAGE_ARCH: ${{ matrix.arch }}
+          LOCAL_IMAGE: ai-shifu-smoke:${{ inputs.service }}-${{ matrix.arch }}-${{ github.sha }}
+        run: |
+          python3 scripts/check_docker_image.py smoke "$IMAGE_SERVICE" "$LOCAL_IMAGE" \
+            "linux/$IMAGE_ARCH" --record "$RUNNER_TEMP/docker-smoke.json"
+
+      - name: Push tested native image by digest
+        id: push
+        if: steps.meta.outputs.push-images == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: false
+          sbom: false
+          # The same builder reuses the tested layers; verify their config below.
+          build-args: ${{ inputs.build-args }}
+          outputs: ${{ format('type=image,"name={0}",push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.images) }}
+
+      - name: Verify pushed content matches production smoke
+        if: steps.meta.outputs.push-images == 'true'
+        env:
+          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
+          IMAGE_REPOSITORIES: ${{ steps.meta.outputs.images }}
+        run: |
+          python3 scripts/check_docker_image.py verify-published \
+            "$RUNNER_TEMP/docker-smoke.json" "$IMAGE_DIGEST" --images "$IMAGE_REPOSITORIES"
 
       - name: Export image digest
         if: steps.meta.outputs.push-images == 'true'
         env:
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
           IMAGE_ARCH: ${{ matrix.arch }}
         run: |
           mkdir -p "$RUNNER_TEMP/digests"
@@ -143,12 +180,14 @@ jobs:
         if: always()
         env:
           BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
           IMAGE_SERVICE: ${{ inputs.service }}
           IMAGE_ARCH: ${{ matrix.arch }}
         run: |
           echo "### $IMAGE_SERVICE / linux/$IMAGE_ARCH: $BUILD_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- Native runner: $(uname -m)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Production smoke: $SMOKE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- Cache scope: ai-shifu-$IMAGE_SERVICE-$IMAGE_ARCH" >> "$GITHUB_STEP_SUMMARY"
 
   publish:
@@ -168,6 +207,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1
 
       - name: Prepare image metadata
         id: meta
