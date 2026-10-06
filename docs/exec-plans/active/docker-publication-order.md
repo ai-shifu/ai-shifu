@@ -25,6 +25,8 @@ worker, scheduler, and web deployment. The canonical operational contract is
 - [x] 2026-10-07 UTC: Added candidate-only registry pull/startup smoke for
   every registry and native platform, preserving immutable references and the
   original config gate; all 60 focused script checks pass.
+- [x] 2026-10-06 22:51 UTC: Matched release descriptor-only statuses to the exact
+  saved descriptor bytes; the review regression and all 61 focused checks pass.
 - [ ] External acceptance: verify cold/warm native smoke builds, actual index
   copies and annotations in both registries, partial recovery, and ordering.
 

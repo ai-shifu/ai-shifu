@@ -218,6 +218,13 @@ def _ensure_latest_current(source: dict, image: dict, build_attempt: int) -> Non
     ensure_not_newer(image, source, build_attempt)
 
 
+def descriptor_identity(descriptor: dict) -> str:
+    """Match a publication status to the exact canonical descriptor file bytes."""
+    return hashlib.sha256(
+        (json.dumps(descriptor, indent=2, sort_keys=True) + "\n").encode()
+    ).hexdigest()
+
+
 def _copy_indexes(descriptor: dict, status_path: Path, *, promote_latest: bool) -> None:
     """Preflight all references and copy unchanged indexes to a selected channel."""
     source = descriptor["source"]
@@ -226,12 +233,9 @@ def _copy_indexes(descriptor: dict, status_path: Path, *, promote_latest: bool) 
         for service, record in descriptor["services"].items()
         for image in record["images"]
     ]
-    identity = hashlib.sha256(
-        (json.dumps(descriptor, indent=2, sort_keys=True) + "\n").encode()
-    ).hexdigest()
     status = {
         "phase": "latest-promotion" if promote_latest else "candidate-copy",
-        "descriptor_sha256": identity,
+        "descriptor_sha256": descriptor_identity(descriptor),
         "source": source,
         "state": "pending",
         "targets": [
@@ -349,6 +353,7 @@ def main() -> None:
                 args.status,
                 {
                     "phase": "descriptor-only",
+                    "descriptor_sha256": descriptor_identity(descriptor),
                     "state": "verified",
                     "source": descriptor["source"],
                 },

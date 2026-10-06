@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import tempfile
@@ -152,6 +153,40 @@ class CompletePublicationTests(unittest.TestCase):
             main()
         assert error.value.code == 2
         load.assert_not_called()
+
+    def test_release_status_matches_the_written_descriptor_bytes(self) -> None:
+        descriptor_path = self.directory / "deployment-descriptor.json"
+        arguments = [
+            "promote_docker_images.py",
+            "collect",
+            str(self.directory),
+            "--descriptor",
+            str(descriptor_path),
+            "--status",
+            str(self.status),
+        ]
+        with (
+            patch("sys.argv", arguments),
+            patch.dict(
+                "os.environ",
+                {
+                    "GITHUB_SHA": self.sha,
+                    "GITHUB_RUN_ID": self.run_id,
+                    "GITHUB_RUN_ATTEMPT": "1",
+                },
+            ),
+            patch("promote_docker_images.docker") as run_docker,
+        ):
+            main()
+        run_docker.assert_not_called()
+        status = json.loads(self.status.read_text())
+        assert status["phase"] == "descriptor-only"
+        assert status["state"] == "verified"
+        assert status["source"] == self.descriptor["source"]
+        assert (
+            status["descriptor_sha256"]
+            == hashlib.sha256(descriptor_path.read_bytes()).hexdigest()
+        )
 
     def test_all_services_are_required_before_deployment_or_promotion(self) -> None:
         (self.directory / "docker-publication-web-1/service.json").unlink()
