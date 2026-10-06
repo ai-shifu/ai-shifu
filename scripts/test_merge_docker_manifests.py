@@ -60,6 +60,7 @@ class ManifestPublicationTests(unittest.TestCase):
         return json.dumps(
             {
                 "digest": "sha256:" + "e" * 64,
+                "mediaType": "application/vnd.oci.image.index.v1+json",
                 "manifests": [
                     {
                         "digest": digest,
@@ -93,6 +94,22 @@ class ManifestPublicationTests(unittest.TestCase):
                 inspect_digest("aishifu/web:candidate", self.digests, expected)
                 == "sha256:" + "e" * 64
             )
+
+    def test_ordering_annotations_require_an_oci_index(self) -> None:
+        expected = {
+            "io.ai-shifu.publication.run-id": "200",
+            "io.ai-shifu.publication.run-attempt": "1",
+        }
+        manifest = json.loads(self.manifest())
+        manifest["annotations"] = expected
+        manifest["mediaType"] = (
+            "application/vnd.docker.distribution.manifest.list.v2+json"
+        )
+        with (
+            patch("merge_docker_manifests.docker", return_value=json.dumps(manifest)),
+            pytest.raises(ValueError, match="must use OCI"),
+        ):
+            inspect_digest("aishifu/web:candidate", self.digests, expected)
 
     def test_preflight_failure_records_no_attempted_tag_writes(self) -> None:
         """All destination readiness failures leave only pending tags in the report."""

@@ -68,6 +68,7 @@ jobs:
           docker version
 
       - name: Set up Docker Buildx
+        id: buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: image=moby/buildkit:v0.33.1
@@ -134,18 +135,17 @@ jobs:
       - name: Push tested native image by digest
         id: push
         if: steps.meta.outputs.push-images == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ inputs.dockerfile }}
-          platforms: linux/${{ matrix.arch }}
-          labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
-          provenance: false
-          sbom: false
-          # The same builder reuses the tested layers; verify their config below.
-          build-args: ${{ inputs.build-args }}
-          outputs: ${{ format('type=image,"name={0}",push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.images) }}
+        env:
+          IMAGE_BUILDER: ${{ steps.buildx.outputs.name }}
+          IMAGE_DOCKERFILE: ${{ inputs.dockerfile }}
+          IMAGE_REPOSITORIES: ${{ steps.meta.outputs.images }}
+          IMAGE_LABELS: ${{ steps.meta.outputs.labels }}
+          IMAGE_ANNOTATIONS: ${{ steps.meta.outputs.annotations }}
+          IMAGE_BUILD_ARGS: ${{ inputs.build-args }}
+        run: |
+          python3 scripts/push_tested_docker_image.py "$RUNNER_TEMP/docker-smoke.json" \
+            --builder "$IMAGE_BUILDER" --dockerfile "$IMAGE_DOCKERFILE" \
+            --images "$IMAGE_REPOSITORIES" --metadata "$RUNNER_TEMP/docker-push.json"
 
       - name: Verify pushed content matches production smoke
         if: steps.meta.outputs.push-images == 'true'

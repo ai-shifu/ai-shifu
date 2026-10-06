@@ -6,6 +6,9 @@ on:
       promote-latest:
         type: boolean
         default: false
+      verify-candidate-copies:
+        type: boolean
+        default: false
       require-registry:
         type: boolean
         default: false
@@ -73,10 +76,14 @@ jobs:
         if: steps.meta.outputs.push-images == 'true'
         env:
           PROMOTE_LATEST: ${{ inputs.promote-latest }}
+          VERIFY_CANDIDATE_COPIES: ${{ inputs.verify-candidate-copies }}
         run: |
           promotion=()
           if [ "$PROMOTE_LATEST" = true ]; then
             promotion+=(--promote-latest)
+          fi
+          if [ "$VERIFY_CANDIDATE_COPIES" = true ]; then
+            promotion+=(--verify-candidate-copies)
           fi
           python3 scripts/promote_docker_images.py collect "$RUNNER_TEMP/publications" \
             --descriptor "$RUNNER_TEMP/completed/deployment-descriptor.json" \

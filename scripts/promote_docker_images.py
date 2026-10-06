@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
 
 from merge_docker_manifests import (
@@ -211,36 +212,46 @@ def ensure_not_newer(image: dict, source: dict, build_attempt: int) -> None:
         raise StalePublicationError(message)
 
 
-def promote(descriptor: dict, status_path: Path) -> None:
-    """Preflight all service/registry refs, then publish latest serially."""
+def _ensure_latest_current(source: dict, image: dict, build_attempt: int) -> None:
+    """Recheck mutable-channel authorization before every write/retry attempt."""
+    ensure_current_main(source["sha"])
+    ensure_not_newer(image, source, build_attempt)
+
+
+def _copy_indexes(descriptor: dict, status_path: Path, *, promote_latest: bool) -> None:
+    """Preflight all references and copy unchanged indexes to a selected channel."""
     source = descriptor["source"]
     targets = [
-        (image, record["build_attempt"])
-        for record in descriptor["services"].values()
+        (image, record["build_attempt"], service)
+        for service, record in descriptor["services"].items()
         for image in record["images"]
     ]
     identity = hashlib.sha256(
         (json.dumps(descriptor, indent=2, sort_keys=True) + "\n").encode()
     ).hexdigest()
     status = {
-        "phase": "latest-promotion",
+        "phase": "latest-promotion" if promote_latest else "candidate-copy",
         "descriptor_sha256": identity,
         "source": source,
         "state": "pending",
         "targets": [
             {
-                "tag": f"{image['repository']}:latest",
+                "tag": f"{image['repository']}:latest"
+                if promote_latest
+                else f"{image['repository']}:candidate-copy-{source['run_id']}-{source['run_attempt']}-{service}",
                 "expected_digest": image["digest"],
                 "state": "pending",
             }
-            for image, _ in targets
+            for image, _, service in targets
         ],
     }
     write_json(status_path, status)
     try:
-        ensure_current_main(source["sha"])
-        for image, build_attempt in targets:
-            ensure_not_newer(image, source, build_attempt)
+        if promote_latest:
+            ensure_current_main(source["sha"])
+        for image, build_attempt, _ in targets:
+            if promote_latest:
+                ensure_not_newer(image, source, build_attempt)
             reference = f"{image['repository']}@{image['digest']}"
             annotations = {
                 RUN_ANNOTATION: source["run_id"],
@@ -250,11 +261,12 @@ def promote(descriptor: dict, status_path: Path) -> None:
                 inspect_digest(reference, image["platforms"], annotations),
                 image["digest"],
             )
-        for (image, build_attempt), target in zip(
+        for (image, build_attempt, _), target in zip(
             targets, status["targets"], strict=True
         ):
-            ensure_current_main(source["sha"])
-            ensure_not_newer(image, source, build_attempt)
+            if promote_latest:
+                ensure_current_main(source["sha"])
+                ensure_not_newer(image, source, build_attempt)
             target["state"] = "unverified"
             write_json(status_path, status)
             docker(
@@ -262,12 +274,19 @@ def promote(descriptor: dict, status_path: Path) -> None:
                 "--tag",
                 target["tag"],
                 f"{image['repository']}@{image['digest']}",
+                before_attempt=partial(
+                    _ensure_latest_current, source, image, build_attempt
+                )
+                if promote_latest
+                else None,
             )
             require_same_digest(
                 inspect_digest(target["tag"], image["platforms"]), image["digest"]
             )
             target["state"] = "verified"
             write_json(status_path, status)
+        if promote_latest:
+            ensure_current_main(source["sha"])
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         status["state"] = (
             "stale" if isinstance(error, StalePublicationError) else "failed"
@@ -279,6 +298,16 @@ def promote(descriptor: dict, status_path: Path) -> None:
     write_json(status_path, status)
 
 
+def promote(descriptor: dict, status_path: Path) -> None:
+    """Require current main and publication ordering before moving latest."""
+    _copy_indexes(descriptor, status_path, promote_latest=True)
+
+
+def verify_candidate_copies(descriptor: dict, status_path: Path) -> None:
+    """Exercise the exact copy/readback path using isolated candidate tags."""
+    _copy_indexes(descriptor, status_path, promote_latest=False)
+
+
 def main() -> None:
     """Aggregate current-run artifacts or render an already saved descriptor."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -287,7 +316,9 @@ def main() -> None:
     collect.add_argument("artifact_directory", type=Path)
     collect.add_argument("--descriptor", type=Path, required=True)
     collect.add_argument("--status", type=Path, required=True)
-    collect.add_argument("--promote-latest", action="store_true")
+    channel = collect.add_mutually_exclusive_group()
+    channel.add_argument("--promote-latest", action="store_true")
+    channel.add_argument("--verify-candidate-copies", action="store_true")
     render = subparsers.add_parser("render")
     render.add_argument("descriptor", type=Path)
     render.add_argument("--registry", default="docker.io")
@@ -311,6 +342,8 @@ def main() -> None:
         write_json(args.descriptor, descriptor)
         if args.promote_latest:
             promote(descriptor, args.status)
+        elif args.verify_candidate_copies:
+            verify_candidate_copies(descriptor, args.status)
         else:
             write_json(
                 args.status,

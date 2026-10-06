@@ -19,7 +19,9 @@ from promote_docker_images import (
     ensure_current_main,
     ensure_not_newer,
     load_publication,
+    main,
     promote,
+    verify_candidate_copies,
 )
 
 
@@ -85,6 +87,71 @@ class CompletePublicationTests(unittest.TestCase):
                 ATTEMPT_ANNOTATION: str(attempt),
             }
         return json.dumps(result)
+
+    def test_candidate_copies_never_write_latest_or_bypass_its_guards(self) -> None:
+        with (
+            patch("promote_docker_images.ensure_current_main") as current,
+            patch("promote_docker_images.ensure_not_newer") as ordering,
+            patch("promote_docker_images.inspect_digest", return_value=self.index),
+            patch("promote_docker_images.docker") as run_docker,
+        ):
+            verify_candidate_copies(self.descriptor, self.status)
+        current.assert_not_called()
+        ordering.assert_not_called()
+        assert [call.args[2] for call in run_docker.call_args_list] == [
+            "aishifu/api:candidate-copy-200-1-api",
+            "aishifu/web:candidate-copy-200-1-web",
+        ]
+        status = json.loads(self.status.read_text())
+        assert status["phase"] == "candidate-copy"
+        assert status["state"] == "verified"
+        with (
+            patch.dict("os.environ", {"GITHUB_REF": "refs/heads/feature"}),
+            patch("promote_docker_images.docker") as run_docker,
+            pytest.raises(ValueError, match="Only main"),
+        ):
+            promote(self.descriptor, self.status)
+        run_docker.assert_not_called()
+
+    def test_candidate_copy_partial_failure_retains_independent_status(self) -> None:
+        failure = subprocess.CalledProcessError(1, "docker", stderr="denied")
+        with (
+            patch("promote_docker_images.inspect_digest", return_value=self.index),
+            patch("promote_docker_images.docker", side_effect=["", failure]),
+            pytest.raises(subprocess.CalledProcessError),
+        ):
+            verify_candidate_copies(self.descriptor, self.status)
+        report = json.loads(self.status.read_text())
+        assert report["phase"] == "candidate-copy"
+        assert report["state"] == "failed"
+        assert [target["state"] for target in report["targets"]] == [
+            "verified",
+            "unverified",
+        ]
+        assert all(
+            ":candidate-copy-200-1-" in target["tag"] for target in report["targets"]
+        )
+
+    def test_cli_rejects_combined_candidate_and_latest_modes(self) -> None:
+        arguments = [
+            "promote_docker_images.py",
+            "collect",
+            str(self.directory),
+            "--descriptor",
+            "descriptor.json",
+            "--status",
+            "status.json",
+            "--promote-latest",
+            "--verify-candidate-copies",
+        ]
+        with (
+            patch("sys.argv", arguments),
+            patch("promote_docker_images.load_publication") as load,
+            pytest.raises(SystemExit) as error,
+        ):
+            main()
+        assert error.value.code == 2
+        load.assert_not_called()
 
     def test_all_services_are_required_before_deployment_or_promotion(self) -> None:
         (self.directory / "docker-publication-web-1/service.json").unlink()
@@ -233,6 +300,49 @@ class CompletePublicationTests(unittest.TestCase):
         recovered = json.loads(self.status.read_text())
         assert recovered["descriptor_sha256"] == original_identity
         assert recovered["state"] == "verified"
+
+    def test_latest_transport_retry_rechecks_main_before_another_write(self) -> None:
+        failure = subprocess.CalledProcessError(
+            1, "docker", stderr="TLS handshake timeout"
+        )
+        with (
+            patch(
+                "promote_docker_images.ensure_current_main",
+                side_effect=[None, None, None, StalePublicationError("advanced")],
+            ),
+            patch("promote_docker_images.ensure_not_newer"),
+            patch("promote_docker_images.inspect_digest", return_value=self.index),
+            patch(
+                "merge_docker_manifests.subprocess.run", side_effect=failure
+            ) as run_command,
+            patch("merge_docker_manifests.time.sleep"),
+            pytest.raises(StalePublicationError),
+        ):
+            promote(self.descriptor, self.status)
+        assert run_command.call_count == 1
+        report = json.loads(self.status.read_text())
+        assert report["state"] == "stale"
+        assert [target["state"] for target in report["targets"]] == [
+            "unverified",
+            "pending",
+        ]
+
+    def test_main_advancing_after_final_readback_cannot_report_verified(self) -> None:
+        with (
+            patch(
+                "promote_docker_images.ensure_current_main",
+                side_effect=[None, None, None, StalePublicationError("advanced")],
+            ),
+            patch("promote_docker_images.ensure_not_newer"),
+            patch("promote_docker_images.inspect_digest", return_value=self.index),
+            patch("promote_docker_images.docker") as run_docker,
+            pytest.raises(StalePublicationError),
+        ):
+            promote(self.descriptor, self.status)
+        assert run_docker.call_count == 2
+        report = json.loads(self.status.read_text())
+        assert report["state"] == "stale"
+        assert all(target["state"] == "verified" for target in report["targets"])
 
     def test_main_advancing_between_mutations_leaves_partial_status(self) -> None:
         with (

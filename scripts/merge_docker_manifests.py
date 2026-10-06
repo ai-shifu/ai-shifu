@@ -11,6 +11,10 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 PLATFORMS = frozenset({"linux/amd64", "linux/arm64"})
 DIGEST_PATTERN = re.compile(r"sha256:[a-f0-9]{64}")
@@ -94,9 +98,19 @@ def tags_by_image(metadata: dict) -> dict[str, list[str]]:
     return grouped
 
 
-def docker(*arguments: str) -> str:
+def is_transport_failure(detail: str) -> bool:
+    """Recognize recoverable network failures without retrying permanent errors."""
+    lowered = detail.lower()
+    return any(marker in lowered for marker in TRANSIENT_ERRORS) and not any(
+        marker in lowered for marker in PERMANENT_ERRORS
+    )
+
+
+def docker(*arguments: str, before_attempt: Callable[[], None] | None = None) -> str:
     """Retry bounded transport failures; preserve auth and format failures."""
     for attempt in range(3):
+        if before_attempt is not None:
+            before_attempt()
         try:
             result = subprocess.run(
                 ["docker", "buildx", "imagetools", *arguments],
@@ -105,10 +119,7 @@ def docker(*arguments: str) -> str:
                 text=True,
             )
         except subprocess.CalledProcessError as error:
-            detail = (error.stderr or "").lower()
-            transient = any(marker in detail for marker in TRANSIENT_ERRORS)
-            permanent = any(marker in detail for marker in PERMANENT_ERRORS)
-            if attempt == 2 or not transient or permanent:
+            if attempt == 2 or not is_transport_failure(error.stderr or ""):
                 raise
             print(
                 f"Registry transport failure; retrying operation ({attempt + 1}/2)",
@@ -148,6 +159,12 @@ def inspect_digest(
     digest = manifest.get("digest", "")
     if not isinstance(digest, str) or not DIGEST_PATTERN.fullmatch(digest):
         message = "Registry inspection did not return a valid index digest"
+        raise ValueError(message)
+    if (
+        annotations
+        and manifest.get("mediaType") != "application/vnd.oci.image.index.v1+json"
+    ):
+        message = "Registry index must use OCI media type for publication ordering annotations"
         raise ValueError(message)
     if annotations and any(
         manifest.get("annotations", {}).get(key) != value

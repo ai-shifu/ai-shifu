@@ -22,11 +22,12 @@ release draft/prerelease gating and release tags remain unchanged.
 ## Ordering and verification
 
 All latest promotions share a repository-wide concurrency group, with active
-publication cancellation disabled. Before the first write and each subsequent
-write, promotion resolves the live `main` ref and requires its SHA to equal the
-run's source SHA. A superseded run records `stale` and skips remaining writes.
+publication cancellation disabled. Before every write attempt, including each transport retry, promotion resolves the live `main` ref and requires its SHA to equal the
+run's source SHA. After the final readback it checks main again before reporting
+verified. A superseded run records `stale` and skips remaining writes.
 
-Candidate indexes include `io.ai-shifu.publication.run-id` and
+Native registry outputs explicitly use OCI media types so index annotations
+do not depend on BuildKit defaults. Candidate indexes include `io.ai-shifu.publication.run-id` and
 `io.ai-shifu.publication.run-attempt`. Promotion also inspects the current latest
 indexes and refuses to replace a newer run or a newer service attempt of the
 same run. This covers rebuilds of the same SHA. Old unannotated latest indexes
@@ -38,6 +39,21 @@ complete API/web service set, matching registry destinations, and every exact
 index/platform digest. Each final tag is then read back and must match its
 recorded index digest. Docker Hub and Aliyun are independent registries;
 promotion across services and registries is not an atomic transaction.
+
+## Isolated registry acceptance
+
+The packaging workflow's manual `publish-candidates` option builds and smoke-tests
+both services, publishes isolated candidates, then runs `complete-candidates`.
+That job collects the same complete digest descriptor and exercises the identical
+index-copy/readback operation using
+`candidate-copy-<run_id>-<run_attempt>-<service>` tags in each configured registry.
+Its independent `candidate-copy` status exposes verified and unknown partial
+writes. It does not mutate latest or require the source to be current main,
+so registry compatibility can be tested before merging.
+
+Candidate-copy and latest-promotion CLI modes are mutually exclusive. Selecting
+candidate copies cannot disable the main/source/order checks of a latest
+promotion. A descriptor-only release uses neither copy mode.
 
 ## Artifact interfaces
 
@@ -88,9 +104,20 @@ selected registry; it never falls back to `latest`.
 
 Only registry transport errors such as TLS handshake timeout, connection reset,
 and temporary name-resolution failure receive up to two retries of the identical
-manifest command. Authentication, authorization, certificate trust, media-type,
-manifest-validation, and unknown errors fail without retries. Native builds and
-smoke tests are not retried by this helper.
+manifest command. The native image push also uses a guarded cached exporter in
+`scripts/push_tested_docker_image.py`. It requires an existing successful
+production-smoke record, the same active builder and build inputs, explicit OCI
+media types, disabled provenance/SBOM, and positive plain-progress evidence that
+every reported RUN reused the tested cache. Only an exporter-owned transport
+failure can repeat that identical cached export; dependency downloads, compile
+errors, SIGILL, missing cache evidence, and metadata/config mismatches do not
+retry. Buildx metadata must identify the smoke-tested config, and each registry's
+published config is read back before a native digest artifact is uploaded.
+
+Authentication, authorization, certificate trust, media-type,
+manifest-validation, and unknown errors fail without retries. The initial native build and production smoke are not retried by these helpers.
+Login actions keep their existing authentication boundary; the cached exporter
+handles transient OAuth transport failures during push, not rejected credentials.
 
 Read the per-service status artifact and the complete publication status before
 recovery. A partial write retains the descriptor's immutable digest references
@@ -103,3 +130,6 @@ do not use a stale workflow to roll back the shared latest channel.
 
 Docker documents registry inspection and structured index digest output in
 [imagetools inspect](https://docs.docker.com/reference/cli/docker/buildx/imagetools/inspect/).
+
+Docker describes the cached export inputs and metadata digest fields in
+[buildx build](https://docs.docker.com/reference/cli/docker/buildx/build/).

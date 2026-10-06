@@ -14,9 +14,14 @@ worker, scheduler, and web deployment. The canonical operational contract is
   and actual Compose service names in an isolated managed worktree.
 - [x] 2026-10-07 UTC: Implemented coordinated promotion, run/attempt candidates,
   verified index annotations, service artifact carryover, and digest rendering.
-- [x] 2026-10-07 UTC: Added 29 focused offline tests and passed pinned Ruff.
+- [x] 2026-10-07 UTC: Added 45 focused offline tests and passed pinned Ruff.
 - [x] 2026-10-07 UTC: Passed actionlint, YAML, strict development-tool checks,
   architecture boundaries, repository harness, and the complete pre-commit gate.
+- [x] 2026-10-07 UTC: Integrated native smoke changes, explicit OCI outputs,
+  and isolated candidate index-copy/descriptor acceptance after rebasing onto #3015.
+- [x] 2026-10-07 UTC: Added guarded cached native-export retries, exact
+  smoke/config metadata checks, retry-time main guards, and terminal main readback;
+  all 55 publication plus foundation smoke tests pass.
 - [ ] External acceptance: verify cold/warm native smoke builds, actual index
   copies and annotations in both registries, partial recovery, and ordering.
 
@@ -54,7 +59,8 @@ Latest and release callers invoke `build-docker-image.yml` for each service. Its
 publish job writes complete candidate manifests and emits service artifacts.
 `complete-docker-publication.yml` runs after all services, collects both API/web,
 and optionally promotes latest. `merge_docker_manifests.py` owns registry command
-retry and manifest validation. `promote_docker_images.py` owns coordination,
+retry and manifest validation. `push_tested_docker_image.py` owns transport-only cached native exports.
+`promote_docker_images.py` owns coordination,
 ordering, deployment descriptors, and Compose rendering. There is no application
 runtime or analytics contract change.
 
