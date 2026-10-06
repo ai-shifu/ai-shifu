@@ -2,116 +2,143 @@
 
 ## Purpose / Big Picture
 
-Improve latest/release API and web packaging by removing QEMU from the build
-path and separating competing cache writers. Preserve triggers, image names,
-tag rules, registry configuration, dependency checks, and application behavior.
-This task delivers an independent draft PR after explicit approval. It does not
-publish images, deploy, or merge.
+Make API/Web packaging reliable on AMD64 and ARM64, execute the final production
+images before publication, and verify that registry content matches the tested
+images. Remove QEMU from this path, separate cache writers, and fix the tested
+BuildKit version. Preserve image names, release tags, compatible provenance/SBOM
+settings, and application behavior.
+
+The user approved implementing the repair strategy on 2026-10-07, superseding
+this plan's earlier draft-only scope. Continue PR #3015. Dependency reuse and
+global publication ordering remain separate focused PRs. Deployment is not part
+of this repair.
 
 ## Progress
 
-- [x] 2026-10-06 UTC: Inspected current main fc75185aa and created an isolated
-  worktree; copied ignored local environment files without starting services.
-- [x] 2026-10-06 UTC: Verified attempt 1 of run 37401758132 logged ARM64 QEMU
-  illegal instruction / exit 132 in the combined npm layer.
-- [x] 2026-10-06 UTC: Implemented native builds, separate caches, digest handoff,
-  manifest preflight, and runtime diagnostics.
-- [x] 2026-10-06 UTC: Passed nine manifest regression tests, eight registry/push
-  mode checks, pinned Ruff, actionlint, YAML checks, and the repository harness.
-- [x] 2026-10-06 UTC: User approved an independent draft PR and no-push CI
-  validation. Added packaging-only PR checks using native runners and no registry
-  secrets; publishing remains disabled in these checks.
-- [ ] External acceptance: finish native Linux build-only PR checks.
-- [ ] External acceptance: warm-cache runs, registry manifests, and partial
-  publication reruns. Image publication remains outside this task's authorization.
+- [x] 2026-10-06 UTC: Inspected main fc75185aa and created an isolated worktree;
+  copied ignored local environment files without starting services.
+- [x] 2026-10-06 UTC: Verified ARM64 QEMU SIGILL/exit 132 in attempt 1 of
+  run 37401758132; the exact crashing subprocess remains unconfirmed.
+- [x] 2026-10-06 UTC: Added native architecture builds, separate cache scopes,
+  attempt-aware digest handoff, manifest preflight, and diagnostics.
+- [x] 2026-10-06 UTC: Nine manifest tests, metadata checks, pinned Ruff,
+  actionlint, YAML and the repository harness passed.
+- [x] 2026-10-06 UTC: PR #3015's original build-only run 37423039312 passed
+  actual uncached builds for all four service/platform combinations.
+- [x] 2026-10-06 22:30 UTC: User approved the full repair strategy. Refreshed
+  main and verified that #3015 has no outstanding review threads.
+- [x] 2026-10-06 22:30 UTC: Added production-image startup/HTTP/native-module
+  smoke checks, tested-content verification, relevant application path filters,
+  BuildKit v0.33.1 pin, and an isolated candidate-publication dispatch.
+- [x] 2026-10-06 22:30 UTC: Local fixture API starts and returns a healthy
+  JSON envelope without production services or credentials; 19 script tests pass.
+- [ ] External acceptance: run the updated production smoke on native Linux
+  AMD64 and ARM64, then repeat using warm caches.
+- [ ] External acceptance: publish isolated candidates to each configured
+  registry and verify both platform manifests and tested content.
+- [ ] External acceptance: validate partial reruns together with the separate
+  global-publication change before completing the repair.
 
 ## Surprises & Discoveries
 
-- API/web shared implicit GHA scope `buildkit`, allowing cache replacement by
-  another image. This configuration hazard does not establish the SIGILL cause.
-- APK completed before the combined Node/npm stage failed. The exact crashing
-  command is unconfirmed; attempt 2 succeeded. No low-level root cause is claimed.
-- SunMac has no Docker CLI/daemon, so local validation cannot prove Linux
-  image builds or registry compatibility.
-- OneDrive repeatedly changed executable bits in the new worktree. Moved this
-  isolated worktree to `/tmp/ai-shifu-docker-stability-20261006` and restored modes
-  from Git; the source checkout stayed unchanged.
-- Failed-job-only reruns require retaining successful digests from earlier
-  attempts of the same run. Expired/missing artifacts must fail closed.
+- API/Web shared implicit GHA scope `buildkit`, allowing cache replacement by
+  another image. This hazard does not establish the SIGILL cause.
+- APK completed before the combined Node/npm stage failed. Attempt 2 succeeded;
+  no low-level QEMU or dependency root-cause claim is made.
+- SunMac has no Docker CLI/daemon, so Linux image acceptance requires CI.
+- Failed-job-only reruns retain successful digests from earlier attempts of the
+  same run. Expired/missing artifacts must fail closed.
+- Flask health returns a JSON body without the test client's JSON content-type
+  recognition. Smoke parses the response bytes and validates the business
+  envelope rather than treating HTTP 200 alone as healthy.
+- Docker's load and registry exporters can produce different manifest digests.
+  Compare the immutable config digest, which also identifies the filesystem
+  diff IDs, before allowing publication artifacts to become available.
 
 ## Decision Log
 
-- Build amd64 on `ubuntu-24.04` and arm64 on `ubuntu-24.04-arm`; assert the host
-  architecture before building. No QEMU setup or whole-build retries. Building
-  web solely on BUILDPLATFORM could produce native dependencies for the wrong
-  target architecture.
-- Use `ai-shifu-<service>-<arch>` cache scopes. Latest and release reuse the same
-  service/platform layers; cache errors remain visible.
-- Publish untagged digest images per architecture, then move tags only after
-  both jobs succeed and all registry destinations pass manifest preflight.
-- Latest can fall back to build-only when credentials are missing; release
-  publication fails closed without a configured registry. Resolve
-  metadata/credentials within each job using a shared composite action;
-  avoid secret-derived cross-job outputs, which GitHub may suppress.
-- Keep existing npm network settings and sharp fallback. Split RUN stages and
-  log Node/npm/architecture without changing versions or disabling npm ci.
+- Build AMD64 on `ubuntu-24.04` and ARM64 on `ubuntu-24.04-arm`; assert host
+  architecture. Keep npm lifecycle scripts and runtime versions.
+- Use `ai-shifu-<service>-<arch>` cache scopes. Pin the observed successful
+  BuildKit version `moby/buildkit:v0.33.1`; preserve `provenance: false` and
+  `sbom: false` for Aliyun compatibility.
+- Follow Docker's test-before-push pattern: load a final single-platform image,
+  run smoke, then export the same builder's cached layers by digest. Read each
+  registry's config digest and require equality with the tested local image.
+- API smoke starts the default Gunicorn command with fake credentials, a local
+  SQLite URI, disabled Redis, and memory-only Celery settings. It checks native
+  Python imports, FFmpeg/Celery binaries and the health envelope. Web smoke
+  requires non-root startup, Sharp/SWC, runtime API config, shared translations,
+  public assets, rendered login HTML and a compiled static asset.
+- PR checks receive no registry secrets. Explicit candidate dispatch requires
+  configured registry credentials and uses only run/attempt-specific tags.
+- Keep the network/download repair and global latest barrier in independent
+  PRs; their acceptance uses the native production-image checks introduced here.
 
 ## Outcomes & Retrospective
 
-Implementation is ready for an independent draft PR. No measured success-rate or
-proven low-level root-cause claim is made before external CI acceptance.
+The original native builds passed. Production-image smoke and tested-content
+verification are implemented with focused local regression coverage. Updated
+Linux smoke, warm-cache runs and actual registry acceptance remain open; a green
+build-only run does not establish registry compatibility or deployment success.
 
 ## Context and Orientation
 
 Latest/release callers invoke `.github/workflows/build-docker-image.yml` per
-service. `.github/actions/docker-image-metadata/action.yml` resolves configured
-registries in each job. `scripts/merge_docker_manifests.py` checks both platform
-digests, preflights every destination, publishes, and verifies each final tag.
-`src/web/Dockerfile` still executes the same dependency/sharp/Next build steps.
+service. `.github/actions/docker-image-metadata/action.yml` resolves registry
+credentials inside each job. `scripts/check_docker_image.py` runs the final image
+and compares its config to the digest exported to each registry.
+`scripts/merge_docker_manifests.py` checks both platform digests, preflights
+all destinations, publishes, and verifies final tags. PR and isolated candidate
+checks use `.github/workflows/docker-build-check.yml`.
 
-Evidence: [failed job](https://github.com/ai-shifu/ai-shifu/actions/runs/37401758132/job/112070289609),
+The [investigation](docker-build-failure-analysis.md) records log coverage and
+cause boundaries. Evidence includes the
+[failed QEMU attempt](https://github.com/ai-shifu/ai-shifu/actions/runs/37401758132/attempts/1),
 [successful rerun](https://github.com/ai-shifu/ai-shifu/actions/runs/37401758132/attempts/2),
+[native packaging check](https://github.com/ai-shifu/ai-shifu/actions/runs/37423039312),
 [native runner guidance](https://docs.docker.com/build/ci/github-actions/multi-platform/),
-[cache scope behavior](https://docs.docker.com/build/cache/backends/gha/),
-and [digest publication](https://docs.docker.com/build/exporters/image-registry/).
+[cache scope behavior](https://docs.docker.com/build/cache/backends/gha/), and
+[test-before-push guidance](https://docs.docker.com/build/ci/github-actions/test-before-push/).
 
 ## Plan of Work
 
-Share native build/publication code between latest/release, test fail-closed
-publication and partial reruns, validate YAML/actions/scripts, and document
-external acceptance. The separate workflow simplification task owns trigger
-changes; this task preserves `on` and release draft/prerelease gating.
+Complete #3015 with production-image smoke, fixed build inputs and broader path
+filters. Validate actual native images through CI. Keep Web production dependency
+reuse and serialized all-service publication as focused dependent PRs, then use
+isolated candidate tags for real registry acceptance before latest promotion.
 
 ## Concrete Steps
 
-Run the focused manifest tests, Ruff, actionlint on all three packaging
-workflows, check-yaml on the workflows/composite action, and the repository
-harness after staging this plan and regenerating knowledge indexes. Review the
-diff against fc75185aa and ensure the source checkout is unchanged.
+Run both script test modules, pinned Ruff, actionlint on packaging workflows,
+YAML, strict development-tool checks, the repository harness and architecture
+checks. Stage plans before regenerating knowledge indexes. Run the all-files
+lefthook gate before committing. Update #3015's title/description and mark it
+ready. Record the exact tested head SHA and terminal native-job outcomes.
 
 ## Validation and Acceptance
 
-Local coverage must prove missing platforms, bad digests/manifests, and registry
-errors prevent successful publication; partial reruns select the newest digest
-per platform within this run. Every native job builds exactly one platform with
-matching cache import/export scope. External acceptance requires cold and warm
-builds, no registry writes in build-only mode, correct two-platform manifests
-in both configured registries, and latest/release/partial-rerun validation.
+Both production services must start and serve validated responses on native
+Linux AMD64 and ARM64. A missing translation, unhealthy HTTP-200 envelope,
+wrong architecture, native-module failure or differing pushed config fails the
+job before successful digest handoff. Build-only PR jobs cannot log in or push.
+Cold/warm runs and actual candidate writes must be observed; manifests must
+contain exactly the two supported platforms. Combine this with publication
+ordering tests and failed-job-only reruns before declaring the full repair done.
 
 ## Idempotence and Recovery
 
-Digest artifact names contain service, architecture, and attempt; the merge
-selects each platform's highest attempt. No architecture job moves final tags.
-If a later registry/tag write fails, different destinations can temporarily
-reference different complete manifests: registries do not share a transaction.
-Inspect the error before rerunning publication. Expired digests require
-rerunning native builds. Reverting this change restores prior packaging; local
-edits have no deployment side effects.
+Artifact names include service, architecture and attempt; merge chooses the
+highest successful attempt per platform in the same run. Architecture jobs move
+no final tags. Container cleanup runs after successful or failed HTTP smoke.
+A registry failure can leave digest-only candidates, but no successful handoff.
+If final tag writes partially fail, registries may temporarily differ; use the
+separate publication descriptor/status contract to inspect and resume safely.
+Revert a packaging change through a PR if needed.
 
 ## Interfaces and Dependencies
 
-Keep existing Docker actions and secrets. Use GitHub artifact upload/download
-for platform/digest JSON records, Python standard library and Buildx imagetools
-for merging, and existing development pytest for tests. ARM native runners must
-be available for the public repository. No application contract or persistent
-access changes are required.
+Use existing Docker actions and registry secrets/vars, GitHub artifacts, Python
+standard-library smoke/manifest helpers, and existing pytest. Native ARM runners
+must remain available. No application API or deployment contract changes are
+required by this foundational PR.
