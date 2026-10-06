@@ -19,10 +19,10 @@ RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-maxtimeout 120000 && \
     npm config set fetch-timeout 300000
 
-RUN npm ci
-
-# Keep the existing sharp compatibility fallback; do not retry npm ci or the build.
-RUN (npm rebuild sharp || npm install --include=optional sharp)
+# Keep the source lockfile as the baseline for both installation and pruning.
+RUN cp package-lock.json /tmp/package-lock.source.json && \
+    npm ci && \
+    cmp package-lock.json /tmp/package-lock.source.json
 
 # Copy project source and shared i18n
 COPY ${APP_DIR}/ ./
@@ -34,9 +34,8 @@ RUN npm run build
 FROM builder AS production-dependencies
 
 # Reuse npm ci metadata for peer resolution; pruning must never fetch or rerun scripts.
-RUN --network=none cp package-lock.json /tmp/package-lock.before-prune.json && \
-    npm prune --omit=dev --offline --ignore-scripts --no-audit --no-fund --save=false && \
-    cmp package-lock.json /tmp/package-lock.before-prune.json && \
+RUN --network=none npm prune --omit=dev --offline --ignore-scripts --no-audit --no-fund --save=false && \
+    cmp package-lock.json /tmp/package-lock.source.json && \
     npm cache clean --force && \
     rm -rf /root/.cache /root/.npm /tmp/*
 
