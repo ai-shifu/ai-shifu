@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 import subprocess
 import unittest
+from fnmatch import fnmatchcase
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -64,6 +66,30 @@ class ProductionImageTests(unittest.TestCase):
         )
         with patch("check_docker_image.subprocess.run", return_value=result):
             assert "worker failed to boot" in docker("logs", "smoke-container")
+
+    def test_production_markdown_triggers_packaging_checks(self) -> None:
+        """Compiled legal pages and API prompt changes must receive native checks."""
+        repository = Path(__file__).resolve().parents[1]
+        workflow = (repository / ".github/workflows/docker-build-check.yml").read_text()
+        paths = workflow.split("    paths:\n", 1)[1].split("  workflow_dispatch:", 1)[0]
+        patterns = [
+            line.strip()[2:].strip("'\"")
+            for line in paths.splitlines()
+            if line.strip().startswith("- ")
+        ]
+        for filename in (
+            "src/web/src/components/legals/EnAgreement.mdx",
+            "src/api/prompts/ask.md",
+            "src/web/package-lock.json",
+            "src/i18n/en-US/common/core.json",
+        ):
+            assert (repository / filename).is_file()
+            included = False
+            for pattern in patterns:
+                excluded = pattern.startswith("!")
+                if fnmatchcase(filename, pattern.removeprefix("!")):
+                    included = not excluded
+            assert included, f"Production input misses packaging validation: {filename}"
 
     def test_i18n_requires_real_shared_resource(self) -> None:
         """An empty or wrong-locale response cannot hide a missing runtime resource."""

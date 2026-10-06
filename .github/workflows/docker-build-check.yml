@@ -18,8 +18,6 @@ on:
       - src/i18n/**
       - '!src/api/tests/**'
       - '!src/web/**/*.test.*'
-      - '!**/*.md'
-      - '!**/*.mdx'
   workflow_dispatch:
     inputs:
       publish-candidates:
