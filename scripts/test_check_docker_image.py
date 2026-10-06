@@ -67,6 +67,14 @@ class ProductionImageTests(unittest.TestCase):
         with patch("check_docker_image.subprocess.run", return_value=result):
             assert "worker failed to boot" in docker("logs", "smoke-container")
 
+    def test_docker_timeout_override_preserves_default_command_bound(self) -> None:
+        """Only explicitly longer operations receive more than the default three minutes."""
+        result = subprocess.CompletedProcess(["docker"], 0, stdout="", stderr="")
+        with patch("check_docker_image.subprocess.run", return_value=result) as run:
+            docker("image", "inspect", "local:api")
+            docker("pull", "--platform", "linux/amd64", "registry/api", timeout=900)
+        assert [call.kwargs["timeout"] for call in run.call_args_list] == [180, 900]
+
     def test_production_markdown_triggers_packaging_checks(self) -> None:
         """Compiled legal pages and API prompt changes must receive native checks."""
         repository = Path(__file__).resolve().parents[1]
@@ -226,6 +234,10 @@ class ProductionImageTests(unittest.TestCase):
                     platform,
                     f"registry.example.com/web@{MANIFEST}",
                 ),
+            ]
+            assert [call.kwargs for call in daemon.call_args_list] == [
+                {"timeout": 900},
+                {"timeout": 900},
             ]
             assert [call.args for call in run_smoke.call_args_list] == [
                 ("web", f"dockerhub/web@{MANIFEST}", platform),

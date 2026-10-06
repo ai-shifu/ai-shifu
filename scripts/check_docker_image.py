@@ -39,10 +39,14 @@ SHARP_PROBE = """
 """
 
 
-def docker(*arguments: str) -> str:
+def docker(*arguments: str, timeout: float = 180) -> str:
     """Execute Docker without evaluating image or metadata arguments in a shell."""
     result = subprocess.run(
-        ["docker", *arguments], check=True, capture_output=True, text=True, timeout=180
+        ["docker", *arguments],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
     if arguments[0] == "logs":
         return (result.stdout + result.stderr).strip()
@@ -252,7 +256,7 @@ def verify_published(
         print(f"Verified smoke-tested content: {image} {platform}")
         if pull_smoke:
             reference = f"{image}@{digest}"
-            docker("pull", "--platform", platform, reference)
+            docker("pull", "--platform", platform, reference, timeout=900)
             pulled = smoke(record["service"], reference, platform)
             if pulled.get("config_digest") != expected:
                 message = "Registry-pulled production image differs from the original smoke config"
