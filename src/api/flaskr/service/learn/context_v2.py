@@ -1892,11 +1892,23 @@ class RunScriptContextV2:
             .first()
         )
         if not attend_info:
-            outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
-                self._outline_model.query.filter(
-                    self._outline_model.outline_item_bid == outline_bid,
-                    self._outline_model.deleted == 0,
+            outline_filters = [self._outline_model.outline_item_bid == outline_bid]
+            if self._preview_mode:
+                outline_filters.append(self._outline_model.deleted == 0)
+            else:
+                if not self._shifu_model.query.filter(
+                    self._shifu_model.shifu_bid == self._struct.bid,
+                    self._shifu_model.deleted == 0,
+                ).first():
+                    raise_error("server.shifu.shifuNotFound")
+                outline_filters.extend(
+                    [
+                        self._outline_model.id == self._get_outline_row_id(outline_bid),
+                        self._outline_model.shifu_bid == self._struct.bid,
+                    ]
                 )
+            outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
+                self._outline_model.query.filter(*outline_filters)
                 .order_by(self._outline_model.id.desc())
                 .first()
             )

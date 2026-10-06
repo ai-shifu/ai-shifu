@@ -403,6 +403,8 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
                 return self
 
         class _OutlineModel:
+            id = _Column()
+            shifu_bid = _Column()
             outline_item_bid = _Column()
             hidden = _Column()
             title = _Column()
@@ -413,7 +415,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
                 return self
 
             def all(self) -> object:
-                return [("outline-1", False, "Outline 1")]
+                return [(1, "outline-1", False, "Outline 1")]
 
         class _FakeMarkdownFlow:
             def __init__(self, *args: object, **kwargs: object) -> None:
@@ -441,6 +443,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             status=LEARN_STATUS_IN_PROGRESS,
         )
         ctx._outline_model = _OutlineModel
+        ctx._shifu_model = MagicMock()
 
         with (
             patch.object(dao.db.session, "query", return_value=_FakeQuery()),
