@@ -3582,11 +3582,28 @@ class RunScriptContextV2:
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
         """Return the effective LLM settings for this run."""
         path = _find_outline_path_or_raise(self._struct, outline_bid)
-        shifu_ids = [item.id for item in path if item.type == "shifu"]
-        shifu_info_db: DraftShifu | PublishedShifu = self._shifu_model.query.filter(
-            self._shifu_model.id.in_(shifu_ids),
+        shifu_nodes = [item for item in path if item.type == "shifu"]
+        if len(shifu_nodes) != 1:
+            raise_error("server.shifu.shifuNotFound")
+        shifu_node = shifu_nodes[0]
+        filters = [
+            self._shifu_model.id == shifu_node.id,
+            self._shifu_model.shifu_bid == shifu_node.bid,
+        ]
+        if self._preview_mode:
+            filters.append(self._shifu_model.deleted == 0)
+        elif not self._shifu_model.query.filter(
+            self._shifu_model.shifu_bid == shifu_node.bid,
             self._shifu_model.deleted == 0,
+        ).first():
+            # Republishing retires a revision, but deleting the course must
+            # still prevent a run from reading its historical publication.
+            raise_error("server.shifu.shifuNotFound")
+        shifu_info_db: DraftShifu | PublishedShifu = self._shifu_model.query.filter(
+            *filters,
         ).first()
+        if shifu_info_db is None:
+            raise_error("server.shifu.shifuNotFound")
         return LLMSettings(
             model=selection_model(shifu_info_db),
             temperature=shifu_info_db.llm_temperature,

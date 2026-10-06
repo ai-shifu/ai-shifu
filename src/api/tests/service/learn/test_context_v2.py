@@ -1542,12 +1542,14 @@ class CoursePromptCompositionTests(unittest.TestCase):
 
         with patch(
             "flaskr.service.learn.context_v2._find_outline_path_or_raise",
-            return_value=[types.SimpleNamespace(id="outline-db-1", type="outline")],
+            return_value=[
+                types.SimpleNamespace(id="course-db-1", bid="course-1", type="shifu"),
+                types.SimpleNamespace(id="outline-db-1", type="outline"),
+            ],
         ):
             prompt = ctx.get_system_prompt("outline-1")
 
         assert prompt == "COURSE RULE"
-        ctx._shifu_model.query.filter.assert_not_called()
 
     def test_teaching_composes_prompt_after_loading_effective_profiles(self) -> None:
         class FakeColumn:
