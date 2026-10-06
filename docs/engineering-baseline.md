@@ -630,7 +630,9 @@ flows before promoting them.
 - `backend-tests.yml`: selects backend tests for PRs changing `src/api/**` or
   the backend workflow, with a successful no-op for unrelated PRs; runs the
   full suite on pushes to `main` unless the entire push only changes known
-  unrelated frontend, docs, or asset paths; runs full coverage on manual dispatch.
+  unrelated docs or asset paths; runs full coverage on manual dispatch. Frontend
+  changes still run the backend suite, which includes a cross-surface Gemini
+  Live deployment contract.
 - `frontend-tests.yml`: runs frontend Jest tests for frontend and shared i18n
   changes while reporting a successful no-op check for unrelated PRs. On `main`,
   skips test setup only for pushes limited to known unrelated backend, docs, or

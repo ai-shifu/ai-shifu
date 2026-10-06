@@ -51,7 +51,9 @@ jobs:
 
             # Only known unrelated surfaces may skip main's full suite. Shared
             # i18n, scripts, Docker, workflows and unknown paths still run it.
-            if grep -Eqv '^(docs/|assets/|src/web/|[^/]+\.md$|LICENSE\.txt$)' /tmp/backend-changed-files.txt; then
+            # Frontend source also stays covered: the Gemini Live deployment
+            # contract test reads src/web/src/lib/liveVoiceFollowUp.ts.
+            if grep -Eqv '^(docs/|assets/|[^/]+\.md$|LICENSE\.txt$)' /tmp/backend-changed-files.txt; then
               echo "run=true" >> "$GITHUB_OUTPUT"
             else
               echo "run=false" >> "$GITHUB_OUTPUT"
