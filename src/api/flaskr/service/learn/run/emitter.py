@@ -57,7 +57,6 @@ from flaskr.util import generate_id
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard, typing only
     from flaskr.service.learn.context_v2 import RunScriptContextV2
-    from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 
 
 class RunEventEmitter:
@@ -79,22 +78,12 @@ class RunEventEmitter:
     ) -> Generator[str, None, None]:
         """Render outline-update events while persisting progress and current outline state."""
         ctx = self._context
-        shifu_bids = [o.outline_bid for o in outline_updates]
-        outline_item_info_db: DraftOutlineItem | PublishedOutlineItem = (
-            ctx._outline_model.query.filter(
-                ctx._outline_model.outline_item_bid.in_(shifu_bids),
-                ctx._outline_model.deleted == 0,
-            ).all()
-        )
-        outline_item_info_map: dict[str, DraftOutlineItem | PublishedOutlineItem] = {
-            o.outline_item_bid: o for o in outline_item_info_db
-        }
+        outline_bids = [update.outline_bid for update in outline_updates]
+        outline_metadata = ctx._state_resolver.get_outline_metadata(outline_bids)
         recorder = ctx._recorder
         for update in outline_updates:
-            outline_item_info = outline_item_info_map.get(update.outline_bid)
-            if not outline_item_info:
-                continue
-            if outline_item_info.hidden:
+            metadata = outline_metadata.get(update.outline_bid)
+            if metadata is None or metadata[0]:
                 continue
             if (not update.has_children) and update.status == LearnStatus.IN_PROGRESS:
                 ctx._current_outline_item = ctx._get_outline_struct(update.outline_bid)

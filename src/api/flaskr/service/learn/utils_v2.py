@@ -4,6 +4,7 @@ import re
 
 from flask import Flask
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
+from flaskr.service.common import raise_error
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
@@ -184,6 +185,8 @@ def get_follow_up_info_v2(
     outline_item_bid: str,
     attend_id: str,
     is_preview: bool = False,
+    *,
+    struct: HistoryItem | None = None,
 ) -> FollowUpInfo:
     """Get follow up info.
 
@@ -195,15 +198,20 @@ def get_follow_up_info_v2(
         is_preview (bool, optional): Whether to retrieve the follow up info in preview mode.
             If True, retrieves data as it would appear in preview (unpublished) state; if False,
             retrieves data as it appears in the published state. Defaults to False.
+        struct (HistoryItem, optional): The structure already bound to a learning run.
 
     Returns:
         FollowUpInfo: The follow up information for the given parameters.
 
     """
     _ = attend_id
-    struct_info = get_shifu_struct(app, shifu_bid, is_preview)
+    struct_info = (
+        struct if struct is not None else get_shifu_struct(app, shifu_bid, is_preview)
+    )
     path = find_node_with_parents(struct_info, outline_item_bid)
     if not path:
+        if struct is not None:
+            raise_error("server.shifu.lessonNotFoundInCourse")
         return FollowUpInfo(
             ask_model="",
             ask_prompt="",
@@ -214,26 +222,48 @@ def get_follow_up_info_v2(
             ask_provider_config=normalize_ask_provider_config({}),
         )
     path = list(reversed(path))
+    shifu_path = [p for p in path if p.type == "shifu"]
     path: list[HistoryItem] = [p for p in path if p.type == "outline"]
     outline_ids = [p.id for p in path]
     outline_model = PublishedOutlineItem if not is_preview else DraftOutlineItem
     shifu_model = PublishedShifu if not is_preview else DraftShifu
+    outline_filters = [outline_model.id.in_(outline_ids)]
+    shifu_filters = [shifu_model.shifu_bid == shifu_bid]
+    if struct is not None:
+        if len(shifu_path) != 1 or shifu_path[0].bid != shifu_bid:
+            raise_error("server.shifu.shifuNotFound")
+        shifu_filters.append(shifu_model.id == shifu_path[0].id)
+        outline_filters.append(outline_model.shifu_bid == shifu_bid)
+        if is_preview:
+            shifu_filters.append(shifu_model.deleted == 0)
+            outline_filters.append(outline_model.deleted == 0)
+        elif not shifu_model.query.filter(
+            shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
+        ).first():
+            raise_error("server.shifu.shifuNotFound")
+        # A run retains physical publication rows across block commits.
+        # Republish retires those rows without changing its follow-up settings.
+    else:
+        shifu_filters.append(shifu_model.deleted == 0)
     outline_infos: list[PublishedOutlineItem | DraftOutlineItem] = (
-        outline_model.query.filter(
-            outline_model.id.in_(outline_ids),
-        ).all()
+        outline_model.query.filter(*outline_filters).all()
     )
+    if struct is not None:
+        outline_by_id = {o.id: o for o in outline_infos}
+        if any(
+            p.id not in outline_by_id or outline_by_id[p.id].outline_item_bid != p.bid
+            for p in path
+        ):
+            raise_error("server.shifu.outlineItemNotFound")
     outline_infos_map: dict[str, PublishedOutlineItem | DraftOutlineItem] = {
         o.outline_item_bid: o for o in outline_infos
     }
 
     shifu_info: PublishedShifu | DraftShifu = (
-        shifu_model.query.filter(
-            shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
-        )
-        .order_by(shifu_model.id.desc())
-        .first()
+        shifu_model.query.filter(*shifu_filters).order_by(shifu_model.id.desc()).first()
     )
+    if struct is not None and shifu_info is None:
+        raise_error("server.shifu.shifuNotFound")
     shifu_ask_provider_config = normalize_ask_provider_config(
         getattr(shifu_info, "ask_provider_config", "{}")
     )
