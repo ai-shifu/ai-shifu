@@ -224,6 +224,7 @@ def stage_turn_block(
     block.block_bid = ""
     # Lesson text, as far as the element pipeline is concerned.
     block.type = BLOCK_TYPE_MDCONTENT_VALUE
+    block.role = ROLE_TEACHER
     # The identifier is the one the turn's events already carry, not a fresh one: the element rows
     # reference it, so a different value here would leave them orphaned.
     block.generated_block_bid = generated_block_bid

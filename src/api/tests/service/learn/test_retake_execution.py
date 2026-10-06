@@ -8,7 +8,10 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.agent.lesson_record import record_turn_content
+from flaskr.service.learn.agent.lesson_record import (
+    record_turn_content,
+    stage_turn_block,
+)
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
@@ -792,3 +795,40 @@ def test_failed_first_study_can_continue_with_zero_retake_allowance(
     with app.app_context():
         assert LessonRetakeAttempt.query.count() == 0
         assert LessonRetakeRun.query.one().finished_at is not None
+
+
+@pytest.mark.parametrize("historical_role", [False, True])
+def test_agent_teaching_can_be_retaken(app: Flask, historical_role: bool) -> None:
+    """Use the real agent writer, including rows saved before role was populated."""
+    with app.app_context(), unit_of_work():
+        LearnGeneratedBlock.query.delete()
+        block = stage_turn_block(
+            **RECORD_IDENTITY,
+            progress_record_bid="original",
+            generated_block_bid="agent-turn",
+            position=0,
+            content="Persisted agent teaching",
+        )
+        db.session.flush()
+        if historical_role:
+            block.role = 0
+        else:
+            assert block.role == ROLE_TEACHER
+    execution = reserve(app)
+    assert execution.attempt_id
+
+
+@pytest.mark.parametrize("kind", ["student", "error", "empty", "legacy_block"])
+def test_unknown_role_does_not_admit_non_agent_teaching(app: Flask, kind: str) -> None:
+    with app.app_context(), unit_of_work():
+        block = LearnGeneratedBlock.query.one()
+        block.role = ROLE_STUDENT if kind == "student" else 0
+        if kind == "error":
+            block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
+        if kind == "empty":
+            block.generated_content = ""
+        if kind == "legacy_block":
+            block.block_bid = "legacy-source-block"
+    with pytest.raises(RetakeRuleError, match="nothing_to_retake"):
+        reserve(app)
+    assert get_allowance(app, **IDENTITY).used == 0

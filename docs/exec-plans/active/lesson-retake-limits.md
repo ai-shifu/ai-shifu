@@ -212,10 +212,30 @@ Keep `LESSON_RETAKE_SHIFU_BIDS` empty during the code rollout. Install all three
 - [x] Clarify persisted teacher state separately from unsaved input: unconfigured, unlimited or saved numeric limit; expose policy-load failure rather than silently hiding it.
 - [x] Add teacher policy-load analytics, define its safe contract before implementation, and test failure isolation and stale-response exclusion.
 - [x] Verify no allowance before configuration, first save at 2, consumption, per-lesson independence and later increases/reductions preserving usage.
-- [ ] Run checks and push only this work to dev02.
-- [ ] Obtain deployment control entry; verify runtime/schema and merge the exact dev02 namespace/course allowlist. This capability is still missing and has been requested from the user.
+- [x] Run checks and push only this work to dev02 (55aeb1d3188e0df19a3302ce3846901c81ad0b09).
+- [x] 2026-10-06: Obtain CICD access, verify runtime/schema, install the three additive test-database migrations and merge the exact dev02 namespace/course allowlist. Runtime activation and UI acceptance follow separately.
 - [ ] In the test environment save 2 as teacher, verify learner confirmation, a real charged retake, exhaustion and adjustment. Do not mark delivery complete until this path works.
 
 No new schema or counter reset is planned. Existing deployment isolation remains; environment configuration is a platform responsibility, never a teacher task. Keep source course and production untouched. Roll back UI-only additions by reverting this focused commit; preserve existing ledger and running producers.
 
 - Local evidence for teacher-first follow-up: 19 frontend tests and 44 backend tests passed. TypeScript reports only the same four documented baseline errors. The JSON formatter normalized key order on the first complete gate; no rules were weakened. Runtime activation is still blocked on the deployment entry; the user approved 2 as the test allowance but has not supplied that entry.
+
+
+### 2026-10-06 23:43 Asia/Shanghai — deployed schema and course-only configuration
+
+- Native CICD MCP now works. Project 4 is ai-shifu/ai-shifu@dev02; all four services use build 318 / image tag 20261005-55aeb1d. This is actual runtime evidence, independent of the earlier Git push.
+- Environment group dev02 is used only by this project's API, worker, beat and web. It originally had 195 entries / 63 secrets and no retake rollout variables.
+- A temporary read-only API deployment preflight found database agi-sifu-test at revision fde432bceab4, with all three retake tables absent. Deployment record 1595 stopped at pre_script before replacing the existing service, as intended.
+- Inspected the three additive migrations and the CICD pre-hook implementation. A guarded migration script asserted the actual application database name and host match the dev02 environment, and the exact prior revision. It ran Flask-Migrate upgrade to f5c8745b7e91 and verified the resulting revision and tables. Record 1596 succeeded. No existing learning tables or learner rows were reset.
+- Restored the API pre_script to its original empty value immediately after migration. No permanent operational hook was added.
+- Merged only LESSON_RETAKE_NAMESPACE=dev02 and LESSON_RETAKE_SHIFU_BIDS=c2cf49551ba94345b5a141c78d7b86e7. Readback: 197 entries / 63 secrets, all 195 original entries unchanged. No production, SIM, source-course or wildcard activation.
+- Requested redeployment of the same image for project 4 so all four services receive the merged environment. Completion, teacher save at 2, learner balance, charged retakes and exhaustion are not yet verified at this checkpoint.
+- Pre-existing issue observed before changes: dev02 Celery beat had 3069 restarts. Filtered logs showed repeated initialization but no explicit exception; do not attribute this to retake changes without further evidence.
+
+
+### 2026-10-06 23:49 Asia/Shanghai — activation and live compatibility defect
+
+- Deployment queue 319 completed successfully: API 1597, beat 1598, worker 1599, web 1600. Teacher settings now show the retake control. Saved 2 through the real owner UI; readback says the setting is effective. Learner confirmation shows 2 remaining.
+- The first real reset was rejected with retakeNotStarted despite visible persisted teaching. No quota was consumed. This is a newly observed acceptance defect, not a completed end-to-end delivery.
+- Reproduced the contract gap with the real MarkdownFlow 2.0 stage_turn_block writer: it leaves role=0, while the new retake recovery predicate required ROLE_TEACHER=1. Two new regression cases failed before the fix. The writer now sets ROLE_TEACHER explicitly; the reader also admits historical role=0 content turns with an empty source block ID, while retaining type, nonempty content, active status, progress and learner/course filters. Student, error, empty and source-backed unknown-role blocks remain excluded. No bulk data rewrite or additional schema change.
+- 74 focused tests pass, including the actual writer, historical compatibility, negative eligibility, accounting, restoration and legacy recorder. Runtime deployment of this compatibility fix and charged/exhausted acceptance remain pending.

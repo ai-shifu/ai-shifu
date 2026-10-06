@@ -12,6 +12,7 @@ from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.learn.retake_policy import RetakeRuleError
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+from sqlalchemy import and_, or_
 
 
 def _require_transaction() -> None:
@@ -47,7 +48,15 @@ def stage_reset_records(*, user_bid: str, shifu_bid: str, outline_bid: str) -> d
         ),
         LearnGeneratedBlock.deleted == 0,
         LearnGeneratedBlock.status == 1,
-        LearnGeneratedBlock.role == ROLE_TEACHER,
+        or_(
+            LearnGeneratedBlock.role == ROLE_TEACHER,
+            # Historical agent turns used an empty source block and default role 0.
+            # Keep student/error blocks and source-backed legacy rows excluded.
+            and_(
+                LearnGeneratedBlock.role == 0,
+                LearnGeneratedBlock.block_bid == "",
+            ),
+        ),
         LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
         LearnGeneratedBlock.generated_content != "",
     ).first()
