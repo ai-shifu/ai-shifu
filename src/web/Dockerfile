@@ -9,14 +9,20 @@ ARG I18N_DIR=src/i18n
 # Copy dependency manifests
 COPY ${APP_DIR}/package.json ${APP_DIR}/package-lock.json ./
 
-RUN apk add --no-cache libc6-compat python3 make g++ && \
-    npm config set fetch-retries 5 && \
+RUN apk add --no-cache libc6-compat python3 make g++
+
+# Log the container runtime before dependency installation. Keep failure stages distinct.
+RUN node --version && npm --version && node -p "process.platform + '/' + process.arch"
+
+RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000 && \
-    npm config set fetch-timeout 300000 && \
-    npm ci && \
-    # Ensure sharp is built/installed for the current musl/glibc + arch
-    (npm rebuild sharp || npm install --include=optional sharp) && \
+    npm config set fetch-timeout 300000
+
+RUN npm ci
+
+# Keep the existing sharp compatibility fallback; do not retry npm ci or the build.
+RUN (npm rebuild sharp || npm install --include=optional sharp) && \
     npm cache clean --force
 
 # Copy project source and shared i18n

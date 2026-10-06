@@ -1,0 +1,59 @@
+name: Docker Packaging Checks
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/build-latest.yml
+      - .github/workflows/build-on-release.yml
+      - .github/workflows/build-docker-image.yml
+      - .github/workflows/docker-build-check.yml
+      - .github/actions/docker-image-metadata/**
+      - scripts/merge_docker_manifests.py
+      - scripts/test_merge_docker_manifests.py
+      - src/api/Dockerfile
+      - src/web/Dockerfile
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-packaging-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  manifest-tests:
+    name: Manifest publication regression tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Test manifest publication without registry access
+        run: python -m pytest scripts/test_merge_docker_manifests.py -q
+
+  native-build:
+    name: Validate native image (${{ matrix.service }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            image-name: ai-shifu-api
+            dockerfile: src/api/Dockerfile
+          - service: web
+            image-name: ai-shifu-cook-web
+            dockerfile: src/web/Dockerfile
+    uses: ./.github/workflows/build-docker-image.yml
+    # No inherited registry secrets; validation never logs in or publishes images.
+    with:
+      service: ${{ matrix.service }}
+      image-name: ${{ matrix.image-name }}
+      dockerfile: ${{ matrix.dockerfile }}
+      push-images: false
+      tags: |
+        type=raw,value=validation-${{ github.sha }}
+      labels: |
+        org.opencontainers.image.revision=${{ github.sha }}
