@@ -82,7 +82,9 @@ jobs:
         uses: ./.github/actions/docker-image-metadata
         with:
           image-name: ${{ inputs.image-name }}
-          tags: ${{ inputs.tags }}
+          tags: |
+            ${{ inputs.tags }}
+            type=raw,value=build-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.service }}
           labels: ${{ inputs.labels }}
           push-images: ${{ inputs.push-images }}
           require-registry: ${{ inputs.require-registry }}
@@ -215,7 +217,9 @@ jobs:
         uses: ./.github/actions/docker-image-metadata
         with:
           image-name: ${{ inputs.image-name }}
-          tags: ${{ inputs.tags }}
+          tags: |
+            ${{ inputs.tags }}
+            type=raw,value=build-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.service }}
           labels: ${{ inputs.labels }}
           push-images: ${{ inputs.push-images }}
           require-registry: ${{ inputs.require-registry }}
@@ -248,7 +252,29 @@ jobs:
         if: steps.meta.outputs.push-images == 'true'
         env:
           IMAGE_METADATA: ${{ steps.meta.outputs.json }}
-        run: python3 scripts/merge_docker_manifests.py "$RUNNER_TEMP/digests"
+        run: |
+          python3 scripts/merge_docker_manifests.py "$RUNNER_TEMP/digests" \
+            --service '${{ inputs.service }}' \
+            --descriptor "$RUNNER_TEMP/publication/service.json" \
+            --status "$RUNNER_TEMP/publication/service-status.json"
+
+      - name: Upload verified service publication
+        if: steps.meta.outputs.push-images == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-publication-${{ inputs.service }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/publication/service.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload service publication status
+        if: always() && steps.meta.outputs.push-images == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-service-status-${{ inputs.service }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/publication/service-status.json
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Update Docker Hub repository description
         if: inputs.update-description && steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN

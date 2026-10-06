@@ -6,10 +6,13 @@ on:
       - .github/workflows/build-latest.yml
       - .github/workflows/build-on-release.yml
       - .github/workflows/build-docker-image.yml
+      - .github/workflows/complete-docker-publication.yml
       - .github/workflows/docker-build-check.yml
       - .github/actions/docker-image-metadata/**
       - scripts/merge_docker_manifests.py
       - scripts/test_merge_docker_manifests.py
+      - scripts/promote_docker_images.py
+      - scripts/test_promote_docker_images.py
       - scripts/check_docker_image.py
       - scripts/test_check_docker_image.py
       - .dockerignore
@@ -44,7 +47,7 @@ jobs:
       - name: Install test runner
         run: python -m pip install pytest
       - name: Test manifest publication without registry access
-        run: python -m pytest scripts/test_merge_docker_manifests.py scripts/test_check_docker_image.py -q
+        run: python -m pytest scripts/test_merge_docker_manifests.py scripts/test_promote_docker_images.py scripts/test_check_docker_image.py -q
 
   native-build:
     name: Validate native image (${{ matrix.service }})

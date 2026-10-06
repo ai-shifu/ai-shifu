@@ -14,6 +14,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Custom manual credit validity](./active/custom-credit-validity.md)
 - [Main Docker build failures: evidence and repair strategy](./active/docker-build-failure-analysis.md)
 - [Docker build stability with native platform runners](./active/docker-build-stability.md)
+- [Coordinated Docker Publication and Digest Deployment Inputs](./active/docker-publication-order.md)
 - [Reuse production Web Docker dependencies](./active/docker-web-dependency-reuse.md)
 - [Configurable Gemini Live admission capacity](./active/gemini-live-configurable-capacity.md)
 - [Gemini Live follow-up acceptance](./active/gemini-live-voice-follow-up.md)

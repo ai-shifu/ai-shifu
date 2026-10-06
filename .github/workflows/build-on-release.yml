@@ -91,7 +91,6 @@ jobs:
       build-args: |
         TAG_VERSION=${{ needs.validate-release.outputs.tag }}
       tags: |
-        type=raw,value=latest,enable={{is_default_branch}}
         type=raw,value=${{ needs.validate-release.outputs.tag }}
       labels: |
         org.opencontainers.image.title=AI-Shifu ${{ matrix.service }}
@@ -104,9 +103,18 @@ jobs:
         org.opencontainers.image.version=${{ needs.validate-release.outputs.tag }}
         org.opencontainers.image.revision=${{ github.sha }}
         ai-shifu.license-file=https://github.com/ai-shifu/ai-shifu/blob/main/LICENSE.txt
+  complete-publication:
+    name: Record complete release build
+    needs: [validate-release, build-docker]
+    if: needs.validate-release.outputs.should_build == 'true'
+    uses: ./.github/workflows/complete-docker-publication.yml
+    secrets: inherit
+    with:
+      require-registry: true
+
   deploy-summary:
     runs-on: ubuntu-latest
-    needs: [validate-release, build-docker]
+    needs: [validate-release, build-docker, complete-publication]
     if: always() && needs.validate-release.outputs.should_build == 'true'
 
     steps:
@@ -115,10 +123,10 @@ jobs:
           echo "## 🚀 Release Build and Deploy Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release**: ${{ needs.validate-release.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Status**: ${{ needs.build-docker.result == 'success' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ needs.complete-publication.result == 'success' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.build-docker.result }}" = "success" ]; then
+          if [ "${{ needs.complete-publication.result }}" = "success" ]; then
             echo "### ✅ All Docker Images Built Successfully" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "The following images are now available:" >> $GITHUB_STEP_SUMMARY

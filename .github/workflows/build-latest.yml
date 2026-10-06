@@ -34,10 +34,9 @@ jobs:
       service: ${{ matrix.service }}
       image-name: ${{ vars[matrix.image-name] || matrix.default-image }}
       dockerfile: ${{ matrix.dockerfile }}
-      push-images: ${{ (vars.PUSH_LATEST_IMAGES || 'true') == 'true' }}
+      push-images: ${{ github.ref == 'refs/heads/main' && (vars.PUSH_LATEST_IMAGES || 'true') == 'true' }}
       tags: |
         type=raw,value=${{ github.sha }}
-        type=raw,value=latest
       labels: |
         org.opencontainers.image.title=AI-Shifu ${{ matrix.service }}
         org.opencontainers.image.description=Latest main build for AI-Shifu (${{ matrix.service }})
@@ -47,3 +46,12 @@ jobs:
         org.opencontainers.image.documentation=https://github.com/ai-shifu/ai-shifu/blob/main/README.md
         org.opencontainers.image.url=https://ai-shifu.com
         org.opencontainers.image.revision=${{ github.sha }}
+
+  promote-latest:
+    name: Promote complete main build
+    needs: build-latest
+    if: github.ref == 'refs/heads/main' && (vars.PUSH_LATEST_IMAGES || 'true') == 'true'
+    uses: ./.github/workflows/complete-docker-publication.yml
+    secrets: inherit
+    with:
+      promote-latest: true

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -11,7 +12,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from merge_docker_manifests import load_digests, publish, verify_manifest
+from merge_docker_manifests import (
+    docker,
+    inspect_digest,
+    load_digests,
+    publish,
+    verify_manifest,
+)
 
 
 class ManifestPublicationTests(unittest.TestCase):
@@ -19,6 +26,9 @@ class ManifestPublicationTests(unittest.TestCase):
 
     def setUp(self) -> None:
         """Create independent digest artifacts without using a registry."""
+        environment = patch.dict(os.environ, {"GITHUB_RUN_ID": ""})
+        environment.start()
+        self.addCleanup(environment.stop)
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.directory = Path(self.temporary.name)
@@ -28,9 +38,9 @@ class ManifestPublicationTests(unittest.TestCase):
         }
         self.metadata = {
             "tags": [
-                "aishifu/web:latest",
+                "aishifu/web:candidate",
                 "aishifu/web:commit",
-                "registry/ai-shifu/web:latest",
+                "registry/ai-shifu/web:candidate",
             ]
         }
         for platform, digest in self.digests.items():
@@ -49,6 +59,7 @@ class ManifestPublicationTests(unittest.TestCase):
         """Produce a registry manifest for the requested platform/digest set."""
         return json.dumps(
             {
+                "digest": "sha256:" + "e" * 64,
                 "manifests": [
                     {
                         "digest": digest,
@@ -60,9 +71,137 @@ class ManifestPublicationTests(unittest.TestCase):
                     for platform, digest in (
                         self.digests if digests is None else digests
                     ).items()
-                ]
+                ],
             }
         )
+
+    def test_index_annotations_are_required_for_ordered_publication(self) -> None:
+        """Ordering protection requires metadata preserved on the registry index."""
+        expected = {
+            "io.ai-shifu.publication.run-id": "200",
+            "io.ai-shifu.publication.run-attempt": "1",
+        }
+        with (
+            patch("merge_docker_manifests.docker", return_value=self.manifest()),
+            pytest.raises(ValueError, match="annotations differ"),
+        ):
+            inspect_digest("aishifu/web:candidate", self.digests, expected)
+        manifest = json.loads(self.manifest())
+        manifest["annotations"] = expected
+        with patch("merge_docker_manifests.docker", return_value=json.dumps(manifest)):
+            assert (
+                inspect_digest("aishifu/web:candidate", self.digests, expected)
+                == "sha256:" + "e" * 64
+            )
+
+    def test_preflight_failure_records_no_attempted_tag_writes(self) -> None:
+        """All destination readiness failures leave only pending tags in the report."""
+        status = self.directory / "status.json"
+        failure = subprocess.CalledProcessError(1, "docker", stderr="denied")
+        with (
+            patch(
+                "merge_docker_manifests.docker", side_effect=[self.manifest(), failure]
+            ),
+            pytest.raises(subprocess.CalledProcessError),
+        ):
+            publish(self.directory, self.metadata, status)
+        report = json.loads(status.read_text())
+        assert report["state"] == "failed"
+        assert all(target["state"] == "pending" for target in report["targets"])
+
+    def test_direct_latest_publication_is_rejected(self) -> None:
+        """A service cannot bypass the coordinated main channel promotion."""
+        with (
+            patch("merge_docker_manifests.docker") as run_docker,
+            pytest.raises(ValueError, match="coordinated main"),
+        ):
+            publish(self.directory, {"tags": ["aishifu/web:latest"]})
+        run_docker.assert_not_called()
+
+    def test_transport_failures_retry_only_the_same_registry_operation(self) -> None:
+        """An OAuth TLS handshake timeout retries the manifest command twice."""
+        failure = subprocess.CalledProcessError(
+            1, "docker", stderr="failed to fetch oauth token: TLS handshake timeout"
+        )
+        success = subprocess.CompletedProcess(["docker"], 0, stdout="manifest")
+        with (
+            patch(
+                "merge_docker_manifests.subprocess.run", side_effect=[failure, success]
+            ) as run_command,
+            patch("merge_docker_manifests.time.sleep") as sleep,
+        ):
+            assert (
+                docker(
+                    "create", "--tag", "registry/web:candidate", "registry/web@digest"
+                )
+                == "manifest"
+            )
+        assert run_command.call_count == 2
+        assert run_command.call_args_list[0] == run_command.call_args_list[1]
+        sleep.assert_called_once_with(1)
+
+    def test_permanent_registry_errors_never_retry(self) -> None:
+        """Credentials, media types, and TLS trust are not transient transport errors."""
+        for detail in (
+            "unauthorized: TLS handshake timeout",
+            "unsupported media type",
+            "certificate signed by unknown authority",
+            "manifest unknown",
+        ):
+            failure = subprocess.CalledProcessError(1, "docker", stderr=detail)
+            with (
+                patch(
+                    "merge_docker_manifests.subprocess.run", side_effect=failure
+                ) as run_command,
+                patch("merge_docker_manifests.time.sleep") as sleep,
+                pytest.raises(subprocess.CalledProcessError),
+            ):
+                docker("inspect", "--raw", "registry/web:candidate")
+            assert run_command.call_count == 1
+            sleep.assert_not_called()
+
+    def test_transport_retries_are_bounded(self) -> None:
+        """A persistent connection reset fails after three identical operations."""
+        failure = subprocess.CalledProcessError(
+            1, "docker", stderr="connection reset by peer"
+        )
+        with (
+            patch(
+                "merge_docker_manifests.subprocess.run", side_effect=failure
+            ) as run_command,
+            patch("merge_docker_manifests.time.sleep") as sleep,
+            pytest.raises(subprocess.CalledProcessError),
+        ):
+            docker("inspect", "--raw", "registry/web:candidate")
+        assert run_command.call_count == 3
+        assert sleep.call_count == 2
+
+    def test_service_failure_records_verified_and_unverified_destinations(self) -> None:
+        """Partial registry writes remain visible and never claim an atomic rollback."""
+        status = self.directory / "status.json"
+        failure = subprocess.CalledProcessError(1, "docker", stderr="denied")
+        with (
+            patch(
+                "merge_docker_manifests.docker",
+                side_effect=[
+                    self.manifest(),
+                    self.manifest(),
+                    "",
+                    self.manifest(),
+                    self.manifest(),
+                    failure,
+                ],
+            ),
+            pytest.raises(subprocess.CalledProcessError),
+        ):
+            publish(self.directory, self.metadata, status)
+        records = json.loads(status.read_text())
+        assert [target["state"] for target in records["targets"]] == [
+            "verified",
+            "verified",
+            "unverified",
+        ]
+        assert records["error_type"] == "CalledProcessError"
 
     def test_failed_job_rerun_preserves_other_platform(self) -> None:
         """A failed ARM retry must use the new ARM digest and successful AMD digest."""
@@ -77,18 +216,22 @@ class ManifestPublicationTests(unittest.TestCase):
         """Incomplete artifact sets fail before invoking Docker."""
         for path in self.directory.glob("*arm64*/*.json"):
             path.unlink()
-        with patch("merge_docker_manifests.docker") as run_docker:
-            with pytest.raises(ValueError, match=r"digest|Manifest|Duplicate|Both"):
-                publish(self.directory, self.metadata)
-            run_docker.assert_not_called()
+        with (
+            patch("merge_docker_manifests.docker") as run_docker,
+            pytest.raises(ValueError, match=r"digest|Manifest|Duplicate|Both"),
+        ):
+            publish(self.directory, self.metadata)
+        run_docker.assert_not_called()
 
     def test_invalid_digest_never_publishes(self) -> None:
         """Malformed newer records cannot fall back silently to an older build."""
         self.write_digest("linux/arm64", "not-a-digest", 2)
-        with patch("merge_docker_manifests.docker") as run_docker:
-            with pytest.raises(ValueError, match=r"digest|Manifest|Duplicate|Both"):
-                publish(self.directory, self.metadata)
-            run_docker.assert_not_called()
+        with (
+            patch("merge_docker_manifests.docker") as run_docker,
+            pytest.raises(ValueError, match=r"digest|Manifest|Duplicate|Both"),
+        ):
+            publish(self.directory, self.metadata)
+        run_docker.assert_not_called()
 
     def test_preflights_every_registry_before_publishing(self) -> None:
         """Both platforms and all destinations must resolve before tags change."""
@@ -100,7 +243,7 @@ class ManifestPublicationTests(unittest.TestCase):
         assert [args[:2] for args in calls[:2]] == [("create", "--dry-run")] * 2
         assert "aishifu/web@" + self.digests["linux/arm64"] in calls[0]
         assert "registry/ai-shifu/web@" + self.digests["linux/arm64"] in calls[1]
-        assert sum(args[:2] == ("inspect", "--raw") for args in calls) == 3
+        assert sum(args[:2] == ("inspect", "--format") for args in calls) == 3
 
     def test_bad_second_registry_does_not_move_first_registry_tags(self) -> None:
         """A registry missing an architecture fails during preflight."""
@@ -151,15 +294,17 @@ class ManifestPublicationTests(unittest.TestCase):
             ),
             pytest.raises(ValueError, match="Manifest platforms"),
         ):
-            publish(self.directory, {"tags": ["aishifu/web:latest"]})
+            publish(self.directory, {"tags": ["aishifu/web:candidate"]})
 
     def test_invalid_tags_prevent_registry_calls(self) -> None:
         """Malformed destination metadata must fail before touching registries."""
         for tags in [[], ["web"], ["aishifu/web:bad tag"], ["aishifu/web@sha256:abc"]]:
-            with patch("merge_docker_manifests.docker") as run_docker:
-                with pytest.raises(ValueError, match="tag"):
-                    publish(self.directory, {"tags": tags})
-                run_docker.assert_not_called()
+            with (
+                patch("merge_docker_manifests.docker") as run_docker,
+                pytest.raises(ValueError, match="tag"),
+            ):
+                publish(self.directory, {"tags": tags})
+            run_docker.assert_not_called()
 
 
 if __name__ == "__main__":

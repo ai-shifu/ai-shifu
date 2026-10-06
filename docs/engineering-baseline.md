@@ -642,10 +642,15 @@ flows before promoting them.
   manual dispatch; does not run on pushes to `main`.
 - `prepare-release.yml`: manually prepares a release draft from a requested
   `vX.Y.Z` version and opens a version-update PR.
-- `build-latest.yml`: builds `:latest` Docker images on pushes to `main` or
-  manual dispatch; publishing depends on the push toggle and registry credentials.
+- `build-latest.yml`: builds native Docker images on pushes to `main` or manual
+  dispatch. Only main can publish; latest promotion waits for both complete
+  API/web builds and smoke tests. Publishing retains the push toggle and
+  credential-free build-only fallback.
 - `build-on-release.yml`: builds and pushes release-tagged Docker images when
-  a GitHub release is published.
+  a GitHub release is published, without moving latest.
+- `complete-docker-publication.yml`: records a complete API/web digest descriptor
+  and serializes guarded latest promotion. Use the descriptor's Compose override
+  to deploy one fixed image set; see [Docker publication](references/docker-publication.md).
 
 ### Release Path
 

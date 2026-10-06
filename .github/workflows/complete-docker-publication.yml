@@ -1,0 +1,106 @@
+name: Complete Docker publication
+
+on:
+  workflow_call:
+    inputs:
+      promote-latest:
+        type: boolean
+        default: false
+      require-registry:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  complete:
+    name: Record deployment descriptor and promote channel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Serialize every latest writer across runs; descriptor-only releases remain independent.
+    concurrency:
+      group: docker-publication-${{ inputs.promote-latest && 'latest' || github.run_id }}
+      cancel-in-progress: false
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1
+
+      - name: Resolve publication mode
+        id: meta
+        uses: ./.github/actions/docker-image-metadata
+        with:
+          image-name: publication-descriptor
+          push-images: 'true'
+          require-registry: ${{ inputs.require-registry }}
+          tags: type=raw,value=${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Login to Docker Hub
+        if: steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
+      - name: Login to Aliyun Docker Registry
+        if: steps.meta.outputs.push-images == 'true' && env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.ALIYUN_DOCKER_USERNAME }}
+          password: ${{ env.ALIYUN_DOCKER_PASSWORD }}
+          registry: ${{ env.ALIYUN_DOCKER_REGISTRY }}
+
+      - name: Download verified service publications
+        if: steps.meta.outputs.push-images == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: docker-publication-*
+          path: ${{ runner.temp }}/publications
+
+      - name: Complete API and web publication
+        if: steps.meta.outputs.push-images == 'true'
+        env:
+          PROMOTE_LATEST: ${{ inputs.promote-latest }}
+        run: |
+          promotion=()
+          if [ "$PROMOTE_LATEST" = true ]; then
+            promotion+=(--promote-latest)
+          fi
+          python3 scripts/promote_docker_images.py collect "$RUNNER_TEMP/publications" \
+            --descriptor "$RUNNER_TEMP/completed/deployment-descriptor.json" \
+            --status "$RUNNER_TEMP/completed/publication-status.json" "${promotion[@]}"
+
+      - name: Upload deployment descriptor and publication status
+        if: always() && steps.meta.outputs.push-images == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-deployment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/completed/*.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Publication summary
+        if: always()
+        env:
+          PUSH_IMAGES: ${{ steps.meta.outputs.push-images }}
+          PROMOTE_LATEST: ${{ inputs.promote-latest }}
+        run: |
+          echo '### Complete Docker publication' >> "$GITHUB_STEP_SUMMARY"
+          echo "- Publication enabled: $PUSH_IMAGES" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Latest promotion requested: $PROMOTE_LATEST" >> "$GITHUB_STEP_SUMMARY"
+          echo '- Download the deployment descriptor and inspect publication-status.json before deployment.' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$RUNNER_TEMP/completed/publication-status.json" ]; then
+            cat "$RUNNER_TEMP/completed/publication-status.json" >> "$GITHUB_STEP_SUMMARY"
+          fi

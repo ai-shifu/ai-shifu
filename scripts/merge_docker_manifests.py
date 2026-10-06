@@ -1,18 +1,39 @@
 #!/usr/bin/env python3
-"""Publish image tags only after validating both native platform digests."""
+"""Publish verified service manifests and record their immutable digest references."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 PLATFORMS = frozenset({"linux/amd64", "linux/arm64"})
 DIGEST_PATTERN = re.compile(r"sha256:[a-f0-9]{64}")
 ARTIFACT_PATTERN = re.compile(r"-(amd64|arm64)-([1-9][0-9]*)$")
+TRANSIENT_ERRORS = (
+    "tls handshake timeout",
+    "i/o timeout",
+    "connection reset by peer",
+    "connection refused",
+    "temporary failure in name resolution",
+    "context deadline exceeded",
+    "unexpected eof",
+)
+PERMANENT_ERRORS = (
+    "unauthorized",
+    "authentication required",
+    "denied",
+    "forbidden",
+    "unsupported media type",
+    "unsupported mediatype",
+    "manifest invalid",
+    "certificate signed by unknown authority",
+)
 
 
 def load_digests(directory: Path) -> dict[str, str]:
@@ -49,7 +70,7 @@ def load_digests(directory: Path) -> dict[str, str]:
 
 
 def tags_by_image(metadata: dict) -> dict[str, list[str]]:
-    """Group fully qualified tags without mixing registry repositories."""
+    """Group fully qualified immutable/candidate tags by registry repository."""
     grouped: dict[str, list[str]] = {}
     for tag in metadata.get("tags", []):
         if not isinstance(tag, str) or "@" in tag or any(c.isspace() for c in tag):
@@ -63,6 +84,9 @@ def tags_by_image(metadata: dict) -> dict[str, list[str]]:
         ):
             message = "Fully qualified image tags are required"
             raise ValueError(message)
+        if version == "latest":
+            message = "Only the coordinated main promotion may publish latest"
+            raise ValueError(message)
         grouped.setdefault(image, []).append(tag)
     if not grouped:
         message = "At least one publication tag is required"
@@ -71,18 +95,34 @@ def tags_by_image(metadata: dict) -> dict[str, list[str]]:
 
 
 def docker(*arguments: str) -> str:
-    """Run Buildx without shell evaluation and propagate registry failures."""
-    result = subprocess.run(
-        ["docker", "buildx", "imagetools", *arguments],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout
+    """Retry bounded transport failures; preserve auth and format failures."""
+    for attempt in range(3):
+        try:
+            result = subprocess.run(
+                ["docker", "buildx", "imagetools", *arguments],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as error:
+            detail = (error.stderr or "").lower()
+            transient = any(marker in detail for marker in TRANSIENT_ERRORS)
+            permanent = any(marker in detail for marker in PERMANENT_ERRORS)
+            if attempt == 2 or not transient or permanent:
+                raise
+            print(
+                f"Registry transport failure; retrying operation ({attempt + 1}/2)",
+                file=sys.stderr,
+            )
+            time.sleep(2**attempt)
+        else:
+            return result.stdout
+    message = "Registry retry loop exhausted"
+    raise RuntimeError(message)
 
 
-def verify_manifest(raw: str, digests: dict[str, str]) -> None:
-    """Require the manifest to contain exactly the two expected platform images."""
+def verify_manifest(raw: str, digests: dict[str, str]) -> dict:
+    """Require exactly the two expected platform images and return the index."""
     manifest = json.loads(raw)
     platforms: dict[str, str] = {}
     for image in manifest.get("manifests", []):
@@ -95,36 +135,144 @@ def verify_manifest(raw: str, digests: dict[str, str]) -> None:
     if platforms != digests:
         message = "Manifest platforms/digests differ from the native build outputs"
         raise ValueError(message)
+    return manifest
 
 
-def publish(directory: Path, metadata: dict) -> None:
-    """Preflight all registries, then publish and inspect their manifest tags."""
+def inspect_digest(
+    reference: str, digests: dict[str, str], annotations: dict[str, str] | None = None
+) -> str:
+    """Read the registry-reported index digest rather than hashing CLI output."""
+    manifest = verify_manifest(
+        docker("inspect", "--format", "{{json .Manifest}}", reference), digests
+    )
+    digest = manifest.get("digest", "")
+    if not isinstance(digest, str) or not DIGEST_PATTERN.fullmatch(digest):
+        message = "Registry inspection did not return a valid index digest"
+        raise ValueError(message)
+    if annotations and any(
+        manifest.get("annotations", {}).get(key) != value
+        for key, value in annotations.items()
+    ):
+        message = (
+            "Registry index publication annotations differ from the workflow source"
+        )
+        raise ValueError(message)
+    return digest
+
+
+def require_same_digest(actual: str, expected: str | None) -> None:
+    """Keep each index reference and its recorded registry digest identical."""
+    if expected is not None and actual != expected:
+        message = "Registry index digest differs from the publication descriptor"
+        raise ValueError(message)
+
+
+def publication_annotations() -> dict[str, str]:
+    """Keep ordering metadata on the index that will later become latest."""
+    run_id = os.environ.get("GITHUB_RUN_ID")
+    if not run_id:
+        return {}
+    attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+    if not run_id.isdecimal() or not attempt.isdecimal():
+        message = "Invalid workflow publication identity"
+        raise ValueError(message)
+    return {
+        "io.ai-shifu.publication.run-id": run_id,
+        "io.ai-shifu.publication.run-attempt": attempt,
+    }
+
+
+def write_json(path: Path | None, value: dict) -> None:
+    """Persist a report outside the source tree when a caller requests one."""
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+
+
+def publish(
+    directory: Path, metadata: dict, status_path: Path | None = None
+) -> list[dict]:
+    """Preflight every registry, publish candidates, and record partial outcomes."""
     digests = load_digests(directory)
     grouped = tags_by_image(metadata)
-    commands: list[tuple[list[str], list[str]]] = []
-    for image, tags in grouped.items():
-        sources = [f"{image}@{digest}" for digest in digests.values()]
-        options = [option for tag in tags for option in ("--tag", tag)]
-        # No tags change until every destination can resolve both platform images.
-        raw = docker("create", "--dry-run", *options, *sources)
-        verify_manifest(raw, digests)
-        commands.append((tags, options + sources))
-    for tags, arguments in commands:
-        docker("create", *arguments)
-        for tag in tags:
-            verify_manifest(docker("inspect", "--raw", tag), digests)
-            print(f"Verified {tag}: linux/amd64, linux/arm64")
+    status = {"phase": "service-manifest", "state": "pending", "targets": []}
+    commands: list[tuple[str, list[str], list[str]]] = []
+    references: list[dict] = []
+    annotations = publication_annotations()
+    status["targets"] = [
+        {"tag": tag, "state": "pending"} for tags in grouped.values() for tag in tags
+    ]
+    write_json(status_path, status)
+    try:
+        for image, tags in grouped.items():
+            sources = [f"{image}@{digest}" for digest in digests.values()]
+            options = [option for tag in tags for option in ("--tag", tag)]
+            for key, value in annotations.items():
+                options.extend(("--annotation", f"index:{key}={value}"))
+            raw = docker("create", "--dry-run", *options, *sources)
+            verify_manifest(raw, digests)
+            commands.append((image, tags, options + sources))
+        for image, tags, arguments in commands:
+            for target in status["targets"]:
+                if target["tag"] in tags:
+                    target["state"] = "unverified"
+            write_json(status_path, status)
+            docker("create", *arguments)
+            index_digest = None
+            for tag in tags:
+                digest = inspect_digest(tag, digests, annotations)
+                require_same_digest(digest, index_digest)
+                index_digest = digest
+                target = next(
+                    target for target in status["targets"] if target["tag"] == tag
+                )
+                target.update(state="verified", digest=digest)
+                write_json(status_path, status)
+                print(f"Verified {tag}: linux/amd64, linux/arm64")
+            references.append(
+                {"repository": image, "digest": index_digest, "platforms": digests}
+            )
+    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+        status["state"] = "failed"
+        status["error_type"] = type(error).__name__
+        # A create may have reached the registry before a transport failure.
+        # Unverified targets are unknown; pending targets were never attempted.
+        write_json(status_path, status)
+        raise
+    status["state"] = "verified"
+    write_json(status_path, status)
+    return references
 
 
 def main() -> None:
-    """Read workflow metadata and merge downloaded digest artifacts."""
-    if len(sys.argv) != 2:
-        message = "Usage: merge_docker_manifests.py DIGEST_DIRECTORY"
-        raise SystemExit(message)
+    """Read workflow metadata and emit a service publication artifact."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("digest_directory", type=Path)
+    parser.add_argument("--service", choices=("api", "web"))
+    parser.add_argument("--descriptor", type=Path)
+    parser.add_argument("--status", type=Path)
+    args = parser.parse_args()
+    if args.descriptor and not args.service:
+        parser.error("--service is required when writing a descriptor")
     try:
-        publish(Path(sys.argv[1]), json.loads(os.environ["IMAGE_METADATA"]))
+        references = publish(
+            args.digest_directory, json.loads(os.environ["IMAGE_METADATA"]), args.status
+        )
+        if args.descriptor:
+            write_json(
+                args.descriptor,
+                {
+                    "schema_version": 1,
+                    "service": args.service,
+                    "source": {
+                        "sha": os.environ["GITHUB_SHA"],
+                        "run_id": os.environ["GITHUB_RUN_ID"],
+                        "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+                    },
+                    "images": references,
+                },
+            )
     except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
-        # Preserve the build/registry error; never retry an entire build or publication.
         if isinstance(error, subprocess.CalledProcessError):
             print(error.stderr, file=sys.stderr)
         raise SystemExit(str(error)) from error
