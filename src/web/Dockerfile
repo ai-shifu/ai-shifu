@@ -22,14 +22,25 @@ RUN npm config set fetch-retries 5 && \
 RUN npm ci
 
 # Keep the existing sharp compatibility fallback; do not retry npm ci or the build.
-RUN (npm rebuild sharp || npm install --include=optional sharp) && \
-    npm cache clean --force
+RUN (npm rebuild sharp || npm install --include=optional sharp)
 
 # Copy project source and shared i18n
 COPY ${APP_DIR}/ ./
 COPY ${I18N_DIR}/ ./i18n
 
 RUN npm run build
+
+# Reuse the target architecture's installed native modules instead of downloading twice.
+FROM builder AS production-dependencies
+
+# Reuse npm ci metadata for peer resolution; pruning must never fetch or rerun scripts.
+RUN --network=none cp package-lock.json /tmp/package-lock.before-prune.json && \
+    npm prune --omit=dev --offline --ignore-scripts --no-audit --no-fund --save=false && \
+    cmp package-lock.json /tmp/package-lock.before-prune.json && \
+    npm cache clean --force && \
+    rm -rf /root/.cache /root/.npm /tmp/*
+
+RUN I18N_ROOT=/app/i18n node scripts/check-production-dependencies.mjs
 
 FROM node:22.16.0-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS runner
 
@@ -43,13 +54,11 @@ RUN apk add --no-cache libc6-compat
 
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
+COPY --from=production-dependencies /app/node_modules ./node_modules
+COPY --from=builder /app/scripts/check-production-dependencies.mjs ./scripts/check-production-dependencies.mjs
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/i18n ./i18n
-
-RUN npm ci --only=production && \
-    npm cache clean --force && \
-    rm -rf /root/.cache /root/.npm /tmp/*
 
 EXPOSE ${PORT:-3000}
 

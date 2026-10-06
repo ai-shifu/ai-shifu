@@ -90,6 +90,28 @@ To run only the smoke project and its authentication setup, use
 Follow the [repository reliability guide](../../docs/RELIABILITY.md)
 when diagnosing smoke failures.
 
+## Production Docker Dependencies
+
+The production Dockerfile installs the lockfile once on the image's target
+architecture. A separate stage removes development dependencies offline without
+rerunning lifecycle scripts, then the runner copies the resulting node_modules.
+The Node 22.16.0 Alpine base and `npm start` entrypoint remain unchanged.
+
+Build from the repository root on a native runner for each supported platform:
+
+```bash
+docker build --platform linux/amd64 -f src/web/Dockerfile -t ai-shifu-web:deps .
+docker run --rm --network none --entrypoint node ai-shifu-web:deps scripts/check-production-dependencies.mjs
+```
+
+Repeat with `linux/arm64` on an ARM64 runner. The probe executes a Sharp image
+conversion and native SWC transform, checks the pruned dependency roots, and
+reads every declared locale's common JSON. Start the image with its default
+command and verify `/api/config`, `/api/i18n?lng=en-US&ns=common.core`, and a
+built `/_next/static` asset before accepting a packaging change. See the
+[dependency reuse plan](../../docs/exec-plans/active/docker-web-dependency-reuse.md)
+for validation requirements and progress.
+
 ## Contributor References
 
 - [Frontend collaboration rules](AGENTS.md)
