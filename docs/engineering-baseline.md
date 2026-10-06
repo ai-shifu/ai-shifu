@@ -629,9 +629,14 @@ flows before promoting them.
 
 - `backend-tests.yml`: selects backend tests for PRs changing `src/api/**` or
   the backend workflow, with a successful no-op for unrelated PRs; runs the
-  full suite on pushes to `main` and full coverage on manual dispatch.
+  full suite on pushes to `main` unless the entire push only changes known
+  unrelated frontend, docs, or asset paths; runs full coverage on manual dispatch.
 - `frontend-tests.yml`: runs frontend Jest tests for frontend and shared i18n
-  changes while reporting a successful no-op check for unrelated PRs.
+  changes while reporting a successful no-op check for unrelated PRs. On `main`,
+  skips test setup only for pushes limited to known unrelated backend, docs, or
+  asset paths. Both test workflows retain their check names, use the entire push
+  range, and run full tests when that range is unavailable or touches shared
+  i18n, scripts, Docker, workflow, or unrecognized paths.
 - `prettier-check.yml`: checks frontend formatting for frontend changes.
 - `repo-harness.yml`: the `Static Checks` job validates architecture
   boundaries, instructions, generated knowledge artifacts, translation

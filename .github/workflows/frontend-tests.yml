@@ -32,7 +32,27 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            # Use the entire push range, including deleted/renamed paths. Keep
+            # full tests when the range is unavailable (for example a new ref).
+            if [[ -z "$PUSH_BEFORE_SHA" || "$PUSH_BEFORE_SHA" =~ ^0+$ ]] || \
+               ! git diff --name-only --no-renames "$PUSH_BEFORE_SHA" "$GITHUB_SHA" > /tmp/frontend-changed-files.txt; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # Only known unrelated surfaces may skip main's full suite. Shared
+            # i18n, scripts, Docker, workflows and unknown paths still run it.
+            if grep -Eqv '^(docs/|assets/|src/api/|[^/]+\.md$|LICENSE\.txt$)' /tmp/frontend-changed-files.txt; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "run=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+
           if [[ "$EVENT_NAME" != "pull_request" ]]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -65,4 +85,4 @@ jobs:
 
       - name: Skip frontend tests
         if: steps.frontend-changes.outputs.run != 'true'
-        run: echo "Skipping frontend tests because this pull request has no frontend or shared i18n changes."
+        run: echo "Skipping frontend tests because the changes do not affect the frontend test surface."
