@@ -10,25 +10,33 @@ worker, scheduler, and web deployment. The canonical operational contract is
 
 ## Progress
 
-- [x] 2026-10-07 UTC: Inspected the native-build PR, tag callers, manifest helper,
+- [x] 2026-10-06 UTC: Inspected the native-build PR, tag callers, manifest helper,
   and actual Compose service names in an isolated managed worktree.
-- [x] 2026-10-07 UTC: Implemented coordinated promotion, run/attempt candidates,
+- [x] 2026-10-06 UTC: Implemented coordinated promotion, run/attempt candidates,
   verified index annotations, service artifact carryover, and digest rendering.
-- [x] 2026-10-07 UTC: Added 45 focused offline tests and passed pinned Ruff.
-- [x] 2026-10-07 UTC: Passed actionlint, YAML, strict development-tool checks,
+- [x] 2026-10-06 UTC: Added 45 focused offline tests and passed pinned Ruff.
+- [x] 2026-10-06 UTC: Passed actionlint, YAML, strict development-tool checks,
   architecture boundaries, repository harness, and the complete pre-commit gate.
-- [x] 2026-10-07 UTC: Integrated native smoke changes, explicit OCI outputs,
+- [x] 2026-10-06 UTC: Integrated native smoke changes, explicit OCI outputs,
   and isolated candidate index-copy/descriptor acceptance after rebasing onto #3015.
-- [x] 2026-10-07 UTC: Added guarded cached native-export retries, exact
+- [x] 2026-10-06 UTC: Added guarded cached native-export retries, exact
   smoke/config metadata checks, retry-time main guards, and terminal main readback;
   all 55 publication plus foundation smoke tests pass.
-- [x] 2026-10-07 UTC: Added candidate-only registry pull/startup smoke for
+- [x] 2026-10-06 UTC: Added candidate-only registry pull/startup smoke for
   every registry and native platform, preserving immutable references and the
   original config gate; all 60 focused script checks pass.
 - [x] 2026-10-06 22:51 UTC: Matched release descriptor-only statuses to the exact
   saved descriptor bytes; the review regression and all 61 focused checks pass.
-- [ ] External acceptance: verify cold/warm native smoke builds, actual index
-  copies and annotations in both registries, partial recovery, and ordering.
+- [x] 2026-10-06 23:04 UTC: Candidate run 37542695302 passed every native build,
+  local/registry smoke, service index/annotation check, and global candidate-copy
+  descriptor readback; the actual descriptor hash and both Compose renders pass.
+- [x] 2026-10-06 23:04 UTC: Rebased the four publication commits onto merged foundation
+  main 930824cb4 and added previous latest snapshots plus explicit manual recovery;
+  all 65 focused script checks pass.
+- [ ] Combined acceptance: rerun the complete candidate path after integration
+  with the separately reviewed build-network change.
+- [ ] Controlled recovery acceptance: exercise forced partial registry
+  failures/reruns and latest ordering; offline regressions cover those guards.
 
 ## Surprises & Discoveries
 
@@ -55,8 +63,9 @@ worker, scheduler, and web deployment. The canonical operational contract is
 ## Outcomes & Retrospective
 
 The local implementation covers the publication contract without registry writes.
-External registry and smoke acceptance remains open; local tests cannot establish
-real registry annotation support or native-image startup behavior.
+Candidate registry/startup/index-copy acceptance succeeded on publication head
+`aadcbb330`. Combined-head acceptance remains open after dependency integration;
+forced recovery and latest ordering remain covered by offline regression checks.
 
 ## Context and Orientation
 
@@ -73,8 +82,8 @@ runtime or analytics contract change.
 
 Finish focused tests and workflow checks, update canonical publication guidance,
 and integrate with the native-build/smoke changes in the parent task. Keep this
-publication work as an independent commit/problem for review. No deployment or
-registry publication is performed from this worktree.
+publication work as an independent commit/problem for review. No application deployment or latest promotion is performed from this worktree.
+Isolated candidate registry writes are performed through the packaging workflow.
 
 ## Concrete Steps
 

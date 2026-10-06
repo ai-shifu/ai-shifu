@@ -57,6 +57,15 @@ Its independent `candidate-copy` status exposes verified and unknown partial
 writes. It does not mutate latest or require the source to be current main,
 so registry compatibility can be tested before merging.
 
+Candidate [run 37542695302](https://github.com/ai-shifu/ai-shifu/actions/runs/37542695302)
+passed on publication head `aadcbb330`: all four native images passed the local
+smoke, cached export/config gate, and immutable pull/startup smoke in both
+registries. Both service indexes preserved their ordering annotations; all four
+candidate-copy targets retained their source index digests. The downloaded
+descriptor hash matched its verified status, and both registry Compose overrides
+rendered successfully. Combined-head acceptance after foundation/network
+integration is tracked by the active publication ExecPlan.
+
 Candidate-copy and latest-promotion CLI modes are mutually exclusive. Selecting
 candidate copies cannot disable the main/source/order checks of a latest
 promotion. A descriptor-only release uses neither copy mode.
@@ -80,7 +89,13 @@ contains:
 - `publication-status.json`: a separate channel-operation report. It records
   the SHA-256 of the stored descriptor bytes, overall `verified`, `failed`, or `stale` state, and
   each destination's `pending`, `unverified`, or `verified` state. An unverified
-  write may have reached the registry; it does not imply a rollback.
+  write may have reached the registry; it does not imply a rollback. Latest targets
+  also record `expected_digest` and `previous_digest`: the previous registry-reported
+  digest is saved for every target during preflight, before any write. A missing
+  old latest tag records `null` after a successful preflight; an existing tag
+  with an invalid digest blocks publication. A pending target with `null` may also
+  mean its preflight was never completed. Copy retries and later main changes never replace this snapshot
+  with the new digest. Candidate-copy targets leave `previous_digest` as `null`.
 
 Descriptor and status artifacts are retained for 90 days. Native digest artifacts
 retain the existing seven-day lifetime. Download required deployment descriptors
@@ -125,14 +140,50 @@ manifest-validation, and unknown errors fail without retries. The initial native
 Login actions keep their existing authentication boundary; the cached exporter
 handles transient OAuth transport failures during push, not rejected credentials.
 
-Read the per-service status artifact and the complete publication status before
-recovery. A partial write retains the descriptor's immutable digest references
-and reports the destinations already verified. Rerun failed jobs to reuse
-successful artifacts and repeat the idempotent digest-based operations. Ordering
-checks still apply; a newer main SHA or successful publication prevents an old
-run from restoring `latest`. If native digests expire, rerun the native builds.
-For an intentional older-version deployment, render its retained descriptor;
-do not use a stale workflow to roll back the shared latest channel.
+Download and retain the failed attempt's per-service and complete status
+artifacts before recovery. Match `descriptor_sha256` to the exact downloaded
+`deployment-descriptor.json` bytes. The report preserves previous latest digests from successful preflights,
+including targets not yet written, and identifies
+verified, unverified, and pending targets. An unverified write requires registry
+readback before deciding which state exists.
+
+To resume the intended publication, rerun failed jobs in the same workflow run:
+
+```bash
+gh run rerun <run-id> --failed
+```
+
+This reuses successful service artifacts and repeats digest-based operations.
+Main/source/order guards still apply before every write/retry: a newer main SHA
+or successful publication prevents the old run from restoring latest. Each new
+attempt has its own status artifact; keep the original failed status as the
+record of the original previous targets. If native digests expire, rerun native
+builds. An intentional older-version application deployment can instead render
+its retained descriptor without changing the shared latest tags.
+
+The workflow never rolls aliases back automatically. For an explicitly chosen
+operator rollback, first stop concurrent latest publishers, check that live main
+still matches the failed status source, and read each affected latest tag. Abort
+if its digest differs from that target's `expected_digest` or newer publication
+annotations are present. The saved `previous_digest` identifies the exact prior
+content; inspect that immutable reference, copy it manually, and read back the
+tag to confirm the prior digest:
+
+```bash
+docker buildx imagetools inspect --format '{{json .Manifest}}' "$TARGET_TAG"
+docker buildx imagetools inspect --format '{{json .Manifest}}' "$REPOSITORY@$PREVIOUS_DIGEST"
+docker buildx imagetools create --tag "$TARGET_TAG" "$REPOSITORY@$PREVIOUS_DIGEST"
+docker buildx imagetools inspect --format '{{json .Manifest}}' "$TARGET_TAG"
+```
+
+Use this sequence only for a target that was written and has a non-null previous
+digest, with the writer pause and checks above maintained through the operation.
+For a written target, a `null` previous value means the alias did not exist at
+preflight. A pending target with `null` may instead be unchecked or rejected by
+preflight; do not infer its absence. Neither case is an image to copy or an
+instruction to delete a tag. Keep pending targets unchanged and retain the
+status and readback evidence. A stale status is not authority to overwrite a
+newer publication; use a retained descriptor for the application deployment.
 
 Docker documents registry inspection and structured index digest output in
 [imagetools inspect](https://docs.docker.com/reference/cli/docker/buildx/imagetools/inspect/).

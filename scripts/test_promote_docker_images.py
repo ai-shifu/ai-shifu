@@ -92,7 +92,9 @@ class CompletePublicationTests(unittest.TestCase):
     def test_candidate_copies_never_write_latest_or_bypass_its_guards(self) -> None:
         with (
             patch("promote_docker_images.ensure_current_main") as current,
-            patch("promote_docker_images.ensure_not_newer") as ordering,
+            patch(
+                "promote_docker_images.ensure_not_newer", return_value=self.index
+            ) as ordering,
             patch("promote_docker_images.inspect_digest", return_value=self.index),
             patch("promote_docker_images.docker") as run_docker,
         ):
@@ -106,6 +108,7 @@ class CompletePublicationTests(unittest.TestCase):
         status = json.loads(self.status.read_text())
         assert status["phase"] == "candidate-copy"
         assert status["state"] == "verified"
+        assert all(target["previous_digest"] is None for target in status["targets"])
         with (
             patch.dict("os.environ", {"GITHUB_REF": "refs/heads/feature"}),
             patch("promote_docker_images.docker") as run_docker,
@@ -276,6 +279,92 @@ class CompletePublicationTests(unittest.TestCase):
                     with pytest.raises(subprocess.CalledProcessError):
                         ensure_not_newer(image, self.descriptor["source"], 1)
 
+    def test_latest_preflight_records_all_previous_targets_before_partial_writes(
+        self,
+    ) -> None:
+        for service, record in self.descriptor["services"].items():
+            record["images"].append(
+                {
+                    **record["images"][0],
+                    "repository": f"registry.example.com/ai-shifu/{service}",
+                }
+            )
+        previous = ["sha256:" + value * 64 for value in "efab"]
+        failure = subprocess.CalledProcessError(1, "docker", stderr="denied")
+        with (
+            patch("promote_docker_images.ensure_current_main"),
+            patch(
+                "promote_docker_images.ensure_not_newer",
+                side_effect=[*previous, self.index, self.index],
+            ),
+            patch("promote_docker_images.inspect_digest", return_value=self.index),
+            patch("promote_docker_images.docker", side_effect=["", failure]),
+            pytest.raises(subprocess.CalledProcessError),
+        ):
+            promote(self.descriptor, self.status)
+        status = json.loads(self.status.read_text())
+        assert status["state"] == "failed"
+        assert [target["previous_digest"] for target in status["targets"]] == previous
+        assert [target["state"] for target in status["targets"]] == [
+            "verified",
+            "unverified",
+            "pending",
+            "pending",
+        ]
+
+    def test_main_advancing_preserves_original_previous_targets(self) -> None:
+        previous = "sha256:" + "e" * 64
+        with (
+            patch(
+                "promote_docker_images.ensure_current_main",
+                side_effect=[None, None, StalePublicationError("advanced")],
+            ),
+            patch(
+                "promote_docker_images.ensure_not_newer",
+                side_effect=[previous, previous, self.index],
+            ),
+            patch("promote_docker_images.inspect_digest", return_value=self.index),
+            patch("promote_docker_images.docker"),
+            pytest.raises(StalePublicationError),
+        ):
+            promote(self.descriptor, self.status)
+        status = json.loads(self.status.read_text())
+        assert status["state"] == "stale"
+        assert all(
+            target["previous_digest"] == previous for target in status["targets"]
+        )
+
+    def test_previous_digest_requires_valid_registry_readback(self) -> None:
+        image = self.descriptor["services"]["api"]["images"][0]
+        for digest in ("", "invalid", 123):
+            with (
+                patch(
+                    "promote_docker_images.docker",
+                    return_value=json.dumps({"digest": digest}),
+                ),
+                pytest.raises(ValueError, match="valid previous index digest"),
+            ):
+                ensure_not_newer(image, self.descriptor["source"], 1)
+        with patch("promote_docker_images.docker", return_value=self.manifest()):
+            assert ensure_not_newer(image, self.descriptor["source"], 1) == self.index
+
+    def test_missing_latest_records_null_without_starting_a_rollback(self) -> None:
+        missing = subprocess.CalledProcessError(1, "docker", stderr="manifest unknown")
+        image = self.descriptor["services"]["api"]["images"][0]
+        with patch("promote_docker_images.docker", side_effect=missing):
+            assert ensure_not_newer(image, self.descriptor["source"], 1) is None
+        with (
+            patch("promote_docker_images.ensure_current_main"),
+            patch("promote_docker_images.ensure_not_newer", return_value=None),
+            patch("promote_docker_images.inspect_digest", return_value=self.index),
+            patch("promote_docker_images.docker") as run_docker,
+        ):
+            promote(self.descriptor, self.status)
+        status = json.loads(self.status.read_text())
+        assert status["state"] == "verified"
+        assert all(target["previous_digest"] is None for target in status["targets"])
+        assert all(call.args[0] == "create" for call in run_docker.call_args_list)
+
     def test_stale_preflight_never_moves_a_tag(self) -> None:
         with (
             patch(
@@ -290,9 +379,13 @@ class CompletePublicationTests(unittest.TestCase):
         assert json.loads(self.status.read_text())["state"] == "stale"
 
     def test_every_service_preflights_before_latest_changes(self) -> None:
+        previous = "sha256:" + "e" * 64
         with (
             patch("promote_docker_images.ensure_current_main"),
-            patch("promote_docker_images.ensure_not_newer"),
+            patch(
+                "promote_docker_images.ensure_not_newer",
+                side_effect=[previous, previous, previous, self.index],
+            ),
             patch(
                 "promote_docker_images.inspect_digest", return_value=self.index
             ) as inspect,
@@ -304,7 +397,11 @@ class CompletePublicationTests(unittest.TestCase):
             f"aishifu/web@{self.index}",
         ]
         assert run_docker.call_count == 2
-        assert json.loads(self.status.read_text())["state"] == "verified"
+        status = json.loads(self.status.read_text())
+        assert status["state"] == "verified"
+        assert all(
+            target["previous_digest"] == previous for target in status["targets"]
+        )
 
     def test_partial_registry_failure_is_recoverable_with_the_saved_descriptor(
         self,
@@ -312,7 +409,7 @@ class CompletePublicationTests(unittest.TestCase):
         failure = subprocess.CalledProcessError(1, "docker", stderr="denied")
         with (
             patch("promote_docker_images.ensure_current_main"),
-            patch("promote_docker_images.ensure_not_newer"),
+            patch("promote_docker_images.ensure_not_newer", return_value=self.index),
             patch("promote_docker_images.inspect_digest", return_value=self.index),
             patch("promote_docker_images.docker", side_effect=["", failure]),
             pytest.raises(subprocess.CalledProcessError),
@@ -327,7 +424,7 @@ class CompletePublicationTests(unittest.TestCase):
         original_identity = status["descriptor_sha256"]
         with (
             patch("promote_docker_images.ensure_current_main"),
-            patch("promote_docker_images.ensure_not_newer"),
+            patch("promote_docker_images.ensure_not_newer", return_value=self.index),
             patch("promote_docker_images.inspect_digest", return_value=self.index),
             patch("promote_docker_images.docker"),
         ):
@@ -345,7 +442,7 @@ class CompletePublicationTests(unittest.TestCase):
                 "promote_docker_images.ensure_current_main",
                 side_effect=[None, None, None, StalePublicationError("advanced")],
             ),
-            patch("promote_docker_images.ensure_not_newer"),
+            patch("promote_docker_images.ensure_not_newer", return_value=self.index),
             patch("promote_docker_images.inspect_digest", return_value=self.index),
             patch(
                 "merge_docker_manifests.subprocess.run", side_effect=failure
@@ -368,7 +465,7 @@ class CompletePublicationTests(unittest.TestCase):
                 "promote_docker_images.ensure_current_main",
                 side_effect=[None, None, None, StalePublicationError("advanced")],
             ),
-            patch("promote_docker_images.ensure_not_newer"),
+            patch("promote_docker_images.ensure_not_newer", return_value=self.index),
             patch("promote_docker_images.inspect_digest", return_value=self.index),
             patch("promote_docker_images.docker") as run_docker,
             pytest.raises(StalePublicationError),
@@ -385,7 +482,7 @@ class CompletePublicationTests(unittest.TestCase):
                 "promote_docker_images.ensure_current_main",
                 side_effect=[None, None, StalePublicationError("advanced")],
             ),
-            patch("promote_docker_images.ensure_not_newer"),
+            patch("promote_docker_images.ensure_not_newer", return_value=self.index),
             patch("promote_docker_images.inspect_digest", return_value=self.index),
             patch("promote_docker_images.docker") as run_docker,
             pytest.raises(StalePublicationError),

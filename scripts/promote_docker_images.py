@@ -170,8 +170,8 @@ def ensure_current_main(sha: str) -> None:
         raise StalePublicationError(message)
 
 
-def ensure_not_newer(image: dict, source: dict, build_attempt: int) -> None:
-    """Preserve a newer successful run, including rebuilds of the same SHA."""
+def ensure_not_newer(image: dict, source: dict, build_attempt: int) -> str | None:
+    """Protect ordering and return the registry digest needed for manual recovery."""
     try:
         current = json.loads(
             docker(
@@ -194,13 +194,19 @@ def ensure_not_newer(image: dict, source: dict, build_attempt: int) -> None:
             )
         )
         if missing and not any(marker in detail for marker in PERMANENT_ERRORS):
-            return
+            return None
         raise
+    previous_digest = current.get("digest", "")
+    if not isinstance(previous_digest, str) or not DIGEST_PATTERN.fullmatch(
+        previous_digest
+    ):
+        message = "Latest inspection did not return a valid previous index digest"
+        raise ValueError(message)
     annotations = current.get("annotations", {})
     current_run = annotations.get(RUN_ANNOTATION)
     current_attempt = annotations.get(ATTEMPT_ANNOTATION)
     if current_run is None and current_attempt is None:
-        return  # Migration from the old unannotated latest channel.
+        return previous_digest  # Migration from the old unannotated latest channel.
     if not str(current_run).isdecimal() or not str(current_attempt).isdecimal():
         message = "Latest has invalid publication ordering annotations"
         raise ValueError(message)
@@ -210,6 +216,7 @@ def ensure_not_newer(image: dict, source: dict, build_attempt: int) -> None:
     ):
         message = "A newer workflow publication already owns latest"
         raise StalePublicationError(message)
+    return previous_digest
 
 
 def _ensure_latest_current(source: dict, image: dict, build_attempt: int) -> None:
@@ -244,6 +251,7 @@ def _copy_indexes(descriptor: dict, status_path: Path, *, promote_latest: bool) 
                 if promote_latest
                 else f"{image['repository']}:candidate-copy-{source['run_id']}-{source['run_attempt']}-{service}",
                 "expected_digest": image["digest"],
+                "previous_digest": None,
                 "state": "pending",
             }
             for image, _, service in targets
@@ -253,9 +261,14 @@ def _copy_indexes(descriptor: dict, status_path: Path, *, promote_latest: bool) 
     try:
         if promote_latest:
             ensure_current_main(source["sha"])
-        for image, build_attempt, _ in targets:
+        for (image, build_attempt, _), target in zip(
+            targets, status["targets"], strict=True
+        ):
             if promote_latest:
-                ensure_not_newer(image, source, build_attempt)
+                target["previous_digest"] = ensure_not_newer(
+                    image, source, build_attempt
+                )
+                write_json(status_path, status)
             reference = f"{image['repository']}@{image['digest']}"
             annotations = {
                 RUN_ANNOTATION: source["run_id"],
