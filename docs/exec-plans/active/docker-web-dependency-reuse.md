@@ -14,8 +14,9 @@ Reduce dependency-download failures in production Web image builds. Install the
 locked dependencies once on the target architecture, build Next.js with its
 normal development toolchain, and prune development dependencies without network
 access before copying production dependencies into the final image. Preserve
-Node 22.16.0 on Alpine, the existing Sharp compatibility step, npm lifecycle
-scripts during the initial installation, and the `npm start` runtime contract.
+Node 22.16.0 on Alpine, npm lifecycle scripts during the initial locked
+installation, and the `npm start` runtime contract. Native module probes replace
+the mutable Sharp installation fallback.
 
 ## Progress
 
@@ -25,7 +26,11 @@ scripts during the initial installation, and the `npm start` runtime contract.
 - [x] 2026-10-06 22:15 UTC: Implement production dependency reuse and native-module probes.
 - [x] 2026-10-06 22:22 UTC: Verify cold-cache install and offline prune on Node 22.16.0/npm 10.9.2; preserve the lockfile and pass native probes.
 - [x] 2026-10-06 22:23 UTC: Pass the strict development-tool doctor, repository harness, formatting, and all-files lefthook checks.
-- [ ] 2026-10-06 22:23 UTC: Complete both native Linux image builds and final runner smoke checks in CI.
+- [x] 2026-10-06 22:35 UTC: Rebase onto the native packaging checks and create ready stacked PR #3018.
+- [x] 2026-10-06 22:37 UTC: Remove the mutable Sharp fallback and compare installation/pruning with the original copied lockfile.
+- [x] 2026-10-06 22:49 UTC: Pass native Linux AMD64/ARM64 Web dependency probes and API/Web production runner smoke checks for head 596a26e16 in packaging run 37542040314.
+- [x] 2026-10-06 23:00 UTC: Rebase only the two dependency commits onto main after the Docker stability foundation merged; preserve its Markdown packaging triggers.
+- [ ] 2026-10-06 23:00 UTC: Complete the final main-based PR head CI and live review checks before merge.
 
 ## Surprises & Discoveries
 
@@ -39,6 +44,11 @@ Real npm 10.9.2 validation found that prune recalculates React peer metadata and
 needs the cache created by the initial installation. Clearing that cache before
 pruning causes ENOTCACHED; default prune also rewrites lockfile development flags.
 Use `--save=false` and delay cache cleanup until after the offline prune.
+The existing `npm install sharp` fallback could mutate the lock before a prune
+snapshot; comparing only against that snapshot would miss the drift. Sharp
+0.35.4 declares locked native optional packages, including both Linux musl
+architectures, and has no install lifecycle script. Use the initial locked
+installation and actual native probes; do not resolve a new Sharp version.
 
 ## Decision Log
 
@@ -48,6 +58,9 @@ Use `--save=false` and delay cache cleanup until after the offline prune.
   must preserve the lockfile byte for byte and never fetch or rerun scripts.
   Keep the original npm installation cache until pruning finishes, then remove
   it before copying only node_modules to the runner.
+- 2026-10-06: Snapshot the source lock before npm ci and compare against that
+  same snapshot after initial installation and pruning. Remove npm rebuild and
+  the mutable npm install Sharp fallback; native probe failure stops the build.
 - 2026-10-06: Keep the same base image, architecture, runtime startup command,
   translations, public files, and Next output layout. Native modules are copied
   only between stages within one target-platform build.
@@ -65,9 +78,12 @@ The probe passed actual Sharp resize/PNG decode, native SWC transformation and
 execution, and all eight locale JSON reads. Negative checks confirmed that a
 retained Jest directory or missing native SWC binary fails the probe.
 
-Strict tooling, the repository harness, and all-files lefthook passed. Native
-Linux musl binaries and final container startup remain external acceptance;
-local Darwin results cannot establish those outcomes. This change does not
+Strict tooling, the repository harness, and all-files lefthook passed.
+[Packaging run 37542040314](https://github.com/ai-shifu/ai-shifu/actions/runs/37542040314)
+passed both native Linux musl Web builds and dependency probes, plus all four
+API/Web AMD64/ARM64 final runner smoke checks for head 596a26e16. The main-based
+rebased head must repeat CI acceptance before merge; local Darwin results alone
+cannot establish Linux native behavior or container startup. This change does not
 claim to fix npm network failures during the initial installation or the
 separately investigated QEMU illegal-instruction failure.
 
@@ -112,7 +128,7 @@ Acceptance requires both native Linux architectures to build and start the final
 runner with the default command as the unprivileged node user. The probe must
 execute native Sharp and native SWC, resolve all production dependency roots,
 reject development-only roots, and read every declared locale's common JSON.
-The lockfile must remain unchanged during pruning. Pruning must also succeed
+The lockfile must match the source copy after both installation and pruning. Pruning must also succeed
 using only the cache created by the first cold-cache installation, with network
 access disabled by BuildKit's `RUN --network=none`. Runtime configuration,
 translation responses, and static assets must remain available. Repository

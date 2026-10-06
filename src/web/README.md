@@ -93,8 +93,10 @@ when diagnosing smoke failures.
 ## Production Docker Dependencies
 
 The production Dockerfile installs the lockfile once on the image's target
-architecture. A separate stage removes development dependencies offline without
-rerunning lifecycle scripts, then the runner copies the resulting node_modules.
+architecture and verifies the source lockfile after installation. A separate
+stage removes development dependencies offline without rerunning lifecycle
+scripts, checks the same source lockfile, then the runner copies node_modules.
+Native module failures stop the build instead of installing a new Sharp version.
 The Node 22.16.0 Alpine base and `npm start` entrypoint remain unchanged.
 
 Build from the repository root on a native runner for each supported platform:
