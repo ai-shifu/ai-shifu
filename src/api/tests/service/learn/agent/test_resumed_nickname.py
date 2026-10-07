@@ -298,3 +298,68 @@ def test_failed_resume_does_not_persist_prompt_repair(
             _run(app, _observer([]), ids)
         db.session.remove()
         assert session_store.load_agent_session(app, ids[0], ids[2]).dumps() == before
+
+
+@pytest.mark.parametrize("nickname", ["", "Sam"])
+def test_bounded_prompt_refreshes_nickname_and_preserves_omitted_exact_answer(
+    app: Flask, nickname: str
+) -> None:
+    """A budget notice cannot disable name refresh or lose an omitted script substitution."""
+    from flaskr.service.learn.memory import (
+        MemoryUpdate,
+        VariableMemoryUpdate,
+        stage_memory,
+    )
+    from flaskr.service.profile.models import Variable
+
+    with app.app_context():
+        ids, session = _seed(app, nickname, collected=False)
+        goal = GOAL + "z" * 40000
+        session.user_memory = {NAME: "Alex", "goal": goal}
+        prompt = render_first_prompt(
+            session.script, session.user_memory, memory_limit=32768
+        )
+        assert "Some stored values were omitted" in prompt
+        assert "goal" not in _memory(prompt)
+        assert goal in prompt
+        session.messages[0] = ModelRequest(parts=[UserPromptPart(prompt)])
+        with unit_of_work():
+            db.session.add(
+                Variable(variable_bid=uuid4().hex, shifu_bid=ids[1], key="goal")
+            )
+            stage_memory(
+                app,
+                ids[0],
+                ids[1],
+                MemoryUpdate(variables=[VariableMemoryUpdate("goal", goal)]),
+            )
+        session_store.save_agent_session(
+            app, session, user_bid=ids[0], shifu_bid=ids[1], outline_item_bid=ids[2]
+        )
+        db.session.remove()
+        seen = []
+
+        async def model(
+            messages: list[ModelMessage], _info: AgentInfo
+        ) -> AsyncIterator[str]:
+            seen.append(messages)
+            yield "A useful example number " + str(len(seen))
+
+        engine = Engine(
+            FunctionModel(stream_function=model), memory_context_limit=32768
+        )
+        for _ in range(2):
+            _run(app, engine, ids)
+            address = nickname or "Learner"
+            current_prompt = _prompt(seen[-1])
+            assert _memory(current_prompt)[NAME] == address
+            assert f"Hello {address}." in current_prompt
+            assert f"Address {address} directly." in current_prompt
+            assert goal in current_prompt
+            assert "goal" not in _memory(current_prompt)
+            assert "Some stored values were omitted" in current_prompt
+            assert seen[-1][1] == session.messages[1]
+            db.session.remove()
+            saved = session_store.load_agent_session(app, ids[0], ids[2])
+            assert saved.user_memory["goal"] == goal
+            assert get_user_entity_by_bid(ids[0]).nickname == nickname

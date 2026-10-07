@@ -32,7 +32,10 @@ in a request-local copy. JSON decoding identifies its boundary even if a value
 contains `</memory>`. Saved historical messages remain intact; only new run
 messages are appended after success. Failed requests retain history and deferred
 answer evidence for retry. Later learner messages resembling tagged sections and
-tool results are not rewritten. Unrecognized historical formats retain the
+tool results are not rewritten. The nickname refresher shares the structural parser,
+retains omission notices and uses saved full values to recognize exact substitutions
+that were omitted from JSON. Literal tags in values are never treated as projection
+metadata. Unrecognized historical formats retain the
 existing compatibility behavior rather than guessing which content to alter.
 
 The portable engine defaults to no projection limit. The single AI-Shifu factory

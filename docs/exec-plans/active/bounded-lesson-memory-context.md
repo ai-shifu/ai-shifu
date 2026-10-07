@@ -19,7 +19,15 @@ history. This is a focused next step in the workspace's MDF 2.0 memory milestone
       contracts: 317 passed; complete learning/profile: 2406 passed, one skipped,
       four subtests. Disabling projection causes 11 failures. Developer tooling and
       all-files gates passed.
-- [ ] Publish one focused PR, reply to all independent AI findings and validate sim.
+- [x] 2026-10-07 10:21 UTC: Published PR #3029 at 4bbff7658; integrated the exact
+      tested tree into sim ac260ffee.
+- [x] 2026-10-07 10:28 UTC: Reproduced both Devin compatibility findings (three
+      regression failures before fixes). Share structured parsing with nickname
+      refresh and preserve omission notices using selection metadata. Focused
+      regressions: 28 passed; complete engine: 292 passed. Complete learning/profile:
+      2409 passed, one skipped, four subtests. All-files gates passed.
+- [ ] Push review fixes after complete validation, reply to each original thread,
+      and validate final sim / CI.
       Main merge remains user-owned.
 
 ## Surprises & Discoveries
@@ -30,6 +38,9 @@ The saved initial prompt is also conversation evidence; replacing it in durable
 history would silently rewrite the snapshot. pydantic-ai exposes `new_messages()`
 separately from history, allowing the host to save original history plus new results.
 Exact substitution and long tool-return answers can still make a request large.
+An omission notice changes the initial layout understood by the nickname refresher;
+a shared JSON-aware parser must serve both consumers. A literal `<memory_context>`
+in a retained value cannot indicate whether the renderer emitted a notice.
 
 ## Decision Log
 
