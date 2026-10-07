@@ -200,9 +200,9 @@ def render_memory_section(
             message = "memory context limit must fit an empty JSON object"
             raise ValueError(message)
         references = frozenset(
-            _VAR_RE.findall(
-                _strip_fences(bundle.script + "\n" + (bundle.constraints or ""))
-            )
+            name
+            for text in (bundle.script, bundle.constraints or "")
+            for name in _VAR_RE.findall(_strip_fences(text))
         )
         preferred = references | priority
         selected = {}

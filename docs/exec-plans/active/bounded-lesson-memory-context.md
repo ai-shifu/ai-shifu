@@ -26,7 +26,15 @@ history. This is a focused next step in the workspace's MDF 2.0 memory milestone
       refresh and preserve omission notices using selection metadata. Focused
       regressions: 28 passed; complete engine: 292 passed. Complete learning/profile:
       2409 passed, one skipped, four subtests. All-files gates passed.
-- [ ] Push review fixes after complete validation, reply to each original thread,
+- [x] 2026-10-07 10:30 UTC: Pushed d8a80fb86 and replied to both Devin findings
+      with verification results; integrated exact tree into sim ebca41d74. Both API
+      replicas matched all five changed runtime files. All 29 isolated engine probes
+      and normal read/backfill/listen completion passed; profile unchanged.
+- [x] 2026-10-07 10:33 UTC: Added independent-document fence regression after
+      observing that an unclosed script fence suppressed brief reference priority.
+      The regression fails before the fix. Final engine: 293 passed; learning/profile:
+      2410 passed, one skipped, four subtests. Final all-files gates passed.
+- [ ] Push the final reference-boundary fix after complete validation,
       and validate final sim / CI.
       Main merge remains user-owned.
 
