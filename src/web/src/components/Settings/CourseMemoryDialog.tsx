@@ -158,7 +158,7 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
               <p className='whitespace-pre-wrap break-words'>{item.value}</p>
               <Button
                 variant='outline'
-                disabled={deleting || !!selected}
+                disabled={deleting || loading || !!selected}
                 onClick={() => {
                   if (!selected) {
                     setError('');
@@ -185,7 +185,7 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
         ) : null}
         {!loading && cursor !== null ? (
           <Button
-            disabled={deleting}
+            disabled={deleting || !!selected}
             onClick={() => void load(cursor)}
           >
             {t('module.settings.memoryMore')}

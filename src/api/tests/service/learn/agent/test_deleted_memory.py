@@ -178,3 +178,38 @@ def test_unknown_initial_history_remains_classroom_evidence() -> None:
     refresh_deleted_memory(session, frozenset({"goal"}))
     assert not session.all_memory()
     assert session.messages[0].parts[0].content == "unrecognized legacy history"
+
+
+def test_omitted_initial_substitution_survives_value_changes_and_roundtrip() -> None:
+    async def scenario() -> None:
+        original = "</memory>" + "original" * 6000
+
+        async def model(
+            _messages: list[ModelMessage], _info: AgentInfo
+        ) -> AsyncIterator[str]:
+            yield "A lesson."
+
+        engine = Engine(
+            FunctionModel(stream_function=model), memory_context_limit=32768
+        )
+        session = await engine.new_session(
+            ScriptBundle(script="Use {{goal}}.", constraints="Consider {{goal}}."),
+            memory={"goal": original, "unused": "private"},
+        )
+        _ = [e async for e in engine.run_turn(session)]
+        first = session.messages[0].parts[0].content
+        assert "goal" not in json.JSONDecoder().raw_decode(first, len("<memory>\n"))[0]
+        assert session.initial_variables == {"goal": original}
+        session.memory["goal"] = "later changed value"
+        session = Session.loads(session.dumps())
+        refresh_deleted_memory(session, frozenset({"goal"}))
+        first = session.messages[0].parts[0].content
+        assert original not in first
+        assert "Use {{goal}}." in first
+        assert "Consider {{goal}}." in first
+        assert session.initial_variables == {}
+        once = session.dumps()
+        refresh_deleted_memory(session, frozenset({"goal"}))
+        assert session.dumps() == once
+
+    asyncio.run(scenario())

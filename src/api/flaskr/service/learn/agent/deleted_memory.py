@@ -10,6 +10,7 @@ from flaskr.service.learn.agent.engine.memory_context import parse_initial_memor
 from flaskr.service.learn.agent.engine.script import (
     collected_names,
     substitute_variables,
+    substitution_names,
 )
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
@@ -46,7 +47,7 @@ def refresh_deleted_memory(
             parsed = parse_initial_memory_prompt(part.content)
             if parsed is None:
                 return
-            original = {**saved, **parsed.memory}
+            original = {**saved, **parsed.memory, **(session.initial_variables or {})}
             updated = {k: v for k, v in original.items() if k not in deleted}
             updated.update(fresh)
             collected = collected_names(session.script.script)
@@ -92,4 +93,17 @@ def refresh_deleted_memory(
             parts = list(message.parts)
             parts[part_index] = replace(part, content=content)
             session.messages[index] = replace(message, parts=parts)
+            if session.initial_variables is not None:
+                session.initial_variables = {
+                    key: value
+                    for key, value in session.initial_variables.items()
+                    if key not in deleted
+                }
+                session.initial_variables.update(
+                    {
+                        key: value
+                        for key, value in fresh.items()
+                        if key in substitution_names(session.script)
+                    }
+                )
             return

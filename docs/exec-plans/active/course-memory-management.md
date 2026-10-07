@@ -18,7 +18,10 @@ analytics contract live in [the product spec](../../product-specs/course-memory-
   of the recommended view-and-delete scope. Inspected persistence and UI owners.
 - [x] 2026-10-07 CST: Implement scoped list/delete and deletion-safe agent persistence.
 - [x] 2026-10-07 CST: Add learner UI, translations, analytics and regression tests.
-- [ ] 2026-10-07 CST: Run local gates, open PR, validate sim and reply to AI reviews.
+- [x] 2026-10-07 CST: Run local gates and open PR #3030.
+- [x] 2026-10-07 CST: Fix review findings: URL serialization, replayed consent,
+  legacy in-flight writes and omitted original script substitutions.
+- [ ] 2026-10-07 CST: Validate the final sim revision and reply to AI reviews.
 
 ## Surprises & Discoveries
 
@@ -45,7 +48,11 @@ two pre-existing errors in unchanged admin user-detail tests (lines 964 and 1026
 no new errors are reported. Production Next.js build and all repository gates
 passed. A repeated 2435-case run had one gevent concurrency failure while the
 production build ran; the isolated gevent rerun passed in 0.85 seconds.
-External sim/CI acceptance remains pending.
+Review fixes passed the complete learning/profile suite: 2443 passed, one skipped,
+four subtests. The three changed frontend suites passed 27 tests, including
+query serialization and pagination/deletion exclusion. All repository gates passed.
+Initial sim HTTP acceptance passed isolation, deletion, history/profile preservation,
+idempotence and fresh explicit recreation. Final deployed revision acceptance is pending.
 
 ## Context and Orientation
 
@@ -80,4 +87,8 @@ configuration changes are needed. Source changes can be reverted normally.
 ## Interfaces and Dependencies
 
 Authenticated GET/POST `/api/user/course-memory` use the shared response envelope
-and request transport. Existing profile rows and agent session format remain.
+and request transport. Existing profile rows remain. Session JSON adds an optional initial substitution
+snapshot, limited to referenced host variables; older sessions still load.
+The 1.0 runtime captures deletion generations before validation, then stages
+memory and progress in one unit of work before emitting variable events.
+Replayed agent input cannot authorize restoration of a deleted key.

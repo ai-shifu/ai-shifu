@@ -94,6 +94,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_RESET,
 )
+from flaskr.service.profile.api import course_memory_deletion_state
 from flaskr.service.profile.constants import SYS_USER_LANGUAGE
 from flaskr.service.profile.profile_manage import (
     ProfileItemDefinition,
@@ -1525,6 +1526,7 @@ class _RunStepState:
     variable_definition_key_id_map: dict[str, str]
     block: Any = None
     has_effective_input: bool = False
+    memory_generations: dict[str, int] | None = None
 
 
 class RunScriptContextV2:
@@ -2414,6 +2416,9 @@ class RunScriptContextV2:
             usage_context,
             usage_scene,
         )
+        memory_generations, _ = course_memory_deletion_state(
+            self._user_info.user_id, self._outline_item_info.shifu_bid
+        )
         memory = load_memory(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
@@ -2463,6 +2468,7 @@ class RunScriptContextV2:
             user_profile=user_profile,
             message_list=message_list,
             variable_definition_key_id_map=variable_definition_key_id_map,
+            memory_generations=memory_generations,
         )
 
     def _phase_process_input(
@@ -2958,12 +2964,20 @@ class RunScriptContextV2:
                     VariableMemoryUpdate(key, value_str, profile_id)
                 )
 
-            stage_memory(
-                app,
-                self._user_info.user_id,
-                self._outline_item_info.shifu_bid,
-                memory_update,
-            )
+            with unit_of_work():
+                stage_memory(
+                    app,
+                    self._user_info.user_id,
+                    self._outline_item_info.shifu_bid,
+                    memory_update,
+                    expected_generations=getattr(state, "memory_generations", None),
+                )
+                self._recorder.update_progress_pointer(
+                    self._current_attend,
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=run_script_info.block_position + 1,
+                )
+            self._can_continue = True
             for variable in memory_update.variables:
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
@@ -2974,15 +2988,6 @@ class RunScriptContextV2:
                         variable_value=variable.value,
                     ),
                 )
-            self._can_continue = True
-            # This step also makes the profile rows saved above durable
-            # (stage_memory only flushes; the rows ride into this
-            # step's commit, previously the producer's outer commit).
-            self._recorder.update_progress_pointer(
-                self._current_attend,
-                status=LEARN_STATUS_IN_PROGRESS,
-                block_position=run_script_info.block_position + 1,
-            )
             self._run_type = RunType.OUTPUT
             self.app.logger.warning(
                 "passed and position: %s", self._current_attend.block_position

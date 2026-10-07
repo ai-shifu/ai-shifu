@@ -16,10 +16,10 @@ export const listCourseMemory = (
   courseId: string,
   before?: string,
 ): Promise<CourseMemoryPage> =>
-  request.get('/api/user/course-memory', {
-    params: { course_id: courseId, ...(before ? { before } : {}) },
-    skipErrorToast: true,
-  });
+  request.get(
+    `/api/user/course-memory?${new URLSearchParams({ course_id: courseId, ...(before ? { before } : {}) })}`,
+    { skipErrorToast: true },
+  );
 
 export const deleteCourseMemory = (
   courseId: string,
