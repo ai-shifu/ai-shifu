@@ -649,8 +649,10 @@ class Engine:
                 lines = [
                     line for line in _display_text(text).splitlines() if line.strip()
                 ]
-                if len(lines) == 1 and "".join(lines[0].split()) == final_line_text:
-                    return ""
+                if "".join("".join(lines).split()) == final_line_text:
+                    # The generic repeat trimmer also removes whitespace. Keep changed
+                    # line boundaries here so it cannot erase a multiline closing.
+                    return "" if len(lines) == 1 else text
             return _after_the_repeat(held, previous) if trim_repeat else text
 
         def _out(text: str) -> list[Event]:
