@@ -461,6 +461,13 @@ async def interact(
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 
+# Bound model-authored notes, not author-named interaction answers or loaded history.
+# Key length matches the host's variable storage; lengths count Unicode characters.
+_MEMORY_KEY_LIMIT = 255
+_MEMORY_VALUE_LIMIT = 2000
+_MEMORY_ENTRY_LIMIT = 100
+
+
 async def remember(
     ctx: RunContext[Deps],
     key: str,
@@ -473,8 +480,19 @@ async def remember(
     fact. `scope="session"` (default) is for this script run (answers, collected variables);
     `scope="user"` is for things that should follow the learner into future sessions
     (preferences, stable facts, requests like "keep answers short"). Overwrites an existing key.
+
+    A nonblank key can contain at most 255 characters and a value at most 2000. A scope with
+    100 or more entries accepts updates to existing keys only. A refused note changes nothing;
+    continue teaching instead of repeatedly trying to store it. Existing history and answers
+    recorded by `interact(variable=...)` are preserved without these model-note limits.
     """
+    if not key.strip() or len(key) > _MEMORY_KEY_LIMIT:
+        return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
+    if len(value) > _MEMORY_VALUE_LIMIT:
+        return "Not remembered: the value exceeds 2000 characters. Continue teaching."
     target = ctx.deps.user_memory if scope == "user" else ctx.deps.memory
+    if key not in target and len(target) >= _MEMORY_ENTRY_LIMIT:
+        return "Not remembered: this scope has 100 or more entries. Continue teaching."
     target[key] = value
     ctx.deps.memory_updates.append((scope, key, value))
     return f"remembered {key} ({scope})"
