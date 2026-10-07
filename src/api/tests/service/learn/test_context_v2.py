@@ -1639,7 +1639,7 @@ class CoursePromptCompositionTests(unittest.TestCase):
             patch(
                 "flaskr.service.learn.context_v2.load_memory",
                 return_value=MemorySnapshot(variables=profiles),
-            ),
+            ) as load,
             patch(
                 "flaskr.service.learn.context_v2.course_memory_deletion_state",
                 return_value=({}, frozenset()),
@@ -1664,6 +1664,12 @@ class CoursePromptCompositionTests(unittest.TestCase):
                 "COURSE RULE",
             )
 
+        load.assert_called_once_with(
+            app,
+            "user-1",
+            "shifu-1",
+            reference_text=(run_script_info.mdflow, "COURSE RULE"),
+        )
         assert state.system_prompt == CapturingMdflowContext.document_prompt
         assert "{{sys_user_nickname}}" not in state.system_prompt
         assert "{{sys_user_background}}" not in state.system_prompt

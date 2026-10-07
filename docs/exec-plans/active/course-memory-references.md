@@ -44,6 +44,9 @@ boundary is explicit sharing within one owner. The durable contract is
 - A loaded session still contains the original rendered first prompt, even
   after the host reloads current user memory. Brief edits must keep that initial
   section aligned, otherwise a later revocation could leave its old value behind.
+- Course-wide publication grants are insufficient for prompt inclusion: each
+  request also needs an explicit read in its own author document. Rejected writes
+  must be removed from adapter DTOs before any update events are emitted.
 - Ordinary courses have no reference-specific database queries. Portable hosts
   retain an empty read-only-prefix default; the app enables the reserved prefix.
 
@@ -60,7 +63,12 @@ boundary is explicit sharing within one owner. The durable contract is
 ## Outcomes & Retrospective
 
 Implementation, local verification and sim acceptance pass. PR 3034 remains open;
-AI review, final CI and the user's main merge are pending. This read-only increment does not complete shared writing or the entire
+Two Devin findings were accepted: narrow source loading to the current request's
+author documents, and remove discarded 1.0 reference writes from update events.
+The corrected version passes 2,587 learning/profile tests (one skipped, four
+subtests). Disabling its guards makes eight targeted checks fail. Final sim
+synchronization, CI and the user's main merge are pending. The independent CodeRabbit docstring-percentage warning was declined
+in its original issue thread because repository Ruff exempts test docstrings. This read-only increment does not complete shared writing or the entire
 memory milestone.
 
 ## Context and Orientation
