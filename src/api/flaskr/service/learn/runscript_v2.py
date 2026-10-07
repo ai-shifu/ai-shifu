@@ -744,7 +744,7 @@ def _lesson_events(
             outline_bid,
         )
         try:
-            yield from agent_lesson_events(
+            agent_events = agent_lesson_events(
                 app,
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
@@ -756,13 +756,44 @@ def _lesson_events(
                 reload_generated_block_bid=reload_generated_block_bid,
                 reload_element_bid=reload_element_bid,
             )
-            # The element adapter finalises the block on the turn's last event and stages every
-            # element it streamed; that happens in the caller, between the last yield above and
-            # this line. The turn's own transaction has already closed by then, so without this
-            # checkpoint -- the one the 1.0 run ends with -- those rows are dropped with the
-            # session: a lesson's cards were never written, and a reload showed the narration
-            # over an empty page.
+            # Final snapshots are staged by the adapter on DONE. Adapt here so the commit and
+            # readiness notification precede terminal DONE, on which the browser closes SSE.
+            adapted_events = (
+                element_adapter.process(agent_events)
+                if element_adapter is not None
+                else agent_events
+            )
+            ready_by_block: dict[str, list[str]] = {}
+            terminal_done = None
+            try:
+                for payload in adapted_events:
+                    if (
+                        isinstance(payload, RunElementSSEMessageDTO)
+                        and payload.type == GeneratedType.DONE.value
+                        and payload.is_terminal
+                    ):
+                        terminal_done = payload
+                    else:
+                        yield payload
+            finally:
+                # A disconnect must also close the engine bridge and its turn slot.
+                with contextlib.suppress(Exception):
+                    adapted_events.close()
+                with contextlib.suppress(Exception):
+                    agent_events.close()
+            if element_adapter is not None:
+                # Fallback narration is finalized in storage without a live patch. Include it
+                # from the adapter's snapshots instead of relying only on emitted elements.
+                for (
+                    block_bid,
+                    element_bid,
+                ) in element_adapter.finalized_element_identities():
+                    ready_by_block.setdefault(block_bid, []).append(element_bid)
             _commit_pending_step()
+            for block_bid, element_bids in ready_by_block.items():
+                yield _make_audio_backfill_ready_event(block_bid, element_bids)
+            if terminal_done is not None:
+                yield terminal_done
         except TurnCapacityError:
             # This worker is already running as many turns as it can. Refusing is the bridge's
             # deliberate choice over queueing -- a request parked waiting for a slot has not
