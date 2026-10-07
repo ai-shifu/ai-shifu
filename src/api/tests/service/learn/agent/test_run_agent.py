@@ -2541,6 +2541,18 @@ def _outcome(engine: _Engine) -> run_agent.TurnOutcome | None:
             return stop.value
 
 
+def test_input_budget_error_is_reported_only_after_session_save(calls: list) -> None:
+    outcome = _outcome(
+        _Engine(
+            [ErrorEvent(message="input too large", code="input_budget_exceeded")],
+            session=_Session(started=True),
+        )
+    )
+    assert outcome.error_code == "input_budget_exceeded"
+    assert outcome.reason is None
+    assert any(name == "save_session" for name, _ in calls)
+
+
 @pytest.mark.usefixtures("calls")
 def test_a_turn_reports_how_it_ended_and_whether_it_said_anything() -> None:
     """What the entry point reads to decide whether the lesson goes on in this request."""

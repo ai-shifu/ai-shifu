@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentInputBudgetExceeded": "本节输入内容已达到容量上限，你的回答和进度已保留。请联系课程负责人协助继续学习。",
     "agentRewindUnavailable": "这一步暂时无法重新生成。如需修改之前的回答，请点击「重修」重新学习本节",
     "agentTurnCapacity": "当前同时学习的人较多，请稍后重试",
     "askProviderAuthFailed": "知识库鉴权失败，请检查 API Key 与 Client ID 是否正确",

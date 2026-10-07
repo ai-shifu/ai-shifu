@@ -106,6 +106,11 @@ class ListenElementRunAdapter(
         self._answer_element_bid_by_block_bid: dict[str, str] = {}
         self._latest_element_snapshots: dict[str, object] = {}
 
+    def finalize_pending_blocks(self) -> Iterable[RunElementSSEMessageDTO]:
+        """Save already shown content without emitting a successful run boundary."""
+        for block_id in list(self._block_states):
+            yield from self._finalize_block(block_id)
+
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
     ) -> Iterable[RunElementSSEMessageDTO]:

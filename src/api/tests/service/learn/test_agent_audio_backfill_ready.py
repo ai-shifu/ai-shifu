@@ -247,3 +247,61 @@ def test_real_adapter_finalizes_read_narration_before_advertising_backfill(
     assert len(rows) == len(
         {(row["event_type"], row.get("element_bid")) for row in rows}
     )
+
+
+@pytest.mark.parametrize("formatted", [False, True])
+def test_budget_failure_commits_partial_elements_without_success_or_completion(
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    formatted: bool,
+) -> None:
+    from uuid import uuid4
+
+    from flaskr.dao import db
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.learn.listen_element_run_state import BlockMeta
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedElement
+
+    identity = uuid4().hex
+    adapter = ListenElementRunAdapter(
+        app,
+        shifu_bid=identity,
+        outline_bid=identity,
+        user_bid=identity,
+        persist_only_final=True,
+    )
+    monkeypatch.setattr(adapter, "_load_block_meta", lambda _bid: BlockMeta())
+    monkeypatch.setattr(runtime, "uses_agent_engine", lambda _bid: True)
+    failure = AppError(
+        "Input capacity exceeded", ERROR_CODE["server.learn.agentInputBudgetExceeded"]
+    )
+
+    def agent(*_args: object, **_kwargs: object) -> Iterator:
+        raw = RunMarkdownFlowDTO(
+            outline_bid=identity,
+            generated_block_bid=identity,
+            type=GeneratedType.CONTENT,
+            content="Step one remains visible.\n",
+        )
+        if formatted:
+            raw.set_mdflow_stream_parts([("Step one remains visible.\n", "text", 0)])
+        yield raw
+        raise failure
+
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", agent)
+    streamed = []
+    with app.app_context():
+        with pytest.raises(AppError) as exc:
+            streamed.extend(_events({"adapter": adapter}, app=app))
+        assert exc.value is failure
+        assert not any(
+            event.type in {"done", "audio_backfill_ready"} for event in streamed
+        )
+        db.session.remove()
+        rows = LearnGeneratedElement.query.filter_by(
+            user_bid=identity, status=1, event_type="element"
+        ).all()
+        assert rows
+        assert any("Step one remains visible." in row.content_text for row in rows)
+        assert all(row.is_final for row in rows)
