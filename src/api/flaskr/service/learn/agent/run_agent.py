@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, translate_for_language
+from flaskr.service.learn.agent.course_references import refresh_course_references
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
 from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
 from flaskr.service.learn.agent.engine.engine import (
@@ -263,6 +264,9 @@ def _load_or_start(
         if stored is not None:
             if debug_store is None:
                 refresh_nickname(stored, user_memory)
+                refresh_course_references(
+                    stored, user_memory, teaching_brief=teaching_brief
+                )
                 refresh_deleted_memory(
                     stored, frozenset(generations), current=user_memory
                 )

@@ -341,6 +341,7 @@ class Engine:
         pauses_from_notation: bool = False,
         memory_admission: bool = False,
         memory_reserved_keys: frozenset[str] = frozenset(),
+        memory_readonly_prefixes: tuple[str, ...] = (),
         memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None,
         memory_context_limit: int | None = None,
     ) -> None:
@@ -364,6 +365,10 @@ class Engine:
         `memory_context_limit` bounds the initial memory JSON payload, including legacy
         histories projected for a resumed request. It never bounds exact script substitution,
         answers or conversation history. None retains portable hosts' previous rendering.
+
+        `memory_readonly_prefixes` prevents tools and named answers from overwriting
+        host-owned references, even when a script declares them. Empty retains portable
+        hosts' previous key contract.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
@@ -374,6 +379,7 @@ class Engine:
         ).read_text()
         self.memory_admission = memory_admission
         self.memory_reserved_keys = memory_reserved_keys
+        self.memory_readonly_prefixes = memory_readonly_prefixes
         self.memory_request_check = memory_request_check
         if memory_context_limit is not None and memory_context_limit < 2:
             message = "memory context limit must fit an empty JSON object"
@@ -532,6 +538,7 @@ class Engine:
                 else None
             ),
             memory_reserved_keys=self.memory_reserved_keys,
+            memory_readonly_prefixes=self.memory_readonly_prefixes,
             memory_request_check=self.memory_request_check,
         )
         deps.history_len = len(session.messages) if session.started else 0
@@ -611,8 +618,13 @@ class Engine:
                     deps.memory_current_inputs += tuple(
                         _free_text_inputs(pending.spec, answer)
                     )
-            if pending.spec.variable and (
-                deps.memory_keys is None or pending.spec.variable in deps.memory_keys
+            if (
+                pending.spec.variable
+                and not pending.spec.variable.startswith(deps.memory_readonly_prefixes)
+                and (
+                    deps.memory_keys is None
+                    or pending.spec.variable in deps.memory_keys
+                )
             ):
                 value = stored_value(pending.spec, answer)
                 if value is not None:

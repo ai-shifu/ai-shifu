@@ -55,6 +55,7 @@ class Deps:
     # None preserves a portable host's existing unrestricted memory contract.
     memory_keys: frozenset[str] | None = None
     memory_reserved_keys: frozenset[str] = frozenset()
+    memory_readonly_prefixes: tuple[str, ...] = ()
     memory_deleted_keys: frozenset[str] = frozenset()
     request_inputs: tuple[str, ...] = ()
     memory_current_inputs: tuple[str, ...] = ()
@@ -527,6 +528,9 @@ async def interact(
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
+    if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
+        message = "This variable is a read-only reference. Ask using a local variable instead."
+        raise ModelRetry(message)
     if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
         variable = None
     if type != "confirm" and asks_the_answered_question_again(
@@ -610,6 +614,8 @@ async def memory_admission_error(
     deps: Deps, key: str, value: str, request: str | None
 ) -> str | None:
     """Require declared permission or a verified, real learner request before a write."""
+    if key.startswith(deps.memory_readonly_prefixes):
+        return "this key is a read-only reference"
     if deps.memory_keys is None or (
         key in deps.memory_keys and key not in deps.memory_deleted_keys
     ):

@@ -9,6 +9,7 @@ from flaskr.service.learn.memory.reader import load_course_variables
 from flaskr.service.profile.api import (
     course_memory_deletion_state,
     get_user_profiles,
+    is_course_reference,
     save_user_profiles,
 )
 from flaskr.service.profile.dtos import ProfileToSave
@@ -36,7 +37,8 @@ def load_memory(
     variables.update(resolved)
     _, deleted = course_memory_deletion_state(user_bid, shifu_bid)
     for key in deleted:
-        variables.pop(key, None)
+        if not is_course_reference(key):
+            variables.pop(key, None)
     return MemorySnapshot(variables=variables)
 
 

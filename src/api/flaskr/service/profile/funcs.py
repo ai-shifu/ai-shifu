@@ -13,6 +13,10 @@ from flaskr.dao import db
 from flaskr.i18n import _, get_locale_labels
 from flaskr.service.check_risk.funcs import add_risk_control_result
 from flaskr.service.common import raise_error
+from flaskr.service.profile.course_references import (
+    is_course_reference,
+    load_course_references,
+)
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
@@ -270,6 +274,8 @@ def save_user_profiles(
         user_values = []
 
     for profile in profiles:
+        if is_course_reference(profile.key):
+            continue
         profile_item = next(
             (item for item in profiles_items if item.profile_key == profile.key), None
         )
@@ -358,6 +364,8 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
 
     result: dict[str, str] = {}
     for profile_item in profiles_items:
+        if is_course_reference(profile_item.profile_key):
+            continue
         # Follow save_user_profiles routing: label keys are global, others per-course.
         target_shifu = (
             "" if profile_item.profile_key in profile_labels else (course_id or "")
@@ -404,6 +412,14 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     if not result.get(SYS_USER_NICKNAME):
         result[SYS_USER_NICKNAME] = aggregate.nickname if aggregate else ""
 
+    result.update(
+        load_course_references(
+            user_id,
+            course_id,
+            (item.profile_key for item in profiles_items),
+            reserved=frozenset(profile_labels),
+        )
+    )
     return result
 
 
@@ -647,7 +663,7 @@ def update_user_profile_with_lable(
 
     for profile in profiles:
         key = profile.get("key")
-        if not key:
+        if not key or is_course_reference(key):
             continue
         profile_value = profile.get("value")
         profile_item = next(
