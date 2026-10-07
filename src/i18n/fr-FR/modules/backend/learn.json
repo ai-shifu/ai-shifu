@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentInputBudgetExceeded": "Cette leçon a atteint la limite de capacité des données d’entrée. Vos réponses et votre progression sont conservées. Contactez le responsable du cours pour continuer.",
     "agentRewindUnavailable": "Cette étape ne peut pas être régénérée pour le moment. Pour modifier une réponse précédente, cliquez sur « Réinitialiser » pour refaire cette leçon.",
     "agentTurnCapacity": "Trop de leçons sont en cours actuellement. Veuillez réessayer dans un instant.",
     "askProviderAuthFailed": "Échec de l’authentification de la base de connaissances. Veuillez vérifier la clé API et le Client ID.",

@@ -97,12 +97,17 @@ class TurnDone(BaseModel):
     summary: str | None = None  # set when reason == "finished"
 
 
+class InputBudgetExceededError(ValueError):
+    """The host refused a complete model input before making a provider request."""
+
+
 class ErrorEvent(BaseModel):
     """The turn failed. The session stays usable; the host decides whether to retry."""
 
     type: Literal["error"] = "error"
     message: str
     retryable: bool = False
+    code: Literal["input_budget_exceeded"] | None = None
 
 
 Event = (

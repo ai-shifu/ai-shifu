@@ -21,6 +21,10 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.api.llm import chat_llm
 from flaskr.service.learn.agent.bridge import turn_stop_requested
+from flaskr.service.learn.agent.input_budget import (
+    INPUT_BUDGET_BYTES,
+    check_input_budget,
+)
 from flaskr.util.datetime import now_utc
 from pydantic_ai.messages import (
     ModelMessage,
@@ -272,14 +276,22 @@ class GatewayModel(Model):
         user_id: str,
         span: LangfuseObservationHandle,
         generation_name: str = "agent_lesson",
+        input_budget_bytes: int = INPUT_BUDGET_BYTES,
         **chat_llm_kwargs: object,
     ) -> None:
         """Bind the gateway call this model makes: which app, model and learner it bills to.
 
         `span` is required, not optional: `chat_llm` opens a generation on it before it reaches a
         provider, so there is no working call without one.
+
+        `input_budget_bytes` bounds the final mapped messages and effective tools as compact
+        UTF-8 JSON on every request. Oversized inputs are refused, never shortened.
         """
         super().__init__()
+        if input_budget_bytes <= 0:
+            message = "model input budget must be positive"
+            raise ValueError(message)
+        self._input_budget_bytes = input_budget_bytes
         self._app = app
         self._model = model
         self._user_id = user_id
@@ -312,12 +324,16 @@ class GatewayModel(Model):
             kwargs["tools"] = tools
             # No `tool_choice`: some providers reject forcing a choice while reasoning, and the
             # engine relies on the model deciding when to call `interact` or `finish`.
+        mapped = map_messages(messages)
+        check_input_budget(
+            mapped, kwargs.get("tools", []), limit=self._input_budget_bytes
+        )
         return chat_llm(
             app=self._app,
             user_id=self._user_id,
             span=self._span,
             model=self._model,
-            messages=map_messages(messages),
+            messages=mapped,
             generation_name=self._generation_name,
             emit_tool_calls=True,
             **kwargs,

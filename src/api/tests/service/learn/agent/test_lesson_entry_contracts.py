@@ -9,7 +9,7 @@ import pytest
 from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.agent import lesson_entry as entry
 from flaskr.service.learn.agent.run_agent import TurnOutcome
 from flaskr.service.learn.exceptions import PaidError
@@ -333,6 +333,33 @@ def test_failed_engine_turn_surfaces_an_error_instead_of_ending_silently(
                 outline_bid="lesson",
             )
         )
+
+
+def test_input_budget_failure_uses_localized_error_after_the_saved_turn(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    runner = _entry_with_runner(monkeypatch)
+
+    def failed_turn(*_args: object, **_kwargs: object) -> object:
+        yield from ()
+        return TurnOutcome(
+            reason=None, taught=False, error_code="input_budget_exceeded"
+        )
+
+    runner.side_effect = failed_turn
+    with pytest.raises(AppError) as exc:
+        list(
+            entry.agent_lesson_events(
+                app,
+                user_bid="learner",
+                shifu_bid="course",
+                outline_bid="lesson",
+            )
+        )
+    assert exc.value.code == ERROR_CODE["server.learn.agentInputBudgetExceeded"]
+    assert "server.learn.agentInputBudgetExceeded" not in str(exc.value)
+    assert runner.call_count == 1
 
 
 def test_going_back_hands_the_turn_the_plan_for_where_it_went_back_to(

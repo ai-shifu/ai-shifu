@@ -47,6 +47,7 @@ from .events import (
     ContentDelta,
     ErrorEvent,
     Event,
+    InputBudgetExceededError,
     InteractionRequest,
     MemoryUpdated,
     NarrationDelta,
@@ -986,7 +987,12 @@ class Engine:
                     reason="finished", usage=session.usage, summary=deps.finished
                 )
                 return
-            yield ErrorEvent(message=f"{type(exc).__name__}: {exc}", retryable=True)
+            budget_exceeded = isinstance(exc, InputBudgetExceededError)
+            yield ErrorEvent(
+                message=f"{type(exc).__name__}: {exc}",
+                retryable=not budget_exceeded,
+                code="input_budget_exceeded" if budget_exceeded else None,
+            )
             return
         finally:
             if (
