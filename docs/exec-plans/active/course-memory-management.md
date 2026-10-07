@@ -48,9 +48,11 @@ two pre-existing errors in unchanged admin user-detail tests (lines 964 and 1026
 no new errors are reported. Production Next.js build and all repository gates
 passed. A repeated 2435-case run had one gevent concurrency failure while the
 production build ran; the isolated gevent rerun passed in 0.85 seconds.
-Review fixes passed the complete learning/profile suite: 2443 passed, one skipped,
+Review fixes passed the complete learning/profile suite: 2444 passed, one skipped,
 four subtests. The three changed frontend suites passed 27 tests, including
 query serialization and pagination/deletion exclusion. All repository gates passed.
+A combined nickname-edit / omitted-variable deletion regression also passed;
+both host refreshers now share the original substitution snapshot correctly.
 Initial sim HTTP acceptance passed isolation, deletion, history/profile preservation,
 idempotence and fresh explicit recreation. Final deployed revision acceptance is pending.
 

@@ -47,7 +47,7 @@ def refresh_deleted_memory(
             parsed = parse_initial_memory_prompt(part.content)
             if parsed is None:
                 return
-            original = {**saved, **parsed.memory, **(session.initial_variables or {})}
+            original = {**saved, **(session.initial_variables or {}), **parsed.memory}
             updated = {k: v for k, v in original.items() if k not in deleted}
             updated.update(fresh)
             collected = collected_names(session.script.script)

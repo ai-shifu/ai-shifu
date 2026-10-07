@@ -48,6 +48,13 @@ def refresh_nickname(session: Session, current: dict[str, Any]) -> None:
                     parts = list(message.parts)
                     parts[part_index] = replace(part, content=content)
                     session.messages[index] = replace(message, parts=parts)
+                    if (
+                        session.initial_variables is not None
+                        and SYS_USER_NICKNAME in session.initial_variables
+                    ):
+                        session.initial_variables[SYS_USER_NICKNAME] = current[
+                            SYS_USER_NICKNAME
+                        ]
             return
 
 
@@ -76,7 +83,12 @@ def _refresh_prompt(
     start = parsed.script_start
     # A bounded JSON block can omit a value that the initial script substituted in full.
     # The saved snapshot supplies those missing values; included initial values still win.
-    script_memory = {**session.user_memory, **session.memory, **original}
+    script_memory = {
+        **session.user_memory,
+        **session.memory,
+        **(session.initial_variables or {}),
+        **original,
+    }
     updated_script_memory = {**script_memory, SYS_USER_NICKNAME: nickname}
     old_script = section("script", session.script.script, script_memory)
     if not content.startswith(old_script, start):
