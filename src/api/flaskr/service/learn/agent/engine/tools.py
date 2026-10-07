@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
@@ -466,6 +467,8 @@ async def interact(
 _MEMORY_KEY_LIMIT = 255
 _MEMORY_VALUE_LIMIT = 2000
 _MEMORY_ENTRY_LIMIT = 100
+# Match the JSON character count used by the initial memory prompt, including escaping.
+_MEMORY_SCOPE_LIMIT = 32_768
 
 
 async def remember(
@@ -482,9 +485,11 @@ async def remember(
     (preferences, stable facts, requests like "keep answers short"). Overwrites an existing key.
 
     A nonblank key can contain at most 255 characters and a value at most 2000. A scope with
-    100 or more entries accepts updates to existing keys only. A refused note changes nothing;
-    continue teaching instead of repeatedly trying to store it. Existing history and answers
-    recorded by `interact(variable=...)` are preserved without these model-note limits.
+    100 or more entries accepts updates to existing keys only. Each scope has a budget of 32768
+    characters of pretty-printed JSON. A larger existing scope accepts only non-growing updates.
+    A refused note changes nothing; continue teaching instead of repeatedly trying to store it.
+    Existing history and answers recorded by `interact(variable=...)` are preserved without
+    these model-note limits.
     Record required notes before `finish`; a finished lesson accepts no further model notes.
     """
     if ctx.deps.finished is not None:
@@ -496,6 +501,16 @@ async def remember(
     target = ctx.deps.user_memory if scope == "user" else ctx.deps.memory
     if key not in target and len(target) >= _MEMORY_ENTRY_LIMIT:
         return "Not remembered: this scope has 100 or more entries. Continue teaching."
+    candidate_size = len(
+        json.dumps({**target, key: value}, ensure_ascii=False, indent=2)
+    )
+    if candidate_size > _MEMORY_SCOPE_LIMIT and candidate_size > len(
+        json.dumps(target, ensure_ascii=False, indent=2)
+    ):
+        return (
+            "Not remembered: this would grow the scope beyond its 32768-character JSON budget. "
+            "Continue teaching."
+        )
     target[key] = value
     ctx.deps.memory_updates.append((scope, key, value))
     return f"remembered {key} ({scope})"

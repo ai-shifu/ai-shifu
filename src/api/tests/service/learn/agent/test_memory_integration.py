@@ -298,3 +298,57 @@ def test_finishing_bounds_durable_model_notes(
     assert saved.user_memory["pace"] == expected
     rows = VariableValue.query.filter_by(user_bid=user, key="pace").all()
     assert len(rows) == (2 if ordering == "before" else 1)
+
+
+@pytest.mark.parametrize("oversized", [False, True])
+def test_aggregate_note_budget_controls_host_writes_without_trimming_answers(
+    app: Flask, learner: tuple[str, str], oversized: bool
+) -> None:
+    """An over-budget tool update cannot change durable memory or the next lesson's input."""
+    user, course = learner
+    goal = "é" * 32_768 if oversized else "Build a project"
+    with unit_of_work():
+        stage_memory(
+            app,
+            user,
+            course,
+            MemoryUpdate(
+                variables=[
+                    VariableMemoryUpdate(key="goal", value=goal),
+                    VariableMemoryUpdate(key="pace", value="old"),
+                ]
+            ),
+        )
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Attempt a valid single note whose aggregate size depends on existing answers."""
+        if len(messages) == 1:
+            yield {
+                0: DeltaToolCall(
+                    name="remember",
+                    tool_call_id="pace",
+                    json_args=json.dumps(
+                        {"key": "pace", "value": "slower", "scope": "user"}
+                    ),
+                )
+            }
+        else:
+            yield "Here is the next example."
+
+    lesson = uuid4().hex
+    _run(app, Engine(FunctionModel(stream_function=model)), user, course, lesson)
+    db.session.remove()
+    expected = "old" if oversized else "slower"
+    saved = session_store.load_agent_session(app, user, lesson)
+    assert saved.user_memory["goal"] == goal
+    assert saved.user_memory["pace"] == expected
+    assert VariableValue.query.filter_by(user_bid=user, key="pace").count() == (
+        1 if oversized else 2
+    )
+    seen = []
+    _run(app, _observer(seen), user, course, uuid4().hex)
+    memory = _memory(seen[0])
+    assert memory["goal"] == goal
+    assert memory["pace"] == expected
