@@ -11,6 +11,7 @@
     "askProviderUnavailable": "بیرونی علم کی بنیاد عارضی طور پر دستیاب نہیں ہے۔",
     "continueButton": "جاری رکھیں",
     "debugSessionExpired": "یہ ڈیبگ سیشن ختم ہو گیا ہے یا اسکرپٹ بدل گیا ہے۔ دوبارہ ڈیبگنگ شروع کریں۔",
+    "defaultLearnerName": "طالب علم",
     "generatedBlockNotFound": "تیار کردہ بلاک نہیں ملا",
     "invalidAction": "غلط آپریشن",
     "lessonFeedbackCommentPlaceholder": "اختیاری: ہمیں اپنی تجاویز بتائیں",

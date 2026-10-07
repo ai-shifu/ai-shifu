@@ -11,6 +11,7 @@
     "askProviderUnavailable": "外部知识库暂时不可用",
     "continueButton": "继续",
     "debugSessionExpired": "调试会话已过期或剧本已更改，请重新开始调试。",
+    "defaultLearnerName": "同学",
     "generatedBlockNotFound": "生成的块未找到",
     "invalidAction": "无效的操作",
     "lessonFeedbackCommentPlaceholder": "选填：告诉我们你的建议",
