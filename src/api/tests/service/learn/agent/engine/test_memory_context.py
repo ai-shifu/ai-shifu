@@ -281,3 +281,14 @@ async def test_new_projection_notice_and_literal_tags_survive_later_turns(
 def test_invalid_budget_fails_at_construction(limit: int) -> None:
     with pytest.raises(ValueError, match="empty JSON object"):
         Engine("test", memory_context_limit=limit)
+
+
+def test_independent_brief_references_do_not_inherit_an_open_script_fence() -> None:
+    """Each author document has its own fence state, as exact substitution already does."""
+    prompt = render_first_prompt(
+        ScriptBundle(script="```\n{{example}}", constraints="Use {{brief}}."),
+        {"noise": "n" * 15, "brief": "important"},
+        memory_limit=45,
+    )
+    assert _memory(prompt)[0] == {"brief": "important"}
+    assert "Use important." in prompt
