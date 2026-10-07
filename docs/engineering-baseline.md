@@ -632,12 +632,14 @@ flows before promoting them.
   full suite on pushes to `main` and full coverage on manual dispatch.
 - `frontend-tests.yml`: runs frontend Jest tests for frontend and shared i18n
   changes while reporting a successful no-op check for unrelated PRs.
-- `prettier-check.yml`: checks frontend formatting for frontend changes.
+- `prettier-check.yml`: checks frontend formatting for frontend changes in PRs;
+  does not run on pushes to `main`.
 - `repo-harness.yml`: the `Static Checks` job validates architecture
   boundaries, instructions, generated knowledge artifacts, translation
   parity and locale metadata, and the MarkdownFlow release pins on PRs into `main`.
 - `runtime-harness.yml`: runs the Docker-backed Playwright smoke harness for
-  runtime-affecting backend, frontend, Docker, and script changes.
+  runtime-affecting backend, frontend, Docker, and script changes in PRs or on
+  manual dispatch; does not run on pushes to `main`.
 - `prepare-release.yml`: manually prepares a release draft from a requested
   `vX.Y.Z` version and opens a version-update PR.
 - `build-latest.yml`: builds `:latest` Docker images on pushes to `main` or
