@@ -24,6 +24,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
 - [Preserve Independent Credit Validity](./active/preserve-independent-credit-validity.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
+- [Refresh Nicknames in Existing Agent Lessons](./active/resumed-learner-nickname.md)
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Stop Stripe Refund Credit Regrant](./active/stripe-refund-credit-reversal.md)
