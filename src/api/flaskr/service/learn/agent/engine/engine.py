@@ -64,6 +64,7 @@ from .interaction import (
     normalize_answer,
     stored_value,
 )
+from .memory_context import project_memory_history
 from .script import (
     ScriptBundle,
     collected_names,
@@ -337,6 +338,7 @@ class Engine:
         memory_admission: bool = False,
         memory_reserved_keys: frozenset[str] = frozenset(),
         memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None,
+        memory_context_limit: int | None = None,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -354,6 +356,10 @@ class Engine:
         `memory_admission` enables the AI-Shifu declared-or-requested policy. Undeclared notes
         require real accepted input and `memory_request_check`; that host callback decides
         whether the learner explicitly asked to remember the proposed value.
+
+        `memory_context_limit` bounds the initial memory JSON payload, including legacy
+        histories projected for a resumed request. It never bounds exact script substitution,
+        answers or conversation history. None retains portable hosts' previous rendering.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
@@ -365,6 +371,10 @@ class Engine:
         self.memory_admission = memory_admission
         self.memory_reserved_keys = memory_reserved_keys
         self.memory_request_check = memory_request_check
+        if memory_context_limit is not None and memory_context_limit < 2:
+            message = "memory context limit must fit an empty JSON object"
+            raise ValueError(message)
+        self.memory_context_limit = memory_context_limit
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -515,7 +525,12 @@ class Engine:
             if isinstance(turn, InteractionResponseTurn):
                 yield ErrorEvent(message="no interaction is pending on a new session")
                 return
-            prompt = render_first_prompt(session.script, session.all_memory())
+            prompt = render_first_prompt(
+                session.script,
+                session.all_memory(),
+                memory_limit=self.memory_context_limit,
+                memory_priority=self.memory_reserved_keys,
+            )
             if isinstance(turn, MessageTurn):
                 prompt += f"\n\n{turn.text}"
             if self.memory_admission:
@@ -631,7 +646,16 @@ class Engine:
             return
 
         if session.started:
-            kwargs["message_history"] = session.messages
+            kwargs["message_history"] = (
+                project_memory_history(
+                    session.messages,
+                    session.script,
+                    limit=self.memory_context_limit,
+                    priority=self.memory_reserved_keys,
+                )
+                if self.memory_context_limit is not None
+                else session.messages
+            )
 
         segmenter = Segmenter() if session.listen_mode else None
         seg_state: dict[str, Any] = {"n": 0, "id": None, "narration": []}
@@ -842,7 +866,13 @@ class Engine:
                             )
                     elif isinstance(ev, AgentRunResultEvent):
                         result = ev.result
-                        session.messages = list(result.all_messages())
+                        # A resumed request may use a projected copy of an old initial prompt.
+                        # Keep its original saved evidence and append only this run's messages.
+                        session.messages = (
+                            [*session.messages, *result.new_messages()]
+                            if self.memory_context_limit is not None and session.started
+                            else list(result.all_messages())
+                        )
                         repeated = carried_on and _repeats_previous_turn(
                             session.messages, deps.history_len
                         )
