@@ -53,7 +53,7 @@ class LessonNotTeachable(Exception):  # noqa: N818 - an outcome, not a failure
     """A lesson with nothing for the 2.0 engine to teach.
 
     Raised rather than streamed as an empty turn so the caller can fall back to 1.0, which is what
-    an allowlisted course with an empty or missing outline should get.
+    a course selected for 2.0 with an empty or missing outline should get.
     """
 
 
@@ -89,7 +89,7 @@ def _resolve(
     Model resolution follows 1.0: use the course selection with runtime fallback.
     """
     outline_model, shifu_model = _models(preview_mode)
-    # Bound to the course as well as the lesson: an allowlisted course paired with another
+    # Bound to the course as well as the lesson: a course selected for 2.0 paired with another
     # course's outline would otherwise teach that course's script under this course's settings.
     outline = _latest(outline_model, outline_item_bid=outline_bid, shifu_bid=shifu_bid)
     if outline is None or (require_script and not (outline.content or "").strip()):
@@ -177,7 +177,7 @@ def _require_access(
     """Refuse a paid lesson the learner has not bought.
 
     The 1.0 path gates this inside its run context, which the agent path does not build, so the
-    same rule is applied here. Without it, putting a paid course on the allowlist would hand its
+    same rule is applied here. Without it, enabling 2.0 for a paid course would hand its
     content to anyone signed in.
 
     Only full lessons are gated: a trial lesson is meant to be readable before buying, which is
@@ -214,7 +214,7 @@ def agent_lesson_events(
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, object] | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Teach an allowlisted lesson until it waits or ends, yielding the events 1.0 produces.
+    """Teach a lesson selected for 2.0 until it waits or ends, yielding the events 1.0 produces.
 
     One request, as many turns as it takes: a turn that ends with content still to come is
     followed by the next in the same stream, the way a 1.0 request runs block after block until a
