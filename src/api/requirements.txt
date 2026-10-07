@@ -24,7 +24,7 @@ charset-normalizer==3.3.2
 click==8.1.7
 colorlog==6.8.2
 crcmod==1.7
-cryptography==50.0.0
+cryptography==50.0.2
 distro==1.9.0
 et-xmlfile==1.1.0
 filelock==3.20.3
@@ -79,7 +79,7 @@ pydantic==2.13.5
 pydantic-ai-slim==2.43.0
 pydantic-settings==2.15.0
 pydantic_core==2.46.5
-PyJWT==2.13.0
+PyJWT==2.15.0
 PyMySQL==1.1.1
 pytest==9.0.3
 python-dateutil==2.9.0.post0
@@ -106,7 +106,7 @@ typing_extensions==4.16.0
 typing-inspection==0.4.4
 tzdata==2025.2
 ujson==5.13.0
-urllib3==2.7.0
+urllib3==2.8.0
 watchdog==6.0.0
 Werkzeug==3.1.6
 websocket-client==1.8.0

@@ -57,7 +57,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
 )
-from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.shifu_struct_manager import HistoryItem, ShifuOutlineItemDto
 from flaskr.service.user.repository import UserAggregate
 
 check_text_with_llm_response = None
@@ -258,8 +258,17 @@ def handle_input_ask(
     Process user questions in the shifu and return AI tutor responses.
     """
     # Get follow-up information (including Q&A prompts and model configuration)
+    retained_struct = getattr(context, "_struct", None)
+    struct_options = (
+        {"struct": retained_struct} if isinstance(retained_struct, HistoryItem) else {}
+    )
     follow_up_info = get_follow_up_info_v2(
-        app, outline_item_info.shifu_bid, outline_item_info.bid, attend_id, is_preview
+        app,
+        outline_item_info.shifu_bid,
+        outline_item_info.bid,
+        attend_id,
+        is_preview,
+        **struct_options,
     )
     if is_live_follow_up_model(follow_up_info.ask_model):
         # Live voice has a dedicated authenticated WebSocket transport. The

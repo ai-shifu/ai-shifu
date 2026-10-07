@@ -14,21 +14,6 @@ on:
       - "src/web/e2e/**"
       - "!**/*.md"
       - "!**/*.mdx"
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/runtime-harness.yml"
-      - "docker/**"
-      - "scripts/**"
-      - "src/api/**"
-      - "src/web/**"
-      - "!src/api/tests/**"
-      - "!src/web/**/__tests__/**"
-      - "!src/web/**/*.test.*"
-      - "src/web/e2e/**"
-      - "!**/*.md"
-      - "!**/*.mdx"
   workflow_dispatch:
 
 permissions:
