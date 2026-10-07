@@ -1,6 +1,6 @@
 """Cover which engine a lesson request goes to.
 
-The case that matters most is the boring one: with no allowlist, every request takes the 1.0 path.
+The case that matters most is the boring one: with 2.0 disabled, every request takes the 1.0 path.
 That is what every deployment except the simulation environment runs, so it is asserted from
 several directions rather than once.
 """
@@ -11,22 +11,24 @@ import pytest
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 
-SHIFU = "shifu-on-the-list"
-OTHER = "shifu-not-on-the-list"
+SHIFU = "shifu-a"
+OTHER = "shifu-b"
 
 
 @pytest.fixture(autouse=True)
 def _no_real_commit(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stand in for the commit checkpoint the agent path ends with: there is no database here."""
+    from flaskr.common.config import Config
+
     monkeypatch.setattr(runscript_v2, "_commit_pending_step", lambda: None)
+    monkeypatch.setattr(Config, "_instance", None)
+    monkeypatch.delenv("FLOW_ENGINE_V2_ENABLED", raising=False)
 
 
 @pytest.fixture
-def allowlisted(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Put one course on the 2.0 allowlist, as a deployment's environment would."""
-    monkeypatch.setattr(
-        runscript_v2, "uses_agent_engine", lambda shifu_bid: shifu_bid == SHIFU
-    )
+def enabled_deployment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Enable every course through the real deployment configuration path."""
+    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", "true")
 
 
 def _routes_to_agent(**kwargs: object) -> bool:
@@ -39,29 +41,29 @@ def _routes_to_agent(**kwargs: object) -> bool:
     return runscript_v2._teaches_with_agent(**{**defaults, **kwargs})
 
 
-@pytest.mark.usefixtures("allowlisted")
-def test_an_allowlisted_course_is_taught_by_the_agent_engine() -> None:
+@pytest.mark.usefixtures("enabled_deployment")
+def test_an_enabled_deployment_teaches_with_the_agent_engine() -> None:
     assert _routes_to_agent() is True
 
 
-@pytest.mark.usefixtures("allowlisted")
-def test_a_course_not_on_the_list_stays_on_the_script_engine() -> None:
-    assert _routes_to_agent(shifu_bid=OTHER) is False
+@pytest.mark.usefixtures("enabled_deployment")
+def test_another_course_also_uses_the_agent_engine() -> None:
+    assert _routes_to_agent(shifu_bid=OTHER) is True
 
 
-def test_with_no_allowlist_every_course_stays_on_the_script_engine() -> None:
+def test_with_disabled_deployment_every_course_stays_on_the_script_engine() -> None:
     """Production sets nothing, so this is the path production takes."""
     assert _routes_to_agent(shifu_bid=SHIFU) is False
     assert _routes_to_agent(shifu_bid=OTHER) is False
 
 
-@pytest.mark.usefixtures("allowlisted")
+@pytest.mark.usefixtures("enabled_deployment")
 def test_a_follow_up_question_keeps_the_script_engine() -> None:
     """Ask runs beside the lesson under its own semaphore, not through the turn loop."""
     assert _routes_to_agent(input_type=INPUT_TYPE_ASK) is False
 
 
-@pytest.mark.usefixtures("allowlisted")
+@pytest.mark.usefixtures("enabled_deployment")
 def test_a_listening_learner_is_also_taught_by_the_agent_engine(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -108,7 +110,7 @@ def test_a_listening_learner_is_also_taught_by_the_agent_engine(
     assert seen["listen"] is True
 
 
-@pytest.mark.usefixtures("allowlisted")
+@pytest.mark.usefixtures("enabled_deployment")
 @pytest.mark.parametrize(
     "reload_kwargs",
     [
@@ -127,7 +129,7 @@ def test_regenerating_past_content_stays_with_the_agent_engine(
     assert _routes_to_agent(**reload_kwargs) is True
 
 
-@pytest.mark.usefixtures("allowlisted")
+@pytest.mark.usefixtures("enabled_deployment")
 def test_a_lesson_with_no_script_falls_back_rather_than_failing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -176,7 +178,7 @@ def test_a_lesson_with_no_script_falls_back_rather_than_failing(
     assert fell_back == [True]
 
 
-@pytest.mark.usefixtures("allowlisted")
+@pytest.mark.usefixtures("enabled_deployment")
 def test_going_back_in_a_lesson_with_no_script_is_refused_rather_than_sent_to_1_0(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -310,7 +312,7 @@ def test_a_busy_worker_tells_the_learner_to_retry(
         )
 
 
-@pytest.mark.usefixtures("allowlisted")
+@pytest.mark.usefixtures("enabled_deployment")
 def test_the_input_the_browser_sends_reaches_the_agent_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -352,7 +354,7 @@ def test_the_input_the_browser_sends_reaches_the_agent_path(
     assert seen["user_input"] == sent
 
 
-@pytest.mark.usefixtures("allowlisted")
+@pytest.mark.usefixtures("enabled_deployment")
 def test_falling_back_to_the_script_engine_restores_per_update_writes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -400,7 +402,7 @@ def test_falling_back_to_the_script_engine_restores_per_update_writes(
     assert adapter.persist_only_final is False
 
 
-@pytest.mark.usefixtures("allowlisted")
+@pytest.mark.usefixtures("enabled_deployment")
 def test_the_agent_path_makes_what_the_adapter_staged_durable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

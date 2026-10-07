@@ -10,5 +10,6 @@ Evergreen repository references and operational guides live here.
 - [Gemini Live follow-up implementation contract](../references/gemini-live-follow-up.md)
 - [Internationalization (i18n) Guide](../references/i18n.md)
 - [Local MarkdownFlow slide comparisons](../references/markdownflow-model-arena.md)
+- [MarkdownFlow Runtime Selection](../references/markdownflow-runtime-selection.md)
 - [Model Gateway CLI Integration Contract](../references/model-gateway-cli-integration.md)
 - [Scripts Overview](../references/scripts.md)
