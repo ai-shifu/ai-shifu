@@ -46,6 +46,8 @@ class Deps:
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
     # when the script is in the 1.0 notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
+    # Authored text-input questions, used only to repair an extra placeholder button.
+    script_text_inputs: tuple[_Question, ...] = ()
     # Set when the host's scripts pause only where their notation puts a button and this lesson's
     # script has none: a `confirm` is then answered without asking the learner. See
     # `script_pauses` and `Engine(pauses_from_notation=)`.
@@ -64,7 +66,7 @@ _ESCAPABLE = "|/.]"
 _FENCED = re.compile(
     r"^[ ]{0,3}(`{3,}|~{3,})[^\n]*\n.*?^[ ]{0,3}\1[ \t]*$", re.MULTILINE | re.DOTALL
 )
-_VARIABLE = re.compile(r"^\s*%\{\{[^}]*\}\}")
+_VARIABLE = re.compile(r"^\s*%\{\{([^}]*)\}\}")
 
 
 def _is_escape(text: str, index: int) -> bool:
@@ -171,9 +173,12 @@ def script_pauses(script_text: str) -> int:
 class _Question:
     """One `?[...]` of a script, split the way MarkdownFlow splits it."""
 
-    variable: bool
+    variable: str | None
     text: bool
     choices: list[str]
+    placeholder: str | None
+    written_placeholder: str | None
+    multi: bool
 
 
 def _script_questions(script_text: str) -> list[_Question]:
@@ -200,16 +205,116 @@ def _script_questions(script_text: str) -> list[_Question]:
         # A single bar anywhere makes it single choice, with any `||` left inside an option;
         # otherwise `||` separates the choices of a multiple choice.
         choices = _split_on_single_pipe(body)
+        multi = len(choices) == 1 and len(_split_unescaped(body, "||")) > 1
         if len(choices) == 1:
             choices = _split_unescaped(body, "||")
         questions.append(
             _Question(
-                variable=bool(_VARIABLE.match(raw)),
+                variable=(match.group(1).strip() or None)
+                if (match := _VARIABLE.match(raw))
+                else None,
                 text=ellipsis >= 0,
                 choices=choices,
+                placeholder=_unescape(first_line[ellipsis + 3 :].strip())
+                if ellipsis >= 0
+                else None,
+                written_placeholder=first_line[ellipsis + 3 :].strip()
+                if ellipsis >= 0
+                else None,
+                multi=multi,
             )
         )
     return questions
+
+
+def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
+    """Read authored input hints; examples in comments do not define a learner question."""
+    lines: list[str] = []
+    opening: str | None = None
+    for line in script_text.splitlines():
+        fence = re.match(r"^[ ]{0,3}(`{3,}|~{3,})(.*)$", line)
+        if opening is not None:
+            if (
+                fence
+                and fence.group(1)[0] == opening[0]
+                and len(fence.group(1)) >= len(opening)
+                and not fence.group(2).strip()
+            ):
+                opening = None
+        elif fence:
+            opening = fence.group(1)
+        elif line.expandtabs(4).startswith("    "):
+            lines.append("")  # Indented Markdown code cannot declare lesson controls.
+        else:
+            lines.append(line)
+    text = re.sub(r"<!--.*?-->", "", "\n".join(lines), flags=re.DOTALL)
+    return tuple(q for q in _script_questions(text) if q.placeholder)
+
+
+def normalize_script_text_input(
+    spec: InteractionSpec,
+    questions: tuple[_Question, ...],
+) -> InteractionSpec:
+    """Repair only a uniquely matched author question with its hint added as a choice.
+
+    The remaining display/value pairs must be the author's exact ordered choices. A hint that
+    the author also wrote as a real choice, another question, or a model-created option is kept.
+    """
+    candidates: dict[str, InteractionSpec] = {}
+    submitted = [(o.display, o.stored) for o in spec.options]
+    for question in questions:
+        if question.variable != spec.variable:
+            continue
+        kinds = (
+            ("multi", "multi_or_text")
+            if question.multi
+            else ("single", "single_or_text", "text")
+        )
+        if spec.type not in kinds or spec.placeholder not in (
+            None,
+            "",
+            question.placeholder,
+            question.written_placeholder,
+        ):
+            continue
+        authored: list[tuple[str, str]] = []
+        for choice in question.choices:
+            if not choice.strip():
+                continue
+            halves = [
+                _unescape(half.strip()) for half in _split_unescaped(choice, "//")[:2]
+            ]
+            authored.append((halves[0], halves[1] if len(halves) > 1 else halves[0]))
+        hint = question.placeholder or ""
+        forms = {hint, question.written_placeholder or hint}
+        extras = {
+            (marker + display, marker + value)
+            for marker in ("", "...")
+            if (marker + hint, marker + hint) not in authored
+            for display in forms
+            for value in forms
+            if (marker + display, marker + value) not in authored
+        }
+        remaining = [pair for pair in submitted if pair not in extras]
+        if submitted == authored:
+            candidate = spec
+        elif remaining == authored and len(remaining) < len(submitted):
+            kind: InteractionType = (
+                "multi_or_text" if question.multi else "single_or_text"
+            )
+            candidate = spec.model_copy(
+                update={
+                    "type": kind if authored else "text",
+                    "options": [
+                        o for o in spec.options if (o.display, o.stored) not in extras
+                    ],
+                    "placeholder": hint,
+                }
+            )
+        else:
+            continue
+        candidates[candidate.model_dump_json()] = candidate
+    return next(iter(candidates.values())) if len(candidates) == 1 else spec
 
 
 def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
@@ -461,6 +566,7 @@ async def interact(
         variable=variable,
         placeholder=placeholder,
     )
+    spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
     problem = ctx.deps.interaction_check(spec) if ctx.deps.interaction_check else None
     if problem:
         # Deferred, the question would wait for an answer the learner has no controls to give.
