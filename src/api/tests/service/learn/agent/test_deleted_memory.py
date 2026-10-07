@@ -180,7 +180,10 @@ def test_unknown_initial_history_remains_classroom_evidence() -> None:
     assert session.messages[0].parts[0].content == "unrecognized legacy history"
 
 
-def test_omitted_initial_substitution_survives_value_changes_and_roundtrip() -> None:
+@pytest.mark.parametrize("renamed", [False, True])
+def test_omitted_initial_substitution_survives_value_changes_and_roundtrip(
+    renamed: bool,
+) -> None:
     async def scenario() -> None:
         original = "</memory>" + "original" * 6000
 
@@ -193,21 +196,38 @@ def test_omitted_initial_substitution_survives_value_changes_and_roundtrip() -> 
             FunctionModel(stream_function=model), memory_context_limit=32768
         )
         session = await engine.new_session(
-            ScriptBundle(script="Use {{goal}}.", constraints="Consider {{goal}}."),
-            memory={"goal": original, "unused": "private"},
+            ScriptBundle(
+                script="Use {{goal}} for {{sys_user_nickname}}.",
+                constraints="Consider {{goal}}.",
+            ),
+            memory={
+                "goal": original,
+                "unused": "private",
+                "sys_user_nickname": "Before",
+            },
         )
         _ = [e async for e in engine.run_turn(session)]
         first = session.messages[0].parts[0].content
         assert "goal" not in json.JSONDecoder().raw_decode(first, len("<memory>\n"))[0]
-        assert session.initial_variables == {"goal": original}
+        assert session.initial_variables == {
+            "goal": original,
+            "sys_user_nickname": "Before",
+        }
         session.memory["goal"] = "later changed value"
         session = Session.loads(session.dumps())
+        if renamed:
+            from flaskr.service.learn.agent.nickname import refresh_nickname
+
+            refresh_nickname(session, {"sys_user_nickname": "After"})
+            assert "After" in session.messages[0].parts[0].content
         refresh_deleted_memory(session, frozenset({"goal"}))
         first = session.messages[0].parts[0].content
         assert original not in first
-        assert "Use {{goal}}." in first
+        assert f"Use {{{{goal}}}} for {'After' if renamed else 'Before'}." in first
         assert "Consider {{goal}}." in first
-        assert session.initial_variables == {}
+        assert session.initial_variables == {
+            "sys_user_nickname": "After" if renamed else "Before"
+        }
         once = session.dumps()
         refresh_deleted_memory(session, frozenset({"goal"}))
         assert session.dumps() == once
