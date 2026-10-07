@@ -1261,6 +1261,53 @@ async def test_final_repeat_requires_one_nonempty_displayed_line(
     assert session.finished is False
 
 
+@pytest.mark.parametrize("position", ["before", "after"])
+@pytest.mark.parametrize("separator", ["\n", "\n\n", "markers"])
+async def test_long_multiline_closing_survives_an_unscripted_pause(
+    position: str, separator: str
+) -> None:
+    """Generic repeat trimming must retain a closing with changed line boundaries."""
+    closing = "A closing sentence that exceeds forty visible characters."
+    multiline = closing.replace(
+        "that ", "that\n\n" if separator == "\n\n" else "that\n"
+    )
+    if separator == "markers":
+        multiline = f"==={multiline}==="
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        """Place multiline closing text before or after a rejected confirm call."""
+        calls["n"] += 1
+        if calls["n"] == 1:
+            yield "The explanation.\n\n" + closing
+        elif calls["n"] == 2:
+            text = multiline if position == "before" else closing
+            for piece in [text[:2], text[2:]]:
+                yield piece
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps({"type": "confirm", "prompt": "Ready?"}),
+                    tool_call_id="unasked",
+                )
+            }
+        else:
+            text = "\n\nA new point." if position == "before" else multiline
+            for piece in [text[:2], text[2:]]:
+                yield piece
+
+    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    session = await engine.new_session(f"Explain names.\n\n==={closing}===")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == multiline + (
+        "\n\nA new point." if position == "before" else ""
+    )
+    assert not [e for e in second if isinstance(e, InteractionRequest)]
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
 async def test_final_repeat_uses_known_script_variables() -> None:
     """Recognize a closing line rendered with an already known learner variable."""
     model, _ = _repeating_model("The explanation.\n\nGoodbye, Rae.", "Goodbye, Rae.")
