@@ -9,6 +9,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Use the 2.0 lesson runtime in teacher debug preview](./active/admin-mdf2-preview.md)
 - [Backend External Client Journey Analytics](./active/backend-external-client-journey-analytics.md)
 - [Bound Lesson Memory Context](./active/bounded-lesson-memory-context.md)
+- [Course Memory Management](./active/course-memory-management.md)
 - [Course Sharing](./active/course-sharing.md)
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)
 - [Credit Notification Email Delivery](./active/credit-notification-email-delivery.md)

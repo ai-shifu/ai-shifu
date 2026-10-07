@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING
 
 from flaskr.service.learn.memory.dtos import MemorySnapshot, MemoryUpdate
 from flaskr.service.learn.memory.reader import load_course_variables
-from flaskr.service.profile.api import get_user_profiles, save_user_profiles
+from flaskr.service.profile.api import (
+    course_memory_deletion_state,
+    get_user_profiles,
+    save_user_profiles,
+)
 from flaskr.service.profile.dtos import ProfileToSave
 
 if TYPE_CHECKING:
@@ -30,6 +34,9 @@ def load_memory(
         else {}
     )
     variables.update(resolved)
+    _, deleted = course_memory_deletion_state(user_bid, shifu_bid)
+    for key in deleted:
+        variables.pop(key, None)
     return MemorySnapshot(variables=variables)
 
 

@@ -53,7 +53,9 @@ class Deps:
     # None preserves a portable host's existing unrestricted memory contract.
     memory_keys: frozenset[str] | None = None
     memory_reserved_keys: frozenset[str] = frozenset()
+    memory_deleted_keys: frozenset[str] = frozenset()
     request_inputs: tuple[str, ...] = ()
+    memory_current_inputs: tuple[str, ...] = ()
     memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None
 
 
@@ -502,10 +504,14 @@ async def memory_admission_error(
     deps: Deps, key: str, value: str, request: str | None
 ) -> str | None:
     """Require declared permission or a verified, real learner request before a write."""
-    if deps.memory_keys is None or key in deps.memory_keys:
+    if deps.memory_keys is None or (
+        key in deps.memory_keys and key not in deps.memory_deleted_keys
+    ):
         return None
     if key.startswith("sys_") or key in deps.memory_reserved_keys:
         return "only the script can declare a system-profile key"
+    if key in deps.memory_deleted_keys and request not in deps.memory_current_inputs:
+        return "restoring deleted memory requires a new explicit request in this turn"
     if not request or request not in deps.request_inputs or len(request) > 4096:
         return "quote a complete current learner request of at most 4096 characters"
     if deps.memory_request_check is not None:
@@ -529,7 +535,7 @@ async def prepare_memory_tool(
     request_schema["description"] = (
         "Required field. For an undeclared key, copy the learner's complete current free-text "
         "input EXACTLY, including the request to remember and punctuation. Do not omit it or "
-        "supply a paraphrase. For a main-script-declared key only, null is allowed."
+        "supply a paraphrase. For a non-deleted main-script-declared key only, null is allowed."
     )
     return replace(
         definition,
@@ -570,7 +576,9 @@ async def remember(
         return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
     if len(value) > _MEMORY_VALUE_LIMIT:
         return "Not remembered: the value exceeds 2000 characters. Continue teaching."
-    if ctx.deps.memory_keys is not None and key not in ctx.deps.memory_keys:
+    if ctx.deps.memory_keys is not None and (
+        key not in ctx.deps.memory_keys or key in ctx.deps.memory_deleted_keys
+    ):
         scope = "user"
     target = ctx.deps.user_memory if scope == "user" else ctx.deps.memory
     if problem := _memory_capacity_error(target, key, value):
