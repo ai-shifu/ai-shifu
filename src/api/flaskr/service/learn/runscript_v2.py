@@ -767,12 +767,6 @@ def _lesson_events(
             terminal_done = None
             try:
                 for payload in adapted_events:
-                    ready_identity = _extract_audio_backfill_ready_element_bid(payload)
-                    if ready_identity is not None:
-                        block_bid, element_bid = ready_identity
-                        element_bids = ready_by_block.setdefault(block_bid, [])
-                        if element_bid not in element_bids:
-                            element_bids.append(element_bid)
                     if (
                         isinstance(payload, RunElementSSEMessageDTO)
                         and payload.type == GeneratedType.DONE.value
@@ -787,6 +781,14 @@ def _lesson_events(
                     adapted_events.close()
                 with contextlib.suppress(Exception):
                     agent_events.close()
+            if element_adapter is not None:
+                # Fallback narration is finalized in storage without a live patch. Include it
+                # from the adapter's snapshots instead of relying only on emitted elements.
+                for (
+                    block_bid,
+                    element_bid,
+                ) in element_adapter.finalized_element_identities():
+                    ready_by_block.setdefault(block_bid, []).append(element_bid)
             _commit_pending_step()
             for block_bid, element_bids in ready_by_block.items():
                 yield _make_audio_backfill_ready_event(block_bid, element_bids)
