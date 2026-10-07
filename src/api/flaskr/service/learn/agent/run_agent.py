@@ -61,6 +61,7 @@ from flaskr.service.learn.agent.lesson_record import (
     stage_turn_block,
 )
 from flaskr.service.learn.agent.listen import LessonVoice
+from flaskr.service.learn.agent.nickname import refresh_nickname
 from flaskr.service.learn.agent.pagination import LessonPager
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 from flaskr.service.learn.agent.rewind import (
@@ -241,6 +242,8 @@ def _load_or_start(
 
     async def make_session() -> Session:
         if stored is not None:
+            if debug_store is None:
+                refresh_nickname(stored, user_memory)
             stored.user_memory = (
                 {**stored.user_memory, **user_memory}
                 if debug_store is not None
