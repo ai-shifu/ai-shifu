@@ -1215,6 +1215,7 @@ async def test_a_final_preserved_line_repeated_without_finish_is_not_shown() -> 
 async def test_final_repeat_compares_text_without_preserve_markers(
     first: str, again: str
 ) -> None:
+    """Compare displayed text even when only one model response copies the markers."""
     model, _ = _repeating_model("The explanation.\n\n" + first, again)
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session("Explain names.\n\n===Closing line.===")
@@ -1226,6 +1227,7 @@ async def test_final_repeat_compares_text_without_preserve_markers(
 
 
 async def test_final_repeat_requires_a_previous_standalone_line() -> None:
+    """A suffix embedded in another line is not a prior standalone closing display."""
     model, _ = _repeating_model("Intro: Closing line.", "Closing line.")
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session("Explain names.\n\n===Closing line.===")
@@ -1235,7 +1237,79 @@ async def test_final_repeat_requires_a_previous_standalone_line() -> None:
     assert session.finished is False
 
 
+@pytest.mark.parametrize(
+    ("again", "suppressed"),
+    [
+        ("Closing\nline.", False),
+        ("Closing\n\nline.", False),
+        ("===Closing\nline.===", False),
+        ("\n\n Closing line. \n\n", True),
+        ("\n===Closing line.===\n\n", True),
+    ],
+)
+async def test_final_repeat_requires_one_nonempty_displayed_line(
+    again: str, suppressed: bool
+) -> None:
+    """Keep multiline continuations, but ignore empty lines around one closing line."""
+    model, _ = _repeating_model("The explanation.\n\nClosing line.", again)
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Explain names.\n\n===Closing line.===")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == ("" if suppressed else again)
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
+@pytest.mark.parametrize("position", ["before", "after"])
+@pytest.mark.parametrize("separator", ["\n", "\n\n", "markers"])
+async def test_long_multiline_closing_survives_an_unscripted_pause(
+    position: str, separator: str
+) -> None:
+    """Generic repeat trimming must retain a closing with changed line boundaries."""
+    closing = "A closing sentence that exceeds forty visible characters."
+    multiline = closing.replace(
+        "that ", "that\n\n" if separator == "\n\n" else "that\n"
+    )
+    if separator == "markers":
+        multiline = f"==={multiline}==="
+    calls = {"n": 0}
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        """Place multiline closing text before or after a rejected confirm call."""
+        calls["n"] += 1
+        if calls["n"] == 1:
+            yield "The explanation.\n\n" + closing
+        elif calls["n"] == 2:
+            text = multiline if position == "before" else closing
+            for piece in [text[:2], text[2:]]:
+                yield piece
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps({"type": "confirm", "prompt": "Ready?"}),
+                    tool_call_id="unasked",
+                )
+            }
+        else:
+            text = "\n\nA new point." if position == "before" else multiline
+            for piece in [text[:2], text[2:]]:
+                yield piece
+
+    engine = Engine(FunctionModel(stream_function=model), pauses_from_notation=True)
+    session = await engine.new_session(f"Explain names.\n\n==={closing}===")
+    await collect(engine.run_turn(session))
+    second = await collect(engine.run_turn(session))
+    assert _said(second) == multiline + (
+        "\n\nA new point." if position == "before" else ""
+    )
+    assert not [e for e in second if isinstance(e, InteractionRequest)]
+    assert second[-1].reason == "end"
+    assert session.finished is False
+
+
 async def test_final_repeat_uses_known_script_variables() -> None:
+    """Recognize a closing line rendered with an already known learner variable."""
     model, _ = _repeating_model("The explanation.\n\nGoodbye, Rae.", "Goodbye, Rae.")
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session(
@@ -1248,6 +1322,7 @@ async def test_final_repeat_uses_known_script_variables() -> None:
 
 
 async def test_final_repeat_does_not_substitute_a_stale_collected_variable() -> None:
+    """Do not use an earlier answer for a variable this lesson collects again."""
     model, _ = _repeating_model("The explanation.\n\nGoodbye, Rae.", "Goodbye, Rae.")
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session(
@@ -1259,6 +1334,7 @@ async def test_final_repeat_does_not_substitute_a_stale_collected_variable() -> 
 
 
 async def test_final_repeat_keeps_blocks_that_render_to_the_same_line() -> None:
+    """Repeated author blocks stay intentional even when substitution makes them equal."""
     model, _ = _repeating_model("The explanation.\n\nGoodbye, Rae.", "Goodbye, Rae.")
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session(
@@ -1276,9 +1352,11 @@ async def test_final_repeat_keeps_blocks_that_render_to_the_same_line() -> None:
 async def test_final_repeat_is_not_released_by_an_unscripted_pause(
     again: str, after_pause: str
 ) -> None:
+    """An unscripted pause hides only the duplicate, preserving new text and finish calls."""
     calls = {"n": 0}
 
     async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        """Write a closing repeat, ask an unscripted confirm, then continue or finish."""
         calls["n"] += 1
         if calls["n"] == 1:
             yield "The explanation.\n\nClosing line."
@@ -1333,6 +1411,7 @@ async def test_other_short_preserved_repeats_still_reach_the_learner(
 
 
 async def test_new_text_after_the_final_preserved_line_is_still_shown() -> None:
+    """A continuation with new content must not disappear with its repeated opening."""
     model, _ = _repeating_model(
         "The explanation.\n\nClosing line.", "Closing line. New point."
     )

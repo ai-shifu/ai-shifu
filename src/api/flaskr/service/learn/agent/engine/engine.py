@@ -633,6 +633,7 @@ class Engine:
         after_pause = False
 
         def _closing_was_shown() -> bool:
+            """Require a complete standalone closing line in the latest displayed text."""
             return (
                 bool(final_line_text)
                 and _last_display_line("".join(shown) if shown else previous_raw)
@@ -640,17 +641,22 @@ class Engine:
             )
 
         def _held_output(*, trim_repeat: bool = False) -> str:
+            """Hide only a single displayed closing line that was already shown."""
             # Every held-text release uses the same display comparison, including an
             # unscripted pause. Hiding a repeat never changes completion state.
             text = "".join(held)
-            if (
-                _closing_was_shown()
-                and "".join(_display_text(text).split()) == final_line_text
-            ):
-                return ""
+            if _closing_was_shown():
+                lines = [
+                    line for line in _display_text(text).splitlines() if line.strip()
+                ]
+                if "".join("".join(lines).split()) == final_line_text:
+                    # The generic repeat trimmer also removes whitespace. Keep changed
+                    # line boundaries here so it cannot erase a multiline closing.
+                    return "" if len(lines) == 1 else text
             return _after_the_repeat(held, previous) if trim_repeat else text
 
         def _out(text: str) -> list[Event]:
+            """Deliver text and track what this turn has sent to the learner."""
             nonlocal delivered
             delivered += _visible_length(text)
             said.append("".join(text.split()))
@@ -661,6 +667,7 @@ class Engine:
             return out
 
         def _text(text: str) -> list[Event]:
+            """Hold potential repeats until they are known or diverge into new content."""
             nonlocal holding, held_text
             if not holding:
                 return _out(text)
