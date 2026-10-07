@@ -25,9 +25,13 @@ def _section(tag: str, text: str, values: dict, collected: set[str]) -> str:
 
 
 def refresh_deleted_memory(
-    session: Session, deleted: frozenset[str], *, current: dict | None = None
+    session: Session,
+    deleted: frozenset[str],
+    *,
+    current: dict | None = None,
+    constraints: str | None = None,
 ) -> None:
-    """Refresh keys with a deletion history, including deliberate later recreation."""
+    """Refresh removed/recreated keys and an optional current initial teaching brief."""
     if not deleted:
         return
     saved = session.all_memory()
@@ -59,23 +63,35 @@ def refresh_deleted_memory(
                     _section("script", session.script.script, updated, collected)
                     + suffix[len(old) :]
                 )
-                if session.script.constraints:
-                    old_brief = "\n\n" + _section(
-                        "constraints", session.script.constraints, original, collected
+                if session.script.constraints or constraints is not None:
+                    old_brief = (
+                        "\n\n"
+                        + _section(
+                            "constraints",
+                            session.script.constraints,
+                            original,
+                            collected,
+                        )
+                        if session.script.constraints
+                        else ""
                     )
                     start = len(
                         _section("script", session.script.script, updated, collected)
                     )
                     if suffix.startswith(old_brief, start):
+                        brief = (
+                            session.script.constraints
+                            if constraints is None
+                            else constraints
+                        )
+                        new_brief = (
+                            "\n\n" + _section("constraints", brief, updated, collected)
+                            if brief
+                            else ""
+                        )
                         suffix = (
                             suffix[:start]
-                            + "\n\n"
-                            + _section(
-                                "constraints",
-                                session.script.constraints,
-                                updated,
-                                collected,
-                            )
+                            + new_brief
                             + suffix[start + len(old_brief) :]
                         )
             memory = {k: v for k, v in parsed.memory.items() if k not in deleted}
@@ -103,7 +119,12 @@ def refresh_deleted_memory(
                     {
                         key: value
                         for key, value in fresh.items()
-                        if key in substitution_names(session.script)
+                        if key
+                        in substitution_names(
+                            replace(session.script, constraints=constraints)
+                            if constraints is not None
+                            else session.script
+                        )
                     }
                 )
             return

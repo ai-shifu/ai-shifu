@@ -44,6 +44,7 @@
 | `docs/exec-plans/active/backend-external-client-journey-analytics.md` | Backend External Client Journey Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/bounded-lesson-memory-context.md` | Bound Lesson Memory Context | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/course-memory-management.md` | Course Memory Management | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
+| `docs/exec-plans/active/course-memory-references.md` | Explicit same-owner course memory reads | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/credit-notification-email-delivery.md` | Credit Notification Email Delivery | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -205,6 +206,7 @@
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-08-31` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
+| `docs/references/course-memory-references.md` | Explicit Course Memory References | `reference` | `in-progress` | `learner` | `2026-10-07` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-06` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/gemini-live-follow-up.md` | Gemini Live follow-up implementation contract | `reference` | `reference` | `repo` | `-` | `true` |

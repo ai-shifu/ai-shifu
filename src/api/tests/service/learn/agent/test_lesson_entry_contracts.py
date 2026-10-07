@@ -260,6 +260,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         memory_admission=True,
         memory_context_limit=32_768,
         memory_reserved_keys=entry.get_global_profile_keys(),
+        memory_readonly_prefixes=("course:",),
         memory_request_check=request_check.return_value,
         model_settings={"temperature": 0.25},
         # Without it, a question the controls cannot carry reaches the learner with no controls.

@@ -7,6 +7,7 @@ from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.service.common import raise_error
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.profile.api import is_course_reference_name
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -70,11 +71,12 @@ def extract_variables(template: str) -> list:
     """Extract variables."""
     pattern = r"\{{1,2}([^{}]+)\}{1,2}"
     matches = re.findall(pattern, template)
-    # Only keep valid variable names (letters, digits, underscore, hyphen), no dots, commas, colons, quotes, or spaces
+    # Preserve ordinary names and explicitly qualified source names.
     variables = [
         m.strip()
         for m in matches
         if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", m.strip())
+        or is_course_reference_name(m.strip())
     ]
     return list(set(variables))
 
@@ -87,8 +89,10 @@ def safe_format_template(template: str, variables: dict) -> str:
     def replacer(match: re.Match[str]) -> str:
         _, var, _ = match.groups()
         var_name = var.strip()
-        # Only process variable names with letters, digits, underscore, hyphen
-        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name) and var_name in variables:
+        if (
+            re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name)
+            or is_course_reference_name(var_name)
+        ) and var_name in variables:
             return str(variables[var_name])
         # Otherwise, keep the original
         return match.group(0)

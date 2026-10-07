@@ -32,7 +32,7 @@ from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.profile.api import get_global_profile_keys
+from flaskr.service.profile.api import COURSE_REFERENCE_PREFIX, get_global_profile_keys
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -288,6 +288,7 @@ def agent_lesson_events(
         memory_admission=True,
         memory_context_limit=32_768,
         memory_reserved_keys=get_global_profile_keys(),
+        memory_readonly_prefixes=(COURSE_REFERENCE_PREFIX,),
         memory_request_check=make_request_check(
             GatewayModel(
                 app,
