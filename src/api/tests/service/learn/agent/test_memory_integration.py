@@ -13,6 +13,12 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.agent.engine import Engine
 from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.learn.memory import (
+    MemoryUpdate,
+    VariableMemoryUpdate,
+    load_memory,
+    stage_memory,
+)
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.repository import create_user_entity
 from pydantic_ai.messages import (
@@ -232,3 +238,63 @@ def test_failed_session_save_rolls_back_answer_and_note_together(
     _run(app, _observer(seen), user, course, uuid4().hex)
     assert "goal" not in _memory(seen[0])
     assert "pace" not in _memory(seen[0])
+
+
+@pytest.mark.parametrize("ordering", ["before", "after"])
+def test_finishing_bounds_durable_model_notes(
+    app: Flask, learner: tuple[str, str], ordering: str
+) -> None:
+    """Keep legitimate final notes while preventing post-finish profile overwrites."""
+    user, course = learner
+    lesson = uuid4().hex
+    with unit_of_work():
+        stage_memory(
+            app,
+            user,
+            course,
+            MemoryUpdate(variables=[VariableMemoryUpdate(key="pace", value="slow")]),
+        )
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Attempt the same overwrite on either side of the finish call."""
+        nonlocal calls
+        calls += 1
+        if calls in (1, 2):
+            remember = (calls == 1) == (ordering == "before")
+            yield {
+                0: DeltaToolCall(
+                    name="remember" if remember else "finish",
+                    tool_call_id=f"call-{calls}",
+                    json_args=json.dumps(
+                        {"key": "pace", "value": "fast", "scope": "user"}
+                        if remember
+                        else {"summary": "done"}
+                    ),
+                )
+            }
+        else:
+            yield ""
+
+    events = list(
+        run_agent.run_agent_lesson(
+            app,
+            engine=Engine(FunctionModel(stream_function=model)),
+            script="Teach the final example.",
+            user_bid=user,
+            shifu_bid=course,
+            outline_bid=lesson,
+            iter_turn=_drive,
+        )
+    )
+    assert events[-1].type == GeneratedType.DONE
+    db.session.remove()
+    expected = "fast" if ordering == "before" else "slow"
+    assert load_memory(app, user, course).as_variables()["pace"] == expected
+    saved = session_store.load_agent_session(app, user, lesson)
+    assert saved.finished is True
+    assert saved.user_memory["pace"] == expected
+    rows = VariableValue.query.filter_by(user_bid=user, key="pace").all()
+    assert len(rows) == (2 if ordering == "before" else 1)
