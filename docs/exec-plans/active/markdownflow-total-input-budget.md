@@ -22,8 +22,12 @@ The durable contract is [MarkdownFlow Input Budget](../../references/markdownflo
 - [x] 2026-10-07 CST: Verify exact boundaries, tools, Unicode, retries and persistence;
   176 focused tests and one actual SQLite persistence test passed. Disabling the
   gateway guard makes 16 regression cases fail.
-- [ ] 2026-10-07 CST: Pass learning/profile suites and repository gates; open a PR.
-- [ ] 2026-10-07 CST: Deploy to sim, verify runtime hashes and fresh-learner regression.
+- [x] 2026-10-07 CST: Pass 2483 learning/profile tests (one skipped, four subtests)
+  and repository gates; open PR #3032.
+- [x] 2026-10-07 CST: Deploy initial sim-52ef353; both replicas match 15 files
+  and pass 32 isolated checks. Fresh-guest reading, 2.09-second backfill and
+  listen completion pass; canonical profile unchanged, production stays 1.0.
+- [ ] 2026-10-07 CST: Deploy and verify the review failure-boundary fixes.
 - [ ] 2026-10-07 CST: Reply to every AI opinion and complete external checks.
 
 ## Surprises & Discoveries
@@ -31,6 +35,10 @@ The durable contract is [MarkdownFlow Input Budget](../../references/markdownflo
 The gateway sees the final current instructions and offered tool schemas on every
 model call, including tool-loop retries. Checking only the engine's initial
 prompt would miss these inputs. The admission judge uses the same gateway.
+Devin identified two valid failure edges: buffered final-only elements needed a
+non-success flush, and refused turns could exhaust the completion backstop.
+Both now have regression coverage. Its post-finish suggestion conflicts with
+the established terminal-finish contract; a real gateway test preserves it.
 
 ## Decision Log
 
@@ -42,14 +50,17 @@ prompt would miss these inputs. The admission judge uses the same gateway.
   remain separate follow-ups. Do not reset the lesson automatically.
 - 2026-10-07: Apply the same guard to streaming, non-streaming, teacher preview
   and memory-admission gateway calls. Judge failures continue to refuse writes.
+- 2026-10-07: Refund budget-refused turns and commit already shown elements
+  before raising the capacity error. Preserve an already accepted `finish`.
 
 ## Outcomes & Retrospective
 
-Implementation, 2479 learning/profile tests (one skipped, four subtests) and
+Implementation, 2483 learning/profile tests (one skipped, four subtests) and
 all repository gates passed. The actual SQLite host preserves the complete
 oversized named answer and deferred result through failure, reload and retry.
-Disabling the gateway guard causes 16 focused regression failures. PR review,
-external CI and sim acceptance are pending.
+Disabling the gateway guard causes 16 focused regression failures; removing the
+two review fixes causes three additional regressions. Initial sim acceptance
+passed. Final review-fix deployment and external CI are pending.
 
 ## Context and Orientation
 

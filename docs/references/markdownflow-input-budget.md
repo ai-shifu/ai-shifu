@@ -34,7 +34,12 @@ For teaching, the engine emits `input_budget_exceeded`, the host saves the
 failed turn and full deferred-answer evidence, and the existing SSE error path
 reports localized API error **4020**. It does not finish or reset the lesson,
 show a success terminal event, or automatically repeat an unchanged oversized
-request. A refused memory-admission request continues to deny the proposed
+request. Budget-refused turns do not consume the turn-limit backstop. Already
+shown text is finalized and committed as history elements before reporting the
+failure, without sending a successful DONE boundary. An explicitly accepted
+`finish` remains terminal even if an unnecessary post-finish tool-result request
+is refused; the lesson is never reopened by that follow-up failure.
+A refused memory-admission request continues to deny the proposed
 write without interrupting the main teaching call.
 
 A course owner may need to reduce the lesson's inputs. Restarting a lesson is
