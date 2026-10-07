@@ -357,6 +357,10 @@ class Engine:
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
         self.pauses_from_notation = pauses_from_notation
+        self.memory_instructions = (
+            PROMPTS_DIR
+            / ("memory_policy.md" if memory_admission else "memory_unrestricted.md")
+        ).read_text()
         self.memory_admission = memory_admission
         self.memory_reserved_keys = memory_reserved_keys
         self.memory_request_check = memory_request_check
@@ -379,7 +383,22 @@ class Engine:
             instructions=self._instructions,
             # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
             # again, and a model rewriting options sometimes needs more than one attempt.
-            tools=[Tool(interact, max_retries=3), remember, finish],
+            tools=[
+                Tool(
+                    interact,
+                    max_retries=3,
+                    description=(interact.__doc__ or "")
+                    + "\n"
+                    + self.memory_instructions,
+                ),
+                Tool(
+                    remember,
+                    description=(remember.__doc__ or "")
+                    + "\n"
+                    + self.memory_instructions,
+                ),
+                finish,
+            ],
             toolsets=list(toolsets or []),
             model_settings=model_settings,
         )
@@ -397,7 +416,7 @@ class Engine:
         DaisyUI and GSAP preloaded), `generic` (any assistant that can show plain HTML), or
         `none` (text only).
         """
-        parts = [self.prompts.base]
+        parts = [self.prompts.base, self.memory_instructions]
         if render == "sandbox":
             parts.append(self.prompts.html_display)
         elif render == "generic":

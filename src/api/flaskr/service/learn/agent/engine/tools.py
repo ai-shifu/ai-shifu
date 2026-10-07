@@ -411,7 +411,8 @@ async def interact(
     dropped. To have the learner check something you wrote, ask it as `single`, or write the
     read-back as content and pause with a plain `confirm`.
     Give `options` for every type except `text`. `variable` is ONLY for a memory key the script
-    declares as `%{{name}}` in its main script; leave it empty otherwise.
+    explicitly names; follow the host memory policy for eligible declarations. Leave it empty
+    otherwise.
     The learner's answer is returned as the tool result; then continue the script.
     """
     if ctx.deps.finished is not None:
@@ -537,10 +538,6 @@ async def remember(
     these model-note limits.
     Record required notes before `finish`; a finished lesson accepts no further model notes.
 
-    AI-Shifu permits script-declared `%{{key}}` variables, or an explicit learner request.
-    For an undeclared key, pass the learner's complete verbatim free-text input as `request`.
-    A casual preference is insufficient. Verified requests use user scope within this course;
-    they do not edit system profile fields. Never invent or quote script text as a request.
     """
     if ctx.deps.finished is not None:
         return LESSON_OVER

@@ -222,6 +222,8 @@
 | `src/api/flaskr/service/learn/agent/engine/prompts/html_display_generic.md` | Screens (HTML visuals) for a plain renderer | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/listen_mode.md` | Listen mode (visual + narration) | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/memory_admission.md` | Memory_Admission | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/flaskr/service/learn/agent/engine/prompts/memory_policy.md` | Memory policy | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/flaskr/service/learn/agent/engine/prompts/memory_unrestricted.md` | Memory policy | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/system.md` | Core rules | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/v1_syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/llm/AGENTS.md` | Backend Service: llm | `instruction` | `current` | `backend` | `-` | `true` |
