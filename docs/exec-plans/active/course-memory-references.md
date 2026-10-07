@@ -25,8 +25,15 @@ boundary is explicit sharing within one owner. The durable contract is
 - [x] 2026-10-07 17:00 UTC: Verify actual SQLite reads/writes/deletion, engine
   behavior, source revocation and brief edits: 2,579 learning/profile tests pass
   (one skipped, four subtests); all repository gates pass.
-- [ ] 2026-10-07 17:00 UTC: Open one PR, synchronize sim, verify deployed code and actual learner
-  behavior; evaluate and reply to every AI opinion and wait for final CI.
+- [x] 2026-10-07 17:08 UTC: Open [PR 3034](https://github.com/ai-shifu/ai-shifu/pull/3034)
+  and synchronize sim `b45245c07` (build 369 / Drone 5160). API 2/2 and web 1/1
+  are ready; both API replicas pass 19 isolated SQLite/tool checks and match all
+  11 runtime module hashes. A fresh internal-course guest completes read, audio
+  backfill (1.68 seconds) and listen flows with an unchanged canonical profile.
+- [ ] 2026-10-07 17:08 UTC: Evaluate and reply to every independent AI opinion;
+  confirm final CI and synchronize any resulting runtime changes to sim.
+- [ ] 2026-10-07 17:08 UTC: Wait for the user's main merge, then verify the
+  resulting production rollout. Never merge main automatically.
 
 ## Surprises & Discoveries
 
@@ -52,8 +59,8 @@ boundary is explicit sharing within one owner. The durable contract is
 
 ## Outcomes & Retrospective
 
-Implementation and local verification pass. PR, sim acceptance and final CI are
-pending. This read-only increment does not complete shared writing or the entire
+Implementation, local verification and sim acceptance pass. PR 3034 remains open;
+AI review, final CI and the user's main merge are pending. This read-only increment does not complete shared writing or the entire
 memory milestone.
 
 ## Context and Orientation
