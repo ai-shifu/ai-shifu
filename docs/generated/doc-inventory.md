@@ -46,6 +46,7 @@
 | `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/credit-notification-email-delivery.md` | Credit Notification Email Delivery | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/custom-credit-validity.md` | Custom manual credit validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/declared-and-requested-memory.md` | Admit Declared Variables and Explicit Learner Requests | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-build-failure-analysis.md` | Main Docker build failures: evidence and repair strategy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-build-stability.md` | Docker build stability with native platform runners | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-web-dependency-reuse.md` | Reuse production Web Docker dependencies | `exec-plan-active` | `active` | `web` | `2026-10-06` | `true` |
@@ -179,6 +180,7 @@
 | `docs/product-specs/index.md` | Product Specs | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/product-specs/language-selection-analytics.md` | Language Selection Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
 | `docs/product-specs/learner-listen-playback.md` | Learner Listen Playback and Timeline | `product-spec` | `implemented` | `frontend` | `2026-09-26` | `true` |
+| `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-10-07` | `true` |
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/mobile-404-sequencing-followup.md` | Mobile 404 Follow-up: Sequencing Improvement Plan | `product-spec` | `implemented` | `frontend` | `2026-04-17` | `true` |
 | `docs/product-specs/notification-management-analytics.md` | Notification Management Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
@@ -219,6 +221,7 @@
 | `src/api/flaskr/service/learn/agent/engine/prompts/html_display.md` | Screens (HTML visuals) | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/html_display_generic.md` | Screens (HTML visuals) for a plain renderer | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/listen_mode.md` | Listen mode (visual + narration) | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/flaskr/service/learn/agent/engine/prompts/memory_admission.md` | Memory_Admission | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/system.md` | Core rules | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/v1_syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/llm/AGENTS.md` | Backend Service: llm | `instruction` | `current` | `backend` | `-` | `true` |

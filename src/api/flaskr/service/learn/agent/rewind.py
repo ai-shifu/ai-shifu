@@ -71,6 +71,7 @@ def checkpoint_of(session: Session) -> dict[str, Any]:
         "memory": state["memory"],
         "pending": state["pending"],
         "answers": state["answers"],
+        "request_inputs": state.get("request_inputs", []),
         "turn": state["turn"],
         "finished": state["finished"],
     }
@@ -89,6 +90,7 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
         memory=checkpoint.get("memory") or {},
         pending=checkpoint.get("pending") or [],
         answers=checkpoint.get("answers") or {},
+        request_inputs=checkpoint.get("request_inputs") or [],
         turn=int(checkpoint.get("turn") or 0),
         finished=bool(checkpoint.get("finished", False)),
     )
@@ -98,6 +100,7 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     session.memory = restored.memory
     session.pending = restored.pending
     session.answers = restored.answers
+    session.request_inputs = restored.request_inputs
     session.turn = restored.turn
     session.finished = restored.finished
 

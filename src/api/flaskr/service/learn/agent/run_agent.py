@@ -227,7 +227,9 @@ def _load_or_start(
     user_memory = (
         dict(preview_variables or {})
         if debug_store is not None
-        else load_memory(app, user_bid, shifu_bid).as_variables()
+        else load_memory(
+            app, user_bid, shifu_bid, include_course_variables=True
+        ).as_variables()
     )
     # A blank canonical nickname is unknown to variable substitution and would leave its
     # literal placeholder in the lesson. This address is presentation data, not a profile edit.

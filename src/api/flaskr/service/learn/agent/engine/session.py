@@ -62,6 +62,8 @@ class Session:
     # several interactions at once; the host answers them one at a time, and they are only handed
     # back to the model together, because pydantic-ai requires a result for every deferred call.
     answers: dict[str, Any] = field(default_factory=dict)
+    # Accepted free text awaiting a model response; never inferred from choice values/history.
+    request_inputs: list[str] = field(default_factory=list)
     usage: dict[str, int] = field(default_factory=dict)
     turn: int = 0
     finished: bool = False
@@ -92,6 +94,7 @@ class Session:
                 for p in self.pending
             ],
             "answers": self.answers,
+            "request_inputs": self.request_inputs,
             "usage": self.usage,
             "turn": self.turn,
             "finished": self.finished,
@@ -117,6 +120,7 @@ class Session:
                 for p in d.get("pending") or []
             ],
             answers=dict(d.get("answers") or {}),
+            request_inputs=list(d.get("request_inputs") or []),
             usage=dict(d.get("usage") or {}),
             turn=int(d.get("turn", 0)),
             finished=bool(d.get("finished", False)),

@@ -191,6 +191,8 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     finalize = Mock()
     monkeypatch.setattr(entry, "finalize_langfuse_trace", finalize)
     gateway = Mock(return_value=object())
+    request_check = Mock(return_value=object())
+    monkeypatch.setattr(entry, "make_request_check", request_check)
     engine = Mock(return_value=object())
     monkeypatch.setattr(entry, "GatewayModel", gateway)
     monkeypatch.setattr(entry, "Engine", engine)
@@ -233,7 +235,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         root_span=span,
         root_span_payload={"metadata": {"end_reason": termination}},
     )
-    gateway.assert_called_once_with(
+    gateway.assert_any_call(
         app,
         "2",
         user_id="learner",
@@ -241,9 +243,23 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         usage_metadata=settings.usage_metadata,
         usage_scene=BILL_USAGE_SCENE_PREVIEW,
     )
+    assert gateway.call_count == 2
+    gateway.assert_any_call(
+        app,
+        "2",
+        user_id="learner",
+        span=span,
+        generation_name="agent_memory_admission",
+        usage_metadata=settings.usage_metadata,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
+    request_check.assert_called_once_with(gateway.return_value)
     engine.assert_called_once_with(
         gateway.return_value,
         memory_store=None,
+        memory_admission=True,
+        memory_reserved_keys=entry.get_global_profile_keys(),
+        memory_request_check=request_check.return_value,
         model_settings={"temperature": 0.25},
         # Without it, a question the controls cannot carry reaches the learner with no controls.
         interaction_check=entry.unrenderable_reason,
@@ -276,6 +292,7 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     )
     monkeypatch.setattr(entry, "finalize_langfuse_trace", Mock())
     monkeypatch.setattr(entry, "GatewayModel", Mock(return_value=object()))
+    monkeypatch.setattr(entry, "make_request_check", Mock(return_value=object()))
     monkeypatch.setattr(entry, "Engine", Mock(return_value=object()))
     runner = Mock(side_effect=lambda *_a, **_kw: iter(()))
     monkeypatch.setattr(entry, "run_agent_lesson", runner)

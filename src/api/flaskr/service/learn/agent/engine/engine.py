@@ -32,7 +32,7 @@ from pydantic_ai.messages import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Iterable, Sequence
+    from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Sequence
 
     from pydantic_ai.models import Model
     from pydantic_ai.settings import ModelSettings
@@ -87,6 +87,23 @@ from .tools import (
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 RenderProfile = Literal["sandbox", "generic", "none"]
+
+
+def _free_text_inputs(spec: InteractionSpec, submitted: InteractionAnswer) -> list[str]:
+    """Keep genuine text, excluding model-authored option displays and stored values."""
+    texts = (
+        [submitted.text]
+        if submitted.text and spec.type in ("text", "single_or_text", "multi_or_text")
+        else []
+    )
+    if spec.type == "text":
+        texts.extend(submitted.values)
+    elif spec.type in ("single_or_text", "multi_or_text"):
+        choices = {
+            text for option in spec.options for text in (option.display, option.stored)
+        }
+        texts.extend(value for value in submitted.values if value not in choices)
+    return texts
 
 
 # -- turn inputs ---------------------------------------------------------------------------
@@ -316,6 +333,9 @@ class Engine:
         model_settings: ModelSettings | None = None,
         interaction_check: Callable[[InteractionSpec], str | None] | None = None,
         pauses_from_notation: bool = False,
+        memory_admission: bool = False,
+        memory_reserved_keys: frozenset[str] = frozenset(),
+        memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -329,10 +349,17 @@ class Engine:
         button then never pauses, and a `confirm` in it is answered without asking the learner.
         Where the script has buttons, the model places the pauses, since nothing says which part
         of the script it has reached. Off, the model decides everywhere.
+
+        `memory_admission` enables the AI-Shifu declared-or-requested policy. Undeclared notes
+        require real accepted input and `memory_request_check`; that host callback decides
+        whether the learner explicitly asked to remember the proposed value.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
         self.pauses_from_notation = pauses_from_notation
+        self.memory_admission = memory_admission
+        self.memory_reserved_keys = memory_reserved_keys
+        self.memory_request_check = memory_request_check
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -449,6 +476,13 @@ class Engine:
             no_pauses=(
                 self.pauses_from_notation and script_pauses(session.script.script) == 0
             ),
+            memory_keys=(
+                collected_names(session.script.script)
+                if self.memory_admission
+                else None
+            ),
+            memory_reserved_keys=self.memory_reserved_keys,
+            memory_request_check=self.memory_request_check,
         )
         deps.history_len = len(session.messages) if session.started else 0
         deps.finished = _finished_in(session.messages)
@@ -463,6 +497,10 @@ class Engine:
             prompt = render_first_prompt(session.script, session.all_memory())
             if isinstance(turn, MessageTurn):
                 prompt += f"\n\n{turn.text}"
+            if self.memory_admission:
+                session.request_inputs = (
+                    [turn.text] if isinstance(turn, MessageTurn) else []
+                )
         elif session.pending and self._unshowable(session.pending[0]):
             # A question saved before the host could refuse it, or refused by a host that has
             # learned something since. The learner has nothing on screen to answer it with, so
@@ -489,7 +527,8 @@ class Engine:
             if pending is None:
                 yield ErrorEvent(message=f"unknown interaction id {turn.id!r}")
                 return
-            answer = normalize_answer(pending.spec, turn.answer())
+            submitted = turn.answer()
+            answer = normalize_answer(pending.spec, submitted)
             if not answer_is_usable(pending.spec, answer):
                 # Resuming here would hand the model "continued without answering" and let a
                 # question the script requires be skipped, so keep it pending and ask again.
@@ -505,7 +544,11 @@ class Engine:
             session.answers[pending.tool_call_id] = format_answer_for_model(
                 pending.spec, answer
             )
-            if pending.spec.variable:
+            if self.memory_admission:
+                session.request_inputs.extend(_free_text_inputs(pending.spec, answer))
+            if pending.spec.variable and (
+                deps.memory_keys is None or pending.spec.variable in deps.memory_keys
+            ):
                 value = stored_value(pending.spec, answer)
                 if value is not None:
                     session.memory[pending.spec.variable] = value
@@ -546,6 +589,11 @@ class Engine:
                 yield ErrorEvent(message="no interaction is pending")
                 return
             prompt = turn.text if isinstance(turn, MessageTurn) else CONTINUE_PROMPT
+            if self.memory_admission:
+                session.request_inputs = (
+                    [turn.text] if isinstance(turn, MessageTurn) else []
+                )
+        deps.request_inputs = tuple(session.request_inputs)
         if prompt is not None and self.turn_limit and session.turn >= self.turn_limit:
             # Out of turns: end the lesson rather than teach another one. Marked finished so a
             # reload does not start it over, and reported as finished rather than as an error --
@@ -803,6 +851,7 @@ class Engine:
                         # Only now are the answers safely part of the history; clearing them any
                         # earlier would lose them if the request failed.
                         session.answers = {}
+                        session.request_inputs = []
                         u = result.usage
                         session.usage = {
                             "requests": session.usage.get("requests", 0) + u.requests,

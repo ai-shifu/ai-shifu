@@ -230,6 +230,11 @@ def get_profile_labels() -> dict[str, dict[str, object]]:
     }
 
 
+def get_global_profile_keys() -> frozenset[str]:
+    """Return keys that the shared profile writer routes to global/account storage."""
+    return frozenset(get_profile_labels())
+
+
 def save_user_profiles(
     app: Flask, user_id: str, course_id: str, profiles: list[ProfileToSave]
 ) -> bool:

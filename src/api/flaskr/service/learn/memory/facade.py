@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flaskr.service.learn.memory.dtos import MemorySnapshot, MemoryUpdate
+from flaskr.service.learn.memory.reader import load_course_variables
 from flaskr.service.profile.api import get_user_profiles, save_user_profiles
 from flaskr.service.profile.dtos import ProfileToSave
 
@@ -12,13 +13,21 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
-def load_memory(app: Flask, user_bid: str, shifu_bid: str) -> MemorySnapshot:
+def load_memory(
+    app: Flask, user_bid: str, shifu_bid: str, *, include_course_variables: bool = False
+) -> MemorySnapshot:
     """Read supported memory categories for an authorized user/course context.
 
     Variables currently use runtime profile resolution, including settings edits
-    and canonical fields. The broad reader's ``elsewhere`` is not merged.
+    and canonical fields. Agent hosts opt into all current-course variable rows,
+    including learner requests without profile definitions. Global undeclared values
+    and the broad reader's ``elsewhere`` are not merged.
     """
-    return MemorySnapshot(variables=get_user_profiles(app, user_bid, shifu_bid))
+    variables = (
+        load_course_variables(user_bid, shifu_bid) if include_course_variables else {}
+    )
+    variables.update(get_user_profiles(app, user_bid, shifu_bid))
+    return MemorySnapshot(variables=variables)
 
 
 def stage_memory(
