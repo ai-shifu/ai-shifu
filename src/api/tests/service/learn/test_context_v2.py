@@ -1641,6 +1641,10 @@ class CoursePromptCompositionTests(unittest.TestCase):
                 return_value=MemorySnapshot(variables=profiles),
             ),
             patch(
+                "flaskr.service.learn.context_v2.course_memory_deletion_state",
+                return_value=({}, frozenset()),
+            ),
+            patch(
                 "flaskr.service.learn.context_v2._resolve_runtime_language_context",
                 return_value=(profiles, ""),
             ),

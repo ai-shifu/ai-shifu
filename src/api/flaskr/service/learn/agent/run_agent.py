@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, translate_for_language
+from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
 from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
 from flaskr.service.learn.agent.engine.engine import (
     ContinueTurn,
@@ -91,7 +92,11 @@ from flaskr.service.learn.memory import (
     stage_memory,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
-from flaskr.service.profile.api import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
+from flaskr.service.profile.api import (
+    SYS_USER_LANGUAGE,
+    SYS_USER_NICKNAME,
+    course_memory_deletion_state,
+)
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
@@ -191,6 +196,8 @@ def _load_or_start(
     rewind: RewindPlan | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, Any] | None = None,
+    memory_generations: dict[str, int] | None = None,
+    memory_deleted_keys: set[str] | None = None,
 ) -> tuple[Callable[[], Any], bool]:
     """Build the coroutine factory the bridge runs on its producer thread.
 
@@ -224,6 +231,15 @@ def _load_or_start(
         # Taken back before the turn is built, so the turn is whatever this state calls for: the
         # question the learner is now answering differently, or the turn being regenerated.
         restore(stored, rewind.checkpoint)
+    generations, deleted = (
+        ({}, frozenset())
+        if debug_store is not None
+        else course_memory_deletion_state(user_bid, shifu_bid)
+    )
+    if memory_generations is not None:
+        memory_generations.update(generations)
+    if memory_deleted_keys is not None:
+        memory_deleted_keys.update(deleted)
     user_memory = (
         dict(preview_variables or {})
         if debug_store is not None
@@ -246,6 +262,9 @@ def _load_or_start(
         if stored is not None:
             if debug_store is None:
                 refresh_nickname(stored, user_memory)
+                refresh_deleted_memory(
+                    stored, frozenset(generations), current=user_memory
+                )
             stored.user_memory = (
                 {**stored.user_memory, **user_memory}
                 if debug_store is not None
@@ -309,6 +328,8 @@ def run_agent_lesson(
     from flaskr.service.learn.agent.bridge import iter_turn as bridge_iter_turn
 
     run_turn_on_thread = iter_turn or bridge_iter_turn
+    memory_generations: dict[str, int] = {}
+    memory_deleted_keys: set[str] = set()
     make_session, finished_already = _load_or_start(
         app,
         engine,
@@ -321,6 +342,8 @@ def run_agent_lesson(
         rewind=rewind,
         debug_store=debug_store,
         preview_variables=preview_variables,
+        memory_generations=memory_generations,
+        memory_deleted_keys=memory_deleted_keys,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.
@@ -365,7 +388,10 @@ def run_agent_lesson(
             position=0,
         )
     )
-    session_holder: dict[str, Any] = {"rewind": rewind}
+    session_holder: dict[str, Any] = {
+        "rewind": rewind,
+        "memory_generations": memory_generations,
+    }
 
     def make_events() -> AsyncIterator[Event]:
         async def events() -> AsyncIterator[Event]:
@@ -374,7 +400,20 @@ def run_agent_lesson(
             # The state this turn starts from, kept on its block so the lesson can be taken back
             # to it later.
             session_holder["turn_record"] = turn_record(checkpoint_of(session), values)
-            async for event in engine.run_turn(session, _turn_input(session, values)):
+            deleted_policy = (
+                {"memory_deleted_keys": frozenset(memory_deleted_keys)}
+                if memory_deleted_keys
+                else {}
+            )
+            if (
+                deleted_policy
+                and rewind is not None
+                and rewind.replay_values is not None
+            ):
+                deleted_policy["replaying_input"] = True
+            async for event in engine.run_turn(
+                session, _turn_input(session, values), **deleted_policy
+            ):
                 yield event
 
         return events()
@@ -1026,6 +1065,7 @@ def _stream_turn(
                         taught="".join(taught),
                         turn_record=session_holder.get("turn_record", ""),
                         rewind=session_holder.get("rewind"),
+                        memory_generations=session_holder.get("memory_generations"),
                     )
                 pending_memory = []
                 if session.finished and kept:  # not for a turn a reset discarded
@@ -1151,6 +1191,7 @@ def _stream_turn(
                 taught="".join(taught),
                 turn_record=session_holder.get("turn_record", ""),
                 rewind=session_holder.get("rewind"),
+                memory_generations=session_holder.get("memory_generations"),
             )
 
     return TurnOutcome(
@@ -1190,6 +1231,7 @@ def _persist(
     taught: str,
     turn_record: str = "",
     rewind: RewindPlan | None = None,
+    memory_generations: dict[str, int] | None = None,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -1237,6 +1279,20 @@ def _persist(
             for update in memory
             if update.scope == "user" or update.source == "interaction"
         ]
+        if durable and memory_generations is not None:
+            current, deleted = course_memory_deletion_state(
+                user_bid, shifu_bid, lock=True
+            )
+            durable = [
+                update
+                for update in durable
+                if current.get(update.key, 0) == memory_generations.get(update.key, 0)
+                and not (
+                    update.key in deleted
+                    and rewind is not None
+                    and rewind.replay_values is not None
+                )
+            ]
         if durable:
             stage_memory(
                 app,

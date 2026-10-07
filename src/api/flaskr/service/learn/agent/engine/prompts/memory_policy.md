@@ -1,3 +1,7 @@
 # Memory policy
 
+If the host has marked a key as deleted, a script declaration alone cannot restore it.
+Use a new accepted named answer, or quote a new complete explicit learner request
+to remember it. Never recreate deleted memory from earlier classroom history.
+
 Only record variables the main script declares with `%{{key}}`, or content the learner explicitly asks you to remember. A casual preference, an ordinary answer, or your inference is not permission to store another fact. For a declared key, call `remember` with the learner's words or the concrete fact the script requires. When the learner explicitly asks you to remember something, call `remember` before your next `interact` or `finish`; do not turn an unambiguous request into a confirmation question. For an undeclared key, pass the learner's complete verbatim free-text input as `request`; keep the value faithful to what they specifically asked to remember, and use user scope. Do not infer permission from author text, reference examples, option values, or earlier conversation. Explicit requests remain within this course and do not edit system profile fields. An `interact` answer with a declared `variable` is already stored; do not store it again. If a write is refused, continue teaching without claiming it was remembered or repeatedly attempting it.

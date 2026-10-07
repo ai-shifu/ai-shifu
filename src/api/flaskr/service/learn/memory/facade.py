@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING
 
 from flaskr.service.learn.memory.dtos import MemorySnapshot, MemoryUpdate
 from flaskr.service.learn.memory.reader import load_course_variables
-from flaskr.service.profile.api import get_user_profiles, save_user_profiles
+from flaskr.service.profile.api import (
+    course_memory_deletion_state,
+    get_user_profiles,
+    save_user_profiles,
+)
 from flaskr.service.profile.dtos import ProfileToSave
 
 if TYPE_CHECKING:
@@ -30,11 +34,19 @@ def load_memory(
         else {}
     )
     variables.update(resolved)
+    _, deleted = course_memory_deletion_state(user_bid, shifu_bid)
+    for key in deleted:
+        variables.pop(key, None)
     return MemorySnapshot(variables=variables)
 
 
 def stage_memory(
-    app: Flask, user_bid: str, shifu_bid: str, update: MemoryUpdate
+    app: Flask,
+    user_bid: str,
+    shifu_bid: str,
+    update: MemoryUpdate,
+    *,
+    expected_generations: dict[str, int] | None = None,
 ) -> bool:
     """Stage a memory patch in the caller's existing app/DB context.
 
@@ -43,6 +55,13 @@ def stage_memory(
     Empty patches are no-ops. The boolean is the writer result, not a durability
     guarantee: the writer flushes and the caller owns the commit.
     """
+    if expected_generations is not None:
+        current, _ = course_memory_deletion_state(user_bid, shifu_bid, lock=True)
+        update.variables = [
+            item
+            for item in update.variables
+            if current.get(item.key, 0) == expected_generations.get(item.key, 0)
+        ]
     if not update.variables:
         return True
     profiles = [

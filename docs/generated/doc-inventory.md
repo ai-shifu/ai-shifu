@@ -43,6 +43,7 @@
 | `docs/exec-plans/active/admin-mdf2-preview.md` | Use the 2.0 lesson runtime in teacher debug preview | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/backend-external-client-journey-analytics.md` | Backend External Client Journey Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/bounded-lesson-memory-context.md` | Bound Lesson Memory Context | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/course-memory-management.md` | Course Memory Management | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/credit-notification-email-delivery.md` | Credit Notification Email Delivery | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -176,6 +177,7 @@
 | `docs/product-specs/atomic-sibling-reorder.md` | Atomic Sibling Reorder | `product-spec` | `implemented` | `api` | `2026-09-28` | `true` |
 | `docs/product-specs/billing-credit-notifications.md` | 积分通知中心需求文档 | `product-spec` | `needs-review` | `backend` | `-` | `true` |
 | `docs/product-specs/billing-learning-hours-estimate.md` | Billing learning-time estimates | `product-spec` | `implemented` | `shared` | `2026-09-21` | `true` |
+| `docs/product-specs/course-memory-management.md` | Course Memory Management | `product-spec` | `implemented` | `learner` | `2026-10-07` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page Contract | `product-spec` | `implemented` | `shared` | `2026-09-26` | `true` |
 | `docs/product-specs/gemini-live-follow-up-analytics.md` | Embedded Gemini Live Follow-Up Analytics | `product-spec` | `implemented` | `frontend` | `2026-09-16` | `true` |
 | `docs/product-specs/index.md` | Product Specs | `generated-doc` | `generated` | `repo` | `-` | `false` |

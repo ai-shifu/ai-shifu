@@ -110,6 +110,15 @@ def collected_names(text: str) -> frozenset[str]:
     return frozenset(_COLLECTED_RE.findall(_strip_fences(text)))
 
 
+def substitution_names(bundle: ScriptBundle) -> frozenset[str]:
+    """Name values rendered into host script/constraints, excluding collected answers."""
+    return frozenset(
+        name
+        for text in (bundle.script, bundle.constraints or "")
+        for name in _VAR_RE.findall(_strip_fences(text))
+    ) - collected_names(bundle.script)
+
+
 def final_preserved_line(text: str) -> str | None:
     """Return a unique inline verbatim line at the script's physical end, if present.
 

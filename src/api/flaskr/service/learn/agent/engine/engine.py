@@ -72,6 +72,7 @@ from .script import (
     final_preserved_line,
     render_first_prompt,
     substitute_variables,
+    substitution_names,
 )
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
@@ -476,7 +477,12 @@ class Engine:
     # -- turns -------------------------------------------------------------------------------
 
     async def run_turn(
-        self, session: Session, turn: TurnInput | None = None
+        self,
+        session: Session,
+        turn: TurnInput | None = None,
+        *,
+        memory_deleted_keys: frozenset[str] = frozenset(),
+        replaying_input: bool = False,
     ) -> AsyncIterator[Event]:
         """Run one turn of a session and stream its events.
 
@@ -496,6 +502,10 @@ class Engine:
         script_text = session.script.all_text()
         uses_v1_syntax = detect_v1_syntax(script_text)
         deps = Deps(
+            memory_deleted_keys=memory_deleted_keys,
+            memory_current_inputs=(turn.text,)
+            if isinstance(turn, MessageTurn) and not replaying_input
+            else (),
             memory=session.memory,
             user_memory=session.user_memory,
             listen_mode=session.listen_mode,
@@ -525,6 +535,12 @@ class Engine:
             if isinstance(turn, InteractionResponseTurn):
                 yield ErrorEvent(message="no interaction is pending on a new session")
                 return
+            initial = session.all_memory()
+            session.initial_variables = {
+                key: initial[key]
+                for key in substitution_names(session.script)
+                if key in initial
+            }
             prompt = render_first_prompt(
                 session.script,
                 session.all_memory(),
@@ -582,6 +598,10 @@ class Engine:
             )
             if self.memory_admission:
                 session.request_inputs.extend(_free_text_inputs(pending.spec, answer))
+                if not replaying_input:
+                    deps.memory_current_inputs += tuple(
+                        _free_text_inputs(pending.spec, answer)
+                    )
             if pending.spec.variable and (
                 deps.memory_keys is None or pending.spec.variable in deps.memory_keys
             ):
