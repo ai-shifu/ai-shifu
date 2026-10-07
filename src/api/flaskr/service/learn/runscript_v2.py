@@ -855,9 +855,9 @@ def _teaches_with_agent(
 ) -> bool:
     """Whether this particular request goes to the 2.0 engine.
 
-    Being on the allowlist is necessary but not sufficient. A follow-up question keeps the 1.0
-    path even for an allowlisted course: it runs beside the lesson under its own semaphore rather
-    than through the lesson's turn loop.
+    The deployment must enable 2.0. A follow-up question still keeps the 1.0
+    path: it runs beside the lesson under its own semaphore rather than through
+    the lesson's turn loop.
 
     Regenerating a past block or element goes to 2.0 like everything else. It used to go to 1.0,
     which regenerated from rows 2.0 wrote and left the 2.0 session where it was, so the page and

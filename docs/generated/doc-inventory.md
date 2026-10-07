@@ -52,6 +52,7 @@
 | `docs/exec-plans/active/docker-build-failure-analysis.md` | Main Docker build failures: evidence and repair strategy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-build-stability.md` | Docker build stability with native platform runners | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-web-dependency-reuse.md` | Reuse production Web Docker dependencies | `exec-plan-active` | `active` | `web` | `2026-10-06` | `true` |
+| `docs/exec-plans/active/environment-wide-markdownflow-v2.md` | Environment-wide MarkdownFlow 2.0 | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/gemini-live-configurable-capacity.md` | Configurable Gemini Live admission capacity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live follow-up acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/german-de-de-localization.md` | German (Germany) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -208,6 +209,7 @@
 | `docs/references/i18n.md` | Internationalization (i18n) Guide | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/index.md` | References | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/references/markdownflow-model-arena.md` | Local MarkdownFlow slide comparisons | `reference` | `reference` | `repo` | `-` | `true` |
+| `docs/references/markdownflow-runtime-selection.md` | MarkdownFlow Runtime Selection | `reference` | `implemented` | `learner` | `2026-10-07` | `true` |
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration | `reference` | `reference` | `repo` | `2026-09-27` | `true` |
 | `docs/references/scripts.md` | Scripts Overview | `reference` | `reference` | `repo` | `-` | `true` |
 | `scripts/AGENTS.md` | Repository Scripts Rules | `instruction` | `current` | `repo` | `-` | `true` |
