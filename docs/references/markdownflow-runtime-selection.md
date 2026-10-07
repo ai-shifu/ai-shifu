@@ -30,6 +30,11 @@ existing 2.0 editor-preview dispatch. Follow-up Ask requests retain their
 existing 1.0 side path even when the lesson uses 2.0. This switch introduces no
 schema migration, memory reset, or conversation conversion; each runtime keeps
 its existing session handling. Existing 1.0 sessions are not migrated into 2.0.
+Pre-checkpoint history, including 1.0 blocks, cannot be regenerated or have an
+earlier answer changed through 2.0. The existing localized error directs the
+learner to explicitly Reset the lesson first; switching the flag never performs
+that reset automatically. This is the same transition boundary as the retired
+allowlist, and also applies when rolling an active lesson back to another runtime.
 
 ## Rollout and rollback
 

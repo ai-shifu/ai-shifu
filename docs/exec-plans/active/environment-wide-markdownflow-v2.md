@@ -19,8 +19,15 @@ The user requested this insertion after PR #3030 merged.
 - [x] 2026-10-07 CST: Replace course membership with a default-off deployment flag.
 - [x] 2026-10-07 CST: Pass 129 routing/configuration tests, 2617 learning/profile
   tests (one skipped, four subtests), and repository gates.
-- [ ] 2026-10-07 CST: Open application and companion deployment configuration PRs.
-- [ ] 2026-10-07 CST: Roll out sim, verify production isolation and reply to AI reviews.
+- [x] 2026-10-07 CST: Open application PR #3031 and deploy-config PR #36.
+- [x] 2026-10-07 CST: Roll out sim-283fde4, remove the old list and verify both
+  API replicas route every identified course to 2.0. Six Chinese and two US
+  production replicas still select 1.0 in raw and initialized registry paths.
+- [x] 2026-10-07 CST: Pass fresh-guest reading, audio backfill (1.59 seconds),
+  listen-mode completion and unchanged canonical profile checks.
+- [x] 2026-10-07 CST: Reply to the available Devin opinion with the existing
+  explicit-Reset transition contract; retain deployment-wide routing.
+- [ ] 2026-10-07 CST: Complete external CI/review checks and human main merges.
 
 ## Surprises & Discoveries
 
@@ -38,8 +45,13 @@ whole manifest could overwrite unrelated live state.
 
 ## Outcomes & Retrospective
 
-Local routing, configuration and learning/profile validation passed. Deployment
-and review acceptance remain pending; production is not authorized to enable 2.0.
+Local validation and sim acceptance passed; production remains on 1.0.
+Both sim replicas match all three changed runtime module hashes. The two-phase
+configuration patch preserved the live image and model-list drift. Existing
+pre-checkpoint history still requires explicit Reset before regeneration or
+earlier-answer changes, as the existing localized error and rewind tests specify.
+External CI/review completion is tracked on PR #3031; human main merges remain
+outside this agent's authority.
 
 ## Context and Orientation
 
