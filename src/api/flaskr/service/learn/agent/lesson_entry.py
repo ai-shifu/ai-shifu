@@ -286,6 +286,7 @@ def agent_lesson_events(
         # context. The host consumes its `MemoryUpdated` events and writes them instead.
         memory_store=None,
         memory_admission=True,
+        memory_context_limit=32_768,
         memory_reserved_keys=get_global_profile_keys(),
         memory_request_check=make_request_check(
             GatewayModel(
