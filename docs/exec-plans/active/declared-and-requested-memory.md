@@ -41,7 +41,10 @@ Admission awaits another model call, so writes must recheck capacity and finishe
 state afterward.
 The first normal HTTP request paused before recording an explicit request, so the
 strict policy now instructs the model to store an unambiguous request before its
-next interaction or finish. Deployed end-to-end acceptance must verify this.
+next interaction or finish. The next HTTP attempt called `remember` but omitted the optional `request` argument,
+which the runtime correctly refused. Admission-enabled tool schemas now require the
+field and describe exact quoting; declared keys may pass null. Portable schemas keep
+it optional. Deployed end-to-end acceptance must verify this.
 
 ## Decision Log
 

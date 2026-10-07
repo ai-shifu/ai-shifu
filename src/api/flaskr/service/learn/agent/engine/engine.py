@@ -79,6 +79,7 @@ from .tools import (
     Deps,
     finish,
     interact,
+    prepare_memory_tool,
     remember,
     script_options,
     script_pauses,
@@ -393,6 +394,7 @@ class Engine:
                 ),
                 Tool(
                     remember,
+                    prepare=prepare_memory_tool if memory_admission else None,
                     description=(remember.__doc__ or "")
                     + "\n"
                     + self.memory_instructions,
