@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentInputBudgetExceeded": "Diese Lektion hat die Eingabekapazität erreicht. Ihre Antworten und Ihr Fortschritt wurden gespeichert. Wenden Sie sich an die Kursleitung, um fortzufahren.",
     "agentRewindUnavailable": "Dieser Schritt kann derzeit nicht neu erstellt werden. Um eine frühere Antwort zu ändern, klicken Sie auf „Wiederholen“ und lernen Sie diese Lektion erneut.",
     "agentTurnCapacity": "Zurzeit lernen viele Personen gleichzeitig. Bitte versuchen Sie es später erneut.",
     "askProviderAuthFailed": "Die Authentifizierung auf Wissensbasis ist fehlgeschlagen. Bitte überprüfen Sie die API-Schlüssel- und Client-ID.",

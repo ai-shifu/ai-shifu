@@ -41,6 +41,7 @@ from flaskr.service.learn.agent.engine.engine import (
 )
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
+    ErrorEvent,
     InteractionRequest,
     MemoryUpdated,
     TurnDone,
@@ -951,6 +952,7 @@ def _stream_turn(
     # `remember` call. Input to the model, never lesson text.
     echoes = EchoedMemoryFilter()
     asked = False
+    error_code = None
 
     for event in _without_markers(
         run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval),
@@ -973,6 +975,9 @@ def _stream_turn(
                     generated_block_bid=generated_block_bid,
                 )
                 continue
+
+        if isinstance(event, ErrorEvent):
+            error_code = event.code
 
         if isinstance(event, MemoryUpdated):
             # Held rather than written now: the turn may still fail, and a memory write that
@@ -1197,6 +1202,7 @@ def _stream_turn(
     return TurnOutcome(
         reason=session_holder.get("reason"),
         taught=bool("".join(taught).strip()),
+        error_code=error_code,
     )
 
 
@@ -1211,6 +1217,7 @@ class TurnOutcome:
 
     reason: str | None
     taught: bool
+    error_code: str | None = None
 
 
 class _TurnDiscardedError(Exception):

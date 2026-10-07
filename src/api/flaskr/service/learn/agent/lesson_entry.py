@@ -337,8 +337,10 @@ def agent_lesson_events(
             if outcome is not None and outcome.reason is None:
                 # The engine can return a bare ErrorEvent after a provider failure. It has
                 # already saved the usable session, but the legacy stream has no error DTO;
-                # raising here lets the outer SSE layer show a retryable failure instead of
+                # raising here lets the outer SSE layer show the failure instead of
                 # silently ending a lesson that remains in progress.
+                if outcome.error_code == "input_budget_exceeded":
+                    raise_error("server.learn.agentInputBudgetExceeded")
                 raise_error("server.common.unknownError")
             # A turn that ran out of content with the lesson not over is followed by the next,
             # as the host's own "continue": the learner's input and the rewind belonged to the
