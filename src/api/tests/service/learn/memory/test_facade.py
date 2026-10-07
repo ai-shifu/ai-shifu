@@ -332,3 +332,122 @@ def test_runtime_memory_update_preserves_normalization_and_mapped_events(
     assert rows["language"].shifu_bid == ""
     assert rows["empty"].value == ""
     ctx._recorder.update_progress_pointer.assert_called_once()
+
+
+def test_agent_projection_includes_only_current_course_undeclared_variables(
+    app: Flask, scope: tuple[str, str]
+) -> None:
+    """Opt-in reads keep legacy rows, use latest live values and defer system fields."""
+    user, course = scope
+    with unit_of_work():
+        for owner, context, key, value, deleted in [
+            (user, course, "requested", "old", 0),
+            (user, course, "requested", "latest", 0),
+            (user, course, "requested", "deleted", 1),
+            (user, "other-course", "elsewhere", "private", 0),
+            ("other-user", course, "other_user", "private", 0),
+            (user, "", "global_undeclared", "global", 0),
+            (user, course, "sys_user_nickname", "stale", 0),
+            (user, course, "sys_arbitrary", "not canonical", 0),
+            (user, course, "language", "not course scoped", 0),
+            (user, course, "sysXliteral", "not a system prefix", 0),
+        ]:
+            db.session.add(
+                VariableValue(
+                    variable_value_bid=uuid4().hex,
+                    user_bid=owner,
+                    shifu_bid=context,
+                    key=key,
+                    value=value,
+                    deleted=deleted,
+                )
+            )
+    default = load_memory(app, user, course).variables
+    assert "requested" not in default
+    memory = load_memory(app, user, course, include_course_variables=True).variables
+    assert memory == {
+        **default,
+        "requested": "latest",
+        "sysXliteral": "not a system prefix",
+    }
+    assert memory["sys_user_nickname"] == "Current learner"
+
+
+def test_supplementary_course_projection_considers_only_the_newest_hundred_keys(
+    app: Flask, scope: tuple[str, str]
+) -> None:
+    """A projection bound never deletes history or caps the existing defined-variable path."""
+    user, course = scope
+    with unit_of_work():
+        for index in range(120):
+            db.session.add(
+                VariableValue(
+                    variable_value_bid=uuid4().hex,
+                    user_bid=user,
+                    shifu_bid=course,
+                    key=f"extra_{index}",
+                    value="kept",
+                )
+            )
+        stage_memory(
+            app,
+            user,
+            course,
+            MemoryUpdate(
+                variables=[VariableMemoryUpdate("base_level", "defined answer")]
+            ),
+        )
+    memory = load_memory(app, user, course, include_course_variables=True).variables
+    extras = {key: value for key, value in memory.items() if key.startswith("extra_")}
+    assert set(extras) == {f"extra_{index}" for index in range(20, 120)}
+    assert memory["base_level"] == "defined answer"
+    assert VariableValue.query.filter_by(user_bid=user, shifu_bid=course).count() == 121
+
+
+def test_supplementary_json_budget_keeps_whole_values_and_exact_defined_answers(
+    app: Flask, scope: tuple[str, str]
+) -> None:
+    """Escaping counts; oversized unknown rows stay stored while named answers remain exact."""
+    import json
+
+    user, course = scope
+    answer = "é" * 50_000
+    with unit_of_work():
+        stage_memory(
+            app,
+            user,
+            course,
+            MemoryUpdate(variables=[VariableMemoryUpdate("base_level", answer)]),
+        )
+        for index in range(5):
+            db.session.add(
+                VariableValue(
+                    variable_value_bid=uuid4().hex,
+                    user_bid=user,
+                    shifu_bid=course,
+                    key=f"extra_{index}",
+                    value="\x00" * 2000,
+                )
+            )
+        db.session.add(
+            VariableValue(
+                variable_value_bid=uuid4().hex,
+                user_bid=user,
+                shifu_bid=course,
+                key="oversized_unknown",
+                value="é" * 40_000,
+            )
+        )
+    memory = load_memory(app, user, course, include_course_variables=True).variables
+    extras = {key: value for key, value in memory.items() if key.startswith("extra_")}
+    assert set(extras) == {"extra_4", "extra_3"}
+    assert len(json.dumps(extras, ensure_ascii=False, indent=2)) <= 32_768
+    assert all(value == "\x00" * 2000 for value in extras.values())
+    assert memory["base_level"] == answer
+    assert "oversized_unknown" not in memory
+    assert (
+        VariableValue.query.filter_by(user_bid=user, key="oversized_unknown")
+        .one()
+        .value
+        == "é" * 40_000
+    )

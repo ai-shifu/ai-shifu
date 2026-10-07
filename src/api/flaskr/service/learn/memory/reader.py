@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from flaskr.dao import db
+from flaskr.service.profile.api import get_global_profile_keys
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import func, select
 
@@ -97,6 +99,45 @@ def _to_entry(row: VariableValue) -> MemoryEntry:
         shifu_bid=shifu_bid,
         updated_at=row.updated_at,
     )
+
+
+def load_course_variables(
+    user_bid: str, shifu_bid: str, *, exclude_keys: frozenset[str] = frozenset()
+) -> dict[str, str]:
+    """Read current course variable values, including learner-requested undeclared keys.
+
+    No global fallback or other course is admitted here. System keys remain owned by the
+    canonical runtime reader. Consider only the newest 100 additional live keys and include
+    whole values that fit 32768 JSON characters. Canonical/defined values are resolved separately
+    without these supplementary limits. Stored history is never truncated or purged.
+    """
+    live_ids = (
+        db.session.query(func.max(VariableValue.id))
+        .filter(
+            VariableValue.user_bid == user_bid,
+            VariableValue.shifu_bid == shifu_bid,
+            VariableValue.deleted == 0,
+            ~VariableValue.key.startswith("sys_", autoescape=True),
+            VariableValue.key.not_in(get_global_profile_keys()),
+            VariableValue.key.not_in(exclude_keys),
+        )
+        .group_by(VariableValue.key)
+        .subquery()
+    )
+    rows = (
+        VariableValue.query.filter(VariableValue.id.in_(select(live_ids)))
+        .order_by(VariableValue.id.desc())
+        .limit(100)
+        .all()
+    )
+    variables: dict[str, str] = {}
+    for row in rows:
+        if not row.key:
+            continue
+        candidate = {**variables, row.key: row.value}
+        if len(json.dumps(candidate, ensure_ascii=False, indent=2)) <= 32_768:
+            variables[row.key] = row.value
+    return variables
 
 
 def load_learner_memory(

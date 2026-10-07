@@ -322,3 +322,21 @@ def test_retiring_touches_only_the_superseded_rows(app: object) -> None:
 
     assert blocks == {"B1": 1, "B2": 0, "ASK": 1, "B3": 0}
     assert elements == {"B1": 1, "B2": 0, "ASK": 1, "B3": 0}
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_rewind_restores_pending_request_evidence_without_retaining_future_consent(
+    legacy: bool,
+) -> None:
+    """An old checkpoint has no evidence; a new checkpoint has only its own pending input."""
+    session = _session_waiting_on_a_question()
+    session.request_inputs = ["Please remember my pace."]
+    checkpoint = json.loads(json.dumps(rewind.checkpoint_of(session)))
+    if legacy:
+        checkpoint.pop("request_inputs")
+    session.request_inputs = ["Please remember a later fact."]
+    rewind.restore(session, checkpoint)
+    assert session.request_inputs == ([] if legacy else ["Please remember my pace."])
+    stored = session.to_dict()
+    stored.pop("request_inputs")
+    assert Session.from_dict(stored).request_inputs == []

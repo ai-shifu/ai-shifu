@@ -24,6 +24,7 @@ from flaskr.service.common.models import raise_error
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
+from flaskr.service.learn.agent.memory_admission import make_request_check
 from flaskr.service.learn.agent.rewind import RewindUnavailableError, plan_rewind
 from flaskr.service.learn.agent.run_agent import learner_values, run_agent_lesson
 from flaskr.service.learn.exceptions import PaidError
@@ -31,6 +32,7 @@ from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.profile.api import get_global_profile_keys
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -283,6 +285,19 @@ def agent_lesson_events(
         # No memory store: the engine runs on the bridge's producer thread, which has no app
         # context. The host consumes its `MemoryUpdated` events and writes them instead.
         memory_store=None,
+        memory_admission=True,
+        memory_reserved_keys=get_global_profile_keys(),
+        memory_request_check=make_request_check(
+            GatewayModel(
+                app,
+                settings.model,
+                user_id=user_bid,
+                span=span,
+                generation_name="agent_memory_admission",
+                usage_metadata=settings.usage_metadata,
+                **({"usage_scene": BILL_USAGE_SCENE_PREVIEW} if preview_mode else {}),
+            )
+        ),
         model_settings={"temperature": settings.temperature},
         # A question this host cannot render goes back to the model to be asked again. Let
         # through, it reached the learner as text with no controls under it, the lesson waited

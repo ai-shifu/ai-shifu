@@ -12,6 +12,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)
 - [Credit Notification Email Delivery](./active/credit-notification-email-delivery.md)
 - [Custom manual credit validity](./active/custom-credit-validity.md)
+- [Admit Declared Variables and Explicit Learner Requests](./active/declared-and-requested-memory.md)
 - [Main Docker build failures: evidence and repair strategy](./active/docker-build-failure-analysis.md)
 - [Docker build stability with native platform runners](./active/docker-build-stability.md)
 - [Reuse production Web Docker dependencies](./active/docker-web-dependency-reuse.md)
