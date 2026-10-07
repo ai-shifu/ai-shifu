@@ -20,15 +20,17 @@ when the main lesson script uniquely identifies the intended controls:
 - After removing hint-only options, every remaining display and stored value
   must match the author's choices in the same order.
 - The generated placeholder must be absent or equal to the author's decoded
-  placeholder. The extra option must have that hint as both display and stored
-  value, optionally prefixed with the notation's `...` marker.
+  placeholder or its exact authored escaped spelling. The extra option must have
+  that hint as both display and stored value, using either exact spelling for
+  each field, optionally prefixed with the notation's `...` marker. Arbitrary
+  model text is not unescaped for this comparison.
 - A pair explicitly declared as a real choice is never removed. Distinct
   compatible author questions yielding conflicting repairs are left unchanged.
 - Single and multiple choice remain distinct. A repaired question keeps the
   author's input placeholder and permits free text; a question with no choices
   becomes text-only.
 
-Question examples inside fenced code, HTML comments, and Markdown links do not
+Question examples inside fenced or indented code, HTML comments, and Markdown links do not
 authorize a repair. Teaching briefs and extra documents do not define the
 lesson's controls. Dynamic questions, different variables, reordered or changed
 choices, different placeholders, and independently valued real buttons are

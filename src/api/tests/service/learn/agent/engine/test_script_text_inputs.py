@@ -168,6 +168,9 @@ async def test_saved_pending_hint_is_repaired_on_reload_without_changing_history
         "```example\n" + _SCRIPT,
         "   ~~~~example\n" + _SCRIPT + "\n   ~~~~~",
         "````example\n```\n" + _SCRIPT + "\n`````",
+        "    " + _SCRIPT,
+        "\t" + _SCRIPT,
+        " \t" + _SCRIPT,
     ],
 )
 async def test_examples_and_links_cannot_authorize_a_repair(script: str) -> None:
@@ -209,3 +212,105 @@ async def test_multiple_choice_stored_values_and_escaped_input_hint_survive(
     parsed = InteractionParser().parse(render_interaction(spec))
     assert parsed["is_multi_select"] is True
     assert parsed["question"] == hint
+
+
+@pytest.mark.parametrize(
+    ("display_form", "value_form", "placeholder_form", "marker"),
+    [
+        ("raw", "raw", "raw", ""),
+        ("raw", "raw", "decoded", ""),
+        ("decoded", "decoded", "raw", ""),
+        ("raw", "decoded", "raw", ""),
+        ("decoded", "raw", "raw", ""),
+        ("raw", "raw", "raw", "..."),
+    ],
+)
+async def test_verbatim_authored_hint_escapes_are_repaired(
+    display_form: str,
+    value_form: str,
+    placeholder_form: str,
+    marker: str,
+) -> None:
+    """Match only the authored raw or decoded hint, retaining actual free text."""
+    forms = {"raw": r"Describe a\|b\/c\.\.\.\]", "decoded": "Describe a|b/c...]"}
+    script = _SCRIPT.replace(_HINT, forms["raw"])
+    arguments = _arguments(
+        placeholder=forms[placeholder_form],
+        options=[
+            *[{"display": option} for option in _CHOICES],
+            {
+                "display": marker + forms[display_form],
+                "value": marker + forms[value_form],
+            },
+        ],
+    )
+    engine = _engine(arguments)
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == _CHOICES
+    assert spec.placeholder == forms["decoded"]
+    parsed = InteractionParser().parse(render_interaction(spec))
+    assert [o["display"] for o in parsed["buttons"]] == _CHOICES
+    assert parsed["question"] == forms["decoded"]
+    session = Session.loads(session.dumps())
+    answer = r"My project uses a\|b literally."
+    _ = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=answer))
+    ]
+    assert session.memory["project_path"] == answer
+
+
+@pytest.mark.parametrize("real_choice", [True, False])
+async def test_raw_hint_does_not_remove_a_real_choice_or_different_stored_value(
+    real_choice: bool,
+) -> None:
+    """Escape compatibility must preserve deliberate answers and their stored values."""
+    raw = r"Describe a\|b"
+    script = _SCRIPT.replace(_HINT, raw)
+    if real_choice:
+        script = script.replace(" | ...", " | " + raw + " | ...")
+    arguments = _arguments(
+        placeholder=raw,
+        options=[
+            *[{"display": option} for option in _CHOICES],
+            {"display": raw, "value": raw if real_choice else "real_answer"},
+        ],
+    )
+    engine = _engine(arguments)
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert len(spec.options) == 4
+    assert spec.options[-1].stored == ("Describe a|b" if real_choice else "real_answer")
+
+
+async def test_raw_pending_hint_is_repaired_without_changing_history() -> None:
+    """Repair persisted raw hints through the same helper before resumption."""
+    raw = r"Describe a\|b"
+    engine = _engine(
+        _arguments(
+            placeholder=raw,
+            options=[{"display": option} for option in [*_CHOICES, raw]],
+        )
+    )
+    session = await engine.new_session("Teach a dynamic question.")
+    _ = [e async for e in engine.run_turn(session)]
+    session.script = ScriptBundle(script=_SCRIPT.replace(_HINT, raw))
+    session = Session.loads(session.dumps())
+    history = session.messages.copy()
+    events = [e async for e in engine.run_turn(session, InteractionResponseTurn())]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == _CHOICES
+    assert spec.placeholder == "Describe a|b"
+    assert session.messages == history
+
+
+async def test_real_question_after_indented_example_still_repairs() -> None:
+    """Skipping code must not suppress the following ordinary lesson control."""
+    engine = _engine(_arguments())
+    session = await engine.new_session("    " + _SCRIPT + "\n\n" + _SCRIPT)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == _CHOICES
+    assert spec.placeholder == _HINT
