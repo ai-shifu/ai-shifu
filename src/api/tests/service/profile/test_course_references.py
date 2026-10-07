@@ -73,6 +73,7 @@ def context(app: Flask) -> Iterator[SimpleNamespace]:
             target=target,
             outline=outline,
             key=key,
+            reference_text=f"Use {{{{{key}}}}}.",
         )
         with unit_of_work():
             VariableValue.query.filter(
@@ -86,6 +87,13 @@ def context(app: Flask) -> Iterator[SimpleNamespace]:
             PublishedOutlineItem.query.filter_by(shifu_bid=target).delete()
             for model in (DraftShifu, PublishedShifu):
                 model.query.filter(model.shifu_bid.in_([source, target])).delete()
+
+
+def _profiles(context: SimpleNamespace) -> dict:
+    """Resolve only the author text carried by this simulated lesson request."""
+    return get_user_profiles(
+        context.app, context.user, context.target, reference_text=context.reference_text
+    )
 
 
 def _value(context: SimpleNamespace, value: str, **fields: object) -> VariableValue:
@@ -121,17 +129,16 @@ def test_both_runtime_readers_use_exact_latest_owned_source_without_merging_loca
     _value(context, "Destination goal", shifu_bid=context.target)
     exact = 'Latest source\n</memory> "value" ' + "x" * 40000
     _value(context, exact)
-    result = load_memory(context.app, context.user, context.target).as_variables()
+    result = load_memory(
+        context.app, context.user, context.target, reference_text=context.reference_text
+    ).as_variables()
     assert result[context.key] == exact
     assert result["goal"] == "Destination goal"
     prompt = get_fmt_prompt(
         context.app, context.user, context.target, f"Goal {{{{{context.key}}}}}"
     )
     assert exact in prompt
-    assert (
-        get_user_profiles(context.app, context.user, context.target)[context.key]
-        == exact
-    )
+    assert _profiles(context)[context.key] == exact
     assert (
         VariableValue.query.filter_by(
             user_bid=context.user, shifu_bid=context.target
@@ -155,9 +162,7 @@ def test_deleted_or_transferred_course_cannot_use_an_older_ownership_revision(
             field: 1 if field == "deleted" else uuid4().hex,
         }
         db.session.add(model(shifu_bid=getattr(context, course), **attrs))
-    assert context.key not in get_user_profiles(
-        context.app, context.user, context.target
-    )
+    assert context.key not in _profiles(context)
 
 
 @pytest.mark.parametrize("missing", [DraftShifu, PublishedShifu])
@@ -167,9 +172,7 @@ def test_source_requires_current_and_published_owner_records(
 ) -> None:
     with unit_of_work():
         missing.query.filter_by(shifu_bid=context.source).delete()
-    assert context.key not in get_user_profiles(
-        context.app, context.user, context.target
-    )
+    assert context.key not in _profiles(context)
 
 
 @pytest.mark.parametrize(
@@ -203,9 +206,7 @@ def test_unknown_or_unauthorized_source_never_falls_back(
             )
     if kind == "deleted_head":
         _value(context, "", deleted=1)
-    assert context.key not in get_user_profiles(
-        context.app, context.user, context.target
-    )
+    assert context.key not in _profiles(context)
 
 
 @pytest.mark.parametrize(
@@ -241,30 +242,20 @@ def test_only_current_published_read_declarations_authorize_a_reference(
         _published_text(
             context, texts.get(kind, marker), deleted=int(kind == "deleted_outline")
         )
-    assert context.key not in get_user_profiles(
-        context.app, context.user, context.target
-    )
+    assert context.key not in _profiles(context)
 
 
 def test_source_deletion_and_recreation_are_visible_without_copying_values(
     context: SimpleNamespace,
 ) -> None:
     selected = list_course_memory(context.user, context.source)["items"][0]
-    assert (
-        get_user_profiles(context.app, context.user, context.target)[context.key]
-        == "Source goal"
-    )
+    assert _profiles(context)[context.key] == "Source goal"
     assert delete_course_memory(
         context.user, context.source, int(selected["value_id"])
     ) == {"conflict": False}
-    assert context.key not in get_user_profiles(
-        context.app, context.user, context.target
-    )
+    assert context.key not in _profiles(context)
     _value(context, "Explicitly recreated")
-    assert (
-        get_user_profiles(context.app, context.user, context.target)[context.key]
-        == "Explicitly recreated"
-    )
+    assert _profiles(context)[context.key] == "Explicitly recreated"
     assert not list_course_memory(context.user, context.target)["items"]
 
 
@@ -273,17 +264,29 @@ def test_local_reference_spoof_cannot_shadow_authorized_or_denied_source(
 ) -> None:
     _value(context, "Spoofed local value", shifu_bid=context.target, key=context.key)
     result = load_memory(
-        context.app, context.user, context.target, include_course_variables=True
+        context.app,
+        context.user,
+        context.target,
+        include_course_variables=True,
+        reference_text=context.reference_text,
     ).variables
     assert result[context.key] == "Source goal"
     _value(context, "", shifu_bid=context.target, key=context.key, deleted=1)
     result = load_memory(
-        context.app, context.user, context.target, include_course_variables=True
+        context.app,
+        context.user,
+        context.target,
+        include_course_variables=True,
+        reference_text=context.reference_text,
     ).variables
     assert result[context.key] == "Source goal"
     _published_text(context, "Reference removed.")
     result = load_memory(
-        context.app, context.user, context.target, include_course_variables=True
+        context.app,
+        context.user,
+        context.target,
+        include_course_variables=True,
+        reference_text=context.reference_text,
     ).variables
     assert context.key not in result
 
@@ -300,10 +303,7 @@ def test_named_profile_writes_to_reference_namespace_are_noops(
             [ProfileToSave(context.key, "Forged replacement", "")],
         )
     assert VariableValue.query.count() == before
-    assert (
-        get_user_profiles(context.app, context.user, context.target)[context.key]
-        == "Source goal"
-    )
+    assert _profiles(context)[context.key] == "Source goal"
 
 
 @pytest.mark.parametrize(
@@ -318,9 +318,10 @@ def test_system_and_recursive_keys_are_never_read_as_custom_source_values(
         db.session.add(
             Variable(shifu_bid=context.target, key=name, variable_bid=uuid4().hex)
         )
-    _published_text(context, f"Use {{{{{name}}}}}.")
+    context.reference_text = f"Use {{{{{name}}}}}."
+    _published_text(context, context.reference_text)
     _value(context, "Forbidden", key=key)
-    assert name not in get_user_profiles(context.app, context.user, context.target)
+    assert name not in _profiles(context)
 
 
 @pytest.mark.parametrize(
@@ -356,11 +357,12 @@ def test_destination_definition_and_valid_explicit_source_are_required(
             db.session.add(
                 Variable(shifu_bid=context.target, key=name, variable_bid=uuid4().hex)
             )
+    context.reference_text = f"Use {{{{{name}}}}}."
     _published_text(
         context,
         "No published reference." if kind == "draft_only" else f"Use {{{{{name}}}}}.",
     )
-    assert name not in get_user_profiles(context.app, context.user, context.target)
+    assert name not in _profiles(context)
 
 
 @pytest.mark.parametrize("surface", ["course", "outline"])
@@ -376,10 +378,7 @@ def test_published_teaching_brief_can_explicitly_authorize_a_read(
                 model.llm_system_prompt: f"Remember the source goal {{{{{context.key}}}}}."
             }
         )
-    assert (
-        get_user_profiles(context.app, context.user, context.target)[context.key]
-        == "Source goal"
-    )
+    assert _profiles(context)[context.key] == "Source goal"
 
 
 def test_reference_count_is_bounded_after_distinct_published_names(
@@ -400,8 +399,9 @@ def test_reference_count_is_bounded_after_distinct_published_names(
                     variable_value_bid=uuid4().hex,
                 )
             )
-    _published_text(context, " ".join(f"{{{{{name}}}}}" for name in keys + keys))
-    result = get_user_profiles(context.app, context.user, context.target)
+    context.reference_text = " ".join(f"{{{{{name}}}}}" for name in keys + keys)
+    _published_text(context, context.reference_text)
+    result = _profiles(context)
     assert {name for name in result if name.startswith("course:")} == set(keys[:32])
 
 
@@ -449,19 +449,19 @@ def test_settings_and_memory_adapters_cannot_store_qualified_keys(
                 course_id=context.target,
             )
         else:
+            patch = MemoryUpdate(
+                variables=[VariableMemoryUpdate(key=context.key, value="Forged")]
+            )
             stage_memory(
                 context.app,
                 context.user,
                 context.target,
-                MemoryUpdate(
-                    variables=[VariableMemoryUpdate(key=context.key, value="Forged")]
-                ),
+                patch,
             )
     assert VariableValue.query.count() == before
-    assert (
-        get_user_profiles(context.app, context.user, context.target)[context.key]
-        == "Source goal"
-    )
+    assert _profiles(context)[context.key] == "Source goal"
+    if writer == "memory":
+        assert patch.variables == []
 
 
 def test_legacy_formatter_accepts_references_without_accepting_format_expressions() -> (
@@ -475,3 +475,49 @@ def test_legacy_formatter_accepts_references_without_accepting_format_expression
     assert safe_format_template(
         template, {name: "Exact", "goal": "Local", "goal:>12": "Bad"}
     ) == ("Exact Local {goal:>12} {user.name} {{course:invalid:goal}}")
+
+
+@pytest.mark.parametrize("kind", ["absent", "fence", "comment", "collection"])
+def test_another_lesson_declaration_does_not_authorize_this_request(
+    context: SimpleNamespace,
+    kind: str,
+) -> None:
+    marker = "{{" + context.key + "}}"
+    documents = {
+        "absent": "Teach a different topic.",
+        "fence": f"```\n{marker}\n```",
+        "comment": f"<!-- {marker} -->",
+        "collection": "%" + marker,
+    }
+    # The original published outline still grants this name at course level.
+    assert _profiles(context)[context.key] == "Source goal"
+    assert context.key not in get_user_profiles(
+        context.app, context.user, context.target
+    )
+    result = load_memory(
+        context.app,
+        context.user,
+        context.target,
+        reference_text=documents[kind],
+        include_course_variables=True,
+    )
+    assert context.key not in result.variables
+
+
+def test_separate_author_documents_cannot_close_each_others_fences(
+    context: SimpleNamespace,
+) -> None:
+    marker = "{{" + context.key + "}}"
+    # Each document fences its own example. Joining them would expose the second marker.
+    documents = ("```\nExample", f"```\n{marker}\n```")
+    result = load_memory(
+        context.app, context.user, context.target, reference_text=documents
+    )
+    assert context.key not in result.variables
+    result = load_memory(
+        context.app,
+        context.user,
+        context.target,
+        reference_text=("```\nExample", f"Brief uses {marker}."),
+    )
+    assert result.variables[context.key] == "Source goal"

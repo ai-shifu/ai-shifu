@@ -48,7 +48,7 @@ def runtime_dependencies(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     monkeypatch.setattr(
         context_v2,
         "load_memory",
-        lambda *_args: SimpleNamespace(as_variables=dict),
+        lambda *_args, **_kwargs: SimpleNamespace(as_variables=dict),
     )
     monkeypatch.setattr(
         context_v2, "get_profile_item_definition_list", lambda *_args: []

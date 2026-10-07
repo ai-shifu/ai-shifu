@@ -246,7 +246,11 @@ def _load_or_start(
         dict(preview_variables or {})
         if debug_store is not None
         else load_memory(
-            app, user_bid, shifu_bid, include_course_variables=True
+            app,
+            user_bid,
+            shifu_bid,
+            include_course_variables=True,
+            reference_text=(script, teaching_brief),
         ).as_variables()
     )
     # A blank canonical nickname is unknown to variable substitution and would leave its

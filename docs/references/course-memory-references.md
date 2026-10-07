@@ -18,9 +18,14 @@ replace or merge the destination course's own `learning_goal`.
 This first cross-course increment is read-only. Values remain in their original
 course; learners view and delete them using that course's existing memory controls.
 It introduces no account-wide memory, shared writer, database schema, automatic
-same-name merging or copies of source values. Progress is never shared.
+same-name merging or destination-course variable copies. Progress is never shared.
 
-Only references in currently published author content are eligible. Draft edits,
+Only references in currently published author content are eligible. Each runtime
+request also names the references in its current lesson script or effective
+teaching brief; a declaration in another lesson cannot inject that source value.
+The memory/profile facade returns no cross-course values without an explicit
+author-document context. Parse separate documents separately so their code fences
+cannot change each other's meaning. Draft edits,
 fenced examples, HTML comments, learner messages and model-produced names do not
 authorize a read. Normal authoring automatically registers variable definitions;
 a reference must have a current destination-course definition. Teacher debug can
@@ -37,7 +42,9 @@ unknown. At most 32 distinct references are considered per read.
 
 The `course:` namespace is read-only and cannot be collected using `%{{...}}`,
 written by `remember`, named answers or profile settings, or shadowed by a local
-stored value. Resumed 2.0 lessons refresh their initial memory and exact author
+stored value. The memory adapter removes rejected assignments from its update
+payload; 1.0 answers retain their history and normal progress without announcing
+a variable update for a discarded reference. Resumed 2.0 lessons refresh their initial memory and exact author
 substitutions on every request, including source updates, deletion and permission
 revocation. Existing classroom conversation remains historical evidence.
 

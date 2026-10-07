@@ -322,3 +322,50 @@ def test_initial_reference_copy_tracks_brief_edits_before_later_revocation(
     if new_brief:
         assert new_brief in prompt
     assert key not in session.all_memory()
+
+
+def test_real_host_only_injects_references_used_by_this_lesson_request(
+    context: SimpleNamespace,
+) -> None:
+    seen = []
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str]:
+        seen.append(
+            next(
+                p.content
+                for m in messages
+                for p in m.parts
+                if isinstance(p, UserPromptPart)
+            )
+        )
+        yield "Teach the next step."
+
+    engine = Engine(
+        FunctionModel(stream_function=model), memory_readonly_prefixes=("course:",)
+    )
+    first = uuid4().hex
+    args = {
+        "app": context.app,
+        "engine": engine,
+        "user_bid": context.user,
+        "shifu_bid": context.target,
+        "outline_bid": first,
+        "iter_turn": _drive,
+        "script": f"Use {{{{{context.key}}}}}.",
+    }
+    list(run_agent.run_agent_lesson(**args))
+    assert "Source goal" in seen[-1]
+    # A different lesson in the same course has no read, even though the first remains published.
+    list(
+        run_agent.run_agent_lesson(
+            **{**args, "outline_bid": uuid4().hex, "script": "An unrelated lesson."}
+        )
+    )
+    assert "Source goal" not in seen[-1]
+    assert context.key not in seen[-1]
+    # Removing the current lesson's read also revokes a saved initial substitution.
+    list(run_agent.run_agent_lesson(**{**args, "script": "An unrelated lesson."}))
+    assert "Source goal" not in seen[-1]
+    assert "{{" + context.key + "}}" in seen[-1]

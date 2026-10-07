@@ -30,6 +30,18 @@ def is_course_reference_name(key: str) -> bool:
     return len(key) <= 255 and _REFERENCE.fullmatch(key) is not None
 
 
+def course_reference_reads(text: str) -> set[str]:
+    """Find explicit reads in one author document, excluding fences and comments."""
+    if COURSE_REFERENCE_PREFIX not in text:
+        return set()
+    return {
+        key
+        for block in MarkdownFlow(text).get_all_blocks()
+        for key in _READ_VARIABLE.findall(block.content)
+        if is_course_reference(key)
+    }
+
+
 def _owner(course: str) -> str | None:
     """Require current and published ownership to agree; old live revisions cannot revive it."""
     draft = (
@@ -73,13 +85,7 @@ def _published_reads(course: str) -> set[str]:
     texts = [published.llm_system_prompt or ""] if published else []
     for outline in outlines:
         texts.extend((outline.content or "", outline.llm_system_prompt or ""))
-    return {
-        key
-        for text in texts
-        for block in MarkdownFlow(text).get_all_blocks()
-        for key in _READ_VARIABLE.findall(block.content)
-        if is_course_reference(key)
-    }
+    return set().union(*(course_reference_reads(text) for text in texts))
 
 
 def load_course_references(
