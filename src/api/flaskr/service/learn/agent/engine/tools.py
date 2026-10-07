@@ -485,7 +485,10 @@ async def remember(
     100 or more entries accepts updates to existing keys only. A refused note changes nothing;
     continue teaching instead of repeatedly trying to store it. Existing history and answers
     recorded by `interact(variable=...)` are preserved without these model-note limits.
+    Record required notes before `finish`; a finished lesson accepts no further model notes.
     """
+    if ctx.deps.finished is not None:
+        return LESSON_OVER
     if not key.strip() or len(key) > _MEMORY_KEY_LIMIT:
         return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
     if len(value) > _MEMORY_VALUE_LIMIT:
