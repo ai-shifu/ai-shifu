@@ -177,6 +177,7 @@ class _Question:
     text: bool
     choices: list[str]
     placeholder: str | None
+    written_placeholder: str | None
     multi: bool
 
 
@@ -217,6 +218,9 @@ def _script_questions(script_text: str) -> list[_Question]:
                 placeholder=_unescape(first_line[ellipsis + 3 :].strip())
                 if ellipsis >= 0
                 else None,
+                written_placeholder=first_line[ellipsis + 3 :].strip()
+                if ellipsis >= 0
+                else None,
                 multi=multi,
             )
         )
@@ -239,6 +243,8 @@ def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
                 opening = None
         elif fence:
             opening = fence.group(1)
+        elif line.expandtabs(4).startswith("    "):
+            lines.append("")  # Indented Markdown code cannot declare lesson controls.
         else:
             lines.append(line)
     text = re.sub(r"<!--.*?-->", "", "\n".join(lines), flags=re.DOTALL)
@@ -268,6 +274,7 @@ def normalize_script_text_input(
             None,
             "",
             question.placeholder,
+            question.written_placeholder,
         ):
             continue
         authored: list[tuple[str, str]] = []
@@ -279,7 +286,15 @@ def normalize_script_text_input(
             ]
             authored.append((halves[0], halves[1] if len(halves) > 1 else halves[0]))
         hint = question.placeholder or ""
-        extras = {(hint, hint), ("..." + hint, "..." + hint)} - set(authored)
+        forms = {hint, question.written_placeholder or hint}
+        extras = {
+            (marker + display, marker + value)
+            for marker in ("", "...")
+            if (marker + hint, marker + hint) not in authored
+            for display in forms
+            for value in forms
+            if (marker + display, marker + value) not in authored
+        }
         remaining = [pair for pair in submitted if pair not in extras]
         if submitted == authored:
             candidate = spec

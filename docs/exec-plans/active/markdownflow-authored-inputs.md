@@ -23,8 +23,17 @@ The durable contract is [Authored Input Hints](../../references/markdownflow-aut
   passed (1 skip, 4 subtests). All repository gates passed. The installed renderer
   showed three choices and submitted the typed answer. Disabling the correction
   failed 11 of 25 focused regressions; the restored code also passed 36 offline probes.
-- [ ] 2026-10-07 15:05 UTC: Open the focused PR, verify sim deployment and reply to
-  every independent AI review opinion in its original thread.
+- [x] 2026-10-07 16:07 UTC: Opened PR #3033 after GitHub's service disruption.
+  Sim build 366 deployed `sim-6a45222`; both API replicas passed 36 probes and
+  matching module hashes. Fresh guest read, audio backfill and listen passed.
+- [x] 2026-10-07 16:34 UTC: Reproduced both Devin findings: indented examples and
+  verbatim escaped hints. Ten new regressions failed before the corrections;
+  the corrected focused suite passed, including real-choice preservation.
+- [x] 2026-10-07 16:36 UTC: Learning/profile 2,521 passed (1 skip, 4 subtests),
+  including all 38 focused regressions and the full engine. Expanded deployment
+  probes passed 55 checks locally without provider calls or database writes.
+- [ ] Verify the review fixes locally and on sim, reply to both inline findings
+  and the independent docstring warning, and check final CI.
 
 ## Surprises & Discoveries
 
@@ -45,8 +54,9 @@ record was modified during diagnosis.
 ## Outcomes & Retrospective
 
 Local verification is complete, including an actual malformed sim tool call,
-engine-to-renderer controls and free-text submission. Publication and sim checks
-remain pending. Human approval owns the main merge.
+engine-to-renderer controls and free-text submission. The first revision is
+published and verified on sim. Review corrections and final CI verification are
+in progress. Human approval owns the main merge.
 
 ## Context and Orientation
 
