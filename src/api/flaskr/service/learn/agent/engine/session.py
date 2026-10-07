@@ -57,6 +57,8 @@ class Session:
     messages: list[ModelMessage] = field(default_factory=list)
     memory: dict[str, Any] = field(default_factory=dict)  # session scope
     user_memory: dict[str, Any] = field(default_factory=dict)  # snapshot of user scope
+    # Exact source values for initial host substitutions; None identifies legacy sessions.
+    initial_variables: dict[str, Any] | None = None
     pending: list[PendingInteraction] = field(default_factory=list)
     # Answers collected for this turn's deferred calls, keyed by tool_call_id. A turn can raise
     # several interactions at once; the host answers them one at a time, and they are only handed
@@ -89,6 +91,7 @@ class Session:
             "messages": json.loads(ModelMessagesTypeAdapter.dump_json(self.messages)),
             "memory": self.memory,
             "user_memory": self.user_memory,
+            "initial_variables": self.initial_variables,
             "pending": [
                 {"tool_call_id": p.tool_call_id, "spec": p.spec.model_dump(mode="json")}
                 for p in self.pending
@@ -115,6 +118,11 @@ class Session:
             ),
             memory=dict(d.get("memory") or {}),
             user_memory=dict(d.get("user_memory") or {}),
+            initial_variables=(
+                dict(d["initial_variables"])
+                if d.get("initial_variables") is not None
+                else None
+            ),
             pending=[
                 PendingInteraction(p["tool_call_id"], _restored_spec(p["spec"]))
                 for p in d.get("pending") or []

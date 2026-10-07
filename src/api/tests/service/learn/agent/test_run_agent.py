@@ -178,9 +178,16 @@ def _run(
 # --- what the turn is --------------------------------------------------------------------
 
 
+@pytest.mark.parametrize(
+    ("source", "scope"), [("interaction", "session"), ("tool", "user")]
+)
 @pytest.mark.parametrize("replaying", [True, False])
 def test_deleted_named_answer_requires_new_submission_not_regeneration(
-    calls: list, monkeypatch: pytest.MonkeyPatch, replaying: bool
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+    replaying: bool,
+    source: str,
+    scope: str,
 ) -> None:
     from flaskr.service.learn.agent.rewind import RewindPlan
 
@@ -193,7 +200,7 @@ def test_deleted_named_answer_requires_new_submission_not_regeneration(
     run_agent._persist(
         None,
         _Session(),
-        memory=[MemoryUpdated(key="goal", value="answer", source="interaction")],
+        memory=[MemoryUpdated(key="goal", value="answer", source=source, scope=scope)],
         user_bid=USER,
         shifu_bid=SHIFU,
         outline_bid=OUTLINE,

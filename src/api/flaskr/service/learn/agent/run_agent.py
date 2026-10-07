@@ -405,6 +405,12 @@ def run_agent_lesson(
                 if memory_deleted_keys
                 else {}
             )
+            if (
+                deleted_policy
+                and rewind is not None
+                and rewind.replay_values is not None
+            ):
+                deleted_policy["replaying_input"] = True
             async for event in engine.run_turn(
                 session, _turn_input(session, values), **deleted_policy
             ):
@@ -1285,7 +1291,6 @@ def _persist(
                     update.key in deleted
                     and rewind is not None
                     and rewind.replay_values is not None
-                    and update.source == "interaction"
                 )
             ]
         if durable:

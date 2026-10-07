@@ -59,3 +59,11 @@ other courses, and preview data are unaffected. There is no schema migration.
 | --- | --- | --- | --- | --- | --- |
 | course_id | string | current course business ID | high | pseudonymous | course adoption |
 | outcome | string | success / failed; result only | low | non-personal | completion ratio |
+
+New sessions retain the original values used for host script/constraints
+substitutions, including values omitted from the budgeted memory JSON. Deletion
+can therefore refresh those host sections after a value has changed. Legacy
+sessions without this snapshot keep the conservative matching fallback. Both
+1.0 and 2.0 persistence reject updates whose deletion generation changed while
+processing. The 1.0 runtime emits variable update events only after persistence
+succeeds.

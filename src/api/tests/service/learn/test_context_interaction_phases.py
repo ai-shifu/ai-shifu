@@ -1,5 +1,6 @@
 """Exercise learner-input pause, moderation, validation and access-gate transitions."""
 
+from contextlib import nullcontext
 from itertools import count
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -257,6 +258,7 @@ def phase(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     monkeypatch.setattr(runtime, "check_text_with_llm_response", moderation)
     memory = Mock()
     monkeypatch.setattr(runtime, "stage_memory", memory)
+    monkeypatch.setattr(runtime, "unit_of_work", nullcontext)
     return SimpleNamespace(
         context=context,
         state=state,
@@ -524,7 +526,7 @@ def test_validated_variables_stage_memory_emit_updates_then_advance(
     assert [
         (item.key, item.value, item.definition_bid) for item in update.variables
     ] == [("choice", "A,2", "definition"), ("empty", "", ""), ("count", "3", "")]
-    phase.context._recorder.update_progress_pointer.assert_not_called()
+    phase.context._recorder.update_progress_pointer.assert_called_once()
     events, advanced = _consume(stream)
     assert advanced is True
     assert [event.content.variable_value for event in events] == ["", "3"]

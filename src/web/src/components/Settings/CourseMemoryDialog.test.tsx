@@ -226,4 +226,36 @@ describe('CourseMemoryDialog', () => {
     await act(async () => finish(page));
     expect(screen.queryByText(entry.value)).not.toBeInTheDocument();
   });
+
+  it('prevents pagination and deletion selection from overlapping', async () => {
+    let finish!: (value: typeof page) => void;
+    (listCourseMemory as jest.Mock)
+      .mockResolvedValueOnce({ ...page, next_before: 'cursor' })
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finish = resolve;
+          }),
+      );
+    const view = setup();
+    await screen.findByText(entry.value);
+    fireEvent.click(screen.getByRole('button', { name: label('memoryMore') }));
+    const remove = screen.getByRole('button', { name: label('memoryDelete') });
+    expect(remove).toBeDisabled();
+    fireEvent.click(remove);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await act(async () => finish({ items: [], next_before: null }));
+    view.unmount();
+    (listCourseMemory as jest.Mock).mockResolvedValueOnce({
+      ...page,
+      next_before: 'cursor',
+    });
+    setup();
+    await screen.findByText(entry.value);
+    fireEvent.click(
+      screen.getByRole('button', { name: label('memoryDelete') }),
+    );
+    expect(screen.getByText(label('memoryMore'))).toBeDisabled();
+    expect(listCourseMemory).toHaveBeenCalledTimes(3);
+  });
 });

@@ -634,3 +634,29 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
         assert (
             "Also call `remember` when the learner states a preference" in description
         ) is not enabled
+
+
+@pytest.mark.parametrize("replaying", [True, False])
+async def test_replayed_explicit_request_cannot_recreate_deleted_key(
+    replaying: bool,
+) -> None:
+    check = AsyncMock(return_value=True)
+    engine = Engine(
+        _note_model([{"key": "pace", "value": "short", "request": REQUEST}], []),
+        memory_admission=True,
+        memory_request_check=check,
+    )
+    session = await engine.new_session("Collect %{{pace}}.")
+    events = [
+        e
+        async for e in engine.run_turn(
+            session,
+            MessageTurn(text=REQUEST),
+            memory_deleted_keys=frozenset({"pace"}),
+            replaying_input=replaying,
+        )
+    ]
+    assert bool(session.user_memory) is not replaying
+    assert any(isinstance(e, MemoryUpdated) for e in events) is not replaying
+    if replaying:
+        check.assert_not_awaited()
