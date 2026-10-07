@@ -284,3 +284,59 @@ async def test_oversized_admission_input_refuses_memory_without_gateway_io(
 def test_invalid_gateway_budget_is_rejected(limit: int) -> None:
     with pytest.raises(ValueError, match="must be positive"):
         _model(limit)
+
+
+async def test_budget_retries_do_not_consume_the_turn_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+    monkeypatch.setattr(gw, "chat_llm", lambda **kw: calls.append(kw))
+    engine = Engine(_model(), turn_limit=200)
+    session = await engine.new_session("Teach.")
+    session.turn = 199
+    session.messages = [
+        ModelRequest(parts=[UserPromptPart("x" * INPUT_BUDGET_BYTES)]),
+        ModelResponse(parts=[TextPart("Earlier explanation.")]),
+    ]
+    for _ in range(3):
+        events = [event async for event in engine.run_turn(session, ContinueTurn())]
+        assert isinstance(events[-1], ErrorEvent)
+        assert events[-1].code == "input_budget_exceeded"
+        assert session.turn == 199
+        assert not session.finished
+        session = Session.loads(session.dumps())
+    assert not calls
+
+
+async def test_accepted_finish_stands_when_its_followup_request_is_oversized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+    gateway = _model()
+
+    def chat(**kwargs: object) -> Iterator[FakeChunk]:
+        calls.append(kwargs)
+        gateway._input_budget_bytes = 1
+        yield FakeChunk(
+            tool_call_deltas=[
+                {
+                    "index": 0,
+                    "id": "done",
+                    "name": "finish",
+                    "arguments": json.dumps(
+                        {"summary": "All required teaching completed."}
+                    ),
+                }
+            ],
+            finish_reason="tool_calls",
+        )
+
+    monkeypatch.setattr(gw, "chat_llm", chat)
+    engine = Engine(gateway)
+    session = await engine.new_session("Finish when all required teaching is complete.")
+    events = [event async for event in engine.run_turn(session)]
+    assert len(calls) == 1
+    assert isinstance(events[-1], TurnDone)
+    assert events[-1].reason == "finished"
+    assert session.finished is True
+    assert not any(isinstance(event, ErrorEvent) for event in events)
