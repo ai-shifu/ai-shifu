@@ -476,7 +476,11 @@ class Engine:
     # -- turns -------------------------------------------------------------------------------
 
     async def run_turn(
-        self, session: Session, turn: TurnInput | None = None
+        self,
+        session: Session,
+        turn: TurnInput | None = None,
+        *,
+        memory_deleted_keys: frozenset[str] = frozenset(),
     ) -> AsyncIterator[Event]:
         """Run one turn of a session and stream its events.
 
@@ -496,6 +500,8 @@ class Engine:
         script_text = session.script.all_text()
         uses_v1_syntax = detect_v1_syntax(script_text)
         deps = Deps(
+            memory_deleted_keys=memory_deleted_keys,
+            memory_current_inputs=(turn.text,) if isinstance(turn, MessageTurn) else (),
             memory=session.memory,
             user_memory=session.user_memory,
             listen_mode=session.listen_mode,
@@ -582,6 +588,9 @@ class Engine:
             )
             if self.memory_admission:
                 session.request_inputs.extend(_free_text_inputs(pending.spec, answer))
+                deps.memory_current_inputs += tuple(
+                    _free_text_inputs(pending.spec, answer)
+                )
             if pending.spec.variable and (
                 deps.memory_keys is None or pending.spec.variable in deps.memory_keys
             ):

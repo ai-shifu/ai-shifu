@@ -132,6 +132,9 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
     monkeypatch.setattr(run_agent, "save_agent_session", _save)
     monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: None)
     monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory({}))
+    monkeypatch.setattr(
+        run_agent, "course_memory_deletion_state", lambda *_a, **_k: ({}, frozenset())
+    )
     monkeypatch.setattr(run_agent, "record_turn_content", _record_content)
     monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: PROGRESS)
     monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: _Record())
@@ -173,6 +176,37 @@ def _run(
 
 
 # --- what the turn is --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("replaying", [True, False])
+def test_deleted_named_answer_requires_new_submission_not_regeneration(
+    calls: list, monkeypatch: pytest.MonkeyPatch, replaying: bool
+) -> None:
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    monkeypatch.setattr(
+        run_agent,
+        "course_memory_deletion_state",
+        lambda *_a, **_k: ({"goal": 1}, frozenset({"goal"})),
+    )
+    monkeypatch.setattr(run_agent, "stage_retirement", lambda *_a, **_k: None)
+    run_agent._persist(
+        None,
+        _Session(),
+        memory=[MemoryUpdated(key="goal", value="answer", source="interaction")],
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        preview_mode=False,
+        progress_record_bid=PROGRESS,
+        generated_block_bid="block",
+        taught="Lesson",
+        rewind=RewindPlan(checkpoint={}, replay_values=["old"] if replaying else None),
+        memory_generations={"goal": 1},
+    )
+    assert len([entry for entry in calls if entry[0] == "stage_memory"]) == int(
+        not replaying
+    )
 
 
 def test_a_learner_who_has_not_started_begins_the_lesson(

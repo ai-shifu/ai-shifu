@@ -12,6 +12,8 @@ User-facing workflow and page behavior specifications live here.
   - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Billing learning-time estimates](../product-specs/billing-learning-hours-estimate.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-21` | Canonical: `true`
+- [Course Memory Management](../product-specs/course-memory-management.md)
+  - Status: `implemented` | Owner: `learner` | Last reviewed: `2026-10-07` | Canonical: `true`
 - [Dashboard Entry Page Contract](../product-specs/dashboard-entry-page.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-26` | Canonical: `true`
 - [Embedded Gemini Live Follow-Up Analytics](../product-specs/gemini-live-follow-up-analytics.md)

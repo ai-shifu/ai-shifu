@@ -22,6 +22,85 @@ pytestmark = pytest.mark.anyio
 REQUEST = "Please remember that I prefer short explanations."
 
 
+@pytest.mark.parametrize(
+    ("text", "quote", "approved", "allowed"),
+    [
+        ("", None, True, False),
+        (REQUEST, None, True, False),
+        ("Short explanations please.", "Short explanations please.", False, False),
+        (REQUEST, REQUEST, False, False),
+        (REQUEST, REQUEST, True, True),
+    ],
+)
+async def test_deleted_declared_key_requires_new_explicit_permission(
+    text: str, quote: str | None, approved: bool, allowed: bool
+) -> None:
+    check = AsyncMock(return_value=approved)
+    engine = Engine(
+        _note_model([{"key": "pace", "value": "short", "request": quote}], []),
+        memory_admission=True,
+        memory_request_check=check,
+    )
+    session = await engine.new_session("Collect %{{pace}}.")
+    events = [
+        e
+        async for e in engine.run_turn(
+            session,
+            MessageTurn(text=text) if text else None,
+            memory_deleted_keys=frozenset({"pace"}),
+        )
+    ]
+    assert session.memory == {}
+    assert session.user_memory == ({"pace": "short"} if allowed else {})
+    assert len([e for e in events if isinstance(e, MemoryUpdated)]) == int(allowed)
+    if allowed:
+        check.assert_awaited_once_with(REQUEST, "pace", "short")
+
+
+async def test_new_named_answer_can_recreate_deleted_course_memory() -> None:
+    engine, session = await _ask(
+        {"type": "text", "prompt": "Your pace?", "variable": "pace"},
+        AsyncMock(return_value=False),
+        [{"key": "unrelated", "value": "ignored", "request": None}],
+        script="Collect %{{pace}}.",
+    )
+    events = [
+        e
+        async for e in engine.run_turn(
+            session,
+            InteractionResponseTurn(values=["A fresh answer"]),
+            memory_deleted_keys=frozenset({"pace"}),
+        )
+    ]
+    assert session.memory["pace"] == "A fresh answer"
+    assert any(
+        isinstance(e, MemoryUpdated) and e.key == "pace" and e.source == "interaction"
+        for e in events
+    )
+
+
+async def test_deferred_old_request_cannot_restore_deleted_memory() -> None:
+    check = AsyncMock(return_value=True)
+    engine, session = await _ask(
+        {"type": "text", "prompt": "Your answer?"},
+        check,
+        [{"key": "pace", "value": "short", "request": REQUEST}],
+        script="Collect %{{pace}}.",
+    )
+    session.request_inputs = [REQUEST]
+    _ = [
+        e
+        async for e in engine.run_turn(
+            session,
+            InteractionResponseTurn(values=["A current ordinary answer"]),
+            memory_deleted_keys=frozenset({"pace"}),
+        )
+    ]
+    assert session.user_memory == {}
+    assert session.memory == {}
+    check.assert_not_awaited()
+
+
 def _note_model(notes: list[dict], returns: list[str]) -> FunctionModel:
     """Try the supplied notes once, then continue after their acknowledgements."""
 
