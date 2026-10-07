@@ -180,6 +180,7 @@ def test_course_selections_drive_preview_learning_and_follow_up(
         monkeypatch.setattr(utils_v2, "get_shifu_struct", lambda *_args: struct)
         runtime = context_v2.RunScriptContextV2.__new__(context_v2.RunScriptContextV2)
         runtime._struct = struct
+        runtime._preview_mode = True
         runtime._outline_model = DraftOutlineItem
         runtime._shifu_model = DraftShifu
         settings = runtime.get_llm_settings(leaf.outline_item_bid)

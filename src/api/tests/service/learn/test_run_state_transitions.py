@@ -40,6 +40,7 @@ def tree(monkeypatch: object) -> object:
     context._struct = root
     context._preview_mode = False
     context._outline_model = PublishedOutlineItem
+    context._shifu_model = Mock()
     context._user_info = SimpleNamespace(user_id="learner")
     context._current_outline_item = first
     context._current_attend = SimpleNamespace(
@@ -48,10 +49,10 @@ def tree(monkeypatch: object) -> object:
     context._get_current_outline_block_count = Mock(return_value=1)
     query = Mock()
     query.filter.return_value.all.return_value = [
-        ("first", False, "First"),
-        ("hidden", True, "Hidden"),
-        ("chapter", False, "Chapter"),
-        ("second", False, "Second"),
+        (2, "first", False, "First"),
+        (3, "hidden", True, "Hidden"),
+        (4, "chapter", False, "Chapter"),
+        (5, "second", False, "Second"),
     ]
     monkeypatch.setattr(
         state_module,

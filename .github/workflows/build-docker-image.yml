@@ -1,0 +1,273 @@
+name: Build Docker image on native runners
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        type: string
+        required: true
+      image-name:
+        type: string
+        required: true
+      dockerfile:
+        type: string
+        required: true
+      tags:
+        type: string
+        required: true
+      labels:
+        type: string
+        required: true
+      push-images:
+        type: boolean
+        default: true
+      require-registry:
+        type: boolean
+        default: false
+      build-args:
+        type: string
+        default: ''
+      update-description:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ inputs.service }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            machine: x86_64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            machine: aarch64
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Verify native runner
+        env:
+          EXPECTED_MACHINE: ${{ matrix.machine }}
+        run: |
+          test "$(uname -m)" = "$EXPECTED_MACHINE"
+          uname -srmo
+          docker version
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1
+
+      - name: Build diagnostics
+        run: |
+          docker buildx version
+          docker buildx inspect --bootstrap
+
+      - name: Prepare image metadata
+        id: meta
+        uses: ./.github/actions/docker-image-metadata
+        with:
+          image-name: ${{ inputs.image-name }}
+          tags: ${{ inputs.tags }}
+          labels: ${{ inputs.labels }}
+          push-images: ${{ inputs.push-images }}
+          require-registry: ${{ inputs.require-registry }}
+
+      - name: Login to Docker Hub
+        if: steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
+      - name: Login to Aliyun Docker Registry
+        if: steps.meta.outputs.push-images == 'true' && env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.ALIYUN_DOCKER_USERNAME }}
+          password: ${{ env.ALIYUN_DOCKER_PASSWORD }}
+          registry: ${{ env.ALIYUN_DOCKER_REGISTRY }}
+
+      - name: Build native image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: ai-shifu-smoke:${{ inputs.service }}-${{ matrix.arch }}-${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          sbom: false
+          # Distinct writers for each service/platform; latest and release can reuse layers.
+          cache-from: type=gha,scope=ai-shifu-${{ inputs.service }}-${{ matrix.arch }}
+          cache-to: type=gha,scope=ai-shifu-${{ inputs.service }}-${{ matrix.arch }},mode=max
+          build-args: ${{ inputs.build-args }}
+
+      - name: Smoke-test production image
+        id: smoke
+        env:
+          IMAGE_SERVICE: ${{ inputs.service }}
+          IMAGE_ARCH: ${{ matrix.arch }}
+          LOCAL_IMAGE: ai-shifu-smoke:${{ inputs.service }}-${{ matrix.arch }}-${{ github.sha }}
+        run: |
+          python3 scripts/check_docker_image.py smoke "$IMAGE_SERVICE" "$LOCAL_IMAGE" \
+            "linux/$IMAGE_ARCH" --record "$RUNNER_TEMP/docker-smoke.json"
+
+      - name: Push tested native image by digest
+        id: push
+        if: steps.meta.outputs.push-images == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: false
+          sbom: false
+          # The same builder reuses the tested layers; verify their config below.
+          build-args: ${{ inputs.build-args }}
+          outputs: ${{ format('type=image,"name={0}",push-by-digest=true,name-canonical=true,push=true', steps.meta.outputs.images) }}
+
+      - name: Verify pushed content matches production smoke
+        if: steps.meta.outputs.push-images == 'true'
+        env:
+          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
+          IMAGE_REPOSITORIES: ${{ steps.meta.outputs.images }}
+        run: |
+          python3 scripts/check_docker_image.py verify-published \
+            "$RUNNER_TEMP/docker-smoke.json" "$IMAGE_DIGEST" --images "$IMAGE_REPOSITORIES"
+
+      - name: Export image digest
+        if: steps.meta.outputs.push-images == 'true'
+        env:
+          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
+          IMAGE_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          jq -n --arg digest "$IMAGE_DIGEST" --arg arch "$IMAGE_ARCH" \
+            '{digest: $digest, platform: ("linux/" + $arch)}' \
+            > "$RUNNER_TEMP/digests/$IMAGE_ARCH.json"
+
+      - name: Upload image digest
+        if: steps.meta.outputs.push-images == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-digest-${{ inputs.service }}-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/digests/*.json
+          if-no-files-found: error
+          retention-days: 7
+          # Failed-job reruns may replace a digest without rerunning the other architecture.
+          overwrite: true
+
+      - name: Native build summary
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          IMAGE_SERVICE: ${{ inputs.service }}
+          IMAGE_ARCH: ${{ matrix.arch }}
+        run: |
+          echo "### $IMAGE_SERVICE / linux/$IMAGE_ARCH: $BUILD_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Native runner: $(uname -m)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Production smoke: $SMOKE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Cache scope: ai-shifu-$IMAGE_SERVICE-$IMAGE_ARCH" >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish ${{ inputs.service }} manifest
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1
+
+      - name: Prepare image metadata
+        id: meta
+        uses: ./.github/actions/docker-image-metadata
+        with:
+          image-name: ${{ inputs.image-name }}
+          tags: ${{ inputs.tags }}
+          labels: ${{ inputs.labels }}
+          push-images: ${{ inputs.push-images }}
+          require-registry: ${{ inputs.require-registry }}
+
+      - name: Login to Docker Hub
+        if: steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
+      - name: Login to Aliyun Docker Registry
+        if: steps.meta.outputs.push-images == 'true' && env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.ALIYUN_DOCKER_USERNAME }}
+          password: ${{ env.ALIYUN_DOCKER_PASSWORD }}
+          registry: ${{ env.ALIYUN_DOCKER_REGISTRY }}
+
+      - name: Download image digests
+        if: steps.meta.outputs.push-images == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          # Each architecture is built from this run's commit. Include older attempts
+          # when only failed jobs were rerun; select the newest digest per platform.
+          pattern: docker-digest-${{ inputs.service }}-*
+          path: ${{ runner.temp }}/digests
+
+      - name: Publish and verify multi-platform manifests
+        if: steps.meta.outputs.push-images == 'true'
+        env:
+          IMAGE_METADATA: ${{ steps.meta.outputs.json }}
+        run: python3 scripts/merge_docker_manifests.py "$RUNNER_TEMP/digests"
+
+      - name: Update Docker Hub repository description
+        if: inputs.update-description && steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
+        continue-on-error: true
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_USER }}/${{ inputs.image-name }}
+          short-description: AI-Shifu ${{ inputs.service }} - AI-led chat platform
+          readme-filepath: ./README.md
+
+      - name: Image summary
+        if: always()
+        env:
+          IMAGE_SERVICE: ${{ inputs.service }}
+          PUSH_IMAGES: ${{ steps.meta.outputs.push-images }}
+          PUBLISH_OUTCOME: ${{ job.status }}
+        run: |
+          echo "### $IMAGE_SERVICE manifest: $PUBLISH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Publication enabled: $PUSH_IMAGES" >> "$GITHUB_STEP_SUMMARY"
+          echo '- Required platforms: linux/amd64, linux/arm64' >> "$GITHUB_STEP_SUMMARY"

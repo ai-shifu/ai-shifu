@@ -65,141 +65,45 @@ jobs:
           fi
 
   build-docker:
-    name: Build & Push Docker (${{ matrix.service_name }})
+    name: Build release (${{ matrix.service }})
     needs: validate-release
-    runs-on: ubuntu-latest
     if: needs.validate-release.outputs.should_build == 'true'
-    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         include:
-          - service_name: "build-api"
-            image_name_env: "AI_SHIFU_API_IMAGE_NAME"
-            context: "."
-            dockerfile: "src/api/Dockerfile"
-          - service_name: "build-web"
-            image_name_env: "AI_SHIFU_COOK_WEB_IMAGE_NAME"
-            context: "."
-            dockerfile: "src/web/Dockerfile"
-
-    env:
-      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
-      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
-      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
-      AI_SHIFU_API_IMAGE_NAME: ${{ vars.AI_SHIFU_API_IMAGE_NAME || 'ai-shifu-api' }}
-      AI_SHIFU_COOK_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_COOK_WEB_IMAGE_NAME || 'ai-shifu-cook-web' }}
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-        with:
-          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Set build environment
-        run: |
-          TAG_VERSION="${{ needs.validate-release.outputs.tag }}"
-          echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
-          RELEASE_BUILD="${RELEASE_BUILD:-true}"
-          echo "RELEASE_BUILD=$RELEASE_BUILD" >> $GITHUB_ENV
-          echo "🏷️ Building release images with tag: $TAG_VERSION (push=$RELEASE_BUILD)"
-
-      - name: Login to Docker Hub
-        if: env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.DOCKERHUB_USER }}
-          password: ${{ env.DOCKERHUB_TOKEN }}
-
-      - name: Login to Aliyun Docker Registry
-        if: env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.ALIYUN_DOCKER_USERNAME }}
-          password: ${{ env.ALIYUN_DOCKER_PASSWORD }}
-          registry: ${{ env.ALIYUN_DOCKER_REGISTRY }}
-
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ env.DOCKERHUB_USER && format('{0}/{1}', env.DOCKERHUB_USER, env[matrix.image_name_env]) || '' }}
-            ${{ env.ALIYUN_DOCKER_USERNAME && format('{0}/ai-shifu/{1}', env.ALIYUN_DOCKER_REGISTRY, env[matrix.image_name_env]) || '' }}
-          labels: |
-            org.opencontainers.image.title=AI-Shifu ${{ matrix.service_name }}
-            org.opencontainers.image.description=AI-led chat platform - ${{ matrix.service_name }} service
-            org.opencontainers.image.vendor=AI-Shifu Team
-            org.opencontainers.image.licenses=Apache-2.0 WITH Commercial-Use-Conditions
-            org.opencontainers.image.source=https://github.com/ai-shifu/ai-shifu
-            org.opencontainers.image.documentation=https://github.com/ai-shifu/ai-shifu/blob/main/README.md
-            org.opencontainers.image.url=https://github.com/ai-shifu/ai-shifu
-            org.opencontainers.image.version=${{ env.TAG_VERSION }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            ai-shifu.license-file=https://github.com/ai-shifu/ai-shifu/blob/main/LICENSE.txt
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ env.TAG_VERSION }},enable=${{ env.RELEASE_BUILD == 'true' }}
-
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: "${{ matrix.context }}"
-          file: ${{ matrix.dockerfile || '' }}
-          platforms: linux/amd64,linux/arm64
-          push: ${{ env.RELEASE_BUILD == 'true' }}
-          load: ${{ env.RELEASE_BUILD != 'true' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
-          provenance: false
-          sbom: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            TAG_VERSION=${{ env.TAG_VERSION }}
-
-      - name: Update Docker Hub repository description
-        if: env.RELEASE_BUILD == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
-        continue-on-error: true
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ env.DOCKERHUB_USER }}
-          password: ${{ env.DOCKERHUB_TOKEN }}
-          repository: ${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}
-          short-description: "AI-Shifu ${{ matrix.service_name }} - AI-led chat platform"
-          readme-filepath: ./README.md
-
-      - name: Build summary
-        run: |
-          echo "### 🐳 Docker Build Complete - ${{ matrix.service_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Service**: ${{ matrix.service_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Version**: ${{ env.TAG_VERSION }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Context**: ${{ matrix.context }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Platforms**: linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Built Images**:" >> $GITHUB_STEP_SUMMARY
-
-          # Show built images
-          if [ -n "${{ env.DOCKERHUB_USER }}" ]; then
-            echo "- 🐙 Docker Hub: \`${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- 🐙 Docker Hub: \`${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ -n "${{ env.ALIYUN_DOCKER_USERNAME }}" ]; then
-            echo "- 🏗️ Aliyun: \`${{ env.ALIYUN_DOCKER_REGISTRY }}/ai-shifu/${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          fi
-
+          - service: api
+            image-name: AI_SHIFU_API_IMAGE_NAME
+            default-image: ai-shifu-api
+            dockerfile: src/api/Dockerfile
+          - service: web
+            image-name: AI_SHIFU_COOK_WEB_IMAGE_NAME
+            default-image: ai-shifu-cook-web
+            dockerfile: src/web/Dockerfile
+    uses: ./.github/workflows/build-docker-image.yml
+    secrets: inherit
+    with:
+      service: ${{ matrix.service }}
+      image-name: ${{ vars[matrix.image-name] || matrix.default-image }}
+      dockerfile: ${{ matrix.dockerfile }}
+      update-description: true
+      require-registry: true
+      build-args: |
+        TAG_VERSION=${{ needs.validate-release.outputs.tag }}
+      tags: |
+        type=raw,value=latest,enable={{is_default_branch}}
+        type=raw,value=${{ needs.validate-release.outputs.tag }}
+      labels: |
+        org.opencontainers.image.title=AI-Shifu ${{ matrix.service }}
+        org.opencontainers.image.description=AI-led chat platform - ${{ matrix.service }} service
+        org.opencontainers.image.vendor=AI-Shifu Team
+        org.opencontainers.image.licenses=Apache-2.0 WITH Commercial-Use-Conditions
+        org.opencontainers.image.source=https://github.com/ai-shifu/ai-shifu
+        org.opencontainers.image.documentation=https://github.com/ai-shifu/ai-shifu/blob/main/README.md
+        org.opencontainers.image.url=https://github.com/ai-shifu/ai-shifu
+        org.opencontainers.image.version=${{ needs.validate-release.outputs.tag }}
+        org.opencontainers.image.revision=${{ github.sha }}
+        ai-shifu.license-file=https://github.com/ai-shifu/ai-shifu/blob/main/LICENSE.txt
   deploy-summary:
     runs-on: ubuntu-latest
     needs: [validate-release, build-docker]
