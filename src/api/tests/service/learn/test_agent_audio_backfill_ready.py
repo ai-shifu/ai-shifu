@@ -58,6 +58,9 @@ def execution(monkeypatch: pytest.MonkeyPatch) -> dict:
     )
 
     class Adapter:
+        def finalized_element_identities(self) -> list[tuple[str, str]]:
+            return [("block", bid) for bid in staged]
+
         def process(self, events: Iterator) -> Iterator:
             for event in events:
                 assert event is raw
@@ -166,10 +169,12 @@ def test_disconnected_agent_stream_never_advertises_uncommitted_audio(
 
 
 @pytest.mark.parametrize("with_interaction", [False, True])
+@pytest.mark.parametrize("formatted", [False, True])
 def test_real_adapter_finalizes_read_narration_before_advertising_backfill(
     execution: dict,
     monkeypatch: pytest.MonkeyPatch,
     with_interaction: bool,
+    formatted: bool,
 ) -> None:
     """Partial read text becomes ready only after DONE has staged its final snapshot."""
     from flaskr.service.learn.listen_element_run_state import BlockMeta
@@ -201,9 +206,20 @@ def test_real_adapter_finalizes_read_narration_before_advertising_backfill(
             (GeneratedType.DONE, ""),
         ]
     ]
-    raw[0].set_mdflow_stream_parts([("Choose a path", "text", 0)])
+    if formatted:
+        raw[0].set_mdflow_stream_parts([("Choose a path", "text", 0)])
     if not with_interaction:
         raw.pop(1)
+    else:
+        raw.insert(
+            1,
+            RunMarkdownFlowDTO(
+                outline_bid="lesson",
+                generated_block_bid="block",
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        )
     monkeypatch.setattr(
         lesson_entry, "agent_lesson_events", lambda *_a, **_k: iter(raw)
     )
@@ -217,7 +233,7 @@ def test_real_adapter_finalizes_read_narration_before_advertising_backfill(
                     row["element_bid"] for row in rows if row["event_type"] == "element"
                 }
                 ready_bids = set(event.content.element_bids)
-                assert ready_bids <= staged_bids
+                assert ready_bids == staged_bids
                 speakable_bids = {
                     row["element_bid"]
                     for row in rows
@@ -228,3 +244,6 @@ def test_real_adapter_finalizes_read_narration_before_advertising_backfill(
             streamed.append(event)
     assert [event.type for event in streamed][-2:] == ["audio_backfill_ready", "done"]
     assert streamed[-1].is_terminal is True
+    assert len(rows) == len(
+        {(row["event_type"], row.get("element_bid")) for row in rows}
+    )
