@@ -9,6 +9,7 @@ Evergreen repository references and operational guides live here.
 - [Frontend Product Analytics](../references/frontend-product-analytics.md)
 - [Gemini Live follow-up implementation contract](../references/gemini-live-follow-up.md)
 - [Internationalization (i18n) Guide](../references/i18n.md)
+- [MarkdownFlow Authored Input Hints](../references/markdownflow-authored-inputs.md)
 - [MarkdownFlow Input Budget](../references/markdownflow-input-budget.md)
 - [Local MarkdownFlow slide comparisons](../references/markdownflow-model-arena.md)
 - [MarkdownFlow Runtime Selection](../references/markdownflow-runtime-selection.md)

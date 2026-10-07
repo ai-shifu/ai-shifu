@@ -82,10 +82,12 @@ from .tools import (
     Deps,
     finish,
     interact,
+    normalize_script_text_input,
     prepare_memory_tool,
     remember,
     script_options,
     script_pauses,
+    script_text_inputs,
 )
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
@@ -502,6 +504,11 @@ class Engine:
         turn = turn or (StartTurn() if not session.started else ContinueTurn())
         script_text = session.script.all_text()
         uses_v1_syntax = detect_v1_syntax(script_text)
+        text_inputs = (
+            script_text_inputs(session.script.script) if uses_v1_syntax else ()
+        )
+        for pending in session.pending:
+            pending.spec = normalize_script_text_input(pending.spec, text_inputs)
         deps = Deps(
             memory_deleted_keys=memory_deleted_keys,
             memory_current_inputs=(turn.text,)
@@ -513,6 +520,7 @@ class Engine:
             uses_v1_syntax=uses_v1_syntax,
             interaction_check=self.interaction_check,
             script_options=script_options(script_text) if uses_v1_syntax else {},
+            script_text_inputs=text_inputs,
             # The lesson's own script only: a brief or a reference document may show `?[继续]`
             # as an example of the notation, which is not a pause in this lesson.
             no_pauses=(
