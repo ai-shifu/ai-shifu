@@ -27,7 +27,9 @@ The user requested this insertion after PR #3030 merged.
   listen-mode completion and unchanged canonical profile checks.
 - [x] 2026-10-07 CST: Reply to the available Devin opinion with the existing
   explicit-Reset transition contract; retain deployment-wide routing.
-- [ ] 2026-10-07 CST: Complete external CI/review checks and human main merges.
+- [x] 2026-10-07 CST: Accept the CodeRabbit stale-comment correction, update
+  adjacent runtime documentation and reply after pushing validation.
+- [ ] 2026-10-07 CST: Complete external CI checks and human main merges.
 
 ## Surprises & Discoveries
 
