@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from flaskr.dao import db
+from flaskr.service.profile.api import get_global_profile_keys
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import func, select
 
@@ -97,6 +98,33 @@ def _to_entry(row: VariableValue) -> MemoryEntry:
         shifu_bid=shifu_bid,
         updated_at=row.updated_at,
     )
+
+
+def load_course_variables(user_bid: str, shifu_bid: str) -> dict[str, str]:
+    """Read current course variable values, including learner-requested undeclared keys.
+
+    No global fallback or other course is admitted here. System keys remain owned by the
+    canonical runtime reader. Existing rows are preserved without inventing provenance.
+    """
+    live_ids = (
+        db.session.query(func.max(VariableValue.id))
+        .filter(
+            VariableValue.user_bid == user_bid,
+            VariableValue.shifu_bid == shifu_bid,
+            VariableValue.deleted == 0,
+            ~VariableValue.key.startswith("sys_", autoescape=True),
+            VariableValue.key.not_in(get_global_profile_keys()),
+        )
+        .group_by(VariableValue.key)
+        .subquery()
+    )
+    return {
+        row.key: row.value
+        for row in VariableValue.query.filter(
+            VariableValue.id.in_(select(live_ids))
+        ).all()
+        if row.key
+    }
 
 
 def load_learner_memory(

@@ -1,7 +1,11 @@
 """Stable public entry points for cross-service profile operations."""
 
 from flaskr.service.profile.constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
-from flaskr.service.profile.funcs import get_user_profiles, save_user_profiles
+from flaskr.service.profile.funcs import (
+    get_global_profile_keys,
+    get_user_profiles,
+    save_user_profiles,
+)
 from flaskr.service.profile.learner_profile import (
     LEARNER_PROFILE_MAX_LENGTH,
     LEARNER_PROFILE_NICKNAME_MAX_LENGTH,
@@ -14,6 +18,7 @@ __all__ = [
     "LEARNER_PROFILE_NICKNAME_MAX_LENGTH",
     "SYS_USER_LANGUAGE",
     "SYS_USER_NICKNAME",
+    "get_global_profile_keys",
     "get_user_profiles",
     "has_learner_profile_or_state",
     "merge_learner_profile_for_sign_in",

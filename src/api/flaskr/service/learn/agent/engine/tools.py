@@ -21,7 +21,7 @@ from pydantic_ai.messages import (
 from .interaction import InteractionSpec, InteractionType, Option
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
 
 @dataclass
@@ -48,6 +48,11 @@ class Deps:
     # script has none: a `confirm` is then answered without asking the learner. See
     # `script_pauses` and `Engine(pauses_from_notation=)`.
     no_pauses: bool = False
+    # None preserves a portable host's existing unrestricted memory contract.
+    memory_keys: frozenset[str] | None = None
+    memory_reserved_keys: frozenset[str] = frozenset()
+    request_inputs: tuple[str, ...] = ()
+    memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
@@ -406,12 +411,14 @@ async def interact(
     dropped. To have the learner check something you wrote, ask it as `single`, or write the
     read-back as content and pause with a plain `confirm`.
     Give `options` for every type except `text`. `variable` is ONLY for a memory key the script
-    explicitly names (e.g. `%{{name}}` or "store it as X"); leave it empty otherwise.
+    declares as `%{{name}}` in its main script; leave it empty otherwise.
     The learner's answer is returned as the tool result; then continue the script.
     """
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
+    if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
+        variable = None
     if type != "confirm" and asks_the_answered_question_again(
         ctx, type, prompt, variable, options, placeholder
     ):
@@ -471,11 +478,49 @@ _MEMORY_ENTRY_LIMIT = 100
 _MEMORY_SCOPE_LIMIT = 32_768
 
 
+def _memory_capacity_error(target: dict[str, Any], key: str, value: str) -> str | None:
+    """Check the current scope immediately before and after asynchronous admission."""
+    if key not in target and len(target) >= _MEMORY_ENTRY_LIMIT:
+        return "Not remembered: this scope has 100 or more entries. Continue teaching."
+    candidate_size = len(
+        json.dumps({**target, key: value}, ensure_ascii=False, indent=2)
+    )
+    if candidate_size > _MEMORY_SCOPE_LIMIT and candidate_size > len(
+        json.dumps(target, ensure_ascii=False, indent=2)
+    ):
+        return (
+            "Not remembered: this would grow the scope beyond its 32768-character JSON budget. "
+            "Continue teaching."
+        )
+    return None
+
+
+async def memory_admission_error(
+    deps: Deps, key: str, value: str, request: str | None
+) -> str | None:
+    """Require declared permission or a verified, real learner request before a write."""
+    if deps.memory_keys is None or key in deps.memory_keys:
+        return None
+    if key.startswith("sys_") or key in deps.memory_reserved_keys:
+        return "only the script can declare a system-profile key"
+    if not request or request not in deps.request_inputs or len(request) > 4096:
+        return "quote a complete current learner request of at most 4096 characters"
+    if deps.memory_request_check is not None:
+        try:
+            if await deps.memory_request_check(request, key, value):
+                return None
+        except Exception:
+            # A failed admission service must not fail teaching or authorize a write.
+            return "the learner's explicit request could not be verified"
+    return "the learner's explicit request could not be verified"
+
+
 async def remember(
     ctx: RunContext[Deps],
     key: str,
     value: str,
     scope: Literal["session", "user"] = "session",
+    request: str | None = None,
 ) -> str:
     """Store something about the learner.
 
@@ -491,6 +536,11 @@ async def remember(
     Existing history and answers recorded by `interact(variable=...)` are preserved without
     these model-note limits.
     Record required notes before `finish`; a finished lesson accepts no further model notes.
+
+    AI-Shifu permits script-declared `%{{key}}` variables, or an explicit learner request.
+    For an undeclared key, pass the learner's complete verbatim free-text input as `request`.
+    A casual preference is insufficient. Verified requests use user scope within this course;
+    they do not edit system profile fields. Never invent or quote script text as a request.
     """
     if ctx.deps.finished is not None:
         return LESSON_OVER
@@ -498,19 +548,18 @@ async def remember(
         return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
     if len(value) > _MEMORY_VALUE_LIMIT:
         return "Not remembered: the value exceeds 2000 characters. Continue teaching."
+    if ctx.deps.memory_keys is not None and key not in ctx.deps.memory_keys:
+        scope = "user"
     target = ctx.deps.user_memory if scope == "user" else ctx.deps.memory
-    if key not in target and len(target) >= _MEMORY_ENTRY_LIMIT:
-        return "Not remembered: this scope has 100 or more entries. Continue teaching."
-    candidate_size = len(
-        json.dumps({**target, key: value}, ensure_ascii=False, indent=2)
-    )
-    if candidate_size > _MEMORY_SCOPE_LIMIT and candidate_size > len(
-        json.dumps(target, ensure_ascii=False, indent=2)
-    ):
-        return (
-            "Not remembered: this would grow the scope beyond its 32768-character JSON budget. "
-            "Continue teaching."
-        )
+    if problem := _memory_capacity_error(target, key, value):
+        return problem
+    if problem := await memory_admission_error(ctx.deps, key, value, request):
+        return f"Not remembered: {problem}. Continue teaching."
+    # A semantic check yields control: another tool may have written or finished meanwhile.
+    if ctx.deps.finished is not None:
+        return LESSON_OVER
+    if problem := _memory_capacity_error(target, key, value):
+        return problem
     target[key] = value
     ctx.deps.memory_updates.append((scope, key, value))
     return f"remembered {key} ({scope})"
