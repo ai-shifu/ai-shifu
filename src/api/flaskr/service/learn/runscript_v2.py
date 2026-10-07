@@ -717,8 +717,8 @@ def _lesson_events(
 ) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
     """Produce this lesson's events with whichever engine teaches it.
 
-    The choice is per deployment, not per course row: only a deployment that names this course in
-    its allowlist runs 2.0, so the same course and the same data stay on 1.0 everywhere else.
+    The choice is per deployment, not per course row: FLOW_ENGINE_V2_ENABLED
+    enables 2.0 for all courses here; deployments with the flag disabled retain 1.0.
 
     Everything downstream is shared -- the lock this runs inside, the element adapter, TTS, the SSE
     framing -- so serialisation and persistence hold for both engines without being reimplemented.
@@ -813,7 +813,7 @@ def _lesson_events(
                 # Going back needs the 2.0 session taken back too, which 1.0 cannot do: it would
                 # rewrite history and leave the session on its old branch.
                 raise_error("server.learn.agentRewindUnavailable")
-            # An allowlisted course whose lesson has no script: 1.0 knows what to do with that,
+            # A course selected for 2.0 whose lesson has no script: 1.0 knows what to do with that,
             # and refusing the learner over a configuration mistake would be worse.
             app.logger.warning(
                 "agent engine has no script for this lesson, using 1.0: "
@@ -855,9 +855,9 @@ def _teaches_with_agent(
 ) -> bool:
     """Whether this particular request goes to the 2.0 engine.
 
-    Being on the allowlist is necessary but not sufficient. A follow-up question keeps the 1.0
-    path even for an allowlisted course: it runs beside the lesson under its own semaphore rather
-    than through the lesson's turn loop.
+    The deployment must enable 2.0. A follow-up question still keeps the 1.0
+    path: it runs beside the lesson under its own semaphore rather than through
+    the lesson's turn loop.
 
     Regenerating a past block or element goes to 2.0 like everything else. It used to go to 1.0,
     which regenerated from rows 2.0 wrote and left the 2.0 session where it was, so the page and
@@ -901,7 +901,7 @@ def run_script(
     use_element_protocol = True
     # Decided here as well as in `_lesson_events`, because the adapter is built before the
     # producer starts and needs to know which engine it is serving. The predicate reads the
-    # deployment's allowlist and this request's own arguments, so asking twice costs nothing and
+    # deployment's flag and this request's own arguments, so asking twice costs nothing and
     # cannot disagree.
     teaches_with_agent = _teaches_with_agent(
         shifu_bid=shifu_bid,
