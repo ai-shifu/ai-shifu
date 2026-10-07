@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import ValidationError
@@ -22,6 +22,8 @@ from .interaction import InteractionSpec, InteractionType, Option
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+
+    from pydantic_ai.tools import ToolDefinition
 
 
 @dataclass
@@ -514,6 +516,29 @@ async def memory_admission_error(
             # A failed admission service must not fail teaching or authorize a write.
             return "the learner's explicit request could not be verified"
     return "the learner's explicit request could not be verified"
+
+
+async def prepare_memory_tool(
+    _ctx: RunContext[Deps], definition: ToolDefinition
+) -> ToolDefinition:
+    """Make evidence explicit in the enabled host's schema without changing portable calls."""
+    schema = definition.parameters_json_schema
+    properties = schema["properties"]
+    request_schema = dict(properties["request"])
+    request_schema.pop("default", None)
+    request_schema["description"] = (
+        "Required field. For an undeclared key, copy the learner's complete current free-text "
+        "input EXACTLY, including the request to remember and punctuation. Do not omit it or "
+        "supply a paraphrase. For a main-script-declared key only, null is allowed."
+    )
+    return replace(
+        definition,
+        parameters_json_schema={
+            **schema,
+            "properties": {**properties, "request": request_schema},
+            "required": list(dict.fromkeys([*schema.get("required", []), "request"])),
+        },
+    )
 
 
 async def remember(

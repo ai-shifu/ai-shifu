@@ -509,6 +509,19 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
     async def model(
         _messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str]:
+        remember_tool = next(
+            tool for tool in info.function_tools if tool.name == "remember"
+        )
+        assert (
+            "request" in remember_tool.parameters_json_schema.get("required", [])
+        ) is enabled
+        if enabled:
+            assert (
+                "EXACTLY"
+                in remember_tool.parameters_json_schema["properties"]["request"][
+                    "description"
+                ]
+            )
         seen.extend(
             tool.description
             for tool in info.function_tools

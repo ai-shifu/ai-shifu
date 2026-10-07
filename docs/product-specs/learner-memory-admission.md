@@ -20,7 +20,9 @@ same declaration and retain their exact original values and existing scope rules
 An undeclared interaction variable is dropped without dropping the question.
 
 For an undeclared note, `remember` must quote a complete accepted free-text input
-from the current model turn as `request` (at most 4096 characters). An independent
+from the current model turn as `request` (at most 4096 characters). Enabled hosts
+make this field required in the model-facing schema; declared keys may supply null.
+Portable hosts retain the optional field and unrestricted recording policy. An independent
 structured model check must confirm both a direct affirmative request to remember
 and a faithful proposed value. Casual preferences, ordinary answers, fabricated
 quotes, option displays/stored values, hypothetical or quoted requests, negations
