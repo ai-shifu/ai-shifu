@@ -6,6 +6,7 @@ import json
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
+from flaskr.service.learn.agent.engine.memory_context import parse_initial_memory_prompt
 from flaskr.service.learn.agent.engine.script import (
     collected_names,
     substitute_variables,
@@ -54,16 +55,12 @@ def _refresh_prompt(
     content: str, session: Session, nickname: str, *, answered: bool, pending: bool
 ) -> str:
     """Replace known host sections only, failing closed on an unfamiliar prompt shape."""
+    parsed = parse_initial_memory_prompt(content)
+    if parsed is None:
+        return content
     prefix = "<memory>\n"
-    if not content.startswith(prefix):
-        return content
-    try:
-        original, end = json.JSONDecoder().raw_decode(content, len(prefix))
-    except ValueError:
-        return content
-    boundary = "\n</memory>\n\n"
-    if not isinstance(original, dict) or not content.startswith(boundary, end):
-        return content
+    original = parsed.memory
+    boundary = "\n</memory>" + parsed.notice + "\n\n"
     collected = collected_names(session.script.script)
     updated = dict(original)
     if SYS_USER_NICKNAME not in collected or (
@@ -76,8 +73,12 @@ def _refresh_prompt(
     def section(tag: str, text: str, memory: dict) -> str:
         return f"<{tag}>\n{substitute_variables(text, memory, collected=collected)}\n</{tag}>"
 
-    start = end + len(boundary)
-    old_script = section("script", session.script.script, original)
+    start = parsed.script_start
+    # A bounded JSON block can omit a value that the initial script substituted in full.
+    # The saved snapshot supplies those missing values; included initial values still win.
+    script_memory = {**session.user_memory, **session.memory, **original}
+    updated_script_memory = {**script_memory, SYS_USER_NICKNAME: nickname}
+    old_script = section("script", session.script.script, script_memory)
     if not content.startswith(old_script, start):
         return content
     suffix = content[start + len(old_script) :]
@@ -85,12 +86,14 @@ def _refresh_prompt(
     # safely from today's bundle, so leave that unmatched history untouched.
     if session.script.constraints:
         old_brief = "\n\n" + section(
-            "constraints", session.script.constraints, original
+            "constraints", session.script.constraints, script_memory
         )
         if suffix.startswith(old_brief):
             suffix = (
                 "\n\n"
-                + section("constraints", session.script.constraints, updated)
+                + section(
+                    "constraints", session.script.constraints, updated_script_memory
+                )
                 + suffix[len(old_brief) :]
             )
     memory = json.dumps(updated, ensure_ascii=False, indent=2) if updated else "{}"
@@ -98,6 +101,6 @@ def _refresh_prompt(
         prefix
         + memory
         + boundary
-        + section("script", session.script.script, updated)
+        + section("script", session.script.script, updated_script_memory)
         + suffix
     )

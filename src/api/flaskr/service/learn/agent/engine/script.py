@@ -186,7 +186,7 @@ def render_memory_section(
     *,
     limit: int | None = None,
     priority: frozenset[str] = frozenset(),
-) -> str:
+) -> tuple[str, bool]:
     """Project whole values into one bounded JSON payload without editing stored memory.
 
     Referenced and host-priority keys come first; other keys retain input order. A value that
@@ -218,7 +218,7 @@ def render_memory_section(
             "An absent key is unknown here, not forgotten or deleted. Do not infer its value. "
             "Explicit script substitutions retain their complete values.</memory_context>"
         )
-    return section
+    return section, len(selected) < len(remembered)
 
 
 def render_first_prompt(
@@ -240,7 +240,7 @@ def render_first_prompt(
     parts = [
         render_memory_section(
             bundle, memory, limit=memory_limit, priority=memory_priority
-        ),
+        )[0],
         f"<script>\n{substitute_variables(bundle.script, memory, collected=collected)}\n</script>",
     ]
     if bundle.constraints:
