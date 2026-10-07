@@ -14,7 +14,13 @@ the two compatibility findings deferred from PR #3024 without restarting lessons
       passed (2,236 tests, one skip, four subtests). Repository gates passed after
       regenerating the knowledge indexes. Disabling host repair makes six of the
       eleven regressions fail, including actual closing rendering.
-- [ ] 2026-10-07 08:20 UTC: Publish the focused PR, handle review and validate the deployed sim revision.
+- [x] 2026-10-07 08:29 UTC: Published PR #3025; Devin and CodeRabbit reported no
+      actionable code findings. Sim `12ee27bf7` is deployed with API 2/2 and web
+      1/1 Ready. Forty-eight deployed host probes and a new temporary learner's
+      read/audio/listen completion passed, with the canonical profile unchanged.
+- [ ] 2026-10-07 08:29 UTC: User-owned main merge and post-merge source check;
+      keep this plan active until that external acceptance is complete. Final CI
+      and review replies are tracked on PR #3025 and in the workspace record.
 
 ## Surprises & Discoveries
 
@@ -33,7 +39,13 @@ keep their matching results; adding arbitrary messages between them is unsafe.
 
 ## Outcomes & Retrospective
 
-Local implementation and validation are complete; external validation remains open.
+Implementation, local regressions and sim validation are complete. Both automated
+code reviewers reported no findings against runtime commit `9df886e44`.
+The optional CodeRabbit docstring percentage warning does not alter the tested
+behavior; entry points and parent test contracts document their purpose. Final CI
+is tracked on PR #3025; main merge remains manual. Deployed runtime files match
+the local tested bytes. The workspace record is
+`task/docs/mdf2-resumed-nickname-2026-10-07.md` in the sibling task repository.
 Human teaching acceptance and broader memory
 admission/budget policy remain tracked in the workspace MDF 2.0 status document.
 
