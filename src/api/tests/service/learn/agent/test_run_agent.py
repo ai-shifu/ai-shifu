@@ -539,6 +539,22 @@ def test_a_resumed_session_sees_a_profile_edited_since_it_was_saved(
     assert calls
 
 
+@pytest.mark.parametrize("nickname", ["", "Alex"])
+def test_a_resumed_session_refreshes_a_cleared_or_updated_nickname(
+    monkeypatch: pytest.MonkeyPatch, calls: list, nickname: str
+) -> None:
+    """An old session snapshot cannot undo the canonical nickname or its blank fallback."""
+    stored = _Session(started=True)
+    stored.user_memory = {"sys_user_nickname": "Previous name"}
+    snapshot = {"sys_user_nickname": nickname, "sys_user_language": "en-US"}
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory(snapshot))
+    _run(_Engine([TurnDone(reason="end")], session=stored))
+    assert stored.user_memory["sys_user_nickname"] == (nickname or "Learner")
+    assert snapshot["sys_user_nickname"] == nickname
+    assert not any(name == "stage_memory" for name, _ in calls)
+
+
 # --- what the browser actually sends -----------------------------------------------------
 #
 # Every lesson input arrives as a map: the study client normalises even a plain string to

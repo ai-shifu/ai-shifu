@@ -30,7 +30,7 @@ from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.i18n import _
+from flaskr.i18n import _, translate_for_language
 from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
 from flaskr.service.learn.agent.engine.engine import (
     ContinueTurn,
@@ -90,6 +90,7 @@ from flaskr.service.learn.memory import (
     stage_memory,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.profile.api import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
@@ -227,6 +228,16 @@ def _load_or_start(
         if debug_store is not None
         else load_memory(app, user_bid, shifu_bid).as_variables()
     )
+    # A blank canonical nickname is unknown to variable substitution and would leave its
+    # literal placeholder in the lesson. This address is presentation data, not a profile edit.
+    if (
+        SYS_USER_NICKNAME in user_memory
+        and not str(user_memory[SYS_USER_NICKNAME] or "").strip()
+    ):
+        user_memory[SYS_USER_NICKNAME] = translate_for_language(
+            "server.learn.defaultLearnerName",
+            user_memory.get(SYS_USER_LANGUAGE) or "en-US",
+        )
 
     async def make_session() -> Session:
         if stored is not None:

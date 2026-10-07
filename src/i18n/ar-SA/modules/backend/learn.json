@@ -11,6 +11,7 @@
     "askProviderUnavailable": "قاعدة المعرفة الخارجية غير متاحة مؤقتًا",
     "continueButton": "متابعة",
     "debugSessionExpired": "انتهت جلسة التصحيح هذه أو تغيّر النص. ابدأ التصحيح من جديد.",
+    "defaultLearnerName": "المتعلم",
     "generatedBlockNotFound": "لم يتم العثور على الكتلة المُنشأة",
     "invalidAction": "عملية غير صالحة",
     "lessonFeedbackCommentPlaceholder": "اختياري: أخبرنا باقتراحك",

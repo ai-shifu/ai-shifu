@@ -11,6 +11,7 @@
     "askProviderUnavailable": "Le service de connaissances externe est temporairement indisponible.",
     "continueButton": "Continuer",
     "debugSessionExpired": "Cette session de débogage a expiré ou le script a changé. Relancez le débogage.",
+    "defaultLearnerName": "Apprenant",
     "generatedBlockNotFound": "Bloc généré introuvable",
     "invalidAction": "Action non valide",
     "lessonFeedbackCommentPlaceholder": "Facultatif : laissez votre commentaire",
