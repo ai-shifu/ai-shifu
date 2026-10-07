@@ -29,9 +29,7 @@ def test_the_first_message_s_sections_are_not_written_back() -> None:
 def test_remember_is_the_only_way_to_store_and_answers_are_stored_already() -> None:
     """The leaked note recorded an answer `interact` had already stored under its variable."""
     rule = _rule(4)
-    assert "Only record variables the main script declares" in rule
-    assert "learner explicitly asks you to remember" in rule
-    assert "complete verbatim free-text input" in rule
+    assert "Calling `remember` is the only way to store anything" in rule
     assert "already stored" in rule
     assert "do not store it again" in rule
 

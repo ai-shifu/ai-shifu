@@ -23,10 +23,13 @@ def load_memory(
     including learner requests without profile definitions. Global undeclared values
     and the broad reader's ``elsewhere`` are not merged.
     """
+    resolved = get_user_profiles(app, user_bid, shifu_bid)
     variables = (
-        load_course_variables(user_bid, shifu_bid) if include_course_variables else {}
+        load_course_variables(user_bid, shifu_bid, exclude_keys=frozenset(resolved))
+        if include_course_variables
+        else {}
     )
-    variables.update(get_user_profiles(app, user_bid, shifu_bid))
+    variables.update(resolved)
     return MemorySnapshot(variables=variables)
 
 

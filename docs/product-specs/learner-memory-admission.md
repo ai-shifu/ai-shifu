@@ -9,7 +9,8 @@ canonical: true
 # Learner Memory Admission
 
 AI-Shifu's MarkdownFlow 2.0 host enables admission at its single engine factory.
-The portable engine retains its optional default for other hosts. The existing
+The portable engine retains its optional default and unrestricted recording
+instructions for other hosts; system and tool instructions select the same policy. The existing
 profile writer and the session's unit of work remain responsible for persistence.
 
 A lesson may record a key declared as `%{{key}}` in its main script, outside
@@ -41,8 +42,12 @@ write `sys_*` or any key the profile writer routes globally, such as `language`,
 `sex`, `birth` or `avatar`. Declared keys retain existing profile mapping semantics.
 Canonical account fields remain authoritative. There is no cross-course sharing.
 Only the agent's memory reader opts into additional current-course variable rows;
-other consumers retain definition-based runtime resolution. Existing course rows
-remain readable without fabricated provenance or a historical data purge.
+other consumers retain definition-based runtime resolution. The supplementary
+projection considers only the newest 100 unresolved course keys and includes whole
+values fitting 32768 JSON characters, counting escaping. Existing canonical/defined
+variable resolution remains exact and does not consume this allowance. Oversized or
+older supplementary values remain stored and available through the existing memory
+inspection reader, without fabricated provenance or a historical data purge.
 
 Existing key/value/count and per-scope JSON growth limits also apply. After an
 asynchronous check, capacity and finished state are checked again before mutation.

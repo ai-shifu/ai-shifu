@@ -17,7 +17,14 @@ an author-created profile definition.
 - [x] 2026-10-07 09:36 UTC: Verified real engine, SQLite, rollback, pending
       evidence, checkpoints and gateway context. Learning/profile suites: 2387
       passed, one skipped, four subtests. Disabling admission causes 31 failures.
-- [ ] Pass repository gates and publish one focused PR.
+- [x] 2026-10-07 09:39 UTC: Passed gates and published PR #3028 at 0552dba4b.
+- [x] 2026-10-07 09:42 UTC: Integrated 0b06f10e4 into sim. Both API replicas
+      match all 13 changed runtime modules. Tool probes, normal read/listen regression
+      and nine real GatewayModel semantic cases passed.
+- [x] 2026-10-07 09:53 UTC: Preserved portable prompt/tool behavior and bounded
+      the supplementary projection. Added four regressions; learning/profile: 2391
+      passed, one skipped, four subtests. All-files gates passed.
+- [ ] Rerun normal HTTP admission/persistence on the revised deployment.
 - [ ] Integrate and validate sim, handle every independent AI finding, and
       verify final CI. Main merge remains user-owned.
 
@@ -32,6 +39,9 @@ Legacy profile keys such as `language`, `sex`, `birth` and `avatar` route global
 without a `sys_` prefix; the host supplies the writer's complete reserved-key set.
 Admission awaits another model call, so writes must recheck capacity and finished
 state afterward.
+The first normal HTTP request paused before recording an explicit request, so the
+strict policy now instructs the model to store an unambiguous request before its
+next interaction or finish. Deployed end-to-end acceptance must verify this.
 
 ## Decision Log
 
@@ -50,6 +60,14 @@ state afterward.
   resolution taking precedence. Other memory consumers retain their contract.
 - Preserve existing rows without inferring their origin, consistent with the
   existing memory facade. Do not fabricate provenance or silently purge history.
+- Review identified a new unbounded supplementary projection. Bound only the added
+  unresolved course keys to the newest 100 and 32768 JSON characters, preserving
+  canonical/defined answers and stored data. This is not the full context budget.
+- Keep portable unrestricted system and tool instructions when admission is disabled;
+  enabled hosts select the strict policy in both surfaces.
+- Renderer submissions combine selected values and typed text in one values list.
+  Unknown accepted values for text-bearing questions are real caller input, rather
+  than model tool arguments. Reject known options and retain the typed-text path.
 
 ## Outcomes & Retrospective
 

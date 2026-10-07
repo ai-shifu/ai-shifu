@@ -497,3 +497,48 @@ async def test_unrelated_continue_cannot_reuse_a_failed_message_request(
     _ = [e async for e in engine.run_turn(session)]
     assert not session.user_memory
     check.assert_not_awaited()
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+async def test_model_facing_memory_policy_matches_the_host_capability(
+    enabled: bool,
+) -> None:
+    """Portable hosts retain natural declarations and preference notes in prompt and tools."""
+    seen = []
+
+    async def model(
+        _messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str]:
+        seen.extend(
+            tool.description
+            for tool in info.function_tools
+            if tool.name in ("interact", "remember")
+        )
+        yield "Teach the next part."
+
+    engine = Engine(FunctionModel(stream_function=model), memory_admission=enabled)
+    instructions = engine.compose_instructions()
+    if enabled:
+        assert "Only record variables the main script declares" in instructions
+        assert "complete verbatim free-text input" in instructions
+        assert "before your next `interact` or `finish`" in instructions
+        assert (
+            "Also call `remember` when the learner states a preference"
+            not in instructions
+        )
+    else:
+        assert (
+            "Also call `remember` when the learner states a preference" in instructions
+        )
+        assert '"store it as X"' in instructions
+        assert "Only record variables the main script declares" not in instructions
+    session = await engine.new_session("Teach.")
+    _ = [event async for event in engine.run_turn(session)]
+    assert len(seen) == 2
+    for description in seen:
+        assert (
+            "Only record variables the main script declares" in description
+        ) is enabled
+        assert (
+            "Also call `remember` when the learner states a preference" in description
+        ) is not enabled
