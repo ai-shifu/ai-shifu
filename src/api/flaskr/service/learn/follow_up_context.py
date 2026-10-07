@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
+from flaskr.service.common import raise_error
 from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
     render_course_prompt_identity_variables,
@@ -79,11 +80,42 @@ def resolve_course_system_prompt(
         DraftShifu if preview_mode else PublishedShifu
     )
 
-    outline_rows = resolved_outline_model.query.filter(
+    if not shifu_ids:
+        raise_error("server.shifu.shifuNotFound")
+    course_bid = shifu_bid or next(item.bid for item in path if item.type == "shifu")
+    shifu_filters = [
+        resolved_shifu_model.id.in_(shifu_ids),
+        resolved_shifu_model.shifu_bid == course_bid,
+    ]
+    outline_filters = [
         resolved_outline_model.id.in_(outline_ids),
-        resolved_outline_model.deleted == 0,
+        resolved_outline_model.shifu_bid == course_bid,
+    ]
+    if preview_mode:
+        shifu_filters.append(resolved_shifu_model.deleted == 0)
+        outline_filters.append(resolved_outline_model.deleted == 0)
+    elif not resolved_shifu_model.query.filter(
+        resolved_shifu_model.shifu_bid == course_bid,
+        resolved_shifu_model.deleted == 0,
+    ).first():
+        raise_error("server.shifu.shifuNotFound")
+    # The structure pins physical rows. A republish retires them without
+    # changing the instructions used by an already-running lesson.
+    shifu_row = (
+        resolved_shifu_model.query.filter(*shifu_filters)
+        .order_by(resolved_shifu_model.id.desc())
+        .first()
+    )
+    if shifu_row is None:
+        raise_error("server.shifu.shifuNotFound")
+    outline_rows = resolved_outline_model.query.filter(
+        *outline_filters,
     ).all()
     outline_by_id = {row.id: row for row in outline_rows}
+    if not preview_mode and any(
+        outline_id not in outline_by_id for outline_id in outline_ids
+    ):
+        raise_error("server.shifu.outlineItemNotFound")
     for outline_id in outline_ids:
         prompt = str(
             getattr(outline_by_id.get(outline_id), "llm_system_prompt", "") or ""
@@ -91,14 +123,6 @@ def resolve_course_system_prompt(
         if prompt.strip():
             return prompt
 
-    shifu_row = (
-        resolved_shifu_model.query.filter(
-            resolved_shifu_model.id.in_(shifu_ids),
-            resolved_shifu_model.deleted == 0,
-        )
-        .order_by(resolved_shifu_model.id.desc())
-        .first()
-    )
     prompt = str(getattr(shifu_row, "llm_system_prompt", "") or "")
     return prompt if prompt.strip() else None
 

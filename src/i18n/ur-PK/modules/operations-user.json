@@ -2,6 +2,7 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "اکاؤنٹ حذف کریں",
+    "deductCredits": "کریڈٹس منہا کریں",
     "grantCredits": "ایشو کریڈٹس/پلانز",
     "moreForUser": "{user} کے لیے مزید کارروائیاں"
   },
@@ -113,6 +114,33 @@
   },
   "credits": {
     "longTerm": "ایک طویل وقت کے لئے مؤثر"
+  },
+  "deductionDialog": {
+    "account": "اکاؤنٹ",
+    "amount": "منہا کیے جانے والے کریڈٹس",
+    "amountPlaceholder": "مثبت رقم درج کریں، زیادہ سے زیادہ 2 اعشاری مقامات",
+    "back": "واپس",
+    "confirmButton": "کٹوتی کی تصدیق کریں",
+    "confirmDescription": "پہلے ادا شدہ کریڈٹس اور پھر دستی طور پر جاری کردہ کریڈٹس منہا ہوں گے۔ جاری رکھنے سے پہلے جائزہ لیں۔",
+    "confirmTitle": "کریڈٹ کٹوتی کی تصدیق کریں",
+    "continueButton": "جاری رکھیں",
+    "currentBalance": "موجودہ کریڈٹ بیلنس",
+    "description": "اس صارف کے اکاؤنٹ سے کریڈٹس منہا کریں۔ تحفہ اور انعامی کریڈٹس شامل نہیں ہیں۔",
+    "errors": {
+      "amount": "زیادہ سے زیادہ 2 اعشاری مقامات کے ساتھ مثبت رقم درج کریں۔",
+      "submitFailed": "کریڈٹ کٹوتی ناکام رہی۔ دوبارہ کوشش کریں۔"
+    },
+    "note": "نوٹ",
+    "notePlaceholder": "اختیاری اندرونی آپریشن نوٹ",
+    "reason": "وجہ",
+    "reasons": {
+      "account_correction": "اکاؤنٹ کی درستی",
+      "incorrect_grant": "غلط اجرا",
+      "other": "دیگر"
+    },
+    "submitting": "منہا کیا جا رہا ہے...",
+    "success": "کریڈٹس منہا کر دیے گئے",
+    "title": "کریڈٹس منہا کریں"
   },
   "detail": {
     "basicInfo": "بنیادی معلومات",

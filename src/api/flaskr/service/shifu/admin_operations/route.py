@@ -52,6 +52,7 @@ from flaskr.service.referral.api import (
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserContactChangeRequestDTO,
+    AdminOperationUserCreditDeductionRequestDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserPackageGrantRequestDTO,
 )
@@ -91,6 +92,7 @@ from flaskr.service.shifu.admin_operations.credit_notifications import (
     update_operator_credit_notification_email_template_status,
 )
 from flaskr.service.shifu.admin_operations.user_credits import (
+    deduct_operator_user_credits,
     get_operator_user_credit_usage_detail,
     get_operator_user_credits,
     get_operator_user_grant_bootstrap,
@@ -2378,6 +2380,29 @@ def register_admin_operations_routes(
             raise_param_error("credits_grant_payload")
         return make_common_response(
             grant_operator_user_credits(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/credits/deduct",
+        methods=["POST"],
+    )
+    def admin_operation_user_credit_deduct(user_bid: str) -> str:
+        """Deduct operator user credits with paid credits first."""
+        _require_operator()
+        payload_data = request.get_json(silent=True) or {}
+        try:
+            payload = AdminOperationUserCreditDeductionRequestDTO.model_validate(
+                payload_data
+            )
+        except ValidationError:
+            raise_param_error("credits_deduction_payload")
+        return make_common_response(
+            deduct_operator_user_credits(
                 app,
                 user_bid=user_bid,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),

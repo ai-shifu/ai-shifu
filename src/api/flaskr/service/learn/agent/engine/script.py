@@ -35,6 +35,7 @@ _VAR_RE = re.compile(r"(?<!%)\{\{\s*([^{}\s]+)\s*\}\}")
 # `%{{name}}` marks a variable this script collects during the lesson, in a question or an
 # instruction to remember something.
 _COLLECTED_RE = re.compile(r"%\{\{\s*([^{}\s]+)\s*\}\}")
+_PRESERVED_LINE_RE = re.compile(r"^[ \t]*===(.+?)===[ \t]*$")
 
 
 if TYPE_CHECKING:
@@ -107,6 +108,31 @@ def collected_names(text: str) -> frozenset[str]:
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
     return frozenset(_COLLECTED_RE.findall(_strip_fences(text)))
+
+
+def final_preserved_line(text: str) -> str | None:
+    """Return a unique inline verbatim line at the script's physical end, if present.
+
+    Fenced examples and repeated author blocks are not a single terminal line. This is a
+    narrow display anchor, never evidence that every preceding instruction was completed.
+    """
+    lines = text.rstrip().splitlines()
+    if not lines or not (match := _PRESERVED_LINE_RE.fullmatch(lines[-1])):
+        return None
+    in_fence: str | None = None
+    preserved: list[str] = []
+    for line in lines:
+        if fence := _FENCE_RE.match(line):
+            if in_fence is None:
+                in_fence = fence.group(1)
+            elif _closes_fence(line, in_fence):
+                in_fence = None
+        elif in_fence is None and (part := _PRESERVED_LINE_RE.fullmatch(line)):
+            preserved.append("".join(part.group(1).split()))
+    content = match.group(1)
+    if in_fence is not None or preserved.count("".join(content.split())) != 1:
+        return None
+    return content
 
 
 def substitute_variables(

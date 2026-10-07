@@ -2,6 +2,7 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "إلغاء الحساب",
+    "deductCredits": "خصم الأرصدة",
     "grantCredits": "منح الأرصدة/الباقة",
     "moreForUser": "المزيد من إجراءات {user}"
   },
@@ -113,6 +114,33 @@
   },
   "credits": {
     "longTerm": "سارية لفترة طويلة"
+  },
+  "deductionDialog": {
+    "account": "الحساب",
+    "amount": "الأرصدة المراد خصمها",
+    "amountPlaceholder": "أدخل رقمًا موجبًا بمنزلتين عشريتين كحد أقصى",
+    "back": "رجوع",
+    "confirmButton": "تأكيد الخصم",
+    "confirmDescription": "تُخصم الأرصدة المدفوعة أولًا، ثم الأرصدة الممنوحة يدويًا. راجع البيانات قبل المتابعة.",
+    "confirmTitle": "تأكيد خصم الأرصدة",
+    "continueButton": "متابعة",
+    "currentBalance": "رصيد الأرصدة الحالي",
+    "description": "خصم أرصدة من حساب هذا المستخدم. لا يشمل ذلك أرصدة الهدايا والمكافآت.",
+    "errors": {
+      "amount": "أدخل مبلغًا موجبًا بمنزلتين عشريتين كحد أقصى.",
+      "submitFailed": "تعذر خصم الأرصدة. حاول مرة أخرى."
+    },
+    "note": "ملاحظة",
+    "notePlaceholder": "ملاحظة تشغيلية داخلية اختيارية",
+    "reason": "السبب",
+    "reasons": {
+      "account_correction": "تصحيح الحساب",
+      "incorrect_grant": "منح غير صحيح",
+      "other": "أخرى"
+    },
+    "submitting": "جارٍ الخصم...",
+    "success": "تم خصم الأرصدة",
+    "title": "خصم الأرصدة"
   },
   "detail": {
     "basicInfo": "المعلومات الأساسية",

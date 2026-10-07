@@ -41,6 +41,8 @@ if TYPE_CHECKING:
     from .memory import MemoryStore
     from .session import SessionStore
 
+from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
+
 from .events import (
     ContentDelta,
     ErrorEvent,
@@ -62,7 +64,14 @@ from .interaction import (
     normalize_answer,
     stored_value,
 )
-from .script import ScriptBundle, detect_v1_syntax, render_first_prompt
+from .script import (
+    ScriptBundle,
+    collected_names,
+    detect_v1_syntax,
+    final_preserved_line,
+    render_first_prompt,
+    substitute_variables,
+)
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
 from .tools import (
@@ -162,10 +171,10 @@ def _visible_length(text: str) -> int:
     return sum(1 for ch in text if not ch.isspace())
 
 
-def _text_of(messages: Iterable[object]) -> str:
-    """Return the model's text in these messages, whitespace removed, in order."""
+def _text_of(messages: Iterable[object], *, keep_whitespace: bool = False) -> str:
+    """Return the model's text in order, optionally retaining its line boundaries."""
     return "".join(
-        "".join(part.content.split())
+        part.content if keep_whitespace else "".join(part.content.split())
         for message in messages
         if isinstance(message, ModelResponse)
         for part in message.parts
@@ -219,8 +228,10 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
     return text[cut:]
 
 
-def _previous_turn_text(messages: Sequence[object], history_len: int) -> str:
-    """Return the text of the turn before `history_len`, whitespace removed.
+def _previous_turn_text(
+    messages: Sequence[object], history_len: int, *, keep_whitespace: bool = False
+) -> str:
+    """Return the prior turn's text, removing whitespace unless requested otherwise.
 
     A turn begins with the user's prompt, so the previous turn is everything from the last user
     prompt before `history_len` up to `history_len`.
@@ -233,7 +244,20 @@ def _previous_turn_text(messages: Sequence[object], history_len: int) -> str:
         ):
             start = index
             break
-    return _text_of(messages[start:history_len])
+    return _text_of(messages[start:history_len], keep_whitespace=keep_whitespace)
+
+
+def _display_text(text: str, *, complete: bool = True) -> str:
+    """Apply the host's verbatim-marker filtering while retaining line boundaries."""
+    markers = PreserveMarkerFilter()
+    displayed = markers.feed(text)
+    return displayed + markers.flush() if complete else displayed
+
+
+def _last_display_line(text: str) -> str:
+    """Return the last nonempty displayed line, normalized for comparison."""
+    lines = _display_text(text).rstrip().splitlines()
+    return "".join(lines[-1].split()) if lines else ""
 
 
 def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
@@ -575,6 +599,27 @@ class Engine:
             if carried_on
             else ""
         )
+        final_line = final_preserved_line(session.script.script) if carried_on else None
+        if final_line is not None:
+            # Use the prompt's substitution rules, and keep both original and rendered
+            # uniqueness checks: distinct author blocks can render to the same text.
+            final_line = final_preserved_line(
+                substitute_variables(
+                    session.script.script,
+                    session.all_memory(),
+                    collected=collected_names(session.script.script),
+                )
+            )
+        final_line_text = (
+            "".join(_display_text(final_line).split()) if final_line else ""
+        )
+        previous_raw = (
+            _previous_turn_text(
+                session.messages, deps.history_len, keep_whitespace=True
+            )
+            if carried_on
+            else ""
+        )
         held: list[str] = []
         held_text = ""
         holding = carried_on
@@ -584,27 +629,56 @@ class Engine:
         # all again (general-education course, 2026-09-24). From that answer on, text is held
         # back while it reads as something this turn already said.
         said: list[str] = []
+        shown: list[str] = []
         after_pause = False
 
+        def _closing_was_shown() -> bool:
+            """Require a complete standalone closing line in the latest displayed text."""
+            return (
+                bool(final_line_text)
+                and _last_display_line("".join(shown) if shown else previous_raw)
+                == final_line_text
+            )
+
+        def _held_output(*, trim_repeat: bool = False) -> str:
+            """Hide only a single displayed closing line that was already shown."""
+            # Every held-text release uses the same display comparison, including an
+            # unscripted pause. Hiding a repeat never changes completion state.
+            text = "".join(held)
+            if _closing_was_shown():
+                lines = [
+                    line for line in _display_text(text).splitlines() if line.strip()
+                ]
+                if len(lines) == 1 and "".join(lines[0].split()) == final_line_text:
+                    return ""
+            return _after_the_repeat(held, previous) if trim_repeat else text
+
         def _out(text: str) -> list[Event]:
+            """Deliver text and track what this turn has sent to the learner."""
             nonlocal delivered
             delivered += _visible_length(text)
             said.append("".join(text.split()))
+            shown.append(text)
             out: list[Event] = [ContentDelta(text=text)]
             if segmenter:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
             return out
 
         def _text(text: str) -> list[Event]:
+            """Hold potential repeats until they are known or diverge into new content."""
             nonlocal holding, held_text
             if not holding:
                 return _out(text)
             held.append(text)
             held_text += "".join(text.split())
+            if _closing_was_shown() and final_line_text.startswith(
+                "".join(_display_text("".join(held), complete=False).split())
+            ):
+                return []
             if len(held_text) < hold_floor or held_text in previous:
                 return []
             holding = False
-            released, held[:] = _after_the_repeat(held, previous), []
+            released, held[:] = _held_output(trim_repeat=True), []
             return _out(released) if released else []
 
         try:
@@ -632,8 +706,10 @@ class Engine:
                         if after_pause and held:
                             # Held since the pause and still this turn's own words: a repeat,
                             # unless too short to be one.
-                            if len(held_text) < _REPEAT_FLOOR_CHARS:
-                                for e in _out("".join(held)):
+                            if len(held_text) < _REPEAT_FLOOR_CHARS and (
+                                released := _held_output()
+                            ):
+                                for e in _out(released):
                                     yield e
                             held.clear()
                             holding = False
@@ -670,7 +746,7 @@ class Engine:
                             # on from it: it is shown, unless it was a repeat -- the lesson written
                             # again after one untaken pause, and then a second pause.
                             if held:
-                                released = _after_the_repeat(held, previous)
+                                released = _held_output(trim_repeat=True)
                                 if released:
                                     for e in _out(released):
                                         yield e
@@ -705,7 +781,7 @@ class Engine:
                             # paused before the script's end, and a repeat says only that this
                             # response added nothing. The host carries the lesson on, and a
                             # model with nothing left calls `finish` then.
-                            released = _after_the_repeat(held, previous)
+                            released = _held_output(trim_repeat=True)
                             if released:
                                 for e in _out(released):
                                     yield e
@@ -715,13 +791,12 @@ class Engine:
                             # nothing says it was not meant. Held only for its length, and new
                             # after a repeat of the previous turn: the new part.
                             holding = False
-                            released = (
-                                "".join(held)
-                                if held_text in previous
-                                else _after_the_repeat(held, previous)
+                            released = _held_output(
+                                trim_repeat=held_text not in previous
                             )
-                            for e in _out(released):
-                                yield e
+                            if released:
+                                for e in _out(released):
+                                    yield e
                         held.clear()
                         # Only now are the answers safely part of the history; clearing them any
                         # earlier would lose them if the request failed.

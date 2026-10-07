@@ -111,6 +111,16 @@ renewal cancellation, and final cancellation.
   preview data, and raw errors are never tracked. A terminal result is dropped
   when the tracking transport's identity changes after the attempt, preventing
   an operator's result from being attributed to a replacement or guest identity.
+- User Management provides a separate credit-deduction row action. It accepts
+  positive values with at most two decimal places and requires final
+  confirmation. Active spendable paid credits are deducted first, then manually
+  granted credits; an insufficient eligible balance fails without a partial
+  deduction. Gift/reward and reserved credits are not eligible.
+- The deduction UI emits `operator_credit_deduction_attempt` and
+  `operator_credit_deduction_result`. The allowlist contains only
+  `surface=operator_user_management` plus `outcome=success|failed` on results;
+  no user, amount, balance, reason, note, request identifier or raw error is
+  collected.
 
 ## Backend Plan
 

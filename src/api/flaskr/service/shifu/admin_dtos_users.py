@@ -326,6 +326,40 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationUserCreditDeductionRequestDTO(BaseModel):
+    """Operator credit deduction request payload."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str = Field(
+        ..., min_length=1, max_length=36, description="Idempotent request identifier"
+    )
+    amount: str = Field(..., description="Positive credits amount to deduct")
+    reason: Literal["incorrect_grant", "account_correction", "other"] = Field(
+        ..., description="Stable deduction reason"
+    )
+    note: str = Field(default="", max_length=255, description="Operator note")
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditDeductionResultDTO(BaseModel):
+    """Operator credit deduction response payload."""
+
+    status: str = Field(..., description="Deduction result status")
+    user_bid: str = Field(..., description="Target user business identifier")
+    amount: str = Field(..., description="Deducted positive credits amount")
+    reason: str = Field(..., description="Deduction reason")
+    note: str = Field(default="", description="Operator note")
+    wallet_bucket_bids: list[str] = Field(default_factory=list)
+    ledger_bids: list[str] = Field(default_factory=list)
+    summary: AdminOperationUserCreditSummaryDTO
+
+    def __json__(self) -> dict[str, object]:
+        """Return the deduction result as JSON-compatible data."""
+        return self.model_dump()
+
+
+@register_schema_to_swagger
 class AdminOperationUserReferralRewardSummaryDTO(BaseModel):
     """Current referral reward pool shown in the operator grant dialog."""
 

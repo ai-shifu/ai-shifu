@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from flaskr.dao import db
 from flaskr.service.billing.api import (
     build_billing_catalog,
+    deduct_operator_credit_wallet_balance,
     grant_manual_credits_to_user,
     grant_manual_plan_to_user,
     grant_referral_reward_credits_to_user,
@@ -85,6 +86,8 @@ from flaskr.service.shifu.admin import (
     _resolve_usage_detail_item_content,
 )
 from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditDeductionRequestDTO,
+    AdminOperationUserCreditDeductionResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditLedgerPageDTO,
@@ -199,6 +202,68 @@ def grant_operator_user_credits(
             note=str(persisted_metadata.get("note") or "").strip(),
             wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),
             ledger_bid=str(grant_result.ledger_bid or "").strip(),
+            summary=summary,
+        )
+
+
+def deduct_operator_user_credits(
+    app: Flask,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    payload: AdminOperationUserCreditDeductionRequestDTO,
+) -> AdminOperationUserCreditDeductionResultDTO:
+    """Deduct eligible user credits, prioritizing paid credits."""
+    with app.app_context():
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_operator_user_bid = str(operator_user_bid or "").strip()
+        if not normalized_operator_user_bid:
+            raise_param_error("operator_user_bid")
+        user = _load_operator_user_or_raise(normalized_user_bid)
+        _assert_operator_user_grant_target_supported(user)
+
+        normalized_request_id = str(payload.request_id or "").strip()
+        normalized_reason = str(payload.reason or "").strip().lower()
+        normalized_note = str(payload.note or "").strip()
+        try:
+            normalized_amount = Decimal(str(payload.amount or "").strip())
+        except Exception:
+            raise_param_error("amount")
+        if (
+            not normalized_amount.is_finite()
+            or normalized_amount <= 0
+            or _quantize_credit_amount(normalized_amount, precision=2)
+            != normalized_amount
+            or _quantize_credit_amount(normalized_amount) != normalized_amount
+        ):
+            raise_param_error("amount")
+
+        result = deduct_operator_credit_wallet_balance(
+            app,
+            creator_bid=normalized_user_bid,
+            amount=normalized_amount,
+            request_id=normalized_request_id,
+            reason=normalized_reason,
+            note=normalized_note,
+            operator_user_bid=normalized_operator_user_bid,
+        )
+        if result.status not in {"deducted", "noop_existing"}:
+            raise_param_error("credit_deduction_payload")
+        credit_summary_map = _load_operator_user_credit_summary_map(
+            [normalized_user_bid]
+        )
+        summary = _build_operator_user_credit_summary(
+            user=user,
+            credit_summary_map=credit_summary_map,
+        )
+        return AdminOperationUserCreditDeductionResultDTO(
+            status=result.status,
+            user_bid=normalized_user_bid,
+            amount=_format_decimal(normalized_amount),
+            reason=normalized_reason,
+            note=normalized_note,
+            wallet_bucket_bids=result.wallet_bucket_bids,
+            ledger_bids=result.ledger_bids,
             summary=summary,
         )
 

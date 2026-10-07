@@ -2,6 +2,7 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "Konto schließen",
+    "deductCredits": "Credits abziehen",
     "grantCredits": "Credits oder Tarife vergeben",
     "moreForUser": "Weitere Aktionen für {user}"
   },
@@ -113,6 +114,33 @@
   },
   "credits": {
     "longTerm": "Langfristig gültig"
+  },
+  "deductionDialog": {
+    "account": "Konto",
+    "amount": "Abzuziehende Credits",
+    "amountPlaceholder": "Positive Zahl mit höchstens 2 Dezimalstellen eingeben",
+    "back": "Zurück",
+    "confirmButton": "Abzug bestätigen",
+    "confirmDescription": "Zuerst werden bezahlte Credits, danach manuell vergebene Credits abgezogen. Bitte vor dem Fortfahren prüfen.",
+    "confirmTitle": "Credit-Abzug bestätigen",
+    "continueButton": "Weiter",
+    "currentBalance": "Aktueller Credit-Stand",
+    "description": "Credits von diesem Nutzerkonto abziehen. Geschenk- und Belohnungs-Credits sind ausgeschlossen.",
+    "errors": {
+      "amount": "Geben Sie einen positiven Betrag mit höchstens 2 Dezimalstellen ein.",
+      "submitFailed": "Der Credit-Abzug ist fehlgeschlagen. Bitte versuchen Sie es erneut."
+    },
+    "note": "Notiz",
+    "notePlaceholder": "Optionale interne Notiz",
+    "reason": "Grund",
+    "reasons": {
+      "account_correction": "Kontokorrektur",
+      "incorrect_grant": "Fehlerhafte Vergabe",
+      "other": "Sonstiges"
+    },
+    "submitting": "Credits werden abgezogen...",
+    "success": "Credits wurden abgezogen",
+    "title": "Credits abziehen"
   },
   "detail": {
     "basicInfo": "Grundlegende Informationen",

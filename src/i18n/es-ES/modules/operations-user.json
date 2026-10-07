@@ -2,6 +2,7 @@
   "__namespace__": "module.operationsUser",
   "actions": {
     "cancelAccount": "Dar de baja la cuenta",
+    "deductCredits": "Descontar créditos",
     "grantCredits": "Asignar créditos o plan",
     "moreForUser": "Más acciones para {user}"
   },
@@ -113,6 +114,33 @@
   },
   "credits": {
     "longTerm": "Sin fecha de caducidad"
+  },
+  "deductionDialog": {
+    "account": "Cuenta",
+    "amount": "Créditos que se descontarán",
+    "amountPlaceholder": "Introduce un número positivo con hasta 2 decimales",
+    "back": "Volver",
+    "confirmButton": "Confirmar descuento",
+    "confirmDescription": "Primero se descuentan los créditos pagados y después los asignados manualmente. Revisa los datos antes de continuar.",
+    "confirmTitle": "Confirmar descuento de créditos",
+    "continueButton": "Continuar",
+    "currentBalance": "Saldo actual de créditos",
+    "description": "Descuenta créditos de esta cuenta. Los créditos de regalo y recompensa no están incluidos.",
+    "errors": {
+      "amount": "Introduce una cantidad positiva con un máximo de 2 decimales.",
+      "submitFailed": "No se pudieron descontar los créditos. Inténtalo de nuevo."
+    },
+    "note": "Nota",
+    "notePlaceholder": "Nota interna opcional",
+    "reason": "Motivo",
+    "reasons": {
+      "account_correction": "Corrección de cuenta",
+      "incorrect_grant": "Asignación incorrecta",
+      "other": "Otro"
+    },
+    "submitting": "Descontando...",
+    "success": "Créditos descontados",
+    "title": "Descontar créditos"
   },
   "detail": {
     "basicInfo": "Información básica",
