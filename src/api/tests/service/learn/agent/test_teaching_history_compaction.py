@@ -16,7 +16,7 @@ from flaskr.service.learn.agent.engine import (
     Session,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.script import ScriptBundle
+from flaskr.service.learn.agent.engine.script import ScriptBundle, render_first_prompt
 from flaskr.service.learn.agent.engine.teaching_history import project_teaching_history
 from flaskr.service.learn.agent.input_budget import INPUT_BUDGET_BYTES
 from flaskr.service.learn.agent.rewind import checkpoint_of, restore
@@ -182,7 +182,15 @@ def test_real_host_retains_original_teaching_and_rewind_invalidates_future_refer
         user, course, lesson = (uuid4().hex for _ in range(3))
         session = Session(script=ScriptBundle(script="Teach."))
         session.messages = [
-            ModelRequest(parts=[UserPromptPart("Exact original script.")]),
+            ModelRequest(
+                parts=[
+                    UserPromptPart(
+                        render_first_prompt(
+                            session.script, {"sys_user_nickname": "Learner"}
+                        )
+                    )
+                ]
+            ),
             ModelResponse(parts=[TextPart("First exact teaching " * 500)]),
         ]
         rewind = checkpoint_of(session)
