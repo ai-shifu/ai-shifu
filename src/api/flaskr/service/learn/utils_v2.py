@@ -154,9 +154,7 @@ def get_fmt_prompt(
     profiles = (
         dict(resolved_profiles)
         if resolved_profiles is not None
-        else load_memory(
-            app, user_id, course_id, reference_text=profile_tmplate or ""
-        ).as_variables()
+        else load_memory(app, user_id, course_id).as_variables()
     )
     if profile_overrides:
         profiles.update(profile_overrides)

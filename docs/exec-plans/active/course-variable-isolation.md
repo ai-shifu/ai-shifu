@@ -59,7 +59,10 @@ reverse-isolation assertion. Rebuild only that initial host prompt from filtered
 current-course data when parsing fails, preserve later evidence, and test exact
 values in both courses. Sixteen damaged-format cases cover both retired namespaces; disabling the fallback
 fails all 16. Final learning/profile regression: 2,734 passed, 1 skipped, 4 subtests.
-Isolated probe: 141 checks / 22 runtime hashes. Full repository gates pass.
+Isolated probe: 141 checks / 22 runtime hashes. Full repository gates pass. The main full-backend baseline also exposed six old
+formatter mocks rejected by a redundant reference_text keyword. Remove that retired
+authorization argument from the formatter read; preserve its original three-argument
+contract and rerun all six existing regressions rather than weakening their mocks.
 
 Publication and deployed acceptance are pending; the PR acceptance discussion will
 record final CI and sim evidence before handoff. Shared model notes and owner-wide custom memory
