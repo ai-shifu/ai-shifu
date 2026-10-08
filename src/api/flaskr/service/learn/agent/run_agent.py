@@ -276,7 +276,10 @@ def _load_or_start(
                 )
                 # Named answers are durable course values. Retain the answered marker,
                 # but do not let its old session copy shadow another lesson's update.
-                for key in collected_names(stored.script.script) & stored.memory.keys():
+                for key in (
+                    collected_names(stored.script.script)
+                    & stored.answered_memory_keys()
+                ):
                     if key in user_memory:
                         stored.memory[key] = user_memory[key]
             stored.user_memory = (

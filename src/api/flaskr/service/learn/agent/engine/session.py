@@ -5,11 +5,17 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
-from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelMessagesTypeAdapter,
+    ToolCallPart,
+    ToolReturnPart,
+)
 
 from .interaction import DEFAULT_CONFIRM_LABEL, InteractionSpec
 from .script import ScriptBundle
@@ -82,6 +88,64 @@ class Session:
     def all_memory(self) -> dict[str, Any]:
         """Merge user-scoped memory with this session's own, session winning."""
         return {**self.user_memory, **self.memory}
+
+    def answered_memory_keys(self) -> frozenset[str]:
+        """Derive accepted named answers from persisted host results, never seeded values.
+
+        Pending deferred results already live in `answers`; completed results live in
+        typed history. Both survive old session formats and rewind without new metadata.
+        Ambiguous calls, failed returns and unasked/empty answers establish no acceptance.
+        """
+        counts = Counter(
+            part.tool_call_id
+            for message in self.messages
+            for part in message.parts
+            if isinstance(part, ToolCallPart)
+        )
+        returns = Counter(
+            part.tool_call_id
+            for message in self.messages
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        )
+        calls: dict[str, str] = {}
+        accepted: set[str] = set()
+
+        def accept(call_id: str, content: object) -> None:
+            """Recognize a nonempty host answer for a unique named interaction."""
+            if (
+                call_id not in calls
+                or returns[call_id] > 1
+                or not isinstance(content, str)
+            ):
+                return
+            for prefix in ("Learner wrote: ", "Learner chose: "):
+                if content.startswith(prefix) and content[len(prefix) :].strip():
+                    accepted.add(calls[call_id])
+
+        for message in self.messages:
+            for part in message.parts:
+                if (
+                    isinstance(part, ToolCallPart)
+                    and part.tool_name == "interact"
+                    and counts[part.tool_call_id] == 1
+                ):
+                    try:
+                        args = part.args_as_dict()
+                    except (AssertionError, TypeError, ValueError):
+                        continue
+                    key = args.get("variable") if isinstance(args, dict) else None
+                    if isinstance(key, str) and key.strip():
+                        calls[part.tool_call_id] = key
+                elif (
+                    isinstance(part, ToolReturnPart)
+                    and part.tool_name == "interact"
+                    and part.outcome == "success"
+                ):
+                    accept(part.tool_call_id, part.content)
+        for call_id, content in self.answers.items():
+            accept(call_id, content)
+        return frozenset(accepted & self.memory.keys())
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-ready form of the session."""

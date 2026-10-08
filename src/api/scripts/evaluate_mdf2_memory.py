@@ -181,7 +181,11 @@ def recall_session(case: dict[str, Any]) -> Session:
                     ]
                 ),
                 ModelRequest(
-                    parts=[ToolReturnPart("interact", OLD_CODE, "project-question")]
+                    parts=[
+                        ToolReturnPart(
+                            "interact", "Learner wrote: " + OLD_CODE, "project-question"
+                        )
+                    ]
                 ),
             ]
     session = Session(
@@ -391,6 +395,8 @@ def report(
         "run_agent.py",
         "gateway_model.py",
         "engine/engine.py",
+        "engine/session.py",
+        "engine/tools.py",
         "engine/script.py",
         "engine/recall.py",
         "engine/memory_context.py",

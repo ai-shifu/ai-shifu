@@ -13,7 +13,14 @@ from flaskr.service.learn.agent.engine import (
     SessionStore,
     SQLiteSessionStore,
 )
-from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -59,6 +66,65 @@ async def test_roundtrip(store_factory: Callable[[], SessionStore]) -> None:
     assert back.turn == 3
     assert back.all_memory() == {"pace": "slow", "n": "Lin"}
     assert await store.load("nope") is None
+
+
+@pytest.mark.parametrize("pending", [False, True])
+def test_existing_session_results_establish_named_answer_acceptance(
+    pending: bool,
+) -> None:
+    """Old serialized sessions need no new field to distinguish answers from seeds."""
+    session = Session(
+        script=ScriptBundle(script="Ask %{{goal}}."), memory={"goal": "A"}
+    )
+    session.messages = [
+        ModelResponse(parts=[ToolCallPart("interact", {"variable": "goal"}, "q")])
+    ]
+    if pending:
+        session.answers = {"q": "Learner wrote: A"}
+    else:
+        session.messages.append(
+            ModelRequest(parts=[ToolReturnPart("interact", "Learner chose: A", "q")])
+        )
+    assert Session.loads(session.dumps()).answered_memory_keys() == {"goal"}
+    session.memory.clear()
+    assert not session.answered_memory_keys()
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["seed", "unasked", "failed", "empty", "duplicate", "duplicate-return", "order"],
+)
+def test_unaccepted_session_records_never_unlock_a_named_question(kind: str) -> None:
+    """Only a uniquely paired successful host answer establishes acceptance."""
+    session = Session(
+        script=ScriptBundle(script="Ask %{{goal}}."), memory={"goal": "A"}
+    )
+    call = ModelResponse(parts=[ToolCallPart("interact", {"variable": "goal"}, "q")])
+    if kind != "seed":
+        session.messages = [call]
+        session.messages.append(
+            ModelRequest(
+                parts=[
+                    ToolReturnPart(
+                        "interact",
+                        "Learner continued without answering."
+                        if kind == "unasked"
+                        else "Learner wrote: "
+                        if kind == "empty"
+                        else "Learner wrote: A",
+                        "q",
+                        outcome="failed" if kind == "failed" else "success",
+                    )
+                ]
+            )
+        )
+    if kind == "duplicate":
+        session.messages.insert(0, call)
+    elif kind == "duplicate-return":
+        session.messages.append(session.messages[-1])
+    elif kind == "order":
+        session.messages.reverse()
+    assert not Session.loads(session.dumps()).answered_memory_keys()
 
 
 def test_a_confirm_stored_before_the_label_mark_existed_is_still_the_engine_s() -> None:

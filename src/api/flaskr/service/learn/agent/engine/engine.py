@@ -598,6 +598,7 @@ class Engine:
             memory_readonly_prefixes=self.memory_readonly_prefixes,
             memory_request_check=self.memory_request_check,
             memory_recall_excluded_keys=collected_names(session.script.script),
+            answered_memory_keys=set(session.answered_memory_keys()),
         )
         deps.history_len = len(session.messages) if session.started else 0
         deps.finished = _finished_in(session.messages)
@@ -689,6 +690,7 @@ class Engine:
                 value = stored_value(pending.spec, answer)
                 if value is not None:
                     session.memory[pending.spec.variable] = value
+                    deps.answered_memory_keys.add(pending.spec.variable)
                     yield MemoryUpdated(
                         key=pending.spec.variable, value=value, source="interaction"
                     )
@@ -735,7 +737,7 @@ class Engine:
         # Recompute after deferred answers are collected, including stored resumes.
         deps.memory_recall_excluded_keys = collected_names(
             session.script.script
-        ).difference(session.memory)
+        ).difference(deps.answered_memory_keys)
         if replaying_input:
             # Replaying history does not restore permission to read a deleted fact.
             deps.memory_recall_excluded_keys |= memory_deleted_keys

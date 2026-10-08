@@ -26,6 +26,16 @@ step after PR #3051, not completion of milestone 4 or authorization to remove 1.
   selected course model passed all 18 recall results (six cases, three repeats)
   using isolated candidate methods/prompts; deployed acceptance is still pending.
 - [ ] Open a focused PR, verify sim and reply to independent AI review findings.
+- [x] 2026-10-08 20:41 CST: PR #3052 is open. Initial sim `44772405d`
+  (build 416 / Drone 5207; deployments 2016/2017) passed all 60 real-model
+  results with zero errors. Both API replicas match thirteen runtime hashes;
+  HTTP read, 2.64-second TTS backfill and listen completion passed.
+- [x] 2026-10-08 20:45 CST: Fixed two accepted review findings: infer answered keys only from
+  genuine host interaction results, and synchronize authorized same-turn user
+  corrections with their accepted answer copies. Learning/profile/evaluator
+  coverage passed 2,848 tests, one expected skip and four subtests. Seeded values,
+  old session/deferred formats, malformed evidence and same-turn corrections are
+  covered. Final deployment acceptance and original-thread replies remain pending.
 - [ ] Await manual main merge and verify release selection.
 
 ## Surprises & Discoveries
@@ -46,6 +56,10 @@ whether this masks an update; model-only synthetic snapshots cannot establish it
 - Keep registered system fields global and ordinary answers course-local.
 - Keep session-only working notes distinct from durable named answers.
 - No schema, dependency, configuration or production-routing changes.
+- Infer acceptance from uniquely paired successful typed interaction results and
+  current deferred answers already persisted in old sessions. Reject ambiguous,
+  failed, unasked and empty evidence. Do not add a competing serialized marker;
+  checkpoint/history restoration already restores this evidence on rewind.
 
 ## Outcomes & Retrospective
 
