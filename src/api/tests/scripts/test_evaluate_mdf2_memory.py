@@ -1,0 +1,306 @@
+"""Prove evaluation failures cannot become successful memory-quality evidence."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import pytest
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    ToolCallPart,
+    ToolReturnPart,
+)
+from pydantic_ai.models.function import DeltaToolCall, FunctionModel
+
+from scripts import evaluate_mdf2_memory as quality
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from pydantic_ai.messages import ModelMessage
+    from pydantic_ai.models.function import AgentInfo
+
+pytestmark = pytest.mark.anyio
+
+
+def test_list_needs_no_app_or_credentials() -> None:
+    process = subprocess.run(
+        [sys.executable, str(Path(quality.__file__)), "--list"],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+    )
+    cases = json.loads(process.stdout)
+    assert len(cases) == 18
+    assert {case["family"] for case in cases} == {"admission", "recall"}
+
+
+@pytest.mark.parametrize("args", [[], ["--live"], ["--course", "course"]])
+def test_live_requires_explicit_complete_context(args: list[str]) -> None:
+    with pytest.raises(SystemExit) as error:
+        quality.main(args)
+    assert error.value.code == 2
+
+
+def test_unknown_case_is_not_silently_dropped() -> None:
+    with pytest.raises(ValueError, match="unknown evaluation cases"):
+        quality.load_cases(["not-a-case"])
+
+
+@pytest.mark.parametrize(
+    "reply", [False, True, "false", "wrong-tool", "error", "empty"]
+)
+async def test_refusal_scores_only_a_valid_successful_judge_response(
+    reply: object,
+) -> None:
+    def model(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        if reply == "error":
+            message = "provider unavailable"
+            raise RuntimeError(message)
+        if reply == "empty":
+            return ModelResponse(parts=[])
+        name = "unknown_tool" if reply == "wrong-tool" else info.output_tools[0].name
+        return ModelResponse(parts=[ToolCallPart(name, {"allowed": reply})])
+
+    case = quality.load_cases(["ordinary-preference"])[0]
+    result = await quality.evaluate_admission(case, FunctionModel(model))
+    assert result["passed"] is (reply is False)
+    assert bool(result["error"]) is (reply not in (False, True))
+
+
+def _recall_model(
+    *,
+    stale: bool = False,
+    omit_tool: bool = False,
+    finish_later: bool = False,
+) -> FunctionModel:
+    phase = 0
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal phase
+        phase += 1
+        if phase == 1 and not omit_tool:
+            yield {
+                0: DeltaToolCall(
+                    name="recall",
+                    tool_call_id="current",
+                    json_args='{"key":"project_code"}',
+                )
+            }
+            return
+        if finish_later and phase == 3:
+            yield {
+                0: DeltaToolCall(
+                    name="finish", tool_call_id="done", json_args='{"summary":"done"}'
+                )
+            }
+            return
+        last = messages[-1]
+        results = [
+            json.loads(part.content)
+            for part in last.parts
+            if isinstance(last, ModelRequest) and isinstance(part, ToolReturnPart)
+        ]
+        found = next(
+            (result for result in results if result.get("status") == "found"), None
+        )
+        text = found["value"].strip() if found else "MEMORY_UNAVAILABLE"
+        yield quality.OLD_CODE if stale or omit_tool else text
+        if finish_later:
+            return
+        yield {
+            0: DeltaToolCall(
+                name="finish", tool_call_id="done", json_args='{"summary":"done"}'
+            )
+        }
+
+    return FunctionModel(stream_function=model)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [c for c in quality.load_cases() if c["family"] == "recall"],
+    ids=lambda c: c["id"],
+)
+async def test_recall_scorer_runs_real_engine_and_current_tool(case: dict) -> None:
+    result = await quality.evaluate_recall(case, _recall_model())
+    assert result["passed"], result
+    assert all(result["checks"].values())
+
+
+@pytest.mark.parametrize("mode", ["stale", "omit_tool"])
+async def test_plausible_or_stale_answer_cannot_pass_without_current_evidence(
+    mode: str,
+) -> None:
+    case = quality.load_cases(["recall-updated-history"])[0]
+    result = await quality.evaluate_recall(case, _recall_model(**{mode: True}))
+    assert not result["passed"]
+
+
+def test_partial_or_duplicate_results_cannot_claim_full_completion() -> None:
+    cases = quality.load_cases(["remember-direct", "ordinary-preference"])
+    good = [{"id": c["id"], "repetition": 1, "passed": True} for c in cases]
+    assert quality.report(cases, good, 1)["passed"]
+    for results in (good[:1], good[:1] * 2, []):
+        value = quality.report(cases, results, 1)
+        assert not value["complete"]
+        assert not value["passed"]
+    assert not quality.report(cases, good, 1)["full_catalog"]
+
+
+async def test_error_cases_continue_and_each_repetition_gets_a_fresh_model() -> None:
+    calls = []
+
+    def factory(family: str) -> FunctionModel:
+        calls.append(family)
+        message = "injected gateway initialization failure"
+        raise RuntimeError(message)
+
+    cases = quality.load_cases(["remember-direct", "ordinary-preference"])
+    results = await quality.evaluate(cases, factory, 2)
+    assert len(calls) == len(results) == 4
+    assert all(not row["passed"] and row["error"] == "RuntimeError" for row in results)
+    assert quality.report(cases, results, 2)["error_results"] == 4
+
+
+def test_report_is_private_and_contains_no_case_payloads(tmp_path: Path) -> None:
+    cases = quality.load_cases(["remember-direct"])
+    value = quality.report(
+        cases, [{"id": cases[0]["id"], "repetition": 1, "passed": True}], 1
+    )
+    output = tmp_path / "quality.json"
+    quality.write_report(output, value)
+    assert output.stat().st_mode & 0o777 == 0o600
+    assert json.loads(output.read_text()) == value
+    assert cases[0]["request"] not in output.read_text()
+
+
+def test_missing_git_in_runtime_image_cannot_discard_evaluation_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unavailable(*_args: object, **_kwargs: object) -> None:
+        raise FileNotFoundError
+
+    monkeypatch.setattr(quality.subprocess, "run", unavailable)
+    assert quality.source_revision() is None
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
+    app: object, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, enabled: bool
+) -> None:
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from uuid import uuid4
+
+    import app as app_module
+    from flaskr.api import langfuse
+    from flaskr.api.llm import model_selection
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.learn.agent import gateway_model, lesson_entry, routing
+    from flaskr.service.user.repository import create_user_entity
+
+    identity = uuid4().hex
+    with app.app_context(), unit_of_work():
+        create_user_entity(user_bid=identity, identify=identity, nickname="Evaluation")
+    monkeypatch.setattr(app_module, "create_app", lambda **_kwargs: app)
+    monkeypatch.setattr(routing, "uses_agent_engine", lambda _course: enabled)
+    resolve = Mock(
+        return_value=("", "", SimpleNamespace(model="selected", usage_metadata={}))
+    )
+    monkeypatch.setattr(lesson_entry, "_resolve", resolve)
+    selection = Mock(return_value=("resolved-model", {"source": "evaluation-test"}))
+    monkeypatch.setattr(model_selection, "resolve_selection", selection)
+    trace, span = object(), object()
+    monkeypatch.setattr(langfuse, "get_langfuse_client", lambda: None)
+    monkeypatch.setattr(
+        langfuse, "create_trace_with_root_span", lambda **_kwargs: (trace, span)
+    )
+    finalize = Mock()
+    monkeypatch.setattr(langfuse, "finalize_langfuse_trace", finalize)
+    calls = []
+
+    def gateway(
+        _app: object, model: str, *, user_id: str, span: object, **kwargs: object
+    ) -> FunctionModel:
+        calls.append((model, user_id, span, kwargs))
+
+        def refusal(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+            return ModelResponse(
+                parts=[ToolCallPart(info.output_tools[0].name, {"allowed": False})]
+            )
+
+        return FunctionModel(refusal)
+
+    monkeypatch.setattr(gateway_model, "GatewayModel", gateway)
+    output = tmp_path / "live.json"
+    args = [
+        "--live",
+        "--course",
+        "course",
+        "--lesson",
+        "lesson",
+        "--learner",
+        identity,
+        "--case",
+        "ordinary-preference",
+        "--output",
+        str(output),
+    ]
+    if not enabled:
+        with pytest.raises(SystemExit) as error:
+            quality.main(args)
+        assert error.value.code == 2
+        assert not calls
+        resolve.assert_not_called()
+        assert not output.exists()
+        return
+    assert quality.main(args) == 0
+    assert len(calls) == 1
+    assert calls[0][:3] == ("resolved-model", identity, span)
+    assert calls[0][3]["generation_name"] == "agent_memory_quality_admission"
+    value = json.loads(output.read_text())
+    assert value["passed"]
+    assert value["model_selection"] == "selected"
+    assert value["model"] == "resolved-model"
+    assert calls[0][3]["usage_metadata"] == {"source": "evaluation-test"}
+    selection.assert_called_once_with("selected", {})
+    assert finalize.call_args.kwargs["trace"] is trace
+    assert finalize.call_args.kwargs["root_span"] is span
+    assert resolve.call_args.kwargs["preview_mode"] is False
+
+
+@pytest.mark.parametrize(
+    "identifier", ["recall-updated-history", "recall-deleted-history"]
+)
+def test_resumed_fixture_contains_the_product_first_prompt(identifier: str) -> None:
+    from flaskr.service.learn.agent.engine.memory_context import (
+        parse_initial_memory_prompt,
+    )
+    from flaskr.service.learn.agent.engine.script import render_first_prompt
+
+    case = quality.load_cases([identifier])[0]
+    session = quality.recall_session(case)
+    content = session.messages[0].parts[0].content
+    expected = render_first_prompt(
+        session.script, {"project_code": quality.OLD_CODE + " " * 500}, memory_limit=100
+    )
+    assert content == expected
+    assert parse_initial_memory_prompt(content) is not None
+    assert session.initial_variables == {}
+    assert session.turn == 1
+
+
+async def test_unpaused_answer_can_finish_on_one_host_continuation() -> None:
+    case = quality.load_cases(["recall-updated-history"])[0]
+    result = await quality.evaluate_recall(case, _recall_model(finish_later=True))
+    assert result["passed"], result
+    assert result["checks"]["completed"]

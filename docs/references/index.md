@@ -16,6 +16,7 @@ Evergreen repository references and operational guides live here.
 - [MarkdownFlow Authored Input Hints](../references/markdownflow-authored-inputs.md)
 - [MarkdownFlow recall history compaction](../references/markdownflow-history-compaction.md)
 - [MarkdownFlow Input Budget](../references/markdownflow-input-budget.md)
+- [MarkdownFlow Memory Quality Evaluation](../references/markdownflow-memory-quality.md)
 - [MarkdownFlow Memory Recall](../references/markdownflow-memory-recall.md)
 - [Local MarkdownFlow slide comparisons](../references/markdownflow-model-arena.md)
 - [MarkdownFlow Runtime Selection](../references/markdownflow-runtime-selection.md)
