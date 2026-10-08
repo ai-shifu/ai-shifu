@@ -52,7 +52,12 @@ step after PR #3051, not completion of milestone 4 or authorization to remove 1.
   internal learner passed HTTP reading, 2.94-second TTS completion and listen
   completion. GitHub backend selection passed 583 tests plus eight contract
   tests; final container CI remains a separate check.
-- [ ] Await manual main merge and verify release selection.
+- [x] 2026-10-08 21:54 CST: User merged PR #3052 at 21:46:38 as
+  `89579244b`. Build 421 / Drone 5212 and all eight CN/US deployments
+  2026-2033 succeeded. Six CN and two US API replicas match seventeen runtime
+  hashes each and continue routing to 1.0. The merged tree equals the validated
+  final PR and sim trees. Long-history quality continues in the active
+  `mdf2-long-history-memory.md` plan.
 
 ## Surprises & Discoveries
 
@@ -92,7 +97,8 @@ synthetic snapshots alone. AI review exposed two ownership distinctions: a seed
 is not an answer, and a later session write is no longer the accepted answer copy.
 Both now have explicit persisted metadata and compatibility coverage. Long-term
 cost, human acceptance and other milestone-4 journeys remain outside this change.
-Main merge and subsequent release verification remain unchecked.
+Main merge and subsequent release verification are complete; remaining milestone
+work continues in the active long-history memory plan.
 
 ## Context and Orientation
 

@@ -12,6 +12,7 @@ import pytest
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
+    TextPart,
     ToolCallPart,
     ToolReturnPart,
 )
@@ -37,8 +38,8 @@ def test_list_needs_no_app_or_credentials() -> None:
         timeout=10,
     )
     cases = json.loads(process.stdout)
-    assert len(cases) == 20
-    assert {case["family"] for case in cases} == {"admission", "recall"}
+    assert len(cases) == 24
+    assert {case["family"] for case in cases} == {"admission", "recall", "teaching"}
 
 
 @pytest.mark.parametrize("args", [[], ["--live"], ["--course", "course"]])
@@ -143,6 +144,113 @@ async def test_plausible_or_stale_answer_cannot_pass_without_current_evidence(
     case = quality.load_cases(["recall-updated-history"])[0]
     result = await quality.evaluate_recall(case, _recall_model(**{mode: True}))
     assert not result["passed"]
+
+
+def _summary_model(
+    text: str = "Earlier teaching explained an original worked example.",
+) -> FunctionModel:
+    def model(messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        assert len(messages) == 1
+        source = json.loads(messages[0].parts[0].content)["historical_teaching"]
+        assert quality.OLD_CODE in source
+        assert quality.NEW_CODE not in source
+        return ModelResponse(parts=[TextPart(text)])
+
+    return FunctionModel(model)
+
+
+def _teaching_model(case: dict, behavior: str = "correct") -> FunctionModel:
+    phase = 0
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal phase
+        phase += 1
+        if phase == 1 and behavior != "omit_tool":
+            if case.get("historical"):
+                markers = [
+                    json.loads(part.content)
+                    for message in messages
+                    if isinstance(message, ModelResponse)
+                    for part in message.parts
+                    if isinstance(part, TextPart)
+                    and part.content.startswith('{"status":"teaching_')
+                ]
+                reference = (
+                    "wrong"
+                    if behavior == "wrong_reference"
+                    else markers[0]["reference"]
+                )
+                name, args = "read_teaching", {"reference": reference}
+            else:
+                name, args = "recall", {"key": "project_code"}
+            yield {
+                0: DeltaToolCall(
+                    name=name, tool_call_id="evidence", json_args=json.dumps(args)
+                )
+            }
+            return
+        yield (
+            quality.NEW_CODE
+            if behavior == "stale" and case.get("historical")
+            else (quality.OLD_CODE if behavior == "stale" else case["expected"])
+        )
+        yield {
+            0: DeltaToolCall(
+                name="finish", tool_call_id="finish", json_args='{"summary":"done"}'
+            )
+        }
+
+    return FunctionModel(stream_function=model)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [c for c in quality.load_cases() if c["family"] == "teaching"],
+    ids=lambda c: c["id"],
+)
+async def test_teaching_scorer_combines_real_projection_reads_and_cache_reload(
+    case: dict,
+) -> None:
+    result = await quality.evaluate_teaching(
+        case, _teaching_model(case), _summary_model()
+    )
+    assert result["passed"], result
+    assert result["summary_calls"] == 1
+
+
+@pytest.mark.parametrize("behavior", ["omit_tool", "stale", "wrong_reference"])
+async def test_historical_answer_without_matching_original_evidence_fails(
+    behavior: str,
+) -> None:
+    case = quality.load_cases(["teaching-exact-example"])[0]
+    result = await quality.evaluate_teaching(
+        case, _teaching_model(case, behavior), _summary_model()
+    )
+    assert not result["passed"]
+
+
+async def test_missing_real_summary_is_an_error_even_when_the_answer_is_correct() -> (
+    None
+):
+    case = quality.load_cases(["teaching-current-updated"])[0]
+    result = await quality.evaluate_teaching(
+        case, _teaching_model(case), _summary_model("")
+    )
+    assert not result["passed"]
+    assert result["error"] == "summary_unavailable_or_invalid"
+
+
+def test_teaching_fixture_preserves_the_matching_host_script_prompt() -> None:
+    from flaskr.service.learn.agent.engine.script import render_first_prompt
+
+    session = quality.teaching_session(
+        quality.load_cases(["teaching-exact-example"])[0]
+    )
+    assert session.messages[0].parts[0].content == render_first_prompt(
+        session.script, {"project_code": quality.OLD_CODE + " " * 500}, memory_limit=100
+    )
 
 
 def test_partial_or_duplicate_results_cannot_claim_full_completion() -> None:
