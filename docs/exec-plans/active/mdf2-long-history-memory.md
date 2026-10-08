@@ -26,8 +26,17 @@ than a lossy overview. Continue milestone 4 after merged PR #3052.
 - [x] 2026-10-08 22:15 CST: Final policy candidate passed 12/12, zero
   request errors; final complete local regression passed 2,866 tests, one
   expected skip and four subtests. Repository-wide gates passed.
-- [ ] Run local gates, open one focused PR and verify deployed sim acceptance.
-- [ ] Reply to every independent AI opinion in its original discussion.
+- [x] 2026-10-08 22:25 CST: Opened PR #3053 (`c7033361c`), synchronized sim
+  (`5812b1ed9`), and verified build 422 / Drone 5213 and deployments
+  2034-2035. Two API replicas match twenty-three runtime hashes and 2.0 routing;
+  the web deployment is ready. Actual deployed-model acceptance passed 72/72,
+  zero request errors, across all twenty-four cases repeated three times.
+  Real classroom reading, 2.03-second audio backfill and listen completion passed.
+  Initial-head technical CI, including runtime/browser run 37791169774, passed.
+- [x] 2026-10-08 22:25 CST: Devin and CodeRabbit found no actionable code issues.
+  The independent aggregate docstring warning was answered in its original
+  discussion (issue comment 6061987661), citing the repository's explicit test
+  exemptions. Final documentation-head checks remain tracked on the PR.
 - [ ] Await manual main merge and verify release selection.
 
 ## Surprises & Discoveries
@@ -67,7 +76,11 @@ notice was shortened while preserving the 1,024-character key-name budget.
 
 ## Outcomes & Retrospective
 
-Acceptance is pending. Passing small synthetic fact/tool cases will not complete
+The focused current/historical evidence correction passed deployed sim acceptance.
+All intermediate candidate failures remain retained; the initial mismatched fixture
+is separated from the canonical baseline. Final documentation synchronization and
+manual main merge/release verification remain separate checkpoints.
+Passing small synthetic fact/tool cases will not complete
 natural teaching-quality acceptance, long-term cost observation or human trials.
 
 ## Context and Orientation
