@@ -281,7 +281,7 @@ def _load_or_start(
                     & stored.answered_memory_keys()
                 ):
                     if key in user_memory:
-                        stored.memory[key] = user_memory[key]
+                        stored.record_answer(key, user_memory[key])
             stored.user_memory = (
                 {**stored.user_memory, **user_memory}
                 if debug_store is not None

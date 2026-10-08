@@ -91,6 +91,18 @@ def test_a_turn_record_is_json_and_keeps_the_values_the_turn_ran_with() -> None:
     assert data["checkpoint"]["messages"] == 2
 
 
+def test_answer_ownership_does_not_leak_back_into_an_earlier_checkpoint() -> None:
+    """An identical future answer must not unlock a question before it was answered."""
+    session = _session_waiting_on_a_question()
+    session.memory["goal"] = "Seeded value"
+    checkpoint = rewind.checkpoint_of(session)
+    session.record_answer("goal", "Seeded value")
+    assert session.answered_memory_keys() == {"goal"}
+    rewind.restore(session, checkpoint)
+    assert session.memory["goal"] == "Seeded value"
+    assert not session.answered_memory_keys()
+
+
 # --- planning a rewind --------------------------------------------------------------------
 
 

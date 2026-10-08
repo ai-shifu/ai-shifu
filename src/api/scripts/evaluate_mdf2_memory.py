@@ -196,7 +196,11 @@ def recall_session(case: dict[str, Any]) -> Session:
         initial_variables={} if messages else None,
         turn=1 if messages else 0,
     )
-    return Session.loads(session.dumps()) if case.get("answered") else session
+    if case.get("answered"):
+        for key, value in snapshot.items():
+            session.record_answer(key, value)
+        return Session.loads(session.dumps())
+    return session
 
 
 def parse_recall_result(content: object) -> dict | None:
@@ -267,6 +271,7 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
     session = recall_session(case)
     original = dict(session.user_memory)
     original_session_memory = dict(session.memory)
+    original_answer_hashes = dict(session.answer_hashes)
     history_len = len(session.messages)
     original_messages = ModelMessagesTypeAdapter.dump_json(session.messages)
     engine = Engine(
@@ -322,6 +327,7 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
         "memory_unchanged": session.user_memory == original
         and session.memory == original_session_memory,
         "no_memory_events": not any(isinstance(e, MemoryUpdated) for e in events),
+        "answer_ownership_unchanged": session.answer_hashes == original_answer_hashes,
         "history_preserved": ModelMessagesTypeAdapter.dump_json(
             session.messages[:history_len]
         )

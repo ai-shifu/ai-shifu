@@ -56,10 +56,15 @@ whether this masks an update; model-only synthetic snapshots cannot establish it
 - Keep registered system fields global and ordinary answers course-local.
 - Keep session-only working notes distinct from durable named answers.
 - No schema, dependency, configuration or production-routing changes.
-- Infer acceptance from uniquely paired successful typed interaction results and
-  current deferred answers already persisted in old sessions. Reject ambiguous,
-  failed, unasked and empty evidence. Do not add a competing serialized marker;
-  checkpoint/history restoration already restores this evidence on rewind.
+- Persist a 64-character SHA-256 fingerprint for each currently owned answer
+  copy. Successful session-only writes clear ownership, including identical values.
+  Legacy sessions recover only copies matching uniquely paired successful host
+  interaction/deferred evidence and subsequent successful writes. Reject ambiguous,
+  failed, unasked, empty or mismatched legacy evidence. Checkpoints restore the
+  fingerprints explicitly, and old checkpoints infer only from restored history.
+- The first history-only ownership fix was insufficient after a later session-only
+  write to the same key (CodeRabbit thread 4219112410). Replace it with the above
+  fingerprint contract, covering same-value replacements and checkpoint aliasing.
 
 ## Outcomes & Retrospective
 
