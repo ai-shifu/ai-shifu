@@ -23,25 +23,45 @@ The durable contract is [Follow-up Classroom Context](../../references/follow-up
   runtime. Include real answers, exact anchors, limits, scope, lifecycle and shared
   LLM/provider composition. Implement bounded prior classroom reads.
 - [x] 2026-10-08 01:17 UTC: Initial focused regression passes 122 tests.
-- [x] 2026-10-08 01:23 UTC: Complete 2,616 learning/profile tests (one skipped,
+- [x] 2026-10-08 01:19 UTC: Complete 2,616 learning/profile tests (one skipped,
   four subtests), including four actual Live-entry read/listen and preview/formal
   permutations. The local isolated probe passes 48 checks and 14 module hashes.
-- [x] 2026-10-08 01:25 UTC: All repository gates pass. Reverting to the original
+- [x] 2026-10-08 01:20 UTC: All repository gates pass. Reverting to the original
   runtime fails ten of the 19 new cases; restore the implementation before commit.
-- [ ] 2026-10-08 01:25 UTC: Push GitHub origin, open a non-draft PR and
-  synchronize sim.
+- [x] 2026-10-08 01:23 UTC: Open PR 3037 (54c038508), synchronize sim 3dece7bf9,
+  and pass 48 isolated checks and 14 module hashes on both API replicas.
+- [x] 2026-10-08 01:27 UTC: Accept Devin's missing real 2.0 answer finding.
+  Actual anchored HTTP also fails to recall the earlier answer. The initial fixture
+  created a legacy interaction row that the real 2.0 writer does not create.
+  Project only submitted values through the existing versioned rewind codec;
+  include the anchor turn's own input and preserve the shared message budget.
+  Four real agent_lesson_events normal/regenerate/change/reset cases pass;
+  reverting to the initial PR runtime makes all four fail. Eight codec regressions
+  reject malformed metadata and preserve exact values without private checkpoint
+  fields. Focused classroom/agent/rewind regression passes 42 cases.
+- [x] 2026-10-08 01:29 UTC: Revised learning/profile regression passes 2,628
+  tests (one skipped, four subtests). Local isolated probe passes 57 checks and
+  15 module hashes; architecture has no new drift.
+- [ ] 2026-10-08 01:29 UTC: Complete revised gates, push, reply to Devin in the
+  original thread, then synchronize and verify final sim.
 - [ ] 2026-10-08 01:18 UTC: Verify both deployed sim replicas and fresh guest
   HTTP/read/listen/follow-up; reply to every AI opinion and check final CI.
 
 ## Surprises & Discoveries
 
-2.0 already persists visible teaching and real learner answers in the existing
-block tables. Reading raw agent sessions would introduce internal tool/prompt
-content and version-dependent deserialization unnecessarily. A single generated
+2.0 persists visible teaching in content blocks and submitted input in its existing
+versioned rewind record, rather than in separate interaction blocks. Devin and
+actual HTTP caught the initial fixture's incorrect assumption. Reading raw agent
+sessions would introduce internal tool/prompt content and version-dependent
+deserialization unnecessarily. Reuse the rewind codec to project only submitted
+values, never its checkpoint memory or tools. A single generated
 block can contain multiple elements, including text after the selected anchor.
 
 ## Decision Log
 
+- 2026-10-08: Reuse existing versioned input evidence rather than add new writes.
+  Its values precede their teaching turn, including the anchor's own input; malformed
+  values fail closed. Preserve rewind retirement and attempt isolation.
 - 2026-10-08: Read active classroom blocks strictly before the anchor's block,
   then retain only the selected element from that turn. Scope to its attempt,
   learner, course and lesson; reject mismatched resolved anchors.
@@ -52,14 +72,18 @@ block can contain multiple elements, including text after the selected anchor.
 
 ## Outcomes & Retrospective
 
-Implementation passes 2,616 learning/profile tests and all repository gates.
-The original runtime fails ten of the 19 new cases. Deployment, review and final CI remain
+Revised implementation passes 2,628 learning/profile tests and all repository gates.
+The original runtime fails ten of the initial 19 cases. The real 2.0 lifecycle
+regressions additionally fail all four cases against the initial PR. Revised
+deployment, review and final CI remain
 pending; the entire follow-up milestone and human teaching acceptance are not done.
 
 ## Context and Orientation
 
-`agent/lesson_record.py` stores visible 2.0 teaching as content blocks. Interaction
-blocks hold actual learner responses. `follow_up_context.py` builds history for
+`agent/lesson_record.py` stores visible 2.0 teaching as content blocks. Legacy
+interaction blocks hold learner responses; 2.0 stores submitted `values` with its
+versioned turn checkpoint in `block_content_conf`. `agent/rewind.py` owns that
+codec and exposes only the values projection. `follow_up_context.py` builds history for
 `handle_input_ask.py` and `live_follow_up_routes.py`; the former keeps existing
 external-provider adapters. Sidecar element queries already isolate the anchor.
 

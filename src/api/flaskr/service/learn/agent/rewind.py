@@ -126,6 +126,23 @@ def _read_turn_record(block: LearnGeneratedBlock) -> dict[str, Any] | None:
     return record
 
 
+def read_turn_learner_values(block: LearnGeneratedBlock) -> list[str]:
+    """Project only submitted learner text from a recognized turn record.
+
+    Follow-up history uses this durable input evidence without reading agent
+    sessions or exposing checkpoint memory, pending tools or configuration.
+    """
+    record = _read_turn_record(block)
+    if record is None:
+        return []
+    values = record.get("values")
+    if not isinstance(values, list) or any(
+        not isinstance(value, str) for value in values
+    ):
+        return []
+    return [value for value in values if value.strip()]
+
+
 def _anchor_block(
     *, user_bid: str, outline_bid: str, anchor: str
 ) -> LearnGeneratedBlock | None:

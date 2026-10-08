@@ -18,13 +18,18 @@ For a persisted anchor, history consists of recent teaching and learner answers
 before its generated block, the selected element's exact text, and recent
 ASK/ANSWER sidecars belonging to that anchor. This includes the visible 2.0
 conversation persisted through the existing generated-block bridge. It does not
-read raw agent sessions, tool calls, generation prompts or rewind configuration.
+read raw agent sessions, tool calls or generation prompts. For 2.0, the existing
+versioned turn record supplies only its submitted `values` list through the rewind
+codec; checkpoint memory, pending tools and other configuration never become model
+messages. That input precedes its turn's teaching, including the selected anchor's
+own turn. Older formats and malformed value lists yield no learner text.
 The anchor's full generated block is excluded because it can contain later text.
 Later blocks and sidecars belonging to other anchors are excluded as well.
 
 Prior classroom rows must be active and undeleted and match the anchor's learning
 attempt, learner, course and lesson. Only content blocks become assistant messages
-and interaction blocks become learner messages. Empty content is omitted. A
+and legacy interaction blocks become learner messages. 2.0 submitted values also
+become learner messages in their original turn order. Empty content is omitted. A
 resolved anchor from another learning attempt yields no history. If the anchor's
 active generated block is absent, only the selected text and its own sidecar are
 used; no latest-block fallback broadens that anchor's context.

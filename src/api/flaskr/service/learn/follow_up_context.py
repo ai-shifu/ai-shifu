@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.service.common import raise_error
+from flaskr.service.learn.agent.rewind import read_turn_learner_values
 from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
     render_course_prompt_identity_variables,
@@ -243,6 +244,13 @@ def load_prior_classroom_history(
     )
     if anchor_block is None:
         return []
+    anchor_values = read_turn_learner_values(anchor_block)
+    anchor_input = (
+        [{"role": "user", "content": ",".join(anchor_values)}] if anchor_values else []
+    )
+    remaining = max_history_messages - len(anchor_input)
+    if remaining <= 0:
+        return anchor_input
     # Use the selected element for this turn: its block can also contain text
     # after the anchor, which is outside this follow-up's classroom context.
     rows = (
@@ -255,18 +263,24 @@ def load_prior_classroom_history(
             block_model.generated_content != "",
         )
         .order_by(block_model.id.desc())
-        .limit(max_history_messages)
+        .limit(remaining)
         .all()
     )
-    return [
-        {
-            "role": "user"
-            if row.type == BLOCK_TYPE_MDINTERACTION_VALUE
-            else "assistant",
-            "content": str(row.generated_content),
-        }
-        for row in reversed(rows)
-    ]
+    messages: list[dict[str, str]] = []
+    for row in reversed(rows):
+        if row.type == BLOCK_TYPE_MDCONTENT_VALUE:
+            values = read_turn_learner_values(row)
+            if values:
+                messages.append({"role": "user", "content": ",".join(values)})
+        messages.append(
+            {
+                "role": "user"
+                if row.type == BLOCK_TYPE_MDINTERACTION_VALUE
+                else "assistant",
+                "content": str(row.generated_content),
+            }
+        )
+    return [*messages, *anchor_input][-max_history_messages:]
 
 
 def load_follow_up_history(
