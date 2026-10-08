@@ -1,6 +1,6 @@
 ---
 title: Write explicit named answers back to same-owner course variables
-status: active
+status: completed
 owner_surface: learner
 last_reviewed: 2026-10-08
 ---
@@ -47,7 +47,18 @@ separate work.
   independent docstring warning and optional generated-doc/test suggestions in
   [the PR discussion](https://github.com/ai-shifu/ai-shifu/pull/3042#issuecomment-6053329271).
   Keep repository test-docstring exemptions; public helper contracts are documented.
-- [ ] 2026-10-08 05:32 UTC: Final-head CI and sim acceptance before manual merge.
+- [x] 2026-10-08 06:02 UTC: Final documentation `13b1b7656` and sim `7ea85601b`
+  have identical trees. Build 392 / Drone #5183 and deployments 1910 / 1911
+  succeeded; both replicas pass 135 isolated checks / 26 hashes. All final-head
+  technical CI passed, including runtime classroom smoke. Final acceptance:
+  https://github.com/ai-shifu/ai-shifu/pull/3042#issuecomment-6053467630
+- [x] 2026-10-08 06:03 UTC: User manually merged #3042 as main `5db951e32`.
+  Build 393 / Drone #5184 and all eight regional deployments 1912–1919 succeeded.
+  CN/US API replicas are 6/6 and 2/2 updated/Ready. One new replica in each region
+  passes 135 isolated checks / 26 hashes; both production regions remain 1.0.
+- [x] 2026-10-08: User subsequently cancelled cross-course custom-variable sharing.
+  The [course isolation plan](../active/course-variable-isolation.md) owns removal
+  of both explicit reads and answer writeback. Do not extend shared model notes.
 
 ## Surprises & Discoveries
 
@@ -76,13 +87,11 @@ also be excluded from supplementary local-memory rows to prevent shadowing.
 
 Local validation passes for exact source writeback, authority/version changes,
 rollback, rewind/replay and preview. MySQL confirms fresh locking reads and
-concurrent writers, and negative mutations prove the key guards. Final developer tools, architecture and all repository gates passed. PR #3042
-is open and non-draft; runtime sim deployment, both isolated replicas, actual
-provider writeback and live classroom regression pass. Every independent initial
-AI opinion has a linked disposition reply. Final documentation-head CI and its
-exact-tree sim synchronization remain pending and will be recorded in the PR
-acceptance discussion before handoff. Main merge remains manual. This does not
-complete cross-course model notes, owner-scoped storage or the memory milestone.
+concurrent writers, and negative mutations prove the key guards. Final developer tools, architecture and repository gates passed. Final-head CI,
+exact-tree sim verification, manual merge and both regional deployments completed.
+The user then chose strict system/course variable scopes; this completed plan is
+historical evidence, not authorization to keep or extend cross-course sharing.
+Removal and current product policy belong to the course isolation plan/reference.
 
 ## Context and Orientation
 

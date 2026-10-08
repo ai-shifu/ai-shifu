@@ -31,8 +31,8 @@ def load_memory(
     Variables currently use runtime profile resolution, including settings edits
     and canonical fields. Agent hosts opt into all current-course variable rows,
     including learner requests without profile definitions. Global undeclared values
-    and the broad reader's ``elsewhere`` are not merged. Cross-course values require
-    reads in the supplied trusted author documents; an empty context grants none.
+    and the broad reader's ``elsewhere`` are not merged. Author documents cannot
+    authorize cross-course access; only registered system fields are global.
     """
     resolved = get_user_profiles(
         app, user_bid, shifu_bid, reference_text=reference_text

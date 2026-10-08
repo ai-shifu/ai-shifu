@@ -56,7 +56,6 @@ class Deps:
     memory_keys: frozenset[str] | None = None
     memory_reserved_keys: frozenset[str] = frozenset()
     memory_readonly_prefixes: tuple[str, ...] = ()
-    memory_answer_keys: frozenset[str] = frozenset()
     memory_deleted_keys: frozenset[str] = frozenset()
     request_inputs: tuple[str, ...] = ()
     memory_current_inputs: tuple[str, ...] = ()
@@ -533,11 +532,7 @@ async def interact(
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
-    if (
-        variable
-        and variable.startswith(ctx.deps.memory_readonly_prefixes)
-        and variable not in ctx.deps.memory_answer_keys
-    ):
+    if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
         message = "This variable is a read-only reference. Ask using a local variable instead."
         raise ModelRetry(message)
     if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
