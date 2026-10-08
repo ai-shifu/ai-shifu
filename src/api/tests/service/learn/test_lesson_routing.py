@@ -7,9 +7,17 @@ several directions rather than once.
 
 from __future__ import annotations
 
+import logging
+import threading
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, NoReturn
+
 import pytest
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.const import INPUT_TYPE_ASK
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 SHIFU = "shifu-a"
 OTHER = "shifu-b"
@@ -61,6 +69,86 @@ def test_with_disabled_deployment_every_course_stays_on_the_script_engine() -> N
 def test_a_follow_up_question_keeps_the_script_engine() -> None:
     """Ask runs beside the lesson under its own semaphore, not through the turn loop."""
     assert _routes_to_agent(input_type=INPUT_TYPE_ASK) is False
+
+
+@pytest.mark.parametrize("enabled", [False, True], ids=["v1", "v2"])
+@pytest.mark.parametrize("listen", [False, True], ids=["read", "listen"])
+@pytest.mark.parametrize("preview", [False, True], ids=["formal", "preview"])
+@pytest.mark.parametrize("anchored", [False, True], ids=["unanchored", "anchored"])
+def test_follow_up_dispatch_preserves_the_sidecar_request(
+    monkeypatch: pytest.MonkeyPatch,
+    enabled: bool,
+    listen: bool,
+    preview: bool,
+    anchored: bool,
+) -> None:
+    """Ask must bypass agent turns and retain its request and emitted events."""
+    from flaskr.service.learn.agent import lesson_entry
+
+    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", str(enabled).lower())
+    app = SimpleNamespace(logger=logging.getLogger(__name__))
+    stop_event = threading.Event()
+    adapter = SimpleNamespace(persist_only_final=False)
+    question = "Explain the earlier answer.\nKeep its exact wording."
+    block_bid = "selected-block" if anchored else None
+    element_bid = "selected-element" if anchored else None
+    seen = []
+    response = [object(), object()]
+
+    def script_engine(**kwargs: object) -> Iterator[object]:
+        seen.append(kwargs)
+        yield from response
+
+    def refuse_agent(*_args: object, **_kwargs: object) -> NoReturn:
+        pytest.fail("A follow-up must not enter the teaching agent turn loop")
+
+    monkeypatch.setattr(runscript_v2, "run_script_inner", script_engine)
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", refuse_agent)
+    commits = []
+    monkeypatch.setattr(
+        runscript_v2, "_commit_pending_step", lambda: commits.append(True)
+    )
+
+    events = list(
+        runscript_v2._lesson_events(
+            app=app,
+            user_bid="learner-bid",
+            shifu_bid=SHIFU,
+            outline_bid="lesson-bid",
+            user_input=question,
+            input_type=INPUT_TYPE_ASK,
+            reload_generated_block_bid=block_bid,
+            reload_element_bid=element_bid,
+            listen=listen,
+            learning_mode="listen" if listen else "read",
+            preview_mode=preview,
+            stop_event=stop_event,
+            element_adapter=adapter,
+            heartbeat_interval=0.5,
+        )
+    )
+
+    assert events == response
+    assert seen == [
+        {
+            "app": app,
+            "user_bid": "learner-bid",
+            "shifu_bid": SHIFU,
+            "outline_bid": "lesson-bid",
+            "user_input": question,
+            "input_type": INPUT_TYPE_ASK,
+            "reload_generated_block_bid": block_bid,
+            "reload_element_bid": element_bid,
+            "listen": listen,
+            "learning_mode": "listen" if listen else "read",
+            "preview_mode": preview,
+            "stop_event": stop_event,
+            "element_adapter": adapter,
+            "manage_app_context": False,
+        }
+    ]
+    assert adapter.persist_only_final is False
+    assert commits == []
 
 
 @pytest.mark.usefixtures("enabled_deployment")

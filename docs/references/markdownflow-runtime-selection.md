@@ -2,7 +2,7 @@
 title: MarkdownFlow Runtime Selection
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-08
 canonical: true
 ---
 
@@ -54,3 +54,18 @@ allowlist implementation also requires restoring its previous allowlist.
 Use fresh temporary learners in an internal test course for live acceptance.
 Evaluate arbitrary course identifiers without database writes to verify that
 admission is deployment-wide.
+
+## Follow-up dispatch verification
+
+`tests/service/learn/test_lesson_routing.py` exercises Ask through the actual
+`runscript_v2._lesson_events` caller with the real deployment configuration.
+It covers both flag values, read/listen delivery, formal/preview requests and
+anchored/unanchored questions. Only `run_script_inner` may handle Ask; the
+teaching agent must not receive it. Learner/course/lesson IDs, question, selected
+block/element, delivery flags, cancellation event and element adapter reach the
+sidecar unchanged. The producer retains app-context ownership, and its events
+pass through without agent finalization or extra commit checkpoints.
+
+Provider adapters, classroom-history construction and Live voice boundaries
+have separate regression coverage. Caller-level routing coverage alone does not
+establish external-provider availability or human teaching quality.
