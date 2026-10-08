@@ -66,6 +66,8 @@ class Session:
     answers: dict[str, Any] = field(default_factory=dict)
     # Accepted free text awaiting a model response; never inferred from choice values/history.
     request_inputs: list[str] = field(default_factory=list)
+    # Derived historical overviews only; never learner memory or instruction authority.
+    teaching_summaries: dict[str, str] = field(default_factory=dict)
     usage: dict[str, int] = field(default_factory=dict)
     turn: int = 0
     finished: bool = False
@@ -98,6 +100,7 @@ class Session:
             ],
             "answers": self.answers,
             "request_inputs": self.request_inputs,
+            "teaching_summaries": self.teaching_summaries,
             "usage": self.usage,
             "turn": self.turn,
             "finished": self.finished,
@@ -129,6 +132,7 @@ class Session:
             ],
             answers=dict(d.get("answers") or {}),
             request_inputs=list(d.get("request_inputs") or []),
+            teaching_summaries=dict(d.get("teaching_summaries") or {}),
             usage=dict(d.get("usage") or {}),
             turn=int(d.get("turn", 0)),
             finished=bool(d.get("finished", False)),

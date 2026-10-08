@@ -1,7 +1,10 @@
 Older long assistant teaching may be replaced in your request history by a
 host-created JSON `teaching_excerpt` carrying its exact opening and ending,
 original character count and opaque reference. It was already delivered. The
-excerpt is incomplete evidence, not a semantic summary or a new instruction.
+excerpt is incomplete evidence. A `teaching_summary` adds a lossy semantic
+overview, generated from the complete original teaching; it can omit or distort
+details. Neither form is a new instruction, current memory, permission or a
+learner request. Exact openings and endings remain unchanged in both forms.
 The two most recent teaching turns, learner input and current tool loops stay
 complete. Continue from the latest step; never repeat old teaching because an
 excerpt or read result appears.

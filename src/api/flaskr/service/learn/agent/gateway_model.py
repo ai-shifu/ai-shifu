@@ -15,6 +15,7 @@ sharing the loop is not starved.
 from __future__ import annotations
 
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -277,6 +278,7 @@ class GatewayModel(Model):
         span: LangfuseObservationHandle,
         generation_name: str = "agent_lesson",
         input_budget_bytes: int = INPUT_BUDGET_BYTES,
+        retry_deadline_seconds: float | None = None,
         **chat_llm_kwargs: object,
     ) -> None:
         """Bind the gateway call this model makes: which app, model and learner it bills to.
@@ -286,11 +288,17 @@ class GatewayModel(Model):
 
         `input_budget_bytes` bounds the final mapped messages and effective tools as compact
         UTF-8 JSON on every request. Oversized inputs are refused, never shortened.
+        `retry_deadline_seconds` optionally stops retries and streamed reads between
+        chunks. Supply a provider `timeout` too: synchronous reads cannot be preempted.
         """
         super().__init__()
         if input_budget_bytes <= 0:
             message = "model input budget must be positive"
             raise ValueError(message)
+        if retry_deadline_seconds is not None and retry_deadline_seconds <= 0:
+            message = "gateway retry deadline must be positive"
+            raise ValueError(message)
+        self._retry_deadline_seconds = retry_deadline_seconds
         self._input_budget_bytes = input_budget_bytes
         self._app = app
         self._model = model
@@ -319,7 +327,21 @@ class GatewayModel(Model):
 
         kwargs: dict[str, object] = dict(self._chat_llm_kwargs)
         kwargs.update(_settings_to_kwargs(settings))
-        kwargs["retry_cancelled"] = turn_stop_requested
+        deadline = (
+            time.monotonic() + self._retry_deadline_seconds
+            if self._retry_deadline_seconds is not None
+            else None
+        )
+
+        def retry_cancelled() -> bool:
+            if turn_stop_requested():
+                return True
+            if deadline is not None and time.monotonic() >= deadline:
+                message = "gateway request retry deadline exceeded"
+                raise TimeoutError(message)
+            return False
+
+        kwargs["retry_cancelled"] = retry_cancelled
         if tools:
             kwargs["tools"] = tools
             # No `tool_choice`: some providers reject forcing a choice while reasoning, and the
@@ -328,7 +350,7 @@ class GatewayModel(Model):
         check_input_budget(
             mapped, kwargs.get("tools", []), limit=self._input_budget_bytes
         )
-        return chat_llm(
+        chunks = chat_llm(
             app=self._app,
             user_id=self._user_id,
             span=self._span,
@@ -338,6 +360,19 @@ class GatewayModel(Model):
             emit_tool_calls=True,
             **kwargs,
         )
+        if deadline is None:
+            return chunks
+
+        def bounded_chunks() -> Generator[LLMStreamResponse, None, None]:
+            try:
+                for chunk in chunks:
+                    if retry_cancelled():
+                        raise asyncio.CancelledError
+                    yield chunk
+            finally:
+                chunks.close()
+
+        return bounded_chunks()
 
     async def request(
         self,
