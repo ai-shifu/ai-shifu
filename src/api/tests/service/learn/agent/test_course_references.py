@@ -6,11 +6,10 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
-from uuid import uuid4
 
 import pytest
 from flaskr.service.learn.agent import run_agent
-from flaskr.service.learn.agent.course_references import refresh_course_references
+from flaskr.service.learn.agent.course_references import discard_course_references
 from flaskr.service.learn.agent.engine import (
     Engine,
     InteractionResponseTurn,
@@ -30,8 +29,6 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 from tests.service.learn.agent.test_memory_integration import _drive
 from tests.service.profile.test_course_references import (
-    _published_text,
-    _value,
     context,
 )
 
@@ -42,111 +39,74 @@ if TYPE_CHECKING:
     from types import SimpleNamespace
 
 
-@pytest.mark.parametrize("replacement", [None, "Updated source value"])
+@pytest.mark.parametrize("prefix", ["course:", "share:"])
 @pytest.mark.parametrize("size", [10, 40000])
-def test_refresh_replaces_exact_substitutions_but_retains_later_conversation(
-    replacement: str | None,
-    size: int,
+@pytest.mark.parametrize("prompt_only", [False, True])
+def test_discard_removes_initial_snapshots_but_keeps_original_classroom_evidence(
+    prefix: str, size: int, prompt_only: bool
 ) -> None:
-    key = "course:" + "a" * 32 + ":goal"
+    key = prefix + "a" * 32 + ":goal"
     old = "OLD</memory>" + "x" * size
-    bundle = ScriptBundle(
-        script=f"Use {{{{{key}}}}}.", constraints=f"Consider {{{{{key}}}}}."
-    )
+    bundle = ScriptBundle(script="Teach." if prompt_only else f"Use {{{{{key}}}}}.")
     later = ModelRequest(
         parts=[UserPromptPart(old), ToolReturnPart("interact", old, "answer")]
     )
     session = Session(
         script=bundle,
-        user_memory={key: old},
-        memory={key: "spoofed"},
-        initial_variables={key: old},
+        user_memory={} if prompt_only else {key: old},
+        memory={} if prompt_only else {key: "spoof"},
+        initial_variables={} if prompt_only else {key: old},
         messages=[
             ModelRequest(
-                parts=[
-                    UserPromptPart(
-                        render_first_prompt(bundle, {key: old}, memory_limit=32768)
-                    )
-                ]
+                parts=[UserPromptPart(render_first_prompt(bundle, {key: old}))]
             ),
             later,
         ],
         answers={"pending": old},
         request_inputs=[old],
     )
-    fresh = {} if replacement is None else {key: replacement}
-    refresh_course_references(session, fresh)
-    prompt = session.messages[0].parts[0].content
-    assert old not in prompt
-    assert "spoofed" not in prompt
-    assert (
-        f"Use {replacement if replacement is not None else '{{' + key + '}}'}."
-        in prompt
-    )
-    assert session.all_memory() == fresh
+    discard_course_references(session)
+    assert old not in session.messages[0].parts[0].content
+    assert key not in session.all_memory()
+    assert not session.initial_variables
     assert session.messages[1] is later
     assert session.answers == {"pending": old}
     assert session.request_inputs == [old]
-    once = session.dumps()
-    refresh_course_references(session, fresh)
-    assert session.dumps() == once
+    before = session.dumps()
+    discard_course_references(session)
+    assert session.dumps() == before
 
 
-@pytest.mark.parametrize("change", ["update", "remove", "delete", "transfer"])
-def test_real_host_reloads_source_after_a_saved_turn(
+def test_real_host_never_loads_source_even_when_author_declares_it(
     context: SimpleNamespace,
-    change: str,
 ) -> None:
     seen = []
 
     async def model(
         messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
-        seen.append(
-            next(
-                p.content
-                for m in messages
-                for p in m.parts
-                if isinstance(p, UserPromptPart)
+        seen.extend(
+            p.content
+            for m in messages
+            for p in m.parts
+            if isinstance(p, UserPromptPart)
+        )
+        yield "Teach the lesson."
+
+    engine = Engine(FunctionModel(stream_function=model))
+    for _ in range(2):
+        list(
+            run_agent.run_agent_lesson(
+                context.app,
+                engine=engine,
+                user_bid=context.user,
+                shifu_bid=context.target,
+                outline_bid=context.outline,
+                script=context.reference_text,
+                iter_turn=_drive,
             )
         )
-        yield "A useful teaching step."
-
-    engine = Engine(
-        FunctionModel(stream_function=model), memory_readonly_prefixes=("course:",)
-    )
-    lesson = uuid4().hex
-    args = {
-        "app": context.app,
-        "engine": engine,
-        "user_bid": context.user,
-        "shifu_bid": context.target,
-        "outline_bid": lesson,
-        "script": f"Use {{{{{context.key}}}}}.",
-        "iter_turn": _drive,
-    }
-    list(run_agent.run_agent_lesson(**args))
-    assert "Source goal" in seen[-1]
-    if change == "update":
-        _value(context, "Changed source")
-    elif change == "delete":
-        from flaskr.service.profile.api import delete_course_memory, list_course_memory
-
-        selected = list_course_memory(context.user, context.source)["items"][0]
-        delete_course_memory(context.user, context.source, int(selected["value_id"]))
-    elif change == "transfer":
-        from flaskr.dao.uow import unit_of_work
-        from flaskr.service.shifu.models import DraftShifu
-
-        with unit_of_work():
-            DraftShifu.query.filter_by(shifu_bid=context.source).update(
-                {DraftShifu.created_user_bid: uuid4().hex}
-            )
-    else:
-        _published_text(context, "Reference removed.")
-    list(run_agent.run_agent_lesson(**args))
-    assert "Source goal" not in seen[-1]
-    assert ("Changed source" in seen[-1]) is (change == "update")
+    assert all("Source goal" not in p for p in seen)
 
 
 @pytest.mark.parametrize("admission", [True, False])
@@ -285,87 +245,3 @@ def test_interact_readonly_policy_is_opt_in_for_portable_hosts(readonly: bool) -
             assert session.pending[0].spec.variable == key
 
     asyncio.run(check())
-
-
-@pytest.mark.parametrize(
-    "briefs", [("Original", "Changed"), ("", "Added"), ("Original", "")]
-)
-def test_initial_reference_copy_tracks_brief_edits_before_later_revocation(
-    briefs: tuple[str, str],
-) -> None:
-    from dataclasses import replace
-
-    key = "course:" + "a" * 32 + ":goal"
-    old_brief, new_brief = (f"{text} {{{{{key}}}}}" if text else "" for text in briefs)
-    bundle = ScriptBundle(script="Teach the next step.", constraints=old_brief or None)
-    session = Session(
-        script=bundle,
-        user_memory={key: "Old source"},
-        initial_variables={key: "Old source"} if old_brief else {},
-        messages=[
-            ModelRequest(
-                parts=[UserPromptPart(render_first_prompt(bundle, {key: "Old source"}))]
-            )
-        ],
-    )
-    refresh_course_references(session, {key: "New source"}, teaching_brief=new_brief)
-    session.script = replace(session.script, constraints=new_brief or None)
-    prompt = session.messages[0].parts[0].content
-    if new_brief:
-        assert new_brief.replace("{{" + key + "}}", "New source") in prompt
-    else:
-        assert "<constraints>" not in prompt
-    assert "Old source" not in prompt
-    refresh_course_references(session, {}, teaching_brief=new_brief)
-    prompt = session.messages[0].parts[0].content
-    assert "New source" not in prompt
-    if new_brief:
-        assert new_brief in prompt
-    assert key not in session.all_memory()
-
-
-def test_real_host_only_injects_references_used_by_this_lesson_request(
-    context: SimpleNamespace,
-) -> None:
-    seen = []
-
-    async def model(
-        messages: list[ModelMessage], _info: AgentInfo
-    ) -> AsyncIterator[str]:
-        seen.append(
-            next(
-                p.content
-                for m in messages
-                for p in m.parts
-                if isinstance(p, UserPromptPart)
-            )
-        )
-        yield "Teach the next step."
-
-    engine = Engine(
-        FunctionModel(stream_function=model), memory_readonly_prefixes=("course:",)
-    )
-    first = uuid4().hex
-    args = {
-        "app": context.app,
-        "engine": engine,
-        "user_bid": context.user,
-        "shifu_bid": context.target,
-        "outline_bid": first,
-        "iter_turn": _drive,
-        "script": f"Use {{{{{context.key}}}}}.",
-    }
-    list(run_agent.run_agent_lesson(**args))
-    assert "Source goal" in seen[-1]
-    # A different lesson in the same course has no read, even though the first remains published.
-    list(
-        run_agent.run_agent_lesson(
-            **{**args, "outline_bid": uuid4().hex, "script": "An unrelated lesson."}
-        )
-    )
-    assert "Source goal" not in seen[-1]
-    assert context.key not in seen[-1]
-    # Removing the current lesson's read also revokes a saved initial substitution.
-    list(run_agent.run_agent_lesson(**{**args, "script": "An unrelated lesson."}))
-    assert "Source goal" not in seen[-1]
-    assert "{{" + context.key + "}}" in seen[-1]

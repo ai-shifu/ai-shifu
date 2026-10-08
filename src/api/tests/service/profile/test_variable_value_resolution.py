@@ -32,22 +32,22 @@ def test_get_latest_variable_value_prefers_shifu_scoped_key_over_global_key() ->
     assert hit is values[1]
 
 
-def test_get_latest_variable_value_falls_back_to_global_key_when_shifu_missing() -> (
-    None
-):
+def test_get_latest_variable_value_does_not_fall_back_to_global_custom_value() -> None:
     values = [
         _DummyValue(key="k1", shifu_bid="", variable_bid="v1"),
     ]
 
     hit = _get_latest_variable_value(values, variable_key="k1", shifu_bid="s1")
-    assert hit is values[0]
+    assert hit is None
 
 
-def test_get_latest_variable_value_global_key_beats_global_variable_bid_value() -> None:
+def test_get_latest_variable_value_explicit_global_scope_matches_registered_field() -> (
+    None
+):
     values = [
         _DummyValue(key="k1", shifu_bid="", variable_bid="v-other"),
         _DummyValue(key="k-other", shifu_bid="", variable_bid="v1"),
     ]
 
-    hit = _get_latest_variable_value(values, variable_key="k1", shifu_bid="s1")
+    hit = _get_latest_variable_value(values, variable_key="k1", shifu_bid="")
     assert hit is values[0]

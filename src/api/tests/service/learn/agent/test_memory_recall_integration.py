@@ -212,7 +212,7 @@ def test_resumed_host_recall_cannot_restore_a_deleted_value(app: Flask) -> None:
 
 
 @pytest.mark.parametrize("change", ["update", "remove", "delete", "transfer"])
-def test_recall_uses_the_hosts_refreshed_explicit_course_reference(
+def test_recall_never_loads_retired_cross_course_references(
     context: SimpleNamespace, change: str
 ) -> None:
     seen, prompts = [], []
@@ -240,12 +240,7 @@ def test_recall_uses_the_hosts_refreshed_explicit_course_reference(
                 ).one().created_user_bid = uuid4().hex
     db.session.remove()
     list(run_agent.run_agent_lesson(**args))
-    assert seen[0] == {"status": "found", "value": "Source goal"}
-    assert seen[1] == (
-        {"status": "found", "value": "Updated source"}
-        if change == "update"
-        else {"status": "unavailable"}
-    )
+    assert seen == [{"status": "unavailable"}] * 2
     assert (
         VariableValue.query.filter_by(
             user_bid=context.user, shifu_bid=context.target
