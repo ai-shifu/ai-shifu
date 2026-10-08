@@ -12,7 +12,7 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import gateway_model as gw
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.agent.engine import Engine, ErrorEvent, MessageTurn, TurnDone
-from flaskr.service.learn.agent.engine.script import ScriptBundle
+from flaskr.service.learn.agent.engine.script import ScriptBundle, render_first_prompt
 from flaskr.service.learn.agent.engine.session import Session
 from flaskr.service.learn.agent.input_budget import INPUT_BUDGET_BYTES
 from flaskr.service.learn.agent.rewind import checkpoint_of, restore
@@ -179,7 +179,15 @@ def test_durable_host_projects_only_requests_and_recall_uses_current_authorizati
         row_id = row.id
         session = Session(script=ScriptBundle(script="Teach."))
         session.messages = [
-            ModelRequest(parts=[UserPromptPart("Original teaching script.")]),
+            ModelRequest(
+                parts=[
+                    UserPromptPart(
+                        render_first_prompt(
+                            session.script, {"sys_user_nickname": "Learner"}
+                        )
+                    )
+                ]
+            ),
             ModelResponse(parts=[ToolCallPart("recall", {"key": "goal"}, "old")]),
             ModelRequest(
                 parts=[

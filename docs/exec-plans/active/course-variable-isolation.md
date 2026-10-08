@@ -54,6 +54,13 @@ structured prompt after current memory has changed; clear those snapshots too.
 ## Outcomes & Retrospective
 
 Local implementation, full regression, negative checks and repository gates pass.
+AI review identified an unrecognized legacy initial-prompt fallback and a weak
+reverse-isolation assertion. Rebuild only that initial host prompt from filtered
+current-course data when parsing fails, preserve later evidence, and test exact
+values in both courses. Sixteen damaged-format cases cover both retired namespaces; disabling the fallback
+fails all 16. Final learning/profile regression: 2,734 passed, 1 skipped, 4 subtests.
+Isolated probe: 141 checks / 22 runtime hashes. Full repository gates pass.
+
 Publication and deployed acceptance are pending; the PR acceptance discussion will
 record final CI and sim evidence before handoff. Shared model notes and owner-wide custom memory
 are cancelled by product decision, rather than remaining milestone requirements.

@@ -189,7 +189,11 @@ def test_registered_system_fields_are_global_but_custom_values_have_no_global_fa
     assert "Legacy global custom" not in str(data)
     _value(c, "Local goal", shifu_bid=c.target)
     assert get_user_profiles(c.app, c.user, c.target)["goal"] == "Local goal"
-    assert get_user_profiles(c.app, c.user, c.source).get("goal") != "Local goal"
+    with unit_of_work():
+        db.session.add(
+            Variable(shifu_bid=c.source, key="goal", variable_bid=uuid4().hex)
+        )
+    assert get_user_profiles(c.app, c.user, c.source)["goal"] == "Source goal"
 
 
 @pytest.mark.parametrize(

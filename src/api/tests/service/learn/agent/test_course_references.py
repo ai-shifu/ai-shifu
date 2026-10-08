@@ -77,6 +77,54 @@ def test_discard_removes_initial_snapshots_but_keeps_original_classroom_evidence
     assert session.dumps() == before
 
 
+@pytest.mark.parametrize("prefix", ["course:", "share:"])
+@pytest.mark.parametrize("prompt_only", [False, True])
+@pytest.mark.parametrize("damage", ["legacy", "json", "closing", "script"])
+def test_unrecognized_initial_prompt_is_rebuilt_without_retired_values(
+    prefix: str, prompt_only: bool, damage: str
+) -> None:
+    key = prefix + "a" * 32 + ":goal"
+    old = "Source secret " + "é" * 2000
+    bundle = ScriptBundle(
+        script="Teach {{goal}}.",
+        constraints="Previous brief.",
+        extras={"guide": "Guide."},
+    )
+    content = render_first_prompt(bundle, {key: old, "goal": "Local goal"})
+    if damage == "legacy":
+        content = "Legacy format: " + old
+    elif damage == "json":
+        content = content.replace('"' + key + '"', "broken-json", 1)
+    elif damage == "closing":
+        content = content.replace("</memory>", "</old-memory>", 1)
+    else:
+        content = content.replace("<script>", "<old-script>", 1)
+    later = ModelRequest(parts=[UserPromptPart(old)])
+    session = Session(
+        script=bundle,
+        user_memory={"goal": "Local goal", **({} if prompt_only else {key: old})},
+        initial_variables={"goal": "Local goal"},
+        messages=[ModelRequest(parts=[UserPromptPart(content)]), later],
+        answers={"answer": old},
+        request_inputs=[old],
+    )
+    discard_course_references(session, teaching_brief="Current brief.")
+    prompt = session.messages[0].parts[0].content
+    assert old not in prompt
+    assert key not in prompt
+    assert "Local goal" in prompt
+    assert "Current brief." in prompt
+    assert "Guide." in prompt
+    assert "Previous brief." not in prompt
+    assert session.messages[1] is later
+    assert session.answers == {"answer": old}
+    assert session.request_inputs == [old]
+    assert key not in session.all_memory()
+    before = session.dumps()
+    discard_course_references(session, teaching_brief="Current brief.")
+    assert session.dumps() == before
+
+
 def test_real_host_never_loads_source_even_when_author_declares_it(
     context: SimpleNamespace,
 ) -> None:
