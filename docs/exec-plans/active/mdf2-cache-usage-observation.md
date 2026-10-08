@@ -30,8 +30,15 @@ they do not calculate prices or replace the shared billing ledger.
   3,223 passed, one expected skip and four subtests passed; provider-boundary
   tests separately 116 passed, onboarding/operator compatibility 144 passed.
   All repository gates passed.
-- [ ] Verify deployed sim reports.
-- [ ] Reply to independent AI opinions in their original discussions.
+- [x] Runtime `f4d6b003e` / sim `cd5f1b392` trees match. Build 424 / Drone
+  5215 and deployments 2044/2045 succeeded; both API replicas match 25 runtime
+  fingerprints and route to 2.0, web is ready.
+- [x] Deployed full catalog: 24 cases repeated three times, 72/72 passed with
+  zero request errors and no candidate overrides. Read/listen completion and
+  audio backfill (2.05 seconds) passed.
+- [x] Adopted the posted Devin issue and replied in its original thread with
+  pushed fix `f4d6b003e`, red/green regressions and billing assertions. Continue
+  auditing new independent opinions and live CI/review status in PR #3054.
 - [ ] Await manual main merge and verify release selection.
 
 ## Surprises & Discoveries
@@ -74,7 +81,18 @@ passed. No unrelated stub behavior was changed.
 
 ## Outcomes & Retrospective
 
-Acceptance is pending. This technical observation surface does not complete
+Deployed runtime acceptance passed. The real report contains 162 admission /
+recall / teaching requests plus nine separately observed summary requests, all
+with cache metadata. The nine summaries consume 9,684 input / 446 output tokens;
+summary cache reload creates no second request. Three injected failures contain
+no summary provider usage. The warmed synthetic catalog is not a fresh-cache
+baseline or complete-course cost measurement.
+
+The production-image/browser runtime CI run 37796516528 passed for the runtime
+commit. Live final checks and subsequent AI replies are tracked in PR #3054;
+main merge remains a manual user decision. Final documentation synchronization
+preserves the tested runtime files and can reuse this model/HTTP evidence after
+verifying image fingerprints. This technical observation surface does not complete
 long-term fees, natural teaching quality or human trials.
 
 ## Context and Orientation
