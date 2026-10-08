@@ -168,13 +168,10 @@ interface Shifu {
   use_learner_language?: boolean;
 }
 
-const TEMPERATURE_MIN = 0;
-const TEMPERATURE_MAX = 2;
 const ASK_MODE_ENABLE = 5103;
 const ASK_PROVIDER_LLM = 'llm';
 const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
-const ASK_TEMPERATURE_MIN = 0;
-const ASK_TEMPERATURE_MAX = 2;
+const DEFAULT_ASK_TEMPERATURE = 0;
 const DEFAULT_LIVE_VOICE = 'Kore';
 const TTS_PREVIEW_CURRENT_TARGET = 'tts-current';
 
@@ -277,10 +274,8 @@ export default function ShifuSettingDialog({
     null,
   );
   const askProviderEditedRef = useRef(false);
-  const [askTemperature, setAskTemperature] =
-    useState<number>(ASK_TEMPERATURE_MIN);
-  const [askTemperatureInput, setAskTemperatureInput] = useState<string>(
-    String(ASK_TEMPERATURE_MIN),
+  const [askTemperature, setAskTemperature] = useState<number>(
+    DEFAULT_ASK_TEMPERATURE,
   );
   const [askProvider, setAskProvider] = useState(ASK_PROVIDER_LLM);
   const [liveVoiceDraft, setLiveVoiceDraft] = useState(DEFAULT_LIVE_VOICE);
@@ -911,22 +906,6 @@ export default function ShifuSettingDialog({
     setAskProviderObjectInputs({});
   }, [askConfigMeta, askProvider, getAskProviderDefaultConfig]);
 
-  const normalizeAskTemperature = useCallback((value: number) => {
-    const clamped = Math.min(
-      Math.max(value, ASK_TEMPERATURE_MIN),
-      ASK_TEMPERATURE_MAX,
-    );
-    return Number(clamped.toFixed(1));
-  }, []);
-
-  useEffect(() => {
-    if (askTemperature === null || Number.isNaN(askTemperature)) {
-      setAskTemperatureInput('');
-    } else {
-      setAskTemperatureInput(String(askTemperature));
-    }
-  }, [askTemperature]);
-
   const buildAskProviderConfigForSubmit = useCallback(() => {
     if (isLiveVoiceFollowUp) {
       return { live_voice: selectedLiveVoice };
@@ -989,10 +968,6 @@ export default function ShifuSettingDialog({
     selectedLiveVoice,
     t,
   ]);
-
-  const clampTemperature = useCallback((value: number) => {
-    return Math.min(Math.max(value, 0), 2);
-  }, []);
 
   // Sanitize and default selections when provider/config changes
   useEffect(() => {
@@ -1085,18 +1060,6 @@ export default function ShifuSettingDialog({
       .string()
       .min(1, t('module.shifuSetting.shifuPriceEmpty'))
       .regex(/^\d+(\.\d{1,2})?$/, t('module.shifuSetting.shifuPriceFormat')),
-    temperature: z
-      .string()
-      .regex(
-        /^\d+(\.\d{1,2})?$/,
-        t('module.shifuSetting.shifuTemperatureFormat'),
-      ),
-    temperature_min: z
-      .number()
-      .min(TEMPERATURE_MIN, t('module.shifuSetting.shifuTemperatureMin')),
-    temperature_max: z
-      .number()
-      .max(TEMPERATURE_MAX, t('module.shifuSetting.shifuTemperatureMax')),
   });
 
   const form = useForm({
@@ -1107,7 +1070,6 @@ export default function ShifuSettingDialog({
       model: '',
       systemPrompt: '',
       price: '',
-      temperature: '',
     },
   });
   const isDirty = form.formState.isDirty;
@@ -1213,9 +1175,6 @@ export default function ShifuSettingDialog({
           askConfigMeta?.default?.provider ||
           ASK_PROVIDER_LLM;
         const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
-        const askTemperatureForSubmit = normalizeAskTemperature(
-          Number(askTemperatureInput || askTemperature || 0),
-        );
         const shouldPreserveExistingAskConfiguration = Boolean(
           preservedAskConfiguration &&
           !askProviderEditedRef.current &&
@@ -1250,6 +1209,7 @@ export default function ShifuSettingDialog({
         const includeFollowUpModel =
           modelEditSnapshot.followUp >
           savedModelEditVersionRef.current.followUp;
+        // Omit temperatures so hidden settings keep their saved values.
         const payload = {
           description: data.description,
           shifu_bid: shifuId,
@@ -1260,13 +1220,11 @@ export default function ShifuSettingDialog({
           name: data.name,
           price: Number(data.price),
           avatar: uploadedImageUrl,
-          temperature: Number(data.temperature),
           system_prompt: data.systemPrompt,
           ask_enabled_status: ASK_MODE_ENABLE,
           ...(includeFollowUpModel
             ? { ask_model: modelSelectionSnapshot.followUp }
             : {}),
-          ask_temperature: askTemperatureForSubmit,
           ask_system_prompt: '',
           ask_provider_config: {
             provider: shouldPreserveExistingAskConfiguration
@@ -1405,10 +1363,7 @@ export default function ShifuSettingDialog({
       mainModelFallback,
       followUpModelFallback,
       form,
-      askTemperature,
-      askTemperatureInput,
       buildAskProviderConfigForSubmit,
-      normalizeAskTemperature,
       resolvedAskProvider,
       toast,
       t,
@@ -1447,7 +1402,6 @@ export default function ShifuSettingDialog({
           description: result.description,
           price: (result.price ?? 0).toFixed(2),
           model: asModelIndex(result.model) || '1',
-          temperature: result.temperature + '',
           systemPrompt: result.system_prompt || '',
         });
         const rawAskProviderConfig =
@@ -1514,10 +1468,7 @@ export default function ShifuSettingDialog({
           initialAskConfigurationRef.current.interactionMode === 'live_voice'
             ? ''
             : result.ask_model || '';
-        setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
-        setAskTemperatureInput(
-          String(result.ask_temperature ?? ASK_TEMPERATURE_MIN),
-        );
+        setAskTemperature(result.ask_temperature ?? DEFAULT_ASK_TEMPERATURE);
         setAskProvider(
           (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
         );
@@ -1844,28 +1795,6 @@ export default function ShifuSettingDialog({
     [isOnboardingOpen, submitForm, updateOpen],
   );
 
-  const adjustTemperature = (delta: number) => {
-    const currentValue = parseFloat(form.getValues('temperature') || '0');
-    const safeValue = Number.isNaN(currentValue) ? 0 : currentValue;
-    const nextValue = clampTemperature(
-      parseFloat((safeValue + delta).toFixed(1)),
-    );
-    form.setValue('temperature', nextValue.toFixed(1), {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-  };
-
-  const adjustAskTemperature = (delta: number) => {
-    const currentValue = Number(askTemperatureInput || askTemperature || 0);
-    const safeValue = Number.isNaN(currentValue) ? 0 : currentValue;
-    const nextValue = normalizeAskTemperature(
-      parseFloat((safeValue + delta).toFixed(1)),
-    );
-    setAskTemperature(nextValue);
-    setAskTemperatureInput(String(nextValue));
-  };
-
   const handleAskPreview = useCallback(async () => {
     if (
       !shifuId ||
@@ -1913,9 +1842,6 @@ export default function ShifuSettingDialog({
       askConfigMeta?.default?.provider ||
       ASK_PROVIDER_LLM;
     const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
-    const askTemperatureForSubmit = normalizeAskTemperature(
-      Number(askTemperatureInput || askTemperature || 0),
-    );
 
     setAskPreviewLoading(true);
     try {
@@ -1927,7 +1853,7 @@ export default function ShifuSettingDialog({
           savedModelEditVersionRef.current.followUp
             ? { ask_model: askModelIndex || askModel }
             : {}),
-          ask_temperature: askTemperatureForSubmit,
+          ask_temperature: askTemperature,
           ask_system_prompt: '',
           ask_provider_config: {
             provider: askProviderForSubmit,
@@ -1977,14 +1903,12 @@ export default function ShifuSettingDialog({
     askPreviewLoading,
     askPreviewQuery,
     askTemperature,
-    askTemperatureInput,
     buildAskProviderConfigForSubmit,
     currentShifu?.readonly,
     shifuId,
     creditInsufficientAudience,
     debugAllowed,
     debugBlockedByCredits,
-    normalizeAskTemperature,
     resolvedAskProvider,
     t,
     toast,
@@ -2197,60 +2121,6 @@ export default function ShifuSettingDialog({
 
                 <FormField
                   control={form.control}
-                  name='temperature'
-                  render={({ field }) => (
-                    <FormItem className='space-y-2 mb-4'>
-                      <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.shifuTemperature')}
-                      </FormLabel>
-                      <p className='text-xs text-muted-foreground'>
-                        {t('module.shifuSetting.temperatureHint')}
-                        <br />
-                        {t('module.shifuSetting.temperatureHint2')}
-                      </p>
-                      <div className='flex items-center gap-2'>
-                        <FormControl className='flex-1'>
-                          <Input
-                            {...field}
-                            value={field.value}
-                            onChange={field.onChange}
-                            disabled={currentShifu?.readonly}
-                            type='text'
-                            inputMode='decimal'
-                            placeholder={t('module.shifuSetting.number')}
-                            className='h-9'
-                          />
-                        </FormControl>
-                        {currentShifu?.readonly ? null : (
-                          <div className='flex items-center gap-2'>
-                            <Button
-                              type='button'
-                              variant='outline'
-                              size='icon'
-                              onClick={() => adjustTemperature(-0.1)}
-                              className='h-9 w-9'
-                            >
-                              <Minus className='h-4 w-4' />
-                            </Button>
-                            <Button
-                              type='button'
-                              variant='outline'
-                              size='icon'
-                              onClick={() => adjustTemperature(0.1)}
-                              className='h-9 w-9'
-                            >
-                              <Plus className='h-4 w-4' />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name='systemPrompt'
                   render={({ field }) => (
                     <FormItem className='space-y-2 mb-4'>
@@ -2332,12 +2202,6 @@ export default function ShifuSettingDialog({
                     liveVoices={selectedFollowUpModel?.voices || []}
                     liveVoice={selectedLiveVoice}
                     onLiveVoiceChange={setLiveVoiceDraft}
-                    askTemperature={askTemperature}
-                    askTemperatureInput={askTemperatureInput}
-                    setAskTemperature={setAskTemperature}
-                    setAskTemperatureInput={setAskTemperatureInput}
-                    normalizeAskTemperature={normalizeAskTemperature}
-                    adjustAskTemperature={adjustAskTemperature}
                     onAskProviderChange={handleAskProviderChange}
                     askProviderFieldEntries={askProviderFieldEntries}
                     askProviderRequiredFields={askProviderRequiredFields}

@@ -23,7 +23,6 @@ const mockGetFollowUpModelCatalog = jest.fn();
 const mockGetCourseModelOptions = jest.fn();
 const mockAskSettingsSection = jest.fn();
 const mockMainModelSelector = jest.fn();
-const mockFormMethods = jest.fn();
 const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 const mockCurrentShifu = {
   bid: 'course-1',
@@ -128,17 +127,6 @@ jest.mock('next/link', () => ({
 }));
 
 jest.mock('@/components/model-list', () => () => null);
-jest.mock('@/components/ui/Form', () => {
-  const actual = jest.requireActual('@/components/ui/Form');
-  return {
-    ...actual,
-    Form: (props: Record<string, unknown>) => {
-      mockFormMethods(props);
-      const ActualForm = actual.Form;
-      return <ActualForm {...props} />;
-    },
-  };
-});
 jest.mock('@/components/model-list/CourseModelSelect', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
@@ -149,8 +137,7 @@ jest.mock('@/components/model-list/CourseModelSelect', () => ({
 jest.mock('@/components/shifu-setting/AskSettingsSection', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
-    mockAskSettingsSection(props);
-    return null;
+    return mockAskSettingsSection(props) ?? null;
   },
 }));
 jest.mock('@/components/ui/Sheet', () => ({
@@ -212,6 +199,7 @@ const renderOpenSettings = (onSave = jest.fn()) => {
 describe('ShifuSettingDialog analytics producer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAskSettingsSection.mockReset();
     mockTtsConfig.mockResolvedValue({ providers: [], model_options: [] });
     mockListMinimaxTtsVoices.mockResolvedValue({ voices: [] });
     mockCurrentShifu.readonly = false;
@@ -245,6 +233,76 @@ describe('ShifuSettingDialog analytics producer', () => {
       use_learner_language: true,
     });
   });
+
+  it.each([
+    { temperature: 0, askTemperature: 0 },
+    { temperature: 0.35, askTemperature: 0.75 },
+  ])(
+    'hides temperature controls and saves natively without overwriting saved $temperature/$askTemperature values',
+    async ({ temperature, askTemperature }) => {
+      const detail = await mockGetShifuDetail();
+      mockGetShifuDetail.mockResolvedValue({
+        ...detail,
+        temperature,
+        ask_temperature: askTemperature,
+      });
+      const ActualAskSettingsSection = jest.requireActual(
+        './AskSettingsSection',
+      ).default;
+      mockAskSettingsSection.mockImplementation(props => (
+        <ActualAskSettingsSection {...props} />
+      ));
+      try {
+        const { onSave } = renderOpenSettings();
+        const name = await screen.findByDisplayValue('Private course name');
+        expect(
+          screen.getByText('module.shifuSetting.askTitle'),
+        ).toBeInTheDocument();
+        expect(screen.queryByText(/temperature/i)).not.toBeInTheDocument();
+        expect(
+          name.closest('form')!.querySelector('input[name="temperature"]'),
+        ).not.toBeInTheDocument();
+
+        fireEvent.change(name, { target: { value: 'Updated course name' } });
+        fireEvent.submit(name.closest('form')!);
+
+        await waitFor(() =>
+          expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1),
+        );
+        const payload = mockSaveShifuDetail.mock.calls[0][0];
+        expect(payload.name).toBe('Updated course name');
+        expect(payload).not.toHaveProperty('temperature');
+        expect(payload).not.toHaveProperty('ask_temperature');
+        await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+        expect(
+          screen.queryByLabelText('close-settings'),
+        ).not.toBeInTheDocument();
+      } finally {
+        mockAskSettingsSection.mockImplementation(() => null);
+      }
+    },
+  );
+
+  it.each([0, 0.75])(
+    'previews with the unchanged saved follow-up temperature %s',
+    async askTemperature => {
+      const detail = await mockGetShifuDetail();
+      mockGetShifuDetail.mockResolvedValue({
+        ...detail,
+        ask_temperature: askTemperature,
+      });
+      renderOpenSettings();
+      await screen.findByDisplayValue('Private course name');
+      const latestProps = () => mockAskSettingsSection.mock.calls.at(-1)?.[0];
+      act(() => latestProps().setAskPreviewQuery('Preview question'));
+      await act(async () => latestProps().handleAskPreview());
+
+      expect(mockAskPreview).toHaveBeenCalledWith(
+        expect.objectContaining({ ask_temperature: askTemperature }),
+        expect.any(Object),
+      );
+    },
+  );
 
   it.each([false, true])(
     'emits the exact allowlist only after the settings API succeeds (catalog pending=%s)',
@@ -1448,14 +1506,6 @@ describe('ShifuSetting compatibility fallback and explicit selection', () => {
       fireEvent.click(screen.getByLabelText('close-settings'));
       return;
     }
-    // Supply the existing schema's required bounds so native submission
-    // reaches its success callback instead of passing cancellation tests
-    // merely because unrelated full-form validation failed.
-    act(() => {
-      const form = mockFormMethods.mock.calls.at(-1)?.[0];
-      form.setValue('temperature_min', 0);
-      form.setValue('temperature_max', 2);
-    });
     fireEvent.submit(
       screen.getByDisplayValue('Compatibility course').closest('form')!,
     );
