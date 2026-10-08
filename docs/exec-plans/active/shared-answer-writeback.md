@@ -30,8 +30,23 @@ separate work.
 - [x] 2026-10-08 05:43 UTC: Final full learning/profile suite including local
   MySQL: 2800 passed, 1 skipped, 4 subtests; 39 standard and 7 opt-in MySQL cases
   added. Developer tools, architecture and all repository gates passed.
-- [ ] 2026-10-08 05:32 UTC: Publish a focused non-draft PR, synchronize exact tree
-  to sim, verify replicas and real provider behavior, and reply to every AI opinion.
+- [x] 2026-10-08 05:53 UTC: Publish non-draft [PR #3042](https://github.com/ai-shifu/ai-shifu/pull/3042)
+  at runtime `73f1919d4`; synchronize exact source tree to sim `bc76ff805`.
+  Build 391 / [Drone #5182](https://ci.pillowai.cn/ai-shifu/ai-shifu/5182) and
+  API/web deployments 1908 / 1909 succeeded. API 2/2 and web 1/1 updated/Ready;
+  both API replicas match 135 isolated checks and 26 runtime/routing hashes.
+- [x] 2026-10-08 05:53 UTC: Actual Ark model completed authored shared collection,
+  exact source-only writeback, original history/answer preservation and source
+  memory controls in four requests (29,870 input / 383 output tokens; 19.2 seconds).
+  This isolated SQLite provider probe performed no shared-database writes.
+  Live sim HTTP regression passed reading, audio backfill (2.20 seconds), listening
+  completion and two anchored follow-ups (2.94 / 2.31 seconds), retaining earlier
+  learner answers and canonical profile. HTTP used a new temporary test learner.
+- [x] 2026-10-08 05:53 UTC: Audit reviews, inline and ordinary comments. Devin and
+  CodeRabbit report no code findings at the runtime head. Explicitly reply to the
+  independent docstring warning and optional generated-doc/test suggestions in
+  [the PR discussion](https://github.com/ai-shifu/ai-shifu/pull/3042#issuecomment-6053329271).
+  Keep repository test-docstring exemptions; public helper contracts are documented.
 - [ ] 2026-10-08 05:32 UTC: Final-head CI and sim acceptance before manual merge.
 
 ## Surprises & Discoveries
@@ -61,8 +76,12 @@ also be excluded from supplementary local-memory rows to prevent shadowing.
 
 Local validation passes for exact source writeback, authority/version changes,
 rollback, rewind/replay and preview. MySQL confirms fresh locking reads and
-concurrent writers, and negative mutations prove the key guards. Final developer tools, architecture and all repository gates passed. Publication
-and sim acceptance remain pending. No PR or deployment yet. This does not
+concurrent writers, and negative mutations prove the key guards. Final developer tools, architecture and all repository gates passed. PR #3042
+is open and non-draft; runtime sim deployment, both isolated replicas, actual
+provider writeback and live classroom regression pass. Every independent initial
+AI opinion has a linked disposition reply. Final documentation-head CI and its
+exact-tree sim synchronization remain pending and will be recorded in the PR
+acceptance discussion before handoff. Main merge remains manual. This does not
 complete cross-course model notes, owner-scoped storage or the memory milestone.
 
 ## Context and Orientation
