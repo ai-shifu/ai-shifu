@@ -1,6 +1,6 @@
 ---
 title: Explicit course memory in follow-up prompts
-status: active
+status: completed
 owner_surface: learner
 last_reviewed: 2026-10-08
 ---
@@ -34,14 +34,24 @@ The durable authorization contract remains
 - [x] 2026-10-08 01:01 UTC: Evaluate CodeRabbit's additional argument assertion
   suggestion and implement it in all six existing shared-context permutations.
   Production runtime code remains identical to the deployed sim revision.
-- [ ] 2026-10-08 01:01 UTC: Push the test-only review correction, reply to every
+- [x] 2026-10-08 01:01 UTC: Push the test-only review correction, reply to every
   independent AI opinion, synchronize sim and confirm final CI.
 - [x] 2026-10-08 01:02 UTC: PR 3035 passes final technical CI and was manually
   merged at 01:01:12 UTC as ba74b577e. Build 373 / Drone 5164 succeeds;
   production rollout verification is in progress.
-- [ ] 2026-10-08 01:02 UTC: Verify the production rollout and submit the pending
+- [x] 2026-10-08 01:02 UTC: Verify the production rollout and submit the pending
   test-only review correction as a separate PR; the user merged 3035 before
   that correction was pushed. Never merge main automatically.
+
+- [x] 2026-10-08 01:18 UTC: PR 3036 manually merged at 01:09:33 UTC as
+  250891ffb. Build 375 / Drone 5166 delivers the unchanged runtime. China API
+  6/6 and US API 2/2 ready; each region passes 34 isolated checks and all
+  14 runtime hashes match the accepted feature. Production remains 1.0.
+  Final sim ac2ebb462 had API 2/2 and web 1/1 ready, with both replicas
+  passing the same checks. All independent AI opinions were replied to.
+  PR 3036 focused tests pass 124 cases; removing forwarding fails all six
+  strengthened cases. Its applicable technical CI passes. Broader classroom
+  context now continues in `follow-up-classroom-history.md`.
 
 ## Surprises & Discoveries
 
@@ -64,19 +74,16 @@ authoritative and do not trigger a second memory read.
 
 ## Outcomes & Retrospective
 
-Implementation and focused regression pass. Disabling effective-prompt resolution
-makes five SQLite cases fail; disabling text Ask forwarding makes one contract
-case fail. The corrected files are restored. Broader learning/profile regression passes 2,597 tests (one skipped, four
-subtests). Initial sim acceptance passes, including the real text Ask entry point and HTTP
-follow-up. Devin reports no issues. CodeRabbit suggests asserting the exact
-raw prompt at a mocked call site; that test-only correction is implemented.
-Its independent docstring-percentage warning follows the repository test
-exemptions. PR 3035 passed final technical CI and was manually merged as ba74b577e before
-that test-only correction was pushed. Production verification and a separate
-review-test PR now finish the outstanding work. Removing prompt propagation
-makes all six strengthened shared-context cases fail; the production code is
-restored and remains identical to the accepted feature. This increment does not complete the
-entire follow-up or memory milestone.
+PRs 3035 and 3036 are manually merged and verified in sim and production.
+The feature passes 2,597 learning/profile tests (one skipped, four subtests);
+the review supplement passes 124 focused cases. Deliberate mutations fail the
+five SQLite authorization cases, one text Ask contract and all six strengthened
+shared-context assertions. The accepted runtime is identical across the two PRs.
+Both sim replicas and one production pod per region pass 34 isolated checks and
+14 runtime hashes. Actual guest read, audio backfill, listen and text follow-up
+pass with canonical profile unchanged. All independent AI opinions have replies.
+This closes explicit follow-up memory reads; shared writes, recall, compression
+and complete conversation-context acceptance remain separately tracked.
 
 ## Context and Orientation
 

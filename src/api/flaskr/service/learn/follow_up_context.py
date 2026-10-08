@@ -214,6 +214,61 @@ def build_follow_up_element_history(
     return None
 
 
+def load_prior_classroom_history(
+    anchor_element: object,
+    *,
+    progress_record_bid: str,
+    max_history_messages: int,
+    generated_block_model: object,
+) -> list[dict[str, str]]:
+    """Read active teaching and learner answers strictly before the selected turn."""
+    if max_history_messages <= 0 or not anchor_element.generated_block_bid:
+        return []
+    block_model = generated_block_model
+    scope = [
+        block_model.progress_record_bid == progress_record_bid,
+        block_model.user_bid == anchor_element.user_bid,
+        block_model.shifu_bid == anchor_element.shifu_bid,
+        block_model.outline_item_bid == anchor_element.outline_item_bid,
+        block_model.deleted == 0,
+        block_model.status == 1,
+    ]
+    anchor_block = (
+        block_model.query.filter(
+            *scope,
+            block_model.generated_block_bid == anchor_element.generated_block_bid,
+        )
+        .order_by(block_model.id.desc())
+        .first()
+    )
+    if anchor_block is None:
+        return []
+    # Use the selected element for this turn: its block can also contain text
+    # after the anchor, which is outside this follow-up's classroom context.
+    rows = (
+        block_model.query.filter(
+            *scope,
+            block_model.id < anchor_block.id,
+            block_model.type.in_(
+                [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
+            ),
+            block_model.generated_content != "",
+        )
+        .order_by(block_model.id.desc())
+        .limit(max_history_messages)
+        .all()
+    )
+    return [
+        {
+            "role": "user"
+            if row.type == BLOCK_TYPE_MDINTERACTION_VALUE
+            else "assistant",
+            "content": str(row.generated_content),
+        }
+        for row in reversed(rows)
+    ]
+
+
 def load_follow_up_history(
     *,
     progress_record_bid: str,
@@ -223,7 +278,7 @@ def load_follow_up_history(
     element_rows_loader: Callable[[str, str], list[object]] | None = None,
     generated_block_model: object | None = None,
 ) -> list[dict[str, str]]:
-    """Load anchor plus recent ASK/ANSWER history using the canonical order."""
+    """Load prior classroom turns, the selected anchor and its recent sidecar."""
     history_limit = max(0, int(max_history_messages))
     load_latest = latest_element_loader or _load_latest_active_element_row
     load_element_rows = element_rows_loader or find_follow_up_element_rows
@@ -233,6 +288,8 @@ def load_follow_up_history(
     if anchor_element_bid:
         anchor_element = load_latest(anchor_element_bid)
         if anchor_element is not None:
+            if anchor_element.progress_record_bid != progress_record_bid:
+                return []
             follow_up_elements = list(
                 load_element_rows(
                     progress_record_bid,
@@ -245,8 +302,22 @@ def load_follow_up_history(
         follow_up_elements,
         history_limit,
     )
-    if element_history is not None:
-        return element_history
+    if anchor_element is not None:
+        anchor_content = str(anchor_element.content_text or "")
+        if element_history is None:
+            element_history = (
+                [{"role": "assistant", "content": anchor_content}]
+                if anchor_content
+                else []
+            )
+        sidecar_count = len(element_history) - bool(anchor_content)
+        prior_history = load_prior_classroom_history(
+            anchor_element,
+            progress_record_bid=progress_record_bid,
+            max_history_messages=max(0, history_limit - sidecar_count),
+            generated_block_model=block_model,
+        )
+        return [*prior_history, *element_history]
 
     rows: list[LearnGeneratedBlock] = (
         block_model.query.filter(
