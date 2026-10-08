@@ -9,11 +9,23 @@ with exact original evidence still available through `read_teaching`.
 ## Progress
 
 - [x] 2026-10-08 18:08 CST: Inspected projection, gateway, persistence and rewind.
-- [x] 2026-10-08 18:17 CST: Implemented bounded generation, session cache and fallback.
-- [x] 2026-10-08 18:22 CST: 79 focused, 443 engine, 2,757 learning/profile tests (one skip, four subtests) and repository gates passed; durable cache roundtrip also verified.
-- [ ] 2026-10-08 18:08 CST: Open a focused PR and verify its sim deployment.
+- [x] 2026-10-08 18:12 CST: Implemented bounded generation, session cache and fallback.
+- [x] 2026-10-08 18:13 CST: 79 focused, 443 engine, 2,757 learning/profile tests (one skip, four subtests) and repository gates passed; durable cache roundtrip also verified.
+- [x] 2026-10-08 18:14 CST: Opened PR #3049 and deployed sim build 404 / Drone 5195.
+- [x] 2026-10-08 18:18 CST: Real sim course-model summary and continuation passed;
+  reload made no extra request, exact reads and rewind cleanup passed.
+- [x] 2026-10-08 18:20 CST: Added shared accounting/deadline corrections for three
+  AI findings; 385 gateway/LLM regressions passed including seven accounting paths.
+- [x] 2026-10-08 18:22 CST: Shared LLM, model gateway, metering, learning/profile
+  regressions passed: 3,211 tests, one skip, four subtests; all repository gates passed.
+- [ ] 2026-10-08 18:22 CST: Push reviewed fixes, reply to each original thread,
+  and repeat final sim acceptance after broader shared-gateway validation.
 
 ## Surprises & Discoveries
+
+- Review identified that early gateway closure skipped usage finalization and
+  immediate connection retries skipped cancellation checks. Both paths require
+  shared-gateway fixes and real accounting regressions before acceptance.
 
 - The existing deterministic projection preserves message counts and tool pairs;
   checkpoints depend on that invariant. Semantic summaries must decorate the
@@ -43,7 +55,8 @@ with exact original evidence still available through `read_teaching`.
 
 ## Outcomes & Retrospective
 
-Pending implementation and sim acceptance. Full memory quality/cost observations
+The semantic path passed its first sim acceptance. Final shared gateway fixes,
+AI replies and redeployment are pending. Full memory quality/cost observations
 and human course feedback remain separate milestone work.
 
 ## Context and Orientation

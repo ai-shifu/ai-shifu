@@ -363,12 +363,20 @@ class GatewayModel(Model):
         if deadline is None:
             return chunks
 
+        def check_active() -> None:
+            if retry_cancelled():
+                raise asyncio.CancelledError
+
         def bounded_chunks() -> Generator[LLMStreamResponse, None, None]:
             try:
                 for chunk in chunks:
-                    if retry_cancelled():
-                        raise asyncio.CancelledError
+                    check_active()
                     yield chunk
+                check_active()
+            except (TimeoutError, asyncio.CancelledError) as exc:
+                # Finalize the shared gateway with the actual stop reason and partial usage.
+                chunks.throw(exc)
+                raise
             finally:
                 chunks.close()
 

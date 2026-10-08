@@ -73,7 +73,11 @@ Summary requests use an eight-second provider socket timeout and a cooperative
 retry/stream deadline, with SDK retries disabled. Existing shared transport retries
 remain subject to the deadline. A blocked synchronous read cannot be preempted;
 the socket timeout bounds that read, and elapsed time is checked between chunks
-and during retry waits. Summary errors and invalid responses fall back to excerpts;
+and during retry waits, before each connection attempt, and at stream exhaustion.
+Early closure, timeout and cancellation finalize the shared chat usage record and
+trace with failure status, preserving any provider usage already received. Missing
+provider usage is marked missing, never guessed. Provider iterators are closed.
+Summary errors and invalid responses fall back to excerpts;
 learner disconnect cancellation propagates. This is not a hard wall-clock SLA.
 
 ## Exact original reads
