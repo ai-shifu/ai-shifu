@@ -7,11 +7,11 @@ from flask import Flask
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common import raise_error
 from flaskr.service.learn.retake_ledger import (
-    configure_policy,
+    ensure_default_policy,
     get_allowance,
     reserve_attempt,
 )
-from flaskr.service.learn.retake_models import CourseRetakePolicy, LessonRetakeRun
+from flaskr.service.learn.retake_models import LessonRetakeRun
 from flaskr.service.learn.retake_policy import RetakeRuleError, RetakeState
 from flaskr.service.learn.retake_recovery import stage_reset_records
 from flaskr.service.learn.retake_rollout import retake_namespace
@@ -33,31 +33,15 @@ def raise_retake_error(error: RetakeRuleError) -> Never:
 
 
 def read_policy(app: Flask, shifu_bid: str) -> dict:
-    """Return rollout availability separately from the teacher's setting."""
-    namespace = retake_namespace(shifu_bid)
-    if namespace is None:
-        return {"available": False, "configured": False, "limit": None}
-    with app_context_scope(app), unit_of_work():
-        row = CourseRetakePolicy.query.filter_by(
-            namespace=namespace, shifu_bid=shifu_bid
-        ).first()
-        return {
-            "available": True,
-            "configured": row is not None,
-            "limit": row.lesson_limit if row else None,
-        }
+    """Compatibility response: teacher configuration is no longer available."""
+    _ = (app, shifu_bid)  # Preserve the retired route contract for old clients.
+    return {"available": False, "configured": False, "limit": None}
 
 
 def update_policy(app: Flask, shifu_bid: str, limit: object) -> dict:
-    """Apply a live per-lesson allowance without republishing or clearing usage."""
-    namespace = retake_namespace(shifu_bid)
-    if namespace is None:
-        raise_error("server.learn.retakeUnavailable")
-    try:
-        configure_policy(app, namespace=namespace, shifu_bid=shifu_bid, limit=limit)
-    except RetakeRuleError as exc:
-        raise_retake_error(exc)
-    return read_policy(app, shifu_bid)
+    """Reject old clients instead of accepting an ineffective teacher setting."""
+    _ = (app, shifu_bid, limit)  # Old settings must not override the platform rule.
+    raise_error("server.learn.retakeUnavailable")
 
 
 def read_status(
@@ -72,16 +56,13 @@ def read_status(
     namespace = None if preview_mode else retake_namespace(shifu_bid)
     result = {
         "available": False,
-        "limit": None,
-        "used": 0,
-        "reserved": 0,
-        "remaining": None,
         "allowed": True,
         "in_progress": False,
     }
     if namespace is None:
         return result
     with app_context_scope(app), unit_of_work():
+        ensure_default_policy(app, namespace=namespace, shifu_bid=shifu_bid)
         balance = get_allowance(
             app,
             namespace=namespace,
@@ -103,10 +84,6 @@ def read_status(
         )
         return {
             "available": True,
-            "limit": balance.limit,
-            "used": balance.used,
-            "reserved": balance.reserved,
-            "remaining": balance.remaining,
             "allowed": balance.allowed and not busy and not balance.reserved,
             "in_progress": busy or bool(balance.reserved),
         }
@@ -125,13 +102,7 @@ def try_limited_reset(
     if namespace is None:
         return False
     with app_context_scope(app), unit_of_work():
-        policy = (
-            CourseRetakePolicy.query.filter_by(namespace=namespace, shifu_bid=shifu_bid)
-            .with_for_update()
-            .first()
-        )
-        if policy is None:
-            return False
+        ensure_default_policy(app, namespace=namespace, shifu_bid=shifu_bid)
         try:
             _, state = reserve_attempt(
                 app,

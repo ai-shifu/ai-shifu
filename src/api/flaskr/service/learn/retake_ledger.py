@@ -23,6 +23,7 @@ from flaskr.service.learn.retake_models import (
     LessonRetakeRun,
 )
 from flaskr.service.learn.retake_policy import (
+    DEFAULT_RETAKE_LIMIT,
     RetakeAllowance,
     RetakeRuleError,
     RetakeState,
@@ -32,6 +33,7 @@ from flaskr.service.learn.retake_policy import (
 )
 from flaskr.util.datetime import now_utc
 from sqlalchemy import func
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
@@ -88,6 +90,35 @@ def configure_policy(
             else:
                 return
         row.lesson_limit = limit
+
+
+def ensure_default_policy(app: Flask, *, namespace: str, shifu_bid: str) -> None:
+    """Reuse the course lock and history, replacing legacy settings with ten.
+
+    Concurrent first activation uses an atomic MySQL upsert before row locking.
+    The internal configurable primitive is retained for rollback and testing;
+    every public admission path initializes the fixed platform rule first.
+    """
+    _validate_identity((namespace, 32), (shifu_bid, 36))
+    with app_context_scope(app), unit_of_work():
+        if db.engine.dialect.name == "mysql":
+            # Insert before a missing-row SELECT lock: two first learners would
+            # otherwise both hold gap locks and deadlock while inserting.
+            statement = mysql_insert(CourseRetakePolicy).values(
+                namespace=namespace,
+                shifu_bid=shifu_bid,
+                lesson_limit=DEFAULT_RETAKE_LIMIT,
+            )
+            db.session.execute(
+                statement.on_duplicate_key_update(lesson_limit=DEFAULT_RETAKE_LIMIT)
+            )
+        else:
+            configure_policy(
+                app,
+                namespace=namespace,
+                shifu_bid=shifu_bid,
+                limit=DEFAULT_RETAKE_LIMIT,
+            )
 
 
 def _attempts(namespace: str, shifu_bid: str, user_bid: str, outline_bid: str):  # noqa: ANN202 - SQLAlchemy legacy Query

@@ -1,4 +1,4 @@
-import { getRetakePolicy, getRetakeStatus, setRetakePolicy } from './retake';
+import { getRetakeStatus } from './retake';
 
 jest.mock('@/lib/envUtils', () => ({ getStringEnv: () => '' }));
 jest.mock('@/store', () => ({
@@ -32,10 +32,6 @@ it.each([true, false])(
   async available => {
     const status = {
       available,
-      limit: 2,
-      used: 1,
-      reserved: 0,
-      remaining: 1,
       allowed: true,
       in_progress: false,
     };
@@ -43,20 +39,6 @@ it.each([true, false])(
     await expect(getRetakeStatus('course', 'lesson')).resolves.toEqual(status);
   },
 );
-
-it('reads and saves teacher policy through the real request envelope', async () => {
-  const policy = { available: true, configured: true, limit: 3 };
-  respond(policy);
-  await expect(getRetakePolicy('course')).resolves.toEqual(policy);
-  await expect(setRetakePolicy('course', 3)).resolves.toEqual(policy);
-  expect(global.fetch).toHaveBeenLastCalledWith(
-    'https://example.test/api/learn/shifu/course/retake-policy',
-    expect.objectContaining({
-      method: 'PUT',
-      body: JSON.stringify({ limit: 3 }),
-    }),
-  );
-});
 
 it('still rejects real business errors instead of treating them as unlimited', async () => {
   respond({}, 4026);

@@ -8,6 +8,8 @@ This module deliberately has no model, billing, UI or deployment side effects.
 from dataclasses import dataclass
 from enum import StrEnum
 
+DEFAULT_RETAKE_LIMIT = 10
+
 
 class RetakeState(StrEnum):
     """Durable states of one learner-initiated retake."""

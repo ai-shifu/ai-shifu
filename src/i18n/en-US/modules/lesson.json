@@ -7,20 +7,8 @@
   },
   "retake": {
     "busy": "This lesson is still generating or recovering. Try again later.",
-    "currentLimit": "Current limit: {count} extra retakes per learner per lesson.",
-    "exhausted": "No retakes remain for this lesson. You can continue studying, review existing content or ask questions.",
-    "invalid": "Enter an integer from 0 to 2147483647, or leave blank.",
-    "last": "1 retake remains for this lesson. This is the last one; to revise, consider reviewing existing content.",
-    "loadFailed": "Could not check your allowance. Close and try again.",
-    "loading": "Checking this lesson’s retakes…",
-    "notConfigured": "Not configured; retakes are unlimited. Counting starts after saving; earlier retakes are not deducted.",
-    "policyLoadFailed": "Could not load retake settings. Close course settings and try again.",
-    "remaining": "{count} retakes remain for this lesson. First study, continuation and review do not use retakes.",
-    "save": "Save retake settings",
-    "saved": "Applied. Existing usage is preserved.",
-    "settingHelp": "Each learner has a separate allowance for each lesson; first study is excluded. Leave blank for unlimited, or use 0 for no extra retakes. Saving applies immediately to all learners and preserves usage.",
-    "settingTitle": "Retakes per lesson",
-    "unlimited": "Unlimited",
+    "exhausted": "No retakes remain for this lesson. You can still continue studying, review existing content, or ask questions.",
+    "loadFailed": "Retaking is temporarily unavailable. Close this dialog and try again.",
     "useChapter": "Retakes are managed for this course. To regenerate or change a submitted answer, use this lesson’s Reset action. Existing content remains available."
   },
   "tooltip": {

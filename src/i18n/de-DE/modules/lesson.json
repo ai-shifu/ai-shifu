@@ -7,20 +7,8 @@
   },
   "retake": {
     "busy": "Die Lektion wird noch generiert oder wiederhergestellt. Bitte später erneut versuchen.",
-    "currentLimit": "Aktuelles Limit: {count} zusätzliche Wiederholungen pro Lernendem und Lektion.",
-    "exhausted": "Keine Wiederholungen übrig. Weiterlernen, vorhandene Inhalte ansehen und Fragen stellen bleibt möglich.",
-    "invalid": "Ganze Zahl von 0 bis 2147483647 eingeben oder leer lassen.",
-    "last": "Noch 1 Wiederholung. Zum Auffrischen können Sie vorhandene Inhalte ansehen.",
-    "loadFailed": "Kontingent konnte nicht geprüft werden. Schließen und erneut versuchen.",
-    "loading": "Wiederholungen werden geprüft…",
-    "notConfigured": "Nicht konfiguriert; unbegrenzte Wiederholungen. Die Zählung beginnt nach dem Speichern; frühere Wiederholungen werden nicht abgezogen.",
-    "policyLoadFailed": "Die Wiederholungseinstellungen konnten nicht geladen werden. Schließen Sie die Kurseinstellungen und versuchen Sie es erneut.",
-    "remaining": "Noch {count} Wiederholungen für diese Lektion. Erstes Lernen, Fortsetzen und Nachlesen zählen nicht.",
-    "save": "Wiederholungen speichern",
-    "saved": "Übernommen. Bisherige Nutzung bleibt erhalten.",
-    "settingHelp": "Eigenes Kontingent pro Person und Lektion, ohne erstes Lernen. Leer bedeutet unbegrenzt, 0 keine zusätzlichen Wiederholungen. Speichern gilt sofort für alle; bisherige Nutzung bleibt erhalten.",
-    "settingTitle": "Wiederholungen pro Lektion",
-    "unlimited": "Unbegrenzt",
+    "exhausted": "Für diese Lektion sind keine Wiederholungen mehr verfügbar. Du kannst weiterlernen, vorhandene Inhalte ansehen oder Fragen stellen.",
+    "loadFailed": "Die Wiederholung ist vorübergehend nicht verfügbar. Schließe dieses Fenster und versuche es erneut.",
     "useChapter": "Für diesen Kurs gelten Wiederholungsregeln. Zum Neugenerieren oder Ändern einer gesendeten Antwort starten Sie die Lektion erneut. Vorhandene Inhalte bleiben verfügbar."
   },
   "tooltip": {

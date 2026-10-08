@@ -31,7 +31,7 @@ export function useRetakeAllowance(
         if (status.available) {
           try {
             void Promise.resolve(
-              trackRef.current('learner_retake_allowance_viewed', {
+              trackRef.current('learner_retake_admission_checked', {
                 shifu_bid: courseId,
                 outline_bid: lessonId,
                 entry,
@@ -40,9 +40,6 @@ export function useRetakeAllowance(
                   : status.allowed
                     ? 'available'
                     : 'exhausted',
-                used: status.used,
-                reserved: status.reserved,
-                remaining: status.remaining ?? -1,
               }),
             ).catch(() => {});
           } catch {}

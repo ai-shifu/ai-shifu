@@ -3,30 +3,49 @@ import { RetakeAllowanceMessage } from './RetakeAllowanceMessage';
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-it.each([
-  [1, true, false, 'last'],
-  [0, false, false, 'exhausted'],
-  [2, false, true, 'busy'],
-  [3, true, false, 'remaining'],
-])(
-  'shows the correct limit state for %s opportunities',
-  (remaining, allowed, in_progress, message) => {
+it.each([1, 2, 10])(
+  'hides available allowance even with %s remaining',
+  remaining => {
     render(
       <RetakeAllowanceMessage
         loading={false}
         status={{
           available: true,
-          limit: 3,
-          used: 3 - Number(remaining),
-          reserved: 0,
-          remaining: Number(remaining),
-          allowed: Boolean(allowed),
-          in_progress: Boolean(in_progress),
+          allowed: true,
+          in_progress: false,
+          remaining,
         }}
       />,
     );
-    expect(screen.getByRole('status').textContent).toBe(
-      `module.lesson.retake.${message}`,
-    );
+    expect(screen.queryByRole('status')).toBeNull();
   },
 );
+it('shows no quota query reminder while loading', () => {
+  render(<RetakeAllowanceMessage loading />);
+  expect(screen.queryByRole('status')).toBeNull();
+});
+it.each([
+  [false, false, 'exhausted'],
+  [false, true, 'busy'],
+])('shows actionable blocked state', (allowed, in_progress, message) => {
+  render(
+    <RetakeAllowanceMessage
+      loading={false}
+      status={{ available: true, allowed, in_progress }}
+    />,
+  );
+  expect(screen.getByRole('status').textContent).toBe(
+    `module.lesson.retake.${message}`,
+  );
+});
+it('shows retry guidance on failure', () => {
+  render(
+    <RetakeAllowanceMessage
+      loading={false}
+      failed
+    />,
+  );
+  expect(screen.getByRole('status').textContent).toBe(
+    'module.lesson.retake.loadFailed',
+  );
+});

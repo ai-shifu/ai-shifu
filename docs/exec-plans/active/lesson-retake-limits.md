@@ -2,7 +2,20 @@
 
 ## Purpose / Big Picture
 
-Deliver a real, reusable per-learner, per-lesson retake capability, initially enabled only for explicitly selected test courses. Teachers configure one limit for every lesson, learners see remaining opportunities, and the server owns enforcement. No production deployment is authorized by this task.
+Deliver a real, reusable per-learner, per-lesson retake capability, now enabled across dev02 courses only. The current approved rule is ten extra retakes per learner per lesson across enabled deployments, with no teacher control or learner balance display. The server owns enforcement. Earlier teacher-configurable decisions below are historical and superseded by the October 8 task list. No production deployment is authorized by this task.
+
+## October 8 approved replacement task list
+
+- [x] 2026-10-08 Asia/Shanghai: G1 Record fixed ten, hidden quota and rollout scope.
+- [x] 2026-10-08 Asia/Shanghai: G2 Auto-initialize policy/lock for every dev02 course; ignore old teacher limits, preserve usage and failure recovery.
+- [x] 2026-10-08 Asia/Shanghai: G3 Remove teacher control and all normal/last-attempt learner quota reminders; retain reset confirmation, blocked and retry guidance.
+- [x] 2026-10-08 Asia/Shanghai: G4 Regression: ten accepted/eleventh blocked, lesson isolation, legacy settings/history, auto-init, preview, concurrency and analytics.
+- [ ] 2026-10-08 Asia/Shanghai: G5 Commit/push dev02, verify build, deployment and environment activation separately.
+- [ ] 2026-10-08 Asia/Shanghai: G6 Browser acceptance and user testing guide with actual starting usage disclosed.
+
+Current contract: first study, continuation, review and Ask do not count. Confirmed reset reserves; first durable teaching charges, empty failure restores/releases. Successful text with later TTS failure still charges. No automatic expiry or course-update replenishment. Existing ledger counts are retained; historically uncounted resets are not backfilled. Old limits (including unlimited/zero/two) become ten. Teacher GET is deprecated/unavailable and PUT rejected, preventing old clients from changing the fixed rule. Learner status returns decisions only, no counts. Deployment-local namespace is mandatory; an explicit global flag activates every course only in dev02. No production/SIM authorization. No schema migration or history deletion. Rollback clears the global flag and restores the previous image and test-course allowlist; ledger remains intact.
+
+Analytics v2 is defined in frontend-product-analytics.md. Billing reports and server ledger, not Umami, determine anomalous consumption. Test-course previous usage is two, leaving eight internally; do not reset real history for a demonstration.
 
 ## Progress
 
@@ -16,8 +29,9 @@ Deliver a real, reusable per-learner, per-lesson retake capability, initially en
 - [x] 2026-10-03 20:19 Asia/Shanghai: T3: Permissioned policy/status/reset HTTP contracts, localized errors and all-entry request identities implemented; HTTP regression passes.
 - [x] 2026-10-03 20:19 Asia/Shanghai: T4: Owner-only live setting in existing course settings; null/zero/positive limits, validation and save feedback implemented.
 - [x] 2026-10-03 20:19 Asia/Shanghai: T5: Shared balance hook/message on catalog and course-update entry points; loading, failure, last-attempt, exhausted and busy states implemented.
-- [ ] 2026-10-03 Asia/Shanghai: T6: Focused regression tests, analytics contract, migrations and repository gates.
-- [ ] 2026-10-03 Asia/Shanghai: T7: Integrate dev02, verify independent deployment and perform browser plus database acceptance on selected test course.
+- [x] 2026-10-07 Asia/Shanghai: T6: Focused regression tests, analytics contract, migrations and repository gates; live writer regressions included.
+- [x] 2026-10-07 Asia/Shanghai: T7 core: dev02 deployment, test schema, teacher settings, two real charged retakes, exhaustion, lesson isolation and dynamic allowance verified.
+- [ ] T7 extended: live TTS/failure-injection acceptance and separate diagnosis of the pre-existing Celery beat restart loop.
 
 ## Surprises & Discoveries
 
@@ -37,7 +51,7 @@ Deliver a real, reusable per-learner, per-lesson retake capability, initially en
 
 ## Outcomes & Retrospective
 
-Reusable implementation is complete locally: the ledger, producer guards, failure restoration, permissioned policy/status/reset APIs, teacher settings and learner prompts are integrated. Final validation: 323 backend tests and 180 frontend tests passed; full pre-commit gates passed. Full TypeScript checking still reports the same four errors reproduced on unchanged dev02 using the installed dependencies. Local MySQL concurrency and first-study reopen/continuation checks now pass (see the later checkpoint). Runtime deployment and browser acceptance remain open. The independent test course learner page was accessible on 2026-10-05, but no finite allowance or teacher setting was visible. Deployment activation and counted retakes remain unverified; this is not yet a team-experience release.
+The reusable core is deployed and available for team trials on the explicitly allowlisted dev02 test course. Runtime tag 20261007-97418a6 includes both live-discovered writer compatibility fixes. Three additive migrations are installed in the verified test database. Teacher settings persist at 2; real browser acceptance proved 2 -> 1 -> 0, exhaustion, another lesson retaining 2, a temporary limit increase preserving usage, and continued learning through the next-lesson button after exhaustion. No production or source-course changes. Extended live TTS/failure-injection acceptance remains open; this test course has listen mode disabled. The pre-existing Celery beat restart loop remains separate from the demonstrated core flow. Prior full TypeScript checks still have four documented baseline errors, not a clean full pass.
 
 ## Context and Orientation
 
@@ -214,7 +228,7 @@ Keep `LESSON_RETAKE_SHIFU_BIDS` empty during the code rollout. Install all three
 - [x] Verify no allowance before configuration, first save at 2, consumption, per-lesson independence and later increases/reductions preserving usage.
 - [x] Run checks and push only this work to dev02 (55aeb1d3188e0df19a3302ce3846901c81ad0b09).
 - [x] 2026-10-06: Obtain CICD access, verify runtime/schema, install the three additive test-database migrations and merge the exact dev02 namespace/course allowlist. Runtime activation and UI acceptance follow separately.
-- [ ] In the test environment save 2 as teacher, verify learner confirmation, a real charged retake, exhaustion and adjustment. Do not mark delivery complete until this path works.
+- [x] 2026-10-07: Saved 2 through teacher UI; verified real charges 2 -> 1 -> 0, exhausted admission, second-lesson isolation and adjustment preserving usage.
 
 No new schema or counter reset is planned. Existing deployment isolation remains; environment configuration is a platform responsibility, never a teacher task. Keep source course and production untouched. Roll back UI-only additions by reverting this focused commit; preserve existing ledger and running producers.
 
@@ -247,3 +261,23 @@ No new schema or counter reset is planned. Existing deployment isolation remains
 - A read-only aggregate diagnostic for this test course (record 1605) proved one released attempt, no active producer, and persisted role=0/type=311 teaching rows. It did not print learning content or learner identifiers. The temporary worker pre_script was restored to empty afterward.
 - Corrected the earlier engine-only diagnosis: the legacy MDF init_generated_block factory also leaves teaching role unset. RunRecorder therefore skipped settlement and the producer treated the delivered turn as empty. The recorder now normalizes only type=311, empty-source-block, unset-role teaching before committing it and its retake charge in the same transaction. Student/error rows remain excluded. The historical reader compatibility covers both generation paths.
 - Added two real legacy-factory regressions (staged/unflushed and preflushed); both failed before the fix. No learner counters were manually rewritten. The incorrectly released trial remains evidence of the bug; the next two successful retakes must charge normally before declaring acceptance.
+
+
+### 2026-10-07 00:07 Asia/Shanghai — core experience acceptance
+
+- Commit 97418a6a88f2d754f81a996c1973a69c8e9d3df3 was pushed and remotely verified on dev02. The automatic push did not initially create a build receipt; manually triggered Drone 5113 for the verified branch. CICD build 322 / image tag 20261007-97418a6 succeeded. All deployment records 1606-1609 succeeded and all four services report that image.
+- 127 focused tests and the complete repository pre-commit gate passed for the final accounting correction. Both transient diagnostic/migration pre_scripts were restored to their original empty values.
+- Real owner UI saved 2 and retained it after reload. Changed 2 -> 3 -> 2 once before consumption to verify settings propagate.
+- Real learner account on this test course performed two successful new retakes of lesson 49627b510d2d4147b691b77d8bb6fd13. Balance moved 2 -> 1 -> 0; the last-attempt message appeared; the exhausted confirmation disabled its submit button. Lesson 1ed48134e959487986ab5d012ecb85a1 still showed 2.
+- After two charges, changing the teacher limit to 3 exposed exactly 1 remaining opportunity on the first lesson. Restored the teacher limit to 2; historical usage was retained.
+- With no retakes left, selected the existing learning interaction, received further teaching, and reached the next-lesson button. Reopening reset still showed exhaustion. Thus the limit did not block completion of the current learning round.
+- Test state intentionally retained: this browser learner's first lesson has used 2; the second lesson has 2 remaining. No manual counter reset was used. Screenshots: /private/tmp/retake-teacher-enabled.png, /private/tmp/retake-last-chance.png, /private/tmp/retake-exhausted.png. Teacher and learner browser tabs are retained as deliverables.
+- Limits of evidence: live acceptance used reading mode; listen mode was disabled in the test course, so TTS and real provider-failure recovery are not claimed verified. Celery beat continues restarting (3 restarts observed after the final image), while API, worker and web reported zero restarts. Handle that infrastructure issue separately rather than masking it in retake changes.
+
+### October 8 verification before deployment
+
+- Fixed-ten backend regression: 121 passed. Frontend regression: 183 passed (including both reset entrances, learning logic and teacher settings).
+- Real loopback MySQL: six concurrency tests passed, including two learners activating an unconfigured course at once. Combined MySQL/ledger/recovery run: 64 passed. Applied only the existing migrations to disposable random schemas; no business DB writes.
+- First activation now uses MySQL INSERT ON DUPLICATE KEY UPDATE before any missing-row lock, avoiding concurrent gap-lock insert deadlocks. Existing policy row serializes later admission; counters are not cleared.
+- Full TypeScript check reproduced only the same four baseline errors in operations-users tests and markdown-flow-locale; no new errors. Complete repository gate passed before final MySQL amendment and is rerun before commit.
+- Added only LESSON_RETAKE_GLOBAL_ENABLED=true to the dev02 environment group using merge. Original values and secrets remain; actual activation requires new containers. Production/SIM untouched.

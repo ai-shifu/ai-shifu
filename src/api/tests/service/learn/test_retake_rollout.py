@@ -29,3 +29,20 @@ def test_deployment_and_explicit_course_are_both_required(
         retake_rollout, "get_config", lambda key, default=None: values.get(key, default)
     )
     assert retake_rollout.retake_namespace("course") == expected
+
+
+@pytest.mark.parametrize("enabled", [True, "true"])
+def test_global_rollout_requires_namespace_and_enables_every_course(
+    monkeypatch: pytest.MonkeyPatch, enabled: bool | str
+) -> None:
+    values = {
+        "LESSON_RETAKE_NAMESPACE": "dev02",
+        "LESSON_RETAKE_GLOBAL_ENABLED": enabled,
+    }
+    monkeypatch.setattr(
+        retake_rollout, "get_config", lambda key, default=None: values.get(key, default)
+    )
+    assert retake_rollout.retake_namespace("any-course") == "dev02"
+    assert retake_rollout.retake_namespace("") is None
+    values["LESSON_RETAKE_NAMESPACE"] = ""
+    assert retake_rollout.retake_namespace("any-course") is None

@@ -13,6 +13,9 @@ def retake_namespace(shifu_bid: str) -> str | None:
         or len(namespace.strip()) > 32
     ):
         return None
+    global_enabled = get_config("LESSON_RETAKE_GLOBAL_ENABLED", default=False)
+    if global_enabled is True or global_enabled == "true":
+        return namespace.strip() if shifu_bid else None
     if isinstance(raw_courses, str):
         courses = raw_courses.split(",")
     elif isinstance(raw_courses, list):

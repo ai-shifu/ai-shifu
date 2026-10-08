@@ -14,9 +14,12 @@ from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, require_transaction_owner, unit_of_work
-from flaskr.service.learn.retake_ledger import _lock_policy, finish_attempt
+from flaskr.service.learn.retake_ledger import (
+    _lock_policy,
+    ensure_default_policy,
+    finish_attempt,
+)
 from flaskr.service.learn.retake_models import (
-    CourseRetakePolicy,
     LessonRetakeAttempt,
     LessonRetakeRun,
 )
@@ -81,13 +84,8 @@ def acquire_lesson_run(
         "outline_bid": outline_bid,
     }
     with app_context_scope(app), unit_of_work():
-        policy = (
-            CourseRetakePolicy.query.filter_by(namespace=namespace, shifu_bid=shifu_bid)
-            .with_for_update()
-            .first()
-        )
-        if policy is None:
-            return None
+        ensure_default_policy(app, namespace=namespace, shifu_bid=shifu_bid)
+        _lock_policy(namespace, shifu_bid)
         row = (
             LessonRetakeRun.query.filter_by(**scope)
             .with_for_update()

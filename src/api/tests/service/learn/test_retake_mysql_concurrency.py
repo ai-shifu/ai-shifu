@@ -21,9 +21,11 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from flask import Flask
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.retake_ledger import (
     claim_attempt,
     configure_policy,
+    ensure_default_policy,
     finish_attempt,
     get_allowance,
     reserve_attempt,
@@ -243,3 +245,26 @@ def test_policy_reduction_overrides_an_existing_orm_snapshot(
         configure_policy(app, **BASE, limit=0)
         changed.set()
         assert stale.result(timeout=10) == "retake_limit_reached"
+
+
+def test_two_learners_auto_activate_course_without_teacher(
+    mysql_retake_app: Flask,
+) -> None:
+    app = mysql_retake_app
+    with app.app_context(), unit_of_work():
+        CourseRetakePolicy.query.delete()
+    barrier = threading.Barrier(2)
+
+    def start(index: int) -> None:
+        with app.app_context(), unit_of_work():
+            barrier.wait(timeout=10)
+            ensure_default_policy(app, **BASE)
+            reserve_attempt(
+                app, **{**IDENTITY, "user_bid": str(index)}, request_id=str(index)
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(start, (0, 1)))
+    with app.app_context():
+        assert CourseRetakePolicy.query.one().lesson_limit == 10
+        assert LessonRetakeAttempt.query.count() == 2

@@ -7,20 +7,8 @@
   },
   "retake": {
     "busy": "Cette leçon est en cours de génération ou de récupération. Réessayez plus tard.",
-    "currentLimit": "Limite actuelle : {count} reprises supplémentaires par élève et par leçon.",
-    "exhausted": "Aucune reprise restante. Vous pouvez continuer, relire le contenu existant ou poser des questions.",
-    "invalid": "Saisissez un entier de 0 à 2147483647, ou laissez vide.",
-    "last": "Il reste 1 reprise. Pour réviser, pensez à relire le contenu existant.",
-    "loadFailed": "Impossible de vérifier le quota. Fermez puis réessayez.",
-    "loading": "Vérification des reprises…",
-    "notConfigured": "Non configuré ; reprises illimitées. Le décompte commence après enregistrement, sans déduire les reprises antérieures.",
-    "policyLoadFailed": "Impossible de charger les réglages de reprise. Fermez les paramètres du cours et réessayez.",
-    "remaining": "Il reste {count} reprises pour cette leçon. La première étude, la suite et la relecture ne sont pas décomptées.",
-    "save": "Enregistrer les reprises",
-    "saved": "Appliqué. Les utilisations sont conservées.",
-    "settingHelp": "Quota indépendant par apprenant et par leçon, hors première étude. Vide : illimité ; 0 : aucune reprise supplémentaire. L’enregistrement s’applique immédiatement à tous et conserve les utilisations.",
-    "settingTitle": "Reprises par leçon",
-    "unlimited": "Illimité",
+    "exhausted": "Vous avez utilisé toutes les reprises de cette leçon. Vous pouvez continuer à apprendre, revoir le contenu existant ou poser des questions.",
+    "loadFailed": "La reprise est temporairement indisponible. Fermez cette fenêtre et réessayez.",
     "useChapter": "Les reprises sont gérées pour ce cours. Pour régénérer ou modifier une réponse envoyée, utilisez la reprise de la leçon. Le contenu existant reste disponible."
   },
   "tooltip": {

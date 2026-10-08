@@ -7,20 +7,8 @@
   },
   "retake": {
     "busy": "La lección se está generando o recuperando. Inténtalo más tarde.",
-    "currentLimit": "Límite actual: {count} repeticiones adicionales por estudiante y lección.",
-    "exhausted": "No quedan repeticiones. Puedes continuar, revisar el contenido existente o hacer preguntas.",
-    "invalid": "Introduce un entero de 0 a 2147483647 o deja el campo vacío.",
-    "last": "Queda 1 repetición. Para repasar, considera revisar el contenido existente.",
-    "loadFailed": "No se pudo consultar el cupo. Cierra e inténtalo de nuevo.",
-    "loading": "Consultando las repeticiones…",
-    "notConfigured": "Sin configurar; repeticiones ilimitadas. El recuento comienza al guardar, sin descontar las anteriores.",
-    "policyLoadFailed": "No se pudo cargar la configuración de repeticiones. Cierra los ajustes del curso e inténtalo de nuevo.",
-    "remaining": "Quedan {count} repeticiones de esta lección. El primer estudio, continuar y repasar no consumen repeticiones.",
-    "save": "Guardar repeticiones",
-    "saved": "Aplicado. Se conserva el uso acumulado.",
-    "settingHelp": "Cupo independiente por alumno y lección, sin contar el primer estudio. Vacío: ilimitado; 0: sin repeticiones adicionales. Guardar se aplica de inmediato a todos y conserva el uso acumulado.",
-    "settingTitle": "Repeticiones por lección",
-    "unlimited": "Ilimitado",
+    "exhausted": "Se han agotado las repeticiones de esta lección. Puedes seguir estudiando, revisar el contenido existente o hacer preguntas.",
+    "loadFailed": "La repetición no está disponible temporalmente. Cierra este diálogo e inténtalo de nuevo.",
     "useChapter": "Este curso gestiona las repeticiones. Para regenerar o cambiar una respuesta enviada, reinicia esta lección. El contenido existente sigue disponible."
   },
   "tooltip": {

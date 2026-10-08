@@ -393,3 +393,22 @@ mount this control. Cancelled/stale loads emit nothing. The retake pilot review
 compares load outcomes with existing save results; a load is not an activation.
 No error text, course title, or user input is included. Tracking is best-effort
 and cannot hide a setting or alter a save. Existing event contracts are unchanged.
+
+
+## Lesson Retake Limits v2: fixed hidden allowance (October 8)
+
+The v1 sections above describe historical events only. Teacher configuration
+controls and their two event producers are retired; retain historical reports,
+but do not compare them with v2 adoption. `learner_retake_allowance_viewed` is
+retired because no balance is displayed. The pilot review consumes the new
+`learner_retake_admission_checked`: once per confirmation open after a current
+successful enabled response, payload only `shifu_bid`, `outline_bid`, `entry`
+(`catalog`, `update`) and `state` (`available`, `exhausted`, `busy`). Eligible
+authenticated learners including temporary accounts; preview, unavailable,
+failed and stale loads are excluded. It measures checked admission, not quota
+exposure or charged generation. Rerender emits nothing, reopening rechecks.
+Do not sum it with historical exposure events. Existing reset-result and inline
+regeneration-blocked events keep their contracts and consumers. Counts, limit,
+content, errors, tokens and URLs are excluded. Tracking failure cannot change
+admission, confirmation or reset result. The review compares blocked frequency
+with authoritative credit consumption to detect abnormal high-cost learners.

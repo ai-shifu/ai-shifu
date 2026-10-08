@@ -113,7 +113,7 @@ def app(tmp_path: object) -> Iterator[Flask]:
                     status=1,
                 )
             )
-        configure_policy(application, namespace="test", shifu_bid="course", limit=2)
+        configure_policy(application, namespace="test", shifu_bid="course", limit=10)
     yield application
     with application.app_context():
         db.session.remove()
@@ -177,7 +177,7 @@ def assert_restored(app: Flask, attempt_id: str) -> None:
         attempt = db.session.get(LessonRetakeAttempt, attempt_id)
         assert attempt.state == RetakeState.RELEASED
         assert attempt.producer_finished_at is not None
-    assert get_allowance(app, **IDENTITY).remaining == 2
+    assert get_allowance(app, **IDENTITY).remaining == 10
 
 
 def test_failure_before_content_restores_original_records_and_session(

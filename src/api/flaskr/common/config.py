@@ -1926,6 +1926,14 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="shifu",
         required=False,
     ),
+    "LESSON_RETAKE_GLOBAL_ENABLED": EnvVar(
+        name="LESSON_RETAKE_GLOBAL_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable fixed ten retakes for all courses in this deployment; requires a ledger namespace.",
+        group="shifu",
+        required=False,
+    ),
     "LESSON_RETAKE_SHIFU_BIDS": EnvVar(
         name="LESSON_RETAKE_SHIFU_BIDS",
         default=[],

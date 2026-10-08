@@ -40,14 +40,11 @@ it('blocks until admission information loads, tracks once per open and only allo
   hook.rerender({ open: true });
   expect(hook.result.current.blocked).toBe(true);
   await waitFor(() => expect(hook.result.current.blocked).toBe(false));
-  expect(mockTrack).toHaveBeenCalledWith('learner_retake_allowance_viewed', {
+  expect(mockTrack).toHaveBeenCalledWith('learner_retake_admission_checked', {
     shifu_bid: 'course',
     outline_bid: 'lesson',
     entry: 'catalog',
     state: 'available',
-    used: 1,
-    reserved: 0,
-    remaining: 1,
   });
   hook.rerender({ open: true });
   expect(mockTrack).toHaveBeenCalledTimes(1);

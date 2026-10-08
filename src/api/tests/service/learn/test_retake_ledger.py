@@ -253,3 +253,60 @@ def test_teacher_first_save_starts_counting_and_adjustments_preserve_usage(
     assert get_allowance(app, **LEARNER).used == 1
     with pytest.raises(RetakeRuleError, match="retake_limit_reached"):
         reserve_attempt(app, **LEARNER, request_id="after-reduction")
+
+
+@pytest.mark.parametrize("old_limit", [None, 0, 2, 50])
+def test_default_ten_preserves_usage_and_blocks_eleventh(
+    app: Flask, old_limit: int | None
+) -> None:
+    from flaskr.service.learn.retake_ledger import ensure_default_policy
+
+    configure_policy(app, **BASE, limit=old_limit)
+    ensure_default_policy(app, **BASE)
+    complete(app, "first")
+    ensure_default_policy(app, **BASE)
+    assert get_allowance(app, **LEARNER).used == 1
+    assert get_allowance(app, **LEARNER).remaining == 9
+    for index in range(1, 10):
+        complete(app, str(index))
+    ensure_default_policy(app, **BASE)
+    assert get_allowance(app, **LEARNER).remaining == 0
+    with pytest.raises(RetakeRuleError, match="retake_limit_reached"):
+        reserve_attempt(app, **LEARNER, request_id="eleventh")
+    assert get_allowance(app, **{**LEARNER, "outline_bid": "lesson-b"}).remaining == 10
+
+
+def test_default_initializes_without_teacher_and_status_hides_balance(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn import retake_service
+
+    monkeypatch.setattr(retake_service, "retake_namespace", lambda _: "test")
+    identity = {key: value for key, value in LEARNER.items() if key != "namespace"}
+    assert retake_service.read_status(app, **identity) == {
+        "available": True,
+        "allowed": True,
+        "in_progress": False,
+    }
+    assert get_allowance(app, **LEARNER).limit == 10
+    assert retake_service.read_policy(app, "course")["available"] is False
+    preview = retake_service.read_status(app, **identity, preview_mode=True)
+    assert preview == {"available": False, "allowed": True, "in_progress": False}
+
+
+def test_retired_teacher_write_is_rejected_without_changing_history(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn import retake_service
+
+    configure_policy(app, **BASE, limit=10)
+    complete(app)
+
+    def reject(key: str) -> None:
+        raise ValueError(key)
+
+    monkeypatch.setattr(retake_service, "raise_error", reject)
+    with pytest.raises(ValueError, match="retakeUnavailable"):
+        retake_service.update_policy(app, "course", 100)
+    allowance = get_allowance(app, **LEARNER)
+    assert (allowance.limit, allowance.used) == (10, 1)
