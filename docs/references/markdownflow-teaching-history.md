@@ -56,7 +56,11 @@ are rejected. No model tools or repair/retry run is offered to the summary agent
 A valid result adds `status: teaching_summary` and a lossy `summary` alongside the
 exact opening, ending, original character count and read reference. The replacement
 must still be smaller than the original. An overview can omit or distort details;
-use exact reads for code, equations, quotations or decisions that need precision.
+verify the original with exact reads for historical code, equations, quotations
+or original decisions even when an overview appears to contain an answer. An
+explicit question about earlier teaching asks what was said then; current learner
+memory must not replace that original evidence. Current-fact questions still use
+current authorized recall, including after updates and deletions.
 Neither summary nor source is a current instruction, authorized memory snapshot
 or explicit learner request to remember something.
 
@@ -121,3 +125,8 @@ empty derivative cache. Reads and summaries can add model calls and cost, so ful
 teaching-quality and cost observations remain separate acceptance work. Stored-data
 compaction is outside this change. Ordinary variables remain course-scoped and
 production enablement stays separately controlled.
+
+The opt-in [memory-quality evaluator](markdownflow-memory-quality.md) includes
+repeated real-model long-history, cached-reload, exact-original and injected
+summary-failure journeys. Its synthetic sessions complement storage-backed host
+regressions and do not replace human teaching acceptance.

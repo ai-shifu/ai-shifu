@@ -111,7 +111,7 @@ passed 54/54, and the final encoded-name hardening independently passed another
 TTS backfill and listen completion passed. Required PR checks and manual merge
 are tracked in PR #3051; the manual merge and both production regions are verified above.
 The focused baseline is complete; further persisted-answer acceptance continues
-in [the next plan](../active/mdf2-memory-journey.md).
+in [the next plan](./mdf2-memory-journey.md).
 Earlier failures remain evidence. The evaluator rejects wrong-key, contradictory,
 late and invalid reads and preserves usage/assertions for malformed tool output.
 This baseline does not complete the entire quality milestone or authorize production.

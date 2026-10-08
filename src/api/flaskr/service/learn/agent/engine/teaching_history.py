@@ -74,7 +74,12 @@ def project_teaching_history(
                     "characters": len(part.content),
                     "opening": part.content[:256],
                     "ending": part.content[-128:],
-                    "notice": "Already delivered. Use read_teaching for exact omitted text.",
+                    "notice": (
+                        "Already delivered. Opening and ending omit the middle, which "
+                        "may contain the requested historical detail. For a question "
+                        "about this earlier teaching, use read_teaching with this "
+                        "reference. Current recall cannot recover its original text."
+                    ),
                 }
             )
             if _wire_size(marker) >= _wire_size(part.content):
@@ -164,7 +169,12 @@ def _compact_reads(
 
 
 async def read_teaching(ctx: RunContext[Deps], reference: str, offset: int = 0) -> str:
-    """Read original earlier teaching from a reference in a teaching_excerpt marker.
+    """Read original earlier teaching using a teaching_excerpt or teaching_summary reference.
+
+    Use this tool when the learner explicitly asks what an earlier example,
+    quotation or explanation said. It supplies historical evidence even when a
+    semantic summary failed. The recall tool supplies current learner memory
+    and cannot establish the original example or wording.
 
     Only this lesson's projected earlier teaching is accessible. Start at offset=0;
     follow next_offset until null to read the complete text. Offsets count Unicode
