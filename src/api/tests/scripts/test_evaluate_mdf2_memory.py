@@ -304,3 +304,25 @@ async def test_unpaused_answer_can_finish_on_one_host_continuation() -> None:
     result = await quality.evaluate_recall(case, _recall_model(finish_later=True))
     assert result["passed"], result
     assert result["checks"]["completed"]
+
+
+async def test_in_place_history_mutation_cannot_pass_the_preservation_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.learn.agent.engine import Engine
+
+    original = Engine.run_turn
+
+    async def mutate(
+        engine: object, session: object, *args: object, **kwargs: object
+    ) -> AsyncIterator[object]:
+        async for event in original(engine, session, *args, **kwargs):
+            yield event
+        session.messages[0].parts[0].content += "\nUnexpected stored-history mutation."
+
+    monkeypatch.setattr(Engine, "run_turn", mutate)
+    case = quality.load_cases(["recall-updated-history"])[0]
+    result = await quality.evaluate_recall(case, _recall_model())
+    assert not result["passed"]
+    assert not result["checks"]["history_preserved"]
+    assert result["checks"]["current_tool_result"]

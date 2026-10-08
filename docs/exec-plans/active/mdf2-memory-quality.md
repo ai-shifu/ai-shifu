@@ -22,8 +22,11 @@ examples. Keep this PR focused on current-memory answer fidelity and its accepta
   three repetitions) with the actual course model. This used temporary operator
   prompt files and is preliminary; verify the deployed prompt after sim release.
 - [ ] Run the complete baseline against the deployed sim runtime and retain results.
-- [ ] Run affected integration tests and all repository gates; open one PR,
-  deploy sim and handle every independent AI opinion in its original thread.
+- [x] 2026-10-08 19:22 CST: Learning/profile/evaluator integration passed 2,785
+  tests, one expected skip and four subtests; all 444 engine tests and repository
+  gates passed. PR #3051 is open, sim build 410 is running. A subsequent scoring
+  regression (27 focused checks) also catches in-place stored-history mutations.
+- [ ] Complete deployed-sim acceptance, final CI and every independent AI reply.
 - [ ] Await manual main merge and verify post-merge release selection.
 
 ## Surprises & Discoveries
@@ -54,7 +57,8 @@ with at most one automatic continuation, retaining all output and errors.
 
 The evaluator exposed and now covers a stale-answer prompt defect. Candidate
 real-model acceptance is 54/54 with zero errors using temporary operator prompt
-files. Final offline gates, PR/CI and deployed-sim acceptance are pending. This initial baseline does not complete the entire quality milestone.
+files. Offline checks passed and PR #3051 is open. Final CI and deployed-sim acceptance
+remain pending. This initial baseline does not complete the entire quality milestone.
 
 ## Context and Orientation
 

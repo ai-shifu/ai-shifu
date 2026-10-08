@@ -186,10 +186,12 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
         ToolResult,
         TurnDone,
     )
+    from pydantic_ai.messages import ModelMessagesTypeAdapter
 
     session = recall_session(case)
     original = dict(session.user_memory)
-    original_messages = list(session.messages)
+    history_len = len(session.messages)
+    original_messages = ModelMessagesTypeAdapter.dump_json(session.messages)
     engine = Engine(
         model,
         memory_admission=True,
@@ -246,7 +248,9 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
         or OLD_CODE not in text,
         "memory_unchanged": session.user_memory == original and not session.memory,
         "no_memory_events": not any(isinstance(e, MemoryUpdated) for e in events),
-        "history_preserved": session.messages[: len(original_messages)]
+        "history_preserved": ModelMessagesTypeAdapter.dump_json(
+            session.messages[:history_len]
+        )
         == original_messages,
         "completed": bool(done) and done[-1].reason == "finished",
         "no_engine_errors": not errors,
