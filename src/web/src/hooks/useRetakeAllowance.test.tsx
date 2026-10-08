@@ -130,3 +130,29 @@ it('tracking failure cannot change allowance or throw into a successful reset', 
   expect(() => result.current.result(true)).not.toThrow();
   expect(result.current.failed).toBeUndefined();
 });
+
+it('allows course owners without tracking learner quota events', async () => {
+  jest
+    .mocked(getRetakeStatus)
+    .mockResolvedValue({ ...status, quota_exempt: true });
+  const { result } = renderHook(() =>
+    useRetakeAllowance(true, 'lesson', 'catalog'),
+  );
+  await waitFor(() => expect(result.current.blocked).toBe(false));
+  result.current.result(true);
+  expect(mockTrack).not.toHaveBeenCalled();
+});
+it('still blocks an exempt owner during an active generation', async () => {
+  jest.mocked(getRetakeStatus).mockResolvedValue({
+    ...status,
+    quota_exempt: true,
+    allowed: false,
+    in_progress: true,
+  });
+  const { result } = renderHook(() =>
+    useRetakeAllowance(true, 'lesson', 'catalog'),
+  );
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.blocked).toBe(true);
+  expect(mockTrack).not.toHaveBeenCalled();
+});

@@ -300,3 +300,24 @@ No new schema or counter reset is planned. Existing deployment isolation remains
 5. Inspect point reports for new abnormal high consumption. This test course has listen mode disabled, so live TTS generation/billing/reuse and injected provider failures remain extended acceptance; do not claim they were browser-tested here.
 
 Use only the independent test course c2cf49551ba94345b5a141c78d7b86e7 for destructive retake trials. Current browser account first lesson is being exhausted by acceptance; use another lesson or learner for a fresh ten-start trial.
+
+
+### October 9 course-owner exemption
+
+User requirement: this course's current owner must be able to retake without
+the ten-attempt ceiling, including on the non-preview learner page. Existing
+preview exemption alone did not satisfy this. Other teachers/collaborators and
+ordinary learners retain ten. Use the established latest-draft/published owner
+resolver through the stable Shifu API; do not trust browser flags or generic
+teacher status. Preserve all existing usage and new attempts for diagnostics;
+apply an unlimited allowance for the owner only. Producer exclusion, duplicate
+requests, charge/failure restoration and namespace isolation remain unchanged.
+No schema/config change or history rewrite. Owner transfer follows the current
+owner resolver on the next check; old usage remains. Rollback is code-only.
+
+- [x] 2026-10-09 Asia/Shanghai: O1 Inspect status/reset/producer paths; confirm missing owner distinction.
+- [x] 2026-10-09 Asia/Shanghai: O2 Exempt course owner at status and server reset admission; keep ledger and concurrency.
+- [x] 2026-10-09 Asia/Shanghai: O3 Owner-after-ten, unrelated teacher still limited, preview and analytics regression; repository gate.
+- [ ] 2026-10-09 Asia/Shanghai: O4 Push/deploy dev02 and browser-check the previously exhausted owner lesson.
+
+Verification: 99 focused backend tests and 26 frontend tests passed; the final owner ledger rerun passed 22 tests. Repository-wide pre-commit checks passed. Full TypeScript checking retains the four previously recorded unrelated admin-test/library-locale errors, with no new owner-exemption errors.

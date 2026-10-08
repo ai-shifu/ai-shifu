@@ -412,3 +412,13 @@ regeneration-blocked events keep their contracts and consumers. Counts, limit,
 content, errors, tokens and URLs are excluded. Tracking failure cannot change
 admission, confirmation or reset result. The review compares blocked frequency
 with authoritative credit consumption to detect abnormal high-cost learners.
+
+
+Owner exemption (October 9): v2 learner admission and reset-result populations
+exclude `quota_exempt=true` responses. This flag is server-resolved from the
+specific course's current owner; teaching other courses is not an exemption.
+The payload schemas, timing and deduplication are unchanged. Historical owner
+observations before this correction may remain in the pilot totals; use the
+release boundary when comparing learner counts. Owner retakes remain in the
+server ledger and actual billing; this exclusion is analytics only. The existing
+inline-regeneration-blocked event retains its policy-friction meaning.

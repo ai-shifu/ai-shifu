@@ -136,6 +136,7 @@ def _balance(
     outline_bid: str,
     *,
     locking: bool = False,
+    quota_exempt: bool = False,
 ) -> RetakeAllowance:
     attempts = _attempts(policy.namespace, policy.shifu_bid, user_bid, outline_bid)
     if locking:
@@ -156,7 +157,7 @@ def _balance(
             .all()
         )
     return RetakeAllowance(
-        limit=policy.lesson_limit,
+        limit=None if quota_exempt else policy.lesson_limit,
         used=counts.get(RetakeState.COMMITTED, 0),
         reserved=counts.get(RetakeState.RESERVED, 0)
         + counts.get(RetakeState.RUNNING, 0),
@@ -164,14 +165,24 @@ def _balance(
 
 
 def get_allowance(
-    app: Flask, *, namespace: str, shifu_bid: str, user_bid: str, outline_bid: str
+    app: Flask,
+    *,
+    namespace: str,
+    shifu_bid: str,
+    user_bid: str,
+    outline_bid: str,
+    quota_exempt: bool = False,
 ) -> RetakeAllowance | None:
     """Return no policy when the course has never opted into this namespace."""
     with app_context_scope(app), unit_of_work():
         policy = CourseRetakePolicy.query.filter_by(
             namespace=namespace, shifu_bid=shifu_bid
         ).first()
-        return _balance(policy, user_bid, outline_bid) if policy else None
+        return (
+            _balance(policy, user_bid, outline_bid, quota_exempt=quota_exempt)
+            if policy
+            else None
+        )
 
 
 def reserve_attempt(
@@ -183,6 +194,7 @@ def reserve_attempt(
     outline_bid: str,
     request_id: str,
     stage_reset: Callable[[], dict] | None = None,
+    quota_exempt: bool = False,
 ) -> tuple[str, RetakeState]:
     """Reserve at most one in-flight round per learner/lesson; retries reuse it."""
     _validate_identity(
@@ -222,7 +234,9 @@ def reserve_attempt(
         if running is not None:
             reason = "retake_in_progress"
             raise RetakeRuleError(reason)
-        balance = _balance(policy, user_bid, outline_bid, locking=True)
+        balance = _balance(
+            policy, user_bid, outline_bid, locking=True, quota_exempt=quota_exempt
+        )
         active_committed = (
             _attempts(namespace, shifu_bid, user_bid, outline_bid)
             .filter(

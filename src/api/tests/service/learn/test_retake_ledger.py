@@ -6,6 +6,7 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.common import AppError
 from flaskr.service.learn.retake_ledger import (
     claim_attempt,
     configure_policy,
@@ -19,6 +20,7 @@ from flaskr.service.learn.retake_models import (
     LessonRetakeRun,
 )
 from flaskr.service.learn.retake_policy import RetakeRuleError, RetakeState
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 
 BASE = {"namespace": "test", "shifu_bid": "course"}
 LEARNER = {**BASE, "user_bid": "learner", "outline_bid": "lesson-a"}
@@ -35,6 +37,8 @@ def app(tmp_path: object) -> Iterator[Flask]:
         CourseRetakePolicy.__table__.create(db.engine)
         LessonRetakeAttempt.__table__.create(db.engine)
         LessonRetakeRun.__table__.create(db.engine)
+        DraftShifu.__table__.create(db.engine)
+        PublishedShifu.__table__.create(db.engine)
     yield application
     with application.app_context():
         db.session.remove()
@@ -287,11 +291,17 @@ def test_default_initializes_without_teacher_and_status_hides_balance(
         "available": True,
         "allowed": True,
         "in_progress": False,
+        "quota_exempt": False,
     }
     assert get_allowance(app, **LEARNER).limit == 10
     assert retake_service.read_policy(app, "course")["available"] is False
     preview = retake_service.read_status(app, **identity, preview_mode=True)
-    assert preview == {"available": False, "allowed": True, "in_progress": False}
+    assert preview == {
+        "available": False,
+        "allowed": True,
+        "in_progress": False,
+        "quota_exempt": False,
+    }
 
 
 def test_retired_teacher_write_is_rejected_without_changing_history(
@@ -310,3 +320,62 @@ def test_retired_teacher_write_is_rejected_without_changing_history(
         retake_service.update_policy(app, "course", 100)
     allowance = get_allowance(app, **LEARNER)
     assert (allowance.limit, allowance.used) == (10, 1)
+
+
+@pytest.mark.parametrize("published_only", [False, True])
+def test_course_owner_can_retake_after_ten_without_erasing_history(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, published_only: bool
+) -> None:
+    from flaskr.service.learn import retake_service
+
+    monkeypatch.setattr(retake_service, "retake_namespace", lambda _: "test")
+    monkeypatch.setattr(
+        retake_service, "stage_reset_records", lambda **_kwargs: {"version": 1}
+    )
+    with app.app_context(), unit_of_work():
+        model = PublishedShifu if published_only else DraftShifu
+        db.session.add(model(shifu_bid="course", created_user_bid="learner"))
+    configure_policy(app, **BASE, limit=10)
+    for index in range(10):
+        complete(app, str(index))
+    identity = {key: value for key, value in LEARNER.items() if key != "namespace"}
+    assert retake_service.read_status(app, **identity) == {
+        "available": True,
+        "allowed": True,
+        "in_progress": False,
+        "quota_exempt": True,
+    }
+    assert retake_service.try_limited_reset(
+        app, **identity, request_id="owner-eleventh"
+    )
+    assert (
+        get_allowance(app, **LEARNER).used,
+        get_allowance(app, **LEARNER).reserved,
+    ) == (10, 1)
+    assert retake_service.read_status(app, **identity)["in_progress"] is True
+    # Unlimited does not allow a second simultaneous round.
+    with pytest.raises(AppError, match="retakeInProgress"):
+        retake_service.try_limited_reset(app, **identity, request_id="owner-concurrent")
+
+
+def test_another_teacher_is_not_exempt_from_this_course(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn import retake_service
+
+    monkeypatch.setattr(retake_service, "retake_namespace", lambda _: "test")
+    with app.app_context(), unit_of_work():
+        db.session.add(DraftShifu(shifu_bid="course", created_user_bid="actual-owner"))
+        db.session.add(DraftShifu(shifu_bid="other-course", created_user_bid="learner"))
+    configure_policy(app, **BASE, limit=10)
+    for index in range(10):
+        complete(app, str(index))
+    identity = {key: value for key, value in LEARNER.items() if key != "namespace"}
+    assert retake_service.read_status(app, **identity) == {
+        "available": True,
+        "allowed": False,
+        "in_progress": False,
+        "quota_exempt": False,
+    }
+    with pytest.raises(AppError, match="retakeLimitReached"):
+        retake_service.try_limited_reset(app, **identity, request_id="eleventh")

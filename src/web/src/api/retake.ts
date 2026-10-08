@@ -2,6 +2,7 @@ import request from '@/lib/request';
 
 export type RetakeStatus = {
   available: boolean;
+  quota_exempt?: boolean;
   limit?: number | null;
   used?: number;
   reserved?: number;

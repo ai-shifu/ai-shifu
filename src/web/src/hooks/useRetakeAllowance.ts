@@ -28,7 +28,7 @@ export function useRetakeAllowance(
       .then(status => {
         if (!active) return;
         setResponse({ key, status });
-        if (status.available) {
+        if (status.available && !status.quota_exempt) {
           try {
             void Promise.resolve(
               trackRef.current('learner_retake_admission_checked', {
@@ -57,7 +57,7 @@ export function useRetakeAllowance(
   const blocked =
     !preview && (!status || (status.available && !status.allowed));
   const result = (success: boolean) => {
-    if (preview || !status?.available) return;
+    if (preview || !status?.available || status.quota_exempt) return;
     try {
       void Promise.resolve(
         trackRef.current('learner_retake_reset_result', {
