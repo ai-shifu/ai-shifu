@@ -66,6 +66,7 @@ from .interaction import (
     stored_value,
 )
 from .memory_context import project_memory_history
+from .recall import recall
 from .script import (
     ScriptBundle,
     collected_names,
@@ -344,6 +345,7 @@ class Engine:
         memory_readonly_prefixes: tuple[str, ...] = (),
         memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None,
         memory_context_limit: int | None = None,
+        memory_recall: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -369,6 +371,11 @@ class Engine:
         `memory_readonly_prefixes` prevents tools and named answers from overwriting
         host-owned references, even when a script declares them. Empty retains portable
         hosts' previous key contract.
+
+        `memory_recall` offers bounded read-only access to the current session/user snapshot.
+        The host must supply only authorized values and refresh deletions/references per turn.
+        It excludes keys the main script collects again, just like the initial memory prompt.
+        Off retains portable hosts' existing tools and instructions.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
@@ -385,6 +392,11 @@ class Engine:
             message = "memory context limit must fit an empty JSON object"
             raise ValueError(message)
         self.memory_context_limit = memory_context_limit
+        self.memory_recall = memory_recall
+        if memory_recall:
+            self.memory_instructions += (
+                "\n\n" + (PROMPTS_DIR / "memory_recall.md").read_text()
+            )
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -420,6 +432,7 @@ class Engine:
                     + self.memory_instructions,
                 ),
                 finish,
+                *([recall] if memory_recall else []),
             ],
             toolsets=list(toolsets or []),
             model_settings=model_settings,
@@ -540,6 +553,7 @@ class Engine:
             memory_reserved_keys=self.memory_reserved_keys,
             memory_readonly_prefixes=self.memory_readonly_prefixes,
             memory_request_check=self.memory_request_check,
+            memory_recall_excluded_keys=collected_names(session.script.script),
         )
         deps.history_len = len(session.messages) if session.started else 0
         deps.finished = _finished_in(session.messages)
