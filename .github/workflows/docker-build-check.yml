@@ -12,6 +12,7 @@ on:
       - scripts/test_merge_docker_manifests.py
       - scripts/check_docker_image.py
       - scripts/test_check_docker_image.py
+      - scripts/test_docker_image_metadata.py
       - .dockerignore
       - src/api/**
       - src/web/**
@@ -21,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       publish-candidates:
-        description: Publish isolated candidate tags to verify both configured registries
+        description: Publish isolated candidate tags to GHCR and configured Docker Hub / Aliyun mirrors
         type: boolean
         default: false
 
@@ -42,9 +43,9 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install test runner
-        run: python -m pip install pytest
+        run: python -m pip install pytest PyYAML
       - name: Test manifest publication without registry access
-        run: python -m pytest scripts/test_merge_docker_manifests.py scripts/test_check_docker_image.py -q
+        run: python -m pytest scripts/test_merge_docker_manifests.py scripts/test_check_docker_image.py scripts/test_docker_image_metadata.py -q
 
   native-build:
     name: Validate native image (${{ matrix.service }})
@@ -73,6 +74,9 @@ jobs:
 
   candidate-build:
     name: Validate candidate publication (${{ matrix.service }})
+    permissions:
+      contents: read
+      packages: write
     if: github.event_name == 'workflow_dispatch' && inputs.publish-candidates
     strategy:
       fail-fast: false
@@ -94,6 +98,7 @@ jobs:
       dockerfile: ${{ matrix.dockerfile }}
       push-images: true
       require-registry: true
+      publish-ghcr: true
       tags: |
         type=raw,value=candidate-${{ github.run_id }}-${{ github.run_attempt }}
       labels: |

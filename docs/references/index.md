@@ -8,6 +8,7 @@ Evergreen repository references and operational guides live here.
 - [Retired explicit course references](../references/course-memory-references.md)
 - [System and course variable isolation](../references/course-variable-scopes.md)
 - [Production Docker base images](../references/docker-base-images.md)
+- [Docker image publication](../references/docker-image-publication.md)
 - [Follow-up Classroom Context](../references/follow-up-classroom-context.md)
 - [Frontend Product Analytics](../references/frontend-product-analytics.md)
 - [Gemini Live follow-up implementation contract](../references/gemini-live-follow-up.md)
