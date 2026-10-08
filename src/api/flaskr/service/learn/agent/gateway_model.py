@@ -20,8 +20,13 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from flaskr.api.llm import chat_llm
+from flaskr.api.llm import _extract_usage_value, _reported_input_cache, chat_llm
 from flaskr.service.learn.agent.bridge import turn_stop_requested
+from flaskr.service.learn.agent.engine.usage import (
+    CACHE_REPORTED_INPUT_TOKENS,
+    CACHE_REPORTED_READ_TOKENS,
+    CACHE_REPORTED_REQUESTS,
+)
 from flaskr.service.learn.agent.input_budget import (
     INPUT_BUDGET_BYTES,
     check_input_budget,
@@ -59,6 +64,35 @@ _FINISH_REASONS = {
     "tool_calls": "tool_call",
     "content_filter": "content_filter",
 }
+
+
+def _usage_field(value: object, key: str) -> object:
+    """Read either supported shared-gateway usage shape."""
+    return value.get(key) if isinstance(value, dict) else getattr(value, key, None)
+
+
+def _request_usage(usage: object) -> RequestUsage:
+    """Preserve valid reported cache counts; absent or invalid metadata stays unknown."""
+    input_tokens = _extract_usage_value(usage, "prompt_tokens")
+    output_tokens = _extract_usage_value(usage, "completion_tokens")
+    cached = _reported_input_cache(usage)
+    reported_input = _usage_field(usage, "prompt_tokens")
+    if (
+        type(cached) is int
+        and type(reported_input) is int
+        and 0 <= cached <= reported_input
+    ):
+        return RequestUsage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_read_tokens=cached,
+            details={
+                CACHE_REPORTED_REQUESTS: 1,
+                CACHE_REPORTED_INPUT_TOKENS: input_tokens,
+                CACHE_REPORTED_READ_TOKENS: cached,
+            },
+        )
+    return RequestUsage(input_tokens=input_tokens, output_tokens=output_tokens)
 
 
 def _text_of(content: object) -> str:
@@ -254,12 +288,7 @@ class GatewayStreamedResponse(StreamedResponse):
                     str(chunk.finish_reason), "stop"
                 )
             if chunk.usage:
-                self._usage = RequestUsage(
-                    input_tokens=int(getattr(chunk.usage, "prompt_tokens", 0) or 0),
-                    output_tokens=int(
-                        getattr(chunk.usage, "completion_tokens", 0) or 0
-                    ),
-                )
+                self._usage = _request_usage(chunk.usage)
             # `chat_llm` is a synchronous generator, so nothing here ever awaits on its own.
             # Yield to the loop between chunks so a caller sharing it keeps running.
             await asyncio.sleep(0)
