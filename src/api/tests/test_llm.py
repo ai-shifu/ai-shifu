@@ -4252,3 +4252,123 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
         for key in metadata:
             if key.startswith("model_") or key == "resolved_model":
                 assert span.end_args["metadata"][key] == metadata[key]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "phase",
+    [
+        "late_chunk",
+        "late_connection",
+        "eof",
+        "close",
+        "disconnect",
+        "provider_error",
+        "normal",
+    ],
+)
+async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retries(
+    monkeypatch: pytest.MonkeyPatch, app: object, phase: str
+) -> None:
+    """Exercise shared chat accounting, not a fake chat_llm replacement."""
+    import asyncio
+
+    from flaskr.service.learn.agent import gateway_model as gateway
+    from pydantic_ai.models import ModelRequestParameters
+
+    clock = [0.0]
+    records = []
+    provider_calls = []
+    provider_closed = []
+    span = DummySpan()
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(gateway.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(gateway, "turn_stop_requested", lambda: phase == "disconnect")
+    monkeypatch.setattr(
+        llm, "resolve_selection", lambda model, metadata: (model, metadata)
+    )
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "test", "test"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: records.append(kwargs)
+    )
+
+    def stream(*_args: object, **_kwargs: object) -> object:
+        provider_calls.append(True)
+        try:
+            if phase == "late_connection":
+                clock[0] = 9
+                message = "connection failed after deadline"
+                raise _FakeAPIConnectionError(message)
+            if phase == "provider_error":
+                message = "non-retryable provider failure"
+                raise RuntimeError(message)
+            if phase == "late_chunk":
+                clock[0] = 9
+            yield FakeResponse(
+                "summary",
+                content="Partial historical overview",
+                usage=SimpleNamespace(
+                    prompt_tokens=7, completion_tokens=3, total_tokens=10
+                ),
+            )
+            if phase == "eof":
+                clock[0] = 9
+        finally:
+            provider_closed.append(True)
+
+    monkeypatch.setattr(llm, "_stream_litellm_completion", stream)
+    if phase == "close":
+        chunks = llm.chat_llm(
+            app=app,
+            user_id="internal",
+            span=span,
+            model="test",
+            messages=[],
+            generation_name="agent_teaching_summary",
+        )
+        next(chunks)
+        chunks.close()
+    else:
+        model = gateway.GatewayModel(
+            app,
+            "test",
+            user_id="internal",
+            span=span,
+            generation_name="agent_teaching_summary",
+            retry_deadline_seconds=8,
+            timeout=8,
+            num_retries=0,
+        )
+        expected = (
+            asyncio.CancelledError
+            if phase == "disconnect"
+            else RuntimeError
+            if phase == "provider_error"
+            else TimeoutError
+        )
+        if phase == "normal":
+            await model.request([], None, ModelRequestParameters())
+        else:
+            with pytest.raises(expected):
+                await model.request([], None, ModelRequestParameters())
+    assert len(provider_calls) == (0 if phase == "disconnect" else 1)
+    assert provider_closed == provider_calls
+    assert len(records) == 1
+    assert records[0]["status"] == (0 if phase == "normal" else 1)
+    assert records[0]["total"] == (
+        10 if phase in {"late_chunk", "eof", "close", "normal"} else 0
+    )
+    assert records[0]["extra"]["generation_name"] == "agent_teaching_summary"
+    assert span.end_args is not None
+    if phase != "normal":
+        assert records[0]["error_message"]
+        assert span.end_args["metadata"]["status"] == 1

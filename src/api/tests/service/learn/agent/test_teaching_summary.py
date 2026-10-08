@@ -133,7 +133,7 @@ async def test_host_rejects_invalid_outputs_without_retries(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("phase", ["retry", "chunk", "disconnect"])
+@pytest.mark.parametrize("phase", ["retry", "chunk", "eof", "disconnect"])
 async def test_deadline_closes_gateway_and_preserves_disconnect_cancellation(
     monkeypatch: pytest.MonkeyPatch, phase: str
 ) -> None:
@@ -144,10 +144,12 @@ async def test_deadline_closes_gateway_and_preserves_disconnect_cancellation(
 
     def fake(**kwargs: object) -> Iterator[FakeChunk]:
         try:
-            clock[0] = 9
+            if phase != "eof":
+                clock[0] = 9
             if phase == "retry":
                 kwargs["retry_cancelled"]()
             yield FakeChunk("late summary")
+            clock[0] = 9
         finally:
             closed.append(True)
 
