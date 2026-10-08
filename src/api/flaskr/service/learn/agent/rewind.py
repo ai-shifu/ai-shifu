@@ -69,6 +69,7 @@ def checkpoint_of(session: Session) -> dict[str, Any]:
     return {
         "messages": len(session.messages),
         "memory": state["memory"],
+        "answer_hashes": state.get("answer_hashes", {}),
         "pending": state["pending"],
         "answers": state["answers"],
         "request_inputs": state.get("request_inputs", []),
@@ -95,11 +96,16 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
         finished=bool(checkpoint.get("finished", False)),
     )
     state["messages"] = state["messages"][: int(checkpoint.get("messages") or 0)]
+    if "answer_hashes" in checkpoint:
+        state["answer_hashes"] = checkpoint["answer_hashes"]
+    else:
+        state.pop("answer_hashes", None)
     restored = SessionClass.from_dict(state)
     # Derivatives may describe discarded future teaching. Rebuild only from restored evidence.
     session.teaching_summaries.clear()
     session.messages = restored.messages
     session.memory = restored.memory
+    session.answer_hashes = restored.answer_hashes
     session.pending = restored.pending
     session.answers = restored.answers
     session.request_inputs = restored.request_inputs

@@ -36,10 +36,14 @@ old lesson cannot shadow a newer answer from another lesson. Unanswered question
 are never prefilled by this refresh. Deletion clears the accepted-answer copy;
 recreating the course key does not answer that old lesson's question again.
 Session-only working notes and historical conversation are preserved.
-Acceptance is established by a uniquely paired successful `interact` result or
-a stored deferred answer, never by a seeded session value. This uses existing
-typed history and deferred results, so older session formats need no migration;
-rewind automatically restores the corresponding evidence. An authorized
+Acceptance is recorded with a SHA-256 fingerprint of the current answer copy,
+never inferred from a seeded session value. The optional `answer_hashes` session
+metadata stores no duplicate answer text and needs no database schema migration.
+An old session without this field can recover only current copies matching
+uniquely paired successful host interaction/deferred results, including subsequent
+successful writes. Unknown or mismatched copies remain session-only. A session-scope
+write clears answer ownership even if its value is identical. Rewind restores the
+fingerprints with the checkpoint; old checkpoints infer only from restored evidence. An authorized
 user-scope correction also updates its accepted named-answer copy immediately,
 so a read in the same turn cannot return the superseded value.
 Regenerating a historical answer cannot make a deleted key readable again;

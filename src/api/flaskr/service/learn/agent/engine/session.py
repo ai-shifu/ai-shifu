@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import uuid
@@ -19,6 +20,15 @@ from pydantic_ai.messages import (
 
 from .interaction import DEFAULT_CONFIRM_LABEL, InteractionSpec
 from .script import ScriptBundle
+
+
+def answer_fingerprint(value: object) -> str | None:
+    """Identify an exact answer copy without duplicating the learner's long value."""
+    if not isinstance(value, str):
+        return None
+    return hashlib.sha256(
+        json.dumps(value, ensure_ascii=True).encode("ascii")
+    ).hexdigest()
 
 
 @dataclass
@@ -62,6 +72,7 @@ class Session:
     listen_mode: bool = False
     messages: list[ModelMessage] = field(default_factory=list)
     memory: dict[str, Any] = field(default_factory=dict)  # session scope
+    answer_hashes: dict[str, str] = field(default_factory=dict)
     user_memory: dict[str, Any] = field(default_factory=dict)  # snapshot of user scope
     # Exact source values for initial host substitutions; None identifies legacy sessions.
     initial_variables: dict[str, Any] | None = None
@@ -90,10 +101,29 @@ class Session:
         return {**self.user_memory, **self.memory}
 
     def answered_memory_keys(self) -> frozenset[str]:
-        """Derive accepted named answers from persisted host results, never seeded values.
+        """Identify current copies still owned by an accepted named answer."""
+        return frozenset(
+            key
+            for key, digest in self.answer_hashes.items()
+            if isinstance(digest, str)
+            and key in self.memory
+            and answer_fingerprint(self.memory[key]) == digest
+        )
+
+    def record_answer(self, key: str, value: str) -> None:
+        """Replace a named-answer copy and its ownership fingerprint together."""
+        digest = answer_fingerprint(value)
+        if digest is None:
+            message = "named answers must be strings"
+            raise TypeError(message)
+        self.memory[key] = value
+        self.answer_hashes[key] = digest
+
+    def _legacy_answer_hashes(self) -> dict[str, str]:
+        """Recover matching answer copies from old persisted host results.
 
         Pending deferred results already live in `answers`; completed results live in
-        typed history. Both survive old session formats and rewind without new metadata.
+        typed history. Only copies matching that evidence can acquire a fingerprint.
         Ambiguous calls, failed returns and unasked/empty answers establish no acceptance.
         """
         counts = Counter(
@@ -108,8 +138,8 @@ class Session:
             for part in message.parts
             if isinstance(part, ToolReturnPart)
         )
-        calls: dict[str, str] = {}
-        accepted: set[str] = set()
+        calls: dict[str, tuple[str, str, str | None]] = {}
+        accepted: dict[str, str] = {}
 
         def accept(call_id: str, content: object) -> None:
             """Recognize a nonempty host answer for a unique named interaction."""
@@ -121,31 +151,60 @@ class Session:
                 return
             for prefix in ("Learner wrote: ", "Learner chose: "):
                 if content.startswith(prefix) and content[len(prefix) :].strip():
-                    accepted.add(calls[call_id])
+                    name, key, _ = calls[call_id]
+                    if name == "interact":
+                        value = content[len(prefix) :]
+                        if prefix == "Learner chose: " and value != self.memory.get(
+                            key
+                        ):
+                            value = value.replace("; and wrote: ", "; ", 1)
+                        accepted[key] = value
+            name, key, value = calls[call_id]
+            if name == "remember" and value is not None:
+                if content == f"remembered {key} (session)":
+                    accepted.pop(key, None)
+                elif content == f"remembered {key} (user)" and key in accepted:
+                    accepted[key] = value
 
         for message in self.messages:
             for part in message.parts:
                 if (
                     isinstance(part, ToolCallPart)
-                    and part.tool_name == "interact"
+                    and part.tool_name in {"interact", "remember"}
                     and counts[part.tool_call_id] == 1
                 ):
                     try:
                         args = part.args_as_dict()
                     except (AssertionError, TypeError, ValueError):
                         continue
-                    key = args.get("variable") if isinstance(args, dict) else None
+                    key = (
+                        args.get("variable" if part.tool_name == "interact" else "key")
+                        if isinstance(args, dict)
+                        else None
+                    )
                     if isinstance(key, str) and key.strip():
-                        calls[part.tool_call_id] = key
+                        value = args.get("value")
+                        calls[part.tool_call_id] = (
+                            part.tool_name,
+                            key,
+                            value if isinstance(value, str) else None,
+                        )
                 elif (
                     isinstance(part, ToolReturnPart)
-                    and part.tool_name == "interact"
+                    and part.tool_name in {"interact", "remember"}
                     and part.outcome == "success"
+                    and part.tool_call_id in calls
+                    and part.tool_name == calls[part.tool_call_id][0]
                 ):
                     accept(part.tool_call_id, part.content)
         for call_id, content in self.answers.items():
-            accept(call_id, content)
-        return frozenset(accepted & self.memory.keys())
+            if call_id in calls and calls[call_id][0] == "interact":
+                accept(call_id, content)
+        return {
+            key: answer_fingerprint(value)
+            for key, value in accepted.items()
+            if key in self.memory and self.memory[key] == value
+        }
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-ready form of the session."""
@@ -156,6 +215,7 @@ class Session:
             "script": self.script.to_dict(),
             "messages": json.loads(ModelMessagesTypeAdapter.dump_json(self.messages)),
             "memory": self.memory,
+            "answer_hashes": dict(self.answer_hashes),
             "user_memory": self.user_memory,
             "initial_variables": self.initial_variables,
             "pending": [
@@ -175,7 +235,7 @@ class Session:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Session:
         """Rebuild a session from its JSON form."""
-        return cls(
+        session = cls(
             script=ScriptBundle.from_dict(d["script"]),
             id=d["id"],
             user_id=d.get("user_id"),
@@ -184,6 +244,7 @@ class Session:
                 ModelMessagesTypeAdapter.validate_python(d.get("messages") or [])
             ),
             memory=dict(d.get("memory") or {}),
+            answer_hashes=dict(d.get("answer_hashes") or {}),
             user_memory=dict(d.get("user_memory") or {}),
             initial_variables=(
                 dict(d["initial_variables"])
@@ -203,6 +264,9 @@ class Session:
             created_at=d.get("created_at") or datetime.now(UTC).isoformat(),
             updated_at=d.get("updated_at") or datetime.now(UTC).isoformat(),
         )
+        if "answer_hashes" not in d:
+            session.answer_hashes = session._legacy_answer_hashes()
+        return session
 
     def dumps(self) -> str:
         """Serialize the session to a JSON string."""

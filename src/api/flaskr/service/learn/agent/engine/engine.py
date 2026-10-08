@@ -88,6 +88,7 @@ from .tools import (
     interact,
     normalize_script_text_input,
     prepare_memory_tool,
+    recall_exclusions,
     remember,
     script_options,
     script_pauses,
@@ -509,7 +510,7 @@ class Engine:
             notice = current_recall_notice(
                 ctx.messages,
                 {**ctx.deps.user_memory, **ctx.deps.memory},
-                excluded=ctx.deps.memory_recall_excluded_keys,
+                excluded=recall_exclusions(ctx.deps),
             )
             if notice:
                 instructions += "\n\n" + notice
@@ -598,7 +599,10 @@ class Engine:
             memory_readonly_prefixes=self.memory_readonly_prefixes,
             memory_request_check=self.memory_request_check,
             memory_recall_excluded_keys=collected_names(session.script.script),
-            answered_memory_keys=set(session.answered_memory_keys()),
+            answer_hashes=session.answer_hashes,
+            memory_recall_blocked_keys=memory_deleted_keys
+            if replaying_input
+            else frozenset(),
         )
         deps.history_len = len(session.messages) if session.started else 0
         deps.finished = _finished_in(session.messages)
@@ -689,8 +693,7 @@ class Engine:
             ):
                 value = stored_value(pending.spec, answer)
                 if value is not None:
-                    session.memory[pending.spec.variable] = value
-                    deps.answered_memory_keys.add(pending.spec.variable)
+                    session.record_answer(pending.spec.variable, value)
                     yield MemoryUpdated(
                         key=pending.spec.variable, value=value, source="interaction"
                     )
@@ -733,14 +736,6 @@ class Engine:
                     [turn.text] if isinstance(turn, MessageTurn) else []
                 )
         deps.request_inputs = tuple(session.request_inputs)
-        # Exclude prior course answers only until this lesson accepts its own answer.
-        # Recompute after deferred answers are collected, including stored resumes.
-        deps.memory_recall_excluded_keys = collected_names(
-            session.script.script
-        ).difference(deps.answered_memory_keys)
-        if replaying_input:
-            # Replaying history does not restore permission to read a deleted fact.
-            deps.memory_recall_excluded_keys |= memory_deleted_keys
         if prompt is not None and self.turn_limit and session.turn >= self.turn_limit:
             # Out of turns: end the lesson rather than teach another one. Marked finished so a
             # reload does not start it over, and reported as finished rather than as an error --
@@ -786,7 +781,7 @@ class Engine:
                 notice = current_recall_notice(
                     kwargs["message_history"],
                     session.all_memory(),
-                    excluded=deps.memory_recall_excluded_keys,
+                    excluded=recall_exclusions(deps),
                 )
                 if notice:
                     # This is host context, not accepted learner input or permission to write.

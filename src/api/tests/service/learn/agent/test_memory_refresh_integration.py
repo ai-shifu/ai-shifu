@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -18,6 +19,7 @@ from flaskr.service.learn.memory import (
 from flaskr.service.profile.api import delete_course_memory
 from flaskr.service.profile.models import VariableValue
 from pydantic_ai.messages import ModelMessagesTypeAdapter
+from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from tests.service.learn.agent.test_memory_integration import (
     ANSWER,
@@ -28,8 +30,12 @@ from tests.service.learn.agent.test_memory_integration import (
 from tests.service.learn.agent.test_memory_recall_integration import _reader
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from flask import Flask
     from flaskr.service.learn.agent.engine import Engine
+    from pydantic_ai.messages import ModelMessage
+    from pydantic_ai.models.function import AgentInfo
 
 __all__ = ["learner"]
 
@@ -198,3 +204,57 @@ def test_rewind_to_unanswered_question_accepts_new_input_over_current_course_val
     seen: list[dict] = []
     _turn(app, _reader("goal", seen, []), user, course, lesson)
     assert seen == [{"status": "found", "value": "New answer after rewind"}]
+
+
+@pytest.mark.parametrize(
+    ("answered", "same_value"), [(False, False), (True, False), (True, True)]
+)
+def test_host_does_not_refresh_a_working_note_as_an_accepted_named_answer(
+    app: Flask, learner: tuple[str, str], answered: bool, same_value: bool
+) -> None:
+    """A matching session-only key without an answered question retains its value."""
+    from flaskr.service.learn.agent.engine import Engine
+
+    user, course = learner
+    lesson = uuid4().hex
+    if answered:
+        collector = _collector()
+        _turn(app, collector, user, course, lesson)
+        _turn(app, collector, user, course, lesson, "Original answer")
+    _update(app, user, course, "Committed course goal")
+    note = "Committed course goal" if same_value else "Session-only note"
+    phase = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Record a session note without answering the authored question."""
+        nonlocal phase
+        phase += 1
+        if phase == 1:
+            yield {
+                0: DeltaToolCall(
+                    name="remember",
+                    tool_call_id="working-note",
+                    json_args=json.dumps(
+                        {
+                            "key": "goal",
+                            "value": note,
+                            "scope": "session",
+                        }
+                    ),
+                )
+            }
+        else:
+            yield "A useful example."
+
+    _turn(app, Engine(FunctionModel(stream_function=model)), user, course, lesson)
+    db.session.remove()
+    before = session_store.load_agent_session(app, user, lesson)
+    assert not before.answered_memory_keys()
+    seen: list[dict] = []
+    _turn(app, _reader("goal", seen, []), user, course, lesson)
+    after = session_store.load_agent_session(app, user, lesson)
+    assert seen == [{"status": "unavailable"}]
+    assert after.memory["goal"] == note
+    assert after.user_memory["goal"] == "Committed course goal"

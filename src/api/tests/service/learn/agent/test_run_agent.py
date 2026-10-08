@@ -47,6 +47,7 @@ class _Session:
         self.script = ScriptBundle(script=SCRIPT)
         self.messages: list = []
         self.memory: dict = {}
+        self.answer_hashes: dict = {}
         self.answers: dict = {}
         self.initial_variables: dict | None = None
 
