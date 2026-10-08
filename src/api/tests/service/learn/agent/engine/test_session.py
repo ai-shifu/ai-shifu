@@ -147,14 +147,20 @@ def test_answer_fingerprint_survives_reload_and_rejects_a_changed_copy() -> None
 
 
 @pytest.mark.parametrize(
-    ("scope", "value"), [("session", "A"), ("session", "B"), ("user", "B")]
+    ("scope", "value", "current"),
+    [
+        ("session", "A", "A"),
+        ("session", "B", "B"),
+        ("user", "B", "B"),
+        ("user", "B", "A"),
+    ],
 )
 def test_legacy_remember_results_identify_the_current_answer_owner(
-    scope: str, value: str
+    scope: str, value: str, current: str
 ) -> None:
     """A successful session write supersedes even an identical historical answer."""
     session = Session(
-        script=ScriptBundle(script="Ask %{{goal}}."), memory={"goal": value}
+        script=ScriptBundle(script="Ask %{{goal}}."), memory={"goal": current}
     )
     session.messages = [
         ModelResponse(parts=[ToolCallPart("interact", {"variable": "goal"}, "q")]),

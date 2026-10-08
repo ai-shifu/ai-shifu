@@ -139,7 +139,7 @@ class Session:
             if isinstance(part, ToolReturnPart)
         )
         calls: dict[str, tuple[str, str, str | None]] = {}
-        accepted: dict[str, str] = {}
+        accepted: dict[str, set[str]] = {}
 
         def accept(call_id: str, content: object) -> None:
             """Recognize a nonempty host answer for a unique named interaction."""
@@ -158,13 +158,14 @@ class Session:
                             key
                         ):
                             value = value.replace("; and wrote: ", "; ", 1)
-                        accepted[key] = value
+                        accepted[key] = {value}
             name, key, value = calls[call_id]
             if name == "remember" and value is not None:
                 if content == f"remembered {key} (session)":
                     accepted.pop(key, None)
                 elif content == f"remembered {key} (user)" and key in accepted:
-                    accepted[key] = value
+                    # Older runtimes could leave the original answer copy in place.
+                    accepted[key].add(value)
 
         for message in self.messages:
             for part in message.parts:
@@ -201,9 +202,11 @@ class Session:
             if call_id in calls and calls[call_id][0] == "interact":
                 accept(call_id, content)
         return {
-            key: answer_fingerprint(value)
-            for key, value in accepted.items()
-            if key in self.memory and self.memory[key] == value
+            key: answer_fingerprint(self.memory[key])
+            for key, values in accepted.items()
+            if key in self.memory
+            and isinstance(self.memory[key], str)
+            and self.memory[key] in values
         }
 
     def to_dict(self) -> dict[str, Any]:
