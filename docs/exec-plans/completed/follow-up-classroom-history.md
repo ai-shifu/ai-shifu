@@ -1,6 +1,6 @@
 ---
 title: Preserve the classroom context of anchored follow-ups
-status: active
+status: completed
 owner_surface: learner
 last_reviewed: 2026-10-08
 ---
@@ -42,10 +42,15 @@ The durable contract is [Follow-up Classroom Context](../../references/follow-up
 - [x] 2026-10-08 01:29 UTC: Revised learning/profile regression passes 2,628
   tests (one skipped, four subtests). Local isolated probe passes 57 checks and
   15 module hashes; architecture has no new drift.
-- [ ] 2026-10-08 01:29 UTC: Complete revised gates, push, reply to Devin in the
-  original thread, then synchronize and verify final sim.
-- [ ] 2026-10-08 01:18 UTC: Verify both deployed sim replicas and fresh guest
-  HTTP/read/listen/follow-up; reply to every AI opinion and check final CI.
+- [x] 2026-10-08 01:35 UTC: Revised gates passed; push 7b862e22d, reply to
+  Devin in the original thread, and synchronize sim 093e0f4fa. Both API replicas
+  pass 57 isolated checks and match 15 local module hashes.
+- [x] 2026-10-08 01:41 UTC: Fresh guest read/audio-backfill/listen and two
+  anchored Ask requests quote the earlier answer exactly. Browser acceptance also
+  recalls the selected option twice. All technical CI passed. User merged PR 3037
+  as e43330103; build 378 and deployments 1852–1859 succeeded. CN/US API
+  rollouts are ready, each region passes 57 isolated checks and 15 module hashes,
+  and both retain engine 1.0. Every produced independent AI opinion has a reply.
 
 ## Surprises & Discoveries
 
@@ -75,8 +80,12 @@ block can contain multiple elements, including text after the selected anchor.
 Revised implementation passes 2,628 learning/profile tests and all repository gates.
 The original runtime fails ten of the initial 19 cases. The real 2.0 lifecycle
 regressions additionally fail all four cases against the initial PR. Revised
-deployment, review and final CI remain
-pending; the entire follow-up milestone and human teaching acceptance are not done.
+sim and production verification are complete; all technical CI passed. Devin
+identified the real-answer defect and its original thread received the pushed
+fix and tests. Devin has no new final-head review; CodeRabbit supplied only a
+quota notice, so neither is counted as final review approval. The follow-up
+milestone and human teaching acceptance remain open; deferred caller-level Ask
+routing coverage continues in the active follow-up-dispatch-regressions plan.
 
 ## Context and Orientation
 
