@@ -130,6 +130,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Repository Knowledge Cleanup](./completed/repository-knowledge-cleanup.md)
 - [Restrict learner order actions to their owner](./completed/restrict-learner-order-actions.md)
 - [Retire the AI Instruction Generator](./completed/retire-ai-instruction-generator.md)
+- [Reuse production images in PR runtime checks](./completed/reuse-production-runtime-images.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 - [Safe Frontend Dead Code Cleanup](./completed/safe-frontend-dead-code-cleanup.md)
 - [Safe Outbound URL Validation](./completed/safe-outbound-url-validation.md)
