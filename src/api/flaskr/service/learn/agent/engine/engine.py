@@ -94,6 +94,7 @@ from .tools import (
     script_pauses,
     script_text_inputs,
 )
+from .usage import accumulate_usage
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -1044,14 +1045,7 @@ class Engine:
                         # earlier would lose them if the request failed.
                         session.answers = {}
                         session.request_inputs = []
-                        u = result.usage
-                        session.usage = {
-                            "requests": session.usage.get("requests", 0) + u.requests,
-                            "input_tokens": session.usage.get("input_tokens", 0)
-                            + u.input_tokens,
-                            "output_tokens": session.usage.get("output_tokens", 0)
-                            + u.output_tokens,
-                        }
+                        session.usage = accumulate_usage(session.usage, result.usage)
                         if segmenter:
                             for e in self._segment(
                                 segmenter.finish(), seg_state, session, final=True

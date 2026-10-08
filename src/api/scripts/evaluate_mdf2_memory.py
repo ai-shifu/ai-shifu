@@ -53,6 +53,7 @@ def load_cases(selected: list[str] | None = None) -> list[dict[str, Any]]:
 
 async def evaluate_admission(case: dict[str, Any], model: Model) -> dict[str, Any]:
     """Distinguish a semantic refusal from provider/structured-output failure."""
+    from flaskr.service.learn.agent.engine.usage import accumulate_usage
     from flaskr.service.learn.agent.memory_admission import make_request_check
     from pydantic_ai.messages import ToolCallPart
     from pydantic_ai.models.wrapper import WrapperModel
@@ -84,10 +85,7 @@ async def evaluate_admission(case: dict[str, Any], model: Model) -> dict[str, An
     valid = False
     usage: dict[str, int] = {}
     for response, names in observed.responses:
-        usage = {
-            "input_tokens": response.usage.input_tokens,
-            "output_tokens": response.usage.output_tokens,
-        }
+        usage = accumulate_usage(usage, response.usage)
         calls = [part for part in response.parts if isinstance(part, ToolCallPart)]
         if (
             len(observed.responses) == 1
@@ -454,6 +452,30 @@ def teaching_read_evidence(
     return False
 
 
+def observe_summary_usage(model: Model, totals: dict[str, int]) -> Model:
+    """Record completed summary responses without changing model identity or requests."""
+    from flaskr.service.learn.agent.engine.usage import accumulate_usage
+    from pydantic_ai.models.wrapper import WrapperModel
+
+    class ObservedSummaryModel(WrapperModel):
+        """Observe the nonstreamed request path used by the production summary factory."""
+
+        async def request(
+            self,
+            messages: list[ModelMessage],
+            model_settings: ModelSettings | None,
+            model_request_parameters: ModelRequestParameters,
+        ) -> ModelResponse:
+            """Retain the actual completed request usage separately from teaching."""
+            response = await super().request(
+                messages, model_settings, model_request_parameters
+            )
+            totals.update(accumulate_usage(totals, response.usage))
+            return response
+
+    return ObservedSummaryModel(model)
+
+
 async def evaluate_teaching(
     case: dict[str, Any], model: Model, summary_model: Model
 ) -> dict[str, Any]:
@@ -481,7 +503,10 @@ async def evaluate_teaching(
 
     session = teaching_session(case)
     projected, sources = project_teaching_history(session.messages)
-    provider = make_teaching_summarizer(summary_model)
+    summary_usage: dict[str, int] = {}
+    provider = make_teaching_summarizer(
+        observe_summary_usage(summary_model, summary_usage)
+    )
     summary_calls = 0
 
     async def summarize(source: str) -> str | None:
@@ -609,6 +634,7 @@ async def evaluate_teaching(
         "checks": checks,
         "usage": done[-1].usage if done else {},
         "summary_calls": summary_calls,
+        "summary_usage": summary_usage,
         "injected_summary_failure": bool(case.get("summary_failure")),
     }
 
@@ -672,6 +698,7 @@ def report(
         "engine/recall.py",
         "engine/memory_context.py",
         "engine/history_context.py",
+        "engine/usage.py",
         "engine/teaching_history.py",
         "engine/teaching_summary.py",
         "teaching_summary.py",
@@ -691,6 +718,13 @@ def report(
     }
     return {
         "schema_version": 1,
+        "usage_semantics": {
+            "teaching": "SDK diagnostic totals; summary requests are separate",
+            "summary": "Completed summary responses only; partial failures may be billed separately",
+            "cache": "Provider prefix-cache reads; coverage counts only valid explicit reports, including zero",
+            "cache_coverage": "Use matching cache_reported_read_tokens/cache_reported_input_tokens; missing coverage is unknown",
+            "billing": "Use the shared gateway ledger/traces for prices and complete lesson cost",
+        },
         "recall_generation_settings": dict(RECALL_MODEL_SETTINGS),
         "teaching_generation_settings": dict(RECALL_MODEL_SETTINGS),
         "teaching_summary_generation_settings": {

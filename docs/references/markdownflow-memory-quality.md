@@ -70,9 +70,12 @@ All cases require unchanged memory, original history and finished teaching.
 Teaching uses the same controlled 512-token/temperature-zero settings as recall.
 Summary generation uses the production prompt and 256-token settings, with an
 eight-second provider timeout/cooperative deadline and complete 40 KiB input
-budget. These settings are reported separately. Usage counters describe teaching
-calls only; summary attempts are recorded as counts and billed/traced separately
+budget. These settings are reported separately. Teaching `usage` and completed
+summary `summary_usage` are separate. Logical summary attempts remain counts,
+including explicitly injected failure; actual summary generations are billed/traced
 under `agent_memory_quality_teaching_summary`. They are not a cost ledger.
+See [cache usage observations](markdownflow-cache-usage.md) for valid provider
+coverage, unknown metadata, matching token denominators and complete-course testing.
 Synthetic round trips establish cache/tool behavior, not database authorization,
 complete natural teaching quality or long-term cache savings.
 
@@ -112,7 +115,9 @@ The private, atomically written JSON report records denominators, repetitions,
 per-case assertions, errors, UTC start/end times, elapsed times, usage where
 available, course selection and resolved model, optional checkout source commit and hashes of the evaluator, fixture, judge prompt and runtime.
 It contains no credentials, learner IDs, raw requests, responses or provider errors.
-Usage is the judge/engine's diagnostic counters where available, not a billing or
+Usage is the judge/engine's diagnostic counters where available, with completed
+summary responses reported separately. Optional cache coverage distinguishes a
+valid reported zero from unknown metadata. These counters are not a billing or
 cost ledger; use shared-gateway accounting/traces for those acceptance decisions.
 The runtime image need not include Git: file fingerprints remain available.
 A failed case remains in the report; it is never silently removed or converted
