@@ -80,6 +80,7 @@ from .script import (
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
 from .teaching_history import project_teaching_history, read_teaching
+from .teaching_summary import TeachingSummarizer, summarize_teaching_history
 from .tools import (
     NO_PAUSE,
     Deps,
@@ -350,6 +351,7 @@ class Engine:
         memory_recall: bool = False,
         recall_history_compaction: bool = False,
         teaching_history_compaction: bool = False,
+        teaching_summarizer: TeachingSummarizer | None = None,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -387,7 +389,9 @@ class Engine:
 
         `teaching_history_compaction` offers exact paginated reads of older long
         teaching replaced by excerpts in requests. It preserves two recent turns,
-        all learner input and original stored evidence; it makes no summary call.
+        all learner input and original stored evidence. `teaching_summarizer` optionally
+        decorates excerpts with bounded session-local semantic summaries; without it
+        projection makes no extra model call.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
@@ -409,6 +413,10 @@ class Engine:
             message = "recall history compaction requires memory recall"
             raise ValueError(message)
         self.recall_history_compaction = recall_history_compaction
+        if teaching_summarizer is not None and not teaching_history_compaction:
+            message = "teaching summaries require teaching history compaction"
+            raise ValueError(message)
+        self.teaching_summarizer = teaching_summarizer
         self.teaching_history_compaction = teaching_history_compaction
         self.history_instructions = (
             (PROMPTS_DIR / "teaching_history_compaction.md").read_text()
@@ -748,6 +756,13 @@ class Engine:
                 kwargs["message_history"], deps.teaching_history = (
                     project_teaching_history(kwargs["message_history"])
                 )
+                if self.teaching_summarizer is not None:
+                    kwargs["message_history"] = await summarize_teaching_history(
+                        kwargs["message_history"],
+                        deps.teaching_history,
+                        session.teaching_summaries,
+                        self.teaching_summarizer,
+                    )
 
         segmenter = Segmenter() if session.listen_mode else None
         seg_state: dict[str, Any] = {"n": 0, "id": None, "narration": []}

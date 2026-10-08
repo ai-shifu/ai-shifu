@@ -96,6 +96,8 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     )
     state["messages"] = state["messages"][: int(checkpoint.get("messages") or 0)]
     restored = SessionClass.from_dict(state)
+    # Derivatives may describe discarded future teaching. Rebuild only from restored evidence.
+    session.teaching_summaries.clear()
     session.messages = restored.messages
     session.memory = restored.memory
     session.pending = restored.pending

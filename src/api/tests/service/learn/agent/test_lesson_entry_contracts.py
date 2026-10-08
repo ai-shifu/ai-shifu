@@ -191,6 +191,8 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     finalize = Mock()
     monkeypatch.setattr(entry, "finalize_langfuse_trace", finalize)
     gateway = Mock(return_value=object())
+    summary = Mock(return_value=object())
+    monkeypatch.setattr(entry, "make_teaching_summarizer", summary)
     request_check = Mock(return_value=object())
     monkeypatch.setattr(entry, "make_request_check", request_check)
     engine = Mock(return_value=object())
@@ -243,7 +245,21 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         usage_metadata=settings.usage_metadata,
         usage_scene=BILL_USAGE_SCENE_PREVIEW,
     )
-    assert gateway.call_count == 2
+    assert gateway.call_count == 3
+    summary.assert_called_once_with(gateway.return_value)
+    gateway.assert_any_call(
+        app,
+        "2",
+        user_id="learner",
+        span=span,
+        generation_name="agent_teaching_summary",
+        input_budget_bytes=40_960,
+        retry_deadline_seconds=8,
+        timeout=8,
+        num_retries=0,
+        usage_metadata=settings.usage_metadata,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
     gateway.assert_any_call(
         app,
         "2",
@@ -262,6 +278,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         memory_recall=True,
         recall_history_compaction=True,
         teaching_history_compaction=True,
+        teaching_summarizer=summary.return_value,
         memory_reserved_keys=entry.get_global_profile_keys(),
         memory_readonly_prefixes=("course:", "share:"),
         memory_request_check=request_check.return_value,
@@ -298,6 +315,7 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     monkeypatch.setattr(entry, "finalize_langfuse_trace", Mock())
     monkeypatch.setattr(entry, "GatewayModel", Mock(return_value=object()))
     monkeypatch.setattr(entry, "make_request_check", Mock(return_value=object()))
+    monkeypatch.setattr(entry, "make_teaching_summarizer", Mock(return_value=object()))
     monkeypatch.setattr(entry, "Engine", Mock(return_value=object()))
     runner = Mock(side_effect=lambda *_a, **_kw: iter(()))
     monkeypatch.setattr(entry, "run_agent_lesson", runner)

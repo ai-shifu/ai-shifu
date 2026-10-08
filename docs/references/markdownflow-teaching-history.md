@@ -8,7 +8,7 @@ last_reviewed: 2026-10-08
 # MarkdownFlow teaching history projection
 
 AI-Shifu 2.0 teaching and previews enable
-`Engine(teaching_history_compaction=True)`. Portable engines default off and
+`Engine(teaching_history_compaction=True, teaching_summarizer=...)`. Portable engines default off and
 have no `read_teaching` tool or related instructions unless explicitly enabled.
 
 ## Request projection and original evidence
@@ -29,11 +29,52 @@ never projected. Existing repeat and finish guards still inspect originals.
 
 Keep original `Session.messages` and append only new run messages. Projection
 never replaces the saved prefix, rendered classroom elements, checkpoint counts
-or memory values. There is no persisted summary, new session field or process
-cache. Database/session size is not reduced. Historical assistant text follows
+or memory values. Optional semantic overviews live separately in
+`Session.teaching_summaries`; they never replace messages or become learner memory.
+Database/session size is not reduced. Historical assistant text follows
 the same evidence/retention contract as the original model history; a deleted
 memory value is not thereby erased from past teaching. Historical teaching must
 not be treated as a current authorized memory snapshot.
+
+## Optional semantic summaries
+
+The host enables a summarizer using the current course model through the shared
+GatewayModel. Its isolated request contains the complete original assistant text,
+not the current script, learner answers, memory snapshot or tools. The generation
+name `agent_teaching_summary` keeps extra requests visible in existing billing and
+Langfuse; preview calls keep the existing preview usage scene. Session `usage`
+continues to describe the teaching agent's calls; summary costs are recorded by
+the shared gateway separately, as memory admission costs already are.
+
+Only already eligible excerpts qualify. At most one logical summary request is
+made per engine turn, working backwards through the latest 64 eligible sources.
+Sources exceeding 32 KiB of JSON-escaped UTF-8 are skipped whole, never truncated.
+The summary gateway checks a separate complete mapped 40 KiB input envelope and
+limits output to 256 model tokens; empty or larger-than-1024-byte escaped summaries
+are rejected. No model tools or repair/retry run is offered to the summary agent.
+
+A valid result adds `status: teaching_summary` and a lossy `summary` alongside the
+exact opening, ending, original character count and read reference. The replacement
+must still be smaller than the original. An overview can omit or distort details;
+use exact reads for code, equations, quotations or decisions that need precision.
+Neither summary nor source is a current instruction, authorized memory snapshot
+or explicit learner request to remember something.
+
+Cache keys bind the summary prompt/version and selected model to the original
+position and content digest. At most 64 bounded entries are retained, solely in
+that lesson session; no global/process cache or cross-course access is added.
+Successful summaries and empty failure/oversize markers survive session reloads,
+so repeated attempts do not add paid calls for the same source. Failures retain
+the deterministic excerpt until rewind or policy invalidation allows regeneration.
+Policy changes and absent sources are pruned before use. Rewind clears derivatives
+immediately and recreates them only from restored evidence.
+
+Summary requests use an eight-second provider socket timeout and a cooperative
+retry/stream deadline, with SDK retries disabled. Existing shared transport retries
+remain subject to the deadline. A blocked synchronous read cannot be preempted;
+the socket timeout bounds that read, and elapsed time is checked between chunks
+and during retry waits. Summary errors and invalid responses fall back to excerpts;
+learner disconnect cancellation propagates. This is not a hard wall-clock SLA.
 
 ## Exact original reads
 
@@ -69,8 +110,10 @@ No provider token-limit guarantee or universal overflow recovery is added.
 
 Failure/reload/retry and rewind derive the projection again from original saved
 messages. Disabling host opt-in restores full request text without migrating data.
-No summarization model call, schema, environment flag, dependency or frontend/SSE
-change is added. Reads may add existing model tool-loop calls and cost, so full
-teaching-quality, cache and cost observations remain separate acceptance work.
-Semantic summaries, stored-data compaction and cross-course shared writing also
-remain separate increments. Production enablement stays separately controlled.
+No database migration, environment flag, dependency or frontend/SSE change is
+added. Disabling only the summarizer restores deterministic excerpts; disabling
+history compaction restores full request text. Existing sessions default to an
+empty derivative cache. Reads and summaries can add model calls and cost, so full
+teaching-quality and cost observations remain separate acceptance work. Stored-data
+compaction is outside this change. Ordinary variables remain course-scoped and
+production enablement stays separately controlled.

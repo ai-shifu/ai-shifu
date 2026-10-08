@@ -29,8 +29,8 @@ jobs:
             default-image: ai-shifu-api
             dockerfile: src/api/Dockerfile
           - service: web
-            image-name: AI_SHIFU_COOK_WEB_IMAGE_NAME
-            default-image: ai-shifu-cook-web
+            image-name: AI_SHIFU_WEB_IMAGE_NAME
+            default-image: ai-shifu-web
             dockerfile: src/web/Dockerfile
     uses: ./.github/workflows/build-docker-image.yml
     secrets: inherit
