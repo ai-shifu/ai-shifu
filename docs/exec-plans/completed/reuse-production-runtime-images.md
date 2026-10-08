@@ -22,7 +22,9 @@ publication and ordinary manual packaging validation keep both architectures.
 - [x] 2026-10-08 10:58 UTC: Corrected the first CI's Bake override failure and
   executed the exact workflow flags with Buildx v0.37.2 locally; both targets
   resolve to the production Dockerfiles, AMD64 and local Docker image exports.
-- [ ] Open a ready PR and verify native image, Compose and browser checks in CI.
+- [x] 2026-10-08 11:07 UTC: Opened ready [PR #3050](https://github.com/ai-shifu/ai-shifu/pull/3050).
+  Native ARM64 image checks and the production AMD64 runtime/browser flow pass
+  for implementation head `b6c2083b4`. Scope and acceptance reviewed; archived.
 
 ## Surprises & Discoveries
 
@@ -60,10 +62,20 @@ publication and ordinary manual packaging validation keep both architectures.
 
 ## Outcomes & Retrospective
 
-Implementation and local validation are complete. Focused static tests cannot
-establish final production startup, registry availability or browser success;
-record the final CI run and any failures before treating external acceptance as
-complete. No registry publication or deployment is part of this change.
+Implementation and acceptance are complete. All 105 focused regressions,
+repository gates and independent review pass. The corrected
+[runtime run](https://github.com/ai-shifu/ai-shifu/actions/runs/37767354333)
+builds both production AMD64 images once, passes default-command smoke, records
+image config digests, and starts the same tags without rebuilds or application
+pulls. Three Playwright tests pass: login, authenticated admin operations and
+the learner course shell's first data request. The run completes in 4m18s.
+
+The [additional packaging run](https://github.com/ai-shifu/ai-shifu/actions/runs/37767354650)
+selects both services for this workflow change and validates only native ARM64;
+no duplicate AMD64 packaging jobs appear. Ordinary source/i18n and deleted or
+renamed packaging input selection are covered by the regression fixtures.
+No registry publication or deployment is part of this change. Final documentation
+archival retains the verified implementation without runtime code changes.
 
 ## Context and Orientation
 
