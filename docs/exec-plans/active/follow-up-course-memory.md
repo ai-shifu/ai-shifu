@@ -24,9 +24,24 @@ The durable authorization contract remains
   before formatting, preserving supplied snapshots and Live isolation.
 - [x] 2026-10-08 00:48 UTC: Verify 231 focused tests and four subtests, including
   real SQLite source revisions, revocation, isolation and provider prompts.
-- [ ] 2026-10-08 00:48 UTC: Complete broader regression and repository gates,
-  push a focused PR, reply to AI opinions and verify final CI and sim.
-- [ ] 2026-10-08 00:48 UTC: Wait for the human main merge and verify rollout.
+- [x] 2026-10-08 00:57 UTC: Complete 2,597 learning/profile tests (one skipped,
+  four subtests), all repository gates and six deliberate mutation failures.
+  Open [PR 3035](https://github.com/ai-shifu/ai-shifu/pull/3035). Initial sim
+  e3e9cf189 (build 372 / Drone 5163) has API 2/2 and web 1/1 ready; both API
+  replicas pass 34 isolated checks and 14 module hashes. Fresh guest read,
+  audio backfill (2.72 seconds), listen and follow-up (1.75 seconds) pass with
+  unchanged canonical profile.
+- [x] 2026-10-08 01:01 UTC: Evaluate CodeRabbit's additional argument assertion
+  suggestion and implement it in all six existing shared-context permutations.
+  Production runtime code remains identical to the deployed sim revision.
+- [ ] 2026-10-08 01:01 UTC: Push the test-only review correction, reply to every
+  independent AI opinion, synchronize sim and confirm final CI.
+- [x] 2026-10-08 01:02 UTC: PR 3035 passes final technical CI and was manually
+  merged at 01:01:12 UTC as ba74b577e. Build 373 / Drone 5164 succeeds;
+  production rollout verification is in progress.
+- [ ] 2026-10-08 01:02 UTC: Verify the production rollout and submit the pending
+  test-only review correction as a separate PR; the user merged 3035 before
+  that correction was pushed. Never merge main automatically.
 
 ## Surprises & Discoveries
 
@@ -52,7 +67,15 @@ authoritative and do not trigger a second memory read.
 Implementation and focused regression pass. Disabling effective-prompt resolution
 makes five SQLite cases fail; disabling text Ask forwarding makes one contract
 case fail. The corrected files are restored. Broader learning/profile regression passes 2,597 tests (one skipped, four
-subtests). Review, CI, sim and human main merge are pending. This increment does not complete the
+subtests). Initial sim acceptance passes, including the real text Ask entry point and HTTP
+follow-up. Devin reports no issues. CodeRabbit suggests asserting the exact
+raw prompt at a mocked call site; that test-only correction is implemented.
+Its independent docstring-percentage warning follows the repository test
+exemptions. PR 3035 passed final technical CI and was manually merged as ba74b577e before
+that test-only correction was pushed. Production verification and a separate
+review-test PR now finish the outstanding work. Removing prompt propagation
+makes all six strengthened shared-context cases fail; the production code is
+restored and remains identical to the accepted feature. This increment does not complete the
 entire follow-up or memory milestone.
 
 ## Context and Orientation
