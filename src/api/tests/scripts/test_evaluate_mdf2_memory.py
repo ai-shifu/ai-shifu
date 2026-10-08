@@ -304,3 +304,131 @@ async def test_unpaused_answer_can_finish_on_one_host_continuation() -> None:
     result = await quality.evaluate_recall(case, _recall_model(finish_later=True))
     assert result["passed"], result
     assert result["checks"]["completed"]
+
+
+async def test_in_place_history_mutation_cannot_pass_the_preservation_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.learn.agent.engine import Engine
+
+    original = Engine.run_turn
+
+    async def mutate(
+        engine: object, session: object, *args: object, **kwargs: object
+    ) -> AsyncIterator[object]:
+        async for event in original(engine, session, *args, **kwargs):
+            yield event
+        session.messages[0].parts[0].content += "\nUnexpected stored-history mutation."
+
+    monkeypatch.setattr(Engine, "run_turn", mutate)
+    case = quality.load_cases(["recall-updated-history"])[0]
+    result = await quality.evaluate_recall(case, _recall_model())
+    assert not result["passed"]
+    assert not result["checks"]["history_preserved"]
+    assert result["checks"]["current_tool_result"]
+
+
+def test_author_fixture_does_not_supply_the_recall_procedure() -> None:
+    case = quality.load_cases(["recall-updated-history"])[0]
+    script = quality.recall_session(case).script.script
+    assert "recall" not in script
+    assert "stale" not in script
+    assert "project_code" not in script
+
+
+@pytest.mark.parametrize("content", ["", " \n"])
+async def test_silent_first_turn_does_not_get_an_extra_answer_attempt(
+    monkeypatch: pytest.MonkeyPatch, content: str
+) -> None:
+    from flaskr.service.learn.agent.engine import ContentDelta, Engine, TurnDone
+
+    calls = []
+
+    async def silent(*_args: object, **_kwargs: object) -> AsyncIterator[object]:
+        calls.append(True)
+        if content:
+            yield ContentDelta(text=content)
+        yield TurnDone(reason="end")
+
+    monkeypatch.setattr(Engine, "run_turn", silent)
+    case = quality.load_cases(["recall-updated-history"])[0]
+    result = await quality.evaluate_recall(case, _recall_model())
+    assert len(calls) == 1
+    assert not result["passed"]
+
+
+@pytest.mark.parametrize(
+    "mode", ["correct", "wrong-key", "unpaired", "late", "conflicting", "reversed"]
+)
+@pytest.mark.parametrize(
+    "identifier", ["recall-updated-history", "recall-deleted-history"]
+)
+def test_current_evidence_requires_the_relevant_ordered_consistent_read(
+    mode: str,
+    identifier: str,
+) -> None:
+    from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
+
+    case = quality.load_cases([identifier])[0]
+    call = ToolCall(
+        id="current",
+        name="recall",
+        args={"key": "wrong" if mode == "wrong-key" else "project_code"},
+    )
+    result = ToolResult(
+        id="current",
+        name="recall",
+        content=json.dumps(
+            {"status": case["status"], "value": case["expected"]}
+            if case["status"] == "found"
+            else {"status": case["status"]}
+        ),
+    )
+    answer = ContentDelta(text=case["expected"])
+    events = [call, result, answer]
+    if mode == "unpaired":
+        events = [result, answer]
+    elif mode == "late":
+        events = [answer, call, result]
+    elif mode in {"conflicting", "reversed"}:
+        conflicting = [
+            ToolCall(id="other", name="recall", args={"key": "project_code"}),
+            ToolResult(
+                id="other", name="recall", content=json.dumps({"status": "too_large"})
+            ),
+        ]
+        events = (
+            [call, result, answer, *conflicting]
+            if mode == "conflicting"
+            else [*conflicting, call, result, answer]
+        )
+    assert quality.current_recall_evidence(case, events) is (mode == "correct")
+
+
+@pytest.mark.parametrize("content", ["LESSON_OVER", "malformed", "[]", "null", None])
+async def test_invalid_recall_result_keeps_assertions_and_usage(
+    monkeypatch: pytest.MonkeyPatch, content: object
+) -> None:
+    from flaskr.service.learn.agent.engine import (
+        ContentDelta,
+        Engine,
+        ToolCall,
+        ToolResult,
+        TurnDone,
+    )
+
+    async def invalid(*_args: object, **_kwargs: object) -> AsyncIterator[object]:
+        yield ToolCall(id="current", name="recall", args={"key": "project_code"})
+        yield ToolResult(id="current", name="recall", content=content)
+        yield ContentDelta(text="MEMORY_UNAVAILABLE")
+        yield TurnDone(reason="finished", usage={"requests": 1})
+
+    monkeypatch.setattr(Engine, "run_turn", invalid)
+    case = quality.load_cases(["recall-deleted-history"])[0]
+    result = await quality.evaluate_recall(case, _recall_model())
+    assert not result["passed"]
+    assert result["error"] == "invalid_recall_result"
+    assert not result["checks"]["valid_recall_results"]
+    assert not result["checks"]["current_tool_result"]
+    assert result["usage"] == {"requests": 1}
+    assert result["recall_statuses"] == [None]

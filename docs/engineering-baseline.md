@@ -637,9 +637,20 @@ flows before promoting them.
 - `repo-harness.yml`: the `Static Checks` job validates architecture
   boundaries, instructions, generated knowledge artifacts, translation
   parity and locale metadata, and the MarkdownFlow release pins on PRs into `main`.
-- `runtime-harness.yml`: runs the Docker-backed Playwright smoke harness for
-  runtime-affecting backend, frontend, Docker, and script changes in PRs or on
-  manual dispatch; does not run on pushes to `main`.
+- `runtime-harness.yml`: builds the API and Web production AMD64 images once
+  with Docker Bake on the same runner, smoke-tests their default startup and
+  dependencies, then reuses those loaded images for the Docker-backed
+  Playwright harness with `docker compose up --no-build`. Runs for
+  runtime-affecting backend, frontend, shared i18n, production Markdown,
+  Docker, and script changes in PRs or on manual dispatch; does not run on
+  pushes to `main`.
+- `docker-build-check.yml`: adds native ARM64 production-image build and smoke
+  checks only for services affected by packaging changes in PRs, including
+  Dockerfiles, runtime dependencies, production dependency checks, and Docker
+  build workflows. Ordinary application and shared i18n changes use the
+  runtime harness's AMD64 validation. Ordinary manual dispatch checks both
+  services on AMD64 and ARM64; explicit candidate dispatch also verifies
+  publication without moving normal tags.
 - `prepare-release.yml`: manually prepares a release draft from a requested
   `vX.Y.Z` version and opens a version-update PR.
 - `build-latest.yml`: builds `:latest` Docker images on pushes to `main` or
@@ -651,6 +662,17 @@ flows before promoting them.
 See [Docker image publication](references/docker-image-publication.md) for
 registry permissions, private-to-public GHCR setup, candidate verification and
 manual main backfills. This uses repository Dockerfiles independently of CICD.
+
+The runtime harness uses `src/api/Dockerfile` and `src/web/Dockerfile`, including
+the Web image's Alpine base, production dependency pruning, and non-root user.
+The default image commands are smoke-tested before Compose applies its API
+migration and demo-seeding command. Web keeps the production command and uses
+`PORT=5000` for the shared development nginx route and `/app/i18n` for shared
+translations. A passing harness therefore validates the built production AMD64
+images; it does not establish ARM64 compatibility or registry publication.
+Latest, release, and candidate publication retain both services and both native
+architectures, with smoke checks before pushing. Architecture-specific failures
+from ordinary application changes may first be detected by the main build.
 
 ### Release Path
 

@@ -255,5 +255,8 @@ def test_recall_instructions_require_current_evidence_for_remembered_answers() -
     assert "relevant key in this turn before answering" in instructions
     assert "do not repeat the historical value" in instructions
     assert "asks whether a remembered value changed" in instructions
+    assert 'learner does not say "remember"' in instructions
+    assert "verify a learner's current saved facts" in recall.__doc__
+    assert 'learner does not say "remember"' in recall.__doc__
     disabled = Engine(model).compose_instructions()
     assert "relevant key in this turn before answering" not in disabled

@@ -50,7 +50,9 @@ before changing it, even when only two packages need to be public. See GitHub's
 | --- | --- | --- | --- |
 | Build Latest Docker Images | Push to main, or manual Run workflow on main | `latest`, full commit SHA | GHCR and configured mirrors |
 | Build and Deploy on Release | Published non-draft, non-prerelease release | Existing release tag rules | GHCR and configured mirrors |
-| Docker Packaging Checks | Pull request or ordinary manual dispatch | Local validation name | No login or push |
+| Critical Path Runtime Checks | Runtime-affecting pull request or manual dispatch | Local production AMD64 images | No login or push |
+| Docker Packaging Checks | Pull request with packaging changes, affected services on native ARM64 | Local validation name | No login or push |
+| Docker Packaging Checks | Ordinary manual dispatch, both services on AMD64 and ARM64 | Local validation name | No login or push |
 | Docker Packaging Checks, publish-candidates=true | Explicit manual dispatch on the branch to test | `candidate-<run id>-<attempt>` | GHCR and configured mirrors |
 
 `PUSH_LATEST_IMAGES=false` disables every registry push for latest builds,
@@ -65,11 +67,40 @@ rebuild historical releases. For a failed existing release workflow, rerun that
 original run so it retains its release event/tag; expired digest artifacts require
 a full rerun. Do not create another release merely to backfill latest.
 
+## Pull request validation
+
+The runtime harness builds `src/api/Dockerfile` and `src/web/Dockerfile` once with
+Docker Bake on the same AMD64 runner and loads both final production images into
+that runner's Docker engine. It runs the production-image smoke checks against
+those exact images, including their default commands, before starting Compose
+with `up --no-build` and running the browser smoke tests. The browser tests reuse
+the same images instead of rebuilding them with a separate harness Dockerfile.
+
+Compose applies the API migration and demo-seeding command for the integrated
+test stack. Web keeps its production command and user, sets `PORT=5000` to match
+the shared nginx route, and reads translations from `/app/i18n`. The image smoke
+checks cover default startup independently of the API command override.
+
+Ordinary application code, shared i18n, and production Markdown changes receive
+this production AMD64 build, startup, and browser validation. Packaging-related
+changes additionally select the affected service's native ARM64 build and smoke
+check in Docker Packaging Checks. These include Dockerfiles, runtime dependency
+manifests and locks, production dependency checks, and Docker build workflows
+and scripts; changes shared by both images select both services.
+
+Ordinary manual packaging dispatch still validates both services on both
+architectures. Candidate publication, latest builds, and release builds also
+retain both native architectures for both services. An ordinary application
+change can therefore first expose an ARM64-specific failure in the main build;
+a passing AMD64 runtime harness does not establish ARM64 compatibility or
+successful registry publication.
+
 ## Acceptance and consumer pulls
 
-AMD64 and ARM64 build on native runners. Each final production image is loaded,
-started and smoke-tested before digest publication. The same layers are exported
-to every destination; their immutable config digest must match the tested image.
+Publishing builds use native AMD64 and ARM64 runners. Each final production image
+is loaded, started and smoke-tested before digest publication. The same layers
+are exported to every destination; their immutable config digest must match the
+tested image.
 Manifest publication preflights both architecture digests in every configured
 repository before moving that service's final tags, and inspects every final tag.
 There is no cross-service or cross-registry atomic transaction.
