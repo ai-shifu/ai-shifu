@@ -18,8 +18,13 @@ with exact original evidence still available through `read_teaching`.
   AI findings; 385 gateway/LLM regressions passed including seven accounting paths.
 - [x] 2026-10-08 18:22 CST: Shared LLM, model gateway, metering, learning/profile
   regressions passed: 3,211 tests, one skip, four subtests; all repository gates passed.
-- [ ] 2026-10-08 18:22 CST: Push reviewed fixes, reply to each original thread,
-  and repeat final sim acceptance after broader shared-gateway validation.
+- [x] 2026-10-08 18:26 CST: Pushed gateway fixes `b875ddcaa` and replied to all
+  independent AI opinions in their original threads. Sim build 405 / Drone 5196
+  and deployments 1970/1971 succeeded; both API replicas match ten runtime hashes.
+  Real course-model summary/continuation, reload reuse, exact reads, rewind cleanup,
+  gateway usage records and real HTTP read/listen/TTS completion passed.
+- [ ] 2026-10-08 18:26 CST: Await the user's manual main merge and verify its
+  post-merge deployment; production engine selection must remain unchanged.
 
 ## Surprises & Discoveries
 
@@ -55,9 +60,16 @@ with exact original evidence still available through `read_teaching`.
 
 ## Outcomes & Retrospective
 
-The semantic path passed its first sim acceptance. Final shared gateway fixes,
-AI replies and redeployment are pending. Full memory quality/cost observations
-and human course feedback remain separate milestone work.
+Local and sim acceptance are complete for PR #3049. The final real-model run
+summarized 4,576 source bytes to 669 bytes with one summary request, reused the
+cache without another request and continued teaching. Both real summary calls
+have successful shared gateway usage records. Real HTTP reading and listening
+completed; on-demand TTS completed in 1.95 seconds. All three actionable AI
+findings were fixed and replied to; the docstring percentage warning received
+an explicit reasoned reply. Main remains a user-controlled merge.
+
+Full memory quality/cost observations and human course feedback remain separate
+milestone work. This does not complete the entire memory milestone.
 
 ## Context and Orientation
 
