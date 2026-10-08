@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 COURSE_REFERENCE_PREFIX = "course:"
+SHARED_ANSWER_PREFIX = "share:"
+SHARED_ANSWER_NAME = re.compile(r"share:([0-9a-f]{32}):([a-zA-Z_][a-zA-Z0-9_-]*)\Z")
 MAX_COURSE_REFERENCES = 32
 _REFERENCE = re.compile(r"course:([0-9a-f]{32}):([^:{}\s]+)\Z")
 _READ_VARIABLE = re.compile(r"(?<!%)\{\{\s*([^{}\s]+)\s*\}\}")
@@ -22,12 +24,14 @@ _READ_VARIABLE = re.compile(r"(?<!%)\{\{\s*([^{}\s]+)\s*\}\}")
 
 def is_course_reference(key: str) -> bool:
     """Reserve the entire namespace, including malformed or unauthorized references."""
-    return key.startswith(COURSE_REFERENCE_PREFIX)
+    return key.startswith((COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX))
 
 
 def is_course_reference_name(key: str) -> bool:
     """Recognize the explicit source notation without interpreting format specifiers."""
-    return len(key) <= 255 and _REFERENCE.fullmatch(key) is not None
+    return len(key) <= 255 and bool(
+        _REFERENCE.fullmatch(key) or SHARED_ANSWER_NAME.fullmatch(key)
+    )
 
 
 def course_reference_reads(text: str) -> set[str]:
@@ -42,18 +46,15 @@ def course_reference_reads(text: str) -> set[str]:
     }
 
 
-def _owner(course: str) -> str | None:
+def _owner(course: str, *, lock: bool = False) -> str | None:
     """Require current and published ownership to agree; old live revisions cannot revive it."""
-    draft = (
-        DraftShifu.query.filter_by(shifu_bid=course)
-        .order_by(DraftShifu.id.desc())
-        .first()
-    )
-    published = (
-        PublishedShifu.query.filter_by(shifu_bid=course)
-        .order_by(PublishedShifu.id.desc())
-        .first()
-    )
+    rows = []
+    for model in (DraftShifu, PublishedShifu):
+        query = model.query.filter_by(shifu_bid=course)
+        if lock:
+            query = query.populate_existing().with_for_update()
+        rows.append(query.order_by(model.id.desc()).first())
+    draft, published = rows
     if (
         draft is None
         or published is None

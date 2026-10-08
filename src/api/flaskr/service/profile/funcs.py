@@ -20,6 +20,10 @@ from flaskr.service.profile.course_references import (
 )
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
+from flaskr.service.profile.shared_answers import (
+    load_shared_answers,
+    shared_answer_names,
+)
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
 from flaskr.service.user.repository import (
     UserAggregate,
@@ -435,6 +439,15 @@ def get_user_profiles(
             ),
             reserved=frozenset(profile_labels),
         )
+    )
+    shared = set().union(*(shared_answer_names(text) for text in documents))
+    result.update(
+        {
+            name: source.value
+            for name, source in load_shared_answers(
+                user_id, course_id, shared, reserved=frozenset(profile_labels)
+            ).items()
+        }
     )
     return result
 

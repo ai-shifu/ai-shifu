@@ -32,9 +32,9 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Refresh Nicknames in Existing Agent Lessons](./active/resumed-learner-nickname.md)
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)
+- [Write explicit named answers back to same-owner course variables](./active/shared-answer-writeback.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Stop Stripe Refund Credit Regrant](./active/stripe-refund-credit-reversal.md)
-- [Compact older long teaching with exact source reads](./active/teaching-history-compaction.md)
 - [Urdu product locale](./active/urdu-product-locale.md)
 
 ## Completed
@@ -129,6 +129,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Safe Outbound URL Validation](./completed/safe-outbound-url-validation.md)
 - [Spanish (Spain) Product Localization](./completed/spanish-es-es-localization.md)
 - [Secure learner Stripe payment synchronization](./completed/stripe-payment-sync-security.md)
+- [Compact older long teaching with exact source reads](./completed/teaching-history-compaction.md)
 - [Review product translations against the Chinese source](./completed/translation-source-review.md)
 - [Trusted Client IP Resolution](./completed/trusted-client-ip.md)
 - [TTS Provider Capabilities](./completed/tts-provider-capabilities.md)
