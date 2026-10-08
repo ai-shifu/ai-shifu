@@ -33,8 +33,10 @@ contract is [MarkdownFlow Runtime Selection](../../references/markdownflow-runti
   sidecar anchor/adapter, semaphore isolation, app context and terminal SSE.
   Focused regression including lock/disconnect contracts passes 415 tests;
   removing listen normalization fails four listening cases. Preserve runtime bytes.
-- [x] 2026-10-08 02:07 UTC: Revised gates passed, final 0da03d393 pushed and original
-  Devin thread replied with commit/tests. Final sim 100d9f6ae passed dual-pod probes;
+- [x] 2026-10-08 02:07 UTC: Post-merge audit confirmed the earlier gates, final
+  0da03d393 push, original Devin reply with commit/tests and final sim 100d9f6ae
+  dual-pod validation. This timestamp records verification, not publication;
+  those steps completed before the 02:02:08 UTC merge. Final sim probes passed;
   technical CI passed and CodeRabbit reviewed final head with no code changes.
   Every independent opinion was replied to. PR 3038 merged at 02:02:08 UTC;
   main acd8ae4cd matches accepted sim. Build 381 and deployments 1864-1871 succeeded,
