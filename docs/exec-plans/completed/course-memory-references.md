@@ -73,7 +73,7 @@ were fixed and replied to; the independent CodeRabbit docstring warning was
 replied to and declined. CodeRabbit covered the initial head, with its final
 incremental review rate-limited. Explicit read-only sharing is complete within
 this plan's scope. Follow-up prompt reads continue in
-[the next plan](../active/follow-up-course-memory.md); shared writing, recall,
+[the next plan](follow-up-course-memory.md); shared writing, recall,
 compression and full human teaching acceptance remain outside this increment.
 
 ## Context and Orientation
