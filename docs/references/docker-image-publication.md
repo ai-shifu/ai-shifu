@@ -34,9 +34,9 @@ The old `AI_SHIFU_COOK_WEB_IMAGE_NAME` variable is no longer read. Existing
 `ai-shifu-cook-web` packages and historical tags are retained; new publications
 use the Web name without also updating the old package.
 
-GHCR packages are private on first publication, even for public source
-repositories. Set each package's visibility to **Public** once in package
-settings before advertising anonymous pulls. An existing package must also
+Verify GHCR package visibility on first publication, even for public source
+repositories. If a package is private, set its visibility to **Public** in
+package settings before advertising anonymous pulls. An existing package must also
 grant this repository Actions access. A successful authenticated push alone
 does not establish anonymous availability. If Public is disabled in package
 settings, an organization owner must review **Settings → Packages → Package

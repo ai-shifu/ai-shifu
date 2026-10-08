@@ -23,8 +23,13 @@ untouched. The publication contract is in
 - [x] 2026-10-08: Migrate the pinned Web name only when Prepare Release Draft
   advances its version; preserve existing historical image references meanwhile.
 - [x] 2026-10-08: All 35 packaging regressions and latest Compose resolution pass.
-- [ ] Complete repository gates, open a focused PR and verify candidate publication.
-- [ ] Verify the new GHCR package's public visibility and anonymous pull access.
+- [x] 2026-10-08: All repository gates pass; PR #3048 is open. Candidate run
+  37757215763 passes four native builds/startup checks, three-registry tested-content
+  verification and both manifest publications on code commit `25a55c718`.
+- [x] 2026-10-08: The new GHCR Web package is Public with inherited source access
+  and repository Actions Admin. An empty Docker auth config can inspect both
+  architectures and pull the candidate; its local ARM64 production smoke passes.
+  The old Web latest manifest is byte-for-byte equivalent before and after.
 - [ ] User manually merges; verify main publishes the new names automatically.
 
 ## Surprises & Discoveries
@@ -47,8 +52,10 @@ advertise a historical Web tag that has never been published under the new name.
 
 ## Outcomes & Retrospective
 
-The implementation and offline checks pass. Candidate registry acceptance,
-public visibility and manual main merge remain outstanding.
+Implementation, offline gates and three-registry candidate acceptance pass.
+The new Web package is publicly downloadable and runs locally. CodeRabbit is
+rate-limited and has not reviewed this PR; Devin reports no issues. Final PR CI
+and manual main merge remain outstanding.
 
 ## Context and Orientation
 
