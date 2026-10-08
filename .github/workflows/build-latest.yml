@@ -16,6 +16,10 @@ env:
 jobs:
   build-latest:
     name: Build latest (${{ matrix.service }})
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +39,7 @@ jobs:
       image-name: ${{ vars[matrix.image-name] || matrix.default-image }}
       dockerfile: ${{ matrix.dockerfile }}
       push-images: ${{ (vars.PUSH_LATEST_IMAGES || 'true') == 'true' }}
+      publish-ghcr: true
       tags: |
         type=raw,value=${{ github.sha }}
         type=raw,value=latest
