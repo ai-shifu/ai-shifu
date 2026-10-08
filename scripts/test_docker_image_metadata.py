@@ -59,7 +59,10 @@ def test_ghcr_publishes_without_external_registry_secrets(tmp_path: Path) -> Non
     assert values == {"images": "ghcr.io/ai-shifu/ai-shifu-api", "push-images": "true"}
 
 
-def test_all_three_destinations_share_image_metadata(tmp_path: Path) -> None:
+@pytest.mark.parametrize("image", ["ai-shifu-api", "ai-shifu-web"])
+def test_all_three_destinations_share_image_metadata(
+    tmp_path: Path, image: str
+) -> None:
     """Configured mirrors cannot replace the GHCR destination."""
     credentials = {
         name: uuid4().hex
@@ -73,14 +76,15 @@ def test_all_three_destinations_share_image_metadata(tmp_path: Path) -> None:
     result, values = resolve(
         tmp_path,
         PUBLISH_GHCR="true",
+        IMAGE_NAME=image,
         ALIYUN_DOCKER_REGISTRY="registry.example.invalid",
         **credentials,
     )
     assert result.returncode == 0, result.stderr
     assert values["images"].split(",") == [
-        "ghcr.io/ai-shifu/ai-shifu-api",
-        f"{credentials['DOCKERHUB_USER']}/ai-shifu-api",
-        "registry.example.invalid/ai-shifu/ai-shifu-api",
+        f"ghcr.io/ai-shifu/{image}",
+        f"{credentials['DOCKERHUB_USER']}/{image}",
+        f"registry.example.invalid/ai-shifu/{image}",
     ]
     assert values["push-images"] == "true"
     for key in ("DOCKERHUB_TOKEN", "ALIYUN_DOCKER_PASSWORD"):
@@ -158,6 +162,7 @@ def test_release_pull_commands_match_lowercase_ghcr_owner(tmp_path: Path) -> Non
         env={
             "PATH": os.defpath,
             "GITHUB_STEP_SUMMARY": str(summary),
+            "DOCKERHUB_OWNER": "fixture-mirror",
             "GHCR_OWNER": "AcmeOrg",
             "API_IMAGE_NAME": "custom-api",
             "WEB_IMAGE_NAME": "custom-web",
@@ -170,4 +175,84 @@ def test_release_pull_commands_match_lowercase_ghcr_owner(tmp_path: Path) -> Non
     result = summary.read_text()
     assert "docker pull ghcr.io/acmeorg/custom-api:v1.2.3" in result
     assert "docker pull ghcr.io/acmeorg/custom-web:v1.2.3" in result
+    assert "docker pull fixture-mirror/custom-api:v1.2.3" in result
+    assert "docker pull fixture-mirror/custom-web:v1.2.3" in result
+    assert "ai-shifu-cook-web" not in result
     assert "ghcr.io/AcmeOrg/" not in result
+
+
+@pytest.mark.parametrize(
+    ("filename", "job_name"),
+    [
+        ("build-latest.yml", "build-latest"),
+        ("build-on-release.yml", "build-docker"),
+        ("docker-build-check.yml", "candidate-build"),
+    ],
+)
+def test_publication_callers_use_new_web_package(filename: str, job_name: str) -> None:
+    """Prevent a stale caller or repository variable from publishing the old package."""
+    job = workflow(filename)["jobs"][job_name]
+    services = {row["service"]: row for row in job["strategy"]["matrix"]["include"]}
+    assert services["web"]["default-image"] == "ai-shifu-web"
+    assert services["web"]["image-name"] == "AI_SHIFU_WEB_IMAGE_NAME"
+    assert services["api"]["default-image"] == "ai-shifu-api"
+    assert "AI_SHIFU_COOK_WEB_IMAGE_NAME" not in str(job)
+
+
+@pytest.mark.parametrize("previous_web", ["ai-shifu-cook-web", "ai-shifu-web"])
+def test_release_bump_migrates_web_without_retagging_other_images(
+    tmp_path: Path, previous_web: str
+) -> None:
+    """Exercise the real release shell against legacy and already migrated bundles."""
+    step = next(
+        step
+        for job in workflow("prepare-release.yml")["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("name") == "Update project version files"
+    )
+    # Run the Compose portion with a throwaway index; no commits or registry writes.
+    script = (
+        step["run"]
+        .split("# 6. Docker Compose files", 1)[1]
+        .split("# 7. Version files", 1)[0]
+    )
+    script = script.split("\n", 1)[1]
+    docker = tmp_path / "docker"
+    docker.mkdir()
+    pinned = docker / "docker-compose.yml"
+    pinned.write_text(
+        "services:\n"
+        f"  web:\n    image: aishifu/{previous_web}:v2.3.3\n"
+        "  api:\n    image: aishifu/ai-shifu-api:v2.3.3\n"
+        "  worker:\n    image: aishifu/ai-shifu-api:v2.3.3\n"
+        "  redis:\n    image: redis:7-alpine\n"
+    )
+    latest = docker / "docker-compose.latest.yml"
+    latest.write_text("services:\n  web:\n    image: aishifu/ai-shifu-web:latest\n")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    subprocess.run(
+        [
+            "bash",
+            "-e",
+            "-o",
+            "pipefail",
+            "-c",
+            "TAG_NAME=v9.8.7; UPDATED_FILES=();\n" + script,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    images = {
+        name: service["image"]
+        for name, service in yaml.safe_load(pinned.read_text())["services"].items()
+    }
+    assert images == {
+        "web": "aishifu/ai-shifu-web:v9.8.7",
+        "api": "aishifu/ai-shifu-api:v9.8.7",
+        "worker": "aishifu/ai-shifu-api:v9.8.7",
+        "redis": "redis:7-alpine",
+    }
+    assert "ai-shifu-web:latest" in latest.read_text()

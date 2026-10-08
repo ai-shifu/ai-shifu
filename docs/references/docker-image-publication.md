@@ -27,9 +27,12 @@ production CICD's `agix` namespace. Currently all three destinations are
 intended for the AI-Shifu repository. Forks can publish to their own GHCR
 namespace without the optional mirror credentials.
 
-The image names default to `ai-shifu-api` and `ai-shifu-cook-web`.
-`AI_SHIFU_API_IMAGE_NAME` and `AI_SHIFU_COOK_WEB_IMAGE_NAME` repository variables
+The image names default to `ai-shifu-api` and `ai-shifu-web`.
+`AI_SHIFU_API_IMAGE_NAME` and `AI_SHIFU_WEB_IMAGE_NAME` repository variables
 override those names consistently for latest, release and candidate builds.
+The old `AI_SHIFU_COOK_WEB_IMAGE_NAME` variable is no longer read. Existing
+`ai-shifu-cook-web` packages and historical tags are retained; new publications
+use the Web name without also updating the old package.
 
 GHCR packages are private on first publication, even for public source
 repositories. Set each package's visibility to **Public** once in package
@@ -76,11 +79,17 @@ credentials:
 
 ```bash
 docker pull ghcr.io/ai-shifu/ai-shifu-api:latest
-docker pull ghcr.io/ai-shifu/ai-shifu-cook-web:latest
+docker pull ghcr.io/ai-shifu/ai-shifu-web:latest
 ```
 
-The existing Compose bundles retain their Docker Hub image names. To use GHCR
-with those unchanged bundles, pull the two matching tags from GHCR and tag them
-locally under the bundle's names before starting it, or supply a local Compose
-override for the API, both Celery services and Web. Use one identical version for
-all four application services; do not mix release and latest images.
+The latest Compose bundle uses `aishifu/ai-shifu-api:latest` and
+`aishifu/ai-shifu-web:latest`. The pinned release bundle retains its historical
+Web image/tag until Prepare Release Draft advances it to a new release;
+no historical tag is copied or republished under the new name. Compose service
+and container identifiers stay stable so nginx routing is unaffected.
+
+To use GHCR, supply a local Compose override for the API, both Celery services
+and Web, or tag downloaded images locally under the bundle's image names.
+For historical releases use the retained `ai-shifu-cook-web` package. Use one
+identical version for all four application services; do not mix release and
+latest images.

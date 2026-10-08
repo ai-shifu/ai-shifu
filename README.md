@@ -107,11 +107,11 @@ cp .env.example.full .env
 
 ### Compose files
 
-- `docker-compose.latest.yml`: tracks the `:latest` tags for `aishifu/ai-shifu-api` and `aishifu/ai-shifu-cook-web`. Use this when you want the freshest container build (either from Docker Hub or after running your own `docker build ... -t aishifu/...:latest`).
+- `docker-compose.latest.yml`: tracks the `:latest` tags for `aishifu/ai-shifu-api` and `aishifu/ai-shifu-web`. Use this when you want the freshest container build (either from Docker Hub or after running your own `docker build ... -t aishifu/...:latest`).
 - `docker-compose.yml`: pins each image to a specific release tag for reproducible deployments (recommended for staging/prod mirrors or CI).
 
 GitHub Actions also publishes the API and Web images to
-`ghcr.io/ai-shifu/ai-shifu-api` and `ghcr.io/ai-shifu/ai-shifu-cook-web`.
+`ghcr.io/ai-shifu/ai-shifu-api` and `ghcr.io/ai-shifu/ai-shifu-web`.
 See [image publication and GHCR usage](docs/references/docker-image-publication.md)
 for automatic triggers, manual backfills and use with the existing Compose bundles.
 

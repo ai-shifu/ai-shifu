@@ -239,7 +239,10 @@ jobs:
               before_hash=$(sha256sum "$file" | cut -d' ' -f1)
               echo "  → Updating AI-Shifu Docker image tags in $file..."
               # Keep third-party image tags (Prometheus, Grafana, MySQL, Redis, etc.) unchanged.
-              sed -i.bak -E "s#image: aishifu/(ai-shifu-api|ai-shifu-cook-web):[^[:space:]]+#image: aishifu/\1:$TAG_NAME#g" "$file"
+              # Historical pinned releases keep their old name until the next version bump.
+              sed -i.bak -E \
+                -e "s#image: aishifu/ai-shifu-cook-web:[^[:space:]]+#image: aishifu/ai-shifu-web:$TAG_NAME#g" \
+                -e "s#image: aishifu/(ai-shifu-api|ai-shifu-web):[^[:space:]]+#image: aishifu/\1:$TAG_NAME#g" "$file"
               rm -f "$file.bak"
               after_hash=$(sha256sum "$file" | cut -d' ' -f1)
               if [ "$before_hash" != "$after_hash" ]; then
@@ -253,7 +256,7 @@ jobs:
           # Guard against accidental third-party image tag changes in release PRs.
           if git diff --unified=0 -- 'docker/docker-compose*.yml' 'docker/docker-compose*.yaml' \
             | grep -E '^[+-][[:space:]]*image: ' \
-            | grep -Ev '^[+-][[:space:]]*image: aishifu/(ai-shifu-api|ai-shifu-cook-web):' \
+            | grep -Ev '^[+-][[:space:]]*image: aishifu/(ai-shifu-api|ai-shifu-web|ai-shifu-cook-web):' \
             | grep -Ev '^(---|\+\+\+)' ; then
             echo "❌ Release version bump changed a third-party Docker image tag. Refusing to continue."
             exit 1
