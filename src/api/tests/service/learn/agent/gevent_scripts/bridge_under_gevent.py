@@ -50,11 +50,167 @@ def check_concurrent_turns() -> None:
             raise AssertionError(msg)
 
 
+def check_native_handoff_does_not_block_polling() -> None:
+    """Contention with a native producer must not park a nonblocking queue read."""
+    original_interval = sys.getswitchinterval()
+    # Make the short native producer critical sections contend with the consumer
+    # without relying on unrelated machine load to expose the handoff race.
+    sys.setswitchinterval(0.000001)
+    try:
+        for batch in range(4):
+
+            def one(n: int) -> list[tuple[int, int]]:
+                async def events() -> AsyncIterator[tuple[int, int]]:
+                    for index in range(bridge.BUFFER_LIMIT * 3):
+                        yield n, index
+                        await asyncio.sleep(0)
+
+                return list(bridge.iter_turn(events))
+
+            jobs = [gevent.spawn(one, n) for n in range(24)]
+            gevent.joinall(jobs, timeout=5)
+            try:
+                for n, job in enumerate(jobs):
+                    expected = [(n, index) for index in range(bridge.BUFFER_LIMIT * 3)]
+                    if not job.successful() or job.value != expected:
+                        msg = f"native handoff stalled or lost events in batch {batch}, turn {n}"
+                        raise AssertionError(msg)
+                if bridge._InFlight.count != 0:
+                    msg_0 = "completed turns retained admission slots"
+                    raise AssertionError(msg_0)
+            finally:
+                gevent.killall([job for job in jobs if not job.ready()], timeout=3)
+    finally:
+        sys.setswitchinterval(original_interval)
+
+
 def check_uses_the_pool() -> None:
     pool = bridge._GeventPool.instance
     if pool is None or type(pool).__module__ != "gevent.threadpool":
         msg = f"expected a gevent thread pool, got {pool!r}"
         raise AssertionError(msg)
+
+
+def check_backpressure_can_resume() -> None:
+    """Bound a paused producer and deliver every event when reading resumes."""
+    state = {"produced": 0}
+
+    async def events() -> AsyncIterator[int]:
+        for index in range(bridge.BUFFER_LIMIT * 4):
+            state["produced"] += 1
+            yield index
+
+    stream = bridge.iter_turn(events)
+    try:
+        first = next(stream)
+        gevent.sleep(0.05)
+        if state["produced"] > bridge.BUFFER_LIMIT + 2:
+            msg = "a paused reader did not bound the native producer"
+            raise AssertionError(msg)
+        if [first, *stream] != list(range(bridge.BUFFER_LIMIT * 4)):
+            msg = "resuming a paused reader lost or reordered events"
+            raise AssertionError(msg)
+    finally:
+        stream.close()
+
+
+def check_waiting_turn_cancels_and_releases_capacity() -> None:
+    """Free a quiet turn's slot on disconnect and preserve immediate refusal."""
+    state = {"closed": False}
+
+    async def waiting() -> AsyncIterator[str]:
+        try:
+            yield "started"
+            await asyncio.sleep(30)
+        finally:
+            state["closed"] = True
+
+    limit = bridge.MAX_TURNS_IN_FLIGHT
+    bridge.MAX_TURNS_IN_FLIGHT = 1
+    stream = bridge.iter_turn(waiting)
+    try:
+        if next(stream) != "started":
+            msg = "the waiting turn never started"
+            raise AssertionError(msg)
+        try:
+            refused = bridge.iter_turn(waiting)
+        except bridge.TurnCapacityError:
+            pass
+        else:
+            refused.close()
+            msg = "a full worker did not refuse the second turn"
+            raise AssertionError(msg)
+    finally:
+        stream.close()
+        bridge.MAX_TURNS_IN_FLIGHT = limit
+    if not state["closed"] or bridge._InFlight.count != 0:
+        msg = "a cancelled quiet turn retained its generator or slot"
+        raise AssertionError(msg)
+
+
+def check_error_releases_capacity() -> None:
+    """Propagate producer errors and leave the worker able to admit turns."""
+
+    async def events() -> AsyncIterator[str]:
+        yield "before-error"
+        msg = "isolated bridge failure"
+        raise ValueError(msg)
+
+    stream = bridge.iter_turn(events)
+    if next(stream) != "before-error":
+        msg = "the producer lost its event before failing"
+        raise AssertionError(msg)
+    try:
+        next(stream)
+    except ValueError as error:
+        if str(error) != "isolated bridge failure":
+            raise
+    else:
+        msg = "the producer error was not propagated"
+        raise AssertionError(msg)
+    if bridge._InFlight.count != 0:
+        msg = "a failed producer retained its admission slot"
+        raise AssertionError(msg)
+
+
+def check_contended_admission_release() -> None:
+    """Finish on a native producer while the request briefly owns the counter lock."""
+    for _ in range(8):
+        state = {"finish": False, "exiting": False}
+
+        async def events(probe: dict[str, bool] = state) -> AsyncIterator[str]:
+            yield "started"
+            while not probe["finish"]:  # noqa: ASYNC110 -- Coordinate native-thread lock contention.
+                await asyncio.sleep(0.001)
+            probe["exiting"] = True
+
+        stream = bridge.iter_turn(events)
+        try:
+            if next(stream) != "started":
+                msg = "the contention probe never started"
+                raise AssertionError(msg)
+            with bridge._InFlight.lock:
+                state["finish"] = True
+                deadline = time.monotonic() + 2
+                while not state["exiting"] and time.monotonic() < deadline:
+                    gevent.sleep(0.001)
+                if not state["exiting"]:
+                    msg = "the contention probe never reached producer cleanup"
+                    raise AssertionError(msg)
+                gevent.sleep(0.01)
+            reader = gevent.spawn(list, stream)
+            reader.join(timeout=3)
+            try:
+                if not reader.successful() or reader.value != []:
+                    msg = "producer cleanup stalled after admission lock contention"
+                    raise AssertionError(msg)
+            finally:
+                reader.kill()
+        finally:
+            stream.close()
+        if bridge._InFlight.count != 0:
+            msg = "contended cleanup retained its admission slot"
+            raise AssertionError(msg)
 
 
 def check_close_does_not_freeze_the_hub() -> None:
@@ -113,7 +269,12 @@ def check_events_are_not_paced_by_the_heartbeat() -> None:
 for check in (
     check_detection,
     check_concurrent_turns,
+    check_native_handoff_does_not_block_polling,
     check_uses_the_pool,
+    check_backpressure_can_resume,
+    check_waiting_turn_cancels_and_releases_capacity,
+    check_error_releases_capacity,
+    check_contended_admission_release,
     check_close_does_not_freeze_the_hub,
     check_events_are_not_paced_by_the_heartbeat,
 ):

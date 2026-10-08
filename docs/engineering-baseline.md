@@ -643,9 +643,14 @@ flows before promoting them.
 - `prepare-release.yml`: manually prepares a release draft from a requested
   `vX.Y.Z` version and opens a version-update PR.
 - `build-latest.yml`: builds `:latest` Docker images on pushes to `main` or
-  manual dispatch; publishing depends on the push toggle and registry credentials.
+  manual dispatch on main; publishes to GHCR and configured Docker Hub / Aliyun
+  mirrors unless the push toggle is disabled.
 - `build-on-release.yml`: builds and pushes release-tagged Docker images when
   a GitHub release is published.
+
+See [Docker image publication](references/docker-image-publication.md) for
+registry permissions, private-to-public GHCR setup, candidate verification and
+manual main backfills. This uses repository Dockerfiles independently of CICD.
 
 ### Release Path
 
