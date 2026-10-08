@@ -595,6 +595,10 @@ def test_a_resumed_session_refreshes_a_cleared_or_updated_nickname(
     monkeypatch: pytest.MonkeyPatch, calls: list, nickname: str
 ) -> None:
     """An old session snapshot cannot undo the canonical nickname or its blank fallback."""
+    from flask import Flask
+    from flaskr.i18n import load_translations
+
+    load_translations(Flask(__name__))
     stored = _Session(started=True)
     stored.user_memory = {"sys_user_nickname": "Previous name"}
     snapshot = {"sys_user_nickname": nickname, "sys_user_language": "en-US"}
