@@ -7,6 +7,7 @@ Evergreen repository references and operational guides live here.
 - [Architecture Boundaries](../references/architecture-boundaries.md)
 - [Explicit Course Memory References](../references/course-memory-references.md)
 - [Production Docker base images](../references/docker-base-images.md)
+- [Follow-up Classroom Context](../references/follow-up-classroom-context.md)
 - [Frontend Product Analytics](../references/frontend-product-analytics.md)
 - [Gemini Live follow-up implementation contract](../references/gemini-live-follow-up.md)
 - [Internationalization (i18n) Guide](../references/i18n.md)
