@@ -64,6 +64,13 @@ the numeric counters or private evaluation report.
 
 ## Complete-course testing
 
+Normal classroom teaching (`agent_lesson`), semantic summaries
+(`agent_teaching_summary`) and memory admission (`agent_memory_admission`) share
+the authenticated course and lesson usage context. The ledger retains the learner
+identity and read/listen mode, while existing ownership resolution identifies the
+course owner. Draft preview stays in the preview usage scene. Synthetic evaluator
+requests have no classroom identity and are not a course-fee baseline.
+
 Collect the private fixed-catalog report and correlate the selected course/lesson's
 shared gateway accounting and traces, including teaching, admission/checker,
 summary and failed requests. Keep unknown provider usage separate and record the

@@ -30,7 +30,11 @@ from flaskr.service.learn.agent.run_agent import learner_values, run_agent_lesso
 from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.llmsetting import LLMSettings
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.metering.api import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.profile.api import (
@@ -276,16 +280,27 @@ def agent_lesson_events(
         },
         root_span_payload={"name": "agent_lesson_turn"},
     )
+    usage_scene = BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+    # Auxiliary requests belong to the same lesson as teaching. Without the course identity,
+    # the shared settlement path cannot find the course owner or report its lesson costs.
+    usage_context = UsageContext(
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_bid,
+        usage_scene=usage_scene,
+        learning_mode="listen" if listen else "read",
+    )
     engine = Engine(
         GatewayModel(
             app,
             settings.model,
             user_id=user_bid,
             span=span,
+            usage_context=usage_context,
             usage_metadata=settings.usage_metadata,
             # An author previewing is not a learner taking the course; counting their turns as
             # production overstates what the course actually cost to teach.
-            **({"usage_scene": BILL_USAGE_SCENE_PREVIEW} if preview_mode else {}),
+            usage_scene=usage_scene,
         ),
         # No memory store: the engine runs on the bridge's producer thread, which has no app
         # context. The host consumes its `MemoryUpdated` events and writes them instead.
@@ -306,8 +321,9 @@ def agent_lesson_events(
                 retry_deadline_seconds=8,
                 timeout=8,
                 num_retries=0,
+                usage_context=usage_context,
                 usage_metadata=dict(settings.usage_metadata),
-                **({"usage_scene": BILL_USAGE_SCENE_PREVIEW} if preview_mode else {}),
+                usage_scene=usage_scene,
             )
         ),
         memory_reserved_keys=get_global_profile_keys(),
@@ -319,8 +335,9 @@ def agent_lesson_events(
                 user_id=user_bid,
                 span=span,
                 generation_name="agent_memory_admission",
+                usage_context=usage_context,
                 usage_metadata=settings.usage_metadata,
-                **({"usage_scene": BILL_USAGE_SCENE_PREVIEW} if preview_mode else {}),
+                usage_scene=usage_scene,
             )
         ),
         model_settings={"temperature": settings.temperature},
