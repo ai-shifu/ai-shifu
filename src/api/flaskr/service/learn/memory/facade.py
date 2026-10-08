@@ -9,6 +9,7 @@ from flaskr.service.learn.memory.reader import load_course_variables
 from flaskr.service.profile.api import (
     course_memory_deletion_state,
     get_user_profiles,
+    is_course_reference,
     save_user_profiles,
 )
 from flaskr.service.profile.dtos import ProfileToSave
@@ -18,16 +19,24 @@ if TYPE_CHECKING:
 
 
 def load_memory(
-    app: Flask, user_bid: str, shifu_bid: str, *, include_course_variables: bool = False
+    app: Flask,
+    user_bid: str,
+    shifu_bid: str,
+    *,
+    include_course_variables: bool = False,
+    reference_text: str | tuple[str, ...] = "",
 ) -> MemorySnapshot:
     """Read supported memory categories for an authorized user/course context.
 
     Variables currently use runtime profile resolution, including settings edits
     and canonical fields. Agent hosts opt into all current-course variable rows,
     including learner requests without profile definitions. Global undeclared values
-    and the broad reader's ``elsewhere`` are not merged.
+    and the broad reader's ``elsewhere`` are not merged. Cross-course values require
+    reads in the supplied trusted author documents; an empty context grants none.
     """
-    resolved = get_user_profiles(app, user_bid, shifu_bid)
+    resolved = get_user_profiles(
+        app, user_bid, shifu_bid, reference_text=reference_text
+    )
     variables = (
         load_course_variables(user_bid, shifu_bid, exclude_keys=frozenset(resolved))
         if include_course_variables
@@ -36,7 +45,8 @@ def load_memory(
     variables.update(resolved)
     _, deleted = course_memory_deletion_state(user_bid, shifu_bid)
     for key in deleted:
-        variables.pop(key, None)
+        if not is_course_reference(key):
+            variables.pop(key, None)
     return MemorySnapshot(variables=variables)
 
 
@@ -53,8 +63,12 @@ def stage_memory(
     Variables use the existing profile writer. Copy its mapped values back to
     the variable payloads for update events; profile DTOs stay inside this adapter.
     Empty patches are no-ops. The boolean is the writer result, not a durability
-    guarantee: the writer flushes and the caller owns the commit.
+    guarantee: the writer flushes and the caller owns the commit. Read-only reference
+    assignments are removed from the patch so callers cannot announce false updates.
     """
+    update.variables = [
+        item for item in update.variables if not is_course_reference(item.key)
+    ]
     if expected_generations is not None:
         current, _ = course_memory_deletion_state(user_bid, shifu_bid, lock=True)
         update.variables = [

@@ -13,6 +13,11 @@ from flaskr.dao import db
 from flaskr.i18n import _, get_locale_labels
 from flaskr.service.check_risk.funcs import add_risk_control_result
 from flaskr.service.common import raise_error
+from flaskr.service.profile.course_references import (
+    course_reference_reads,
+    is_course_reference,
+    load_course_references,
+)
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
@@ -270,6 +275,8 @@ def save_user_profiles(
         user_values = []
 
     for profile in profiles:
+        if is_course_reference(profile.key):
+            continue
         profile_item = next(
             (item for item in profiles_items if item.profile_key == profile.key), None
         )
@@ -321,7 +328,13 @@ def save_user_profiles(
     return True
 
 
-def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
+def get_user_profiles(
+    app: Flask,
+    user_id: str,
+    course_id: str,
+    *,
+    reference_text: str | tuple[str, ...] = "",
+) -> dict:
     """Get user profiles for Mdflow run.
 
     Note:
@@ -331,6 +344,9 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     This function must follow the same shifu_bid routing rules as
     :func:`save_user_profiles`, otherwise the run context may see values different
     from what the user sees in the personal settings page.
+
+    Cross-course reads also require explicit names in this request's author document.
+    Callers without a lesson/prompt context receive no source-course values.
 
     """
     profile_labels = get_profile_labels()
@@ -358,6 +374,8 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
 
     result: dict[str, str] = {}
     for profile_item in profiles_items:
+        if is_course_reference(profile_item.profile_key):
+            continue
         # Follow save_user_profiles routing: label keys are global, others per-course.
         target_shifu = (
             "" if profile_item.profile_key in profile_labels else (course_id or "")
@@ -404,6 +422,20 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     if not result.get(SYS_USER_NICKNAME):
         result[SYS_USER_NICKNAME] = aggregate.nickname if aggregate else ""
 
+    documents = (reference_text,) if isinstance(reference_text, str) else reference_text
+    requested = set().union(*(course_reference_reads(text) for text in documents))
+    result.update(
+        load_course_references(
+            user_id,
+            course_id,
+            (
+                item.profile_key
+                for item in profiles_items
+                if item.profile_key in requested
+            ),
+            reserved=frozenset(profile_labels),
+        )
+    )
     return result
 
 
@@ -647,7 +679,7 @@ def update_user_profile_with_lable(
 
     for profile in profiles:
         key = profile.get("key")
-        if not key:
+        if not key or is_course_reference(key):
             continue
         profile_value = profile.get("value")
         profile_item = next(

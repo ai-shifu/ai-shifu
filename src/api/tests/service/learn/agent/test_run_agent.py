@@ -48,6 +48,11 @@ class _Session:
         self.messages: list = []
         self.memory: dict = {}
         self.answers: dict = {}
+        self.initial_variables: dict | None = None
+
+    def all_memory(self) -> dict:
+        """Expose the merged snapshot used by host-owned reference refresh."""
+        return {**self.user_memory, **self.memory}
 
     def to_dict(self) -> dict:
         """Return the fields a checkpoint reads, the way a real session serializes them."""

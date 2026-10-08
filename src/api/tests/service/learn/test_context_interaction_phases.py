@@ -702,3 +702,32 @@ def test_access_exception_becomes_gate_and_feedback_without_advancing(
         gate in phase.context._emit_current_progress_gate_interaction.call_args.args[0]
     )
     assert phase.context.has_next() is False
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+def test_readonly_reference_answers_keep_history_and_advance_without_false_updates(
+    phase: SimpleNamespace,
+    mixed: bool,
+) -> None:
+    key = "course:" + "a" * 32 + ":goal"
+    variables = {key: "New source goal", **({"choice": "A"} if mixed else {})}
+    phase.state.mdflow_context.process.return_value = SimpleNamespace(
+        metadata=None, variables=variables
+    )
+    block = LearnGeneratedBlock(
+        generated_block_bid="block", generated_content="The learner's full answer"
+    )
+    events, advanced = _consume(
+        phase.context._phase_validate_input_and_advance(
+            phase.app, phase.state, block, {}
+        )
+    )
+    patch = phase.memory.call_args.args[-1]
+    assert [item.key for item in patch.variables] == (["choice"] if mixed else [])
+    assert [event.content.variable_name for event in events] == (
+        ["choice"] if mixed else []
+    )
+    assert all(event.type == GeneratedType.VARIABLE_UPDATE for event in events)
+    assert block.generated_content == "The learner's full answer"
+    assert advanced is True
+    phase.context._recorder.update_progress_pointer.assert_called_once()

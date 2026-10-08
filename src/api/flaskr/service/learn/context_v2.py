@@ -94,7 +94,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_RESET,
 )
-from flaskr.service.profile.api import course_memory_deletion_state
+from flaskr.service.profile.api import course_memory_deletion_state, is_course_reference
 from flaskr.service.profile.constants import SYS_USER_LANGUAGE
 from flaskr.service.profile.profile_manage import (
     ProfileItemDefinition,
@@ -2420,7 +2420,10 @@ class RunScriptContextV2:
             self._user_info.user_id, self._outline_item_info.shifu_bid
         )
         memory = load_memory(
-            app, self._user_info.user_id, self._outline_item_info.shifu_bid
+            app,
+            self._user_info.user_id,
+            self._outline_item_info.shifu_bid,
+            reference_text=(run_script_info.mdflow, system_prompt or ""),
         )
         user_profile, runtime_output_language = _resolve_runtime_language_context(
             memory.as_variables(),
@@ -2951,6 +2954,8 @@ class RunScriptContextV2:
         if validate_result.variables is not None and len(validate_result.variables) > 0:
             memory_update = MemoryUpdate()
             for key, value in validate_result.variables.items():
+                if is_course_reference(key):
+                    continue
                 profile_id = state.variable_definition_key_id_map.get(key, "")
                 # Convert list to string (markdown-flow 0.2.27+ returns list[str] for multi-select)
                 if isinstance(value, list):

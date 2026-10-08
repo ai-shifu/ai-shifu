@@ -6,6 +6,11 @@ from flaskr.service.profile.course_memory import (
     delete_course_memory,
     list_course_memory,
 )
+from flaskr.service.profile.course_references import (
+    COURSE_REFERENCE_PREFIX,
+    is_course_reference,
+    is_course_reference_name,
+)
 from flaskr.service.profile.funcs import (
     get_global_profile_keys,
     get_user_profiles,
@@ -19,6 +24,7 @@ from flaskr.service.profile.learner_profile import (
 )
 
 __all__ = [
+    "COURSE_REFERENCE_PREFIX",
     "LEARNER_PROFILE_MAX_LENGTH",
     "LEARNER_PROFILE_NICKNAME_MAX_LENGTH",
     "SYS_USER_LANGUAGE",
@@ -28,6 +34,8 @@ __all__ = [
     "get_global_profile_keys",
     "get_user_profiles",
     "has_learner_profile_or_state",
+    "is_course_reference",
+    "is_course_reference_name",
     "list_course_memory",
     "merge_learner_profile_for_sign_in",
     "save_user_profiles",
