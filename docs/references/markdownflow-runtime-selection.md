@@ -59,12 +59,21 @@ admission is deployment-wide.
 
 `tests/service/learn/test_lesson_routing.py` exercises Ask through the actual
 `runscript_v2._lesson_events` caller with the real deployment configuration.
-It covers both flag values, read/listen delivery, formal/preview requests and
-anchored/unanchored questions. Only `run_script_inner` may handle Ask; the
+The 16 direct-caller cases cover both flag values, incoming `listen` arguments,
+formal/preview requests and anchored/unanchored questions. Only `run_script_inner` may handle Ask; the
 teaching agent must not receive it. Learner/course/lesson IDs, question, selected
 block/element, delivery flags, cancellation event and element adapter reach the
 sidecar unchanged. The producer retains app-context ownership, and its events
 pass through without agent finalization or extra commit checkpoints.
+
+Eight additional tests enter through real `run_script` and its background
+producer before `_lesson_events`. The public Ask entry always normalizes
+`listen` to `false` (no lesson TTS), even when `learning_mode` remains `listen`.
+They check both deployment flags, requested delivery modes and preview states,
+retaining anchor IDs, sidecar adapter configuration, producer app-context
+ownership and terminal SSE. Only the Ask semaphore is acquired/released; the
+lesson mutex and active lesson status are untouched. The direct-caller
+`listen=True` cases are defensive boundary tests, not public-producer scenarios.
 
 Provider adapters, classroom-history construction and Live voice boundaries
 have separate regression coverage. Caller-level routing coverage alone does not

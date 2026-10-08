@@ -25,8 +25,16 @@ contract is [MarkdownFlow Runtime Selection](../../references/markdownflow-runti
 - [x] 2026-10-08 01:43 UTC: Focused routing/history/provider/Live regression
   passes 374 tests. The caller-bypass mutation fails all eight enabled Ask cases
   while disabled cases pass; restore the exact runtime bytes.
-- [ ] 2026-10-08 01:43 UTC: Pass repository gates, publish one PR, synchronize
-  sim, verify its unchanged runtime and final CI, and reply to all AI opinions.
+- [x] 2026-10-08 01:46 UTC: Gates passed; publish PR 3038 at df5f5a79e and
+  synchronize initial sim 512fc4aee. Reply on PR 3031 with the implemented
+  deferred coverage and pushed commit.
+- [x] 2026-10-08 01:51 UTC: Accept Devin producer-normalization finding. Add
+  eight real run_script/background-producer cases with actual caller/config,
+  sidecar anchor/adapter, semaphore isolation, app context and terminal SSE.
+  Focused regression including lock/disconnect contracts passes 415 tests;
+  removing listen normalization fails four listening cases. Preserve runtime bytes.
+- [ ] 2026-10-08 01:51 UTC: Complete revised gates and push, reply in the
+  original thread, synchronize final sim, and verify final CI/deployment.
 
 ## Surprises & Discoveries
 
@@ -34,6 +42,9 @@ The earlier test proves only the predicate excludes Ask. It cannot detect a
 caller that ignores the predicate, which is the deferred review's specific risk.
 Existing general argument forwarding tests stub the runtime configuration and
 use normal teaching inputs, rather than actual Ask under the environment flag.
+Devin also identified that direct listen=True caller cases bypass the public
+producer, which always normalizes Ask to listen=False. Retain those as defensive
+function-boundary tests and add real public-entry/background-producer coverage.
 
 ## Decision Log
 
@@ -44,9 +55,11 @@ use normal teaching inputs, rather than actual Ask under the environment flag.
 
 ## Outcomes & Retrospective
 
-Implementation is test-only. All 374 focused tests pass; bypassing the caller
-exclusion fails eight enabled cases. Runtime bytes are unchanged. Repository
-gates, publication, review and sim rollout are pending.
+Implementation is test-only. Revised focused regression passes 415 tests. The
+caller-bypass mutation fails eight enabled direct cases; removing producer
+normalization fails four real listening cases. Runtime bytes are unchanged.
+Initial publication and sim succeeded; revised review reply, gates, final push
+and sim/CI verification remain pending.
 Full follow-up quality, shared memory writes, recall/compression and independent
 human acceptance remain separate work in the workspace milestone plan.
 
@@ -74,8 +87,10 @@ thread with pushed fixes and tests; keep merging main under user control.
 
 ## Validation and Acceptance
 
-All 16 Ask combinations select only the sidecar and preserve exact arguments
-and ordered events. A caller that routes enabled Ask directly to the agent must
+All 16 direct Ask combinations select only the sidecar and preserve exact
+arguments and ordered events. Eight real public-entry producer cases normalize
+listen=False while preserving learning mode, anchor and adapter. They retain
+Ask semaphore isolation and terminal SSE without changing active lesson status. A caller that routes enabled Ask directly to the agent must
 fail the enabled combinations. Existing adjacent regressions and repository
 gates pass. The deployed sim runtime matches the already accepted PR 3037 code;
 production stays on 1.0. Every independent AI opinion receives a reply.
