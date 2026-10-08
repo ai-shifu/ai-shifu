@@ -4447,22 +4447,26 @@ async def test_real_chat_gateway_preserves_cache_observations_and_billing(
 
 
 @pytest.mark.parametrize("preview_mode", [False, True])
-@pytest.mark.parametrize("listen", [False, True])
+@pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
+@pytest.mark.parametrize("course_table", ["draft", "published"])
 def test_agent_entry_attributes_all_model_usage_to_the_course(
     monkeypatch: pytest.MonkeyPatch,
     app: object,
     preview_mode: bool,
-    listen: bool,
+    learning_mode: str,
+    course_table: str,
 ) -> None:
     """Exercise entry, all three real adapters, shared chat normalization and persistence."""
     import asyncio
     import uuid
 
+    from flaskr.dao.uow import unit_of_work
     from flaskr.service.billing import ownership
     from flaskr.service.learn.agent import gateway_model, lesson_entry
     from flaskr.service.learn.llmsetting import LLMSettings
     from flaskr.service.metering import recorder
     from flaskr.service.metering.models import BillUsageRecord
+    from flaskr.service.shifu.models import DraftShifu, PublishedShifu
     from pydantic_ai.models import ModelRequestParameters
 
     _use_fake_provider(monkeypatch)
@@ -4522,23 +4526,22 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
         yield from ()
 
     monkeypatch.setattr(lesson_entry, "run_agent_lesson", run)
-    owners = []
-
-    def owner(_app: object, shifu_bid: str) -> str:
-        owners.append(shifu_bid)
-        return "course-owner"
-
-    monkeypatch.setattr(ownership, "resolve_shifu_creator_bid", owner)
     with app.app_context():
+        course_bid = uuid.uuid4().hex
+        owner_bid = uuid.uuid4().hex
+        table = DraftShifu if course_table == "draft" else PublishedShifu
+        with unit_of_work():
+            db.session.add(table(shifu_bid=course_bid, created_user_bid=owner_bid))
         assert (
             list(
                 lesson_entry.agent_lesson_events(
                     app,
                     user_bid=identity,
-                    shifu_bid="course-usage-course",
+                    shifu_bid=course_bid,
                     outline_bid="course-usage-lesson",
                     preview_mode=preview_mode,
-                    listen=listen,
+                    listen=learning_mode == "listen",
+                    learning_mode=learning_mode,
                 )
             )
             == []
@@ -4551,12 +4554,12 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
             "agent_memory_admission",
         }
         for row in rows:
-            assert row.shifu_bid == "course-usage-course"
+            assert row.shifu_bid == course_bid
             assert row.outline_item_bid == "course-usage-lesson"
             assert row.usage_scene == (
                 BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
             )
-            assert row.extra["learning_mode"] == ("listen" if listen else "read")
+            assert row.extra["learning_mode"] == learning_mode
             assert row.request_id == "course-usage-request"
             assert (row.input, row.input_cache, row.output, row.total) == (
                 100,
@@ -4565,5 +4568,4 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
                 103,
             )
             assert row.status == 0
-            assert ownership.resolve_usage_creator_bid(app, row) == "course-owner"
-        assert owners == ["course-usage-course"] * 3
+            assert ownership.resolve_usage_creator_bid(app, row) == owner_bid

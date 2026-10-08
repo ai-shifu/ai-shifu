@@ -67,7 +67,7 @@ the numeric counters or private evaluation report.
 Normal classroom teaching (`agent_lesson`), semantic summaries
 (`agent_teaching_summary`) and memory admission (`agent_memory_admission`) share
 the authenticated course and lesson usage context. The ledger retains the learner
-identity and read/listen mode, while existing ownership resolution identifies the
+identity and read/listen/classroom mode, while existing ownership resolution identifies the
 course owner. Draft preview stays in the preview usage scene. Synthetic evaluator
 requests have no classroom identity and are not a course-fee baseline.
 
