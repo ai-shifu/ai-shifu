@@ -63,12 +63,12 @@
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/preserve-independent-credit-validity.md` | Preserve Independent Credit Validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/recall-history-compaction.md` | Compact completed memory recall history | `exec-plan-active` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/resumed-learner-nickname.md` | Refresh Nicknames in Existing Agent Lessons | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/stripe-refund-credit-reversal.md` | Stop Stripe Refund Credit Regrant | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/teaching-history-compaction.md` | Compact older long teaching with exact source reads | `exec-plan-active` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/exec-plans/active/urdu-product-locale.md` | Urdu product locale | `exec-plan-active` | `active` | `cross-surface` | `2026-09-27` | `true` |
 | `docs/exec-plans/completed/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -149,6 +149,7 @@
 | `docs/exec-plans/completed/profile-onboarding-retention.md` | Explain personalization before deferring profile setup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/profile-onboarding-structural-simplification.md` | Profile Onboarding Structural Simplification | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/pydantic-required-compatibility.md` | Remove deprecated Pydantic `Field(required=...)` metadata | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/recall-history-compaction.md` | Compact completed memory recall history | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/remove-minimax-in-product-voice-cloning.md` | Remove In-Product MiniMax Voice Cloning | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/repository-knowledge-cleanup.md` | Repository Knowledge Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -224,6 +225,7 @@
 | `docs/references/markdownflow-memory-recall.md` | MarkdownFlow Memory Recall | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
 | `docs/references/markdownflow-model-arena.md` | Local MarkdownFlow slide comparisons | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/markdownflow-runtime-selection.md` | MarkdownFlow Runtime Selection | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
+| `docs/references/markdownflow-teaching-history.md` | MarkdownFlow teaching history projection | `reference` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration | `reference` | `reference` | `repo` | `2026-09-27` | `true` |
 | `docs/references/scripts.md` | Scripts Overview | `reference` | `reference` | `repo` | `-` | `true` |
 | `scripts/AGENTS.md` | Repository Scripts Rules | `instruction` | `current` | `repo` | `-` | `true` |
@@ -247,6 +249,7 @@
 | `src/api/flaskr/service/learn/agent/engine/prompts/memory_unrestricted.md` | Memory policy | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/recall_history_compaction.md` | Recall_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/system.md` | Core rules | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/flaskr/service/learn/agent/engine/prompts/teaching_history_compaction.md` | Teaching_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/learn/agent/engine/prompts/v1_syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/llm/AGENTS.md` | Backend Service: llm | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/metering/AGENTS.md` | Backend Service: metering | `instruction` | `current` | `backend` | `-` | `true` |

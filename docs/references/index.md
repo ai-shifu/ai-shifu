@@ -17,5 +17,6 @@ Evergreen repository references and operational guides live here.
 - [MarkdownFlow Memory Recall](../references/markdownflow-memory-recall.md)
 - [Local MarkdownFlow slide comparisons](../references/markdownflow-model-arena.md)
 - [MarkdownFlow Runtime Selection](../references/markdownflow-runtime-selection.md)
+- [MarkdownFlow teaching history projection](../references/markdownflow-teaching-history.md)
 - [Model Gateway CLI Integration Contract](../references/model-gateway-cli-integration.md)
 - [Scripts Overview](../references/scripts.md)
