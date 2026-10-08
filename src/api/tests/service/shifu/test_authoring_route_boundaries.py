@@ -1,6 +1,7 @@
 """Protect authoring HTTP permissions, patch semantics, and revision responses."""
 
 import uuid
+from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,9 +10,13 @@ from unittest.mock import Mock
 import pytest
 from flask import request
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu import route as shifu_routes
-from flaskr.service.shifu.models import AiCourseAuth
+from flaskr.service.shifu import shifu_draft_funcs
+from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
+
+from tests.common.fixtures.fake_llm import fake_chat_llm
 
 PREFIX = "/api/shifu"
 COURSE = f"{PREFIX}/shifus/course"
@@ -43,7 +48,11 @@ def preview_model(monkeypatch: pytest.MonkeyPatch) -> Mock:
         "get_latest_shifu_draft",
         Mock(
             return_value=SimpleNamespace(
-                shifu_bid="course", ask_llm="1", id=1, __tablename__="draft_shifus"
+                shifu_bid="course",
+                ask_llm="1",
+                ask_llm_temperature=Decimal("0.00"),
+                id=1,
+                __tablename__="draft_shifus",
             )
         ),
     )
@@ -311,9 +320,6 @@ def test_authoring_routes_reject_invalid_payload_shapes_or_required_fields(
     [
         {"ask_enabled_status": "bad"},
         {"ask_enabled_status": -1},
-        {"ask_temperature": "bad"},
-        {"ask_temperature": -0.1},
-        {"ask_temperature": 2.1},
         {"ask_provider_config": "{"},
         {"ask_provider_config": []},
         {"ask_provider_config": {"provider": "unsupported"}},
@@ -353,7 +359,6 @@ def test_course_details_normalize_explicit_settings_but_preserve_omitted_fields(
         headers=HEADERS,
         json={
             "ask_enabled_status": str(min(shifu_routes.SUPPORTED_ASK_ENABLED_STATUSES)),
-            "ask_temperature": "1.5",
             "ask_model": "2",
             "ask_system_prompt": 456,
             "ask_provider_config": provider_config,
@@ -364,7 +369,8 @@ def test_course_details_normalize_explicit_settings_but_preserve_omitted_fields(
     )
     assert response.get_json(force=True)["data"] == {"saved": True}
     kwargs = handler.call_args.kwargs
-    assert kwargs["ask_temperature"] == 1.5
+    assert handler.call_args.args[8] is None
+    assert kwargs["ask_temperature"] is None
     assert kwargs["ask_model"] == "2"
     assert kwargs["ask_system_prompt"] == "456"
     assert kwargs["tts_provider"] == "minimax"
@@ -373,6 +379,73 @@ def test_course_details_normalize_explicit_settings_but_preserve_omitted_fields(
     assert kwargs["tts_enabled"] is None
     assert kwargs["tts_speed"] is None
     assert kwargs["tts_pitch"] is None
+
+
+@pytest.mark.parametrize(
+    ("teaching_temperature", "follow_up_temperature"),
+    [(Decimal("0.00"), Decimal("0.00")), (Decimal("0.35"), Decimal("0.75"))],
+)
+@pytest.mark.parametrize(
+    "legacy_parameters",
+    [
+        {},
+        {"temperature": 1.5, "ask_temperature": 1.5},
+        {"temperature": "invalid", "ask_temperature": {"value": 2.1}},
+    ],
+)
+def test_course_details_save_preserves_stored_temperatures_and_ignores_legacy_fields(
+    test_client: object,
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    teaching_temperature: Decimal,
+    follow_up_temperature: Decimal,
+    legacy_parameters: dict,
+) -> None:
+    shifu_bid = uuid.uuid4().hex
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            DraftShifu(
+                shifu_bid=shifu_bid,
+                title="Original title",
+                llm_temperature=teaching_temperature,
+                ask_llm_temperature=follow_up_temperature,
+                created_user_bid="teacher",
+                updated_user_bid="teacher",
+            )
+        )
+    monkeypatch.setattr(
+        shifu_draft_funcs, "shifu_permission_verification", Mock(return_value=True)
+    )
+    monkeypatch.setattr(shifu_draft_funcs, "check_text_with_risk_control", Mock())
+    monkeypatch.setattr(shifu_draft_funcs, "save_shifu_history", Mock())
+    monkeypatch.setattr(
+        shifu_routes,
+        "_resolve_publish_base_url",
+        lambda _app: "https://learning.example",
+    )
+
+    response = test_client.post(
+        f"{PREFIX}/shifus/{shifu_bid}/detail",
+        headers=HEADERS,
+        json={"name": "Updated title", **legacy_parameters},
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert "temperature" not in payload["data"]
+    assert "ask_temperature" not in payload["data"]
+    detail_response = test_client.get(
+        f"{PREFIX}/shifus/{shifu_bid}/detail", headers=HEADERS
+    )
+    detail_payload = detail_response.get_json(force=True)
+    assert detail_payload["code"] == 0
+    assert "temperature" not in detail_payload["data"]
+    assert "ask_temperature" not in detail_payload["data"]
+    with app.app_context():
+        saved = shifu_draft_funcs.get_latest_shifu_draft(shifu_bid)
+        assert saved.title == "Updated title"
+        assert saved.llm_temperature == teaching_temperature
+        assert saved.ask_llm_temperature == follow_up_temperature
 
 
 def test_course_details_reject_provider_specific_invalid_fields(
@@ -854,12 +927,37 @@ def test_publish_origin_recovers_from_domain_lookup_failures(
     )
 
 
-@pytest.mark.parametrize("temperature", ["invalid", -0.1, 2.1])
-def test_ask_preview_rejects_invalid_temperature_before_model_invocation(
+@pytest.mark.parametrize(
+    ("stored_temperature", "expected_temperature"),
+    [(Decimal("0.00"), 0.0), (Decimal("0.75"), 0.75), (None, 0.0)],
+)
+@pytest.mark.parametrize(
+    "legacy_parameters",
+    [
+        {},
+        {"ask_temperature": "invalid"},
+        {"ask_temperature": -0.1},
+        {"ask_temperature": 2.1},
+        {"ask_temperature": 1.5},
+    ],
+)
+def test_ask_preview_uses_stored_temperature_and_ignores_legacy_request_field(
     test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
     preview_model: Mock,
-    temperature: object,
+    stored_temperature: Decimal | None,
+    expected_temperature: float,
+    legacy_parameters: dict,
 ) -> None:
+    shifu_routes.get_latest_shifu_draft.return_value.ask_llm_temperature = (
+        stored_temperature
+    )
+    chat = Mock(side_effect=fake_chat_llm)
+    monkeypatch.setattr("flaskr.api.llm.chat_llm", chat)
+    monkeypatch.setattr(
+        shifu_routes, "create_trace_with_root_span", Mock(return_value=(None, None))
+    )
+    monkeypatch.setattr(shifu_routes, "finalize_langfuse_trace", Mock())
     response = test_client.post(
         f"{PREFIX}/ask/preview",
         headers=HEADERS,
@@ -867,13 +965,13 @@ def test_ask_preview_rejects_invalid_temperature_before_model_invocation(
             "query": "Question",
             "shifu_bid": "course",
             "ask_model": "gpt-4o-mini",
-            "ask_temperature": temperature,
+            **legacy_parameters,
         },
     )
-    assert (
-        response.get_json(force=True)["code"] == ERROR_CODE["server.common.paramsError"]
-    )
+    assert response.get_json(force=True)["code"] == 0
     preview_model.assert_called_once()
+    chat.assert_called_once()
+    assert chat.call_args.kwargs["temperature"] == expected_temperature
 
 
 def test_ask_preview_propagates_unconfigured_course_model_error(
