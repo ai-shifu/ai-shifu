@@ -75,6 +75,33 @@ async def test_refusal_scores_only_a_valid_successful_judge_response(
     assert bool(result["error"]) is (reply not in (False, True))
 
 
+async def test_admission_report_preserves_completed_provider_cache_usage() -> None:
+    from pydantic_ai.usage import RequestUsage
+
+    def refusal(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(
+            parts=[ToolCallPart(info.output_tools[0].name, {"allowed": False})],
+            usage=RequestUsage(
+                input_tokens=100,
+                output_tokens=3,
+                cache_read_tokens=40,
+                details={
+                    "mdf2_cache_reported_requests": 1,
+                    "mdf2_cache_reported_input_tokens": 100,
+                    "mdf2_cache_reported_read_tokens": 40,
+                },
+            ),
+        )
+
+    result = await quality.evaluate_admission(
+        quality.load_cases(["ordinary-preference"])[0], FunctionModel(refusal)
+    )
+    assert result["passed"], result
+    assert result["usage"]["requests"] == 1
+    assert result["usage"]["cache_reported_read_tokens"] == 40
+    assert result["usage"]["cache_reported_input_tokens"] == 100
+
+
 def _recall_model(
     *,
     stale: bool = False,
@@ -167,6 +194,9 @@ def _teaching_model(case: dict, behavior: str = "correct") -> FunctionModel:
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         nonlocal phase
         phase += 1
+        if phase > 2:
+            yield " "
+            return
         if phase == 1 and behavior != "omit_tool":
             if case.get("historical"):
                 markers = [
@@ -251,6 +281,58 @@ def test_teaching_fixture_preserves_the_matching_host_script_prompt() -> None:
     assert session.messages[0].parts[0].content == render_first_prompt(
         session.script, {"project_code": quality.OLD_CODE + " " * 500}, memory_limit=100
     )
+
+
+async def test_summary_usage_is_separate_and_not_repeated_after_reload() -> None:
+    from pydantic_ai.usage import RequestUsage
+
+    case = quality.load_cases(["teaching-exact-example"])[0]
+
+    def summary(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        return ModelResponse(
+            parts=[TextPart("An earlier worked example used a project code.")],
+            usage=RequestUsage(
+                input_tokens=20,
+                output_tokens=3,
+                cache_read_tokens=10,
+                details={
+                    "mdf2_cache_reported_requests": 1,
+                    "mdf2_cache_reported_input_tokens": 20,
+                    "mdf2_cache_reported_read_tokens": 10,
+                },
+            ),
+        )
+
+    result = await quality.evaluate_teaching(
+        case, _teaching_model(case), FunctionModel(summary)
+    )
+    assert result["passed"], result
+    assert result["summary_usage"] == {
+        "requests": 1,
+        "input_tokens": 20,
+        "output_tokens": 3,
+        "cache_read_tokens": 10,
+        "cache_reported_requests": 1,
+        "cache_reported_input_tokens": 20,
+        "cache_reported_read_tokens": 10,
+    }
+    assert result["usage"]["input_tokens"] != 20
+    assert result["usage"]["requests"] > 0
+    assert "cache_read_tokens" not in result["usage"]
+    assert result["summary_calls"] == 1
+
+
+async def test_injected_summary_failure_cannot_claim_provider_usage() -> None:
+    case = quality.load_cases(["teaching-exact-fallback"])[0]
+
+    def summary(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        pytest.fail("injected failure must not call the summary provider")
+
+    result = await quality.evaluate_teaching(
+        case, _teaching_model(case), FunctionModel(summary)
+    )
+    assert result["passed"], result
+    assert result["summary_usage"] == {}
 
 
 def test_partial_or_duplicate_results_cannot_claim_full_completion() -> None:

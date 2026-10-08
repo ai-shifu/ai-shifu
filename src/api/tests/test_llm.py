@@ -4372,3 +4372,75 @@ async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retr
     if phase != "normal":
         assert records[0]["error_message"]
         assert span.end_args["metadata"]["status"] == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("cache_fields", "expected", "billed"),
+    [
+        ({"input_cache": 40}, 40, 40),
+        ({"input_cache": 0}, 0, 0),
+        ({"prompt_tokens_details": {"cached_tokens": 30}}, 30, 30),
+        ({"input_tokens_details": SimpleNamespace(cached_tokens=20)}, 20, 20),
+        ({}, None, 0),
+        ({"input_cache": None}, None, 0),
+        ({"input_cache": True}, None, 1),
+        ({"input_cache": 1.5}, None, 1),
+        ({"input_cache": -1}, None, -1),
+        ({"input_cache": 101}, None, 101),
+    ],
+)
+async def test_real_chat_gateway_preserves_cache_observations_and_billing(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    cache_fields: dict[str, object],
+    expected: int | None,
+    billed: int,
+) -> None:
+    """Exercise provider normalization through chat_llm and the real agent adapter."""
+    from flaskr.service.learn.agent import gateway_model as gateway
+    from pydantic_ai.models import ModelRequestParameters
+
+    _use_fake_provider(monkeypatch)
+    records = []
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: records.append(kwargs)
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *_args, **_kwargs: iter(
+            [
+                FakeResponse("cache", content="Explanation."),
+                FakeResponse("cache", finish_reason="stop"),
+                FakeResponse(
+                    "cache",
+                    usage=SimpleNamespace(
+                        prompt_tokens=100,
+                        completion_tokens=3,
+                        total_tokens=103,
+                        **cache_fields,
+                    ),
+                ),
+            ]
+        ),
+    )
+    model = gateway.GatewayModel(app, "gpt-test", user_id="internal", span=DummySpan())
+    with app.app_context():
+        response = await model.request([], None, ModelRequestParameters())
+    assert response.usage.input_tokens == 100
+    assert response.usage.output_tokens == 3
+    if expected is None:
+        assert "mdf2_cache_reported_requests" not in response.usage.details
+        assert response.usage.cache_read_tokens == 0
+    else:
+        assert response.usage.cache_read_tokens == expected
+        assert response.usage.details["mdf2_cache_reported_requests"] == 1
+        assert response.usage.details["mdf2_cache_reported_input_tokens"] == 100
+        assert response.usage.details["mdf2_cache_reported_read_tokens"] == expected
+    assert len(records) == 1
+    assert records[0]["input"] == 100
+    assert records[0]["output"] == 3
+    assert records[0]["total"] == 103
+    assert records[0]["input_cache"] == billed
+    assert records[0]["status"] == 0
