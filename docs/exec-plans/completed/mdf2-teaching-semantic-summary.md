@@ -23,8 +23,10 @@ with exact original evidence still available through `read_teaching`.
   and deployments 1970/1971 succeeded; both API replicas match ten runtime hashes.
   Real course-model summary/continuation, reload reuse, exact reads, rewind cleanup,
   gateway usage records and real HTTP read/listen/TTS completion passed.
-- [ ] 2026-10-08 18:26 CST: Await the user's manual main merge and verify its
-  post-merge deployment; production engine selection must remain unchanged.
+- [x] 2026-10-08 18:55 CST: User merged PR #3049 as f4dbb6ead. Build 409 /
+  Drone 5200 and eight China/US deployments 1984–1991 succeeded; eight API
+  replicas matched thirteen hashes and engine 1.0 routing. Both regions passed
+  ten isolated gevent checks. Final CI passed including 10,582 backend tests.
 
 ## Surprises & Discoveries
 
@@ -66,9 +68,10 @@ cache without another request and continued teaching. Both real summary calls
 have successful shared gateway usage records. Real HTTP reading and listening
 completed; on-demand TTS completed in 1.95 seconds. All three actionable AI
 findings were fixed and replied to; the docstring percentage warning received
-an explicit reasoned reply. Main remains a user-controlled merge.
+an explicit reasoned reply. The user merged #3049; post-merge build and both-region acceptance passed.
 
-Full memory quality/cost observations and human course feedback remain separate
+Memory quality continues in `../active/mdf2-memory-quality.md`; longer-term
+cost observations and human course feedback remain separate
 milestone work. This does not complete the entire memory milestone.
 
 ## Context and Orientation
