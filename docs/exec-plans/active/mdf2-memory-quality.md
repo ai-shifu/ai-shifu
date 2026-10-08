@@ -2,7 +2,7 @@
 
 ## Purpose / Big Picture
 
-Provide tomorrow's concentrated testing with a repeatable, reported real-model
+Provide the 2026-10-09 concentrated testing with a repeatable, reported real-model
 baseline for explicit memory admission and exact current-memory recall. Fix the
 reproduced stale-answer behavior: a repeated memory question must read the current
 snapshot instead of copying an earlier answer after an update or deletion. Existing
@@ -40,7 +40,13 @@ examples. Keep this PR focused on current-memory answer fidelity and its accepta
   learner question as well, without changing accepted admission inputs. The
   actual-model candidate passed 12/12 recall checks (four cases, three repetitions).
   All 509 engine/evaluator regressions passed, including the admission boundary.
-- [ ] Deploy the final current-turn notice and retain complete sim evidence.
+- [x] 2026-10-08 20:02 CST: Deployed current-turn context passed the complete
+  54-result suite, zero errors. Encoded-name budget hardening followed in
+  `8c569cc76`; sim `c912b5a08` (build 413 / Drone 5204, deployments 2004/2005)
+  independently passed another complete 54/54 with zero errors and no candidate
+  overrides. Both ready API replicas match all twelve runtime fingerprints and
+  route to 2.0. Fresh-learner HTTP read, 2.22-second TTS backfill and listen-mode
+  completion passed on that final runtime.
 - [x] 2026-10-08 19:22 CST: Learning/profile/evaluator integration passed 2,785
   tests, one expected skip and four subtests; all 444 engine tests and repository
   gates passed. PR #3051 is open, sim build 410 is running. A subsequent scoring
@@ -48,8 +54,16 @@ examples. Keep this PR focused on current-memory answer fidelity and its accepta
 - [x] 2026-10-08 19:28 CST: Addressed three scoring review gaps: natural author
   fixture, visible-content continuation and paired ordered exact-key evidence.
   Record controlled generation settings; verified CN image scripts are absent.
-- [ ] Complete deployed-sim acceptance, final CI and every independent AI reply.
-- [ ] Await manual main merge and verify post-merge release selection.
+- [x] 2026-10-08 20:02 CST: Full learning/profile/evaluator coverage passed
+  2,824 tests, one expected skip and four subtests. The final encoded-name
+  regression raises focused engine/evaluator coverage to 510; all repository
+  gates pass. Every independent review finding has an original-thread reply,
+  including both findings in the combined CodeRabbit thread and the docstring
+  warning. CodeRabbit's subsequent rate limit is not a completed final review.
+- [x] Publish the final runtime and acceptance evidence for required PR checks.
+  PR #3051 remains open; check its live status for CI conclusions.
+- [ ] Await manual main merge after required PR checks, then verify post-merge
+  release selection.
 
 ## Surprises & Discoveries
 
@@ -74,6 +88,11 @@ with at most one automatic continuation, retaining all output and errors.
   Existing gateway usage accounting still runs under a dedicated test learner.
 - Score exact current tool evidence and retained history, not only a substring
   that could have come from stale history. Report every failure and denominator.
+- Compare only prior exact reads with the current authorized snapshot. Place a
+  value-free host notice beside the question as well as in dynamic instructions;
+  leading instructions alone did not correct the reproduced behavior. Accepted
+  learner write-authorization inputs remain verbatim. Bound names after delimiter
+  escaping so learner-controlled names cannot exceed the stated budget.
 - Keep live calls opt-in, sequential and unavailable on a 1.0 environment.
   Keep human quality, database authorization and long-term cost acceptance separate.
 
@@ -84,7 +103,11 @@ passed 54/54, but deployed acceptance failed one deleted-memory repetition (53/5
 The natural script then exposed all six updated/deleted failures (48/54).
 Aligned tool guidance and a leading dynamic system notice each still failed all
 six relevant repetitions. Adding the bounded notice beside the current question
-passed a 12/12 recall candidate run; complete deployed acceptance remains pending.
+passed a 12/12 recall candidate run. The deployed current-turn context then
+passed 54/54, and the final encoded-name hardening independently passed another
+54/54, both with zero errors. Actual sim runtime fingerprints and HTTP read,
+TTS backfill and listen completion passed. Required PR checks and manual merge
+are tracked in PR #3051; this plan remains active until release verification.
 Earlier failures remain evidence. The evaluator rejects wrong-key, contradictory,
 late and invalid reads and preserves usage/assertions for malformed tool output.
 This baseline does not complete the entire quality milestone or authorize production.
