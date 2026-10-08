@@ -736,6 +736,9 @@ class Engine:
         deps.memory_recall_excluded_keys = collected_names(
             session.script.script
         ).difference(session.memory)
+        if replaying_input:
+            # Replaying history does not restore permission to read a deleted fact.
+            deps.memory_recall_excluded_keys |= memory_deleted_keys
         if prompt is not None and self.turn_limit and session.turn >= self.turn_limit:
             # Out of turns: end the lesson rather than teach another one. Marked finished so a
             # reload does not start it over, and reported as finished rather than as an error --

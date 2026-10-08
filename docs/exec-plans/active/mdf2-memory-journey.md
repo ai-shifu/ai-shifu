@@ -37,6 +37,10 @@ whether this masks an update; model-only synthetic snapshots cannot establish it
 
 ## Decision Log
 
+- Keep deleted keys excluded when the host regenerates historical input. A new
+  explicit answer can be accepted normally; replay is not renewed permission.
+  The pre-guard regression failed exactly this case (25 passed, one failed).
+
 - Reuse the real host, profile staging and database session store. Substitute
   only the model and thread bridge in offline tests.
 - Keep registered system fields global and ordinary answers course-local.

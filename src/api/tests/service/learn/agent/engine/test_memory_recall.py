@@ -195,7 +195,13 @@ async def test_missing_and_recollected_keys_share_the_same_refusal(key: str) -> 
     assert json.loads(returned[0]) == {"status": "unavailable"}
 
 
-async def test_accepted_named_answer_is_readable_during_deferred_resume() -> None:
+@pytest.mark.parametrize(
+    ("deleted", "replaying", "expected"),
+    [(False, False, "found"), (True, False, "found"), (True, True, "unavailable")],
+)
+async def test_accepted_named_answer_is_readable_during_deferred_resume(
+    deleted: bool, replaying: bool, expected: str
+) -> None:
     """A current answer is available immediately, without exposing the prior course value."""
     phase = 0
 
@@ -226,10 +232,15 @@ async def test_accepted_named_answer_is_readable_during_deferred_resume() -> Non
     assert first[-1].reason == "interaction"
     assert "goal" not in session.memory
     session = Session.loads(session.dumps())
+    if deleted:
+        session.user_memory.clear()
     events = [
         event
         async for event in engine.run_turn(
-            session, InteractionResponseTurn(values=["Current learner answer"])
+            session,
+            InteractionResponseTurn(values=["Current learner answer"]),
+            memory_deleted_keys=frozenset({"goal"}) if deleted else frozenset(),
+            replaying_input=replaying,
         )
     ]
     returned = [
@@ -237,9 +248,13 @@ async def test_accepted_named_answer_is_readable_during_deferred_resume() -> Non
         for event in events
         if isinstance(event, ToolResult) and event.name == "recall"
     ]
-    assert returned == [{"status": "found", "value": "Current learner answer"}]
+    assert returned == [
+        {"status": "found", "value": "Current learner answer"}
+        if expected == "found"
+        else {"status": "unavailable"}
+    ]
     assert session.memory["goal"] == "Current learner answer"
-    assert session.user_memory["goal"] == "Prior course answer"
+    assert session.user_memory == ({} if deleted else {"goal": "Prior course answer"})
 
 
 async def test_byte_limited_key_pages_and_oversized_names_make_progress() -> None:

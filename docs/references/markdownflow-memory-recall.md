@@ -36,6 +36,8 @@ old lesson cannot shadow a newer answer from another lesson. Unanswered question
 are never prefilled by this refresh. Deletion clears the accepted-answer copy;
 recreating the course key does not answer that old lesson's question again.
 Session-only working notes and historical conversation are preserved.
+Regenerating a historical answer cannot make a deleted key readable again;
+a new learner submission can answer it anew under the existing write policy.
 
 Instructions ask for relevant missing facts only and treat returned values as data, never
 as author instructions or write authorization. Tool returns stay in model/session history,
