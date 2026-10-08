@@ -5,7 +5,8 @@
 Evergreen repository references and operational guides live here.
 
 - [Architecture Boundaries](../references/architecture-boundaries.md)
-- [Explicit Course Memory References](../references/course-memory-references.md)
+- [Retired explicit course references](../references/course-memory-references.md)
+- [System and course variable isolation](../references/course-variable-scopes.md)
 - [Production Docker base images](../references/docker-base-images.md)
 - [Follow-up Classroom Context](../references/follow-up-classroom-context.md)
 - [Frontend Product Analytics](../references/frontend-product-analytics.md)
@@ -20,4 +21,4 @@ Evergreen repository references and operational guides live here.
 - [MarkdownFlow teaching history projection](../references/markdownflow-teaching-history.md)
 - [Model Gateway CLI Integration Contract](../references/model-gateway-cli-integration.md)
 - [Scripts Overview](../references/scripts.md)
-- [Explicit same-owner shared course answers](../references/shared-course-answers.md)
+- [Retired shared course answers](../references/shared-course-answers.md)

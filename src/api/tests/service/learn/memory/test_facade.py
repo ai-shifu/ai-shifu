@@ -111,7 +111,7 @@ def test_course_values_follow_settings_and_keep_user_course_isolation(
     assert load_memory(app, other_user, shifu_bid).variables["base_level"] == "expert"
 
 
-def test_runtime_resolution_preserves_global_fallback_and_definition_filtering(
+def test_runtime_resolution_refuses_global_custom_fallback_and_keeps_definition_filtering(
     app: Flask, scope: tuple[str, str]
 ) -> None:
     user_bid, shifu_bid = scope
@@ -135,7 +135,7 @@ def test_runtime_resolution_preserves_global_fallback_and_definition_filtering(
 
     variables = load_memory(app, user_bid, shifu_bid).variables
     assert variables == get_user_profiles(app, user_bid, shifu_bid)
-    assert variables["base_level"] == "global default"
+    assert "base_level" not in variables
     assert "unlisted" not in variables
     assert load_learner_memory(app, user_bid, shifu_bid=shifu_bid).get("unlisted") == (
         "stored only"

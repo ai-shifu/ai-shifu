@@ -7,7 +7,6 @@ from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.service.common import raise_error
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
-from flaskr.service.profile.api import is_course_reference_name
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -71,12 +70,11 @@ def extract_variables(template: str) -> list:
     """Extract variables."""
     pattern = r"\{{1,2}([^{}]+)\}{1,2}"
     matches = re.findall(pattern, template)
-    # Preserve ordinary names and explicitly qualified source names.
+    # Retired cross-course aliases and format expressions are not variable names.
     variables = [
         m.strip()
         for m in matches
         if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", m.strip())
-        or is_course_reference_name(m.strip())
     ]
     return list(set(variables))
 
@@ -91,7 +89,6 @@ def safe_format_template(template: str, variables: dict) -> str:
         var_name = var.strip()
         if (
             re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name)
-            or is_course_reference_name(var_name)
         ) and var_name in variables:
             return str(variables[var_name])
         # Otherwise, keep the original
@@ -157,9 +154,7 @@ def get_fmt_prompt(
     profiles = (
         dict(resolved_profiles)
         if resolved_profiles is not None
-        else load_memory(
-            app, user_id, course_id, reference_text=profile_tmplate or ""
-        ).as_variables()
+        else load_memory(app, user_id, course_id).as_variables()
     )
     if profile_overrides:
         profiles.update(profile_overrides)

@@ -13,17 +13,9 @@ from flaskr.dao import db
 from flaskr.i18n import _, get_locale_labels
 from flaskr.service.check_risk.funcs import add_risk_control_result
 from flaskr.service.common import raise_error
-from flaskr.service.profile.course_references import (
-    course_reference_reads,
-    is_course_reference,
-    load_course_references,
-)
+from flaskr.service.profile.course_references import is_course_reference
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
-from flaskr.service.profile.shared_answers import (
-    load_shared_answers,
-    shared_answer_names,
-)
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
 from flaskr.service.user.repository import (
     UserAggregate,
@@ -56,30 +48,18 @@ def _get_latest_variable_value(
     logical profile field wins even if the underlying Variable definition was
     recreated and now has a different variable_bid.
 
-    Precedence:
-    1) shifu scope (shifu_bid) - newest record matching key
-    2) global/system scope (empty shifu_bid) - newest record matching key
+    Match only the requested scope. Callers select the empty scope for registered
+    system fields; a missing course value never falls back to a global custom value.
     """
     target_shifu = shifu_bid or ""
-
-    def _pick(scope_shifu_bid: str) -> VariableValue | None:
-        return next(
-            (
-                item
-                for item in values
-                if item.shifu_bid == scope_shifu_bid and item.key == variable_key
-            ),
-            None,
-        )
-
-    scoped = _pick(target_shifu)
-    if scoped:
-        return scoped
-
-    if target_shifu:
-        return _pick("")
-
-    return None
+    return next(
+        (
+            item
+            for item in values
+            if item.shifu_bid == target_shifu and item.key == variable_key
+        ),
+        None,
+    )
 
 
 def _ensure_user_aggregate(user_id: str) -> UserAggregate | None:
@@ -349,10 +329,11 @@ def get_user_profiles(
     :func:`save_user_profiles`, otherwise the run context may see values different
     from what the user sees in the personal settings page.
 
-    Cross-course reads also require explicit names in this request's author document.
-    Callers without a lesson/prompt context receive no source-course values.
+    Author documents cannot grant access to another course. ``reference_text``
+    remains a compatibility argument and never changes the selected storage scope.
 
     """
+    _ = reference_text  # Kept for call-site compatibility; author text grants no scope.
     profile_labels = get_profile_labels()
     profiles_items = get_profile_item_definition_list(app, course_id)
 
@@ -426,29 +407,6 @@ def get_user_profiles(
     if not result.get(SYS_USER_NICKNAME):
         result[SYS_USER_NICKNAME] = aggregate.nickname if aggregate else ""
 
-    documents = (reference_text,) if isinstance(reference_text, str) else reference_text
-    requested = set().union(*(course_reference_reads(text) for text in documents))
-    result.update(
-        load_course_references(
-            user_id,
-            course_id,
-            (
-                item.profile_key
-                for item in profiles_items
-                if item.profile_key in requested
-            ),
-            reserved=frozenset(profile_labels),
-        )
-    )
-    shared = set().union(*(shared_answer_names(text) for text in documents))
-    result.update(
-        {
-            name: source.value
-            for name, source in load_shared_answers(
-                user_id, course_id, shared, reserved=frozenset(profile_labels)
-            ).items()
-        }
-    )
     return result
 
 
