@@ -60,6 +60,8 @@ class Deps:
     request_inputs: tuple[str, ...] = ()
     memory_current_inputs: tuple[str, ...] = ()
     memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None
+    # Match the initial prompt's exclusion of answers this lesson collects again.
+    memory_recall_excluded_keys: frozenset[str] = frozenset()
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.

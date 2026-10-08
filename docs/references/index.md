@@ -13,6 +13,7 @@ Evergreen repository references and operational guides live here.
 - [Internationalization (i18n) Guide](../references/i18n.md)
 - [MarkdownFlow Authored Input Hints](../references/markdownflow-authored-inputs.md)
 - [MarkdownFlow Input Budget](../references/markdownflow-input-budget.md)
+- [MarkdownFlow Memory Recall](../references/markdownflow-memory-recall.md)
 - [Local MarkdownFlow slide comparisons](../references/markdownflow-model-arena.md)
 - [MarkdownFlow Runtime Selection](../references/markdownflow-runtime-selection.md)
 - [Model Gateway CLI Integration Contract](../references/model-gateway-cli-integration.md)

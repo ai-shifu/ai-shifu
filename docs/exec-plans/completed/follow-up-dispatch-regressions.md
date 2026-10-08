@@ -1,6 +1,6 @@
 ---
 title: Verify follow-up dispatch through the lesson caller
-status: active
+status: completed
 owner_surface: learner
 last_reviewed: 2026-10-08
 ---
@@ -33,8 +33,14 @@ contract is [MarkdownFlow Runtime Selection](../../references/markdownflow-runti
   sidecar anchor/adapter, semaphore isolation, app context and terminal SSE.
   Focused regression including lock/disconnect contracts passes 415 tests;
   removing listen normalization fails four listening cases. Preserve runtime bytes.
-- [ ] 2026-10-08 01:51 UTC: Complete revised gates and push, reply in the
-  original thread, synchronize final sim, and verify final CI/deployment.
+- [x] 2026-10-08 02:07 UTC: Post-merge audit confirmed the earlier gates, final
+  0da03d393 push, original Devin reply with commit/tests and final sim 100d9f6ae
+  dual-pod validation. This timestamp records verification, not publication;
+  those steps completed before the 02:02:08 UTC merge. Final sim probes passed;
+  technical CI passed and CodeRabbit reviewed final head with no code changes.
+  Every independent opinion was replied to. PR 3038 merged at 02:02:08 UTC;
+  main acd8ae4cd matches accepted sim. Build 381 and deployments 1864-1871 succeeded,
+  both regions passed 57 isolated checks/18 hashes and retained engine 1.0.
 
 ## Surprises & Discoveries
 
@@ -58,8 +64,8 @@ function-boundary tests and add real public-entry/background-producer coverage.
 Implementation is test-only. Revised focused regression passes 415 tests. The
 caller-bypass mutation fails eight enabled direct cases; removing producer
 normalization fails four real listening cases. Runtime bytes are unchanged.
-Initial publication and sim succeeded; revised review reply, gates, final push
-and sim/CI verification remain pending.
+Final publication, sim/CI, review replies and merged production verification
+are complete. Source trees match; no runtime behavior changed.
 Full follow-up quality, shared memory writes, recall/compression and independent
 human acceptance remain separate work in the workspace milestone plan.
 
