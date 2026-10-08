@@ -27,8 +27,18 @@ The durable contract is [Teaching history](../../references/markdownflow-teachin
   Local isolated probe passes 117 checks and 22 runtime hashes, without provider
   calls/shared writes. Representative teaching projection: 57792 input bytes.
 - [x] 2026-10-08 04:45 UTC: Developer-tool check and all repository gates passed.
-- [ ] 2026-10-08 04:39 UTC: Publish one open PR, verify sim including real model,
-  reply to every independent AI opinion and verify final CI. Main merge is manual.
+- [x] 2026-10-08 04:46 UTC: Publish bab182ffa as open, non-draft PR 3041.
+- [x] 2026-10-08 04:50 UTC: Sim 4c22b59c4 has the exact runtime PR tree.
+  Build 388 / Drone 5179 and deployments 1896/1897 succeeded; API 2/2 and web 1/1
+  Ready. Both replicas passed 117 isolated checks and 25 source/routing hashes.
+  A real Ark model read two original pages and quoted an exact second-page fact,
+  then finished on continuation; original evidence/memory remained unchanged.
+  Real HTTP reading, audio backfill, listening and repeated anchored Ask passed.
+  CN/US routing remains 1.0. Devin reported no issues and received a reply.
+- [ ] 2026-10-08 04:50 UTC: Audit/reply to CodeRabbit and any additional independent
+  opinions. Its review and runtime smoke are still running; other technical CI passed.
+- [ ] 2026-10-08 04:50 UTC: Synchronize completion records to final sim and verify
+  final-head CI before handoff. Main merge remains manual.
 
 ## Surprises & Discoveries
 
@@ -53,7 +63,11 @@ projection and content-bound references avoid a new cache and its invalidation.
 Implementation and local acceptance pass. Long teaching alone can exceed the input
 budget without projection and fit afterward; exact-bound and one-byte-over checks
 also cover the tool loop. SQLite host preserves originals and invalidates future
-references on rewind. Final repository gates passed. Publication, sim and reviews remain pending.
+references on rewind. Final repository gates, publication and runtime sim acceptance passed. The real model
+recovered a fact outside the excerpt through paginated original reads. This is a
+functional sample, not a teaching-quality or cost conclusion: reads add tool-loop
+requests. Devin found no runtime issues and received a reply; CodeRabbit, runtime
+smoke and final documentation synchronization remain pending.
 
 ## Context and Orientation
 
