@@ -57,6 +57,7 @@ from .events import (
     ToolResult,
     TurnDone,
 )
+from .history_context import compact_recall_history
 from .interaction import (
     InteractionAnswer,
     InteractionSpec,
@@ -346,6 +347,7 @@ class Engine:
         memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None,
         memory_context_limit: int | None = None,
         memory_recall: bool = False,
+        recall_history_compaction: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -376,6 +378,10 @@ class Engine:
         The host must supply only authorized values and refresh deletions/references per turn.
         It excludes keys the main script collects again, just like the initial memory prompt.
         Off retains portable hosts' existing tools and instructions.
+
+        `recall_history_compaction` projects older completed recall results to a small
+        marker. It requires recall to remain available, preserves the latest teaching turn
+        and all saved evidence, and never summarizes teaching text or learner answers.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
@@ -393,9 +399,17 @@ class Engine:
             raise ValueError(message)
         self.memory_context_limit = memory_context_limit
         self.memory_recall = memory_recall
+        if recall_history_compaction and not memory_recall:
+            message = "recall history compaction requires memory recall"
+            raise ValueError(message)
+        self.recall_history_compaction = recall_history_compaction
         if memory_recall:
             self.memory_instructions += (
                 "\n\n" + (PROMPTS_DIR / "memory_recall.md").read_text()
+            )
+        if recall_history_compaction:
+            self.memory_instructions += (
+                "\n\n" + (PROMPTS_DIR / "recall_history_compaction.md").read_text()
             )
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
@@ -711,6 +725,10 @@ class Engine:
                 if self.memory_context_limit is not None
                 else session.messages
             )
+            if self.recall_history_compaction:
+                kwargs["message_history"] = compact_recall_history(
+                    kwargs["message_history"]
+                )
 
         segmenter = Segmenter() if session.listen_mode else None
         seg_state: dict[str, Any] = {"n": 0, "id": None, "narration": []}
@@ -925,7 +943,11 @@ class Engine:
                         # Keep its original saved evidence and append only this run's messages.
                         session.messages = (
                             [*session.messages, *result.new_messages()]
-                            if self.memory_context_limit is not None and session.started
+                            if session.started
+                            and (
+                                self.memory_context_limit is not None
+                                or self.recall_history_compaction
+                            )
                             else list(result.all_messages())
                         )
                         repeated = carried_on and _repeats_previous_turn(
