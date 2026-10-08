@@ -476,7 +476,7 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
     monkeypatch.setattr(
         follow_up_context_module,
         "load_memory",
-        lambda *_args: MemorySnapshot(
+        lambda *_args, **_kwargs: MemorySnapshot(
             variables={
                 "sys_user_nickname": "Alex",
                 "sys_user_language": "en-US",

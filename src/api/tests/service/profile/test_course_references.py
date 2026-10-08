@@ -521,3 +521,89 @@ def test_separate_author_documents_cannot_close_each_others_fences(
         reference_text=("```\nExample", f"Brief uses {marker}."),
     )
     assert result.variables[context.key] == "Source goal"
+
+
+def _follow_up(context: SimpleNamespace, **kwargs: object) -> object:
+    """Build real follow-up prompts while isolating unrelated conversation queries."""
+    from flaskr.service.learn.follow_up_context import (
+        build_follow_up_conversation_context,
+    )
+
+    return build_follow_up_conversation_context(
+        context.app,
+        user_info=SimpleNamespace(user_id=context.user),
+        shifu_bid=context.target,
+        outline_item_bid=context.outline,
+        progress_record_bid="reference-follow-up",
+        follow_up_info=SimpleNamespace(ask_prompt="{shifu_system_message}"),
+        course_system_prompt=kwargs.pop("course_system_prompt", context.reference_text),
+        use_learner_language=False,
+        runtime_language="en-US",
+        **kwargs,
+    )
+
+
+def test_follow_up_prompt_reads_latest_source_without_writing(
+    context: SimpleNamespace,
+) -> None:
+    exact = 'Current source goal\n"quoted" {{literal}}'
+    _value(context, exact)
+    before = VariableValue.query.count()
+    result = _follow_up(context)
+    assert exact in result.system_instruction
+    assert context.key not in result.system_instruction
+    assert result.llm_messages == [
+        {"role": "system", "content": result.system_instruction}
+    ]
+    assert exact in result.provider_messages[0]["content"]
+    assert VariableValue.query.count() == before
+    assert not VariableValue.query.filter_by(shifu_bid=context.target).first()
+
+
+@pytest.mark.parametrize(
+    "template", ["", "Other lesson", "```\n{read}\n```", "<!-- {read} -->"]
+)
+def test_follow_up_cannot_borrow_another_lessons_reference(
+    context: SimpleNamespace, template: str
+) -> None:
+    prompt = template.replace("{read}", context.reference_text)
+    result = _follow_up(context, course_system_prompt=prompt)
+    assert "Source goal" not in result.system_instruction
+    assert all(
+        "Source goal" not in item["content"] for item in result.provider_messages
+    )
+
+
+@pytest.mark.parametrize("revocation", ["deleted", "publication", "owner", "learner"])
+def test_follow_up_reloads_source_authorization_every_request(
+    context: SimpleNamespace, revocation: str
+) -> None:
+    assert "Source goal" in _follow_up(context).system_instruction
+    if revocation == "deleted":
+        _value(context, "", deleted=1)
+    elif revocation == "publication":
+        _published_text(context, "No reference remains")
+    elif revocation == "owner":
+        with unit_of_work():
+            db.session.add(
+                DraftShifu(shifu_bid=context.source, created_user_bid=uuid4().hex)
+            )
+    else:
+        context.user = uuid4().hex
+    result = _follow_up(context)
+    assert "Source goal" not in result.system_instruction
+    assert all(
+        "Source goal" not in item["content"] for item in result.provider_messages
+    )
+
+
+def test_voice_fallback_does_not_read_suppressed_course_instructions(
+    context: SimpleNamespace,
+) -> None:
+    result = _follow_up(
+        context,
+        course_system_prompt=None,
+        fallback_system_prompt="Voice instructions without a course reference",
+    )
+    assert "Source goal" not in result.system_instruction
+    assert "Voice instructions" in result.system_instruction

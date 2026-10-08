@@ -1,8 +1,8 @@
 ---
 title: Explicit Course Memory References
-status: in-progress
+status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-08
 canonical: true
 ---
 
@@ -51,3 +51,11 @@ revocation. Existing classroom conversation remains historical evidence.
 Whole values remain exact; existing memory-section and complete-input budgets
 still apply. This feature adds no provider calls. Shared writing, owner-scoped
 shared storage and automatic semantic recall remain separate follow-ups.
+
+Text follow-up questions resolve explicit references in their effective Course
+Prompt before formatting LLM and provider context. Learner questions and prior
+conversation cannot authorize additional reads. The shared context builder does
+the same when it loads memory itself; a supplied snapshot, including an empty
+one, prevents a second read. Live voice keeps its separate fallback instruction
+and does not load references from the suppressed Course Prompt. An author read
+in another lesson alone never injects source memory into a follow-up request.

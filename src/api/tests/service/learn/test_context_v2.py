@@ -1495,7 +1495,9 @@ class AskMemoryTests(unittest.TestCase):
         ctx._last_position = -1
         ctx._input = {"input": "Explain this"}
         ctx._user_info = types.SimpleNamespace(user_id="user-ask")
-        ctx._outline_item_info = types.SimpleNamespace(shifu_bid="course-ask")
+        ctx._outline_item_info = types.SimpleNamespace(
+            shifu_bid="course-ask", bid="outline-ask"
+        )
         ctx._current_attend = types.SimpleNamespace(progress_record_bid="progress-ask")
         ctx._trace_args = {}
         ctx._trace = None
@@ -1514,6 +1516,7 @@ class AskMemoryTests(unittest.TestCase):
             patch.object(context_v2_module, "load_memory", return_value=memory) as load,
             patch.object(context_v2_module, "handle_input_ask", side_effect=answer),
             patch.object(ctx, "_should_stream_tts", return_value=False),
+            patch.object(ctx, "get_system_prompt", return_value="Current course rules"),
         ):
             stream = ctx._phase_handle_ask_input(
                 app, types.SimpleNamespace(block_position=3)
@@ -1522,7 +1525,9 @@ class AskMemoryTests(unittest.TestCase):
             ctx._recorder.commit_pending_step.assert_not_called()
             assert list(stream) == []
 
-        load.assert_called_once_with(app, "user-ask", "course-ask")
+        load.assert_called_once_with(
+            app, "user-ask", "course-ask", reference_text="Current course rules"
+        )
         assert memory.variables == {"base_level": "beginner"}
         ctx._recorder.commit_pending_step.assert_called_once_with()
 

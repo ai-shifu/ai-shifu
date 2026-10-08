@@ -1,8 +1,8 @@
 ---
 title: Explicit same-owner course memory reads
-status: active
+status: completed
 owner_surface: learner
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-08
 ---
 
 # Explicit same-owner course memory reads
@@ -30,10 +30,15 @@ boundary is explicit sharing within one owner. The durable contract is
   are ready; both API replicas pass 19 isolated SQLite/tool checks and match all
   11 runtime module hashes. A fresh internal-course guest completes read, audio
   backfill (1.68 seconds) and listen flows with an unchanged canonical profile.
-- [ ] 2026-10-07 17:08 UTC: Evaluate and reply to every independent AI opinion;
-  confirm final CI and synchronize any resulting runtime changes to sim.
-- [ ] 2026-10-07 17:08 UTC: Wait for the user's main merge, then verify the
-  resulting production rollout. Never merge main automatically.
+- [x] 2026-10-07 17:27 UTC: Reply to both adopted Devin findings and the declined
+  CodeRabbit docstring warning. Final head ee63a984f passes all technical CI;
+  CodeRabbit's final incremental review is rate-limited. Final sim ac3d8963a
+  passes 24 isolated checks and 13 module hashes on both API replicas; fresh
+  guest read/audio-backfill/listen and unchanged-profile checks pass.
+- [x] 2026-10-08 00:53 UTC: The user merged PR 3034 at 00:45:53 UTC as 2e74a6367.
+  Build 371 / Drone 5162 and all eight CN/US deployments 1820-1827 succeed.
+  Both regions pass 24 isolated checks and 13 exact module hashes; production
+  remains 1.0. CN API 6/6 and US API 2/2 are ready.
 
 ## Surprises & Discoveries
 
@@ -62,14 +67,14 @@ boundary is explicit sharing within one owner. The durable contract is
 
 ## Outcomes & Retrospective
 
-Implementation, local verification and sim acceptance pass. PR 3034 remains open;
-Two Devin findings were accepted: narrow source loading to the current request's
-author documents, and remove discarded 1.0 reference writes from update events.
-The corrected version passes 2,587 learning/profile tests (one skipped, four
-subtests). Disabling its guards makes eight targeted checks fail. Final sim
-synchronization, CI and the user's main merge are pending. The independent CodeRabbit docstring-percentage warning was declined
-in its original issue thread because repository Ruff exempts test docstrings. This read-only increment does not complete shared writing or the entire
-memory milestone.
+Implementation, local regression, final technical CI, sim and post-merge production
+verification pass. PR 3034 was manually merged as 2e74a6367. Both Devin findings
+were fixed and replied to; the independent CodeRabbit docstring warning was
+replied to and declined. CodeRabbit covered the initial head, with its final
+incremental review rate-limited. Explicit read-only sharing is complete within
+this plan's scope. Follow-up prompt reads continue in
+[the next plan](../active/follow-up-course-memory.md); shared writing, recall,
+compression and full human teaching acceptance remain outside this increment.
 
 ## Context and Orientation
 
