@@ -318,6 +318,9 @@ owner resolver on the next check; old usage remains. Rollback is code-only.
 - [x] 2026-10-09 Asia/Shanghai: O1 Inspect status/reset/producer paths; confirm missing owner distinction.
 - [x] 2026-10-09 Asia/Shanghai: O2 Exempt course owner at status and server reset admission; keep ledger and concurrency.
 - [x] 2026-10-09 Asia/Shanghai: O3 Owner-after-ten, unrelated teacher still limited, preview and analytics regression; repository gate.
-- [ ] 2026-10-09 Asia/Shanghai: O4 Push/deploy dev02 and browser-check the previously exhausted owner lesson.
+- [x] 2026-10-09 Asia/Shanghai: O4 Push/deploy dev02 and browser-check the previously exhausted owner lesson.
 
 Verification: 99 focused backend tests and 26 frontend tests passed; the final owner ledger rerun passed 22 tests. Repository-wide pre-commit checks passed. Full TypeScript checking retains the four previously recorded unrelated admin-test/library-locale errors, with no new owner-exemption errors.
+
+Deployment: functional commit d5a82a44c, build 429 / Drone 5220, image 20261009-d5a82a4. Deployment records 2060-2063 succeeded and all four dev02 services were read back on that image. The previously exhausted owner account was admitted for a real eleventh retake without clearing old usage; newly generated teaching appeared. Ordinary learner ceiling is covered by server regressions; no second live learner account was used in this owner acceptance. Live TTS remains outside this reading-mode check.
+Browser completion: the eleventh retake reached the learner interaction. Reopening retake then showed the normal warning and enabled confirmation again; cancel it to avoid an unnecessary twelfth generation. Screenshot: /private/tmp/retake-owner-unlimited.png.
