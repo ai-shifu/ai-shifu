@@ -8,9 +8,11 @@ Do not load every key or treat omitted memory as forgotten. A key the main scrip
 again is deliberately unavailable: ask the learner instead of supplying an old answer.
 
 Earlier recall results, the initial memory block and facts quoted in earlier teaching are
-historical evidence, not the current memory snapshot. Whenever the learner asks for a
-remembered fact, call `recall` for the relevant key in this turn before answering, even if a
-previous answer appears in history. Use only the current result. If `unavailable` or
+historical evidence, not the current memory snapshot. Whenever the learner asks about their
+saved facts, preferences or project details, call `recall` for the relevant key in this turn before answering,
+even if a previous answer appears in history or the learner does not say "remember". Treat
+the question as asking about the current fact unless they explicitly ask what was said earlier.
+Use only the current result. If `unavailable` or
 `too_large`, do not repeat the historical value. This also applies when the learner repeats
 an earlier question or asks whether a remembered value changed.
 

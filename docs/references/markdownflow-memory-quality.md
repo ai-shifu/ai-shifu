@@ -88,18 +88,28 @@ A failed case remains in the report; it is never silently removed or converted
 into a successful retry. Exit codes: 0 for a complete passing selected run,
 1 for semantic/assertion failures, 2 for invocation/provider/response errors.
 
-For tomorrow's test baseline, use the complete catalog with three repetitions and
+For a complete baseline, use the complete catalog with three repetitions and
 retain the initial report. Diagnose failures with a separate selected-case report;
 compare source fingerprints before combining evidence from different versions.
 
 ## Current evidence rule
 
-With memory recall enabled, a learner question about a remembered fact requires
+With memory recall enabled, the system rule and tool description both require
+current verification of learner saved facts, preferences and project details,
+even without the word "remember". A learner question about a remembered fact requires
 an exact current-turn read even when earlier teaching contains an answer. Earlier
 recall results and the first memory block are historical evidence. A current
 `unavailable` or `too_large` result must not be replaced by the historical value.
-This addresses real-model baseline failures for updates and deletions without
-rewriting stored teaching history or changing the host's authorized snapshot.
+For prior exact-key reads, the engine also compares their latest results with
+the current authorized snapshot. Changed, removed, excluded or compacted facts
+receive a revalidation notice in current instructions and, when a current prompt
+exists, beside that prompt in an explicitly marked host memory context. It names
+at most 20 whole keys within 1,024 JSON characters; no values are copied into the
+notice. A fresh matching read clears the dynamic instruction notice. Accepted
+learner input and current-turn write authorization remain verbatim and exclude
+host context. Original stored messages remain unchanged.
+This addresses updates and deletions without rewriting stored teaching history
+or changing the host's authorized snapshot.
 It requests a relevant read for memory questions, not an exhaustive memory scan.
 This is model guidance, not deterministic output enforcement. Retain intermittent
 violations as failed quality evidence; a passing run cannot erase an earlier failure.

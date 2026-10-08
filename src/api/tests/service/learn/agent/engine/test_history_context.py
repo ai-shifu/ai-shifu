@@ -9,10 +9,16 @@ from flaskr.service.learn.agent.engine import (
     ErrorEvent,
     InteractionResponseTurn,
     MessageTurn,
+    ScriptBundle,
     Session,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.history_context import compact_recall_history
+from flaskr.service.learn.agent.engine.history_context import (
+    compact_recall_history,
+    current_recall_notice,
+)
+from flaskr.service.learn.agent.engine.tools import Deps
+from pydantic_ai import RunContext
 from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
@@ -276,3 +282,166 @@ async def test_real_engine_reloads_answers_retries_and_fresh_recall_without_rewr
         for p in m.parts
         if isinstance(p, ToolReturnPart)
     )
+
+
+@pytest.mark.parametrize("current", [{"goal": "new"}, {}])
+def test_current_notice_flags_changed_reads_without_values_or_history_changes(
+    current: dict,
+) -> None:
+    messages = _history(json.dumps({"status": "found", "value": "SECRET_OLD_VALUE"}))
+    before = ModelMessagesTypeAdapter.dump_json(messages)
+    notice = current_recall_notice(messages, current)
+    assert "Revalidate earlier recalled facts" in notice
+    assert '"goal"' in notice
+    assert "SECRET_OLD_VALUE" not in notice
+    assert ModelMessagesTypeAdapter.dump_json(messages) == before
+
+
+@pytest.mark.parametrize(
+    ("previous", "current"), [(False, 0), ([False], [0]), ("old", "new")]
+)
+def test_current_notice_preserves_json_type_distinctions(
+    previous: object, current: object
+) -> None:
+    messages = _history(json.dumps({"status": "found", "value": previous}))
+    assert current_recall_notice(messages, {"goal": current})
+
+
+@pytest.mark.parametrize("deleted", [False, True])
+def test_latest_current_read_clears_the_stale_notice(deleted: bool) -> None:
+    messages = _history(json.dumps({"status": "found", "value": "old"}))
+    current = {} if deleted else {"goal": "new"}
+    result = (
+        {"status": "unavailable"} if deleted else {"status": "found", "value": "new"}
+    )
+    messages.extend(
+        [
+            ModelResponse(parts=[ToolCallPart("recall", {"key": "goal"}, "current")]),
+            ModelRequest(
+                parts=[ToolReturnPart("recall", json.dumps(result), "current")]
+            ),
+        ]
+    )
+    assert current_recall_notice(messages, current) == ""
+
+
+def test_unchanged_snapshot_has_no_dynamic_notice_but_exclusion_invalidates_it() -> (
+    None
+):
+    messages = _history(json.dumps({"status": "found", "value": "old"}))
+    assert current_recall_notice(messages, {"goal": "old"}) == ""
+    assert current_recall_notice(
+        messages, {"goal": "old"}, excluded=frozenset({"goal"})
+    )
+
+
+@pytest.mark.parametrize("content", ["not-json", "[]", "null", '{"status":"future"}'])
+def test_unknown_historical_results_do_not_break_instructions(content: str) -> None:
+    assert current_recall_notice(_history(content), {}) == ""
+
+
+def test_compacted_reads_need_revalidation_and_notice_size_is_bounded() -> None:
+    messages = []
+    for n in range(40):
+        key = "k" + str(n) + "x" * 100
+        messages.extend(
+            [
+                ModelResponse(parts=[ToolCallPart("recall", {"key": key}, str(n))]),
+                ModelRequest(
+                    parts=[
+                        ToolReturnPart(
+                            "recall", '{"status":"history_compacted"}', str(n)
+                        )
+                    ]
+                ),
+            ]
+        )
+    notice = current_recall_notice(messages, {})
+    assert len(notice) < 1700
+    assert "Additional unlisted keys:" in notice
+    assert "Revalidate earlier recalled facts" in notice
+
+
+@pytest.mark.anyio
+async def test_engine_revalidates_stale_read_and_clears_notice_after_current_tool() -> (
+    None
+):
+    original = _history(json.dumps({"status": "found", "value": "old"}))
+    before = ModelMessagesTypeAdapter.dump_json(original)
+    phases = []
+    question = "What is my goal?"
+
+    class CheckingEngine(Engine):
+        def _instructions(self, ctx: RunContext[Deps]) -> str:
+            assert ctx.deps.request_inputs == (question,)
+            assert ctx.deps.memory_current_inputs == (question,)
+            return super()._instructions(ctx)
+
+    async def model(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        phases.append(messages[-1].instructions)
+        if len(phases) == 1:
+            assert "Revalidate earlier recalled facts" in phases[-1]
+            current_input = next(
+                part.content
+                for part in messages[-1].parts
+                if isinstance(part, UserPromptPart)
+            )
+            assert current_input.startswith("<memory_context>Host memory revalidation")
+            assert current_input.endswith(question)
+            assert session.request_inputs == [question]
+            yield {
+                0: DeltaToolCall(
+                    name="recall", tool_call_id="current", json_args='{"key":"goal"}'
+                )
+            }
+        else:
+            assert "Revalidate earlier recalled facts" not in phases[-1]
+            yield "new"
+            yield {
+                0: DeltaToolCall(
+                    name="finish", tool_call_id="done", json_args='{"summary":"done"}'
+                )
+            }
+
+    session = Session(
+        script=ScriptBundle(script="Answer the learner's question and finish."),
+        user_memory={"goal": "profile-old"},
+        memory={"goal": "new"},
+        messages=original,
+        initial_variables={},
+        turn=1,
+    )
+    engine = CheckingEngine(
+        FunctionModel(stream_function=model), memory_recall=True, memory_admission=True
+    )
+    events = [
+        event async for event in engine.run_turn(session, MessageTurn(text=question))
+    ]
+    assert not any(isinstance(event, ErrorEvent) for event in events)
+    assert any(
+        isinstance(event, TurnDone) and event.reason == "finished" for event in events
+    )
+    assert len(phases) >= 2
+    assert (
+        ModelMessagesTypeAdapter.dump_json(session.messages[: len(original)]) == before
+    )
+
+
+@pytest.mark.parametrize("args", ["bad-json", "[]", "null"])
+def test_non_object_legacy_recall_arguments_cannot_break_current_instructions(
+    args: str,
+) -> None:
+    messages = [
+        ModelResponse(parts=[ToolCallPart("recall", args, "invalid")]),
+        ModelRequest(
+            parts=[
+                ToolReturnPart("recall", '{"status":"found","value":"old"}', "invalid")
+            ]
+        ),
+    ]
+    assert current_recall_notice(messages, {}) == ""
+
+
+def test_unsupported_current_value_cannot_break_instruction_composition() -> None:
+    messages = _history('{"status":"found","value":"old"}')
+    assert current_recall_notice(messages, {"goal": object()})

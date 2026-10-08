@@ -57,7 +57,7 @@ from .events import (
     ToolResult,
     TurnDone,
 )
-from .history_context import compact_recall_history
+from .history_context import compact_recall_history, current_recall_notice
 from .interaction import (
     InteractionAnswer,
     InteractionSpec,
@@ -500,11 +500,20 @@ class Engine:
         return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
     def _instructions(self, ctx: RunContext[Deps]) -> str:
-        return self.compose_instructions(
+        instructions = self.compose_instructions(
             listen_mode=ctx.deps.listen_mode,
             uses_v1_syntax=ctx.deps.uses_v1_syntax,
             render=self.render,
         )
+        if self.memory_recall:
+            notice = current_recall_notice(
+                ctx.messages,
+                {**ctx.deps.user_memory, **ctx.deps.memory},
+                excluded=ctx.deps.memory_recall_excluded_keys,
+            )
+            if notice:
+                instructions += "\n\n" + notice
+        return instructions
 
     # -- sessions ----------------------------------------------------------------------------
 
@@ -762,6 +771,21 @@ class Engine:
                         deps.teaching_history,
                         session.teaching_summaries,
                         self.teaching_summarizer,
+                    )
+            if self.memory_recall and prompt is not None:
+                notice = current_recall_notice(
+                    kwargs["message_history"],
+                    session.all_memory(),
+                    excluded=deps.memory_recall_excluded_keys,
+                )
+                if notice:
+                    # This is host context, not accepted learner input or permission to write.
+                    # Keep request_inputs and memory_current_inputs verbatim above.
+                    prompt = (
+                        "<memory_context>Host memory revalidation for this turn only.\n"
+                        + notice
+                        + "\n</memory_context>\n\n"
+                        + prompt
                     )
 
         segmenter = Segmenter() if session.listen_mode else None

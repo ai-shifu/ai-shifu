@@ -360,12 +360,16 @@ async def test_silent_first_turn_does_not_get_an_extra_answer_attempt(
 @pytest.mark.parametrize(
     "mode", ["correct", "wrong-key", "unpaired", "late", "conflicting", "reversed"]
 )
+@pytest.mark.parametrize(
+    "identifier", ["recall-updated-history", "recall-deleted-history"]
+)
 def test_current_evidence_requires_the_relevant_ordered_consistent_read(
     mode: str,
+    identifier: str,
 ) -> None:
     from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
 
-    case = quality.load_cases(["recall-updated-history"])[0]
+    case = quality.load_cases([identifier])[0]
     call = ToolCall(
         id="current",
         name="recall",
@@ -374,9 +378,13 @@ def test_current_evidence_requires_the_relevant_ordered_consistent_read(
     result = ToolResult(
         id="current",
         name="recall",
-        content=json.dumps({"status": "found", "value": quality.NEW_CODE}),
+        content=json.dumps(
+            {"status": case["status"], "value": case["expected"]}
+            if case["status"] == "found"
+            else {"status": case["status"]}
+        ),
     )
-    answer = ContentDelta(text=quality.NEW_CODE)
+    answer = ContentDelta(text=case["expected"])
     events = [call, result, answer]
     if mode == "unpaired":
         events = [result, answer]
@@ -385,7 +393,9 @@ def test_current_evidence_requires_the_relevant_ordered_consistent_read(
     elif mode in {"conflicting", "reversed"}:
         conflicting = [
             ToolCall(id="other", name="recall", args={"key": "project_code"}),
-            ToolResult(id="other", name="recall", content='{"status":"unavailable"}'),
+            ToolResult(
+                id="other", name="recall", content=json.dumps({"status": "too_large"})
+            ),
         ]
         events = (
             [call, result, answer, *conflicting]
@@ -393,3 +403,32 @@ def test_current_evidence_requires_the_relevant_ordered_consistent_read(
             else [*conflicting, call, result, answer]
         )
     assert quality.current_recall_evidence(case, events) is (mode == "correct")
+
+
+@pytest.mark.parametrize("content", ["LESSON_OVER", "malformed", "[]", "null", None])
+async def test_invalid_recall_result_keeps_assertions_and_usage(
+    monkeypatch: pytest.MonkeyPatch, content: object
+) -> None:
+    from flaskr.service.learn.agent.engine import (
+        ContentDelta,
+        Engine,
+        ToolCall,
+        ToolResult,
+        TurnDone,
+    )
+
+    async def invalid(*_args: object, **_kwargs: object) -> AsyncIterator[object]:
+        yield ToolCall(id="current", name="recall", args={"key": "project_code"})
+        yield ToolResult(id="current", name="recall", content=content)
+        yield ContentDelta(text="MEMORY_UNAVAILABLE")
+        yield TurnDone(reason="finished", usage={"requests": 1})
+
+    monkeypatch.setattr(Engine, "run_turn", invalid)
+    case = quality.load_cases(["recall-deleted-history"])[0]
+    result = await quality.evaluate_recall(case, _recall_model())
+    assert not result["passed"]
+    assert result["error"] == "invalid_recall_result"
+    assert not result["checks"]["valid_recall_results"]
+    assert not result["checks"]["current_tool_result"]
+    assert result["usage"] == {"requests": 1}
+    assert result["recall_statuses"] == [None]

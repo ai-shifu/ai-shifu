@@ -26,7 +26,21 @@ examples. Keep this PR focused on current-memory answer fidelity and its accepta
 - [x] 2026-10-08 19:27 CST: Deployed procedural-fixture run retained 53/54
   passing results, zero errors and one stale deleted-memory answer. The prompt
   change does not establish stable acceptance; do not discard this failure.
-- [ ] Finish the reviewed natural-script baseline against deployed sim.
+- [x] 2026-10-08 19:32 CST: Natural-script baseline retained 48/54 passing
+  results, zero request errors; updated/deleted cases failed all three repetitions.
+  Inspection found conflicting tool guidance: the tool still said to use recall
+  only for missing context. Align the tool description and system rule next.
+- [x] 2026-10-08 19:43 CST: Tool/system wording alone still failed all six
+  changed/deleted diagnostic repetitions (6/12 recall passes). Actual requests
+  contain the new system rule and offered tool. Added bounded current-snapshot
+  revalidation notices derived from prior exact reads; source history stays exact.
+  All 458 engine regressions passed before four additional legacy-value guards.
+- [x] 2026-10-08 19:50 CST: A leading dynamic system notice still failed all six
+  changed/deleted repetitions. Place the bounded host notice next to the current
+  learner question as well, without changing accepted admission inputs. The
+  actual-model candidate passed 12/12 recall checks (four cases, three repetitions).
+  All 509 engine/evaluator regressions passed, including the admission boundary.
+- [ ] Deploy the final current-turn notice and retain complete sim evidence.
 - [x] 2026-10-08 19:22 CST: Learning/profile/evaluator integration passed 2,785
   tests, one expected skip and four subtests; all 444 engine tests and repository
   gates passed. PR #3051 is open, sim build 410 is running. A subsequent scoring
@@ -65,11 +79,15 @@ with at most one automatic continuation, retaining all output and errors.
 
 ## Outcomes & Retrospective
 
-The evaluator exposed and now covers a stale-answer prompt defect. The temporary candidate passed 54/54, but deployed procedural-fixture acceptance
-then failed one deleted-memory repetition (53/54, zero request errors). This is
-a known stability gap, not a completed semantic fix. Offline checks passed and
-PR #3051 is open. Natural-script acceptance, final CI and review handling remain
-pending; do not authorize production or retirement based on the candidate run. This initial baseline does not complete the entire quality milestone.
+The evaluator exposed a stale-answer defect. The temporary procedural candidate
+passed 54/54, but deployed acceptance failed one deleted-memory repetition (53/54).
+The natural script then exposed all six updated/deleted failures (48/54).
+Aligned tool guidance and a leading dynamic system notice each still failed all
+six relevant repetitions. Adding the bounded notice beside the current question
+passed a 12/12 recall candidate run; complete deployed acceptance remains pending.
+Earlier failures remain evidence. The evaluator rejects wrong-key, contradictory,
+late and invalid reads and preserves usage/assertions for malformed tool output.
+This baseline does not complete the entire quality milestone or authorize production.
 
 ## Context and Orientation
 
@@ -111,7 +129,9 @@ initial failing report before running a focused diagnostic report.
 
 ## Interfaces and Dependencies
 
-The existing opt-in memory recall prompt gains a current-evidence rule. No product
+The opt-in recall prompt/tool guidance gains a current-evidence rule, and current
+instructions and a current-turn host notice flag stale prior reads against the
+authorized snapshot. Accepted learner input remains verbatim for write admission. No product
 DTO, SSE, frontend, persistence schema, dependency or environment switch changes. Reuse GatewayModel, current access selection, Engine and the
 existing admission factory. The CLI and versioned JSON report are local operator
 interfaces; they are not public HTTP endpoints. The currently verified CN deployment image (built by the separate deployment

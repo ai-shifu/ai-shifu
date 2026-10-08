@@ -173,6 +173,23 @@ def recall_session(case: dict[str, Any]) -> Session:
     )
 
 
+def parse_recall_result(content: object) -> dict | None:
+    """Decode a recognized tool result without leaking raw invalid content."""
+    try:
+        value = json.loads(content)
+    except (TypeError, ValueError):
+        return None
+    if isinstance(value, dict) and value.get("status") in (
+        "found",
+        "keys",
+        "unavailable",
+        "too_large",
+        "invalid_offset",
+    ):
+        return value
+    return None
+
+
 def current_recall_evidence(case: dict[str, Any], events: list) -> bool:
     """Require a paired relevant read before the answer, with no conflicting reads."""
     from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
@@ -187,7 +204,7 @@ def current_recall_evidence(case: dict[str, Any], events: list) -> bool:
         elif isinstance(event, ToolResult) and event.name == "recall":
             args = calls.get(event.id, {})
             if args.get("key") == "project_code":
-                reads.append((index, json.loads(event.content)))
+                reads.append((index, parse_recall_result(event.content)))
         elif isinstance(event, ContentDelta):
             text += event.text
             if answer_at is None and case["expected"] in text:
@@ -196,7 +213,8 @@ def current_recall_evidence(case: dict[str, Any], events: list) -> bool:
         answer_at is not None
         and any(index < answer_at for index, _ in reads)
         and all(
-            result.get("status") == case["status"]
+            result is not None
+            and result.get("status") == case["status"]
             and (
                 case["status"] != "found"
                 or str(result.get("value", "")).strip() == case["expected"]
@@ -261,7 +279,7 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
         )
     text = "".join(event.text for event in events if isinstance(event, ContentDelta))
     results = [
-        json.loads(event.content)
+        parse_recall_result(event.content)
         for event in events
         if isinstance(event, ToolResult) and event.name == "recall"
     ]
@@ -282,13 +300,22 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
         == original_messages,
         "completed": bool(done) and done[-1].reason == "finished",
         "no_engine_errors": not errors,
+        "valid_recall_results": all(result is not None for result in results),
     }
     return {
         "passed": all(checks.values()),
-        "error": "engine_error" if errors else None,
+        "error": (
+            "engine_error"
+            if errors
+            else "invalid_recall_result"
+            if any(result is None for result in results)
+            else None
+        ),
         "checks": checks,
         "usage": done[-1].usage if done else {},
-        "recall_statuses": [result.get("status") for result in results],
+        "recall_statuses": [
+            result.get("status") if result else None for result in results
+        ],
     }
 
 
