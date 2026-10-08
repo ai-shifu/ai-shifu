@@ -1,6 +1,6 @@
 ---
 title: Compact older long teaching with exact source reads
-status: active
+status: completed
 owner_surface: learner
 last_reviewed: 2026-10-08
 ---
@@ -35,10 +35,15 @@ The durable contract is [Teaching history](../../references/markdownflow-teachin
   then finished on continuation; original evidence/memory remained unchanged.
   Real HTTP reading, audio backfill, listening and repeated anchored Ask passed.
   CN/US routing remains 1.0. Devin reported no issues and received a reply.
-- [ ] 2026-10-08 04:50 UTC: Audit/reply to CodeRabbit and any additional independent
-  opinions. Its review and runtime smoke are still running; other technical CI passed.
-- [ ] 2026-10-08 04:50 UTC: Synchronize completion records to final sim and verify
-  final-head CI before handoff. Main merge remains manual.
+- [x] 2026-10-08 05:01 UTC: Final b4d097d6f technical CI, including runtime smoke, passed.
+  CodeRabbit reviewed that head without code findings; its docstring warning was
+  declined with the repository-policy rationale. All independent opinions received replies.
+  Final sim 167bb9a00 matched the PR tree; build 389 and deployments 1898/1899 succeeded.
+  Both replicas passed 117 isolated checks and 25 hashes.
+- [x] 2026-10-08 05:07 UTC: User manually merged PR 3041 as e5ee4766a, with the same tree.
+  Build 390 / Drone 5181 and all eight CN/US deployments 1900-1907 succeeded.
+  API 6/6 and 2/2 updated Ready; one new replica per region passed 117 isolated
+  checks and 25 hashes with zero provider calls/shared writes. Production remains 1.0.
 
 ## Surprises & Discoveries
 
@@ -66,8 +71,10 @@ also cover the tool loop. SQLite host preserves originals and invalidates future
 references on rewind. Final repository gates, publication and runtime sim acceptance passed. The real model
 recovered a fact outside the excerpt through paginated original reads. This is a
 functional sample, not a teaching-quality or cost conclusion: reads add tool-loop
-requests. Devin found no runtime issues and received a reply; CodeRabbit, runtime
-smoke and final documentation synchronization remain pending.
+requests. Devin and CodeRabbit found no runtime issues; all independent review opinions received
+replies. Final technical CI and exact-tree sim acceptance passed. After manual merge,
+all CN/US deployments and isolated probes passed; production remains 1.0. Semantic
+summaries, shared writes and full quality/cost acceptance remain separate milestone work.
 
 ## Context and Orientation
 

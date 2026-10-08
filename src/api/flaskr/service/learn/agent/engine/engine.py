@@ -532,6 +532,7 @@ class Engine:
         *,
         memory_deleted_keys: frozenset[str] = frozenset(),
         replaying_input: bool = False,
+        memory_answer_keys: frozenset[str] = frozenset(),
     ) -> AsyncIterator[Event]:
         """Run one turn of a session and stream its events.
 
@@ -579,6 +580,7 @@ class Engine:
             ),
             memory_reserved_keys=self.memory_reserved_keys,
             memory_readonly_prefixes=self.memory_readonly_prefixes,
+            memory_answer_keys=memory_answer_keys,
             memory_request_check=self.memory_request_check,
             memory_recall_excluded_keys=collected_names(session.script.script),
         )
@@ -661,7 +663,10 @@ class Engine:
                     )
             if (
                 pending.spec.variable
-                and not pending.spec.variable.startswith(deps.memory_readonly_prefixes)
+                and (
+                    not pending.spec.variable.startswith(deps.memory_readonly_prefixes)
+                    or pending.spec.variable in deps.memory_answer_keys
+                )
                 and (
                     deps.memory_keys is None
                     or pending.spec.variable in deps.memory_keys
