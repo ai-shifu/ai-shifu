@@ -139,11 +139,9 @@ interface Shifu {
   price: number;
   avatar: string;
   url: string;
-  temperature: number;
   system_prompt?: string;
   ask_enabled_status?: number;
   ask_model?: string;
-  ask_temperature?: number;
   ask_system_prompt?: string;
   follow_up_mode?: 'text' | 'live_voice';
   ask_provider_config?: {
@@ -171,7 +169,6 @@ interface Shifu {
 const ASK_MODE_ENABLE = 5103;
 const ASK_PROVIDER_LLM = 'llm';
 const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
-const DEFAULT_ASK_TEMPERATURE = 0;
 const DEFAULT_LIVE_VOICE = 'Kore';
 const TTS_PREVIEW_CURRENT_TARGET = 'tts-current';
 
@@ -274,9 +271,6 @@ export default function ShifuSettingDialog({
     null,
   );
   const askProviderEditedRef = useRef(false);
-  const [askTemperature, setAskTemperature] = useState<number>(
-    DEFAULT_ASK_TEMPERATURE,
-  );
   const [askProvider, setAskProvider] = useState(ASK_PROVIDER_LLM);
   const [liveVoiceDraft, setLiveVoiceDraft] = useState(DEFAULT_LIVE_VOICE);
   const [askProviderConfig, setAskProviderConfig] = useState<
@@ -1468,7 +1462,6 @@ export default function ShifuSettingDialog({
           initialAskConfigurationRef.current.interactionMode === 'live_voice'
             ? ''
             : result.ask_model || '';
-        setAskTemperature(result.ask_temperature ?? DEFAULT_ASK_TEMPERATURE);
         setAskProvider(
           (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
         );
@@ -1853,7 +1846,6 @@ export default function ShifuSettingDialog({
           savedModelEditVersionRef.current.followUp
             ? { ask_model: askModelIndex || askModel }
             : {}),
-          ask_temperature: askTemperature,
           ask_system_prompt: '',
           ask_provider_config: {
             provider: askProviderForSubmit,
@@ -1902,7 +1894,6 @@ export default function ShifuSettingDialog({
     askModelIndex,
     askPreviewLoading,
     askPreviewQuery,
-    askTemperature,
     buildAskProviderConfigForSubmit,
     currentShifu?.readonly,
     shifuId,

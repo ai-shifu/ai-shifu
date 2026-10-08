@@ -219,10 +219,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: 'Private system prompt',
       ask_model: '',
-      ask_temperature: 0,
       ask_provider_config: {
         provider: 'llm',
         mode: 'provider_only',
@@ -234,18 +232,9 @@ describe('ShifuSettingDialog analytics producer', () => {
     });
   });
 
-  it.each([
-    { temperature: 0, askTemperature: 0 },
-    { temperature: 0.35, askTemperature: 0.75 },
-  ])(
-    'hides temperature controls and saves natively without overwriting saved $temperature/$askTemperature values',
-    async ({ temperature, askTemperature }) => {
-      const detail = await mockGetShifuDetail();
-      mockGetShifuDetail.mockResolvedValue({
-        ...detail,
-        temperature,
-        ask_temperature: askTemperature,
-      });
+  it.each(['close', 'submit'])(
+    'hides temperature controls and omits them when saving through %s',
+    async submission => {
       const ActualAskSettingsSection = jest.requireActual(
         './AskSettingsSection',
       ).default;
@@ -264,7 +253,11 @@ describe('ShifuSettingDialog analytics producer', () => {
         ).not.toBeInTheDocument();
 
         fireEvent.change(name, { target: { value: 'Updated course name' } });
-        fireEvent.submit(name.closest('form')!);
+        if (submission === 'close') {
+          fireEvent.click(screen.getByLabelText('close-settings'));
+        } else {
+          fireEvent.submit(name.closest('form')!);
+        }
 
         await waitFor(() =>
           expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1),
@@ -280,27 +273,6 @@ describe('ShifuSettingDialog analytics producer', () => {
       } finally {
         mockAskSettingsSection.mockImplementation(() => null);
       }
-    },
-  );
-
-  it.each([0, 0.75])(
-    'previews with the unchanged saved follow-up temperature %s',
-    async askTemperature => {
-      const detail = await mockGetShifuDetail();
-      mockGetShifuDetail.mockResolvedValue({
-        ...detail,
-        ask_temperature: askTemperature,
-      });
-      renderOpenSettings();
-      await screen.findByDisplayValue('Private course name');
-      const latestProps = () => mockAskSettingsSection.mock.calls.at(-1)?.[0];
-      act(() => latestProps().setAskPreviewQuery('Preview question'));
-      await act(async () => latestProps().handleAskPreview());
-
-      expect(mockAskPreview).toHaveBeenCalledWith(
-        expect.objectContaining({ ask_temperature: askTemperature }),
-        expect.any(Object),
-      );
     },
   );
 
@@ -429,6 +401,10 @@ describe('ShifuSettingDialog analytics producer', () => {
         },
       );
       expect(mockAskPreview.mock.calls[0][0]).not.toHaveProperty('creator_bid');
+      expect(mockAskPreview.mock.calls[0][0]).not.toHaveProperty('temperature');
+      expect(mockAskPreview.mock.calls[0][0]).not.toHaveProperty(
+        'ask_temperature',
+      );
     },
   );
 
@@ -581,10 +557,8 @@ describe('ShifuSettingDialog analytics producer', () => {
         model: '',
         price: 1,
         avatar: '',
-        temperature: 0,
         system_prompt: '',
         ask_model: savedModel,
-        ask_temperature: 0,
         ask_provider_config: {
           provider: 'llm',
           mode: 'provider_only',
@@ -727,10 +701,8 @@ describe('ShifuSettingDialog analytics producer', () => {
         model: '',
         price: 1,
         avatar: '',
-        temperature: 0,
         system_prompt: '',
         ask_model: 'opaque-existing-model-id',
-        ask_temperature: 0,
         ask_provider_config: {
           provider: 'llm',
           mode: 'provider_only',
@@ -784,10 +756,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: '',
       ask_model: 'opaque-existing-model-id',
-      ask_temperature: 0,
       follow_up_mode: 'text',
       ask_provider_config: {
         provider: 'llm',
@@ -843,10 +813,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: '',
       ask_model: '1',
-      ask_temperature: 0,
       ask_provider_config: {
         provider: 'dify',
         mode: 'provider_only',
@@ -926,9 +894,7 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: modelIndex,
       price: 1,
       avatar: '',
-      temperature: 0,
       ask_model: modelIndex,
-      ask_temperature: 0,
       follow_up_mode: 'text',
       ask_provider_config: {
         provider,
@@ -1117,10 +1083,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: '',
       ask_model: '1',
-      ask_temperature: 0,
       ask_provider_config: {
         provider: 'dify',
         mode: 'provider_only',
@@ -1205,10 +1169,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: '',
       ask_model: 'gemini-3.8-live',
-      ask_temperature: 0,
       ask_provider_config: {
         provider: 'llm',
         mode: 'provider_only',
@@ -1523,7 +1485,6 @@ describe('ShifuSetting compatibility fallback and explicit selection', () => {
     ask_model_display_name: 'Default label',
     follow_up_mode: 'text',
     price: 0,
-    temperature: 0,
     ask_provider_config: { provider: 'llm', mode: 'provider_only', config: {} },
   };
   const open = async () => {

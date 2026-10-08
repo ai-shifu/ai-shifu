@@ -126,7 +126,6 @@ class ShifuDetailDto(BaseModel):
     avatar: str = Field(..., description="shifu avatar")
     keywords: list[str] = Field(..., description="shifu keywords")
     model: str = Field(..., description="shifu model")
-    temperature: float = Field(..., description="shifu temperature")
     price: float = Field(..., description="shifu price")
     preview_url: str = Field(..., description="shifu preview url")
     url: str = Field(..., description="shifu url")
@@ -185,10 +184,6 @@ class ShifuDetailDto(BaseModel):
         "",
         description="Ask model (maps to ask_llm)",
     )
-    ask_temperature: float = Field(
-        0.0,
-        description="Ask model temperature",
-    )
     ask_system_prompt: str = Field(
         "",
         description="Ask model system prompt",
@@ -210,7 +205,6 @@ class ShifuDetailDto(BaseModel):
         shifu_avatar: str,
         shifu_keywords: list[str],
         shifu_model: str,
-        shifu_temperature: float,
         shifu_price: float,
         shifu_preview_url: str,
         shifu_url: str,
@@ -231,7 +225,6 @@ class ShifuDetailDto(BaseModel):
         use_learner_language: bool = False,
         ask_enabled_status: int = 5101,
         ask_model: str = "",
-        ask_temperature: float = 0.0,
         ask_system_prompt: str = "",
         ask_provider_config: dict[str, object] | None = None,
         follow_up_mode: Literal["text", "live_voice"] = "text",
@@ -248,7 +241,6 @@ class ShifuDetailDto(BaseModel):
             avatar=shifu_avatar,
             keywords=shifu_keywords,
             model=shifu_model,
-            temperature=shifu_temperature,
             price=shifu_price,
             preview_url=shifu_preview_url,
             url=shifu_url,
@@ -269,7 +261,6 @@ class ShifuDetailDto(BaseModel):
             use_learner_language=use_learner_language,
             ask_enabled_status=ask_enabled_status,
             ask_model=ask_model,
-            ask_temperature=ask_temperature,
             ask_system_prompt=ask_system_prompt,
             ask_provider_config=ask_provider_config or {},
             follow_up_mode=follow_up_mode,
@@ -291,7 +282,6 @@ class ShifuDetailDto(BaseModel):
             "price": self.price,
             "preview_url": self.preview_url,
             "url": self.url,
-            "temperature": self.temperature,
             "system_prompt": self.system_prompt,
             "readonly": self.readonly,
             "archived": self.archived,
@@ -309,7 +299,6 @@ class ShifuDetailDto(BaseModel):
             "use_learner_language": self.use_learner_language,
             "ask_enabled_status": self.ask_enabled_status,
             "ask_model": self.ask_model,
-            "ask_temperature": self.ask_temperature,
             "ask_system_prompt": self.ask_system_prompt,
             "ask_provider_config": self.ask_provider_config,
             "follow_up_mode": self.follow_up_mode,
