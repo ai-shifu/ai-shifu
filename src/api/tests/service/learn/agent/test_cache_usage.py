@@ -125,6 +125,22 @@ async def test_nullable_direct_dictionary_field_does_not_override_shared_cache_p
     assert "mdf2_cache_reported_requests" not in result.details
 
 
+async def test_nested_object_in_dictionary_is_unknown_like_shared_gateway() -> None:
+    result = await _stream_usage(
+        [
+            _chunk(
+                {
+                    "prompt_tokens": 100,
+                    "completion_tokens": 3,
+                    "prompt_tokens_details": SimpleNamespace(cached_tokens=40),
+                }
+            )
+        ]
+    )
+    assert result.cache_read_tokens == 0
+    assert "mdf2_cache_reported_requests" not in result.details
+
+
 @pytest.mark.parametrize("prompt", [None, True, -1, 1.5, "100"])
 async def test_missing_or_invalid_prompt_count_cannot_establish_cache_coverage(
     prompt: object,

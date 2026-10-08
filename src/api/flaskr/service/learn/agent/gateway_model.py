@@ -80,7 +80,8 @@ def _request_usage(usage: object) -> RequestUsage:
         details = _usage_field(usage, "input_tokens_details") or _usage_field(
             usage, "prompt_tokens_details"
         )
-        cached = _usage_field(details, "cached_tokens")
+        if not isinstance(usage, dict) or isinstance(details, dict):
+            cached = _usage_field(details, "cached_tokens")
     reported_input = _usage_field(usage, "prompt_tokens")
     if (
         type(cached) is int

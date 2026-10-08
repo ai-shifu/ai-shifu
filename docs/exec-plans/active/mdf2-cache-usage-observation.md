@@ -20,7 +20,7 @@ they do not calculate prices or replace the shared billing ledger.
 - [x] Summary responses are observed separately through the actual nonstreamed
   factory path. Cache reload keeps one request; injected failure records no
   provider usage. Admission responses share the same numeric accumulator.
-- [x] Local learning/profile/operator regressions: 2,892 passed, one expected
+- [x] Local learning/profile/operator regressions: 2,893 passed, one expected
   skip and four subtests passed. Developer-tool checks and all repository
   pre-commit gates passed.
 - [ ] Open one focused PR and verify deployed sim reports.
@@ -38,6 +38,9 @@ reported-subset numerator is retained independently from all SDK cache reads.
 The local teaching model double now terminates after finish instead of reaching
 the request-limit fallback; this exposes completed teaching usage in its tests
 without changing production finish behavior.
+A dictionary containing an object-shaped nested usage field is unsupported by the
+shared extractor; a regression keeps it unknown instead of recording mismatched
+cached-token numerator and coverage metadata.
 
 ## Decision Log
 
