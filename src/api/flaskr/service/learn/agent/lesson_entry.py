@@ -288,6 +288,7 @@ def agent_lesson_events(
         memory_admission=True,
         memory_context_limit=32_768,
         memory_recall=True,
+        recall_history_compaction=True,
         memory_reserved_keys=get_global_profile_keys(),
         memory_readonly_prefixes=(COURSE_REFERENCE_PREFIX,),
         memory_request_check=make_request_check(

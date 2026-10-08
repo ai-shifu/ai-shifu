@@ -1,6 +1,6 @@
 ---
 title: Recall authorized learner memory on demand
-status: active
+status: completed
 owner_surface: learner
 last_reviewed: 2026-10-08
 ---
@@ -32,8 +32,11 @@ is [MarkdownFlow Memory Recall](../../references/markdownflow-memory-recall.md).
   passed 72 isolated checks and 21 hashes. A separate real Ark model discovered,
   read and used an omitted exact fact; original memory unchanged, isolated SQLite only.
   Real HTTP read/backfill/listen/repeated Ask and browser current-answer echo passed.
-- [ ] 2026-10-08 03:10 UTC: Push documentation review clarifications, reply to each
-  original opinion, synchronize the final sim tree, and verify final technical CI.
+- [x] 2026-10-08 03:19 UTC: Push review clarification 22848a80b and reply to every
+  independent opinion. Final technical CI passed. Final sim 8af9e7c3e and merged main
+  2ac1c9a42 have the exact reviewed tree. Builds 383/384 and CN/US/sim deployments
+  succeeded; both sim pods and one new production pod per region passed 72 isolated
+  checks and 21 hashes. Production remains 1.0; sim remains deployment-wide 2.0.
 
 ## Surprises & Discoveries
 
@@ -58,7 +61,8 @@ checks fail 2 / 2 / 3 cases when result bounds, exclusions or host opt-in are re
 Deployed sim acceptance passed, including an actual provider call with synthetic data.
 Devin found no issues. CodeRabbit's publication-time clarification and separate progress
 finding are accepted; its docstring percentage warning does not override the repository's
-behavior-test exemption. Final replies and CI verification remain pending. The first
+behavior-test exemption. Every independent opinion received a disposition reply; final technical CI and
+post-merge verification passed. The first
 runtime-harness attempt failed at Docker Hub image metadata HTTP 502, before application
 tests; the failed job was rerun. Semantic retrieval, history compression,
 shared writes, token-budget policy and human course acceptance remain separate increments.

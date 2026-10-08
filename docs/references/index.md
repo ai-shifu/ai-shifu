@@ -12,6 +12,7 @@ Evergreen repository references and operational guides live here.
 - [Gemini Live follow-up implementation contract](../references/gemini-live-follow-up.md)
 - [Internationalization (i18n) Guide](../references/i18n.md)
 - [MarkdownFlow Authored Input Hints](../references/markdownflow-authored-inputs.md)
+- [MarkdownFlow recall history compaction](../references/markdownflow-history-compaction.md)
 - [MarkdownFlow Input Budget](../references/markdownflow-input-budget.md)
 - [MarkdownFlow Memory Recall](../references/markdownflow-memory-recall.md)
 - [Local MarkdownFlow slide comparisons](../references/markdownflow-model-arena.md)
