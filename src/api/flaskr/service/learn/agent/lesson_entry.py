@@ -27,6 +27,7 @@ from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
 from flaskr.service.learn.agent.memory_admission import make_request_check
 from flaskr.service.learn.agent.rewind import RewindUnavailableError, plan_rewind
 from flaskr.service.learn.agent.run_agent import learner_values, run_agent_lesson
+from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
@@ -294,6 +295,21 @@ def agent_lesson_events(
         memory_recall=True,
         recall_history_compaction=True,
         teaching_history_compaction=True,
+        teaching_summarizer=make_teaching_summarizer(
+            GatewayModel(
+                app,
+                settings.model,
+                user_id=user_bid,
+                span=span,
+                generation_name="agent_teaching_summary",
+                input_budget_bytes=40_960,
+                retry_deadline_seconds=8,
+                timeout=8,
+                num_retries=0,
+                usage_metadata=dict(settings.usage_metadata),
+                **({"usage_scene": BILL_USAGE_SCENE_PREVIEW} if preview_mode else {}),
+            )
+        ),
         memory_reserved_keys=get_global_profile_keys(),
         memory_readonly_prefixes=(COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX),
         memory_request_check=make_request_check(

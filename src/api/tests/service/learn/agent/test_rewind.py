@@ -67,9 +67,11 @@ def test_a_session_is_restored_to_the_state_its_checkpoint_recorded() -> None:
     session.answers = {"q1": "Learner chose: Left"}
     session.turn = 3
     session.finished = True
+    session.teaching_summaries = {"future": "Future teaching overview"}
 
     rewind.restore(session, checkpoint)
 
+    assert session.teaching_summaries == {}
     assert len(session.messages) == 2
     assert session.memory == {"name": "Ada"}
     assert [p.tool_call_id for p in session.pending] == ["q1"]
