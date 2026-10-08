@@ -79,6 +79,7 @@ from .script import (
 )
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
+from .teaching_history import project_teaching_history, read_teaching
 from .tools import (
     NO_PAUSE,
     Deps,
@@ -348,6 +349,7 @@ class Engine:
         memory_context_limit: int | None = None,
         memory_recall: bool = False,
         recall_history_compaction: bool = False,
+        teaching_history_compaction: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -382,6 +384,10 @@ class Engine:
         `recall_history_compaction` projects older completed recall results to a small
         marker. It requires recall to remain available, preserves the latest teaching turn
         and all saved evidence, and never summarizes teaching text or learner answers.
+
+        `teaching_history_compaction` offers exact paginated reads of older long
+        teaching replaced by excerpts in requests. It preserves two recent turns,
+        all learner input and original stored evidence; it makes no summary call.
         """
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
@@ -403,6 +409,12 @@ class Engine:
             message = "recall history compaction requires memory recall"
             raise ValueError(message)
         self.recall_history_compaction = recall_history_compaction
+        self.teaching_history_compaction = teaching_history_compaction
+        self.history_instructions = (
+            (PROMPTS_DIR / "teaching_history_compaction.md").read_text()
+            if teaching_history_compaction
+            else ""
+        )
         if memory_recall:
             self.memory_instructions += (
                 "\n\n" + (PROMPTS_DIR / "memory_recall.md").read_text()
@@ -447,6 +459,7 @@ class Engine:
                 ),
                 finish,
                 *([recall] if memory_recall else []),
+                *([read_teaching] if teaching_history_compaction else []),
             ],
             toolsets=list(toolsets or []),
             model_settings=model_settings,
@@ -465,7 +478,7 @@ class Engine:
         DaisyUI and GSAP preloaded), `generic` (any assistant that can show plain HTML), or
         `none` (text only).
         """
-        parts = [self.prompts.base, self.memory_instructions]
+        parts = [self.prompts.base, self.memory_instructions, self.history_instructions]
         if render == "sandbox":
             parts.append(self.prompts.html_display)
         elif render == "generic":
@@ -729,6 +742,10 @@ class Engine:
                 kwargs["message_history"] = compact_recall_history(
                     kwargs["message_history"]
                 )
+            if self.teaching_history_compaction:
+                kwargs["message_history"], deps.teaching_history = (
+                    project_teaching_history(kwargs["message_history"])
+                )
 
         segmenter = Segmenter() if session.listen_mode else None
         seg_state: dict[str, Any] = {"n": 0, "id": None, "narration": []}
@@ -947,6 +964,7 @@ class Engine:
                             and (
                                 self.memory_context_limit is not None
                                 or self.recall_history_compaction
+                                or self.teaching_history_compaction
                             )
                             else list(result.all_messages())
                         )

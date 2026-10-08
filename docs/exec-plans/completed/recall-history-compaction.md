@@ -1,6 +1,6 @@
 ---
 title: Compact completed memory recall history
-status: active
+status: completed
 owner_surface: learner
 last_reviewed: 2026-10-08
 ---
@@ -39,10 +39,12 @@ The durable contract is [Recall history compaction](../../references/markdownflo
 - [x] 2026-10-08 03:36 UTC: Devin reported no runtime issues; CodeRabbit reported
   no actionable code findings. Reply to Devin and decline the independent docstring
   percentage warning under the repository behavior-test exemption.
-- [ ] 2026-10-08 03:36 UTC: Synchronize these completion records to final sim and
-  verify the final technical CI; the runtime smoke workflow is still running.
-- [ ] 2026-10-08 03:36 UTC: Audit any additional review opinions and reply in the
-  original discussion before handoff. Main merge remains manual.
+- [x] 2026-10-08 03:49 UTC: Final PR 1257e86c8, sim 3351f1ed3 and manually
+  merged main 37340fbb4 have identical source trees. Final technical CI passed,
+  including runtime smoke 37723690484. Sim build 386 and main build 387 succeeded;
+  all sim and eight production deployments succeeded. Both sim replicas and one
+  new replica per production region passed 91 isolated checks and 23 hashes.
+  Production remains 1.0; sim remains 2.0. Final audit found no new opinions.
 
 ## Surprises & Discoveries
 
@@ -70,7 +72,9 @@ resumes, actual gateway budget recovery, SQLite storage, deletion/update and rew
 Runtime publication and sim acceptance pass. Both reviewers found no actionable
 code issues on 6924c1c17; the independent docstring warning received a reasoned
 disposition reply. Backend/frontend, static/CodeQL and native image/manifest CI
-passed; final runtime smoke and final documentation synchronization remain pending.
+passed, including final runtime smoke and documentation synchronization. Main was
+manually merged and deployment verification completed. Long teaching compression
+continues in the active teaching-history-compaction plan.
 This focused increment does not complete the entire memory milestone or recover from
 large scripts, answers, current tool loops or long teaching text.
 

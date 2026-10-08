@@ -62,6 +62,8 @@ class Deps:
     memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None
     # Match the initial prompt's exclusion of answers this lesson collects again.
     memory_recall_excluded_keys: frozenset[str] = frozenset()
+    # Exact original teaching available only for this run's request projection.
+    teaching_history: dict[str, str] = field(default_factory=dict)
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
