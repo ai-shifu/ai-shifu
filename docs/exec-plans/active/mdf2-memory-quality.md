@@ -17,15 +17,23 @@ examples. Keep this PR focused on current-memory answer fidelity and its accepta
   evaluator regressions; provider/structured failures cannot pass as refusals.
 - [x] 2026-10-08 19:14 CST: Reproduced both stale-answer failures with the actual
   course model, then confirmed that explicit current-turn recall instructions
-  correct the facts. Preserve failing reports; run the complete candidate next.
+  corrected the facts in that diagnostic. Preserve failing reports; later repeated
+  acceptance can still fail and must remain visible.
 - [x] 2026-10-08 19:17 CST: Candidate rule passed all 54 results (18 cases,
   three repetitions) with the actual course model. This used temporary operator
-  prompt files and is preliminary; verify the deployed prompt after sim release.
-- [ ] Run the complete baseline against the deployed sim runtime and retain results.
+  prompt files and the initial procedural fixture; it is preliminary and
+  superseded by natural-script evaluation following review; verify the deployed prompt after sim release.
+- [x] 2026-10-08 19:27 CST: Deployed procedural-fixture run retained 53/54
+  passing results, zero errors and one stale deleted-memory answer. The prompt
+  change does not establish stable acceptance; do not discard this failure.
+- [ ] Finish the reviewed natural-script baseline against deployed sim.
 - [x] 2026-10-08 19:22 CST: Learning/profile/evaluator integration passed 2,785
   tests, one expected skip and four subtests; all 444 engine tests and repository
   gates passed. PR #3051 is open, sim build 410 is running. A subsequent scoring
   regression (27 focused checks) also catches in-place stored-history mutations.
+- [x] 2026-10-08 19:28 CST: Addressed three scoring review gaps: natural author
+  fixture, visible-content continuation and paired ordered exact-key evidence.
+  Record controlled generation settings; verified CN image scripts are absent.
 - [ ] Complete deployed-sim acceptance, final CI and every independent AI reply.
 - [ ] Await manual main merge and verify post-merge release selection.
 
@@ -39,7 +47,9 @@ After correcting the synthetic first-message envelope, the real model still copi
 old answers in both updated and deleted scenarios: 16/18 full-catalog cases passed,
 then a focused two-case diagnostic reproduced both failures. Strengthen the
 production recall prompt to require a current-turn read for learner memory
-questions. A model may emit correct content before finishing; mirror the host
+questions. The deployed 53/54 run still shows a stability gap; the stronger prompt
+is guidance, not an enforced output authorization boundary.
+A model may emit correct content before finishing; mirror the host
 with at most one automatic continuation, retaining all output and errors.
 
 ## Decision Log
@@ -55,10 +65,11 @@ with at most one automatic continuation, retaining all output and errors.
 
 ## Outcomes & Retrospective
 
-The evaluator exposed and now covers a stale-answer prompt defect. Candidate
-real-model acceptance is 54/54 with zero errors using temporary operator prompt
-files. Offline checks passed and PR #3051 is open. Final CI and deployed-sim acceptance
-remain pending. This initial baseline does not complete the entire quality milestone.
+The evaluator exposed and now covers a stale-answer prompt defect. The temporary candidate passed 54/54, but deployed procedural-fixture acceptance
+then failed one deleted-memory repetition (53/54, zero request errors). This is
+a known stability gap, not a completed semantic fix. Offline checks passed and
+PR #3051 is open. Natural-script acceptance, final CI and review handling remain
+pending; do not authorize production or retirement based on the candidate run. This initial baseline does not complete the entire quality milestone.
 
 ## Context and Orientation
 
@@ -103,8 +114,8 @@ initial failing report before running a focused diagnostic report.
 The existing opt-in memory recall prompt gains a current-evidence rule. No product
 DTO, SSE, frontend, persistence schema, dependency or environment switch changes. Reuse GatewayModel, current access selection, Engine and the
 existing admission factory. The CLI and versioned JSON report are local operator
-interfaces; they are not public HTTP endpoints. The current deployment Dockerfile
-does not copy operator scripts: copy the evaluator and catalog to a private
+interfaces; they are not public HTTP endpoints. The currently verified CN deployment image (built by the separate deployment
+Dockerfile, unlike the public repository Dockerfile) does not include these scripts: copy the evaluator and catalog to a private
 temporary directory and set API_DIR to the deployed application when running an
 in-image operator probe; verify runtime fingerprints against the source checkout.
 Do not replace any files used by the serving process.

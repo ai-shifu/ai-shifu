@@ -33,6 +33,7 @@ API_DIR = Path(__file__).resolve().parents[1]
 CASES_PATH = Path(__file__).with_name("mdf2_memory_quality") / "cases.json"
 OLD_CODE = "EVAL-PROJ-7319"
 NEW_CODE = "EVAL-PROJ-8426"
+RECALL_MODEL_SETTINGS = {"temperature": 0, "max_tokens": 512}
 
 
 def load_cases(selected: list[str] | None = None) -> list[dict[str, Any]]:
@@ -121,12 +122,10 @@ def recall_session(case: dict[str, Any]) -> Session:
 
     bundle = ScriptBundle(
         script=(
-            "Answer the learner's current project-code question using current course "
-            "memory. Read project_code with recall before answering, since a previous "
-            "answer may be stale. If found, output its project code exactly once. If "
-            "unavailable or too_large, output MEMORY_UNAVAILABLE. Do not guess or "
-            "restore a code from historical teaching. Do not write memory or ask a "
-            "question. Then call finish."
+            "Help the learner review their project setup. Answer their project-code "
+            "question. Give the project code exactly once if known, or say "
+            "MEMORY_UNAVAILABLE if the information is unavailable. Do not ask a "
+            "follow-up question. Then finish."
         )
     )
     snapshot = {"project_code": OLD_CODE + " " * 500}
@@ -174,6 +173,39 @@ def recall_session(case: dict[str, Any]) -> Session:
     )
 
 
+def current_recall_evidence(case: dict[str, Any], events: list) -> bool:
+    """Require a paired relevant read before the answer, with no conflicting reads."""
+    from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
+
+    calls = {}
+    reads = []
+    text = ""
+    answer_at = None
+    for index, event in enumerate(events):
+        if isinstance(event, ToolCall) and event.name == "recall":
+            calls[event.id] = event.args
+        elif isinstance(event, ToolResult) and event.name == "recall":
+            args = calls.get(event.id, {})
+            if args.get("key") == "project_code":
+                reads.append((index, json.loads(event.content)))
+        elif isinstance(event, ContentDelta):
+            text += event.text
+            if answer_at is None and case["expected"] in text:
+                answer_at = index
+    return (
+        answer_at is not None
+        and any(index < answer_at for index, _ in reads)
+        and all(
+            result.get("status") == case["status"]
+            and (
+                case["status"] != "found"
+                or str(result.get("value", "")).strip() == case["expected"]
+            )
+            for _, result in reads
+        )
+    )
+
+
 async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
     """Score real engine tools, exact learner output, and read-only memory behavior."""
     from flaskr.service.learn.agent.engine import (
@@ -199,13 +231,13 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
         memory_context_limit=100,
         recall_history_compaction=True,
         request_limit=6,
-        model_settings={"temperature": 0, "max_tokens": 512},
+        model_settings=dict(RECALL_MODEL_SETTINGS),
     )
     events = [
         event
         async for event in engine.run_turn(
             session,
-            MessageTurn(text="What is my current project code?"),
+            MessageTurn(text="What is my project code?"),
             memory_deleted_keys=(
                 frozenset({"project_code"})
                 if case["mode"] == "deleted"
@@ -219,6 +251,9 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
         events
         and isinstance(events[-1], TurnDone)
         and events[-1].reason == "end"
+        and any(
+            isinstance(event, ContentDelta) and event.text.strip() for event in events
+        )
         and not any(isinstance(event, ErrorEvent) for event in events)
     ):
         events.extend(
@@ -236,14 +271,7 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
         "expected_answer": text.count(case["expected"]) == 1,
         "exact_code_only": re.findall(r"\bEVAL-PROJ-\d+\b", text)
         == ([case["expected"]] if case["status"] == "found" else []),
-        "current_tool_result": any(
-            r.get("status") == case["status"]
-            and (
-                case["status"] != "found"
-                or str(r.get("value", "")).strip() == case["expected"]
-            )
-            for r in results
-        ),
+        "current_tool_result": current_recall_evidence(case, events),
         "no_stale_code": case["mode"] not in {"updated", "deleted"}
         or OLD_CODE not in text,
         "memory_unchanged": session.user_memory == original and not session.memory,
@@ -328,6 +356,7 @@ def report(
     }
     return {
         "schema_version": 1,
+        "recall_generation_settings": dict(RECALL_MODEL_SETTINGS),
         "full_catalog": len(cases) == len(load_cases()),
         "selected_cases": [case["id"] for case in cases],
         "repeats": repeats,

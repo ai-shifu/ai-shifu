@@ -30,12 +30,15 @@ long values. It checks exact recall, a current value superseding stale history,
 a deleted value remaining unavailable despite a historical tool return, and an
 oversized value returning `too_large` without a partial answer. Each case gets a
 fresh synthetic session. Passing requires a current recall tool result, exactly
-one expected answer, no stale or invented project code, finished teaching,
+one expected answer after a paired exact-key read, no conflicting relevant reads,
+no stale or invented project code, finished teaching,
 unchanged memory and preserved original history. An unpaused content-only turn
-gets at most one host-style continuation to finish; all earlier output and failures
+with visible non-whitespace content gets at most one host-style continuation to finish; all earlier output and failures
 remain scored, so this is not an answer retry. A plausible answer without a
 current tool read fails.
 
+The lesson asks the project question without telling the model to call recall or
+warning it about stale history; the runtime policy must supply that behavior.
 The fixture deliberately uses stable machine-readable project codes. These checks
 evaluate fact fidelity and tool use, not natural teaching style or a complete
 language benchmark. The synthetic snapshots are already authorized inputs; they
@@ -64,7 +67,11 @@ provided dedicated learner under `agent_memory_quality_admission` or
 `agent_memory_quality_recall`. The evaluator does not modify the engine switch.
 
 `--case ID` may be repeated to diagnose selected cases; `--repeat` accepts 1–5,
-defaulting to one. A subset report has `full_catalog=false` even when every selected
+defaulting to one. Recall deliberately uses controlled temperature 0 and a
+512-token cap, recorded as recall_generation_settings, rather than the course
+temperature and unbounded teaching output. The admission judge uses its actual
+product settings. These are bounded fact/tool checks, not an identical-settings
+production teaching benchmark. A subset report has `full_catalog=false` even when every selected
 case passes. Each admission case has the product judge's one-request limit. Recall has
 a six-request limit per turn and at most two turns including automatic completion. Gateway requests use a 15-second provider timeout and cooperative deadline
 with SDK retries disabled; this is not a hard wall-clock deadline for an entire
@@ -93,7 +100,9 @@ recall results and the first memory block are historical evidence. A current
 `unavailable` or `too_large` result must not be replaced by the historical value.
 This addresses real-model baseline failures for updates and deletions without
 rewriting stored teaching history or changing the host's authorized snapshot.
-It adds a relevant read for memory questions, not an exhaustive memory scan.
+It requests a relevant read for memory questions, not an exhaustive memory scan.
+This is model guidance, not deterministic output enforcement. Retain intermittent
+violations as failed quality evidence; a passing run cannot erase an earlier failure.
 
 ## Release boundary
 

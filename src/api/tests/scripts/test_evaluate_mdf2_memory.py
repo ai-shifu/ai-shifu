@@ -326,3 +326,70 @@ async def test_in_place_history_mutation_cannot_pass_the_preservation_check(
     assert not result["passed"]
     assert not result["checks"]["history_preserved"]
     assert result["checks"]["current_tool_result"]
+
+
+def test_author_fixture_does_not_supply_the_recall_procedure() -> None:
+    case = quality.load_cases(["recall-updated-history"])[0]
+    script = quality.recall_session(case).script.script
+    assert "recall" not in script
+    assert "stale" not in script
+    assert "project_code" not in script
+
+
+@pytest.mark.parametrize("content", ["", " \n"])
+async def test_silent_first_turn_does_not_get_an_extra_answer_attempt(
+    monkeypatch: pytest.MonkeyPatch, content: str
+) -> None:
+    from flaskr.service.learn.agent.engine import ContentDelta, Engine, TurnDone
+
+    calls = []
+
+    async def silent(*_args: object, **_kwargs: object) -> AsyncIterator[object]:
+        calls.append(True)
+        if content:
+            yield ContentDelta(text=content)
+        yield TurnDone(reason="end")
+
+    monkeypatch.setattr(Engine, "run_turn", silent)
+    case = quality.load_cases(["recall-updated-history"])[0]
+    result = await quality.evaluate_recall(case, _recall_model())
+    assert len(calls) == 1
+    assert not result["passed"]
+
+
+@pytest.mark.parametrize(
+    "mode", ["correct", "wrong-key", "unpaired", "late", "conflicting", "reversed"]
+)
+def test_current_evidence_requires_the_relevant_ordered_consistent_read(
+    mode: str,
+) -> None:
+    from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
+
+    case = quality.load_cases(["recall-updated-history"])[0]
+    call = ToolCall(
+        id="current",
+        name="recall",
+        args={"key": "wrong" if mode == "wrong-key" else "project_code"},
+    )
+    result = ToolResult(
+        id="current",
+        name="recall",
+        content=json.dumps({"status": "found", "value": quality.NEW_CODE}),
+    )
+    answer = ContentDelta(text=quality.NEW_CODE)
+    events = [call, result, answer]
+    if mode == "unpaired":
+        events = [result, answer]
+    elif mode == "late":
+        events = [answer, call, result]
+    elif mode in {"conflicting", "reversed"}:
+        conflicting = [
+            ToolCall(id="other", name="recall", args={"key": "project_code"}),
+            ToolResult(id="other", name="recall", content='{"status":"unavailable"}'),
+        ]
+        events = (
+            [call, result, answer, *conflicting]
+            if mode == "conflicting"
+            else [*conflicting, call, result, answer]
+        )
+    assert quality.current_recall_evidence(case, events) is (mode == "correct")
