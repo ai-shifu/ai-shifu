@@ -12,6 +12,7 @@ from flaskr.service.learn.agent.engine.tools import LESSON_OVER
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
+    ModelResponse,
     ToolReturnPart,
     UserPromptPart,
 )
@@ -244,3 +245,15 @@ async def test_recall_does_not_authorize_an_undeclared_memory_write() -> None:
     assert returned[1].startswith("Not remembered:")
     assert session.all_memory() == {"goal": "permitted data"}
     assert not any(isinstance(event, MemoryUpdated) for event in events)
+
+
+def test_recall_instructions_require_current_evidence_for_remembered_answers() -> None:
+    model = FunctionModel(lambda _messages, _info: ModelResponse(parts=[]))
+    engine = Engine(model, memory_recall=True)
+    instructions = engine.compose_instructions()
+    assert "historical evidence, not the current memory snapshot" in instructions
+    assert "relevant key in this turn before answering" in instructions
+    assert "do not repeat the historical value" in instructions
+    assert "asks whether a remembered value changed" in instructions
+    disabled = Engine(model).compose_instructions()
+    assert "relevant key in this turn before answering" not in disabled
