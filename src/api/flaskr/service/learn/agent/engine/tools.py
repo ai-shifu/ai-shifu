@@ -62,6 +62,7 @@ class Deps:
     memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None
     # Match the initial prompt's exclusion of answers this lesson collects again.
     memory_recall_excluded_keys: frozenset[str] = frozenset()
+    answered_memory_keys: set[str] = field(default_factory=set)
     # Exact original teaching available only for this run's request projection.
     teaching_history: dict[str, str] = field(default_factory=dict)
 
@@ -707,6 +708,9 @@ async def remember(
     if problem := _memory_capacity_error(target, key, value):
         return problem
     target[key] = value
+    if scope == "user" and key in ctx.deps.answered_memory_keys:
+        # A named answer is mirrored in session scope; an accepted correction wins now.
+        ctx.deps.memory[key] = value
     ctx.deps.memory_updates.append((scope, key, value))
     return f"remembered {key} ({scope})"
 

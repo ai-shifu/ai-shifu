@@ -54,6 +54,10 @@ class _Session:
         """Expose the merged snapshot used by host-owned reference refresh."""
         return {**self.user_memory, **self.memory}
 
+    def answered_memory_keys(self) -> frozenset[str]:
+        """Report no accepted interaction history in this host test double."""
+        return frozenset()
+
     def to_dict(self) -> dict:
         """Return the fields a checkpoint reads, the way a real session serializes them."""
         return {
