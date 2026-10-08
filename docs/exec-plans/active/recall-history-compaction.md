@@ -29,10 +29,20 @@ The durable contract is [Recall history compaction](../../references/markdownflo
   calls or shared-database writes; 50 old 6000-byte recall values fit within
   36593 projected input bytes, while all teaching text and original history remain.
 - [x] 2026-10-08 03:31 UTC: Developer-tool check and all final repository gates passed.
-- [ ] 2026-10-08 03:30 UTC: Publish a focused non-draft PR, synchronize sim
-  and verify the deployed version.
-- [ ] 2026-10-08 03:27 UTC: Audit all review surfaces, reply to each independent
-  opinion and verify final technical CI. Main merge remains manual.
+- [x] 2026-10-08 03:32 UTC: Publish runtime 6924c1c17 as open, non-draft PR 3040.
+- [x] 2026-10-08 03:35 UTC: Sim 4816a3ca7 has the exact reviewed runtime tree.
+  Build 385 / Drone 5176 and deployments 1884/1885 succeeded; API 2/2 and web 1/1
+  Ready. Both API pods passed 91 isolated checks and 23 source/routing hashes.
+  Real Ark model re-read and used the updated authorized fact after compaction,
+  retaining original history and memory; isolated SQLite only, no shared writes.
+  Real HTTP read/backfill/listen and repeated anchored follow-ups passed.
+- [x] 2026-10-08 03:36 UTC: Devin reported no runtime issues; CodeRabbit reported
+  no actionable code findings. Reply to Devin and decline the independent docstring
+  percentage warning under the repository behavior-test exemption.
+- [ ] 2026-10-08 03:36 UTC: Synchronize these completion records to final sim and
+  verify the final technical CI; the runtime smoke workflow is still running.
+- [ ] 2026-10-08 03:36 UTC: Audit any additional review opinions and reply in the
+  original discussion before handoff. Main merge remains manual.
 
 ## Surprises & Discoveries
 
@@ -57,7 +67,10 @@ must happen once before a new teaching run, not on every gateway request.
 Implementation and local acceptance pass. New cases cover Unicode/escaping, malformed
 results and ambiguous IDs, latest-turn/fresh-tool retention, full answers and failed
 resumes, actual gateway budget recovery, SQLite storage, deletion/update and rewind.
-Publication and deployed validation are pending.
+Runtime publication and sim acceptance pass. Both reviewers found no actionable
+code issues on 6924c1c17; the independent docstring warning received a reasoned
+disposition reply. Backend/frontend, static/CodeQL and native image/manifest CI
+passed; final runtime smoke and final documentation synchronization remain pending.
 This focused increment does not complete the entire memory milestone or recover from
 large scripts, answers, current tool loops or long teaching text.
 
