@@ -62,8 +62,10 @@ examples. Keep this PR focused on current-memory answer fidelity and its accepta
   warning. CodeRabbit's subsequent rate limit is not a completed final review.
 - [x] Publish the final runtime and acceptance evidence for required PR checks.
   PR #3051 remains open; check its live status for CI conclusions.
-- [ ] Await manual main merge after required PR checks, then verify post-merge
-  release selection.
+- [x] 2026-10-08 20:27 CST: User merged PR #3051 as `af98a169c`. Main build
+  415 / Drone 5206 succeeded; deployments 2008–2015 all succeeded. Six CN and
+  two US API replicas each match twelve runtime fingerprints and retain 1.0
+  selection. Persisted-answer follow-up continues in `mdf2-memory-journey.md`.
 
 ## Surprises & Discoveries
 
@@ -107,7 +109,9 @@ passed a 12/12 recall candidate run. The deployed current-turn context then
 passed 54/54, and the final encoded-name hardening independently passed another
 54/54, both with zero errors. Actual sim runtime fingerprints and HTTP read,
 TTS backfill and listen completion passed. Required PR checks and manual merge
-are tracked in PR #3051; this plan remains active until release verification.
+are tracked in PR #3051; the manual merge and both production regions are verified above.
+The focused baseline is complete; further persisted-answer acceptance continues
+in [the next plan](../active/mdf2-memory-journey.md).
 Earlier failures remain evidence. The evaluator rejects wrong-key, contradictory,
 late and invalid reads and preserves usage/assertions for malformed tool output.
 This baseline does not complete the entire quality milestone or authorize production.

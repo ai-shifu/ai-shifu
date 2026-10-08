@@ -47,12 +47,17 @@ class _Session:
         self.script = ScriptBundle(script=SCRIPT)
         self.messages: list = []
         self.memory: dict = {}
+        self.answer_hashes: dict = {}
         self.answers: dict = {}
         self.initial_variables: dict | None = None
 
     def all_memory(self) -> dict:
         """Expose the merged snapshot used by host-owned reference refresh."""
         return {**self.user_memory, **self.memory}
+
+    def answered_memory_keys(self) -> frozenset[str]:
+        """Report no accepted interaction history in this host test double."""
+        return frozenset()
 
     def to_dict(self) -> dict:
         """Return the fields a checkpoint reads, the way a real session serializes them."""
@@ -590,6 +595,10 @@ def test_a_resumed_session_refreshes_a_cleared_or_updated_nickname(
     monkeypatch: pytest.MonkeyPatch, calls: list, nickname: str
 ) -> None:
     """An old session snapshot cannot undo the canonical nickname or its blank fallback."""
+    from flask import Flask
+    from flaskr.i18n import load_translations
+
+    load_translations(Flask(__name__))
     stored = _Session(started=True)
     stored.user_memory = {"sys_user_nickname": "Previous name"}
     snapshot = {"sys_user_nickname": nickname, "sys_user_language": "en-US"}

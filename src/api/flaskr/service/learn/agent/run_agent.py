@@ -47,7 +47,7 @@ from flaskr.service.learn.agent.engine.events import (
     MemoryUpdated,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.script import ScriptBundle
+from flaskr.service.learn.agent.engine.script import ScriptBundle, collected_names
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
@@ -274,6 +274,14 @@ def _load_or_start(
                 refresh_deleted_memory(
                     stored, frozenset(generations), current=user_memory
                 )
+                # Named answers are durable course values. Retain the answered marker,
+                # but do not let its old session copy shadow another lesson's update.
+                for key in (
+                    collected_names(stored.script.script)
+                    & stored.answered_memory_keys()
+                ):
+                    if key in user_memory:
+                        stored.record_answer(key, user_memory[key])
             stored.user_memory = (
                 {**stored.user_memory, **user_memory}
                 if debug_store is not None

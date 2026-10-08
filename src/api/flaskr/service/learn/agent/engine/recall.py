@@ -9,7 +9,7 @@ from pydantic_ai import (
     RunContext,  # noqa: TC002 - Tool schemas resolve this annotation at runtime.
 )
 
-from .tools import LESSON_OVER, Deps
+from .tools import LESSON_OVER, Deps, recall_exclusions
 
 RECALL_RESULT_BYTES = 8192
 RECALL_PAGE_SIZE = 20
@@ -30,7 +30,7 @@ async def recall(ctx: RunContext[Deps], key: str | None = None, offset: int = 0)
     page; null means the end. skipped counts names too large to return on that page.
     With an exact key and offset=0, return its complete value. Missing or excluded keys return
     unavailable. Values whose complete result exceeds 8192 UTF-8 JSON bytes return too_large,
-    never a shortened value. Keys being collected again by this lesson are unavailable.
+    never a shortened value. Keys this lesson collects again are unavailable until answered.
     Use this for relevant missing context and to verify a learner's current saved facts,
     preferences or project details before answering their question. Earlier assistant answers
     and tool results are historical evidence, not a current read; verify the relevant key again
@@ -43,7 +43,7 @@ async def recall(ctx: RunContext[Deps], key: str | None = None, offset: int = 0)
     if offset < 0 or (key is not None and offset != 0):
         return _encode({"status": "invalid_offset"})
     memory = {**ctx.deps.user_memory, **ctx.deps.memory}
-    excluded = ctx.deps.memory_recall_excluded_keys
+    excluded = recall_exclusions(ctx.deps)
     if key is not None:
         if key in excluded or key not in memory:
             return _encode({"status": "unavailable"})

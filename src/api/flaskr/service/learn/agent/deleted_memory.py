@@ -38,6 +38,7 @@ def refresh_deleted_memory(
     fresh = {key: value for key, value in (current or {}).items() if key in deleted}
     for key in deleted:
         session.memory.pop(key, None)
+        session.answer_hashes.pop(key, None)
         session.user_memory.pop(key, None)
     session.user_memory.update(fresh)
     for index, message in enumerate(session.messages):

@@ -5,7 +5,8 @@ fact for the current teaching task, use `recall`: omit the key to discover avail
 bounded pages, then request the exact relevant key. The tool reads only the host-authorized
 current snapshot; it cannot search other learners, courses, classroom history or databases.
 Do not load every key or treat omitted memory as forgotten. A key the main script collects
-again is deliberately unavailable: ask the learner instead of supplying an old answer.
+again is deliberately unavailable until this lesson accepts an answer: ask the learner
+instead of supplying an old answer. After an answer is accepted, its current value is readable.
 
 Earlier recall results, the initial memory block and facts quoted in earlier teaching are
 historical evidence, not the current memory snapshot. Whenever the learner asks about their

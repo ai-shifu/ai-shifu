@@ -19,6 +19,7 @@ from pydantic_ai.messages import (
 )
 
 from .interaction import InteractionSpec, InteractionType, Option
+from .session import answer_fingerprint
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -62,12 +63,31 @@ class Deps:
     memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None
     # Match the initial prompt's exclusion of answers this lesson collects again.
     memory_recall_excluded_keys: frozenset[str] = frozenset()
+    answer_hashes: dict[str, str] = field(default_factory=dict)
+    memory_recall_blocked_keys: frozenset[str] = frozenset()
     # Exact original teaching available only for this run's request projection.
     teaching_history: dict[str, str] = field(default_factory=dict)
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
 _ESCAPABLE = "|/.]"
+
+
+def recall_exclusions(deps: Deps) -> frozenset[str]:
+    """Exclude unanswered or replaced answer copies and deleted historical replays."""
+    answered = {
+        key
+        for key, digest in deps.answer_hashes.items()
+        if isinstance(digest, str)
+        and key in deps.memory
+        and answer_fingerprint(deps.memory[key]) == digest
+    }
+    return (
+        deps.memory_recall_excluded_keys.difference(answered)
+        | deps.memory_recall_blocked_keys
+    )
+
+
 _FENCED = re.compile(
     r"^[ ]{0,3}(`{3,}|~{3,})[^\n]*\n.*?^[ ]{0,3}\1[ \t]*$", re.MULTILINE | re.DOTALL
 )
@@ -707,6 +727,16 @@ async def remember(
     if problem := _memory_capacity_error(target, key, value):
         return problem
     target[key] = value
+    if (
+        scope == "user"
+        and isinstance(ctx.deps.answer_hashes.get(key), str)
+        and answer_fingerprint(ctx.deps.memory.get(key)) == ctx.deps.answer_hashes[key]
+    ):
+        # A named answer is mirrored in session scope; an accepted correction wins now.
+        ctx.deps.memory[key] = value
+        ctx.deps.answer_hashes[key] = answer_fingerprint(value)
+    elif scope == "session":
+        ctx.deps.answer_hashes.pop(key, None)
     ctx.deps.memory_updates.append((scope, key, value))
     return f"remembered {key} ({scope})"
 
