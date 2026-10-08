@@ -32,6 +32,57 @@ from tests.service.learn.agent.test_gateway_model import FakeChunk, FakeSpan
 pytestmark = pytest.mark.anyio
 
 
+async def test_bounded_recall_result_still_counts_against_the_complete_input_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def chat(**kwargs: object) -> Iterator[FakeChunk]:
+        calls.append(kwargs)
+        if kwargs["messages"][-1]["role"] == "tool":
+            yield FakeChunk(result="Apply the recalled goal.", finish_reason="stop")
+        else:
+            yield FakeChunk(
+                tool_call_deltas=[
+                    {
+                        "index": 0,
+                        "id": "recall-goal",
+                        "name": "recall",
+                        "arguments": json.dumps({"key": "goal"}),
+                    }
+                ],
+                finish_reason="tool_calls",
+            )
+
+    monkeypatch.setattr(gw, "chat_llm", chat)
+    value = "complete value " + "é" * 2000
+
+    async def run(limit: int) -> tuple[Session, list]:
+        engine = Engine(_model(limit), memory_recall=True, memory_context_limit=100)
+        session = await engine.new_session("Teach a useful example.")
+        session.user_memory["goal"] = value
+        return session, [event async for event in engine.run_turn(session)]
+
+    _, successful = await run(INPUT_BUDGET_BYTES)
+    assert isinstance(successful[-1], TurnDone)
+    assert len(calls) == 2
+    initial_size = len(
+        json.dumps(
+            {"messages": calls[0]["messages"], "tools": calls[0]["tools"]},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+    assert json.loads(calls[1]["messages"][-1]["content"])["value"] == value
+    calls.clear()
+    session, refused = await run(initial_size)
+    assert len(calls) == 1
+    assert isinstance(refused[-1], ErrorEvent)
+    assert refused[-1].code == "input_budget_exceeded"
+    assert session.user_memory == {"goal": value}
+    assert not session.finished
+
+
 def _model(limit: int = INPUT_BUDGET_BYTES) -> gw.GatewayModel:
     return gw.GatewayModel(
         app=None,
