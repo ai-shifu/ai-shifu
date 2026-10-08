@@ -66,9 +66,9 @@
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/resumed-learner-nickname.md` | Refresh Nicknames in Existing Agent Lessons | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/shared-answer-writeback.md` | Write explicit named answers back to same-owner course variables | `exec-plan-active` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/stripe-refund-credit-reversal.md` | Stop Stripe Refund Credit Regrant | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/teaching-history-compaction.md` | Compact older long teaching with exact source reads | `exec-plan-active` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/exec-plans/active/urdu-product-locale.md` | Urdu product locale | `exec-plan-active` | `active` | `cross-surface` | `2026-09-27` | `true` |
 | `docs/exec-plans/completed/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -160,6 +160,7 @@
 | `docs/exec-plans/completed/safe-outbound-url-validation.md` | Safe Outbound URL Validation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/spanish-es-es-localization.md` | Spanish (Spain) Product Localization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/stripe-payment-sync-security.md` | Secure learner Stripe payment synchronization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/teaching-history-compaction.md` | Compact older long teaching with exact source reads | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/translation-source-review.md` | Review product translations against the Chinese source | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/trusted-client-ip.md` | Trusted Client IP Resolution | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/tts-provider-capabilities.md` | TTS Provider Capabilities | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -228,6 +229,7 @@
 | `docs/references/markdownflow-teaching-history.md` | MarkdownFlow teaching history projection | `reference` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration | `reference` | `reference` | `repo` | `2026-09-27` | `true` |
 | `docs/references/scripts.md` | Scripts Overview | `reference` | `reference` | `repo` | `-` | `true` |
+| `docs/references/shared-course-answers.md` | Explicit same-owner shared course answers | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
 | `scripts/AGENTS.md` | Repository Scripts Rules | `instruction` | `current` | `repo` | `-` | `true` |
 | `scripts/markdownflow-arena/README.md` | MarkdownFlow slide comparison | `reference` | `reference` | `repo` | `-` | `false` |
 | `scripts/markdownflow-arena/renderer/README.md` | MarkdownFlow arena renderer | `reference` | `reference` | `repo` | `-` | `false` |

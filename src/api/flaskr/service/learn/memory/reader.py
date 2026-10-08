@@ -7,7 +7,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from flaskr.dao import db
-from flaskr.service.profile.api import COURSE_REFERENCE_PREFIX, get_global_profile_keys
+from flaskr.service.profile.api import (
+    COURSE_REFERENCE_PREFIX,
+    SHARED_ANSWER_PREFIX,
+    get_global_profile_keys,
+)
 from flaskr.service.profile.models import VariableValue
 from sqlalchemy import func, select
 
@@ -119,6 +123,7 @@ def load_course_variables(
             VariableValue.deleted == 0,
             ~VariableValue.key.startswith("sys_", autoescape=True),
             ~VariableValue.key.startswith(COURSE_REFERENCE_PREFIX, autoescape=True),
+            ~VariableValue.key.startswith(SHARED_ANSWER_PREFIX, autoescape=True),
             VariableValue.key.not_in(get_global_profile_keys()),
             VariableValue.key.not_in(exclude_keys),
         )

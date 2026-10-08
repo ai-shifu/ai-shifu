@@ -20,3 +20,4 @@ Evergreen repository references and operational guides live here.
 - [MarkdownFlow teaching history projection](../references/markdownflow-teaching-history.md)
 - [Model Gateway CLI Integration Contract](../references/model-gateway-cli-integration.md)
 - [Scripts Overview](../references/scripts.md)
+- [Explicit same-owner shared course answers](../references/shared-course-answers.md)

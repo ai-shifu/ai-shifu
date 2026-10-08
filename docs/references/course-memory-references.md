@@ -15,9 +15,9 @@ For example, `{{course:0123456789abcdef0123456789abcdef:learning_goal}}`
 reads that learner's `learning_goal` from the specified course. It does not
 replace or merge the destination course's own `learning_goal`.
 
-This first cross-course increment is read-only. Values remain in their original
+The `course:` namespace is read-only. Values remain in their original
 course; learners view and delete them using that course's existing memory controls.
-It introduces no account-wide memory, shared writer, database schema, automatic
+It introduces no account-wide memory, database schema, automatic
 same-name merging or destination-course variable copies. Progress is never shared.
 
 Only references in currently published author content are eligible. Each runtime
@@ -49,8 +49,9 @@ substitutions on every request, including source updates, deletion and permissio
 revocation. Existing classroom conversation remains historical evidence.
 
 Whole values remain exact; existing memory-section and complete-input budgets
-still apply. This feature adds no provider calls. Shared writing, owner-scoped
-shared storage and automatic semantic recall remain separate follow-ups.
+still apply. This feature adds no provider calls. A separate [named-answer writeback](shared-course-answers.md) path uses explicit
+`share:` collections. Shared model notes, owner-scoped storage and automatic
+semantic recall remain separate follow-ups.
 
 Text follow-up questions resolve explicit references in their effective Course
 Prompt before formatting LLM and provider context. Learner questions and prior

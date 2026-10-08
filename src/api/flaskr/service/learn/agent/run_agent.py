@@ -95,9 +95,15 @@ from flaskr.service.learn.memory import (
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.profile.api import (
+    SHARED_ANSWER_PREFIX,
     SYS_USER_LANGUAGE,
     SYS_USER_NICKNAME,
+    SharedAnswer,
     course_memory_deletion_state,
+    get_global_profile_keys,
+    load_shared_answers,
+    shared_answer_names,
+    stage_shared_answers,
 )
 from flaskr.util.uuid import generate_id
 
@@ -339,6 +345,19 @@ def run_agent_lesson(
     run_turn_on_thread = iter_turn or bridge_iter_turn
     memory_generations: dict[str, int] = {}
     memory_deleted_keys: set[str] = set()
+    shared_answers = (
+        load_shared_answers(
+            user_bid,
+            shifu_bid,
+            shared_answer_names(script, collect=True),
+            reserved=get_global_profile_keys(),
+            outline_bid=outline_bid,
+        )
+        if not preview_mode
+        and debug_store is None
+        and not (rewind is not None and rewind.replay_values is not None)
+        else {}
+    )
     make_session, finished_already = _load_or_start(
         app,
         engine,
@@ -400,6 +419,7 @@ def run_agent_lesson(
     session_holder: dict[str, Any] = {
         "rewind": rewind,
         "memory_generations": memory_generations,
+        "shared_answers": shared_answers,
     }
 
     def make_events() -> AsyncIterator[Event]:
@@ -420,6 +440,8 @@ def run_agent_lesson(
                 and rewind.replay_values is not None
             ):
                 deleted_policy["replaying_input"] = True
+            if shared_answers:
+                deleted_policy["memory_answer_keys"] = frozenset(shared_answers)
             async for event in engine.run_turn(
                 session, _turn_input(session, values), **deleted_policy
             ):
@@ -1079,6 +1101,7 @@ def _stream_turn(
                         turn_record=session_holder.get("turn_record", ""),
                         rewind=session_holder.get("rewind"),
                         memory_generations=session_holder.get("memory_generations"),
+                        shared_answers=session_holder.get("shared_answers"),
                     )
                 pending_memory = []
                 if session.finished and kept:  # not for a turn a reset discarded
@@ -1205,6 +1228,7 @@ def _stream_turn(
                 turn_record=session_holder.get("turn_record", ""),
                 rewind=session_holder.get("rewind"),
                 memory_generations=session_holder.get("memory_generations"),
+                shared_answers=session_holder.get("shared_answers"),
             )
 
     return TurnOutcome(
@@ -1247,6 +1271,7 @@ def _persist(
     turn_record: str = "",
     rewind: RewindPlan | None = None,
     memory_generations: dict[str, int] | None = None,
+    shared_answers: dict[str, SharedAnswer] | None = None,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -1293,6 +1318,27 @@ def _persist(
             update
             for update in memory
             if update.scope == "user" or update.source == "interaction"
+        ]
+        shared = {
+            update.key: "" if update.value is None else str(update.value)
+            for update in durable
+            if update.key.startswith(SHARED_ANSWER_PREFIX)
+            and update.source == "interaction"
+        }
+        accepted = (
+            stage_shared_answers(
+                app, user_bid, shifu_bid, outline_bid, shared, shared_answers or {}
+            )
+            if shared and not preview_mode
+            else frozenset()
+        )
+        for key in shared.keys() - accepted:
+            session.memory.pop(key, None)
+            session.user_memory.pop(key, None)
+        durable = [
+            update
+            for update in durable
+            if not update.key.startswith(SHARED_ANSWER_PREFIX)
         ]
         if durable and memory_generations is not None:
             current, deleted = course_memory_deletion_state(
