@@ -25,9 +25,15 @@ is [MarkdownFlow Memory Recall](../../references/markdownflow-memory-recall.md).
 - [x] 2026-10-08 03:00 UTC: Complete learning/profile regression, including all vendored
   engine tests: 2681 passed, 1 skipped, 4 subtests passed. Add an explicit admission
   regression and verify real GatewayModel total budgeting after recall.
-- [ ] 2026-10-08 03:00 UTC: Run repository gates and publish.
-- [ ] 2026-10-08 02:57 UTC: Publish focused PR, synchronize sim, verify deployment and
-  runtime behavior, and reply to every independent AI opinion.
+- [x] 2026-10-08 03:00 UTC: Developer-tool check and all repository gates passed.
+  Publish source d858ebc4a as non-draft PR 3039.
+- [x] 2026-10-08 03:05 UTC: Synchronize exact PR tree to sim 5c782816a. Build 382
+  and deployments 1872/1873 succeeded; API 2/2 and web 1/1 Ready. Both API pods
+  passed 72 isolated checks and 21 hashes. A separate real Ark model discovered,
+  read and used an omitted exact fact; original memory unchanged, isolated SQLite only.
+  Real HTTP read/backfill/listen/repeated Ask and browser current-answer echo passed.
+- [ ] 2026-10-08 03:10 UTC: Push documentation review clarifications, reply to each
+  original opinion, synchronize the final sim tree, and verify final technical CI.
 
 ## Surprises & Discoveries
 
@@ -49,7 +55,12 @@ must not query persistence itself or expose the main script's re-collected old a
 Implementation and local acceptance pass. New coverage adds 29 cases across actual
 engine calls, host SQLite lifecycle and real gateway budget enforcement. Mutation
 checks fail 2 / 2 / 3 cases when result bounds, exclusions or host opt-in are removed.
-Deployed sim acceptance and review are still pending. Semantic retrieval, history compression,
+Deployed sim acceptance passed, including an actual provider call with synthetic data.
+Devin found no issues. CodeRabbit's publication-time clarification and separate progress
+finding are accepted; its docstring percentage warning does not override the repository's
+behavior-test exemption. Final replies and CI verification remain pending. The first
+runtime-harness attempt failed at Docker Hub image metadata HTTP 502, before application
+tests; the failed job was rerun. Semantic retrieval, history compression,
 shared writes, token-budget policy and human course acceptance remain separate increments.
 
 ## Context and Orientation
