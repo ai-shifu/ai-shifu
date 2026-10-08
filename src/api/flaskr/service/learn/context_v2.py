@@ -2309,6 +2309,7 @@ class RunScriptContextV2:
             app,
             self._user_info.user_id,
             self._outline_item_info.shifu_bid,
+            reference_text=self.get_system_prompt(self._outline_item_info.bid) or "",
         ).as_variables()
         res = handle_input_ask(
             app,

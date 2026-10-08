@@ -84,7 +84,7 @@ def test_live_context_omits_course_prompt_and_preserves_follow_up_context(
     monkeypatch.setattr(
         context,
         "load_memory",
-        lambda *_args: MemorySnapshot(
+        lambda *_args, **_kwargs: MemorySnapshot(
             variables={
                 "sys_user_nickname": "Alex",
                 "sys_user_background": "Synthetic learner background",
