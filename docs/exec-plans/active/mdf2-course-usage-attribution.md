@@ -5,7 +5,7 @@
 Make normal 2.0 classroom model requests discoverable in per-course/per-lesson
 accounting and resolvable to the existing course owner. Teaching, summaries and
 memory admission must carry the same authorized course/lesson identity while
-preserving learner identity, provider counters and preview/read/listen boundaries.
+preserving learner identity, provider counters and preview/read/listen/classroom boundaries.
 This fixes a prerequisite discovered during complete-course cost acceptance.
 
 ## Progress
@@ -24,14 +24,23 @@ This fixes a prerequisite discovered during complete-course cost acceptance.
 - [x] 2026-10-08 23:34 CST: Learning/profile/metering/settlement regressions:
   3,149 passed, one expected skip and four subtests passed. Focused entry/provider
   tests: 288 passed. Developer tools and repository gates passed.
-- [ ] 2026-10-08 23:34 CST: Open one focused PR and deploy sim.
+- [x] 2026-10-08 23:40 CST: Opened PR #3055. Initial sim build 427 succeeded;
+  runtime acceptance continues after review fixes.
 - [ ] 2026-10-08 23:33 CST: Deploy sim and verify HTTP classroom usage rows and
   existing billing ownership, plus read/listen and preview boundaries.
-- [ ] 2026-10-08 23:33 CST: Audit reviews, inline comments and issue comments; reply
+- [x] 2026-10-08 23:45 CST: Review regression suite: 3,177 passed, one expected
+  skip and four subtests passed. Classroom dispatch and real draft/published
+  ownership are covered. Developer tools and repository gates passed.
+- [ ] 2026-10-08 23:45 CST: Audit reviews, inline comments and issue comments; reply
   to each independent AI opinion in its original discussion.
 - [ ] 2026-10-08 23:33 CST: Await manual main merge and verify production selection.
 
 ## Surprises & Discoveries
+
+The first review found a distinct classroom mode that the new read/listen fallback
+misclassified. Dispatch now forwards the normalized mode; offline contracts also
+cover legacy direct callers. Replacing an ownership lookup stub with actual draft
+and published course records verifies the existing owner resolution end to end.
 
 PR #3054's numeric cache diagnostics were correct, but real classroom gateway calls
 still used the default learner-only UsageContext. The baseline recorded four
@@ -48,13 +57,16 @@ full-course or long-term fee acceptance.
 - Supply the same context to teaching, summary and admission factories. Preserve
   each generation name and model-selection metadata.
 - Preserve preview as preview and derive read/listen from the authenticated host
-  request. Do not claim progress/block identities before the host creates them.
+  request, including classroom mode passed through runscript_v2. Direct callers
+  retain the existing read/listen fallback. Do not claim progress/block identities before the host creates them.
 - Scope the repair to new classroom requests. No historical usage backfill,
   production configuration switch or database migration is included.
 
 ## Outcomes & Retrospective
 
-Local focused acceptance passes. Full deployed acceptance and final live checks
+Local focused acceptance passes. PR #3055 tracks deployed acceptance and final
+live CI/review evidence without requiring acceptance-only runtime republishing.
+Full deployed acceptance and final live checks
 remain pending. Complete-course cache/cost and natural teaching validation remain
 separate follow-up acceptance; this repair alone does not complete milestone 4.
 
@@ -83,9 +95,10 @@ and repeat HTTP read/listen/private ledger acceptance on deployed sim.
 
 ## Validation and Acceptance
 
-Twelve entry contracts and four real gateway persistence cases must pass. All three
+Entry contracts and real gateway persistence cases must cover read/listen/classroom
+and both draft/published ownership paths. All three
 kinds retain distinct generation names, cache values and the authorized course and
-lesson. Existing ownership resolves the course owner for each row. Preview never
+lesson. Existing ownership resolves the course owner for each row using real draft/published course records. Preview never
 becomes production usage. Actual sim HTTP rows must show the same attribution,
 without changing natural teaching behavior or producing duplicate usage rows.
 

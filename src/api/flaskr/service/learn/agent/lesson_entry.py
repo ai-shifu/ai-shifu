@@ -215,6 +215,7 @@ def agent_lesson_events(
     outline_bid: str,
     user_input: str | dict | None = None,
     listen: bool = False,
+    learning_mode: str | None = None,
     preview_mode: bool = False,
     heartbeat_interval: float = 0.5,
     reload_generated_block_bid: str | None = None,
@@ -288,7 +289,13 @@ def agent_lesson_events(
         shifu_bid=shifu_bid,
         outline_item_bid=outline_bid,
         usage_scene=usage_scene,
-        learning_mode="listen" if listen else "read",
+        learning_mode=(
+            learning_mode
+            if learning_mode in {"read", "listen", "classroom"}
+            else "listen"
+            if listen
+            else "read"
+        ),
     )
     engine = Engine(
         GatewayModel(

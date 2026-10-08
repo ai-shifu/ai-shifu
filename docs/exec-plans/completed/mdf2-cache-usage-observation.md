@@ -39,7 +39,7 @@ they do not calculate prices or replace the shared billing ledger.
 - [x] Adopted the posted Devin issue and replied in its original thread with
   pushed fix `f4d6b003e`, red/green regressions and billing assertions. Continue
   auditing new independent opinions and live CI/review status in PR #3054.
-- [x] 2026-10-08 23:33 CST: User merged PR #3054 as `3656530e0`. The initial main webhook failed with 502; one verified redelivery started build 426 / Drone 5217. All eight deployments 2048-2055 succeeded. Both production regions match all 25 runtime hashes across eight API replicas and select engine 1.0. Complete-course attribution follow-up is tracked in `mdf2-course-usage-attribution.md`.
+- [x] 2026-10-08T15:33:00Z: Verified release after the user merged PR #3054 at 2026-10-08T15:23:59Z as `3656530e0`. The initial main webhook failed with 502; one verified redelivery started build 426 / Drone 5217. All eight deployments 2048-2055 succeeded. Both production regions match all 25 runtime hashes across eight API replicas and select engine 1.0. Complete-course attribution follow-up is tracked in `mdf2-course-usage-attribution.md`.
 
 ## Surprises & Discoveries
 

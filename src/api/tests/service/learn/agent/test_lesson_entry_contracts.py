@@ -174,11 +174,25 @@ def test_paid_agent_lesson_requires_the_learners_own_successful_active_order(
                 )
 
 
-@pytest.mark.parametrize("listen", [False, True])
+@pytest.mark.parametrize(
+    ("listen", "learning_mode"),
+    [
+        (False, None),
+        (True, None),
+        (False, "read"),
+        (True, "listen"),
+        (False, "classroom"),
+    ],
+)
 @pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize("termination", ["completed", "error", "disconnected"])
 def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
-    app: object, monkeypatch: object, termination: str, listen: bool, preview_mode: bool
+    app: object,
+    monkeypatch: object,
+    termination: str,
+    listen: bool,
+    preview_mode: bool,
+    learning_mode: str | None,
 ) -> None:
     settings = LLMSettings(
         model="2",
@@ -226,6 +240,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         outline_bid="lesson",
         user_input={"choice": ["a"]},
         listen=listen,
+        learning_mode=learning_mode,
         preview_mode=preview_mode,
         heartbeat_interval=0.1,
     )
@@ -257,7 +272,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
             usage_scene=BILL_USAGE_SCENE_PREVIEW
             if preview_mode
             else BILL_USAGE_SCENE_PROD,
-            learning_mode="listen" if listen else "read",
+            learning_mode=learning_mode or ("listen" if listen else "read"),
         ),
     )
     assert gateway.call_count == 3
@@ -281,7 +296,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
             usage_scene=BILL_USAGE_SCENE_PREVIEW
             if preview_mode
             else BILL_USAGE_SCENE_PROD,
-            learning_mode="listen" if listen else "read",
+            learning_mode=learning_mode or ("listen" if listen else "read"),
         ),
     )
     gateway.assert_any_call(
@@ -299,7 +314,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
             usage_scene=BILL_USAGE_SCENE_PREVIEW
             if preview_mode
             else BILL_USAGE_SCENE_PROD,
-            learning_mode="listen" if listen else "read",
+            learning_mode=learning_mode or ("listen" if listen else "read"),
         ),
     )
     request_check.assert_called_once_with(gateway.return_value)
