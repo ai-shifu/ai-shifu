@@ -285,10 +285,13 @@ def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
     context._anchor_element_bid = "source-element"
     create_tts = Mock()
     monkeypatch.setattr(context, "_try_create_tts_processor", create_tts)
+    monkeypatch.setattr(context, "get_system_prompt", lambda _bid: "Course rules")
     monkeypatch.setattr(
         runtime,
         "load_memory",
-        lambda *_args: SimpleNamespace(as_variables=lambda: {"name": "learner"}),
+        lambda *_args, **_kwargs: SimpleNamespace(
+            as_variables=lambda: {"name": "learner"}
+        ),
     )
     first = SimpleNamespace(type=GeneratedType.CONTENT, content="Answer")
     last = SimpleNamespace(type=GeneratedType.BREAK, content="")

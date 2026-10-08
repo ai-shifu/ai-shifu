@@ -293,10 +293,16 @@ def build_follow_up_conversation_context(
     if not str(outline_item_bid or "").strip():
         message = "Follow-up context requires an outline item BID"
         raise ValueError(message)
+    context_prompt = course_system_prompt or fallback_system_prompt
     profiles = dict(
         runtime_profiles
         if runtime_profiles is not None
-        else load_memory(app, user_info.user_id, shifu_bid).as_variables()
+        else load_memory(
+            app,
+            user_info.user_id,
+            shifu_bid,
+            reference_text=context_prompt or "",
+        ).as_variables()
     )
     if use_learner_language and runtime_language:
         profiles.update(
@@ -306,7 +312,6 @@ def build_follow_up_conversation_context(
             }
         )
 
-    context_prompt = course_system_prompt or fallback_system_prompt
     if context_prompt:
         variable_course_prompt = build_course_prompt(
             context_prompt,
