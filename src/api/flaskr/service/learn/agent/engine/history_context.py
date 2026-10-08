@@ -120,10 +120,14 @@ def current_recall_notice(
     if not stale:
         return ""
     names = []
+    encoded_names = "[]"
     for key in sorted(stale):
-        if len(names) < 20 and len(json.dumps([*names, key])) <= 1024:
+        candidate = (
+            json.dumps([*names, key]).replace("<", "\\u003c").replace(">", "\\u003e")
+        )
+        if len(names) < 20 and len(candidate) <= 1024:
             names.append(key)
-    encoded_names = json.dumps(names).replace("<", "\\u003c").replace(">", "\\u003e")
+            encoded_names = candidate
     return (
         "# Revalidate earlier recalled facts\n\n"
         "Earlier recalled answers cannot establish the current facts for these keys "
