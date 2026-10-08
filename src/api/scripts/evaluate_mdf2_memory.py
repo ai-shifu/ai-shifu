@@ -17,16 +17,18 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncIterator, Callable
 
     from flaskr.service.learn.agent.engine import Session
+    from pydantic_ai import RunContext
     from pydantic_ai.messages import ModelMessage, ModelResponse
-    from pydantic_ai.models import Model, ModelRequestParameters
+    from pydantic_ai.models import Model, ModelRequestParameters, StreamedResponse
     from pydantic_ai.settings import ModelSettings
 
 API_DIR = Path(__file__).resolve().parents[1]
@@ -353,6 +355,264 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
     }
 
 
+def teaching_session(case: dict[str, Any]) -> Session:
+    """Hide an exact older example between excerpt boundaries and two recent turns."""
+    from flaskr.service.learn.agent.engine import ScriptBundle
+    from flaskr.service.learn.agent.engine.script import render_first_prompt
+    from pydantic_ai.messages import (
+        ModelRequest,
+        ModelResponse,
+        TextPart,
+        UserPromptPart,
+    )
+
+    session = recall_session(case)
+    session.script = ScriptBundle(
+        script="Review the earlier lesson with the learner. Answer their question. "
+        "Give the requested code exactly once if known, otherwise say MEMORY_UNAVAILABLE. "
+        "Do not ask a follow-up question. Then finish."
+    )
+    session.messages[0] = ModelRequest(
+        parts=[
+            UserPromptPart(
+                render_first_prompt(
+                    session.script,
+                    {"project_code": OLD_CODE + " " * 500},
+                    memory_limit=100,
+                )
+            )
+        ]
+    )
+    paragraph = (
+        "A worked example explains how to separate observations from assumptions. "
+    )
+    source = (
+        paragraph * 40
+        + "\nThe original worked example used project code "
+        + OLD_CODE
+        + ".\n"
+        + paragraph * 40
+    )
+    session.messages[-1] = ModelResponse(parts=[TextPart(source)])
+    session.messages.extend(
+        [
+            ModelRequest(parts=[UserPromptPart("Continue to the next concept.")]),
+            ModelResponse(
+                parts=[TextPart("Check assumptions before drawing a conclusion.")]
+            ),
+            ModelRequest(parts=[UserPromptPart("Explain the following concept.")]),
+            ModelResponse(
+                parts=[TextPart("Compare an observation with an independent check.")]
+            ),
+        ]
+    )
+    return session
+
+
+def teaching_read_evidence(
+    events: list, sources: dict[str, str], expected: str
+) -> bool:
+    """Require an exact original page containing the answer before learner output."""
+    from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
+
+    calls = {}
+    verified = False
+    text = ""
+    for event in events:
+        if isinstance(event, ToolCall) and event.name == "read_teaching":
+            calls[event.id] = event.args
+        elif isinstance(event, ToolResult) and event.name == "read_teaching":
+            args = calls.get(event.id, {})
+            value = parse_recall_result(event.content)
+            reference = args.get("reference")
+            if (
+                reference not in sources
+                or value is None
+                or value.get("status") != "found"
+            ):
+                continue
+            offset, end = value.get("offset"), value.get("next_offset")
+            page = value.get("text")
+            if (
+                value.get("reference") == reference
+                and type(offset) is int
+                and offset == args.get("offset", 0)
+                and 0 <= offset <= len(sources[reference])
+                and (
+                    end is None
+                    or (type(end) is int and offset < end < len(sources[reference]))
+                )
+                and isinstance(page, str)
+                and page == sources[reference][offset:end]
+                and expected in page
+            ):
+                verified = True
+        elif isinstance(event, ContentDelta):
+            text += event.text
+            if expected in text:
+                return verified
+    return False
+
+
+async def evaluate_teaching(
+    case: dict[str, Any], model: Model, summary_model: Model
+) -> dict[str, Any]:
+    """Combine real summary generation, cache reload and current versus historical reads."""
+    from flaskr.service.learn.agent.engine import (
+        ContentDelta,
+        ContinueTurn,
+        Engine,
+        ErrorEvent,
+        MemoryUpdated,
+        MessageTurn,
+        Session,
+        TurnDone,
+    )
+    from flaskr.service.learn.agent.engine.teaching_history import (
+        project_teaching_history,
+    )
+    from flaskr.service.learn.agent.engine.teaching_summary import (
+        TeachingSummarizer,
+        summarize_teaching_history,
+    )
+    from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
+    from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelResponse, TextPart
+    from pydantic_ai.models.wrapper import WrapperModel
+
+    session = teaching_session(case)
+    projected, sources = project_teaching_history(session.messages)
+    provider = make_teaching_summarizer(summary_model)
+    summary_calls = 0
+
+    async def summarize(source: str) -> str | None:
+        """Count one real summary attempt or an explicitly injected failure."""
+        nonlocal summary_calls
+        summary_calls += 1
+        return None if case.get("summary_failure") else await provider.summarize(source)
+
+    summarizer = TeachingSummarizer(policy=provider.policy, summarize=summarize)
+    await summarize_teaching_history(
+        projected, sources, session.teaching_summaries, summarizer
+    )
+    cache = dict(session.teaching_summaries)
+    session = Session.loads(session.dumps())
+    original = (
+        dict(session.memory),
+        dict(session.user_memory),
+        dict(session.answer_hashes),
+    )
+    history_len = len(session.messages)
+    original_history = ModelMessagesTypeAdapter.dump_json(session.messages)
+    markers = set()
+
+    class ObservedModel(WrapperModel):
+        """Observe the actual request projection without changing model behavior."""
+
+        @asynccontextmanager
+        async def request_stream(
+            self,
+            messages: list[ModelMessage],
+            model_settings: ModelSettings | None,
+            model_request_parameters: ModelRequestParameters,
+            run_context: RunContext[Any] | None = None,
+        ) -> AsyncIterator[StreamedResponse]:
+            """Record source-bound excerpt/summary markers sent to the model."""
+            for message in messages:
+                if not isinstance(message, ModelResponse):
+                    continue
+                for part in message.parts:
+                    if not isinstance(part, TextPart):
+                        continue
+                    try:
+                        marker = json.loads(part.content)
+                    except ValueError:
+                        continue
+                    if (
+                        isinstance(marker, dict)
+                        and isinstance(marker.get("reference"), str)
+                        and marker["reference"] in sources
+                    ):
+                        markers.add(marker.get("status"))
+            async with super().request_stream(
+                messages, model_settings, model_request_parameters, run_context
+            ) as response:
+                yield response
+
+    engine = Engine(
+        ObservedModel(model),
+        memory_admission=True,
+        memory_recall=True,
+        memory_context_limit=100,
+        recall_history_compaction=True,
+        teaching_history_compaction=True,
+        teaching_summarizer=summarizer,
+        request_limit=6,
+        model_settings=dict(RECALL_MODEL_SETTINGS),
+    )
+    events = [
+        event
+        async for event in engine.run_turn(session, MessageTurn(text=case["question"]))
+    ]
+    if (
+        events
+        and isinstance(events[-1], TurnDone)
+        and events[-1].reason == "end"
+        and any(isinstance(e, ContentDelta) and e.text.strip() for e in events)
+        and not any(isinstance(e, ErrorEvent) for e in events)
+    ):
+        events.extend(
+            [event async for event in engine.run_turn(session, ContinueTurn())]
+        )
+    text = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    done = [e for e in events if isinstance(e, TurnDone)]
+    errors = [e for e in events if isinstance(e, ErrorEvent)]
+    checks = {
+        "expected_answer": text.count(case["expected"]) == 1,
+        "exact_code_only": re.findall(r"\bEVAL-PROJ-\d+\b", text)
+        == ([] if case["status"] == "unavailable" else [case["expected"]]),
+        "paired_current_evidence": (
+            teaching_read_evidence(events, sources, case["expected"])
+            if case.get("historical")
+            else current_recall_evidence(case, events)
+        ),
+        "expected_summary_outcome": len(cache) == 1
+        and all(
+            (not value) if case.get("summary_failure") else bool(value.strip())
+            for value in cache.values()
+        ),
+        "cache_reused_after_reload": summary_calls == 1
+        and session.teaching_summaries == cache,
+        "history_projected": (
+            "teaching_excerpt" if case.get("summary_failure") else "teaching_summary"
+        )
+        in markers,
+        "memory_unchanged": original
+        == (session.memory, session.user_memory, session.answer_hashes),
+        "no_memory_events": not any(isinstance(e, MemoryUpdated) for e in events),
+        "history_preserved": ModelMessagesTypeAdapter.dump_json(
+            session.messages[:history_len]
+        )
+        == original_history,
+        "completed": bool(done) and done[-1].reason == "finished",
+        "no_engine_errors": not errors,
+    }
+    return {
+        "passed": all(checks.values()),
+        "error": "engine_error"
+        if errors
+        else (
+            "summary_unavailable_or_invalid"
+            if not case.get("summary_failure")
+            and not checks["expected_summary_outcome"]
+            else None
+        ),
+        "checks": checks,
+        "usage": done[-1].usage if done else {},
+        "summary_calls": summary_calls,
+        "injected_summary_failure": bool(case.get("summary_failure")),
+    }
+
+
 async def evaluate(
     cases: list[dict[str, Any]], model_factory: Callable[[str], Model], repeats: int
 ) -> list[dict[str, Any]]:
@@ -363,12 +623,17 @@ async def evaluate(
             started = time.monotonic()
             try:
                 model = model_factory(case["family"])
-                runner = (
-                    evaluate_admission
-                    if case["family"] == "admission"
-                    else evaluate_recall
-                )
-                result = await runner(case, model)
+                if case["family"] == "teaching":
+                    result = await evaluate_teaching(
+                        case, model, model_factory("teaching_summary")
+                    )
+                else:
+                    runner = (
+                        evaluate_admission
+                        if case["family"] == "admission"
+                        else evaluate_recall
+                    )
+                    result = await runner(case, model)
             except Exception as exc:
                 result = {"passed": False, "error": type(exc).__name__}
             results.append(
@@ -407,10 +672,16 @@ def report(
         "engine/recall.py",
         "engine/memory_context.py",
         "engine/history_context.py",
+        "engine/teaching_history.py",
+        "engine/teaching_summary.py",
+        "teaching_summary.py",
         "engine/prompts/system.md",
         "engine/prompts/memory_admission.md",
         "engine/prompts/memory_policy.md",
         "engine/prompts/memory_recall.md",
+        "engine/prompts/recall_history_compaction.md",
+        "engine/prompts/teaching_history_compaction.md",
+        "engine/prompts/teaching_summary.md",
     ):
         relative = "flaskr/service/learn/agent/" + name
         sources[relative] = API_DIR / relative
@@ -421,6 +692,13 @@ def report(
     return {
         "schema_version": 1,
         "recall_generation_settings": dict(RECALL_MODEL_SETTINGS),
+        "teaching_generation_settings": dict(RECALL_MODEL_SETTINGS),
+        "teaching_summary_generation_settings": {
+            "temperature": 0,
+            "max_tokens": 256,
+            "timeout_seconds": 8,
+            "input_budget_bytes": 40_960,
+        },
         "full_catalog": len(cases) == len(load_cases()),
         "selected_cases": [case["id"] for case in cases],
         "repeats": repeats,
@@ -551,8 +829,9 @@ def main(argv: list[str] | None = None) -> int:
                 span=span,
                 generation_name=f"agent_memory_quality_{family}",
                 usage_metadata=dict(usage_metadata),
-                timeout=15,
-                retry_deadline_seconds=15,
+                timeout=8 if family == "teaching_summary" else 15,
+                retry_deadline_seconds=8 if family == "teaching_summary" else 15,
+                input_budget_bytes=40_960 if family == "teaching_summary" else 262_144,
                 num_retries=0,
             )
 

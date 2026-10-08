@@ -9,9 +9,9 @@ canonical: true
 # MarkdownFlow Memory Quality Evaluation
 
 The opt-in evaluator at `src/api/scripts/evaluate_mdf2_memory.py` supplies a
-repeatable synthetic baseline for the current course model. Its twenty fixed
-cases cover fourteen semantic admission decisions and six actual-engine recall
-turns. This is model behavior evidence alongside existing deterministic storage
+repeatable synthetic baseline for the current course model. Its twenty-four fixed
+cases cover fourteen semantic admission decisions, six actual-engine recall
+turns and four long-teaching-history journeys. This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
@@ -48,6 +48,34 @@ do not independently prove the host's database authorization or course isolation
 Those remain covered by the real storage tests in `test_memory_*_integration.py`
 and `tests/service/profile/`.
 
+## Long-history cases
+
+Four teaching cases combine an eligible older long assistant message, two recent
+turns, the production semantic-summary factory, a JSON session round trip and
+actual engine projection. They distinguish changed/deleted current learner memory
+from a precise question about an original classroom example. The exact code is
+inside the source, outside both excerpt edges. Historical answers require a paired
+current-turn original page containing that code before learner output; a plausible
+answer or current memory read alone fails. Current-fact answers retain the exact
+recall-evidence requirement.
+
+Three cases require a real, nonempty bounded semantic summary. A fourth explicitly
+injects a summary failure to exercise cached excerpt fallback; it is not evidence
+of an actual provider outage. Each case records one logical summary attempt and
+requires the same derivative cache after serialization/reload, no additional
+summary attempt, and the expected source-bound excerpt/summary in actual model
+requests. Missing real summaries are evaluation errors even if an answer is correct.
+All cases require unchanged memory, original history and finished teaching.
+
+Teaching uses the same controlled 512-token/temperature-zero settings as recall.
+Summary generation uses the production prompt and 256-token settings, with an
+eight-second provider timeout/cooperative deadline and complete 40 KiB input
+budget. These settings are reported separately. Usage counters describe teaching
+calls only; summary attempts are recorded as counts and billed/traced separately
+under `agent_memory_quality_teaching_summary`. They are not a cost ledger.
+Synthetic round trips establish cache/tool behavior, not database authorization,
+complete natural teaching quality or long-term cache savings.
+
 ## Running
 
 From `src/api` in the backend environment:
@@ -65,8 +93,9 @@ The evaluator refuses a 1.0 deployment and resolves the model through the same
 course-selection/access path as teaching. It supplies only synthetic inputs and
 never loads real learner memory or calls the session/profile persistence path.
 Existing shared-gateway usage, billing and tracing still occur, attributed to the
-provided dedicated learner under `agent_memory_quality_admission` or
-`agent_memory_quality_recall`. The evaluator does not modify the engine switch.
+provided dedicated learner under `agent_memory_quality_admission`,
+`agent_memory_quality_recall`, `agent_memory_quality_teaching` and the separate
+`agent_memory_quality_teaching_summary` generation. The evaluator does not modify the engine switch.
 
 `--case ID` may be repeated to diagnose selected cases; `--repeat` accepts 1–5,
 defaulting to one. Recall deliberately uses controlled temperature 0 and a
@@ -112,6 +141,12 @@ learner input and current-turn write authorization remain verbatim and exclude
 host context. Original stored messages remain unchanged.
 This addresses updates and deletions without rewriting stored teaching history
 or changing the host's authorized snapshot.
+Current-memory revalidation is scoped to current-fact questions. An explicit
+question about what appeared in earlier teaching uses original historical evidence;
+today's memory must not replace an earlier quote or example. Exact historical
+codes, equations, quotations and decisions require `read_teaching` when projected,
+even if a lossy overview appears to contain the answer. Historical reads neither
+restore deleted memory nor authorize writes.
 It requests a relevant read for memory questions, not an exhaustive memory scan.
 This is model guidance, not deterministic output enforcement. Retain intermittent
 violations as failed quality evidence; a passing run cannot erase an earlier failure.
