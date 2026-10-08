@@ -19,6 +19,9 @@ publication and ordinary manual packaging validation keep both architectures.
   Ruff, actionlint, Compose rendering and architecture boundaries pass.
 - [x] 2026-10-08 10:51 UTC: All 105 focused regressions, tool doctor, repository
   harness and all-files lefthook gate pass; independent review found no blocker.
+- [x] 2026-10-08 10:58 UTC: Corrected the first CI's Bake override failure and
+  executed the exact workflow flags with Buildx v0.37.2 locally; both targets
+  resolve to the production Dockerfiles, AMD64 and local Docker image exports.
 - [ ] Open a ready PR and verify native image, Compose and browser checks in CI.
 
 ## Surprises & Discoveries
@@ -34,6 +37,10 @@ publication and ordinary manual packaging validation keep both architectures.
   coverage; non-production repository docs remain outside source filters.
 - Local macOS has no Docker daemon. Native Linux image and browser acceptance
   must be verified through the PR workflow, not inferred from YAML tests.
+- The first runtime CI run rejected the Bake CLI override `platforms` before
+  building any image. Buildx v0.37.2 requires the singular CLI key `platform`,
+  although its printed JSON field is plural. Correct the override and validate
+  it with the same Buildx version before retrying CI.
 
 ## Decision Log
 

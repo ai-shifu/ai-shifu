@@ -128,10 +128,10 @@ jobs:
           targets: ai-shifu-api-dev,ai-shifu-cook-web-dev
           load: true
           set: |
-            ai-shifu-api-dev.platforms=linux/amd64
+            ai-shifu-api-dev.platform=linux/amd64
             ai-shifu-api-dev.cache-from=type=gha,scope=ai-shifu-api-amd64
             ai-shifu-api-dev.cache-to=type=gha,scope=ai-shifu-api-amd64,mode=max
-            ai-shifu-cook-web-dev.platforms=linux/amd64
+            ai-shifu-cook-web-dev.platform=linux/amd64
             ai-shifu-cook-web-dev.cache-from=type=gha,scope=ai-shifu-web-amd64
             ai-shifu-cook-web-dev.cache-to=type=gha,scope=ai-shifu-web-amd64,mode=max
 

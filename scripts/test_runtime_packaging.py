@@ -157,7 +157,8 @@ def test_runtime_build_smoke_and_browser_use_same_production_images() -> None:
         smoke_arguments = invocation[invocation.index("smoke") + 1 :]
         assert smoke_arguments[:3] == [service, final_image["image"], "linux/amd64"]
         assert "--record" in smoke_arguments
-        assert f"{target}.platforms=linux/amd64" in build["set"]
+        # Bake's CLI override uses singular "platform", unlike the JSON field.
+        assert f"{target}.platform=linux/amd64" in build["set"]
         assert f"scope=ai-shifu-{service}-amd64" in build["set"]
     assert compose["ai-shifu-cook-web-dev"]["environment"]["I18N_ROOT"] == "/app/i18n"
     assert str(compose["ai-shifu-cook-web-dev"]["environment"]["PORT"]) == "5000"
