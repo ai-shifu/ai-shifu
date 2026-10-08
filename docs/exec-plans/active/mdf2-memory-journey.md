@@ -25,7 +25,6 @@ step after PR #3051, not completion of milestone 4 or authorization to remove 1.
   tests, one expected skip and four subtests. Repository gates passed. The real
   selected course model passed all 18 recall results (six cases, three repeats)
   using isolated candidate methods/prompts; deployed acceptance is still pending.
-- [ ] Open a focused PR, verify sim and reply to independent AI review findings.
 - [x] 2026-10-08 20:41 CST: PR #3052 is open. Initial sim `44772405d`
   (build 416 / Drone 5207; deployments 2016/2017) passed all 60 real-model
   results with zero errors. Both API replicas match thirteen runtime hashes;
@@ -36,6 +35,23 @@ step after PR #3051, not completion of milestone 4 or authorization to remove 1.
   coverage passed 2,848 tests, one expected skip and four subtests. Seeded values,
   old session/deferred formats, malformed evidence and same-turn corrections are
   covered. Final deployment acceptance and original-thread replies remain pending.
+- [x] 2026-10-08 21:11 CST: Persist answer-copy fingerprints and revoke ownership
+  on successful session-only writes, including identical values. Cover legacy
+  user corrections whose old runtime retained the original copy and prevent
+  checkpoint metadata aliasing. Broader coverage passed 2,857 tests, one expected
+  skip and four subtests; all repository gates passed. Reproduced the CI-selected
+  nickname fallback failure in isolation, initialized its translations explicitly
+  and passed 131 isolated host/session tests. All four independent AI findings
+  have pushed fixes and original-thread replies; the docstring warning has a
+  reasoned original-discussion reply.
+- [x] 2026-10-08 21:16 CST: Runtime `a21c5e744` and sim `4c297f7f3`
+  have identical trees. Build 419 / Drone 5210 and deployments 2022/2023
+  succeeded. Both API replicas match seventeen runtime hashes and route to 2.0;
+  the web deployment is ready. All twenty real-model cases passed three times
+  (60/60, zero provider errors), without candidate runtime overrides. A fresh
+  internal learner passed HTTP reading, 2.94-second TTS completion and listen
+  completion. GitHub backend selection passed 583 tests plus eight contract
+  tests; final container CI remains a separate check.
 - [ ] Await manual main merge and verify release selection.
 
 ## Surprises & Discoveries
@@ -68,10 +84,15 @@ whether this masks an update; model-only synthetic snapshots cannot establish it
 
 ## Outcomes & Retrospective
 
-The focused offline regression and broader coverage pass. Candidate real-model
-recall improves from 15/18 to 18/18, with zero provider errors in either run.
-Deployed acceptance is pending; candidate overrides are not deployment evidence. Long-term cost, human acceptance and
-other milestone-4 journeys remain tracked outside this focused change.
+The original real-model recall regression improves from 15/18 to 18/18 in
+isolated candidate validation. The final deployed runtime passes all 60 results,
+with zero provider errors, and real HTTP reading/TTS/listen completion. The
+storage-backed tests establish freshness and rollback rather than relying on
+synthetic snapshots alone. AI review exposed two ownership distinctions: a seed
+is not an answer, and a later session write is no longer the accepted answer copy.
+Both now have explicit persisted metadata and compatibility coverage. Long-term
+cost, human acceptance and other milestone-4 journeys remain outside this change.
+Main merge and subsequent release verification remain unchecked.
 
 ## Context and Orientation
 
