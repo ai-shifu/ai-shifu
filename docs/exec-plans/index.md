@@ -29,12 +29,12 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
 - [Preserve Independent Credit Validity](./active/preserve-independent-credit-validity.md)
-- [Compact completed memory recall history](./active/recall-history-compaction.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Refresh Nicknames in Existing Agent Lessons](./active/resumed-learner-nickname.md)
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Stop Stripe Refund Credit Regrant](./active/stripe-refund-credit-reversal.md)
+- [Compact older long teaching with exact source reads](./active/teaching-history-compaction.md)
 - [Urdu product locale](./active/urdu-product-locale.md)
 
 ## Completed
@@ -118,6 +118,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
+- [Compact completed memory recall history](./completed/recall-history-compaction.md)
 - [Remove In-Product MiniMax Voice Cloning](./completed/remove-minimax-in-product-voice-cloning.md)
 - [Rename The Cook Web Directory](./completed/rename-cook-web-directory.md)
 - [Repository Knowledge Cleanup](./completed/repository-knowledge-cleanup.md)
