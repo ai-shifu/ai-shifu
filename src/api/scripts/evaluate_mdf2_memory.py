@@ -122,7 +122,8 @@ def recall_session(case: dict[str, Any]) -> Session:
 
     bundle = ScriptBundle(
         script=(
-            "Help the learner review their project setup. Answer their project-code "
+            ("Collect %{{project_code}} first. " if case.get("answered") else "")
+            + "Help the learner review their project setup. Answer their project-code "
             "question. Give the project code exactly once if known, or say "
             "MEMORY_UNAVAILABLE if the information is unavailable. Do not ask a "
             "follow-up question. Then finish."
@@ -164,13 +165,34 @@ def recall_session(case: dict[str, Any]) -> Session:
             ),
             ModelResponse(parts=[TextPart(OLD_CODE)]),
         ]
-    return Session(
+        if case.get("answered"):
+            messages[1:1] = [
+                ModelResponse(
+                    parts=[
+                        ToolCallPart(
+                            "interact",
+                            {
+                                "type": "text",
+                                "prompt": "Project code?",
+                                "variable": "project_code",
+                            },
+                            "project-question",
+                        )
+                    ]
+                ),
+                ModelRequest(
+                    parts=[ToolReturnPart("interact", OLD_CODE, "project-question")]
+                ),
+            ]
+    session = Session(
         script=bundle,
         user_memory=snapshot,
+        memory=dict(snapshot) if case.get("answered") else {},
         messages=messages,
         initial_variables={} if messages else None,
         turn=1 if messages else 0,
     )
+    return Session.loads(session.dumps()) if case.get("answered") else session
 
 
 def parse_recall_result(content: object) -> dict | None:
@@ -240,6 +262,7 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
 
     session = recall_session(case)
     original = dict(session.user_memory)
+    original_session_memory = dict(session.memory)
     history_len = len(session.messages)
     original_messages = ModelMessagesTypeAdapter.dump_json(session.messages)
     engine = Engine(
@@ -292,7 +315,8 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
         "current_tool_result": current_recall_evidence(case, events),
         "no_stale_code": case["mode"] not in {"updated", "deleted"}
         or OLD_CODE not in text,
-        "memory_unchanged": session.user_memory == original and not session.memory,
+        "memory_unchanged": session.user_memory == original
+        and session.memory == original_session_memory,
         "no_memory_events": not any(isinstance(e, MemoryUpdated) for e in events),
         "history_preserved": ModelMessagesTypeAdapter.dump_json(
             session.messages[:history_len]
@@ -364,6 +388,7 @@ def report(
     }
     for name in (
         "memory_admission.py",
+        "run_agent.py",
         "gateway_model.py",
         "engine/engine.py",
         "engine/script.py",

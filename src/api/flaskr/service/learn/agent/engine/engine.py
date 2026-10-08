@@ -731,6 +731,11 @@ class Engine:
                     [turn.text] if isinstance(turn, MessageTurn) else []
                 )
         deps.request_inputs = tuple(session.request_inputs)
+        # Exclude prior course answers only until this lesson accepts its own answer.
+        # Recompute after deferred answers are collected, including stored resumes.
+        deps.memory_recall_excluded_keys = collected_names(
+            session.script.script
+        ).difference(session.memory)
         if prompt is not None and self.turn_limit and session.turn >= self.turn_limit:
             # Out of turns: end the lesson rather than teach another one. Marked finished so a
             # reload does not start it over, and reported as finished rather than as an error --

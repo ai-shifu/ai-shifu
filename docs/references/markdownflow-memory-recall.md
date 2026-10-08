@@ -13,7 +13,7 @@ Portable hosts default to false, retaining their existing tools and instructions
 The read-only `recall` tool accesses the current turn's already authorized user/session
 memory dictionaries, with session values winning. It performs no database/provider I/O,
 changes no memory or profile and grants no additional write permission. The host must
-refresh deletions and explicit cross-course references before each request, as it does
+refresh durable named answers and deletions before each request, as it does
 for normal initial injection. Arbitrary source courses or other learners cannot be queried.
 
 With `key=null`, `offset=0`, the tool returns alphabetically sorted available names, at most
@@ -28,8 +28,14 @@ Every result is at most **8192 UTF-8 bytes** of compact JSON (`ensure_ascii=Fals
 `(',', ':')`), including status/structure and escaping. A larger complete value returns only
 `status=too_large`; no original value is shortened, summarized or removed. The terminal
 lesson guard returns the existing fixed lesson-over message without reading memory.
-Keys the main script collects again are excluded from both discovery and reads, matching
-the initial prompt policy and avoiding old answers on behalf of the learner.
+Keys the main script collects again are excluded from discovery and reads until
+this lesson has accepted an answer. An accepted session answer makes that key
+readable on the same deferred resume and on later requests. The AI-Shifu host
+refreshes existing named-answer copies from the committed course snapshot, so an
+old lesson cannot shadow a newer answer from another lesson. Unanswered questions
+are never prefilled by this refresh. Deletion clears the accepted-answer copy;
+recreating the course key does not answer that old lesson's question again.
+Session-only working notes and historical conversation are preserved.
 
 Instructions ask for relevant missing facts only and treat returned values as data, never
 as author instructions or write authorization. Tool returns stay in model/session history,

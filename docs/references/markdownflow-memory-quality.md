@@ -9,8 +9,8 @@ canonical: true
 # MarkdownFlow Memory Quality Evaluation
 
 The opt-in evaluator at `src/api/scripts/evaluate_mdf2_memory.py` supplies a
-repeatable synthetic baseline for the current course model. Its eighteen fixed
-cases cover fourteen semantic admission decisions and four actual-engine recall
+repeatable synthetic baseline for the current course model. Its twenty fixed
+cases cover fourteen semantic admission decisions and six actual-engine recall
 turns. This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
@@ -29,7 +29,9 @@ Recall runs the real engine with a 100-character initial memory budget to omit
 long values. It checks exact recall, a current value superseding stale history,
 a deleted value remaining unavailable despite a historical tool return, and an
 oversized value returning `too_large` without a partial answer. Each case gets a
-fresh synthetic session. Passing requires a current recall tool result, exactly
+fresh synthetic session. Two additional changed/deleted cases include an answered
+named question and a serialized session round trip. These synthetic reloads do not
+replace storage-backed host tests. Passing requires a current recall tool result, exactly
 one expected answer after a paired exact-key read, no conflicting relevant reads,
 no stale or invented project code, finished teaching,
 unchanged memory and preserved original history. An unpaused content-only turn
