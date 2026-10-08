@@ -23,7 +23,14 @@ they do not calculate prices or replace the shared billing ledger.
 - [x] Local learning/profile/operator regressions: 2,893 passed, one expected
   skip and four subtests passed. Developer-tool checks and all repository
   pre-commit gates passed.
-- [ ] Open one focused PR and verify deployed sim reports.
+- [x] Opened PR #3054. Adopted the shared stream-normalization review:
+  four failing / six passing real-gateway regressions reproduced dropped cache
+  metadata before the fix.
+- [x] Final shared gateway / learning / profile / operator regressions:
+  3,223 passed, one expected skip and four subtests passed; provider-boundary
+  tests separately 116 passed, onboarding/operator compatibility 144 passed.
+  All repository gates passed.
+- [ ] Verify deployed sim reports.
 - [ ] Reply to independent AI opinions in their original discussions.
 - [ ] Await manual main merge and verify release selection.
 
@@ -41,6 +48,17 @@ without changing production finish behavior.
 A dictionary containing an object-shaped nested usage field is unsupported by the
 shared extractor; a regression keeps it unknown instead of recording mismatched
 cached-token numerator and coverage metadata.
+
+The initial adapter-only tests missed that `chat_llm` normalizes usage into a
+three-field DTO. The shared stream now carries optional raw cache metadata through
+that DTO, preserving explicit zero and missing/invalid values. The billing numeric
+conversion is unchanged. Tests invoke the actual chat gateway and adapter while
+stubbing only the provider, and verify both diagnostic counts and billed totals.
+
+A combined custom test order loaded the existing LiteLLM stub before provider
+boundary tests and caused two missing-`token_counter` fixture errors. Those
+boundary tests passed in their separate process; the remaining combined suite
+passed. No unrelated stub behavior was changed.
 
 ## Decision Log
 

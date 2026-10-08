@@ -164,29 +164,31 @@ def _extract_usage_value(usage: object, key: str) -> int:
     return int(getattr(usage, key, 0) or 0)
 
 
-def _extract_input_cache(usage: object) -> int:
+def _reported_input_cache(usage: object) -> object:
+    """Return explicit raw cache metadata; missing fields remain unknown."""
     if usage is None:
-        return 0
+        return None
     if isinstance(usage, dict):
         if "input_cache" in usage:
-            return int(usage.get("input_cache") or 0)
+            return usage.get("input_cache")
         details = usage.get("input_tokens_details") or usage.get(
             "prompt_tokens_details"
         )
-        if isinstance(details, dict):
-            return int(details.get("cached_tokens") or 0)
-        return 0
+        return details.get("cached_tokens") if isinstance(details, dict) else None
     value = getattr(usage, "input_cache", None)
     if value is not None:
-        return int(value or 0)
+        return value
     details = getattr(usage, "input_tokens_details", None) or getattr(
         usage, "prompt_tokens_details", None
     )
     if isinstance(details, dict):
-        return int(details.get("cached_tokens") or 0)
-    if details is not None:
-        return int(getattr(details, "cached_tokens", 0) or 0)
-    return 0
+        return details.get("cached_tokens")
+    return getattr(details, "cached_tokens", None)
+
+
+def _extract_input_cache(usage: object) -> int:
+    """Keep the shared billing conversion while preserving raw reporting separately."""
+    return int(_reported_input_cache(usage) or 0)
 
 
 def _attach_usage_output_text(
@@ -1176,11 +1178,13 @@ class LLMStreamaUsage:
         prompt_tokens: object,
         completion_tokens: object,
         total_tokens: object,
+        input_cache: object = None,
     ) -> None:
-        """Record token counts for an LLM stream."""
+        """Record stream token counts with optional explicit provider cache metadata."""
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.total_tokens = total_tokens
+        self.input_cache = input_cache
 
 
 class LLMStreamResponse:
@@ -1600,6 +1604,7 @@ def chat_llm(
                                 "prompt_tokens": res_usage.prompt_tokens,
                                 "completion_tokens": res_usage.completion_tokens,
                                 "total_tokens": res_usage.total_tokens,
+                                "input_cache": _reported_input_cache(res_usage),
                             },
                         )
                 _check_stream_cancelled(retry_cancelled)

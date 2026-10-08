@@ -684,6 +684,7 @@ def report(
         bool(expected) and len(observed) == len(expected) and set(observed) == expected
     )
     sources = {
+        "flaskr/api/llm/__init__.py": API_DIR / "flaskr/api/llm/__init__.py",
         "scripts/evaluate_mdf2_memory.py": Path(__file__),
         "scripts/mdf2_memory_quality/cases.json": CASES_PATH,
     }

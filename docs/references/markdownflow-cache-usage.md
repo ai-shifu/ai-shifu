@@ -15,7 +15,9 @@ request/input/output counters; it does not calculate prices or change billing.
 
 ## Provider prefix cache
 
-Gateway usage follows the shared extractor's object/dictionary conventions:
+The shared stream usage DTO retains optional raw `input_cache` metadata from the
+provider, including explicit zero; it does not turn missing metadata into zero.
+The existing billing conversion stays unchanged. Gateway usage follows the shared extractor's object/dictionary conventions:
 `input_cache`, or nested `input_tokens_details` / `prompt_tokens_details` with
 `cached_tokens`. A cache observation requires explicit nonnegative integer input
 and cached-token counts, with cached tokens no greater than input tokens. Booleans,
