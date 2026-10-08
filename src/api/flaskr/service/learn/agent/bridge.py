@@ -16,8 +16,11 @@ Three things about this are not obvious, and each one was measured rather than r
   never goes false, so anything waiting on it waits forever. Joining a real thread from a greenlet
   also blocks the whole hub and freezes every request in that worker. `gevent.threadpool.ThreadPool`
   runs on real OS threads and yields the hub while waiting, which is what this uses instead.
-* **The queue can only be polled.** `SimpleQueue.get(timeout=...)` waits in C, where gevent cannot
-  patch it, so it parks the hub. Polling with the patched `time.sleep` is the only safe wait.
+* **The cross-thread queue must be native and can only be polled.** gevent replaces
+  `queue.SimpleQueue` with a semaphore-based implementation. Even its `get_nowait()` can wait
+  on a greenlet lock contended by a native producer and never wake. Keep the original thread-safe
+  queue and use only nonblocking reads; its blocking reads would park the request hub. Polling
+  with patched `time.sleep` yields the hub safely.
 
 The polling interval is deliberately not the heartbeat interval. Sleeping a whole heartbeat when the
 queue is empty adds up to that much latency to every event: measured against a model emitting an
@@ -37,6 +40,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from _thread import LockType
     from collections.abc import AsyncIterator, Callable, Iterator
 
 # How often the consumer looks at the queue. Small enough that it does not add meaningfully to the
@@ -74,10 +78,29 @@ def _gevent_patched() -> bool:
     return bool(monkey.is_module_patched("threading"))
 
 
+def _event_queue() -> queue.SimpleQueue:
+    """Keep native producers independent of gevent's queue/semaphore replacement."""
+    if _gevent_patched():
+        from gevent import monkey
+
+        return monkey.get_original("queue", "SimpleQueue")()
+    return queue.SimpleQueue()
+
+
+def _admission_lock() -> LockType:
+    """Use a native lock for the counter shared with producer OS threads."""
+    if _gevent_patched():
+        from gevent import monkey
+
+        return monkey.get_original("threading", "Lock")()
+    return threading.Lock()
+
+
 class _InFlight:
     """Counts the turns this worker process is running, so admission can be refused."""
 
-    lock = threading.Lock()
+    # Only short counter updates run while held; never wait for a turn or do I/O.
+    lock = _admission_lock()
     count = 0
 
     @classmethod
@@ -154,7 +177,7 @@ class TurnStream:
     the heartbeat entirely.
     """
 
-    events: queue.SimpleQueue = field(default_factory=queue.SimpleQueue)
+    events: queue.SimpleQueue = field(default_factory=_event_queue)
     stop: _Stop = field(default_factory=_Stop)
     is_running: Callable[[], bool] | None = None
     error: BaseException | None = None
