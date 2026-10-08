@@ -15,7 +15,11 @@ from flaskr.service.learn.agent.run_agent import TurnOutcome
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 from flaskr.service.learn.llmsetting import LLMSettings
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
@@ -170,9 +174,11 @@ def test_paid_agent_lesson_requires_the_learners_own_successful_active_order(
                 )
 
 
+@pytest.mark.parametrize("listen", [False, True])
+@pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize("termination", ["completed", "error", "disconnected"])
 def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
-    app: object, monkeypatch: object, termination: str
+    app: object, monkeypatch: object, termination: str, listen: bool, preview_mode: bool
 ) -> None:
     settings = LLMSettings(
         model="2",
@@ -219,8 +225,8 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         shifu_bid="course",
         outline_bid="lesson",
         user_input={"choice": ["a"]},
-        listen=True,
-        preview_mode=True,
+        listen=listen,
+        preview_mode=preview_mode,
         heartbeat_interval=0.1,
     )
     assert next(stream) is event
@@ -243,7 +249,16 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         user_id="learner",
         span=span,
         usage_metadata=settings.usage_metadata,
-        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        usage_context=UsageContext(
+            user_bid="learner",
+            shifu_bid="course",
+            outline_item_bid="lesson",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW
+            if preview_mode
+            else BILL_USAGE_SCENE_PROD,
+            learning_mode="listen" if listen else "read",
+        ),
     )
     assert gateway.call_count == 3
     summary.assert_called_once_with(gateway.return_value)
@@ -258,7 +273,16 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         timeout=8,
         num_retries=0,
         usage_metadata=settings.usage_metadata,
-        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        usage_context=UsageContext(
+            user_bid="learner",
+            shifu_bid="course",
+            outline_item_bid="lesson",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW
+            if preview_mode
+            else BILL_USAGE_SCENE_PROD,
+            learning_mode="listen" if listen else "read",
+        ),
     )
     gateway.assert_any_call(
         app,
@@ -267,7 +291,16 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         span=span,
         generation_name="agent_memory_admission",
         usage_metadata=settings.usage_metadata,
-        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        usage_context=UsageContext(
+            user_bid="learner",
+            shifu_bid="course",
+            outline_item_bid="lesson",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW
+            if preview_mode
+            else BILL_USAGE_SCENE_PROD,
+            learning_mode="listen" if listen else "read",
+        ),
     )
     request_check.assert_called_once_with(gateway.return_value)
     engine.assert_called_once_with(
@@ -296,9 +329,9 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "shifu_bid": "course",
         "outline_bid": "lesson",
         "user_input": {"choice": ["a"]},
-        "listen": True,
-        "preview_mode": True,
-        "shifu_model": DraftShifu,
+        "listen": listen,
+        "preview_mode": preview_mode,
+        "shifu_model": DraftShifu if preview_mode else PublishedShifu,
         "heartbeat_interval": 0.1,
         "rewind": None,
     }

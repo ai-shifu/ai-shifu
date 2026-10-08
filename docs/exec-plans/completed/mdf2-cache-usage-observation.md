@@ -39,7 +39,7 @@ they do not calculate prices or replace the shared billing ledger.
 - [x] Adopted the posted Devin issue and replied in its original thread with
   pushed fix `f4d6b003e`, red/green regressions and billing assertions. Continue
   auditing new independent opinions and live CI/review status in PR #3054.
-- [ ] Await manual main merge and verify release selection.
+- [x] 2026-10-08 23:33 CST: User merged PR #3054 as `3656530e0`. The initial main webhook failed with 502; one verified redelivery started build 426 / Drone 5217. All eight deployments 2048-2055 succeeded. Both production regions match all 25 runtime hashes across eight API replicas and select engine 1.0. Complete-course attribution follow-up is tracked in `mdf2-course-usage-attribution.md`.
 
 ## Surprises & Discoveries
 
@@ -90,7 +90,7 @@ baseline or complete-course cost measurement.
 
 The production-image/browser runtime CI run 37796516528 passed for the runtime
 commit. Live final checks and subsequent AI replies are tracked in PR #3054;
-main merge remains a manual user decision. Final documentation synchronization
+the user manually merged main as `3656530e0`, and production routing remains 1.0 after runtime verification. Final documentation synchronization
 preserves the tested runtime files and can reuse this model/HTTP evidence after
 verifying image fingerprints. This technical observation surface does not complete
 long-term fees, natural teaching quality or human trials.
