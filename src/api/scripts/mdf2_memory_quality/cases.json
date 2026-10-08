@@ -16,5 +16,7 @@
   {"id":"recall-omitted-exact","family":"recall","mode":"omitted","expected":"EVAL-PROJ-7319","status":"found"},
   {"id":"recall-updated-history","family":"recall","mode":"updated","expected":"EVAL-PROJ-8426","status":"found"},
   {"id":"recall-deleted-history","family":"recall","mode":"deleted","expected":"MEMORY_UNAVAILABLE","status":"unavailable"},
-  {"id":"recall-oversized","family":"recall","mode":"oversized","expected":"MEMORY_UNAVAILABLE","status":"too_large"}
+  {"id":"recall-oversized","family":"recall","mode":"oversized","expected":"MEMORY_UNAVAILABLE","status":"too_large"},
+  {"id":"recall-answered-updated-history","family":"recall","mode":"updated","answered":true,"expected":"EVAL-PROJ-8426","status":"found"},
+  {"id":"recall-answered-deleted-history","family":"recall","mode":"deleted","answered":true,"expected":"MEMORY_UNAVAILABLE","status":"unavailable"}
 ]

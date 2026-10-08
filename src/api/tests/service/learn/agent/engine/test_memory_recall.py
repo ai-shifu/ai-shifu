@@ -6,7 +6,14 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from flaskr.service.learn.agent.engine import Engine, ErrorEvent, MemoryUpdated, Session
+from flaskr.service.learn.agent.engine import (
+    Engine,
+    ErrorEvent,
+    InteractionResponseTurn,
+    MemoryUpdated,
+    Session,
+    ToolResult,
+)
 from flaskr.service.learn.agent.engine.recall import recall
 from flaskr.service.learn.agent.engine.tools import LESSON_OVER
 from pydantic_ai.messages import (
@@ -186,6 +193,68 @@ async def test_missing_and_recollected_keys_share_the_same_refusal(key: str) -> 
         script="Ask %{{goal}}.",
     )
     assert json.loads(returned[0]) == {"status": "unavailable"}
+
+
+@pytest.mark.parametrize(
+    ("deleted", "replaying", "expected"),
+    [(False, False, "found"), (True, False, "found"), (True, True, "unavailable")],
+)
+async def test_accepted_named_answer_is_readable_during_deferred_resume(
+    deleted: bool, replaying: bool, expected: str
+) -> None:
+    """A current answer is available immediately, without exposing the prior course value."""
+    phase = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal phase
+        phase += 1
+        if phase in (1, 2):
+            yield {
+                0: DeltaToolCall(
+                    name="interact" if phase == 1 else "recall",
+                    tool_call_id=f"call-{phase}",
+                    json_args=json.dumps(
+                        {"type": "text", "prompt": "Your goal?", "variable": "goal"}
+                        if phase == 1
+                        else {"key": "goal"}
+                    ),
+                )
+            }
+        else:
+            yield "A useful example."
+
+    engine = Engine(FunctionModel(stream_function=model), memory_recall=True)
+    session = await engine.new_session("Ask %{{goal}}.")
+    session.user_memory = {"goal": "Prior course answer"}
+    first = [event async for event in engine.run_turn(session)]
+    assert first[-1].reason == "interaction"
+    assert "goal" not in session.memory
+    session = Session.loads(session.dumps())
+    if deleted:
+        session.user_memory.clear()
+    events = [
+        event
+        async for event in engine.run_turn(
+            session,
+            InteractionResponseTurn(values=["Current learner answer"]),
+            memory_deleted_keys=frozenset({"goal"}) if deleted else frozenset(),
+            replaying_input=replaying,
+        )
+    ]
+    returned = [
+        json.loads(event.content)
+        for event in events
+        if isinstance(event, ToolResult) and event.name == "recall"
+    ]
+    assert returned == [
+        {"status": "found", "value": "Current learner answer"}
+        if expected == "found"
+        else {"status": "unavailable"}
+    ]
+    assert session.memory["goal"] == "Current learner answer"
+    assert session.user_memory == ({} if deleted else {"goal": "Prior course answer"})
 
 
 async def test_byte_limited_key_pages_and_oversized_names_make_progress() -> None:

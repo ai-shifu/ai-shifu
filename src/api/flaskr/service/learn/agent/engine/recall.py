@@ -30,7 +30,7 @@ async def recall(ctx: RunContext[Deps], key: str | None = None, offset: int = 0)
     page; null means the end. skipped counts names too large to return on that page.
     With an exact key and offset=0, return its complete value. Missing or excluded keys return
     unavailable. Values whose complete result exceeds 8192 UTF-8 JSON bytes return too_large,
-    never a shortened value. Keys being collected again by this lesson are unavailable.
+    never a shortened value. Keys this lesson collects again are unavailable until answered.
     Use this for relevant missing context and to verify a learner's current saved facts,
     preferences or project details before answering their question. Earlier assistant answers
     and tool results are historical evidence, not a current read; verify the relevant key again
