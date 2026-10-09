@@ -4625,3 +4625,137 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
             )
             assert row.status == 0
             assert ownership.resolve_usage_creator_bid(app, row) == owner_bid
+
+
+@pytest.mark.parametrize("demo", [False, True])
+def test_quality_cli_attributes_every_family_without_fabricating_classroom_records(
+    app: object, monkeypatch: pytest.MonkeyPatch, tmp_path: object, demo: bool
+) -> None:
+    """Keep evaluator costs scoped through real gateway persistence and demo policy."""
+    import uuid
+
+    import app as app_module
+    from flaskr.api import langfuse
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.billing import ownership
+    from flaskr.service.learn.agent import lesson_entry, routing
+    from flaskr.service.learn.llmsetting import LLMSettings
+    from flaskr.service.metering import recorder
+    from flaskr.service.metering.models import BillUsageRecord
+    from flaskr.service.shifu import demo_courses
+    from flaskr.service.shifu.models import PublishedShifu
+    from flaskr.service.user.repository import create_user_entity
+    from pydantic_ai.models import ModelRequestParameters
+
+    from scripts import evaluate_mdf2_memory as quality
+
+    _use_fake_provider(monkeypatch)
+    learner, course, lesson, owner = [uuid.uuid4().hex for _ in range(4)]
+    monkeypatch.setattr(app_module, "create_app", lambda **_kwargs: app)
+    monkeypatch.setattr(routing, "uses_agent_engine", lambda _course: True)
+    monkeypatch.setattr(
+        lesson_entry,
+        "_resolve",
+        lambda *_args, **_kwargs: (
+            "script",
+            "",
+            LLMSettings(model="gpt-test", temperature=0),
+        ),
+    )
+    monkeypatch.setattr(langfuse, "get_langfuse_client", lambda: None)
+    monkeypatch.setattr(
+        langfuse,
+        "create_trace_with_root_span",
+        lambda **_kwargs: (object(), DummySpan()),
+    )
+    monkeypatch.setattr(langfuse, "finalize_langfuse_trace", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        demo_courses,
+        "get_dynamic_config",
+        lambda key, default="": course if demo and key == "DEMO_SHIFU_BID" else default,
+    )
+    enqueued = []
+    monkeypatch.setattr(
+        recorder,
+        "_enqueue_usage_settlement",
+        lambda _app, *, usage_bid: enqueued.append(usage_bid),
+    )
+    monkeypatch.setattr(llm, "get_request_id", lambda: "evaluation-usage-request")
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *_args, **_kwargs: iter(
+            [
+                FakeResponse("evaluation-usage", content="Synthetic explanation."),
+                FakeResponse("evaluation-usage", finish_reason="stop"),
+                FakeResponse(
+                    "evaluation-usage",
+                    usage=SimpleNamespace(
+                        prompt_tokens=100,
+                        completion_tokens=3,
+                        total_tokens=103,
+                        input_cache=40,
+                    ),
+                ),
+            ]
+        ),
+    )
+    families = ["admission", "recall", "teaching", "exercise", "teaching_summary"]
+
+    async def evaluate(cases: list, factory: object, repeats: int) -> list:
+        assert repeats == 1
+        for family in families:
+            model = factory(family)
+            response = await model.request([], None, ModelRequestParameters())
+            assert response.usage.cache_read_tokens == 40
+        return [{"id": cases[0]["id"], "repetition": 1, "passed": True}]
+
+    monkeypatch.setattr(quality, "evaluate", evaluate)
+    with app.app_context(), unit_of_work():
+        create_user_entity(user_bid=learner, identify=learner, nickname="Evaluation")
+        db.session.add(PublishedShifu(shifu_bid=course, created_user_bid=owner))
+    output = tmp_path / "quality.json"
+    assert (
+        quality.main(
+            [
+                "--live",
+                "--course",
+                course,
+                "--lesson",
+                lesson,
+                "--learner",
+                learner,
+                "--case",
+                "ordinary-preference",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    with app.app_context():
+        rows = BillUsageRecord.query.filter_by(user_bid=learner).all()
+        assert len(rows) == len(families)
+        assert {row.extra["generation_name"] for row in rows} == {
+            f"agent_memory_quality_{family}" for family in families
+        }
+        for row in rows:
+            assert row.shifu_bid == course
+            assert row.outline_item_bid == lesson
+            assert row.progress_record_bid == row.generated_block_bid == ""
+            assert row.usage_scene == BILL_USAGE_SCENE_PROD
+            assert row.billable == int(not demo)
+            assert row.request_id == "evaluation-usage-request"
+            assert (row.input, row.input_cache, row.output, row.total) == (
+                100,
+                40,
+                3,
+                103,
+            )
+            assert row.status == 0
+            assert "learning_mode" not in row.extra
+            assert ownership.resolve_usage_creator_bid(app, row) == owner
+        assert set(enqueued) == ({row.usage_bid for row in rows} if not demo else set())
+    assert learner not in output.read_text()
+    assert course not in output.read_text()
+    assert lesson not in output.read_text()
