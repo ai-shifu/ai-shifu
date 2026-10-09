@@ -34,9 +34,18 @@ Semantic grading remains a model responsibility, subject to independent evaluati
   used exact shortened arithmetic titles rejected by the fixture scorer. Added
   only those exact fixture labels (Q and Question prefixes) and a wrong-expression rejection; strict original
   reference grouping stays required. The two unchanged captured runs rescore 2/2;
-  33 scorer regressions pass. Reports expose only a diagnostic status enum.
-- [ ] 2026-10-09T13:16:00Z: Push review fixes, reply in every original discussion,
-  verify the updated sim image and record final-head CI without merging main.
+  33 scorer regressions pass. A subsequent fresh selected CLI run passes 2/2; all
+  28 source fingerprints match and eight correctly scoped requests settle. Reports expose only a diagnostic status enum.
+- [x] 2026-10-09T13:29:00Z: Pushed review fix `31fd0d3cc`, replied to all four
+  original inline findings and the linked docstring advisory, and verified sim
+  integration `0f7aeeb09`. Its combined regression passes 3,034 cases plus four
+  subtests, one skip. Both Ready API replicas match 53 runtime file hashes and
+  each passes all 540 engine tests using isolated SQLite/FunctionModel. New
+  example-learner HTTP and actual usage/block attribution pass.
+- [x] 2026-10-09T13:29:00Z: The final functional head has all technical checks green.
+  An initial unrelated live-startup test received another app's background call;
+  five isolated local checks pass and the failed CI job passes on its first rerun.
+  The original failure remains retained. Main remains open and unmerged.
 
 ## Surprises & Discoveries
 
@@ -77,9 +86,13 @@ and simultaneous answer group instead of heuristically splitting semantic grades
 Reference coverage, exact page bounds, reload/deferred answers and arithmetic
 regressions pass. The original natural-history final rows and totals now match
 in three fresh replays using the real course model. Earlier skipped-tool and
-request-cap failures remain retained. Reviewed-source natural replay passes 3/3. The initial feature CI passed all
-technical checks and sim has the initial image. Review-fix publication, original
-thread replies, updated-image acceptance and final-head CI remain pending. No deterministic semantic-grading guarantee.
+request-cap failures remain retained. Reviewed-source natural replay passes 3/3 and the final selected synthetic CLI
+passes 2/2 with all 28 source fingerprints matching. Sim runs the reviewed code,
+including its separate Workflow increment, and all functional-head technical
+checks pass. This closes the scoped evidence/calculation implementation. Human,
+other-model/language, semantic-summary and long-term cost acceptance remain in
+`docs/references/markdownflow-memory-quality.md` and the project acceptance queue.
+The final archival commit changes documentation only; its CI is separate. No deterministic semantic-grading guarantee.
 
 ## Context and Orientation
 

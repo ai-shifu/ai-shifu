@@ -28,7 +28,7 @@ model's natural-course report or authorize new learner memory.
 - [x] 2026-10-09T12:40:00Z: Independent findings were replied to in their original
   discussions, final technical CI passed and #3068 merged as 4066bae4c. Archive
   this evaluator implementation; natural runtime repair continues in
-  [the calculation plan](../active/mdf2-exercise-statistics-calculation.md).
+  [the calculation plan](mdf2-exercise-statistics-calculation.md).
 
 ## Surprises & Discoveries
 
