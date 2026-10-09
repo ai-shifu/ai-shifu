@@ -30,7 +30,8 @@ def test_remember_is_the_only_way_to_store_and_answers_are_stored_already() -> N
     """The leaked note recorded an answer `interact` had already stored under its variable."""
     rule = _rule(4)
     assert "Calling `remember` is the only way to store anything" in rule
-    assert "already stored under it; do not store it again" in rule
+    assert "already stored" in rule
+    assert "do not store it again" in rule
 
 
 def test_the_first_message_uses_the_section_names_the_rule_gives() -> None:

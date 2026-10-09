@@ -24,31 +24,31 @@ on:
       require-registry:
         type: boolean
         default: false
+      publish-ghcr:
+        type: boolean
+        default: false
       build-args:
         type: string
         default: ''
       update-description:
         type: boolean
         default: false
+      architectures:
+        description: Native architectures to validate; publishing callers retain both
+        type: string
+        default: '["amd64","arm64"]'
 
-permissions:
-  contents: read
+# Inherit caller permissions: publishers grant packages: write, PR checks do not.
 
 jobs:
   build:
     name: Build ${{ inputs.service }} (${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-24.04
-            machine: x86_64
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-            machine: aarch64
+        arch: ${{ fromJSON(inputs.architectures) }}
     env:
       DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -61,7 +61,7 @@ jobs:
 
       - name: Verify native runner
         env:
-          EXPECTED_MACHINE: ${{ matrix.machine }}
+          EXPECTED_MACHINE: ${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}
         run: |
           test "$(uname -m)" = "$EXPECTED_MACHINE"
           uname -srmo
@@ -86,6 +86,15 @@ jobs:
           labels: ${{ inputs.labels }}
           push-images: ${{ inputs.push-images }}
           require-registry: ${{ inputs.require-registry }}
+          publish-ghcr: ${{ inputs.publish-ghcr }}
+
+      - name: Login to GitHub Container Registry
+        if: steps.meta.outputs.push-images == 'true' && inputs.publish-ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Login to Docker Hub
         if: steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
@@ -219,6 +228,15 @@ jobs:
           labels: ${{ inputs.labels }}
           push-images: ${{ inputs.push-images }}
           require-registry: ${{ inputs.require-registry }}
+          publish-ghcr: ${{ inputs.publish-ghcr }}
+
+      - name: Login to GitHub Container Registry
+        if: steps.meta.outputs.push-images == 'true' && inputs.publish-ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Login to Docker Hub
         if: steps.meta.outputs.push-images == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN

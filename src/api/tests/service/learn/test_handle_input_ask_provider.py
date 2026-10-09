@@ -497,7 +497,11 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(
 def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
     app: object, monkeypatch: object
 ) -> None:
+    """Pass retrieved knowledge and stored course notes through the real LLM factory."""
     from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.agent import routing
+
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
 
     ask_provider_config = {
         "provider": "get_biji_knowledge",
@@ -549,6 +553,7 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
             ),
             trace_args={"output": ""},
             trace=_DummyTrace(),
+            runtime_profiles={"practice_code": "STORED COURSE CODE"},
         )
     )
 
@@ -566,6 +571,7 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
         "<knowledge>\n\nknowledge snippets\n\n</knowledge>" in content
         for content in system_contents
     )
+    assert any("STORED COURSE CODE" in content for content in system_contents)
     assert all("{knowledge_section}" not in content for content in system_contents)
     assert context_messages[-1]["role"] == "user"
     assert events[-1].type == GeneratedType.BREAK
@@ -574,7 +580,15 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
 def test_handle_input_ask_provider_response_skips_llm(
     app: object, monkeypatch: object
 ) -> None:
+    """Preserve successful provider streaming without logging the memory context."""
     from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.agent import routing
+
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "info", lambda *args, **kwargs: logged.append((args, kwargs))
+    )
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
 
     ask_provider_config = {
         "provider": "coze",
@@ -617,6 +631,7 @@ def test_handle_input_ask_provider_response_skips_llm(
             ),
             trace_args={"output": ""},
             trace=dummy_trace,
+            runtime_profiles={"private_note": "STORED NOTE MUST NOT BE LOGGED"},
         )
     )
 
@@ -637,6 +652,8 @@ def test_handle_input_ask_provider_response_skips_llm(
     assert generation.kwargs["model"] == "coze"
     assert generation.end_kwargs["output"] == "provider-answer"
     assert generation.end_kwargs["metadata"]["status"] == "success"
+
+    assert "STORED NOTE MUST NOT BE LOGGED" not in repr(logged)
 
 
 def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
@@ -1231,3 +1248,143 @@ def test_guardrail_only_resolves_a_selection_when_it_needs_an_llm_response(
                 "external-answer"
             ]
             provider.assert_called_once()
+
+
+@pytest.mark.parametrize("source", ["llm", "fallback", "get_biji_knowledge"])
+def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_course(
+    app: object, monkeypatch: object, source: str
+) -> None:
+    """Exercise the handler, native Agent, gateway mapping and completed patch handoff together."""
+    import json
+
+    from flaskr.api.llm import LLMStreamResponse
+    from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.agent import gateway_model
+    from flaskr.service.learn.follow_up_memory_writer import (
+        FollowUpMemoryPatch,
+        FollowUpMemoryPolicy,
+    )
+
+    request = "Please remember that my practice code is 7319."
+    config = {
+        "provider": "dify" if source == "fallback" else source,
+        "mode": "provider_then_llm",
+        "config": {},
+    }
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    monkeypatch.setattr(
+        module,
+        "load_follow_up_memory_policy",
+        lambda **_kwargs: FollowUpMemoryPolicy(
+            frozenset(), frozenset(), {"practice_code": 0}, frozenset()
+        ),
+    )
+    calls = []
+
+    def gateway(**kwargs: object) -> object:
+        """Exercise real gateway mapping with deterministic provider tool deltas."""
+        calls.append(kwargs)
+        generation = kwargs["generation_name"]
+        if generation == "follow_up_memory_admission":
+            name = kwargs["tools"][0]["function"]["name"]
+            args = {"allowed": True}
+        elif any(message["role"] == "tool" for message in kwargs["messages"]):
+            yield LLMStreamResponse(
+                "answer",
+                is_end=True,
+                is_truncated=False,
+                result="Remembered your code.",
+                finish_reason="stop",
+                usage=None,
+            )
+            return
+        else:
+            name, args = (
+                "remember",
+                {"key": "practice_code", "value": "7319", "request": request},
+            )
+        yield LLMStreamResponse(
+            "tool",
+            is_end=True,
+            is_truncated=False,
+            result="",
+            finish_reason="tool_calls",
+            usage=None,
+            tool_call_deltas=[
+                {
+                    "index": 0,
+                    "id": generation,
+                    "name": name,
+                    "arguments": json.dumps(args),
+                }
+            ],
+        )
+
+    monkeypatch.setattr(gateway_model, "chat_llm", gateway)
+    monkeypatch.setattr(
+        module,
+        "chat_llm",
+        lambda *_a, **_k: pytest.fail("2.0 bypassed the memory-enabled factory"),
+    )
+
+    def provider(**kwargs: object) -> object:
+        """Dispatch the selected external failure or contextual synthesis factory."""
+        if kwargs["provider"] == "get_biji_knowledge":
+            stream = kwargs["runtime"].llm_context_stream_factory("RETRIEVED KNOWLEDGE")
+        elif kwargs["provider"] == "llm":
+            stream = kwargs["runtime"].llm_stream_factory()
+        else:
+            message = "external unavailable"
+            raise AskProviderError(message)
+        return (types.SimpleNamespace(content=chunk.result) for chunk in stream)
+
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    patch = FollowUpMemoryPatch()
+    request_context = _Context()
+    request_context._learning_mode = "classroom"
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=request_context,
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            user_input=request,
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="shifu-1", bid="outline-1", title="Lesson", position=1
+            ),
+            trace_args={},
+            trace=_DummyTrace(),
+            runtime_profiles={},
+            memory_patch=patch,
+        )
+    )
+    assert "".join(_collect_content_chunks(events)) == "Remembered your code."
+    assert [(item.key, item.value) for item in patch.variables] == [
+        ("practice_code", "7319")
+    ]
+    assert patch.generations == {"practice_code": 0}
+    assert patch.value_versions == {}
+    system = calls[0]["messages"][0]["content"]
+    assert system.index("COURSE_PROMPT") < system.index("Follow-up memory capability:")
+    assert "undeclared current-course facts CAN be saved" in system
+    assert "never prohibit calling the available remember tool" in system
+    schema = calls[0]["tools"][0]["function"]["parameters"]
+    assert "request" in schema["required"]
+    assert "EXACTLY" in schema["properties"]["request"]["description"]
+    assert len(calls) == 3
+    assert (
+        sum(call["generation_name"] == "follow_up_memory_admission" for call in calls)
+        == 1
+    )
+    for call in calls:
+        assert call["user_id"] == "user-1"
+        assert call["usage_context"].shifu_bid == "shifu-1"
+        assert call["usage_context"].outline_item_bid == "outline-1"
+        assert call["usage_context"].progress_record_bid == "attend-1"
+        assert call["usage_context"].learning_mode == "classroom"
+    assert all(
+        event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
+        for event in events
+    )
+    if source == "get_biji_knowledge":
+        assert "RETRIEVED KNOWLEDGE" in str(calls[0]["messages"])

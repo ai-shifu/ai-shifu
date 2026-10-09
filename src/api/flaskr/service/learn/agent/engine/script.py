@@ -35,6 +35,7 @@ _VAR_RE = re.compile(r"(?<!%)\{\{\s*([^{}\s]+)\s*\}\}")
 # `%{{name}}` marks a variable this script collects during the lesson, in a question or an
 # instruction to remember something.
 _COLLECTED_RE = re.compile(r"%\{\{\s*([^{}\s]+)\s*\}\}")
+_PRESERVED_LINE_RE = re.compile(r"^[ \t]*===(.+?)===[ \t]*$")
 
 
 if TYPE_CHECKING:
@@ -109,6 +110,40 @@ def collected_names(text: str) -> frozenset[str]:
     return frozenset(_COLLECTED_RE.findall(_strip_fences(text)))
 
 
+def substitution_names(bundle: ScriptBundle) -> frozenset[str]:
+    """Name values rendered into host script/constraints, excluding collected answers."""
+    return frozenset(
+        name
+        for text in (bundle.script, bundle.constraints or "")
+        for name in _VAR_RE.findall(_strip_fences(text))
+    ) - collected_names(bundle.script)
+
+
+def final_preserved_line(text: str) -> str | None:
+    """Return a unique inline verbatim line at the script's physical end, if present.
+
+    Fenced examples and repeated author blocks are not a single terminal line. This is a
+    narrow display anchor, never evidence that every preceding instruction was completed.
+    """
+    lines = text.rstrip().splitlines()
+    if not lines or not (match := _PRESERVED_LINE_RE.fullmatch(lines[-1])):
+        return None
+    in_fence: str | None = None
+    preserved: list[str] = []
+    for line in lines:
+        if fence := _FENCE_RE.match(line):
+            if in_fence is None:
+                in_fence = fence.group(1)
+            elif _closes_fence(line, in_fence):
+                in_fence = None
+        elif in_fence is None and (part := _PRESERVED_LINE_RE.fullmatch(line)):
+            preserved.append("".join(part.group(1).split()))
+    content = match.group(1)
+    if in_fence is not None or preserved.count("".join(content.split())) != 1:
+        return None
+    return content
+
+
 def substitute_variables(
     text: str, values: Mapping[str, Any], *, collected: frozenset[str] = frozenset()
 ) -> str:
@@ -154,7 +189,54 @@ def substitute_variables(
     return "".join(out)
 
 
-def render_first_prompt(bundle: ScriptBundle, memory: Mapping[str, Any]) -> str:
+def render_memory_section(
+    bundle: ScriptBundle,
+    memory: Mapping[str, Any],
+    *,
+    limit: int | None = None,
+    priority: frozenset[str] = frozenset(),
+) -> tuple[str, bool]:
+    """Project whole values into one bounded JSON payload without editing stored memory.
+
+    Referenced and host-priority keys come first; other keys retain input order. A value that
+    does not fit is omitted, never shortened. Script substitution remains a separate exact path.
+    """
+    collected = collected_names(bundle.script)
+    remembered = {k: v for k, v in memory.items() if k not in collected}
+    selected = remembered
+    if limit is not None:
+        if limit < 2:
+            message = "memory context limit must fit an empty JSON object"
+            raise ValueError(message)
+        references = frozenset(
+            name
+            for text in (bundle.script, bundle.constraints or "")
+            for name in _VAR_RE.findall(_strip_fences(text))
+        )
+        preferred = references | priority
+        selected = {}
+        for key in sorted(remembered, key=lambda k: k not in preferred):
+            candidate = {**selected, key: remembered[key]}
+            if len(json.dumps(candidate, ensure_ascii=False, indent=2)) <= limit:
+                selected[key] = remembered[key]
+    mem = json.dumps(selected, ensure_ascii=False, indent=2)
+    section = f"<memory>\n{mem}\n</memory>"
+    if len(selected) < len(remembered):
+        section += (
+            "\n\n<memory_context>Some stored values were omitted to fit the context budget. "
+            "An absent key is unknown here, not forgotten or deleted. Do not infer its value. "
+            "Explicit script substitutions retain their complete values.</memory_context>"
+        )
+    return section, len(selected) < len(remembered)
+
+
+def render_first_prompt(
+    bundle: ScriptBundle,
+    memory: Mapping[str, Any],
+    *,
+    memory_limit: int | None = None,
+    memory_priority: frozenset[str] = frozenset(),
+) -> str:
     """Compose the first user message.
 
     Learner memory first, then the script with its variables substituted, then optional
@@ -164,10 +246,10 @@ def render_first_prompt(bundle: ScriptBundle, memory: Mapping[str, Any]) -> str:
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a
     # stale fact and a fresh tool result tends to trust the fact.
-    remembered = {k: v for k, v in memory.items() if k not in collected}
-    mem = json.dumps(remembered, ensure_ascii=False, indent=2) if remembered else "{}"
     parts = [
-        f"<memory>\n{mem}\n</memory>",
+        render_memory_section(
+            bundle, memory, limit=memory_limit, priority=memory_priority
+        )[0],
         f"<script>\n{substitute_variables(bundle.script, memory, collected=collected)}\n</script>",
     ]
     if bundle.constraints:

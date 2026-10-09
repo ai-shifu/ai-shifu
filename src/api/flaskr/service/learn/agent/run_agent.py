@@ -30,7 +30,9 @@ from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.i18n import _
+from flaskr.i18n import _, translate_for_language
+from flaskr.service.learn.agent.course_references import discard_course_references
+from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
 from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
 from flaskr.service.learn.agent.engine.engine import (
     ContinueTurn,
@@ -40,11 +42,12 @@ from flaskr.service.learn.agent.engine.engine import (
 )
 from flaskr.service.learn.agent.engine.events import (
     ContentDelta,
+    ErrorEvent,
     InteractionRequest,
     MemoryUpdated,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.script import ScriptBundle
+from flaskr.service.learn.agent.engine.script import ScriptBundle, collected_names
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
@@ -61,6 +64,7 @@ from flaskr.service.learn.agent.lesson_record import (
     stage_turn_block,
 )
 from flaskr.service.learn.agent.listen import LessonVoice
+from flaskr.service.learn.agent.nickname import refresh_nickname
 from flaskr.service.learn.agent.pagination import LessonPager
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 from flaskr.service.learn.agent.rewind import (
@@ -72,6 +76,7 @@ from flaskr.service.learn.agent.rewind import (
     turn_record,
 )
 from flaskr.service.learn.agent.session_store import (
+    PreviewGenerationDiscardedError,
     StoredSessionUnusable,
     load_agent_session,
     save_agent_session,
@@ -90,6 +95,12 @@ from flaskr.service.learn.memory import (
     stage_memory,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.profile.api import (
+    SYS_USER_LANGUAGE,
+    SYS_USER_NICKNAME,
+    course_memory_deletion_state,
+    is_course_reference,
+)
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
@@ -189,6 +200,8 @@ def _load_or_start(
     rewind: RewindPlan | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, Any] | None = None,
+    memory_generations: dict[str, int] | None = None,
+    memory_deleted_keys: set[str] | None = None,
 ) -> tuple[Callable[[], Any], bool]:
     """Build the coroutine factory the bridge runs on its producer thread.
 
@@ -222,14 +235,54 @@ def _load_or_start(
         # Taken back before the turn is built, so the turn is whatever this state calls for: the
         # question the learner is now answering differently, or the turn being regenerated.
         restore(stored, rewind.checkpoint)
+    generations, deleted = (
+        ({}, frozenset())
+        if debug_store is not None
+        else course_memory_deletion_state(user_bid, shifu_bid)
+    )
+    if memory_generations is not None:
+        memory_generations.update(generations)
+    if memory_deleted_keys is not None:
+        memory_deleted_keys.update(deleted)
     user_memory = (
         dict(preview_variables or {})
         if debug_store is not None
-        else load_memory(app, user_bid, shifu_bid).as_variables()
+        else load_memory(
+            app,
+            user_bid,
+            shifu_bid,
+            include_course_variables=True,
+            reference_text=(script, teaching_brief),
+        ).as_variables()
     )
+    user_memory = {k: v for k, v in user_memory.items() if not is_course_reference(k)}
+    # A blank canonical nickname is unknown to variable substitution and would leave its
+    # literal placeholder in the lesson. This address is presentation data, not a profile edit.
+    if (
+        SYS_USER_NICKNAME in user_memory
+        and not str(user_memory[SYS_USER_NICKNAME] or "").strip()
+    ):
+        user_memory[SYS_USER_NICKNAME] = translate_for_language(
+            "server.learn.defaultLearnerName",
+            user_memory.get(SYS_USER_LANGUAGE) or "en-US",
+        )
 
     async def make_session() -> Session:
         if stored is not None:
+            discard_course_references(stored, teaching_brief=teaching_brief)
+            if debug_store is None:
+                refresh_nickname(stored, user_memory)
+                refresh_deleted_memory(
+                    stored, frozenset(generations), current=user_memory
+                )
+                # Named answers are durable course values. Retain the answered marker,
+                # but do not let its old session copy shadow another lesson's update.
+                for key in (
+                    collected_names(stored.script.script)
+                    & stored.answered_memory_keys()
+                ):
+                    if key in user_memory:
+                        stored.record_answer(key, user_memory[key])
             stored.user_memory = (
                 {**stored.user_memory, **user_memory}
                 if debug_store is not None
@@ -279,10 +332,15 @@ def run_agent_lesson(
     rewind: RewindPlan | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, Any] | None = None,
+    on_turn_opened: Callable[[str, str], None] | None = None,
+    preview_generation: str | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
 
     Returns how the turn ended (see `TurnOutcome`); the caller decides whether another follows.
+
+    `on_turn_opened` binds host-owned usage to the opened progress record and
+    block before session creation or any native model producer can run.
 
     `rewind` takes the lesson back to an earlier turn first (see `agent.rewind`): the session is
     restored, the turn runs from there, and the rows it supersedes are retired when it is written.
@@ -293,6 +351,8 @@ def run_agent_lesson(
     from flaskr.service.learn.agent.bridge import iter_turn as bridge_iter_turn
 
     run_turn_on_thread = iter_turn or bridge_iter_turn
+    memory_generations: dict[str, int] = {}
+    memory_deleted_keys: set[str] = set()
     make_session, finished_already = _load_or_start(
         app,
         engine,
@@ -305,6 +365,8 @@ def run_agent_lesson(
         rewind=rewind,
         debug_store=debug_store,
         preview_variables=preview_variables,
+        memory_generations=memory_generations,
+        memory_deleted_keys=memory_deleted_keys,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.
@@ -349,7 +411,11 @@ def run_agent_lesson(
             position=0,
         )
     )
-    session_holder: dict[str, Any] = {"rewind": rewind}
+    session_holder: dict[str, Any] = {
+        "rewind": rewind,
+        "preview_generation": preview_generation,
+        "memory_generations": memory_generations,
+    }
 
     def make_events() -> AsyncIterator[Event]:
         async def events() -> AsyncIterator[Event]:
@@ -358,7 +424,20 @@ def run_agent_lesson(
             # The state this turn starts from, kept on its block so the lesson can be taken back
             # to it later.
             session_holder["turn_record"] = turn_record(checkpoint_of(session), values)
-            async for event in engine.run_turn(session, _turn_input(session, values)):
+            deleted_policy = (
+                {"memory_deleted_keys": frozenset(memory_deleted_keys)}
+                if memory_deleted_keys
+                else {}
+            )
+            if (
+                deleted_policy
+                and rewind is not None
+                and rewind.replay_values is not None
+            ):
+                deleted_policy["replaying_input"] = True
+            async for event in engine.run_turn(
+                session, _turn_input(session, values), **deleted_policy
+            ):
                 yield event
 
         return events()
@@ -381,6 +460,8 @@ def run_agent_lesson(
     # reading lesson has no audio to bind and keeps the single-element shape it has today.
     pager = LessonPager() if listen else None
     try:
+        if on_turn_opened is not None:
+            on_turn_opened(progress_record_bid, generated_block_bid)
         return (
             yield from _stream_turn(
                 app,
@@ -885,6 +966,7 @@ def _stream_turn(
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
     pending_memory: list[MemoryUpdated] = []
+    preview_question_ids: list[str] = []
     taught: list[str] = []
     persisted = False
     # The script's verbatim markers come back in the engine's text; they are syntax, not lesson.
@@ -896,6 +978,7 @@ def _stream_turn(
     # `remember` call. Input to the model, never lesson text.
     echoes = EchoedMemoryFilter()
     asked = False
+    error_code = None
 
     for event in _without_markers(
         run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval),
@@ -918,6 +1001,9 @@ def _stream_turn(
                     generated_block_bid=generated_block_bid,
                 )
                 continue
+
+        if isinstance(event, ErrorEvent):
+            error_code = event.code
 
         if isinstance(event, MemoryUpdated):
             # Held rather than written now: the turn may still fail, and a memory write that
@@ -967,7 +1053,7 @@ def _stream_turn(
             # whose last row was not the question read to the browser as a lesson to continue --
             # which it did, with nothing, on every reload.
             asked = True
-            yield from _question(
+            for question_payload in _question(
                 event,
                 pager=pager,
                 voice=voice,
@@ -976,7 +1062,10 @@ def _stream_turn(
                 app=app,
                 taught="".join(taught),
                 user_bid=user_bid,
-            )
+            ):
+                if question_payload.type == GeneratedType.INTERACTION:
+                    preview_question_ids.append(event.id)
+                yield question_payload
             continue
 
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
@@ -1010,6 +1099,9 @@ def _stream_turn(
                         taught="".join(taught),
                         turn_record=session_holder.get("turn_record", ""),
                         rewind=session_holder.get("rewind"),
+                        memory_generations=session_holder.get("memory_generations"),
+                        preview_generation=session_holder.get("preview_generation"),
+                        preview_question_ids=preview_question_ids,
                     )
                 pending_memory = []
                 if session.finished and kept:  # not for a turn a reset discarded
@@ -1135,11 +1227,15 @@ def _stream_turn(
                 taught="".join(taught),
                 turn_record=session_holder.get("turn_record", ""),
                 rewind=session_holder.get("rewind"),
+                memory_generations=session_holder.get("memory_generations"),
+                preview_generation=session_holder.get("preview_generation"),
+                preview_question_ids=preview_question_ids,
             )
 
     return TurnOutcome(
         reason=session_holder.get("reason"),
         taught=bool("".join(taught).strip()),
+        error_code=error_code,
     )
 
 
@@ -1154,6 +1250,7 @@ class TurnOutcome:
 
     reason: str | None
     taught: bool
+    error_code: str | None = None
 
 
 class _TurnDiscardedError(Exception):
@@ -1174,6 +1271,9 @@ def _persist(
     taught: str,
     turn_record: str = "",
     rewind: RewindPlan | None = None,
+    memory_generations: dict[str, int] | None = None,
+    preview_generation: str | None = None,
+    preview_question_ids: list[str] | None = None,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -1196,6 +1296,16 @@ def _persist(
         whoever commits next, a write from a turn that was meant to be discarded.
         """
         record = None
+        if preview_generation is not None:
+            from flaskr.service.learn.agent.preview_history import stage_preview_turn
+
+            stage_preview_turn(
+                generation=preview_generation,
+                session=session,
+                generated_block_bid=generated_block_bid,
+                turn_record=turn_record,
+                question_ids=preview_question_ids,
+            )
         if not preview_mode:
             record = claim_for_writing(
                 user_bid=user_bid,
@@ -1221,6 +1331,25 @@ def _persist(
             for update in memory
             if update.scope == "user" or update.source == "interaction"
         ]
+        for update in durable:
+            if is_course_reference(update.key):
+                session.memory.pop(update.key, None)
+                session.user_memory.pop(update.key, None)
+        durable = [update for update in durable if not is_course_reference(update.key)]
+        if durable and memory_generations is not None:
+            current, deleted = course_memory_deletion_state(
+                user_bid, shifu_bid, lock=True
+            )
+            durable = [
+                update
+                for update in durable
+                if current.get(update.key, 0) == memory_generations.get(update.key, 0)
+                and not (
+                    update.key in deleted
+                    and rewind is not None
+                    and rewind.replay_values is not None
+                )
+            ]
         if durable:
             stage_memory(
                 app,
@@ -1263,8 +1392,11 @@ def _persist(
             outline_item_bid=outline_bid,
             preview_mode=preview_mode,
             stage=stage_everything,
+            **(
+                {"preview_generation": preview_generation} if preview_generation else {}
+            ),
         )
-    except _TurnDiscardedError:
+    except (_TurnDiscardedError, PreviewGenerationDiscardedError):
         app.logger.info(
             "discarding a turn whose lesson was reset while it ran: "
             "user_bid=%s outline_bid=%s",

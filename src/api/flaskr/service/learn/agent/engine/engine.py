@@ -32,7 +32,7 @@ from pydantic_ai.messages import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Iterable, Sequence
+    from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Sequence
 
     from pydantic_ai.models import Model
     from pydantic_ai.settings import ModelSettings
@@ -41,10 +41,13 @@ if TYPE_CHECKING:
     from .memory import MemoryStore
     from .session import SessionStore
 
+from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
+
 from .events import (
     ContentDelta,
     ErrorEvent,
     Event,
+    InputBudgetExceededError,
     InteractionRequest,
     MemoryUpdated,
     NarrationDelta,
@@ -54,6 +57,8 @@ from .events import (
     ToolResult,
     TurnDone,
 )
+from .exercise_statistics import calculate_exercise_statistics, read_exercise_history
+from .history_context import compact_recall_history, current_recall_notice
 from .interaction import (
     InteractionAnswer,
     InteractionSpec,
@@ -62,22 +67,56 @@ from .interaction import (
     normalize_answer,
     stored_value,
 )
-from .script import ScriptBundle, detect_v1_syntax, render_first_prompt
+from .memory_context import project_memory_history
+from .recall import recall
+from .script import (
+    ScriptBundle,
+    collected_names,
+    detect_v1_syntax,
+    final_preserved_line,
+    render_first_prompt,
+    substitute_variables,
+    substitution_names,
+)
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
+from .teaching_history import project_teaching_history, read_teaching
+from .teaching_summary import TeachingSummarizer, summarize_teaching_history
 from .tools import (
     NO_PAUSE,
     Deps,
     finish,
     interact,
+    normalize_script_text_input,
+    prepare_memory_tool,
+    recall_exclusions,
     remember,
     script_options,
     script_pauses,
+    script_text_inputs,
 )
+from .usage import accumulate_usage
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 RenderProfile = Literal["sandbox", "generic", "none"]
+
+
+def _free_text_inputs(spec: InteractionSpec, submitted: InteractionAnswer) -> list[str]:
+    """Keep genuine text, excluding model-authored option displays and stored values."""
+    texts = (
+        [submitted.text]
+        if submitted.text and spec.type in ("text", "single_or_text", "multi_or_text")
+        else []
+    )
+    if spec.type == "text":
+        texts.extend(submitted.values)
+    elif spec.type in ("single_or_text", "multi_or_text"):
+        choices = {
+            text for option in spec.options for text in (option.display, option.stored)
+        }
+        texts.extend(value for value in submitted.values if value not in choices)
+    return texts
 
 
 # -- turn inputs ---------------------------------------------------------------------------
@@ -162,10 +201,10 @@ def _visible_length(text: str) -> int:
     return sum(1 for ch in text if not ch.isspace())
 
 
-def _text_of(messages: Iterable[object]) -> str:
-    """Return the model's text in these messages, whitespace removed, in order."""
+def _text_of(messages: Iterable[object], *, keep_whitespace: bool = False) -> str:
+    """Return the model's text in order, optionally retaining its line boundaries."""
     return "".join(
-        "".join(part.content.split())
+        part.content if keep_whitespace else "".join(part.content.split())
         for message in messages
         if isinstance(message, ModelResponse)
         for part in message.parts
@@ -219,8 +258,10 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
     return text[cut:]
 
 
-def _previous_turn_text(messages: Sequence[object], history_len: int) -> str:
-    """Return the text of the turn before `history_len`, whitespace removed.
+def _previous_turn_text(
+    messages: Sequence[object], history_len: int, *, keep_whitespace: bool = False
+) -> str:
+    """Return the prior turn's text, removing whitespace unless requested otherwise.
 
     A turn begins with the user's prompt, so the previous turn is everything from the last user
     prompt before `history_len` up to `history_len`.
@@ -233,20 +274,37 @@ def _previous_turn_text(messages: Sequence[object], history_len: int) -> str:
         ):
             start = index
             break
-    return _text_of(messages[start:history_len])
+    return _text_of(messages[start:history_len], keep_whitespace=keep_whitespace)
 
 
-def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
+def _display_text(text: str, *, complete: bool = True) -> str:
+    """Apply the host's verbatim-marker filtering while retaining line boundaries."""
+    markers = PreserveMarkerFilter()
+    displayed = markers.feed(text)
+    return displayed + markers.flush() if complete else displayed
+
+
+def _last_display_line(text: str) -> str:
+    """Return the last nonempty displayed line, normalized for comparison."""
+    lines = _display_text(text).rstrip().splitlines()
+    return "".join(lines[-1].split()) if lines else ""
+
+
+def _repeats_previous_turn(
+    messages: Sequence[object], history_len: int, *, interrupted: bool = False
+) -> bool:
     """Whether the text written after `history_len` is the previous turn's text, again.
 
     The whole of it, or its beginning: a model that starts the previous turn over and stops part
     way has still delivered nothing new. Empty is not a repeat: a turn that wrote nothing has not
     repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
+    An interrupted retry can repeat text after an earlier question or tool hop;
+    that substring adds no teaching either, but cannot establish completion.
     """
     now = _text_of(messages[history_len:])
     previous = _previous_turn_text(messages, history_len)
     if len(now) >= _REPEAT_FLOOR_CHARS:
-        return previous.startswith(now)
+        return now in previous if interrupted else previous.startswith(now)
     return False
 
 
@@ -292,6 +350,16 @@ class Engine:
         model_settings: ModelSettings | None = None,
         interaction_check: Callable[[InteractionSpec], str | None] | None = None,
         pauses_from_notation: bool = False,
+        memory_admission: bool = False,
+        memory_reserved_keys: frozenset[str] = frozenset(),
+        memory_readonly_prefixes: tuple[str, ...] = (),
+        memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None,
+        memory_context_limit: int | None = None,
+        memory_recall: bool = False,
+        recall_history_compaction: bool = False,
+        teaching_history_compaction: bool = False,
+        teaching_summarizer: TeachingSummarizer | None = None,
+        exercise_statistics: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -305,10 +373,82 @@ class Engine:
         button then never pauses, and a `confirm` in it is answered without asking the learner.
         Where the script has buttons, the model places the pauses, since nothing says which part
         of the script it has reached. Off, the model decides everywhere.
+
+        `memory_admission` enables the AI-Shifu declared-or-requested policy. Undeclared notes
+        require real accepted input and `memory_request_check`; that host callback decides
+        whether the learner explicitly asked to remember the proposed value.
+
+        `memory_context_limit` bounds the initial memory JSON payload, including legacy
+        histories projected for a resumed request. It never bounds exact script substitution,
+        answers or conversation history. None retains portable hosts' previous rendering.
+
+        `memory_readonly_prefixes` prevents tools and named answers from overwriting
+        host-owned references, even when a script declares them. Empty retains portable
+        hosts' previous key contract.
+
+        `memory_recall` offers bounded read-only access to the current session/user snapshot.
+        The host must supply only authorized values and refresh deletions/references per turn.
+        It excludes keys the main script collects again, just like the initial memory prompt.
+        Off retains portable hosts' existing tools and instructions.
+
+        `recall_history_compaction` projects older completed recall results to a small
+        marker. It requires recall to remain available, preserves the latest teaching turn
+        and all saved evidence, and never summarizes teaching text or learner answers.
+
+        `exercise_statistics` offers bounded original-submission reads and a
+        reference-validated arithmetic calculator. Semantic grades and question
+        grouping still come from the model; no learner memory is written.
+
+        `teaching_history_compaction` offers exact paginated reads of older long
+        teaching replaced by excerpts in requests. It preserves two recent turns,
+        all learner input and original stored evidence. `teaching_summarizer` optionally
+        decorates excerpts with bounded session-local semantic summaries; without it
+        projection makes no extra model call.
         """
+        self.exercise_statistics = exercise_statistics
+        self.exercise_instructions = (
+            (PROMPTS_DIR / "exercise_statistics.md").read_text()
+            if exercise_statistics
+            else ""
+        )
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
         self.pauses_from_notation = pauses_from_notation
+        self.memory_instructions = (
+            PROMPTS_DIR
+            / ("memory_policy.md" if memory_admission else "memory_unrestricted.md")
+        ).read_text()
+        self.memory_admission = memory_admission
+        self.memory_reserved_keys = memory_reserved_keys
+        self.memory_readonly_prefixes = memory_readonly_prefixes
+        self.memory_request_check = memory_request_check
+        if memory_context_limit is not None and memory_context_limit < 2:
+            message = "memory context limit must fit an empty JSON object"
+            raise ValueError(message)
+        self.memory_context_limit = memory_context_limit
+        self.memory_recall = memory_recall
+        if recall_history_compaction and not memory_recall:
+            message = "recall history compaction requires memory recall"
+            raise ValueError(message)
+        self.recall_history_compaction = recall_history_compaction
+        if teaching_summarizer is not None and not teaching_history_compaction:
+            message = "teaching summaries require teaching history compaction"
+            raise ValueError(message)
+        self.teaching_summarizer = teaching_summarizer
+        self.teaching_history_compaction = teaching_history_compaction
+        self.history_instructions = (
+            (PROMPTS_DIR / "teaching_history_compaction.md").read_text()
+            if teaching_history_compaction
+            else ""
+        )
+        if memory_recall:
+            self.memory_instructions += (
+                "\n\n" + (PROMPTS_DIR / "memory_recall.md").read_text()
+            )
+        if recall_history_compaction:
+            self.memory_instructions += (
+                "\n\n" + (PROMPTS_DIR / "recall_history_compaction.md").read_text()
+            )
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -328,7 +468,30 @@ class Engine:
             instructions=self._instructions,
             # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
             # again, and a model rewriting options sometimes needs more than one attempt.
-            tools=[Tool(interact, max_retries=3), remember, finish],
+            tools=[
+                Tool(
+                    interact,
+                    max_retries=3,
+                    description=(interact.__doc__ or "")
+                    + "\n"
+                    + self.memory_instructions,
+                ),
+                Tool(
+                    remember,
+                    prepare=prepare_memory_tool if memory_admission else None,
+                    description=(remember.__doc__ or "")
+                    + "\n"
+                    + self.memory_instructions,
+                ),
+                finish,
+                *(
+                    [read_exercise_history, calculate_exercise_statistics]
+                    if exercise_statistics
+                    else []
+                ),
+                *([recall] if memory_recall else []),
+                *([read_teaching] if teaching_history_compaction else []),
+            ],
             toolsets=list(toolsets or []),
             model_settings=model_settings,
         )
@@ -346,7 +509,11 @@ class Engine:
         DaisyUI and GSAP preloaded), `generic` (any assistant that can show plain HTML), or
         `none` (text only).
         """
-        parts = [self.prompts.base]
+        parts = [
+            self.prompts.base,
+            self.memory_instructions,
+            self.history_instructions,
+        ]
         if render == "sandbox":
             parts.append(self.prompts.html_display)
         elif render == "generic":
@@ -357,14 +524,24 @@ class Engine:
             parts.append(self.prompts.v1_syntax)
         if self.extra_instructions:
             parts.append(self.extra_instructions)
+        parts.append(self.exercise_instructions)
         return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
     def _instructions(self, ctx: RunContext[Deps]) -> str:
-        return self.compose_instructions(
+        instructions = self.compose_instructions(
             listen_mode=ctx.deps.listen_mode,
             uses_v1_syntax=ctx.deps.uses_v1_syntax,
             render=self.render,
         )
+        if self.memory_recall:
+            notice = current_recall_notice(
+                ctx.messages,
+                {**ctx.deps.user_memory, **ctx.deps.memory},
+                excluded=recall_exclusions(ctx.deps),
+            )
+            if notice:
+                instructions += "\n\n" + notice
+        return instructions
 
     # -- sessions ----------------------------------------------------------------------------
 
@@ -394,7 +571,12 @@ class Engine:
     # -- turns -------------------------------------------------------------------------------
 
     async def run_turn(
-        self, session: Session, turn: TurnInput | None = None
+        self,
+        session: Session,
+        turn: TurnInput | None = None,
+        *,
+        memory_deleted_keys: frozenset[str] = frozenset(),
+        replaying_input: bool = False,
     ) -> AsyncIterator[Event]:
         """Run one turn of a session and stream its events.
 
@@ -413,18 +595,44 @@ class Engine:
         turn = turn or (StartTurn() if not session.started else ContinueTurn())
         script_text = session.script.all_text()
         uses_v1_syntax = detect_v1_syntax(script_text)
+        text_inputs = (
+            script_text_inputs(session.script.script) if uses_v1_syntax else ()
+        )
+        for pending in session.pending:
+            pending.spec = normalize_script_text_input(pending.spec, text_inputs)
         deps = Deps(
+            memory_deleted_keys=memory_deleted_keys,
+            memory_current_inputs=(turn.text,)
+            if isinstance(turn, MessageTurn) and not replaying_input
+            else (),
+            exercise_history=tuple(session.messages)
+            if self.exercise_statistics
+            else (),
             memory=session.memory,
             user_memory=session.user_memory,
             listen_mode=session.listen_mode,
             uses_v1_syntax=uses_v1_syntax,
             interaction_check=self.interaction_check,
             script_options=script_options(script_text) if uses_v1_syntax else {},
+            script_text_inputs=text_inputs,
             # The lesson's own script only: a brief or a reference document may show `?[继续]`
             # as an example of the notation, which is not a pause in this lesson.
             no_pauses=(
                 self.pauses_from_notation and script_pauses(session.script.script) == 0
             ),
+            memory_keys=(
+                collected_names(session.script.script)
+                if self.memory_admission
+                else None
+            ),
+            memory_reserved_keys=self.memory_reserved_keys,
+            memory_readonly_prefixes=self.memory_readonly_prefixes,
+            memory_request_check=self.memory_request_check,
+            memory_recall_excluded_keys=collected_names(session.script.script),
+            answer_hashes=session.answer_hashes,
+            memory_recall_blocked_keys=memory_deleted_keys
+            if replaying_input
+            else frozenset(),
         )
         deps.history_len = len(session.messages) if session.started else 0
         deps.finished = _finished_in(session.messages)
@@ -436,9 +644,24 @@ class Engine:
             if isinstance(turn, InteractionResponseTurn):
                 yield ErrorEvent(message="no interaction is pending on a new session")
                 return
-            prompt = render_first_prompt(session.script, session.all_memory())
+            initial = session.all_memory()
+            session.initial_variables = {
+                key: initial[key]
+                for key in substitution_names(session.script)
+                if key in initial
+            }
+            prompt = render_first_prompt(
+                session.script,
+                session.all_memory(),
+                memory_limit=self.memory_context_limit,
+                memory_priority=self.memory_reserved_keys,
+            )
             if isinstance(turn, MessageTurn):
                 prompt += f"\n\n{turn.text}"
+            if self.memory_admission:
+                session.request_inputs = (
+                    [turn.text] if isinstance(turn, MessageTurn) else []
+                )
         elif session.pending and self._unshowable(session.pending[0]):
             # A question saved before the host could refuse it, or refused by a host that has
             # learned something since. The learner has nothing on screen to answer it with, so
@@ -465,7 +688,8 @@ class Engine:
             if pending is None:
                 yield ErrorEvent(message=f"unknown interaction id {turn.id!r}")
                 return
-            answer = normalize_answer(pending.spec, turn.answer())
+            submitted = turn.answer()
+            answer = normalize_answer(pending.spec, submitted)
             if not answer_is_usable(pending.spec, answer):
                 # Resuming here would hand the model "continued without answering" and let a
                 # question the script requires be skipped, so keep it pending and ask again.
@@ -481,10 +705,25 @@ class Engine:
             session.answers[pending.tool_call_id] = format_answer_for_model(
                 pending.spec, answer
             )
-            if pending.spec.variable:
+            if self.memory_admission:
+                session.request_inputs.extend(_free_text_inputs(pending.spec, answer))
+                if not replaying_input:
+                    deps.memory_current_inputs += tuple(
+                        _free_text_inputs(pending.spec, answer)
+                    )
+            if (
+                pending.spec.variable
+                and (
+                    not pending.spec.variable.startswith(deps.memory_readonly_prefixes)
+                )
+                and (
+                    deps.memory_keys is None
+                    or pending.spec.variable in deps.memory_keys
+                )
+            ):
                 value = stored_value(pending.spec, answer)
                 if value is not None:
-                    session.memory[pending.spec.variable] = value
+                    session.record_answer(pending.spec.variable, value)
                     yield MemoryUpdated(
                         key=pending.spec.variable, value=value, source="interaction"
                     )
@@ -522,7 +761,19 @@ class Engine:
                 yield ErrorEvent(message="no interaction is pending")
                 return
             prompt = turn.text if isinstance(turn, MessageTurn) else CONTINUE_PROMPT
-        if prompt is not None and self.turn_limit and session.turn >= self.turn_limit:
+            if self.memory_admission and not (
+                session.interrupted and isinstance(turn, ContinueTurn)
+            ):
+                session.request_inputs = (
+                    [turn.text] if isinstance(turn, MessageTurn) else []
+                )
+        deps.request_inputs = tuple(session.request_inputs)
+        if (
+            prompt is not None
+            and self.turn_limit
+            and session.turn >= self.turn_limit
+            and not (session.interrupted and isinstance(turn, ContinueTurn))
+        ):
             # Out of turns: end the lesson rather than teach another one. Marked finished so a
             # reload does not start it over, and reported as finished rather than as an error --
             # everything the learner was taught stands, and the host reads this as a lesson that
@@ -533,12 +784,53 @@ class Engine:
             # asked, or a resume that never reached the model. Refusing those would throw away an
             # answer the script requires -- along with the memory it sets -- and would turn one
             # network failure on the last turn into a lesson that can never be continued.
+            # Continuing saved partial teaching is also finishing an interrupted turn,
+            # even though its deferred answers are already paired in the saved history.
             session.finished = True
             yield TurnDone(reason="finished", usage=session.usage)
             return
 
         if session.started:
-            kwargs["message_history"] = session.messages
+            kwargs["message_history"] = (
+                project_memory_history(
+                    session.messages,
+                    session.script,
+                    limit=self.memory_context_limit,
+                    priority=self.memory_reserved_keys,
+                )
+                if self.memory_context_limit is not None
+                else session.messages
+            )
+            if self.recall_history_compaction:
+                kwargs["message_history"] = compact_recall_history(
+                    kwargs["message_history"]
+                )
+            if self.teaching_history_compaction:
+                kwargs["message_history"], deps.teaching_history = (
+                    project_teaching_history(kwargs["message_history"])
+                )
+                if self.teaching_summarizer is not None:
+                    kwargs["message_history"] = await summarize_teaching_history(
+                        kwargs["message_history"],
+                        deps.teaching_history,
+                        session.teaching_summaries,
+                        self.teaching_summarizer,
+                    )
+            if self.memory_recall and prompt is not None:
+                notice = current_recall_notice(
+                    kwargs["message_history"],
+                    session.all_memory(),
+                    excluded=recall_exclusions(deps),
+                )
+                if notice:
+                    # This is host context, not accepted learner input or permission to write.
+                    # Keep request_inputs and memory_current_inputs verbatim above.
+                    prompt = (
+                        "<memory_context>Host memory revalidation for this turn only.\n"
+                        + notice
+                        + "\n</memory_context>\n\n"
+                        + prompt
+                    )
 
         segmenter = Segmenter() if session.listen_mode else None
         seg_state: dict[str, Any] = {"n": 0, "id": None, "narration": []}
@@ -575,6 +867,27 @@ class Engine:
             if carried_on
             else ""
         )
+        final_line = final_preserved_line(session.script.script) if carried_on else None
+        if final_line is not None:
+            # Use the prompt's substitution rules, and keep both original and rendered
+            # uniqueness checks: distinct author blocks can render to the same text.
+            final_line = final_preserved_line(
+                substitute_variables(
+                    session.script.script,
+                    session.all_memory(),
+                    collected=collected_names(session.script.script),
+                )
+            )
+        final_line_text = (
+            "".join(_display_text(final_line).split()) if final_line else ""
+        )
+        previous_raw = (
+            _previous_turn_text(
+                session.messages, deps.history_len, keep_whitespace=True
+            )
+            if carried_on
+            else ""
+        )
         held: list[str] = []
         held_text = ""
         holding = carried_on
@@ -584,27 +897,60 @@ class Engine:
         # all again (general-education course, 2026-09-24). From that answer on, text is held
         # back while it reads as something this turn already said.
         said: list[str] = []
+        shown: list[str] = []
         after_pause = False
+        history_saved = False
+        was_interrupted = session.interrupted
+
+        def _closing_was_shown() -> bool:
+            """Require a complete standalone closing line in the latest displayed text."""
+            return (
+                bool(final_line_text)
+                and _last_display_line("".join(shown) if shown else previous_raw)
+                == final_line_text
+            )
+
+        def _held_output(*, trim_repeat: bool = False) -> str:
+            """Hide only a single displayed closing line that was already shown."""
+            # Every held-text release uses the same display comparison, including an
+            # unscripted pause. Hiding a repeat never changes completion state.
+            text = "".join(held)
+            if _closing_was_shown():
+                lines = [
+                    line for line in _display_text(text).splitlines() if line.strip()
+                ]
+                if "".join("".join(lines).split()) == final_line_text:
+                    # The generic repeat trimmer also removes whitespace. Keep changed
+                    # line boundaries here so it cannot erase a multiline closing.
+                    return "" if len(lines) == 1 else text
+            return _after_the_repeat(held, previous) if trim_repeat else text
 
         def _out(text: str) -> list[Event]:
+            """Deliver text and track what this turn has sent to the learner."""
             nonlocal delivered
             delivered += _visible_length(text)
             said.append("".join(text.split()))
+            shown.append(text)
             out: list[Event] = [ContentDelta(text=text)]
             if segmenter:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
             return out
 
         def _text(text: str) -> list[Event]:
+            """Hold potential repeats until they are known or diverge into new content."""
             nonlocal holding, held_text
             if not holding:
                 return _out(text)
             held.append(text)
             held_text += "".join(text.split())
+            if _closing_was_shown() and final_line_text.startswith(
+                "".join(_display_text("".join(held), complete=False).split())
+            ):
+                return []
             if len(held_text) < hold_floor or held_text in previous:
                 return []
             holding = False
-            released, held[:] = _after_the_repeat(held, previous), []
+            released, held[:] = _held_output(trim_repeat=True), []
             return _out(released) if released else []
 
         try:
@@ -632,8 +978,10 @@ class Engine:
                         if after_pause and held:
                             # Held since the pause and still this turn's own words: a repeat,
                             # unless too short to be one.
-                            if len(held_text) < _REPEAT_FLOOR_CHARS:
-                                for e in _out("".join(held)):
+                            if len(held_text) < _REPEAT_FLOOR_CHARS and (
+                                released := _held_output()
+                            ):
+                                for e in _out(released):
                                     yield e
                             held.clear()
                             holding = False
@@ -670,7 +1018,7 @@ class Engine:
                             # on from it: it is shown, unless it was a repeat -- the lesson written
                             # again after one untaken pause, and then a second pause.
                             if held:
-                                released = _after_the_repeat(held, previous)
+                                released = _held_output(trim_repeat=True)
                                 if released:
                                     for e in _out(released):
                                         yield e
@@ -695,9 +1043,31 @@ class Engine:
                             )
                     elif isinstance(ev, AgentRunResultEvent):
                         result = ev.result
-                        session.messages = list(result.all_messages())
+                        # A resumed request may use a projected copy of an old initial prompt.
+                        # Keep its original saved evidence and append only this run's messages.
+                        session.messages = (
+                            [*session.messages, *result.new_messages()]
+                            if session.started
+                            and (
+                                self.memory_context_limit is not None
+                                or self.recall_history_compaction
+                                or self.teaching_history_compaction
+                            )
+                            else list(result.all_messages())
+                        )
+                        history_saved = True
                         repeated = carried_on and _repeats_previous_turn(
-                            session.messages, deps.history_len
+                            session.messages,
+                            deps.history_len,
+                            interrupted=was_interrupted,
+                        )
+                        # Repeating a failed stream's partial teaching proves nothing
+                        # about whether the rest of the script has been delivered.
+                        session.interrupted = (
+                            was_interrupted
+                            and repeated
+                            and not isinstance(result.output, DeferredToolRequests)
+                            and deps.finished is None
                         )
                         if after_pause and holding and held:
                             # Everything written since the pause was this turn over again. It is
@@ -705,7 +1075,7 @@ class Engine:
                             # paused before the script's end, and a repeat says only that this
                             # response added nothing. The host carries the lesson on, and a
                             # model with nothing left calls `finish` then.
-                            released = _after_the_repeat(held, previous)
+                            released = _held_output(trim_repeat=True)
                             if released:
                                 for e in _out(released):
                                     yield e
@@ -715,25 +1085,19 @@ class Engine:
                             # nothing says it was not meant. Held only for its length, and new
                             # after a repeat of the previous turn: the new part.
                             holding = False
-                            released = (
-                                "".join(held)
-                                if held_text in previous
-                                else _after_the_repeat(held, previous)
+                            released = _held_output(
+                                trim_repeat=held_text not in previous
                             )
-                            for e in _out(released):
-                                yield e
+                            if released:
+                                for e in _out(released):
+                                    yield e
                         held.clear()
                         # Only now are the answers safely part of the history; clearing them any
                         # earlier would lose them if the request failed.
                         session.answers = {}
-                        u = result.usage
-                        session.usage = {
-                            "requests": session.usage.get("requests", 0) + u.requests,
-                            "input_tokens": session.usage.get("input_tokens", 0)
-                            + u.input_tokens,
-                            "output_tokens": session.usage.get("output_tokens", 0)
-                            + u.output_tokens,
-                        }
+                        if not session.interrupted:
+                            session.request_inputs = []
+                        session.usage = accumulate_usage(session.usage, result.usage)
                         if segmenter:
                             for e in self._segment(
                                 segmenter.finish(), seg_state, session, final=True
@@ -768,7 +1132,7 @@ class Engine:
                                 usage=session.usage,
                                 summary=deps.finished,
                             )
-                        elif repeated:
+                        elif repeated and not session.interrupted:
                             # Told to carry on, the model wrote the previous turn over again.
                             # There is nothing left in the script for it to deliver, whether or
                             # not it says so; carrying on again would only produce a third copy.
@@ -780,16 +1144,34 @@ class Engine:
                             yield TurnDone(reason="end", usage=session.usage)
         # Surface any failure to the host and keep the session usable.
         except Exception as exc:
+            if delivered and not history_saved:
+                # The stream may fail after teaching has reached the learner. Keep the
+                # interrupted run, including accepted answers and completed tool results,
+                # so a retry can continue rather than replay that teaching. Appending only
+                # new messages also preserves original evidence behind history projections.
+                session.messages = [*session.messages, *events.new_messages()]
+                session.answers = {}
+                session.usage = accumulate_usage(session.usage, events.usage)
+                session.interrupted = True
             if deps.finished is not None:
                 # The lesson had ended before this failure -- typically a model that kept calling
                 # tools after `finish` until the request limit stopped it. What came after the
                 # end was never shown, and the end stands.
                 session.finished = True
+                session.interrupted = False
                 yield TurnDone(
                     reason="finished", usage=session.usage, summary=deps.finished
                 )
                 return
-            yield ErrorEvent(message=f"{type(exc).__name__}: {exc}", retryable=True)
+            budget_exceeded = isinstance(exc, InputBudgetExceededError)
+            if budget_exceeded:
+                # A refused request cannot consume the backstop and eventually complete a lesson.
+                session.turn -= 1
+            yield ErrorEvent(
+                message=f"{type(exc).__name__}: {exc}",
+                retryable=not budget_exceeded,
+                code="input_budget_exceeded" if budget_exceeded else None,
+            )
             return
         finally:
             if (

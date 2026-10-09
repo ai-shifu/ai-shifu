@@ -16,6 +16,9 @@ inputs:
   require-registry:
     default: 'false'
     description: Fail if publication was requested without a configured registry
+  publish-ghcr:
+    default: 'false'
+    description: Include GHCR using the caller's packages write permission
 outputs:
   push-images:
     value: ${{ steps.registries.outputs.push-images }}
@@ -45,8 +48,17 @@ runs:
         IMAGE_NAME: ${{ inputs.image-name }}
         REQUESTED_PUSH: ${{ inputs.push-images }}
         REQUIRE_REGISTRY: ${{ inputs.require-registry }}
+        PUBLISH_GHCR: ${{ inputs.publish-ghcr }}
       run: |
         images=()
+        if [ "$PUBLISH_GHCR" = "true" ]; then
+          if [ -z "${GITHUB_REPOSITORY_OWNER:-}" ]; then
+            echo '::error::GHCR publication requires a repository owner.'
+            exit 1
+          fi
+          ghcr_owner=$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          images+=("ghcr.io/${ghcr_owner}/${IMAGE_NAME}")
+        fi
         if [ -n "${DOCKERHUB_USER:-}" ] && [ -n "${DOCKERHUB_TOKEN:-}" ]; then
           images+=("${DOCKERHUB_USER}/${IMAGE_NAME}")
         fi

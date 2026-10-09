@@ -149,7 +149,7 @@ def retire_unused_block(*, generated_block_bid: str) -> None:
     The block is created before the turn streams, because the element rows reference it while it
     runs. A turn that dies before it finishes -- an engine error, a learner closing the page --
     never records its text, and the row left behind is an empty assistant turn that the 1.0 run
-    would read as part of the conversation if the course moved back off the allowlist.
+    would read as part of the conversation if the deployment disabled 2.0.
 
     Only an untouched block is dropped: one that already has text belongs to a turn that finished.
     """
@@ -206,7 +206,7 @@ def stage_turn_block(
     `content` is filled in by `record_turn_content` once the turn is over. The 1.0 run builds its
     model context from these rows and reads that column for the assistant's side of the
     conversation -- it does not fall back to the element rows. Leaving it empty would matter the
-    moment a course moves back off the allowlist: 1.0 would resume the lesson seeing its own
+    moment the deployment disables 2.0: 1.0 would resume the lesson seeing its own
     questions answered by silence.
     """
     block = LearnGeneratedBlock()

@@ -2,6 +2,7 @@ import styles from './MainMenuModal.module.scss';
 
 import {
   memo,
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -30,6 +31,7 @@ import { useTracking, EVENT_NAMES } from '@/hooks/useTracking';
 import { useEnvStore } from '@/store/envStore';
 import SetPasswordModal from '../Settings/SetPasswordModal';
 import SessionManagerModal from '../Settings/SessionManagerModal';
+import CourseMemoryDialog from '../Settings/CourseMemoryDialog';
 
 import Image from 'next/image';
 import imgPersonal from '@/assets/newchat/light/personal.png';
@@ -47,6 +49,7 @@ type MainMenuModalProps = {
   className?: string;
   onPersonalInfoClick: () => void;
   surface: 'learner' | 'admin';
+  courseId?: string;
 };
 
 const MainMenuModal = ({
@@ -57,6 +60,7 @@ const MainMenuModal = ({
   className = '',
   onPersonalInfoClick,
   surface,
+  courseId,
 }: MainMenuModalProps) => {
   const { t } = useTranslation();
 
@@ -82,6 +86,14 @@ const MainMenuModal = ({
   const canSetPassword = isPasswordEnabled && (hasMobile || hasEmail);
 
   const { trackEvent } = useTracking();
+  const previewMode = useSystemStore(state => state.previewMode);
+  const memoryContext = `${courseId || ''}:${userInfo?.user_id || ''}`;
+  const [memoryOpen, setMemoryOpen] = useState<string | null>(null);
+  const memoryOpening = useRef<string | null>(null);
+  useEffect(() => {
+    setMemoryOpen(null);
+    memoryOpening.current = null;
+  }, [memoryContext, previewMode]);
 
   const _onPersonalInfoClick = (evt: ReactMouseEvent) => {
     evt.preventDefault();
@@ -253,6 +265,27 @@ const MainMenuModal = ({
           </button>
           {setPasswordRow}
           {sessionsRow}
+          {surface === 'learner' && courseId && !previewMode ? (
+            <button
+              type='button'
+              className={cn(styles.mainMenuModalRow, 'px-2.5')}
+              onClick={event => {
+                event.stopPropagation();
+                if (memoryOpening.current === memoryContext) return;
+                memoryOpening.current = memoryContext;
+                setMemoryOpen(memoryContext);
+                onClose?.(event);
+              }}
+            >
+              <MonitorSmartphone
+                className={styles.rowIcon}
+                size={16}
+              />
+              <div className={styles.rowTitle}>
+                {t('module.settings.memoryTitle')}
+              </div>
+            </button>
+          ) : null}
           {surface === 'learner' ? (
             <button
               type='button'
@@ -344,6 +377,19 @@ const MainMenuModal = ({
         open={sessionsModalOpen}
         onClose={() => setSessionsModalOpen(false)}
       />
+      {memoryOpen === memoryContext &&
+      courseId &&
+      surface === 'learner' &&
+      !previewMode ? (
+        <CourseMemoryDialog
+          key={`${courseId}:${userInfo?.user_id || ''}`}
+          courseId={courseId}
+          onClose={() => {
+            setMemoryOpen(null);
+            memoryOpening.current = null;
+          }}
+        />
+      ) : null}
       <SetPasswordModal
         open={setPasswordModalOpen}
         onClose={() => setSetPasswordModalOpen(false)}

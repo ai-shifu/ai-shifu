@@ -887,6 +887,7 @@ export default function ChatPage() {
 
         {initialized && navOpen ? (
           <NavDrawer
+            courseId={courseId}
             courseName={courseName}
             courseAvatar={courseAvatar}
             onLoginClick={() => {

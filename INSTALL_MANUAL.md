@@ -229,7 +229,7 @@ follow-up models.
 
 ```bash
 docker build -t aishifu/ai-shifu-api:latest -f src/api/Dockerfile .
-docker build -t aishifu/ai-shifu-cook-web:latest -f src/web/Dockerfile .
+docker build -t aishifu/ai-shifu-web:latest -f src/web/Dockerfile .
 ```
 
 3. Start the containers with the compose bundle that tracks the `:latest` tags:

@@ -70,7 +70,7 @@ def extract_variables(template: str) -> list:
     """Extract variables."""
     pattern = r"\{{1,2}([^{}]+)\}{1,2}"
     matches = re.findall(pattern, template)
-    # Only keep valid variable names (letters, digits, underscore, hyphen), no dots, commas, colons, quotes, or spaces
+    # Retired cross-course aliases and format expressions are not variable names.
     variables = [
         m.strip()
         for m in matches
@@ -87,8 +87,9 @@ def safe_format_template(template: str, variables: dict) -> str:
     def replacer(match: re.Match[str]) -> str:
         _, var, _ = match.groups()
         var_name = var.strip()
-        # Only process variable names with letters, digits, underscore, hyphen
-        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name) and var_name in variables:
+        if (
+            re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name)
+        ) and var_name in variables:
             return str(variables[var_name])
         # Otherwise, keep the original
         return match.group(0)
@@ -146,10 +147,6 @@ def get_fmt_prompt(
         str: Fmt prompt.
 
     """
-    app.logger.info("raw prompt: %s", profile_tmplate)
-    propmpt_keys = []
-    profiles = {}
-
     profiles = (
         dict(resolved_profiles)
         if resolved_profiles is not None
@@ -157,25 +154,20 @@ def get_fmt_prompt(
     )
     if profile_overrides:
         profiles.update(profile_overrides)
-    propmpt_keys = list(profiles.keys())
     if user_input:
         profiles["sys_user_input"] = user_input
-        propmpt_keys.append("sys_user_input")
-    app.logger.info(propmpt_keys)
-    app.logger.info(profiles)
     keys = extract_variables(profile_tmplate)
     fmt_keys = {}
     for key in keys:
         if key in profiles:
             fmt_keys[key] = profiles[key]
-        else:
-            app.logger.info("key not found: %s ,user_id: %s", key, user_id)
-    app.logger.info(fmt_keys)
+    app.logger.info(
+        "Prompt variables resolved: requested=%s matched=%s", len(keys), len(fmt_keys)
+    )
     if not keys:
         prompt = profile_tmplate or user_input
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
-    app.logger.info("fomat input:%s", prompt)
     return prompt
 
 

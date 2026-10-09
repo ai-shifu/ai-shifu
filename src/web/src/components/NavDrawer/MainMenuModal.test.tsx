@@ -9,6 +9,7 @@ const mockRefreshUserInfo = jest.fn();
 const mockEnvState = {
   loginMethodsEnabled: ['password', 'phone'],
 };
+const mockSystemState = { previewMode: false };
 
 const mockUserStoreState = {
   isLoggedIn: true,
@@ -87,11 +88,22 @@ jest.mock('@/api', () => ({
 }));
 
 jest.mock('@/store/useSystemStore', () => ({
-  useSystemStore: {
-    getState: () => ({
-      updateLanguage: jest.fn(),
-    }),
-  },
+  useSystemStore: Object.assign(
+    (selector: (state: typeof mockSystemState) => unknown) =>
+      selector(mockSystemState),
+    {
+      getState: () => ({
+        updateLanguage: jest.fn(),
+      }),
+    },
+  ),
+}));
+
+jest.mock('../Settings/CourseMemoryDialog', () => ({
+  __esModule: true,
+  default: ({ courseId }: { courseId: string }) => (
+    <div data-testid='course-memory'>{courseId}</div>
+  ),
 }));
 
 jest.mock('@/components/language-select', () => ({
@@ -169,7 +181,51 @@ describe('MainMenuModal', () => {
       is_creator: false,
     };
     mockEnvState.loginMethodsEnabled = ['password', 'phone'];
+    mockSystemState.previewMode = false;
   });
+
+  test.each([true, false])(
+    'opens course memory for member=%s with one dialog on double click',
+    member => {
+      mockUserStoreState.isLoggedIn = member;
+      const close = jest.fn();
+      render(
+        <MainMenuModal
+          open
+          surface='learner'
+          courseId='course-id'
+          onClose={close}
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      const entry = screen.getByRole('button', {
+        name: 'module.settings.memoryTitle',
+      });
+      fireEvent.click(entry);
+      fireEvent.click(entry);
+      expect(screen.getAllByTestId('course-memory')).toHaveLength(1);
+      expect(close).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test.each(['admin', 'preview', 'no-course'])(
+    'excludes %s from memory management',
+    excluded => {
+      mockSystemState.previewMode = excluded === 'preview';
+      render(
+        <MainMenuModal
+          open
+          surface={excluded === 'admin' ? 'admin' : 'learner'}
+          courseId={excluded === 'no-course' ? undefined : 'course-id'}
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      expect(
+        screen.queryByRole('button', { name: 'module.settings.memoryTitle' }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('course-memory')).not.toBeInTheDocument();
+    },
+  );
 
   test.each([
     {
