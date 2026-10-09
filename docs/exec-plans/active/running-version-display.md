@@ -20,6 +20,7 @@ The text is selectable and works in the existing desktop and mobile menus.
 - [x] 2026-10-10 06:56 CST: Implemented metadata resolution, build preparation, shared menu and eight translations; 49 focused frontend and 43 packaging/metadata regressions pass.
 - [x] 2026-10-10 06:58 CST: Production Next build, 93 frontend regressions, 43 packaging/metadata regressions, full lint, translation and architecture checks pass. Independent review reports no actionable issue.
 - [x] 2026-10-10 07:02 CST: Complete repository harness and all-file pre-commit gate pass. Compiled Next config and browser chunks contain the checked-out SHA. Standalone type-check reports only two unchanged main-baseline errors in the operator user-page tests (TS2683 and TS2790).
+- [x] 2026-10-10 07:05 CST: Addressed PR #3077 review discussion r4235254200 by including source-marker generation in the installation manual and Web Docker smoke instructions; the shared build guide already describes the same contract.
 - [x] 2026-10-10 06:56 CST: Extended Drone preparation for all six environments; readback confirms one marker command with original steps and build/deploy configurations preserved.
 - [ ] Verify the simulation page against its deployed commit.
 - [ ] Merge through a focused PR and verify domestic and overseas production pages against the deployed source revision.
