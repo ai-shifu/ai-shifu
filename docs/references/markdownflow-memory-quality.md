@@ -2,16 +2,17 @@
 title: MarkdownFlow Memory Quality Evaluation
 status: active
 owner_surface: learner
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 canonical: true
 ---
 
 # MarkdownFlow Memory Quality Evaluation
 
 The opt-in evaluator at `src/api/scripts/evaluate_mdf2_memory.py` supplies a
-repeatable synthetic baseline for the current course model. Its twenty-four fixed
+repeatable synthetic baseline for the current course model. Its twenty-six fixed
 cases cover fourteen semantic admission decisions, six actual-engine recall
-turns and four long-teaching-history journeys. This is model behavior evidence alongside existing deterministic storage
+turns, four long-teaching-history journeys and two exercise-statistics reports.
+This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
@@ -79,6 +80,41 @@ coverage, unknown metadata, matching token denominators and complete-course test
 Synthetic round trips establish cache/tool behavior, not database authorization,
 complete natural teaching quality or long-term cache savings.
 
+## Exercise-statistics cases
+
+Two synthetic English cases resume eleven arithmetic questions after original
+paired submissions, feedback and continue-button clicks. Three questions needed
+one correction each. The cases place those corrections on different questions
+while retaining identical totals; correct aggregate counts cannot hide swapped
+first-pass results. The session is serialized and reloaded before the actual
+engine produces its final report. No expected rows or totals are sent to the model.
+Fixture responses stay below the teaching-excerpt threshold and no semantic
+summarizer is configured. These are intentionally full-history statistics cases,
+matching the observed natural failure's absence of teaching summaries. Enabling
+the projection option does not establish that projection happened. The four
+separate long-history cases cover summary/read behavior; neither family establishes
+exercise-report accuracy after teaching-summary compaction. That combination
+remains a separate quality-acceptance item.
+
+The author requests one JSON object (plain or in a single Markdown JSON fence)
+containing per-question first-result booleans,
+attempt and hint counts, plus aggregate counts. Scoring rejects missing/duplicate
+questions, duplicate JSON keys, invalid scalar types, wrong per-question assignments and inconsistent
+totals. It also requires actual completion, unchanged memory and preserved original
+history. A successful finish with wrong statistics remains a semantic failure.
+Invalid report formatting fails checks; provider/engine errors remain evaluation
+errors. The report stores checks and usage, never raw model output or attempts.
+
+These controlled cases use temperature zero and a 2,048-token cap, separately
+reported as `exercise_generation_settings`; other families retain their settings.
+They use the existing 15-second gateway timeout/deadline and six-request limit,
+with at most one host-style completion turn. They are evidence checks, not a
+natural-course grading benchmark or deterministic enforcement of model output.
+A natural-course report already contradicted preserved original attempts even
+though its author required a matching ledger. This extension does not repair that
+failure, add a grading ledger or broaden memory admission. Retain that failure
+separately even if these simpler cases pass.
+
 ## Running
 
 From `src/api` in the backend environment:
@@ -97,7 +133,8 @@ course-selection/access path as teaching. It supplies only synthetic inputs and
 never loads real learner memory or calls the session/profile persistence path.
 Existing shared-gateway usage, billing and tracing still occur, attributed to the
 provided dedicated learner under `agent_memory_quality_admission`,
-`agent_memory_quality_recall`, `agent_memory_quality_teaching` and the separate
+`agent_memory_quality_recall`, `agent_memory_quality_teaching`,
+`agent_memory_quality_exercise` and the separate
 `agent_memory_quality_teaching_summary` generation. The evaluator does not modify the engine switch.
 
 `--case ID` may be repeated to diagnose selected cases; `--repeat` accepts 1–5,
