@@ -369,6 +369,140 @@ describe('useChatLogicHook stream cleanup', () => {
     },
   );
 
+  it.each([
+    'success',
+    'business',
+    'transport',
+    'closed',
+    'stop',
+    'unmount',
+    'replacement',
+  ])(
+    'carries one draft rewind outcome through automatic continuations: %s',
+    async outcome => {
+      const params = {
+        ...buildBaseParams(),
+        previewMode: true,
+        trackEvent: jest.fn(),
+      };
+      const { result, unmount } = renderHook(() => useChatLogicHook(params), {
+        wrapper,
+      });
+      await waitFor(() => expect(activeRun).toBeDefined());
+      const emitContent = async (elementBid: string) => {
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.ELEMENT,
+          content: {
+            element_bid: elementBid,
+            generated_block_bid: elementBid,
+            element_type: 'content',
+            content: 'Teaching',
+            like_status: 'none',
+          },
+        });
+      };
+      await act(async () => {
+        await emitContent('original');
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.TEXT_END,
+          is_terminal: true,
+          content: '',
+        });
+      });
+      await act(async () => {
+        await result.current.onRefresh('original');
+      });
+      for (const elementBid of ['continued-1', 'continued-2']) {
+        const precedingRun = activeRun;
+        const runCount = mockGetRunMessage.mock.calls.length;
+        await act(async () => {
+          await emitContent(elementBid);
+          await precedingRun?.onMessage(
+            elementBid === 'continued-1'
+              ? {
+                  type: SSE_OUTPUT_TYPE.TEXT_END,
+                  is_terminal: false,
+                  content: '',
+                }
+              : {
+                  type: SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE,
+                  content: {
+                    outline_bid: params.lessonId,
+                    status: 'not_started',
+                    has_children: false,
+                  },
+                },
+          );
+        });
+        expect(mockGetRunMessage).toHaveBeenCalledTimes(runCount + 1);
+        expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+          input: '',
+          input_type: SSE_INPUT_TYPE.NORMAL,
+        });
+        await act(async () => {
+          precedingRun?.onError(new Error('Retired source closed'));
+          await precedingRun?.onMessage({
+            type: SSE_OUTPUT_TYPE.TEXT_END,
+            is_terminal: true,
+            content: '',
+          });
+        });
+        expect(
+          params.trackEvent.mock.calls.filter(
+            ([name]) => name === 'teacher_preview_rewind_result',
+          ),
+        ).toHaveLength(0);
+        expect(
+          params.trackEvent.mock.calls.filter(
+            ([name]) => name === 'teacher_preview_rewind_start',
+          ),
+        ).toHaveLength(1);
+      }
+      const stream = activeRun;
+      await act(async () => {
+        if (outcome === 'success')
+          await stream?.onMessage({
+            type: SSE_OUTPUT_TYPE.TEXT_END,
+            is_terminal: true,
+            content: '',
+          });
+        if (outcome === 'business')
+          await stream?.onMessage({
+            type: SSE_OUTPUT_TYPE.ERROR,
+            content: 'Failure',
+          });
+        if (outcome === 'transport') stream?.onError(new Error('Failure'));
+        if (outcome === 'closed') stream?.source.close();
+        if (outcome === 'stop') stopAllActiveLessonStreams();
+        if (outcome === 'unmount') unmount();
+        if (outcome === 'replacement')
+          await result.current.onRefresh('continued-2');
+        stream?.onError(new Error('Late failure'));
+      });
+      expect(
+        params.trackEvent.mock.calls.filter(
+          ([name]) => name === 'teacher_preview_rewind_result',
+        ),
+      ).toEqual([
+        [
+          'teacher_preview_rewind_result',
+          {
+            shifu_bid: params.shifuBid,
+            outline_bid: params.outlineBid,
+            learning_mode: 'read',
+            operation: 'regenerate',
+            result:
+              outcome === 'success'
+                ? 'success'
+                : ['stop', 'unmount', 'replacement'].includes(outcome)
+                  ? 'cancelled'
+                  : 'failed',
+          },
+        ],
+      ]);
+    },
+  );
+
   it('sends listen=false in the run body when listen requests are disabled', async () => {
     const { result } = renderHook(
       () =>
