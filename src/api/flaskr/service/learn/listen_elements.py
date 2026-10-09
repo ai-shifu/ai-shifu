@@ -106,6 +106,11 @@ class ListenElementRunAdapter(
         self._answer_element_bid_by_block_bid: dict[str, str] = {}
         self._latest_element_snapshots: dict[str, object] = {}
 
+    def finalize_pending_blocks(self) -> Iterable[RunElementSSEMessageDTO]:
+        """Save already shown content without emitting a successful run boundary."""
+        for block_id in list(self._block_states):
+            yield from self._finalize_block(block_id)
+
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
     ) -> Iterable[RunElementSSEMessageDTO]:
@@ -193,6 +198,22 @@ def get_listen_element_record(
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
     """Return listen element record."""
+    from flaskr.service.learn.agent.routing import uses_agent_engine
+
+    if preview_mode and uses_agent_engine(shifu_bid):
+        from flaskr.service.learn.agent.preview_history import (
+            get_preview_record,
+            has_preview_script,
+        )
+
+        if has_preview_script(app, shifu_bid=shifu_bid, outline_bid=outline_bid):
+            return get_preview_record(
+                app,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                include_non_navigable=include_non_navigable,
+            )
     return _get_listen_element_record(
         app=app,
         shifu_bid=shifu_bid,

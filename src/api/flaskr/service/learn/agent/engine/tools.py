@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import ValidationError
@@ -18,9 +19,12 @@ from pydantic_ai.messages import (
 )
 
 from .interaction import InteractionSpec, InteractionType, Option
+from .session import answer_fingerprint
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
+
+    from pydantic_ai.tools import ToolDefinition
 
 
 @dataclass
@@ -43,18 +47,54 @@ class Deps:
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
     # when the script is in the 1.0 notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
+    # Authored text-input questions, used only to repair an extra placeholder button.
+    script_text_inputs: tuple[_Question, ...] = ()
     # Set when the host's scripts pause only where their notation puts a button and this lesson's
     # script has none: a `confirm` is then answered without asking the learner. See
     # `script_pauses` and `Engine(pauses_from_notation=)`.
     no_pauses: bool = False
+    # None preserves a portable host's existing unrestricted memory contract.
+    memory_keys: frozenset[str] | None = None
+    memory_reserved_keys: frozenset[str] = frozenset()
+    memory_readonly_prefixes: tuple[str, ...] = ()
+    memory_deleted_keys: frozenset[str] = frozenset()
+    request_inputs: tuple[str, ...] = ()
+    memory_current_inputs: tuple[str, ...] = ()
+    memory_request_check: Callable[[str, str, str], Awaitable[bool]] | None = None
+    # Match the initial prompt's exclusion of answers this lesson collects again.
+    memory_recall_excluded_keys: frozenset[str] = frozenset()
+    answer_hashes: dict[str, str] = field(default_factory=dict)
+    memory_recall_blocked_keys: frozenset[str] = frozenset()
+    # Exact original teaching available only for this run's request projection.
+    teaching_history: dict[str, str] = field(default_factory=dict)
+    # Original messages before request projection.
+    exercise_history: tuple[Any, ...] = ()
+    exercise_evidence: list[dict[str, Any]] | None = None  # Frozen within this run.
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
 _ESCAPABLE = "|/.]"
+
+
+def recall_exclusions(deps: Deps) -> frozenset[str]:
+    """Exclude unanswered or replaced answer copies and deleted historical replays."""
+    answered = {
+        key
+        for key, digest in deps.answer_hashes.items()
+        if isinstance(digest, str)
+        and key in deps.memory
+        and answer_fingerprint(deps.memory[key]) == digest
+    }
+    return (
+        deps.memory_recall_excluded_keys.difference(answered)
+        | deps.memory_recall_blocked_keys
+    )
+
+
 _FENCED = re.compile(
     r"^[ ]{0,3}(`{3,}|~{3,})[^\n]*\n.*?^[ ]{0,3}\1[ \t]*$", re.MULTILINE | re.DOTALL
 )
-_VARIABLE = re.compile(r"^\s*%\{\{[^}]*\}\}")
+_VARIABLE = re.compile(r"^\s*%\{\{([^}]*)\}\}")
 
 
 def _is_escape(text: str, index: int) -> bool:
@@ -161,9 +201,12 @@ def script_pauses(script_text: str) -> int:
 class _Question:
     """One `?[...]` of a script, split the way MarkdownFlow splits it."""
 
-    variable: bool
+    variable: str | None
     text: bool
     choices: list[str]
+    placeholder: str | None
+    written_placeholder: str | None
+    multi: bool
 
 
 def _script_questions(script_text: str) -> list[_Question]:
@@ -190,16 +233,128 @@ def _script_questions(script_text: str) -> list[_Question]:
         # A single bar anywhere makes it single choice, with any `||` left inside an option;
         # otherwise `||` separates the choices of a multiple choice.
         choices = _split_on_single_pipe(body)
+        multi = len(choices) == 1 and len(_split_unescaped(body, "||")) > 1
         if len(choices) == 1:
             choices = _split_unescaped(body, "||")
         questions.append(
             _Question(
-                variable=bool(_VARIABLE.match(raw)),
+                variable=(match.group(1).strip() or None)
+                if (match := _VARIABLE.match(raw))
+                else None,
                 text=ellipsis >= 0,
                 choices=choices,
+                placeholder=_unescape(first_line[ellipsis + 3 :].strip())
+                if ellipsis >= 0
+                else None,
+                written_placeholder=first_line[ellipsis + 3 :].strip()
+                if ellipsis >= 0
+                else None,
+                multi=multi,
             )
         )
     return questions
+
+
+def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
+    """Read authored input hints; examples in comments do not define a learner question."""
+    lines: list[str] = []
+    opening: str | None = None
+    for line in script_text.splitlines():
+        fence = re.match(r"^[ ]{0,3}(`{3,}|~{3,})(.*)$", line)
+        if opening is not None:
+            if (
+                fence
+                and fence.group(1)[0] == opening[0]
+                and len(fence.group(1)) >= len(opening)
+                and not fence.group(2).strip()
+            ):
+                opening = None
+        elif fence:
+            opening = fence.group(1)
+        elif line.expandtabs(4).startswith("    "):
+            lines.append("")  # Indented Markdown code cannot declare lesson controls.
+        else:
+            lines.append(line)
+    text = re.sub(r"<!--.*?-->", "", "\n".join(lines), flags=re.DOTALL)
+    return tuple(q for q in _script_questions(text) if q.placeholder)
+
+
+def normalize_script_text_input(
+    spec: InteractionSpec,
+    questions: tuple[_Question, ...],
+) -> InteractionSpec:
+    """Restore a missing text hint or remove its duplicate generated choice.
+
+    The remaining display/value pairs must be the author's exact ordered choices. A hint that
+    the author also wrote as a real choice, another question, or a model-created option is kept.
+    Text-only questions must match the copied prompt and the same variable.
+    Ambiguous questions and explicitly supplied placeholders are left unchanged.
+    """
+    if spec.type == "text" and not spec.options and not spec.placeholder:
+        hints = {
+            q.placeholder
+            for q in questions
+            if q.variable == spec.variable
+            and not any(c.strip() for c in q.choices)
+            and spec.prompt.strip() in (q.placeholder, q.written_placeholder)
+        }
+        if len(hints) == 1 and (hint := next(iter(hints))):
+            return spec.model_copy(update={"placeholder": hint})
+    candidates: dict[str, InteractionSpec] = {}
+    submitted = [(o.display, o.stored) for o in spec.options]
+    for question in questions:
+        if question.variable != spec.variable:
+            continue
+        kinds = (
+            ("multi", "multi_or_text")
+            if question.multi
+            else ("single", "single_or_text", "text")
+        )
+        if spec.type not in kinds or spec.placeholder not in (
+            None,
+            "",
+            question.placeholder,
+            question.written_placeholder,
+        ):
+            continue
+        authored: list[tuple[str, str]] = []
+        for choice in question.choices:
+            if not choice.strip():
+                continue
+            halves = [
+                _unescape(half.strip()) for half in _split_unescaped(choice, "//")[:2]
+            ]
+            authored.append((halves[0], halves[1] if len(halves) > 1 else halves[0]))
+        hint = question.placeholder or ""
+        forms = {hint, question.written_placeholder or hint}
+        extras = {
+            (marker + display, marker + value)
+            for marker in ("", "...")
+            if (marker + hint, marker + hint) not in authored
+            for display in forms
+            for value in forms
+            if (marker + display, marker + value) not in authored
+        }
+        remaining = [pair for pair in submitted if pair not in extras]
+        if submitted == authored:
+            candidate = spec
+        elif remaining == authored and len(remaining) < len(submitted):
+            kind: InteractionType = (
+                "multi_or_text" if question.multi else "single_or_text"
+            )
+            candidate = spec.model_copy(
+                update={
+                    "type": kind if authored else "text",
+                    "options": [
+                        o for o in spec.options if (o.display, o.stored) not in extras
+                    ],
+                    "placeholder": hint,
+                }
+            )
+        else:
+            continue
+        candidates[candidate.model_dump_json()] = candidate
+    return next(iter(candidates.values())) if len(candidates) == 1 else spec
 
 
 def _as_the_script_writes_it(option: Option, written: dict[str, str]) -> Option:
@@ -405,12 +560,18 @@ async def interact(
     dropped. To have the learner check something you wrote, ask it as `single`, or write the
     read-back as content and pause with a plain `confirm`.
     Give `options` for every type except `text`. `variable` is ONLY for a memory key the script
-    explicitly names (e.g. `%{{name}}` or "store it as X"); leave it empty otherwise.
+    explicitly names; follow the host memory policy for eligible declarations. Leave it empty
+    otherwise.
     The learner's answer is returned as the tool result; then continue the script.
     """
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
+    if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
+        message = "This variable is a read-only reference. Ask using a local variable instead."
+        raise ModelRetry(message)
+    if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
+        variable = None
     if type != "confirm" and asks_the_answered_question_again(
         ctx, type, prompt, variable, options, placeholder
     ):
@@ -448,6 +609,7 @@ async def interact(
         variable=variable,
         placeholder=placeholder,
     )
+    spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
     problem = ctx.deps.interaction_check(spec) if ctx.deps.interaction_check else None
     if problem:
         # Deferred, the question would wait for an answer the learner has no controls to give.
@@ -461,11 +623,87 @@ async def interact(
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 
+# Bound model-authored notes, not author-named interaction answers or loaded history.
+# Key length matches the host's variable storage; lengths count Unicode characters.
+_MEMORY_KEY_LIMIT = 255
+_MEMORY_VALUE_LIMIT = 2000
+_MEMORY_ENTRY_LIMIT = 100
+# Match the JSON character count used by the initial memory prompt, including escaping.
+_MEMORY_SCOPE_LIMIT = 32_768
+
+
+def _memory_capacity_error(target: dict[str, Any], key: str, value: str) -> str | None:
+    """Check the current scope immediately before and after asynchronous admission."""
+    if key not in target and len(target) >= _MEMORY_ENTRY_LIMIT:
+        return "Not remembered: this scope has 100 or more entries. Continue teaching."
+    candidate_size = len(
+        json.dumps({**target, key: value}, ensure_ascii=False, indent=2)
+    )
+    if candidate_size > _MEMORY_SCOPE_LIMIT and candidate_size > len(
+        json.dumps(target, ensure_ascii=False, indent=2)
+    ):
+        return (
+            "Not remembered: this would grow the scope beyond its 32768-character JSON budget. "
+            "Continue teaching."
+        )
+    return None
+
+
+async def memory_admission_error(
+    deps: Deps, key: str, value: str, request: str | None
+) -> str | None:
+    """Require declared permission or a verified, real learner request before a write."""
+    if key.startswith(deps.memory_readonly_prefixes):
+        return "this key is a read-only reference"
+    if deps.memory_keys is None or (
+        key in deps.memory_keys and key not in deps.memory_deleted_keys
+    ):
+        return None
+    if key.startswith("sys_") or key in deps.memory_reserved_keys:
+        return "only the script can declare a system-profile key"
+    if key in deps.memory_deleted_keys and request not in deps.memory_current_inputs:
+        return "restoring deleted memory requires a new explicit request in this turn"
+    if not request or request not in deps.request_inputs or len(request) > 4096:
+        return "quote a complete current learner request of at most 4096 characters"
+    if deps.memory_request_check is not None:
+        try:
+            if await deps.memory_request_check(request, key, value):
+                return None
+        except Exception:
+            # A failed admission service must not fail teaching or authorize a write.
+            return "the learner's explicit request could not be verified"
+    return "the learner's explicit request could not be verified"
+
+
+async def prepare_memory_tool(
+    _ctx: RunContext[Deps], definition: ToolDefinition
+) -> ToolDefinition:
+    """Make evidence explicit in the enabled host's schema without changing portable calls."""
+    schema = definition.parameters_json_schema
+    properties = schema["properties"]
+    request_schema = dict(properties["request"])
+    request_schema.pop("default", None)
+    request_schema["description"] = (
+        "Required field. For an undeclared key, copy the learner's complete current free-text "
+        "input EXACTLY, including the request to remember and punctuation. Do not omit it or "
+        "supply a paraphrase. For a non-deleted main-script-declared key only, null is allowed."
+    )
+    return replace(
+        definition,
+        parameters_json_schema={
+            **schema,
+            "properties": {**properties, "request": request_schema},
+            "required": list(dict.fromkeys([*schema.get("required", []), "request"])),
+        },
+    )
+
+
 async def remember(
     ctx: RunContext[Deps],
     key: str,
     value: str,
     scope: Literal["session", "user"] = "session",
+    request: str | None = None,
 ) -> str:
     """Store something about the learner.
 
@@ -473,9 +711,47 @@ async def remember(
     fact. `scope="session"` (default) is for this script run (answers, collected variables);
     `scope="user"` is for things that should follow the learner into future sessions
     (preferences, stable facts, requests like "keep answers short"). Overwrites an existing key.
+
+    A nonblank key can contain at most 255 characters and a value at most 2000. A scope with
+    100 or more entries accepts updates to existing keys only. Each scope has a budget of 32768
+    characters of pretty-printed JSON. A larger existing scope accepts only non-growing updates.
+    A refused note changes nothing; continue teaching instead of repeatedly trying to store it.
+    Existing history and answers recorded by `interact(variable=...)` are preserved without
+    these model-note limits.
+    Record required notes before `finish`; a finished lesson accepts no further model notes.
+
     """
+    if ctx.deps.finished is not None:
+        return LESSON_OVER
+    if not key.strip() or len(key) > _MEMORY_KEY_LIMIT:
+        return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
+    if len(value) > _MEMORY_VALUE_LIMIT:
+        return "Not remembered: the value exceeds 2000 characters. Continue teaching."
+    if ctx.deps.memory_keys is not None and (
+        key not in ctx.deps.memory_keys or key in ctx.deps.memory_deleted_keys
+    ):
+        scope = "user"
     target = ctx.deps.user_memory if scope == "user" else ctx.deps.memory
+    if problem := _memory_capacity_error(target, key, value):
+        return problem
+    if problem := await memory_admission_error(ctx.deps, key, value, request):
+        return f"Not remembered: {problem}. Continue teaching."
+    # A semantic check yields control: another tool may have written or finished meanwhile.
+    if ctx.deps.finished is not None:
+        return LESSON_OVER
+    if problem := _memory_capacity_error(target, key, value):
+        return problem
     target[key] = value
+    if (
+        scope == "user"
+        and isinstance(ctx.deps.answer_hashes.get(key), str)
+        and answer_fingerprint(ctx.deps.memory.get(key)) == ctx.deps.answer_hashes[key]
+    ):
+        # A named answer is mirrored in session scope; an accepted correction wins now.
+        ctx.deps.memory[key] = value
+        ctx.deps.answer_hashes[key] = answer_fingerprint(value)
+    elif scope == "session":
+        ctx.deps.answer_hashes.pop(key, None)
     ctx.deps.memory_updates.append((scope, key, value))
     return f"remembered {key} ({scope})"
 

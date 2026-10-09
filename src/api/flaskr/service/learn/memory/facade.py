@@ -5,32 +5,90 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flaskr.service.learn.memory.dtos import MemorySnapshot, MemoryUpdate
-from flaskr.service.profile.api import get_user_profiles, save_user_profiles
+from flaskr.service.learn.memory.reader import load_course_variables
+from flaskr.service.profile.api import (
+    course_memory_deletion_state,
+    course_memory_value_versions,
+    get_global_profile_keys,
+    get_user_profiles,
+    global_profile_value_versions,
+    is_course_reference,
+    save_user_profiles,
+)
 from flaskr.service.profile.dtos import ProfileToSave
 
 if TYPE_CHECKING:
     from flask import Flask
 
 
-def load_memory(app: Flask, user_bid: str, shifu_bid: str) -> MemorySnapshot:
+def load_memory(
+    app: Flask,
+    user_bid: str,
+    shifu_bid: str,
+    *,
+    include_course_variables: bool = False,
+    reference_text: str | tuple[str, ...] = "",
+) -> MemorySnapshot:
     """Read supported memory categories for an authorized user/course context.
 
     Variables currently use runtime profile resolution, including settings edits
-    and canonical fields. The broad reader's ``elsewhere`` is not merged.
+    and canonical fields. Agent hosts opt into all current-course variable rows,
+    including learner requests without profile definitions. Global undeclared values
+    and the broad reader's ``elsewhere`` are not merged. Author documents cannot
+    authorize cross-course access; only registered system fields are global.
     """
-    return MemorySnapshot(variables=get_user_profiles(app, user_bid, shifu_bid))
+    resolved = get_user_profiles(
+        app, user_bid, shifu_bid, reference_text=reference_text
+    )
+    variables = (
+        load_course_variables(user_bid, shifu_bid, exclude_keys=frozenset(resolved))
+        if include_course_variables
+        else {}
+    )
+    variables.update(resolved)
+    _, deleted = course_memory_deletion_state(user_bid, shifu_bid)
+    for key in deleted:
+        if not is_course_reference(key):
+            variables.pop(key, None)
+    return MemorySnapshot(variables=variables)
 
 
 def stage_memory(
-    app: Flask, user_bid: str, shifu_bid: str, update: MemoryUpdate
+    app: Flask,
+    user_bid: str,
+    shifu_bid: str,
+    update: MemoryUpdate,
+    *,
+    expected_generations: dict[str, int] | None = None,
+    expected_value_versions: dict[str, int | tuple[int, str | None]] | None = None,
 ) -> bool:
     """Stage a memory patch in the caller's existing app/DB context.
 
     Variables use the existing profile writer. Copy its mapped values back to
     the variable payloads for update events; profile DTOs stay inside this adapter.
     Empty patches are no-ops. The boolean is the writer result, not a durability
-    guarantee: the writer flushes and the caller owns the commit.
+    guarantee: the writer flushes and the caller owns the commit. Read-only reference
+    assignments are removed from the patch so callers cannot announce false updates.
     """
+    update.variables = [
+        item for item in update.variables if not is_course_reference(item.key)
+    ]
+    if expected_value_versions is not None:
+        versions = dict(course_memory_value_versions(user_bid, shifu_bid, lock=True))
+        if any(item.key in get_global_profile_keys() for item in update.variables):
+            versions.update(global_profile_value_versions(user_bid, lock=True))
+        update.variables = [
+            item
+            for item in update.variables
+            if versions.get(item.key, 0) == expected_value_versions.get(item.key, 0)
+        ]
+    if expected_generations is not None:
+        current, _ = course_memory_deletion_state(user_bid, shifu_bid, lock=True)
+        update.variables = [
+            item
+            for item in update.variables
+            if current.get(item.key, 0) == expected_generations.get(item.key, 0)
+        ]
     if not update.variables:
         return True
     profiles = [

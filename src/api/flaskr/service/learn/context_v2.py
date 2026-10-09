@@ -94,6 +94,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_RESET,
 )
+from flaskr.service.profile.api import course_memory_deletion_state, is_course_reference
 from flaskr.service.profile.constants import SYS_USER_LANGUAGE
 from flaskr.service.profile.profile_manage import (
     ProfileItemDefinition,
@@ -1525,6 +1526,7 @@ class _RunStepState:
     variable_definition_key_id_map: dict[str, str]
     block: Any = None
     has_effective_input: bool = False
+    memory_generations: dict[str, int] | None = None
 
 
 class RunScriptContextV2:
@@ -2297,17 +2299,34 @@ class RunScriptContextV2:
         if self._last_position == -1:
             self._last_position = run_script_info.block_position
         ask_input = self._input
-        app.logger.info("ask_input: %s", ask_input)
         if isinstance(ask_input, dict):
             ask_input = ask_input.get("input", "")
         if isinstance(ask_input, list):
             ask_input = ",".join(ask_input)
-        app.logger.info("ask_input: %s", ask_input)
+        app.logger.info("Ask input normalized: input_chars=%s", len(ask_input))
+        from flaskr.service.learn.agent.routing import uses_agent_engine
+
         runtime_profiles = load_memory(
             app,
             self._user_info.user_id,
             self._outline_item_info.shifu_bid,
+            reference_text=self.get_system_prompt(self._outline_item_info.bid) or "",
+            **(
+                {"include_course_variables": True}
+                if uses_agent_engine(self._outline_item_info.shifu_bid)
+                else {}
+            ),
         ).as_variables()
+        from flaskr.service.learn.follow_up_memory_writer import (
+            FollowUpMemoryPatch,
+            stage_follow_up_memory,
+        )
+
+        memory_patch = (
+            FollowUpMemoryPatch()
+            if uses_agent_engine(self._outline_item_info.shifu_bid)
+            else None
+        )
         res = handle_input_ask(
             app,
             self,
@@ -2322,6 +2341,7 @@ class RunScriptContextV2:
             anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
             parent_observation=self._trace_root_span,
             runtime_profiles=runtime_profiles,
+            memory_patch=memory_patch,
         )
 
         if self._should_stream_tts():
@@ -2367,7 +2387,23 @@ class RunScriptContextV2:
         # flushes; commit them as one step now that the ask stream has
         # fully completed (durability moves from the producer's outer
         # commit to here — same post-stream point of the request).
-        self._recorder.commit_pending_step()
+        if (
+            memory_patch is not None
+            and memory_patch.variables
+            and not self._preview_mode
+        ):
+            with unit_of_work():
+                stage_follow_up_memory(
+                    app,
+                    user_bid=self._user_info.user_id,
+                    shifu_bid=self._outline_item_info.shifu_bid,
+                    outline_bid=self._outline_item_info.bid,
+                    progress_record_bid=self._current_attend.progress_record_bid,
+                    patch=memory_patch,
+                )
+                self._recorder.commit_pending_step()
+        else:
+            self._recorder.commit_pending_step()
 
     def _prepare_step_state(
         self,
@@ -2414,8 +2450,14 @@ class RunScriptContextV2:
             usage_context,
             usage_scene,
         )
+        memory_generations, _ = course_memory_deletion_state(
+            self._user_info.user_id, self._outline_item_info.shifu_bid
+        )
         memory = load_memory(
-            app, self._user_info.user_id, self._outline_item_info.shifu_bid
+            app,
+            self._user_info.user_id,
+            self._outline_item_info.shifu_bid,
+            reference_text=(run_script_info.mdflow, system_prompt or ""),
         )
         user_profile, runtime_output_language = _resolve_runtime_language_context(
             memory.as_variables(),
@@ -2463,6 +2505,7 @@ class RunScriptContextV2:
             user_profile=user_profile,
             message_list=message_list,
             variable_definition_key_id_map=variable_definition_key_id_map,
+            memory_generations=memory_generations,
         )
 
     def _phase_process_input(
@@ -2945,6 +2988,8 @@ class RunScriptContextV2:
         if validate_result.variables is not None and len(validate_result.variables) > 0:
             memory_update = MemoryUpdate()
             for key, value in validate_result.variables.items():
+                if is_course_reference(key):
+                    continue
                 profile_id = state.variable_definition_key_id_map.get(key, "")
                 # Convert list to string (markdown-flow 0.2.27+ returns list[str] for multi-select)
                 if isinstance(value, list):
@@ -2958,12 +3003,20 @@ class RunScriptContextV2:
                     VariableMemoryUpdate(key, value_str, profile_id)
                 )
 
-            stage_memory(
-                app,
-                self._user_info.user_id,
-                self._outline_item_info.shifu_bid,
-                memory_update,
-            )
+            with unit_of_work():
+                stage_memory(
+                    app,
+                    self._user_info.user_id,
+                    self._outline_item_info.shifu_bid,
+                    memory_update,
+                    expected_generations=getattr(state, "memory_generations", None),
+                )
+                self._recorder.update_progress_pointer(
+                    self._current_attend,
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=run_script_info.block_position + 1,
+                )
+            self._can_continue = True
             for variable in memory_update.variables:
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
@@ -2974,15 +3027,6 @@ class RunScriptContextV2:
                         variable_value=variable.value,
                     ),
                 )
-            self._can_continue = True
-            # This step also makes the profile rows saved above durable
-            # (stage_memory only flushes; the rows ride into this
-            # step's commit, previously the producer's outer commit).
-            self._recorder.update_progress_pointer(
-                self._current_attend,
-                status=LEARN_STATUS_IN_PROGRESS,
-                block_position=run_script_info.block_position + 1,
-            )
             self._run_type = RunType.OUTPUT
             self.app.logger.warning(
                 "passed and position: %s", self._current_attend.block_position

@@ -1,0 +1,132 @@
+# Deliver classroom context to Coze follow-ups
+
+## Purpose / Big Picture
+
+A Coze follow-up currently receives only the current query, although the shared
+host has already prepared current-course memory and anchor-bound conversation.
+Deliver that context through native chat without changing provider routing or
+silently replacing custom endpoint/payload contracts. The durable contract lives
+in [follow-up classroom context](../../references/follow-up-classroom-context.md).
+
+## Progress
+
+- [x] 2026-10-09T07:46:00Z: Confirmed the real adapter drops host memory/history;
+  checked the official Coze chat API roles, final-user rule and 100-message limit.
+- [x] 2026-10-09T07:48:00Z: Seven outbound regression cases fail against the existing
+  adapter; implemented native role mapping and bounded recent history.
+- [x] 2026-10-09T07:51:00Z: Added actual storage/builder/outbound coverage for scoped
+  values, updates, deletion, history and no writes, plus malformed-echo log privacy.
+- [x] 2026-10-09T07:56:00Z: Initial learning tests pass 2,865 cases, four subtests
+  and one expected skip; developer-tool and full repository gates pass.
+- [x] 2026-10-09T07:54:00Z: Published PR #3062. Initial sim build 457 and both
+  deployments succeed; review identified an error-echo privacy issue.
+- [x] 2026-10-09T08:00:00Z: Three privacy regressions fail before the review fix.
+  Final learning tests pass 2,868 cases, four subtests and one skip; full gates pass.
+- [x] 2026-10-09T08:04:00Z: Reviewed 20fe75c30 / sim 430ba69a8 have identical
+  trees. Build 458 / deployments 2182-2183 succeed; both API replicas match 40
+  runtime hashes and pass 26 isolated outbound/privacy cases without provider
+  calls or database writes. Fresh demo start/answer HTTP succeeds in 3.2/3.8
+  seconds, with two correctly attributed nonbillable usage rows. Devin's finding
+  is fixed and replied to in its original thread; CodeRabbit quota status is
+  explicitly acknowledged without claiming substantive review.
+- [ ] 2026-10-09T07:51:00Z: Accept answer quality with a separately configured real
+  Coze bot; mocked HTTP delivery must not be reported as real-bot acceptance.
+
+- [x] 2026-10-09T08:13:00Z: CodeRabbit's native SSE event finding is accepted:
+  six real-frame regressions fail before header handling. Recognize native error
+  headers and normalized failed events without forwarding response text; add
+  meaningful docstrings to touched test helpers. Final local learning acceptance
+  passes 2,874 cases, four subtests and one expected skip; full gates pass.
+  Latest sim/CI results and both
+  original-thread replies are tracked in PR #3062's acceptance discussion.
+
+## Surprises & Discoveries
+
+Coze has no system message role. Forwarding the host list unchanged would produce
+an invalid API request. Assistant history also needs `type=answer`, since the
+provider defaults to question. A labelled user reference message carries course
+context without claiming system authority. Existing arbitrary extra-body overrides
+and custom endpoints can intentionally own a different request contract.
+Devin review identified valid error-event echoes escaping through the host's
+existing exception warning. Three new regressions reproduce it; sanitize the
+adapter error text as well as malformed-response warnings. The pushed fix and
+2,868-case validation are recorded in [the original reply](https://github.com/ai-shifu/ai-shifu/pull/3062#discussion_r4227970818).
+The first real-storage test used an invalid response double; it was corrected to
+model the safe client's actual context-managed response rather than changing runtime.
+
+## Decision Log
+
+- Use native `additional_messages` for a resolved `/v3/chat` path, including
+  absolute URLs and a trailing slash. Keep the existing outbound SSRF policy.
+- Preserve exact strings, supported chat roles, historical duplicate questions and
+  the final actual query. Omit blank, nontext and unsupported-role messages.
+- Reserve current query and optional context inside the provider's 100-message
+  budget. Keep newest remaining history, without mutating the source list.
+- Preserve explicit additional-message overrides and bespoke endpoints; document
+  their context opt-out rather than break existing custom integrations.
+- Keep provider conversation/history configuration unchanged. Fresh outbound
+  snapshots do not erase remote bot history. No local memory writes or fallback
+  routing changes are included. Workflow and Volc remain separate work.
+- Stop logging malformed provider contents now that replies may echo course notes.
+
+CodeRabbit also caught failure events in separate SSE header lines. The official
+API places event names outside the JSON body, so JSON-only tests missed that
+boundary. Check native failure headers before decoding their data, retaining
+partial-answer behavior and data-only gateway compatibility. Do not expand this
+fix into a separate success-frame deduplication or tool-event filtering change.
+
+## Outcomes & Retrospective
+
+Nine regression cases fail against the previous adapter. Final local learning
+acceptance passes 2,868 cases and four subtests, with one expected skip. Full
+repository gates and final sim delivery/privacy plus normal HTTP acceptance pass.
+Technical CI status and subsequent automated reviews are recorded in PR #3062;
+CodeRabbit's quota notice is not substantive approval. Real-bot answer quality
+remains separately tracked above.
+
+## Context and Orientation
+
+`follow_up_context.py` owns scoped memory and anchor history. `handle_input_ask.py`
+appends the current formatted query and routes provider messages to the adapter.
+Only `ask_provider_adapters/coze_adapter.py` changes runtime behavior. Existing
+safe-client, SSE chunks, request context, credentials and host transaction remain.
+
+## Plan of Work
+
+Prove the request loss, map to the documented native protocol, test provider
+limits and compatibility, then run learning regressions and deploy the same tree
+to sim. Preserve human control of main merges and record external acceptance limits.
+
+## Concrete Steps
+
+1. Run adapter, course-memory and learning tests from `src/api` in the shared conda environment.
+2. Run developer-tool checks and `lefthook run pre-commit --all-files` at repository root.
+3. Push the feature branch to origin and create a main PR. Integrate into sim using
+   the existing local sim branch, preserving unrelated sim changes.
+4. Check exact runtime hashes on both sim API replicas, execute isolated outbound
+   probes without provider calls/database writes, and smoke normal HTTP with a new learner.
+5. Read reviews, inline comments and issue comments; reply to each independent opinion.
+
+## Validation and Acceptance
+
+Actual outbound JSON must contain scoped current memory, selected context, prior
+questions/answers and exactly one trailing current query. Real storage updates
+and deletion affect fresh requests, while other courses/users never appear.
+Overlong history stays within 100 messages, native roles/types remain valid,
+custom contracts remain compatible, and malformed echoes never enter warning logs.
+Existing timeouts, HTTP/SSRF errors and streaming behavior must remain green.
+A mocked transport proves delivery, not model answer quality or remote deletion.
+
+## Idempotence and Recovery
+
+No migration, dependency or environment change. Repeated requests build fresh
+local snapshots without adapter persistence. Roll back the image/commit through
+the existing deployment flow if necessary; retain 1.0 rollback code. Sim shares
+production data: only isolated offline probes and newly created demo learners
+are allowed for validation, with no existing-user resets or shared-course edits.
+
+## Interfaces and Dependencies
+
+The existing adapter signature and runtime DTO are unchanged. Use Python's JSON
+and URL parsing plus the existing safe outbound client. The documented Coze v3
+chat API is the only new delivery contract; custom overrides remain explicit.

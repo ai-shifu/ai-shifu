@@ -1,5 +1,6 @@
 """Exercise learner-input pause, moderation, validation and access-gate transitions."""
 
+from contextlib import nullcontext
 from itertools import count
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -257,6 +258,7 @@ def phase(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     monkeypatch.setattr(runtime, "check_text_with_llm_response", moderation)
     memory = Mock()
     monkeypatch.setattr(runtime, "stage_memory", memory)
+    monkeypatch.setattr(runtime, "unit_of_work", nullcontext)
     return SimpleNamespace(
         context=context,
         state=state,
@@ -269,9 +271,14 @@ def phase(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
 
 
 @pytest.mark.parametrize("outcome", ["complete", "disconnect", "provider-failure"])
+@pytest.mark.parametrize("agent_memory", [False, True])
 def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
-    phase: SimpleNamespace, monkeypatch: pytest.MonkeyPatch, outcome: str
+    phase: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: str,
+    agent_memory: bool,
 ) -> None:
+    """Resolve course notes once at dispatch and preserve completion/error ownership."""
     context = phase.context
     context._input_type = "ask"
     context._input = {"input": ["First question", "Follow-up"]}
@@ -283,15 +290,29 @@ def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
     context._anchor_element_bid = "source-element"
     create_tts = Mock()
     monkeypatch.setattr(context, "_try_create_tts_processor", create_tts)
+    monkeypatch.setattr(context, "get_system_prompt", lambda _bid: "Course rules")
+    from flaskr.service.learn.agent import routing
+
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: agent_memory)
+    memory_loader = Mock(
+        return_value=SimpleNamespace(as_variables=lambda: {"name": "learner"})
+    )
+    monkeypatch.setattr(runtime, "load_memory", memory_loader)
+    from flaskr.service.learn import follow_up_memory_writer
+    from flaskr.service.learn.memory import VariableMemoryUpdate
+
+    stage_follow_up = Mock()
     monkeypatch.setattr(
-        runtime,
-        "load_memory",
-        lambda *_args: SimpleNamespace(as_variables=lambda: {"name": "learner"}),
+        follow_up_memory_writer, "stage_follow_up_memory", stage_follow_up
     )
     first = SimpleNamespace(type=GeneratedType.CONTENT, content="Answer")
     last = SimpleNamespace(type=GeneratedType.BREAK, content="")
 
     def source() -> object:
+        if agent_memory:
+            ask.call_args.kwargs["memory_patch"].variables = [
+                VariableMemoryUpdate("note", "accepted")
+            ]
         yield first
         if outcome == "provider-failure":
             message = "provider unavailable"
@@ -318,7 +339,19 @@ def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
     assert ask.call_args.args[4] == "First question,Follow-up"
     assert ask.call_args.kwargs["anchor_element_bid"] == "source-element"
     assert ask.call_args.kwargs["runtime_profiles"] == {"name": "learner"}
+    assert (
+        memory_loader.call_args.kwargs.get("include_course_variables", False)
+        is agent_memory
+    )
     assert context._last_position == 0
+    if outcome == "complete" and agent_memory:
+        stage_follow_up.assert_called_once()
+        assert (
+            stage_follow_up.call_args.kwargs["patch"].variables[0].value == "accepted"
+        )
+    else:
+        stage_follow_up.assert_not_called()
+    assert (ask.call_args.kwargs["memory_patch"] is not None) is agent_memory
 
 
 @pytest.mark.parametrize("gate", ["_sys_pay", "_sys_login"])
@@ -524,7 +557,7 @@ def test_validated_variables_stage_memory_emit_updates_then_advance(
     assert [
         (item.key, item.value, item.definition_bid) for item in update.variables
     ] == [("choice", "A,2", "definition"), ("empty", "", ""), ("count", "3", "")]
-    phase.context._recorder.update_progress_pointer.assert_not_called()
+    phase.context._recorder.update_progress_pointer.assert_called_once()
     events, advanced = _consume(stream)
     assert advanced is True
     assert [event.content.variable_value for event in events] == ["", "3"]
@@ -700,3 +733,32 @@ def test_access_exception_becomes_gate_and_feedback_without_advancing(
         gate in phase.context._emit_current_progress_gate_interaction.call_args.args[0]
     )
     assert phase.context.has_next() is False
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+def test_readonly_reference_answers_keep_history_and_advance_without_false_updates(
+    phase: SimpleNamespace,
+    mixed: bool,
+) -> None:
+    key = "course:" + "a" * 32 + ":goal"
+    variables = {key: "New source goal", **({"choice": "A"} if mixed else {})}
+    phase.state.mdflow_context.process.return_value = SimpleNamespace(
+        metadata=None, variables=variables
+    )
+    block = LearnGeneratedBlock(
+        generated_block_bid="block", generated_content="The learner's full answer"
+    )
+    events, advanced = _consume(
+        phase.context._phase_validate_input_and_advance(
+            phase.app, phase.state, block, {}
+        )
+    )
+    patch = phase.memory.call_args.args[-1]
+    assert [item.key for item in patch.variables] == (["choice"] if mixed else [])
+    assert [event.content.variable_name for event in events] == (
+        ["choice"] if mixed else []
+    )
+    assert all(event.type == GeneratedType.VARIABLE_UPDATE for event in events)
+    assert block.generated_content == "The learner's full answer"
+    assert advanced is True
+    phase.context._recorder.update_progress_pointer.assert_called_once()

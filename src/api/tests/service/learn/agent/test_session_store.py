@@ -50,11 +50,14 @@ def store(app: object, session: Session) -> None:
 
 def test_a_session_survives_a_round_trip(app: object) -> None:
     with app.app_context():
-        original = a_session()
+        original = a_session(
+            teaching_summaries={"policy:source": "Historical overview"}
+        )
         store(app, original)
         loaded = session_store.load_agent_session(app, USER, OUTLINE)
 
     assert loaded is not None
+    assert loaded.teaching_summaries == original.teaching_summaries
     assert loaded.id == original.id
     assert loaded.memory["feeling"] == "good"
     assert loaded.turn == 3

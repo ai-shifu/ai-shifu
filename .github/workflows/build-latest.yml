@@ -16,6 +16,10 @@ env:
 jobs:
   build-latest:
     name: Build latest (${{ matrix.service }})
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -25,8 +29,8 @@ jobs:
             default-image: ai-shifu-api
             dockerfile: src/api/Dockerfile
           - service: web
-            image-name: AI_SHIFU_COOK_WEB_IMAGE_NAME
-            default-image: ai-shifu-cook-web
+            image-name: AI_SHIFU_WEB_IMAGE_NAME
+            default-image: ai-shifu-web
             dockerfile: src/web/Dockerfile
     uses: ./.github/workflows/build-docker-image.yml
     secrets: inherit
@@ -35,6 +39,7 @@ jobs:
       image-name: ${{ vars[matrix.image-name] || matrix.default-image }}
       dockerfile: ${{ matrix.dockerfile }}
       push-images: ${{ (vars.PUSH_LATEST_IMAGES || 'true') == 'true' }}
+      publish-ghcr: true
       tags: |
         type=raw,value=${{ github.sha }}
         type=raw,value=latest

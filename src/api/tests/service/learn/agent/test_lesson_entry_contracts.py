@@ -9,13 +9,18 @@ import pytest
 from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.learn.agent import gateway_model as gateway_module
 from flaskr.service.learn.agent import lesson_entry as entry
 from flaskr.service.learn.agent.run_agent import TurnOutcome
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 from flaskr.service.learn.llmsetting import LLMSettings
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
@@ -25,6 +30,80 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
+from pydantic_ai.models import ModelRequestParameters
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
+def test_all_lesson_models_send_the_current_attempt_and_block_to_the_gateway(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    learning_mode: str,
+) -> None:
+    """Automatic continuation reuses models but must snapshot each opened turn."""
+    _entry_with_runner(monkeypatch)
+    models: list = []
+
+    def model(*args: object, **kwargs: object) -> object:
+        instance = gateway_module.GatewayModel(*args, **kwargs)
+        models.append(instance)
+        return instance
+
+    monkeypatch.setattr(entry, "GatewayModel", model)
+    requests: list[dict] = []
+
+    def chat(**kwargs: object) -> object:
+        requests.append(kwargs)
+        yield from ()
+
+    monkeypatch.setattr(gateway_module, "chat_llm", chat)
+    turn = 0
+    attempt = 0
+
+    def run(*_args: object, **kwargs: object) -> object:
+        nonlocal turn
+        turn += 1
+        if callback := kwargs.get("on_turn_opened"):
+            callback(f"attempt-{attempt}", f"block-{attempt}-{turn}")
+        for instance in models:
+            list(instance._stream([], ModelRequestParameters()))
+        yield from ()
+        return TurnOutcome(reason="end" if turn == 1 else "interaction", taught=True)
+
+    monkeypatch.setattr(entry, "run_agent_lesson", run)
+    for attempt in (1, 2):
+        models.clear()
+        turn = 0
+        list(
+            entry.agent_lesson_events(
+                app,
+                user_bid=f"learner-{attempt}",
+                shifu_bid="course",
+                outline_bid="lesson",
+                preview_mode=preview_mode,
+                learning_mode=learning_mode,
+            )
+        )
+    assert len(requests) == 12
+    for index, request in enumerate(requests):
+        attempt = index // 6 + 1
+        assert request["usage_context"] == UsageContext(
+            user_bid=f"learner-{attempt}",
+            shifu_bid="course",
+            outline_item_bid="lesson",
+            progress_record_bid=f"attempt-{attempt}",
+            generated_block_bid=f"block-{attempt}-{index % 6 // 3 + 1}",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW
+            if preview_mode
+            else BILL_USAGE_SCENE_PROD,
+            learning_mode=learning_mode,
+        )
+    assert [r["generation_name"] for r in requests[:3]] == [
+        "agent_lesson",
+        "agent_teaching_summary",
+        "agent_memory_admission",
+    ]
 
 
 @pytest.fixture
@@ -170,9 +249,25 @@ def test_paid_agent_lesson_requires_the_learners_own_successful_active_order(
                 )
 
 
+@pytest.mark.parametrize(
+    ("listen", "learning_mode"),
+    [
+        (False, None),
+        (True, None),
+        (False, "read"),
+        (True, "listen"),
+        (False, "classroom"),
+    ],
+)
+@pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize("termination", ["completed", "error", "disconnected"])
 def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
-    app: object, monkeypatch: object, termination: str
+    app: object,
+    monkeypatch: object,
+    termination: str,
+    listen: bool,
+    preview_mode: bool,
+    learning_mode: str | None,
 ) -> None:
     settings = LLMSettings(
         model="2",
@@ -191,6 +286,10 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     finalize = Mock()
     monkeypatch.setattr(entry, "finalize_langfuse_trace", finalize)
     gateway = Mock(return_value=object())
+    summary = Mock(return_value=object())
+    monkeypatch.setattr(entry, "make_teaching_summarizer", summary)
+    request_check = Mock(return_value=object())
+    monkeypatch.setattr(entry, "make_request_check", request_check)
     engine = Mock(return_value=object())
     monkeypatch.setattr(entry, "GatewayModel", gateway)
     monkeypatch.setattr(entry, "Engine", engine)
@@ -215,8 +314,9 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         shifu_bid="course",
         outline_bid="lesson",
         user_input={"choice": ["a"]},
-        listen=True,
-        preview_mode=True,
+        listen=listen,
+        learning_mode=learning_mode,
+        preview_mode=preview_mode,
         heartbeat_interval=0.1,
     )
     assert next(stream) is event
@@ -233,24 +333,88 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         root_span=span,
         root_span_payload={"metadata": {"end_reason": termination}},
     )
-    gateway.assert_called_once_with(
+    gateway.assert_any_call(
         app,
         "2",
         user_id="learner",
         span=span,
         usage_metadata=settings.usage_metadata,
-        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        usage_context=UsageContext(
+            user_bid="learner",
+            shifu_bid="course",
+            outline_item_bid="lesson",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW
+            if preview_mode
+            else BILL_USAGE_SCENE_PROD,
+            learning_mode=learning_mode or ("listen" if listen else "read"),
+        ),
     )
+    assert gateway.call_count == 3
+    summary.assert_called_once_with(gateway.return_value)
+    gateway.assert_any_call(
+        app,
+        "2",
+        user_id="learner",
+        span=span,
+        generation_name="agent_teaching_summary",
+        input_budget_bytes=40_960,
+        retry_deadline_seconds=8,
+        timeout=8,
+        num_retries=0,
+        usage_metadata=settings.usage_metadata,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        usage_context=UsageContext(
+            user_bid="learner",
+            shifu_bid="course",
+            outline_item_bid="lesson",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW
+            if preview_mode
+            else BILL_USAGE_SCENE_PROD,
+            learning_mode=learning_mode or ("listen" if listen else "read"),
+        ),
+    )
+    gateway.assert_any_call(
+        app,
+        "2",
+        user_id="learner",
+        span=span,
+        generation_name="agent_memory_admission",
+        usage_metadata=settings.usage_metadata,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        usage_context=UsageContext(
+            user_bid="learner",
+            shifu_bid="course",
+            outline_item_bid="lesson",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW
+            if preview_mode
+            else BILL_USAGE_SCENE_PROD,
+            learning_mode=learning_mode or ("listen" if listen else "read"),
+        ),
+    )
+    request_check.assert_called_once_with(gateway.return_value)
     engine.assert_called_once_with(
         gateway.return_value,
         memory_store=None,
+        memory_admission=True,
+        memory_context_limit=32_768,
+        memory_recall=True,
+        recall_history_compaction=True,
+        teaching_history_compaction=True,
+        exercise_statistics=True,
+        teaching_summarizer=summary.return_value,
+        memory_reserved_keys=entry.get_global_profile_keys(),
+        memory_readonly_prefixes=("course:", "share:"),
+        memory_request_check=request_check.return_value,
         model_settings={"temperature": 0.25},
         # Without it, a question the controls cannot carry reaches the learner with no controls.
         interaction_check=entry.unrenderable_reason,
         # Without it, the model pauses the lesson where the author wrote no button.
         pauses_from_notation=True,
     )
-    assert runner.call_args.kwargs == {
+    runner_kwargs = dict(runner.call_args.kwargs)
+    assert callable(runner_kwargs.pop("on_turn_opened"))
+    assert runner_kwargs == {
         "engine": engine.return_value,
         "script": "script",
         "teaching_brief": "",
@@ -258,9 +422,9 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "shifu_bid": "course",
         "outline_bid": "lesson",
         "user_input": {"choice": ["a"]},
-        "listen": True,
-        "preview_mode": True,
-        "shifu_model": DraftShifu,
+        "listen": listen,
+        "preview_mode": preview_mode,
+        "shifu_model": DraftShifu if preview_mode else PublishedShifu,
         "heartbeat_interval": 0.1,
         "rewind": None,
     }
@@ -276,6 +440,8 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     )
     monkeypatch.setattr(entry, "finalize_langfuse_trace", Mock())
     monkeypatch.setattr(entry, "GatewayModel", Mock(return_value=object()))
+    monkeypatch.setattr(entry, "make_request_check", Mock(return_value=object()))
+    monkeypatch.setattr(entry, "make_teaching_summarizer", Mock(return_value=object()))
     monkeypatch.setattr(entry, "Engine", Mock(return_value=object()))
     runner = Mock(side_effect=lambda *_a, **_kw: iter(()))
     monkeypatch.setattr(entry, "run_agent_lesson", runner)
@@ -315,6 +481,33 @@ def test_failed_engine_turn_surfaces_an_error_instead_of_ending_silently(
                 outline_bid="lesson",
             )
         )
+
+
+def test_input_budget_failure_uses_localized_error_after_the_saved_turn(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    runner = _entry_with_runner(monkeypatch)
+
+    def failed_turn(*_args: object, **_kwargs: object) -> object:
+        yield from ()
+        return TurnOutcome(
+            reason=None, taught=False, error_code="input_budget_exceeded"
+        )
+
+    runner.side_effect = failed_turn
+    with pytest.raises(AppError) as exc:
+        list(
+            entry.agent_lesson_events(
+                app,
+                user_bid="learner",
+                shifu_bid="course",
+                outline_bid="lesson",
+            )
+        )
+    assert exc.value.code == ERROR_CODE["server.learn.agentInputBudgetExceeded"]
+    assert "server.learn.agentInputBudgetExceeded" not in str(exc.value)
+    assert runner.call_count == 1
 
 
 def test_going_back_hands_the_turn_the_plan_for_where_it_went_back_to(

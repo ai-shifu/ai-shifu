@@ -69,10 +69,13 @@ def checkpoint_of(session: Session) -> dict[str, Any]:
     return {
         "messages": len(session.messages),
         "memory": state["memory"],
+        "answer_hashes": state.get("answer_hashes", {}),
         "pending": state["pending"],
         "answers": state["answers"],
+        "request_inputs": state.get("request_inputs", []),
         "turn": state["turn"],
         "finished": state["finished"],
+        "interrupted": state.get("interrupted", False),
     }
 
 
@@ -89,17 +92,28 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
         memory=checkpoint.get("memory") or {},
         pending=checkpoint.get("pending") or [],
         answers=checkpoint.get("answers") or {},
+        request_inputs=checkpoint.get("request_inputs") or [],
         turn=int(checkpoint.get("turn") or 0),
         finished=bool(checkpoint.get("finished", False)),
+        interrupted=bool(checkpoint.get("interrupted", False)),
     )
     state["messages"] = state["messages"][: int(checkpoint.get("messages") or 0)]
+    if "answer_hashes" in checkpoint:
+        state["answer_hashes"] = checkpoint["answer_hashes"]
+    else:
+        state.pop("answer_hashes", None)
     restored = SessionClass.from_dict(state)
+    # Derivatives may describe discarded future teaching. Rebuild only from restored evidence.
+    session.teaching_summaries.clear()
     session.messages = restored.messages
     session.memory = restored.memory
+    session.answer_hashes = restored.answer_hashes
     session.pending = restored.pending
     session.answers = restored.answers
+    session.request_inputs = restored.request_inputs
     session.turn = restored.turn
     session.finished = restored.finished
+    session.interrupted = restored.interrupted
 
 
 def turn_record(checkpoint: dict[str, Any], values: list[str]) -> str:
@@ -121,6 +135,23 @@ def _read_turn_record(block: LearnGeneratedBlock) -> dict[str, Any] | None:
     if not isinstance(record.get("checkpoint"), dict):
         return None
     return record
+
+
+def read_turn_learner_values(block: LearnGeneratedBlock) -> list[str]:
+    """Project only submitted learner text from a recognized turn record.
+
+    Follow-up history uses this durable input evidence without reading agent
+    sessions or exposing checkpoint memory, pending tools or configuration.
+    """
+    record = _read_turn_record(block)
+    if record is None:
+        return []
+    values = record.get("values")
+    if not isinstance(values, list) or any(
+        not isinstance(value, str) for value in values
+    ):
+        return []
+    return [value for value in values if value.strip()]
 
 
 def _anchor_block(

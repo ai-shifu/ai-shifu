@@ -91,6 +91,7 @@
   "server.profile.profileOnboardingConfigBusy": 4017,
   "server.learn.liveFollowUpCapacityExceeded": 4018,
   "server.learn.debugSessionExpired": 4019,
+  "server.learn.agentInputBudgetExceeded": 4020,
   "server.pay.payChannelNotSupport": 5001,
   "server.pay.wechatOpenIdRequired": 5002,
   "server.billing.creditInsufficient": 7101,

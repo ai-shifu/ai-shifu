@@ -473,15 +473,20 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
     )
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(
-        follow_up_context_module,
-        "load_memory",
-        lambda *_args: MemorySnapshot(
+    def fake_load_memory(*args: object, **kwargs: object) -> MemorySnapshot:
+        captured["memory_args"] = args
+        captured["memory_kwargs"] = kwargs
+        return MemorySnapshot(
             variables={
                 "sys_user_nickname": "Alex",
                 "sys_user_language": "en-US",
             }
-        ),
+        )
+
+    monkeypatch.setattr(
+        follow_up_context_module,
+        "load_memory",
+        fake_load_memory,
     )
 
     def fake_build_course_prompt(
@@ -549,6 +554,8 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
         fallback_system_prompt=fallback_system_prompt,
     )
 
+    assert captured["memory_args"] == (app, "user-id", "shifu")
+    assert captured["memory_kwargs"] == {"reference_text": "COURSE TEMPLATE"}
     assert captured["prompt"] == "COURSE TEMPLATE"
     assert captured["variables"] == {
         "sys_user_nickname": "Alex",

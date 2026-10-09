@@ -67,9 +67,11 @@ def test_a_session_is_restored_to_the_state_its_checkpoint_recorded() -> None:
     session.answers = {"q1": "Learner chose: Left"}
     session.turn = 3
     session.finished = True
+    session.teaching_summaries = {"future": "Future teaching overview"}
 
     rewind.restore(session, checkpoint)
 
+    assert session.teaching_summaries == {}
     assert len(session.messages) == 2
     assert session.memory == {"name": "Ada"}
     assert [p.tool_call_id for p in session.pending] == ["q1"]
@@ -87,6 +89,18 @@ def test_a_turn_record_is_json_and_keeps_the_values_the_turn_ran_with() -> None:
     assert data["version"] == 1
     assert data["values"] == ["x"]
     assert data["checkpoint"]["messages"] == 2
+
+
+def test_answer_ownership_does_not_leak_back_into_an_earlier_checkpoint() -> None:
+    """An identical future answer must not unlock a question before it was answered."""
+    session = _session_waiting_on_a_question()
+    session.memory["goal"] = "Seeded value"
+    checkpoint = rewind.checkpoint_of(session)
+    session.record_answer("goal", "Seeded value")
+    assert session.answered_memory_keys() == {"goal"}
+    rewind.restore(session, checkpoint)
+    assert session.memory["goal"] == "Seeded value"
+    assert not session.answered_memory_keys()
 
 
 # --- planning a rewind --------------------------------------------------------------------
@@ -322,3 +336,42 @@ def test_retiring_touches_only_the_superseded_rows(app: object) -> None:
 
     assert blocks == {"B1": 1, "B2": 0, "ASK": 1, "B3": 0}
     assert elements == {"B1": 1, "B2": 0, "ASK": 1, "B3": 0}
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_rewind_restores_pending_request_evidence_without_retaining_future_consent(
+    legacy: bool,
+) -> None:
+    """An old checkpoint has no evidence; a new checkpoint has only its own pending input."""
+    session = _session_waiting_on_a_question()
+    session.request_inputs = ["Please remember my pace."]
+    checkpoint = json.loads(json.dumps(rewind.checkpoint_of(session)))
+    if legacy:
+        checkpoint.pop("request_inputs")
+    session.request_inputs = ["Please remember a later fact."]
+    rewind.restore(session, checkpoint)
+    assert session.request_inputs == ([] if legacy else ["Please remember my pace."])
+    stored = session.to_dict()
+    stored.pop("request_inputs")
+    assert Session.from_dict(stored).request_inputs == []
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_rewind_restores_interrupted_teaching_state(interrupted: bool) -> None:
+    """Rewinding restores the retry guard together with its historical teaching."""
+    session = _session_waiting_on_a_question()
+    session.interrupted = interrupted
+    checkpoint = json.loads(json.dumps(rewind.checkpoint_of(session)))
+    session.interrupted = not interrupted
+    rewind.restore(session, checkpoint)
+    assert session.interrupted is interrupted
+
+
+def test_old_checkpoint_does_not_inherit_a_future_interruption() -> None:
+    """Checkpoints written before the additive flag default to uninterrupted."""
+    session = _session_waiting_on_a_question()
+    checkpoint = rewind.checkpoint_of(session)
+    checkpoint.pop("interrupted")
+    session.interrupted = True
+    rewind.restore(session, checkpoint)
+    assert not session.interrupted

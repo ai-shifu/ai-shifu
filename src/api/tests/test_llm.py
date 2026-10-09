@@ -2477,6 +2477,62 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     assert [resp.result for resp in responses] == ["你好"]
 
 
+@pytest.mark.parametrize("llm_method", ["invoke_llm", "chat_llm"])
+def test_llm_content_and_credentials_stay_out_of_application_logs(
+    monkeypatch: object, app: object, llm_method: str
+) -> None:
+    """Preserve provider and trace data without logging stored notes or credentials."""
+    note = "private-current-course-note-8729"
+    credential = "private-provider-key-3841"
+    logged = []
+    outbound = {}
+    usage = {}
+    monkeypatch.setattr(app.logger, "info", lambda *args: logged.append(args))
+
+    def complete(**kwargs: object) -> object:
+        outbound.update(kwargs)
+        return iter([FakeResponse("chunk-1", content=note, finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: (
+            {"api_key": credential, "custom_llm_provider": "openai"},
+            "gpt-test",
+            "openai",
+        ),
+    )
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
+    )
+    span = DummySpan()
+    content = (
+        {"message": note, "system": "Course facts"}
+        if llm_method == "invoke_llm"
+        else {"messages": [{"role": "system", "content": note}]}
+    )
+    responses = list(
+        getattr(llm, llm_method)(
+            app=app,
+            user_id="user-1",
+            span=span,
+            model="gpt-test",
+            **content,
+        )
+    )
+    assert [response.result for response in responses] == [note]
+    assert note in str(outbound["messages"])
+    assert outbound["api_key"] == credential
+    assert note in str(span.generation_args["input"])
+    assert span.end_args["output"] == note
+    assert usage["extra"]["output_text"] == note
+    assert note not in str(logged)
+    assert credential not in str(logged)
+    assert "message_count" in str(logged)
+    assert "response_chars" in str(logged)
+
+
 def test_chat_llm_streams(monkeypatch: object, app: object) -> None:
     captured_kwargs = {}
     captured_usage = {}
@@ -4252,3 +4308,454 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
         for key in metadata:
             if key.startswith("model_") or key == "resolved_model":
                 assert span.end_args["metadata"][key] == metadata[key]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "phase",
+    [
+        "late_chunk",
+        "late_connection",
+        "eof",
+        "close",
+        "disconnect",
+        "provider_error",
+        "normal",
+    ],
+)
+async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retries(
+    monkeypatch: pytest.MonkeyPatch, app: object, phase: str
+) -> None:
+    """Exercise shared chat accounting, not a fake chat_llm replacement."""
+    import asyncio
+
+    from flaskr.service.learn.agent import gateway_model as gateway
+    from pydantic_ai.models import ModelRequestParameters
+
+    clock = [0.0]
+    records = []
+    provider_calls = []
+    provider_closed = []
+    span = DummySpan()
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(gateway.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(gateway, "turn_stop_requested", lambda: phase == "disconnect")
+    monkeypatch.setattr(
+        llm, "resolve_selection", lambda model, metadata: (model, metadata)
+    )
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "test", "test"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: records.append(kwargs)
+    )
+
+    def stream(*_args: object, **_kwargs: object) -> object:
+        provider_calls.append(True)
+        try:
+            if phase == "late_connection":
+                clock[0] = 9
+                message = "connection failed after deadline"
+                raise _FakeAPIConnectionError(message)
+            if phase == "provider_error":
+                message = "non-retryable provider failure"
+                raise RuntimeError(message)
+            if phase == "late_chunk":
+                clock[0] = 9
+            yield FakeResponse(
+                "summary",
+                content="Partial historical overview",
+                usage=SimpleNamespace(
+                    prompt_tokens=7, completion_tokens=3, total_tokens=10
+                ),
+            )
+            if phase == "eof":
+                clock[0] = 9
+        finally:
+            provider_closed.append(True)
+
+    monkeypatch.setattr(llm, "_stream_litellm_completion", stream)
+    if phase == "close":
+        chunks = llm.chat_llm(
+            app=app,
+            user_id="internal",
+            span=span,
+            model="test",
+            messages=[],
+            generation_name="agent_teaching_summary",
+        )
+        next(chunks)
+        chunks.close()
+    else:
+        model = gateway.GatewayModel(
+            app,
+            "test",
+            user_id="internal",
+            span=span,
+            generation_name="agent_teaching_summary",
+            retry_deadline_seconds=8,
+            timeout=8,
+            num_retries=0,
+        )
+        expected = (
+            asyncio.CancelledError
+            if phase == "disconnect"
+            else RuntimeError
+            if phase == "provider_error"
+            else TimeoutError
+        )
+        if phase == "normal":
+            await model.request([], None, ModelRequestParameters())
+        else:
+            with pytest.raises(expected):
+                await model.request([], None, ModelRequestParameters())
+    assert len(provider_calls) == (0 if phase == "disconnect" else 1)
+    assert provider_closed == provider_calls
+    assert len(records) == 1
+    assert records[0]["status"] == (0 if phase == "normal" else 1)
+    assert records[0]["total"] == (
+        10 if phase in {"late_chunk", "eof", "close", "normal"} else 0
+    )
+    assert records[0]["extra"]["generation_name"] == "agent_teaching_summary"
+    assert span.end_args is not None
+    if phase != "normal":
+        assert records[0]["error_message"]
+        assert span.end_args["metadata"]["status"] == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("cache_fields", "expected", "billed"),
+    [
+        ({"input_cache": 40}, 40, 40),
+        ({"input_cache": 0}, 0, 0),
+        ({"prompt_tokens_details": {"cached_tokens": 30}}, 30, 30),
+        ({"input_tokens_details": SimpleNamespace(cached_tokens=20)}, 20, 20),
+        ({}, None, 0),
+        ({"input_cache": None}, None, 0),
+        ({"input_cache": True}, None, 1),
+        ({"input_cache": 1.5}, None, 1),
+        ({"input_cache": -1}, None, -1),
+        ({"input_cache": 101}, None, 101),
+    ],
+)
+async def test_real_chat_gateway_preserves_cache_observations_and_billing(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    cache_fields: dict[str, object],
+    expected: int | None,
+    billed: int,
+) -> None:
+    """Exercise provider normalization through chat_llm and the real agent adapter."""
+    from flaskr.service.learn.agent import gateway_model as gateway
+    from pydantic_ai.models import ModelRequestParameters
+
+    _use_fake_provider(monkeypatch)
+    records = []
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: records.append(kwargs)
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *_args, **_kwargs: iter(
+            [
+                FakeResponse("cache", content="Explanation."),
+                FakeResponse("cache", finish_reason="stop"),
+                FakeResponse(
+                    "cache",
+                    usage=SimpleNamespace(
+                        prompt_tokens=100,
+                        completion_tokens=3,
+                        total_tokens=103,
+                        **cache_fields,
+                    ),
+                ),
+            ]
+        ),
+    )
+    model = gateway.GatewayModel(app, "gpt-test", user_id="internal", span=DummySpan())
+    with app.app_context():
+        response = await model.request([], None, ModelRequestParameters())
+    assert response.usage.input_tokens == 100
+    assert response.usage.output_tokens == 3
+    if expected is None:
+        assert "mdf2_cache_reported_requests" not in response.usage.details
+        assert response.usage.cache_read_tokens == 0
+    else:
+        assert response.usage.cache_read_tokens == expected
+        assert response.usage.details["mdf2_cache_reported_requests"] == 1
+        assert response.usage.details["mdf2_cache_reported_input_tokens"] == 100
+        assert response.usage.details["mdf2_cache_reported_read_tokens"] == expected
+    assert len(records) == 1
+    assert records[0]["input"] == 100
+    assert records[0]["output"] == 3
+    assert records[0]["total"] == 103
+    assert records[0]["input_cache"] == billed
+    assert records[0]["status"] == 0
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
+@pytest.mark.parametrize("course_table", ["draft", "published"])
+def test_agent_entry_attributes_all_model_usage_to_the_course(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    preview_mode: bool,
+    learning_mode: str,
+    course_table: str,
+) -> None:
+    """Exercise entry, all three real adapters, shared chat normalization and persistence."""
+    import asyncio
+    import uuid
+
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.billing import ownership
+    from flaskr.service.learn.agent import gateway_model, lesson_entry
+    from flaskr.service.learn.llmsetting import LLMSettings
+    from flaskr.service.metering import recorder
+    from flaskr.service.metering.models import BillUsageRecord
+    from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+    from pydantic_ai.models import ModelRequestParameters
+
+    _use_fake_provider(monkeypatch)
+    identity = uuid.uuid4().hex
+    monkeypatch.setattr(
+        lesson_entry,
+        "_resolve",
+        lambda *_args, **_kwargs: (
+            "script",
+            "",
+            LLMSettings(model="gpt-test", temperature=0.25),
+        ),
+    )
+    monkeypatch.setattr(
+        lesson_entry,
+        "create_trace_with_root_span",
+        lambda **_kwargs: (object(), DummySpan()),
+    )
+    monkeypatch.setattr(lesson_entry, "get_langfuse_client", lambda: None)
+    monkeypatch.setattr(lesson_entry, "finalize_langfuse_trace", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        recorder, "_enqueue_usage_settlement", lambda *_args, **_kw: None
+    )
+    monkeypatch.setattr(llm, "get_request_id", lambda: "course-usage-request")
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *_args, **_kwargs: iter(
+            [
+                FakeResponse("course-usage", content="Explanation."),
+                FakeResponse("course-usage", finish_reason="stop"),
+                FakeResponse(
+                    "course-usage",
+                    usage=SimpleNamespace(
+                        prompt_tokens=100,
+                        completion_tokens=3,
+                        total_tokens=103,
+                        input_cache=40,
+                    ),
+                ),
+            ]
+        ),
+    )
+    models = []
+
+    def gateway(*args: object, **kwargs: object) -> object:
+        model = gateway_model.GatewayModel(*args, **kwargs)
+        models.append(model)
+        return model
+
+    monkeypatch.setattr(lesson_entry, "GatewayModel", gateway)
+
+    def run(*_args: object, **_kwargs: object) -> object:
+        for model in models:
+            response = asyncio.run(model.request([], None, ModelRequestParameters()))
+            assert response.usage.cache_read_tokens == 40
+        yield from ()
+
+    monkeypatch.setattr(lesson_entry, "run_agent_lesson", run)
+    with app.app_context():
+        course_bid = uuid.uuid4().hex
+        owner_bid = uuid.uuid4().hex
+        table = DraftShifu if course_table == "draft" else PublishedShifu
+        with unit_of_work():
+            db.session.add(table(shifu_bid=course_bid, created_user_bid=owner_bid))
+        assert (
+            list(
+                lesson_entry.agent_lesson_events(
+                    app,
+                    user_bid=identity,
+                    shifu_bid=course_bid,
+                    outline_bid="course-usage-lesson",
+                    preview_mode=preview_mode,
+                    listen=learning_mode == "listen",
+                    learning_mode=learning_mode,
+                )
+            )
+            == []
+        )
+        rows = BillUsageRecord.query.filter_by(user_bid=identity).all()
+        assert len(rows) == 3
+        assert {row.extra["generation_name"] for row in rows} == {
+            "agent_lesson",
+            "agent_teaching_summary",
+            "agent_memory_admission",
+        }
+        for row in rows:
+            assert row.shifu_bid == course_bid
+            assert row.outline_item_bid == "course-usage-lesson"
+            assert row.usage_scene == (
+                BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+            )
+            assert row.extra["learning_mode"] == learning_mode
+            assert row.request_id == "course-usage-request"
+            assert (row.input, row.input_cache, row.output, row.total) == (
+                100,
+                40,
+                3,
+                103,
+            )
+            assert row.status == 0
+            assert ownership.resolve_usage_creator_bid(app, row) == owner_bid
+
+
+@pytest.mark.parametrize("demo", [False, True])
+def test_quality_cli_attributes_every_family_without_fabricating_classroom_records(
+    app: object, monkeypatch: pytest.MonkeyPatch, tmp_path: object, demo: bool
+) -> None:
+    """Keep evaluator costs scoped through real gateway persistence and demo policy."""
+    import uuid
+
+    import app as app_module
+    from flaskr.api import langfuse
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.billing import ownership
+    from flaskr.service.learn.agent import lesson_entry, routing
+    from flaskr.service.learn.llmsetting import LLMSettings
+    from flaskr.service.metering import recorder
+    from flaskr.service.metering.models import BillUsageRecord
+    from flaskr.service.shifu import demo_courses
+    from flaskr.service.shifu.models import PublishedShifu
+    from flaskr.service.user.repository import create_user_entity
+    from pydantic_ai.models import ModelRequestParameters
+
+    from scripts import evaluate_mdf2_memory as quality
+
+    _use_fake_provider(monkeypatch)
+    learner, course, lesson, owner = [uuid.uuid4().hex for _ in range(4)]
+    monkeypatch.setattr(app_module, "create_app", lambda **_kwargs: app)
+    monkeypatch.setattr(routing, "uses_agent_engine", lambda _course: True)
+    monkeypatch.setattr(
+        lesson_entry,
+        "_resolve",
+        lambda *_args, **_kwargs: (
+            "script",
+            "",
+            LLMSettings(model="gpt-test", temperature=0),
+        ),
+    )
+    monkeypatch.setattr(langfuse, "get_langfuse_client", lambda: None)
+    monkeypatch.setattr(
+        langfuse,
+        "create_trace_with_root_span",
+        lambda **_kwargs: (object(), DummySpan()),
+    )
+    monkeypatch.setattr(langfuse, "finalize_langfuse_trace", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        demo_courses,
+        "get_dynamic_config",
+        lambda key, default="": course if demo and key == "DEMO_SHIFU_BID" else default,
+    )
+    enqueued = []
+    monkeypatch.setattr(
+        recorder,
+        "_enqueue_usage_settlement",
+        lambda _app, *, usage_bid: enqueued.append(usage_bid),
+    )
+    monkeypatch.setattr(llm, "get_request_id", lambda: "evaluation-usage-request")
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *_args, **_kwargs: iter(
+            [
+                FakeResponse("evaluation-usage", content="Synthetic explanation."),
+                FakeResponse("evaluation-usage", finish_reason="stop"),
+                FakeResponse(
+                    "evaluation-usage",
+                    usage=SimpleNamespace(
+                        prompt_tokens=100,
+                        completion_tokens=3,
+                        total_tokens=103,
+                        input_cache=40,
+                    ),
+                ),
+            ]
+        ),
+    )
+    families = ["admission", "recall", "teaching", "exercise", "teaching_summary"]
+
+    async def evaluate(cases: list, factory: object, repeats: int) -> list:
+        assert repeats == 1
+        for family in families:
+            model = factory(family)
+            response = await model.request([], None, ModelRequestParameters())
+            assert response.usage.cache_read_tokens == 40
+        return [{"id": cases[0]["id"], "repetition": 1, "passed": True}]
+
+    monkeypatch.setattr(quality, "evaluate", evaluate)
+    with app.app_context(), unit_of_work():
+        create_user_entity(user_bid=learner, identify=learner, nickname="Evaluation")
+        db.session.add(PublishedShifu(shifu_bid=course, created_user_bid=owner))
+    output = tmp_path / "quality.json"
+    assert (
+        quality.main(
+            [
+                "--live",
+                "--course",
+                course,
+                "--lesson",
+                lesson,
+                "--learner",
+                learner,
+                "--case",
+                "ordinary-preference",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    with app.app_context():
+        rows = BillUsageRecord.query.filter_by(user_bid=learner).all()
+        assert len(rows) == len(families)
+        assert {row.extra["generation_name"] for row in rows} == {
+            f"agent_memory_quality_{family}" for family in families
+        }
+        for row in rows:
+            assert row.shifu_bid == course
+            assert row.outline_item_bid == lesson
+            assert row.progress_record_bid == row.generated_block_bid == ""
+            assert row.usage_scene == BILL_USAGE_SCENE_PROD
+            assert row.billable == int(not demo)
+            assert row.request_id == "evaluation-usage-request"
+            assert (row.input, row.input_cache, row.output, row.total) == (
+                100,
+                40,
+                3,
+                103,
+            )
+            assert row.status == 0
+            assert "learning_mode" not in row.extra
+            assert ownership.resolve_usage_creator_bid(app, row) == owner
+        assert set(enqueued) == ({row.usage_bid for row in rows} if not demo else set())
+    assert learner not in output.read_text()
+    assert course not in output.read_text()
+    assert lesson not in output.read_text()

@@ -120,6 +120,31 @@ class ManifestPublicationTests(unittest.TestCase):
             for call in run_docker.call_args_list
         )
 
+    def test_ghcr_and_both_mirrors_use_the_same_native_digests(self) -> None:
+        """Every destination must preflight both architectures before publication."""
+        self.metadata["tags"].append("ghcr.io/ai-shifu/web:latest")
+        with patch(
+            "merge_docker_manifests.docker", return_value=self.manifest()
+        ) as run_docker:
+            publish(self.directory, self.metadata)
+        calls = [call.args for call in run_docker.call_args_list]
+        assert [args[:2] for args in calls[:3]] == [("create", "--dry-run")] * 3
+        assert calls[3][:2] != ("create", "--dry-run")
+        for registry in (
+            "aishifu/web",
+            "registry/ai-shifu/web",
+            "ghcr.io/ai-shifu/web",
+        ):
+            writes = [
+                args
+                for args in calls
+                if args[:2] == ("create", "--tag") and f"{registry}:latest" in args
+            ]
+            assert len(writes) == 1
+            for digest in self.digests.values():
+                assert f"{registry}@{digest}" in writes[0]
+        assert ("inspect", "--raw", "ghcr.io/ai-shifu/web:latest") in calls
+
     def test_rejects_wrong_and_duplicate_manifest_platforms(self) -> None:
         """Successful CLI exit alone cannot prove a correct multi-platform image."""
         wrong = self.manifest({**self.digests, "linux/arm64": "sha256:" + "d" * 64})
