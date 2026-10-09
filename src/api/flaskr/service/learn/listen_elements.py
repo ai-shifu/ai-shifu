@@ -198,6 +198,18 @@ def get_listen_element_record(
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
     """Return listen element record."""
+    from flaskr.service.learn.agent.routing import uses_agent_engine
+
+    if preview_mode and uses_agent_engine(shifu_bid):
+        from flaskr.service.learn.agent.preview_history import get_preview_record
+
+        return get_preview_record(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            include_non_navigable=include_non_navigable,
+        )
     return _get_listen_element_record(
         app=app,
         shifu_bid=shifu_bid,

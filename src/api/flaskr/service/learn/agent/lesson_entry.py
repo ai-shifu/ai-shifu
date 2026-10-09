@@ -224,6 +224,7 @@ def agent_lesson_events(
     script_override: str | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, object] | None = None,
+    preview_generation: str | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Teach a lesson selected for 2.0 until it waits or ends, yielding the events 1.0 produces.
 
@@ -373,6 +374,8 @@ def agent_lesson_events(
                 if debug_store is not None
                 else {}
             )
+            if preview_generation is not None:
+                debug_options["preview_generation"] = preview_generation
             outcome = yield from run_agent_lesson(
                 app,
                 engine=engine,
