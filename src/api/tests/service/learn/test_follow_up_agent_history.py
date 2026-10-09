@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
 
     from flask import Flask
+    from flaskr.service.metering.api import UsageContext
     from pydantic_ai.messages import ModelMessage
     from pydantic_ai.models.function import AgentInfo
 
@@ -36,11 +37,14 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
     with app.app_context(), unit_of_work():
         create_user_entity(user_bid=identity, identify=identity, nickname="Learner")
     calls = 0
+    contexts: list[UsageContext] = []
 
     async def model(
         _messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         nonlocal calls
+        assert contexts
+        assert contexts[-1].progress_record_bid
         calls += 1
         yield f"Visible teaching {calls}.\n"
         yield {
@@ -51,7 +55,12 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
             )
         }
 
-    gateway = FunctionModel(stream_function=model)
+    class OfflineGateway(FunctionModel):
+        def set_usage_context(self, context: UsageContext) -> None:
+            """Keep host binding observable while replacing external provider calls."""
+            contexts.append(context)
+
+    gateway = OfflineGateway(stream_function=model)
     monkeypatch.setattr(lesson_entry, "GatewayModel", lambda *_a, **_k: gateway)
     monkeypatch.setattr(
         lesson_entry,
@@ -96,6 +105,8 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
                 generated_block_bid=contents[-1].generated_block_bid,
             ).one()
             assert block.type == BLOCK_TYPE_MDCONTENT_VALUE
+            assert contexts[-1].progress_record_bid == block.progress_record_bid
+            assert contexts[-1].generated_block_bid == block.generated_block_bid
             assert "agent_turn" in block.block_content_conf
             with unit_of_work():
                 anchor = LearnGeneratedElement(

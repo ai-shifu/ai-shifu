@@ -169,6 +169,7 @@ def _run(
     user_input: str | None = None,
     app: object = None,
     listen: bool = False,
+    on_turn_opened: object = None,
 ) -> list:
     return list(
         run_agent.run_agent_lesson(
@@ -181,6 +182,7 @@ def _run(
             user_input=user_input,
             listen=listen,
             iter_turn=_drive,
+            on_turn_opened=on_turn_opened,
         )
     )
 
@@ -260,13 +262,89 @@ def test_a_finished_lesson_asked_for_a_turn_says_it_is_over_and_writes_nothing(
     )
     engine = _Engine([TurnDone(reason="end")], session=finished)
 
-    events = _run(engine)
+    events = _run(
+        engine, on_turn_opened=lambda *_ids: pytest.fail("opened a finished turn")
+    )
 
     # Not even a terminal event: the stream closes the lesson's events itself, and one yielded
     # here was written down as an element belonging to no block.
     assert events == []
     assert engine.turns == []
     assert opened == []
+    assert calls == []
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize("resuming", [False, True])
+def test_usage_binding_precedes_session_creation_and_the_producer(
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    resuming: bool,
+) -> None:
+    """The first model request must already carry the host's opened IDs."""
+    session = _Session(started=resuming)
+    if resuming:
+        monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: session)
+    bound: list[tuple[str, str]] = []
+    opened: list[dict] = []
+    monkeypatch.setattr(
+        run_agent, "_open_turn", lambda *_a, **kw: opened.append(kw) or PROGRESS
+    )
+    monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-attempt")
+
+    class Engine(_Engine):
+        async def new_session(self, *args: object, **kwargs: object) -> _Session:
+            assert len(bound) == 1
+            return await super().new_session(*args, **kwargs)
+
+    def drive(make_events: object, **kwargs: object) -> object:
+        assert len(bound) == 1
+        return _drive(make_events, **kwargs)
+
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=Engine([TurnDone(reason="end")], session),
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=preview_mode,
+            on_turn_opened=lambda *ids: bound.append(ids),
+            iter_turn=drive,
+        )
+    )
+    assert bound[0][0] == ("preview-attempt" if preview_mode else PROGRESS)
+    if preview_mode:
+        assert opened == []
+    else:
+        assert bound[0][1] == opened[0]["generated_block_bid"]
+        assert (
+            next(kw for name, kw in calls if name == "record_content")[
+                "generated_block_bid"
+            ]
+            == bound[0][1]
+        )
+
+
+def test_usage_binding_failure_retires_the_reserved_block(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    retired: list[dict] = []
+    monkeypatch.setattr(
+        run_agent, "_retire_block", lambda *_a, **kw: retired.append(kw)
+    )
+    engine = _Engine([TurnDone(reason="end")])
+
+    def fail(*_ids: str) -> None:
+        message = "binding failed"
+        raise RuntimeError(message)
+
+    with pytest.raises(RuntimeError, match="binding failed"):
+        _run(engine, on_turn_opened=fail)
+    assert len(retired) == 1
+    assert engine.turns == []
     assert calls == []
 
 
