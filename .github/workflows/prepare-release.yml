@@ -47,6 +47,9 @@ jobs:
         with:
           node-version-file: src/web/package.json
 
+      - name: Set up npm for lockfile updates
+        run: npm install --global npm@11.20.0 --ignore-scripts --no-audit --no-fund
+
       - name: Ensure node is available (act)
         if: env.ACT == 'true'
         run: |

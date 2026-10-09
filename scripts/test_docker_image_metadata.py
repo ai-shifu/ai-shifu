@@ -395,3 +395,82 @@ def test_release_bump_regenerates_lockfile_without_changing_dependencies(
             "--no-audit",
             "--no-fund",
         ]
+
+
+@pytest.mark.parametrize("package_path", ["src/web", "scripts/markdownflow-arena"])
+def test_release_bump_preserves_real_lockfiles(
+    tmp_path: Path, package_path: str
+) -> None:
+    """Keep native metadata and dependency flags when bumping real package versions."""
+    release_steps = {
+        step["name"]: step
+        for job in workflow("prepare-release.yml")["jobs"].values()
+        for step in job.get("steps", [])
+        if "name" in step
+    }
+    npm_setup = release_steps["Set up npm for lockfile updates"]["run"]
+    pinned_npm = re.search(
+        r"npm install --global npm@(\d+\.\d+\.\d+)(?:\s|$)", npm_setup
+    )
+    assert pinned_npm is not None
+    docker_npm_setup = next(
+        step["run"]
+        for job in workflow("docker-build-check.yml")["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("name") == "Set up npm for lockfile updates"
+    )
+    assert docker_npm_setup == npm_setup
+    npm_version = subprocess.run(
+        ["npm", "--version"], capture_output=True, text=True, check=True
+    )
+    assert npm_version.stdout.strip() == pinned_npm[1]
+    script = release_steps["Update project version files"]["run"].split(
+        "# 2. Python pyproject.toml projects", 1
+    )[0]
+    script = script.replace("${{ steps.version.outputs.version }}", "9.8.7")
+    script = script.replace("${{ steps.version.outputs.tag }}", "v9.8.7")
+    workspace = tmp_path / "repo"
+    package_dir = workspace / package_path
+    package_dir.mkdir(parents=True)
+    for filename in ("package.json", "package-lock.json", ".npmrc"):
+        source = ROOT / package_path / filename
+        if source.exists():
+            shutil.copyfile(source, package_dir / filename)
+    lock_path = package_dir / "package-lock.json"
+    original_lock = json.loads(lock_path.read_text())
+    original_dependencies = {
+        name: record for name, record in original_lock["packages"].items() if name
+    }
+    environment = {
+        **os.environ,
+        "npm_config_cache": str(tmp_path / "npm-cache"),
+        "npm_config_registry": "https://registry.npmjs.org",
+        "npm_config_offline": "false",
+        "npm_config_update_notifier": "false",
+    }
+    first_lock = None
+    for _ in range(2):
+        result = subprocess.run(
+            ["bash", "-e", "-o", "pipefail", "-c", script],
+            cwd=workspace,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        updated_lock = json.loads(lock_path.read_text())
+        assert (
+            json.loads((package_dir / "package.json").read_text())["version"] == "9.8.7"
+        )
+        assert updated_lock["version"] == "9.8.7"
+        assert updated_lock["packages"][""]["version"] == "9.8.7"
+        assert {
+            name: record for name, record in updated_lock["packages"].items() if name
+        } == original_dependencies
+        assert not (package_dir / "node_modules").exists()
+        if first_lock is None:
+            first_lock = lock_path.read_bytes()
+        else:
+            assert lock_path.read_bytes() == first_lock

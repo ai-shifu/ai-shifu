@@ -52,9 +52,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: src/web/package.json
+      - name: Set up npm for lockfile updates
+        run: npm install --global npm@11.20.0 --ignore-scripts --no-audit --no-fund
       - name: Install test runner
         run: python -m pip install pytest PyYAML
-      - name: Test manifest publication without registry access
+      - name: Test manifest publication and release lockfile updates
         run: python -m pytest scripts/test_merge_docker_manifests.py scripts/test_check_docker_image.py scripts/test_docker_image_metadata.py scripts/test_select_docker_checks.py scripts/test_runtime_packaging.py -q
 
   select-platforms:
