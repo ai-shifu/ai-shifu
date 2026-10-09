@@ -445,7 +445,7 @@ def test_volc_retrieval_deduplicates_snippets_in_order(
 @pytest.mark.parametrize(
     ("payload", "message"),
     [
-        ({"code": 403, "message": "denied"}, "denied"),
+        ({"code": 403, "message": "denied"}, "returned an error response"),
         ({"code": 0, "data": {}}, "no retrievable text"),
     ],
 )
