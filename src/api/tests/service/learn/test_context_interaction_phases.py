@@ -278,6 +278,7 @@ def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
     outcome: str,
     agent_memory: bool,
 ) -> None:
+    """Resolve course notes once at dispatch and preserve completion/error ownership."""
     context = phase.context
     context._input_type = "ask"
     context._input = {"input": ["First question", "Follow-up"]}
