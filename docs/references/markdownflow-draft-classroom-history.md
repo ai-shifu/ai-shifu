@@ -70,7 +70,9 @@ question remains a normal submission.
 Planning accepts only anchors owned by the current authenticated user, course,
 lesson and active draft generation. Superseded element rows, question ownership
 and displayed answers retire with the guarded session save in one transaction.
-Earlier teaching and controls remain; follow-ups anchored to retired teaching
+Earlier teaching, controls and accepted display values remain. Engine checkpoint
+answers cover only unconsumed deferred input, so display retirement follows the
+retired host accepting turns instead. Follow-ups anchored to retired teaching
 are excluded on reload. A failed save rolls retirement back. Reset invalidates
 late writes, and stale plans cannot retire a later committed turn. The fixed
 generation timestamp remains unchanged.

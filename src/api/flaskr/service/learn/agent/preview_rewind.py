@@ -197,6 +197,11 @@ def stage_preview_retirement(
         LearnGeneratedElement.status == 1,
         LearnGeneratedElement.deleted == 0,
     ).update({LearnGeneratedElement.status: 0}, synchronize_session=False)
+    retired_answers = {
+        turn.get("answered_question_id")
+        for turn in presentation["turns"]
+        if turn["block_bid"] in retired
+    }
     presentation["turns"] = [
         t for t in presentation["turns"] if t["block_bid"] not in retired
     ]
@@ -204,9 +209,7 @@ def stage_preview_retirement(
         b: ids for b, ids in presentation["questions"].items() if b not in retired
     }
     presentation["answers"] = {
-        q: a
-        for q, a in presentation["answers"].items()
-        if q in plan.checkpoint["answers"]
+        q: a for q, a in presentation["answers"].items() if q not in retired_answers
     }
     data = json.loads(row.session_data)
     data[PREVIEW_PRESENTATION_KEY] = presentation
