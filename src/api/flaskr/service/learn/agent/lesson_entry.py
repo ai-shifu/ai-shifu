@@ -11,6 +11,7 @@ the 1.0 element pipeline, unchanged.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from flaskr.api.langfuse import (
@@ -297,8 +298,10 @@ def agent_lesson_events(
             else "read"
         ),
     )
-    engine = Engine(
-        GatewayModel(
+    models: list[GatewayModel] = []
+
+    def gateway(**kwargs: object) -> GatewayModel:
+        model = GatewayModel(
             app,
             settings.model,
             user_id=user_bid,
@@ -308,7 +311,24 @@ def agent_lesson_events(
             # An author previewing is not a learner taking the course; counting their turns as
             # production overstates what the course actually cost to teach.
             usage_scene=usage_scene,
-        ),
+            **kwargs,
+        )
+        models.append(model)
+        return model
+
+    def bind_turn_usage(progress_record_bid: str, generated_block_bid: str) -> None:
+        # The host has opened the actual attempt and block, but its native producer
+        # has not started. Rebind all auxiliary models on automatic continuation too.
+        context = replace(
+            usage_context,
+            progress_record_bid=progress_record_bid,
+            generated_block_bid=generated_block_bid,
+        )
+        for model in models:
+            model.set_usage_context(context)
+
+    engine = Engine(
+        gateway(),
         # No memory store: the engine runs on the bridge's producer thread, which has no app
         # context. The host consumes its `MemoryUpdated` events and writes them instead.
         memory_store=None,
@@ -318,33 +338,19 @@ def agent_lesson_events(
         recall_history_compaction=True,
         teaching_history_compaction=True,
         teaching_summarizer=make_teaching_summarizer(
-            GatewayModel(
-                app,
-                settings.model,
-                user_id=user_bid,
-                span=span,
+            gateway(
                 generation_name="agent_teaching_summary",
                 input_budget_bytes=40_960,
                 retry_deadline_seconds=8,
                 timeout=8,
                 num_retries=0,
-                usage_context=usage_context,
-                usage_metadata=dict(settings.usage_metadata),
-                usage_scene=usage_scene,
             )
         ),
         memory_reserved_keys=get_global_profile_keys(),
         memory_readonly_prefixes=(COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX),
         memory_request_check=make_request_check(
-            GatewayModel(
-                app,
-                settings.model,
-                user_id=user_bid,
-                span=span,
+            gateway(
                 generation_name="agent_memory_admission",
-                usage_context=usage_context,
-                usage_metadata=settings.usage_metadata,
-                usage_scene=usage_scene,
             )
         ),
         model_settings={"temperature": settings.temperature},
@@ -380,6 +386,7 @@ def agent_lesson_events(
                 shifu_model=_models(preview_mode)[1],
                 heartbeat_interval=heartbeat_interval,
                 rewind=rewind,
+                on_turn_opened=bind_turn_usage,
                 **debug_options,
             )
             if outcome is not None and outcome.reason is None:
