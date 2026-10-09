@@ -21,6 +21,9 @@ def execution(monkeypatch: pytest.MonkeyPatch) -> dict:
     from flaskr.service.learn.agent import preview_history
 
     monkeypatch.setattr(
+        lesson_entry, "require_teachable_preview", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(
         preview_history, "begin_preview_run", lambda *_a, **_k: "generation"
     )
     monkeypatch.setattr(

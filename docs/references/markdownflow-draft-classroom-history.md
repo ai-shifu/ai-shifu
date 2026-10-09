@@ -28,6 +28,17 @@ messages or falls back to published progress. Accepted answers populate the
 original question; repeated requests for the same pending question do not append
 duplicate controls.
 
+Ownership records each emitted question in order within its turn block, so
+several deferred questions sharing a block retain separate controls and answers.
+Follow-up ASK/ANSWER runs remain independent; history includes only exchanges
+whose exact anchor belongs to the active generation, using the existing anchor
+attachment and ordering contract. Restart excludes their old anchors too.
+
+The draft-update comparison uses the generation's fixed creation time. Saving
+another turn does not imply that a running session adopted an edited script.
+Scriptless lessons are checked before reserving agent state and retain 1.0
+fallback history, catalog status and restart behavior.
+
 An empty continuation of a pending or completed draft replays the committed
 presentation without another model request. This also covers a browser refresh
 that read history before the prior stream committed its final elements. Other
@@ -49,4 +60,7 @@ learning records are reset by this compatibility path.
 This repairs restoration and restart behavior. It does not guarantee that a
 model always follows an author's teaching order. Existing reset analytics keeps
 excluding preview traffic; no learner reset event is emitted for a draft reset.
+Changing an already submitted preview answer or regenerating an earlier draft
+turn still requires separate preview rewind support; history replay is not a
+turn checkpoint.
 1.0 runtime behavior, engine fallback and code remain available.

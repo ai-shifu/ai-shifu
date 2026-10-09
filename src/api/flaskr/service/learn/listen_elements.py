@@ -201,15 +201,19 @@ def get_listen_element_record(
     from flaskr.service.learn.agent.routing import uses_agent_engine
 
     if preview_mode and uses_agent_engine(shifu_bid):
-        from flaskr.service.learn.agent.preview_history import get_preview_record
-
-        return get_preview_record(
-            app,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            include_non_navigable=include_non_navigable,
+        from flaskr.service.learn.agent.preview_history import (
+            get_preview_record,
+            has_preview_script,
         )
+
+        if has_preview_script(app, shifu_bid=shifu_bid, outline_bid=outline_bid):
+            return get_preview_record(
+                app,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                include_non_navigable=include_non_navigable,
+            )
     return _get_listen_element_record(
         app=app,
         shifu_bid=shifu_bid,

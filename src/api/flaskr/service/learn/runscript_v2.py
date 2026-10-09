@@ -733,6 +733,7 @@ def _lesson_events(
         from flaskr.service.learn.agent.lesson_entry import (
             LessonNotTeachable,
             agent_lesson_events,
+            require_teachable_preview,
         )
 
         # The only record of how much traffic 2.0 carries: the decision is per deployment, so it
@@ -746,6 +747,12 @@ def _lesson_events(
         try:
             preview_options = {}
             if preview_mode:
+                require_teachable_preview(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                )
                 from flaskr.service.learn.agent.preview_history import (
                     begin_preview_run,
                     pending_preview_record,
