@@ -66,3 +66,13 @@ Current facts must not replace historical quotations. This path reads memory onl
 it cannot authorize new writes or restore deleted notes. Fresh requests observe
 stored updates and deletions. An ongoing Live provider session retains its creation
 snapshot. Legacy 1.0 behavior and cross-course custom-memory isolation are unchanged.
+
+## Provider delivery boundary
+
+The default LLM and Live builder consume this memory snapshot. Dify serializes the
+shared provider messages into its outbound query, and Get Biji uses the contextual
+LLM synthesis factory after retrieval. Existing Coze, Coze Workflow and Volc
+adapters discard provider messages; their provider-only answers do not receive
+course memory through this increment. Provider-specific context delivery remains
+separate follow-up work, preserving the existing configured knowledge interfaces.
+The builder supplying a message list is not proof that every adapter transmits it.

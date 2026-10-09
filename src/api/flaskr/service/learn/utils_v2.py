@@ -147,10 +147,6 @@ def get_fmt_prompt(
         str: Fmt prompt.
 
     """
-    app.logger.info("raw prompt: %s", profile_tmplate)
-    propmpt_keys = []
-    profiles = {}
-
     profiles = (
         dict(resolved_profiles)
         if resolved_profiles is not None
@@ -158,25 +154,20 @@ def get_fmt_prompt(
     )
     if profile_overrides:
         profiles.update(profile_overrides)
-    propmpt_keys = list(profiles.keys())
     if user_input:
         profiles["sys_user_input"] = user_input
-        propmpt_keys.append("sys_user_input")
-    app.logger.info(propmpt_keys)
-    app.logger.info(profiles)
     keys = extract_variables(profile_tmplate)
     fmt_keys = {}
     for key in keys:
         if key in profiles:
             fmt_keys[key] = profiles[key]
-        else:
-            app.logger.info("key not found: %s ,user_id: %s", key, user_id)
-    app.logger.info(fmt_keys)
+    app.logger.info(
+        "Prompt variables resolved: requested=%s matched=%s", len(keys), len(fmt_keys)
+    )
     if not keys:
         prompt = profile_tmplate or user_input
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
-    app.logger.info("fomat input:%s", prompt)
     return prompt
 
 

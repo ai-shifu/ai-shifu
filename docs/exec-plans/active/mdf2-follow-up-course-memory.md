@@ -21,7 +21,19 @@ Do not write new memory from follow-ups in this increment.
 - [ ] 2026-10-09T01:16:50Z: Finish regression/gate, deployment, actual HTTP recall
   and AI opinion reply acceptance. Await manual main merge.
 
+- [x] 2026-10-09T01:28:50Z: Review hardening: two logger-boundary tests fail before the fix;
+  reviewed focused context/provider tests pass 88/88. Content logs are replaced by
+  counts, and actual Dify outbound / Get Biji synthesis delivery is covered. Provider
+  delivery limits and natural recall guidance are recorded; final sim is pending.
+
 ## Surprises & Discoveries
+
+Review found legacy prompt/message logs exposing new notes. Two logger-boundary
+regressions failed before replacing content logs with counts, including the shared
+formatter. Initial deployed HTTP recalls an explicitly named key, but a natural
+request to recall an earlier fact returned unknown despite the note being present
+in the actual LLM messages. The memory instructions now explicitly cover facts
+remembered in earlier lessons outside visible history; final HTTP recheck is pending.
 
 The text host supplies a resolved profile snapshot before invoking the shared
 builder. Changing only the builder's fallback reader would leave real text requests
@@ -89,3 +101,13 @@ raw transcripts private. Roll back this increment without changing stored memory
 
 No schema, dependency, environment variable or public API changes. Reuse existing
 memory and context contracts; only add an internal bounded rendering helper.
+
+## Provider delivery boundary
+
+The default LLM and Live builder consume this memory snapshot. Dify serializes the
+shared provider messages into its outbound query, and Get Biji uses the contextual
+LLM synthesis factory after retrieval. Existing Coze, Coze Workflow and Volc
+adapters discard provider messages; their provider-only answers do not receive
+course memory through this increment. Provider-specific context delivery remains
+separate follow-up work, preserving the existing configured knowledge interfaces.
+The builder supplying a message list is not proof that every adapter transmits it.
