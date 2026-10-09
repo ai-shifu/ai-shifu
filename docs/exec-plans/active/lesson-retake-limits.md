@@ -2,7 +2,7 @@
 
 ## Purpose / Big Picture
 
-Deliver a real, reusable per-learner, per-lesson retake capability, now enabled across dev02 courses only. The current approved rule is ten extra retakes per learner per lesson across enabled deployments, with no teacher control or learner balance display. The server owns enforcement. Earlier teacher-configurable decisions below are historical and superseded by the October 8 task list. No production deployment is authorized by this task.
+Deliver a real, reusable per-learner, per-lesson retake capability, now enabled across dev02 courses only. The current approved rule is ten extra retakes per learner per lesson across enabled deployments, with no teacher control or learner balance display. The server owns enforcement. Earlier teacher-configurable decisions below are historical and superseded by the October 8 task list. Production preparation and PR submission are now authorized; production activation waits for PR review and explicit release approval.
 
 ## October 8 approved replacement task list
 
@@ -437,3 +437,141 @@ Rollback: revert frontend commit only; ledger/history remains untouched.
 Update-notice verification: focused hook/notice/catalog/mobile-header/titlebar tests passed (53 tests). Notice lookup does not count as a confirmation analytics event; owner/preview are excluded and analytics failure cannot block learning. All eight locales updated. Full TypeScript retains the four previously documented unrelated admin-test/library-locale failures; no new errors.
 
 Update-notice delivery: commit 74b3d0c78, build 442 / Drone 5233, image 20261009-74b3d0c; deployment records 2112-2115 all succeeded. Chrome learner 017 on lesson aa5e4bbf085c4baf89c4ee569e83e75c showed Chinese review guidance with no update reset button; catalog reset still returned exhaustion and disabled confirmation. IAB owner on lesson 49627b510d2d4147b691b77d8bb6fd13 showed the English latest-content action and enabled confirmation, then cancelled. No teaching was regenerated and no counts were reset. Proof: /private/tmp/retake-update-review-header.png. All-file pre-commit and frontend lint passed (existing warnings remain); full TypeScript baseline errors are unchanged.
+
+
+### October 9 production readiness review before PR
+
+Decision: the current dev02 implementation is not yet a production release
+candidate. This review changed no runtime code, production configuration or
+learner data, and created no PR.
+
+Fresh evidence:
+- Fetched origin/main and origin/dev02. Main is abe6bd5b5; the feature HEAD is
+  b2222d3e2. The branches have 48 main-only and 45 feature-only commits.
+- The proposed merge-base diff contains 112 files and unrelated operator
+  contact, credit-validity and subscription-termination changes. Do not create
+  a retake PR directly from this branch. Extract the retake-only changes onto
+  current main, resolving shared i18n/type/analytics/index edits by responsibility.
+- Main has advanced the learning engine, lesson writer and run orchestration.
+  Existing dev02 tests do not prove the extracted feature works on current main.
+  Recheck both legacy and 2.0 settlement, continuation, preview, memory and
+  stream termination after integration. Run the engine gate if its code changes.
+- Current feature HEAD: 167 backend tests passed across policy, rollout, ledger,
+  execution, migrations and HTTP contracts; 40 frontend tests passed across six
+  suites, including exact-path update-notice and catalog tests. Existing
+  deprecation warnings remain. These are local regression results; no new live
+  model or TTS acceptance occurred in this review.
+- Dependency pins are release versions (markdown-flow 0.3.4 and
+  markdown-flow-ui 0.2.29). The three additive retake migrations are the only
+  feature-branch migration additions relative to main.
+
+Release prerequisites:
+1. A clean retake-only branch on current main, with relevant gates rerun.
+2. Real dev02 listen-mode acceptance and billing readback: replay/cache reuse,
+   read/listen switching, interrupted continuation, provider failure and text
+   delivered before audio failure. Ten committed starts and blocking the next
+   must hold without blocking normal continuation or duplicating TTS charges.
+3. Drill confirmed-stop recovery for a crashed ordinary study/retake producer.
+   The existing shell recovery procedure is documented above, but no live
+   recovery drill or operational abnormal-run alert is verified. The run guard
+   also covers initial study and continuation; a crash can block these, not
+   merely consume retake availability. Assign a responder and detection method
+   before broad enablement. Never use timeout-only refunds.
+4. Verify the target production schema and deployment-local configuration
+   before activation. Install additive migrations with the flag off, deploy
+   compatible API/web services, then enable a small course allowlist before
+   broad activation. Keep the namespace stable and separate from dev02; do not
+   activate through shared sys_configs or change SIM. Drain or inspect active
+   producers before rollback; disable admission only after confirming producer
+   cleanup, preserve ledger/schema and never reset counts by changing namespace.
+5. Correct update-notice exposure timing: useRetakeAllowance currently emits
+   notice_shown in the request promise after setResponse, while the documented
+   contract requires the rendered notice and web instructions require a
+   post-commit effect. This is an analytics compliance issue, not quota bypass.
+
+Product and operations boundaries:
+- The approved fixed ten per lesson, hidden balances, owner exemption,
+  historical counted usage and no replenishment on same-BID course updates
+  remain coherent. Empty stopped generation restores prior learning; delivered
+  partial text still counts even if TTS later fails. Support must explain that
+  distinction rather than promise all bugs are automatically free retakes.
+- Guest browser identity remains an explicitly accepted first-phase limitation.
+  Merging guest study into an existing account moves progress/content but not
+  retake ledger/run slots (phone_flow.py). Do not claim quota continuity across
+  that identity change; verify it separately if account-bound continuity becomes
+  a release requirement. No sign-in gate is requested by this review.
+- Update-notice background state is fetched only on hook dependencies. A busy
+  or failed prefetch can leave the update action hidden until remount/refresh;
+  catalog confirmation still refreshes and the server still enforces admission.
+  Improve refresh on relevant identity/run changes without periodic global polling.
+- Per-lesson ten is a frequency guard, not a course or learner credit ceiling.
+  Supplied high-cost examples aggregate across lessons and do not establish
+  that ten would stop those accounts. Evaluate ordinary-learner top costs,
+  per-lesson committed attempts and actual TTS charges, excluding owner/internal
+  trials. Confirm a baseline before making a savings claim.
+- Use ledger/billing records for cost evaluation and permissions. Umami tracks
+  friction only. Do not rely on AI-generated answers to explain platform policy;
+  the observed course answer invented eligibility/expiry rules.
+
+Suggested sequence: prepare the clean production candidate; resolve the small
+notice/analytics issues; complete live audio and recovery acceptance; document
+production preflight and support handling; create the focused PR; only after
+review perform a controlled production activation and readback. The reviewer
+must see both verification results and accepted first-phase limitations.
+
+
+### October 9 authorized production preparation
+
+- [x] October 9 Asia/Shanghai: Created codex/lesson-retake-production from current
+  main abe6bd5b5 and applied only the retake delta after e74ddb30a. Preserved
+  main engine configuration and excluded unrelated operator features.
+- [x] October 9 Asia/Shanghai: Resolved error-code collision with main input-budget
+  error 4020. Retake errors use 4027-4033; released attempt is 4032 in both web
+  producer and regression. Existing main errors remain unchanged.
+- [x] October 9 Asia/Shanghai: Move exposure analytics to rendered-state effect;
+  refresh status on account identity/focus/visibility/network recovery, with
+  lifecycle cleanup and per-open/state deduplication.
+- [ ] Run current-main backend, engine, frontend and repository gates.
+- [ ] Validate real dev02 audio billing and stopped-producer recovery.
+- [ ] Add release/support preflight, submit focused PR with verified boundaries.
+
+No production configuration or data is changed by this preparation.
+
+
+#### Production rollout and support checklist
+
+Before approval: current-main candidate and explicit test receipts; read-only
+production Alembic head/table checks; an agreed stable production namespace
+(distinct from dev02); named deployment responder and existing monitoring
+channel; baseline top ordinary-learner credits and TTS cost by course/lesson.
+Do not change SIM, which shares production learning data.
+
+Deploy with admission disabled. Apply revisions 0a3b9866d338, 48efe7c245af and
+f5c8745b7e91 using the standard migration runner. Confirm all three tables and
+indexes, then deploy compatible API/worker/web images and verify their receipts.
+Enable an explicit course allowlist first, with global activation still false.
+After reading/listening/owner/exhaustion checks and observed ordinary learning
+stability, consider broader activation. No rollout toggles or namespace changes
+are approved by the preparation task.
+
+Support explanation: first study, continuation, questions and replay do not
+consume retakes; a successful additional teaching start does. Ten are allowed
+per current identity and lesson. Course owners are exempt. Updated lessons keep
+usage; old content remains available. Empty stopped failures release the attempt;
+partial delivered text counts even if later audio fails. Collect course/lesson
+and request identifiers through existing support channels, never ask for tokens.
+Do not claim completion eligibility, subscription expiry, or a 30-day rule.
+
+Operational signal: periodically inspect unfinished lesson_retake_runs and
+reserved/running attempts in the active namespace using existing operational
+monitoring. Age is only an investigation signal, never authorization to refund.
+Check the actual owning process/thread and outstanding provider calls before
+using the confirmed-stop repair procedure above. Recheck preserved progress and
+ledger state and record the operator identity. This includes initial study and
+continuation crashes. Assign the signal and responder during release approval.
+
+Rollback: stop new resets, drain/verify active producers, then disable the
+feature or roll back images through CICD. Preserve migrations and usage; do not
+change namespace or erase attempts. Re-read actual service image/config and
+normal-learning behavior. Successful old-code resets while enforcement is off
+are not retroactively counted and must be noted as a rollback boundary.

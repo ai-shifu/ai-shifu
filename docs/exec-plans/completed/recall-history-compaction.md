@@ -1,0 +1,124 @@
+---
+title: Compact completed memory recall history
+status: completed
+owner_surface: learner
+last_reviewed: 2026-10-08
+---
+
+# Compact completed memory recall history
+
+## Purpose / Big Picture
+
+Prevent repeated old memory reads from consuming the model input budget while
+preserving original classroom and session evidence. This first history-compaction
+increment replaces only older successful recall results in the request projection.
+It does not summarize teaching, truncate learner answers, or shrink persisted data.
+The durable contract is [Recall history compaction](../../references/markdownflow-history-compaction.md).
+
+## Progress
+
+- [x] 2026-10-08 03:23 UTC: Verify merged PR 3039, inspect input budgeting,
+  request projection, persistence, retry, deletion refresh and rewind contracts.
+- [x] 2026-10-08 03:27 UTC: Add explicit host opt-in, conservative completed-result
+  projection, and instructions for re-reading the current authorized snapshot.
+- [x] 2026-10-08 03:30 UTC: Complete learning/profile regression: 2719 passed,
+  1 skipped, 4 subtests passed, including every vendored engine test. Add 38 cases.
+  Disable projection, overwrite original history, remove recent-turn protection,
+  or disable the host opt-in: 5 / 5 / 15 / 3 targeted cases fail; restore exact bytes.
+- [x] 2026-10-08 03:30 UTC: Local isolated probe passes 91 checks with no provider
+  calls or shared-database writes; 50 old 6000-byte recall values fit within
+  36593 projected input bytes, while all teaching text and original history remain.
+- [x] 2026-10-08 03:31 UTC: Developer-tool check and all final repository gates passed.
+- [x] 2026-10-08 03:32 UTC: Publish runtime 6924c1c17 as open, non-draft PR 3040.
+- [x] 2026-10-08 03:35 UTC: Sim 4816a3ca7 has the exact reviewed runtime tree.
+  Build 385 / Drone 5176 and deployments 1884/1885 succeeded; API 2/2 and web 1/1
+  Ready. Both API pods passed 91 isolated checks and 23 source/routing hashes.
+  Real Ark model re-read and used the updated authorized fact after compaction,
+  retaining original history and memory; isolated SQLite only, no shared writes.
+  Real HTTP read/backfill/listen and repeated anchored follow-ups passed.
+- [x] 2026-10-08 03:36 UTC: Devin reported no runtime issues; CodeRabbit reported
+  no actionable code findings. Reply to Devin and decline the independent docstring
+  percentage warning under the repository behavior-test exemption.
+- [x] 2026-10-08 03:49 UTC: Final PR 1257e86c8, sim 3351f1ed3 and manually
+  merged main 37340fbb4 have identical source trees. Final technical CI passed,
+  including runtime smoke 37723690484. Sim build 386 and main build 387 succeeded;
+  all sim and eight production deployments succeeded. Both sim replicas and one
+  new replica per production region passed 91 isolated checks and 23 hashes.
+  Production remains 1.0; sim remains 2.0. Final audit found no new opinions.
+
+## Surprises & Discoveries
+
+The host restores rewind history by original message count. Persisting a compacted
+history would invalidate those checkpoints and lose evidence. The memory projection
+already demonstrates the required approach: preserve originals and append only the
+new run's messages. Tool loops require complete fresh recall results, so compaction
+must happen once before a new teaching run, not on every gateway request.
+
+## Decision Log
+
+- 2026-10-08: First compact only older completed `recall` results. Retain call
+  arguments, teaching, answers, memory writes, retries and the latest teaching turn.
+  Semantic teaching summaries and storage compaction are separate follow-ups.
+- 2026-10-08: Require an available recall tool; use the host's refreshed authorized
+  snapshot for re-reads. Compaction does not grant access or write permission.
+- 2026-10-08: No extra summarization provider call, persisted summary, environment
+  flag, schema migration, dependency upgrade or frontend contract change.
+
+## Outcomes & Retrospective
+
+Implementation and local acceptance pass. New cases cover Unicode/escaping, malformed
+results and ambiguous IDs, latest-turn/fresh-tool retention, full answers and failed
+resumes, actual gateway budget recovery, SQLite storage, deletion/update and rewind.
+Runtime publication and sim acceptance pass. Both reviewers found no actionable
+code issues on 6924c1c17; the independent docstring warning received a reasoned
+disposition reply. Backend/frontend, static/CodeQL and native image/manifest CI
+passed, including final runtime smoke and documentation synchronization. Main was
+manually merged and deployment verification completed. Long teaching compression
+continues in the active teaching-history-compaction plan.
+This focused increment does not complete the entire memory milestone or recover from
+large scripts, answers, current tool loops or long teaching text.
+
+## Context and Orientation
+
+`engine/history_context.py` copies selected `ToolReturnPart` values in request history.
+`Engine.run_turn` combines it with the initial memory projection and appends only new
+messages to `Session.messages`. `lesson_entry` opts in for learner and preview turns.
+`GatewayModel` retains the complete messages/tools byte-budget check after projection.
+Host session storage, rewind counts and classroom event production remain unchanged.
+
+## Plan of Work
+
+Implement conservative paired-result selection and an explicit marker, cover request
+and stored evidence separately, verify fresh reads after changes/deletions, then run
+all learning/profile tests and repository gates. Publish and verify sim before handoff.
+
+## Concrete Steps
+
+Run `tests/service/learn/agent/engine/test_history_context.py`,
+`tests/service/learn/agent/test_history_compaction.py` and the factory contract tests.
+Then run the complete learning/profile suite including all vendored engine tests.
+Regenerate/stage documentation indexes, run developer-tool and all pre-commit gates,
+commit/push, create/attach the PR, synchronize its exact tree to sim and validate pods.
+Fetch reviews, inline comments and issue comments and reply to independent findings.
+
+## Validation and Acceptance
+
+Show that historical recall growth alone can exceed 256 KiB without compaction and
+fit after projection, while the exact projected budget and one-byte-over refusal still
+work. Preserve complete original values, learner input, pending interactions, retries,
+latest-turn and fresh tool results, IDs/order, serialized history and rewind prefixes.
+Current deletion/update authorization must govern fresh reads, with no projection
+marker in classroom text or persisted tool returns. Default portable engines stay off.
+
+## Idempotence and Recovery
+
+Projection is deterministic and leaves input objects intact. A failed request retains
+the same evidence and pending results for retry. Rewind recomputes from the restored
+prefix without a summary cache to invalidate. Reverting the host opt-in restores the
+previous request history without any stored-data migration.
+
+## Interfaces and Dependencies
+
+Add `Engine(..., recall_history_compaction=False)` and
+`compact_recall_history(messages)`. Require `memory_recall=True` when enabled.
+Keep pydantic-ai, the gateway/provider, existing schemas, DTOs and environment flags.

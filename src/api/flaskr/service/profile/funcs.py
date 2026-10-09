@@ -13,6 +13,7 @@ from flaskr.dao import db
 from flaskr.i18n import _, get_locale_labels
 from flaskr.service.check_risk.funcs import add_risk_control_result
 from flaskr.service.common import raise_error
+from flaskr.service.profile.course_references import is_course_reference
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
@@ -29,6 +30,7 @@ from flaskr.util.uuid import generate_id
 from .constants import SYS_USER_BACKGROUND, SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from .learner_profile import (
     apply_learner_profile_system_value,
+    load_learner_profile_user,
     validate_learner_profile_system_value,
 )
 from .models import VariableValue
@@ -47,30 +49,18 @@ def _get_latest_variable_value(
     logical profile field wins even if the underlying Variable definition was
     recreated and now has a different variable_bid.
 
-    Precedence:
-    1) shifu scope (shifu_bid) - newest record matching key
-    2) global/system scope (empty shifu_bid) - newest record matching key
+    Match only the requested scope. Callers select the empty scope for registered
+    system fields; a missing course value never falls back to a global custom value.
     """
     target_shifu = shifu_bid or ""
-
-    def _pick(scope_shifu_bid: str) -> VariableValue | None:
-        return next(
-            (
-                item
-                for item in values
-                if item.shifu_bid == scope_shifu_bid and item.key == variable_key
-            ),
-            None,
-        )
-
-    scoped = _pick(target_shifu)
-    if scoped:
-        return scoped
-
-    if target_shifu:
-        return _pick("")
-
-    return None
+    return next(
+        (
+            item
+            for item in values
+            if item.shifu_bid == target_shifu and item.key == variable_key
+        ),
+        None,
+    )
 
 
 def _ensure_user_aggregate(user_id: str) -> UserAggregate | None:
@@ -230,11 +220,56 @@ def get_profile_labels() -> dict[str, dict[str, object]]:
     }
 
 
+def _profile_write_labels() -> dict[str, dict[str, object]]:
+    """Include the canonical language alias without duplicating settings UI labels."""
+    return {
+        **get_profile_labels(),
+        SYS_USER_LANGUAGE: {"mapping": "user_language"},
+    }
+
+
+def get_global_profile_keys() -> frozenset[str]:
+    """Return keys that the shared profile writer routes to global/account storage."""
+    return frozenset(_profile_write_labels())
+
+
+def global_profile_value_versions(
+    user_id: str, *, lock: bool = False
+) -> dict[str, tuple[int, str | None]]:
+    """Version registered global rows and canonical fields before delayed writes.
+
+    Settings update the user row before appending compatibility values. Lock in
+    that order and use current reads so newer settings or direct canonical edits
+    cannot be overwritten by an older model proposal.
+    """
+    if lock:
+        load_learner_profile_user(user_id, for_update=True)
+    aggregate = load_user_aggregate(user_id)
+    labels = _profile_write_labels()
+    query = (
+        VariableValue.query.filter(
+            VariableValue.user_bid == user_id,
+            VariableValue.shifu_bid == "",
+            VariableValue.key.in_(labels),
+        )
+        .with_entities(VariableValue.id, VariableValue.key)
+        .order_by(VariableValue.id)
+    )
+    if lock:
+        query = query.populate_existing().with_for_update()
+    rows = {row.key: row.id for row in query.all()}
+    versions = {}
+    for key, label in labels.items():
+        value = _current_core_value(aggregate, str(label.get("mapping", "")))
+        versions[key] = (rows.get(key, 0), str(value) if value is not None else None)
+    return versions
+
+
 def save_user_profiles(
     app: Flask, user_id: str, course_id: str, profiles: list[ProfileToSave]
 ) -> bool:
     """Persist user profiles."""
-    profile_labels = get_profile_labels()
+    profile_labels = _profile_write_labels()
     app.logger.info("save user profiles count=%s", len(profiles))
     for profile in profiles:
         if profile.key == SYS_USER_BACKGROUND:
@@ -265,6 +300,8 @@ def save_user_profiles(
         user_values = []
 
     for profile in profiles:
+        if is_course_reference(profile.key):
+            continue
         profile_item = next(
             (item for item in profiles_items if item.profile_key == profile.key), None
         )
@@ -316,7 +353,13 @@ def save_user_profiles(
     return True
 
 
-def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
+def get_user_profiles(
+    app: Flask,
+    user_id: str,
+    course_id: str,
+    *,
+    reference_text: str | tuple[str, ...] = "",
+) -> dict:
     """Get user profiles for Mdflow run.
 
     Note:
@@ -327,7 +370,11 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     :func:`save_user_profiles`, otherwise the run context may see values different
     from what the user sees in the personal settings page.
 
+    Author documents cannot grant access to another course. ``reference_text``
+    remains a compatibility argument and never changes the selected storage scope.
+
     """
+    _ = reference_text  # Kept for call-site compatibility; author text grants no scope.
     profile_labels = get_profile_labels()
     profiles_items = get_profile_item_definition_list(app, course_id)
 
@@ -353,6 +400,8 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
 
     result: dict[str, str] = {}
     for profile_item in profiles_items:
+        if is_course_reference(profile_item.profile_key):
+            continue
         # Follow save_user_profiles routing: label keys are global, others per-course.
         target_shifu = (
             "" if profile_item.profile_key in profile_labels else (course_id or "")
@@ -642,7 +691,7 @@ def update_user_profile_with_lable(
 
     for profile in profiles:
         key = profile.get("key")
-        if not key:
+        if not key or is_course_reference(key):
             continue
         profile_value = profile.get("value")
         profile_item = next(

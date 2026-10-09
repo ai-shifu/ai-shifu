@@ -42,10 +42,10 @@ it('uses a new identity after a released attempt', async () => {
   jest
     .mocked(request.delete)
     .mockClear()
-    .mockRejectedValueOnce({ code: 4025 })
+    .mockRejectedValueOnce({ code: 4032 })
     .mockResolvedValue({ code: 0 });
   await expect(resetChapter({ lessonId: 'released' })).rejects.toEqual({
-    code: 4025,
+    code: 4032,
   });
   await resetChapter({ lessonId: 'released' });
   expect(jest.mocked(request.delete).mock.calls[0][1]?.headers).not.toEqual(

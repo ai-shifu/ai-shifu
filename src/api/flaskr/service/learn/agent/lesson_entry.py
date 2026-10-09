@@ -24,13 +24,24 @@ from flaskr.service.common.models import raise_error
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
+from flaskr.service.learn.agent.memory_admission import make_request_check
 from flaskr.service.learn.agent.rewind import RewindUnavailableError, plan_rewind
 from flaskr.service.learn.agent.run_agent import learner_values, run_agent_lesson
+from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.llmsetting import LLMSettings
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.metering.api import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.profile.api import (
+    COURSE_REFERENCE_PREFIX,
+    SHARED_ANSWER_PREFIX,
+    get_global_profile_keys,
+)
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -51,7 +62,7 @@ class LessonNotTeachable(Exception):  # noqa: N818 - an outcome, not a failure
     """A lesson with nothing for the 2.0 engine to teach.
 
     Raised rather than streamed as an empty turn so the caller can fall back to 1.0, which is what
-    an allowlisted course with an empty or missing outline should get.
+    a course selected for 2.0 with an empty or missing outline should get.
     """
 
 
@@ -87,7 +98,7 @@ def _resolve(
     Model resolution follows 1.0: use the course selection with runtime fallback.
     """
     outline_model, shifu_model = _models(preview_mode)
-    # Bound to the course as well as the lesson: an allowlisted course paired with another
+    # Bound to the course as well as the lesson: a course selected for 2.0 paired with another
     # course's outline would otherwise teach that course's script under this course's settings.
     outline = _latest(outline_model, outline_item_bid=outline_bid, shifu_bid=shifu_bid)
     if outline is None or (require_script and not (outline.content or "").strip()):
@@ -175,7 +186,7 @@ def _require_access(
     """Refuse a paid lesson the learner has not bought.
 
     The 1.0 path gates this inside its run context, which the agent path does not build, so the
-    same rule is applied here. Without it, putting a paid course on the allowlist would hand its
+    same rule is applied here. Without it, enabling 2.0 for a paid course would hand its
     content to anyone signed in.
 
     Only full lessons are gated: a trial lesson is meant to be readable before buying, which is
@@ -204,6 +215,7 @@ def agent_lesson_events(
     outline_bid: str,
     user_input: str | dict | None = None,
     listen: bool = False,
+    learning_mode: str | None = None,
     preview_mode: bool = False,
     heartbeat_interval: float = 0.5,
     reload_generated_block_bid: str | None = None,
@@ -212,7 +224,7 @@ def agent_lesson_events(
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, object] | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Teach an allowlisted lesson until it waits or ends, yielding the events 1.0 produces.
+    """Teach a lesson selected for 2.0 until it waits or ends, yielding the events 1.0 produces.
 
     One request, as many turns as it takes: a turn that ends with content still to come is
     followed by the next in the same stream, the way a 1.0 request runs block after block until a
@@ -269,20 +281,72 @@ def agent_lesson_events(
         },
         root_span_payload={"name": "agent_lesson_turn"},
     )
+    usage_scene = BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+    # Auxiliary requests belong to the same lesson as teaching. Without the course identity,
+    # the shared settlement path cannot find the course owner or report its lesson costs.
+    usage_context = UsageContext(
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_bid,
+        usage_scene=usage_scene,
+        learning_mode=(
+            learning_mode
+            if learning_mode in {"read", "listen", "classroom"}
+            else "listen"
+            if listen
+            else "read"
+        ),
+    )
     engine = Engine(
         GatewayModel(
             app,
             settings.model,
             user_id=user_bid,
             span=span,
+            usage_context=usage_context,
             usage_metadata=settings.usage_metadata,
             # An author previewing is not a learner taking the course; counting their turns as
             # production overstates what the course actually cost to teach.
-            **({"usage_scene": BILL_USAGE_SCENE_PREVIEW} if preview_mode else {}),
+            usage_scene=usage_scene,
         ),
         # No memory store: the engine runs on the bridge's producer thread, which has no app
         # context. The host consumes its `MemoryUpdated` events and writes them instead.
         memory_store=None,
+        memory_admission=True,
+        memory_context_limit=32_768,
+        memory_recall=True,
+        recall_history_compaction=True,
+        teaching_history_compaction=True,
+        teaching_summarizer=make_teaching_summarizer(
+            GatewayModel(
+                app,
+                settings.model,
+                user_id=user_bid,
+                span=span,
+                generation_name="agent_teaching_summary",
+                input_budget_bytes=40_960,
+                retry_deadline_seconds=8,
+                timeout=8,
+                num_retries=0,
+                usage_context=usage_context,
+                usage_metadata=dict(settings.usage_metadata),
+                usage_scene=usage_scene,
+            )
+        ),
+        memory_reserved_keys=get_global_profile_keys(),
+        memory_readonly_prefixes=(COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX),
+        memory_request_check=make_request_check(
+            GatewayModel(
+                app,
+                settings.model,
+                user_id=user_bid,
+                span=span,
+                generation_name="agent_memory_admission",
+                usage_context=usage_context,
+                usage_metadata=settings.usage_metadata,
+                usage_scene=usage_scene,
+            )
+        ),
         model_settings={"temperature": settings.temperature},
         # A question this host cannot render goes back to the model to be asked again. Let
         # through, it reached the learner as text with no controls under it, the lesson waited
@@ -321,8 +385,10 @@ def agent_lesson_events(
             if outcome is not None and outcome.reason is None:
                 # The engine can return a bare ErrorEvent after a provider failure. It has
                 # already saved the usable session, but the legacy stream has no error DTO;
-                # raising here lets the outer SSE layer show a retryable failure instead of
+                # raising here lets the outer SSE layer show the failure instead of
                 # silently ending a lesson that remains in progress.
+                if outcome.error_code == "input_budget_exceeded":
+                    raise_error("server.learn.agentInputBudgetExceeded")
                 raise_error("server.common.unknownError")
             # A turn that ran out of content with the lesson not over is followed by the next,
             # as the host's own "continue": the learner's input and the rewind belonged to the

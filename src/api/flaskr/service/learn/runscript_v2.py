@@ -27,7 +27,7 @@ from flaskr.dao import (
 )
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
-from flaskr.service.common.models import AppError, raise_error
+from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
 from flaskr.service.learn.agent.routing import uses_agent_engine
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.context_v2 import RunScriptContextV2
@@ -720,8 +720,8 @@ def _lesson_events(
 ) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
     """Produce this lesson's events with whichever engine teaches it.
 
-    The choice is per deployment, not per course row: only a deployment that names this course in
-    its allowlist runs 2.0, so the same course and the same data stay on 1.0 everywhere else.
+    The choice is per deployment, not per course row: FLOW_ENGINE_V2_ENABLED
+    enables 2.0 for all courses here; deployments with the flag disabled retain 1.0.
 
     Everything downstream is shared -- the lock this runs inside, the element adapter, TTS, the SSE
     framing -- so serialisation and persistence hold for both engines without being reimplemented.
@@ -747,25 +747,67 @@ def _lesson_events(
             outline_bid,
         )
         try:
-            yield from agent_lesson_events(
+            agent_events = agent_lesson_events(
                 app,
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
                 outline_bid=outline_bid,
                 user_input=user_input,
                 listen=listen,
+                learning_mode=learning_mode,
                 preview_mode=preview_mode,
                 heartbeat_interval=heartbeat_interval,
                 reload_generated_block_bid=reload_generated_block_bid,
                 reload_element_bid=reload_element_bid,
             )
-            # The element adapter finalises the block on the turn's last event and stages every
-            # element it streamed; that happens in the caller, between the last yield above and
-            # this line. The turn's own transaction has already closed by then, so without this
-            # checkpoint -- the one the 1.0 run ends with -- those rows are dropped with the
-            # session: a lesson's cards were never written, and a reload showed the narration
-            # over an empty page.
+            # Final snapshots are staged by the adapter on DONE. Adapt here so the commit and
+            # readiness notification precede terminal DONE, on which the browser closes SSE.
+            adapted_events = (
+                element_adapter.process(agent_events)
+                if element_adapter is not None
+                else agent_events
+            )
+            ready_by_block: dict[str, list[str]] = {}
+            terminal_done = None
+            try:
+                for payload in adapted_events:
+                    if (
+                        isinstance(payload, RunElementSSEMessageDTO)
+                        and payload.type == GeneratedType.DONE.value
+                        and payload.is_terminal
+                    ):
+                        terminal_done = payload
+                    else:
+                        yield payload
+            except AppError as exc:
+                if (
+                    exc.code == ERROR_CODE["server.learn.agentInputBudgetExceeded"]
+                    and element_adapter is not None
+                ):
+                    # A later tool request can be refused after text was shown. Persist its
+                    # buffered elements before surfacing the error, without sending DONE.
+                    yield from element_adapter.finalize_pending_blocks()
+                    _commit_pending_step()
+                raise
+            finally:
+                # A disconnect must also close the engine bridge and its turn slot.
+                with contextlib.suppress(Exception):
+                    adapted_events.close()
+                with contextlib.suppress(Exception):
+                    agent_events.close()
+            if element_adapter is not None:
+                # Fallback narration is finalized in storage without a live patch. Include it
+                # from the adapter's snapshots instead of relying only on emitted elements.
+                for (
+                    block_bid,
+                    element_bid,
+                ) in element_adapter.finalized_element_identities():
+                    ready_by_block.setdefault(block_bid, []).append(element_bid)
             _commit_pending_step()
+            for block_bid, element_bids in ready_by_block.items():
+                yield _make_audio_backfill_ready_event(block_bid, element_bids)
+            if terminal_done is not None:
+                yield terminal_done
         except TurnCapacityError:
             # This worker is already running as many turns as it can. Refusing is the bridge's
             # deliberate choice over queueing -- a request parked waiting for a slot has not
@@ -785,7 +827,7 @@ def _lesson_events(
                 # Going back needs the 2.0 session taken back too, which 1.0 cannot do: it would
                 # rewrite history and leave the session on its old branch.
                 raise_error("server.learn.agentRewindUnavailable")
-            # An allowlisted course whose lesson has no script: 1.0 knows what to do with that,
+            # A course selected for 2.0 whose lesson has no script: 1.0 knows what to do with that,
             # and refusing the learner over a configuration mistake would be worse.
             app.logger.warning(
                 "agent engine has no script for this lesson, using 1.0: "
@@ -827,9 +869,9 @@ def _teaches_with_agent(
 ) -> bool:
     """Whether this particular request goes to the 2.0 engine.
 
-    Being on the allowlist is necessary but not sufficient. A follow-up question keeps the 1.0
-    path even for an allowlisted course: it runs beside the lesson under its own semaphore rather
-    than through the lesson's turn loop.
+    The deployment must enable 2.0. A follow-up question still keeps the 1.0
+    path: it runs beside the lesson under its own semaphore rather than through
+    the lesson's turn loop.
 
     Regenerating a past block or element goes to 2.0 like everything else. It used to go to 1.0,
     which regenerated from rows 2.0 wrote and left the 2.0 session where it was, so the page and
@@ -873,7 +915,7 @@ def run_script(
     use_element_protocol = True
     # Decided here as well as in `_lesson_events`, because the adapter is built before the
     # producer starts and needs to know which engine it is serving. The predicate reads the
-    # deployment's allowlist and this request's own arguments, so asking twice costs nothing and
+    # deployment's flag and this request's own arguments, so asking twice costs nothing and
     # cannot disagree.
     teaches_with_agent = _teaches_with_agent(
         shifu_bid=shifu_bid,

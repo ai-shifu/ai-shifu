@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { Loader2, Minus, Plus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import CourseModelSelect from '@/components/model-list/CourseModelSelect';
@@ -55,12 +55,6 @@ type AskSettingsSectionProps = {
   liveVoices: FollowUpVoice[];
   liveVoice: string;
   onLiveVoiceChange: (value: string) => void;
-  askTemperature: number;
-  askTemperatureInput: string;
-  setAskTemperature: Dispatch<SetStateAction<number>>;
-  setAskTemperatureInput: Dispatch<SetStateAction<string>>;
-  normalizeAskTemperature: (value: number) => number;
-  adjustAskTemperature: (delta: number) => void;
   onAskProviderChange: (value: string) => void;
   askProviderFieldEntries: Array<[string, any]>;
   askProviderRequiredFields: Set<string>;
@@ -93,12 +87,6 @@ export default function AskSettingsSection({
   liveVoices,
   liveVoice,
   onLiveVoiceChange,
-  askTemperature,
-  askTemperatureInput,
-  setAskTemperature,
-  setAskTemperatureInput,
-  normalizeAskTemperature,
-  adjustAskTemperature,
   onAskProviderChange,
   askProviderFieldEntries,
   askProviderRequiredFields,
@@ -190,7 +178,7 @@ export default function AskSettingsSection({
               />
             )}
 
-            {isLiveVoiceFollowUp ? (
+            {isLiveVoiceFollowUp && (
               <div className='space-y-2 pt-2'>
                 <FormLabel className='text-sm font-medium text-foreground'>
                   {t('module.shifuSetting.liveVoiceLabel')}
@@ -226,55 +214,6 @@ export default function AskSettingsSection({
                     })}
                   </SelectContent>
                 </Select>
-              </div>
-            ) : (
-              <div className='space-y-2 pt-2'>
-                <FormLabel className='text-sm font-medium text-foreground'>
-                  {t('module.shifuSetting.askTemperature')}
-                </FormLabel>
-                <p className='text-xs text-muted-foreground'>
-                  {t('module.shifuSetting.askTemperatureHint')}
-                </p>
-                <div className='flex items-center gap-2'>
-                  <Input
-                    type='text'
-                    inputMode='decimal'
-                    value={askTemperatureInput}
-                    onChange={e => setAskTemperatureInput(e.target.value)}
-                    onBlur={() => {
-                      const parsed = Number(askTemperatureInput);
-                      const normalized = Number.isFinite(parsed)
-                        ? normalizeAskTemperature(parsed)
-                        : askTemperature;
-                      setAskTemperature(normalized);
-                      setAskTemperatureInput(String(normalized));
-                    }}
-                    disabled={textConfigurationReadonly}
-                    className='h-9 flex-1'
-                  />
-                  {!textConfigurationReadonly && (
-                    <div className='flex items-center gap-2'>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='icon'
-                        onClick={() => adjustAskTemperature(-0.1)}
-                        className='h-9 w-9'
-                      >
-                        <Minus className='h-4 w-4' />
-                      </Button>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='icon'
-                        onClick={() => adjustAskTemperature(0.1)}
-                        className='h-9 w-9'
-                      >
-                        <Plus className='h-4 w-4' />
-                      </Button>
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </div>

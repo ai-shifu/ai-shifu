@@ -1,0 +1,131 @@
+name: Docker Packaging Checks
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/build-latest.yml
+      - .github/workflows/build-on-release.yml
+      - .github/workflows/build-docker-image.yml
+      - .github/workflows/docker-build-check.yml
+      - .github/workflows/runtime-harness.yml
+      - .github/workflows/prepare-release.yml
+      - docker/docker-compose.latest.yml
+      - docker/docker-compose.runtime-harness.yml
+      - .github/actions/docker-image-metadata/**
+      - scripts/merge_docker_manifests.py
+      - scripts/test_merge_docker_manifests.py
+      - scripts/check_docker_image.py
+      - scripts/test_check_docker_image.py
+      - scripts/test_docker_image_metadata.py
+      - scripts/select_docker_checks.py
+      - scripts/test_select_docker_checks.py
+      - scripts/test_runtime_packaging.py
+      - .dockerignore
+      - src/api/Dockerfile
+      - src/api/requirements.txt
+      - src/web/Dockerfile
+      - src/web/package.json
+      - src/web/package-lock.json
+      - src/web/.npmrc
+      - src/web/next.config.*
+      - src/web/scripts/check-production-dependencies.mjs
+  workflow_dispatch:
+    inputs:
+      publish-candidates:
+        description: Publish isolated candidate tags to GHCR and configured Docker Hub / Aliyun mirrors
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-packaging-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  manifest-tests:
+    name: Manifest publication regression tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install test runner
+        run: python -m pip install pytest PyYAML
+      - name: Test manifest publication without registry access
+        run: python -m pytest scripts/test_merge_docker_manifests.py scripts/test_check_docker_image.py scripts/test_docker_image_metadata.py scripts/test_select_docker_checks.py scripts/test_runtime_packaging.py -q
+
+  select-platforms:
+    name: Select additional image checks
+    runs-on: ubuntu-24.04
+    outputs:
+      run: ${{ steps.select.outputs.run }}
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Select affected services
+        id: select
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 scripts/select_docker_checks.py --event "$EVENT_NAME" \
+            --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --output "$GITHUB_OUTPUT"
+
+  native-build:
+    name: Validate native image (${{ matrix.service }})
+    needs: select-platforms
+    if: needs.select-platforms.outputs.run == 'true' && (github.event_name == 'pull_request' || !inputs.publish-candidates)
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.select-platforms.outputs.matrix) }}
+    uses: ./.github/workflows/build-docker-image.yml
+    # No inherited registry secrets; validation never logs in or publishes images.
+    with:
+      service: ${{ matrix.service }}
+      image-name: ${{ matrix.image-name }}
+      dockerfile: ${{ matrix.dockerfile }}
+      push-images: false
+      # PR AMD64 production images are already built and tested by runtime-harness.
+      architectures: ${{ github.event_name == 'pull_request' && '["arm64"]' || '["amd64","arm64"]' }}
+      tags: |
+        type=raw,value=validation-${{ github.sha }}
+      labels: |
+        org.opencontainers.image.revision=${{ github.sha }}
+
+  candidate-build:
+    name: Validate candidate publication (${{ matrix.service }})
+    permissions:
+      contents: read
+      packages: write
+    if: github.event_name == 'workflow_dispatch' && inputs.publish-candidates
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            image-name: AI_SHIFU_API_IMAGE_NAME
+            default-image: ai-shifu-api
+            dockerfile: src/api/Dockerfile
+          - service: web
+            image-name: AI_SHIFU_WEB_IMAGE_NAME
+            default-image: ai-shifu-web
+            dockerfile: src/web/Dockerfile
+    uses: ./.github/workflows/build-docker-image.yml
+    secrets: inherit
+    with:
+      service: ${{ matrix.service }}
+      image-name: ${{ vars[matrix.image-name] || matrix.default-image }}
+      dockerfile: ${{ matrix.dockerfile }}
+      push-images: true
+      require-registry: true
+      publish-ghcr: true
+      tags: |
+        type=raw,value=candidate-${{ github.run_id }}-${{ github.run_attempt }}
+      labels: |
+        org.opencontainers.image.revision=${{ github.sha }}

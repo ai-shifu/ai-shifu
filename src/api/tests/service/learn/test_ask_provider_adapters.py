@@ -1603,3 +1603,60 @@ def test_stream_ask_provider_response_uses_llm_adapter_runtime(app: object) -> N
     )
 
     assert [chunk.content for chunk in chunks] == ["from-llm"]
+
+
+def test_dify_transports_shared_course_memory_to_outbound_query(
+    dify_app: object, monkeypatch: object
+) -> None:
+    """Verify the actual adapter serializes the shared context, beyond builder-only claims."""
+    from flaskr.service.learn import follow_up_context
+    from flaskr.service.learn.agent import routing
+
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(
+        follow_up_context, "load_follow_up_history", lambda **_kwargs: []
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    captured = {}
+
+    def request(
+        _self: object, _method: object, _url: object, **kwargs: object
+    ) -> object:
+        captured.update(json.loads(kwargs["body"]))
+        return _FakeResponse(
+            lines=['data: {"event":"message","answer":"reply"}', "data: [DONE]"]
+        )
+
+    monkeypatch.setattr(dify_adapter.SafeOutboundClient, "request", request)
+    conversation = follow_up_context.build_follow_up_conversation_context(
+        dify_app,
+        user_info=types.SimpleNamespace(user_id="learner"),
+        shifu_bid="course",
+        outline_item_bid="lesson",
+        progress_record_bid="progress",
+        follow_up_info=types.SimpleNamespace(ask_prompt="Answer the question."),
+        course_system_prompt=None,
+        use_learner_language=False,
+        runtime_language="en-US",
+        runtime_profiles={"practice_code": "STORED COURSE CODE"},
+    )
+    list(
+        module.DifyAskProviderAdapter().stream_answer(
+            app=dify_app,
+            user_id="learner",
+            user_query="Recall my code",
+            messages=[
+                *conversation.provider_messages,
+                {"role": "user", "content": "Recall my code"},
+            ],
+            provider_config={
+                "config": {
+                    "base_url": "https://dify.example.com",
+                    "api_key": "test-key",
+                }
+            },
+        )
+    )
+    assert "STORED COURSE CODE" in captured["query"]
+    assert "<course_memory>" in captured["query"]
+    assert "Recall my code" in captured["query"]

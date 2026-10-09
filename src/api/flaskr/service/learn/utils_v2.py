@@ -4,6 +4,7 @@ import re
 
 from flask import Flask
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
+from flaskr.service.common import raise_error
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_DISABLE
@@ -69,7 +70,7 @@ def extract_variables(template: str) -> list:
     """Extract variables."""
     pattern = r"\{{1,2}([^{}]+)\}{1,2}"
     matches = re.findall(pattern, template)
-    # Only keep valid variable names (letters, digits, underscore, hyphen), no dots, commas, colons, quotes, or spaces
+    # Retired cross-course aliases and format expressions are not variable names.
     variables = [
         m.strip()
         for m in matches
@@ -86,8 +87,9 @@ def safe_format_template(template: str, variables: dict) -> str:
     def replacer(match: re.Match[str]) -> str:
         _, var, _ = match.groups()
         var_name = var.strip()
-        # Only process variable names with letters, digits, underscore, hyphen
-        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name) and var_name in variables:
+        if (
+            re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name)
+        ) and var_name in variables:
             return str(variables[var_name])
         # Otherwise, keep the original
         return match.group(0)
@@ -145,10 +147,6 @@ def get_fmt_prompt(
         str: Fmt prompt.
 
     """
-    app.logger.info("raw prompt: %s", profile_tmplate)
-    propmpt_keys = []
-    profiles = {}
-
     profiles = (
         dict(resolved_profiles)
         if resolved_profiles is not None
@@ -156,25 +154,20 @@ def get_fmt_prompt(
     )
     if profile_overrides:
         profiles.update(profile_overrides)
-    propmpt_keys = list(profiles.keys())
     if user_input:
         profiles["sys_user_input"] = user_input
-        propmpt_keys.append("sys_user_input")
-    app.logger.info(propmpt_keys)
-    app.logger.info(profiles)
     keys = extract_variables(profile_tmplate)
     fmt_keys = {}
     for key in keys:
         if key in profiles:
             fmt_keys[key] = profiles[key]
-        else:
-            app.logger.info("key not found: %s ,user_id: %s", key, user_id)
-    app.logger.info(fmt_keys)
+    app.logger.info(
+        "Prompt variables resolved: requested=%s matched=%s", len(keys), len(fmt_keys)
+    )
     if not keys:
         prompt = profile_tmplate or user_input
     else:
         prompt = safe_format_template(profile_tmplate, fmt_keys)
-    app.logger.info("fomat input:%s", prompt)
     return prompt
 
 
@@ -184,6 +177,8 @@ def get_follow_up_info_v2(
     outline_item_bid: str,
     attend_id: str,
     is_preview: bool = False,
+    *,
+    struct: HistoryItem | None = None,
 ) -> FollowUpInfo:
     """Get follow up info.
 
@@ -195,15 +190,20 @@ def get_follow_up_info_v2(
         is_preview (bool, optional): Whether to retrieve the follow up info in preview mode.
             If True, retrieves data as it would appear in preview (unpublished) state; if False,
             retrieves data as it appears in the published state. Defaults to False.
+        struct (HistoryItem, optional): The structure already bound to a learning run.
 
     Returns:
         FollowUpInfo: The follow up information for the given parameters.
 
     """
     _ = attend_id
-    struct_info = get_shifu_struct(app, shifu_bid, is_preview)
+    struct_info = (
+        struct if struct is not None else get_shifu_struct(app, shifu_bid, is_preview)
+    )
     path = find_node_with_parents(struct_info, outline_item_bid)
     if not path:
+        if struct is not None:
+            raise_error("server.shifu.lessonNotFoundInCourse")
         return FollowUpInfo(
             ask_model="",
             ask_prompt="",
@@ -214,26 +214,48 @@ def get_follow_up_info_v2(
             ask_provider_config=normalize_ask_provider_config({}),
         )
     path = list(reversed(path))
+    shifu_path = [p for p in path if p.type == "shifu"]
     path: list[HistoryItem] = [p for p in path if p.type == "outline"]
     outline_ids = [p.id for p in path]
     outline_model = PublishedOutlineItem if not is_preview else DraftOutlineItem
     shifu_model = PublishedShifu if not is_preview else DraftShifu
+    outline_filters = [outline_model.id.in_(outline_ids)]
+    shifu_filters = [shifu_model.shifu_bid == shifu_bid]
+    if struct is not None:
+        if len(shifu_path) != 1 or shifu_path[0].bid != shifu_bid:
+            raise_error("server.shifu.shifuNotFound")
+        shifu_filters.append(shifu_model.id == shifu_path[0].id)
+        outline_filters.append(outline_model.shifu_bid == shifu_bid)
+        if is_preview:
+            shifu_filters.append(shifu_model.deleted == 0)
+            outline_filters.append(outline_model.deleted == 0)
+        elif not shifu_model.query.filter(
+            shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
+        ).first():
+            raise_error("server.shifu.shifuNotFound")
+        # A run retains physical publication rows across block commits.
+        # Republish retires those rows without changing its follow-up settings.
+    else:
+        shifu_filters.append(shifu_model.deleted == 0)
     outline_infos: list[PublishedOutlineItem | DraftOutlineItem] = (
-        outline_model.query.filter(
-            outline_model.id.in_(outline_ids),
-        ).all()
+        outline_model.query.filter(*outline_filters).all()
     )
+    if struct is not None:
+        outline_by_id = {o.id: o for o in outline_infos}
+        if any(
+            p.id not in outline_by_id or outline_by_id[p.id].outline_item_bid != p.bid
+            for p in path
+        ):
+            raise_error("server.shifu.outlineItemNotFound")
     outline_infos_map: dict[str, PublishedOutlineItem | DraftOutlineItem] = {
         o.outline_item_bid: o for o in outline_infos
     }
 
     shifu_info: PublishedShifu | DraftShifu = (
-        shifu_model.query.filter(
-            shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
-        )
-        .order_by(shifu_model.id.desc())
-        .first()
+        shifu_model.query.filter(*shifu_filters).order_by(shifu_model.id.desc()).first()
     )
+    if struct is not None and shifu_info is None:
+        raise_error("server.shifu.shifuNotFound")
     shifu_ask_provider_config = normalize_ask_provider_config(
         getattr(shifu_info, "ask_provider_config", "{}")
     )

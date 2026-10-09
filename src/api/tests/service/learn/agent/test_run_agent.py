@@ -47,7 +47,17 @@ class _Session:
         self.script = ScriptBundle(script=SCRIPT)
         self.messages: list = []
         self.memory: dict = {}
+        self.answer_hashes: dict = {}
         self.answers: dict = {}
+        self.initial_variables: dict | None = None
+
+    def all_memory(self) -> dict:
+        """Expose the merged snapshot used by host-owned reference refresh."""
+        return {**self.user_memory, **self.memory}
+
+    def answered_memory_keys(self) -> frozenset[str]:
+        """Report no accepted interaction history in this host test double."""
+        return frozenset()
 
     def to_dict(self) -> dict:
         """Return the fields a checkpoint reads, the way a real session serializes them."""
@@ -132,6 +142,9 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
     monkeypatch.setattr(run_agent, "save_agent_session", _save)
     monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: None)
     monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory({}))
+    monkeypatch.setattr(
+        run_agent, "course_memory_deletion_state", lambda *_a, **_k: ({}, frozenset())
+    )
     monkeypatch.setattr(run_agent, "record_turn_content", _record_content)
     monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: PROGRESS)
     monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: _Record())
@@ -173,6 +186,44 @@ def _run(
 
 
 # --- what the turn is --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("source", "scope"), [("interaction", "session"), ("tool", "user")]
+)
+@pytest.mark.parametrize("replaying", [True, False])
+def test_deleted_named_answer_requires_new_submission_not_regeneration(
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+    replaying: bool,
+    source: str,
+    scope: str,
+) -> None:
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    monkeypatch.setattr(
+        run_agent,
+        "course_memory_deletion_state",
+        lambda *_a, **_k: ({"goal": 1}, frozenset({"goal"})),
+    )
+    monkeypatch.setattr(run_agent, "stage_retirement", lambda *_a, **_k: None)
+    run_agent._persist(
+        None,
+        _Session(),
+        memory=[MemoryUpdated(key="goal", value="answer", source=source, scope=scope)],
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        preview_mode=False,
+        progress_record_bid=PROGRESS,
+        generated_block_bid="block",
+        taught="Lesson",
+        rewind=RewindPlan(checkpoint={}, replay_values=["old"] if replaying else None),
+        memory_generations={"goal": 1},
+    )
+    assert len([entry for entry in calls if entry[0] == "stage_memory"]) == int(
+        not replaying
+    )
 
 
 def test_a_learner_who_has_not_started_begins_the_lesson(
@@ -537,6 +588,26 @@ def test_a_resumed_session_sees_a_profile_edited_since_it_was_saved(
     _run(_Engine([TurnDone(reason="end")], session=stored))
     assert stored.user_memory == {"pace": "fast"}
     assert calls
+
+
+@pytest.mark.parametrize("nickname", ["", "Alex"])
+def test_a_resumed_session_refreshes_a_cleared_or_updated_nickname(
+    monkeypatch: pytest.MonkeyPatch, calls: list, nickname: str
+) -> None:
+    """An old session snapshot cannot undo the canonical nickname or its blank fallback."""
+    from flask import Flask
+    from flaskr.i18n import load_translations
+
+    load_translations(Flask(__name__))
+    stored = _Session(started=True)
+    stored.user_memory = {"sys_user_nickname": "Previous name"}
+    snapshot = {"sys_user_nickname": nickname, "sys_user_language": "en-US"}
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory(snapshot))
+    _run(_Engine([TurnDone(reason="end")], session=stored))
+    assert stored.user_memory["sys_user_nickname"] == (nickname or "Learner")
+    assert snapshot["sys_user_nickname"] == nickname
+    assert not any(name == "stage_memory" for name, _ in calls)
 
 
 # --- what the browser actually sends -----------------------------------------------------
@@ -2482,6 +2553,18 @@ def _outcome(engine: _Engine) -> run_agent.TurnOutcome | None:
             next(stream)
         except StopIteration as stop:
             return stop.value
+
+
+def test_input_budget_error_is_reported_only_after_session_save(calls: list) -> None:
+    outcome = _outcome(
+        _Engine(
+            [ErrorEvent(message="input too large", code="input_budget_exceeded")],
+            session=_Session(started=True),
+        )
+    )
+    assert outcome.error_code == "input_budget_exceeded"
+    assert outcome.reason is None
+    assert any(name == "save_session" for name, _ in calls)
 
 
 @pytest.mark.usefixtures("calls")

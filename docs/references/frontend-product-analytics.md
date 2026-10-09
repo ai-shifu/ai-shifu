@@ -439,3 +439,10 @@ billing or quota authority. Tracking failures do not affect notice or reset.
 Existing `learner_retake_admission_checked` continues to mean a confirmation
 open; background requests must not emit that event. No rename or historical
 rewrite; compare the new notice denominator from this release onward.
+
+October 9 production preparation: notice and admission events are emitted from
+a post-commit effect after the status is rendered. Status refreshes on account
+identity changes, window focus, visibility restoration and network reconnection;
+there is no periodic polling. Repeat same-state refreshes do not add notice
+exposures or confirmation-open events. Payloads and owner/preview exclusions
+are unchanged; identity is an internal cache key, never added to the payload.

@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentInputBudgetExceeded": "وصل هذا الدرس إلى الحد الأقصى لسعة المدخلات. تم حفظ إجاباتك وتقدمك. يرجى التواصل مع مسؤول الدورة للمتابعة.",
     "agentRewindUnavailable": "لا يمكن إعادة إنشاء هذه الخطوة. لتغيير إجابة سابقة، استخدم \"إعادة التعلم\" لدراسة هذا الدرس من جديد.",
     "agentTurnCapacity": "هناك عدد كبير من المتعلمين يدرسون في الوقت نفسه حاليًا. يُرجى المحاولة مرة أخرى بعد قليل.",
     "askProviderAuthFailed": "فشلت مصادقة قاعدة المعرفة، يرجى التحقق من صحة API Key وClient ID",
@@ -11,6 +12,7 @@
     "askProviderUnavailable": "قاعدة المعرفة الخارجية غير متاحة مؤقتًا",
     "continueButton": "متابعة",
     "debugSessionExpired": "انتهت جلسة التصحيح هذه أو تغيّر النص. ابدأ التصحيح من جديد.",
+    "defaultLearnerName": "المتعلم",
     "generatedBlockNotFound": "لم يتم العثور على الكتلة المُنشأة",
     "invalidAction": "عملية غير صالحة",
     "lessonFeedbackCommentPlaceholder": "اختياري: أخبرنا باقتراحك",

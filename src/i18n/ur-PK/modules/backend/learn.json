@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentInputBudgetExceeded": "اس سبق میں ان پٹ کی گنجائش کی حد پوری ہو گئی ہے۔ آپ کے جوابات اور پیش رفت محفوظ ہیں۔ جاری رکھنے کے لیے کورس کے ذمہ دار سے رابطہ کریں۔",
     "agentRewindUnavailable": "اس مرحلے کا جواب ابھی دوبارہ نہیں بنایا جا سکتا۔ پچھلے جوابات بدلنے کے لیے “دوبارہ پڑھیں” پر کلک کر کے سبق دوبارہ شروع کریں۔",
     "agentTurnCapacity": "فی الحال ایک ہی وقت میں بہت سے لوگ پڑھ رہے ہیں، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "askProviderAuthFailed": "نالج بیس کی تصدیق ناکام ہوئی۔ API Key اور Client ID چیک کریں۔",
@@ -11,6 +12,7 @@
     "askProviderUnavailable": "بیرونی علم کی بنیاد عارضی طور پر دستیاب نہیں ہے۔",
     "continueButton": "جاری رکھیں",
     "debugSessionExpired": "یہ ڈیبگ سیشن ختم ہو گیا ہے یا اسکرپٹ بدل گیا ہے۔ دوبارہ ڈیبگنگ شروع کریں۔",
+    "defaultLearnerName": "طالب علم",
     "generatedBlockNotFound": "تیار کردہ بلاک نہیں ملا",
     "invalidAction": "غلط آپریشن",
     "lessonFeedbackCommentPlaceholder": "اختیاری: ہمیں اپنی تجاویز بتائیں",

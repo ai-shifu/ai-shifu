@@ -39,7 +39,7 @@ export const resetChapter = async ({ lessonId: outline_bid }) => {
   } catch (error) {
     // A released attempt needs a fresh identity. Unknown transport outcomes
     // retain the identity so retry cannot reset/charge twice.
-    if ((error as { code?: number }).code === 4025) finishRetakeRequest(scope);
+    if ((error as { code?: number }).code === 4032) finishRetakeRequest(scope);
     throw error;
   }
 };

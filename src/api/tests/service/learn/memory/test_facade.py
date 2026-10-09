@@ -111,7 +111,7 @@ def test_course_values_follow_settings_and_keep_user_course_isolation(
     assert load_memory(app, other_user, shifu_bid).variables["base_level"] == "expert"
 
 
-def test_runtime_resolution_preserves_global_fallback_and_definition_filtering(
+def test_runtime_resolution_refuses_global_custom_fallback_and_keeps_definition_filtering(
     app: Flask, scope: tuple[str, str]
 ) -> None:
     user_bid, shifu_bid = scope
@@ -135,7 +135,7 @@ def test_runtime_resolution_preserves_global_fallback_and_definition_filtering(
 
     variables = load_memory(app, user_bid, shifu_bid).variables
     assert variables == get_user_profiles(app, user_bid, shifu_bid)
-    assert variables["base_level"] == "global default"
+    assert "base_level" not in variables
     assert "unlisted" not in variables
     assert load_learner_memory(app, user_bid, shifu_bid=shifu_bid).get("unlisted") == (
         "stored only"
@@ -332,3 +332,211 @@ def test_runtime_memory_update_preserves_normalization_and_mapped_events(
     assert rows["language"].shifu_bid == ""
     assert rows["empty"].value == ""
     ctx._recorder.update_progress_pointer.assert_called_once()
+
+
+def test_agent_projection_includes_only_current_course_undeclared_variables(
+    app: Flask, scope: tuple[str, str]
+) -> None:
+    """Opt-in reads keep legacy rows, use latest live values and defer system fields."""
+    user, course = scope
+    with unit_of_work():
+        for owner, context, key, value, deleted in [
+            (user, course, "requested", "old", 0),
+            (user, course, "requested", "latest", 0),
+            (user, course, "requested", "deleted", 1),
+            (user, "other-course", "elsewhere", "private", 0),
+            ("other-user", course, "other_user", "private", 0),
+            (user, "", "global_undeclared", "global", 0),
+            (user, course, "sys_user_nickname", "stale", 0),
+            (user, course, "sys_arbitrary", "not canonical", 0),
+            (user, course, "language", "not course scoped", 0),
+            (user, course, "sysXliteral", "not a system prefix", 0),
+        ]:
+            db.session.add(
+                VariableValue(
+                    variable_value_bid=uuid4().hex,
+                    user_bid=owner,
+                    shifu_bid=context,
+                    key=key,
+                    value=value,
+                    deleted=deleted,
+                )
+            )
+    default = load_memory(app, user, course).variables
+    assert "requested" not in default
+    memory = load_memory(app, user, course, include_course_variables=True).variables
+    assert memory == {
+        **default,
+        "requested": "latest",
+        "sysXliteral": "not a system prefix",
+    }
+    assert memory["sys_user_nickname"] == "Current learner"
+
+
+def test_supplementary_course_projection_considers_only_the_newest_hundred_keys(
+    app: Flask, scope: tuple[str, str]
+) -> None:
+    """A projection bound never deletes history or caps the existing defined-variable path."""
+    user, course = scope
+    with unit_of_work():
+        for index in range(120):
+            db.session.add(
+                VariableValue(
+                    variable_value_bid=uuid4().hex,
+                    user_bid=user,
+                    shifu_bid=course,
+                    key=f"extra_{index}",
+                    value="kept",
+                )
+            )
+        stage_memory(
+            app,
+            user,
+            course,
+            MemoryUpdate(
+                variables=[VariableMemoryUpdate("base_level", "defined answer")]
+            ),
+        )
+    memory = load_memory(app, user, course, include_course_variables=True).variables
+    extras = {key: value for key, value in memory.items() if key.startswith("extra_")}
+    assert set(extras) == {f"extra_{index}" for index in range(20, 120)}
+    assert memory["base_level"] == "defined answer"
+    assert VariableValue.query.filter_by(user_bid=user, shifu_bid=course).count() == 121
+
+
+def test_supplementary_json_budget_keeps_whole_values_and_exact_defined_answers(
+    app: Flask, scope: tuple[str, str]
+) -> None:
+    """Escaping counts; oversized unknown rows stay stored while named answers remain exact."""
+    import json
+
+    user, course = scope
+    answer = "é" * 50_000
+    with unit_of_work():
+        stage_memory(
+            app,
+            user,
+            course,
+            MemoryUpdate(variables=[VariableMemoryUpdate("base_level", answer)]),
+        )
+        for index in range(5):
+            db.session.add(
+                VariableValue(
+                    variable_value_bid=uuid4().hex,
+                    user_bid=user,
+                    shifu_bid=course,
+                    key=f"extra_{index}",
+                    value="\x00" * 2000,
+                )
+            )
+        db.session.add(
+            VariableValue(
+                variable_value_bid=uuid4().hex,
+                user_bid=user,
+                shifu_bid=course,
+                key="oversized_unknown",
+                value="é" * 40_000,
+            )
+        )
+    memory = load_memory(app, user, course, include_course_variables=True).variables
+    extras = {key: value for key, value in memory.items() if key.startswith("extra_")}
+    assert set(extras) == {"extra_4", "extra_3"}
+    assert len(json.dumps(extras, ensure_ascii=False, indent=2)) <= 32_768
+    assert all(value == "\x00" * 2000 for value in extras.values())
+    assert memory["base_level"] == answer
+    assert "oversized_unknown" not in memory
+    assert (
+        VariableValue.query.filter_by(user_bid=user, key="oversized_unknown")
+        .one()
+        .value
+        == "é" * 40_000
+    )
+
+
+@pytest.mark.parametrize("fresh", [False, True])
+def test_legacy_runtime_does_not_restore_a_value_deleted_during_validation(
+    app: Flask,
+    scope: tuple[str, str],
+    fresh: bool,
+) -> None:
+    from flaskr.service.profile.api import (
+        course_memory_deletion_state,
+        delete_course_memory,
+        list_course_memory,
+    )
+
+    user, course = scope
+    with unit_of_work():
+        stage_memory(
+            app,
+            user,
+            course,
+            MemoryUpdate(variables=[VariableMemoryUpdate("base_level", "old")]),
+        )
+    generation, _ = course_memory_deletion_state(user, course)
+    selected = list_course_memory(user, course)["items"][0]
+    delete_course_memory(user, course, int(selected["value_id"]))
+    if fresh:
+        generation, _ = course_memory_deletion_state(user, course)
+    state = SimpleNamespace(
+        run_script_info=SimpleNamespace(block_position=0, outline_bid="lesson"),
+        mdflow_context=SimpleNamespace(
+            process=Mock(
+                return_value=SimpleNamespace(
+                    metadata={}, variables={"base_level": "new answer"}
+                )
+            )
+        ),
+        message_list=[],
+        user_profile={},
+        variable_definition_key_id_map={},
+        memory_generations=generation,
+    )
+    ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+    ctx.app = app
+    ctx._user_info = SimpleNamespace(user_id=user)
+    ctx._outline_item_info = SimpleNamespace(shifu_bid=course)
+    ctx._current_attend = SimpleNamespace(block_position=0)
+    ctx._run_recorder = Mock()
+    block = SimpleNamespace(generated_block_bid="block")
+    events = list(ctx._phase_validate_input_and_advance(app, state, block, {}))
+    values = list_course_memory(user, course)["items"]
+    assert len(values) == int(fresh)
+    assert len(events) == int(fresh)
+    if fresh:
+        assert values[0]["value"] == "new answer"
+    ctx._recorder.update_progress_pointer.assert_called_once()
+
+
+def test_legacy_memory_and_progress_failure_roll_back_together(
+    app: Flask,
+    scope: tuple[str, str],
+) -> None:
+    user, course = scope
+    state = SimpleNamespace(
+        run_script_info=SimpleNamespace(block_position=0, outline_bid="lesson"),
+        mdflow_context=SimpleNamespace(
+            process=Mock(
+                return_value=SimpleNamespace(
+                    metadata={}, variables={"base_level": "new answer"}
+                )
+            )
+        ),
+        message_list=[],
+        user_profile={},
+        variable_definition_key_id_map={},
+        memory_generations={},
+    )
+    ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+    ctx.app = app
+    ctx._user_info = SimpleNamespace(user_id=user)
+    ctx._outline_item_info = SimpleNamespace(shifu_bid=course)
+    ctx._current_attend = SimpleNamespace(block_position=0)
+    ctx._run_recorder = Mock()
+    ctx._run_recorder.update_progress_pointer.side_effect = RuntimeError(
+        "progress failure"
+    )
+    block = SimpleNamespace(generated_block_bid="block")
+    with pytest.raises(RuntimeError, match="progress failure"):
+        next(ctx._phase_validate_input_and_advance(app, state, block, {}))
+    assert not VariableValue.query.filter_by(user_bid=user, shifu_bid=course).all()

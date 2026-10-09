@@ -1,7 +1,12 @@
+import { useLayoutEffect } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useRetakeAllowance } from './useRetakeAllowance';
 import { getRetakeStatus } from '@/api/retake';
 const mockTrack = jest.fn();
+const mockUser = { userInfo: { user_id: 'learner' } };
+jest.mock('@/store/useUserStore', () => ({
+  useUserStore: (fn: (s: object) => unknown) => fn(mockUser),
+}));
 const mockSystem = { previewMode: false };
 jest.mock('@/api/retake', () => ({ getRetakeStatus: jest.fn() }));
 jest.mock('@/hooks/useTracking', () => ({
@@ -28,6 +33,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockTrack.mockReset();
   mockSystem.previewMode = false;
+  mockUser.userInfo.user_id = 'learner';
   jest.mocked(getRetakeStatus).mockResolvedValue(status);
 });
 
@@ -231,3 +237,64 @@ it.each([true, false])(
     if (preview) expect(getRetakeStatus).not.toHaveBeenCalled();
   },
 );
+
+it('refreshes failed and busy notices on recovery events without polling or duplicate exposures', async () => {
+  jest
+    .mocked(getRetakeStatus)
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce({ ...status, allowed: false, in_progress: true })
+    .mockResolvedValue(status);
+  const hook = renderHook(() =>
+    useRetakeAllowance(false, 'lesson', 'update', true),
+  );
+  await waitFor(() => expect(hook.result.current.failed).toBe(true));
+  act(() => window.dispatchEvent(new Event('online')));
+  await waitFor(() =>
+    expect(hook.result.current.status?.in_progress).toBe(true),
+  );
+  act(() => window.dispatchEvent(new Event('focus')));
+  await waitFor(() => expect(hook.result.current.blocked).toBe(false));
+  act(() => window.dispatchEvent(new Event('focus')));
+  await waitFor(() => expect(getRetakeStatus).toHaveBeenCalledTimes(4));
+  expect(mockTrack.mock.calls.map(call => call[1].state)).toEqual([
+    'busy',
+    'available',
+  ]);
+  hook.unmount();
+  act(() => window.dispatchEvent(new Event('focus')));
+  expect(getRetakeStatus).toHaveBeenCalledTimes(4);
+});
+it('invalidates the old identity and ignores its pending response when the account changes', async () => {
+  let resolveOld!: (value: typeof status) => void;
+  jest.mocked(getRetakeStatus).mockImplementationOnce(
+    () =>
+      new Promise(resolve => {
+        resolveOld = resolve;
+      }),
+  );
+  const hook = renderHook(() =>
+    useRetakeAllowance(false, 'lesson', 'update', true),
+  );
+  mockUser.userInfo.user_id = 'another-learner';
+  hook.rerender();
+  await waitFor(() => expect(hook.result.current.blocked).toBe(false));
+  await act(async () => resolveOld({ ...status, allowed: false }));
+  expect(hook.result.current.blocked).toBe(false);
+  expect(getRetakeStatus).toHaveBeenCalledTimes(2);
+});
+
+it('emits exposure only after the loaded status has committed to the interface', async () => {
+  const sequence: string[] = [];
+  mockTrack.mockImplementation(() => {
+    sequence.push('tracked');
+  });
+  renderHook(() => {
+    const allowance = useRetakeAllowance(false, 'lesson', 'update', true);
+    useLayoutEffect(() => {
+      if (allowance.status) sequence.push('rendered');
+    }, [allowance.status]);
+    return allowance;
+  });
+  await waitFor(() => expect(mockTrack).toHaveBeenCalledTimes(1));
+  expect(sequence).toEqual(['rendered', 'tracked']);
+});

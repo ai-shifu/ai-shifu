@@ -15,12 +15,22 @@ sharing the loop is not starved.
 from __future__ import annotations
 
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from flaskr.api.llm import chat_llm
+from flaskr.api.llm import _extract_usage_value, _reported_input_cache, chat_llm
 from flaskr.service.learn.agent.bridge import turn_stop_requested
+from flaskr.service.learn.agent.engine.usage import (
+    CACHE_REPORTED_INPUT_TOKENS,
+    CACHE_REPORTED_READ_TOKENS,
+    CACHE_REPORTED_REQUESTS,
+)
+from flaskr.service.learn.agent.input_budget import (
+    INPUT_BUDGET_BYTES,
+    check_input_budget,
+)
 from flaskr.util.datetime import now_utc
 from pydantic_ai.messages import (
     ModelMessage,
@@ -54,6 +64,35 @@ _FINISH_REASONS = {
     "tool_calls": "tool_call",
     "content_filter": "content_filter",
 }
+
+
+def _usage_field(value: object, key: str) -> object:
+    """Read either supported shared-gateway usage shape."""
+    return value.get(key) if isinstance(value, dict) else getattr(value, key, None)
+
+
+def _request_usage(usage: object) -> RequestUsage:
+    """Preserve valid reported cache counts; absent or invalid metadata stays unknown."""
+    input_tokens = _extract_usage_value(usage, "prompt_tokens")
+    output_tokens = _extract_usage_value(usage, "completion_tokens")
+    cached = _reported_input_cache(usage)
+    reported_input = _usage_field(usage, "prompt_tokens")
+    if (
+        type(cached) is int
+        and type(reported_input) is int
+        and 0 <= cached <= reported_input
+    ):
+        return RequestUsage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_read_tokens=cached,
+            details={
+                CACHE_REPORTED_REQUESTS: 1,
+                CACHE_REPORTED_INPUT_TOKENS: input_tokens,
+                CACHE_REPORTED_READ_TOKENS: cached,
+            },
+        )
+    return RequestUsage(input_tokens=input_tokens, output_tokens=output_tokens)
 
 
 def _text_of(content: object) -> str:
@@ -249,12 +288,7 @@ class GatewayStreamedResponse(StreamedResponse):
                     str(chunk.finish_reason), "stop"
                 )
             if chunk.usage:
-                self._usage = RequestUsage(
-                    input_tokens=int(getattr(chunk.usage, "prompt_tokens", 0) or 0),
-                    output_tokens=int(
-                        getattr(chunk.usage, "completion_tokens", 0) or 0
-                    ),
-                )
+                self._usage = _request_usage(chunk.usage)
             # `chat_llm` is a synchronous generator, so nothing here ever awaits on its own.
             # Yield to the loop between chunks so a caller sharing it keeps running.
             await asyncio.sleep(0)
@@ -272,14 +306,29 @@ class GatewayModel(Model):
         user_id: str,
         span: LangfuseObservationHandle,
         generation_name: str = "agent_lesson",
+        input_budget_bytes: int = INPUT_BUDGET_BYTES,
+        retry_deadline_seconds: float | None = None,
         **chat_llm_kwargs: object,
     ) -> None:
         """Bind the gateway call this model makes: which app, model and learner it bills to.
 
         `span` is required, not optional: `chat_llm` opens a generation on it before it reaches a
         provider, so there is no working call without one.
+
+        `input_budget_bytes` bounds the final mapped messages and effective tools as compact
+        UTF-8 JSON on every request. Oversized inputs are refused, never shortened.
+        `retry_deadline_seconds` optionally stops retries and streamed reads between
+        chunks. Supply a provider `timeout` too: synchronous reads cannot be preempted.
         """
         super().__init__()
+        if input_budget_bytes <= 0:
+            message = "model input budget must be positive"
+            raise ValueError(message)
+        if retry_deadline_seconds is not None and retry_deadline_seconds <= 0:
+            message = "gateway retry deadline must be positive"
+            raise ValueError(message)
+        self._retry_deadline_seconds = retry_deadline_seconds
+        self._input_budget_bytes = input_budget_bytes
         self._app = app
         self._model = model
         self._user_id = user_id
@@ -307,21 +356,60 @@ class GatewayModel(Model):
 
         kwargs: dict[str, object] = dict(self._chat_llm_kwargs)
         kwargs.update(_settings_to_kwargs(settings))
-        kwargs["retry_cancelled"] = turn_stop_requested
+        deadline = (
+            time.monotonic() + self._retry_deadline_seconds
+            if self._retry_deadline_seconds is not None
+            else None
+        )
+
+        def retry_cancelled() -> bool:
+            if turn_stop_requested():
+                return True
+            if deadline is not None and time.monotonic() >= deadline:
+                message = "gateway request retry deadline exceeded"
+                raise TimeoutError(message)
+            return False
+
+        kwargs["retry_cancelled"] = retry_cancelled
         if tools:
             kwargs["tools"] = tools
             # No `tool_choice`: some providers reject forcing a choice while reasoning, and the
             # engine relies on the model deciding when to call `interact` or `finish`.
-        return chat_llm(
+        mapped = map_messages(messages)
+        check_input_budget(
+            mapped, kwargs.get("tools", []), limit=self._input_budget_bytes
+        )
+        chunks = chat_llm(
             app=self._app,
             user_id=self._user_id,
             span=self._span,
             model=self._model,
-            messages=map_messages(messages),
+            messages=mapped,
             generation_name=self._generation_name,
             emit_tool_calls=True,
             **kwargs,
         )
+        if deadline is None:
+            return chunks
+
+        def check_active() -> None:
+            if retry_cancelled():
+                raise asyncio.CancelledError
+
+        def bounded_chunks() -> Generator[LLMStreamResponse, None, None]:
+            try:
+                for chunk in chunks:
+                    check_active()
+                    yield chunk
+                check_active()
+            except (TimeoutError, asyncio.CancelledError) as exc:
+                # Finalize the shared gateway with the actual stop reason and partial usage.
+                chunks.throw(exc)
+                raise
+            finally:
+                chunks.close()
+
+        return bounded_chunks()
 
     async def request(
         self,

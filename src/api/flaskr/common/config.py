@@ -1942,16 +1942,15 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="shifu",
         required=False,
     ),
-    "FLOW_ENGINE_V2_SHIFU_BIDS": EnvVar(
-        name="FLOW_ENGINE_V2_SHIFU_BIDS",
-        default=[],
-        type=list,
+    "FLOW_ENGINE_V2_ENABLED": EnvVar(
+        name="FLOW_ENGINE_V2_ENABLED",
+        default=False,
+        type=bool,
         description=(
-            "Comma separated course business identifiers taught by the 2.0 "
-            "MarkdownFlow engine in this deployment. Empty means every course "
-            "stays on 1.0. It belongs to the deployment rather than to a course "
-            "row because the simulation environment shares production's "
-            "database, so one row cannot mean 2.0 there and 1.0 here."
+            "Enable the MarkdownFlow 2.0 lesson engine for every course in this "
+            "deployment. Defaults to false (1.0). Set only in the target "
+            "deployment's environment, never shared database configuration. "
+            "The retired FLOW_ENGINE_V2_SHIFU_BIDS allowlist is ignored."
         ),
         group="shifu",
         required=False,

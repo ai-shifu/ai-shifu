@@ -4,31 +4,22 @@ on:
   pull_request:
     paths:
       - ".github/workflows/runtime-harness.yml"
+      - ".github/workflows/build-docker-image.yml"
+      - ".github/workflows/build-latest.yml"
+      - ".github/workflows/build-on-release.yml"
+      - ".github/workflows/docker-build-check.yml"
+      - ".github/workflows/prepare-release.yml"
+      - ".github/actions/docker-image-metadata/**"
+      - ".dockerignore"
       - "docker/**"
       - "scripts/**"
       - "src/api/**"
       - "src/web/**"
+      - "src/i18n/**"
       - "!src/api/tests/**"
       - "!src/web/**/__tests__/**"
       - "!src/web/**/*.test.*"
       - "src/web/e2e/**"
-      - "!**/*.md"
-      - "!**/*.mdx"
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/runtime-harness.yml"
-      - "docker/**"
-      - "scripts/**"
-      - "src/api/**"
-      - "src/web/**"
-      - "!src/api/tests/**"
-      - "!src/web/**/__tests__/**"
-      - "!src/web/**/*.test.*"
-      - "src/web/e2e/**"
-      - "!**/*.md"
-      - "!**/*.mdx"
   workflow_dispatch:
 
 permissions:
@@ -40,7 +31,7 @@ concurrency:
 
 jobs:
   runtime-harness:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       AI_SHIFU_COMPOSE_PROJECT: ai-shifu-runtime-harness
@@ -67,6 +58,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -126,7 +119,7 @@ jobs:
             --name image-build \
             --status started
 
-      - name: Build runtime images with cache
+      - name: Build production images with cache
         id: build-runtime-images
         uses: docker/bake-action@v7
         with:
@@ -135,10 +128,12 @@ jobs:
           targets: ai-shifu-api-dev,ai-shifu-cook-web-dev
           load: true
           set: |
-            ai-shifu-api-dev.cache-from=type=gha,scope=runtime-api
-            ai-shifu-api-dev.cache-to=type=gha,scope=runtime-api,mode=min
-            ai-shifu-cook-web-dev.cache-from=type=gha,scope=runtime-cook-web
-            ai-shifu-cook-web-dev.cache-to=type=gha,scope=runtime-cook-web,mode=min
+            ai-shifu-api-dev.platform=linux/amd64
+            ai-shifu-api-dev.cache-from=type=gha,scope=ai-shifu-api-amd64
+            ai-shifu-api-dev.cache-to=type=gha,scope=ai-shifu-api-amd64,mode=max
+            ai-shifu-cook-web-dev.platform=linux/amd64
+            ai-shifu-cook-web-dev.cache-from=type=gha,scope=ai-shifu-web-amd64
+            ai-shifu-cook-web-dev.cache-to=type=gha,scope=ai-shifu-web-amd64,mode=max
 
       - name: Record image build outcome
         if: always()
@@ -155,6 +150,18 @@ jobs:
             --status "$build_status" \
             --detail "outcome=$BUILD_OUTCOME"
 
+      - name: Smoke-test the loaded production images
+        run: |
+          python3 scripts/check_docker_image.py smoke api ai-shifu-api-dev:latest \
+            linux/amd64 --record artifacts/runtime-harness/production-api.json
+          python3 scripts/check_docker_image.py smoke web ai-shifu-cook-web-dev:latest \
+            linux/amd64 --record artifacts/runtime-harness/production-web.json
+
+      - name: Pull runtime infrastructure images
+        run: |
+          docker compose --env-file docker/.env -p "$AI_SHIFU_COMPOSE_PROJECT" \
+            -f "$AI_SHIFU_COMPOSE_FILE" pull ai-shifu-mysql ai-shifu-redis ai-shifu-nginx-dev-dev
+
       - name: Record fast value stack start
         run: |
           python scripts/harness/runtime_timeline.py mark \
@@ -165,7 +172,7 @@ jobs:
       - name: Start fast value stack
         id: start-fast-value-stack
         run: |
-          docker compose --env-file docker/.env -p "$AI_SHIFU_COMPOSE_PROJECT" -f "$AI_SHIFU_COMPOSE_FILE" up -d
+          docker compose --env-file docker/.env -p "$AI_SHIFU_COMPOSE_PROJECT" -f "$AI_SHIFU_COMPOSE_FILE" up -d --no-build --pull never
 
       - name: Record fast value stack outcome
         if: always()
