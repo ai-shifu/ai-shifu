@@ -422,3 +422,20 @@ observations before this correction may remain in the pilot totals; use the
 release boundary when comparing learner counts. Owner retakes remain in the
 server ledger and actual billing; this exclusion is analytics only. The existing
 inline-regeneration-blocked event retains its policy-friction meaning.
+
+
+### Lesson update notice availability (October 9)
+
+Decision: measure how often updated-lesson notices can offer regeneration versus
+showing review guidance. `learner_lesson_update_notice_shown` fires after a
+background admission response renders a mounted update notice with the dialog
+closed. Eligible: enabled ordinary learner/guest; exclude preview, course owner,
+disabled rollout, missing lesson and failed/unfinished status requests. Dedup:
+once per mounted notice, course, lesson and state; reopening the dialog does not
+repeat the same notice state. Payload allowlist: `shifu_bid`, `outline_bid`,
+`state` (`available`, `exhausted`, `busy`). No titles, text, errors, credentials or
+URLs. Downstream: product QA and update-experience friction analysis, never
+billing or quota authority. Tracking failures do not affect notice or reset.
+Existing `learner_retake_admission_checked` continues to mean a confirmation
+open; background requests must not emit that event. No rename or historical
+rewrite; compare the new notice denominator from this release onward.

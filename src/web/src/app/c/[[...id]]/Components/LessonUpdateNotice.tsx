@@ -50,7 +50,15 @@ export const LessonUpdateNotice = ({
     showRetakeConfirm,
     resolvedLessonId,
     'update',
+    true,
   );
+
+  const exhausted =
+    !allowance.loading &&
+    !allowance.failed &&
+    allowance.status?.available &&
+    !allowance.status.allowed &&
+    !allowance.status.in_progress;
 
   const handleRetakeCurrentLesson = useSingleFlight(async () => {
     if (!resolvedLessonId || allowance.blocked) {
@@ -108,26 +116,36 @@ export const LessonUpdateNotice = ({
         className,
       )}
     >
-      <span className='inline-block min-w-0 max-w-full truncate align-bottom'>
-        <Trans
-          i18nKey='module.chat.lessonUpdateRecommendRetake'
-          components={{
-            action: (
-              <button
-                type='button'
-                aria-label={t('module.chat.lessonUpdateRetakeAccessibleLabel')}
-                onClick={handleRetakeButtonClick}
-                disabled={isRetakingCurrentLesson}
-                className={cn(
-                  'inline-flex h-auto min-h-0 items-baseline rounded px-0.5 py-0 font-semibold text-amber-950 underline decoration-amber-700/35 underline-offset-[3px] transition-colors hover:bg-amber-100/80 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-60',
-                  compact
-                    ? 'focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--base-background,#fff)]'
-                    : 'focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50',
-                )}
-              />
-            ),
-          }}
-        />
+      <span className='inline-block min-w-0 max-w-full break-words align-bottom'>
+        {allowance.blocked ? (
+          t(
+            exhausted
+              ? 'module.chat.lessonUpdateReviewExisting'
+              : 'module.chat.lessonUpdated',
+          )
+        ) : (
+          <Trans
+            i18nKey='module.chat.lessonUpdateRecommendRetake'
+            components={{
+              action: (
+                <button
+                  type='button'
+                  aria-label={t(
+                    'module.chat.lessonUpdateRetakeAccessibleLabel',
+                  )}
+                  onClick={handleRetakeButtonClick}
+                  disabled={isRetakingCurrentLesson}
+                  className={cn(
+                    'inline-flex h-auto min-h-0 items-baseline rounded px-0.5 py-0 font-semibold text-amber-950 underline decoration-amber-700/35 underline-offset-[3px] transition-colors hover:bg-amber-100/80 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-60',
+                    compact
+                      ? 'focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--base-background,#fff)]'
+                      : 'focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50',
+                  )}
+                />
+              ),
+            }}
+          />
+        )}
       </span>
       <Dialog
         open={showRetakeConfirm}

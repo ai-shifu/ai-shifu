@@ -8,6 +8,7 @@ export function useRetakeAllowance(
   open: boolean,
   lessonId: string | undefined,
   entry: 'catalog' | 'update',
+  prefetch = false,
 ) {
   const courseId = useEnvStore(state => state.courseId);
   const preview = useSystemStore(state => state.previewMode);
@@ -19,28 +20,38 @@ export function useRetakeAllowance(
     status?: RetakeStatus;
     failed?: boolean;
   }>();
+  const noticeStates = useRef(new Set<string>());
   const key = `${courseId}:${lessonId}:${preview}`;
   useEffect(() => {
     setResponse(undefined);
-    if (!open || preview || !lessonId) return;
+    if ((!open && !prefetch) || preview || !lessonId) return;
     let active = true;
     getRetakeStatus(courseId, lessonId)
       .then(status => {
         if (!active) return;
         setResponse({ key, status });
         if (status.available && !status.quota_exempt) {
+          const state = status.in_progress
+            ? 'busy'
+            : status.allowed
+              ? 'available'
+              : 'exhausted';
+          const noticeKey = `${key}:${state}`;
+          if (!open && noticeStates.current.has(noticeKey)) return;
+          if (!open) noticeStates.current.add(noticeKey);
           try {
             void Promise.resolve(
-              trackRef.current('learner_retake_admission_checked', {
-                shifu_bid: courseId,
-                outline_bid: lessonId,
-                entry,
-                state: status.in_progress
-                  ? 'busy'
-                  : status.allowed
-                    ? 'available'
-                    : 'exhausted',
-              }),
+              trackRef.current(
+                open
+                  ? 'learner_retake_admission_checked'
+                  : 'learner_lesson_update_notice_shown',
+                {
+                  shifu_bid: courseId,
+                  outline_bid: lessonId,
+                  ...(open ? { entry } : {}),
+                  state,
+                },
+              ),
             ).catch(() => {});
           } catch {}
         }
@@ -51,7 +62,7 @@ export function useRetakeAllowance(
     return () => {
       active = false;
     };
-  }, [open, preview, lessonId, courseId, entry, key]);
+  }, [open, preview, lessonId, courseId, entry, key, prefetch]);
   const current = response?.key === key ? response : undefined;
   const status = current?.status;
   const blocked =

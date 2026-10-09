@@ -3,7 +3,18 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LessonUpdateNotice } from './LessonUpdateNotice';
 const mockReset = jest.fn();
 const mockResult = jest.fn();
-const mockAllowance = { blocked: false, loading: false, result: mockResult };
+const mockAllowance = {
+  blocked: false,
+  loading: false,
+  failed: false,
+  status: {
+    available: true,
+    allowed: true,
+    in_progress: false,
+    quota_exempt: false,
+  },
+  result: mockResult,
+};
 const mockResetTools = jest.fn();
 jest.mock('@/hooks/useRetakeAllowance', () => ({
   useRetakeAllowance: () => mockAllowance,
@@ -54,18 +65,29 @@ jest.mock('@/components/ui/Dialog', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockAllowance.blocked = false;
+  mockAllowance.loading = false;
+  mockAllowance.failed = false;
+  mockAllowance.status = {
+    available: true,
+    allowed: true,
+    in_progress: false,
+    quota_exempt: false,
+  };
   mockReset.mockResolvedValue(undefined);
 });
 it('cannot bypass an exhausted lesson through the update notice', () => {
   mockAllowance.blocked = true;
+  mockAllowance.status.allowed = false;
   render(
     <LessonUpdateNotice
       chapterId='chapter'
       lessonId='lesson'
     />,
   );
-  fireEvent.click(screen.getByText('retake'));
-  fireEvent.click(screen.getByText('common.core.ok'));
+  expect(
+    screen.getByText('module.chat.lessonUpdateReviewExisting'),
+  ).toBeInTheDocument();
+  expect(screen.queryByText('retake')).not.toBeInTheDocument();
   expect(mockReset).not.toHaveBeenCalled();
 });
 it.each([true, false])(
@@ -85,3 +107,35 @@ it.each([true, false])(
     expect(mockResetTools).toHaveBeenCalledTimes(success ? 1 : 0);
   },
 );
+
+it.each(['loading', 'failed', 'busy'])(
+  'shows a neutral update without an action when %s',
+  state => {
+    mockAllowance.blocked = true;
+    mockAllowance.loading = state === 'loading';
+    mockAllowance.failed = state === 'failed';
+    mockAllowance.status.allowed = false;
+    mockAllowance.status.in_progress = state === 'busy';
+    render(
+      <LessonUpdateNotice
+        chapterId='chapter'
+        lessonId='lesson'
+      />,
+    );
+    expect(screen.getByText('module.chat.lessonUpdated')).toBeInTheDocument();
+    expect(screen.queryByText('retake')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.chat.lessonUpdateReviewExisting'),
+    ).not.toBeInTheDocument();
+  },
+);
+it('keeps the update action for a quota-exempt owner', () => {
+  mockAllowance.status.quota_exempt = true;
+  render(
+    <LessonUpdateNotice
+      chapterId='chapter'
+      lessonId='lesson'
+    />,
+  );
+  expect(screen.getByText('retake')).toBeInTheDocument();
+});

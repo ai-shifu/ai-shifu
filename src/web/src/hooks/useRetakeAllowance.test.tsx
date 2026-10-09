@@ -156,3 +156,78 @@ it('still blocks an exempt owner during an active generation', async () => {
   expect(result.current.blocked).toBe(true);
   expect(mockTrack).not.toHaveBeenCalled();
 });
+
+it('prefetches a notice without counting it as a confirmation and deduplicates notice states', async () => {
+  const hook = renderHook(
+    ({ open }) => useRetakeAllowance(open, 'lesson', 'update', true),
+    { initialProps: { open: false } },
+  );
+  await waitFor(() => expect(hook.result.current.blocked).toBe(false));
+  expect(mockTrack).toHaveBeenCalledWith('learner_lesson_update_notice_shown', {
+    shifu_bid: 'course',
+    outline_bid: 'lesson',
+    state: 'available',
+  });
+  expect(mockTrack).toHaveBeenCalledTimes(1);
+  expect(JSON.stringify(mockTrack.mock.calls)).not.toContain('PRIVATE');
+  hook.rerender({ open: true });
+  await waitFor(() =>
+    expect(mockTrack).toHaveBeenCalledWith('learner_retake_admission_checked', {
+      shifu_bid: 'course',
+      outline_bid: 'lesson',
+      entry: 'update',
+      state: 'available',
+    }),
+  );
+  hook.rerender({ open: false });
+  await waitFor(() => expect(hook.result.current.blocked).toBe(false));
+  expect(mockTrack).toHaveBeenCalledTimes(2);
+});
+it.each([
+  { allowed: false, in_progress: false, state: 'exhausted' },
+  { allowed: false, in_progress: true, state: 'busy' },
+])('tracks notice $state without an admission event', async value => {
+  jest.mocked(getRetakeStatus).mockResolvedValue({ ...status, ...value });
+  const hook = renderHook(() =>
+    useRetakeAllowance(false, 'lesson', 'update', true),
+  );
+  await waitFor(() => expect(hook.result.current.loading).toBe(false));
+  expect(mockTrack.mock.calls).toEqual([
+    [
+      'learner_lesson_update_notice_shown',
+      { shifu_bid: 'course', outline_bid: 'lesson', state: value.state },
+    ],
+  ]);
+});
+it('notice tracking failure leaves the action available', async () => {
+  mockTrack.mockRejectedValue(new Error('PRIVATE'));
+  const hook = renderHook(() =>
+    useRetakeAllowance(false, 'lesson', 'update', true),
+  );
+  await waitFor(() => expect(hook.result.current.blocked).toBe(false));
+  expect(hook.result.current.failed).toBeUndefined();
+});
+it('failed notice lookup remains blocked without emitting learner analytics', async () => {
+  jest.mocked(getRetakeStatus).mockRejectedValue(new Error('PRIVATE'));
+  const hook = renderHook(() =>
+    useRetakeAllowance(false, 'lesson', 'update', true),
+  );
+  await waitFor(() => expect(hook.result.current.failed).toBe(true));
+  expect(hook.result.current.blocked).toBe(true);
+  expect(mockTrack).not.toHaveBeenCalled();
+});
+it.each([true, false])(
+  'excludes owners and preview from notice analytics: preview=%s',
+  async preview => {
+    mockSystem.previewMode = preview;
+    jest
+      .mocked(getRetakeStatus)
+      .mockResolvedValue({ ...status, quota_exempt: true });
+    const hook = renderHook(() =>
+      useRetakeAllowance(false, 'lesson', 'update', true),
+    );
+    await waitFor(() => expect(hook.result.current.blocked).toBe(false));
+    expect(mockTrack).not.toHaveBeenCalled();
+    if (preview) expect(getRetakeStatus).not.toHaveBeenCalled();
+  },
+);

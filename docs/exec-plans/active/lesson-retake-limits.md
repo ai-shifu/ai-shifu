@@ -418,3 +418,20 @@ The broader prior audit remains valid. Actual paid TTS/read-listen billing and
 course-update entitlement remain unverified/product follow-ups respectively.
 
 Continuation result: 65 learning HTTP contract tests passed after updates; Ruff passed. Runtime readback still shows all four dev02 services on 20261009-ffc6f7a. This continuation changes only tests and records; no new deployment behavior, guest restriction or quota reset.
+
+
+### October 9 approved update-notice adjustment
+
+Scope: reuse admission status on notice mount; retain an actionable update link
+for allowed learners and owners/preview, show review guidance without a link
+when exhausted, and a neutral update message while loading/busy/failed. Keep
+confirmation-time refresh/server enforcement and all ten-retake rules unchanged.
+No database, backend, generation or guest-rule changes. Reuse existing hook and
+i18n; add the notice analytics contract and focused regression coverage.
+Rollback: revert frontend commit only; ledger/history remains untouched.
+
+- [x] 2026-10-09 Asia/Shanghai: U1 Implement status-aware update notice and shared translations.
+- [x] 2026-10-09 Asia/Shanghai: U2 Verify loading/error/busy/owner/preview and analytics, plus shared callers.
+- [ ] 2026-10-09 Asia/Shanghai: U3 Push dev02, verify deployment and browser exhausted/owner notice states.
+
+Update-notice verification: focused hook/notice/catalog/mobile-header/titlebar tests passed (53 tests). Notice lookup does not count as a confirmation analytics event; owner/preview are excluded and analytics failure cannot block learning. All eight locales updated. Full TypeScript retains the four previously documented unrelated admin-test/library-locale failures; no new errors.
