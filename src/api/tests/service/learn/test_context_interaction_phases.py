@@ -298,10 +298,21 @@ def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
         return_value=SimpleNamespace(as_variables=lambda: {"name": "learner"})
     )
     monkeypatch.setattr(runtime, "load_memory", memory_loader)
+    from flaskr.service.learn import follow_up_memory_writer
+    from flaskr.service.learn.memory import VariableMemoryUpdate
+
+    stage_follow_up = Mock()
+    monkeypatch.setattr(
+        follow_up_memory_writer, "stage_follow_up_memory", stage_follow_up
+    )
     first = SimpleNamespace(type=GeneratedType.CONTENT, content="Answer")
     last = SimpleNamespace(type=GeneratedType.BREAK, content="")
 
     def source() -> object:
+        if agent_memory:
+            ask.call_args.kwargs["memory_patch"].variables = [
+                VariableMemoryUpdate("note", "accepted")
+            ]
         yield first
         if outcome == "provider-failure":
             message = "provider unavailable"
@@ -333,6 +344,14 @@ def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
         is agent_memory
     )
     assert context._last_position == 0
+    if outcome == "complete" and agent_memory:
+        stage_follow_up.assert_called_once()
+        assert (
+            stage_follow_up.call_args.kwargs["patch"].variables[0].value == "accepted"
+        )
+    else:
+        stage_follow_up.assert_not_called()
+    assert (ask.call_args.kwargs["memory_patch"] is not None) is agent_memory
 
 
 @pytest.mark.parametrize("gate", ["_sys_pay", "_sys_login"])

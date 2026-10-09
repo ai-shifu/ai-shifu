@@ -62,7 +62,7 @@ keys remain unknown to that request. This bounds only the added memory block, no
 the pre-existing course instructions or conversation budget. JSON string keys and
 values escape angle brackets, ampersands and braces to preserve host boundaries.
 
-Current facts must not replace historical quotations. This path reads memory only;
+Current facts must not replace historical quotations. Context loading reads memory only;
 it cannot authorize new writes or restore deleted notes. Fresh requests observe
 stored updates and deletions. An ongoing Live provider session retains its creation
 snapshot. Legacy 1.0 behavior and cross-course custom-memory isolation are unchanged.
@@ -76,3 +76,32 @@ adapters discard provider messages; their provider-only answers do not receive
 course memory through this increment. Provider-specific context delivery remains
 separate follow-up work, preserving the existing configured knowledge interfaces.
 The builder supplying a message list is not proof that every adapter transmits it.
+
+## Memory writes in contextual LLM follow-ups
+
+For 2.0 text follow-ups, an actual contextual LLM invocation may call `remember`.
+The native-thread bridge runs a small Agent with that tool only. Ordinary no-tool
+answers use their existing single model request; there is no extraction request
+per question. The same LLM factory is available to retrieval synthesis and to a
+configured LLM fallback. External provider-only answers and Live voice do not gain
+memory writes through this increment.
+
+Permission uses collection names from the request's retained main-script row,
+bound to its course and lesson. A newer publication, fenced example, course brief,
+knowledge document or historical conversation cannot grant a new declaration.
+Undeclared values require the complete actual current learner input and the
+existing independent semantic admission check. Deleted keys require a new current
+explicit request. Registered system profiles retain their existing global scope;
+all other durable notes remain course-local. Existing key/value, entry-count and
+JSON scope limits apply through the shared engine remember tool.
+
+Approved updates stay in producer memory until the response fully succeeds and is
+consumed. The request host stages them with ask history in its existing final
+transaction, after locking the original learning attempt and comparing deletion
+generations. Provider failures, disconnects, guardrail rejections and previews do
+not persist proposals. Cancellation checks also run while a provider is quiet.
+Tool events are not added to user SSE or visible classroom history. Model requests
+retain learner/course/lesson/attempt and read/listen/classroom usage attribution.
+Each answer permits at most five model requests and three tool calls; undeclared
+proposals may add at most three independent admission requests, each with a bounded
+provider timeout. No persistent engine session or new cross-course storage is added.

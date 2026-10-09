@@ -23,7 +23,15 @@ Do not write new memory from follow-ups in this increment.
   433 / Drone 5224 and both deployments succeed; both replicas match 32 hashes.
   Three fresh learners recall their independent notes naturally; an update is
   recalled and deletion returns unknown in a fresh lesson context.
-- [ ] Finish shared-gateway log privacy acceptance and await manual main merge.
+- [x] 2026-10-09T02:03:21Z: Final 83978dbec / sim 3130cfee2 passes shared-gateway
+  privacy acceptance, 4,803 local tests / four subtests / eleven expected skips,
+  all technical CI checks (full backend 10,781 passed / 23 skipped and eight
+  contracts), three browser smokes, and fresh HTTP recall with no note in either
+  replica log. Every AI opinion has an original-discussion reply; final CodeRabbit
+  re-review is rate limited. User manually merged as 676d60528.
+- [x] 2026-10-09T02:19:00Z: Main build 435 / Drone 5226 and all eight production
+  deployments 2082-2089 succeed; all eight API replicas match 32 runtime hashes
+  and remain on 1.0.
 
 - [x] 2026-10-09T01:28:50Z: Review hardening: two logger-boundary tests fail before the fix;
   reviewed focused context/provider tests pass 88/88. Content logs are replaced by
@@ -68,7 +76,7 @@ Reviewed learning/profile/shared-gateway/metering/billing acceptance passes: 4,8
 tests and four subtests passed, with eleven expected skips. The deployed baseline
 returned unknown for an independently stored test code on a fresh internal learner.
 Functional sim acceptance passes natural recall, update and fresh-context deletion.
-Final gateway privacy deployment acceptance is pending; new follow-up memory writes and
+Final gateway privacy deployment and manual main release pass; new follow-up memory writes and
 natural-course/long-term cost acceptance remain separate work.
 
 ## Context and Orientation
