@@ -62,7 +62,6 @@
 | `docs/exec-plans/active/markdownflow-total-input-budget.md` | MarkdownFlow total input budget | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/mdf2-agent-lesson-rewind.md` | MarkdownFlow 2.0: rewind a lesson to an earlier turn | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-coze-follow-up-context.md` | Deliver classroom context to Coze follow-ups | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/mdf2-draft-answer-rewind.md` | Edit earlier answers in draft classrooms | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-follow-up-memory-writeback.md` | Admit and persist memory from completed follow-up answers | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-gevent-bridge-stability.md` | Keep concurrent gevent lesson streams responsive | `exec-plan-active` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/exec-plans/active/mdf2-interrupted-teaching-history.md` | Continue teaching after a failed model stream | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -134,6 +133,7 @@
 | `docs/exec-plans/completed/mdf2-agent-lesson-carries-on.md` | MarkdownFlow 2.0: a lesson carries on until it waits or ends | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-cache-usage-observation.md` | Provider cache usage in memory quality reports | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-course-usage-attribution.md` | Attribute MarkdownFlow model usage to its course and lesson | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/mdf2-draft-answer-rewind.md` | Edit earlier answers in draft classrooms | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-draft-preview-history.md` | Restore draft classroom history and isolated restart | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-exercise-statistics-calculation.md` | Calculate exercise statistics from original submissions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-exercise-statistics-quality.md` | Evaluate exercise statistics against original attempts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
