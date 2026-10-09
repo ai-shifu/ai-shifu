@@ -337,6 +337,7 @@ def agent_lesson_events(
         memory_recall=True,
         recall_history_compaction=True,
         teaching_history_compaction=True,
+        exercise_statistics=True,
         teaching_summarizer=make_teaching_summarizer(
             gateway(
                 generation_name="agent_teaching_summary",
