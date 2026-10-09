@@ -60,7 +60,24 @@ learning records are reset by this compatibility path.
 This repairs restoration and restart behavior. It does not guarantee that a
 model always follows an author's teaching order. Existing reset analytics keeps
 excluding preview traffic; no learner reset event is emitted for a draft reset.
-Changing an already submitted preview answer or regenerating an earlier draft
-turn still requires separate preview rewind support; history replay is not a
-turn checkpoint.
+Each new preview turn also records the existing versioned host checkpoint and
+original inputs in presentation metadata. Editing an accepted answer restores
+the checkpoint of its accepting turn; regenerating teaching restores that
+teaching turn and replays its original inputs. Exact interaction element IDs
+distinguish several questions in one block. The first unanswered pending
+question remains a normal submission.
+
+Planning accepts only anchors owned by the current authenticated user, course,
+lesson and active draft generation. Superseded element rows, question ownership
+and displayed answers retire with the guarded session save in one transaction.
+Earlier teaching and controls remain; follow-ups anchored to retired teaching
+are excluded on reload. A failed save rolls retirement back. Reset invalidates
+late writes, and stale plans cannot retire a later committed turn. The fixed
+generation timestamp remains unchanged.
+
+Old history without the required checkpoint reports rewind unavailable and
+retains its existing history; restart is the recovery. Editor Debug remains
+independent. This feature does not roll back prior billing or change existing
+profile/memory admission rules. Preview rewind analytics uses its own start and
+terminal-result family, as defined in the frontend analytics reference.
 1.0 runtime behavior, engine fallback and code remain available.

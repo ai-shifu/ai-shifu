@@ -11,7 +11,8 @@ Draft classroom previews can resume a pending engine question while the browser 
 - [x] 2026-10-09 21:55 CST: Added preview presentation ownership, scoped history/status/reset and regression coverage.
 - [x] 2026-10-09 22:03 CST: Local checks and repository gates passed; submitted main PR #3072 and integrated sim as 94a175386.
 - [x] 2026-10-09 22:15 CST: Added regression fixes for anchored follow-ups, several deferred controls, the stable generation timestamp and scriptless fallback. All four regressions fail without their fixes and pass with them.
-- [ ] 2026-10-09 22:15 CST: Finish full regression, reply to review findings after pushing, and verify the reviewed sim runtime.
+- [x] 2026-10-09 22:19 CST: Final learning/scorer regression passed 2,998 tests and four subtests (one expected skip); repository gates passed. Pushed review fixes as 5c81290f0 and replied to all five inline findings plus the independent docstring advisory.
+- [x] 2026-10-09 22:19 CST: Sim 125bb6ab1, build 477 / Drone 5266 succeeded. Both API replicas matched 58 runtime hashes and each passed 212 isolated SQLite/FunctionModel regressions. API/web rollout and HTTP health passed. Main PR remains open for human merge.
 
 ## Surprises & Discoveries
 
@@ -30,16 +31,20 @@ Review identified that follow-ups have independent adapter runs and several defe
 
 ## Outcomes & Retrospective
 
-The real offline engine/adapter/database path restores teaching before the pending interaction,
-retains accepted answer display and supports isolated restart and completion. Removing either
-the history dispatch or stale-generation guard makes its regression fail. Learning/scorer
-regression passed 2,963 tests and four subtests (one expected skip); final focused coverage,
-including three additional compatibility/scope cases, passed 197 tests. Seven frontend suites
-passed 27 tests and frontend lint passed. Type-check reports two existing admin test errors
-(TS2683/TS2790); removing both frontend changes and running the same command reproduces the
-exact same two errors on main. No unrelated admin test change is included. Repository gates,
-Initial sim build 476 succeeded and both API replicas matched 58 runtime hashes.
-The reviewed revision and its deployed regressions remain pending.
+The real offline engine/adapter/database path restores teaching before pending interactions,
+retains individual answers and anchored follow-ups, and supports isolated restart, completion,
+stable draft-update detection and scriptless fallback. Removing the initial history/reset
+protection or the four review fixes makes the corresponding regressions fail. Final
+learning/scorer regression passed 2,998 tests and four subtests (one expected skip), including
+all 540 engine tests. Seven frontend suites passed 27 tests and lint passed. Type-check reports
+two existing admin test errors (TS2683/TS2790); removing both frontend changes reproduces the
+same two errors on main. No unrelated admin test change is included. Repository gates passed
+for the feature and sim merge. Reviewed sim 125bb6ab1 passed 58 runtime hashes and 212 isolated
+regressions on each API replica, with healthy API/web rollout and HTTP. An initial hash attempt
+during rolling deployment refused a mixed old/new replica set; it passed after rollout without
+weakening the assertion. These are deployed offline regressions, not a fresh teacher browser
+or natural-model preview acceptance. Production investigation remained read-only. PR #3072
+remains open; 1.0 is retained and preview rewind for old answers remains separate work.
 
 ## Context and Orientation
 
