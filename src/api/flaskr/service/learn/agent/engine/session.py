@@ -88,6 +88,8 @@ class Session:
     usage: dict[str, int] = field(default_factory=dict)
     turn: int = 0
     finished: bool = False
+    # A failed stream's saved teaching cannot establish completion by repetition.
+    interrupted: bool = False
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
@@ -231,6 +233,7 @@ class Session:
             "usage": self.usage,
             "turn": self.turn,
             "finished": self.finished,
+            "interrupted": self.interrupted,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -264,6 +267,7 @@ class Session:
             usage=dict(d.get("usage") or {}),
             turn=int(d.get("turn", 0)),
             finished=bool(d.get("finished", False)),
+            interrupted=bool(d.get("interrupted", False)),
             created_at=d.get("created_at") or datetime.now(UTC).isoformat(),
             updated_at=d.get("updated_at") or datetime.now(UTC).isoformat(),
         )

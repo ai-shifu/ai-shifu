@@ -14,6 +14,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.models import PublishedShifu
 from flaskr.util.uuid import generate_id
 
 _BUILTIN_DEMO_SHIFU_BID = "demo-configured-1"
@@ -442,3 +443,137 @@ def test_persist_invalidates_on_base_exception_interrupt(
     # The unit of work discards the connection first; the app-context
     # teardown then invalidates again as defense in depth.
     assert invalidations[0] == "unit_of_work interrupt"
+
+
+@pytest.mark.parametrize("kind", ["llm", "tts"])
+@pytest.mark.parametrize("course_kind", ["ordinary", "title_demo", "configured_demo"])
+def test_native_usage_classifies_cold_course_without_a_caller_context(
+    metering_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    course_kind: str,
+) -> None:
+    """Cold real database/config reads must work on the engine's native thread."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from flask import has_app_context
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.shifu import demo_courses
+
+    course = f"native-{course_kind}-{kind}"
+    queued: list[str] = []
+    monkeypatch.setattr(demo_courses, "_demo_metadata_cache", {})
+
+    def configured(key: str, default: str = "") -> str:
+        """Require a real context for configuration-backed demo classification."""
+        assert has_app_context()
+        return (
+            course
+            if course_kind == "configured_demo" and key == "DEMO_EN_SHIFU_BID"
+            else default
+        )
+
+    monkeypatch.setattr(demo_courses, "get_dynamic_config", configured)
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder._enqueue_usage_settlement",
+        lambda _app, *, usage_bid: queued.append(usage_bid),
+    )
+    with unit_of_work():
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid=course,
+                title="AI-Shifu Creation Guide"
+                if course_kind == "title_demo"
+                else "Regular course",
+                created_user_bid="system" if course_kind == "title_demo" else "teacher",
+            )
+        )
+
+    def record() -> str:
+        """Persist usage from a native thread and verify temporary scope cleanup."""
+        assert not has_app_context()
+        context = UsageContext(user_bid="native-learner", shifu_bid=course)
+        common = {
+            "provider": "test",
+            "model": "test-model",
+            "is_stream": True,
+            "input": 8,
+            "output": 13,
+            "total": 21,
+        }
+        if kind == "llm":
+            usage_bid = record_llm_usage(metering_app, context, **common)
+        else:
+            usage_bid = record_tts_usage(
+                metering_app, context, word_count=13, duration_ms=100, **common
+            )
+        assert not has_app_context()
+        return usage_bid
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        usage_bid = executor.submit(record).result(timeout=10)
+    row = BillUsageRecord.query.filter_by(usage_bid=usage_bid).one()
+    assert row.shifu_bid == course
+    assert row.billable == int(course_kind == "ordinary")
+    assert queued == ([usage_bid] if course_kind == "ordinary" else [])
+
+
+def test_classification_reuses_the_caller_session_without_committing(
+    metering_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Request-owned pending writes and callbacks stay in their original transaction."""
+    from flaskr.dao.uow import on_commit, unit_of_work
+    from flaskr.service.metering.recorder import _resolve_billable
+    from flaskr.service.shifu import demo_courses
+
+    monkeypatch.setattr(demo_courses, "_demo_metadata_cache", {})
+    monkeypatch.setattr(
+        demo_courses, "get_dynamic_config", lambda _key, default="": default
+    )
+    session = dao.db.session()
+    callbacks: list[str] = []
+
+    def abort_caller() -> None:
+        """Classify pending rows without committing the caller's transaction."""
+        with unit_of_work():
+            dao.db.session.add(
+                PublishedShifu(shifu_bid="pending-caller-course", title="Pending")
+            )
+            dao.db.session.add(
+                PublishedShifu(
+                    shifu_bid="pending-title-demo",
+                    title="AI-Shifu Creation Guide",
+                    created_user_bid="system",
+                )
+            )
+            on_commit(lambda: callbacks.append("committed"))
+            assert (
+                _resolve_billable(
+                    metering_app,
+                    context=UsageContext(shifu_bid="pending-title-demo"),
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                )
+                == 0
+            )
+            assert (
+                _resolve_billable(
+                    metering_app,
+                    context=UsageContext(shifu_bid="ordinary-unpublished-course"),
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                )
+                == 1
+            )
+            assert dao.db.session() is session
+            message = "abort caller"
+            raise RuntimeError(message)
+
+    with pytest.raises(RuntimeError, match="abort caller"):
+        abort_caller()
+    assert (
+        PublishedShifu.query.filter_by(shifu_bid="pending-caller-course").first()
+        is None
+    )
+    assert callbacks == []
+    assert (
+        PublishedShifu.query.filter_by(shifu_bid="pending-title-demo").first() is None
+    )
