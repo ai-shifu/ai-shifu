@@ -461,30 +461,34 @@ def test_idle_native_follow_up_notices_request_cancellation() -> None:
     assert patch.variables == []
 
 
+@pytest.mark.parametrize("key", ["sys_user_nickname", "sys_user_language"])
 def test_declared_system_field_uses_existing_global_profile_storage(
-    app: object, storage_scope: object
+    app: object, storage_scope: object, key: object
 ) -> None:
     """Author-declared registered fields remain global; explicit undeclared requests cannot edit them."""
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.follow_up_memory_writer import stage_follow_up_memory
     from flaskr.service.learn.memory import load_memory
+    from flaskr.service.profile.api import global_profile_value_versions
 
     scope = storage_scope
+    value = "Student" if key == "sys_user_nickname" else "zh-CN"
+    with app.app_context():
+        versions = global_profile_value_versions(scope.user)
     patch = FollowUpMemoryPatch()
     checker = AsyncMock(return_value=False)
     run = FollowUpMemoryRun(
-        note_model(
-            [{"key": "sys_user_nickname", "value": "Student", "request": None}], []
-        ),
+        note_model([{"key": key, "value": value, "request": None}], []),
         patch=patch,
         current_input="Call me Student.",
-        declared_keys=frozenset({"sys_user_nickname"}),
+        declared_keys=frozenset({key}),
         snapshot={},
         deleted_keys=frozenset(),
         generations={},
-        reserved_keys=frozenset({"sys_user_nickname"}),
+        reserved_keys=frozenset({key}),
         request_check=checker,
         preview=False,
+        value_versions=versions,
     )
     list(run.stream([{"role": "user", "content": "Call me Student."}]))
     with app.app_context(), unit_of_work():
@@ -498,10 +502,7 @@ def test_declared_system_field_uses_existing_global_profile_storage(
         )
     with app.app_context():
         assert (
-            load_memory(app, scope.user, "another-course").as_variables()[
-                "sys_user_nickname"
-            ]
-            == "Student"
+            load_memory(app, scope.user, "another-course").as_variables()[key] == value
         )
     checker.assert_not_awaited()
 
@@ -598,4 +599,63 @@ def test_late_follow_up_cannot_overwrite_a_newer_course_value(
                 app, scope.user, scope.course, include_course_variables=True
             ).as_variables()["practice_code"]
             == value
+        )
+
+
+@pytest.mark.parametrize("key", ["sys_user_nickname", "sys_user_language"])
+@pytest.mark.parametrize("source", ["settings", "canonical"])
+def test_late_follow_up_keeps_newer_global_profile_corrections(
+    app: object, storage_scope: object, key: object, source: object
+) -> None:
+    """Settings and canonical edits outrank a delayed declared system-field proposal."""
+    from types import SimpleNamespace
+
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.learn.follow_up_memory_writer import stage_follow_up_memory
+    from flaskr.service.learn.memory import VariableMemoryUpdate, load_memory
+    from flaskr.service.profile.api import global_profile_value_versions
+    from flaskr.service.user.common import update_user_info
+    from flaskr.service.user.repository import (
+        get_user_entity_by_bid,
+        update_user_entity_fields,
+    )
+
+    scope = storage_scope
+    value = "Corrected learner" if key == "sys_user_nickname" else "fr-FR"
+    with app.app_context():
+        versions = global_profile_value_versions(scope.user)
+        if source == "settings":
+            update_user_info(
+                app,
+                SimpleNamespace(user_id=scope.user),
+                name=value if key == "sys_user_nickname" else None,
+                language=value if key == "sys_user_language" else None,
+            )
+        else:
+            with unit_of_work():
+                entity = get_user_entity_by_bid(scope.user)
+                update_user_entity_fields(
+                    entity,
+                    **{"nickname" if key == "sys_user_nickname" else "language": value},
+                )
+        patch = FollowUpMemoryPatch(
+            variables=[
+                VariableMemoryUpdate(
+                    key, "Stale learner" if key == "sys_user_nickname" else "zh-CN"
+                )
+            ],
+            value_versions=versions,
+        )
+        with unit_of_work():
+            assert not stage_follow_up_memory(
+                app,
+                user_bid=scope.user,
+                shifu_bid=scope.course,
+                outline_bid=scope.outline,
+                progress_record_bid=scope.progress,
+                patch=patch,
+            )
+        assert patch.variables == []
+        assert (
+            load_memory(app, scope.user, "another-course").as_variables()[key] == value
         )

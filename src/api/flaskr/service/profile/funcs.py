@@ -30,6 +30,7 @@ from flaskr.util.uuid import generate_id
 from .constants import SYS_USER_BACKGROUND, SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from .learner_profile import (
     apply_learner_profile_system_value,
+    load_learner_profile_user,
     validate_learner_profile_system_value,
 )
 from .models import VariableValue
@@ -219,16 +220,56 @@ def get_profile_labels() -> dict[str, dict[str, object]]:
     }
 
 
+def _profile_write_labels() -> dict[str, dict[str, object]]:
+    """Include the canonical language alias without duplicating settings UI labels."""
+    return {
+        **get_profile_labels(),
+        SYS_USER_LANGUAGE: {"mapping": "user_language"},
+    }
+
+
 def get_global_profile_keys() -> frozenset[str]:
     """Return keys that the shared profile writer routes to global/account storage."""
-    return frozenset(get_profile_labels())
+    return frozenset(_profile_write_labels())
+
+
+def global_profile_value_versions(
+    user_id: str, *, lock: bool = False
+) -> dict[str, tuple[int, str | None]]:
+    """Version registered global rows and canonical fields before delayed writes.
+
+    Settings update the user row before appending compatibility values. Lock in
+    that order and use current reads so newer settings or direct canonical edits
+    cannot be overwritten by an older model proposal.
+    """
+    if lock:
+        load_learner_profile_user(user_id, for_update=True)
+    aggregate = load_user_aggregate(user_id)
+    labels = _profile_write_labels()
+    query = (
+        VariableValue.query.filter(
+            VariableValue.user_bid == user_id,
+            VariableValue.shifu_bid == "",
+            VariableValue.key.in_(labels),
+        )
+        .with_entities(VariableValue.id, VariableValue.key)
+        .order_by(VariableValue.id)
+    )
+    if lock:
+        query = query.populate_existing().with_for_update()
+    rows = {row.key: row.id for row in query.all()}
+    versions = {}
+    for key, label in labels.items():
+        value = _current_core_value(aggregate, str(label.get("mapping", "")))
+        versions[key] = (rows.get(key, 0), str(value) if value is not None else None)
+    return versions
 
 
 def save_user_profiles(
     app: Flask, user_id: str, course_id: str, profiles: list[ProfileToSave]
 ) -> bool:
     """Persist user profiles."""
-    profile_labels = get_profile_labels()
+    profile_labels = _profile_write_labels()
     app.logger.info("save user profiles count=%s", len(profiles))
     for profile in profiles:
         if profile.key == SYS_USER_BACKGROUND:
