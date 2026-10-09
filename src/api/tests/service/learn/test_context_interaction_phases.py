@@ -271,8 +271,12 @@ def phase(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
 
 
 @pytest.mark.parametrize("outcome", ["complete", "disconnect", "provider-failure"])
+@pytest.mark.parametrize("agent_memory", [False, True])
 def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
-    phase: SimpleNamespace, monkeypatch: pytest.MonkeyPatch, outcome: str
+    phase: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: str,
+    agent_memory: bool,
 ) -> None:
     context = phase.context
     context._input_type = "ask"
@@ -286,13 +290,13 @@ def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
     create_tts = Mock()
     monkeypatch.setattr(context, "_try_create_tts_processor", create_tts)
     monkeypatch.setattr(context, "get_system_prompt", lambda _bid: "Course rules")
-    monkeypatch.setattr(
-        runtime,
-        "load_memory",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            as_variables=lambda: {"name": "learner"}
-        ),
+    from flaskr.service.learn.agent import routing
+
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: agent_memory)
+    memory_loader = Mock(
+        return_value=SimpleNamespace(as_variables=lambda: {"name": "learner"})
     )
+    monkeypatch.setattr(runtime, "load_memory", memory_loader)
     first = SimpleNamespace(type=GeneratedType.CONTENT, content="Answer")
     last = SimpleNamespace(type=GeneratedType.BREAK, content="")
 
@@ -323,6 +327,10 @@ def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
     assert ask.call_args.args[4] == "First question,Follow-up"
     assert ask.call_args.kwargs["anchor_element_bid"] == "source-element"
     assert ask.call_args.kwargs["runtime_profiles"] == {"name": "learner"}
+    assert (
+        memory_loader.call_args.kwargs.get("include_course_variables", False)
+        is agent_memory
+    )
     assert context._last_position == 0
 
 
