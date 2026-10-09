@@ -139,3 +139,23 @@ it('keeps the update action for a quota-exempt owner', () => {
   );
   expect(screen.getByText('retake')).toBeInTheDocument();
 });
+
+it('removes reset confirmation copy if quota runs out while the dialog is open', () => {
+  const props = { chapterId: 'chapter', lessonId: 'lesson' };
+  const { rerender } = render(<LessonUpdateNotice {...props} />);
+  fireEvent.click(screen.getByText('retake'));
+  expect(
+    screen.getByText('module.lesson.reset.confirmContent'),
+  ).toBeInTheDocument();
+  mockAllowance.blocked = true;
+  mockAllowance.status.allowed = false;
+  rerender(<LessonUpdateNotice {...props} />);
+  expect(
+    screen.queryByText('module.lesson.reset.confirmContent'),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByText('module.lesson.retake.exhausted'),
+  ).toBeInTheDocument();
+  expect(screen.getByText('common.core.ok')).toBeDisabled();
+  expect(mockReset).not.toHaveBeenCalled();
+});

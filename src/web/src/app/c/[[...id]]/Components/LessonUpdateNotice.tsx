@@ -152,6 +152,7 @@ export const LessonUpdateNotice = ({
         onOpenChange={handleRetakeConfirmOpenChange}
       >
         <DialogContent
+          {...(allowance.blocked ? { 'aria-describedby': undefined } : {})}
           showClose={!isRetakingCurrentLesson}
           onEscapeKeyDown={event => {
             if (isRetakingCurrentLesson) {
@@ -166,9 +167,11 @@ export const LessonUpdateNotice = ({
         >
           <DialogHeader>
             <DialogTitle>{t('module.lesson.reset.confirmTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('module.lesson.reset.confirmContent')}
-            </DialogDescription>
+            {!allowance.blocked && (
+              <DialogDescription>
+                {t('module.lesson.reset.confirmContent')}
+              </DialogDescription>
+            )}
           </DialogHeader>
           <RetakeAllowanceMessage {...allowance} />
           <DialogFooter>

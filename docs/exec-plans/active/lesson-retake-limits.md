@@ -614,7 +614,72 @@ are not retroactively counted and must be noted as a rollback boundary.
   Deployment 2167 succeeded using the SAME image for a controlled comparison.
   Original recovery command: restore the previous entrypoint with '-k gevent'
   and without '--threads 8', then redeploy the same image. No image default or
-  production startup configuration changed. Playback/billing readback pending;
-  do not describe this configuration hypothesis as a proven code fix yet.
+  production startup configuration changed. The same-image comparison produced
+  teaching text, audio playback (currentTime advanced, paused=false, readyState=4,
+  error=null) and the real interaction prompt. This supports the startup
+  correction; it does not conclusively prove the underlying connection cause.
+- Latest dev02 build 456 / Drone 5247 published image 20261009-9aebcae;
+  API/beat/worker/web deployments 2173/2174/2178/2179 all succeeded. The API
+  gthread entrypoint remains in place. Additional HTTP/connection-probe coverage
+  passed 70 tests; frontend coverage passed 121 tests.
+- Reopened lesson history retained teaching text and the interaction. Switching
+  Read to Listen replayed existing audio: duration=51.019938, currentTime=5.650504,
+  paused=false, readyState=4, error=null. Returned to Read without submitting an
+  answer or requesting another reset. Replay screenshot is saved locally at
+  /private/tmp/retake-cached-replay-acceptance.png. A separate native-coordinate
+  playback attempt navigated to another lesson; that attempt is excluded from
+  acceptance evidence and needs reproducibility review before concluding cause.
+- The test owner has 1.93 credits. Worker settlement receipts reported
+  insufficient balance, entry_count=0 and usage_id=null; TTS trial charges of
+  approximately 50.28 are NOT actual deductions. Do not claim billing success
+  or financial replay deduplication from those receipts. Requested permission
+  for a temporary 200-credit dev02-only grant and recovery of its unused portion;
+  permission remains pending and no credit adjustment has been made.
+- Real live acceptance used the legacy teaching path. The full vendored engine
+  gate passed offline; no real MarkdownFlow 2.0 listen acceptance is claimed.
 
 Formal PR submission remains pending successful live audio reacceptance.
+
+
+### October 9 paid audio and replay acceptance
+
+- [x] 2026-10-09 15:59 Asia/Shanghai: User explicitly approved a temporary
+  200-credit grant to the dev02 test owner, with unused credits recovered after
+  acceptance. Used the existing Operations grant UI, one-day validity, an
+  explicit test-only note and no package/payment/subscription activation.
+  Readback: balance 1.93 -> 201.93, grant at 15:59:06.
+- [x] 2026-10-09 16:02 Asia/Shanghai: Reset only short test lesson
+  aa5e4bbf085c4baf89c4ee569e83e75c once in Listen Mode. Settlement at 15:59:51
+  reports settled, entry_count=1, consumed_credits=50.28; usage BID
+  7fa1e91a7fed4b8ebdc8d77505b852ca. The account ledger independently shows
+  -50.28 and balance 151.65. This is actual test billing, unlike earlier
+  insufficient-balance trial calculations. It is not a production cost estimate.
+- [x] 2026-10-09 16:02 Asia/Shanghai: Read/Listen replay used the saved short
+  audio, duration=1.313313, currentTime=0.175837, paused=false, readyState=4,
+  error=null. Read-mode refresh preserved content. Fresh ledger and worker log
+  readbacks show only the original settlement; no extra replay charge appeared
+  in this acceptance window. Evidence: /private/tmp/retake-paid-replay-ledger.png.
+- [ ] Recover only the remaining 149.72 temporary credits; retain original 1.93.
+  Grant UI defaulted to Reward; the normal deduction UI explicitly excludes
+  reward credits (wallets._is_operator_manual_credit_bucket). Closed the form
+  without submitting a deduction. Requested a new one-time dev02-only cleanup
+  script approval, or leaving this grant to expire on October 10 at 15:59:06.
+  Do not silently bypass this product restriction or report cleanup complete.
+
+Paid audio and cached replay acceptance now have live evidence. Formal PR still
+waits for test-credit cleanup and final acceptance/scope review. Global rollout,
+production/SIM configuration, live 2.0/provider-crash injection and measured
+cost-saving outcomes are not claimed.
+
+
+### October 9 unavailable-retake confirmation copy
+
+User identified contradictory copy in an exhausted catalog dialog. Both catalog
+and update dialogs now show the destructive-reset question only while reset is
+allowed; blocked states retain their status explanation and disabled submission.
+When the description is absent, remove its ARIA reference as well. Normal and
+owner-exempt confirmation behavior is preserved. This is a copy presentation
+correction; admission policy, billing and analytics contracts do not change.
+Focused regressions cover available and exhausted catalog dialogs and quota
+exhaustion while an update dialog is already open. Dev02 deployment/readback is
+required before claiming the screenshot discrepancy fixed in the live product.
