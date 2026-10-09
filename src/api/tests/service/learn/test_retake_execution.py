@@ -410,6 +410,89 @@ def enable(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.mark.parametrize("delivered", [False, True])
+def test_reserved_start_settles_after_rollout_is_disabled(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, delivered: bool
+) -> None:
+    """Rollback stops new admission, not settlement of an already reset lesson."""
+    execution = reserve(app)
+    monkeypatch.setattr(
+        "flaskr.service.learn.retake_execution.retake_namespace", lambda _: None
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.retake_execution.configured_retake_namespace",
+        lambda: "test",
+    )
+
+    def events() -> Iterator[str]:
+        if delivered:
+            with unit_of_work():
+                stage_retake_content(**RECORD_IDENTITY, content="Durable teaching")
+        yield "done"
+
+    assert list(wrapped(app, events())) == ["done"]
+    with app.app_context():
+        attempt = db.session.get(LessonRetakeAttempt, execution.attempt_id)
+        assert attempt.producer_finished_at is not None
+        assert attempt.state == (
+            RetakeState.COMMITTED if delivered else RetakeState.RELEASED
+        )
+        assert LessonRetakeRun.query.filter_by(finished_at=None).count() == 0
+    assert get_allowance(app, **IDENTITY).reserved == 0
+    assert get_allowance(app, **IDENTITY).used == int(delivered)
+    if not delivered:
+        assert_restored(app, execution.attempt_id)
+
+
+def test_disabled_rollout_does_not_claim_another_deployments_reservation(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Shared databases must not cross deployment namespace boundaries."""
+    execution = reserve(app)
+    monkeypatch.setattr(
+        "flaskr.service.learn.retake_execution.retake_namespace", lambda _: None
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.retake_execution.configured_retake_namespace",
+        lambda: "other",
+    )
+    assert list(wrapped(app, iter(["unlimited start"]))) == ["unlimited start"]
+    with app.app_context():
+        assert (
+            db.session.get(LessonRetakeAttempt, execution.attempt_id).state
+            == RetakeState.RESERVED
+        )
+
+
+def test_disabled_rollout_cannot_reset_away_an_unfinished_reservation(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rollback must not allow a second destructive reset before settlement."""
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.learn import retake_service
+
+    execution = reserve(app)
+    monkeypatch.setattr(retake_service, "retake_namespace", lambda _: None)
+    monkeypatch.setattr(retake_service, "configured_retake_namespace", lambda: "test")
+    monkeypatch.setattr(
+        retake_service, "has_course_collaboration_permission", lambda *_: False
+    )
+    assert retake_service.read_status(app, **RECORD_IDENTITY) == {
+        "available": True,
+        "allowed": False,
+        "in_progress": True,
+        "quota_exempt": False,
+    }
+    with pytest.raises(AppError) as denied:
+        retake_service.try_limited_reset(app, **RECORD_IDENTITY, request_id="second")
+    assert denied.value.code == ERROR_CODE["server.learn.retakeInProgress"]
+    with app.app_context():
+        assert (
+            db.session.get(LessonRetakeAttempt, execution.attempt_id).state
+            == RetakeState.RESERVED
+        )
+
+
 def test_generator_close_restores_after_child_finally(
     app: Flask, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -648,6 +731,52 @@ def test_platform_repair_requires_confirmed_stop_and_exact_worker(app: Flask) ->
         assert len(row.repair_log) == 1
         assert row.repair_log[0]["operator_bid"] == "operator"
         assert row.repair_log[0]["repaired_at"].endswith("Z")
+
+
+def test_ordinary_orphan_diagnostics_and_confirmed_stop_repair_preserve_usage(
+    app: Flask,
+) -> None:
+    """Operator recovery also covers interrupted first study, with no quota refund."""
+    from flaskr.service.learn.retake_run_guard import (
+        acquire_lesson_run,
+        inspect_lesson_run,
+        repair_stopped_lesson_run,
+    )
+
+    ownership = acquire_lesson_run(app, **IDENTITY)
+    before = inspect_lesson_run(app, **IDENTITY)
+    assert before["blocked"] is True
+    assert before["producer_id"] == ownership.producer_id
+    assert before["started_at"].endswith("Z")
+    assert before["attempt_id"] is None
+    assert inspect_lesson_run(app, **IDENTITY) == before
+    with pytest.raises(RetakeRuleError, match="repair_requires_confirmed_stop"):
+        repair_stopped_lesson_run(
+            app,
+            **IDENTITY,
+            expected_producer_id=ownership.producer_id,
+            operator_bid="operator",
+            confirmed_stopped=False,
+        )
+    repair_stopped_lesson_run(
+        app,
+        **IDENTITY,
+        expected_producer_id=ownership.producer_id,
+        operator_bid="operator",
+        confirmed_stopped=True,
+    )
+    after = inspect_lesson_run(app, **IDENTITY)
+    assert after["blocked"] is False
+    assert after["finished_at"].endswith("Z")
+    assert get_allowance(app, **IDENTITY).used == 0
+    with app.app_context():
+        assert (
+            LearnProgressRecord.query.filter_by(progress_record_bid="original")
+            .one()
+            .status
+            == LEARN_STATUS_COMPLETED
+        )
+    assert acquire_lesson_run(app, **IDENTITY).producer_id != ownership.producer_id
 
 
 def test_stale_worker_cannot_release_new_run(app: Flask) -> None:

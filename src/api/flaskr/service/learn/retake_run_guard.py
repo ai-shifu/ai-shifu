@@ -66,6 +66,66 @@ def _pending(scope: dict) -> LessonRetakeAttempt | None:
     )
 
 
+def pending_lesson_attempt(**scope: str) -> bool:
+    """Read existing obligations without enabling a new retake policy."""
+    return (
+        LessonRetakeAttempt.query.filter_by(**scope, producer_finished_at=None)
+        .filter(
+            LessonRetakeAttempt.state.in_(
+                [
+                    RetakeState.RESERVED,
+                    RetakeState.RUNNING,
+                    RetakeState.COMMITTED,
+                ]
+            )
+        )
+        .first()
+        is not None
+    )
+
+
+def inspect_lesson_run(
+    app: Flask, *, namespace: str, shifu_bid: str, user_bid: str, outline_bid: str
+) -> dict:
+    """Return operator diagnostics without releasing a slot or changing usage.
+
+    This is application-shell tooling, not a learner endpoint. A pending record
+    or its age cannot prove that a producer has stopped.
+    """
+    scope = {
+        "namespace": namespace,
+        "shifu_bid": shifu_bid,
+        "user_bid": user_bid,
+        "outline_bid": outline_bid,
+    }
+    with app_context_scope(app):
+        row = LessonRetakeRun.query.filter_by(**scope).first()
+        attempt = (
+            LessonRetakeAttempt.query.filter_by(**scope, producer_finished_at=None)
+            .filter(
+                LessonRetakeAttempt.state.in_(
+                    [
+                        RetakeState.RESERVED,
+                        RetakeState.RUNNING,
+                        RetakeState.COMMITTED,
+                    ]
+                )
+            )
+            .first()
+        )
+        return {
+            "blocked": (row is not None and row.finished_at is None)
+            or attempt is not None,
+            "producer_id": row.producer_id if row else None,
+            "started_at": to_utc_iso(row.started_at) if row else None,
+            "finished_at": to_utc_iso(row.finished_at)
+            if row and row.finished_at
+            else None,
+            "attempt_id": attempt.attempt_id if attempt else None,
+            "attempt_state": str(attempt.state) if attempt else None,
+        }
+
+
 def acquire_lesson_run(
     app: Flask,
     *,

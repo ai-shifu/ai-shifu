@@ -30,7 +30,7 @@
   "lessonPdfPreparing": "Preparing lesson PDF…",
   "lessonPdfPrintHint": "The print dialog will open; choose Save as PDF to download",
   "lessonUpdateRecommendRetake": "This lesson has been updated. You can <action>study the latest content again</action>.",
-  "lessonUpdateRetakeAccessibleLabel": "Reset this lesson",
+  "lessonUpdateRetakeAccessibleLabel": "study the latest content again",
   "lessonUpdateReviewExisting": "This lesson has been updated. You can still view and review your previous learning content.",
   "lessonUpdated": "This lesson has been updated.",
   "listenAudioBackfillFailed": "Audio generation failed. Please retry or keep reading.",

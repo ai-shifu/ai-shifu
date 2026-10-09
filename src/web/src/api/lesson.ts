@@ -6,6 +6,7 @@ import {
 import request from '@/lib/request';
 import { useSystemStore } from '@/store/useSystemStore';
 import { useEnvStore } from '@/store/envStore';
+import i18next from 'i18next';
 
 export const getLessonTree = async (courseId: string, previewMode: boolean) => {
   return request.get(
@@ -24,7 +25,12 @@ export const getScriptInfo = async (courseId: string, scriptId: string) => {
 export const resetChapter = async ({ lessonId: outline_bid }) => {
   const { courseId: shifu_bid } = useEnvStore.getState();
   const preview = useSystemStore.getState().previewMode;
-  const user = useUserStore.getState().userInfo?.user_id || '';
+  if (!useUserStore.getState().userInfo?.user_id) {
+    await useUserStore.getState().initUser();
+    await useUserStore.getState().refreshUserInfo({ skipErrorToast: true });
+  }
+  const user = useUserStore.getState().userInfo?.user_id;
+  if (!user) throw new Error(i18next.t('common.core.actionFailed'));
   const scope = `${user}:${shifu_bid}:${outline_bid}:${preview}`;
   const requestId = retakeRequestIdentity(scope);
   try {

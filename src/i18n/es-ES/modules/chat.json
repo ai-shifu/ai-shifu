@@ -30,7 +30,7 @@
   "lessonPdfPreparing": "Preparando PDF de la lección…",
   "lessonPdfPrintHint": "Se abrirá el cuadro de impresión; elige «Guardar como PDF» para descargarlo",
   "lessonUpdateRecommendRetake": "Esta lección se ha actualizado. Puedes <action>volver a estudiar el contenido actualizado</action>.",
-  "lessonUpdateRetakeAccessibleLabel": "Restablecer esta lección",
+  "lessonUpdateRetakeAccessibleLabel": "volver a estudiar el contenido actualizado",
   "lessonUpdateReviewExisting": "Esta lección se ha actualizado. Puedes seguir consultando y repasando el contenido que estudiaste anteriormente.",
   "lessonUpdated": "Esta lección se ha actualizado.",
   "listenAudioBackfillFailed": "No se ha podido generar el audio. Inténtalo de nuevo o sigue leyendo.",

@@ -298,3 +298,49 @@ it('emits exposure only after the loaded status has committed to the interface',
   await waitFor(() => expect(mockTrack).toHaveBeenCalledTimes(1));
   expect(sequence).toEqual(['rendered', 'tracked']);
 });
+
+it.each(['exhausted', 'failed'])(
+  'does not track a prefetched allowance as the fresh dialog check: %s',
+  async outcome => {
+    let resolveCheck!: (value: typeof status) => void;
+    let rejectCheck!: (error: Error) => void;
+    jest
+      .mocked(getRetakeStatus)
+      .mockResolvedValueOnce(status)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            resolveCheck = resolve;
+            rejectCheck = reject;
+          }),
+      );
+    const hook = renderHook(
+      ({ open }) => useRetakeAllowance(open, 'lesson', 'update', true),
+      { initialProps: { open: false } },
+    );
+    await waitFor(() => expect(hook.result.current.blocked).toBe(false));
+    mockTrack.mockClear();
+    hook.rerender({ open: true });
+    expect(hook.result.current.blocked).toBe(true);
+    expect(mockTrack).not.toHaveBeenCalled();
+    await act(async () => {
+      if (outcome === 'failed') rejectCheck(new Error('offline'));
+      else resolveCheck({ ...status, allowed: false, remaining: 0 });
+    });
+    expect(hook.result.current.blocked).toBe(true);
+    if (outcome === 'failed') {
+      expect(mockTrack).not.toHaveBeenCalled();
+    } else {
+      expect(mockTrack).toHaveBeenCalledTimes(1);
+      expect(mockTrack).toHaveBeenCalledWith(
+        'learner_retake_admission_checked',
+        {
+          shifu_bid: 'course',
+          outline_bid: 'lesson',
+          entry: 'update',
+          state: 'exhausted',
+        },
+      );
+    }
+  },
+);

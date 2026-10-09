@@ -30,7 +30,7 @@
   "lessonPdfPreparing": "正在准备本节 PDF…",
   "lessonPdfPrintHint": "下载时会打开打印窗口，请选择“保存为 PDF”",
   "lessonUpdateRecommendRetake": "本节内容已更新，你可以<action>重新学习最新内容</action>。",
-  "lessonUpdateRetakeAccessibleLabel": "重修本节课程",
+  "lessonUpdateRetakeAccessibleLabel": "重新学习最新内容",
   "lessonUpdateReviewExisting": "本节内容已有更新，你之前的学习内容仍可继续查看和复习。",
   "lessonUpdated": "本节内容已更新。",
   "listenAudioBackfillFailed": "音频生成失败，请重试或继续阅读",

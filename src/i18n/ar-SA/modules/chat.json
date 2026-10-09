@@ -30,7 +30,7 @@
   "lessonPdfPreparing": "جارٍ إعداد ملف PDF لهذا الدرس…",
   "lessonPdfPrintHint": "سيُفتح مربع الطباعة عند التنزيل، يرجى اختيار «حفظ بصيغة PDF»",
   "lessonUpdateRecommendRetake": "تم تحديث هذا الدرس. يمكنك <action>دراسة المحتوى الأحدث من جديد</action>.",
-  "lessonUpdateRetakeAccessibleLabel": "إعادة تعلم هذا الدرس",
+  "lessonUpdateRetakeAccessibleLabel": "دراسة المحتوى الأحدث من جديد",
   "lessonUpdateReviewExisting": "تم تحديث هذا الدرس. لا يزال بإمكانك عرض محتوى تعلمك السابق ومراجعته.",
   "lessonUpdated": "تم تحديث هذا الدرس.",
   "listenAudioBackfillFailed": "فشل إنشاء الصوت، يرجى المحاولة مرة أخرى أو متابعة القراءة",

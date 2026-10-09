@@ -30,7 +30,7 @@
   "lessonPdfPreparing": "กำลังเตรียม PDF ของบทเรียนนี้…",
   "lessonPdfPrintHint": "เมื่อดาวน์โหลดจะเปิดหน้าต่างพิมพ์ โปรดเลือก “บันทึกเป็น PDF”",
   "lessonUpdateRecommendRetake": "บทเรียนนี้ได้รับการอัปเดตแล้ว คุณสามารถ<action>เรียนเนื้อหาล่าสุดอีกครั้ง</action>ได้",
-  "lessonUpdateRetakeAccessibleLabel": "เรียนบทเรียนนี้ซ้ำ",
+  "lessonUpdateRetakeAccessibleLabel": "เรียนเนื้อหาล่าสุดอีกครั้ง",
   "lessonUpdateReviewExisting": "บทเรียนนี้ได้รับการอัปเดตแล้ว คุณยังสามารถดูและทบทวนเนื้อหาที่เรียนไปก่อนหน้านี้ได้",
   "lessonUpdated": "บทเรียนนี้ได้รับการอัปเดตแล้ว",
   "listenAudioBackfillFailed": "สร้างเสียงไม่สำเร็จ โปรดลองอีกครั้งหรืออ่านต่อ",

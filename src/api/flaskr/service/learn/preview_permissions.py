@@ -6,6 +6,7 @@ import json
 from typing import TYPE_CHECKING
 
 from flask import Flask, request
+from flaskr.dao.uow import app_context_scope
 from flaskr.service.common import raise_error
 from flaskr.service.config import get_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
@@ -127,7 +128,7 @@ def is_builtin_demo_shifu(app: Flask, shifu_bid: str) -> bool:
 
 
 def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
-    with app.app_context():
+    with app_context_scope(app):
         for row in _load_course_rows(shifu_bid):
             creator_bid = str(getattr(row, "created_user_bid", "") or "").strip()
             if creator_bid:
@@ -136,7 +137,7 @@ def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
 
 
 def _has_preview_permission(app: Flask, user_bid: str, shifu_bid: str) -> bool:
-    with app.app_context():
+    with app_context_scope(app):
         creator_bid = _get_shifu_creator_bid(app, shifu_bid)
         if creator_bid and creator_bid == user_bid:
             return True
@@ -151,6 +152,15 @@ def _has_preview_permission(app: Flask, user_bid: str, shifu_bid: str) -> bool:
 
         permissions = _auth_types_to_permissions(_normalize_auth_types(auth.auth_type))
         return bool(permissions.intersection({"view", "edit", "publish"}))
+
+
+def has_course_collaboration_permission(
+    app: Flask, user_bid: str, shifu_bid: str
+) -> bool:
+    """Resolve current course staff access, excluding public demo preview access."""
+    return bool(user_bid and shifu_bid) and _has_preview_permission(
+        app, user_bid, shifu_bid
+    )
 
 
 def require_shifu_preview_permission(app: Flask, user_bid: str, shifu_bid: str) -> None:

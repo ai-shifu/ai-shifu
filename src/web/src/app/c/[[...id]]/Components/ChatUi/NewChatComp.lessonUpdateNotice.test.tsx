@@ -79,7 +79,7 @@ jest.mock('react-i18next', () => {
       '本节内容已更新，你可以<action>重新学习最新内容</action>。',
     'module.chat.lessonFeedbackSubmit': '提交',
     'module.chat.lessonPdfCourseQrLabel': '扫码进入课程，获得一对一讲解与答疑',
-    'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
+    'module.chat.lessonUpdateRetakeAccessibleLabel': '重新学习最新内容',
     'module.chat.lessonUpdateRetakeAction': '重修',
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
     'module.lesson.reset.confirmTitle': '确认重修',
@@ -527,7 +527,7 @@ describe('NewChatComponents', () => {
     renderTitlebarLessonUpdateNotice();
 
     const retakeAction = await screen.findByRole('button', {
-      name: '重修本节课程',
+      name: '重新学习最新内容',
     });
     expect(retakeAction.closest('span')).toHaveTextContent(
       '本节内容已更新，你可以重新学习最新内容。',
@@ -557,7 +557,7 @@ describe('NewChatComponents', () => {
     });
     expect(
       screen.queryByRole('button', {
-        name: '重修本节课程',
+        name: '重新学习最新内容',
       }),
     ).not.toBeInTheDocument();
     expect(

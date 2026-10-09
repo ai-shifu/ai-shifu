@@ -7,6 +7,7 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common import AppError
+from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.learn.retake_ledger import (
     claim_attempt,
     configure_policy,
@@ -20,7 +21,7 @@ from flaskr.service.learn.retake_models import (
     LessonRetakeRun,
 )
 from flaskr.service.learn.retake_policy import RetakeRuleError, RetakeState
-from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 
 BASE = {"namespace": "test", "shifu_bid": "course"}
 LEARNER = {**BASE, "user_bid": "learner", "outline_bid": "lesson-a"}
@@ -39,6 +40,7 @@ def app(tmp_path: object) -> Iterator[Flask]:
         LessonRetakeRun.__table__.create(db.engine)
         DraftShifu.__table__.create(db.engine)
         PublishedShifu.__table__.create(db.engine)
+        AiCourseAuth.__table__.create(db.engine)
     yield application
     with application.app_context():
         db.session.remove()
@@ -75,6 +77,36 @@ def test_unconfigured_course_has_no_policy(app: Flask) -> None:
     assert get_allowance(app, **LEARNER) is None
     with pytest.raises(RetakeRuleError, match="policy_not_enabled"):
         reserve_attempt(app, **LEARNER, request_id="one")
+
+
+def test_default_policy_reads_do_not_rewrite_an_existing_platform_policy(
+    app: Flask,
+) -> None:
+    """Ordinary status checks should not acquire a write lock on the course."""
+    from flaskr.service.learn.retake_ledger import ensure_default_policy
+    from sqlalchemy import event
+
+    ensure_default_policy(app, **BASE)
+    statements = []
+
+    def capture(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        _params: object,
+        _context: object,
+        _many: object,
+    ) -> None:
+        statements.append(statement.lstrip().split()[0].upper())
+
+    with app.app_context():
+        event.listen(db.engine, "before_cursor_execute", capture)
+        try:
+            ensure_default_policy(app, **BASE)
+        finally:
+            event.remove(db.engine, "before_cursor_execute", capture)
+    assert "SELECT" in statements
+    assert not {"INSERT", "UPDATE", "DELETE"}.intersection(statements)
 
 
 def test_zero_prevents_reservation(app: Flask) -> None:
@@ -354,8 +386,9 @@ def test_course_owner_can_retake_after_ten_without_erasing_history(
     ) == (10, 1)
     assert retake_service.read_status(app, **identity)["in_progress"] is True
     # Unlimited does not allow a second simultaneous round.
-    with pytest.raises(AppError, match="retakeInProgress"):
+    with pytest.raises(AppError) as denied:
         retake_service.try_limited_reset(app, **identity, request_id="owner-concurrent")
+    assert denied.value.code == ERROR_CODE["server.learn.retakeInProgress"]
 
 
 def test_another_teacher_is_not_exempt_from_this_course(
@@ -377,8 +410,9 @@ def test_another_teacher_is_not_exempt_from_this_course(
         "in_progress": False,
         "quota_exempt": False,
     }
-    with pytest.raises(AppError, match="retakeLimitReached"):
+    with pytest.raises(AppError) as denied:
         retake_service.try_limited_reset(app, **identity, request_id="eleventh")
+    assert denied.value.code == ERROR_CODE["server.learn.retakeLimitReached"]
 
 
 def test_owner_transfer_rechecks_exemption_without_resetting_usage(
@@ -406,8 +440,9 @@ def test_owner_transfer_rechecks_exemption_without_resetting_usage(
     new_owner = retake_service.read_status(app, **{**identity, "user_bid": "new-owner"})
     assert new_owner["quota_exempt"] is True
     assert new_owner["allowed"] is True
-    with pytest.raises(AppError, match="retakeLimitReached"):
+    with pytest.raises(AppError) as denied:
         retake_service.try_limited_reset(app, **identity, request_id="old-owner")
+    assert denied.value.code == ERROR_CODE["server.learn.retakeLimitReached"]
 
 
 def test_course_revision_does_not_replenish_learner_quota(
@@ -426,3 +461,79 @@ def test_course_revision_does_not_replenish_learner_quota(
     identity = {key: value for key, value in LEARNER.items() if key != "namespace"}
     assert retake_service.read_status(app, **identity)["allowed"] is False
     assert get_allowance(app, **LEARNER).used == 10
+
+
+@pytest.mark.parametrize("auth_type", ["[1]", "[2]", "[4]", '["view"]', '["write"]'])
+@pytest.mark.parametrize("delivered", [False, True])
+def test_active_course_collaborators_are_exempt_until_access_is_revoked(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, auth_type: str, delivered: bool
+) -> None:
+    """Staff testing is unlimited, but revocation preserves the learner's usage."""
+    from flaskr.service.learn import retake_service
+
+    monkeypatch.setattr(retake_service, "retake_namespace", lambda _: "test")
+    monkeypatch.setattr(retake_service, "stage_reset_records", lambda **_kwargs: {})
+    with app.app_context(), unit_of_work():
+        db.session.add(DraftShifu(shifu_bid="course", created_user_bid="owner"))
+        db.session.add(
+            AiCourseAuth(
+                course_id="course", user_id="learner", status=1, auth_type=auth_type
+            )
+        )
+    configure_policy(app, **BASE, limit=10)
+    for index in range(10):
+        complete(app, str(index))
+    identity = {key: value for key, value in LEARNER.items() if key != "namespace"}
+    assert retake_service.read_status(app, **identity)["quota_exempt"] is True
+    assert retake_service.try_limited_reset(
+        app, **identity, request_id="staff-eleventh"
+    )
+    # Both delivered and empty staff starts retain the same historical ledger.
+    with app.app_context():
+        attempt = LessonRetakeAttempt.query.filter_by(request_id="staff-eleventh").one()
+        attempt_id = attempt.attempt_id
+    if delivered:
+        claim_attempt(app, **BASE, attempt_id=attempt_id, producer_id="staff-worker")
+    finish_attempt(
+        app,
+        **BASE,
+        attempt_id=attempt_id,
+        producer_id="staff-worker" if delivered else None,
+        has_durable_content=delivered,
+        producer_stopped=True,
+    )
+    with app.app_context(), unit_of_work():
+        AiCourseAuth.query.filter_by(
+            course_id="course", user_id="learner"
+        ).one().status = 0
+    assert retake_service.read_status(app, **identity)["allowed"] is False
+    assert get_allowance(app, **LEARNER).used == 10 + int(delivered)
+
+
+@pytest.mark.parametrize(
+    ("course_id", "status", "auth_type"),
+    [("other-course", 1, "[2]"), ("course", 0, "[2]"), ("course", 1, "[]")],
+)
+def test_unrelated_revoked_or_empty_permissions_do_not_grant_exemption(
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    course_id: str,
+    status: int,
+    auth_type: str,
+) -> None:
+    """Only active access to this exact course changes quota admission."""
+    from flaskr.service.learn import retake_service
+
+    monkeypatch.setattr(retake_service, "retake_namespace", lambda _: "test")
+    with app.app_context(), unit_of_work():
+        db.session.add(DraftShifu(shifu_bid="course", created_user_bid="owner"))
+        db.session.add(
+            AiCourseAuth(
+                course_id=course_id,
+                user_id="learner",
+                status=status,
+                auth_type=auth_type,
+            )
+        )
+    identity = {key: value for key, value in LEARNER.items() if key != "namespace"}
+    assert retake_service.read_status(app, **identity)["quota_exempt"] is False

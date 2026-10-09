@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getRetakeStatus, type RetakeStatus } from '@/api/retake';
 import { useEnvStore } from '@/store/envStore';
 import { useSystemStore } from '@/store/useSystemStore';
@@ -19,13 +19,17 @@ export function useRetakeAllowance(
   const trackRef = useRef(trackEvent);
   trackRef.current = trackEvent;
   const [response, setResponse] = useState<{
-    key: string;
+    requestScope: object;
     status?: RetakeStatus;
     failed?: boolean;
   }>();
   const noticeStates = useRef(new Set<string>());
   const checkedOpen = useRef<string | undefined>(undefined);
   const key = `${userId}:${courseId}:${lessonId}:${preview}`;
+  const requestScope = useMemo(
+    () => ({ key, open, prefetch, refresh, entry }),
+    [key, open, prefetch, refresh, entry],
+  );
   useEffect(() => {
     if ((!open && !prefetch) || preview || !lessonId) return;
     const refreshStatus = () => setRefresh(value => value + 1);
@@ -48,16 +52,17 @@ export function useRetakeAllowance(
     getRetakeStatus(courseId, lessonId)
       .then(status => {
         if (!active) return;
-        setResponse({ key, status });
+        setResponse({ requestScope, status });
       })
       .catch(() => {
-        if (active) setResponse({ key, failed: true });
+        if (active) setResponse({ requestScope, failed: true });
       });
     return () => {
       active = false;
     };
-  }, [open, preview, lessonId, courseId, entry, key, prefetch, refresh]);
-  const current = response?.key === key ? response : undefined;
+  }, [open, preview, lessonId, courseId, prefetch, requestScope]);
+  const current =
+    response?.requestScope === requestScope ? response : undefined;
   const status = current?.status;
   useEffect(() => {
     if (!open) checkedOpen.current = undefined;

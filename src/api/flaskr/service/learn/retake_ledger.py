@@ -93,7 +93,7 @@ def configure_policy(
 
 
 def ensure_default_policy(app: Flask, *, namespace: str, shifu_bid: str) -> None:
-    """Reuse the course lock and history, replacing legacy settings with ten.
+    """Initialize the course once, replacing legacy settings without erasing usage.
 
     Concurrent first activation uses an atomic MySQL upsert before row locking.
     The internal configurable primitive is retained for rollback and testing;
@@ -101,6 +101,9 @@ def ensure_default_policy(app: Flask, *, namespace: str, shifu_bid: str) -> None
     """
     _validate_identity((namespace, 32), (shifu_bid, 36))
     with app_context_scope(app), unit_of_work():
+        existing = db.session.get(CourseRetakePolicy, (namespace, shifu_bid))
+        if existing is not None and existing.lesson_limit == DEFAULT_RETAKE_LIMIT:
+            return
         if db.engine.dialect.name == "mysql":
             # Insert before a missing-row SELECT lock: two first learners would
             # otherwise both hold gap locks and deadlock while inserting.

@@ -1,6 +1,10 @@
 import { resetChapter } from './lesson';
 import request from '@/lib/request';
-const mockUser = { userInfo: { user_id: 'learner' } };
+const mockUser = {
+  userInfo: { user_id: 'learner' },
+  initUser: jest.fn(),
+  refreshUserInfo: jest.fn(),
+};
 const mockSystem = { previewMode: false };
 jest.mock('@/lib/request', () => ({
   __esModule: true,
@@ -64,4 +68,40 @@ it('does not share uncertain identities across signed-in learners', async () => 
   expect(jest.mocked(request.delete).mock.calls[0][1]?.headers).not.toEqual(
     jest.mocked(request.delete).mock.calls[1][1]?.headers,
   );
+});
+
+it.each([false, true])(
+  'hydrates the learner identity before creating a retry identity, including guest preview=%s',
+  async preview => {
+    mockSystem.previewMode = preview;
+    mockUser.userInfo.user_id = '';
+    mockUser.refreshUserInfo.mockImplementation(async () => {
+      mockUser.userInfo.user_id = 'hydrated-guest';
+    });
+    jest
+      .mocked(request.delete)
+      .mockClear()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ code: 0 });
+    await expect(
+      resetChapter({ lessonId: `hydrating-${preview}` }),
+    ).rejects.toThrow('offline');
+    await resetChapter({ lessonId: `hydrating-${preview}` });
+    const calls = jest.mocked(request.delete).mock.calls;
+    expect(calls[0][1]?.headers).toEqual(calls[1][1]?.headers);
+    expect(mockUser.refreshUserInfo).toHaveBeenCalledWith({
+      skipErrorToast: true,
+    });
+    mockSystem.previewMode = false;
+  },
+);
+
+it('does not send a destructive reset when identity hydration fails', async () => {
+  mockUser.userInfo.user_id = '';
+  mockUser.refreshUserInfo.mockRejectedValueOnce(new Error('offline'));
+  jest.mocked(request.delete).mockClear();
+  await expect(resetChapter({ lessonId: 'unresolved' })).rejects.toThrow(
+    'offline',
+  );
+  expect(request.delete).not.toHaveBeenCalled();
 });

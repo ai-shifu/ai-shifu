@@ -414,12 +414,13 @@ admission, confirmation or reset result. The review compares blocked frequency
 with authoritative credit consumption to detect abnormal high-cost learners.
 
 
-Owner exemption (October 9): v2 learner admission and reset-result populations
+Course staff exemption (October 9, contract v3): learner admission and reset-result populations
 exclude `quota_exempt=true` responses. This flag is server-resolved from the
-specific course's current owner; teaching other courses is not an exemption.
+specific course's current owner or active collaborators, including read-only
+collaborators; teaching or collaborating on other courses is not an exemption.
 The payload schemas, timing and deduplication are unchanged. Historical owner
 observations before this correction may remain in the pilot totals; use the
-release boundary when comparing learner counts. Owner retakes remain in the
+release boundary when comparing learner counts. Staff retakes remain in the
 server ledger and actual billing; this exclusion is analytics only. The existing
 inline-regeneration-blocked event retains its policy-friction meaning.
 
@@ -429,7 +430,7 @@ inline-regeneration-blocked event retains its policy-friction meaning.
 Decision: measure how often updated-lesson notices can offer regeneration versus
 showing review guidance. `learner_lesson_update_notice_shown` fires after a
 background admission response renders a mounted update notice with the dialog
-closed. Eligible: enabled ordinary learner/guest; exclude preview, course owner,
+closed. Eligible: enabled ordinary learner/guest; exclude preview, course staff,
 disabled rollout, missing lesson and failed/unfinished status requests. Dedup:
 once per mounted notice, course, lesson and state; reopening the dialog does not
 repeat the same notice state. Payload allowlist: `shifu_bid`, `outline_bid`,
@@ -444,5 +445,10 @@ October 9 production preparation: notice and admission events are emitted from
 a post-commit effect after the status is rendered. Status refreshes on account
 identity changes, window focus, visibility restoration and network reconnection;
 there is no periodic polling. Repeat same-state refreshes do not add notice
-exposures or confirmation-open events. Payloads and owner/preview exclusions
-are unchanged; identity is an internal cache key, never added to the payload.
+exposures or confirmation-open events. Payloads are unchanged; v3 extends the
+staff exclusion as above. Identity is an internal cache key, never added to the
+payload. A prefetched response cannot represent a new confirmation request:
+confirmation analytics wait for that open's current response to commit. Failed
+fresh checks do not record the previous prefetched state. Consumers should use
+the deployment release boundary when comparing v2 and v3 eligible populations;
+existing event names and payloads require no dual-write or historical rewrite.

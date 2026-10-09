@@ -33,8 +33,15 @@ from flaskr.service.learn.retake_ledger import (
 )
 from flaskr.service.learn.retake_policy import RetakeRuleError, RetakeState
 from flaskr.service.learn.retake_recovery import stage_restore_records
-from flaskr.service.learn.retake_rollout import retake_namespace
-from flaskr.service.learn.retake_run_guard import acquire_lesson_run, release_lesson_run
+from flaskr.service.learn.retake_rollout import (
+    configured_retake_namespace,
+    retake_namespace,
+)
+from flaskr.service.learn.retake_run_guard import (
+    acquire_lesson_run,
+    pending_lesson_attempt,
+    release_lesson_run,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -161,9 +168,21 @@ def track_retake_events(
     """Wrap the actual producer, leaving first study, preview and Ask unchanged."""
     with app_context_scope(app):
         namespace = retake_namespace(shifu_bid)
-        if namespace is None or preview_mode or input_type == INPUT_TYPE_ASK:
+        if preview_mode or input_type == INPUT_TYPE_ASK:
             yield from events
             return
+        if namespace is None:
+            candidate = configured_retake_namespace()
+            if candidate is not None and pending_lesson_attempt(
+                namespace=candidate,
+                shifu_bid=shifu_bid,
+                user_bid=user_bid,
+                outline_bid=outline_bid,
+            ):
+                namespace = candidate
+            else:
+                yield from events
+                return
         ownership = acquire_lesson_run(
             app,
             namespace=namespace,

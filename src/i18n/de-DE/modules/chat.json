@@ -30,7 +30,7 @@
   "lessonPdfPreparing": "PDF der Lektion wird vorbereitet …",
   "lessonPdfPrintHint": "Der Druckdialog öffnet sich. Wählen Sie „Als PDF speichern“, um die Datei herunterzuladen.",
   "lessonUpdateRecommendRetake": "Diese Lektion wurde aktualisiert. Du kannst <action>die aktuellen Inhalte erneut lernen</action>.",
-  "lessonUpdateRetakeAccessibleLabel": "Diese Lektion erneut lernen",
+  "lessonUpdateRetakeAccessibleLabel": "die aktuellen Inhalte erneut lernen",
   "lessonUpdateReviewExisting": "Diese Lektion wurde aktualisiert. Du kannst deine bisherigen Lerninhalte weiterhin ansehen und wiederholen.",
   "lessonUpdated": "Diese Lektion wurde aktualisiert.",
   "listenAudioBackfillFailed": "Die Audiodatei konnte nicht erstellt werden. Bitte versuchen Sie es erneut oder lesen Sie weiter.",

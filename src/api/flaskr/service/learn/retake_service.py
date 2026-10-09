@@ -6,6 +6,7 @@ from typing import Never
 from flask import Flask
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common import raise_error
+from flaskr.service.learn.preview_permissions import has_course_collaboration_permission
 from flaskr.service.learn.retake_ledger import (
     ensure_default_policy,
     get_allowance,
@@ -14,7 +15,11 @@ from flaskr.service.learn.retake_ledger import (
 from flaskr.service.learn.retake_models import LessonRetakeRun
 from flaskr.service.learn.retake_policy import RetakeRuleError, RetakeState
 from flaskr.service.learn.retake_recovery import stage_reset_records
-from flaskr.service.learn.retake_rollout import retake_namespace
+from flaskr.service.learn.retake_rollout import (
+    configured_retake_namespace,
+    retake_namespace,
+)
+from flaskr.service.learn.retake_run_guard import pending_lesson_attempt
 from flaskr.service.shifu.api import get_shifu_creator_bid
 
 
@@ -62,11 +67,31 @@ def read_status(
         "quota_exempt": False,
     }
     if namespace is None:
+        if not preview_mode:
+            candidate = configured_retake_namespace()
+            if candidate is not None:
+                with app_context_scope(app):
+                    if pending_lesson_attempt(
+                        namespace=candidate,
+                        shifu_bid=shifu_bid,
+                        user_bid=user_bid,
+                        outline_bid=outline_bid,
+                    ):
+                        return {
+                            **result,
+                            "available": True,
+                            "allowed": False,
+                            "in_progress": True,
+                            "quota_exempt": has_course_collaboration_permission(
+                                app, user_bid, shifu_bid
+                            ),
+                        }
         return result
     with app_context_scope(app), unit_of_work():
         ensure_default_policy(app, namespace=namespace, shifu_bid=shifu_bid)
-        quota_exempt = (
-            bool(user_bid) and get_shifu_creator_bid(app, shifu_bid) == user_bid
+        quota_exempt = bool(user_bid) and (
+            get_shifu_creator_bid(app, shifu_bid) == user_bid
+            or has_course_collaboration_permission(app, user_bid, shifu_bid)
         )
         balance = get_allowance(
             app,
@@ -107,12 +132,23 @@ def try_limited_reset(
     """Handle an opted-in reset atomically; False selects the legacy path."""
     namespace = retake_namespace(shifu_bid)
     if namespace is None:
+        candidate = configured_retake_namespace()
+        if candidate is not None:
+            with app_context_scope(app):
+                if pending_lesson_attempt(
+                    namespace=candidate,
+                    shifu_bid=shifu_bid,
+                    user_bid=user_bid,
+                    outline_bid=outline_bid,
+                ):
+                    raise_error("server.learn.retakeInProgress")
         return False
     with app_context_scope(app), unit_of_work():
         ensure_default_policy(app, namespace=namespace, shifu_bid=shifu_bid)
-        # Resolve from authoritative course ownership, never a client/global role flag.
-        quota_exempt = (
-            bool(user_bid) and get_shifu_creator_bid(app, shifu_bid) == user_bid
+        # Resolve course-specific staff access, never a client/global role flag.
+        quota_exempt = bool(user_bid) and (
+            get_shifu_creator_bid(app, shifu_bid) == user_bid
+            or has_course_collaboration_permission(app, user_bid, shifu_bid)
         )
         try:
             _, state = reserve_attempt(

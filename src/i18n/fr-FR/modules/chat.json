@@ -30,7 +30,7 @@
   "lessonPdfPreparing": "Préparation du PDF de la leçon…",
   "lessonPdfPrintHint": "La fenêtre d’impression s’ouvrira ; choisissez « Enregistrer au format PDF » pour télécharger",
   "lessonUpdateRecommendRetake": "Cette leçon a été mise à jour. Vous pouvez <action>étudier à nouveau le contenu actualisé</action>.",
-  "lessonUpdateRetakeAccessibleLabel": "Réinitialiser cette leçon",
+  "lessonUpdateRetakeAccessibleLabel": "étudier à nouveau le contenu actualisé",
   "lessonUpdateReviewExisting": "Cette leçon a été mise à jour. Vous pouvez toujours consulter et réviser le contenu de votre apprentissage précédent.",
   "lessonUpdated": "Cette leçon a été mise à jour.",
   "listenAudioBackfillFailed": "La génération audio a échoué. Veuillez réessayer ou continuer la lecture.",
