@@ -126,7 +126,10 @@ async def test_failed_teaching_survives_reload_and_continues(
         assert session.memory == {"project": "A lunch planner"}
 
 
-async def test_repeating_interrupted_teaching_does_not_finish_the_lesson() -> None:
+@pytest.mark.parametrize("prior", ["new", "answer", "tool"])
+async def test_repeating_interrupted_teaching_does_not_finish_the_lesson(
+    prior: str,
+) -> None:
     """A partial replay stays retryable across reloads until teaching makes progress."""
     calls = 0
     partial = (
@@ -135,13 +138,28 @@ async def test_repeating_interrupted_teaching_does_not_finish_the_lesson() -> No
 
     async def stream(
         _messages: list[ModelMessage], _info: AgentInfo
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         """Repeat the failed text twice before delivering the next step."""
         nonlocal calls
         calls += 1
-        if calls <= 3:
+        if calls == 1 and prior != "new":
+            yield "Opening question before the interrupted teaching."
+            yield {
+                0: DeltaToolCall(
+                    name="interact" if prior == "answer" else "remember",
+                    json_args=json.dumps(
+                        {"type": "text", "prompt": "Which project?"}
+                        if prior == "answer"
+                        else {"key": "project", "value": "planner"}
+                    ),
+                    tool_call_id="before-failure",
+                )
+            }
+            return
+        failed_at = 1 if prior == "new" else 2
+        if calls <= failed_at + 2:
             yield partial
-            if calls == 1:
+            if calls == failed_at:
                 message = "injected failure"
                 raise RuntimeError(message)
         else:
@@ -152,6 +170,13 @@ async def test_repeating_interrupted_teaching_does_not_finish_the_lesson() -> No
         "Teach audience selection, then outcome selection."
     )
     _ = [event async for event in engine.run_turn(session)]
+    if prior == "answer":
+        _ = [
+            event
+            async for event in engine.run_turn(
+                session, InteractionResponseTurn(id="before-failure", text="A planner")
+            )
+        ]
     for _ in range(2):
         session = Session.loads(session.dumps())
         events = [event async for event in engine.run_turn(session, ContinueTurn())]

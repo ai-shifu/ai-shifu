@@ -17,7 +17,7 @@ results, without treating a repeat of the partial response as lesson completion.
   session compatibility case.
 - [x] 2026-10-09T07:02:40Z: Broader related regression passes 5,513 tests (11 skips, four subtests).
   After adding last-turn retry and memory-request boundaries, all learning tests
-  pass again: 2,837 tests, one skip and four subtests.
+  pass again: 2,839 tests, one skip and four subtests.
 - [ ] Open a focused PR, deploy the exact feature tree to sim and reply to AI opinions.
 
 ## Surprises & Discoveries
@@ -32,6 +32,13 @@ unexecuted partial tool calls with interrupted results rather than executing
 those calls on a new prompt. Completed returns and accepted answers remain
 paired. Retaining only new messages avoids replacing original persisted history
 with a projected request copy.
+
+AI review additionally identified deferred resumes and multi-response tool
+hops: the partial text can occur after the earlier question/response, rather
+than at the beginning of the previous turn. Both variants reproduce before
+the fix. Interrupted retries recognize repeated substrings of prior teaching
+without using that repetition to establish completion. All learning tests
+pass again (2,839 tests, one skip, four subtests).
 
 The existing repeat guard assumes a successful previous turn. Applying its
 completion inference to a failed partial response could end a lesson early;
