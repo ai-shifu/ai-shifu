@@ -135,7 +135,12 @@ Workflow start-node input names and types belong to the published workflow;
 there is no universal native history parameter. Existing workflows remain
 query-only unless advanced `config.context_key` names a declared **String** input.
 This can be configured through the existing course API config serializer;
-the minimal settings form does not add a new control in this increment. Alongside
+the minimal settings form does not add a new control in this increment. Ordinary
+settings saves retain undeclared advanced fields only when the server schema
+explicitly allows additional properties, while declared fields keep their existing
+validation and normalization. Provider switches still start from the new provider
+defaults. The existing settings-save event excludes private configuration and
+tracking failures cannot block a save. Alongside
 the existing credentials and workflow ID, for example:
 
 ```json
