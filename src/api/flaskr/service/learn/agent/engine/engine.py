@@ -289,17 +289,21 @@ def _last_display_line(text: str) -> str:
     return "".join(lines[-1].split()) if lines else ""
 
 
-def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
+def _repeats_previous_turn(
+    messages: Sequence[object], history_len: int, *, interrupted: bool = False
+) -> bool:
     """Whether the text written after `history_len` is the previous turn's text, again.
 
     The whole of it, or its beginning: a model that starts the previous turn over and stops part
     way has still delivered nothing new. Empty is not a repeat: a turn that wrote nothing has not
     repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
+    An interrupted retry can repeat text after an earlier question or tool hop;
+    that substring adds no teaching either, but cannot establish completion.
     """
     now = _text_of(messages[history_len:])
     previous = _previous_turn_text(messages, history_len)
     if len(now) >= _REPEAT_FLOOR_CHARS:
-        return previous.startswith(now)
+        return now in previous if interrupted else previous.startswith(now)
     return False
 
 
@@ -1028,7 +1032,9 @@ class Engine:
                         )
                         history_saved = True
                         repeated = carried_on and _repeats_previous_turn(
-                            session.messages, deps.history_len
+                            session.messages,
+                            deps.history_len,
+                            interrupted=was_interrupted,
                         )
                         # Repeating a failed stream's partial teaching proves nothing
                         # about whether the rest of the script has been delivered.
