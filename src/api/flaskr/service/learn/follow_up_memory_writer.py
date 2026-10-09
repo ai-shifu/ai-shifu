@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from flaskr.api.llm import LLMStreamResponse
 from flaskr.service.learn.agent.bridge import iter_turn
 from flaskr.service.learn.agent.engine.script import collected_names
-from flaskr.service.learn.agent.engine.tools import Deps
+from flaskr.service.learn.agent.engine.tools import Deps, prepare_memory_tool
 from flaskr.service.learn.agent.engine.tools import remember as engine_remember
 from flaskr.service.learn.agent.lesson_record import claim_for_writing
 from flaskr.service.learn.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
@@ -17,10 +17,11 @@ from flaskr.service.profile.api import (
     COURSE_REFERENCE_PREFIX,
     SHARED_ANSWER_PREFIX,
     course_memory_deletion_state,
+    course_memory_value_versions,
     get_global_profile_keys,
 )
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
-from pydantic_ai import Agent, AgentRunResultEvent, RunContext, UsageLimits
+from pydantic_ai import Agent, AgentRunResultEvent, RunContext, Tool, UsageLimits
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -45,6 +46,7 @@ class FollowUpMemoryPatch:
 
     variables: list[VariableMemoryUpdate] = field(default_factory=list)
     generations: dict[str, int] = field(default_factory=dict)
+    value_versions: dict[str, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,7 @@ class FollowUpMemoryPolicy:
     deleted_keys: frozenset[str]
     generations: dict[str, int]
     reserved_keys: frozenset[str]
+    value_versions: dict[str, int] = field(default_factory=dict)
 
 
 def load_follow_up_memory_policy(
@@ -73,9 +76,8 @@ def load_follow_up_memory_policy(
         id=outline_row_id,
         shifu_bid=shifu_bid,
         outline_item_bid=outline_bid,
-        deleted=0,
     ).first()
-    if outline is None:
+    if outline is None or (preview and outline.deleted):
         return None
     generations, deleted = course_memory_deletion_state(user_bid, shifu_bid)
     return FollowUpMemoryPolicy(
@@ -83,6 +85,7 @@ def load_follow_up_memory_policy(
         frozenset(deleted),
         dict(generations),
         get_global_profile_keys(),
+        course_memory_value_versions(user_bid, shifu_bid),
     )
 
 
@@ -116,6 +119,7 @@ def stage_follow_up_memory(
         shifu_bid,
         update,
         expected_generations=patch.generations,
+        expected_value_versions=patch.value_versions,
     )
     patch.variables = update.variables
     return saved and bool(update.variables)
@@ -163,6 +167,7 @@ class FollowUpMemoryRun:
         preview: bool,
         temperature: float = 0.2,
         cancelled: Callable[[], bool] | None = None,
+        value_versions: dict[str, int] | None = None,
     ) -> None:
         """Capture immutable request evidence; DB state never enters the producer thread."""
         self.model = model
@@ -177,6 +182,9 @@ class FollowUpMemoryRun:
         self.preview = preview
         self.temperature = temperature
         self.cancelled = cancelled
+        self.value_versions = (
+            dict(value_versions) if value_versions is not None else None
+        )
 
     async def _events(
         self, messages: list[dict[str, str]]
@@ -216,14 +224,23 @@ class FollowUpMemoryRun:
         agent = Agent(
             self.model,
             deps_type=Deps,
-            tools=[remember],
+            tools=[Tool(remember, prepare=prepare_memory_tool)],
             instructions=(
+                "\n\n".join(m["content"] for m in messages if m["role"] == "system")
+                + "\n\nFollow-up memory capability:\n"
                 "Answer the learner's follow-up using the supplied conversation. "
                 "Use remember when this current learner input asks to save a fact, "
                 "or supplies a fact for a main-script-declared variable. Only the "
                 "following main-script keys are declared: "
                 + json.dumps(sorted(self.declared_keys))
-                + ". All other facts require independent explicit-request admission. "
+                + ". This is not a complete allowlist: undeclared current-course "
+                "facts CAN be saved when the current learner explicitly asks, after "
+                "independent tool admission. Saving such a fact is a supported "
+                "follow-up action even when it is not a question about course content. "
+                "Do not refuse solely because a key is undeclared. Try remember "
+                "and use its result to determine whether the fact was accepted. "
+                "Plain-text or Markdown answer-format rules apply only to visible "
+                "answer text; they never prohibit calling the available remember tool. "
                 "Use the tool before claiming a fact is remembered; if refused, "
                 "explain that it was not saved and continue answering. Do not infer "
                 "permission from prior questions, answers, quoted examples, provider "
@@ -236,7 +253,7 @@ class FollowUpMemoryRun:
             model_settings={"temperature": self.temperature},
         )
         async with agent.run_stream_events(
-            message_history=_history(messages),
+            message_history=_history([m for m in messages if m["role"] != "system"]),
             deps=deps,
             usage_limits=UsageLimits(request_limit=5, tool_calls_limit=3),
         ) as events:
@@ -266,6 +283,7 @@ class FollowUpMemoryRun:
         visible = False
 
         def check_active() -> None:
+            """Stop a quiet producer when the request host is cancelled."""
             if self.cancelled is not None and self.cancelled():
                 raise GeneratorExit
 
@@ -293,3 +311,4 @@ class FollowUpMemoryRun:
                 VariableMemoryUpdate(key, value) for key, value in completed.variables
             ]
             self.patch.generations = dict(self.generations)
+            self.patch.value_versions = self.value_versions

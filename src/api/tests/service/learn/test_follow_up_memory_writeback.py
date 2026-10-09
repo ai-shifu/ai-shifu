@@ -28,6 +28,7 @@ def note_model(
     async def stream(
         messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Drive controlled tool calls or quiet cancellation on the native loop."""
         last = messages[-1]
         parts = (
             [p for p in last.parts if isinstance(p, ToolReturnPart)]
@@ -178,6 +179,7 @@ def test_plain_question_does_not_add_admission_model_requests() -> None:
     async def stream(
         messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Drive controlled tool calls or quiet cancellation on the native loop."""
         calls.append(messages)
         yield "A normal answer."
 
@@ -305,6 +307,7 @@ def test_completed_memory_patch_is_course_scoped_and_atomic_with_history(
     with app.app_context():
 
         def failing_step() -> None:
+            """Raise after staging history and memory to prove transaction rollback."""
             with unit_of_work():
                 db.session.add(
                     LearnGeneratedBlock(
@@ -432,6 +435,7 @@ def test_idle_native_follow_up_notices_request_cancellation() -> None:
     started = threading.Event()
 
     async def stream(_messages: object, _info: object) -> AsyncIterator[str]:
+        """Drive controlled tool calls or quiet cancellation on the native loop."""
         started.set()
         await asyncio.sleep(10)
         yield "Too late"
@@ -500,3 +504,98 @@ def test_declared_system_field_uses_existing_global_profile_storage(
             == "Student"
         )
     checker.assert_not_awaited()
+
+
+def test_retired_published_script_keeps_its_own_memory_permission(
+    app: object, storage_scope: object
+) -> None:
+    """Republishing retires old rows without revoking the retained attempt's declarations."""
+    from flaskr.dao import db
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.learn.follow_up_memory_writer import (
+        load_follow_up_memory_policy,
+    )
+    from flaskr.service.shifu.models import PublishedOutlineItem
+
+    scope = storage_scope
+    with app.app_context():
+        with unit_of_work():
+            old = db.session.get(PublishedOutlineItem, scope.row_id)
+            old.deleted = 1
+            db.session.add(
+                PublishedOutlineItem(
+                    shifu_bid=scope.course,
+                    outline_item_bid=scope.outline,
+                    content="Collect %{{newly_declared}}.",
+                    title="Republished lesson",
+                    position="1",
+                )
+            )
+        policy = load_follow_up_memory_policy(
+            user_bid=scope.user,
+            shifu_bid=scope.course,
+            outline_bid=scope.outline,
+            outline_row_id=scope.row_id,
+            preview=False,
+        )
+        assert policy.declared_keys == frozenset({"practice_code"})
+
+
+@pytest.mark.parametrize("race", ["new-key", "correction", "same-value-new-version"])
+def test_late_follow_up_cannot_overwrite_a_newer_course_value(
+    app: object, storage_scope: object, race: object
+) -> None:
+    """Compare row versions, including unseen keys and value changes returning to the old text."""
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.learn.follow_up_memory_writer import stage_follow_up_memory
+    from flaskr.service.learn.memory import (
+        MemoryUpdate,
+        VariableMemoryUpdate,
+        load_memory,
+        stage_memory,
+    )
+    from flaskr.service.profile.api import course_memory_value_versions
+
+    scope = storage_scope
+    with app.app_context():
+        if race != "new-key":
+            with unit_of_work():
+                stage_memory(
+                    app,
+                    scope.user,
+                    scope.course,
+                    MemoryUpdate(
+                        variables=[VariableMemoryUpdate("practice_code", "1111")]
+                    ),
+                )
+        versions = course_memory_value_versions(scope.user, scope.course)
+        for value in ["2222", "1111"] if race == "same-value-new-version" else ["2222"]:
+            with unit_of_work():
+                stage_memory(
+                    app,
+                    scope.user,
+                    scope.course,
+                    MemoryUpdate(
+                        variables=[VariableMemoryUpdate("practice_code", value)]
+                    ),
+                )
+        patch = FollowUpMemoryPatch(
+            variables=[VariableMemoryUpdate("practice_code", "stale proposal")],
+            value_versions=versions,
+        )
+        with unit_of_work():
+            assert not stage_follow_up_memory(
+                app,
+                user_bid=scope.user,
+                shifu_bid=scope.course,
+                outline_bid=scope.outline,
+                progress_record_bid=scope.progress,
+                patch=patch,
+            )
+        assert patch.variables == []
+        assert (
+            load_memory(
+                app, scope.user, scope.course, include_course_variables=True
+            ).as_variables()["practice_code"]
+            == value
+        )

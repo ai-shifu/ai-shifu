@@ -98,10 +98,13 @@ JSON scope limits apply through the shared engine remember tool.
 Approved updates stay in producer memory until the response fully succeeds and is
 consumed. The request host stages them with ask history in its existing final
 transaction, after locking the original learning attempt and comparing deletion
-generations. Provider failures, disconnects, guardrail rejections and previews do
+generations and course-value row versions. A late proposal cannot overwrite a
+newer correction. Retired published rows keep their retained declarations across
+republishing; newer publications cannot grant permission. Provider failures, disconnects, guardrail rejections and previews do
 not persist proposals. Cancellation checks also run while a provider is quiet.
 Tool events are not added to user SSE or visible classroom history. Model requests
 retain learner/course/lesson/attempt and read/listen/classroom usage attribution.
-Each answer permits at most five model requests and three tool calls; undeclared
+Each answer permits at most five answer-generation model requests and three tool calls; undeclared
 proposals may add at most three independent admission requests, each with a bounded
-provider timeout. No persistent engine session or new cross-course storage is added.
+provider timeout. These limits exclude the existing optional author guardrail,
+which runs before answer generation. No persistent engine session or new cross-course storage is added.

@@ -16,11 +16,18 @@ semantic admission, gateway, native-thread bridge and scoped profile facade.
 - [x] 2026-10-09T02:20:00Z: Host/factory integration passes 109 focused tests,
   including idle cancellation and declared system-profile scope. First extended
   suite passes 4,826 tests / four subtests / eleven expected skips.
-- [x] 2026-10-09T02:35:00Z: Final extended suite passes 4,828 tests / four
+- [x] 2026-10-09T02:29:00Z: Final extended suite passes 4,828 tests / four
   subtests / eleven expected skips. All three real gateway factory regressions
   pass separately (default, fallback and Get Biji synthesis). Repository gates
   pass with the new helper staged; architecture drift remains zero.
-- [ ] Run local gates, open a focused PR, deploy sim and reply to AI opinions.
+- [x] 2026-10-09T02:32:00Z: Open #3057 (d5f4e86f2), deploy exact sim tree
+  a0a5bb63a, build 438 / Drone 5229, deployments 2098/2099. Both replicas
+  pass 33 runtime hashes. Initial CI passes, but two fresh HTTP learners decline
+  explicit memory without calling the tool; storage confirms neither value saved.
+- [x] 2026-10-09T02:40:00Z: Adopt retired-publication and concurrent-value
+  review findings; four real storage regressions pass in 238 focused tests.
+  Clarify main-Agent versus admission/guardrail budgets and document touched helpers.
+- [ ] Verify the corrected host prompt, local gates, final sim HTTP and AI replies.
 
 ## Surprises & Discoveries
 
@@ -43,6 +50,10 @@ greenlets. External provider-only answers must remain independent of LLM setup.
   the producer, failed calls, rejected guardrails, disconnects or previews.
 - Lock the original learning attempt and compare deletion generations during the
   final write. A reset or concurrent deletion cannot be undone by stale output.
+  Course-value row versions also reject late proposals after newer corrections.
+- Keep host memory capability instructions after authored course instructions;
+  visible answer formatting cannot disable tool calls. Undeclared keys remain
+  eligible only through explicit current-request admission.
 
 ## Outcomes & Retrospective
 
@@ -77,7 +88,7 @@ requests recall them. Casual undeclared facts, forged quotes, system/reference
 writes without author permission and stale/deleted attempts do not persist.
 Tool events never enter user SSE or visible classroom history. Ordinary no-tool answers
 use one existing model request; there is no extraction call per question. Each
-answer permits at most five model requests and three tool calls; undeclared
+answer-generation Agent permits at most five answer-generation model requests and three tool calls; undeclared
 proposals can add up to three independently bounded admission requests. Provider-only and Live writes are not completed
 by this increment; their existing context and routing remain intact.
 
