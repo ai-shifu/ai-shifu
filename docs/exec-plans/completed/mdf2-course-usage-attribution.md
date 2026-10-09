@@ -26,14 +26,19 @@ This fixes a prerequisite discovered during complete-course cost acceptance.
   tests: 288 passed. Developer tools and repository gates passed.
 - [x] 2026-10-08 23:40 CST: Opened PR #3055. Initial sim build 427 succeeded;
   runtime acceptance continues after review fixes.
-- [ ] 2026-10-08 23:33 CST: Deploy sim and verify HTTP classroom usage rows and
-  existing billing ownership, plus read/listen and preview boundaries.
+- [x] 2026-10-08T15:56:00Z: Final sim 493c610f0 / build 428 and both deployments
+  passed; both API replicas match 27 runtime hashes. HTTP read/listen/backfill and
+  classroom attribution passed. Fifteen real-provider factory probes covered all
+  three request roles and preview/learning classifications.
 - [x] 2026-10-08 23:45 CST: Review regression suite: 3,177 passed, one expected
   skip and four subtests passed. Classroom dispatch and real draft/published
   ownership are covered. Developer tools and repository gates passed.
-- [ ] 2026-10-08 23:45 CST: Audit reviews, inline comments and issue comments; reply
-  to each independent AI opinion in its original discussion.
-- [ ] 2026-10-08 23:33 CST: Await manual main merge and verify production selection.
+- [x] 2026-10-08T15:56:00Z: Four independent AI opinions received original-discussion
+  replies; three adopted fixes are in d10d1429d. All eleven final CI checks passed;
+  CodeRabbit final-head rereview was rate limited and is not counted as completed.
+- [x] 2026-10-09T01:09:23Z: Manually merged as cf305112d. Build 431 / Drone 5222
+  and all eight CN/US deployments 2068-2075 succeeded; all eight API replicas match
+  27 runtime hashes, with production still selecting 1.0.
 
 ## Surprises & Discoveries
 
@@ -64,11 +69,14 @@ full-course or long-term fee acceptance.
 
 ## Outcomes & Retrospective
 
-Local focused acceptance passes. PR #3055 tracks deployed acceptance and final
-live CI/review evidence without requiring acceptance-only runtime republishing.
-Full deployed acceptance and final live checks
-remain pending. Complete-course cache/cost and natural teaching validation remain
-separate follow-up acceptance; this repair alone does not complete milestone 4.
+Local and deployed attribution acceptance passed; new requests resolve the existing
+course owner without changing pricing. A fresh dedicated internal learner completed
+20/20 teachable lessons (one blank placeholder excluded) in 42 HTTP continuations.
+All 81 requests settled to the correct owner, consuming 47.42 ledger credits with
+zero failed requests or missing provider counters. This already-warmed single
+functional-course run is not a natural long-course or long-term fee study. Milestone
+4 and follow-up memory writes remain separate acceptance work. PR #3055 records the
+final live checks; production remains 1.0.
 
 ## Context and Orientation
 

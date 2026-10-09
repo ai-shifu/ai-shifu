@@ -2305,11 +2305,18 @@ class RunScriptContextV2:
         if isinstance(ask_input, list):
             ask_input = ",".join(ask_input)
         app.logger.info("ask_input: %s", ask_input)
+        from flaskr.service.learn.agent.routing import uses_agent_engine
+
         runtime_profiles = load_memory(
             app,
             self._user_info.user_id,
             self._outline_item_info.shifu_bid,
             reference_text=self.get_system_prompt(self._outline_item_info.bid) or "",
+            **(
+                {"include_course_variables": True}
+                if uses_agent_engine(self._outline_item_info.shifu_bid)
+                else {}
+            ),
         ).as_variables()
         res = handle_input_ask(
             app,

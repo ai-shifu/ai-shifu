@@ -2,7 +2,7 @@
 title: Follow-up Classroom Context
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 canonical: true
 ---
 
@@ -45,3 +45,24 @@ Context reads do not mutate classroom history, progress, memory or agent session
 Existing provider routing, SSE, billing and persistence paths remain in use.
 Semantic recall, transcript compression and teaching-quality acceptance are
 separate work; this bounded context does not promise the entire lesson transcript.
+
+## Current course memory in 2.0
+
+When the deployment selects 2.0, the existing memory facade also loads course notes
+without variable definitions, alongside defined variables and registered system
+fields. An explicit resolved snapshot, including an empty snapshot, prevents a
+second read. Text dispatch opts into the same reader before handing off its snapshot;
+Live loads its snapshot when building a new conversation with independent voice rules.
+
+Both LLM and external-provider prompts receive a separate untrusted JSON data block,
+even when an author supplied a follow-up prompt without the Course Prompt slot.
+Its encoded UTF-8 payload is at most 16,384 bytes. Complete values are selected in
+snapshot order; oversized values are omitted, never truncated or deleted. Omitted
+keys remain unknown to that request. This bounds only the added memory block, not
+the pre-existing course instructions or conversation budget. JSON string keys and
+values escape angle brackets, ampersands and braces to preserve host boundaries.
+
+Current facts must not replace historical quotations. This path reads memory only;
+it cannot authorize new writes or restore deleted notes. Fresh requests observe
+stored updates and deletions. An ongoing Live provider session retains its creation
+snapshot. Legacy 1.0 behavior and cross-course custom-memory isolation are unchanged.
