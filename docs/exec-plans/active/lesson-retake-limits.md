@@ -683,3 +683,15 @@ correction; admission policy, billing and analytics contracts do not change.
 Focused regressions cover available and exhausted catalog dialogs and quota
 exhaustion while an update dialog is already open. Dev02 deployment/readback is
 required before claiming the screenshot discrepancy fixed in the live product.
+
+
+- [x] 2026-10-09 16:20 Asia/Shanghai: Unavailable-retake copy correction passed
+  12 focused frontend tests, lint, translation, harness and boundary checks.
+  Feature commit f4edc2fad integrated into dev02 commit 16fdeb8c1. Build 459 /
+  Drone 5250 succeeded; image 20261009-16fdeb8 deployed successfully to
+  API/beat/worker/web (2184/2185/2186/2189). No production/SIM changes.
+- [x] 2026-10-09 16:20 Asia/Shanghai: Reloaded ordinary learner 017 on the
+  exhausted short lesson and opened the catalog dialog. Existing exhaustion
+  explanation remains, the destructive reset question has zero DOM matches,
+  and confirmation remains disabled. Did not submit a reset or consume credits.
+  Screenshot: /private/tmp/retake-exhausted-copy-fixed.png.
