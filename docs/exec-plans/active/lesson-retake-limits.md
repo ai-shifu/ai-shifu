@@ -670,3 +670,16 @@ Paid audio and cached replay acceptance now have live evidence. Formal PR still
 waits for test-credit cleanup and final acceptance/scope review. Global rollout,
 production/SIM configuration, live 2.0/provider-crash injection and measured
 cost-saving outcomes are not claimed.
+
+
+### October 9 unavailable-retake confirmation copy
+
+User identified contradictory copy in an exhausted catalog dialog. Both catalog
+and update dialogs now show the destructive-reset question only while reset is
+allowed; blocked states retain their status explanation and disabled submission.
+When the description is absent, remove its ARIA reference as well. Normal and
+owner-exempt confirmation behavior is preserved. This is a copy presentation
+correction; admission policy, billing and analytics contracts do not change.
+Focused regressions cover available and exhausted catalog dialogs and quota
+exhaustion while an update dialog is already open. Dev02 deployment/readback is
+required before claiming the screenshot discrepancy fixed in the live product.

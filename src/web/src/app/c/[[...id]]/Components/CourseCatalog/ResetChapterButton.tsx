@@ -165,6 +165,7 @@ export const ResetChapterButton = ({
         onOpenChange={handleOpenChange}
       >
         <DialogContent
+          {...(allowance.blocked ? { 'aria-describedby': undefined } : {})}
           showClose={!isResettingCurrentLesson}
           onEscapeKeyDown={event => {
             if (isResettingCurrentLesson) {
@@ -179,9 +180,11 @@ export const ResetChapterButton = ({
         >
           <DialogHeader>
             <DialogTitle>{t('module.lesson.reset.confirmTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('module.lesson.reset.confirmContent')}
-            </DialogDescription>
+            {!allowance.blocked && (
+              <DialogDescription>
+                {t('module.lesson.reset.confirmContent')}
+              </DialogDescription>
+            )}
           </DialogHeader>
           <RetakeAllowanceMessage {...allowance} />
           <DialogFooter>

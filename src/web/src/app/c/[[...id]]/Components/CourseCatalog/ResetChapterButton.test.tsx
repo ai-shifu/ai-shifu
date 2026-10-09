@@ -8,7 +8,12 @@ import {
 } from '@testing-library/react';
 import { ResetChapterButton } from './ResetChapterButton';
 
-const mockAllowance = { blocked: false, loading: false, result: jest.fn() };
+const mockAllowance = {
+  blocked: false,
+  loading: false,
+  status: { available: true, allowed: true, in_progress: false },
+  result: jest.fn(),
+};
 jest.mock('@/hooks/useRetakeAllowance', () => ({
   useRetakeAllowance: () => mockAllowance,
 }));
@@ -133,6 +138,7 @@ describe('ResetChapterButton analytics producer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAllowance.blocked = false;
+    mockAllowance.status.allowed = true;
     mockCourseState.resettingLessonId = '';
     mockEnvState.courseId = 'course-1';
     mockSystemState.previewMode = false;
@@ -153,6 +159,9 @@ describe('ResetChapterButton analytics producer', () => {
       chapter_id: 'chapter-1',
     });
 
+    expect(
+      screen.getByText('module.lesson.reset.confirmContent'),
+    ).toBeInTheDocument();
     const confirmButton = screen.getByText('common.core.ok');
     fireEvent.click(confirmButton);
     fireEvent.click(confirmButton);
@@ -221,9 +230,17 @@ describe('ResetChapterButton analytics producer', () => {
 
 it('keeps an exhausted confirmation from resetting progress', () => {
   mockAllowance.blocked = true;
+  mockAllowance.status.allowed = false;
   mockCourseState.resettingLessonId = '';
   renderResetButton();
   fireEvent.click(screen.getByText('module.lesson.reset.title'));
+  expect(
+    screen.queryByText('module.lesson.reset.confirmContent'),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByText('module.lesson.retake.exhausted'),
+  ).toBeInTheDocument();
+  expect(screen.getByText('common.core.ok')).toBeDisabled();
   const calls = mockResetChapter.mock.calls.length;
   fireEvent.click(screen.getByText('common.core.ok'));
   expect(mockResetChapter.mock.calls.length).toBe(calls);
