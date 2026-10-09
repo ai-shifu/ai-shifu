@@ -10,6 +10,7 @@ from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.learn.agent import gateway_model as gateway_module
 from flaskr.service.learn.agent import lesson_entry as entry
 from flaskr.service.learn.agent.run_agent import TurnOutcome
 from flaskr.service.learn.exceptions import PaidError
@@ -29,6 +30,80 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
+from pydantic_ai.models import ModelRequestParameters
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
+def test_all_lesson_models_send_the_current_attempt_and_block_to_the_gateway(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    learning_mode: str,
+) -> None:
+    """Automatic continuation reuses models but must snapshot each opened turn."""
+    _entry_with_runner(monkeypatch)
+    models: list = []
+
+    def model(*args: object, **kwargs: object) -> object:
+        instance = gateway_module.GatewayModel(*args, **kwargs)
+        models.append(instance)
+        return instance
+
+    monkeypatch.setattr(entry, "GatewayModel", model)
+    requests: list[dict] = []
+
+    def chat(**kwargs: object) -> object:
+        requests.append(kwargs)
+        yield from ()
+
+    monkeypatch.setattr(gateway_module, "chat_llm", chat)
+    turn = 0
+    attempt = 0
+
+    def run(*_args: object, **kwargs: object) -> object:
+        nonlocal turn
+        turn += 1
+        if callback := kwargs.get("on_turn_opened"):
+            callback(f"attempt-{attempt}", f"block-{attempt}-{turn}")
+        for instance in models:
+            list(instance._stream([], ModelRequestParameters()))
+        yield from ()
+        return TurnOutcome(reason="end" if turn == 1 else "interaction", taught=True)
+
+    monkeypatch.setattr(entry, "run_agent_lesson", run)
+    for attempt in (1, 2):
+        models.clear()
+        turn = 0
+        list(
+            entry.agent_lesson_events(
+                app,
+                user_bid=f"learner-{attempt}",
+                shifu_bid="course",
+                outline_bid="lesson",
+                preview_mode=preview_mode,
+                learning_mode=learning_mode,
+            )
+        )
+    assert len(requests) == 12
+    for index, request in enumerate(requests):
+        attempt = index // 6 + 1
+        assert request["usage_context"] == UsageContext(
+            user_bid=f"learner-{attempt}",
+            shifu_bid="course",
+            outline_item_bid="lesson",
+            progress_record_bid=f"attempt-{attempt}",
+            generated_block_bid=f"block-{attempt}-{index % 6 // 3 + 1}",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW
+            if preview_mode
+            else BILL_USAGE_SCENE_PROD,
+            learning_mode=learning_mode,
+        )
+    assert [r["generation_name"] for r in requests[:3]] == [
+        "agent_lesson",
+        "agent_teaching_summary",
+        "agent_memory_admission",
+    ]
 
 
 @pytest.fixture
@@ -336,7 +411,9 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         # Without it, the model pauses the lesson where the author wrote no button.
         pauses_from_notation=True,
     )
-    assert runner.call_args.kwargs == {
+    runner_kwargs = dict(runner.call_args.kwargs)
+    assert callable(runner_kwargs.pop("on_turn_opened"))
+    assert runner_kwargs == {
         "engine": engine.return_value,
         "script": "script",
         "teaching_brief": "",

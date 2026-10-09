@@ -531,7 +531,7 @@ must see both verification results and accepted first-phase limitations.
 - [x] October 9 Asia/Shanghai: Move exposure analytics to rendered-state effect;
   refresh status on account identity/focus/visibility/network recovery, with
   lifecycle cleanup and per-open/state deduplication.
-- [ ] Run current-main backend, engine, frontend and repository gates.
+- [x] Run current-main backend, engine, frontend and repository gates (receipts below).
 - [ ] Validate real dev02 audio billing and stopped-producer recovery.
 - [ ] Add release/support preflight, submit focused PR with verified boundaries.
 
@@ -575,3 +575,46 @@ feature or roll back images through CICD. Preserve migrations and usage; do not
 change namespace or erase attempts. Re-read actual service image/config and
 normal-learning behavior. Successful old-code resets while enforcement is off
 are not retroactively counted and must be noted as a rollback boundary.
+
+
+### October 9 live acceptance and startup correction
+
+- Clean candidate initially passed 654 backend/engine tests, 121 frontend tests,
+  12 isolated MySQL/recorder tests, 68 audio/provider-failure tests and the full
+  repository gate. Four pre-existing TypeScript errors remain; no clean full
+  TypeScript pass is claimed.
+- Main subsequently advanced to 7ea311948 with completed-usage recording,
+  learning-attempt attribution and interrupted-teaching history fixes. Merged
+  those existing main changes before release review; 827 focused backend tests
+  passed, including the full engine gate, retake, session/rewind, metering and
+  worker-mode tests. Retake-only PR scope remains unchanged.
+- Dev02 build 452 / Drone 5243 published image 20261009-16e078f; deployments
+  2154/2155/2157/2159 succeeded for API/beat/worker/web respectively. API 2160
+  ran the explicitly approved synthetic recovery drill: empty stopped attempts
+  restored progress with used=0; delivered text kept used=1; both released the
+  reservation and duplicate repair produced only one audit entry. Synthetic
+  rows were deleted in finally. This rehearsed crash-state repair against the
+  test database; it did not kill a live producer or inject a provider failure.
+- Temporary API post_script and script_timeout were restored to empty/0 and
+  read back from CICD. No production/SIM data or configuration was changed.
+- With explicit user approval, published only test copy c2cf49551ba94345b5a141c78d7b86e7,
+  whose draft Listen Mode was already enabled. Ordinary learner 017 remains
+  exhausted on short lesson aa5e4bbf085c4baf89c4ee569e83e75c after publication:
+  update notice offers reviewing existing content, no reset link; catalog
+  confirmation displays exhaustion and disables submission. Old text/Ask remain.
+- Real listen retake on lesson 49627b510d2d4147b691b77d8bb6fd13 emitted partial
+  teaching then failed at audio-element persistence with DisconnectionError.
+  Logs also show gevent callback AssertionError and an inherited connection
+  used in child/worker processes. The failing DAO/audio writer files are
+  unchanged by this feature; precise causal attribution is not yet proven.
+- User authorized a separate fix and reacceptance before a formal PR. Dev02 API
+  still used gevent, while the repository already supports/tests gthread with
+  conditional monkey patching. Changed only dev02 API entrypoint to gthread,
+  four workers/eight threads; kept ports, limits, environment and ledger intact.
+  Deployment 2167 succeeded using the SAME image for a controlled comparison.
+  Original recovery command: restore the previous entrypoint with '-k gevent'
+  and without '--threads 8', then redeploy the same image. No image default or
+  production startup configuration changed. Playback/billing readback pending;
+  do not describe this configuration hypothesis as a proven code fix yet.
+
+Formal PR submission remains pending successful live audio reacceptance.

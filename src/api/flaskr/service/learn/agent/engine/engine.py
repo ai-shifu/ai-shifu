@@ -289,17 +289,21 @@ def _last_display_line(text: str) -> str:
     return "".join(lines[-1].split()) if lines else ""
 
 
-def _repeats_previous_turn(messages: Sequence[object], history_len: int) -> bool:
+def _repeats_previous_turn(
+    messages: Sequence[object], history_len: int, *, interrupted: bool = False
+) -> bool:
     """Whether the text written after `history_len` is the previous turn's text, again.
 
     The whole of it, or its beginning: a model that starts the previous turn over and stops part
     way has still delivered nothing new. Empty is not a repeat: a turn that wrote nothing has not
     repeated anything. Nor is a short one, see `_REPEAT_FLOOR_CHARS`.
+    An interrupted retry can repeat text after an earlier question or tool hop;
+    that substring adds no teaching either, but cannot establish completion.
     """
     now = _text_of(messages[history_len:])
     previous = _previous_turn_text(messages, history_len)
     if len(now) >= _REPEAT_FLOOR_CHARS:
-        return previous.startswith(now)
+        return now in previous if interrupted else previous.startswith(now)
     return False
 
 
@@ -732,12 +736,19 @@ class Engine:
                 yield ErrorEvent(message="no interaction is pending")
                 return
             prompt = turn.text if isinstance(turn, MessageTurn) else CONTINUE_PROMPT
-            if self.memory_admission:
+            if self.memory_admission and not (
+                session.interrupted and isinstance(turn, ContinueTurn)
+            ):
                 session.request_inputs = (
                     [turn.text] if isinstance(turn, MessageTurn) else []
                 )
         deps.request_inputs = tuple(session.request_inputs)
-        if prompt is not None and self.turn_limit and session.turn >= self.turn_limit:
+        if (
+            prompt is not None
+            and self.turn_limit
+            and session.turn >= self.turn_limit
+            and not (session.interrupted and isinstance(turn, ContinueTurn))
+        ):
             # Out of turns: end the lesson rather than teach another one. Marked finished so a
             # reload does not start it over, and reported as finished rather than as an error --
             # everything the learner was taught stands, and the host reads this as a lesson that
@@ -748,6 +759,8 @@ class Engine:
             # asked, or a resume that never reached the model. Refusing those would throw away an
             # answer the script requires -- along with the memory it sets -- and would turn one
             # network failure on the last turn into a lesson that can never be continued.
+            # Continuing saved partial teaching is also finishing an interrupted turn,
+            # even though its deferred answers are already paired in the saved history.
             session.finished = True
             yield TurnDone(reason="finished", usage=session.usage)
             return
@@ -861,6 +874,8 @@ class Engine:
         said: list[str] = []
         shown: list[str] = []
         after_pause = False
+        history_saved = False
+        was_interrupted = session.interrupted
 
         def _closing_was_shown() -> bool:
             """Require a complete standalone closing line in the latest displayed text."""
@@ -1015,8 +1030,19 @@ class Engine:
                             )
                             else list(result.all_messages())
                         )
+                        history_saved = True
                         repeated = carried_on and _repeats_previous_turn(
-                            session.messages, deps.history_len
+                            session.messages,
+                            deps.history_len,
+                            interrupted=was_interrupted,
+                        )
+                        # Repeating a failed stream's partial teaching proves nothing
+                        # about whether the rest of the script has been delivered.
+                        session.interrupted = (
+                            was_interrupted
+                            and repeated
+                            and not isinstance(result.output, DeferredToolRequests)
+                            and deps.finished is None
                         )
                         if after_pause and holding and held:
                             # Everything written since the pause was this turn over again. It is
@@ -1044,7 +1070,8 @@ class Engine:
                         # Only now are the answers safely part of the history; clearing them any
                         # earlier would lose them if the request failed.
                         session.answers = {}
-                        session.request_inputs = []
+                        if not session.interrupted:
+                            session.request_inputs = []
                         session.usage = accumulate_usage(session.usage, result.usage)
                         if segmenter:
                             for e in self._segment(
@@ -1080,7 +1107,7 @@ class Engine:
                                 usage=session.usage,
                                 summary=deps.finished,
                             )
-                        elif repeated:
+                        elif repeated and not session.interrupted:
                             # Told to carry on, the model wrote the previous turn over again.
                             # There is nothing left in the script for it to deliver, whether or
                             # not it says so; carrying on again would only produce a third copy.
@@ -1092,11 +1119,21 @@ class Engine:
                             yield TurnDone(reason="end", usage=session.usage)
         # Surface any failure to the host and keep the session usable.
         except Exception as exc:
+            if delivered and not history_saved:
+                # The stream may fail after teaching has reached the learner. Keep the
+                # interrupted run, including accepted answers and completed tool results,
+                # so a retry can continue rather than replay that teaching. Appending only
+                # new messages also preserves original evidence behind history projections.
+                session.messages = [*session.messages, *events.new_messages()]
+                session.answers = {}
+                session.usage = accumulate_usage(session.usage, events.usage)
+                session.interrupted = True
             if deps.finished is not None:
                 # The lesson had ended before this failure -- typically a model that kept calling
                 # tools after `finish` until the request limit stopped it. What came after the
                 # end was never shown, and the end stands.
                 session.finished = True
+                session.interrupted = False
                 yield TurnDone(
                     reason="finished", usage=session.usage, summary=deps.finished
                 )

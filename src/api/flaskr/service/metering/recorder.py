@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
-from flaskr.dao.uow import autonomous_unit_of_work
+from flaskr.dao.uow import app_context_scope, autonomous_unit_of_work
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.util.uuid import generate_id
 
@@ -57,10 +57,17 @@ def _normalize_usage_extra(
 
 
 def _resolve_billable(app: Flask, *, context: UsageContext, usage_scene: int) -> int:
+    """Classify usage in a bounded app scope, including native engine callers.
+
+    Cold demo lookups read configuration and course rows. Reuse any caller
+    session, or close a temporary read scope before autonomous usage persistence.
+    """
     if context.billable is not None:
         return int(context.billable)
-    if context.shifu_bid and is_builtin_demo_shifu(app, context.shifu_bid):
-        return 0
+    if context.shifu_bid:
+        with app_context_scope(app):
+            if is_builtin_demo_shifu(app, context.shifu_bid):
+                return 0
     normalize_usage_scene(usage_scene)
     return 1
 
