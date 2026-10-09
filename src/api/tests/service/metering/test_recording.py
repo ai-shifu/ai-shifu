@@ -465,6 +465,7 @@ def test_native_usage_classifies_cold_course_without_a_caller_context(
     monkeypatch.setattr(demo_courses, "_demo_metadata_cache", {})
 
     def configured(key: str, default: str = "") -> str:
+        """Require a real context for configuration-backed demo classification."""
         assert has_app_context()
         return (
             course
@@ -489,6 +490,7 @@ def test_native_usage_classifies_cold_course_without_a_caller_context(
         )
 
     def record() -> str:
+        """Persist usage from a native thread and verify temporary scope cleanup."""
         assert not has_app_context()
         context = UsageContext(user_bid="native-learner", shifu_bid=course)
         common = {
@@ -532,11 +534,27 @@ def test_classification_reuses_the_caller_session_without_committing(
     callbacks: list[str] = []
 
     def abort_caller() -> None:
+        """Classify pending rows without committing the caller's transaction."""
         with unit_of_work():
             dao.db.session.add(
                 PublishedShifu(shifu_bid="pending-caller-course", title="Pending")
             )
+            dao.db.session.add(
+                PublishedShifu(
+                    shifu_bid="pending-title-demo",
+                    title="AI-Shifu Creation Guide",
+                    created_user_bid="system",
+                )
+            )
             on_commit(lambda: callbacks.append("committed"))
+            assert (
+                _resolve_billable(
+                    metering_app,
+                    context=UsageContext(shifu_bid="pending-title-demo"),
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                )
+                == 0
+            )
             assert (
                 _resolve_billable(
                     metering_app,
@@ -556,3 +574,6 @@ def test_classification_reuses_the_caller_session_without_committing(
         is None
     )
     assert callbacks == []
+    assert (
+        PublishedShifu.query.filter_by(shifu_bid="pending-title-demo").first() is None
+    )
