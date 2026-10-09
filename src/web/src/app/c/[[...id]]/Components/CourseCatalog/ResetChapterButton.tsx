@@ -1,3 +1,5 @@
+import { useRetakeAllowance } from '@/hooks/useRetakeAllowance';
+import { RetakeAllowanceMessage } from '@/components/RetakeAllowanceMessage';
 import { memo, useCallback, useRef, useState, type MouseEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -54,6 +56,7 @@ export const ResetChapterButton = ({
   const previewMode = useSystemStore(state => state.previewMode);
 
   const [showConfirm, setShowConfirm] = useState(false);
+  const allowance = useRetakeAllowance(showConfirm, lessonId, 'catalog');
   const resetButtonClickAtRef = useRef(0);
 
   const { resetChapter, resettingLessonId, updateLessonId } = useCourseStore(
@@ -100,12 +103,18 @@ export const ResetChapterButton = ({
   );
 
   const handleConfirm = useSingleFlight(async () => {
-    if (!lessonId) {
+    if (!lessonId || allowance.blocked) {
       return;
     }
 
     stopActiveLessonStream(lessonId);
-    await resetChapter(lessonId);
+    try {
+      await resetChapter(lessonId);
+      allowance.result(true);
+    } catch {
+      allowance.result(false);
+      return;
+    }
     updateLessonId(lessonId);
 
     shifu.resetTools.resetChapter({
@@ -174,12 +183,13 @@ export const ResetChapterButton = ({
               {t('module.lesson.reset.confirmContent')}
             </DialogDescription>
           </DialogHeader>
+          <RetakeAllowanceMessage {...allowance} />
           <DialogFooter>
             <Button
               onClick={() => {
                 void handleConfirm();
               }}
-              disabled={isResettingCurrentLesson}
+              disabled={isResettingCurrentLesson || allowance.blocked}
             >
               {isResettingCurrentLesson ? (
                 <Loader2 className='h-4 w-4 animate-spin' />

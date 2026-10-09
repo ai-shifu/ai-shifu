@@ -5,6 +5,12 @@ import { AppContext } from '../AppContext';
 import { NewChatComponents } from './NewChatComp';
 import LessonUpdateNotice from '../LessonUpdateNotice';
 
+jest.mock('@/api/retake', () => ({
+  getRetakeStatus: jest
+    .fn()
+    .mockResolvedValue({ available: true, allowed: true, in_progress: false }),
+}));
+
 const mockUseChatLogicHook = jest.fn();
 let mockCourseAvatar = '';
 let mockIsCurrentUserCourseOwner = false;
@@ -70,7 +76,7 @@ jest.mock('react-i18next', () => {
     'common.core.scrollToBottom': '滚动到底部',
     'module.chat.ask': '追问',
     'module.chat.lessonUpdateRecommendRetake':
-      '本节课程已更新，建议<action>重修</action>',
+      '本节内容已更新，你可以<action>重新学习最新内容</action>。',
     'module.chat.lessonFeedbackSubmit': '提交',
     'module.chat.lessonPdfCourseQrLabel': '扫码进入课程，获得一对一讲解与答疑',
     'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
@@ -515,13 +521,13 @@ describe('NewChatComponents', () => {
   it('renders the titlebar retake action and opens the existing confirm dialog', async () => {
     renderTitlebarLessonUpdateNotice();
 
-    const retakeAction = screen.getByRole('button', {
+    const retakeAction = await screen.findByRole('button', {
       name: '重修本节课程',
     });
     expect(retakeAction.closest('span')).toHaveTextContent(
-      '本节课程已更新，建议重修',
+      '本节内容已更新，你可以重新学习最新内容。',
     );
-    expect(retakeAction).toHaveTextContent('重修');
+    expect(retakeAction).toHaveTextContent('重新学习最新内容');
 
     const user = userEvent.setup();
     await act(async () => {
@@ -550,7 +556,7 @@ describe('NewChatComponents', () => {
       }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText('本节课程已更新，建议重修'),
+      screen.queryByText('本节内容已更新，你可以重新学习最新内容。'),
     ).not.toBeInTheDocument();
   });
 

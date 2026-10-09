@@ -20,6 +20,13 @@
     "llmStreamInterrupted": "Die Generationsverbindung wurde unterbrochen. Bitte aktualisieren und versuchen Sie es erneut.",
     "nextChapterButton": "Nächste Lektion",
     "outputInProgress": "Es werden noch Inhalte ausgegeben. Bitte warten Sie, bis die Ausgabe abgeschlossen ist, und versuchen Sie es dann erneut.",
+    "retakeInProgress": "Diese Lektion wird noch erstellt oder wiederhergestellt. Bitte versuchen Sie es gleich erneut.",
+    "retakeInvalidRequest": "Ungültige Wiederholungsanfrage. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "retakeLimitReached": "Alle Wiederholungen dieser Lektion wurden genutzt. Sie können weiterlernen, vorhandene Inhalte ansehen oder Fragen stellen.",
+    "retakeNotStarted": "Es gibt noch keinen Unterrichtsinhalt zum Wiederholen. Bitte lernen Sie weiter.",
+    "retakePreviousFailed": "Die vorherige Wiederholung ist fehlgeschlagen; das Kontingent wurde wiederhergestellt. Starten Sie eine neue Wiederholung.",
+    "retakeUnavailable": "Die Wiederholungseinstellungen sind derzeit nicht verfügbar. Versuchen Sie es später erneut oder kontaktieren Sie den Support.",
+    "retakeUseChapter": "Für diesen Kurs gelten Wiederholungsregeln. Zum Neugenerieren oder Ändern einer gesendeten Antwort starten Sie die Lektion erneut. Vorhandene Inhalte bleiben verfügbar.",
     "ttsRateLimited": "Der Sprachdienst ist gerade beschäftigt. Bitte versuchen Sie es gleich noch einmal."
   }
 }

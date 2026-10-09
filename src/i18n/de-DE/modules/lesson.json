@@ -5,6 +5,12 @@
     "confirmTitle": "Wiederholen bestätigen",
     "title": "Wiederholen"
   },
+  "retake": {
+    "busy": "Die Lektion wird noch generiert oder wiederhergestellt. Bitte später erneut versuchen.",
+    "exhausted": "Für diese Lektion sind keine Wiederholungen mehr verfügbar. Du kannst weiterlernen, vorhandene Inhalte ansehen oder Fragen stellen.",
+    "loadFailed": "Die Wiederholung ist vorübergehend nicht verfügbar. Schließe dieses Fenster und versuche es erneut.",
+    "useChapter": "Für diesen Kurs gelten Wiederholungsregeln. Zum Neugenerieren oder Ändern einer gesendeten Antwort starten Sie die Lektion erneut. Vorhandene Inhalte bleiben verfügbar."
+  },
   "tooltip": {
     "paidExclusive": "Bezahlter Premium-Zugang"
   }

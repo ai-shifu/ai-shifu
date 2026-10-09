@@ -45,6 +45,7 @@ from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,
     resolve_preview_request_user,
 )
+from flaskr.service.learn.retake_service import read_policy, read_status, update_policy
 from flaskr.service.learn.runscript_v2 import get_run_status, run_script
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
@@ -749,6 +750,38 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             )
         )
 
+    @app.route(path_prefix + "/shifu/<shifu_bid>/retake-policy", methods=["GET", "PUT"])
+    @with_shifu_context()
+    def retake_policy_api(shifu_bid: str) -> str:
+        """Read or configure the owner's live per-lesson retake allowance."""
+        _require_shifu_owner(shifu_bid)
+        if request.method == "GET":
+            return make_common_response(read_policy(app, shifu_bid))
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict) or "limit" not in body or set(body) != {"limit"}:
+            raise_error("server.learn.retakeInvalidRequest")
+        return make_common_response(update_policy(app, shifu_bid, body["limit"]))
+
+    @app.route(
+        path_prefix + "/shifu/<shifu_bid>/retake-status/<outline_bid>", methods=["GET"]
+    )
+    @with_shifu_context()
+    def retake_status_api(shifu_bid: str, outline_bid: str) -> str:
+        """Return only the current learner's own lesson allowance."""
+        preview = request.args.get("preview_mode", "false").lower() == "true"
+        if preview:
+            require_shifu_preview_permission(app, request.user.user_id, shifu_bid)
+        _ensure_outline_belongs_to_shifu(shifu_bid, outline_bid, preview_mode=preview)
+        return make_common_response(
+            read_status(
+                app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=request.user.user_id,
+                preview_mode=preview,
+            )
+        )
+
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["DELETE"]
     )
@@ -781,8 +814,19 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     description: message
         """
         user_bid = request.user.user_id
+        preview = request.args.get("preview_mode", "false").lower() == "true"
+        if preview:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
+        _ensure_outline_belongs_to_shifu(shifu_bid, outline_bid, preview_mode=preview)
         return make_common_response(
-            reset_learn_record(app, shifu_bid, outline_bid, user_bid)
+            reset_learn_record(
+                app,
+                shifu_bid,
+                outline_bid,
+                user_bid,
+                request_id=request.headers.get("X-Retake-Request-Id"),
+                preview_mode=preview,
+            )
         )
 
     @app.route(

@@ -340,3 +340,109 @@ These behaviors are not approved examples. New code must not copy them. When a
 legacy event or the shared transport is changed, apply this contract and follow
 the product-approved replacement policy; do not preserve an incorrect event
 solely because historical Umami rows or queries exist.
+
+
+## Lesson Retake Limits v1
+
+Decision: evaluate whether per-lesson allowances prevent repeated resets without
+blocking ordinary study. Consumer: the retake pilot review; join aggregate
+observations to authoritative billing reports, never use Umami for billing.
+
+- `learner_retake_allowance_viewed`: after an enabled allowance response is
+  displayed in an opened confirmation, once per open. Eligible authenticated
+  learners (including temporary accounts); preview and unavailable policies are
+  excluded. Payload: `shifu_bid`, `outline_bid`, `entry` (`catalog` or `update`),
+  `state` (`available`, `exhausted`, `busy`), `used`, `reserved`, `remaining`
+  (use -1 for unlimited). It measures exposure to limits, not a charged retake.
+- `learner_retake_reset_result`: after the reset API succeeds or fails, once per
+  submitted confirmation. Same population, entry and policy exclusions. Payload:
+  `shifu_bid`, `outline_bid`, `entry`, `result` (`success` or `failed`). Success
+  means reservation/reset accepted, not durable teaching or a charge. Dismissal
+  without submission emits no result; compare exposure to result for drop-off.
+- `teacher_retake_policy_result`: once after each save finishes for an enabled
+  course owner. Payload: `shifu_bid`, `result` (`success` or `failed`), `limit`
+  (integer; -1 means unlimited). No event for load, invalid input or read-only
+  collaborators. This measures successful control adoption and save failure.
+
+Existing `reset_chapter` and `reset_chapter_confirm` retain their meanings and
+consumers. The new events are additive; initial review must not sum old and new
+reset events. No titles, content, user inputs, request tokens, URLs or errors are
+included. Tracking must not affect the API request, dialog or save result, even
+if it throws. Server ledger and producer guards remain authoritative.
+
+
+The same v1 rollout additionally emits `learner_inline_regeneration_blocked`
+once per attempted legacy inline regeneration that preflight blocks (before
+changing visible content). Eligible non-preview learners, including temporary
+accounts; unconfigured courses are excluded unless their check itself fails.
+Payload is only `shifu_bid`, `outline_bid`, `reason` (`policy` or `check_failed`).
+The pilot review uses this to detect friction when directing old inline answer
+changes to whole-lesson retakes. Ask and normal continuation are excluded.
+No input, answer, title or error text is collected. Analytics failure must not
+change either the block or the existing content. This adds a new signal; it
+does not reinterpret the catalog/update exposure events.
+
+
+Retake teacher configuration load signal (additive v1):
+`teacher_retake_policy_loaded` measures whether course owners can reach the
+configuration step. Emit once when each mounted settings section's policy load
+settles and is still current. Payload is only `shifu_bid` and `result`
+(`available`, `unavailable`, `failed`). Eligible users are course owners in the
+editor settings; read-only collaborators and learner/preview surfaces do not
+mount this control. Cancelled/stale loads emit nothing. The retake pilot review
+compares load outcomes with existing save results; a load is not an activation.
+No error text, course title, or user input is included. Tracking is best-effort
+and cannot hide a setting or alter a save. Existing event contracts are unchanged.
+
+
+## Lesson Retake Limits v2: fixed hidden allowance (October 8)
+
+The v1 sections above describe historical events only. Teacher configuration
+controls and their two event producers are retired; retain historical reports,
+but do not compare them with v2 adoption. `learner_retake_allowance_viewed` is
+retired because no balance is displayed. The pilot review consumes the new
+`learner_retake_admission_checked`: once per confirmation open after a current
+successful enabled response, payload only `shifu_bid`, `outline_bid`, `entry`
+(`catalog`, `update`) and `state` (`available`, `exhausted`, `busy`). Eligible
+authenticated learners including temporary accounts; preview, unavailable,
+failed and stale loads are excluded. It measures checked admission, not quota
+exposure or charged generation. Rerender emits nothing, reopening rechecks.
+Do not sum it with historical exposure events. Existing reset-result and inline
+regeneration-blocked events keep their contracts and consumers. Counts, limit,
+content, errors, tokens and URLs are excluded. Tracking failure cannot change
+admission, confirmation or reset result. The review compares blocked frequency
+with authoritative credit consumption to detect abnormal high-cost learners.
+
+
+Owner exemption (October 9): v2 learner admission and reset-result populations
+exclude `quota_exempt=true` responses. This flag is server-resolved from the
+specific course's current owner; teaching other courses is not an exemption.
+The payload schemas, timing and deduplication are unchanged. Historical owner
+observations before this correction may remain in the pilot totals; use the
+release boundary when comparing learner counts. Owner retakes remain in the
+server ledger and actual billing; this exclusion is analytics only. The existing
+inline-regeneration-blocked event retains its policy-friction meaning.
+
+
+### Lesson update notice availability (October 9)
+
+Decision: measure how often updated-lesson notices can offer regeneration versus
+showing review guidance. `learner_lesson_update_notice_shown` fires after a
+background admission response renders a mounted update notice with the dialog
+closed. Eligible: enabled ordinary learner/guest; exclude preview, course owner,
+disabled rollout, missing lesson and failed/unfinished status requests. Dedup:
+once per mounted notice, course, lesson and state; reopening the dialog does not
+repeat the same notice state. Payload allowlist: `shifu_bid`, `outline_bid`,
+`state` (`available`, `exhausted`, `busy`). No titles, text, errors, credentials or
+URLs. Downstream: product QA and update-experience friction analysis, never
+billing or quota authority. Tracking failures do not affect notice or reset.
+Existing `learner_retake_admission_checked` continues to mean a confirmation
+open; background requests must not emit that event. No rename or historical
+rewrite; compare the new notice denominator from this release onward.
+
+October 9 production preparation: notice and admission events are emitted from
+a post-commit effect after the status is rendered. Status refreshes on account
+identity changes, window focus, visibility restoration and network reconnection;
+there is no periodic polling. Repeat same-state refreshes do not add notice
+exposures or confirmation-open events. Payloads and owner/preview exclusions
+are unchanged; identity is an internal cache key, never added to the payload.

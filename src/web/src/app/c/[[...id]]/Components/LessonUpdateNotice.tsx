@@ -1,3 +1,5 @@
+import { useRetakeAllowance } from '@/hooks/useRetakeAllowance';
+import { RetakeAllowanceMessage } from '@/components/RetakeAllowanceMessage';
 import { useCallback, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -44,15 +46,29 @@ export const LessonUpdateNotice = ({
   const isRetakingCurrentLesson =
     Boolean(resolvedLessonId) && resettingLessonId === resolvedLessonId;
   const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
+  const allowance = useRetakeAllowance(
+    showRetakeConfirm,
+    resolvedLessonId,
+    'update',
+    true,
+  );
+
+  const exhausted =
+    !allowance.loading &&
+    !allowance.failed &&
+    allowance.status?.available &&
+    !allowance.status.allowed &&
+    !allowance.status.in_progress;
 
   const handleRetakeCurrentLesson = useSingleFlight(async () => {
-    if (!resolvedLessonId) {
+    if (!resolvedLessonId || allowance.blocked) {
       return false;
     }
 
     try {
       stopActiveLessonStream(resolvedLessonId);
       await resetChapter(resolvedLessonId);
+      allowance.result(true);
       updateLessonId(resolvedLessonId);
       shifu.resetTools.resetChapter({
         chapter_id: chapterId,
@@ -61,6 +77,7 @@ export const LessonUpdateNotice = ({
       });
       return true;
     } catch (error) {
+      allowance.result(false);
       fail(
         (error as Error).message || t('module.backend.common.operationFailed'),
       );
@@ -99,26 +116,36 @@ export const LessonUpdateNotice = ({
         className,
       )}
     >
-      <span className='inline-block min-w-0 max-w-full truncate align-bottom'>
-        <Trans
-          i18nKey='module.chat.lessonUpdateRecommendRetake'
-          components={{
-            action: (
-              <button
-                type='button'
-                aria-label={t('module.chat.lessonUpdateRetakeAccessibleLabel')}
-                onClick={handleRetakeButtonClick}
-                disabled={isRetakingCurrentLesson}
-                className={cn(
-                  'inline-flex h-auto min-h-0 items-baseline rounded px-0.5 py-0 font-semibold text-amber-950 underline decoration-amber-700/35 underline-offset-[3px] transition-colors hover:bg-amber-100/80 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-60',
-                  compact
-                    ? 'focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--base-background,#fff)]'
-                    : 'focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50',
-                )}
-              />
-            ),
-          }}
-        />
+      <span className='inline-block min-w-0 max-w-full break-words align-bottom'>
+        {allowance.blocked ? (
+          t(
+            exhausted
+              ? 'module.chat.lessonUpdateReviewExisting'
+              : 'module.chat.lessonUpdated',
+          )
+        ) : (
+          <Trans
+            i18nKey='module.chat.lessonUpdateRecommendRetake'
+            components={{
+              action: (
+                <button
+                  type='button'
+                  aria-label={t(
+                    'module.chat.lessonUpdateRetakeAccessibleLabel',
+                  )}
+                  onClick={handleRetakeButtonClick}
+                  disabled={isRetakingCurrentLesson}
+                  className={cn(
+                    'inline-flex h-auto min-h-0 items-baseline rounded px-0.5 py-0 font-semibold text-amber-950 underline decoration-amber-700/35 underline-offset-[3px] transition-colors hover:bg-amber-100/80 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-60',
+                    compact
+                      ? 'focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--base-background,#fff)]'
+                      : 'focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50',
+                  )}
+                />
+              ),
+            }}
+          />
+        )}
       </span>
       <Dialog
         open={showRetakeConfirm}
@@ -143,6 +170,7 @@ export const LessonUpdateNotice = ({
               {t('module.lesson.reset.confirmContent')}
             </DialogDescription>
           </DialogHeader>
+          <RetakeAllowanceMessage {...allowance} />
           <DialogFooter>
             <Button
               type='button'
@@ -161,7 +189,7 @@ export const LessonUpdateNotice = ({
                   }
                 });
               }}
-              disabled={isRetakingCurrentLesson}
+              disabled={isRetakingCurrentLesson || allowance.blocked}
             >
               {t('common.core.ok')}
             </Button>

@@ -20,6 +20,13 @@
     "llmStreamInterrupted": "The generation connection was interrupted. Please refresh and try again.",
     "nextChapterButton": "Next",
     "outputInProgress": "Content is still generating. Please wait before retrying.",
+    "retakeInProgress": "This lesson is still generating or recovering. Please try again shortly.",
+    "retakeInvalidRequest": "Invalid retake request. Refresh the page and try again.",
+    "retakeLimitReached": "You have used all retakes for this lesson. You can still continue, review existing content, or ask questions.",
+    "retakeNotStarted": "There is no completed teaching content to retake yet. Please continue learning.",
+    "retakePreviousFailed": "The previous retake failed and the allowance was restored. Please start a new retake.",
+    "retakeUnavailable": "Retake settings are temporarily unavailable. Try again later or contact support.",
+    "retakeUseChapter": "Retakes are managed for this course. To regenerate or change a submitted answer, use this lesson’s Reset action. Existing content remains available.",
     "ttsRateLimited": "The voice service is busy right now. Please try again in a moment."
   }
 }

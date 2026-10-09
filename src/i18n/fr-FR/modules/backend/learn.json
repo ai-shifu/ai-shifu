@@ -20,6 +20,13 @@
     "llmStreamInterrupted": "La connexion de génération a été interrompue. Veuillez actualiser puis réessayer.",
     "nextChapterButton": "Suivant",
     "outputInProgress": "Le contenu est encore en cours de génération. Veuillez patienter avant de réessayer.",
+    "retakeInProgress": "Cette leçon est en cours de génération ou de restauration. Réessayez dans un instant.",
+    "retakeInvalidRequest": "Demande de reprise invalide. Actualisez la page et réessayez.",
+    "retakeLimitReached": "Vous avez utilisé toutes les reprises de cette leçon. Vous pouvez continuer, revoir le contenu ou poser des questions.",
+    "retakeNotStarted": "Aucun contenu de cours ne peut encore être repris. Continuez votre apprentissage.",
+    "retakePreviousFailed": "La reprise précédente a échoué et le quota a été rétabli. Lancez une nouvelle reprise.",
+    "retakeUnavailable": "Les paramètres de reprise sont indisponibles. Réessayez plus tard ou contactez le support.",
+    "retakeUseChapter": "Les reprises sont gérées pour ce cours. Pour régénérer ou modifier une réponse envoyée, utilisez la reprise de la leçon. Le contenu existant reste disponible.",
     "ttsRateLimited": "Le service vocal est actuellement occupé. Veuillez réessayer dans un instant."
   }
 }

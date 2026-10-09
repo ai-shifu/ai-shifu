@@ -5,6 +5,12 @@
     "confirmTitle": "Confirmar restablecimiento",
     "title": "Restablecer"
   },
+  "retake": {
+    "busy": "La lección se está generando o recuperando. Inténtalo más tarde.",
+    "exhausted": "Se han agotado las repeticiones de esta lección. Puedes seguir estudiando, revisar el contenido existente o hacer preguntas.",
+    "loadFailed": "La repetición no está disponible temporalmente. Cierra este diálogo e inténtalo de nuevo.",
+    "useChapter": "Este curso gestiona las repeticiones. Para regenerar o cambiar una respuesta enviada, reinicia esta lección. El contenido existente sigue disponible."
+  },
   "tooltip": {
     "paidExclusive": "Acceso exclusivo de pago"
   }

@@ -5,6 +5,12 @@
     "confirmTitle": "Confirmer la réinitialisation",
     "title": "Réinitialiser"
   },
+  "retake": {
+    "busy": "Cette leçon est en cours de génération ou de récupération. Réessayez plus tard.",
+    "exhausted": "Vous avez utilisé toutes les reprises de cette leçon. Vous pouvez continuer à apprendre, revoir le contenu existant ou poser des questions.",
+    "loadFailed": "La reprise est temporairement indisponible. Fermez cette fenêtre et réessayez.",
+    "useChapter": "Les reprises sont gérées pour ce cours. Pour régénérer ou modifier une réponse envoyée, utilisez la reprise de la leçon. Le contenu existant reste disponible."
+  },
   "tooltip": {
     "paidExclusive": "Accès premium payant"
   }

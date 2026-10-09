@@ -5,6 +5,12 @@
     "confirmTitle": "Confirm Reset",
     "title": "Reset"
   },
+  "retake": {
+    "busy": "This lesson is still generating or recovering. Try again later.",
+    "exhausted": "No retakes remain for this lesson. You can still continue studying, review existing content, or ask questions.",
+    "loadFailed": "Retaking is temporarily unavailable. Close this dialog and try again.",
+    "useChapter": "Retakes are managed for this course. To regenerate or change a submitted answer, use this lesson’s Reset action. Existing content remains available."
+  },
   "tooltip": {
     "paidExclusive": "Premium Paid Access"
   }
