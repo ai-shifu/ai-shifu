@@ -88,6 +88,13 @@ one correction each. The cases place those corrections on different questions
 while retaining identical totals; correct aggregate counts cannot hide swapped
 first-pass results. The session is serialized and reloaded before the actual
 engine produces its final report. No expected rows or totals are sent to the model.
+Fixture responses stay below the teaching-excerpt threshold and no semantic
+summarizer is configured. These are intentionally full-history statistics cases,
+matching the observed natural failure's absence of teaching summaries. Enabling
+the projection option does not establish that projection happened. The four
+separate long-history cases cover summary/read behavior; neither family establishes
+exercise-report accuracy after teaching-summary compaction. That combination
+remains a separate quality-acceptance item.
 
 The author requests one JSON object (plain or in a single Markdown JSON fence)
 containing per-question first-result booleans,

@@ -22,7 +22,9 @@ model's natural-course report or authorize new learner memory.
   diagnostic showing a valid JSON Markdown fence. Added exact whole-output fence
   normalization without relaxing row checks. A new selected live run passes 6/6
   (two cases, three repetitions) on sim's ark/deepseek-v4-1-flash-260910.
-- [ ] 2026-10-09T10:36:30Z: Run repository gates and publish the focused main PR.
+- [x] 2026-10-09T10:42:56Z: Developer-tool check and full repository pre-commit
+  gates pass. Published [PR #3068](https://github.com/ai-shifu/ai-shifu/pull/3068)
+  with b9e79f33d; all live-report source fingerprints match that checkout.
 - [ ] 2026-10-09T10:36:30Z: Reply to independent PR findings, review scope and
   acceptance, then archive this evaluator implementation plan.
 
@@ -44,6 +46,10 @@ multiple objects, duplicate keys and incorrect rows still fail.
 - Keep runtime prompts, memory admission, database schema and engine 1.0 unchanged.
 - Keep natural-course failure, synthetic baseline, human feedback and external
   provider quality as separate evidence.
+- Keep these statistics cases full-history: no eligible excerpts and no semantic
+  summarizer. The observed natural failure also had no teaching summaries.
+  Combined statistics-after-summary quality is a separate acceptance item, not
+  implied by enabling the projection option or the existing long-history cases.
 
 ## Outcomes & Retrospective
 
@@ -55,13 +61,16 @@ diagnostic are retained privately, not overwritten or relabeled as passes.
 A passing synthetic run cannot erase the observed natural-course failure.
 That unresolved natural-course grading issue remains tracked by the workspace
 current MDF status and natural-course acceptance record; this plan closes only
-the repeatable evaluation extension. Repository gates and PR review remain.
+the repeatable evaluation extension. Repository gates passed and PR #3068 is
+published. Final CI and independent PR review remain separate from local evidence.
 
 ## Context and Orientation
 
 The existing CLI is `src/api/scripts/evaluate_mdf2_memory.py`; its catalog is
-`scripts/mdf2_memory_quality/cases.json`. Offline scorer tests live in
-`tests/scripts/test_evaluate_mdf2_memory.py`. The workspace current MDF plan tracks
+`scripts/mdf2_memory_quality/cases.json`. The exercise fixture and scorer live in
+`scripts/mdf2_memory_quality/exercise.py`. Shared offline evaluator tests live in
+`tests/scripts/test_evaluate_mdf2_memory.py`; dedicated exercise scorer tests live in
+`tests/scripts/test_mdf2_exercise_quality.py`. The workspace current MDF plan tracks
 natural-course acceptance and the unresolved production-quality issue separately.
 
 ## Plan of Work
