@@ -42,14 +42,6 @@ jobs:
         with:
           python-version: '3.11'  # Stable version for commitizen
 
-      - name: Set up Node.js for lockfile updates
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: src/web/package.json
-
-      - name: Set up npm for lockfile updates
-        run: npm install --global npm@11.20.0 --ignore-scripts --no-audit --no-fund
-
       - name: Ensure node is available (act)
         if: env.ACT == 'true'
         run: |
@@ -149,11 +141,24 @@ jobs:
           # Keep npm lockfile package metadata aligned with package.json.
           update_npm_lock_version() {
             local file="$1"
-            echo "  → Regenerating $file with npm install..."
-            (
-              cd "$(dirname "$file")"
-              npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-            )
+            echo "  → Updating $file..."
+            python - "$file" "$VERSION" <<'PY'
+          import json
+          import sys
+
+          path, version = sys.argv[1:]
+          with open(path, encoding="utf-8") as lock_file:
+              lock = json.load(lock_file)
+
+          lock["version"] = version
+          root_package = lock.get("packages", {}).get("")
+          if isinstance(root_package, dict):
+              root_package["version"] = version
+
+          with open(path, "w", encoding="utf-8") as lock_file:
+              json.dump(lock, lock_file, ensure_ascii=False, indent=2)
+              lock_file.write("\n")
+          PY
           }
 
           # Function to update TOML version field

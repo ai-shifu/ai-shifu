@@ -33,6 +33,7 @@ to.
   package directory. For lockfile-only updates, use
   `npm install --package-lock-only --ignore-scripts`. Never edit
   `package-lock.json` directly by hand, patches, or scripts.
+  Automated lockfile updates in CI workflows are an explicit exception.
 - When changing a shared contract, update all affected producers and consumers
   in the same task, including compatibility handling and relevant regression
   tests. This applies to DTO fields, exception codes, and hook, store, type, and
