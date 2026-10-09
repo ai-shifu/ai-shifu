@@ -273,7 +273,7 @@ def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
         else:
             lines.append(line)
     text = re.sub(r"<!--.*?-->", "", "\n".join(lines), flags=re.DOTALL)
-    return tuple(q for q in _script_questions(text) if q.text)
+    return tuple(q for q in _script_questions(text) if q.placeholder)
 
 
 def normalize_script_text_input(
@@ -284,27 +284,23 @@ def normalize_script_text_input(
 
     The remaining display/value pairs must be the author's exact ordered choices. A hint that
     the author also wrote as a real choice, another question, or a model-created option is kept.
-    Text-only questions match the copied prompt first, or a unique hint for the same variable.
+    Text-only questions must match the copied prompt and the same variable.
     Ambiguous questions and explicitly supplied placeholders are left unchanged.
     """
     if spec.type == "text" and not spec.options and not spec.placeholder:
-        text_questions = [
-            q
+        hints = {
+            q.placeholder
             for q in questions
-            if q.variable == spec.variable and not any(c.strip() for c in q.choices)
-        ]
-        matching = [
-            q
-            for q in text_questions
-            if spec.prompt.strip() in (q.placeholder, q.written_placeholder)
-        ]
-        hints = {q.placeholder for q in matching or text_questions}
+            if q.variable == spec.variable
+            and not any(c.strip() for c in q.choices)
+            and spec.prompt.strip() in (q.placeholder, q.written_placeholder)
+        }
         if len(hints) == 1 and (hint := next(iter(hints))):
             return spec.model_copy(update={"placeholder": hint})
     candidates: dict[str, InteractionSpec] = {}
     submitted = [(o.display, o.stored) for o in spec.options]
     for question in questions:
-        if not question.placeholder or question.variable != spec.variable:
+        if question.variable != spec.variable:
             continue
         kinds = (
             ("multi", "multi_or_text")

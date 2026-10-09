@@ -39,6 +39,7 @@ async def test_text_only_hint_is_restored_among_multiple_authored_questions(
     placeholder: str | None,
     variable: str | None,
 ) -> None:
+    """A copied authored prompt restores the input and accepts the reloaded answer."""
     prefix = "%{{" + variable + "}} " if variable else ""
     hints = ["Prepare and execute", "List advantages", "Nine lines of code"]
     script = "\n".join("?[" + prefix + "..." + hint + "]" for hint in hints)
@@ -68,6 +69,7 @@ async def test_text_only_hint_is_restored_among_multiple_authored_questions(
 
 
 async def test_saved_text_only_question_recovers_input_on_empty_answer() -> None:
+    """Old cached questions re-emit their authored input without changing history."""
     engine = _engine(
         _arguments(
             type="text", prompt=_HINT, options=[], variable=None, placeholder=None
@@ -90,14 +92,21 @@ async def test_saved_text_only_question_recovers_input_on_empty_answer() -> None
     [
         (
             "?[...Write your answer]",
-            "A generated question",
+            "What part is unclear?",
+            None,
+            None,
+            None,
+        ),
+        ("?[...One]\n?[...Two]", "A generated question", None, None, None),
+        ("?[...One]\n?[...]", "A generated question", None, None, None),
+        ("?[...One]\n?[...One]", "One", None, None, "One"),
+        (
+            "?[...Write your answer]",
+            "Write your answer",
             None,
             None,
             "Write your answer",
         ),
-        ("?[...One]\n?[...Two]", "A generated question", None, None, None),
-        ("?[...One]\n?[...]", "A generated question", None, None, None),
-        ("?[...One]\n?[...One]", "A generated question", None, None, "One"),
         ("?[...One]", "One", "different", None, None),
         ("?[...One]", "One", None, "Custom hint", "Custom hint"),
         ("```\n?[...One]\n```", "One", None, None, None),
@@ -118,6 +127,7 @@ async def test_missing_text_hint_uses_only_unambiguous_authored_text_questions(
     placeholder: str | None,
     expected: str | None,
 ) -> None:
+    """Only an exact authored hint match can repair a missing text placeholder."""
     engine = _engine(
         _arguments(
             type="text",
@@ -134,10 +144,13 @@ async def test_missing_text_hint_uses_only_unambiguous_authored_text_questions(
 
 
 def _engine(arguments: dict) -> Engine:
+    """Build an offline engine that asks once, then consumes the accepted answer."""
+
     async def model(
         messages: list[ModelMessage],
         _info: AgentInfo,
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Emit the configured interaction or continue after its tool result."""
         if any(isinstance(p, ToolReturnPart) for p in messages[-1].parts):
             yield "Continue with the learner's actual project."
         else:
