@@ -680,7 +680,26 @@ def _invoice_matches_subscription_cycle(
     cycle_start: int,
     cycle_end: int,
 ) -> bool:
-    if _stripe_reference_id(invoice.get("subscription")) != subscription_reference:
+    invoice_subscription = _stripe_reference_id(invoice.get("subscription"))
+    if not invoice_subscription:
+        parent = invoice.get("parent")
+        parent_payload = (
+            parent.to_dict()
+            if hasattr(parent, "to_dict")
+            else dict(parent)
+            if isinstance(parent, dict)
+            else {}
+        )
+        subscription_details = parent_payload.get("subscription_details")
+        details_payload = (
+            subscription_details.to_dict()
+            if hasattr(subscription_details, "to_dict")
+            else dict(subscription_details)
+            if isinstance(subscription_details, dict)
+            else {}
+        )
+        invoice_subscription = _stripe_reference_id(details_payload.get("subscription"))
+    if invoice_subscription != subscription_reference:
         return False
     lines = invoice.get("lines")
     lines_payload = (

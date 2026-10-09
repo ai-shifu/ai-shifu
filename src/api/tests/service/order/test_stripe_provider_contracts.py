@@ -455,6 +455,54 @@ def test_subscription_cancellation_voids_unpaid_renewal_invoice(
     )
 
 
+def test_subscription_cancellation_supports_parent_subscription_reference(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.Subscription.retrieve.return_value = {
+        "id": "sub-test",
+        "latest_invoice": "in-test",
+    }
+    stripe_client.Invoice.list.return_value = {
+        "data": [
+            {
+                "id": "in-test",
+                "status": "open",
+                "paid": False,
+                "parent": {
+                    "type": "subscription_details",
+                    "subscription_details": {"subscription": "sub-test"},
+                },
+                "lines": {
+                    "data": [
+                        {
+                            "type": "subscription",
+                            "subscription": "sub-test",
+                            "period": {"start": 100, "end": 200},
+                        }
+                    ],
+                    "has_more": False,
+                },
+            }
+        ]
+    }
+    stripe_client.Invoice.void_invoice.return_value = {
+        "id": "in-test",
+        "status": "void",
+    }
+
+    result = stripe.StripeProvider().cancel_payment(
+        provider_reference="sub-test",
+        reference_type="subscription",
+        app=Flask(__name__),
+        context={"cycle_start": 100, "cycle_end": 200},
+    )
+
+    assert result.status == "cancelled"
+    stripe_client.Invoice.void_invoice.assert_called_once_with(
+        "in-test", api_key="sk-test-scoped"
+    )
+
+
 def test_subscription_cancellation_reports_paid_invoice(
     stripe_client: SimpleNamespace,
 ) -> None:
