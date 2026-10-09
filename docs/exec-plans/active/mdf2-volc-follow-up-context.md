@@ -20,8 +20,10 @@ The durable contract belongs in [Follow-up Classroom Context](../../references/f
 - [x] 2026-10-09 16:25 CST: Confirmed the dropped messages and checked the official native search protocol.
 - [x] 2026-10-09 16:29 CST: Nine native outbound/privacy/storage cases fail on the old adapter and pass on the candidate. The first test run had a missing postponed-annotation import; the corrected tests were rerun against the original runtime before acceptance.
 - [x] 2026-10-09 16:31 CST: Full learning regression passes 2,897 tests and four subtests, with one expected skip.
-- [ ] 2026-10-09 16:31 CST: Complete repository gates, create a PR, and verify the same runtime on sim.
-- [ ] 2026-10-09 16:30 CST: Audit all AI feedback and reply in original discussions; retain real-provider quality acceptance separately.
+- [x] 2026-10-09 16:38 CST: Developer-tool and all-files gates pass; PR #3063 is open at 6aa42f898. Sim cfc519737 has the same tree, build 462 / Drone 5253 and deployments 2198-2199 succeed. Both replicas match 41 runtime hashes and pass 44 isolated outbound/privacy cases with no provider calls or database writes; a new demo learner completes start/answer HTTP with two correctly attributed nonbillable usage records.
+- [x] 2026-10-09 16:38 CST: Replied to Devin's three-turn window concern in its original thread as deferred real-provider acceptance, without claiming the hosted rewriter was tested.
+- [ ] 2026-10-09 16:38 CST: Finish final CI and remaining AI review audit, replying to every independent opinion.
+- [ ] 2026-10-09 16:38 CST: Run a configured real knowledge base with more than three classroom turns; inspect rewrite_query and retrieved results for a current fact present in the leading course-memory context.
 
 ## Surprises & Discoveries
 
@@ -31,6 +33,12 @@ It documents system/user/assistant roles, up to three turns used for rewriting,
 and a requirement for more than two messages for an effective rewritten query.
 Sending context without enabling rewrite would not fix contextual retrieval.
 This adapter returns retrieved text directly; it does not run answer synthesis.
+Devin's [original review](https://github.com/ai-shifu/ai-shifu/pull/3063#discussion_r4228215491)
+asks whether the leading memory survives a long-history rewrite window. The
+[original-thread reply](https://github.com/ai-shifu/ai-shifu/pull/3063#discussion_r4228232245)
+defers this to configured real-provider acceptance. Official examples allow a
+leading system message, but the window's treatment of that message is unspecified;
+outbound tests cannot establish hosted-service prioritization.
 
 ## Decision Log
 
@@ -46,7 +54,7 @@ This adapter returns retrieved text directly; it does not run answer synthesis.
 
 ## Outcomes & Retrospective
 
-Local request/storage/privacy acceptance passes; repository gates, PR and sim acceptance are pending. Request delivery tests do not establish
+Local request/storage/privacy acceptance and repository gates pass; PR #3063 is open and exact-runtime sim acceptance passes. Final CI and remaining AI audit are pending. Request delivery tests do not establish
 real configured knowledge-base retrieval quality or answer quality. Workflow
 parameter mapping remains a separate focused change; 1.0 rollback stays available.
 
@@ -82,7 +90,9 @@ non-native endpoints and query-only calls preserve prior behavior. Error echoes
 must not reach exception text or warning logs. Fresh snapshots see note updates
 and deletions without adapter writes. The provider may use at most three turns;
 a context with fewer than its required messages does not guarantee rewriting.
-Real knowledge-base quality requires separately configured acceptance.
+Real knowledge-base quality requires separately configured acceptance, especially
+whether a leading current fact influences rewrite_query and results after more
+than three conversation turns. Do not mark that concern resolved from mock evidence.
 
 ## Idempotence and Recovery
 
