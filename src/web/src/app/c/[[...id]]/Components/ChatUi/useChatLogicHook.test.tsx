@@ -256,6 +256,119 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
+  it.each(['success', 'business', 'transport', 'closed', 'stop', 'unmount'])(
+    'tracks draft regeneration outcome %s once with exact element anchors',
+    async outcome => {
+      const params = {
+        ...buildBaseParams(),
+        previewMode: true,
+        trackEvent: jest.fn(),
+      };
+      const { result, unmount } = renderHook(() => useChatLogicHook(params), {
+        wrapper,
+      });
+      await waitFor(() => expect(activeRun).toBeDefined());
+      await act(async () => {
+        for (const [element_bid, content] of [
+          ['part-1', 'First paragraph'],
+          ['part-2', 'Second paragraph'],
+        ]) {
+          await activeRun?.onMessage({
+            type: SSE_OUTPUT_TYPE.ELEMENT,
+            content: {
+              element_bid,
+              generated_block_bid: 'shared-block',
+              element_type: 'content',
+              content,
+              like_status: 'none',
+            },
+          });
+        }
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.TEXT_END,
+          is_terminal: true,
+          content: '',
+        });
+      });
+      expect(
+        params.trackEvent.mock.calls.filter(([name]) =>
+          name.startsWith('teacher_preview_rewind'),
+        ),
+      ).toHaveLength(0);
+      await act(async () => {
+        await result.current.onRefresh('part-2');
+      });
+      expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+        reload_generated_block_bid: 'shared-block',
+        reload_element_bid: 'part-2',
+        input: '',
+      });
+      expect(
+        result.current.items.some(item => item.element_bid === 'part-1'),
+      ).toBe(false);
+      expect(params.trackEvent).toHaveBeenCalledWith(
+        'teacher_preview_rewind_start',
+        {
+          shifu_bid: params.shifuBid,
+          outline_bid: params.outlineBid,
+          learning_mode: 'read',
+          operation: 'regenerate',
+        },
+      );
+      const stream = activeRun;
+      await act(async () => {
+        await stream?.onMessage({
+          type: SSE_OUTPUT_TYPE.TEXT_END,
+          content: '',
+          is_terminal: false,
+        });
+      });
+      expect(
+        params.trackEvent.mock.calls.filter(
+          ([name]) => name === 'teacher_preview_rewind_result',
+        ),
+      ).toHaveLength(0);
+      await act(async () => {
+        if (outcome === 'success')
+          await stream?.onMessage({
+            type: SSE_OUTPUT_TYPE.TEXT_END,
+            content: '',
+            is_terminal: true,
+          });
+        if (outcome === 'business')
+          await stream?.onMessage({
+            type: SSE_OUTPUT_TYPE.ERROR,
+            content: 'Failure',
+          });
+        if (outcome === 'transport') stream?.onError(new Error('Failure'));
+        if (outcome === 'closed') stream?.source.close();
+        if (outcome === 'stop') stopAllActiveLessonStreams();
+        if (outcome === 'unmount') unmount();
+        stream?.onError(new Error('Late failure'));
+      });
+      const terminal = params.trackEvent.mock.calls.filter(
+        ([name]) => name === 'teacher_preview_rewind_result',
+      );
+      expect(terminal).toEqual([
+        [
+          'teacher_preview_rewind_result',
+          {
+            shifu_bid: params.shifuBid,
+            outline_bid: params.outlineBid,
+            learning_mode: 'read',
+            operation: 'regenerate',
+            result:
+              outcome === 'success'
+                ? 'success'
+                : ['stop', 'unmount'].includes(outcome)
+                  ? 'cancelled'
+                  : 'failed',
+          },
+        ],
+      ]);
+    },
+  );
+
   it('sends listen=false in the run body when listen requests are disabled', async () => {
     const { result } = renderHook(
       () =>
@@ -3859,15 +3972,20 @@ describe('useChatLogicHook stream cleanup', () => {
 
     const renderWithStreamingRun = async (options?: {
       isListenMode?: boolean;
+      previewMode?: boolean;
+      trackEvent?: jest.Mock;
+      history?: typeof HISTORY_WITH_TWO_INTERACTIONS;
     }) => {
       mockGetLessonStudyRecord.mockResolvedValueOnce(
-        HISTORY_WITH_TWO_INTERACTIONS,
+        options?.history ?? HISTORY_WITH_TWO_INTERACTIONS,
       );
       const renderResult = renderHook(
         () =>
           useChatLogicHook({
             ...buildBaseParams(),
             isListenMode: options?.isListenMode ?? false,
+            previewMode: options?.previewMode ?? false,
+            trackEvent: options?.trackEvent ?? jest.fn(),
           }),
         { wrapper },
       );
@@ -3901,6 +4019,122 @@ describe('useChatLogicHook stream cleanup', () => {
       );
       return renderResult;
     };
+
+    it('keeps the selected question when only teaching mentions its variable name', async () => {
+      const history = {
+        ...HISTORY_WITH_TWO_INTERACTIONS,
+        elements: HISTORY_WITH_TWO_INTERACTIONS.elements.map(item =>
+          item.element_bid === 'content-1'
+            ? { ...item, content: 'Teaching mentions var_old.' }
+            : item.element_bid === 'interaction-old'
+              ? {
+                  ...item,
+                  content: '?[A | B]',
+                  generated_block_bid: 'content-1',
+                }
+              : item,
+        ),
+      };
+      const { result } = await renderWithStreamingRun({
+        previewMode: true,
+        history,
+      });
+      act(() => {
+        result.current.onSend(
+          { variableName: 'var_old', selectedValues: ['B'] },
+          'interaction-old',
+        );
+      });
+      await act(async () => {
+        result.current.reGenerateConfirm.onConfirm();
+      });
+      await waitFor(() =>
+        expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+          reload_element_bid: 'interaction-old',
+          reload_generated_block_bid: 'content-1',
+        }),
+      );
+      expect(
+        result.current.items.find(
+          item => item.element_bid === 'interaction-old',
+        )?.user_input,
+      ).toBe('B');
+      expect(
+        result.current.items.find(
+          item => item.element_bid === history.elements[0].element_bid,
+        )?.content,
+      ).toBe('Teaching mentions var_old.');
+    });
+
+    it.each([true, false])(
+      'tracks confirmed draft answer edits only (confirm=%s)',
+      async confirm => {
+        const trackEvent = jest.fn();
+        const { result } = await renderWithStreamingRun({
+          previewMode: true,
+          trackEvent,
+        });
+        act(() => {
+          result.current.onSend(
+            { variableName: 'var_old', selectedValues: ['Private answer'] },
+            'interaction-old',
+          );
+        });
+        expect(result.current.reGenerateConfirm.open).toBe(true);
+        expect(
+          trackEvent.mock.calls.filter(([name]) =>
+            name.startsWith('teacher_preview_rewind'),
+          ),
+        ).toHaveLength(0);
+        await act(async () => {
+          if (confirm) result.current.reGenerateConfirm.onConfirm();
+          else result.current.reGenerateConfirm.onCancel();
+        });
+        if (!confirm) {
+          expect(
+            trackEvent.mock.calls.filter(([name]) =>
+              name.startsWith('teacher_preview_rewind'),
+            ),
+          ).toHaveLength(0);
+          return;
+        }
+        await waitFor(() =>
+          expect(trackEvent).toHaveBeenCalledWith(
+            'teacher_preview_rewind_start',
+            {
+              shifu_bid: 'shifu-1',
+              outline_bid: 'lesson-1',
+              operation: 'answer_edit',
+              learning_mode: 'read',
+            },
+          ),
+        );
+        expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+          reload_element_bid: 'interaction-old',
+        });
+        await act(async () => {
+          await activeRun?.onMessage({
+            type: SSE_OUTPUT_TYPE.TEXT_END,
+            is_terminal: true,
+            content: '',
+          });
+        });
+        expect(trackEvent).toHaveBeenCalledWith(
+          'teacher_preview_rewind_result',
+          {
+            shifu_bid: 'shifu-1',
+            outline_bid: 'lesson-1',
+            operation: 'answer_edit',
+            learning_mode: 'read',
+            result: 'success',
+          },
+        );
+        expect(JSON.stringify(trackEvent.mock.calls)).not.toContain(
+          'Private answer',
+        );
+        expect(JSON.stringify(trackEvent.mock.calls)).not.toContain('var_old');
+      },
+    );
 
     it('pops the regenerate confirm dialog instead of toasting while the stream is running', async () => {
       const { result } = await renderWithStreamingRun();
@@ -3951,6 +4185,7 @@ describe('useChatLogicHook stream cleanup', () => {
       expect(lastCall[3]).toMatchObject({
         input: { var_old: expect.anything() },
         input_type: SSE_INPUT_TYPE.NORMAL,
+        reload_element_bid: 'interaction-old',
       });
     });
 

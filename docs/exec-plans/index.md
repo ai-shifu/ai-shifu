@@ -103,6 +103,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [MarkdownFlow 2.0: a lesson carries on until it waits or ends](./completed/mdf2-agent-lesson-carries-on.md)
 - [Provider cache usage in memory quality reports](./completed/mdf2-cache-usage-observation.md)
 - [Attribute MarkdownFlow model usage to its course and lesson](./completed/mdf2-course-usage-attribution.md)
+- [Edit earlier answers in draft classrooms](./completed/mdf2-draft-answer-rewind.md)
 - [Restore draft classroom history and isolated restart](./completed/mdf2-draft-preview-history.md)
 - [Calculate exercise statistics from original submissions](./completed/mdf2-exercise-statistics-calculation.md)
 - [Evaluate exercise statistics against original attempts](./completed/mdf2-exercise-statistics-quality.md)

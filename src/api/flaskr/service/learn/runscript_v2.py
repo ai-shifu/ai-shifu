@@ -760,6 +760,23 @@ def _lesson_events(
                 )
                 from flaskr.service.learn.agent.run_agent import learner_values
 
+                if reload_element_bid or reload_generated_block_bid:
+                    from flaskr.service.learn.agent.preview_rewind import (
+                        plan_preview_rewind,
+                    )
+                    from flaskr.service.learn.agent.rewind import RewindUnavailableError
+
+                    try:
+                        plan_preview_rewind(
+                            app,
+                            user_bid=user_bid,
+                            shifu_bid=shifu_bid,
+                            outline_bid=outline_bid,
+                            anchor=reload_element_bid or reload_generated_block_bid,
+                            answering=bool(learner_values(user_input)),
+                        )
+                    except RewindUnavailableError:
+                        raise_error("server.learn.agentRewindUnavailable")
                 if not learner_values(user_input) and not (
                     reload_generated_block_bid or reload_element_bid
                 ):

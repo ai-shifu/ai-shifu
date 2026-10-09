@@ -157,7 +157,7 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
 
     monkeypatch.setattr(bridge, "iter_turn", drive)
 
-    def run(answer: str | None = None) -> list:
+    def run(answer: str | None = None, *, anchor: str | None = None) -> list:
         with app.app_context():
             adapter = ListenElementRunAdapter(
                 app,
@@ -175,7 +175,7 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
                     user_input=answer,
                     input_type=None,
                     reload_generated_block_bid=None,
-                    reload_element_bid=None,
+                    reload_element_bid=anchor,
                     listen=False,
                     learning_mode="read",
                     preview_mode=True,

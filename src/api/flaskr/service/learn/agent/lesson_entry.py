@@ -256,17 +256,32 @@ def agent_lesson_events(
     rewind = None
     anchor = reload_element_bid or reload_generated_block_bid
     if anchor:
-        # Preview keeps no turn blocks to go back to.
-        if preview_mode:
-            raise_error("server.learn.agentRewindUnavailable")
         try:
             with app_context_scope(app):
-                rewind = plan_rewind(
-                    user_bid=user_bid,
-                    outline_bid=outline_bid,
-                    anchor=anchor,
-                    answering=bool(learner_values(user_input)),
-                )
+                if preview_mode:
+                    from flaskr.service.learn.agent.preview_rewind import (
+                        plan_preview_rewind,
+                    )
+
+                    if debug_store is not None or preview_generation is None:
+                        raise_error("server.learn.agentRewindUnavailable")
+                    rewind = plan_preview_rewind(
+                        app,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        anchor=anchor,
+                        answering=bool(learner_values(user_input)),
+                    )
+                    if rewind is not None and rewind.generation != preview_generation:
+                        raise_error("server.learn.agentRewindUnavailable")
+                else:
+                    rewind = plan_rewind(
+                        user_bid=user_bid,
+                        outline_bid=outline_bid,
+                        anchor=anchor,
+                        answering=bool(learner_values(user_input)),
+                    )
         except RewindUnavailableError:
             raise_error("server.learn.agentRewindUnavailable")
     script, brief, settings = _resolve(

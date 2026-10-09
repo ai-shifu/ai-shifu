@@ -134,6 +134,7 @@
 | `docs/exec-plans/completed/mdf2-agent-lesson-carries-on.md` | MarkdownFlow 2.0: a lesson carries on until it waits or ends | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-cache-usage-observation.md` | Provider cache usage in memory quality reports | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-course-usage-attribution.md` | Attribute MarkdownFlow model usage to its course and lesson | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/mdf2-draft-answer-rewind.md` | Edit earlier answers in draft classrooms | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-draft-preview-history.md` | Restore draft classroom history and isolated restart | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-exercise-statistics-calculation.md` | Calculate exercise statistics from original submissions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-exercise-statistics-quality.md` | Evaluate exercise statistics against original attempts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
