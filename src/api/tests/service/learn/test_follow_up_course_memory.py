@@ -194,6 +194,7 @@ def test_coze_outbound_observes_scoped_memory_updates_and_deletion(
             """No resources are allocated by this offline response."""
 
     def request(*_args: object, **kwargs: object) -> object:
+        """Record the real serialized request without connecting to an external bot."""
         payloads.append(json.loads(kwargs["body"]))
         return Response(
             status=200,

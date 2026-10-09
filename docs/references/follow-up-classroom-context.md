@@ -87,7 +87,10 @@ mutate the host's message list. The existing 16 KiB memory-block budget still
 applies; this message-count limit is not a new whole-request byte budget.
 Malformed-response warnings contain only length metadata, never provider content.
 Valid error events raise a fixed provider error without echoing the response into
-the host's exception warning.
+the host's exception warning. Native SSE `event: error` and
+`event: conversation.chat.failed` headers are recognized before JSON decoding,
+including payloads without an embedded event field and failures after partial
+answer chunks. Nonfailure event headers do not produce malformed-frame warnings.
 
 An explicit `extra_body.additional_messages` continues to own the entire payload
 and opts out of automatic context delivery. Other extra-body fields, including

@@ -1669,12 +1669,14 @@ def coze_request(app: object, monkeypatch: pytest.MonkeyPatch) -> object:
     monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
 
     def request(_self: object, method: str, url: str, **kwargs: object) -> object:
+        """Capture serialized request data and return one safe streaming chunk."""
         captured.update(method=method, url=url, payload=json.loads(kwargs["body"]))
         return _FakeResponse(lines=['data: {"event":"message","content":"ok"}'])
 
     monkeypatch.setattr(common.SafeOutboundClient, "request", request)
 
     def send(messages: list, query: str = "Current question", **config: object) -> dict:
+        """Exercise the actual adapter with caller-selected context and configuration."""
         chunks = list(
             module.CozeAskProviderAdapter().stream_answer(
                 app=app,
@@ -1864,6 +1866,7 @@ def test_coze_malformed_url_keeps_provider_error_contract(app: object) -> None:
         {"event": "error", "content": "PRIVATE COURSE NOTE"},
         {"type": "error", "data": {"message": "PRIVATE COURSE NOTE"}},
         {"type": "error", "detail": "PRIVATE COURSE NOTE"},
+        {"event": "conversation.chat.failed", "content": "PRIVATE COURSE NOTE"},
     ],
 )
 def test_coze_error_echo_does_not_escape_into_host_logs(
@@ -1890,3 +1893,82 @@ def test_coze_error_echo_does_not_escape_into_host_logs(
         )
     assert "PRIVATE COURSE NOTE" not in str(raised.value)
     assert raised.value.__cause__ is None
+
+
+@pytest.mark.parametrize("event", ["error", "conversation.chat.failed"])
+@pytest.mark.parametrize("partial", [False, True])
+def test_coze_native_sse_failure_is_sanitized(
+    app: object, monkeypatch: pytest.MonkeyPatch, event: str, partial: bool
+) -> None:
+    """Separate native event/data frames fail safely before or after answer chunks."""
+    lines = ['data: {"content":"partial answer"}'] if partial else []
+    lines.extend(
+        [f"event: {event}", 'data: {"code":5000,"msg":"PRIVATE COURSE NOTE"}', ""]
+    )
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "warning", lambda *args, **_kwargs: logged.append(args)
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(lines=lines),
+    )
+    stream = module.CozeAskProviderAdapter().stream_answer(
+        app,
+        "learner",
+        "Current question",
+        [],
+        {"config": {"api_key": "test-key", "bot_id": "bot"}},
+    )
+    if partial:
+        assert next(stream).content == "partial answer"
+    with pytest.raises(
+        module.AskProviderError, match="coze returned an error event"
+    ) as raised:
+        next(stream)
+    assert "PRIVATE COURSE NOTE" not in str(raised.value)
+    assert not logged
+
+
+def test_coze_native_success_headers_are_not_malformed_payloads(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Valid event headers never produce spurious warnings or suppress answer data."""
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "warning", lambda *args, **_kwargs: logged.append(args)
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(
+            lines=[
+                "event: conversation.chat.created",
+                'data: {"status":"created"}',
+                "",
+                "event: conversation.message.delta",
+                'data: {"type":"answer","content":"ok"}',
+                "",
+                "event: conversation.chat.completed",
+                'data: {"status":"completed"}',
+                "",
+                "event: done",
+                "data: [DONE]",
+                "",
+            ]
+        ),
+    )
+    chunks = list(
+        module.CozeAskProviderAdapter().stream_answer(
+            app,
+            "learner",
+            "Current question",
+            [],
+            {"config": {"api_key": "test-key", "bot_id": "bot"}},
+        )
+    )
+    assert [chunk.content for chunk in chunks] == ["ok"]
+    assert not logged

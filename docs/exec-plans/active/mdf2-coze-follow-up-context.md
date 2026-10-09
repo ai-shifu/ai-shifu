@@ -32,6 +32,14 @@ in [follow-up classroom context](../../references/follow-up-classroom-context.md
 - [ ] 2026-10-09T07:51:00Z: Accept answer quality with a separately configured real
   Coze bot; mocked HTTP delivery must not be reported as real-bot acceptance.
 
+- [x] 2026-10-09T08:13:00Z: CodeRabbit's native SSE event finding is accepted:
+  six real-frame regressions fail before header handling. Recognize native error
+  headers and normalized failed events without forwarding response text; add
+  meaningful docstrings to touched test helpers. Final local learning acceptance
+  passes 2,874 cases, four subtests and one expected skip; full gates pass.
+  Latest sim/CI results and both
+  original-thread replies are tracked in PR #3062's acceptance discussion.
+
 ## Surprises & Discoveries
 
 Coze has no system message role. Forwarding the host list unchanged would produce
@@ -60,6 +68,12 @@ model the safe client's actual context-managed response rather than changing run
   snapshots do not erase remote bot history. No local memory writes or fallback
   routing changes are included. Workflow and Volc remain separate work.
 - Stop logging malformed provider contents now that replies may echo course notes.
+
+CodeRabbit also caught failure events in separate SSE header lines. The official
+API places event names outside the JSON body, so JSON-only tests missed that
+boundary. Check native failure headers before decoding their data, retaining
+partial-answer behavior and data-only gateway compatibility. Do not expand this
+fix into a separate success-frame deduplication or tool-event filtering change.
 
 ## Outcomes & Retrospective
 

@@ -155,6 +155,7 @@ def test_non_json_retrieval_response_raises_domain_error(
 def test_sse_ignores_malformed_frames_and_propagates_provider_error(
     provider: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Retain partial answers, then fail with the provider's safe exception contract."""
     response = MagicMock(status=200)
     response.iter_lines.return_value = iter(
         [
