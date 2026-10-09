@@ -476,59 +476,12 @@ def observe_summary_usage(model: Model, totals: dict[str, int]) -> Model:
     return ObservedSummaryModel(model)
 
 
-async def evaluate_teaching(
-    case: dict[str, Any], model: Model, summary_model: Model
-) -> dict[str, Any]:
-    """Combine real summary generation, cache reload and current versus historical reads."""
-    from flaskr.service.learn.agent.engine import (
-        ContentDelta,
-        ContinueTurn,
-        Engine,
-        ErrorEvent,
-        MemoryUpdated,
-        MessageTurn,
-        Session,
-        TurnDone,
-    )
-    from flaskr.service.learn.agent.engine.teaching_history import (
-        project_teaching_history,
-    )
-    from flaskr.service.learn.agent.engine.teaching_summary import (
-        TeachingSummarizer,
-        summarize_teaching_history,
-    )
-    from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
-    from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelResponse, TextPart
+def observe_teaching_projection(
+    model: Model, sources: dict[str, str], markers: set[str]
+) -> Model:
+    """Observe source-bound projection markers in requests, without changing them."""
+    from pydantic_ai.messages import ModelResponse, TextPart
     from pydantic_ai.models.wrapper import WrapperModel
-
-    session = teaching_session(case)
-    projected, sources = project_teaching_history(session.messages)
-    summary_usage: dict[str, int] = {}
-    provider = make_teaching_summarizer(
-        observe_summary_usage(summary_model, summary_usage)
-    )
-    summary_calls = 0
-
-    async def summarize(source: str) -> str | None:
-        """Count one real summary attempt or an explicitly injected failure."""
-        nonlocal summary_calls
-        summary_calls += 1
-        return None if case.get("summary_failure") else await provider.summarize(source)
-
-    summarizer = TeachingSummarizer(policy=provider.policy, summarize=summarize)
-    await summarize_teaching_history(
-        projected, sources, session.teaching_summaries, summarizer
-    )
-    cache = dict(session.teaching_summaries)
-    session = Session.loads(session.dumps())
-    original = (
-        dict(session.memory),
-        dict(session.user_memory),
-        dict(session.answer_hashes),
-    )
-    history_len = len(session.messages)
-    original_history = ModelMessagesTypeAdapter.dump_json(session.messages)
-    markers = set()
 
     class ObservedModel(WrapperModel):
         """Observe the actual request projection without changing model behavior."""
@@ -563,8 +516,64 @@ async def evaluate_teaching(
             ) as response:
                 yield response
 
+    return ObservedModel(model)
+
+
+async def evaluate_teaching(
+    case: dict[str, Any], model: Model, summary_model: Model
+) -> dict[str, Any]:
+    """Combine real summary generation, cache reload and current versus historical reads."""
+    from flaskr.service.learn.agent.engine import (
+        ContentDelta,
+        ContinueTurn,
+        Engine,
+        ErrorEvent,
+        MemoryUpdated,
+        MessageTurn,
+        Session,
+        TurnDone,
+    )
+    from flaskr.service.learn.agent.engine.teaching_history import (
+        project_teaching_history,
+    )
+    from flaskr.service.learn.agent.engine.teaching_summary import (
+        TeachingSummarizer,
+        summarize_teaching_history,
+    )
+    from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
+    from pydantic_ai.messages import ModelMessagesTypeAdapter
+
+    session = teaching_session(case)
+    projected, sources = project_teaching_history(session.messages)
+    summary_usage: dict[str, int] = {}
+    provider = make_teaching_summarizer(
+        observe_summary_usage(summary_model, summary_usage)
+    )
+    summary_calls = 0
+
+    async def summarize(source: str) -> str | None:
+        """Count one real summary attempt or an explicitly injected failure."""
+        nonlocal summary_calls
+        summary_calls += 1
+        return None if case.get("summary_failure") else await provider.summarize(source)
+
+    summarizer = TeachingSummarizer(policy=provider.policy, summarize=summarize)
+    await summarize_teaching_history(
+        projected, sources, session.teaching_summaries, summarizer
+    )
+    cache = dict(session.teaching_summaries)
+    session = Session.loads(session.dumps())
+    original = (
+        dict(session.memory),
+        dict(session.user_memory),
+        dict(session.answer_hashes),
+    )
+    history_len = len(session.messages)
+    original_history = ModelMessagesTypeAdapter.dump_json(session.messages)
+    markers = set()
+
     engine = Engine(
-        ObservedModel(model),
+        observe_teaching_projection(model, sources, markers),
         memory_admission=True,
         memory_recall=True,
         memory_context_limit=100,
@@ -656,7 +665,13 @@ async def evaluate(
                 elif case["family"] == "exercise":
                     from scripts.mdf2_memory_quality.exercise import evaluate_exercise
 
-                    result = await evaluate_exercise(case, model)
+                    result = await evaluate_exercise(
+                        case,
+                        model,
+                        model_factory("teaching_summary")
+                        if case.get("compacted_history")
+                        else None,
+                    )
                 else:
                     runner = (
                         evaluate_admission

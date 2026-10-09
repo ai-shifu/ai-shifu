@@ -38,7 +38,7 @@ def test_list_needs_no_app_or_credentials() -> None:
         timeout=10,
     )
     cases = json.loads(process.stdout)
-    assert len(cases) == 26
+    assert len(cases) == 28
     assert {case["family"] for case in cases} == {
         "admission",
         "recall",
