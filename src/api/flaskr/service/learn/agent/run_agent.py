@@ -1298,7 +1298,19 @@ def _persist(
         record = None
         if preview_generation is not None:
             from flaskr.service.learn.agent.preview_history import stage_preview_turn
+            from flaskr.service.learn.agent.preview_rewind import (
+                PreviewRewindPlan,
+                stage_preview_retirement,
+            )
 
+            if isinstance(rewind, PreviewRewindPlan):
+                stage_preview_retirement(
+                    rewind,
+                    generation=preview_generation,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                )
             stage_preview_turn(
                 generation=preview_generation,
                 session=session,
