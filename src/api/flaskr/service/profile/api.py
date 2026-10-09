@@ -15,6 +15,7 @@ from flaskr.service.profile.course_references import (
 from flaskr.service.profile.funcs import (
     get_global_profile_keys,
     get_user_profiles,
+    global_profile_value_versions,
     save_user_profiles,
 )
 from flaskr.service.profile.learner_profile import (
@@ -36,6 +37,7 @@ __all__ = [
     "delete_course_memory",
     "get_global_profile_keys",
     "get_user_profiles",
+    "global_profile_value_versions",
     "has_learner_profile_or_state",
     "is_course_reference",
     "list_course_memory",

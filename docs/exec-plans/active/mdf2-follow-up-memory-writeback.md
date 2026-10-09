@@ -27,7 +27,22 @@ semantic admission, gateway, native-thread bridge and scoped profile facade.
 - [x] 2026-10-09T02:40:00Z: Adopt retired-publication and concurrent-value
   review findings; four real storage regressions pass in 238 focused tests.
   Clarify main-Agent versus admission/guardrail budgets and document touched helpers.
-- [ ] Verify the corrected host prompt, local gates, final sim HTTP and AI replies.
+- [x] 2026-10-09T02:58:00Z: Runtime 68e8f2524 / sim 5e764f784 passes
+  eight real HTTP checks: two fresh learners save and recall from another lesson;
+  one updates then recalls from a third lesson; casual and quoted/negated cases
+  remain unstored. Build 439 / Drone 5230 and deployments 2100/2101 succeed;
+  both replicas match 36 hashes and log no test notes or old full-message lines.
+  Local regression passes 4,833 tests / four subtests / eleven expected skips.
+  Technical CI passes, including 171 selected backend tests, eight contracts and
+  the runtime browser checks. Three Devin opinions and the docstring warning have
+  original-thread replies; updated docstring coverage is 95%.
+- [x] 2026-10-09T03:08:00Z: Adopt the additional global-profile race finding.
+  Compare row versions and canonical account fields, lock account before global
+  rows, and route the existing canonical language alias to account storage without
+  duplicating settings labels. Real settings/direct-canonical corrections and
+  normal nickname/language writes pass 32 focused tests. Final extended suite,
+  repository gates, deployment and the new original-thread reply are pending.
+- [ ] Verify the final global-profile protection on sim and finish AI replies.
 
 ## Surprises & Discoveries
 
@@ -51,13 +66,19 @@ greenlets. External provider-only answers must remain independent of LLM setup.
 - Lock the original learning attempt and compare deletion generations during the
   final write. A reset or concurrent deletion cannot be undone by stale output.
   Course-value row versions also reject late proposals after newer corrections.
+  Registered global values additionally compare canonical account snapshots; the
+  final write locks the account before global compatibility rows.
 - Keep host memory capability instructions after authored course instructions;
   visible answer formatting cannot disable tool calls. Undeclared keys remain
   eligible only through explicit current-request admission.
 
 ## Outcomes & Retrospective
 
-Implementation and local verification are complete. Deployed acceptance is pending.
+Completed real text follow-up checks establish saved values, fresh-lesson recall,
+updates and refused casual/quoted writes. A final global-profile protection revision
+is under validation. Existing first-entry teaching calls have course/lesson IDs but
+can lack an attempt ID; their separate accounting follow-up is recorded outside
+this PR. New follow-up/admission calls have full attribution.
 
 ## Context and Orientation
 

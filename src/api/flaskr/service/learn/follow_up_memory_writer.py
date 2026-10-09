@@ -19,6 +19,7 @@ from flaskr.service.profile.api import (
     course_memory_deletion_state,
     course_memory_value_versions,
     get_global_profile_keys,
+    global_profile_value_versions,
 )
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from pydantic_ai import Agent, AgentRunResultEvent, RunContext, Tool, UsageLimits
@@ -46,7 +47,7 @@ class FollowUpMemoryPatch:
 
     variables: list[VariableMemoryUpdate] = field(default_factory=list)
     generations: dict[str, int] = field(default_factory=dict)
-    value_versions: dict[str, int] | None = None
+    value_versions: dict[str, int | tuple[int, str | None]] | None = None
 
 
 @dataclass(frozen=True)
@@ -57,7 +58,9 @@ class FollowUpMemoryPolicy:
     deleted_keys: frozenset[str]
     generations: dict[str, int]
     reserved_keys: frozenset[str]
-    value_versions: dict[str, int] = field(default_factory=dict)
+    value_versions: dict[str, int | tuple[int, str | None]] = field(
+        default_factory=dict
+    )
 
 
 def load_follow_up_memory_policy(
@@ -85,7 +88,10 @@ def load_follow_up_memory_policy(
         frozenset(deleted),
         dict(generations),
         get_global_profile_keys(),
-        course_memory_value_versions(user_bid, shifu_bid),
+        {
+            **course_memory_value_versions(user_bid, shifu_bid),
+            **global_profile_value_versions(user_bid),
+        },
     )
 
 
@@ -167,7 +173,7 @@ class FollowUpMemoryRun:
         preview: bool,
         temperature: float = 0.2,
         cancelled: Callable[[], bool] | None = None,
-        value_versions: dict[str, int] | None = None,
+        value_versions: dict[str, int | tuple[int, str | None]] | None = None,
     ) -> None:
         """Capture immutable request evidence; DB state never enters the producer thread."""
         self.model = model
