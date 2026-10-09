@@ -22,7 +22,8 @@ The text is selectable and works in the existing desktop and mobile menus.
 - [x] 2026-10-10 07:02 CST: Complete repository harness and all-file pre-commit gate pass. Compiled Next config and browser chunks contain the checked-out SHA. Standalone type-check reports only two unchanged main-baseline errors in the operator user-page tests (TS2683 and TS2790).
 - [x] 2026-10-10 07:05 CST: Addressed PR #3077 review discussion r4235254200 by including source-marker generation in the installation manual and Web Docker smoke instructions; the shared build guide already describes the same contract.
 - [x] 2026-10-10 06:56 CST: Extended Drone preparation for all six environments; readback confirms one marker command with original steps and build/deploy configurations preserved.
-- [ ] Verify the simulation page against its deployed commit.
+- [x] 2026-10-10 07:26 CST: Simulation PR #3079 deployed commit `6002c0108bbdcb9a989470b0b193b1aacca85923` as `sim-6002c01` (build 488); API and Web rollouts completed. The browser menu shows the same SHA on desktop and at 390x844, including Chinese text, selectable 12px styling and no footer overflow.
+- [x] 2026-10-10 07:27 CST: Refreshed main and rebased the feature branch for the repository's up-to-date merge rule. Both original commit patches are unchanged; the production PR's first complete CI run passed all applicable checks.
 - [ ] Merge through a focused PR and verify domestic and overseas production pages against the deployed source revision.
 
 ## Surprises & Discoveries
@@ -45,8 +46,10 @@ therefore supports both build paths without changing the deployment Dockerfile.
 
 ## Outcomes & Retrospective
 
-Implementation and live acceptance are in progress. No deployment is yet
-claimed for this feature.
+Implementation and simulation acceptance are complete. The shared menu in the
+simulation browser renders `Version v2.3.3 · 6002c01` on desktop and
+`版本 v2.3.3 · 6002c01` at 390x844, matching the deployed source. Production
+acceptance remains open until both regional pages match their deployed image.
 
 ## Context and Orientation
 
