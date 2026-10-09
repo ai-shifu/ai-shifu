@@ -835,6 +835,7 @@ def main(argv: list[str] | None = None) -> int:
     from flaskr.service.learn.agent.gateway_model import GatewayModel
     from flaskr.service.learn.agent.lesson_entry import _resolve
     from flaskr.service.learn.agent.routing import uses_agent_engine
+    from flaskr.service.metering.api import UsageContext
     from flaskr.service.user.models import UserInfo
 
     app = create_app(serving_http=False)
@@ -855,6 +856,13 @@ def main(argv: list[str] | None = None) -> int:
         resolved_model, usage_metadata = resolve_selection(
             settings.model, dict(settings.usage_metadata)
         )
+        # Synthetic evaluations have no classroom attempt or generated block.
+        # Bind their real course so shared billing can resolve its owner and demo policy.
+        usage_context = UsageContext(
+            user_bid=args.learner,
+            shifu_bid=args.course,
+            outline_item_bid=args.lesson,
+        )
         trace, span = create_trace_with_root_span(
             client=get_langfuse_client(),
             trace_payload={
@@ -872,6 +880,7 @@ def main(argv: list[str] | None = None) -> int:
                 user_id=args.learner,
                 span=span,
                 generation_name=f"agent_memory_quality_{family}",
+                usage_context=usage_context,
                 usage_metadata=dict(usage_metadata),
                 timeout=8 if family == "teaching_summary" else 15,
                 retry_deadline_seconds=8 if family == "teaching_summary" else 15,

@@ -108,6 +108,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Long teaching history and current memory acceptance](./completed/mdf2-long-history-memory.md)
 - [Current course answers after a persisted lesson reload](./completed/mdf2-memory-journey.md)
 - [Current memory evidence and repeatable quality baseline](./completed/mdf2-memory-quality.md)
+- [Attribute synthetic quality evaluation usage to its selected course](./completed/mdf2-quality-usage-attribution.md)
 - [Semantic summaries for older MarkdownFlow teaching](./completed/mdf2-teaching-semantic-summary.md)
 - [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
 - [Centralize model option display normalization](./completed/model-option-display-normalization.md)

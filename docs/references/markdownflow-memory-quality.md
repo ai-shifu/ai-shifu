@@ -132,10 +132,16 @@ The evaluator refuses a 1.0 deployment and resolves the model through the same
 course-selection/access path as teaching. It supplies only synthetic inputs and
 never loads real learner memory or calls the session/profile persistence path.
 Existing shared-gateway usage, billing and tracing still occur, attributed to the
-provided dedicated learner under `agent_memory_quality_admission`,
+provided dedicated learner, validated course and published lesson under
+`agent_memory_quality_admission`,
 `agent_memory_quality_recall`, `agent_memory_quality_teaching`,
 `agent_memory_quality_exercise` and the separate
-`agent_memory_quality_teaching_summary` generation. The evaluator does not modify the engine switch.
+`agent_memory_quality_teaching_summary` generation. Shared settlement resolves
+that course's owner; normal billability and built-in-demo exemptions still apply.
+Generation names distinguish these synthetic costs from natural classroom costs.
+No classroom progress/block IDs or learning mode are fabricated. Earlier rows
+created before course attribution was added remain unchanged; do not infer their
+course from a learner ID alone. The evaluator does not modify the engine switch.
 
 `--case ID` may be repeated to diagnose selected cases; `--repeat` accepts 1–5,
 defaulting to one. Recall deliberately uses controlled temperature 0 and a

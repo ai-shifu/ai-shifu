@@ -401,6 +401,7 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
     from flaskr.api.llm import model_selection
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.agent import gateway_model, lesson_entry, routing
+    from flaskr.service.metering.api import UsageContext
     from flaskr.service.user.repository import create_user_entity
 
     identity = uuid4().hex
@@ -467,6 +468,9 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
     assert value["model_selection"] == "selected"
     assert value["model"] == "resolved-model"
     assert calls[0][3]["usage_metadata"] == {"source": "evaluation-test"}
+    assert calls[0][3]["usage_context"] == UsageContext(
+        user_bid=identity, shifu_bid="course", outline_item_bid="lesson"
+    )
     selection.assert_called_once_with("selected", {})
     assert finalize.call_args.kwargs["trace"] is trace
     assert finalize.call_args.kwargs["root_span"] is span
