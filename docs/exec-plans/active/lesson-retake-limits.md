@@ -324,3 +324,71 @@ Verification: 99 focused backend tests and 26 frontend tests passed; the final o
 
 Deployment: functional commit d5a82a44c, build 429 / Drone 5220, image 20261009-d5a82a4. Deployment records 2060-2063 succeeded and all four dev02 services were read back on that image. The previously exhausted owner account was admitted for a real eleventh retake without clearing old usage; newly generated teaching appeared. Ordinary learner ceiling is covered by server regressions; no second live learner account was used in this owner acceptance. Live TTS remains outside this reading-mode check.
 Browser completion: the eleventh retake reached the learner interaction. Reopening retake then showed the normal warning and enabled confirmation again; cancel it to avoid an unnecessary twelfth generation. Screenshot: /private/tmp/retake-owner-unlimited.png.
+
+
+### October 9 broader feature audit
+
+Scope: verify current dev02 runtime (all four services read back on
+20261009-8162318), retake accounting, identity, ownership, failure handling,
+MySQL concurrency and adjacent audio reuse. No production/SIM changes, no
+quota-history edits and no new paid teaching/audio generation in this audit.
+
+Evidence:
+- 99 existing focused backend tests passed. Two added ledger tests also passed
+  (final ledger suite: 24): owner transfer immediately removes old-owner
+  exemption despite stale published ownership; a new course draft preserves
+  exhausted learner usage. These tests document the current contract rather
+  than changing it.
+- 13 migration/MySQL/RunRecorder tests passed, including six real loopback-only
+  MySQL concurrency cases; the temporary server was stopped afterwards.
+- 67 audio cache, text/settings matching, synthesis concurrency, finalization,
+  admission and error-mapping tests passed using fake providers. Initial audio
+  test setup hit sandbox log-write permissions; authorized rerun passed.
+- 55 frontend tests passed across nine suites: status/messages, reset/update
+  entries, request identity, course/user stores and analytics. These are
+  automated tests, not live guest-to-existing-account migration proof.
+- Chrome learner 017 showed exhaustion from both catalog and course-update
+  entries. Confirmation was disabled; cancellation retained existing teaching,
+  Ask and Next Lesson controls. Updated-course recommendation was visible at
+  the same time as exhaustion. Screenshot:
+  /private/tmp/retake-audit-update-exhausted.png.
+
+Open issues and priority:
+1. Before broad release: guest identity is browser-local. Clearing storage or
+   changing browsing context can create a new user and quota. Ask the user
+   whether guest retakes require sign-in; do not silently change guest access.
+2. Before broad release: guest-to-existing-account migration currently moves
+   learning records, not retake attempts/run slots. Merge successful usage
+   within deployment/course/lesson and preserve idempotent attempt IDs; exclude
+   pending producers from unsafe reassignment. First registration retaining the
+   same user BID differs from merging into an existing account.
+3. Product choice: updated lessons with the same outline BID keep historical
+   usage, so an exhausted learner cannot relearn the update despite the current
+   recommendation. Choose update-specific opportunity versus keeping ten; then
+   align the update notice. Do not reset quotas on every edit/publication, which
+   would undo cost controls.
+4. Recovery: first durable teaching text consumes one even if later text/TTS
+   fails. Empty stopped failures restore old content and release the attempt.
+   Abrupt process death deliberately remains blocked until confirmed-stop
+   platform repair; add an operator procedure/abnormal-run signal before broad
+   rollout. Never refund solely because a browser disconnects or a timer expires.
+5. Live audio acceptance remains open: cache reuse/replay without duplicate
+   billing, read/listen switching, interruption/resumption, provider failure,
+   text delivered with audio failure. This test course has listen disabled;
+   passing mock-provider tests does not prove real TTS billing behavior.
+6. Observed pre-existing course Ask response invented rules (30-day expiry and
+   completion/evaluation eligibility). These are not the platform contract.
+   Platform permission answers should use authoritative product context or
+   defer to a deterministic UI explanation; do not change course prompts here.
+7. Cost effect is not yet proven: the supplied high-cost examples total
+   11-46 retakes across 7-20 lessons. Those totals do not reveal whether any
+   individual lesson crosses ten; distributed high usage may remain admitted.
+   Before claiming success, inspect per-learner/per-lesson successful retakes
+   joined to TTS charges and compare the highest-cost ordinary learners after
+   rollout. Exclude owner/internal tests from learner cost-effect evaluation.
+
+The current owner account was also freshly checked on the updated lesson: its update confirmation remained enabled and was cancelled without initiating another generation. English owner UI and Chinese learner UI both showed the same rule.
+
+Current work only adds boundary regression tests and this record. Guest policy,
+account merging, update replenishment and live TTS acceptance remain follow-up
+work; no claim of full release readiness or proven cost savings.

@@ -379,3 +379,50 @@ def test_another_teacher_is_not_exempt_from_this_course(
     }
     with pytest.raises(AppError, match="retakeLimitReached"):
         retake_service.try_limited_reset(app, **identity, request_id="eleventh")
+
+
+def test_owner_transfer_rechecks_exemption_without_resetting_usage(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn import retake_service
+
+    monkeypatch.setattr(retake_service, "retake_namespace", lambda _: "test")
+    with app.app_context(), unit_of_work():
+        db.session.add(DraftShifu(shifu_bid="course", created_user_bid="learner"))
+        db.session.add(PublishedShifu(shifu_bid="course", created_user_bid="learner"))
+    configure_policy(app, **BASE, limit=10)
+    for index in range(10):
+        complete(app, str(index))
+    identity = {key: value for key, value in LEARNER.items() if key != "namespace"}
+    assert retake_service.read_status(app, **identity)["quota_exempt"] is True
+    with app.app_context(), unit_of_work():
+        DraftShifu.query.filter_by(
+            shifu_bid="course"
+        ).one().created_user_bid = "new-owner"
+    previous_owner = retake_service.read_status(app, **identity)
+    assert previous_owner["allowed"] is False
+    assert previous_owner["quota_exempt"] is False
+    assert get_allowance(app, **LEARNER).used == 10
+    new_owner = retake_service.read_status(app, **{**identity, "user_bid": "new-owner"})
+    assert new_owner["quota_exempt"] is True
+    assert new_owner["allowed"] is True
+    with pytest.raises(AppError, match="retakeLimitReached"):
+        retake_service.try_limited_reset(app, **identity, request_id="old-owner")
+
+
+def test_course_revision_does_not_replenish_learner_quota(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn import retake_service
+
+    monkeypatch.setattr(retake_service, "retake_namespace", lambda _: "test")
+    with app.app_context(), unit_of_work():
+        db.session.add(DraftShifu(shifu_bid="course", created_user_bid="owner"))
+    configure_policy(app, **BASE, limit=10)
+    for index in range(10):
+        complete(app, str(index))
+    with app.app_context(), unit_of_work():
+        db.session.add(DraftShifu(shifu_bid="course", created_user_bid="owner"))
+    identity = {key: value for key, value in LEARNER.items() if key != "namespace"}
+    assert retake_service.read_status(app, **identity)["allowed"] is False
+    assert get_allowance(app, **LEARNER).used == 10
