@@ -273,22 +273,38 @@ def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
         else:
             lines.append(line)
     text = re.sub(r"<!--.*?-->", "", "\n".join(lines), flags=re.DOTALL)
-    return tuple(q for q in _script_questions(text) if q.placeholder)
+    return tuple(q for q in _script_questions(text) if q.text)
 
 
 def normalize_script_text_input(
     spec: InteractionSpec,
     questions: tuple[_Question, ...],
 ) -> InteractionSpec:
-    """Repair only a uniquely matched author question with its hint added as a choice.
+    """Restore a missing text hint or remove its duplicate generated choice.
 
     The remaining display/value pairs must be the author's exact ordered choices. A hint that
     the author also wrote as a real choice, another question, or a model-created option is kept.
+    Text-only questions match the copied prompt first, or a unique hint for the same variable.
+    Ambiguous questions and explicitly supplied placeholders are left unchanged.
     """
+    if spec.type == "text" and not spec.options and not spec.placeholder:
+        text_questions = [
+            q
+            for q in questions
+            if q.variable == spec.variable and not any(c.strip() for c in q.choices)
+        ]
+        matching = [
+            q
+            for q in text_questions
+            if spec.prompt.strip() in (q.placeholder, q.written_placeholder)
+        ]
+        hints = {q.placeholder for q in matching or text_questions}
+        if len(hints) == 1 and (hint := next(iter(hints))):
+            return spec.model_copy(update={"placeholder": hint})
     candidates: dict[str, InteractionSpec] = {}
     submitted = [(o.display, o.stored) for o in spec.options]
     for question in questions:
-        if question.variable != spec.variable:
+        if not question.placeholder or question.variable != spec.variable:
             continue
         kinds = (
             ("multi", "multi_or_text")
