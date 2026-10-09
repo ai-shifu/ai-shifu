@@ -354,8 +354,11 @@ def handle_input_ask(
     }
     llm_messages.append(user_message)
     provider_messages.append(user_message)
-    app.logger.info("llm_messages: %s", llm_messages)
-    app.logger.info("provider_messages: %s", provider_messages)
+    app.logger.info(
+        "Follow-up context built: llm_message_count=%s provider_message_count=%s",
+        len(llm_messages),
+        len(provider_messages),
+    )
 
     # Get model for follow-up Q&A
     follow_up_model = follow_up_info.ask_model

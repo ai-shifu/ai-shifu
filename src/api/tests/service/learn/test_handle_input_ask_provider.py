@@ -497,7 +497,11 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(
 def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
     app: object, monkeypatch: object
 ) -> None:
+    """Pass retrieved knowledge and stored course notes through the real LLM factory."""
     from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.agent import routing
+
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
 
     ask_provider_config = {
         "provider": "get_biji_knowledge",
@@ -549,6 +553,7 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
             ),
             trace_args={"output": ""},
             trace=_DummyTrace(),
+            runtime_profiles={"practice_code": "STORED COURSE CODE"},
         )
     )
 
@@ -566,6 +571,7 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
         "<knowledge>\n\nknowledge snippets\n\n</knowledge>" in content
         for content in system_contents
     )
+    assert any("STORED COURSE CODE" in content for content in system_contents)
     assert all("{knowledge_section}" not in content for content in system_contents)
     assert context_messages[-1]["role"] == "user"
     assert events[-1].type == GeneratedType.BREAK
@@ -574,7 +580,15 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
 def test_handle_input_ask_provider_response_skips_llm(
     app: object, monkeypatch: object
 ) -> None:
+    """Preserve successful provider streaming without logging the memory context."""
     from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.agent import routing
+
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "info", lambda *args, **kwargs: logged.append((args, kwargs))
+    )
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
 
     ask_provider_config = {
         "provider": "coze",
@@ -617,6 +631,7 @@ def test_handle_input_ask_provider_response_skips_llm(
             ),
             trace_args={"output": ""},
             trace=dummy_trace,
+            runtime_profiles={"private_note": "STORED NOTE MUST NOT BE LOGGED"},
         )
     )
 
@@ -637,6 +652,8 @@ def test_handle_input_ask_provider_response_skips_llm(
     assert generation.kwargs["model"] == "coze"
     assert generation.end_kwargs["output"] == "provider-answer"
     assert generation.end_kwargs["metadata"]["status"] == "success"
+
+    assert "STORED NOTE MUST NOT BE LOGGED" not in repr(logged)
 
 
 def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(

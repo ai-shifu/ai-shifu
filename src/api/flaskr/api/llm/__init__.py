@@ -433,7 +433,9 @@ def _stream_litellm_completion(
     _apply_llm_max_output_tokens(requested_model, model, kwargs)
     try:
         app.logger.info(
-            "stream_litellm_completion: %s %s %s %s", model, messages, params, kwargs
+            "stream_litellm_completion: model=%s | message_count=%s",
+            model,
+            len(messages),
         )
         return litellm.completion(
             model=model,
@@ -1385,7 +1387,7 @@ def invoke_llm(
             model=model,
         )
 
-    app.logger.info("invoke_llm response: %s ", response_text)
+    app.logger.info("invoke_llm response_chars=%s", len(response_text))
     if usage is None:
         app.logger.info("invoke_llm usage: None")
     else:
@@ -1481,7 +1483,10 @@ def chat_llm(
 ) -> Generator[LLMStreamResponse, None, None]:
     """Send a chat request through the configured LLM provider."""
     app.logger.info(
-        "chat_llm [%s] %s ,json:%s ,kwargs:%s", model, messages, json, kwargs
+        "chat_llm: model=%s | message_count=%s | json=%s",
+        model,
+        len(messages),
+        json,
     )
     stream_flag = bool(kwargs.get("stream", True))
     kwargs.pop("stream", None)
@@ -1636,7 +1641,7 @@ def chat_llm(
         close = getattr(response, "close", None)
         if close is not None:
             close()
-        app.logger.info("chat_llm response: %s ", response_text)
+        app.logger.info("chat_llm response_chars=%s", len(response_text))
         if usage is None:
             app.logger.info("chat_llm usage: None")
         else:
