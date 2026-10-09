@@ -4,6 +4,7 @@
     "adminConsole": "Go to Admin",
     "createCourse": "Create a Course",
     "language": "Language",
-    "personalInfo": "Personalize"
+    "personalInfo": "Personalize",
+    "version": "Version"
   }
 }

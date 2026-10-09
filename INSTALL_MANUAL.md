@@ -229,8 +229,12 @@ follow-up models.
 
 ```bash
 docker build -t aishifu/ai-shifu-api:latest -f src/api/Dockerfile .
+git rev-parse HEAD > src/web/.app-build-sha
 docker build -t aishifu/ai-shifu-web:latest -f src/web/Dockerfile .
 ```
+
+The Git-ignored marker records the source revision before Docker excludes the
+Git directory. The user menu can then show the frontend release and commit.
 
 3. Start the containers with the compose bundle that tracks the `:latest` tags:
 
