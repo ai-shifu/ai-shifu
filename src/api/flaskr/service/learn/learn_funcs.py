@@ -405,7 +405,6 @@ def get_outline_item_tree(
         agent_preview = preview_mode and uses_agent_engine(shifu_bid)
         preview_sessions = {}
         if agent_preview:
-            progress_records = []
             preview_sessions = {
                 row.outline_item_bid: row
                 for row in LearnAgentSession.query.filter(
@@ -474,7 +473,8 @@ def get_outline_item_tree(
                 status = progress_record.status
                 if status == LEARN_STATUS_LOCKED:
                     status = LEARN_STATUS_NOT_STARTED
-            if agent_preview:
+            if agent_preview and (outline_item.content or "").strip():
+                status = LEARN_STATUS_NOT_STARTED
                 draft_session = preview_sessions.get(outline_item.outline_item_bid)
                 if draft_session is not None:
                     status = (
@@ -754,13 +754,20 @@ def reset_learn_record(
         from flaskr.service.learn.agent.routing import uses_agent_engine
 
         if preview_mode and uses_agent_engine(shifu_bid):
-            stage_agent_session_discard(
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_item_bid=outline_bid,
-                preview_mode=True,
-            )
-            return True
+            from flaskr.service.learn.agent.preview_history import has_preview_script
+
+            if not DraftOutlineItem.query.filter_by(
+                shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
+            ).first():
+                return True
+            if has_preview_script(app, shifu_bid=shifu_bid, outline_bid=outline_bid):
+                stage_agent_session_discard(
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_bid,
+                    preview_mode=True,
+                )
+                return True
         progress_records = (
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.user_bid == user_bid,

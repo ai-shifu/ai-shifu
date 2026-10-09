@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from datetime import timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
@@ -24,7 +25,12 @@ from flaskr.service.learn.agent.session_store import (
     preview_presentation,
     save_agent_session,
 )
-from flaskr.service.learn.learn_dtos import ElementType, LearnStatus
+from flaskr.service.learn.learn_dtos import (
+    ElementType,
+    GeneratedType,
+    LearnStatus,
+    RunMarkdownFlowDTO,
+)
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, reset_learn_record
 from flaskr.service.learn.listen_elements import (
     ListenElementRunAdapter,
@@ -40,6 +46,7 @@ from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.user.repository import create_user_entity
+from flaskr.util.datetime import now_utc, to_utc_iso
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
@@ -441,3 +448,197 @@ def test_preview_reset_cannot_retire_another_courses_lesson(
     before = history().model_dump()
     reset_learn_record(app, "another-course", identity, identity, preview_mode=True)
     assert history().model_dump() == before
+
+
+def test_draft_follow_ups_restore_at_owned_anchor_and_stay_retired_after_reset(
+    app: Flask, classroom: tuple
+) -> None:
+    identity, run, history, _calls = classroom
+    run()
+    anchor = history().elements[0].element_bid
+    with app.app_context(), unit_of_work():
+        adapter = ListenElementRunAdapter(
+            app, shifu_bid=identity, outline_bid=identity, user_bid=identity
+        )
+        block = uuid.uuid4().hex
+        list(
+            adapter.process(
+                iter(
+                    [
+                        RunMarkdownFlowDTO(
+                            outline_bid=identity,
+                            generated_block_bid=block,
+                            type=GeneratedType.ASK,
+                            content="Explain this paragraph?",
+                            anchor_element_bid=anchor,
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid=identity,
+                            generated_block_bid=block,
+                            type=GeneratedType.CONTENT,
+                            content="A draft explanation.",
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid=identity,
+                            generated_block_bid=block,
+                            type=GeneratedType.BREAK,
+                            content="",
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid=identity,
+                            generated_block_bid=block,
+                            type=GeneratedType.DONE,
+                            content="",
+                        ),
+                    ]
+                )
+            )
+        )
+    restored = history().elements
+    assert [item.element_type for item in restored] == [
+        ElementType.TEXT,
+        ElementType.ASK,
+        ElementType.ANSWER,
+        ElementType.INTERACTION,
+    ]
+    assert restored[1].content == "Explain this paragraph?"
+    assert restored[2].content == "A draft explanation."
+    assert [item["role"] for item in restored[0].payload.asks] == ["student", "teacher"]
+    reset_learn_record(app, identity, identity, identity, preview_mode=True)
+    run()
+    assert all(
+        item.element_type not in {ElementType.ASK, ElementType.ANSWER}
+        for item in history().elements
+    )
+
+
+def test_multiple_deferred_questions_keep_controls_and_individual_answers(
+    app: Flask, classroom: tuple, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity, run, history, _calls = classroom
+
+    async def several_questions(messages: list, _info: object) -> AsyncIterator:
+        if any(isinstance(p, ToolCallPart) for m in messages for p in m.parts):
+            yield "Completed."
+            yield {
+                0: DeltaToolCall(
+                    name="finish",
+                    tool_call_id="finish-many",
+                    json_args='{"summary":"Done"}',
+                )
+            }
+            return
+        yield "Teaching before both questions."
+        yield {
+            index: DeltaToolCall(
+                name="interact",
+                tool_call_id=f"many-{index}",
+                json_args=json.dumps({"type": "text", "prompt": f"Question {index}?"}),
+            )
+            for index in range(2)
+        }
+
+    class Gateway(FunctionModel):
+        def set_usage_context(self, _context: UsageContext) -> None:
+            pass
+
+    gateway = Gateway(stream_function=several_questions)
+    monkeypatch.setattr(lesson_entry, "GatewayModel", lambda *_a, **_k: gateway)
+    run()
+    controls = [
+        e for e in history().elements if e.element_type == ElementType.INTERACTION
+    ]
+    assert len(controls) == 2
+    assert len({e.element_bid for e in controls}) == 2
+    run("First answer")
+    controls = [
+        e for e in history().elements if e.element_type == ElementType.INTERACTION
+    ]
+    assert len(controls) == 2
+    assert controls[0].payload.user_input == "First answer"
+    assert not controls[1].payload.user_input
+    run("Second answer")
+    controls = [
+        e for e in history().elements if e.element_type == ElementType.INTERACTION
+    ]
+    assert [e.payload.user_input for e in controls] == ["First answer", "Second answer"]
+    assert load_agent_session(app, identity, identity, preview_mode=True).finished
+
+
+def test_draft_update_timestamp_stays_at_generation_start_after_answer(
+    app: Flask, classroom: tuple
+) -> None:
+    identity, run, history, _calls = classroom
+    run()
+    start = now_utc() - timedelta(days=1)
+    with app.app_context(), unit_of_work():
+        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
+        row.created_at = start
+        DraftOutlineItem.query.filter_by(
+            outline_item_bid=identity
+        ).one().content = "Edited script"
+    run("An answer after editing")
+    assert history().last_progress_updated_at == to_utc_iso(start)
+    with app.app_context():
+        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
+        assert row.updated_at > row.created_at
+
+
+def test_scriptless_draft_keeps_legacy_history_status_and_reset(
+    app: Flask, classroom: tuple, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity, run, history, _calls = classroom
+    progress = uuid.uuid4().hex
+    with app.app_context(), unit_of_work():
+        DraftOutlineItem.query.filter_by(outline_item_bid=identity).one().content = ""
+        db.session.add(
+            LearnProgressRecord(
+                progress_record_bid=progress,
+                user_bid=identity,
+                shifu_bid=identity,
+                outline_item_bid=identity,
+                status=LEARN_STATUS_IN_PROGRESS,
+            )
+        )
+        db.session.add(
+            LearnGeneratedElement(
+                element_bid=uuid.uuid4().hex,
+                user_bid=identity,
+                shifu_bid=identity,
+                outline_item_bid=identity,
+                progress_record_bid=progress,
+                generated_block_bid=uuid.uuid4().hex,
+                run_session_bid="legacy-fallback",
+                event_type="element",
+                element_type="text",
+                is_final=1,
+                content_text="Legacy fallback teaching",
+                status=1,
+            )
+        )
+
+    def no_script(*_a: object, **_k: object) -> None:
+        message = "No script"
+        raise lesson_entry.LessonNotTeachable(message)
+
+    fallback = []
+
+    def legacy(**kwargs: object) -> Iterator:
+        fallback.append(kwargs["element_adapter"].persist_only_final)
+        return iter([])
+
+    monkeypatch.setattr(lesson_entry, "_resolve", no_script)
+    monkeypatch.setattr(runtime, "run_script_inner", legacy)
+    run()
+    assert fallback == [False]
+    with app.app_context():
+        assert LearnAgentSession.query.filter_by(user_bid=identity).count() == 0
+    assert history().elements[0].content == "Legacy fallback teaching"
+    assert (
+        get_outline_item_tree(app, identity, identity, preview_mode=True)
+        .outline_items[0]
+        .status
+        == LearnStatus.IN_PROGRESS
+    )
+    reset_learn_record(app, identity, identity, identity, preview_mode=True)
+    assert history().elements == []

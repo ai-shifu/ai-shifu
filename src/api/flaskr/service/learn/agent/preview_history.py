@@ -23,7 +23,11 @@ from flaskr.service.learn.learn_dtos import (
     OutlineItemUpdateDTO,
     RunElementSSEMessageDTO,
 )
-from flaskr.service.learn.listen_element_history import _build_final_elements_from_rows
+from flaskr.service.learn.listen_element_history import (
+    _attach_follow_up_history_to_anchor_payload,
+    _build_final_elements_from_rows,
+    _merge_follow_up_elements_after_anchor,
+)
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.util.datetime import to_utc_iso
@@ -31,6 +35,19 @@ from flaskr.util.datetime import to_utc_iso
 if TYPE_CHECKING:
     from flask import Flask
     from flaskr.service.learn.agent.engine import Session
+
+
+def has_preview_script(app: Flask, *, shifu_bid: str, outline_bid: str) -> bool:
+    """Keep scriptless lessons on their existing 1.0 history and reset path."""
+    with app_context_scope(app):
+        lesson = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+        return lesson is not None and bool((lesson.content or "").strip())
 
 
 def begin_preview_run(
@@ -82,7 +99,12 @@ def begin_preview_run(
 
 
 def stage_preview_turn(
-    *, generation: str, session: Session, generated_block_bid: str, turn_record: str
+    *,
+    generation: str,
+    session: Session,
+    generated_block_bid: str,
+    turn_record: str,
+    question_ids: list[str] | None = None,
 ) -> None:
     """Bind rendered questions and accepted inputs inside the session save transaction."""
     row = LearnAgentSession.query.filter_by(
@@ -90,8 +112,9 @@ def stage_preview_turn(
     ).one()
     data = json.loads(row.session_data)
     presentation = data[PREVIEW_PRESENTATION_KEY]
-    if session.pending:
-        presentation["questions"][generated_block_bid] = session.pending[0].tool_call_id
+    if question_ids:
+        # Each emitted control owns one question, even when several share a turn block.
+        presentation["questions"][generated_block_bid] = question_ids
     record = json.loads(turn_record).get("agent_turn", {}) if turn_record else {}
     pending = record.get("checkpoint", {}).get("pending", [])
     values = record.get("values", [])
@@ -141,11 +164,15 @@ def get_preview_record(
                     interaction_user_input_by_block_bid={},
                     include_non_navigable=include_non_navigable,
                 )
+                question_offsets: dict[str, int] = {}
                 for element in current:
                     if element.element_type == ElementType.INTERACTION:
-                        call_id = presentation["questions"].get(
-                            element.generated_block_bid
-                        )
+                        block_bid = element.generated_block_bid
+                        ids = presentation["questions"].get(block_bid, [])
+                        ids = [ids] if isinstance(ids, str) else ids
+                        offset = question_offsets.get(block_bid, 0)
+                        question_offsets[block_bid] = offset + 1
+                        call_id = ids[offset] if offset < len(ids) else None
                         if call_id and call_id in seen_questions:
                             continue
                         if call_id:
@@ -157,10 +184,51 @@ def get_preview_record(
                     elements.append(element)
                 if events is not None:
                     events.extend(current_events or [])
+            # ASK runs have an independent semaphore and do not advance the lesson session.
+            # Their exact active-generation anchor, rather than their run, owns presentation.
+            anchor_bids = {element.element_bid for element in elements}
+            follow_up_rows = (
+                LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.user_bid == user_bid,
+                    LearnGeneratedElement.shifu_bid == shifu_bid,
+                    LearnGeneratedElement.outline_item_bid == outline_bid,
+                    LearnGeneratedElement.element_type.in_(["ask", "answer"]),
+                    LearnGeneratedElement.deleted == 0,
+                    LearnGeneratedElement.status == 1,
+                )
+                .order_by(LearnGeneratedElement.id)
+                .all()
+            )
+            owned_rows = []
+            for item in follow_up_rows:
+                try:
+                    payload = json.loads(item.payload or "{}")
+                except (TypeError, ValueError):
+                    continue
+                if (
+                    isinstance(payload, dict)
+                    and payload.get("anchor_element_bid") in anchor_bids
+                ):
+                    owned_rows.append(item)
+            by_follow_up_run: dict[str, list] = {}
+            for item in owned_rows:
+                by_follow_up_run.setdefault(item.run_session_bid, []).append(item)
+            for follow_up_run in by_follow_up_run.values():
+                current, current_events = _build_final_elements_from_rows(
+                    follow_up_run,
+                    interaction_user_input_by_block_bid={},
+                    include_non_navigable=include_non_navigable,
+                )
+                elements.extend(current)
+                if events is not None:
+                    events.extend(current_events or [])
+            elements = _merge_follow_up_elements_after_anchor(
+                _attach_follow_up_history_to_anchor_payload(elements)
+            )
         return LearnElementRecordDTO(
             elements=elements,
             events=events,
-            last_progress_updated_at=to_utc_iso(row.updated_at) if row else None,
+            last_progress_updated_at=to_utc_iso(row.created_at) if row else None,
         )
 
 

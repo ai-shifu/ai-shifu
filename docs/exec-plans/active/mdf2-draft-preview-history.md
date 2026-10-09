@@ -9,11 +9,15 @@ Draft classroom previews can resume a pending engine question while the browser 
 - [x] 2026-10-09 21:40 CST: Read-only investigation found teaching text before interactions in stored model responses, while preview history lookup uses published progress.
 - [x] 2026-10-09 21:40 CST: Finished the preceding exercise statistics PR validation and review replies.
 - [x] 2026-10-09 21:55 CST: Added preview presentation ownership, scoped history/status/reset and regression coverage.
-- [ ] 2026-10-09 21:40 CST: Run local checks, submit a focused main PR and verify sim integration.
+- [x] 2026-10-09 22:03 CST: Local checks and repository gates passed; submitted main PR #3072 and integrated sim as 94a175386.
+- [x] 2026-10-09 22:15 CST: Added regression fixes for anchored follow-ups, several deferred controls, the stable generation timestamp and scriptless fallback. All four regressions fail without their fixes and pass with them.
+- [ ] 2026-10-09 22:15 CST: Finish full regression, reply to review findings after pushing, and verify the reviewed sim runtime.
 
 ## Surprises & Discoveries
 
 The same user/lesson has separate preview and published engine keys but no separate presentation lookup. Preview elements already persist, with no learner progress/block record. Empty-history auto-continuation re-asks a pending interaction without replaying teaching. Catalog restart visibility depends on published progress. The two current script snapshots are identical; this evidence does not support a model-ordering fault.
+
+Review identified that follow-ups have independent adapter runs and several deferred controls can share a block. Presentation ownership must retain both. A mutable session update time also hides draft edits while the engine retains its original script. The separately reported old-answer error is an explicit unsupported preview rewind, outside this history/restart fix.
 
 ## Decision Log
 
@@ -34,7 +38,8 @@ including three additional compatibility/scope cases, passed 197 tests. Seven fr
 passed 27 tests and frontend lint passed. Type-check reports two existing admin test errors
 (TS2683/TS2790); removing both frontend changes and running the same command reproduces the
 exact same two errors on main. No unrelated admin test change is included. Repository gates,
-PR and sim checks remain pending.
+Initial sim build 476 succeeded and both API replicas matched 58 runtime hashes.
+The reviewed revision and its deployed regressions remain pending.
 
 ## Context and Orientation
 
