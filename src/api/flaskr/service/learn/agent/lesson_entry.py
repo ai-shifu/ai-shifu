@@ -124,6 +124,19 @@ def _resolve(
     )
 
 
+def require_teachable_preview(
+    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> None:
+    """Reject the 1.0 fallback before reserving any agent preview presentation."""
+    _resolve(
+        app,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        preview_mode=True,
+    )
+
+
 def _teaching_brief(outline_model: type, *, outline: object, shifu: object) -> str:
     """Return the author's teaching brief for this lesson, or an empty string.
 
@@ -224,6 +237,7 @@ def agent_lesson_events(
     script_override: str | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, object] | None = None,
+    preview_generation: str | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Teach a lesson selected for 2.0 until it waits or ends, yielding the events 1.0 produces.
 
@@ -373,6 +387,8 @@ def agent_lesson_events(
                 if debug_store is not None
                 else {}
             )
+            if preview_generation is not None:
+                debug_options["preview_generation"] = preview_generation
             outcome = yield from run_agent_lesson(
                 app,
                 engine=engine,

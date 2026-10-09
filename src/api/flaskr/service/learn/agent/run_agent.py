@@ -76,6 +76,7 @@ from flaskr.service.learn.agent.rewind import (
     turn_record,
 )
 from flaskr.service.learn.agent.session_store import (
+    PreviewGenerationDiscardedError,
     StoredSessionUnusable,
     load_agent_session,
     save_agent_session,
@@ -332,6 +333,7 @@ def run_agent_lesson(
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, Any] | None = None,
     on_turn_opened: Callable[[str, str], None] | None = None,
+    preview_generation: str | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
 
@@ -411,6 +413,7 @@ def run_agent_lesson(
     )
     session_holder: dict[str, Any] = {
         "rewind": rewind,
+        "preview_generation": preview_generation,
         "memory_generations": memory_generations,
     }
 
@@ -963,6 +966,7 @@ def _stream_turn(
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
     pending_memory: list[MemoryUpdated] = []
+    preview_question_ids: list[str] = []
     taught: list[str] = []
     persisted = False
     # The script's verbatim markers come back in the engine's text; they are syntax, not lesson.
@@ -1049,7 +1053,7 @@ def _stream_turn(
             # whose last row was not the question read to the browser as a lesson to continue --
             # which it did, with nothing, on every reload.
             asked = True
-            yield from _question(
+            for question_payload in _question(
                 event,
                 pager=pager,
                 voice=voice,
@@ -1058,7 +1062,10 @@ def _stream_turn(
                 app=app,
                 taught="".join(taught),
                 user_bid=user_bid,
-            )
+            ):
+                if question_payload.type == GeneratedType.INTERACTION:
+                    preview_question_ids.append(event.id)
+                yield question_payload
             continue
 
         # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
@@ -1093,6 +1100,8 @@ def _stream_turn(
                         turn_record=session_holder.get("turn_record", ""),
                         rewind=session_holder.get("rewind"),
                         memory_generations=session_holder.get("memory_generations"),
+                        preview_generation=session_holder.get("preview_generation"),
+                        preview_question_ids=preview_question_ids,
                     )
                 pending_memory = []
                 if session.finished and kept:  # not for a turn a reset discarded
@@ -1219,6 +1228,8 @@ def _stream_turn(
                 turn_record=session_holder.get("turn_record", ""),
                 rewind=session_holder.get("rewind"),
                 memory_generations=session_holder.get("memory_generations"),
+                preview_generation=session_holder.get("preview_generation"),
+                preview_question_ids=preview_question_ids,
             )
 
     return TurnOutcome(
@@ -1261,6 +1272,8 @@ def _persist(
     turn_record: str = "",
     rewind: RewindPlan | None = None,
     memory_generations: dict[str, int] | None = None,
+    preview_generation: str | None = None,
+    preview_question_ids: list[str] | None = None,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -1283,6 +1296,16 @@ def _persist(
         whoever commits next, a write from a turn that was meant to be discarded.
         """
         record = None
+        if preview_generation is not None:
+            from flaskr.service.learn.agent.preview_history import stage_preview_turn
+
+            stage_preview_turn(
+                generation=preview_generation,
+                session=session,
+                generated_block_bid=generated_block_bid,
+                turn_record=turn_record,
+                question_ids=preview_question_ids,
+            )
         if not preview_mode:
             record = claim_for_writing(
                 user_bid=user_bid,
@@ -1369,8 +1392,11 @@ def _persist(
             outline_item_bid=outline_bid,
             preview_mode=preview_mode,
             stage=stage_everything,
+            **(
+                {"preview_generation": preview_generation} if preview_generation else {}
+            ),
         )
-    except _TurnDiscardedError:
+    except (_TurnDiscardedError, PreviewGenerationDiscardedError):
         app.logger.info(
             "discarding a turn whose lesson was reset while it ran: "
             "user_bid=%s outline_bid=%s",

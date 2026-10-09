@@ -344,6 +344,33 @@ def test_record_reset_route_uses_authenticated_learner(
     )
 
 
+@pytest.mark.parametrize("allowed", [True, False])
+def test_preview_reset_checks_permission_before_scoped_reset(
+    monkeypatch: object, test_client: object, feedback_course: object, allowed: bool
+) -> None:
+    preview_user = "preview-reset-user"
+    feedback_course.user.user_id = preview_user
+    reset = Mock(return_value=True)
+    permission = Mock()
+    if not allowed:
+        permission.side_effect = lambda *_args: routes.raise_error(
+            "server.shifu.shifuNotFound"
+        )
+    monkeypatch.setattr(routes, "reset_learn_record", reset)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", permission)
+    response = test_client.delete(
+        f"/api/learn/shifu/{feedback_course.bid}/records/lesson?preview_mode=TRUE",
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+    assert permission.call_args.args[1:] == (preview_user, feedback_course.bid)
+    if allowed:
+        assert response["data"] is True
+        assert reset.call_args.kwargs == {"preview_mode": True}
+    else:
+        assert response["code"] != 0
+        reset.assert_not_called()
+
+
 @pytest.mark.parametrize("preview", [False, True])
 def test_generated_audio_route_admits_billing_and_serializes_provider_errors(
     monkeypatch: object, test_client: object, feedback_course: object, preview: bool

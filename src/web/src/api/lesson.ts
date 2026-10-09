@@ -18,5 +18,8 @@ export const getScriptInfo = async (courseId: string, scriptId: string) => {
 
 export const resetChapter = async ({ lessonId: outline_bid }) => {
   const { courseId: shifu_bid } = useEnvStore.getState();
-  return request.delete(`/api/learn/shifu/${shifu_bid}/records/${outline_bid}`);
+  const { previewMode } = useSystemStore.getState();
+  return request.delete(
+    `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${previewMode}`,
+  );
 };
