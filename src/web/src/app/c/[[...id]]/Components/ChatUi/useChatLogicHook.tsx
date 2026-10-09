@@ -329,7 +329,13 @@ function useChatLogicHook({
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
   const pendingInteractionAnchorBidRef = useRef('');
-  const runRef = useRef<((params: SSEParams) => void) | null>(null);
+  const runRef = useRef<
+    | ((
+        params: SSEParams,
+        continuingRewind?: ReturnType<typeof startPreviewRewindTracking>,
+      ) => void)
+    | null
+  >(null);
   const sseRef = useRef<any>(null);
   const previewRewindResultRef =
     useRef<ReturnType<typeof startPreviewRewindTracking>>(undefined);
@@ -1347,7 +1353,11 @@ function useChatLogicHook({
    * Applies stream-driven lesson status updates and triggers follow-up actions.
    */
   const lessonUpdateResp = useCallback(
-    (response, isEnd: boolean) => {
+    (
+      response,
+      isEnd: boolean,
+      continuingRewind?: ReturnType<typeof startPreviewRewindTracking>,
+    ) => {
       const {
         outline_bid: currentOutlineBid,
         status,
@@ -1360,10 +1370,13 @@ function useChatLogicHook({
         status_value: status,
       });
       if (status === LESSON_STATUS_VALUE.PREPARE_LEARNING && !isEnd) {
-        runRef.current?.({
-          input: '',
-          input_type: SSE_INPUT_TYPE.NORMAL,
-        });
+        runRef.current?.(
+          {
+            input: '',
+            input_type: SSE_INPUT_TYPE.NORMAL,
+          },
+          continuingRewind,
+        );
       }
 
       if (status === LESSON_STATUS_VALUE.LEARNING && !isEnd) {
@@ -1439,14 +1452,18 @@ function useChatLogicHook({
    * Starts the SSE request and streams content into the chat list.
    */
   const run = useCallback(
-    (sseParams: SSEParams) => {
+    (
+      sseParams: SSEParams,
+      continuingRewind?: ReturnType<typeof startPreviewRewindTracking>,
+    ) => {
       if (creditInsufficientAudience === null) {
         return;
       }
       const runSerial = sseRunSerialRef.current + 1;
       sseRunSerialRef.current = runSerial;
       clearRunStreamTimeout();
-      previewRewindResultRef.current?.('cancelled');
+      // Internal continuation retains the original attempt; a user replacement cancels it.
+      if (!continuingRewind) previewRewindResultRef.current?.('cancelled');
       if (sseRef.current) {
         try {
           sseRef.current?.close();
@@ -1483,16 +1500,19 @@ function useChatLogicHook({
         });
       }
 
-      const finishPreviewRewind = startPreviewRewindTracking({
-        preview: effectivePreviewMode,
-        anchor:
-          sseParams.reload_element_bid || sseParams.reload_generated_block_bid,
-        answering: Boolean(sseParams.input),
-        shifuBid,
-        outlineBid,
-        learningMode,
-        trackEvent,
-      });
+      const finishPreviewRewind =
+        continuingRewind ??
+        startPreviewRewindTracking({
+          preview: effectivePreviewMode,
+          anchor:
+            sseParams.reload_element_bid ||
+            sseParams.reload_generated_block_bid,
+          answering: Boolean(sseParams.input),
+          shifuBid,
+          outlineBid,
+          learningMode,
+          trackEvent,
+        });
       previewRewindResultRef.current = finishPreviewRewind;
       let isEnd = false;
       let didReachTerminalSuccess = false;
@@ -1963,7 +1983,7 @@ function useChatLogicHook({
                     isEnd = true;
                     setHasRunFailed(false);
                   }
-                  lessonUpdateResp(response, isEnd);
+                  lessonUpdateResp(response, isEnd, finishPreviewRewind);
                 }
               }
             } else if (
@@ -2001,10 +2021,13 @@ function useChatLogicHook({
                   lastRenderableItem &&
                   lastRenderableItem.type === ChatContentItemType.CONTENT
                 ) {
-                  runRef.current?.({
-                    input: '',
-                    input_type: SSE_INPUT_TYPE.NORMAL,
-                  });
+                  runRef.current?.(
+                    {
+                      input: '',
+                      input_type: SSE_INPUT_TYPE.NORMAL,
+                    },
+                    finishPreviewRewind,
+                  );
                 }
                 return updatedList;
               });
