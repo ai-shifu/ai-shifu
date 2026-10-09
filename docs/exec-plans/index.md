@@ -29,6 +29,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)
 - [Admit and persist memory from completed follow-up answers](./active/mdf2-follow-up-memory-writeback.md)
 - [Keep concurrent gevent lesson streams responsive](./active/mdf2-gevent-bridge-stability.md)
+- [Continue teaching after a failed model stream](./active/mdf2-interrupted-teaching-history.md)
 - [Keep native usage classification inside an application scope](./active/mdf2-native-usage-classification.md)
 - [Attribute teaching usage to the actual learning attempt](./active/mdf2-teaching-usage-attempt.md)
 - [Operator Credit Deduction](./active/operator-credit-deduction.md)

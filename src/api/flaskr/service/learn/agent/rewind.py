@@ -75,6 +75,7 @@ def checkpoint_of(session: Session) -> dict[str, Any]:
         "request_inputs": state.get("request_inputs", []),
         "turn": state["turn"],
         "finished": state["finished"],
+        "interrupted": state.get("interrupted", False),
     }
 
 
@@ -94,6 +95,7 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
         request_inputs=checkpoint.get("request_inputs") or [],
         turn=int(checkpoint.get("turn") or 0),
         finished=bool(checkpoint.get("finished", False)),
+        interrupted=bool(checkpoint.get("interrupted", False)),
     )
     state["messages"] = state["messages"][: int(checkpoint.get("messages") or 0)]
     if "answer_hashes" in checkpoint:
@@ -111,6 +113,7 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     session.request_inputs = restored.request_inputs
     session.turn = restored.turn
     session.finished = restored.finished
+    session.interrupted = restored.interrupted
 
 
 def turn_record(checkpoint: dict[str, Any], values: list[str]) -> str:

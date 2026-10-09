@@ -46,6 +46,7 @@ async def test_roundtrip(store_factory: Callable[[], SessionStore]) -> None:
     s.answers = {"c0": "Learner chose: A"}
     s.usage = {"requests": 2}
     s.turn = 3
+    s.interrupted = True
     await store.save(s)
     back = await store.load(s.id)
     assert back is not None
@@ -64,8 +65,16 @@ async def test_roundtrip(store_factory: Callable[[], SessionStore]) -> None:
     assert back.answers == {"c0": "Learner chose: A"}
     assert back.usage == {"requests": 2}
     assert back.turn == 3
+    assert back.interrupted
     assert back.all_memory() == {"pace": "slow", "n": "Lin"}
     assert await store.load("nope") is None
+
+
+def test_legacy_session_defaults_to_uninterrupted() -> None:
+    """Existing saved sessions remain readable without the additive retry flag."""
+    state = Session(script=ScriptBundle(script="Teach the next step.")).to_dict()
+    state.pop("interrupted")
+    assert not Session.from_dict(state).interrupted
 
 
 @pytest.mark.parametrize("pending", [False, True])
