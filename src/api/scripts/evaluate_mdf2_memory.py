@@ -698,9 +698,12 @@ def report(
     }
     for name in (
         "memory_admission.py",
+        "lesson_entry.py",
         "run_agent.py",
         "gateway_model.py",
         "engine/engine.py",
+        "engine/exercise_statistics.py",
+        "engine/prompts/exercise_statistics.md",
         "engine/session.py",
         "engine/tools.py",
         "engine/script.py",

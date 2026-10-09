@@ -100,20 +100,47 @@ The author requests one JSON object (plain or in a single Markdown JSON fence)
 containing per-question first-result booleans,
 attempt and hint counts, plus aggregate counts. Scoring rejects missing/duplicate
 questions, duplicate JSON keys, invalid scalar types, wrong per-question assignments and inconsistent
-totals. It also requires actual completion, unchanged memory and preserved original
+totals. The evaluator now enables the product exercise tools and requires complete
+original-evidence pages plus an evidence-correct calculation before any report
+text. A correct report that skips those tools fails protocol acceptance. Calculator
+labels may be the fixture numeric ID, exact original question prompt or exact
+original teaching title; every reference must still belong to that same original
+question. Wrong titles or swapping equally graded answers between questions fail.
+It also requires actual completion, unchanged memory and preserved original
 history. A successful finish with wrong statistics remains a semantic failure.
 Invalid report formatting fails checks; provider/engine errors remain evaluation
 errors. The report stores checks and usage, never raw model output or attempts.
 
 These controlled cases use temperature zero and a 2,048-token cap, separately
 reported as `exercise_generation_settings`; other families retain their settings.
-They use the existing 15-second gateway timeout/deadline and six-request limit,
+They use the existing 15-second gateway timeout/deadline and twelve-request limit,
 with at most one host-style completion turn. They are evidence checks, not a
 natural-course grading benchmark or deterministic enforcement of model output.
-A natural-course report already contradicted preserved original attempts even
-though its author required a matching ledger. This extension does not repair that
-failure, add a grading ledger or broaden memory admission. Retain that failure
-separately even if these simpler cases pass.
+The product now offers session-local original submission reads and a calculator
+that validates exhaustive, unique references and chronological attempts. Counts
+come from question rows, not model arithmetic. Semantic grades, question grouping
+and hint identification remain model judgments. Unknown hint counts remain null.
+No profile or course memory is written, and no persistent grading ledger is added.
+Results are bounded to 8 KiB of UTF-8 JSON; over 200 accepted submissions, ambiguous
+pairing or oversized reports are refused explicitly. The existing overall input
+budget still applies; per-result bounds do not bound cumulative history.
+Portable Engine hosts retain the old tool set unless they opt in. The AI-Shifu
+lesson entry enables it for classroom and preview in read and listen modes.
+
+The retained natural eleven-question failure was replayed without persistence.
+The original runtime passed 0/3; an earlier reader-only prototype passed 1/3.
+The first calculator prompt was skipped (1/3 final reports correct); a stronger
+protocol then exposed the diagnostic six-request cap (two errors). With the
+product twelve-request limit and final candidate, fresh replays passed 3/3 with
+complete source reads, correct calculation, matching final rows/totals, no engine
+errors and no memory writes. These are original-history replays, not three new
+classroom journeys, independent human tests, or deterministic grading guarantees.
+The evaluator initially rejected exact original prompt/title labels; their
+normalization plus reference grouping rescores six unchanged captured outputs
+6/6, with a subsequent fresh final-source selected CLI run passing 2/2. Earlier
+failing reports remain retained privately, not relabeled as new passing runs.
+Statistics after semantic-summary
+compaction and other models/languages remain separate acceptance items.
 
 ## Running
 
@@ -150,7 +177,7 @@ temperature and unbounded teaching output. The admission judge uses its actual
 product settings. These are bounded fact/tool checks, not an identical-settings
 production teaching benchmark. A subset report has `full_catalog=false` even when every selected
 case passes. Each admission case has the product judge's one-request limit. Recall has
-a six-request limit per turn and at most two turns including automatic completion. Gateway requests use a 15-second provider timeout and cooperative deadline
+a twelve-request limit per turn and at most two turns including automatic completion. Gateway requests use a 15-second provider timeout and cooperative deadline
 with SDK retries disabled; this is not a hard wall-clock deadline for an entire
 case. The fixed suite runs sequentially to bound concurrent provider load.
 

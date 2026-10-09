@@ -184,6 +184,114 @@ def score_report(text: str, expected: dict[str, Any]) -> dict[str, bool]:
     }
 
 
+def _question_number(value: str) -> int:
+    """Accept the fixture's ID, original prompt or exact original teaching title."""
+    for number in range(1, 12):
+        if value in {
+            str(number),
+            f"Question {number}",
+            f"Question {number}: What is {number} + 1?",
+        }:
+            return number
+    message = "invalid fixture question label"
+    raise ValueError(message)
+
+
+def score_calculation(
+    events: list[object], expected: dict[str, Any]
+) -> dict[str, bool]:
+    """Require complete evidence reads and a correct calculation before report text."""
+    from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
+
+    calls = {}
+    offset = 0
+    source = ""
+    complete = False
+    calculated = False
+    premature = False
+    for event in events:
+        if isinstance(event, ContentDelta) and event.text.strip() and not calculated:
+            premature = True
+        if isinstance(event, ToolCall):
+            calls[event.id] = event
+        elif isinstance(event, ToolResult) and event.id in calls:
+            call = calls[event.id]
+            if call.name != event.name:
+                continue
+            try:
+                result = json.loads(event.content)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(result, dict):
+                continue
+            if (
+                event.name == "read_exercise_history"
+                and result.get("status") == "found"
+            ):
+                if (
+                    call.args.get("offset", 0) != offset
+                    or result.get("offset") != offset
+                ):
+                    continue
+                fragment = result.get("text")
+                if not isinstance(fragment, str):
+                    continue
+                source += fragment
+                offset += len(fragment)
+                complete = result.get("next_offset") is None
+            elif (
+                event.name == "calculate_exercise_statistics"
+                and result.get("status") == "calculated"
+                and complete
+            ):
+                try:
+                    records = json.loads(source)
+                    references = [record["reference"] for record in records]
+                    supplied = [
+                        submission["reference"]
+                        for row in call.args["questions"]
+                        for submission in row["submissions"]
+                    ]
+                    rows = [
+                        {
+                            "question": _question_number(row["question"]),
+                            "first_correct": row["first_correct"],
+                            "attempts": row["attempts"],
+                            "hints": row["hints"],
+                        }
+                        for row in result["questions"]
+                    ]
+                    original_questions = {
+                        record["reference"]: record["question"]["prompt"]
+                        for record in records
+                    }
+                    grouping_matches = all(
+                        original_questions[submission["reference"]]
+                        == f"Question {_question_number(row['question'])}"
+                        for row in call.args["questions"]
+                        for submission in row["submissions"]
+                    )
+                    totals = {key: result["totals"][key] for key in expected["totals"]}
+                except (ValueError, KeyError, TypeError):
+                    continue
+                calculated = (
+                    bool(records)
+                    and grouping_matches
+                    and set(references) == set(supplied)
+                    and len(references) == len(supplied)
+                    and all(
+                        score_report(
+                            json.dumps({"questions": rows, "totals": totals}), expected
+                        ).values()
+                    )
+                )
+    return {
+        "original_evidence_read": complete,
+        "calculated_evidence": calculated,
+        "report_after_calculation": calculated and not premature,
+    }
+
+
 async def evaluate_exercise(case: dict[str, Any], model: Model) -> dict[str, Any]:
     """Score final model output against immutable original attempt evidence."""
     from flaskr.service.learn.agent.engine import (
@@ -205,7 +313,8 @@ async def evaluate_exercise(case: dict[str, Any], model: Model) -> dict[str, Any
         memory_recall=True,
         recall_history_compaction=True,
         teaching_history_compaction=True,
-        request_limit=6,
+        exercise_statistics=True,
+        request_limit=12,
         model_settings=dict(GENERATION_SETTINGS),
     )
     events = [event async for event in engine.run_turn(session, ContinueTurn())]
@@ -224,6 +333,7 @@ async def evaluate_exercise(case: dict[str, Any], model: Model) -> dict[str, Any
     errors = [event for event in events if isinstance(event, ErrorEvent)]
     checks = {
         **score_report(text, expected_report(case)),
+        **score_calculation(events, expected_report(case)),
         "history_preserved": ModelMessagesTypeAdapter.dump_json(
             session.messages[:count]
         )

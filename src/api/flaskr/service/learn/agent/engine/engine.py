@@ -57,6 +57,7 @@ from .events import (
     ToolResult,
     TurnDone,
 )
+from .exercise_statistics import calculate_exercise_statistics, read_exercise_history
 from .history_context import compact_recall_history, current_recall_notice
 from .interaction import (
     InteractionAnswer,
@@ -358,6 +359,7 @@ class Engine:
         recall_history_compaction: bool = False,
         teaching_history_compaction: bool = False,
         teaching_summarizer: TeachingSummarizer | None = None,
+        exercise_statistics: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -393,12 +395,22 @@ class Engine:
         marker. It requires recall to remain available, preserves the latest teaching turn
         and all saved evidence, and never summarizes teaching text or learner answers.
 
+        `exercise_statistics` offers bounded original-submission reads and a
+        reference-validated arithmetic calculator. Semantic grades and question
+        grouping still come from the model; no learner memory is written.
+
         `teaching_history_compaction` offers exact paginated reads of older long
         teaching replaced by excerpts in requests. It preserves two recent turns,
         all learner input and original stored evidence. `teaching_summarizer` optionally
         decorates excerpts with bounded session-local semantic summaries; without it
         projection makes no extra model call.
         """
+        self.exercise_statistics = exercise_statistics
+        self.exercise_instructions = (
+            (PROMPTS_DIR / "exercise_statistics.md").read_text()
+            if exercise_statistics
+            else ""
+        )
         self.prompts = prompts or Prompts.default()
         self.interaction_check = interaction_check
         self.pauses_from_notation = pauses_from_notation
@@ -472,6 +484,11 @@ class Engine:
                     + self.memory_instructions,
                 ),
                 finish,
+                *(
+                    [read_exercise_history, calculate_exercise_statistics]
+                    if exercise_statistics
+                    else []
+                ),
                 *([recall] if memory_recall else []),
                 *([read_teaching] if teaching_history_compaction else []),
             ],
@@ -492,7 +509,11 @@ class Engine:
         DaisyUI and GSAP preloaded), `generic` (any assistant that can show plain HTML), or
         `none` (text only).
         """
-        parts = [self.prompts.base, self.memory_instructions, self.history_instructions]
+        parts = [
+            self.prompts.base,
+            self.memory_instructions,
+            self.history_instructions,
+        ]
         if render == "sandbox":
             parts.append(self.prompts.html_display)
         elif render == "generic":
@@ -503,6 +524,7 @@ class Engine:
             parts.append(self.prompts.v1_syntax)
         if self.extra_instructions:
             parts.append(self.extra_instructions)
+        parts.append(self.exercise_instructions)
         return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
     def _instructions(self, ctx: RunContext[Deps]) -> str:
@@ -582,6 +604,9 @@ class Engine:
             memory_deleted_keys=memory_deleted_keys,
             memory_current_inputs=(turn.text,)
             if isinstance(turn, MessageTurn) and not replaying_input
+            else (),
+            exercise_history=tuple(session.messages)
+            if self.exercise_statistics
             else (),
             memory=session.memory,
             user_memory=session.user_memory,

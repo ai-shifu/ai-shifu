@@ -25,8 +25,10 @@ model's natural-course report or authorize new learner memory.
 - [x] 2026-10-09T10:42:56Z: Developer-tool check and full repository pre-commit
   gates pass. Published [PR #3068](https://github.com/ai-shifu/ai-shifu/pull/3068)
   with b9e79f33d; all live-report source fingerprints match that checkout.
-- [ ] 2026-10-09T10:36:30Z: Reply to independent PR findings, review scope and
-  acceptance, then archive this evaluator implementation plan.
+- [x] 2026-10-09T12:40:00Z: Independent findings were replied to in their original
+  discussions, final technical CI passed and #3068 merged as 4066bae4c. Archive
+  this evaluator implementation; natural runtime repair continues in
+  [the calculation plan](../active/mdf2-exercise-statistics-calculation.md).
 
 ## Surprises & Discoveries
 
@@ -62,7 +64,10 @@ A passing synthetic run cannot erase the observed natural-course failure.
 That unresolved natural-course grading issue remains tracked by the workspace
 current MDF status and natural-course acceptance record; this plan closes only
 the repeatable evaluation extension. Repository gates passed and PR #3068 is
-published. Final CI and independent PR review remain separate from local evidence.
+published. Final technical CI passed and all independent review opinions were replied to
+in their original discussions before #3068 merged. Final CodeRabbit incremental
+review was rate-limited, not substantive acceptance. Natural runtime repair and
+its acceptance continue in the calculation plan, not this archived evaluator plan.
 
 ## Context and Orientation
 

@@ -24,14 +24,23 @@ CASES = [case for case in quality.load_cases() if case["family"] == "exercise"]
 
 
 def summary_model(
-    text: str, *, fail: bool = False, finish_later: bool = False
+    text: str,
+    *,
+    fail: bool = False,
+    finish_later: bool = False,
+    use_tools: bool = True,
+    original_labels: bool = False,
+    full_labels: bool = False,
+    swap_sources: bool = False,
 ) -> FunctionModel:
     phase = 0
+    source = ""
+    reported = False
 
     async def stream(
         messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
-        nonlocal phase
+        nonlocal phase, source, reported
         phase += 1
         assert {"interact", "finish"} <= {tool.name for tool in info.function_tools}
         # Original paired wrong and corrected answers must reach the actual model.
@@ -46,10 +55,78 @@ def summary_model(
         if fail:
             message = "Injected provider failure; never include details in a report."
             raise RuntimeError(message)
-        if phase == 1:
-            yield text
-        if finish_later and phase == 1:
+        last = next(
+            (
+                part
+                for part in reversed(messages[-1].parts)
+                if isinstance(part, ToolReturnPart)
+            ),
+            None,
+        )
+        if use_tools and phase == 1:
+            yield {
+                0: DeltaToolCall(
+                    name="read_exercise_history", json_args="{}", tool_call_id="read-1"
+                )
+            }
             return
+        if use_tools and last and last.tool_name == "read_exercise_history":
+            page = json.loads(last.content)
+            source += page["text"]
+            if page["next_offset"] is not None:
+                yield {
+                    0: DeltaToolCall(
+                        name="read_exercise_history",
+                        json_args=json.dumps({"offset": page["next_offset"]}),
+                        tool_call_id=f"read-{phase}",
+                    )
+                }
+                return
+            grouped = {}
+            for record in json.loads(source):
+                number = int(record["question"]["prompt"].split()[-1])
+                correct = record["answer"] == f"Learner wrote: {number + 1}"
+                row = grouped.setdefault(
+                    number,
+                    {
+                        "question": str(number),
+                        "submissions": [],
+                        "hints": 0,
+                        "hints_before_first": 0,
+                    },
+                )
+                row["submissions"].append(
+                    {
+                        "reference": record["reference"],
+                        "outcome": "correct" if correct else "incorrect",
+                    }
+                )
+                row["hints"] += not correct
+            if original_labels:
+                for number, row in grouped.items():
+                    row["question"] = (
+                        f"Question {number}: What is {number} + 1?"
+                        if full_labels
+                        else f"Question {number}"
+                    )
+            if swap_sources:
+                grouped[3]["submissions"], grouped[4]["submissions"] = (
+                    grouped[4]["submissions"],
+                    grouped[3]["submissions"],
+                )
+            yield {
+                0: DeltaToolCall(
+                    name="calculate_exercise_statistics",
+                    json_args=json.dumps({"questions": list(grouped.values())}),
+                    tool_call_id="calc",
+                )
+            }
+            return
+        if not reported:
+            yield text
+            reported = True
+            if finish_later:
+                return
         yield {
             0: DeltaToolCall(
                 name="finish", tool_call_id="done", json_args='{"summary":"done"}'
@@ -211,3 +288,53 @@ async def test_stored_history_mutation_cannot_pass(
     )
     assert not result["passed"]
     assert not result["checks"]["history_preserved"]
+
+
+async def test_correct_report_without_tools_is_not_protocol_acceptance() -> None:
+    case = CASES[0]
+    result = await exercise.evaluate_exercise(
+        case, summary_model(json.dumps(exercise.expected_report(case)), use_tools=False)
+    )
+    assert result["checks"]["question_evidence"]
+    assert result["checks"]["aggregate_evidence"]
+    assert not result["checks"]["calculated_evidence"]
+    assert not result["passed"]
+
+
+@pytest.mark.parametrize("full_labels", [False, True])
+async def test_calculator_original_labels_preserve_original_question_identity(
+    full_labels: bool,
+) -> None:
+    case = CASES[0]
+    result = await exercise.evaluate_exercise(
+        case,
+        summary_model(
+            json.dumps(exercise.expected_report(case)),
+            original_labels=True,
+            full_labels=full_labels,
+        ),
+    )
+    assert result["passed"]
+
+
+async def test_swapped_original_references_fail_even_with_identical_counts() -> None:
+    case = CASES[0]
+    result = await exercise.evaluate_exercise(
+        case,
+        summary_model(json.dumps(exercise.expected_report(case)), swap_sources=True),
+    )
+    assert result["checks"]["question_evidence"]
+    assert result["checks"]["aggregate_evidence"]
+    assert not result["checks"]["calculated_evidence"]
+    assert not result["passed"]
+
+
+@pytest.mark.parametrize(
+    "label",
+    ["Question 1: What is 2 + 1?", "Question 01", "Question 1 extra", "Question 12"],
+)
+def test_question_label_aliases_do_not_hide_wrong_or_invented_titles(
+    label: str,
+) -> None:
+    with pytest.raises(ValueError, match="invalid fixture question label"):
+        exercise._question_number(label)
