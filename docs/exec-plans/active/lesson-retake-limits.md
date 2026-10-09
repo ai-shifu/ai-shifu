@@ -432,6 +432,8 @@ Rollback: revert frontend commit only; ledger/history remains untouched.
 
 - [x] 2026-10-09 Asia/Shanghai: U1 Implement status-aware update notice and shared translations.
 - [x] 2026-10-09 Asia/Shanghai: U2 Verify loading/error/busy/owner/preview and analytics, plus shared callers.
-- [ ] 2026-10-09 Asia/Shanghai: U3 Push dev02, verify deployment and browser exhausted/owner notice states.
+- [x] 2026-10-09 Asia/Shanghai: U3 Push dev02, verify deployment and browser exhausted/owner notice states.
 
 Update-notice verification: focused hook/notice/catalog/mobile-header/titlebar tests passed (53 tests). Notice lookup does not count as a confirmation analytics event; owner/preview are excluded and analytics failure cannot block learning. All eight locales updated. Full TypeScript retains the four previously documented unrelated admin-test/library-locale failures; no new errors.
+
+Update-notice delivery: commit 74b3d0c78, build 442 / Drone 5233, image 20261009-74b3d0c; deployment records 2112-2115 all succeeded. Chrome learner 017 on lesson aa5e4bbf085c4baf89c4ee569e83e75c showed Chinese review guidance with no update reset button; catalog reset still returned exhaustion and disabled confirmation. IAB owner on lesson 49627b510d2d4147b691b77d8bb6fd13 showed the English latest-content action and enabled confirmation, then cancelled. No teaching was regenerated and no counts were reset. Proof: /private/tmp/retake-update-review-header.png. All-file pre-commit and frontend lint passed (existing warnings remain); full TypeScript baseline errors are unchanged.
