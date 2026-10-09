@@ -155,6 +155,7 @@ def test_non_json_retrieval_response_raises_domain_error(
 def test_sse_ignores_malformed_frames_and_propagates_provider_error(
     provider: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Retain partial answers, then fail with the provider's safe exception contract."""
     response = MagicMock(status=200)
     response.iter_lines.return_value = iter(
         [
@@ -171,8 +172,11 @@ def test_sse_ignores_malformed_frames_and_propagates_provider_error(
         Flask("sse-provider"), provider, "user", "question", [], {"config": CONFIG}
     )
     assert next(stream).content == "partial"
-    with pytest.raises(AskProviderError, match="rate limited"):
+    expected = "coze returned an error event" if provider == "coze" else "rate limited"
+    with pytest.raises(AskProviderError, match=expected) as raised:
         next(stream)
+    if provider == "coze":
+        assert "rate limited" not in str(raised.value)
 
 
 def test_coze_custom_endpoint_and_extra_body_preserve_request_contract(
