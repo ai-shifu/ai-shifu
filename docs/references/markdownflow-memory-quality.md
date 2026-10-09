@@ -118,9 +118,19 @@ with at most one host-style completion turn. They are evidence checks, not a
 natural-course grading benchmark or deterministic enforcement of model output.
 The product now offers session-local original submission reads and a calculator
 that validates exhaustive, unique references and chronological attempts. Counts
-come from question rows, not model arithmetic. Semantic grades, question grouping
+come from question rows, not model arithmetic. Following teaching stops at the
+next user/continue or accepted-answer boundary and before the next interaction
+call. It remains exact context, not an extracted grade; a combined text part may
+also introduce the following interaction. Shared answer-group markers identify
+simultaneously answered questions. No language heuristic splits that original text.
+Known zero total hints establishes zero hints before the first answer. Semantic
+grades, question grouping
 and hint identification remain model judgments. Unknown hint counts remain null.
 No profile or course memory is written, and no persistent grading ledger is added.
+The synthetic scorer accepts only exact fixture IDs, prompts, teaching titles or
+short arithmetic titles; it still independently checks each answer's original
+question membership. Calculation diagnostics are fixed status enums, without
+raw tool arguments, output or exception details.
 Results are bounded to 8 KiB of UTF-8 JSON; over 200 accepted submissions, ambiguous
 pairing or oversized reports are refused explicitly. The existing overall input
 budget still applies; per-result bounds do not bound cumulative history.
@@ -177,7 +187,7 @@ temperature and unbounded teaching output. The admission judge uses its actual
 product settings. These are bounded fact/tool checks, not an identical-settings
 production teaching benchmark. A subset report has `full_catalog=false` even when every selected
 case passes. Each admission case has the product judge's one-request limit. Recall has
-a twelve-request limit per turn and at most two turns including automatic completion. Gateway requests use a 15-second provider timeout and cooperative deadline
+a six-request limit per turn and at most two turns including automatic completion. Gateway requests use a 15-second provider timeout and cooperative deadline
 with SDK retries disabled; this is not a hard wall-clock deadline for an entire
 case. The fixed suite runs sequentially to bound concurrent provider load.
 

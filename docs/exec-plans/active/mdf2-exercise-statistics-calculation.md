@@ -23,8 +23,20 @@ Semantic grading remains a model responsibility, subject to independent evaluati
   unchanged captured diagnostic outputs rescore 6/6; a new final CLI run passes
   both selected cases (2/2). Its eight requests are correctly scoped and settled;
   source fingerprints match the checkout. Earlier failing reports remain retained.
-- [ ] 2026-10-09T12:30:00Z: Enable only after evidence supports the candidate, run
-  repository gates, publish a focused PR and verify sim without merging main.
+- [x] 2026-10-09T13:00:00Z: Published #3071 and deployed the first candidate to
+  sim (`5940d7ad5`); main remains unmerged.
+- [x] 2026-10-09T13:12:00Z: Addressed review boundaries and known-zero hints,
+  restored the documented six-request recall limit, and added five engine cases.
+  The learning/evaluator suite passes 3,011 cases plus four subtests, one skip;
+  all 540 engine tests pass. Removing either boundary or zero-hint normalization
+  makes its regression fail. Reviewed-source natural replays pass 3/3.
+- [x] 2026-10-09T13:16:00Z: Captured a fresh synthetic failure: correct calculations
+  used exact shortened arithmetic titles rejected by the fixture scorer. Added
+  only those exact fixture labels (Q and Question prefixes) and a wrong-expression rejection; strict original
+  reference grouping stays required. The two unchanged captured runs rescore 2/2;
+  33 scorer regressions pass. Reports expose only a diagnostic status enum.
+- [ ] 2026-10-09T13:16:00Z: Push review fixes, reply in every original discussion,
+  verify the updated sim image and record final-head CI without merging main.
 
 ## Surprises & Discoveries
 
@@ -38,7 +50,13 @@ Use the unchanged product twelve-request limit for this multi-step workflow.
 The new evaluator initially rejected original prompt/title labels despite correct
 calculations. Normalize only the fixture ID, exact prompt and exact teaching title;
 also validate each submitted reference belongs to its claimed original question.
-Do not relax grades, counts, final JSON IDs or duplicate checks.
+Do not relax grades, counts, final JSON IDs or duplicate checks. Post-review
+synthetic runs exposed a further exact arithmetic-title form (`Q1: 1 + 1`).
+Retain both failed reports and the captured events; normalization also rejects
+wrong expressions and still matches each answer reference to its original prompt.
+Following teaching can mix feedback with a next-question introduction in one
+original text part. Preserve that text and identify the following interaction
+and simultaneous answer group instead of heuristically splitting semantic grades.
 
 ## Decision Log
 
@@ -49,14 +67,19 @@ Do not relax grades, counts, final JSON IDs or duplicate checks.
   unverified and unanswered states; do not infer grades with language regexes.
 - Bound complete UTF-8 JSON tool results. Keep full stored history unchanged.
 - Keep 1.0 code and fallback intact; retirement remains inventory only.
+- Stop following teaching at a new user/accepted-answer boundary or before a new
+  interaction call, preserving exact earlier parts and intervening tool exchanges.
+- Zero total hints proves zero hints before the first attempt; otherwise omitted
+  hint counts remain unknown. Recall keeps six requests; exercise uses twelve.
 
 ## Outcomes & Retrospective
 
 Reference coverage, exact page bounds, reload/deferred answers and arithmetic
 regressions pass. The original natural-history final rows and totals now match
 in three fresh replays using the real course model. Earlier skipped-tool and
-request-cap failures remain retained. Final-source natural replay and selected synthetic protocol checks pass. CI and
-sim acceptance remain pending. No deterministic semantic-grading guarantee.
+request-cap failures remain retained. Reviewed-source natural replay passes 3/3. The initial feature CI passed all
+technical checks and sim has the initial image. Review-fix publication, original
+thread replies, updated-image acceptance and final-head CI remain pending. No deterministic semantic-grading guarantee.
 
 ## Context and Orientation
 

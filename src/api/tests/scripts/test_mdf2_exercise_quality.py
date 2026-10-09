@@ -31,6 +31,8 @@ def summary_model(
     use_tools: bool = True,
     original_labels: bool = False,
     full_labels: bool = False,
+    expression_labels: bool = False,
+    long_expression_labels: bool = False,
     swap_sources: bool = False,
 ) -> FunctionModel:
     phase = 0
@@ -114,6 +116,10 @@ def summary_model(
                     grouped[4]["submissions"],
                     grouped[3]["submissions"],
                 )
+            if expression_labels:
+                for number, row in grouped.items():
+                    prefix = "Question " if long_expression_labels else "Q"
+                    row["question"] = f"{prefix}{number}: {number} + 1"
             yield {
                 0: DeltaToolCall(
                     name="calculate_exercise_statistics",
@@ -145,6 +151,7 @@ async def test_statistics_require_correct_rows_and_totals_after_real_reload(
     )
     assert result["passed"], result
     assert all(result["checks"].values())
+    assert result["calculation_diagnostic"] == {"status": "ok"}
 
 
 def test_fixture_contains_answers_not_the_expected_report() -> None:
@@ -298,12 +305,15 @@ async def test_correct_report_without_tools_is_not_protocol_acceptance() -> None
     assert result["checks"]["question_evidence"]
     assert result["checks"]["aggregate_evidence"]
     assert not result["checks"]["calculated_evidence"]
+    assert result["calculation_diagnostic"] == {"status": "no_calculation"}
     assert not result["passed"]
 
 
-@pytest.mark.parametrize("full_labels", [False, True])
+@pytest.mark.parametrize(
+    "label_style", ["prompt", "title", "expression", "long_expression"]
+)
 async def test_calculator_original_labels_preserve_original_question_identity(
-    full_labels: bool,
+    label_style: str,
 ) -> None:
     case = CASES[0]
     result = await exercise.evaluate_exercise(
@@ -311,7 +321,9 @@ async def test_calculator_original_labels_preserve_original_question_identity(
         summary_model(
             json.dumps(exercise.expected_report(case)),
             original_labels=True,
-            full_labels=full_labels,
+            full_labels=label_style == "title",
+            expression_labels=label_style in {"expression", "long_expression"},
+            long_expression_labels=label_style == "long_expression",
         ),
     )
     assert result["passed"]
@@ -326,12 +338,22 @@ async def test_swapped_original_references_fail_even_with_identical_counts() -> 
     assert result["checks"]["question_evidence"]
     assert result["checks"]["aggregate_evidence"]
     assert not result["checks"]["calculated_evidence"]
+    assert result["calculation_diagnostic"] == {
+        "status": "incorrect_calculation_or_grouping"
+    }
     assert not result["passed"]
 
 
 @pytest.mark.parametrize(
     "label",
-    ["Question 1: What is 2 + 1?", "Question 01", "Question 1 extra", "Question 12"],
+    [
+        "Question 1: What is 2 + 1?",
+        "Question 01",
+        "Question 1 extra",
+        "Question 12",
+        "Q1: 2 + 1",
+        "Question 1: 2 + 1",
+    ],
 )
 def test_question_label_aliases_do_not_hide_wrong_or_invented_titles(
     label: str,
