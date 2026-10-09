@@ -8,7 +8,10 @@ from flaskr.service.learn.memory.dtos import MemorySnapshot, MemoryUpdate
 from flaskr.service.learn.memory.reader import load_course_variables
 from flaskr.service.profile.api import (
     course_memory_deletion_state,
+    course_memory_value_versions,
+    get_global_profile_keys,
     get_user_profiles,
+    global_profile_value_versions,
     is_course_reference,
     save_user_profiles,
 )
@@ -57,6 +60,7 @@ def stage_memory(
     update: MemoryUpdate,
     *,
     expected_generations: dict[str, int] | None = None,
+    expected_value_versions: dict[str, int | tuple[int, str | None]] | None = None,
 ) -> bool:
     """Stage a memory patch in the caller's existing app/DB context.
 
@@ -69,6 +73,15 @@ def stage_memory(
     update.variables = [
         item for item in update.variables if not is_course_reference(item.key)
     ]
+    if expected_value_versions is not None:
+        versions = dict(course_memory_value_versions(user_bid, shifu_bid, lock=True))
+        if any(item.key in get_global_profile_keys() for item in update.variables):
+            versions.update(global_profile_value_versions(user_bid, lock=True))
+        update.variables = [
+            item
+            for item in update.variables
+            if versions.get(item.key, 0) == expected_value_versions.get(item.key, 0)
+        ]
     if expected_generations is not None:
         current, _ = course_memory_deletion_state(user_bid, shifu_bid, lock=True)
         update.variables = [

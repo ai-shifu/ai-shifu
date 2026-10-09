@@ -3,6 +3,7 @@
 from flaskr.service.profile.constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from flaskr.service.profile.course_memory import (
     course_memory_deletion_state,
+    course_memory_value_versions,
     delete_course_memory,
     list_course_memory,
 )
@@ -14,6 +15,7 @@ from flaskr.service.profile.course_references import (
 from flaskr.service.profile.funcs import (
     get_global_profile_keys,
     get_user_profiles,
+    global_profile_value_versions,
     save_user_profiles,
 )
 from flaskr.service.profile.learner_profile import (
@@ -31,9 +33,11 @@ __all__ = [
     "SYS_USER_LANGUAGE",
     "SYS_USER_NICKNAME",
     "course_memory_deletion_state",
+    "course_memory_value_versions",
     "delete_course_memory",
     "get_global_profile_keys",
     "get_user_profiles",
+    "global_profile_value_versions",
     "has_learner_profile_or_state",
     "is_course_reference",
     "list_course_memory",
