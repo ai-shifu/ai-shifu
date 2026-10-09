@@ -4,8 +4,12 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,6 +21,254 @@ ROOT = Path(__file__).resolve().parents[1]
 def workflow(name: str) -> dict:
     """Read the configured workflow, including YAML's Boolean-key spelling of on."""
     return yaml.safe_load((ROOT / ".github/workflows" / name).read_text())
+
+
+@pytest.mark.parametrize(
+    ("filename", "job_name"),
+    [
+        ("build-docker-image.yml", "build"),
+        ("runtime-harness.yml", "runtime-harness"),
+    ],
+)
+def test_frontend_build_revision_uses_checked_out_source_before_all_builds(
+    tmp_path: Path,
+    filename: str,
+    job_name: str,
+) -> None:
+    """A workflow event SHA must not replace the source revision copied into images."""
+    steps = workflow(filename)["jobs"][job_name]["steps"]
+    generators = [
+        step for step in steps if step.get("name") == "Record frontend build revision"
+    ]
+    assert len(generators) == 1
+    generator = generators[0]
+    checkout_index = next(
+        index
+        for index, step in enumerate(steps)
+        if step.get("uses", "").startswith("actions/checkout@")
+    )
+    build_indices = [
+        index
+        for index, step in enumerate(steps)
+        if step.get("uses", "").startswith(
+            ("docker/build-push-action@", "docker/bake-action@")
+        )
+    ]
+    assert build_indices
+    assert checkout_index < steps.index(generator) < min(build_indices)
+    if filename == "build-docker-image.yml":
+        assert generator["if"] == "inputs.service == 'web'"
+
+    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Build metadata test",
+            "-c",
+            "user.email=build-metadata@example.test",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "--quiet",
+            "-m",
+            "fixture",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    source_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    app_directory = tmp_path / "src/web"
+    app_directory.mkdir(parents=True)
+    marker = app_directory / ".app-build-sha"
+    marker.write_text("stale revision\n")
+    subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", generator["run"]],
+        cwd=tmp_path,
+        env={**os.environ, "GITHUB_SHA": "f" * 40},
+        check=True,
+    )
+
+    assert marker.read_text().strip() == source_sha
+    assert source_sha != "f" * 40
+
+
+def test_frontend_build_marker_is_git_ignored_but_available_to_docker() -> None:
+    """Local metadata is excluded from commits, while both Docker contexts keep it."""
+    marker = "src/web/.app-build-sha"
+    ignored = subprocess.run(
+        ["git", "check-ignore", marker],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert ignored.stdout.strip() == marker
+    for ignore_file, relative_marker in [
+        (ROOT / ".dockerignore", marker),
+        (ROOT / "src/web/.dockerignore", ".app-build-sha"),
+    ]:
+        for line in ignore_file.read_text().splitlines():
+            pattern = line.strip()
+            if pattern and not pattern.startswith(("#", "!")):
+                assert not path_matches(pattern, relative_marker)
+
+
+def dev_metadata_fixture(
+    tmp_path: Path, *, with_git: bool
+) -> tuple[Path, Path, dict[str, str], list[str]]:
+    """Create a checkout or source archive with a recording Docker executable."""
+    checkout = tmp_path / "checkout with spaces"
+    (checkout / "docker").mkdir(parents=True)
+    (checkout / "src/web").mkdir(parents=True)
+    shutil.copy2(ROOT / "docker/dev_in_docker.sh", checkout / "docker")
+    commits = []
+    if with_git:
+        subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
+        for message in ["initial fixture", "current fixture"]:
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Build metadata test",
+                    "-c",
+                    "user.email=build-metadata@example.test",
+                    "-c",
+                    "commit.gpgsign=false",
+                    "commit",
+                    "--allow-empty",
+                    "--quiet",
+                    "-m",
+                    message,
+                ],
+                cwd=checkout,
+                check=True,
+            )
+            commits.append(
+                subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"], cwd=checkout, text=True
+                ).strip()
+            )
+
+    bin_directory = tmp_path / "bin"
+    bin_directory.mkdir()
+    docker_log = tmp_path / "docker-calls.jsonl"
+    docker = bin_directory / "docker"
+    docker.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, pathlib, sys\n"
+        "marker = pathlib.Path(os.environ['TEST_DEV_MARKER'])\n"
+        "call = {'args': sys.argv[1:], "
+        "'marker': marker.read_text().strip() if marker.is_file() else None}\n"
+        "with open(os.environ['TEST_DEV_DOCKER_LOG'], 'a') as output:\n"
+        "    output.write(json.dumps(call) + '\\n')\n"
+    )
+    docker.chmod(0o755)
+    environment = {
+        **os.environ,
+        "PATH": f"{bin_directory}{os.pathsep}{os.environ['PATH']}",
+        "TEST_DEV_MARKER": str(checkout / "src/web/.app-build-sha"),
+        "TEST_DEV_DOCKER_LOG": str(docker_log),
+    }
+    return checkout, docker_log, environment, commits
+
+
+@pytest.mark.parametrize("with_git", [True, False])
+@pytest.mark.parametrize("stale_marker", [True, False])
+def test_docker_dev_script_prepares_revision_before_web_build(
+    tmp_path: Path, *, with_git: bool, stale_marker: bool
+) -> None:
+    """Fresh and stale dev images receive HEAD; archives cannot reuse stale metadata."""
+    checkout, docker_log, environment, commits = dev_metadata_fixture(
+        tmp_path, with_git=with_git
+    )
+    marker = checkout / "src/web/.app-build-sha"
+    previous_sha = commits[0] if commits else "a" * 40
+    if stale_marker:
+        marker.write_text(previous_sha)
+
+    subprocess.run(
+        ["bash", str(checkout / "docker/dev_in_docker.sh")],
+        cwd=tmp_path,
+        env=environment,
+        check=True,
+    )
+
+    calls = [json.loads(line) for line in docker_log.read_text().splitlines()]
+    assert [call["args"][0] for call in calls] == ["build", "build", "compose"]
+    assert calls[0]["marker"] == (previous_sha if stale_marker else None)
+    assert "ai-shifu-api-dev" in calls[0]["args"]
+    assert "ai-shifu-cook-web-dev" in calls[1]["args"]
+    assert Path(calls[1]["args"][1]).resolve() == checkout / "src/web"
+    assert calls[2]["args"][-1] == "up"
+    expected_sha = commits[-1] if commits else None
+    assert calls[1]["marker"] == expected_sha
+    assert calls[2]["marker"] == expected_sha
+    assert marker.is_file() is with_git
+
+
+@pytest.mark.parametrize("with_git", [True, False])
+def test_docker_dev_script_stops_when_marker_cannot_be_written_or_removed(
+    tmp_path: Path, *, with_git: bool
+) -> None:
+    """A failed metadata update cannot continue into a build with stale source data."""
+    checkout, docker_log, environment, _ = dev_metadata_fixture(
+        tmp_path, with_git=with_git
+    )
+    (checkout / "src/web/.app-build-sha").mkdir()
+
+    result = subprocess.run(
+        ["bash", str(checkout / "docker/dev_in_docker.sh")],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    calls = [json.loads(line) for line in docker_log.read_text().splitlines()]
+    assert len(calls) == 1
+    assert "ai-shifu-api-dev" in calls[0]["args"]
+
+
+@pytest.mark.parametrize("readme", ["README.md", "README_ZH-CN.md"])
+@pytest.mark.parametrize("with_git", [True, False])
+def test_documented_direct_dev_compose_prepares_marker_and_rebuilds(
+    tmp_path: Path, readme: str, *, with_git: bool
+) -> None:
+    """Execute both README entry points with checkout and archive fixtures."""
+    checkout, docker_log, environment, commits = dev_metadata_fixture(
+        tmp_path, with_git=with_git
+    )
+    (checkout / "src/web/.app-build-sha").write_text("stale revision\n")
+    blocks = re.findall(r"```bash\n(.*?)```", (ROOT / readme).read_text(), re.DOTALL)
+    commands = next(
+        block
+        for block in blocks
+        if ".app-build-sha" in block and "docker-compose.dev.yml" in block
+    )
+    subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", commands],
+        cwd=checkout / "docker",
+        env=environment,
+        check=True,
+    )
+
+    calls = [json.loads(line) for line in docker_log.read_text().splitlines()]
+    assert len(calls) == 1
+    assert calls[0]["args"] == [
+        "compose",
+        "-f",
+        "docker-compose.dev.yml",
+        "up",
+        "--build",
+        "-d",
+    ]
+    assert calls[0]["marker"] == (commits[-1] if commits else None)
 
 
 def path_matches(pattern: str, filename: str) -> bool:

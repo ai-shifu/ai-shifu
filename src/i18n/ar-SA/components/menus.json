@@ -4,6 +4,7 @@
     "adminConsole": "الدخول إلى لوحة الإدارة",
     "createCourse": "إنشاء دورة",
     "language": "اللغة",
-    "personalInfo": "التخصيص"
+    "personalInfo": "التخصيص",
+    "version": "الإصدار"
   }
 }
