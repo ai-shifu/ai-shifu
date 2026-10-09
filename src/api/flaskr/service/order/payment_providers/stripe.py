@@ -246,6 +246,47 @@ class StripeProvider(PaymentProvider):
             },
         )
 
+    def terminate_subscription(
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
+    ) -> SubscriptionUpdateResult:
+        """Terminate a Stripe subscription immediately without refunding it."""
+        stripe, request_options = self._client_options(app)
+        current = stripe.Subscription.retrieve(
+            provider_subscription_id,
+            **request_options,
+        )
+        current_payload = current.to_dict()
+        if current_payload.get("status") == "canceled":
+            return SubscriptionUpdateResult(
+                provider_reference=current_payload.get("id", provider_subscription_id),
+                raw_response=current_payload,
+                status="canceled",
+                extra={
+                    "subscription_bid": subscription_bid,
+                    "terminated_immediately": True,
+                    "already_terminated": True,
+                },
+            )
+        subscription = stripe.Subscription.delete(
+            provider_subscription_id,
+            **request_options,
+        )
+        payload = subscription.to_dict()
+        return SubscriptionUpdateResult(
+            provider_reference=payload.get("id", provider_subscription_id),
+            raw_response=payload,
+            status=payload.get("status", "canceled"),
+            extra={
+                "subscription_bid": subscription_bid,
+                "terminated_immediately": True,
+                "already_terminated": False,
+            },
+        )
+
     def resume_subscription(
         self,
         *,

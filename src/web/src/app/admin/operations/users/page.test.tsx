@@ -17,6 +17,7 @@ const originalLocation = window.location;
 const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
 const mockDeductionDialogPrefix = 'deduction-dialog-';
+const mockTerminationDialogPrefix = 'termination-dialog-';
 const mockCancellationDialogPrefix = 'cancellation-dialog-';
 const buildGrantDialogLabel = (userBid: string) =>
   `${mockGrantDialogPrefix}${userBid}`;
@@ -178,6 +179,22 @@ jest.mock('./UserCreditDeductionDialog', () => ({
     open ? (
       <div
         data-testid={`${mockDeductionDialogPrefix}${user?.user_bid || ''}`}
+      />
+    ) : null,
+}));
+
+jest.mock('./UserSubscriptionTerminationDialog', () => ({
+  __esModule: true,
+  default: ({
+    open,
+    user,
+  }: {
+    open: boolean;
+    user: { user_bid: string } | null;
+  }) =>
+    open ? (
+      <div
+        data-testid={`${mockTerminationDialogPrefix}${user?.user_bid || ''}`}
       />
     ) : null,
 }));
@@ -770,6 +787,56 @@ describe('AdminOperationUsersPage', () => {
 
     expect(
       await screen.findByTestId('deduction-dialog-user-1'),
+    ).toBeInTheDocument();
+  });
+
+  test('opens paid plan termination for an active subscription', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-paid-plan',
+          mobile: '15500000000',
+          email: '',
+          nickname: 'Paid User',
+          user_status: 'paid',
+          user_role: 'regular',
+          user_roles: [],
+          login_methods: ['phone'],
+          registration_source: 'phone',
+          language: 'zh-CN',
+          learning_courses: [],
+          learning_course_count: 0,
+          created_courses: [],
+          created_course_count: 0,
+          total_paid_amount: '100',
+          available_credits: '10',
+          subscription_credits: '10',
+          topup_credits: '0',
+          credits_expire_at: '2026-11-01T00:00:00Z',
+          has_active_subscription: true,
+          can_terminate_paid_subscription: true,
+          termination_subscription_bid: 'subscription-paid-plan',
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-10-01T00:00:00Z',
+          updated_at: '2026-10-01T00:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.actions.terminateSubscription',
+      }),
+    );
+
+    expect(
+      await screen.findByTestId('termination-dialog-user-paid-plan'),
     ).toBeInTheDocument();
   });
 

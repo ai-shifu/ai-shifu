@@ -48,6 +48,10 @@ from flaskr.service.billing.operation_credits import (
     release_reserved_operation_credits,
     reserve_operation_credits,
 )
+from flaskr.service.billing.operator_subscription_termination import (
+    load_operator_termination_subscription_bid_map,
+    terminate_operator_paid_subscription,
+)
 from flaskr.service.billing.ownership import resolve_shifu_creator_bid
 from flaskr.service.billing.payment_attempt_reconciliation import (
     PaymentAttemptReconciliation,
@@ -167,6 +171,7 @@ __all__ = [
     "list_credit_notifications",
     "load_credit_notification_policy",
     "load_credit_notification_policy_for_operator",
+    "load_operator_termination_subscription_bid_map",
     "load_referral_reward_summary",
     "persist_credit_wallet_snapshot",
     "quantize_credit_amount",
@@ -187,6 +192,7 @@ __all__ = [
     "save_credit_notification_policy",
     "sync_credit_bucket_status",
     "sync_credit_notification_template",
+    "terminate_operator_paid_subscription",
     "to_decimal",
     "update_credit_notification_email_template_status",
 ]

@@ -36,6 +36,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Attribute teaching usage to the actual learning attempt](./active/mdf2-teaching-usage-attempt.md)
 - [Volc Knowledge Follow-up Context](./active/mdf2-volc-follow-up-context.md)
 - [Operator Credit Deduction](./active/operator-credit-deduction.md)
+- [Operator Paid Subscription Termination](./active/operator-paid-subscription-termination.md)
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
 - [Payment Attempt Reconciliation](./active/payment-attempt-reconciliation.md)

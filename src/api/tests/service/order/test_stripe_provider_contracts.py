@@ -246,6 +246,37 @@ def test_subscription_lifecycle_preserves_id_and_cancel_state(
     assert result.extra == {"cancel_at_period_end": cancelled}
 
 
+def test_subscription_termination_deletes_subscription_immediately(
+    stripe_client: SimpleNamespace,
+) -> None:
+    stripe_client.Subscription.retrieve.return_value = _sdk_object(
+        {"id": "sub-provider", "status": "active"}
+    )
+    stripe_client.Subscription.delete.return_value = _sdk_object(
+        {"id": "sub-provider", "status": "canceled"}
+    )
+
+    result = stripe.StripeProvider().terminate_subscription(
+        subscription_bid="local-sub",
+        provider_subscription_id="sub-requested",
+        app=Flask(__name__),
+    )
+
+    stripe_client.Subscription.retrieve.assert_called_once_with(
+        "sub-requested", api_key="sk-test-scoped"
+    )
+    stripe_client.Subscription.delete.assert_called_once_with(
+        "sub-requested", api_key="sk-test-scoped"
+    )
+    assert result.provider_reference == "sub-provider"
+    assert result.status == "canceled"
+    assert result.extra == {
+        "subscription_bid": "local-sub",
+        "terminated_immediately": True,
+        "already_terminated": False,
+    }
+
+
 @pytest.mark.parametrize(
     ("reference_type", "payload", "charge"),
     [

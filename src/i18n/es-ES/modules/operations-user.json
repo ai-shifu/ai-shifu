@@ -4,7 +4,8 @@
     "cancelAccount": "Dar de baja la cuenta",
     "deductCredits": "Descontar créditos",
     "grantCredits": "Asignar créditos o plan",
-    "moreForUser": "Más acciones para {user}"
+    "moreForUser": "Más acciones para {user}",
+    "terminateSubscription": "Finalizar plan"
   },
   "cancellation": {
     "back": "Volver",
@@ -506,6 +507,22 @@
     "totalPaidAmount": "Importe total pagado",
     "updatedAt": "Fecha de actualización",
     "userId": "ID de usuario"
+  },
+  "terminationDialog": {
+    "account": "Cuenta",
+    "cancel": "Cancelar",
+    "confirm": "Finalizar ahora",
+    "description": "El plan deja de ser válido de inmediato y se detiene la renovación cuando corresponda. Se eliminan todos los créditos disponibles de su saldo de plan actual, incluidas las recompensas activas de prueba o invitación mezcladas en él; los paquetes de créditos independientes se conservan.",
+    "errors": {
+      "reason": "Introduce un motivo de finalización.",
+      "submitFailed": "No se pudo finalizar el plan. Inténtalo de nuevo."
+    },
+    "reason": "Motivo",
+    "reasonPlaceholder": "Indica por qué se finaliza este plan",
+    "submitting": "Finalizando...",
+    "subscriptionId": "ID del plan",
+    "success": "Plan finalizado",
+    "title": "Finalizar plan"
   },
   "title": "Gestión de usuarios"
 }

@@ -21,6 +21,7 @@ def test_shared_payment_provider_base_exposes_billing_required_hooks() -> None:
     assert "create_payment" in PaymentProvider.__abstractmethods__
     assert callable(PaymentProvider.create_subscription)
     assert callable(PaymentProvider.cancel_subscription)
+    assert callable(PaymentProvider.terminate_subscription)
     assert callable(PaymentProvider.resume_subscription)
     assert callable(PaymentProvider.verify_webhook)
     assert callable(PaymentProvider.sync_reference)

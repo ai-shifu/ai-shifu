@@ -52,6 +52,7 @@ from .campaign_provider_discounts import (
 )
 from .campaigns import resolve_applied_billing_campaign
 from .consts import (
+    ACTIVE_SUBSCRIPTION_STATUSES,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_INTERVAL_LABELS,
     BILLING_ORDER_STATUS_CANCELED,
@@ -588,6 +589,11 @@ def _prepare_subscription_checkout(
         )
         if current_subscription is not None:
             current_subscription = _lock_subscription_for_checkout(current_subscription)
+            if (
+                int(current_subscription.status or 0)
+                not in ACTIVE_SUBSCRIPTION_STATUSES
+            ):
+                raise_error("server.order.orderStatusError")
         prepaid_offset_amount = 0
         replaced_preorder_order = None
         if current_subscription is None:
@@ -1819,6 +1825,7 @@ def _lock_subscription_for_checkout(
             BillingSubscription.deleted == 0,
             BillingSubscription.subscription_bid == normalized_subscription_bid,
         )
+        .populate_existing()
         .with_for_update()
         .order_by(BillingSubscription.id.desc())
         .first()
