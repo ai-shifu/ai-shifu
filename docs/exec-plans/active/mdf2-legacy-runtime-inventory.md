@@ -10,15 +10,16 @@ The dated evidence belongs in the
 
 ## Progress
 
-- [x] 2026-10-09: Inspected teaching, ASK, preview, persistence, navigation,
+- [x] 2026-10-09T09:35:18Z: Verified the inspection of teaching, ASK, preview, persistence, navigation,
   routing, publication fields, and dynamic service registration on main 9057bb429.
-- [x] 2026-10-09: Reused the existing static import inventory and passed 46
+- [x] 2026-10-09T09:35:18Z: Verified the existing static import inventory and 46 passing
   existing learning boundary tests without runtime changes.
-- [x] 2026-10-09: Wrote the dated evidence with preservation boundaries and
+- [x] 2026-10-09T09:35:18Z: Reviewed the dated evidence with preservation boundaries and
   explicit limits; separated inventory from quality acceptance and retirement.
-- [ ] 2026-10-09: Publish the documentation-only PR after generated indexes,
-  repository harness, developer-tool check, and full pre-commit gates pass.
-- [ ] 2026-10-09: Inspect reviews and reply to each independent AI opinion in
+- [x] 2026-10-09T09:35:18Z: Confirmed publication of [PR #3066](https://github.com/ai-shifu/ai-shifu/pull/3066)
+  after generated indexes, repository harness, developer-tool check, and full
+  pre-commit gates passed for commit 6c1a30875.
+- [ ] 2026-10-09T09:35:18Z: Finish inspecting reviews and reply to each independent AI opinion in
   its original discussion; human merge remains separate.
 
 ## Surprises & Discoveries
@@ -41,8 +42,9 @@ absence of a static importer a weak deletion signal.
 ## Outcomes & Retrospective
 
 The inventory corrects the assumption that full 2.0 routing makes the 1.0 host
-and generated-record tables obsolete. Existing boundary tests pass. Publication
-and original-thread review disposition remain to be recorded in the PR. This
+and generated-record tables obsolete. Existing boundary tests and repository
+gates pass; PR #3066 is published. Original-thread review disposition remains
+to be recorded in the PR. This
 work does not complete a retirement milestone or authorize its implementation.
 
 ## Context and Orientation
