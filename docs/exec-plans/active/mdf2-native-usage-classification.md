@@ -15,8 +15,15 @@ TTS recording without changing request-owned transactions.
 - [x] 2026-10-09T04:15:00Z: Add seven regressions. Before the fix, all six
   native LLM/TTS course cases fail; the caller-transaction regression passes.
   After the fix, metering, billing and demo suites pass 1,681 tests with ten skips.
-- [ ] Validate broader learning and provider integration, repository gates,
-  exact sim deployment and a fresh built-in demo learner.
+- [x] 2026-10-09T04:23:00Z: Learning/profile/user/shared LLM tests pass
+  4,243 tests with one skip and four subtests; repository gates pass. Sim build
+  444 / Drone 5235, deployments 2120/2121, both API replicas match 38 hashes.
+  Fresh demo start/answer complete without errors; one 2.0 session has two turns
+  and two real exempt usage records.
+- [x] 2026-10-09T04:24:00Z: CI identifies a new test's model-registration
+  dependency on other collected modules. Isolated execution reproduces it;
+  register the course model before fixture schema creation.
+- [ ] Re-run isolated recording tests and final CI after the test-only correction.
 - [ ] Open the source PR, inspect CI and respond to every AI review opinion.
   A human merges the PR before production image rollout and re-enablement.
 
@@ -25,7 +32,8 @@ TTS recording without changing request-owned transactions.
 The model response succeeds before its usage recorder raises. Classification
 precedes autonomous usage persistence, so that persistence scope cannot protect
 the earlier cold configuration and course queries. A warm metadata cache masks
-the failure. Production read-only reproduction fails without a context and
+the failure. CI also exposed that test-local model imports occurred after fixture
+schema creation; collecting demo tests first masked that setup defect locally. Production read-only reproduction fails without a context and
 returns the expected demo exemption inside the existing app-context helper.
 
 ## Decision Log

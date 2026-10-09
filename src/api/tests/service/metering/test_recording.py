@@ -14,6 +14,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.models import PublishedShifu
 from flaskr.util.uuid import generate_id
 
 _BUILTIN_DEMO_SHIFU_BID = "demo-configured-1"
@@ -458,7 +459,6 @@ def test_native_usage_classifies_cold_course_without_a_caller_context(
     from flask import has_app_context
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.shifu import demo_courses
-    from flaskr.service.shifu.models import PublishedShifu
 
     course = f"native-{course_kind}-{kind}"
     queued: list[str] = []
@@ -523,7 +523,6 @@ def test_classification_reuses_the_caller_session_without_committing(
     from flaskr.dao.uow import on_commit, unit_of_work
     from flaskr.service.metering.recorder import _resolve_billable
     from flaskr.service.shifu import demo_courses
-    from flaskr.service.shifu.models import PublishedShifu
 
     monkeypatch.setattr(demo_courses, "_demo_metadata_cache", {})
     monkeypatch.setattr(
