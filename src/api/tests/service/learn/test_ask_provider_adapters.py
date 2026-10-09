@@ -1856,3 +1856,37 @@ def test_coze_malformed_url_keeps_provider_error_contract(app: object) -> None:
                 },
             )
         )
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        {"event": "error", "content": "PRIVATE COURSE NOTE"},
+        {"type": "error", "data": {"message": "PRIVATE COURSE NOTE"}},
+        {"type": "error", "detail": "PRIVATE COURSE NOTE"},
+    ],
+)
+def test_coze_error_echo_does_not_escape_into_host_logs(
+    app: object, monkeypatch: pytest.MonkeyPatch, error: dict
+) -> None:
+    """Provider exceptions must be safe for the host's existing exception warning."""
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(lines=["data: " + json.dumps(error)]),
+    )
+    with pytest.raises(
+        module.AskProviderError, match="coze returned an error event"
+    ) as raised:
+        list(
+            module.CozeAskProviderAdapter().stream_answer(
+                app,
+                "learner",
+                "Current question",
+                [{"role": "system", "content": "PRIVATE COURSE NOTE"}],
+                {"config": {"api_key": "test-key", "bot_id": "bot"}},
+            )
+        )
+    assert "PRIVATE COURSE NOTE" not in str(raised.value)
+    assert raised.value.__cause__ is None
