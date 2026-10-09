@@ -533,6 +533,7 @@ def handle_input_ask(
     def _chat_llm_stream(
         stream_messages: list[dict[str, Any]],
     ) -> Generator[Any, None, None]:
+        """Resolve the contextual model only when a provider invokes its factory."""
         # External provider-only answers do not depend on LLM configuration.
         # Guardrail rejections resolve through invoke_llm in check_text instead.
         model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
@@ -570,6 +571,7 @@ def handle_input_ask(
                 snapshot=dict(runtime_profiles or {}),
                 deleted_keys=memory_policy.deleted_keys,
                 generations=memory_policy.generations,
+                value_versions=memory_policy.value_versions,
                 reserved_keys=memory_policy.reserved_keys,
                 request_check=make_request_check(admission_model),
                 preview=is_preview,
@@ -613,6 +615,7 @@ def handle_input_ask(
     def _emit_provider_stream(
         provider_name: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Normalize visible provider text into the existing answer SSE stream."""
         nonlocal response_text
         provider_input_messages = (
             llm_messages if provider_name == ASK_PROVIDER_LLM else provider_messages

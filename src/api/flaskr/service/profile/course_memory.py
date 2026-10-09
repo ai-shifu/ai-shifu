@@ -52,6 +52,24 @@ def course_memory_deletion_state(
     return generations, frozenset(generations.keys() - live)
 
 
+def course_memory_value_versions(
+    user_bid: str, shifu_bid: str, *, lock: bool = False
+) -> dict[str, int]:
+    """Read latest row versions so delayed proposals cannot overwrite newer values.
+
+    A locking read is current under repeatable-read isolation and must remain in
+    the caller's final write transaction, never across model calls.
+    """
+    query = (
+        _course_rows(user_bid, shifu_bid)
+        .with_entities(VariableValue.id, VariableValue.key)
+        .order_by(VariableValue.id)
+    )
+    if lock:
+        query = query.populate_existing().with_for_update()
+    return {row.key: row.id for row in query.all()}
+
+
 def list_course_memory(
     user_bid: str, shifu_bid: str, *, before: int | None = None
 ) -> dict:

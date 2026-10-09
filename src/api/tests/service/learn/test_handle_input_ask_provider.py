@@ -1282,6 +1282,7 @@ def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_co
     calls = []
 
     def gateway(**kwargs: object) -> object:
+        """Exercise real gateway mapping with deterministic provider tool deltas."""
         calls.append(kwargs)
         generation = kwargs["generation_name"]
         if generation == "follow_up_memory_admission":
@@ -1327,6 +1328,7 @@ def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_co
     )
 
     def provider(**kwargs: object) -> object:
+        """Dispatch the selected external failure or contextual synthesis factory."""
         if kwargs["provider"] == "get_biji_knowledge":
             stream = kwargs["runtime"].llm_context_stream_factory("RETRIEVED KNOWLEDGE")
         elif kwargs["provider"] == "llm":
@@ -1361,6 +1363,14 @@ def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_co
         ("practice_code", "7319")
     ]
     assert patch.generations == {"practice_code": 0}
+    assert patch.value_versions == {}
+    system = calls[0]["messages"][0]["content"]
+    assert system.index("COURSE_PROMPT") < system.index("Follow-up memory capability:")
+    assert "undeclared current-course facts CAN be saved" in system
+    assert "never prohibit calling the available remember tool" in system
+    schema = calls[0]["tools"][0]["function"]["parameters"]
+    assert "request" in schema["required"]
+    assert "EXACTLY" in schema["properties"]["request"]["description"]
     assert len(calls) == 3
     assert (
         sum(call["generation_name"] == "follow_up_memory_admission" for call in calls)
