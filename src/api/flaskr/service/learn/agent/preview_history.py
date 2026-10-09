@@ -118,11 +118,21 @@ def stage_preview_turn(
     record = json.loads(turn_record).get("agent_turn", {}) if turn_record else {}
     pending = record.get("checkpoint", {}).get("pending", [])
     values = record.get("values", [])
+    answered_question_id = None
     if pending and values:
         call_id = pending[0]["tool_call_id"]
         still_pending = {item.tool_call_id for item in session.pending}
         if call_id not in still_pending or call_id in session.answers:
             presentation["answers"][call_id] = ",".join(values)
+            answered_question_id = call_id
+    if record.get("version") == 1 and isinstance(record.get("checkpoint"), dict):
+        presentation.setdefault("turns", []).append(
+            {
+                "block_bid": generated_block_bid,
+                "record": record,
+                "answered_question_id": answered_question_id,
+            }
+        )
     row.session_data = json.dumps(data, ensure_ascii=False)
 
 
