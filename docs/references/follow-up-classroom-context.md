@@ -102,9 +102,36 @@ remote history. Coze provider-only answers do not write AI-Shifu memory. The
 request-delivery contract is covered locally; answer quality still needs a
 separately configured real bot. See the [official Coze chat contract](https://docs.coze.cn/developer_guides_chat_v3).
 
-Coze Workflow and Volc adapters still discard provider messages; their configured
-interfaces need separate context-delivery work. The builder supplying a message
-list is not proof that every adapter transmits it.
+Volc native `/api/knowledge/collection/search_knowledge` receives valid nonempty
+system/user/assistant text in `pre_processing.messages`, retaining exact content
+and order, with the current query appended once after removing its existing
+trailing copy. The existing host history and encoded-memory budgets still apply;
+there is no adapter-side persistence. The final UTF-8 body, including context,
+is serialized before signing.
+
+For contextual native requests, an unspecified `rewrite` defaults to true so
+that the provider can use the history for retrieval. An explicit rewrite value
+other than boolean true opts out of automatic context delivery. Any explicitly
+configured `messages` field owns the complete message payload, including empty
+or malformed values, and keeps the existing blank-user normalization. Other
+preprocessing options remain intact. Query-only requests with no earlier valid
+context and bespoke non-native paths retain their previous request behavior.
+There is no new settings field or implicit switch to an LLM provider.
+
+The [official Volc search contract](https://docs.volcengine.com/docs/vector_database_vikingdb/search_knowledgeNew?lang=zh)
+describes rewriting from up to three conversation turns and requires more than
+two messages for an effective rewritten query. The adapter does not fabricate
+history to satisfy that threshold. Retrieval delivery is covered; a real
+configured knowledge base must separately establish rewrite/retrieval quality.
+This adapter returns retrieved text, rather than generating a contextual answer.
+Enabling native rewriting may add provider work; AI-Shifu billing classification
+and existing provider transport limits are unchanged. Valid error responses raise
+a fixed provider error even if they contain data; no-text response warnings report
+only the payload type, so echoed private notes do not reach host logs.
+
+Coze Workflow still discards provider messages; its configured interface needs
+separate context-delivery work. The builder supplying a message list is not proof
+that every adapter transmits it.
 
 ## Memory writes in contextual LLM follow-ups
 
