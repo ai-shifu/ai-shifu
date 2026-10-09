@@ -9,7 +9,8 @@ The exercise evaluator currently keeps every teaching message below the compacti
 - [x] 2026-10-09T15:48:00Z: Confirmed #3074 merged, all final CI passed, no actionable AI comments, and sim-d0ba676 is ready on both API replicas and web.
 - [x] 2026-10-09T15:48:00Z: Add successful-summary and injected-failure statistics cases with immutable long feedback evidence.
 - [x] 2026-10-09T15:48:00Z: Prove missing projection/cache reuse cannot pass, run selected live cases with scoped billing, and retain failures.
-- [ ] 2026-10-09T15:48:00Z: Complete gates, publish a focused main PR and reply to independent AI findings.
+- [x] 2026-10-09T15:57:13Z: Developer-tool checks, full gates and commit hooks passed; published [PR #3075](https://github.com/ai-shifu/ai-shifu/pull/3075) with functional commit b94979ac1.
+- [ ] Independent AI/CI review is running. Reply to any actionable opinions in their original threads before declaring review handling complete.
 
 ## Surprises & Discoveries
 
@@ -24,7 +25,7 @@ The projection flag is enabled in existing exercise cases, but none of their tex
 
 ## Outcomes & Retrospective
 
-Offline evaluator and engine regressions pass (647 total); 107 evaluator tests pass after restoring a mutation that disables projection/cache assertions. That mutation makes all four missing-projection/cache regressions fail. Selected sim live evaluation passes 2/2 on ark/deepseek-v4-1-flash-260910, with actual original reads, calculated results, one summary attempt/cache reuse and required projection markers. All 28 report fingerprints match the local candidate. Thirteen gateway rows are fully attributed to the dedicated learner, course, lesson and owner, with no fabricated classroom IDs, failures or unsettled billable successes; settled cost is 12.17 credits. One completed summary request is accounted separately; the failure case intentionally makes no summary-provider request. This single selected repetition is not a full-catalog result. Publication/gates remain pending. This scope closes repeatable statistics-after-compaction coverage only; natural courses, other models/languages, external providers, human teaching quality and long-term fees remain separate acceptance items.
+Offline evaluator and engine regressions pass (647 total); 107 evaluator tests pass after restoring a mutation that disables projection/cache assertions. That mutation makes all four missing-projection/cache regressions fail. Selected sim live evaluation passes 2/2 on ark/deepseek-v4-1-flash-260910, with actual original reads, calculated results, one summary attempt/cache reuse and required projection markers. All 28 report fingerprints match the local candidate. Thirteen gateway rows are fully attributed to the dedicated learner, course, lesson and owner, with no fabricated classroom IDs, failures or unsettled billable successes; settled cost is 12.17 credits. One completed summary request is accounted separately; the failure case intentionally makes no summary-provider request. This single selected repetition is not a full-catalog result. Developer-tool verification, repository gates and commit hooks passed; PR #3075 is open with functional commit b94979ac1. Independent AI/CI review is running. Keep this plan active for that follow-up; no application deployment is required for the evaluator-only delta. This scope closes repeatable statistics-after-compaction coverage only; natural courses, other models/languages, external providers, human teaching quality and long-term fees remain separate acceptance items.
 
 ## Context and Orientation
 
