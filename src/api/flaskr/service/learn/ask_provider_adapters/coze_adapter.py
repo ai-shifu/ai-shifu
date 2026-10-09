@@ -206,8 +206,7 @@ class CozeAskProviderAdapter:
 
                     event = str(parsed.get("event") or parsed.get("type") or "").lower()
                     if "error" in event:
-                        error_message = extract_text(parsed) or str(parsed)
-                        message = f"coze error: {error_message}"
+                        message = "coze returned an error event"
                         raise AskProviderError(message)
                     if event in {"done", "message_end", "chat.completed"}:
                         continue

@@ -16,10 +16,14 @@ in [follow-up classroom context](../../references/follow-up-classroom-context.md
   adapter; implemented native role mapping and bounded recent history.
 - [x] 2026-10-09T07:51:00Z: Added actual storage/builder/outbound coverage for scoped
   values, updates, deletion, history and no writes, plus malformed-echo log privacy.
-- [x] 2026-10-09T07:56:00Z: Final learning tests pass 2,865 cases, four subtests
+- [x] 2026-10-09T07:56:00Z: Initial learning tests pass 2,865 cases, four subtests
   and one expected skip; developer-tool and full repository gates pass.
-- [ ] 2026-10-09T07:51:00Z: Publish a focused PR, verify sim runtime/HTTP, and reply
-  to every independent AI review opinion in its original discussion.
+- [x] 2026-10-09T07:54:00Z: Published PR #3062. Initial sim build 457 and both
+  deployments succeed; review identified an error-echo privacy issue.
+- [x] 2026-10-09T08:00:00Z: Three privacy regressions fail before the review fix.
+  Final learning tests pass 2,868 cases, four subtests and one skip; full gates pass.
+- [ ] 2026-10-09T08:00:00Z: Verify final sim runtime/HTTP and reply to every
+  independent AI opinion in its original discussion.
 - [ ] 2026-10-09T07:51:00Z: Accept answer quality with a separately configured real
   Coze bot; mocked HTTP delivery must not be reported as real-bot acceptance.
 
@@ -30,6 +34,10 @@ an invalid API request. Assistant history also needs `type=answer`, since the
 provider defaults to question. A labelled user reference message carries course
 context without claiming system authority. Existing arbitrary extra-body overrides
 and custom endpoints can intentionally own a different request contract.
+Devin review identified valid error-event echoes escaping through the host's
+existing exception warning. Three new regressions reproduce it; sanitize the
+adapter error text as well as malformed-response warnings. Reply in original
+thread 4227925568 after pushing the fix and validation.
 The first real-storage test used an invalid response double; it was corrected to
 model the safe client's actual context-managed response rather than changing runtime.
 
@@ -51,7 +59,7 @@ model the safe client's actual context-managed response rather than changing run
 ## Outcomes & Retrospective
 
 Nine regression cases fail against the previous adapter. Final local learning
-acceptance passes 2,865 cases and four subtests, with one expected skip. Full
+acceptance passes 2,868 cases and four subtests, with one expected skip. Full
 repository gates pass. Sim, review closure and external answer quality remain
 tracked separately above.
 

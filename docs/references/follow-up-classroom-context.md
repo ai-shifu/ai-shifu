@@ -86,6 +86,8 @@ history within the remaining slots. It does not truncate individual values or
 mutate the host's message list. The existing 16 KiB memory-block budget still
 applies; this message-count limit is not a new whole-request byte budget.
 Malformed-response warnings contain only length metadata, never provider content.
+Valid error events raise a fixed provider error without echoing the response into
+the host's exception warning.
 
 An explicit `extra_body.additional_messages` continues to own the entire payload
 and opts out of automatic context delivery. Other extra-body fields, including
