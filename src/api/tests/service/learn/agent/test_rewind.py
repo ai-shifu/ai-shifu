@@ -354,3 +354,24 @@ def test_rewind_restores_pending_request_evidence_without_retaining_future_conse
     stored = session.to_dict()
     stored.pop("request_inputs")
     assert Session.from_dict(stored).request_inputs == []
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_rewind_restores_interrupted_teaching_state(interrupted: bool) -> None:
+    """Rewinding restores the retry guard together with its historical teaching."""
+    session = _session_waiting_on_a_question()
+    session.interrupted = interrupted
+    checkpoint = json.loads(json.dumps(rewind.checkpoint_of(session)))
+    session.interrupted = not interrupted
+    rewind.restore(session, checkpoint)
+    assert session.interrupted is interrupted
+
+
+def test_old_checkpoint_does_not_inherit_a_future_interruption() -> None:
+    """Checkpoints written before the additive flag default to uninterrupted."""
+    session = _session_waiting_on_a_question()
+    checkpoint = rewind.checkpoint_of(session)
+    checkpoint.pop("interrupted")
+    session.interrupted = True
+    rewind.restore(session, checkpoint)
+    assert not session.interrupted
