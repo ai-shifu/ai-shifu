@@ -31,7 +31,10 @@ HTML must not wait for either a complete block or the preceding prose queue.
 - [x] 2026-10-09 UTC: Fixed ordinary structural activation in independent commit 84818c7. Code toolbars, list bullets and table borders wait for their own source start; immediate HTML/video ancestors stay active. All 1,261 unit tests, 143 browser tests, 24 new real-Chrome structure combinations and 24 repeated task combinations pass.
 - [x] 2026-10-09 UTC: Fixed the source-tree declaration omission in independent commit 3aecd9c by naming its existing immutable return type. The build emits the missing internal declaration without TS7056, and npm pack includes it; package, export types and Storybook build pass.
 - [x] 2026-10-09 18:23 UTC: Current library head 3aecd9c passes all CI checks. After the required five-minute wait, Codex reports its review completed for this head, all 22 threads are resolved, no new actionable feedback remains, and GitHub reports the PR clean and mergeable.
-- [ ] 2026-10-09 UTC: After merging the library PR, obtain confirmation of version 0.2.31, main and its exact full SHA, publish through the manual workflow, verify npm and update consumer PR 3069.
+- [x] 2026-10-09 21:23 UTC: Library PR 248 merged. The user confirmed version 0.2.31, main and full SHA ddbd3cab2d3ece13575d3047c672c3c4cc02165a. Publish run 37992324098 succeeded; the official npm registry confirms that version, source SHA and latest tag.
+- [x] 2026-10-09 21:25 UTC: Synced consumer PR 3069 with main in 09a27d9. Bump markdown-flow-ui run 37993184719 succeeded and produced 74737a8, pinning 0.2.31 exactly with the official tarball integrity.
+- [x] 2026-10-09 21:36 UTC: Clean-installed the consumer with Node 22.16.0 / npm 10.9.2 and removed only three redundant nested React peer lock entries. The actual npm 0.2.31 renderer passes the persistent progressive HTML/backend roots/code boundary/video-state regression with natural React 18.3.1 resolution and no warnings. The isolated official 0.2.30 control fails specifically on immediate figure rendering.
+- [x] 2026-10-09 21:36 UTC: Consumer focused tests pass (8 suites / 161 tests), and the full suite passes (258 suites / 3,001 tests). Typecheck output matches the post-main-sync baseline exactly, with only two existing admin user-page test errors. Development tools and the complete repository pre-commit gate pass. Frontend CI now includes the actual installed-package regression; current-head CI and reviews are tracked in PR 3069 before merging.
 - [ ] 2026-10-09 UTC: After the consumer PR is merged and the Web build is deployed, verify the first HTML block in the affected live lesson.
 
 ## Surprises & Discoveries
@@ -43,8 +46,11 @@ its iframe across content updates. Historical content bypasses typing.
 The current library publishing rules require a formal release from main, after
 the version preparation has merged and a human confirms the version, main and
 full source SHA. The earlier feature-branch confirmation was consumed by the
-0.2.30 release and does not authorize another release. AI-Shifu main requires a
-stable release pin.
+0.2.30 release. The user subsequently confirmed the exact merged main SHA for
+0.2.31, and that release is now published. AI-Shifu main requires a stable
+release pin. A successful Publish run precedes registry availability: npm
+reported package processing for several minutes before the version, gitHead,
+integrity and latest tag could all be read back from the official registry.
 
 The backend comparison uses the exact markdown-flow 0.3.4 package from
 requirements.txt, not the older neighboring checkout. Its HTML root set is
@@ -100,6 +106,16 @@ export checking alone missed this because library checking is skipped. Naming
 the helper's already-declared immutable return alias fixes declaration emission;
 both the generated file and its presence in npm pack were checked explicitly.
 
+The consumer's existing lockfile retained a nested React 19 / React DOM 19 peer
+installation below markdown-flow-ui while the app uses React 18.3.1. A clean
+0.2.31 installation reproduced an invalid hook call in the new direct npm
+renderer check. Next's App Router aliases unify those imports in the application,
+so this is not evidence of the same failure in the deployed browser. The earlier
+temporary Node smoke also unified React explicitly. Remove only the three
+redundant nested React, React DOM and scheduler lock entries, validated with
+npm 10.9.2's package-lock-only resolver. Every other package version remains
+unchanged; the persistent check must run using natural module resolution.
+
 ## Decision Log
 
 - 2026-10-09: Segment the received source before applying typing. HTML is
@@ -129,6 +145,9 @@ both the generated file and its presence in npm pack were checked explicitly.
   definition) can legitimately change the media's parent structure, as in the
   ordinary renderer. Do not freeze old semantics or delay received HTML to
   conceal such source changes.
+- 2026-10-09: Reuse the app's compatible React 18 peer installation instead of
+  retaining an unnecessary nested React 19. Verify the installed npm renderer
+  directly in frontend CI, without library mocks or module-resolution patches.
 - 2026-10-09: Parse normalized stable-video source only when a received snapshot
   changes, then restore raw positions before projecting visibility. Keep public
   callbacks and budgets in authored-source coordinates. Protect unfinished link
@@ -137,19 +156,23 @@ both the generated file and its presence in npm pack were checked explicitly.
 
 ## Outcomes & Retrospective
 
-The initial implementation and release are complete. Formal release inputs
-confirmed by the user were version 0.2.30, branch
-sunner/progressive-html-rendering, source SHA
-fb08875e619bd251b8ff9975ebc6e9fd8c7ade41. Publish run 37920734690 succeeded,
-and the official npm registry confirms the same source SHA. The library CI
-passed functional, package and browser checks. Sonar duplication was confined
-to new tests; those 33 scenarios were parameterized without changing the
-published runtime source; its latest CI, including Sonar, is green. The consumer
-pin and integrity match the official release, and the installed npm renderer
-passes the React 18.3.1 iframe/prose smoke test. Subsequent review fixes and the
-backend comparison uncovered additional correctness and performance gaps, so
-the library work is active again. Consumer PR 3069 still pins 0.2.30 and must
-move to the verified 0.2.31 release after the library PR is merged and published.
+Library PR 248 is merged and the corrected 0.2.31 release is published from
+main at ddbd3cab2d3ece13575d3047c672c3c4cc02165a, using the exact inputs
+confirmed by the user. Publish run 37992324098 succeeded. The official npm
+registry confirms that gitHead, version and latest tag; consumer bump run
+37993184719 produced 74737a8 with the exact 0.2.31 pin and matching integrity
+sha512-vLBCy48FGNuBzydt1lT4pHfIGKHDvYc9U6GXyoTLGHCKVMQ4J7SQRemdXfbXAnSyLqsd8CbA5cUm4L4kio3QWA==.
+The merged source tree is identical to the final tested library branch tree.
+The consumer clean installation uses the app's React 18.3.1 peer naturally,
+without resolver patches. The persistent installed-package regression verifies
+unfinished HTML and appends before prose ticks, backend figure/aside roots,
+inert fenced examples and stable video DOM, parent, browsing window and state.
+The official 0.2.30 control fails the figure assertion, while 0.2.31 passes.
+Focused tests pass (161 tests in 8 suites); all 3,001 consumer Jest tests in 258
+suites pass. Type checking has exactly the same two admin user-page test errors
+as the current-main baseline before this upgrade, with byte-identical output.
+Frontend CI includes the installed-package regression after its normal suite.
+Current-head CI and review convergence remain a PR merge requirement.
 The final library source at 3aecd9c614a8c88420cd84ba68602129c64fc379 passes
 1,261 unit tests in 81 files, lint, formatting, the package build and five asset
 checks. Public export checks and the built renderer's four React 18.3.1 smoke
@@ -171,7 +194,7 @@ check and SonarCloud also pass; Cursor's check is neutral. A live review refresh
 after the five-minute wait confirms all 22 threads resolved, no new actionable
 feedback and a completed Codex review for 3aecd9c. CodeRabbit remains paused
 after its earlier reviews; its success status is not a new review of this head.
-GitHub reports the open PR clean and mergeable. Verified feedback was replied
+The library PR was clean and mergeable before merging. Verified feedback was replied
 to and resolved after independent
 commits 4647370, 0ea2333, 47ec978, 2a284a1, e9493f1 and 84818c7. The wide-SVG finding was
 checked against existing CSS and eight real-Chrome cases, replied to with the
@@ -185,9 +208,7 @@ passes 24 structural activation combinations covering deferred ordinary
 containers, generated table ranges, authored empty-cell boundaries, native HTML
 normalization and stable immediate media ancestors. The source-tree declaration
 fix in 3aecd9c removes TS7056; its internal declaration is emitted and included
-in the npm package without changing the immutable type contract. The official
-npm registry must still be checked before upgrading the consumer; 0.2.31 has not been
-published by this task.
+in the npm package without changing the immutable type contract.
 Production deployment is outside the current change; the live lesson will
 require the updated Web build. Keep the plan active until that external
 acceptance is verified.
@@ -254,5 +275,5 @@ and matching lockfile; no data migration is required.
 
 Preserve ContentRender's public props and completion callback API. Internal
 typing progress must include immediately displayed HTML while tracking only
-prose in the timed queue. AI-Shifu uses the exact published release 0.2.30;
+prose in the timed queue. AI-Shifu uses the exact published release 0.2.31;
 its lockfile records the official registry tarball and integrity.
