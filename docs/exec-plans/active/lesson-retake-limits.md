@@ -22,7 +22,8 @@ PR #3065 targets `main` from `codex/lesson-retake-production`. Review and fixes 
 - [x] 2026-10-09 Asia/Shanghai: GitHub checks for `9574a9180` all passed; latest CodeRabbit review reported no new actionable findings. Recovery/concurrency scope confirmation remains pending.
 - [x] 2026-10-09 Asia/Shanghai: Resolved three reset-entry conflicts with main `bdde9c54a`, retaining draft preview history, permissions, lesson ownership and retake idempotency. Adapted main preview tests without weakening admission.
 - [x] 2026-10-09 Asia/Shanghai: Main-sync acceptance passed 1,361 backend/HTTP/preview/agent tests, 262 frontend suites / 3,028 tests, frontend lint and full pre-commit gates. Full TypeScript still reports only the two existing operations-user test errors.
-- [ ] 2026-10-09 Asia/Shanghai: Push the synchronized PR branch, refresh its template checklist, and read back mergeability and new CI status. Latest review-follow-up runtime acceptance remains a release prerequisite.
+- [x] 2026-10-09 Asia/Shanghai: Pushed main-sync commit `586c0c9eb`, refreshed the PR checklist, and verified GitHub reports `MERGEABLE`. New CI is running; the PR remains open and no environment was deployed.
+- [ ] 2026-10-09 Asia/Shanghai: Read back final CI and review results for the synchronized PR. Latest review-follow-up runtime acceptance remains a release prerequisite.
 - [ ] Future release: Review migration ordering, namespace, worker compatibility, incident ownership and rollback, then obtain explicit merge/release authorization.
 
 ## Surprises & Discoveries
