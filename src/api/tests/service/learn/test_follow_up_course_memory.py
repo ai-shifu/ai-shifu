@@ -173,3 +173,140 @@ def test_follow_up_formatter_does_not_log_course_notes(
         result = _conversation(app, *scope)
     assert "Prefers short examples" in result.system_instruction
     assert "Prefers short examples" not in repr(logged)
+
+
+@pytest.mark.parametrize("provider", ["coze", "volc_knowledge"])
+def test_provider_outbound_observes_scoped_memory_updates_and_deletion(
+    app: Flask, scope: tuple[str, str], monkeypatch: pytest.MonkeyPatch, provider: str
+) -> None:
+    """Real stored notes reach native providers with fresh scope and no adapter writes."""
+    from flaskr.service.learn.ask_provider_adapters import (
+        coze_adapter,
+        volc_knowledge_adapter,
+    )
+
+    adapter_module = coze_adapter if provider == "coze" else volc_knowledge_adapter
+    adapter = (
+        coze_adapter.CozeAskProviderAdapter()
+        if provider == "coze"
+        else volc_knowledge_adapter.VolcKnowledgeAskProviderAdapter()
+    )
+    config = (
+        {"api_key": "test-key", "bot_id": "bot"}
+        if provider == "coze"
+        else {
+            "account_id": "account",
+            "ak": "test-ak",
+            "sk": "test-sk",
+            "collection_name": "collection",
+        }
+    )
+    payloads = []
+
+    class Response(SimpleNamespace):
+        """Model the safe client's context-managed streaming response."""
+
+        def __enter__(self) -> object:
+            """Retain the response used by the adapter's with statement."""
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            """No resources are allocated by this offline response."""
+
+    def request(*_args: object, **kwargs: object) -> object:
+        """Record the real serialized request without connecting to an external bot."""
+        payloads.append(json.loads(kwargs["body"]))
+        return Response(
+            status=200,
+            content=b'{"code":0,"data":{"records":[{"content":"ok"}]}}',
+            iter_lines=lambda **_kwargs: iter(
+                ['data: {"event":"message","content":"ok"}']
+            ),
+        )
+
+    monkeypatch.setattr(
+        adapter_module,
+        "safe_provider_client",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            request=request,
+            new_deadline=lambda: 123.0,
+            validate_url=lambda url, **_kw: SimpleNamespace(url=url),
+        ),
+    )
+    monkeypatch.setattr(
+        context,
+        "load_follow_up_history",
+        lambda **_kwargs: [
+            {"role": "assistant", "content": "Selected classroom anchor"},
+            {"role": "user", "content": "Earlier learner question"},
+            {"role": "assistant", "content": "Earlier tutor reply"},
+        ],
+    )
+    user, course = scope
+
+    def send() -> str:
+        """Use the actual shared builder and adapter, replacing only the HTTP boundary."""
+        before = [
+            (row.id, row.key, row.value, row.deleted)
+            for row in VariableValue.query.all()
+        ]
+        built = _conversation(app, user, course)
+        query = "What teaching style do I prefer?"
+        chunks = list(
+            adapter.stream_answer(
+                app,
+                user,
+                query,
+                [*built.provider_messages, {"role": "user", "content": query}],
+                {"config": config},
+            )
+        )
+        assert [chunk.content for chunk in chunks] == ["ok"]
+        assert [
+            (row.id, row.key, row.value, row.deleted)
+            for row in VariableValue.query.all()
+        ] == before
+        sent = (
+            payloads[-1]["additional_messages"]
+            if provider == "coze"
+            else payloads[-1]["pre_processing"]["messages"]
+        )
+        if provider == "volc_knowledge":
+            assert payloads[-1]["pre_processing"]["rewrite"] is True
+        assert [m["content"] for m in sent[1:]] == [
+            "Selected classroom anchor",
+            "Earlier learner question",
+            "Earlier tutor reply",
+            query,
+        ]
+        body = json.dumps(payloads[-1])
+        assert "OTHER COURSE SECRET" not in body
+        assert "OTHER USER SECRET" not in body
+        return body
+
+    with app.app_context():
+        assert "Prefers short examples" in send()
+        with unit_of_work():
+            stage_memory(
+                app,
+                user,
+                course,
+                MemoryUpdate(
+                    variables=[
+                        VariableMemoryUpdate("teaching_preference", "Prefers diagrams")
+                    ]
+                ),
+            )
+        updated = send()
+        assert "Prefers diagrams" in updated
+        assert "Prefers short examples" not in updated
+        row = (
+            VariableValue.query.filter_by(
+                user_bid=user, shifu_bid=course, key="teaching_preference"
+            )
+            .order_by(VariableValue.id.desc())
+            .first()
+        )
+        with unit_of_work():
+            delete_course_memory(user, course, row.id)
+        assert "Prefers diagrams" not in send()

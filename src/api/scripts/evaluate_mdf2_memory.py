@@ -653,6 +653,10 @@ async def evaluate(
                     result = await evaluate_teaching(
                         case, model, model_factory("teaching_summary")
                     )
+                elif case["family"] == "exercise":
+                    from scripts.mdf2_memory_quality.exercise import evaluate_exercise
+
+                    result = await evaluate_exercise(case, model)
                 else:
                     runner = (
                         evaluate_admission
@@ -678,6 +682,8 @@ def report(
     cases: list[dict[str, Any]], results: list[dict[str, Any]], repeats: int
 ) -> dict:
     """Publish denominators and source fingerprints without prompts, answers or credentials."""
+    from scripts.mdf2_memory_quality.exercise import GENERATION_SETTINGS
+
     expected = {(case["id"], n) for case in cases for n in range(1, repeats + 1)}
     observed = [(result["id"], result["repetition"]) for result in results]
     complete = (
@@ -687,12 +693,17 @@ def report(
         "flaskr/api/llm/__init__.py": API_DIR / "flaskr/api/llm/__init__.py",
         "scripts/evaluate_mdf2_memory.py": Path(__file__),
         "scripts/mdf2_memory_quality/cases.json": CASES_PATH,
+        "scripts/mdf2_memory_quality/exercise.py": API_DIR
+        / "scripts/mdf2_memory_quality/exercise.py",
     }
     for name in (
         "memory_admission.py",
+        "lesson_entry.py",
         "run_agent.py",
         "gateway_model.py",
         "engine/engine.py",
+        "engine/exercise_statistics.py",
+        "engine/prompts/exercise_statistics.md",
         "engine/session.py",
         "engine/tools.py",
         "engine/script.py",
@@ -728,6 +739,7 @@ def report(
         },
         "recall_generation_settings": dict(RECALL_MODEL_SETTINGS),
         "teaching_generation_settings": dict(RECALL_MODEL_SETTINGS),
+        "exercise_generation_settings": dict(GENERATION_SETTINGS),
         "teaching_summary_generation_settings": {
             "temperature": 0,
             "max_tokens": 256,
@@ -826,6 +838,7 @@ def main(argv: list[str] | None = None) -> int:
     from flaskr.service.learn.agent.gateway_model import GatewayModel
     from flaskr.service.learn.agent.lesson_entry import _resolve
     from flaskr.service.learn.agent.routing import uses_agent_engine
+    from flaskr.service.metering.api import UsageContext
     from flaskr.service.user.models import UserInfo
 
     app = create_app(serving_http=False)
@@ -846,6 +859,13 @@ def main(argv: list[str] | None = None) -> int:
         resolved_model, usage_metadata = resolve_selection(
             settings.model, dict(settings.usage_metadata)
         )
+        # Synthetic evaluations have no classroom attempt or generated block.
+        # Bind their real course so shared billing can resolve its owner and demo policy.
+        usage_context = UsageContext(
+            user_bid=args.learner,
+            shifu_bid=args.course,
+            outline_item_bid=args.lesson,
+        )
         trace, span = create_trace_with_root_span(
             client=get_langfuse_client(),
             trace_payload={
@@ -863,6 +883,7 @@ def main(argv: list[str] | None = None) -> int:
                 user_id=args.learner,
                 span=span,
                 generation_name=f"agent_memory_quality_{family}",
+                usage_context=usage_context,
                 usage_metadata=dict(usage_metadata),
                 timeout=8 if family == "teaching_summary" else 15,
                 retry_deadline_seconds=8 if family == "teaching_summary" else 15,

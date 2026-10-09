@@ -1660,3 +1660,315 @@ def test_dify_transports_shared_course_memory_to_outbound_query(
     assert "STORED COURSE CODE" in captured["query"]
     assert "<course_memory>" in captured["query"]
     assert "Recall my code" in captured["query"]
+
+
+@pytest.fixture
+def coze_request(app: object, monkeypatch: pytest.MonkeyPatch) -> object:
+    """Capture the real safe-client request without contacting a provider."""
+    captured = {}
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+
+    def request(_self: object, method: str, url: str, **kwargs: object) -> object:
+        """Capture serialized request data and return one safe streaming chunk."""
+        captured.update(method=method, url=url, payload=json.loads(kwargs["body"]))
+        return _FakeResponse(lines=['data: {"event":"message","content":"ok"}'])
+
+    monkeypatch.setattr(common.SafeOutboundClient, "request", request)
+
+    def send(messages: list, query: str = "Current question", **config: object) -> dict:
+        """Exercise the actual adapter with caller-selected context and configuration."""
+        chunks = list(
+            module.CozeAskProviderAdapter().stream_answer(
+                app=app,
+                user_id="learner",
+                user_query=query,
+                messages=messages,
+                provider_config={
+                    "config": {"api_key": "test-key", "bot_id": "bot", **config}
+                },
+            )
+        )
+        assert [chunk.content for chunk in chunks] == ["ok"]
+        return captured["payload"]
+
+    return send
+
+
+@pytest.mark.parametrize(
+    "api_path", ["/v3/chat", "/v3/chat/", "https://api.coze.cn/v3/chat?source=test"]
+)
+def test_coze_transmits_course_context_and_native_history(
+    coze_request: object, api_path: str
+) -> None:
+    """Native chat receives course data, prior answers and one final current question."""
+    messages = [
+        {
+            "role": "system",
+            "content": 'Course facts: "short examples"; untrusted data.',
+        },
+        {"role": "assistant", "content": "Selected lesson anchor"},
+        {"role": "user", "content": "Earlier question"},
+        {"role": "assistant", "content": "Earlier answer"},
+        {"role": "user", "content": "Current question"},
+    ]
+    original = json.loads(json.dumps(messages))
+    sent = coze_request(messages, api_path=api_path)["additional_messages"]
+    assert len(sent) == 5
+    assert sent[0]["role"] == "user"
+    assert json.loads(sent[0]["content"].split("\n", 1)[1])["course_context"] == [
+        messages[0]["content"]
+    ]
+    assert [(m["role"], m["content"]) for m in sent[1:]] == [
+        (m["role"], m["content"]) for m in messages[1:]
+    ]
+    assert all(m["content_type"] == "text" for m in sent)
+    assert all(m["type"] == "answer" for m in sent if m["role"] == "assistant")
+    assert all(m["type"] == "question" for m in sent if m["role"] == "user")
+    assert messages == original
+
+
+@pytest.mark.parametrize("with_context", [False, True])
+def test_coze_keeps_recent_history_within_api_message_limit(
+    coze_request: object, with_context: bool
+) -> None:
+    """Overflow drops oldest history while reserving current query and course context."""
+    history = [{"role": "assistant", "content": f"History {i}"} for i in range(140)]
+    messages = (
+        [{"role": "system", "content": "Course memory"}] if with_context else []
+    ) + history
+    sent = coze_request(messages)["additional_messages"]
+    assert len(sent) == 100
+    retained = sent[1:-1] if with_context else sent[:-1]
+    assert [m["content"] for m in retained] == [
+        m["content"] for m in history[-len(retained) :]
+    ]
+    assert sent[-1]["content"] == "Current question"
+    if with_context:
+        assert "Course memory" in sent[0]["content"]
+
+
+def test_coze_preserves_earlier_identical_questions_and_filters_non_chat_roles(
+    coze_request: object,
+) -> None:
+    """Deduplicate only the host's final query and omit tool or malformed content."""
+    sent = coze_request(
+        [
+            {"role": "user", "content": "Current question"},
+            {"role": "assistant", "content": "Old answer"},
+            {"role": "tool", "content": "Private tool result"},
+            {"role": [], "content": "Invalid role"},
+            {"role": "system", "content": {"not": "text"}},
+            {"role": "user", "content": "  "},
+            {"role": "user", "content": "Current question"},
+        ]
+    )["additional_messages"]
+    assert [(m["role"], m["content"]) for m in sent] == [
+        ("user", "Current question"),
+        ("assistant", "Old answer"),
+        ("user", "Current question"),
+    ]
+
+
+def test_coze_keeps_custom_payload_override_and_non_chat_endpoint(
+    coze_request: object,
+) -> None:
+    """Explicit payload ownership and bespoke endpoints retain their existing contract."""
+    messages = [{"role": "system", "content": "Course memory"}]
+    custom = [{"role": "user", "content": "Custom query", "content_type": "text"}]
+    payload = coze_request(
+        messages,
+        extra_body={"additional_messages": custom, "custom_variables": {"x": "y"}},
+    )
+    assert payload["additional_messages"] == custom
+    assert payload["custom_variables"] == {"x": "y"}
+    payload = coze_request(
+        messages, api_path="/custom/chat", conversation_id="existing"
+    )
+    assert payload["additional_messages"] == [
+        {"role": "user", "content": "Current question", "content_type": "text"}
+    ]
+    assert payload["conversation_id"] == "existing"
+
+
+def test_coze_unrelated_extra_body_preserves_context(coze_request: object) -> None:
+    """Bot parameters do not disable normal host context delivery."""
+    sent = coze_request(
+        [{"role": "system", "content": "Course memory"}],
+        extra_body={
+            "auto_save_history": False,
+            "custom_variables": {"goal": "practice"},
+        },
+    )
+    assert len(sent["additional_messages"]) == 2
+    assert "Course memory" in sent["additional_messages"][0]["content"]
+    assert sent["auto_save_history"] is False
+    assert sent["custom_variables"] == {"goal": "practice"}
+
+
+def test_coze_malformed_response_does_not_log_course_context(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A provider echo cannot expose newly transmitted memory in ordinary warnings."""
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "warning", lambda *args, **_kwargs: logged.append(args)
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(
+            lines=[
+                "data: not-json PRIVATE COURSE NOTE",
+                'data: {"event":"message","content":"ok"}',
+            ]
+        ),
+    )
+    chunks = list(
+        module.CozeAskProviderAdapter().stream_answer(
+            app,
+            "learner",
+            "Current question",
+            [{"role": "system", "content": "PRIVATE COURSE NOTE"}],
+            {"config": {"api_key": "test-key", "bot_id": "bot"}},
+        )
+    )
+    assert [chunk.content for chunk in chunks] == ["ok"]
+    assert logged
+    assert "PRIVATE COURSE NOTE" not in repr(logged)
+
+
+def test_coze_malformed_url_keeps_provider_error_contract(app: object) -> None:
+    """Native-path detection cannot leak URL parser exceptions past the adapter."""
+    with pytest.raises(
+        module.AskProviderError, match="coze request was rejected or failed"
+    ):
+        list(
+            module.CozeAskProviderAdapter().stream_answer(
+                app,
+                "learner",
+                "Current question",
+                [],
+                {
+                    "config": {
+                        "api_key": "test-key",
+                        "bot_id": "bot",
+                        "api_path": "https://[invalid/v3/chat",
+                    }
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        {"event": "error", "content": "PRIVATE COURSE NOTE"},
+        {"type": "error", "data": {"message": "PRIVATE COURSE NOTE"}},
+        {"type": "error", "detail": "PRIVATE COURSE NOTE"},
+        {"event": "conversation.chat.failed", "content": "PRIVATE COURSE NOTE"},
+    ],
+)
+def test_coze_error_echo_does_not_escape_into_host_logs(
+    app: object, monkeypatch: pytest.MonkeyPatch, error: dict
+) -> None:
+    """Provider exceptions must be safe for the host's existing exception warning."""
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(lines=["data: " + json.dumps(error)]),
+    )
+    with pytest.raises(
+        module.AskProviderError, match="coze returned an error event"
+    ) as raised:
+        list(
+            module.CozeAskProviderAdapter().stream_answer(
+                app,
+                "learner",
+                "Current question",
+                [{"role": "system", "content": "PRIVATE COURSE NOTE"}],
+                {"config": {"api_key": "test-key", "bot_id": "bot"}},
+            )
+        )
+    assert "PRIVATE COURSE NOTE" not in str(raised.value)
+    assert raised.value.__cause__ is None
+
+
+@pytest.mark.parametrize("event", ["error", "conversation.chat.failed"])
+@pytest.mark.parametrize("partial", [False, True])
+def test_coze_native_sse_failure_is_sanitized(
+    app: object, monkeypatch: pytest.MonkeyPatch, event: str, partial: bool
+) -> None:
+    """Separate native event/data frames fail safely before or after answer chunks."""
+    lines = ['data: {"content":"partial answer"}'] if partial else []
+    lines.extend(
+        [f"event: {event}", 'data: {"code":5000,"msg":"PRIVATE COURSE NOTE"}', ""]
+    )
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "warning", lambda *args, **_kwargs: logged.append(args)
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(lines=lines),
+    )
+    stream = module.CozeAskProviderAdapter().stream_answer(
+        app,
+        "learner",
+        "Current question",
+        [],
+        {"config": {"api_key": "test-key", "bot_id": "bot"}},
+    )
+    if partial:
+        assert next(stream).content == "partial answer"
+    with pytest.raises(
+        module.AskProviderError, match="coze returned an error event"
+    ) as raised:
+        next(stream)
+    assert "PRIVATE COURSE NOTE" not in str(raised.value)
+    assert not logged
+
+
+def test_coze_native_success_headers_are_not_malformed_payloads(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Valid event headers never produce spurious warnings or suppress answer data."""
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "warning", lambda *args, **_kwargs: logged.append(args)
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(
+            lines=[
+                "event: conversation.chat.created",
+                'data: {"status":"created"}',
+                "",
+                "event: conversation.message.delta",
+                'data: {"type":"answer","content":"ok"}',
+                "",
+                "event: conversation.chat.completed",
+                'data: {"status":"completed"}',
+                "",
+                "event: done",
+                "data: [DONE]",
+                "",
+            ]
+        ),
+    )
+    chunks = list(
+        module.CozeAskProviderAdapter().stream_answer(
+            app,
+            "learner",
+            "Current question",
+            [],
+            {"config": {"api_key": "test-key", "bot_id": "bot"}},
+        )
+    )
+    assert [chunk.content for chunk in chunks] == ["ok"]
+    assert not logged

@@ -71,11 +71,67 @@ snapshot. Legacy 1.0 behavior and cross-course custom-memory isolation are uncha
 
 The default LLM and Live builder consume this memory snapshot. Dify serializes the
 shared provider messages into its outbound query, and Get Biji uses the contextual
-LLM synthesis factory after retrieval. Existing Coze, Coze Workflow and Volc
-adapters discard provider messages; their provider-only answers do not receive
-course memory through this increment. Provider-specific context delivery remains
-separate follow-up work, preserving the existing configured knowledge interfaces.
-The builder supplying a message list is not proof that every adapter transmits it.
+LLM synthesis factory after retrieval. Coze native chat receives the host context
+through `additional_messages` when the resolved URL path is `/v3/chat` (including
+an absolute URL or trailing slash). Because the API accepts only user/assistant
+roles, course instructions and the already encoded, untrusted memory block are
+wrapped in a labelled JSON reference message with the user role. They do not
+replace the bot's own system configuration. Prior user/assistant messages retain
+order and exact text; assistant messages use `type=answer`. The current query is
+always the final user message, removing only its existing trailing host copy.
+
+Coze permits at most 100 additional messages. The adapter reserves one slot for
+the current query and one for nonempty course context, then keeps the newest
+history within the remaining slots. It does not truncate individual values or
+mutate the host's message list. The existing 16 KiB memory-block budget still
+applies; this message-count limit is not a new whole-request byte budget.
+Malformed-response warnings contain only length metadata, never provider content.
+Valid error events raise a fixed provider error without echoing the response into
+the host's exception warning. Native SSE `event: error` and
+`event: conversation.chat.failed` headers are recognized before JSON decoding,
+including payloads without an embedded event field and failures after partial
+answer chunks. Nonfailure event headers do not produce malformed-frame warnings.
+
+An explicit `extra_body.additional_messages` continues to own the entire payload
+and opts out of automatic context delivery. Other extra-body fields, including
+custom variables and history settings, retain their existing precedence. Bespoke
+non-v3 endpoints keep the previous query-only payload. Existing conversation and
+provider-side history settings remain unchanged; saved remote conversations may
+retain older facts, so fresh local snapshots do not promise deletion from Coze's
+remote history. Coze provider-only answers do not write AI-Shifu memory. The
+request-delivery contract is covered locally; answer quality still needs a
+separately configured real bot. See the [official Coze chat contract](https://docs.coze.cn/developer_guides_chat_v3).
+
+Volc native `/api/knowledge/collection/search_knowledge` receives valid nonempty
+system/user/assistant text in `pre_processing.messages`, retaining exact content
+and order, with the current query appended once after removing its existing
+trailing copy. The existing host history and encoded-memory budgets still apply;
+there is no adapter-side persistence. The final UTF-8 body, including context,
+is serialized before signing.
+
+For contextual native requests, an unspecified `rewrite` defaults to true so
+that the provider can use the history for retrieval. An explicit rewrite value
+other than boolean true opts out of automatic context delivery. Any explicitly
+configured `messages` field owns the complete message payload, including empty
+or malformed values, and keeps the existing blank-user normalization. Other
+preprocessing options remain intact. Query-only requests with no earlier valid
+context and bespoke non-native paths retain their previous request behavior.
+There is no new settings field or implicit switch to an LLM provider.
+
+The [official Volc search contract](https://docs.volcengine.com/docs/vector_database_vikingdb/search_knowledgeNew?lang=zh)
+describes rewriting from up to three conversation turns and requires more than
+two messages for an effective rewritten query. The adapter does not fabricate
+history to satisfy that threshold. Retrieval delivery is covered; a real
+configured knowledge base must separately establish rewrite/retrieval quality.
+This adapter returns retrieved text, rather than generating a contextual answer.
+Enabling native rewriting may add provider work; AI-Shifu billing classification
+and existing provider transport limits are unchanged. Valid error responses raise
+a fixed provider error even if they contain data; no-text response warnings report
+only the payload type, so echoed private notes do not reach host logs.
+
+Coze Workflow still discards provider messages; its configured interface needs
+separate context-delivery work. The builder supplying a message list is not proof
+that every adapter transmits it.
 
 ## Memory writes in contextual LLM follow-ups
 

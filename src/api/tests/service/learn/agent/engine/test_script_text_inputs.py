@@ -33,11 +33,124 @@ _HINT = "Describe my project directly"
 _SCRIPT = "?[%{{project_path}} " + " | ".join([*_CHOICES, "..." + _HINT]) + "]"
 
 
+@pytest.mark.parametrize("placeholder", [None, ""])
+@pytest.mark.parametrize("variable", [None, "answer"])
+async def test_text_only_hint_is_restored_among_multiple_authored_questions(
+    placeholder: str | None,
+    variable: str | None,
+) -> None:
+    """A copied authored prompt restores the input and accepts the reloaded answer."""
+    prefix = "%{{" + variable + "}} " if variable else ""
+    hints = ["Prepare and execute", "List advantages", "Nine lines of code"]
+    script = "\n".join("?[" + prefix + "..." + hint + "]" for hint in hints)
+    arguments = _arguments(
+        type="text",
+        prompt=hints[0],
+        options=[],
+        variable=variable,
+        placeholder=placeholder,
+    )
+    engine = _engine(arguments)
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert spec.placeholder == hints[0]
+    assert render_interaction(spec) == "?[" + prefix + "..." + hints[0] + "]"
+    assert InteractionParser().parse(render_interaction(spec))["question"] == hints[0]
+    session = Session.loads(session.dumps())
+    events = [
+        e
+        async for e in engine.run_turn(
+            session, InteractionResponseTurn(text="My answer")
+        )
+    ]
+    assert not session.pending
+    assert session.memory == ({variable: "My answer"} if variable else {})
+
+
+async def test_saved_text_only_question_recovers_input_on_empty_answer() -> None:
+    """Old cached questions re-emit their authored input without changing history."""
+    engine = _engine(
+        _arguments(
+            type="text", prompt=_HINT, options=[], variable=None, placeholder=None
+        )
+    )
+    session = await engine.new_session("Ask a dynamic question.")
+    _ = [e async for e in engine.run_turn(session)]
+    session.script = ScriptBundle(script="?[..." + _HINT + "]")
+    session = Session.loads(session.dumps())
+    history = session.messages.copy()
+    events = [e async for e in engine.run_turn(session, InteractionResponseTurn())]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert spec.placeholder == _HINT
+    assert session.messages == history
+    assert render_interaction(spec) == "?[..." + _HINT + "]"
+
+
+@pytest.mark.parametrize(
+    ("script", "prompt", "variable", "placeholder", "expected"),
+    [
+        (
+            "?[...Write your answer]",
+            "What part is unclear?",
+            None,
+            None,
+            None,
+        ),
+        ("?[...One]\n?[...Two]", "A generated question", None, None, None),
+        ("?[...One]\n?[...]", "A generated question", None, None, None),
+        ("?[...One]\n?[...One]", "One", None, None, "One"),
+        (
+            "?[...Write your answer]",
+            "Write your answer",
+            None,
+            None,
+            "Write your answer",
+        ),
+        ("?[...One]", "One", "different", None, None),
+        ("?[...One]", "One", None, "Custom hint", "Custom hint"),
+        ("```\n?[...One]\n```", "One", None, None, None),
+        ("?[Yes | ...One]", "One", None, None, None),
+        (
+            r"?[...Describe a\|b\.\.\.]",
+            r"Describe a\|b\.\.\.",
+            None,
+            None,
+            "Describe a|b...",
+        ),
+    ],
+)
+async def test_missing_text_hint_uses_only_unambiguous_authored_text_questions(
+    script: str,
+    prompt: str,
+    variable: str | None,
+    placeholder: str | None,
+    expected: str | None,
+) -> None:
+    """Only an exact authored hint match can repair a missing text placeholder."""
+    engine = _engine(
+        _arguments(
+            type="text",
+            prompt=prompt,
+            options=[],
+            variable=variable,
+            placeholder=placeholder,
+        )
+    )
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert spec.placeholder == expected
+
+
 def _engine(arguments: dict) -> Engine:
+    """Build an offline engine that asks once, then consumes the accepted answer."""
+
     async def model(
         messages: list[ModelMessage],
         _info: AgentInfo,
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Emit the configured interaction or continue after its tool result."""
         if any(isinstance(p, ToolReturnPart) for p in messages[-1].parts):
             yield "Continue with the learner's actual project."
         else:

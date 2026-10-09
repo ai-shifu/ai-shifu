@@ -22,5 +22,7 @@
   {"id":"teaching-current-updated","family":"teaching","mode":"updated","historical":false,"summary_failure":false,"question":"What is my project code?","expected":"EVAL-PROJ-8426","status":"found"},
   {"id":"teaching-current-deleted","family":"teaching","mode":"deleted","historical":false,"summary_failure":false,"question":"What is my project code?","expected":"MEMORY_UNAVAILABLE","status":"unavailable"},
   {"id":"teaching-exact-example","family":"teaching","mode":"updated","historical":true,"summary_failure":false,"question":"What exact project code appeared in the earlier worked example?","expected":"EVAL-PROJ-7319","status":"found"},
-  {"id":"teaching-exact-fallback","family":"teaching","mode":"updated","historical":true,"summary_failure":true,"question":"What exact project code appeared in the earlier worked example?","expected":"EVAL-PROJ-7319","status":"found"}
+  {"id":"teaching-exact-fallback","family":"teaching","mode":"updated","historical":true,"summary_failure":true,"question":"What exact project code appeared in the earlier worked example?","expected":"EVAL-PROJ-7319","status":"found"},
+  {"id":"exercise-early-correction","family":"exercise","corrected_questions":[1,5,10]},
+  {"id":"exercise-shifted-correction","family":"exercise","corrected_questions":[2,6,11]}
 ]

@@ -19,12 +19,15 @@ PR #3065 targets `main` from `codex/lesson-retake-production`. Review and fixes 
 - [x] 2026-10-09 Asia/Shanghai: Added read-only operator diagnostics and explicit ordinary-run confirmed-stop recovery coverage; no automatic timeout takeover was added.
 - [ ] 2026-10-09 Asia/Shanghai: Confirm scope for automatic ordinary-run recovery and replacing course-wide locks. Automatic approval rejected the global flush interceptor and lock-removal proposals; neither was applied.
 - [x] 2026-10-09 Asia/Shanghai: Complete local regression, full pre-commit, repository harness and architecture checks for review fixes.
-- [ ] 2026-10-09 Asia/Shanghai: Re-read completed GitHub checks and findings after the review-fix push; remaining recovery/concurrency choices are still pending.
+- [x] 2026-10-09 Asia/Shanghai: GitHub checks for `9574a9180` all passed; latest CodeRabbit review reported no new actionable findings. Recovery/concurrency scope confirmation remains pending.
+- [x] 2026-10-09 Asia/Shanghai: Resolved three reset-entry conflicts with main `bdde9c54a`, retaining draft preview history, permissions, lesson ownership and retake idempotency. Adapted main preview tests without weakening admission.
+- [x] 2026-10-09 Asia/Shanghai: Main-sync acceptance passed 1,361 backend/HTTP/preview/agent tests, 262 frontend suites / 3,028 tests, frontend lint and full pre-commit gates. Full TypeScript still reports only the two existing operations-user test errors.
+- [ ] 2026-10-09 Asia/Shanghai: Push the synchronized PR branch, refresh its template checklist, and read back mergeability and new CI status. Latest review-follow-up runtime acceptance remains a release prerequisite.
 - [ ] Future release: Review migration ordering, namespace, worker compatibility, incident ownership and rollback, then obtain explicit merge/release authorization.
 
 ## Surprises & Discoveries
 
-Preview permission includes read-only collaborators. Course preview and published learning share some legacy progress records. The user chose course-staff exemption instead of introducing preview isolation in this feature. Consequently, preview resets can still change the same staff member's own published progress; this is an explicit retained boundary, not proof of isolated storage.
+Preview permission includes read-only collaborators. Legacy course preview and published learning share some progress records. Current main independently adds draft-script preview history; retain that implementation while preserving staff exemption. The user chose course-staff exemption instead of introducing preview isolation in this feature. Consequently, preview resets can still change the same staff member's own published progress; this is an explicit retained boundary, not proof of isolated storage.
 
 Frontend integration tests mocked the store barrel but not the directly imported user store. This caused real stream dependencies or circular module loading during test startup. Direct imports and matching mocks resolved the original failure. Backend full CI exposed four assertions that matched internal error names rather than localized messages; stable error codes now own those assertions.
 
@@ -39,7 +42,7 @@ The original course-policy upsert wrote even for ordinary status checks. Existin
 - Counting: confirmed reset reserves; first nonempty durable teaching content charges once. Partial text counts even if later generation or TTS fails.
 - Failure: empty failure restores prior learning and releases only after the producer has stopped. Timeout, disconnected browser or report alone is not proof of termination.
 - Staff: current course owner and all active course collaborators are exempt in published learning as well as preview. Global teacher/operator/admin status and another course's collaboration do not grant exemption. Revocation preserves historical usage and rechecks permission on the next action.
-- Preview: unlimited; existing shared progress is retained. No new isolation schema or migration.
+- Preview: unlimited; retain main's draft-script preview handling and legacy shared progress. This retake feature adds no isolation schema or migration.
 - Updates: same lesson identity preserves usage; no automatic replenishment. Exhausted update notice offers review guidance without an unusable reset link.
 - Guests: temporary identities can study and retake under the same ledger. Changing browser/storage can create a fresh identity; preventing that is outside this phase. Guest-to-existing-account merge does not migrate the ledger.
 - History: preserve recorded usage; do not reconstruct old uncounted resets or reset real counters for demonstrations.
