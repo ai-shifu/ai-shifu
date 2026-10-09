@@ -27,6 +27,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Keep Authored Input Hints Out of Choice Buttons](./active/markdownflow-authored-inputs.md)
 - [MarkdownFlow total input budget](./active/markdownflow-total-input-budget.md)
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)
+- [Deliver classroom context to Coze follow-ups](./active/mdf2-coze-follow-up-context.md)
 - [Admit and persist memory from completed follow-up answers](./active/mdf2-follow-up-memory-writeback.md)
 - [Keep concurrent gevent lesson streams responsive](./active/mdf2-gevent-bridge-stability.md)
 - [Continue teaching after a failed model stream](./active/mdf2-interrupted-teaching-history.md)
