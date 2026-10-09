@@ -19,9 +19,15 @@ creating classroom progress or changing shared billing policy.
 - [x] 2026-10-09T12:01:00Z: Related evaluator/shared gateway/metering tests pass
   (371). Isolated sim acceptance passes four selected cases, with all eleven
   actual requests scoped and settled to the correct owner (5.26 credits).
-- [ ] 2026-10-09T12:01:00Z: Complete repository gates and publish a focused main PR.
-- [ ] 2026-10-09T11:59:00Z: Reply to every independent AI opinion and record final
-  CI, scope review and publication evidence before archiving this plan.
+- [x] 2026-10-09T12:03:00Z: Developer-tool and full repository gates pass.
+  Published [PR #3070](https://github.com/ai-shifu/ai-shifu/pull/3070), 2c8db7233.
+- [x] 2026-10-09T12:08:00Z: All eleven technical statuses pass, including
+  runtime-harness. Devin and Codex completed without findings. CodeRabbit had
+  no functional findings; replied to its test-docstring advisory with the
+  decision and evidence, and acknowledged the independent Devin review.
+- [x] 2026-10-09T12:13:00Z: Reviewed scope and acceptance; archive this evaluator
+  attribution implementation. Natural-course statistics remain a separate open
+  issue, not an unfulfilled attribution requirement.
 
 ## Surprises & Discoveries
 
@@ -56,8 +62,11 @@ credits. The earlier 30 unscoped rows remain unchanged. A private ledger-summary
 reader initially treated SQL JSON text as a dictionary; fixing that reader used
 the already saved report/ledger, without another billed evaluation. The first
 expanded pytest command used the repository root, where app startup cannot find
-flaskr/service; rerunning from src/api passed. Repository gates/publication remain
-in progress. This repairs
+flaskr/service; rerunning from src/api passed. Developer-tool and repository gates passed, and PR #3070 is open at
+2c8db7233 with all eleven technical statuses successful. Independent reviews
+found no functional issue. The CodeRabbit touched-function docstring advisory
+was declined with a linked original-report reply; no advisory pass is claimed.
+No main merge or application rollout is performed by this task. This repairs
 new evaluator usage attribution, not the unresolved natural-course exercise
 statistics failure. That failure remains in the workspace MDF status and natural
 acceptance record. Engine 1.0 retirement remains inventory only.
