@@ -248,8 +248,10 @@ def test_follow_up_producer_normalizes_listen_before_sidecar_dispatch(
 
 
 @pytest.mark.usefixtures("enabled_deployment")
+@pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
 def test_a_listening_learner_is_also_taught_by_the_agent_engine(
     monkeypatch: pytest.MonkeyPatch,
+    learning_mode: str,
 ) -> None:
     """Listening is about how a lesson is delivered, not about who teaches it.
 
@@ -282,8 +284,8 @@ def test_a_listening_learner_is_also_taught_by_the_agent_engine(
             input_type=None,
             reload_generated_block_bid=None,
             reload_element_bid=None,
-            listen=True,
-            learning_mode="listen",
+            listen=learning_mode == "listen",
+            learning_mode=learning_mode,
             preview_mode=False,
             stop_event=None,
             element_adapter=None,
@@ -291,7 +293,8 @@ def test_a_listening_learner_is_also_taught_by_the_agent_engine(
         )
     )
 
-    assert seen["listen"] is True
+    assert seen["listen"] is (learning_mode == "listen")
+    assert seen["learning_mode"] == learning_mode
 
 
 @pytest.mark.usefixtures("enabled_deployment")
