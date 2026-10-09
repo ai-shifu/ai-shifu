@@ -18,8 +18,12 @@ Do not write new memory from follow-ups in this increment.
 - [x] 2026-10-09T01:17:49Z: Full local regressions pass (4,799 tests, four subtests,
   eleven expected skips); repository gates pass. Baseline HTTP follow-up cannot
   recall a stored undeclared test code.
-- [ ] 2026-10-09T01:16:50Z: Finish regression/gate, deployment, actual HTTP recall
-  and AI opinion reply acceptance. Await manual main merge.
+- [x] 2026-10-09T01:37:00Z: Reviewed candidate b03d27b7b passes 4,801 tests,
+  four subtests and eleven expected skips. All eleven CI checks pass. Sim build
+  433 / Drone 5224 and both deployments succeed; both replicas match 32 hashes.
+  Three fresh learners recall their independent notes naturally; an update is
+  recalled and deletion returns unknown in a fresh lesson context.
+- [ ] Finish shared-gateway log privacy acceptance and await manual main merge.
 
 - [x] 2026-10-09T01:28:50Z: Review hardening: two logger-boundary tests fail before the fix;
   reviewed focused context/provider tests pass 88/88. Content logs are replaced by
@@ -33,7 +37,12 @@ regressions failed before replacing content logs with counts, including the shar
 formatter. Initial deployed HTTP recalls an explicitly named key, but a natural
 request to recall an earlier fact returned unknown despite the note being present
 in the actual LLM messages. The memory instructions now explicitly cover facts
-remembered in earlier lessons outside visible history; final HTTP recheck is pending.
+remembered in earlier lessons outside visible history; three independent fresh
+HTTP learners now pass natural recall. A final deployed log audit found a second
+exposure in the shared LLM gateway: raw messages, responses and provider parameters
+were still printed. Two real gateway logger-boundary tests reproduce this in both
+chat and invoke calls. Replace ordinary content/credential logs with model/count
+metadata while preserving provider payloads, controlled traces and usage recording.
 
 The text host supplies a resolved profile snapshot before invoking the shared
 builder. Changing only the builder's fallback reader would leave real text requests
@@ -55,10 +64,11 @@ must not trigger a second read. Live uses its own voice prompt and the shared lo
 
 ## Outcomes & Retrospective
 
-Local learning/profile/shared-gateway/metering/billing acceptance passes: 4,799
+Reviewed learning/profile/shared-gateway/metering/billing acceptance passes: 4,801
 tests and four subtests passed, with eleven expected skips. The deployed baseline
 returned unknown for an independently stored test code on a fresh internal learner.
-Final deployed validation is pending; new follow-up memory writes and
+Functional sim acceptance passes natural recall, update and fresh-context deletion.
+Final gateway privacy deployment acceptance is pending; new follow-up memory writes and
 natural-course/long-term cost acceptance remain separate work.
 
 ## Context and Orientation

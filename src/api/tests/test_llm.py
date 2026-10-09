@@ -2477,6 +2477,62 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     assert [resp.result for resp in responses] == ["你好"]
 
 
+@pytest.mark.parametrize("llm_method", ["invoke_llm", "chat_llm"])
+def test_llm_content_and_credentials_stay_out_of_application_logs(
+    monkeypatch: object, app: object, llm_method: str
+) -> None:
+    """Preserve provider and trace data without logging stored notes or credentials."""
+    note = "private-current-course-note-8729"
+    credential = "private-provider-key-3841"
+    logged = []
+    outbound = {}
+    usage = {}
+    monkeypatch.setattr(app.logger, "info", lambda *args: logged.append(args))
+
+    def complete(**kwargs: object) -> object:
+        outbound.update(kwargs)
+        return iter([FakeResponse("chunk-1", content=note, finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: (
+            {"api_key": credential, "custom_llm_provider": "openai"},
+            "gpt-test",
+            "openai",
+        ),
+    )
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
+    )
+    span = DummySpan()
+    content = (
+        {"message": note, "system": "Course facts"}
+        if llm_method == "invoke_llm"
+        else {"messages": [{"role": "system", "content": note}]}
+    )
+    responses = list(
+        getattr(llm, llm_method)(
+            app=app,
+            user_id="user-1",
+            span=span,
+            model="gpt-test",
+            **content,
+        )
+    )
+    assert [response.result for response in responses] == [note]
+    assert note in str(outbound["messages"])
+    assert outbound["api_key"] == credential
+    assert note in str(span.generation_args["input"])
+    assert span.end_args["output"] == note
+    assert usage["extra"]["output_text"] == note
+    assert note not in str(logged)
+    assert credential not in str(logged)
+    assert "message_count" in str(logged)
+    assert "response_chars" in str(logged)
+
+
 def test_chat_llm_streams(monkeypatch: object, app: object) -> None:
     captured_kwargs = {}
     captured_usage = {}
