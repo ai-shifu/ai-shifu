@@ -744,6 +744,60 @@ def _lesson_events(
             outline_bid,
         )
         try:
+            preview_options = {}
+            if preview_mode:
+                from flaskr.service.learn.agent.preview_history import (
+                    begin_preview_run,
+                    pending_preview_record,
+                    preview_status_event,
+                )
+                from flaskr.service.learn.agent.run_agent import learner_values
+
+                if not learner_values(user_input) and not (
+                    reload_generated_block_bid or reload_element_bid
+                ):
+                    restored = pending_preview_record(
+                        app,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                    )
+                    if restored is not None:
+                        update = preview_status_event(
+                            app,
+                            user_bid=user_bid,
+                            shifu_bid=shifu_bid,
+                            outline_bid=outline_bid,
+                        )
+                        if update is not None:
+                            yield update
+                        for element in restored.elements:
+                            yield RunElementSSEMessageDTO(
+                                type="element",
+                                event_type="element",
+                                content=element,
+                                generated_block_bid=element.generated_block_bid,
+                            )
+                        yield RunElementSSEMessageDTO(
+                            type="done", event_type="done", content="", is_terminal=True
+                        )
+                        return
+                preview_options["preview_generation"] = begin_preview_run(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    run_bid=element_adapter.run_session_bid,
+                )
+                update = preview_status_event(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    generation=preview_options["preview_generation"],
+                )
+                if update is not None:
+                    yield update
             agent_events = agent_lesson_events(
                 app,
                 user_bid=user_bid,
@@ -756,6 +810,7 @@ def _lesson_events(
                 heartbeat_interval=heartbeat_interval,
                 reload_generated_block_bid=reload_generated_block_bid,
                 reload_element_bid=reload_element_bid,
+                **preview_options,
             )
             # Final snapshots are staged by the adapter on DONE. Adapt here so the commit and
             # readiness notification precede terminal DONE, on which the browser closes SSE.
@@ -801,6 +856,16 @@ def _lesson_events(
                 ) in element_adapter.finalized_element_identities():
                     ready_by_block.setdefault(block_bid, []).append(element_bid)
             _commit_pending_step()
+            if preview_mode:
+                update = preview_status_event(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    generation=preview_options["preview_generation"],
+                )
+                if update is not None:
+                    yield update
             for block_bid, element_bids in ready_by_block.items():
                 yield _make_audio_backfill_ready_event(block_bid, element_bids)
             if terminal_done is not None:

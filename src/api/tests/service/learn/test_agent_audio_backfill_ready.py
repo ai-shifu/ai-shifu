@@ -18,6 +18,15 @@ from flaskr.service.learn.learn_dtos import (
 @pytest.fixture
 def execution(monkeypatch: pytest.MonkeyPatch) -> dict:
     """Stage final snapshots when the adapter receives the agent's last event."""
+    from flaskr.service.learn.agent import preview_history
+
+    monkeypatch.setattr(
+        preview_history, "begin_preview_run", lambda *_a, **_k: "generation"
+    )
+    monkeypatch.setattr(
+        preview_history, "pending_preview_record", lambda *_a, **_k: None
+    )
+    monkeypatch.setattr(preview_history, "preview_status_event", lambda *_a, **_k: None)
     sequence = []
     staged = []
     monkeypatch.setattr(runtime, "uses_agent_engine", lambda _bid: True)
@@ -58,6 +67,8 @@ def execution(monkeypatch: pytest.MonkeyPatch) -> dict:
     )
 
     class Adapter:
+        run_session_bid = "preview-run"
+
         def finalized_element_identities(self) -> list[tuple[str, str]]:
             return [("block", bid) for bid in staged]
 

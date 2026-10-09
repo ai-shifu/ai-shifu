@@ -399,6 +399,27 @@ def get_outline_item_tree(
             LearnProgressRecord.status != LEARN_STATUS_RESET,
             LearnProgressRecord.deleted == 0,
         ).all()
+        from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+        from flaskr.service.learn.agent.routing import uses_agent_engine
+
+        agent_preview = preview_mode and uses_agent_engine(shifu_bid)
+        preview_sessions = {}
+        if agent_preview:
+            progress_records = []
+            preview_sessions = {
+                row.outline_item_bid: row
+                for row in LearnAgentSession.query.filter(
+                    LearnAgentSession.user_bid == user_bid,
+                    LearnAgentSession.shifu_bid == shifu_bid,
+                    LearnAgentSession.active_key.in_(
+                        [
+                            active_key_for(user_bid, bid, preview_mode=True)
+                            for bid in outline_items_bids
+                        ]
+                    ),
+                    LearnAgentSession.deleted == 0,
+                ).all()
+            }
         progress_records_map: dict[str, LearnProgressRecord] = {}
         latest_progress_record_map: dict[str, LearnProgressRecord] = {}
         for progress_record in progress_records:
@@ -453,6 +474,14 @@ def get_outline_item_tree(
                 status = progress_record.status
                 if status == LEARN_STATUS_LOCKED:
                     status = LEARN_STATUS_NOT_STARTED
+            if agent_preview:
+                draft_session = preview_sessions.get(outline_item.outline_item_bid)
+                if draft_session is not None:
+                    status = (
+                        LEARN_STATUS_COMPLETED
+                        if draft_session.finished
+                        else LEARN_STATUS_IN_PROGRESS
+                    )
             is_lesson_node = not bool(item.children)
             has_content_update_for_current_user = False
             if not preview_mode and is_lesson_node:
@@ -713,10 +742,25 @@ def get_learn_record(
 
 
 def reset_learn_record(
-    app: Flask, shifu_bid: str, outline_bid: str, user_bid: str
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    *,
+    preview_mode: bool = False,
 ) -> bool:
-    """Reset learn record."""
+    """Reset learner progress, or only the explicitly selected draft preview."""
     with app_context_scope(app), unit_of_work():
+        from flaskr.service.learn.agent.routing import uses_agent_engine
+
+        if preview_mode and uses_agent_engine(shifu_bid):
+            stage_agent_session_discard(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                preview_mode=True,
+            )
+            return True
         progress_records = (
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.user_bid == user_bid,
