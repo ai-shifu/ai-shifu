@@ -106,6 +106,18 @@ cp .env.example.full .env
 
 `dev_in_docker.sh` 会从本地源码构建后端与前端镜像，并启动 `docker-compose.dev.yml`（包含热更新和挂载代码目录），适合日常开发迭代。
 
+脚本会在构建 Web 镜像前记录当前检出的提交，让用户菜单显示对应的源码版本。
+不含 Git 元数据的源码压缩包只显示软件包版本号。
+
+如果直接用 Compose 启动开发环境，请在 `docker/` 目录运行：
+
+```bash
+git rev-parse HEAD > ../src/web/.app-build-sha 2>/dev/null || rm -f ../src/web/.app-build-sha
+docker compose -f docker-compose.dev.yml up --build -d
+```
+
+切换到其他提交后，再次启动时需重新生成标记并构建，避免已有开发镜像保留旧的提交号。
+
 ### Compose 文件的区别
 
 - `docker-compose.latest.yml`：跟随 `:latest` 镜像标签，获取最新构建（或你本地打的 `latest` 镜像），适合快速验证。

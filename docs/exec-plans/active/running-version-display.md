@@ -24,6 +24,7 @@ The text is selectable and works in the existing desktop and mobile menus.
 - [x] 2026-10-10 06:56 CST: Extended Drone preparation for all six environments; readback confirms one marker command with original steps and build/deploy configurations preserved.
 - [x] 2026-10-10 07:26 CST: Simulation PR #3079 deployed commit `6002c0108bbdcb9a989470b0b193b1aacca85923` as `sim-6002c01` (build 488); API and Web rollouts completed. The browser menu shows the same SHA on desktop and at 390x844, including Chinese text, selectable 12px styling and no footer overflow.
 - [x] 2026-10-10 07:27 CST: Refreshed main and rebased the feature branch for the repository's up-to-date merge rule. Both original commit patches are unchanged; the production PR's first complete CI run passed all applicable checks.
+- [x] 2026-10-10 07:42 CST: Addressed Docker development review discussion r4235386594. The dev script now prepares HEAD before the Web build, clears stale archive metadata and stops on marker update failures. Direct Compose and standalone build instructions are aligned; 10 new executable regressions pass, and a second entrypoint audit found no remaining build path omission.
 - [ ] Merge through a focused PR and verify domestic and overseas production pages against the deployed source revision.
 
 ## Surprises & Discoveries

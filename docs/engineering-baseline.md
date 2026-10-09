@@ -24,6 +24,18 @@ details behind those rules.
 | Start Docker dev stack (build local latest) | `./dev_in_docker.sh` | `cd docker` |
 | Build frontend dev image | `docker build ../src/web -t ai-shifu-cook-web-dev -f ../src/web/Dockerfile_DEV` | `cd docker` |
 
+Before the standalone frontend dev image command, prepare the source revision
+from `docker/`:
+
+```bash
+git rev-parse HEAD > ../src/web/.app-build-sha 2>/dev/null || rm -f ../src/web/.app-build-sha
+```
+
+`dev_in_docker.sh` does this automatically. Direct Compose startup must also
+prepare the marker and use `up --build`, as shown in the
+[development instructions](../README.md#development-mode-dev_in_dockersh).
+Source archives without Git metadata keep the package-version-only display.
+
 ### Essential Environment Variables
 
 Before starting the backend or running Flask migration commands, configure a
