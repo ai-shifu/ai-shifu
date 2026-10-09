@@ -695,3 +695,21 @@ required before claiming the screenshot discrepancy fixed in the live product.
   explanation remains, the destructive reset question has zero DOM matches,
   and confirmation remains disabled. Did not submit a reset or consume credits.
   Screenshot: /private/tmp/retake-exhausted-copy-fixed.png.
+
+
+### October 9 authorized production PR submission
+
+User explicitly requested a focused formal PR into main, with NO merge or
+production deployment. This supersedes earlier chat/plan sequencing that blocked
+PR creation on live engine-wide acceptance or temporary test-credit cleanup.
+The feature scope is lesson retake accounting and its learner-facing messages;
+existing teaching engines are integration points, not an engine upgrade.
+Document live/offline evidence and remaining release checks in the PR without
+expanding implementation scope. The dev02 gthread startup correction is an
+operational change outside this code PR. Pending 149.72-credit cleanup remains
+a separate dev02 housekeeping task awaiting its existing specific permission.
+
+Do not merge, change production configuration/data, or activate production
+retake enforcement under this authorization. Latest main has two further
+learning fixes; GitHub mergeability/checks and any relevant integration effects
+must be reviewed before a later merge. PR submission itself remains authorized.
