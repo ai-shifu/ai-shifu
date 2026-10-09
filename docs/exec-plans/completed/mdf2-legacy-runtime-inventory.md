@@ -19,8 +19,15 @@ The dated evidence belongs in the
 - [x] 2026-10-09T09:35:18Z: Confirmed publication of [PR #3066](https://github.com/ai-shifu/ai-shifu/pull/3066)
   after generated indexes, repository harness, developer-tool check, and full
   pre-commit gates passed for commit 6c1a30875.
-- [ ] 2026-10-09T09:35:18Z: Finish inspecting reviews and reply to each independent AI opinion in
-  its original discussion; human merge remains separate.
+- [x] 2026-10-09T10:05:44Z: Reviewed inline, review, and issue comments. Both Devin
+  findings are fixed in 57be697d6 and individually replied to before resolution:
+  [publication](https://github.com/ai-shifu/ai-shifu/pull/3066#discussion_r4228728316)
+  and [timestamps](https://github.com/ai-shifu/ai-shifu/pull/3066#discussion_r4228728599).
+  Codex initial review and CodeRabbit's final 57be697d6 review have no findings;
+  all technical checks pass. Human merge remains separate.
+- [x] 2026-10-09T10:05:44Z: Reviewed scope and acceptance before archival. The
+  inventory deliverable is complete; runtime quality acceptance and retirement
+  remain explicitly outside this plan.
 
 ## Surprises & Discoveries
 
@@ -36,6 +43,8 @@ absence of a static importer a weak deletion signal.
 - Record source evidence, not a list of files declared safe to delete.
 - Use main 9057bb429 as the reproducible baseline; exclude unmerged #3064.
 - Do not deploy a documentation-only change to sim or alter production.
+- Archive only the completed inventory after reviewing its scope and evidence;
+  future retirement still requires separate authorization.
 - Keep real-course and external-provider acceptance outside this docs PR;
   record those results in the development workspace, without learner credentials.
 
@@ -43,9 +52,11 @@ absence of a static importer a weak deletion signal.
 
 The inventory corrects the assumption that full 2.0 routing makes the 1.0 host
 and generated-record tables obsolete. Existing boundary tests and repository
-gates pass; PR #3066 is published. Original-thread review disposition remains
-to be recorded in the PR. This
-work does not complete a retirement milestone or authorize its implementation.
+gates pass; PR #3066 is published. Both independent findings have original-thread
+replies and pushed fixes; the reviewed 57be697d6 checks pass. Archival closes
+only this documentation inventory. Subsequent documentation-closeout checks are
+recorded in the PR. This work does not complete a retirement milestone or
+authorize its implementation.
 
 ## Context and Orientation
 
