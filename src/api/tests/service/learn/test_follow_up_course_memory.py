@@ -175,12 +175,32 @@ def test_follow_up_formatter_does_not_log_course_notes(
     assert "Prefers short examples" not in repr(logged)
 
 
-def test_coze_outbound_observes_scoped_memory_updates_and_deletion(
-    app: Flask, scope: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("provider", ["coze", "volc_knowledge"])
+def test_provider_outbound_observes_scoped_memory_updates_and_deletion(
+    app: Flask, scope: tuple[str, str], monkeypatch: pytest.MonkeyPatch, provider: str
 ) -> None:
-    """Real stored notes reach native chat with fresh scope and no adapter writes."""
-    from flaskr.service.learn.ask_provider_adapters import coze_adapter
+    """Real stored notes reach native providers with fresh scope and no adapter writes."""
+    from flaskr.service.learn.ask_provider_adapters import (
+        coze_adapter,
+        volc_knowledge_adapter,
+    )
 
+    adapter_module = coze_adapter if provider == "coze" else volc_knowledge_adapter
+    adapter = (
+        coze_adapter.CozeAskProviderAdapter()
+        if provider == "coze"
+        else volc_knowledge_adapter.VolcKnowledgeAskProviderAdapter()
+    )
+    config = (
+        {"api_key": "test-key", "bot_id": "bot"}
+        if provider == "coze"
+        else {
+            "account_id": "account",
+            "ak": "test-ak",
+            "sk": "test-sk",
+            "collection_name": "collection",
+        }
+    )
     payloads = []
 
     class Response(SimpleNamespace):
@@ -198,15 +218,20 @@ def test_coze_outbound_observes_scoped_memory_updates_and_deletion(
         payloads.append(json.loads(kwargs["body"]))
         return Response(
             status=200,
+            content=b'{"code":0,"data":{"records":[{"content":"ok"}]}}',
             iter_lines=lambda **_kwargs: iter(
                 ['data: {"event":"message","content":"ok"}']
             ),
         )
 
     monkeypatch.setattr(
-        coze_adapter,
+        adapter_module,
         "safe_provider_client",
-        lambda *_args, **_kwargs: SimpleNamespace(request=request),
+        lambda *_args, **_kwargs: SimpleNamespace(
+            request=request,
+            new_deadline=lambda: 123.0,
+            validate_url=lambda url, **_kw: SimpleNamespace(url=url),
+        ),
     )
     monkeypatch.setattr(
         context,
@@ -228,12 +253,12 @@ def test_coze_outbound_observes_scoped_memory_updates_and_deletion(
         built = _conversation(app, user, course)
         query = "What teaching style do I prefer?"
         chunks = list(
-            coze_adapter.CozeAskProviderAdapter().stream_answer(
+            adapter.stream_answer(
                 app,
                 user,
                 query,
                 [*built.provider_messages, {"role": "user", "content": query}],
-                {"config": {"api_key": "test-key", "bot_id": "bot"}},
+                {"config": config},
             )
         )
         assert [chunk.content for chunk in chunks] == ["ok"]
@@ -241,7 +266,13 @@ def test_coze_outbound_observes_scoped_memory_updates_and_deletion(
             (row.id, row.key, row.value, row.deleted)
             for row in VariableValue.query.all()
         ] == before
-        sent = payloads[-1]["additional_messages"]
+        sent = (
+            payloads[-1]["additional_messages"]
+            if provider == "coze"
+            else payloads[-1]["pre_processing"]["messages"]
+        )
+        if provider == "volc_knowledge":
+            assert payloads[-1]["pre_processing"]["rewrite"] is True
         assert [m["content"] for m in sent[1:]] == [
             "Selected classroom anchor",
             "Earlier learner question",
