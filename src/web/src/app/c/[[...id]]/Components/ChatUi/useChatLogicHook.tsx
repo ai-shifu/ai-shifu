@@ -2742,7 +2742,7 @@ function useChatLogicHook({
         item => item.element_bid === blockBid,
       );
       const variableName = params.variableName;
-      if (variableName) {
+      if (variableName && needChangeItemIndex === -1) {
         // first find the item with the same variable value
         const variableMatchIndex = newList.findIndex(item =>
           item.content?.includes(variableName),
@@ -3093,12 +3093,9 @@ function useChatLogicHook({
       isTypeFinishedRef.current = false;
 
       const { values } = resolveInteractionSubmission(content);
-      const reload_generated_block_bid =
-        isReGenerate && needChangeItemIndex !== -1
-          ? resolveSourceGeneratedBlockBid(
-              newList[needChangeItemIndex].element_bid,
-            )
-          : undefined;
+      const reload_generated_block_bid = isReGenerate
+        ? sourceBlockBid
+        : undefined;
       runRef.current?.({
         input: {
           // No-variable interactions have an empty variableName; submit
@@ -3107,9 +3104,7 @@ function useChatLogicHook({
           [variableName || 'input']: values,
         },
         input_type: SSE_INPUT_TYPE.NORMAL,
-        reload_element_bid: reload_generated_block_bid
-          ? newList[needChangeItemIndex].element_bid
-          : undefined,
+        reload_element_bid: isReGenerate ? blockBid : undefined,
         reload_generated_block_bid,
       });
     },
