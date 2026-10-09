@@ -195,6 +195,13 @@ class CozeAskProviderAdapter:
                     if not raw_payload or raw_payload.replace(" ", "") == "[DONE]":
                         continue
 
+                    if raw_payload.startswith("event:"):
+                        event_name = raw_payload[6:].strip().lower()
+                        if event_name in {"error", "conversation.chat.failed"}:
+                            message = "coze returned an error event"
+                            raise AskProviderError(message)
+                        continue
+
                     try:
                         parsed = json.loads(raw_payload)
                     except json.JSONDecodeError:
@@ -205,7 +212,7 @@ class CozeAskProviderAdapter:
                         continue
 
                     event = str(parsed.get("event") or parsed.get("type") or "").lower()
-                    if "error" in event:
+                    if "error" in event or event == "conversation.chat.failed":
                         message = "coze returned an error event"
                         raise AskProviderError(message)
                     if event in {"done", "message_end", "chat.completed"}:

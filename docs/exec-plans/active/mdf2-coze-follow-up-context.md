@@ -22,10 +22,23 @@ in [follow-up classroom context](../../references/follow-up-classroom-context.md
   deployments succeed; review identified an error-echo privacy issue.
 - [x] 2026-10-09T08:00:00Z: Three privacy regressions fail before the review fix.
   Final learning tests pass 2,868 cases, four subtests and one skip; full gates pass.
-- [ ] 2026-10-09T08:00:00Z: Verify final sim runtime/HTTP and reply to every
-  independent AI opinion in its original discussion.
+- [x] 2026-10-09T08:04:00Z: Reviewed 20fe75c30 / sim 430ba69a8 have identical
+  trees. Build 458 / deployments 2182-2183 succeed; both API replicas match 40
+  runtime hashes and pass 26 isolated outbound/privacy cases without provider
+  calls or database writes. Fresh demo start/answer HTTP succeeds in 3.2/3.8
+  seconds, with two correctly attributed nonbillable usage rows. Devin's finding
+  is fixed and replied to in its original thread; CodeRabbit quota status is
+  explicitly acknowledged without claiming substantive review.
 - [ ] 2026-10-09T07:51:00Z: Accept answer quality with a separately configured real
   Coze bot; mocked HTTP delivery must not be reported as real-bot acceptance.
+
+- [x] 2026-10-09T08:13:00Z: CodeRabbit's native SSE event finding is accepted:
+  six real-frame regressions fail before header handling. Recognize native error
+  headers and normalized failed events without forwarding response text; add
+  meaningful docstrings to touched test helpers. Final local learning acceptance
+  passes 2,874 cases, four subtests and one expected skip; full gates pass.
+  Latest sim/CI results and both
+  original-thread replies are tracked in PR #3062's acceptance discussion.
 
 ## Surprises & Discoveries
 
@@ -36,8 +49,8 @@ context without claiming system authority. Existing arbitrary extra-body overrid
 and custom endpoints can intentionally own a different request contract.
 Devin review identified valid error-event echoes escaping through the host's
 existing exception warning. Three new regressions reproduce it; sanitize the
-adapter error text as well as malformed-response warnings. Reply in original
-thread 4227925568 after pushing the fix and validation.
+adapter error text as well as malformed-response warnings. The pushed fix and
+2,868-case validation are recorded in [the original reply](https://github.com/ai-shifu/ai-shifu/pull/3062#discussion_r4227970818).
 The first real-storage test used an invalid response double; it was corrected to
 model the safe client's actual context-managed response rather than changing runtime.
 
@@ -56,12 +69,20 @@ model the safe client's actual context-managed response rather than changing run
   routing changes are included. Workflow and Volc remain separate work.
 - Stop logging malformed provider contents now that replies may echo course notes.
 
+CodeRabbit also caught failure events in separate SSE header lines. The official
+API places event names outside the JSON body, so JSON-only tests missed that
+boundary. Check native failure headers before decoding their data, retaining
+partial-answer behavior and data-only gateway compatibility. Do not expand this
+fix into a separate success-frame deduplication or tool-event filtering change.
+
 ## Outcomes & Retrospective
 
 Nine regression cases fail against the previous adapter. Final local learning
 acceptance passes 2,868 cases and four subtests, with one expected skip. Full
-repository gates pass. Sim, review closure and external answer quality remain
-tracked separately above.
+repository gates and final sim delivery/privacy plus normal HTTP acceptance pass.
+Technical CI status and subsequent automated reviews are recorded in PR #3062;
+CodeRabbit's quota notice is not substantive approval. Real-bot answer quality
+remains separately tracked above.
 
 ## Context and Orientation
 
