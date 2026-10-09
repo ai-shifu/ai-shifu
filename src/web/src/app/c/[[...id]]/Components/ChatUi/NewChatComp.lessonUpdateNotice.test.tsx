@@ -215,6 +215,11 @@ jest.mock('@/store', () => ({
     }),
 }));
 
+jest.mock('@/store/useUserStore', () => ({
+  useUserStore: (selector: (state: any) => unknown) =>
+    selector({ userInfo: { user_id: 'learner-1' } }),
+}));
+
 jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (selector: (state: any) => unknown) =>
     selector({

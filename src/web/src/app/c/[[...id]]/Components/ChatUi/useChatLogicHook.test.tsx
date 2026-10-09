@@ -118,6 +118,10 @@ jest.mock('@/store/useCourseStore', () => ({
   })(),
 }));
 
+jest.mock('@/store/useUserStore', () => ({
+  useUserStore: jest.requireMock('@/store').useUserStore,
+}));
+
 jest.mock('@/store', () => ({
   useUserStore: (() => {
     globalThis.__chatHookMockUpdateUserInfo__ = jest.fn();

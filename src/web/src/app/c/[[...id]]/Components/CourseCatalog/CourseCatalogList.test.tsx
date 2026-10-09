@@ -18,6 +18,10 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/store/useUserStore', () => ({
+  useUserStore: jest.requireMock('@/store').useUserStore,
+}));
+
 jest.mock('@/store', () => ({
   useUserStore: (selector: (state: { isLoggedIn: boolean }) => unknown) =>
     selector({ isLoggedIn: true }),

@@ -6,7 +6,7 @@ jest.mock('@/lib/request', () => ({
   __esModule: true,
   default: { delete: jest.fn() },
 }));
-jest.mock('@/store', () => ({
+jest.mock('@/store/useUserStore', () => ({
   useUserStore: { getState: () => mockUser },
 }));
 jest.mock('@/store/useSystemStore', () => ({

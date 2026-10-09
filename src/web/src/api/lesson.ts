@@ -1,4 +1,4 @@
-import { useUserStore } from '@/store';
+import { useUserStore } from '@/store/useUserStore';
 import {
   finishRetakeRequest,
   retakeRequestIdentity,

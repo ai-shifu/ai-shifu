@@ -713,3 +713,11 @@ Do not merge, change production configuration/data, or activate production
 retake enforcement under this authorization. Latest main has two further
 learning fixes; GitHub mergeability/checks and any relevant integration effects
 must be reviewed before a later merge. PR submission itself remains authorized.
+
+## October 9 PR frontend check repair
+
+PR #3065 run `37908764979` failed in two frontend suites before executing their assertions. The retake allowance hook introduced a direct user-store dependency that was not mocked by the updated-lesson integration suite; the reset API also imported the store barrel, re-entering the preview layout test mock before the course store initialized.
+
+The reset API now imports the exact user-store module. Its API test and the affected learner integration tests mock that exact module. No quota, counting, analytics or UI behavior changes were made. The two original failing suites and reset API passed 46 focused assertions. A full `npm run test:ci` with independently installed lockfile dependencies and Node 22 passed all 261 suites / 3,021 assertions. Repository harness validation passed. The prior shared local dependency directory contained markdown-flow-ui 0.2.26 rather than the pinned 0.2.29; only this worktree symlink was replaced, with no dependency pin or lockfile changes.
+
+The correction is submitted to the existing production review PR only; this task does not authorize merge or production deployment.
