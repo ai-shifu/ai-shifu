@@ -31,6 +31,7 @@ from pydantic_ai.messages import (
     TextPart,
     ToolCallPart,
     ToolReturnPart,
+    UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 from scripts.mdf2_memory_quality.exercise import exercise_session
@@ -192,7 +193,7 @@ async def test_exact_pages_bound_utf8_json_and_freeze_during_the_run(text: str) 
     records = json.loads(source)
     assert records[0]["answer"] == "Learner wrote: " + text
     assert records[0]["teaching"] == text
-    assert records[0]["following_feedback"] == ["Original feedback " + text]
+    assert records[0]["following_teaching"] == ["Original feedback " + text]
     assert (
         json.loads(await read_exercise_history(ctx, -1))["status"] == "invalid_offset"
     )
@@ -271,7 +272,7 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback() -> No
             page = next(p for p in messages[-1].parts if isinstance(p, ToolReturnPart))
             record = json.loads(json.loads(page.content)["text"])[0]
             assert record["answer"] == "Learner wrote: 2"
-            assert record["following_feedback"] == ["Correct."]
+            assert record["following_teaching"] == ["Correct."]
             yield {
                 0: DeltaToolCall(
                     name="calculate_exercise_statistics",
@@ -371,4 +372,114 @@ async def test_projection_never_replaces_original_evidence_and_refusals_are_not_
     )
     assert (
         json.loads(await read_exercise_history(orphan))["status"] == "invalid_history"
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("boundary", ["continue", "new_answer"])
+async def test_following_teaching_stops_at_the_next_learner_turn(boundary: str) -> None:
+    messages = [
+        ModelResponse(
+            parts=[
+                ToolCallPart("interact", {"type": "text", "prompt": "Question 1"}, "q")
+            ]
+        ),
+        ModelRequest(parts=[ToolReturnPart("interact", "Learner wrote: 2", "q")]),
+        ModelResponse(
+            parts=[
+                TextPart("Correct."),
+                ToolCallPart("recall", {"key": "example"}, "read"),
+            ]
+        ),
+        ModelRequest(parts=[ToolReturnPart("recall", "unavailable", "read")]),
+        ModelResponse(parts=[TextPart("Same-turn explanation.")]),
+        ModelRequest(
+            parts=[UserPromptPart("continue")]
+            if boundary == "continue"
+            else [ToolReturnPart("interact", "Learner wrote: unrelated", "next")]
+        ),
+        ModelResponse(
+            parts=[TextPart("Later inaccurate report or unrelated teaching.")]
+        ),
+    ]
+    # The accepted-answer boundary helper is tested independently of orphan validation.
+    from flaskr.service.learn.agent.engine.exercise_statistics import (
+        _following_teaching,
+    )
+
+    text, following = _following_teaching(messages, 1)
+    assert text == ["Correct.", "Same-turn explanation."]
+    assert following is None
+
+
+@pytest.mark.anyio
+async def test_combined_teaching_preserves_context_and_stops_at_call_part() -> None:
+    mixed = "Correct. Question 2: What is 3 + 4?"
+    messages = [
+        ModelResponse(
+            parts=[
+                ToolCallPart("interact", {"type": "text", "prompt": "Question 1"}, "q")
+            ]
+        ),
+        ModelRequest(parts=[ToolReturnPart("interact", "Learner wrote: 2", "q")]),
+        ModelResponse(
+            parts=[
+                TextPart(mixed),
+                ToolCallPart(
+                    "interact", {"type": "text", "prompt": "Question 2"}, "next"
+                ),
+                TextPart("After the next question's call."),
+            ]
+        ),
+    ]
+    records = _records(_ctx(messages))
+    assert len(records) == 1
+    assert records[0]["following_teaching"] == [mixed]
+    assert records[0]["following_interaction"] == {
+        "type": "text",
+        "prompt": "Question 2",
+    }
+
+
+@pytest.mark.anyio
+async def test_simultaneous_answers_share_explicit_teaching_context() -> None:
+    messages = [
+        ModelResponse(
+            parts=[
+                ToolCallPart(
+                    "interact", {"type": "text", "prompt": f"Question {i}"}, f"q{i}"
+                )
+                for i in (1, 2)
+            ]
+        ),
+        ModelRequest(
+            parts=[
+                ToolReturnPart("interact", f"Learner wrote: {i + 1}", f"q{i}")
+                for i in (1, 2)
+            ]
+        ),
+        ModelResponse(
+            parts=[TextPart("Question 1 is correct; question 2 needs correction.")]
+        ),
+    ]
+    records = _records(_ctx(messages))
+    assert len(records) == 2
+    assert records[0]["answer_group"] == records[1]["answer_group"]
+    assert records[0]["following_teaching"] == records[1]["following_teaching"]
+    assert records[0]["question"] != records[1]["question"]
+
+
+@pytest.mark.anyio
+async def test_known_zero_hints_establishes_independence_when_before_first_is_omitted() -> (
+    None
+):
+    ctx = _fixture()
+    rows = _questions(ctx)
+    for row in rows:
+        if row.hints == 0:
+            row.hints_before_first = None
+    result = json.loads(await calculate_exercise_statistics(ctx, rows))
+    assert result["totals"]["independent_first"] == 8
+    assert all(
+        r["hints_before_first"] == 0 for r in result["questions"] if r["hints"] == 0
     )

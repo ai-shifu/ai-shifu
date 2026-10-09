@@ -185,12 +185,14 @@ def score_report(text: str, expected: dict[str, Any]) -> dict[str, bool]:
 
 
 def _question_number(value: str) -> int:
-    """Accept the fixture's ID, original prompt or exact original teaching title."""
+    """Accept exact fixture labels; never infer identity from arbitrary digits."""
     for number in range(1, 12):
         if value in {
             str(number),
             f"Question {number}",
             f"Question {number}: What is {number} + 1?",
+            f"Q{number}: {number} + 1",
+            f"Question {number}: {number} + 1",
         }:
             return number
     message = "invalid fixture question label"
@@ -198,7 +200,10 @@ def _question_number(value: str) -> int:
 
 
 def score_calculation(
-    events: list[object], expected: dict[str, Any]
+    events: list[object],
+    expected: dict[str, Any],
+    *,
+    diagnostics: dict[str, str] | None = None,
 ) -> dict[str, bool]:
     """Require complete evidence reads and a correct calculation before report text."""
     from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
@@ -209,6 +214,7 @@ def score_calculation(
     complete = False
     calculated = False
     premature = False
+    diagnostic = "no_calculation"
     for event in events:
         if isinstance(event, ContentDelta) and event.text.strip() and not calculated:
             premature = True
@@ -244,6 +250,7 @@ def score_calculation(
                 and result.get("status") == "calculated"
                 and complete
             ):
+                diagnostic = "invalid_calculation_shape"
                 try:
                     records = json.loads(source)
                     references = [record["reference"] for record in records]
@@ -272,7 +279,9 @@ def score_calculation(
                         for submission in row["submissions"]
                     )
                     totals = {key: result["totals"][key] for key in expected["totals"]}
-                except (ValueError, KeyError, TypeError):
+                except (ValueError, KeyError, TypeError) as error:
+                    if str(error) == "invalid fixture question label":
+                        diagnostic = "invalid_question_label"
                     continue
                 calculated = (
                     bool(records)
@@ -285,6 +294,11 @@ def score_calculation(
                         ).values()
                     )
                 )
+                diagnostic = "ok" if calculated else "incorrect_calculation_or_grouping"
+    if diagnostics is not None:
+        diagnostics["status"] = (
+            "premature_report" if premature and calculated else diagnostic
+        )
     return {
         "original_evidence_read": complete,
         "calculated_evidence": calculated,
@@ -331,9 +345,12 @@ async def evaluate_exercise(case: dict[str, Any], model: Model) -> dict[str, Any
     text = "".join(event.text for event in events if isinstance(event, ContentDelta))
     done = [event for event in events if isinstance(event, TurnDone)]
     errors = [event for event in events if isinstance(event, ErrorEvent)]
+    calculation_diagnostic = {}
     checks = {
         **score_report(text, expected_report(case)),
-        **score_calculation(events, expected_report(case)),
+        **score_calculation(
+            events, expected_report(case), diagnostics=calculation_diagnostic
+        ),
         "history_preserved": ModelMessagesTypeAdapter.dump_json(
             session.messages[:count]
         )
@@ -350,4 +367,5 @@ async def evaluate_exercise(case: dict[str, Any], model: Model) -> dict[str, Any
         "error": "engine_error" if errors else None,
         "checks": checks,
         "usage": done[-1].usage if done else {},
+        "calculation_diagnostic": calculation_diagnostic,
     }
