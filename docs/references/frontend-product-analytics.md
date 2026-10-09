@@ -351,3 +351,30 @@ solely because historical Umami rows or queries exist.
 - Payload: `shifu_bid` and `outline_bid` are stable pseudonymous machine IDs for course/lesson grouping; `operation` is `answer_edit|regenerate`; `learning_mode` is `read|listen`; only result events add `result=success|failed|cancelled`. No anchor, input, variable names, output, URL or errors are collected.
 - Consumers: Teacher draft-quality weekly Umami reports. New additive family; existing learner run/reset contracts and historical queries remain unchanged.
 - Verification: Hook tests cover exact anchors, initiation/confirmation timing, terminal outcomes, internal continuation chains and lifecycle cancellation. Helper tests cover payload allowlisting, exclusions, deduplication and synchronous/asynchronous tracking failures.
+
+## Running frontend version exposure
+
+- Business question and metric: How often is the version information exposed
+  in the user menu, grouped by teacher/admin versus learner surface? Count
+  menu exposures; this is not proof that a person read the version text.
+- Event: `user_app_version_viewed`, emitted from a post-commit effect after an
+  open shared user menu renders its version footer. Closed menus and menus
+  without a version are excluded. There is no attempt/result workflow.
+- Population: Teacher/admin users and learners, including guests. Learner
+  course preview is excluded from analytics, while retaining the version UI.
+- Deduplication: Once per open lifecycle of the menu. Re-renders and changes
+  to translation, user state or tracking callbacks do not count again. Closing
+  and opening the menu starts a new exposure. No persistent deduplication.
+- Complete feature payload: `{ surface: 'admin' | 'learner' }`. The enum is
+  low cardinality and non-personal. No version, SHA, user/account/course ID,
+  authored text, URL or error is added. Shared transport continues to own
+  pseudonymous identity and normalized routing context.
+- Consumer: Aggregate version-footer exposure counts by surface in Umami.
+  This additive event has no existing query/dashboard to migrate. It does not
+  measure deployment readiness or establish the running backend version.
+- Delivery: Use `useTracking`; synchronous throws, rejected promises, absent
+  analytics configuration or blocked scripts do not affect version display.
+- Verification: Exact event name and payload, guest/member eligibility,
+  preview exclusion, post-render timing, closed/reopened/re-rendered menus,
+  sensitive-field absence, and synchronous/asynchronous tracking failures.
+  Existing shared-transport regressions cover the delivered payload contract.

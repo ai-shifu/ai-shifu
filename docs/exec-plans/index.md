@@ -44,6 +44,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 - [Refresh Nicknames in Existing Agent Lessons](./active/resumed-learner-nickname.md)
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)
+- [Display the running frontend version](./active/running-version-display.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Stop Stripe Refund Credit Regrant](./active/stripe-refund-credit-reversal.md)
 - [Urdu product locale](./active/urdu-product-locale.md)

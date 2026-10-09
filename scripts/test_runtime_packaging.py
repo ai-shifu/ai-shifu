@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -17,6 +19,100 @@ ROOT = Path(__file__).resolve().parents[1]
 def workflow(name: str) -> dict:
     """Read the configured workflow, including YAML's Boolean-key spelling of on."""
     return yaml.safe_load((ROOT / ".github/workflows" / name).read_text())
+
+
+@pytest.mark.parametrize(
+    ("filename", "job_name"),
+    [
+        ("build-docker-image.yml", "build"),
+        ("runtime-harness.yml", "runtime-harness"),
+    ],
+)
+def test_frontend_build_revision_uses_checked_out_source_before_all_builds(
+    tmp_path: Path,
+    filename: str,
+    job_name: str,
+) -> None:
+    """A workflow event SHA must not replace the source revision copied into images."""
+    steps = workflow(filename)["jobs"][job_name]["steps"]
+    generators = [
+        step for step in steps if step.get("name") == "Record frontend build revision"
+    ]
+    assert len(generators) == 1
+    generator = generators[0]
+    checkout_index = next(
+        index
+        for index, step in enumerate(steps)
+        if step.get("uses", "").startswith("actions/checkout@")
+    )
+    build_indices = [
+        index
+        for index, step in enumerate(steps)
+        if step.get("uses", "").startswith(
+            ("docker/build-push-action@", "docker/bake-action@")
+        )
+    ]
+    assert build_indices
+    assert checkout_index < steps.index(generator) < min(build_indices)
+    if filename == "build-docker-image.yml":
+        assert generator["if"] == "inputs.service == 'web'"
+
+    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Build metadata test",
+            "-c",
+            "user.email=build-metadata@example.test",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "--quiet",
+            "-m",
+            "fixture",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    source_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    app_directory = tmp_path / "src/web"
+    app_directory.mkdir(parents=True)
+    marker = app_directory / ".app-build-sha"
+    marker.write_text("stale revision\n")
+    subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", generator["run"]],
+        cwd=tmp_path,
+        env={**os.environ, "GITHUB_SHA": "f" * 40},
+        check=True,
+    )
+
+    assert marker.read_text().strip() == source_sha
+    assert source_sha != "f" * 40
+
+
+def test_frontend_build_marker_is_git_ignored_but_available_to_docker() -> None:
+    """Local metadata is excluded from commits, while both Docker contexts keep it."""
+    marker = "src/web/.app-build-sha"
+    ignored = subprocess.run(
+        ["git", "check-ignore", marker],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert ignored.stdout.strip() == marker
+    for ignore_file, relative_marker in [
+        (ROOT / ".dockerignore", marker),
+        (ROOT / "src/web/.dockerignore", ".app-build-sha"),
+    ]:
+        for line in ignore_file.read_text().splitlines():
+            pattern = line.strip()
+            if pattern and not pattern.startswith(("#", "!")):
+                assert not path_matches(pattern, relative_marker)
 
 
 def path_matches(pattern: str, filename: str) -> bool:
