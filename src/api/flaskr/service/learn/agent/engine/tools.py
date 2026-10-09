@@ -280,11 +280,23 @@ def normalize_script_text_input(
     spec: InteractionSpec,
     questions: tuple[_Question, ...],
 ) -> InteractionSpec:
-    """Repair only a uniquely matched author question with its hint added as a choice.
+    """Restore a missing text hint or remove its duplicate generated choice.
 
     The remaining display/value pairs must be the author's exact ordered choices. A hint that
     the author also wrote as a real choice, another question, or a model-created option is kept.
+    Text-only questions must match the copied prompt and the same variable.
+    Ambiguous questions and explicitly supplied placeholders are left unchanged.
     """
+    if spec.type == "text" and not spec.options and not spec.placeholder:
+        hints = {
+            q.placeholder
+            for q in questions
+            if q.variable == spec.variable
+            and not any(c.strip() for c in q.choices)
+            and spec.prompt.strip() in (q.placeholder, q.written_placeholder)
+        }
+        if len(hints) == 1 and (hint := next(iter(hints))):
+            return spec.model_copy(update={"placeholder": hint})
     candidates: dict[str, InteractionSpec] = {}
     submitted = [(o.display, o.stored) for o in spec.options]
     for question in questions:
