@@ -3974,9 +3974,10 @@ describe('useChatLogicHook stream cleanup', () => {
       isListenMode?: boolean;
       previewMode?: boolean;
       trackEvent?: jest.Mock;
+      history?: typeof HISTORY_WITH_TWO_INTERACTIONS;
     }) => {
       mockGetLessonStudyRecord.mockResolvedValueOnce(
-        HISTORY_WITH_TWO_INTERACTIONS,
+        options?.history ?? HISTORY_WITH_TWO_INTERACTIONS,
       );
       const renderResult = renderHook(
         () =>
@@ -4018,6 +4019,52 @@ describe('useChatLogicHook stream cleanup', () => {
       );
       return renderResult;
     };
+
+    it('keeps the selected question when only teaching mentions its variable name', async () => {
+      const history = {
+        ...HISTORY_WITH_TWO_INTERACTIONS,
+        elements: HISTORY_WITH_TWO_INTERACTIONS.elements.map(item =>
+          item.element_bid === 'content-1'
+            ? { ...item, content: 'Teaching mentions var_old.' }
+            : item.element_bid === 'interaction-old'
+              ? {
+                  ...item,
+                  content: '?[A | B]',
+                  generated_block_bid: 'content-1',
+                }
+              : item,
+        ),
+      };
+      const { result } = await renderWithStreamingRun({
+        previewMode: true,
+        history,
+      });
+      act(() => {
+        result.current.onSend(
+          { variableName: 'var_old', selectedValues: ['B'] },
+          'interaction-old',
+        );
+      });
+      await act(async () => {
+        result.current.reGenerateConfirm.onConfirm();
+      });
+      await waitFor(() =>
+        expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+          reload_element_bid: 'interaction-old',
+          reload_generated_block_bid: 'content-1',
+        }),
+      );
+      expect(
+        result.current.items.find(
+          item => item.element_bid === 'interaction-old',
+        )?.user_input,
+      ).toBe('B');
+      expect(
+        result.current.items.find(
+          item => item.element_bid === history.elements[0].element_bid,
+        )?.content,
+      ).toBe('Teaching mentions var_old.');
+    });
 
     it.each([true, false])(
       'tracks confirmed draft answer edits only (confirm=%s)',
