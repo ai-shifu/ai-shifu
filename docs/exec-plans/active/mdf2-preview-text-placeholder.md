@@ -12,12 +12,21 @@ pending interactions so the existing learner renderer displays the input.
 - [x] 2026-10-09T07:17:00Z: Confirm the failure in two read-only production
   preview cache records and the authored script. Eight new regression cases
   fail before the fix.
-- [x] 2026-10-09T07:19:00Z: Restore missing hints using exact prompt matches or
-  one unambiguous text-only hint for the same variable. Cover cached pending
+- [x] 2026-10-09T07:19:00Z: Restore missing hints using authored prompt matches
+  for the same variable. Cover cached pending
   questions, unnamed answers, named memory, ambiguity and escaped hints.
 - [x] 2026-10-09T07:20:00Z: All learning tests pass: 2,853 tests, one skip,
   four subtests. Repository developer-tool and all-file gates pass.
-- [ ] Open the focused PR, deploy to sim and reply to AI opinions.
+- [x] 2026-10-09T07:24:00Z: Open PR #3061. Initial sim verifies two replicas
+  with 39 hashes each, 28 isolated regressions and both production examples on
+  each replica. Actual pinned UI renders the repaired input and submits text.
+- [x] 2026-10-09T07:26:00Z: Reproduce the AI review finding that a unique-hint
+  fallback changes unrelated follow-ups; remove the fallback and retain exact
+  authored prompt matching only.
+- [x] 2026-10-09T07:27:00Z: Final learning suite passes 2,854 tests, one skip,
+  four subtests, including the unrelated-follow-up regression that failed before
+  removal of the fallback. Add focused test/helper docstrings for review coverage.
+- [ ] Revalidate the final review fix in sim and reply to AI opinions.
 
 ## Surprises & Discoveries
 
@@ -31,9 +40,9 @@ a confirmation control; the question prompt alone cannot create a text input.
 
 - Restore only missing or empty placeholders on text-only interactions without
   choices. Preserve explicit placeholders, choice controls and variable identity.
-- Prefer exact raw/decoded authored hint matches against the model prompt.
-  Otherwise require one distinct hint for the same variable; an empty authored
-  hint also participates in ambiguity detection.
+- Require an exact raw/decoded authored hint match against the model prompt.
+  A unique hint alone does not identify an unrelated follow-up, so it must not
+  change the placeholder. Duplicate identical authored hints remain safe.
 - Apply the existing normalizer to restored pending questions as well as new
   tool calls. No cache deletion, schema migration or course edit is required.
 - Keep genuinely ambiguous or unauthored hints unchanged. General empty-hint
@@ -43,9 +52,10 @@ a confirmation control; the question prompt alone cannot create a text input.
 
 ## Outcomes & Retrospective
 
-Implementation and 2,853 learning regressions pass, including the mandatory
-offline engine suite. Repository gates pass. External acceptance
-is pending. Production evidence and course content remain private and read-only.
+The initial 2,853 learning regressions and repository gates pass, as do sim
+source-backed replay and browser input/submission checks. The review-identified
+unrelated-question boundary passes the final 2,854 learning tests; final sim
+revalidation is pending. Production evidence and course content remain private and read-only.
 
 ## Context and Orientation
 
