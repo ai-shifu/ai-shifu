@@ -8,12 +8,12 @@ Draft classrooms expose the existing answer-edit and regenerate actions, but the
 
 - [x] 2026-10-09 22:28 CST: Confirmed #3072 merged as bdde9c54a and inspected preview ownership, published rewind and classroom reload callers.
 - [x] 2026-10-09 22:48 CST: Implement scoped preview planning, checkpoint persistence and atomic retirement; coordinate exact interaction anchors and preview analytics.
-- [x] 2026-10-09 22:48 CST: Local learning/scorer regression: 3,016 passed, one expected skip, four subtests; frontend 90 passed, changed-file lint passed.
+- [x] 2026-10-09 22:48 CST: Local learning/scorer regression: 3,018 passed, one expected skip, four subtests; frontend 90 passed, changed-file lint passed.
 - [ ] 2026-10-09 22:48 CST: Complete repository gates, focused PR, review replies and sim runtime verification.
 
 ## Surprises & Discoveries
 
-Preview presentation already owns exact run IDs and question IDs, but no turn checkpoints. Several questions can share a generated block; answering one differently must identify its actual interaction element and the turn that accepted that question, rather than blindly taking the first later block. Existing formal rewind supplies checkpoint/restore helpers. AI review also found that textual variable-name fallback could redirect the chosen interaction to teaching. Preserve an exact selected control before any fallback, and derive reload anchors directly from that control; the added regression fails without this correction.
+Preview presentation already owns exact run IDs and question IDs, but no turn checkpoints. Several questions can share a generated block; answering one differently must identify its actual interaction element and the turn that accepted that question, rather than blindly taking the first later block. Existing formal rewind supplies checkpoint/restore helpers. AI review also found that textual variable-name fallback could redirect the chosen interaction to teaching. Preserve an exact selected control before any fallback, and derive reload anchors directly from that control; the added regression fails without this correction. A second AI finding exposed that engine checkpoint answers are only unconsumed deferred answers. Preserve display values independently, removing only answers accepted by retired host turns; both separate-model-turn answer-edit and regeneration regressions fail before the fix.
 
 ## Decision Log
 

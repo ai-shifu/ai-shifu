@@ -415,3 +415,28 @@ def test_reset_during_rewind_refuses_late_save_and_leaves_no_active_history(
     run("New answer", anchor=anchor)
     assert history().elements == []
     assert load_agent_session(app, identity, identity, preview_mode=True) is None
+
+
+@pytest.mark.parametrize("operation", ["edit", "regenerate"])
+def test_separate_model_turns_keep_earlier_displayed_answers(
+    classroom: tuple, operation: str
+) -> None:
+    _identity, run, history, _calls = classroom
+    run()
+    run("First answer")
+    second_question = history().elements[3].element_bid
+    run("Second answer")
+    third_teaching = history().elements[4].element_bid
+    run("Discard later answer")
+    if operation == "edit":
+        run("Replacement second answer", anchor=second_question)
+    else:
+        run(anchor=third_teaching)
+    elements = history().elements
+    controls = [e for e in elements if e.element_type == ElementType.INTERACTION]
+    assert [e.payload.user_input or "" for e in controls] == [
+        "First answer",
+        "Replacement second answer" if operation == "edit" else "Second answer",
+        "",
+    ]
+    assert len(elements) == 6
