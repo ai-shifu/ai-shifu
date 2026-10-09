@@ -354,9 +354,10 @@ Evidence:
   /private/tmp/retake-audit-update-exhausted.png.
 
 Open issues and priority:
-1. Before broad release: guest identity is browser-local. Clearing storage or
-   changing browsing context can create a new user and quota. Ask the user
-   whether guest retakes require sign-in; do not silently change guest access.
+1. Accepted for this phase (user decision October 9): guest identity is
+   browser-local; changing browsers/storage may obtain a new identity and quota.
+   After initially choosing sign-in, the user explicitly deferred this
+   complexity. Keep guest retakes permitted and do not add a sign-in gate.
 2. Before broad release: guest-to-existing-account migration currently moves
    learning records, not retake attempts/run slots. Merge successful usage
    within deployment/course/lesson and preserve idempotent attempt IDs; exclude
@@ -392,3 +393,28 @@ The current owner account was also freshly checked on the updated lesson: its up
 Current work only adds boundary regression tests and this record. Guest policy,
 account merging, update replenishment and live TTS acceptance remain follow-up
 work; no claim of full release readiness or proven cost savings.
+
+
+### October 9 continued audit after guest decision
+
+User scope: accept cross-browser guest identity renewal for now; continue other
+checks without adding guest sign-in or identity-merging complexity. No runtime
+behavior changes in this continuation.
+
+Expanded HTTP coverage exposed ten outdated test expectations from the retired
+teacher-configurable quota contract, not ten runtime feature defects. Updated
+those tests to assert rejected teacher writes, decision-only learner status,
+auto-initialized ten and explicit deployment-disable legacy fallback. Exhausted
+ordinary learners are seeded with ten successful internal attempts without
+resetting their existing learning. Added authentic missing-credential checks,
+preview permission checks and guest ledger coverage. Fake authentication only
+accepts the explicit test token; absent tokens go through the real validator.
+
+Assertions: repeated reset request creates one reservation; user/quota_exempt
+query parameters cannot change identity or admit an exhausted learner; rejected
+reset retains existing teaching/progress; ordinary learners cannot self-declare
+preview; guest tokens use the same server ledger, with no new login requirement.
+The broader prior audit remains valid. Actual paid TTS/read-listen billing and
+course-update entitlement remain unverified/product follow-ups respectively.
+
+Continuation result: 65 learning HTTP contract tests passed after updates; Ruff passed. Runtime readback still shows all four dev02 services on 20261009-ffc6f7a. This continuation changes only tests and records; no new deployment behavior, guest restriction or quota reset.
