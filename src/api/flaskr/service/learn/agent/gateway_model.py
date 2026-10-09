@@ -54,6 +54,7 @@ if TYPE_CHECKING:
     from flask import Flask
     from flaskr.api.langfuse import LangfuseObservationHandle
     from flaskr.api.llm import LLMStreamResponse
+    from flaskr.service.metering.api import UsageContext
     from pydantic_ai.settings import ModelSettings
     from pydantic_ai.tools import RunContext, ToolDefinition
 
@@ -335,6 +336,14 @@ class GatewayModel(Model):
         self._span = span
         self._generation_name = generation_name
         self._chat_llm_kwargs = chat_llm_kwargs
+
+    def set_usage_context(self, context: UsageContext) -> None:
+        """Bind this request-local model before the next turn's producer starts.
+
+        Each gateway request copies its kwargs, retaining the immutable context
+        it started with when the host subsequently opens another turn.
+        """
+        self._chat_llm_kwargs["usage_context"] = context
 
     @property
     def model_name(self) -> str:

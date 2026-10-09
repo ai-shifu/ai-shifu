@@ -331,10 +331,14 @@ def run_agent_lesson(
     rewind: RewindPlan | None = None,
     debug_store: DebugSessionStore | None = None,
     preview_variables: dict[str, Any] | None = None,
+    on_turn_opened: Callable[[str, str], None] | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
 
     Returns how the turn ended (see `TurnOutcome`); the caller decides whether another follows.
+
+    `on_turn_opened` binds host-owned usage to the opened progress record and
+    block before session creation or any native model producer can run.
 
     `rewind` takes the lesson back to an earlier turn first (see `agent.rewind`): the session is
     restored, the turn runs from there, and the rows it supersedes are retired when it is written.
@@ -453,6 +457,8 @@ def run_agent_lesson(
     # reading lesson has no audio to bind and keeps the single-element shape it has today.
     pager = LessonPager() if listen else None
     try:
+        if on_turn_opened is not None:
+            on_turn_opened(progress_record_bid, generated_block_bid)
         return (
             yield from _stream_turn(
                 app,
