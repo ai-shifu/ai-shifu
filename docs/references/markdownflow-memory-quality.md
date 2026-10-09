@@ -160,8 +160,10 @@ The evaluator initially rejected exact original prompt/title labels; their
 normalization plus reference grouping rescores six unchanged captured outputs
 6/6, with a subsequent fresh final-source selected CLI run passing 2/2. Earlier
 failing reports remain retained privately, not relabeled as new passing runs.
-Statistics after semantic-summary
-compaction and other models/languages remain separate acceptance items.
+The additional compacted exercise cases now cover summary success and injected
+failure/cache fallback with selected synthetic evidence. Natural-course
+statistics after semantic-summary compaction, other models/languages, full-catalog
+repetitions and independent human acceptance remain separate items.
 
 ## Running
 

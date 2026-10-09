@@ -12,6 +12,8 @@ The exercise evaluator currently keeps every teaching message below the compacti
 - [x] 2026-10-09T15:57:13Z: Developer-tool checks, full gates and commit hooks passed; published [PR #3075](https://github.com/ai-shifu/ai-shifu/pull/3075) with functional commit b94979ac1.
 - [ ] 2026-10-09T15:58:40Z: Independent AI/CI review remains pending; CodeRabbit is currently rate-limited, not substantive approval. Reply to any actionable opinions in their original threads before declaring review handling complete.
 
+- [x] 2026-10-09T15:59:45Z: Accepted Devin documentation finding: distinguish completed selected synthetic compaction coverage from remaining natural-course/other-model acceptance in the canonical history paragraph.
+
 ## Surprises & Discoveries
 
 The projection flag is enabled in existing exercise cases, but none of their text is eligible and no semantic summarizer is configured. Actual compaction must be observed in model requests rather than inferred from options.
