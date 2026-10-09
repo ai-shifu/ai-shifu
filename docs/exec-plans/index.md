@@ -103,6 +103,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Provider cache usage in memory quality reports](./completed/mdf2-cache-usage-observation.md)
 - [Attribute MarkdownFlow model usage to its course and lesson](./completed/mdf2-course-usage-attribution.md)
 - [Read current course memory during MarkdownFlow follow-ups](./completed/mdf2-follow-up-course-memory.md)
+- [Inventory MarkdownFlow 1.0 dependencies without retiring them](./completed/mdf2-legacy-runtime-inventory.md)
 - [Long teaching history and current memory acceptance](./completed/mdf2-long-history-memory.md)
 - [Current course answers after a persisted lesson reload](./completed/mdf2-memory-journey.md)
 - [Current memory evidence and repeatable quality baseline](./completed/mdf2-memory-quality.md)

@@ -134,6 +134,7 @@
 | `docs/exec-plans/completed/mdf2-cache-usage-observation.md` | Provider cache usage in memory quality reports | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-course-usage-attribution.md` | Attribute MarkdownFlow model usage to its course and lesson | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-follow-up-course-memory.md` | Read current course memory during MarkdownFlow follow-ups | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/mdf2-legacy-runtime-inventory.md` | Inventory MarkdownFlow 1.0 dependencies without retiring them | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-long-history-memory.md` | Long teaching history and current memory acceptance | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-memory-journey.md` | Current course answers after a persisted lesson reload | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-memory-quality.md` | Current memory evidence and repeatable quality baseline | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -202,6 +203,7 @@
 | `docs/history/gemini-live-voice-follow-up-through-2026-09-26.md` | Gemini Live implementation journal through 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/knowledge-cleanup-delivery-2026-09-26.md` | Repository knowledge cleanup delivery — 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/knowledge-review-2026-09-26.md` | Repository knowledge review — 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
+| `docs/history/mdf2-legacy-runtime-inventory-2026-10-09.md` | MarkdownFlow 1.0 runtime inventory — 2026-10-09 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/ruff-rule-minimization-through-2026-09-26.md` | Ruff rule delivery journal through 2026-09-26 | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/history/shared-admin-table-component.md` | Shared Admin Table Component | `history` | `historical` | `repo` | `-` | `false` |
 | `docs/product-specs/account-session-analytics.md` | Account Session Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-09-28` | `true` |
