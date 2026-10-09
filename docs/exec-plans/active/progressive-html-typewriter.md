@@ -35,6 +35,7 @@ HTML must not wait for either a complete block or the preceding prose queue.
 - [x] 2026-10-09 21:25 UTC: Synced consumer PR 3069 with main in 09a27d9. Bump markdown-flow-ui run 37993184719 succeeded and produced 74737a8, pinning 0.2.31 exactly with the official tarball integrity.
 - [x] 2026-10-09 21:36 UTC: Clean-installed the consumer with Node 22.16.0 / npm 10.9.2 and removed only three redundant nested React peer lock entries. The actual npm 0.2.31 renderer passes the persistent progressive HTML/backend roots/code boundary/video-state regression with natural React 18.3.1 resolution and no warnings. The isolated official 0.2.30 control fails specifically on immediate figure rendering.
 - [x] 2026-10-09 21:36 UTC: Consumer focused tests pass (8 suites / 161 tests), and the full suite passes (258 suites / 3,001 tests). Typecheck output matches the post-main-sync baseline exactly, with only two existing admin user-page test errors. Development tools and the complete repository pre-commit gate pass. Frontend CI now includes the actual installed-package regression; current-head CI and reviews are tracked in PR 3069 before merging.
+- [x] 2026-10-09 22:23 UTC: Moved the installed-package regression into six normal Jest cases, reusing the existing test configuration and JSDOM environment. Removed the standalone script and extra CI step. All 3,007 tests in 259 suites pass; typecheck still matches the same two-error baseline. An isolated official 0.2.30 Jest control fails the expected figure, aside and video cases, while 0.2.31 passes all six.
 - [ ] 2026-10-09 UTC: After the consumer PR is merged and the Web build is deployed, verify the first HTML block in the affected live lesson.
 
 ## Surprises & Discoveries
@@ -116,6 +117,13 @@ redundant nested React, React DOM and scheduler lock entries, validated with
 npm 10.9.2's package-lock-only resolver. Every other package version remains
 unchanged; the persistent check must run using natural module resolution.
 
+The public renderer export loads in the existing Next/Jest configuration without
+transformer exceptions or resolver changes. Its normal Jest suite uses the
+existing JSDOM with inline vendor scripts disabled, matching the original DOM
+regression's scope, and a local structured-clone fallback for JSDOM's missing
+browser API. Fake timers verify immediate HTML before a prose tick and stable
+video state after the prose clock advances.
+
 ## Decision Log
 
 - 2026-10-09: Segment the received source before applying typing. HTML is
@@ -148,6 +156,9 @@ unchanged; the persistent check must run using natural module resolution.
 - 2026-10-09: Reuse the app's compatible React 18 peer installation instead of
   retaining an unnecessary nested React 19. Verify the installed npm renderer
   directly in frontend CI, without library mocks or module-resolution patches.
+- 2026-10-09: Keep the installed-renderer regression in the existing Jest suite
+  and normal frontend test command so it uses the same reporting and CI path
+  as the other frontend tests.
 - 2026-10-09: Parse normalized stable-video source only when a received snapshot
   changes, then restore raw positions before projecting visibility. Keep public
   callbacks and budgets in authored-source coordinates. Protect unfinished link
@@ -167,11 +178,13 @@ The consumer clean installation uses the app's React 18.3.1 peer naturally,
 without resolver patches. The persistent installed-package regression verifies
 unfinished HTML and appends before prose ticks, backend figure/aside roots,
 inert fenced examples and stable video DOM, parent, browsing window and state.
-The official 0.2.30 control fails the figure assertion, while 0.2.31 passes.
-Focused tests pass (161 tests in 8 suites); all 3,001 consumer Jest tests in 258
-suites pass. Type checking has exactly the same two admin user-page test errors
+The six normal Jest cases also advance the prose clock while preserving video
+state. The official 0.2.30 Jest control fails figure, aside and video assertions,
+while 0.2.31 passes all six. All 3,007 consumer Jest tests in 259 suites pass.
+Type checking has exactly the same two admin user-page test errors
 as the current-main baseline before this upgrade, with byte-identical output.
-Frontend CI includes the installed-package regression after its normal suite.
+Frontend CI includes the installed-package regression in its normal Jest suite;
+there is no separate renderer script or additional workflow step.
 Current-head CI and review convergence remain a PR merge requirement.
 The final library source at 3aecd9c614a8c88420cd84ba68602129c64fc379 passes
 1,261 unit tests in 81 files, lint, formatting, the package build and five asset

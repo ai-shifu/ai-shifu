@@ -63,11 +63,6 @@ jobs:
         working-directory: src/web
         run: npm run test:ci
 
-      - name: Check installed MarkdownFlow renderer
-        if: steps.frontend-changes.outputs.run == 'true'
-        working-directory: src/web
-        run: node scripts/check-markdown-flow-renderer.mjs
-
       - name: Skip frontend tests
         if: steps.frontend-changes.outputs.run != 'true'
         run: echo "Skipping frontend tests because this pull request has no frontend or shared i18n changes."
