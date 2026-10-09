@@ -28,6 +28,11 @@ from flaskr.service.learn.follow_up_context import (
     build_legacy_follow_up_history,
     is_complete_follow_up_asks,
 )
+from flaskr.service.learn.follow_up_memory_writer import (
+    FollowUpMemoryPatch,
+    FollowUpMemoryRun,
+    load_follow_up_memory_policy,
+)
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
     build_langfuse_span_name,
@@ -252,6 +257,7 @@ def handle_input_ask(
     anchor_element_bid: str = "",
     parent_observation: object | None = None,
     runtime_profiles: dict | None = None,
+    memory_patch: FollowUpMemoryPatch | None = None,
 ) -> Generator[str, None, None]:
     """Handle user Q&A input.
 
@@ -277,12 +283,16 @@ def handle_input_ask(
         raise_param_error("follow_up_model")
 
     usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD
+    learning_mode = getattr(context, "_learning_mode", None)
+    if learning_mode not in {"read", "listen", "classroom"}:
+        learning_mode = "listen" if getattr(context, "_listen", False) else "read"
     usage_context = UsageContext(
         user_bid=user_info.user_id,
         shifu_bid=outline_item_info.shifu_bid,
         outline_item_bid=outline_item_info.bid,
         progress_record_bid=attend_id,
         usage_scene=usage_scene,
+        learning_mode=learning_mode,
     )
 
     app.logger.info("follow_up_info:%s", follow_up_info.__json__())
@@ -365,6 +375,19 @@ def handle_input_ask(
     from flaskr.api.llm.model_selection import resolve_selection
 
     follow_up_usage_metadata = dict(getattr(follow_up_info, "usage_metadata", {}))
+
+    memory_policy = None
+    if memory_patch is not None:
+        row_loader = getattr(context, "_get_outline_row_id", None)
+        memory_policy = load_follow_up_memory_policy(
+            user_bid=user_info.user_id,
+            shifu_bid=outline_item_info.shifu_bid,
+            outline_bid=outline_item_info.bid,
+            outline_row_id=row_loader(outline_item_info.bid)
+            if callable(row_loader)
+            else None,
+            preview=is_preview,
+        )
 
     # Create ask block
     ask_block = _create_ask_block(
@@ -513,6 +536,51 @@ def handle_input_ask(
         # External provider-only answers do not depend on LLM configuration.
         # Guardrail rejections resolve through invoke_llm in check_text instead.
         model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
+        if memory_policy is not None and memory_patch is not None:
+            from flaskr.service.learn.agent.gateway_model import GatewayModel
+            from flaskr.service.learn.agent.memory_admission import make_request_check
+
+            shared = {
+                "user_id": user_info.user_id,
+                "span": span,
+                "usage_context": usage_context,
+                "usage_scene": usage_scene,
+                "usage_metadata": metadata,
+            }
+            answer_model = GatewayModel(
+                app,
+                model,
+                generation_name=generation_name,
+                **shared,
+            )
+            admission_model = GatewayModel(
+                app,
+                model,
+                generation_name="follow_up_memory_admission",
+                retry_deadline_seconds=8,
+                timeout=8,
+                num_retries=0,
+                **shared,
+            )
+            run = FollowUpMemoryRun(
+                answer_model,
+                patch=memory_patch,
+                current_input=raw_input,
+                declared_keys=memory_policy.declared_keys,
+                snapshot=dict(runtime_profiles or {}),
+                deleted_keys=memory_policy.deleted_keys,
+                generations=memory_policy.generations,
+                reserved_keys=memory_policy.reserved_keys,
+                request_check=make_request_check(admission_model),
+                preview=is_preview,
+                temperature=float(follow_up_info.model_args["temperature"]),
+                cancelled=(
+                    context._stop_event.is_set
+                    if getattr(context, "_stop_event", None) is not None
+                    else None
+                ),
+            )
+            return run.stream(stream_messages)
         return chat_llm_func(
             app,
             user_info.user_id,
@@ -634,6 +702,9 @@ def handle_input_ask(
 
     if use_llm_fallback:
         yield from _emit_provider_stream(ASK_PROVIDER_LLM)
+
+    if provider_error is not None and not use_llm_fallback and memory_patch is not None:
+        memory_patch.variables.clear()
 
     # Backfill answer block content
     answer_block.generated_content = response_text

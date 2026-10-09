@@ -2299,12 +2299,11 @@ class RunScriptContextV2:
         if self._last_position == -1:
             self._last_position = run_script_info.block_position
         ask_input = self._input
-        app.logger.info("ask_input: %s", ask_input)
         if isinstance(ask_input, dict):
             ask_input = ask_input.get("input", "")
         if isinstance(ask_input, list):
             ask_input = ",".join(ask_input)
-        app.logger.info("ask_input: %s", ask_input)
+        app.logger.info("Ask input normalized: input_chars=%s", len(ask_input))
         from flaskr.service.learn.agent.routing import uses_agent_engine
 
         runtime_profiles = load_memory(
@@ -2318,6 +2317,16 @@ class RunScriptContextV2:
                 else {}
             ),
         ).as_variables()
+        from flaskr.service.learn.follow_up_memory_writer import (
+            FollowUpMemoryPatch,
+            stage_follow_up_memory,
+        )
+
+        memory_patch = (
+            FollowUpMemoryPatch()
+            if uses_agent_engine(self._outline_item_info.shifu_bid)
+            else None
+        )
         res = handle_input_ask(
             app,
             self,
@@ -2332,6 +2341,7 @@ class RunScriptContextV2:
             anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
             parent_observation=self._trace_root_span,
             runtime_profiles=runtime_profiles,
+            memory_patch=memory_patch,
         )
 
         if self._should_stream_tts():
@@ -2377,7 +2387,23 @@ class RunScriptContextV2:
         # flushes; commit them as one step now that the ask stream has
         # fully completed (durability moves from the producer's outer
         # commit to here — same post-stream point of the request).
-        self._recorder.commit_pending_step()
+        if (
+            memory_patch is not None
+            and memory_patch.variables
+            and not self._preview_mode
+        ):
+            with unit_of_work():
+                stage_follow_up_memory(
+                    app,
+                    user_bid=self._user_info.user_id,
+                    shifu_bid=self._outline_item_info.shifu_bid,
+                    outline_bid=self._outline_item_info.bid,
+                    progress_record_bid=self._current_attend.progress_record_bid,
+                    patch=memory_patch,
+                )
+                self._recorder.commit_pending_step()
+        else:
+            self._recorder.commit_pending_step()
 
     def _prepare_step_state(
         self,
