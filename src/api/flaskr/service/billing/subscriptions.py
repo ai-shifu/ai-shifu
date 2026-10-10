@@ -834,11 +834,20 @@ def _is_stale_manual_cycle(
         if isinstance(subscription.metadata_json, dict)
         else {}
     )
+    # The order marker alone can survive a later provider-managed cycle.
+    # Corroborate it with the provider and last activation timestamp so a
+    # current-cycle replay can still repair a corrupted mutable period window.
+    is_current_cycle_order = (
+        metadata.get("active_cycle_order_bid") == order.bill_order_bid
+        and _normalize_bid(subscription.billing_provider).lower()
+        == _normalize_bid(order.payment_provider).lower()
+        and subscription.last_renewed_at == effective_from
+    )
     return bool(
         is_manual_payment_provider(order.payment_provider)
         and subscription.current_period_start_at is not None
         and effective_from < subscription.current_period_start_at
-        and metadata.get("active_cycle_order_bid") != order.bill_order_bid
+        and not is_current_cycle_order
     )
 
 
@@ -945,6 +954,15 @@ def _activate_subscription_for_paid_order(
                 },
                 "active_cycle_order_bid": order.bill_order_bid,
             }
+        else:
+            # A provider-managed paid cycle supersedes the manual repair marker.
+            metadata = (
+                dict(subscription.metadata_json)
+                if isinstance(subscription.metadata_json, dict)
+                else {}
+            )
+            metadata.pop("active_cycle_order_bid", None)
+            subscription.metadata_json = metadata
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
             wallet = _load_or_create_credit_wallet(app, order.creator_bid)
             refresh_credit_wallet_snapshot(wallet, snapshot_at=effective_from)

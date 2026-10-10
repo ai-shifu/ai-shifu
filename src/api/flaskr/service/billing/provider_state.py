@@ -400,6 +400,8 @@ def _apply_billing_subscription_provider_update(
         event_time=event_time,
         source=source,
     )
+    # Provider-managed state no longer proves the previous manual cycle is current.
+    subscription.metadata_json.pop("active_cycle_order_bid", None)
     subscription.billing_provider = provider
     provider_subscription_id = _normalize_bid(data_object.get("id"))
     if provider_subscription_id.startswith("sub_"):
@@ -477,6 +479,7 @@ def _apply_subscription_checkout_success(
         event_time=event_time,
         source=source,
     )
+    subscription.metadata_json.pop("active_cycle_order_bid", None)
     subscription.billing_provider = provider
     provider_subscription_id = _normalize_bid(
         payload.get("subscription")

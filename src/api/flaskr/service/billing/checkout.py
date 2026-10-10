@@ -1349,6 +1349,25 @@ class _ManualPaymentNeedsClosureError(Exception):
         self.bill_order_bid = bill_order_bid
 
 
+def _record_confirmed_manual_payment_closure(order: BillingOrder) -> bool:
+    """Persist closure confirmed by the latest provider reconciliation."""
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    payload = metadata.get("latest_provider_payload") or {}
+    closed = (
+        bool((payload.get("charge") or {}).get("reversed"))
+        if order.payment_provider == "pingxx"
+        else resolve_native_payment_state(order.payment_provider, payload)
+        == NATIVE_PAYMENT_STATE_CANCELED
+    )
+    if not closed:
+        return False
+    # A timeout cannot become canceled through the generic status guard.
+    order.status = BILLING_ORDER_STATUS_CANCELED
+    order.updated_at = now_utc()
+    db.session.add(order)
+    return True
+
+
 def _close_manual_payment_before_replacement(
     app: Flask,
     creator_bid: str,
@@ -1364,6 +1383,8 @@ def _close_manual_payment_before_replacement(
             # Payment has already been applied durably; re-evaluate the plan on retry.
             raise_error("server.order.orderStatusError")
         if order.status == BILLING_ORDER_STATUS_CANCELED:
+            return
+        if _record_confirmed_manual_payment_closure(order):
             return
         provider_name = order.payment_provider
         reference = order.provider_reference_id
@@ -1383,21 +1404,8 @@ def _close_manual_payment_before_replacement(
             or order.status == BILLING_ORDER_STATUS_PAID
         ):
             raise_error("server.order.orderStatusError")
-        metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-        payload = metadata.get("latest_provider_payload") or {}
-        closed = (
-            bool((payload.get("charge") or {}).get("reversed"))
-            if provider_name == "pingxx"
-            else resolve_native_payment_state(provider_name, payload)
-            == NATIVE_PAYMENT_STATE_CANCELED
-        )
-        if not closed:
+        if not _record_confirmed_manual_payment_closure(order):
             raise_error("server.order.orderStatusError")
-        # A local timeout cannot transition through the generic status guard,
-        # but a confirmed provider close makes this credential safe to replace.
-        order.status = BILLING_ORDER_STATUS_CANCELED
-        order.updated_at = now_utc()
-        db.session.add(order)
 
 
 def _prepare_pending_order_for_replacement(app: Flask, order: BillingOrder) -> None:

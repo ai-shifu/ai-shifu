@@ -10,11 +10,12 @@ from unittest.mock import Mock
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.billing import checkout, subscriptions
+from flaskr.service.billing import checkout, provider_state, subscriptions
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -235,6 +236,170 @@ def test_saved_native_credential_is_reconciled_before_reuse(
         assert fake.sync_reference.call_count > 0
         if provider_state != "paid":
             assert CreditWalletBucket.query.count() == 0
+
+
+@pytest.mark.parametrize("provider", ["pingxx", "alipay", "wechatpay"])
+def test_closed_timed_out_trade_can_be_replaced_without_closing_again(
+    billing_renewal_app: Flask, monkeypatch: pytest.MonkeyPatch, provider: str
+) -> None:
+    fake = Mock()
+    fake.sync_reference.return_value = PaymentNotificationResult(
+        order_bid="old-order",
+        status="manual_sync",
+        provider_payload={"charge": {"id": "old-attempt", "reversed": True}}
+        if provider == "pingxx"
+        else {
+            "trade": {
+                "out_trade_no": "old-attempt",
+                "trade_status": "TRADE_CLOSED",
+                "trade_state": "CLOSED",
+            }
+        },
+    )
+    fake.cancel_payment.return_value = PaymentCancellationResult(
+        provider_reference="old-attempt", status="failed", raw_response={}
+    )
+    fake.create_payment.return_value = PaymentCreationResult(
+        provider_reference="new-attempt", raw_response={}, extra={}
+    )
+    monkeypatch.setattr(checkout, "get_payment_provider", lambda _: fake)
+    monkeypatch.setattr(checkout, "_credit_ledger_lock", lambda *_: nullcontext())
+    monkeypatch.setattr(
+        checkout, "_subscription_checkout_lock", lambda *_: nullcontext()
+    )
+    monkeypatch.setattr(
+        checkout,
+        "_resolve_billing_payment_channel",
+        lambda *_args, **_kwargs: (
+            provider,
+            "wx_pub_qr" if provider == "wechatpay" else "alipay_qr",
+        ),
+    )
+    with billing_renewal_app.app_context():
+        with unit_of_work():
+            order = _create_manual_order(provider)
+            order.status = BILLING_ORDER_STATUS_TIMEOUT
+        result = checkout.create_billing_subscription_checkout(
+            billing_renewal_app, "owner", {"product_bid": order.product_bid}
+        )
+        assert result.bill_order_bid != order.bill_order_bid
+        assert order.status == BILLING_ORDER_STATUS_CANCELED
+        assert order.provider_reference_id == "old-attempt"
+        assert BillingOrder.query.count() == 2
+        assert CreditLedgerEntry.query.count() == 0
+        fake.sync_reference.assert_called_once()
+        fake.cancel_payment.assert_not_called()
+        fake.create_payment.assert_called_once()
+
+
+@pytest.mark.parametrize("provider", ["pingxx", "alipay", "wechatpay"])
+@pytest.mark.parametrize(
+    "advance",
+    ["paid_order", "provider_update", "checkout_success", "historical_marker"],
+)
+def test_old_manual_payment_cannot_replace_a_later_cycle(
+    billing_renewal_app: Flask, provider: str, advance: str
+) -> None:
+    with billing_renewal_app.app_context(), unit_of_work():
+        subscription = create_renewal_subscription("cycle", billing_provider=provider)
+        db.session.add(subscription)
+        old = _create_manual_order(provider)
+        old.creator_bid = subscription.creator_bid
+        old.subscription_bid = subscription.subscription_bid
+        old.status = BILLING_ORDER_STATUS_PAID
+        old.paid_at = now_utc() - timedelta(days=2)
+        old.paid_amount = old.payable_amount
+        db.session.flush()
+        assert subscriptions.grant_paid_order_credits(billing_renewal_app, old)
+        assert (
+            subscription.metadata_json["active_cycle_order_bid"] == old.bill_order_bid
+        )
+        next_start = old.paid_at + timedelta(days=1)
+        next_end = next_start + timedelta(days=30)
+        if advance == "paid_order":
+            later = BillingOrder(
+                bill_order_bid="stripe-cycle",
+                creator_bid=old.creator_bid,
+                subscription_bid=old.subscription_bid,
+                product_bid=old.product_bid,
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                payment_provider="stripe",
+                currency="CNY",
+                status=BILLING_ORDER_STATUS_PAID,
+                payable_amount=990,
+                paid_amount=990,
+                paid_at=next_start,
+                metadata_json={},
+            )
+            db.session.add(later)
+            db.session.flush()
+            assert subscriptions.grant_paid_order_credits(billing_renewal_app, later)
+            assert "active_cycle_order_bid" not in subscription.metadata_json
+        elif advance == "provider_update":
+            provider_state._apply_billing_subscription_provider_update(
+                billing_renewal_app,
+                subscription,
+                provider="stripe",
+                event_type="customer.subscription.updated",
+                payload={},
+                data_object={
+                    "id": "sub_stripe_cycle",
+                    "status": "active",
+                    "current_period_start": next_start,
+                    "current_period_end": next_end,
+                },
+            )
+            assert "active_cycle_order_bid" not in subscription.metadata_json
+        elif advance == "checkout_success":
+            provider_state._apply_subscription_checkout_success(
+                billing_renewal_app,
+                subscription,
+                provider="stripe",
+                event_type="checkout.session.completed",
+                payload={"subscription": "sub_stripe_cycle"},
+            )
+            assert "active_cycle_order_bid" not in subscription.metadata_json
+            subscription.current_period_start_at = next_start
+            subscription.current_period_end_at = next_end
+        else:
+            # Historical state may retain an old marker even on the same provider.
+            subscription.current_period_start_at = next_start
+            subscription.current_period_end_at = next_end
+            subscription.last_renewed_at = next_start
+        db.session.flush()
+        cycle_snapshot = (
+            subscription.billing_provider,
+            subscription.current_period_start_at,
+            subscription.current_period_end_at,
+            subscription.last_renewed_at,
+            dict(subscription.metadata_json),
+        )
+        bucket_snapshots = [
+            (bucket.wallet_bucket_bid, bucket.effective_from, bucket.effective_to)
+            for bucket in CreditWalletBucket.query.order_by(CreditWalletBucket.id).all()
+        ]
+        ledger_count = CreditLedgerEntry.query.count()
+        assert not subscriptions._activate_subscription_for_paid_order(
+            billing_renewal_app, old
+        )
+        assert not subscriptions.grant_paid_order_credits(billing_renewal_app, old)
+        assert old.status == BILLING_ORDER_STATUS_PAID
+        assert (
+            old.metadata_json["settlement_review_reason"]
+            == "newer_cycle_already_effective"
+        )
+        assert cycle_snapshot == (
+            subscription.billing_provider,
+            subscription.current_period_start_at,
+            subscription.current_period_end_at,
+            subscription.last_renewed_at,
+            subscription.metadata_json,
+        )
+        assert bucket_snapshots == [
+            (bucket.wallet_bucket_bid, bucket.effective_from, bucket.effective_to)
+            for bucket in CreditWalletBucket.query.order_by(CreditWalletBucket.id).all()
+        ]
+        assert CreditLedgerEntry.query.count() == ledger_count
 
 
 @pytest.mark.parametrize("advanced_state", ["subscription", "preorder"])
