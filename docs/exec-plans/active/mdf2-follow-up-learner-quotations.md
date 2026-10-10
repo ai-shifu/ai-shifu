@@ -42,8 +42,22 @@ bounded window; acknowledge when that window does not supply the original.
   exclude those sources while retaining general conversation and supporting
   explicit raw provenance. All 3,099 learning/profile tests pass plus four
   subtests and one expected skip. Docstring advisory is a distinct policy decision.
-- [ ] Publish final correction, answer CodeRabbit in its original discussion,
-  verify final sim hashes and retain the distinct natural quotation sample.
+- [x] Published 18da49cdc / sim 5ea6b4011, replied to CodeRabbit, and
+  verified both ready API replicas against 42 hashes. All technical CI passed;
+  CodeRabbit's final increment is rate-limited, not a completed full review.
+- [x] First natural candidate: seven HTTP questions, fourteen settled requests,
+  7.7 credits; all 200 original elements, nine lessons, eleven progress rows and
+  nine finished sessions preserved. Deleted preference stays absent; exact
+  braces and missing-source boundaries hold. Two answers quote the right source
+  but falsely place it after the current question by referring to an earlier
+  identical question. Both remain failed evidence; do not overwrite or rescore.
+- [x] Six chronology/SDK assertions fail on the first natural candidate.
+- [x] Chronology correction passes 128 focused and 3,101 learning/profile
+  tests plus four subtests and one expected skip. Actual SDK mapping puts the
+  host notice after the byte-bounded tool JSON; neither notice nor historical
+  request authorizes a write, including with a repeated question in history.
+- [ ] Publish explicit before-current-question metadata and late host notice,
+  verify final sim hashes and retain a distinct focused natural sample.
 - [ ] Reconcile usage/preservation, handle every AI opinion in its discussion.
 
 ## Surprises & Discoveries
@@ -54,6 +68,12 @@ contained ten assistant answers, not the original request. API display order
 was insufficient evidence of model input. A correct analogy is not proof of
 an exact quotation. Preserve failed
 transcripts rather than replaying unchanged code for a favorable answer.
+
+The first new candidate quotes the complete learner request but copies a stale
+assistant assertion about its order relative to an older identical question.
+Exact content alone is insufficient: every quotation source is captured before
+the current input is persisted. Expose this structural relation and restate it
+after the tool result, without trusting assistant narration as temporal evidence.
 
 ## Decision Log
 
@@ -67,6 +87,10 @@ transcripts rather than replaying unchanged code for a favorable answer.
   ambiguously escaped old records. No additional history query or wider scope.
 - Return only complete messages, with role, source index and explicit bounded-
   window coverage. Page within 8192 UTF-8 JSON bytes; never truncate a quote.
+- Include before_current_question and oldest_to_newest metadata. Attach a
+  separate SDK ToolReturn host notice after each quote read; total input limits
+  still count it, and it cannot grant write permission. Preserve the JSON byte
+  bound including metadata. Do not infer dates or widen the authorized window.
 - Keep current recall, raw current-input permission, deletion/version guards,
   admission and three-write ceiling unchanged. Reserve bounded read calls in
   the same Agent budget. Do not add a classifier or output keyword filter.

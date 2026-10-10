@@ -33,6 +33,8 @@ class LearnerQuotationSource:
                 {
                     "status": "learner_messages",
                     "coverage": "supplied_history_only",
+                    "relative_to": "before_current_question",
+                    "order": "oldest_to_newest",
                     "messages": items,
                     "next_offset": end if end < len(self.messages) else None,
                 }

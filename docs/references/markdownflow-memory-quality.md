@@ -375,8 +375,12 @@ records. Existing brace-free canonical text asks are unchanged by historical
 escaping and can be exact sources. Live transcripts are trimmed during
 persistence and require explicit raw-input provenance; otherwise they are
 unavailable as exact sources while remaining general conversation context.
-Results include source index, learner role and explicit
-supplied-history-only coverage. Page complete messages within 8192 UTF-8 JSON
+Results include source index, learner role, before_current_question relation,
+oldest_to_newest order and explicit supplied-history-only coverage. A separate
+SDK ToolReturn host notice follows the JSON result to distinguish the current
+question from an earlier identical question; assistant timing assertions are
+not evidence. The total gateway input limit also counts that notice, which
+cannot grant write permission. Page complete messages within 8192 UTF-8 JSON
 bytes; an oversized message reports too_large, never shortened wording. Reserve
 read calls in the existing Agent budget. Exact quotations must copy available
 source content verbatim; missing originals mean unavailable in this context,
@@ -385,8 +389,15 @@ cannot substitute. Reading historical save requests grants no write permission
 and must not restore deleted notes. No additional DB history is loaded.
 
 See the [quotation plan](../exec-plans/active/mdf2-follow-up-learner-quotations.md).
-Model-quality acceptance of this correction is pending; preserve both old failed
-quotations. Other models and human acceptance remain open independently.
+The first new candidate (18da49cdc / sim 5ea6b4011) quotes exact complete text
+but misstates its order relative to an earlier identical question in two answers.
+Both remain failed evidence. Seven questions completed; fourteen requests settled
+for 7.7 credits, with correct new-answer attribution. All 200 original elements,
+nine lessons, eleven progress rows, nine finished sessions, profile and unrelated
+memory survive. Deleted-current-memory, missing-source and literal-brace checks
+hold. Explicit current-relative metadata and the late notice are the next
+correction; six relevant assertions fail before it. Distinct final natural
+acceptance is pending. Other models and human acceptance remain open independently.
 
 ### Follow-up usage attribution
 
