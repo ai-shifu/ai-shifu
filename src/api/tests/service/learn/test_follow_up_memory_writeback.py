@@ -1085,6 +1085,7 @@ def test_quote_tool_uses_only_original_learner_history_without_write_permission(
         FunctionModel(stream_function=stream),
         patch=patch,
         current_input=history[-1]["content"],
+        quotation_messages=(original,) if has_original else (),
         declared_keys=frozenset(),
         snapshot={},
         deleted_keys=frozenset({"analogy"}),

@@ -365,7 +365,14 @@ remain unchanged for both text and Live consumers.
 
 Native text follow-ups expose learner_quotes over immutable original user-role
 messages in that authorized window, captured before host projection and excluding
-the current question. Results include source index, learner role and explicit
+the current question. Keep raw text in new ask blocks/events and the existing
+sidecar payload.user_input; retain brace escaping only in transport prompts.
+Pass proven quote sources separately through the internal context/factory; a
+user role alone does not prove verbatim input. Synthesized classroom joins,
+embedded legacy history and old brace-bearing text without raw provenance are
+unavailable as exact sources. Do not guess at legacy decoding or rewrite old
+records. Existing brace-free canonical asks and Live transcripts are unchanged
+by the historical escaping and can be exact sources. Results include source index, learner role and explicit
 supplied-history-only coverage. Page complete messages within 8192 UTF-8 JSON
 bytes; an oversized message reports too_large, never shortened wording. Reserve
 read calls in the existing Agent budget. Exact quotations must copy available

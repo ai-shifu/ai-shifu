@@ -1542,3 +1542,125 @@ def test_interleaved_follow_ups_keep_distinct_answer_usage_snapshots(
     assert all(usage.progress_record_bid == "attend-1" for usage in calls)
     with pytest.raises(FrozenInstanceError):
         calls[0].generated_block_bid = "gb-4"
+
+
+@pytest.mark.parametrize(
+    "original",
+    ["Compare {cache} with RAM", "  Compare {{cache}} with {RAM}.\nKeep spacing.  "],
+)
+def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
+    app: object,
+    monkeypatch: object,
+    original: str,
+) -> None:
+    """Drive the real ask producer, sidecar storage and next request's quote source."""
+    import uuid
+
+    from flaskr.dao import db
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.follow_up_quotations import LearnerQuotationSource
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
+    from flaskr.service.shifu.consts import (
+        BLOCK_TYPE_MDASK_VALUE,
+        BLOCK_TYPE_MDCONTENT_VALUE,
+    )
+
+    real_add, real_flush, real_init = (
+        db.session.add,
+        db.session.flush,
+        module.init_generated_block,
+    )
+    real_latest, real_sidecars = (
+        module._load_latest_active_element_row,
+        module.find_follow_up_element_rows,
+    )
+    _setup_llm_only_patches(monkeypatch, module, ["Assistant suggestion differs."])
+    monkeypatch.setattr(db.session, "add", real_add)
+    monkeypatch.setattr(db.session, "flush", real_flush)
+    monkeypatch.setattr(module, "init_generated_block", real_init)
+    monkeypatch.setattr(module, "LearnGeneratedBlock", LearnGeneratedBlock)
+    monkeypatch.setattr(module, "_load_latest_active_element_row", real_latest)
+    monkeypatch.setattr(module, "find_follow_up_element_rows", real_sidecars)
+    seen = []
+    quote_contexts = []
+    real_context_builder = module.build_follow_up_conversation_context
+
+    def build_context(*args: object, **kwargs: object) -> object:
+        context = real_context_builder(*args, **kwargs)
+        quote_contexts.append(context.quotation_messages)
+        return context
+
+    monkeypatch.setattr(module, "build_follow_up_conversation_context", build_context)
+
+    def provider(**kwargs: object) -> object:
+        seen.append(kwargs["messages"])
+        yield types.SimpleNamespace(content="Assistant suggestion differs.")
+
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    identity = uuid.uuid4().hex
+    fields = dict.fromkeys(
+        ("user_bid", "shifu_bid", "outline_item_bid", "progress_record_bid"), identity
+    )
+    with app.app_context(), unit_of_work():
+        block = LearnGeneratedBlock(
+            **fields,
+            generated_block_bid=uuid.uuid4().hex,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            generated_content="Anchor",
+            status=1,
+        )
+        db.session.add(block)
+        anchor = LearnGeneratedElement(
+            **fields,
+            element_bid=uuid.uuid4().hex,
+            generated_block_bid=block.generated_block_bid,
+            event_type="element",
+            element_type="text",
+            content_text="Anchor",
+            status=1,
+        )
+        db.session.add(anchor)
+        db.session.flush()
+        for current in [original, "What were my exact earlier words?"]:
+            events = list(
+                module.handle_input_ask(
+                    app=app,
+                    context=_Context(),
+                    user_info=types.SimpleNamespace(user_id=identity),
+                    attend_id=identity,
+                    user_input=current,
+                    outline_item_info=types.SimpleNamespace(
+                        shifu_bid=identity, bid=identity, title="Lesson", position=1
+                    ),
+                    trace_args={},
+                    trace=_DummyTrace(),
+                    anchor_element_bid=anchor.element_bid,
+                )
+            )
+            assert (
+                next(e.content for e in events if e.type == GeneratedType.ASK)
+                == current
+            )
+            adapter = ListenElementRunAdapter(
+                app, shifu_bid=identity, outline_bid=identity, user_bid=identity
+            )
+            list(adapter.process(events))
+            db.session.flush()
+        asks = (
+            LearnGeneratedBlock.query.filter_by(
+                user_bid=identity, type=BLOCK_TYPE_MDASK_VALUE
+            )
+            .order_by(LearnGeneratedBlock.id)
+            .all()
+        )
+        assert [r.generated_content for r in asks] == [
+            original,
+            "What were my exact earlier words?",
+        ]
+        source = LearnerQuotationSource(quote_contexts[1])
+        import json
+
+        assert json.loads(source.read())["messages"][0]["content"] == original
+        assert original.replace("{", "{{").replace("}", "}}") in seen[0][-1]["content"]

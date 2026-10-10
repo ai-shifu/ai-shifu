@@ -346,7 +346,9 @@ class ListenElementRunSidecarMixin:
             element_index=element_index,
             is_new=True,
             is_final=True,
-            base_payload=ElementPayloadDTO(anchor_element_bid=anchor_bid),
+            base_payload=ElementPayloadDTO(
+                anchor_element_bid=anchor_bid, user_input=ask_content
+            ),
         )
         if synthetic_anchor and ask_element.payload is not None:
             # Mark the synthesis so downstream consumers (logs, backfill) know

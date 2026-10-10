@@ -24,7 +24,18 @@ bounded window; acknowledge when that window does not supply the original.
   two-tool schema expectations; updated them to verify the new offset-only tool.
 - [x] 2026-10-10T07:16:00Z: Developer-tool checks and all-files repository
   gates pass. Publication and natural sim acceptance remain pending.
-- [ ] Deploy only this delta to sim and retain a small natural quotation sample.
+- [x] 2026-10-10T07:17:40Z: Published #3088 as 2de5baf35 and initial sim
+  delta df571448e. Sim gates/hooks and 116 focused cases pass. No paid sample
+  has run against that candidate.
+- [x] 2026-10-10T07:27:00Z: Accepted Devin and Codex provenance findings.
+  Preserve raw ask content and existing payload.user_input, retain escaped
+  transport prompts, and pass explicit proven quote sources separately from
+  general history. Exclude ambiguous old brace encoding, embedded legacy
+  history and synthesized classroom joins. Two literal-brace two-request
+  SQLite paths fail on the old producer. Final 123 focused and 3,096 learning/
+  profile checks pass, plus four subtests and one expected skip.
+- [ ] Publish correction, reply in both original threads, deploy only this delta
+  to sim and retain a small natural quotation sample.
 - [ ] Reconcile usage/preservation, handle every AI opinion in its discussion.
 
 ## Surprises & Discoveries
@@ -42,8 +53,10 @@ transcripts rather than replaying unchanged code for a favorable answer.
   snapshots via their existing ask_element_bid. Run-local counters only order
   elements within a turn. Legacy unlinked rows retain insertion order.
 - Add a read-only learner_quotes tool over immutable original user-role messages
-  captured before host projection. Exclude system/assistant/current-question
-  text. Do not query additional history or expand the authorized scope.
+  captured before host projection. Pass proven canonical ask inputs separately
+  from general history; do not infer exactness merely from a user role. Exclude
+  system/assistant/current-question text, synthesized classroom joins and
+  ambiguously escaped old records. No additional history query or wider scope.
 - Return only complete messages, with role, source index and explicit bounded-
   window coverage. Page within 8192 UTF-8 JSON bytes; never truncate a quote.
 - Keep current recall, raw current-input permission, deletion/version guards,
@@ -95,6 +108,9 @@ only this delta if needed; do not mutate production configuration.
 
 ## Interfaces and Dependencies
 
-No schema, public API, frontend, dependency or metering change. The tool reads
-only captured request history and adds no new persistent memory. Existing total
+No schema, endpoint, dependency or metering change. Populate the existing
+sidecar payload.user_input with raw input and pass an internal quotation_messages
+tuple through the shared context DTO and native factory. General history stays
+compatible; old ambiguous records are not decoded heuristically or rewritten.
+The tool reads only captured sources and adds no persistent memory. Existing total
 input budgeting covers its result; all source content remains untrusted data.
