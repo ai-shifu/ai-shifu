@@ -21,6 +21,15 @@ const expectProseWaiting = (container: HTMLElement) => {
   );
 };
 
+const advanceTyping = async (ticks: number) => {
+  for (let tick = 0; tick < ticks; tick += 1) {
+    // Commit each prose update before scheduling the next animation tick.
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(rendererProps.typingSpeed);
+    });
+  }
+};
+
 describe('installed MarkdownFlow renderer', () => {
   const originalStructuredClone = globalThis.structuredClone;
 
@@ -73,45 +82,92 @@ describe('installed MarkdownFlow renderer', () => {
     );
   });
 
-  it.each(['div', 'figure'])(
-    'renders unfinished %s HTML and appends before prose types',
-    tag => {
+  it.each([
+    ['div', 'fixed'],
+    ['div', 'content-aware'],
+    ['figure', 'fixed'],
+    ['figure', 'content-aware'],
+  ] as const)(
+    'reveals unfinished %s HTML after preceding prose with %s pacing',
+    async (tag, typewriterPacing) => {
       const view = render(
         <ContentRender
           {...rendererProps}
-          content={`Pending prose\n<${tag} class="received-html">Received`}
+          typewriterPacing={typewriterPacing}
+          content={`甲乙丙丁\n<${tag} class="received-html">Received`}
         />,
       );
-      const iframe = view.container.querySelector('iframe');
 
-      expect(iframe).not.toBeNull();
-      expect(
-        iframe?.contentDocument?.querySelector('.received-html')?.textContent,
-      ).toBe('Received');
+      expect(view.container.querySelector('iframe')).toBeNull();
       expectProseWaiting(view.container);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(50);
+      });
+      const partialProse =
+        view.container.querySelector('.content-render')?.textContent;
+      expect(partialProse?.trim()).not.toBe('');
+      expect(partialProse?.trim()).not.toBe('甲乙丙丁');
+      expect(view.container.querySelector('iframe')).toBeNull();
 
       view.rerender(
         <ContentRender
           {...rendererProps}
-          content={`Pending prose\n<${tag} class="received-html">Received and appended</${tag}>\nAfter`}
+          typewriterPacing={typewriterPacing}
+          content={`甲乙丙丁\n<${tag} class="received-html">Received and appended`}
+        />,
+      );
+      expect(view.container.querySelector('iframe')).toBeNull();
+      expect(view.container.querySelector('.content-render')?.textContent).toBe(
+        partialProse,
+      );
+
+      await advanceTyping(5);
+      const iframe = view.container.querySelector('iframe');
+      expect(iframe).not.toBeNull();
+      expect(
+        view.container.querySelector('.content-render')?.textContent?.trim(),
+      ).toBe('甲乙丙丁');
+      expect(
+        iframe?.contentDocument?.querySelector('.received-html')?.textContent,
+      ).toBe('Received and appended');
+
+      view.rerender(
+        <ContentRender
+          {...rendererProps}
+          typewriterPacing={typewriterPacing}
+          content={`甲乙丙丁\n<${tag} class="received-html">Received and appended immediately</${tag}>\nAfter`}
         />,
       );
 
       expect(view.container.querySelector('iframe')).toBe(iframe);
       expect(
         iframe?.contentDocument?.querySelector('.received-html')?.textContent,
-      ).toBe('Received and appended');
-      expectProseWaiting(view.container);
+      ).toBe('Received and appended immediately');
+      expect(
+        view.container.querySelector('.content-render')?.textContent?.trim(),
+      ).toBe('甲乙丙丁');
     },
   );
 
-  it('updates native HTML without flushing preceding prose', () => {
+  it('reveals native HTML after preceding prose and updates it without typing', async () => {
     const view = render(
       <ContentRender
         {...rendererProps}
-        content={'Pending prose\n<aside class="received-html">Received'}
+        content={'甲乙丙丁\n<aside class="received-html">Received'}
       />,
     );
+    expect(view.container.querySelector('.received-html')).toBeNull();
+    expectProseWaiting(view.container);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(50);
+    });
+    expect(view.container.querySelector('.received-html')).toBeNull();
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(50);
+    });
     const aside = view.container.querySelector('.received-html');
 
     expect(aside).not.toBeNull();
@@ -121,7 +177,7 @@ describe('installed MarkdownFlow renderer', () => {
       <ContentRender
         {...rendererProps}
         content={
-          'Pending prose\n<aside class="received-html">Received and appended</aside>\nAfter'
+          '甲乙丙丁\n<aside class="received-html">Received and appended</aside>\nAfter'
         }
       />,
     );
@@ -130,7 +186,59 @@ describe('installed MarkdownFlow renderer', () => {
     expect(aside).toHaveTextContent('Received and appended');
     expect(
       view.container.querySelector('.markdown-renderer p')?.textContent ?? '',
-    ).toBe('');
+    ).toBe('甲乙丙丁');
+  });
+
+  it('renders HTML-only snapshots immediately without waiting for closure', () => {
+    const view = render(
+      <ContentRender
+        {...rendererProps}
+        content={'<div class="received-html">Received'}
+      />,
+    );
+    const iframe = view.container.querySelector('iframe');
+    expect(iframe).not.toBeNull();
+    expect(
+      iframe?.contentDocument?.querySelector('.received-html')?.textContent,
+    ).toBe('Received');
+
+    view.rerender(
+      <ContentRender
+        {...rendererProps}
+        content={'<div class="received-html">Received and appended'}
+      />,
+    );
+    expect(view.container.querySelector('iframe')).toBe(iframe);
+    expect(
+      iframe?.contentDocument?.querySelector('.received-html')?.textContent,
+    ).toBe('Received and appended');
+  });
+
+  it('waits for preceding prose before mounting a native video', async () => {
+    const view = render(
+      <ContentRender
+        {...rendererProps}
+        content={
+          '甲乙丙丁\n<iframe title="Lesson video" data-tag="video"></iframe>'
+        }
+      />,
+    );
+    expect(view.container.querySelector('iframe')).toBeNull();
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(50);
+    });
+    expect(view.container.querySelector('iframe')).toBeNull();
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(50);
+    });
+    expect(
+      view.container.querySelector('iframe[data-tag="video"]'),
+    ).not.toBeNull();
+    expect(
+      view.container.querySelector('.content-render')?.textContent?.trim(),
+    ).toBe('甲乙丙丁');
   });
 
   it('keeps HTML inside a fenced code example out of the immediate HTML path', () => {
@@ -180,10 +288,8 @@ describe('installed MarkdownFlow renderer', () => {
     );
 
     expect(
-      view.container
-        .querySelector<HTMLIFrameElement>('iframe.content-render-iframe')
-        ?.contentDocument?.querySelector('#following')?.textContent,
-    ).toBe('Received card');
+      view.container.querySelector('iframe.content-render-iframe'),
+    ).toBeNull();
     expect(view.container.querySelector('ul')).toBeNull();
     expect(view.container.querySelector('.copy-button')).toBeNull();
     expectProseWaiting(view.container);
@@ -204,5 +310,20 @@ describe('installed MarkdownFlow renderer', () => {
     expect(onLoad).not.toHaveBeenCalled();
     expect(view.container.querySelector('ul')).toBeNull();
     expect(view.container.querySelector('.copy-button')).toBeNull();
+
+    await advanceTyping(100);
+
+    expect(
+      view.container
+        .querySelector<HTMLIFrameElement>('iframe.content-render-iframe')
+        ?.contentDocument?.querySelector('#following')?.textContent,
+    ).toBe('Received card');
+    expect(view.container.querySelector('iframe[data-tag="video"]')).toBe(
+      iframe,
+    );
+    expect(iframe!.parentNode).toBe(videoParent);
+    expect(iframe!.contentWindow).toBe(videoWindow);
+    expect(videoWindow.document.body.contains(sentinel)).toBe(true);
+    expect(onLoad).not.toHaveBeenCalled();
   });
 });

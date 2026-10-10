@@ -3,8 +3,10 @@
 ## Purpose / Big Picture
 
 Keep the typewriter effect for lesson and follow-up prose while displaying
-received HTML immediately and progressively, including unclosed HTML fragments.
-HTML must not wait for either a complete block or the preceding prose queue.
+content in source order. HTML waits until all preceding prose has finished
+typing, then displays the latest received fragment immediately and progressively,
+including unclosed HTML. HTML itself never receives a character-by-character
+typewriter effect; HTML-only snapshots display immediately.
 
 ## Progress
 
@@ -36,7 +38,13 @@ HTML must not wait for either a complete block or the preceding prose queue.
 - [x] 2026-10-09 21:36 UTC: Clean-installed the consumer with Node 22.16.0 / npm 10.9.2 and removed only three redundant nested React peer lock entries. The actual npm 0.2.31 renderer passes the persistent progressive HTML/backend roots/code boundary/video-state regression with natural React 18.3.1 resolution and no warnings. The isolated official 0.2.30 control fails specifically on immediate figure rendering.
 - [x] 2026-10-09 21:36 UTC: Consumer focused tests pass (8 suites / 161 tests), and the full suite passes (258 suites / 3,001 tests). Typecheck output matches the post-main-sync baseline exactly, with only two existing admin user-page test errors. Development tools and the complete repository pre-commit gate pass. Frontend CI now includes the actual installed-package regression; current-head CI and reviews are tracked in PR 3069 before merging.
 - [x] 2026-10-09 22:23 UTC: Moved the installed-package regression into six normal Jest cases, reusing the existing test configuration and JSDOM environment. Removed the standalone script and extra CI step. All 3,007 tests in 259 suites pass; typecheck still matches the same two-error baseline. An isolated official 0.2.30 Jest control fails the expected figure, aside and video cases, while 0.2.31 passes all six.
-- [ ] 2026-10-09 UTC: After the consumer PR is merged and the Web build is deployed, verify the first HTML block in the affected live lesson.
+- [x] 2026-10-09 22:51 UTC: Consumer PR 3069 merged with the exact 0.2.31 release.
+- [x] 2026-10-09 UTC: Library PR 251 merged with source-order HTML and native-video activation. Prepare the exact 0.2.32 consumer upgrade and update the installed-renderer regression to match the revised timing requirement.
+- [x] 2026-10-09 UTC: The local 0.2.32 package candidate passes all nine renderer behavior cases and 3,010 frontend tests in 259 suites. The manifest/lockfile identity case remains excluded until official publication. The official 0.2.31 control fails seven new ordering assertions. Type checking is byte-identical to the original 0.2.31 baseline, with only the same two admin user-page test errors; focused lint, formatting, development tools, repository harness and architecture boundaries pass.
+- [x] 2026-10-10 00:50 UTC: Verified official 0.2.32 publication from the human-confirmed main commit 4f8680d5c8eff4efab32e35d754c1e24301201fb. Publish run 38006389531 succeeded; registry version, gitHead, latest tag and tarball shasum match. Generated the exact consumer lock through npm 10.9.2 with only the package pin, version, registry URL and integrity changed; no nested React peers or local candidate paths were introduced.
+- [x] 2026-10-10 UTC: Clean-installed official 0.2.32 with Node 22.16.0 / npm 10.9.2 after syncing consumer main through f7d552fe. All 3,040 frontend tests in 260 suites pass, including every installed-renderer behavior and manifest/lockfile identity case. The renderer naturally shares the app's React 18.3.1 instance. Typecheck output is byte-identical to the 0.2.31 baseline, with only the same two existing admin user-page test errors.
+- [x] 2026-10-10 UTC: Development tools and the complete repository-wide lefthook gate pass. The focused consumer upgrade is prepared for review with only the manifest, npm-generated lock, installed-renderer regression and this plan changed.
+- [ ] After the consumer upgrade is merged and the Web build is deployed, verify ordered prose and progressive HTML in the affected live lesson.
 
 ## Surprises & Discoveries
 
@@ -121,11 +129,17 @@ The public renderer export loads in the existing Next/Jest configuration without
 transformer exceptions or resolver changes. Its normal Jest suite uses the
 existing JSDOM with inline vendor scripts disabled, matching the original DOM
 regression's scope, and a local structured-clone fallback for JSDOM's missing
-browser API. Fake timers verify immediate HTML before a prose tick and stable
-video state after the prose clock advances.
+browser API. Fake timers verify that HTML and native videos wait for preceding
+prose, that eligible HTML and subsequent appends appear without typing, and that
+existing video state survives while the prose clock advances.
 
 ## Decision Log
 
+- 2026-10-09 UTC: The user's revised timing requirement supersedes the earlier
+  immediate-HTML timing decisions below. Reveal each HTML or native-video
+  block only after its preceding prose is visible. Keep eligible HTML outside
+  the text timer and stream its latest received fragment without waiting for
+  closing tags. Preserve existing media identity while later prose types.
 - 2026-10-09: Segment the received source before applying typing. HTML is
   displayed from the latest received snapshot; only prose consumes the queue.
 - 2026-10-09: Preserve one element, existing callback contracts, and stable
@@ -167,7 +181,29 @@ video state after the prose clock advances.
 
 ## Outcomes & Retrospective
 
-Library PR 248 is merged and the corrected 0.2.31 release is published from
+The source-order follow-up uses library PR 251 and the exact published 0.2.32
+release from main at 4f8680d5c8eff4efab32e35d754c1e24301201fb. Publish run
+38006389531 succeeded. At 2026-10-10 00:50 UTC, the official registry confirmed
+the version, gitHead and latest tag, with tarball shasum
+18b01e837f6d21472769a9051563e82785daee2f. The npm-generated lock records the
+official registry integrity without unrelated package changes or nested React
+peers. The consumer regression covers fixed and content-aware pacing,
+unfinished sandbox/native HTML, HTML-only streams, deferred native videos and
+retained video state while later content becomes eligible. The official clean
+installation passes all 3,040 frontend tests in 260 suites, including the exact
+installed-package, manifest and lockfile identity case. The app and renderer
+naturally resolve the same React 18.3.1 instance. Typecheck output remains
+byte-identical to the original two-error baseline. Development tools and the
+complete repository-wide lefthook gate pass. The consumer upgrade is prepared
+for review. The earlier local candidate is preview evidence only;
+it passes all nine renderer behavior cases and 3,010 frontend
+tests in 259 suites, with only the version/lockfile identity check excluded.
+The official 0.2.31 control fails seven ordering assertions, confirming that
+the new checks detect the previous eager-HTML behavior. Type checking matches
+the original baseline byte for byte, with two existing admin test errors.
+The earlier 0.2.31 rollout results follow for historical context.
+
+Library PR 248 merged and the corrected 0.2.31 release was published from
 main at ddbd3cab2d3ece13575d3047c672c3c4cc02165a, using the exact inputs
 confirmed by the user. Publish run 37992324098 succeeded. The official npm
 registry confirms that gitHead, version and latest tag; consumer bump run
@@ -236,8 +272,9 @@ to ContentRender, so the shared library owns the fix.
 
 ## Plan of Work
 
-Create source segments first, keep HTML outside the text timer, and project the
-typed prose back into its original segment positions. Keep invisible prose
+Create source segments first, keep HTML outside the text timer, and reveal each
+block only when preceding prose reaches its source position. Project typed
+prose back into its original segment positions. Keep invisible prose
 positions stable so their appearance does not remount existing sandboxes. Add
 mixed-stream regressions and a reproducible Storybook example, then validate the
 library package and consuming application before preparing the stable bump.
@@ -257,9 +294,12 @@ Storybook and regression fixtures to cover these boundaries and backend roots.
 
 ## Validation and Acceptance
 
-Unclosed HTML must reach the sandbox without advancing fake timers. HTML
-appends must update while preceding prose is still typing. Prose before and
-after HTML must retain existing pacing and order. Sandboxes must not remount
+HTML after unfinished prose must remain absent until that prose finishes.
+Once eligible, unclosed HTML must reach the sandbox without consuming another
+typing tick, and HTML appends must update immediately. HTML-only snapshots must
+render without advancing fake timers. Prose before and after HTML must retain
+existing pacing and source order. Native videos follow the same preceding-prose
+gate. Sandboxes must not remount
 when prose appears. Completion must wait for all prose and account for the
 current received snapshot. Fenced HTML examples must remain code. Existing
 plain-text pacing, grapheme, streaming deadline and history behavior must pass.
@@ -287,6 +327,7 @@ and matching lockfile; no data migration is required.
 ## Interfaces and Dependencies
 
 Preserve ContentRender's public props and completion callback API. Internal
-typing progress must include immediately displayed HTML while tracking only
-prose in the timed queue. AI-Shifu uses the exact published release 0.2.31;
-its lockfile records the official registry tarball and integrity.
+typing progress must include eligible HTML while tracking only prose in the
+timed queue. The consumer pins the exact published 0.2.32 release; its lockfile
+records the official registry tarball and integrity, with no local candidate
+paths or unrelated dependency changes.
