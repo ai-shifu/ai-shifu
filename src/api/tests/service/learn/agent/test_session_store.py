@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import session_store
 from flaskr.service.learn.agent.engine import ScriptBundle, Session
 from flaskr.service.learn.agent.models import (
     AGENT_SESSION_SCHEMA_VERSION,
     LearnAgentSession,
 )
+from flaskr.service.shifu.models import PublishedOutlineItem
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 USER = "learner-1"
 SHIFU = "course-a"
@@ -24,6 +31,19 @@ def _clean(app: object):  # noqa: ANN202 - pytest fixture
         yield
         LearnAgentSession.query.delete()
         db.session.commit()
+
+
+@pytest.fixture
+def reset_lesson(app: object) -> Iterator[None]:
+    """Give reset scenarios a published lesson belonging to their course."""
+    with app.app_context(), unit_of_work():
+        lesson = PublishedOutlineItem(
+            shifu_bid=SHIFU, outline_item_bid=OUTLINE, deleted=0
+        )
+        db.session.add(lesson)
+    yield
+    with app.app_context(), unit_of_work():
+        db.session.delete(lesson)
 
 
 def a_session(**kw: object) -> Session:
@@ -344,6 +364,7 @@ def test_previewing_a_lesson_does_not_touch_the_learner_who_is_taking_it(
     assert loaded_preview.memory["scope"] == "preview"
 
 
+@pytest.mark.usefixtures("reset_lesson")
 def test_resetting_a_lesson_retires_its_session(app: object) -> None:
     """A reset that left the session behind would resume the conversation it just cleared.
 
@@ -362,6 +383,7 @@ def test_resetting_a_lesson_retires_its_session(app: object) -> None:
         assert session_store.load_agent_session(app, USER, OUTLINE) is None
 
 
+@pytest.mark.usefixtures("reset_lesson")
 def test_resetting_a_lesson_retires_the_preview_session_too(app: object) -> None:
     """An author resetting a lesson means the preview as well."""
     from flaskr.service.learn.learn_funcs import reset_learn_record
