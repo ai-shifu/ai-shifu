@@ -147,13 +147,17 @@ def answer_is_usable(spec: InteractionSpec, answer: InteractionAnswer) -> bool:
     A `confirm` carries no answer, only "go on", so it is always usable. The choice types need an
     option that survived normalization -- unknown values are dropped there, and resuming on what
     is left would tell the model the learner continued without answering. The text-bearing types
-    accept free text instead.
+    accept non-whitespace free text instead, without trimming accepted content.
+    An explicitly named option may still intentionally store an empty value.
     """
     if spec.type == "confirm":
         return True
     if spec.type in ("single", "multi"):
         return bool(answer.values)
-    return bool(answer.values or answer.text)
+    if answer.text and answer.text.strip():
+        return True
+    stored_options = {option.stored for option in spec.options}
+    return any(value.strip() or value in stored_options for value in answer.values)
 
 
 def stored_value(spec: InteractionSpec, answer: InteractionAnswer) -> str | None:

@@ -176,7 +176,7 @@ course/lesson/owner attribution and no fabricated classroom IDs. This passes the
 narrow correction, not a new complete classroom or compressed-history journey.
 Functional CI and CodeRabbit review pass; documentation increments are checked
 separately. Earlier failed evidence remains retained.
-See the [clarification-count plan](../exec-plans/active/mdf2-exercise-clarification-counts.md).
+See the [clarification-count plan](../exec-plans/completed/mdf2-exercise-clarification-counts.md).
 The synthetic scorer accepts only exact fixture IDs, prompts, teaching titles or
 short arithmetic titles; it still independently checks each answer's original
 question membership. Calculation diagnostics are fixed status enums, without
@@ -466,3 +466,30 @@ production switch. System-registered profile fields remain global; ordinary cour
 variables, named answers and explicit remembered notes remain course-local. No
 custom cross-course sharing is restored by this evaluator. Historical data and
 engine 1.0 remain until their separate acceptance and retirement conditions hold.
+
+### Natural-language text controls
+
+Text-bearing interactions must remain writable when the model omits a hint.
+The legacy UI uses a nonempty placeholder to expose its text box, so the host
+renders absent or whitespace-only hints through shared learner-language text.
+Explicit hints, prompts, options, variables and stored specs remain unchanged;
+this presentation fallback does not guess an authored question or an answer.
+
+Blank free-text values, including a nonempty list of empty strings, keep the
+original question pending without model execution or answer/memory writes.
+Real answers retain their original whitespace. Confirmations and named choices
+that intentionally store an empty value preserve their existing meanings.
+See the [text-control plan](../exec-plans/active/mdf2-natural-text-controls.md)
+for current component, saved-session, sim and CI evidence. This reported bug takes
+priority before the next natural compressed-statistics journey; it does not close
+that acceptance item or authorize 1.0 deletion.
+
+
+The same missing-hint correction applies to narrated interaction spans emitted
+without a typed tool call. Add only an escaped localized hint; require parsed
+options, variable and selection semantics to remain identical, and leave existing
+hints/choice-only spans byte-for-byte unchanged. SDK whitespace preservation means
+text as received by the engine; the browser's existing trim/deduplication contract
+is unchanged. Blank browser input is already removed before `_turn_input`, so it
+cannot choose an empty-valued option accidentally; explicitly selected empty SDK
+values remain valid.
