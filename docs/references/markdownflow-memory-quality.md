@@ -108,6 +108,17 @@ history; it does not establish a new successful whole-lesson acceptance. The
 [fresh classroom plan](../exec-plans/active/mdf2-fresh-grading-classroom.md) tracks
 that verification and remaining natural/human acceptance.
 
+On sim 116f7287f (API 2/2, web 1/1 Ready; 55 matching fingerprints per API
+replica), a single in-memory replay of that genuine checkpoint reports six
+independent-first, eight first-correct, 14 attempts and three retries. All eleven
+calculator rows and the visible eleven-row report match the pre-saved expectation;
+the two knowledge explanations each have one pre-first hint. All eleven traced
+generations carry the timing guidance and settle 25.25 credits with matching
+learner/course/lesson/owner scope and no fabricated classroom attempt IDs. No
+errors or summary generation. Read-only comparison preserves original progress,
+sessions, variables and all historical element rows. The failed natural report
+remains failed; this scoped replay does not close fresh full-lesson acceptance.
+
 ### Answer criteria
 
 The runtime's answer-criteria policy anchors judgments to the current question's

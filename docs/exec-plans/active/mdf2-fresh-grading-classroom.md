@@ -27,7 +27,7 @@ work together in a new classroom. Keep all failed evidence and all legacy code.
   regression fails before correction, and completion after a real answer remains
   allowed. Final learning/script checks pass 3,283 tests and 50 subtests with
   three expected skips; developer-tool/all-files gates pass.
-- [ ] 2026-10-11: Review question order, authored answer criteria, clarification
+- [x] 2026-10-11: Review question order, authored answer criteria, clarification
   handling, retries and final report against actual learner-visible responses.
 - [x] 2026-10-11: Verify persisted history, real compression when present,
   request attribution and settled billing with read-only evidence.
@@ -69,9 +69,28 @@ work together in a new classroom. Keep all failed evidence and all legacy code.
   Both schema-delivery controls fail before correction; final learning/script
   checks pass 3,286 tests and 50 subtests, with three expected skips. Developer
   tools and the all-files repository gate pass.
-- [ ] 2026-10-11: Verify the corrected report on the deployed candidate using the
+- [x] 2026-10-11: Verify the corrected report on the deployed candidate using the
   genuine pre-final-answer checkpoint without rewriting the failed classroom;
-  then open a focused PR and reply to every AI opinion.
+  then open #3098 and reply to every AI opinion. Sim 116f7287f serves API 2/2
+  and web 1/1 Ready; both API replicas match all 55 runtime/resource fingerprints.
+  One in-memory replay produces all eleven correct report rows, 14 attempts,
+  three retries, eight first-correct and six independent-first, matching the
+  expectation saved before the final answer. All eleven traced generations carry
+  the timing guidance and settle 25.25 credits. No summary, errors or invented
+  attempt IDs; original messages/memory, persisted progress/session/variables and
+  all 108 element rows (including historical rows) remain unchanged. Current
+  learner history still contains the stable 54 elements. Initial result-file
+  retrieval failed; reading the already-created file recovered it without a
+  second model run.
+- [x] 2026-10-11: Adopt the AI fixture observation in a4b0cc503, using a genuine
+  knowledge-question/answer pair and explicitly limiting the deterministic test
+  to arithmetic. All 33 focused checks and all-files gates pass; reply in the
+  original thread. Decline the external docstring-percentage suggestion with the
+  repository's existing test exemptions and documented runtime contract.
+- [ ] 2026-10-11: After the focused correction merges, run a new complete natural
+  lesson to validate report behavior across the whole journey. The retained
+  completed classroom still fails report acceptance; the checkpoint replay does
+  not replace that remaining acceptance.
 
 ## Surprises & Discoveries
 
@@ -116,8 +135,12 @@ acceptance: two pre-answer explanations are counted as hints while their timing
 is incorrectly supplied as zero. First-correct remains eight; independent-first
 must be six under the unchanged authored rules. Completion and stable history
 cannot override this failed semantic count. Its 39 actual generations settle
-65.70 credits separately from the earlier 5.73-credit failure/recovery. Other
-models/languages, human acceptance and long-term observation remain open.
+65.70 credits separately from the earlier 5.73-credit failure/recovery. The
+deployed scoped replay now passes all eleven per-question and total counts,
+including six independent-first and two non-answer knowledge questions. Eleven
+traced requests settle another 25.25 credits, without any classroom repair.
+A new complete natural report after the correction still remains to be tested.
+Other models/languages, human acceptance and long-term observation remain open.
 
 ## Context and Orientation
 
