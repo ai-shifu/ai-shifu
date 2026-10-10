@@ -12,15 +12,15 @@ Replace the oversized implementation proposed in PR #3065 with a focused learner
 - [x] 2026-10-10 Asia/Shanghai: Isolated in-memory SQLite proof using current main showed one reset retires two sibling progress records. Repeating a no-op reset returns success without adding records. Counting retired rows therefore does not directly count successful operations.
 - [x] 2026-10-10 Asia/Shanghai: User declined a schema change for now and requested further assessment. No counter table or migration may be implemented.
 - [x] 2026-10-10 Asia/Shanghai: User authorized isolated Redis validation. Built official Redis 7.2.5 in a temporary directory and ran 15 experimental assertions against real Redis and synthetic SQLite. Verified atomic cap and duplicate receipts, and reproduced cross-store undercount, expired-lock over-admission and loss of nonpersistent counters. These are feasibility experiments, not product acceptance.
-- [ ] 2026-10-10 Asia/Shanghai: Verify actual deployed Redis persistence, eviction and cross-environment prefix isolation. Read-only CICD confirms Redis is configured for dev02, but does not expose runtime CONFIG/INFO or cleartext prefix; the actual conditions remain unverified.
+- [ ] 2026-10-10 Asia/Shanghai: Complete actual Redis durability and environment-isolation assessment. The approved read-only check confirms reachability, noncluster mode and noeviction; persistence fields are unavailable and the default prefix does not establish separation.
 - [x] 2026-10-10 Asia/Shanghai: User approved Redis, successful-reset counting and exceptional undercount after a service interruption, with no SQL schema change.
 - [x] 2026-10-10 Asia/Shanghai: User approved temporarily blocking reset when Redis cannot be reached; keep existing content and ordinary learning available.
 - [x] 2026-10-10 Asia/Shanghai: Implemented the backend guard and availability contract. Real service tests with synthetic SQLite and FakeRedis verified first study, effective resets, cap preservation, retry receipts, scope, exemptions and rollback.
 - [x] 2026-10-10 Asia/Shanghai: Implemented learner dialogs and update notices; frontend acceptance tests remain pending.
 - [x] Implement configuration, course-specific exemption, transactional reset admission and exhausted UI.
 - [x] Local verification: effective-reset boundaries, successful request retries, actual Redis concurrency/lease renewal, SQL rollback, authenticated HTTP identity and preview permission, exhausted/outage dialogs, updated-lesson review and analytics failure isolation. Deployed acceptance remains pending.
-- [ ] Run repository gates, commit the focused implementation and verify dev02 before proposing production. Preserve #3065 until the replacement PR is ready.
-- [ ] Separately plan dev02 deployment, accounting for old test-only tables and migration revisions; do not drop them or downgrade automatically.
+- [x] 2026-10-10 Asia/Shanghai: Repository gates passed and the focused implementation is committed. Dev02 build/deployment completed without touching old test-only tables or migration revisions; temporary CICD routing and diagnostic script were restored.
+- [x] 2026-10-10 Asia/Shanghai: Deployed browser acceptance covers the authorized staff account at eleven resets and the approved guest identity at ten resets with the next attempt blocked, preserved content, Ask, reload and independent lessons. Authenticated nonstaff has local HTTP/service coverage only. Preserve #3065 as prior review history.
 
 ## Surprises & Discoveries
 
@@ -43,7 +43,7 @@ Local Redis experiment: Lua admitted exactly 10 of 100 concurrent unique request
 
 ## Outcomes & Retrospective
 
-Backend and learner UI implementation are in progress. No schema migration, environment deployment or new PR exists yet. Local service tests use synthetic SQLite and FakeRedis, not deployed Redis/MySQL. The experiment script and JSON results are in `/private/tmp/lesson-reset-redis-validation.py` and `/private/tmp/lesson-reset-redis-validation-result.json`; these temporary artifacts are not repository tests or release evidence. The simpler scope removes the need to track generation producers, refund failed generation or intercept normal teaching writes.
+Backend and learner UI implementation are committed and deployed to dev02. Production is unchanged; there is no schema migration, and the production decision and PR review remain open. Local service tests use synthetic SQLite and isolated Redis; deployed browser evidence covers the approved guest identity and a course-authorized staff account. The experiment script and JSON results are in `/private/tmp/lesson-reset-redis-validation.py` and `/private/tmp/lesson-reset-redis-validation-result.json`; these temporary artifacts are not repository tests or release evidence. The simpler scope removes the need to track generation producers, refund failed generation or intercept normal teaching writes.
 
 ## Context and Orientation
 
@@ -106,7 +106,7 @@ Focused backend/config validation: 110 cases passed with real Redis available. F
 
 The repository-wide TypeScript check remains red due to unchanged main tests in `src/web/src/app/admin/operations/users/[user_bid]/page.test.tsx`: an untyped mock `this` and deletion of a nonoptional property. The dev02 Dockerfile runs `npm run build`, so this is a build-readiness gap. Do not silently mix that unrelated fix into the reset PR. A proposed two-line test-only correction is held for the user's scope decision.
 
-Implemented and locally tested; not pushed to dev02, not deployed, not production-released. Redis persistence/eviction and environment isolation remain unverified in the actual deployment. No test/production SQL tables or migration markers have been modified.
+At the initial local checkpoint, the feature was implemented and locally tested but not deployed. The deployment section below records the later dev02 rollout and its remaining acceptance gaps. No test/production SQL tables or migration markers have been modified, and production remains unchanged.
 
 ## Deployment preparation (2026-10-10)
 
@@ -116,4 +116,16 @@ A separate integration branch `codex/lesson-reset-limit-dev02` combines the rese
 
 The temporary API post-script issues only Redis PING, INFO and CONFIG GET commands using existing environment configuration; it reads no learner data and emits no credentials or literal masked prefix. It reports prefix scope classification, persistence and eviction settings. The original API post-script is empty and script timeout is zero; restore those after the one check, preserving any concurrent unrelated CICD edits. A classified prefix does not prove cross-environment isolation by itself.
 
-Build/deployment and real browser acceptance are still pending. Old test tables remain untouched.
+Build 510 / Drone 5299 succeeded. API, web and worker run image `20261010-2e4134e`; initial auto-deploy records are 2426–2429. The first diagnostic failed in dotenv before issuing Redis commands. An explicit dotenv path corrected that launcher; API redeploy 2430 completed the one read-only Redis inspection. Redis PING succeeded, the runtime limit is 10, cluster mode is off and `maxmemory_policy` is `noeviction`. The cloud service did not expose persistence fields or CONFIG GET values, so durable recovery remains unverified. The prefix is the default scope; this does not prove separation from other environments. No Redis server configuration or learner data was changed by the diagnostic.
+
+Fresh CICD readback confirmed branch `dev02`, empty API post-script and timeout zero restored after the check. The limit of 10 remains intentional dev02 feature configuration. API/web/worker have no observed restarts; celery beat continues a pre-existing restart problem and is outside this feature's scope. Old test tables remain untouched.
+
+### Browser acceptance checkpoint
+
+On the published dev02 test copy `c2cf49551ba94345b5a141c78d7b86e7`, lesson `49627b510d2d4147b691b77d8bb6fd13`, browser account “小0” completed eleven effective resets and reached regenerated teaching/interaction content each time. No count or remaining balance appeared. Visible UI inspection confirmed that this account can access the test course editor and publish controls; it has course permission and is expected to be exempt. These resets prove working regeneration and staff exemption, **not** ordinary-learner cap acceptance. No permissions were changed for the test.
+
+The user explicitly approved temporary logout and guest acceptance, with user-owned relogin afterward. Under the existing browser guest identity, short lesson `aa5e4bbf085c4baf89c4ee569e83e75c` displayed its initial saved “测试重修” content, then completed ten effective resets. The eleventh attempt displayed the exhausted notice without the clear-content question; acknowledging it preserved “测试重修”, Ask and Next. Screenshot evidence is `/private/tmp/lesson-reset-dev02-exhausted.jpg`. The short lesson uses static teaching text, so this verifies the deployed SQL/Redis reset boundary without repeatedly spending generation credits; generated-content regeneration was separately verified on the longer lesson under the staff account.
+
+Guest Ask returned an answer after exhaustion. Reloading preserved the saved text and question/answer and still displayed exhaustion on reset; this proves reload cannot bypass the same browser identity, not Redis crash recovery. After dismissing optional lesson feedback, Next opened lesson `49627b510d2d4147b691b77d8bb6fd13`, where a first guest reset succeeded and regenerated teaching content: the exhausted short lesson did not consume the other lesson's allowance. Additional screenshot evidence is `/private/tmp/lesson-reset-dev02-ask-after-exhaustion.jpg`. No learner permissions, Redis values or SQL records were injected for these checks; learning/reset itself used the normal UI.
+
+Authenticated nonstaff, updated-lesson exhausted notice, Redis-outage and SQL-failure scenarios have local coverage only; this deployment performed no fault injection or course republishing. Do not present those as live acceptance or claim production durability from a local Redis experiment. The browser is intentionally left logged out after the user's approval; this guest short lesson is exhausted and the longer lesson has used one reset. For another ordinary-user acceptance run, use a nonstaff test account or another lesson; using the owner/collaborator account will remain unlimited.
