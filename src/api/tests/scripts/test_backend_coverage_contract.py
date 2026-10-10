@@ -104,3 +104,75 @@ def test_application_denominator_includes_unimported_modules_and_excludes_tests(
     )
     assert report["totals"]["covered_lines"] == 3
     assert report["totals"]["num_statements"] == 7
+
+
+def test_parallel_coverage_combines_both_workers_and_preserves_the_gate(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip(
+        "pytest_cov", reason="Install requirements-ci.txt for coverage."
+    )
+    pytest.importorskip(
+        "xdist", reason="Install requirements-ci.txt for parallel tests."
+    )
+    shutil.copyfile(CONFIG, tmp_path / ".coveragerc")
+    package = tmp_path / "flaskr"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "unimported.py").write_text("value = 99\n", encoding="utf-8")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    for name in ("alpha", "beta"):
+        (package / f"{name}.py").write_text(
+            f"def value():\n    return {name!r}\n", encoding="utf-8"
+        )
+        (tests / f"test_{name}.py").write_text(
+            "from pathlib import Path\n"
+            f"from flaskr.{name} import value\n"
+            "def test_value(worker_id):\n"
+            f"    assert value() == {name!r}\n"
+            f"    Path('worker-{name}.txt').write_text(worker_id)\n",
+            encoding="utf-8",
+        )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-n",
+            "2",
+            "--dist",
+            "loadfile",
+            "-p",
+            "no:testmon",
+            "--cov",
+            "--cov-config=.coveragerc",
+            "--cov-report=",
+            "--cov-fail-under=0",
+            "tests",
+        ],
+        cwd=tmp_path,
+        env={
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith("COVERAGE_")
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert {
+        (tmp_path / f"worker-{name}.txt").read_text(encoding="utf-8")
+        for name in ("alpha", "beta")
+    } == {"gw0", "gw1"}
+    assert _coverage(tmp_path, "json", "--fail-under=0").returncode == 0
+    report = json.loads((tmp_path / "coverage.json").read_text(encoding="utf-8"))
+    for name in ("alpha", "beta"):
+        assert report["files"][f"flaskr/{name}.py"]["summary"]["covered_lines"] == 2
+    assert report["files"]["flaskr/unimported.py"]["summary"]["covered_lines"] == 0
+    assert report["totals"]["covered_lines"] == 4
+    assert report["totals"]["num_statements"] == 5
+    # Worker collection succeeds, then the single combined report enforces 95.01%.
+    assert _coverage(tmp_path, "report").returncode == 2

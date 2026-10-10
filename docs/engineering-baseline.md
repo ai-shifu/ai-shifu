@@ -377,10 +377,11 @@ src/api/tests/
   scripts do not inflate the application score.
 - Critical paths should target 100 percent coverage
 - Full coverage command (from `src/api`):
-  `PYTHON_DOTENV_DISABLED=1 python -m coverage run -m pytest -p no:testmon tests`,
+  `PYTHON_DOTENV_DISABLED=1 python -m pytest -n 2 --dist loadfile -p no:testmon --cov --cov-config=.coveragerc --cov-report= --cov-fail-under=0 tests`,
   then `python -m coverage report` and optionally `python -m coverage html`.
-  Install `requirements-ci.txt` first. Full coverage runs must not use cached
-  test selection. Run the `Backend Tests` workflow manually from GitHub Actions
+  Install `requirements-ci.txt` first. pytest-cov combines both workers before
+  the report enforces the shared threshold. Full coverage runs must not use
+  cached test selection. Run the `Backend Tests` workflow manually from GitHub Actions
   (`workflow_dispatch`) to check the threshold and retain raw, JSON, XML and
   text coverage evidence. Ordinary pull requests use the existing test target
   selection; pushes to `main` run the full tests without coverage. Neither
@@ -641,9 +642,12 @@ flows before promoting them.
 
 - `backend-tests.yml`: selects backend tests for PRs changing `src/api/**` or
   the backend workflow, with a successful no-op for unrelated PRs; runs the
-  full suite on pushes to `main` and full coverage on manual dispatch.
+  full suite on pushes to `main` and full coverage on manual dispatch. Tests
+  run in two pytest-xdist worker processes on one runner, distributed by file;
+  PR/main runs retain testmon and manual coverage merges both workers.
 - `frontend-tests.yml`: runs frontend Jest tests for frontend and shared i18n
-  changes while reporting a successful no-op check for unrelated PRs.
+  changes with two worker processes on one runner, while reporting a successful
+  no-op check for unrelated PRs.
 - `prettier-check.yml`: checks frontend formatting for frontend changes in PRs;
   does not run on pushes to `main`.
 - `repo-harness.yml`: the `Static Checks` job validates architecture

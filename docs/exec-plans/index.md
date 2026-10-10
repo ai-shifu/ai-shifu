@@ -133,6 +133,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
 - [Optional model output limits](./completed/optional-model-output-limits.md)
 - [ExecPlan: Package Campaigns](./completed/package-campaigns.md)
+- [Run frontend and backend tests with two workers](./completed/parallel-test-workers.md)
 - [Password Login Account Rate Limit](./completed/password-login-rate-limit.md)
 - [Separate course permission contact validation](./completed/permission-contact-validation.md)
 - [Let learners answer onboarding questions with their AI](./completed/profile-onboarding-ai-import.md)
