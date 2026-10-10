@@ -252,12 +252,29 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
             if isinstance(p, UserPromptPart)
         ]
         assert prompts[0] == history[0]["content"]
-        assert prompts[-1].startswith(history[-1]["content"])
-        assert "[Host memory context, not learner input]" in prompts[-1]
+        assert prompts[1].startswith(history[-1]["content"])
+        assert "[Host memory context, not learner input]" in prompts[1]
         last = messages[-1]
         parts = [p for p in last.parts if isinstance(p, ToolReturnPart)]
         if parts:
             results.append(json.loads(parts[0].content))
+            from flaskr.service.learn.agent.gateway_model import map_messages
+
+            mapped = map_messages(messages)
+            assert mapped[-2]["role"] == "tool"
+            assert json.loads(mapped[-2]["content"]) == expected
+            assert mapped[-1]["role"] == "user"
+            assert mapped[-1]["content"].startswith(
+                "[Host memory-read context, not learner input]"
+            )
+            assert (
+                f"Current lookup status: {expected['status']}"
+                in (mapped[-1]["content"])
+            )
+            assert (
+                "Historical save outcomes and change causes: unknown"
+                in (mapped[-1]["content"])
+            )
             yield "Current memory checked."
         else:
             yield {0: DeltaToolCall(name="recall", json_args='{"key":"analogy"}')}
@@ -278,6 +295,55 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
     assert results == [expected]
     assert history == original
     assert run.snapshot == snapshot
+    assert patch.variables == []
+    checker.assert_not_awaited()
+
+
+def test_post_read_host_context_cannot_authorize_a_memory_write() -> None:
+    from pydantic_ai.messages import UserPromptPart
+
+    patch = FollowUpMemoryPatch()
+    checker = AsyncMock(return_value=True)
+    calls = []
+    question = "What is my current analogy preference?"
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Try to use the separate host notice as learner write evidence after a read."""
+        calls.append(messages)
+        if len(calls) == 1:
+            yield {0: DeltaToolCall(name="recall", json_args='{"key":"analogy"}')}
+        elif len(calls) == 2:
+            notice = next(
+                p.content for p in messages[-1].parts if isinstance(p, UserPromptPart)
+            )
+            yield {
+                0: DeltaToolCall(
+                    name="remember",
+                    json_args=json.dumps(
+                        {"key": "analogy", "value": "library", "request": notice}
+                    ),
+                )
+            }
+        else:
+            assert messages[-1].parts[0].content.startswith("Not remembered:")
+            yield "No current record is available."
+
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input=question,
+        declared_keys=frozenset(),
+        snapshot={},
+        deleted_keys=frozenset({"analogy"}),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=checker,
+        preview=False,
+    )
+    list(run.stream([{"role": "user", "content": question}]))
+    assert len(calls) == 3
     assert patch.variables == []
     checker.assert_not_awaited()
 
