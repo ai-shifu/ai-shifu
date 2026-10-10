@@ -21,11 +21,22 @@ ledger without rewriting historical usage or retiring engine 1.0.
 - [x] 2026-10-10T03:27:00Z: Constructed the frozen context after answer flush,
   before any billed call. All 41 handler cases and 3,097 learning/profile/metering
   tests plus four subtests pass, with one expected skip.
-- [ ] 2026-10-10T03:27:00Z: Run repository gates and publish a focused
-  non-draft PR.
-- [ ] 2026-10-10T03:22:03Z: Deploy the runtime delta to sim, verify ready
-  replicas, and reconcile real HTTP answer/admission usage against persisted
-  answer blocks. Review and reply to every actionable AI opinion; report CI.
+- [x] 2026-10-10T03:35:00Z: Developer tools, repository gates and hooks
+  pass; published non-draft #3084 as fa6e735e3. Sim delta 2eb24b508 passes
+  the same gates and all 41 handler cases.
+- [x] 2026-10-10T03:35:00Z: Both ready sim-2eb24b5 API replicas match all
+  39 runtime hashes. Three real HTTP follow-ups produce six successful, settled
+  model requests (one semantic admission), 2.87 credits; every request matches
+  its new persisted answer block and real progress, with zero missing fields.
+- [x] 2026-10-10T03:35:00Z: Preserved all 162 original elements across nine
+  lessons, profile and unrelated memory; deleted only the temporary test note.
+  Eleven original progress rows and nine completed sessions remain unchanged.
+- [x] 2026-10-10T03:35:00Z: Devin and Codex report no findings; CodeRabbit
+  has no actionable code comments. Replied to its docstring coverage advisory
+  in the original discussion, explaining behavior-named pytest exemptions.
+- [ ] 2026-10-10T03:35:00Z: Verify final technical CI before handoff. Current
+  checks pass except the running runtime-harness; manual merge belongs to the
+  user. Archive only after that merge and the scoped acceptance review.
 
 ## Surprises & Discoveries
 
@@ -49,8 +60,17 @@ reply must use the answer block that is shown to the learner.
 
 ## Outcomes & Retrospective
 
-Implementation and live accounting acceptance are in progress. Prior natural
-memory current-value success is not evidence of complete usage attribution.
+The focused binding and live default-LLM accounting sample pass: six requests
+across three answers, including one admission, have matching answer and progress
+IDs, correct owner/course and complete settlement (2.87 credits). Original
+history, profile, unrelated memory and completed sessions are preserved.
+Fallback, synthesis and guardrail are covered offline, not claimed as live
+provider acceptance. Final technical CI remains to be checked before handoff.
+The initial exact-substring marker assertion rejected an inserted space before
+the digits; the original response was retained and its normalized marker was
+verified without another billed request. A pre-rollout hash probe correctly
+rejected mixed old/new pods; only the post-rollout 39-hash checks count as passed.
+Prior missing-attribution rows and causal-quality failures remain unchanged.
 
 ## Context and Orientation
 
