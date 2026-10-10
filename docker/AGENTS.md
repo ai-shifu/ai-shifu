@@ -58,17 +58,28 @@ environment examples.
 
 ## Commands
 
+- Before a direct frontend dev image build or Compose startup, prepare source
+  metadata from the repository root (the dev script does this automatically):
+
+  ```bash
+  git rev-parse HEAD > src/web/.app-build-sha 2>/dev/null || rm -f src/web/.app-build-sha
+  ```
+
+  Rebuild after switching commits. Archives without Git metadata remove any
+  stale marker and keep the package-version-only display.
+
 - `cd docker && docker compose -f docker-compose.dev.yml config` validates the
   local-dev compose file after edits.
 
-- `cd docker && docker compose -f docker-compose.dev.yml up -d` should bring up
+- After metadata preparation, `cd docker && docker compose -f docker-compose.dev.yml up --build -d` should bring up
   the default app plus observability stack together for Phase 2 harness work.
 
 - For parallel worktrees, set a stable compose project name and override host
   ports before starting the dev stack. Use the pattern
   `ai-shifu-<worktree-slug>` for the project name; CI uses
   `ai-shifu-runtime-harness`. For example:
-  `cd docker && docker compose -p ai-shifu-$(basename "$(git rev-parse --show-toplevel)" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-') -f docker-compose.dev.yml up -d`.
+  prepare the marker above, then
+  `cd docker && docker compose -p ai-shifu-$(basename "$(git rev-parse --show-toplevel)" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-') -f docker-compose.dev.yml up --build -d`.
   Override ports with `AI_SHIFU_WEB_PORT`, `AI_SHIFU_API_PORT`,
   `AI_SHIFU_MYSQL_PORT`, `AI_SHIFU_REDIS_PORT`, `AI_SHIFU_GRAFANA_PORT`,
   `AI_SHIFU_LOKI_PORT`, `AI_SHIFU_TEMPO_PORT`,
