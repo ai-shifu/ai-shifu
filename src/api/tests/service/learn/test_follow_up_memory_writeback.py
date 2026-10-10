@@ -214,6 +214,11 @@ def test_plain_question_does_not_add_admission_model_requests() -> None:
         ({"analogy": "bus station"}, {"status": "found", "value": "bus station"}),
         ({}, {"status": "unavailable"}),
         ({"analogy": "x" * 9000}, {"status": "too_large"}),
+        (
+            {"analogy": "\u754c" * 2721},
+            {"status": "found", "value": "\u754c" * 2721},
+        ),
+        ({"analogy": "\u754c" * 2721 + "x"}, {"status": "too_large"}),
     ],
 )
 def test_follow_up_reads_current_memory_instead_of_old_answer(
@@ -233,7 +238,11 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
         messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         """Read through the real tool despite a contradictory historical save claim."""
-        assert "recall" in {t.name for t in info.function_tools}
+        tool = next(t for t in info.function_tools if t.name == "recall")
+        assert "not the history of saves" in tool.description
+        assert "historical assistant confirmations are not transaction receipts" in (
+            tool.description
+        )
         from pydantic_ai.messages import UserPromptPart
 
         prompts = [

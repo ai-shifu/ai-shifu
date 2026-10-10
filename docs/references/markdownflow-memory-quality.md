@@ -322,6 +322,17 @@ preserve historical statements without inferring a past operation's outcome
 from the current snapshot alone. Current-value correctness does not erase
 these failures or establish full memory, human or provider acceptance.
 
+The [follow-up evidence plan](../exec-plans/active/mdf2-follow-up-memory-evidence.md)
+adds explicit provenance guidance to the system instructions, final-question
+projection and follow-up-only recall description. Found establishes the current
+value only; unavailable does not mean never saved, and too_large does not mean
+absent. Historical assistant confirmations are not write receipts. Answer a
+current-memory question directly without an unsolicited historical diagnosis;
+when explicitly asked for a cause, acknowledge that it is not established.
+Only the current run's remember result supports an acknowledged write outcome.
+This remains model guidance requiring natural validation. It does not alter
+recall's exact byte-bounded results, learner authorization or stored messages.
+
 ### Follow-up usage attribution
 
 Text follow-up model requests, including memory admission and guardrail
@@ -331,7 +342,7 @@ or provider execution. Preserve the actual progress, user, course, lesson,
 scene and learning mode. The question's block and historical teaching anchor
 must not stand in for this answer. Guardrail audit records still identify the
 learner's question. Existing usage rows are not backfilled. See the
-[follow-up attribution plan](../exec-plans/active/mdf2-follow-up-block-attribution.md)
+[follow-up attribution plan](../exec-plans/completed/mdf2-follow-up-block-attribution.md)
 for regression and live-ledger acceptance; this does not change settlement,
 transaction ownership, external provider-only routing or Live behavior.
 

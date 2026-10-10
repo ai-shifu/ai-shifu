@@ -34,9 +34,11 @@ ledger without rewriting historical usage or retiring engine 1.0.
 - [x] 2026-10-10T03:35:00Z: Devin and Codex report no findings; CodeRabbit
   has no actionable code comments. Replied to its docstring coverage advisory
   in the original discussion, explaining behavior-named pytest exemptions.
-- [ ] 2026-10-10T03:35:00Z: Verify final technical CI before handoff. Current
-  checks pass except the running runtime-harness; manual merge belongs to the
-  user. Archive only after that merge and the scoped acceptance review.
+- [x] 2026-10-10T06:16:06Z: Confirmed manual merge #3084 as a0ea6324a and
+  successful final technical CI, including runtime-harness. No new actionable
+  AI comments; the docstring advisory already has an original-discussion reply.
+  Archive this accepted accounting scope. Historical-cause quality continues
+  in the [evidence plan](../active/mdf2-follow-up-memory-evidence.md).
 
 ## Surprises & Discoveries
 
@@ -65,7 +67,7 @@ across three answers, including one admission, have matching answer and progress
 IDs, correct owner/course and complete settlement (2.87 credits). Original
 history, profile, unrelated memory and completed sessions are preserved.
 Fallback, synthesis and guardrail are covered offline, not claimed as live
-provider acceptance. Final technical CI remains to be checked before handoff.
+provider acceptance. Final technical CI passed and #3084 was manually merged.
 The initial exact-substring marker assertion rejected an inserted space before
 the digits; the original response was retained and its normalized marker was
 verified without another billed request. A pre-rollout hash probe correctly
