@@ -34,8 +34,9 @@ export const getScriptInfo = async (courseId: string, scriptId: string) => {
 export const resetChapter = async ({ lessonId: outline_bid }) => {
   const { courseId: shifu_bid } = useEnvStore.getState();
   const { previewMode } = useSystemStore.getState();
-  const userId = useUserStore.getState().userInfo?.user_id || '';
-  const scope = JSON.stringify([userId, shifu_bid, outline_bid, previewMode]);
+  const user = useUserStore.getState();
+  const identity = user.userInfo?.user_id || user.getToken();
+  const scope = JSON.stringify([identity, shifu_bid, outline_bid, previewMode]);
   const requestId = pendingResetRequestIds.get(scope) || createRequestId();
   pendingResetRequestIds.set(scope, requestId);
   const result = await request.delete(

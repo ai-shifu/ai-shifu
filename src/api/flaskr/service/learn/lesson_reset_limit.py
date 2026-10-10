@@ -102,22 +102,7 @@ class LessonResetGuard:
     def __enter__(self) -> Self:
         """Serialize admission, retain successful retry receipts and check quota."""
         try:
-            self.client = get_redis_client()
-            if self.client is None:
-                raise_error("server.learn.resetUnavailable")
-            source_pool = getattr(self.client, "connection_pool", None)
-            if source_pool is not None:
-                self.pool = ConnectionPool(
-                    connection_class=source_pool.connection_class,
-                    **{
-                        **source_pool.connection_kwargs,
-                        "socket_connect_timeout": 1,
-                        "socket_timeout": 1,
-                        "retry": Retry(NoBackoff(), 0),
-                        "retry_on_error": [],
-                    },
-                )
-                self.client = Redis(connection_pool=self.pool)
+            self._connect()
             self.lock = self.client.lock(
                 self.key + ":lock",
                 timeout=_LOCK_SECONDS,
@@ -130,19 +115,7 @@ class LessonResetGuard:
                 target=self._renew, daemon=True, name="lesson-reset-lock-renewer"
             )
             self.renewer.start()
-            raw = self.client.get(self.key)
-            if raw is not None:
-                state = json.loads(raw)
-                if (
-                    not isinstance(state, dict)
-                    or type(state.get("count")) is not int
-                    or state["count"] < 0
-                    or not isinstance(state.get("requests"), list)
-                    or not all(isinstance(item, str) for item in state["requests"])
-                    or len(state["requests"]) != state["count"]
-                ):
-                    raise_error("server.learn.resetUnavailable")
-                self.state = state
+            self._read_state()
             self.duplicate = self.request_id in self.state["requests"]
         except Exception:
             self._release()
@@ -151,6 +124,53 @@ class LessonResetGuard:
             self._release()
             raise_error("server.learn.resetLimitReached")
         return self
+
+    def _connect(self) -> None:
+        """Bound Redis failures for status reads and reset admission alike."""
+        self.client = get_redis_client()
+        if self.client is None:
+            raise_error("server.learn.resetUnavailable")
+        source_pool = getattr(self.client, "connection_pool", None)
+        if source_pool is not None:
+            self.pool = ConnectionPool(
+                connection_class=source_pool.connection_class,
+                **{
+                    **source_pool.connection_kwargs,
+                    "socket_connect_timeout": 1,
+                    "socket_timeout": 1,
+                    "retry": Retry(NoBackoff(), 0),
+                    "retry_on_error": [],
+                },
+            )
+            self.client = Redis(connection_pool=self.pool)
+
+    def _read_state(self) -> None:
+        """Use the same counter validation for advisory reads and locked resets."""
+        raw = self.client.get(self.key)
+        if raw is None:
+            return
+        state = json.loads(raw)
+        if (
+            not isinstance(state, dict)
+            or type(state.get("count")) is not int
+            or state["count"] < 0
+            or not isinstance(state.get("requests"), list)
+            or not all(isinstance(item, str) for item in state["requests"])
+            or len(state["requests"]) != state["count"]
+        ):
+            raise_error("server.learn.resetUnavailable")
+        self.state = state
+
+    def can_reset(self) -> bool:
+        """Read advisory availability without taking the mutation lock."""
+        try:
+            self._connect()
+            self._read_state()
+            return self.state["count"] < self.limit
+        except Exception:
+            raise_error("server.learn.resetUnavailable")
+        finally:
+            self._release()
 
     def _renew(self) -> None:
         """Keep slow SQL work from outliving the lock lease during normal operation."""
@@ -227,15 +247,5 @@ def get_lesson_reset_status(
         require_reset_lesson(course_id, lesson_id)
         if preview_mode or is_course_reset_exempt(app, course_id, user_id):
             return {"can_reset": True}
-        try:
-            with LessonResetGuard(app, course_id, lesson_id, user_id, uuid.uuid4().hex):
-                return {"can_reset": True}
-        except Exception as exc:
-            from flaskr.service.common.models import ERROR_CODE, AppError
-
-            if (
-                isinstance(exc, AppError)
-                and exc.code == ERROR_CODE["server.learn.resetLimitReached"]
-            ):
-                return {"can_reset": False}
-            raise
+        guard = LessonResetGuard(app, course_id, lesson_id, user_id, uuid.uuid4().hex)
+        return {"can_reset": guard.can_reset()}

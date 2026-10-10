@@ -12,6 +12,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import learn_funcs
+from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.lesson_reset_limit import (
     LessonResetGuard,
     get_lesson_reset_status,
@@ -56,7 +57,12 @@ def reset_course(
             )
     yield course
     with app.app_context(), unit_of_work():
-        for model in (LearnProgressRecord, PublishedOutlineItem, DraftShifu):
+        for model in (
+            LearnAgentSession,
+            LearnProgressRecord,
+            PublishedOutlineItem,
+            DraftShifu,
+        ):
             model.query.filter_by(shifu_bid=course.course).delete()
         AiCourseAuth.query.filter_by(course_id=course.course).delete()
 
@@ -174,6 +180,52 @@ def test_one_reset_of_sibling_progress_rows_counts_once(
             LearnProgressRecord.query.filter_by(progress_record_bid=bid).one().status
             == LEARN_STATUS_RESET
             for bid in identities
+        )
+
+
+@pytest.mark.parametrize("published", [False, True])
+def test_learner_reset_preserves_preview_and_counts_only_published_state(
+    app: Flask,
+    reset_course: SimpleNamespace,
+    mock_redis_client: FakeRedis,
+    *,
+    published: bool,
+) -> None:
+    """An ex-collaborator's preview alone is not a chargeable learner reset."""
+    with app.app_context(), unit_of_work():
+        for preview in [True, False] if published else [True]:
+            db.session.add(
+                LearnAgentSession(
+                    user_bid=reset_course.learner,
+                    shifu_bid=reset_course.course,
+                    outline_item_bid=reset_course.lesson,
+                    active_key=active_key_for(
+                        reset_course.learner,
+                        reset_course.lesson,
+                        preview_mode=preview,
+                    ),
+                )
+            )
+    assert reset(app, reset_course)
+    assert count(app, reset_course, mock_redis_client) == int(published)
+    with app.app_context():
+        assert (
+            LearnAgentSession.query.filter_by(
+                active_key=active_key_for(
+                    reset_course.learner, reset_course.lesson, preview_mode=True
+                ),
+                deleted=0,
+            ).count()
+            == 1
+        )
+        assert (
+            LearnAgentSession.query.filter_by(
+                user_bid=reset_course.learner,
+                shifu_bid=reset_course.course,
+                outline_item_bid=reset_course.lesson,
+                deleted=0,
+            ).count()
+            == 1
         )
 
 
@@ -361,6 +413,45 @@ def test_redis_outage_blocks_only_reset_and_preserves_progress(
     assert reset(app, reset_course, learner=reset_course.owner)
 
 
+def test_status_does_not_acquire_or_release_an_active_reset_lock(
+    app: Flask, reset_course: SimpleNamespace, mock_redis_client: FakeRedis
+) -> None:
+    """An advisory read during reset cannot block it or report a false outage."""
+    with LessonResetGuard(
+        app, reset_course.course, reset_course.lesson, reset_course.learner, "held"
+    ) as guard:
+        assert status(app, reset_course) == {"can_reset": True}
+        guard.check_before_commit()
+        assert count(app, reset_course, mock_redis_client) == 0
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "not-json",
+        '{"count": -1, "requests": []}',
+        '{"count": true, "requests": []}',
+        '{"count": 1, "requests": []}',
+        '{"count": 1, "requests": [42]}',
+    ],
+)
+def test_status_rejects_malformed_counters_without_changing_them(
+    app: Flask,
+    reset_course: SimpleNamespace,
+    mock_redis_client: FakeRedis,
+    raw: str,
+) -> None:
+    """Read-only status preserves the same fail-closed state validation as reset."""
+    guard = LessonResetGuard(
+        app, reset_course.course, reset_course.lesson, reset_course.learner, "read"
+    )
+    mock_redis_client.set(guard.key, raw)
+    with pytest.raises(AppError) as error:
+        status(app, reset_course)
+    assert error.value.code == 4022
+    assert mock_redis_client.get(guard.key).decode() == raw
+
+
 @pytest.fixture
 def real_reset_redis(monkeypatch: pytest.MonkeyPatch) -> Iterator[object]:
     """Optionally run a real Redis on an isolated Unix socket, with no remote data."""
@@ -416,6 +507,24 @@ def real_reset_redis(monkeypatch: pytest.MonkeyPatch) -> Iterator[object]:
                 client.close()
                 process.terminate()
                 process.wait(timeout=5)
+
+
+def test_real_redis_status_preserves_an_active_reset_lock(
+    app: Flask,
+    reset_course: SimpleNamespace,
+    real_reset_redis: object,
+) -> None:
+    """A real Redis status read leaves the active reset's lease and count intact."""
+    with LessonResetGuard(
+        app, reset_course.course, reset_course.lesson, reset_course.learner, "held"
+    ) as guard:
+        assert status(app, reset_course) == {"can_reset": True}
+        assert real_reset_redis.get(guard.key + ":lock") == guard.token.encode()
+        guard.check_before_commit()
+        guard.record_success()
+        assert status(app, reset_course) == {"can_reset": True}
+        assert count(app, reset_course, real_reset_redis) == 1
+    assert real_reset_redis.get(guard.key + ":lock") is None
 
 
 def test_real_redis_concurrent_guard_and_successful_retry(

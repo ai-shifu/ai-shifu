@@ -804,7 +804,7 @@ def _stage_lesson_reset(
     guard: LessonResetGuard | None,
 ) -> bool:
     """Stage the original reset under its caller's transaction and admission guard."""
-    from flaskr.service.learn.agent.models import LearnAgentSession
+    from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
     from flaskr.service.learn.agent.routing import uses_agent_engine
 
     if preview_mode and uses_agent_engine(shifu_bid):
@@ -844,6 +844,7 @@ def _stage_lesson_reset(
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             deleted=0,
+            active_key=active_key_for(user_bid, outline_bid, preview_mode=False),
         ).first()
         is not None
     )
@@ -854,7 +855,10 @@ def _stage_lesson_reset(
     # `finished=True` -- it would report the lesson complete immediately and never start it
     # again, which also breaks taking a course back off the allowlist as a way out.
     stage_agent_session_discard(
-        user_bid=user_bid, shifu_bid=shifu_bid, outline_item_bid=outline_bid
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_bid,
+        preview_mode=False if guard is not None else None,
     )
     if guard is not None and (progress_records or has_agent_session):
         guard.check_before_commit()

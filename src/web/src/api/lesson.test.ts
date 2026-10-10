@@ -4,6 +4,7 @@ import { resetChapter, getLessonResetStatus } from './lesson';
 
 let mockRequestNumber = 0;
 let mockUserId = 'learner';
+let mockToken = 'authenticated-token';
 jest.mock('@/lib/request', () => ({
   __esModule: true,
   default: { delete: jest.fn(), get: jest.fn() },
@@ -16,7 +17,12 @@ jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: { getState: jest.fn() },
 }));
 jest.mock('@/store/useUserStore', () => ({
-  useUserStore: { getState: () => ({ userInfo: { user_id: mockUserId } }) },
+  useUserStore: {
+    getState: () => ({
+      userInfo: mockUserId ? { user_id: mockUserId } : null,
+      getToken: () => mockToken,
+    }),
+  },
 }));
 jest.mock('@/store/envStore', () => ({
   useEnvStore: { getState: jest.fn(() => ({ courseId: 'course' })) },
@@ -26,6 +32,7 @@ describe('lesson reset transport', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUserId = 'learner';
+    mockToken = 'authenticated-token';
     (useSystemStore.getState as jest.Mock).mockReturnValue({
       previewMode: false,
     });
@@ -87,5 +94,23 @@ describe('lesson reset transport', () => {
       '/api/learn/shifu/course/records/lesson/reset-status?preview_mode=false',
       { skipErrorToast: true },
     );
+  });
+
+  it('keeps guest retries stable without sharing them with a different guest', async () => {
+    mockUserId = '';
+    mockToken = 'first-guest-token';
+    (request.delete as jest.Mock).mockRejectedValueOnce(
+      new Error('response lost'),
+    );
+    await expect(resetChapter({ lessonId: 'guest-retry' })).rejects.toThrow();
+    mockToken = 'second-guest-token';
+    await resetChapter({ lessonId: 'guest-retry' });
+    mockToken = 'first-guest-token';
+    await resetChapter({ lessonId: 'guest-retry' });
+    const ids = (request.delete as jest.Mock).mock.calls.map(
+      ([, config]) => config.headers['X-Request-ID'],
+    );
+    expect(ids[1]).not.toBe(ids[0]);
+    expect(ids[2]).toBe(ids[0]);
   });
 });

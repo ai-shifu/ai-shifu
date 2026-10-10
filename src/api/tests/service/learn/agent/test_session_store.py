@@ -13,7 +13,7 @@ from flaskr.service.learn.agent.models import (
     AGENT_SESSION_SCHEMA_VERSION,
     LearnAgentSession,
 )
-from flaskr.service.shifu.models import PublishedOutlineItem
+from flaskr.service.shifu.models import DraftShifu, PublishedOutlineItem
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -56,6 +56,17 @@ def a_session(**kw: object) -> Session:
     session.memory["feeling"] = "good"
     session.turn = 3
     return session
+
+
+@pytest.fixture
+def reset_owner(app: object) -> Iterator[None]:
+    """Give the author reset scenario actual course ownership."""
+    with app.app_context(), unit_of_work():
+        course = DraftShifu(shifu_bid=SHIFU, created_user_bid=USER, deleted=0)
+        db.session.add(course)
+    yield
+    with app.app_context(), unit_of_work():
+        db.session.delete(course)
 
 
 def store(app: object, session: Session) -> None:
@@ -383,7 +394,7 @@ def test_resetting_a_lesson_retires_its_session(app: object) -> None:
         assert session_store.load_agent_session(app, USER, OUTLINE) is None
 
 
-@pytest.mark.usefixtures("reset_lesson")
+@pytest.mark.usefixtures("reset_lesson", "reset_owner")
 def test_resetting_a_lesson_retires_the_preview_session_too(app: object) -> None:
     """An author resetting a lesson means the preview as well."""
     from flaskr.service.learn.learn_funcs import reset_learn_record
