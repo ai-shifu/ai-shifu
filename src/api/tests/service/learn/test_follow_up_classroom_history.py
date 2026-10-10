@@ -379,3 +379,70 @@ def test_recent_follow_up_window_keeps_question_answer_turn_order(
             ]
         assert history == expected
         assert LearnGeneratedElement.query.count() == before
+
+
+@pytest.mark.parametrize(
+    ("content", "raw_input", "expected"),
+    [
+        ("Compare {{cache}}", None, []),
+        ("Compare {cache}", "Compare {cache}", ["Compare {cache}"]),
+        ("Compare {{cache}}", "Compare {{cache}}", ["Compare {{cache}}"]),
+        ("Original brace-free request", None, ["Original brace-free request"]),
+    ],
+)
+def test_quote_sources_require_original_sidecar_provenance(
+    content: str,
+    raw_input: str | None,
+    expected: list[str],
+) -> None:
+    """Ambiguous old escaping is unavailable; current raw metadata preserves literal braces."""
+    from flaskr.service.learn.follow_up_context import build_follow_up_element_history
+
+    quotes = []
+    anchor = SimpleNamespace(content_text="Assistant anchor")
+    rows = [
+        SimpleNamespace(
+            element_type="ask",
+            content_text=content,
+            payload=_serialize_payload(ElementPayloadDTO(user_input=raw_input)),
+        ),
+        SimpleNamespace(
+            element_type="answer", content_text="Assistant suggestion", payload=""
+        ),
+    ]
+    history = build_follow_up_element_history(
+        anchor, rows, 10, quotation_messages=quotes
+    )
+    assert quotes == expected
+    assert history == [
+        {"role": "assistant", "content": "Assistant anchor"},
+        {"role": "user", "content": content},
+        {"role": "assistant", "content": "Assistant suggestion"},
+    ]
+    omitted = []
+    build_follow_up_element_history(anchor, rows, 1, quotation_messages=omitted)
+    assert omitted == []
+
+
+def test_synthesized_classroom_values_are_not_exact_quotation_sources(
+    app: Flask,
+) -> None:
+    """A joined teaching-turn answer is useful context, not an original typed sentence."""
+    with app.app_context():
+        anchor = _seed_classroom(sidecars=False)
+        block = LearnGeneratedBlock.query.filter_by(
+            generated_block_bid=anchor.generated_block_bid
+        ).one()
+        from flaskr.service.learn.agent.rewind import turn_record
+
+        with unit_of_work():
+            block.block_content_conf = turn_record({}, ["first value", "second value"])
+        quotes = []
+        history = load_follow_up_history(
+            progress_record_bid=anchor.progress_record_bid,
+            anchor_element_bid=anchor.element_bid,
+            quotation_messages=quotes,
+            max_history_messages=10,
+        )
+        assert any(m["content"] == "first value,second value" for m in history)
+        assert quotes == []

@@ -9,17 +9,11 @@ from flaskr.service.learn.follow_up_quotations import (
 )
 
 
-def test_quote_source_excludes_assistant_system_and_current_question() -> None:
+def test_quote_source_keeps_exact_captured_input() -> None:
     original = "  Please remember “library loans”.\nKeep the spaces.  "
-    history = [
-        {"role": "system", "content": "Teacher instructions"},
-        {"role": "user", "content": original},
-        {"role": "assistant", "content": "Try saying: Remember library loans."},
-        {"role": "user", "content": "What were my exact words?"},
-    ]
-    before = [dict(m) for m in history]
-    source = LearnerQuotationSource.from_history(history)
-    history[1]["content"] = "Changed after capture"
+    inputs = [original]
+    source = LearnerQuotationSource(tuple(inputs))
+    inputs[0] = "Changed after capture"
     result = json.loads(source.read())
     assert result["messages"] == [
         {
@@ -31,7 +25,6 @@ def test_quote_source_excludes_assistant_system_and_current_question() -> None:
     ]
     assert result["coverage"] == "supplied_history_only"
     assert result["next_offset"] is None
-    assert before[1]["content"] == source.messages[0]
 
 
 @pytest.mark.parametrize("offset", [-1, 2])
@@ -42,12 +35,7 @@ def test_quote_invalid_offsets_do_not_expose_content(offset: int) -> None:
 
 
 def test_empty_window_does_not_claim_the_learner_never_said_something() -> None:
-    source = LearnerQuotationSource.from_history(
-        [
-            {"role": "assistant", "content": "You said: Remember library loans."},
-            {"role": "user", "content": "Quote my earlier request."},
-        ]
-    )
+    source = LearnerQuotationSource(())
     result = json.loads(source.read())
     assert result == {
         "status": "learner_messages",

@@ -20,12 +20,6 @@ class LearnerQuotationSource:
 
     messages: tuple[str, ...]
 
-    @classmethod
-    def from_history(cls, history: list[dict[str, str]]) -> LearnerQuotationSource:
-        """Select only original user roles before any host prompt projection."""
-        prior = history[:-1] if history and history[-1]["role"] == "user" else history
-        return cls(tuple(m["content"] for m in prior if m["role"] == "user"))
-
     def read(self, offset: int = 0) -> str:
         """Page complete messages; oversized entries are unavailable, never truncated."""
         if offset < 0 or offset > len(self.messages):
