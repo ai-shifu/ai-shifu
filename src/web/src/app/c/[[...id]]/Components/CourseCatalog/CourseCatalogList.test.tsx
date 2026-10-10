@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { CourseCatalogList } from './CourseCatalogList';
 import type { LessonTreeCatalog } from '../../hooks/useLessonTree';
 
+jest.mock('@/api/lesson', () => ({
+  getScriptInfo: jest.fn(),
+}));
+
 jest.mock('@/api/studyV2', () => ({
   LEARNING_PERMISSION: {
     NORMAL: 'normal',

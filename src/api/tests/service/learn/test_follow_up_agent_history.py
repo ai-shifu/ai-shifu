@@ -18,6 +18,7 @@ from flaskr.service.learn.learn_funcs import reset_learn_record
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+from flaskr.service.shifu.models import PublishedOutlineItem
 from flaskr.service.user.repository import create_user_entity
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
@@ -36,6 +37,11 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
     identity = uuid.uuid4().hex
     with app.app_context(), unit_of_work():
         create_user_entity(user_bid=identity, identify=identity, nickname="Learner")
+        db.session.add(
+            PublishedOutlineItem(
+                shifu_bid=identity, outline_item_bid=identity, deleted=0
+            )
+        )
     calls = 0
     contexts: list[UsageContext] = []
 

@@ -31,6 +31,7 @@
   "lessonPdfPrintHint": "下载时会打开打印窗口，请选择“保存为 PDF”",
   "lessonUpdateRecommendRetake": "本节课程已更新，建议<action>重修</action>",
   "lessonUpdateRetakeAccessibleLabel": "重修本节课程",
+  "lessonUpdateReviewAvailable": "本节课程已有新版本，你可以继续学习、回看已有内容或提问。",
   "listenAudioBackfillFailed": "音频生成失败，请重试或继续阅读",
   "listenInteractionHint": "先完成这一步，再继续听课",
   "listenModeTtsDisabled": "当前课程未开启听课模式，无法使用该模式",

@@ -31,6 +31,7 @@
   "lessonPdfPrintHint": "เมื่อดาวน์โหลดจะเปิดหน้าต่างพิมพ์ โปรดเลือก “บันทึกเป็น PDF”",
   "lessonUpdateRecommendRetake": "บทเรียนนี้ได้รับการอัปเดตแล้ว แนะนำให้<action>เรียนซ้ำ</action>",
   "lessonUpdateRetakeAccessibleLabel": "เรียนบทเรียนนี้ซ้ำ",
+  "lessonUpdateReviewAvailable": "บทเรียนนี้มีเวอร์ชันใหม่ คุณสามารถเรียนต่อ ทบทวนเนื้อหาเดิม หรือถามคำถามได้",
   "listenAudioBackfillFailed": "สร้างเสียงไม่สำเร็จ โปรดลองอีกครั้งหรืออ่านต่อ",
   "listenInteractionHint": "ทำขั้นตอนนี้ให้เสร็จก่อน แล้วจึงฟังต่อ",
   "listenModeTtsDisabled": "หลักสูตรปัจจุบันยังไม่ได้เปิดโหมดฟัง จึงไม่สามารถใช้โหมดนี้ได้",

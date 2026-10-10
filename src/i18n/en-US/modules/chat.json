@@ -31,6 +31,7 @@
   "lessonPdfPrintHint": "The print dialog will open; choose Save as PDF to download",
   "lessonUpdateRecommendRetake": "This lesson has been updated. We recommend that you <action>reset it</action>.",
   "lessonUpdateRetakeAccessibleLabel": "Reset this lesson",
+  "lessonUpdateReviewAvailable": "A new version of this lesson is available. You can continue, review existing content, or ask questions.",
   "listenAudioBackfillFailed": "Audio generation failed. Please retry or keep reading.",
   "listenInteractionHint": "Complete this step before continuing to listen.",
   "listenModeTtsDisabled": "Listen mode is not enabled for this course.",
