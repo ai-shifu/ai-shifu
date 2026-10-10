@@ -60,7 +60,11 @@ raw learner evidence and stored history.
 - Require current reads for current facts and preserve historical quotations.
   This remains model guidance, not deterministic output enforcement.
 - Keep existing request/tool budgets, semantic admission, deletion epochs,
-  preview no-write behavior and system/course scope rules. Retain engine 1.0.
+  preview no-write behavior and system/course scope rules initially. Retain
+  engine 1.0. Review later demonstrated that recall needs a larger finite budget:
+  count pages through the actual byte-bounded recall implementation, reserve
+  three write attempts, up to three added pages and one exact read, plus a final
+  model request. Enforce the original three-attempt write cap independently.
 - Transfer the demonstrated follow-up accounting defect to the next focused
   usage-attribution task; do not fabricate IDs or expand this memory fix.
 - Add meaningful protocol docstrings to the four new FunctionModel stream
@@ -69,6 +73,9 @@ raw learner evidence and stored history.
 - Place the bounded host reminder beside the final current user prompt, as the
   teaching engine already does for revalidation. No memory values or permission
   evidence are copied into it; original messages stay untouched.
+- Accept Devin's deep-discovery finding: two new cases with 45 short/long keys
+  fail before the budget fix. Counting actual pages handles the UTF-8 byte cap
+  as well as the 20-name cap. Ordinary answers still use one model request.
 
 ## Outcomes & Retrospective
 

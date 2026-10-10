@@ -415,6 +415,80 @@ def test_follow_up_can_quote_deleted_history_without_restoring_memory() -> None:
     checker.assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    "prefix", ["preference_", "\U0001f4da" * 240], ids=["regular", "byte-limited"]
+)
+def test_follow_up_can_read_late_pages_and_still_bound_memory_writes(
+    prefix: str,
+) -> None:
+    snapshot = {f"{prefix}{i:03}": str(i) for i in range(45)}
+    target = f"{prefix}044"
+    writes = []
+    reads = []
+    checker = AsyncMock()
+    patch = FollowUpMemoryPatch()
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Follow real pagination through the final key, then exhaust only write capacity."""
+        last = messages[-1]
+        parts = [p for p in last.parts if isinstance(p, ToolReturnPart)]
+        if not parts:
+            name, args = "recall", {}
+        elif parts[0].tool_name == "recall":
+            result = json.loads(parts[0].content)
+            if result["status"] == "keys":
+                reads.append(result)
+                name, args = (
+                    ("recall", {"key": target})
+                    if target in result["keys"]
+                    else ("recall", {"offset": result["next_offset"]})
+                )
+            else:
+                assert result == {"status": "found", "value": "44"}
+                name, args = (
+                    "remember",
+                    {"key": "write_0", "value": "new", "request": None},
+                )
+        else:
+            writes.append(parts[0].content)
+            if len(writes) == 4:
+                yield "Your current preference is 44."
+                return
+            name, args = (
+                "remember",
+                {"key": f"write_{len(writes)}", "value": "new", "request": None},
+            )
+        yield {0: DeltaToolCall(name=name, json_args=json.dumps(args))}
+
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input="Check my saved preference and update the declared notes.",
+        declared_keys=frozenset(f"write_{i}" for i in range(4)),
+        snapshot=snapshot,
+        deleted_keys=frozenset(),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=checker,
+        preview=False,
+    )
+    assert (
+        "".join(
+            x.result
+            for x in run.stream([{"role": "user", "content": run.current_input}])
+        )
+        == "Your current preference is 44."
+    )
+    assert len(reads) >= 3
+    assert all(r.startswith("remembered ") for r in writes[:3])
+    assert writes[-1] == "Not remembered: follow-up write limit reached."
+    assert [x.key for x in patch.variables] == [f"write_{i}" for i in range(3)]
+    assert run.snapshot == snapshot
+    checker.assert_not_awaited()
+
+
 @pytest.fixture
 def storage_scope(app: object) -> object:
     """Create a real learner, retained published script and learning attempt."""

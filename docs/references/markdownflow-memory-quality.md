@@ -304,8 +304,11 @@ missing or different value cannot establish that an earlier save failed or
 that the learner never supplied it, so the answer must not invent that cause.
 The follow-up run keeps its authorized snapshot in user memory so a same-turn
 accepted write is visible to subsequent recall. Read-only calls do not invoke
-semantic write admission. Existing request/tool budgets and preview no-write
-rules remain unchanged. External provider-only answers and Live do not acquire
+semantic write admission. Follow-up request/tool limits cover the snapshot's
+actual byte-bounded discovery pages, one exact read and three write attempts
+(plus up to three new pages). Write attempts remain capped at three separately;
+ordinary answers still need only one model request. Preview no-write rules
+remain unchanged. External provider-only answers and Live do not acquire
 these tools. See the [natural follow-up plan](../exec-plans/active/mdf2-natural-memory-follow-up.md)
 for the initial failing journey and candidate acceptance.
 
