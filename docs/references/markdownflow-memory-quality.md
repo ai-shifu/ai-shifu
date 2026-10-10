@@ -73,8 +73,9 @@ requires peripherals even when the first does not. Exact, full question prompts
 make advancement observable without asking a model to grade its own output;
 bare internal labels do not satisfy question delivery.
 Feedback, preserved prior history, unchanged memory and a waiting interaction
-without errors are also required. A content-only turn gets at most one ordinary
-host continuation, never another answer. These cases use temperature zero,
+without errors are also required. During both initial question setup and answer
+feedback, a content-only turn gets at most one ordinary host continuation,
+never another answer. Empty or failed setup is not continued. These cases use temperature zero,
 2,048 output tokens and the existing twelve-request limit. Reports include the
 grading evaluator fingerprint and generation settings without raw answers/output.
 

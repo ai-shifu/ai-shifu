@@ -27,10 +27,26 @@ failure and its original grades; reporting fidelity does not prove grading fidel
   out; direct reads of the observed trace ID recover all twelve generations.
 - [x] 2026-10-10: Clarify that teacher-supplied hints cannot replace an authored
   required learner correction; an SDK policy-delivery assertion fails first.
-- [ ] 2026-10-10: Verify offline checks, real selected cases and a non-persisting
-  replay of the actual pre-answer checkpoint on the corrected sim runtime.
-- [ ] 2026-10-10: Publish a focused PR, deploy sim, document evidence and reply
-  to each AI opinion. Leave human and fresh complete-course acceptance open.
+- [x] 2026-10-10: On sim 4c99a1f6d, five corrected-runtime controls pass;
+  the learner-override case stops before answer submission because setup emits
+  question text without interact. Preserve that incomplete six-case batch.
+- [x] 2026-10-10: Add the host's single content-only setup continuation with
+  failing-first tests, then run only the previously unsubmitted override case.
+  It retries correctly. Six grading controls are covered across those runs,
+  not a claim that one complete six-case batch passed. All 661 focused checks pass.
+- [x] 2026-10-10: Restore the real turn-6, twelve-message checkpoint in memory
+  and submit its exact original answer. It accepts the five authored points and
+  advances to question 1-6 without an added peripheral requirement. One teaching
+  and one summary request occur; original prefix and memory stay unchanged.
+- [x] 2026-10-10: All 27 actual requests, including the two retained unsuccessful
+  batches, settle for 17.29 credits with real course/lesson/owner attribution and
+  no fabricated classroom IDs. Progress, sessions, variables and all 72 retained
+  element rows remain identical to the read-only baseline.
+- [ ] 2026-10-10: Finish PR #3096 checks/review and final sim evaluator sync;
+  both existing AI opinions have original-thread replies. Manual merge remains
+  the user's decision.
+- [ ] 2026-10-10: Complete a fresh natural classroom after this grading correction;
+  the saved-checkpoint and synthetic checks do not close that acceptance.
 
 ## Surprises & Discoveries
 
@@ -58,7 +74,11 @@ finding authorizes rewriting the failed classroom or its historical counts.
 
 ## Outcomes & Retrospective
 
-Implementation is under validation. The prior natural failure is retained. Full
+The original answer passes the corrected saved-checkpoint replay, and six
+semantic controls are covered across a five-pass batch and the selected
+previously unsubmitted case after correcting host-style setup continuation.
+Neither unsuccessful aggregate batch is relabeled as passing. The original
+natural failure and 17.29 credits of complete request evidence are retained. Full
 natural-course acceptance, human feedback and other providers/languages remain
 open in the memory-quality reference and workspace status document.
 

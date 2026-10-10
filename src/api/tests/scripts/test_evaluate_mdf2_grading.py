@@ -54,6 +54,43 @@ async def test_bare_question_label_is_not_a_visible_question() -> None:
     assert result["error"] == "unexpected_initial_question"
 
 
+@pytest.mark.parametrize("mode", ["content", "repeat", "whitespace"])
+async def test_continues_setup_once_without_resubmitting_an_answer(mode: str) -> None:
+    calls = 0
+
+    async def content_first(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1 or (calls == 2 and mode == "repeat"):
+            yield "   " if mode == "whitespace" else QUESTION_PROMPTS["FEATURES"]
+            return
+        if calls == 3:
+            yield "The submitted answer passes."
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    {
+                        "type": "text",
+                        "prompt": QUESTION_PROMPTS[
+                            "FEATURES" if calls == 2 else "PERIPHERALS"
+                        ],
+                    }
+                ),
+                tool_call_id=f"setup-{calls}",
+            )
+        }
+
+    case = load_cases(["grading-equivalent-complete"])[0]
+    result = await evaluate_grading(case, FunctionModel(stream_function=content_first))
+    assert result["passed"] is (mode == "content")
+    assert calls == {"content": 3, "repeat": 2, "whitespace": 1}[mode]
+    if mode == "content":
+        assert result["checks"]["history_preserved"]
+
+
 @pytest.mark.parametrize(
     ("case_id", "question", "feedback", "expected"),
     [
