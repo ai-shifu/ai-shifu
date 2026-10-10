@@ -822,6 +822,8 @@ def test_default_text_hint_uses_the_learners_language(language: str) -> None:
     set_language(language)
     try:
         rendered = legacy_protocol.render_interaction(_spec(type="text", prompt=""))
+        narrated = legacy_protocol.render_narrated_interaction("?[...]")
     finally:
         clear_language()
     assert _parse(rendered)["question"] == expected
+    assert _parse(narrated)["question"] == expected

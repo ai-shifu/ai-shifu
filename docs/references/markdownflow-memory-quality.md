@@ -483,3 +483,13 @@ See the [text-control plan](../exec-plans/active/mdf2-natural-text-controls.md)
 for current component, saved-session, sim and CI evidence. This reported bug takes
 priority before the next natural compressed-statistics journey; it does not close
 that acceptance item or authorize 1.0 deletion.
+
+
+The same missing-hint correction applies to narrated interaction spans emitted
+without a typed tool call. Add only an escaped localized hint; require parsed
+options, variable and selection semantics to remain identical, and leave existing
+hints/choice-only spans byte-for-byte unchanged. SDK whitespace preservation means
+text as received by the engine; the browser's existing trim/deduplication contract
+is unchanged. Blank browser input is already removed before `_turn_input`, so it
+cannot choose an empty-valued option accidentally; explicitly selected empty SDK
+values remain valid.

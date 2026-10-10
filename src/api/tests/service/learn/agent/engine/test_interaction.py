@@ -187,3 +187,17 @@ def test_a_named_option_may_intentionally_store_an_empty_value(kind: str) -> Non
     answer = normalize_answer(question, InteractionAnswer(values=[""]))
     assert answer_is_usable(question, answer)
     assert stored_value(question, answer) == ""
+
+
+@pytest.mark.parametrize("kind", ["single_or_text", "multi_or_text"])
+@pytest.mark.parametrize("text", ["", " \t\n"])
+def test_blank_typed_text_does_not_select_an_empty_valued_option(
+    kind: str, text: str
+) -> None:
+    question = InteractionSpec(
+        type=kind,
+        prompt="Choose or describe.",
+        options=[Option(display="Skip", value="")],
+    )
+    answer = normalize_answer(question, InteractionAnswer(text=text))
+    assert not answer_is_usable(question, answer)

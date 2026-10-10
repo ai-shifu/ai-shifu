@@ -3,7 +3,7 @@
 ## Purpose / Big Picture
 
 A lesson asking for the learner's own words must show an input box even when the
-model omits a placeholder. Empty text must keep the original question pending,
+model omits a placeholder in either a typed tool call or narrated notation. Empty text must keep the original question pending,
 without a model call, a fabricated answer or a memory write.
 
 ## Progress
@@ -25,8 +25,18 @@ without a model call, a fabricated answer or a memory write.
 - [x] 2026-10-10: Browser proof with the exact pinned markdown-flow-ui 0.2.32
   reproduces the old Submit-only control and verifies input/send callbacks for
   text, single-or-text and multi-or-text. Selection values survive mixed input.
-  Developer-tool checks and all 21 all-files gates pass.
-- [ ] 2026-10-10: Publish the focused PR and verify sim deployment.
+  Developer-tool checks and all-files gates pass.
+- [x] 2026-10-10: Open PR #3092 (c0d4a1550). Initial sim d5ca9dee6 is Ready;
+  both API replicas match 54 runtime/resource hashes and independently pass two
+  saved-session cases plus 72 localized text controls without provider or DB calls.
+- [x] 2026-10-10: Adopt the narrated-control review finding: five missing-hint
+  cases fail before correction; preserve authored spans and parsed choices/variables.
+  Add ten empty-valued-option boundary cases. The actual browser/host filters blank
+  input; the SDK explicitly distinguishes selected values from typed text.
+  Expanded regression: 3,230 cases and four subtests pass, one expected skip;
+  783 host/protocol/engine cases pass. Verify the narrated fallback in all locales.
+- [ ] 2026-10-10: Publish the review correction and verify its sim rollout;
+  record final deployment/CI evidence and review decisions on PR #3092.
 - [ ] 2026-10-10: Reply to every AI opinion in its original discussion and record
   final CI. User merges manually; retain 1.0 and the natural-compaction backlog.
 
@@ -50,14 +60,20 @@ course, not proof that a later cached run is the screenshot's original run.
 - Render a missing/blank hint through shared translations for all supported
   locales. Preserve explicit hints, typed semantics, prompts, options, variables
   and stored specs. Do not guess an authored question or add an answer choice.
-- Reject blank free text before model execution. Preserve nonblank answer text
-  exactly, confirmations and options that intentionally store an empty value.
+- Reject blank free text before typed-interaction model execution. Preserve the
+  exact nonblank text received by the engine, confirmations and options that
+  intentionally store an empty value. The browser's existing submission helper
+  trims/deduplicates values; this PR does not change that frontend contract.
+- Keep narrated spans byte-for-byte when they already have a hint or only choices.
+  For a missing hint, insert translated escaped text and require identical parsed
+  options, variable, interaction type and multi-select semantics.
 - Production diagnosis is read-only. Sim shares the China production database;
   use isolated sessions and new internal learners only, never reset user progress.
 
 ## Outcomes & Retrospective
 
-Implementation and final validation are in progress. The exact screenshot run is
+Implementation, independent component proof and the initial sim checks pass;
+the review correction and final CI are being completed on PR #3092. The exact screenshot run is
 not retained; local reproduction establishes the missing-hint and blank-answer
 contracts independently. Do not call this production-browser acceptance.
 
@@ -91,7 +107,8 @@ Require visible writable text controls for all text-bearing types with absent,
 empty or whitespace-only hints; preserve explicit placeholder escaping, choice
 values, multi-select semantics and localization. Blank answers must not advance
 history, answers or memory. Reloaded pending sessions must accept the next real
-answer, preserving original whitespace. Verify current runtime hashes and
+answer, preserving whitespace as received at the engine boundary. Browser-side
+trimming remains unchanged. Verify current runtime hashes and
 relevant isolated checks on both sim replicas. Distinguish source/component
 proof from inaccessible historical UI evidence.
 
