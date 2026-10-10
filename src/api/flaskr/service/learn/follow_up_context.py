@@ -210,7 +210,7 @@ def build_follow_up_element_history(
             raw_input = payload.user_input
             if raw_input is not None:
                 quote_sources[len(row_messages)] = raw_input
-            elif payload.interaction_mode == "live_voice" or not any(
+            elif payload.interaction_mode != "live_voice" and not any(
                 brace in content for brace in ("{", "}")
             ):
                 quote_sources[len(row_messages)] = content

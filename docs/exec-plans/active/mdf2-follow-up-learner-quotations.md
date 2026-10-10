@@ -34,8 +34,16 @@ bounded window; acknowledge when that window does not supply the original.
   history and synthesized classroom joins. Two literal-brace two-request
   SQLite paths fail on the old producer. Final 123 focused and 3,096 learning/
   profile checks pass, plus four subtests and one expected skip.
-- [ ] Publish correction, reply in both original threads, deploy only this delta
-  to sim and retain a small natural quotation sample.
+- [x] 2026-10-10T07:35:00Z: Published provenance correction d3bb23ad9 and
+  sim de850ef9c, with both original Devin/Codex threads answered. Both ready
+  sim API replicas match 42 runtime hashes. No paid sample has run yet.
+- [x] 2026-10-10T07:36:16Z: Verified CodeRabbit finding that Live persistence
+  trims transcripts. Two missing-raw Live cases fail before the correction;
+  exclude those sources while retaining general conversation and supporting
+  explicit raw provenance. All 3,099 learning/profile tests pass plus four
+  subtests and one expected skip. Docstring advisory is a distinct policy decision.
+- [ ] Publish final correction, answer CodeRabbit in its original discussion,
+  verify final sim hashes and retain the distinct natural quotation sample.
 - [ ] Reconcile usage/preservation, handle every AI opinion in its discussion.
 
 ## Surprises & Discoveries

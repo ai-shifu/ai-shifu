@@ -371,8 +371,11 @@ Pass proven quote sources separately through the internal context/factory; a
 user role alone does not prove verbatim input. Synthesized classroom joins,
 embedded legacy history and old brace-bearing text without raw provenance are
 unavailable as exact sources. Do not guess at legacy decoding or rewrite old
-records. Existing brace-free canonical asks and Live transcripts are unchanged
-by the historical escaping and can be exact sources. Results include source index, learner role and explicit
+records. Existing brace-free canonical text asks are unchanged by historical
+escaping and can be exact sources. Live transcripts are trimmed during
+persistence and require explicit raw-input provenance; otherwise they are
+unavailable as exact sources while remaining general conversation context.
+Results include source index, learner role and explicit
 supplied-history-only coverage. Page complete messages within 8192 UTF-8 JSON
 bytes; an oversized message reports too_large, never shortened wording. Reserve
 read calls in the existing Agent budget. Exact quotations must copy available
