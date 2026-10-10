@@ -77,6 +77,17 @@ def exercise_session(case: dict[str, Any]) -> Session:
                 if attempt == 1
                 else "That answer is incorrect. Hint: add one, not three. Try again."
             )
+            if (
+                case.get("compacted_history")
+                and number == min(case["corrected_questions"])
+                and attempt == 2
+            ):
+                # The judgment and hint fall outside both retained excerpt edges.
+                text = (
+                    "Work through one step at a time. " * 100
+                    + text
+                    + " Check the operation carefully. " * 80
+                )
             messages.extend(
                 [
                     ModelResponse(
@@ -306,7 +317,9 @@ def score_calculation(
     }
 
 
-async def evaluate_exercise(case: dict[str, Any], model: Model) -> dict[str, Any]:
+async def evaluate_exercise(
+    case: dict[str, Any], model: Model, summary_model: Model | None = None
+) -> dict[str, Any]:
     """Score final model output against immutable original attempt evidence."""
     from flaskr.service.learn.agent.engine import (
         ContentDelta,
@@ -321,6 +334,53 @@ async def evaluate_exercise(case: dict[str, Any], model: Model) -> dict[str, Any
     session = exercise_session(case)
     count = len(session.messages)
     original = ModelMessagesTypeAdapter.dump_json(session.messages)
+    summary_calls = 0
+    summary_usage: dict[str, int] = {}
+    cache: dict[str, str] = {}
+    markers: set[str] = set()
+    sources: dict[str, str] = {}
+    summarizer = None
+    if case.get("compacted_history"):
+        from flaskr.service.learn.agent.engine import Session
+        from flaskr.service.learn.agent.engine.teaching_history import (
+            project_teaching_history,
+        )
+        from flaskr.service.learn.agent.engine.teaching_summary import (
+            TeachingSummarizer,
+            summarize_teaching_history,
+        )
+        from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
+
+        from scripts.evaluate_mdf2_memory import (
+            observe_summary_usage,
+            observe_teaching_projection,
+        )
+
+        if summary_model is None:
+            message = "compacted exercise requires a summary model"
+            raise ValueError(message)
+        projected, sources = project_teaching_history(session.messages)
+        provider = make_teaching_summarizer(
+            observe_summary_usage(summary_model, summary_usage)
+        )
+
+        async def summarize(source: str) -> str | None:
+            """Record an actual attempt or the explicitly injected failure."""
+            nonlocal summary_calls
+            summary_calls += 1
+            return (
+                None
+                if case.get("summary_failure")
+                else await provider.summarize(source)
+            )
+
+        summarizer = TeachingSummarizer(policy=provider.policy, summarize=summarize)
+        await summarize_teaching_history(
+            projected, sources, session.teaching_summaries, summarizer
+        )
+        cache = dict(session.teaching_summaries)
+        session = Session.loads(session.dumps())
+        model = observe_teaching_projection(model, sources, markers)
     engine = Engine(
         model,
         memory_admission=True,
@@ -328,6 +388,7 @@ async def evaluate_exercise(case: dict[str, Any], model: Model) -> dict[str, Any
         recall_history_compaction=True,
         teaching_history_compaction=True,
         exercise_statistics=True,
+        teaching_summarizer=summarizer,
         request_limit=12,
         model_settings=dict(GENERATION_SETTINGS),
     )
@@ -362,10 +423,43 @@ async def evaluate_exercise(case: dict[str, Any], model: Model) -> dict[str, Any
         "completed": bool(done) and done[-1].reason == "finished",
         "no_engine_errors": not errors,
     }
+    if case.get("compacted_history"):
+        checks.update(
+            expected_summary_outcome=len(sources) == len(cache) == 1
+            and all(
+                (not value) if case.get("summary_failure") else bool(value.strip())
+                for value in cache.values()
+            ),
+            cache_reused_after_reload=summary_calls == 1
+            and session.teaching_summaries == cache,
+            history_projected=(
+                "teaching_excerpt"
+                if case.get("summary_failure")
+                else "teaching_summary"
+            )
+            in markers,
+        )
     return {
         "passed": all(checks.values()),
-        "error": "engine_error" if errors else None,
+        "error": "engine_error"
+        if errors
+        else (
+            "summary_unavailable_or_invalid"
+            if case.get("compacted_history")
+            and not case.get("summary_failure")
+            and not checks["expected_summary_outcome"]
+            else None
+        ),
         "checks": checks,
         "usage": done[-1].usage if done else {},
         "calculation_diagnostic": calculation_diagnostic,
+        **(
+            {
+                "summary_calls": summary_calls,
+                "summary_usage": summary_usage,
+                "injected_summary_failure": bool(case.get("summary_failure")),
+            }
+            if case.get("compacted_history")
+            else {}
+        ),
     }
