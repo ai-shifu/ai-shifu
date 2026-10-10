@@ -13,6 +13,7 @@
     "continueButton": "جاری رکھیں",
     "debugSessionExpired": "یہ ڈیبگ سیشن ختم ہو گیا ہے یا اسکرپٹ بدل گیا ہے۔ دوبارہ ڈیبگنگ شروع کریں۔",
     "defaultLearnerName": "طالب علم",
+    "freeTextPlaceholder": "آپ کا جواب",
     "generatedBlockNotFound": "تیار کردہ بلاک نہیں ملا",
     "invalidAction": "غلط آپریشن",
     "lessonFeedbackCommentPlaceholder": "اختیاری: ہمیں اپنی تجاویز بتائیں",

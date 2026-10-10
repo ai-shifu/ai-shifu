@@ -13,6 +13,7 @@
     "continueButton": "Weiter",
     "debugSessionExpired": "Diese Debug-Sitzung ist abgelaufen oder das Skript wurde geändert. Starten Sie das Debugging erneut.",
     "defaultLearnerName": "Lernende Person",
+    "freeTextPlaceholder": "Deine Antwort",
     "generatedBlockNotFound": "Generierter Block nicht gefunden",
     "invalidAction": "Ungültige Maßnahme",
     "lessonFeedbackCommentPlaceholder": "Optional: Lassen Sie Ihr Feedback",

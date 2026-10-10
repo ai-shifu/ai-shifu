@@ -51,6 +51,7 @@ from flaskr.service.learn.agent.engine.script import ScriptBundle, collected_nam
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
+    render_narrated_interaction,
     translate,
 )
 from flaskr.service.learn.agent.lesson_record import (
@@ -759,9 +760,8 @@ def _narrated_question(
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Send a question the model wrote into its narration as the question it meant to be.
 
-    It goes out exactly as the model wrote it. A 1.0 script carries its interactions in this same
-    notation and the browser renders it the same way, so nothing is rebuilt; what changes is that
-    it arrives as the turn's question rather than as a line of its prose.
+    Its original notation is preserved, with a localized hint added only when a text control
+    lacks one. It arrives as the turn's question rather than as a line of prose.
 
     The engine did not ask, so no answer is pending for it and the learner's reply reaches the
     model as a remark to react to. That is a lesser wrong than a lesson that sprints past a
@@ -782,7 +782,7 @@ def _narrated_question(
         outline_bid=outline_bid,
         generated_block_bid=generated_block_bid,
         type=GeneratedType.INTERACTION,
-        content=span,
+        content=render_narrated_interaction(span),
     )
 
 

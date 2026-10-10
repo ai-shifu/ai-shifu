@@ -13,6 +13,7 @@
     "continueButton": "Continuar",
     "debugSessionExpired": "Esta sesión de depuración ha caducado o el guion ha cambiado. Inicia la depuración de nuevo.",
     "defaultLearnerName": "Estudiante",
+    "freeTextPlaceholder": "Tu respuesta",
     "generatedBlockNotFound": "No se ha encontrado el bloque generado.",
     "invalidAction": "Acción no válida.",
     "lessonFeedbackCommentPlaceholder": "Opcional: cuéntanos tus sugerencias",

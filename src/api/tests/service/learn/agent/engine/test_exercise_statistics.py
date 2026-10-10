@@ -164,6 +164,55 @@ async def test_unknown_and_unanswered_remain_unresolved_and_nonquiz_is_explicit(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("outcomes", "attempts", "retries", "first", "unverified"),
+    [
+        (["incorrect", "not_answer", "correct"], 2, 1, False, 0),
+        (["not_answer", "correct"], 1, 0, True, 0),
+        (["not_answer"], 0, 0, None, 0),
+        (["not_answer", "unverified"], 1, 0, None, 1),
+    ],
+)
+async def test_knowledge_questions_preserve_evidence_without_inflating_attempts(
+    outcomes: list[str],
+    attempts: int,
+    retries: int,
+    first: bool | None,
+    unverified: int,
+) -> None:
+    ctx = _fixture()
+    records = _records(ctx)
+    assert records is not None
+    before = ModelMessagesTypeAdapter.dump_json(ctx.messages)
+    row = ExerciseQuestion(
+        question="1",
+        submissions=[
+            SubmissionJudgment(reference=record["reference"], outcome=outcome)
+            for record, outcome in zip(records, outcomes, strict=False)
+        ],
+        hints=2,
+        hints_before_first=1,
+    )
+    result = json.loads(
+        await calculate_exercise_statistics(
+            ctx, [row], [r["reference"] for r in records[len(outcomes) :]]
+        )
+    )
+    assert result["status"] == "calculated"
+    actual = result["questions"][0]
+    assert actual["attempts"] == attempts
+    assert actual["retries"] == retries
+    assert actual["first_correct"] is first
+    assert actual["unverified_submissions"] == unverified
+    assert actual["non_answer_messages"] == 1
+    assert actual["failed_submissions"] == outcomes.count("incorrect")
+    assert actual["hints"] == 2
+    assert result["totals"]["non_answer_messages"] == 1
+    assert result["totals"]["unanswered"] == (attempts == 0)
+    assert ModelMessagesTypeAdapter.dump_json(ctx.messages) == before
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("text", ["中文é🙂" * 4000, '\n\t"\\' * 4000])
 async def test_exact_pages_bound_utf8_json_and_freeze_during_the_run(text: str) -> None:
     messages = [
@@ -242,8 +291,13 @@ def test_hint_types_are_strict(hints: object) -> None:
 
 
 @pytest.mark.anyio
-async def test_engine_deferred_resume_reads_original_answer_and_feedback() -> None:
+@pytest.mark.parametrize("outcome", ["correct", "not_answer"])
+async def test_engine_deferred_resume_reads_original_answer_and_feedback(
+    outcome: str,
+) -> None:
     step = 0
+    learner_input = "2" if outcome == "correct" else "Please explain before I answer."
+    teaching = "Correct." if outcome == "correct" else "Here is an explanation."
 
     async def model(
         messages: list[ModelMessage], info: AgentInfo
@@ -253,6 +307,13 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback() -> No
         assert {"read_exercise_history", "calculate_exercise_statistics"} <= {
             t.name for t in info.function_tools
         }
+        assert "not_answer" in json.dumps(
+            next(
+                t.parameters_json_schema
+                for t in info.function_tools
+                if t.name == "calculate_exercise_statistics"
+            )
+        )
         if step == 1:
             yield {
                 0: DeltaToolCall(
@@ -262,7 +323,7 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback() -> No
                 )
             }
         elif step == 2:
-            yield "Correct."
+            yield teaching
             yield {
                 0: DeltaToolCall(
                     name="read_exercise_history", json_args="{}", tool_call_id="read"
@@ -271,8 +332,8 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback() -> No
         elif step == 3:
             page = next(p for p in messages[-1].parts if isinstance(p, ToolReturnPart))
             record = json.loads(json.loads(page.content)["text"])[0]
-            assert record["answer"] == "Learner wrote: 2"
-            assert record["following_teaching"] == ["Correct."]
+            assert record["answer"] == "Learner wrote: " + learner_input
+            assert record["following_teaching"] == [teaching]
             yield {
                 0: DeltaToolCall(
                     name="calculate_exercise_statistics",
@@ -284,7 +345,7 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback() -> No
                                     "submissions": [
                                         {
                                             "reference": record["reference"],
-                                            "outcome": "correct",
+                                            "outcome": outcome,
                                         }
                                     ],
                                 }
@@ -296,7 +357,11 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback() -> No
             }
         elif step == 4:
             result = json.loads(messages[-1].parts[0].content)
-            assert result["totals"]["first_correct"] == 1
+            assert result["totals"]["first_correct"] == (outcome == "correct")
+            assert result["totals"]["attempts"] == (outcome == "correct")
+            assert result["totals"].get("non_answer_messages", 0) == (
+                outcome == "not_answer"
+            )
             yield {
                 0: DeltaToolCall(
                     name="finish", json_args='{"summary":"Done"}', tool_call_id="end"
@@ -310,7 +375,7 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback() -> No
     await _collect(engine.run_turn(session))
     session = Session.loads(session.dumps())
     events = await _collect(
-        engine.run_turn(session, InteractionResponseTurn(id="q", text="2"))
+        engine.run_turn(session, InteractionResponseTurn(id="q", text=learner_input))
     )
     assert not any(isinstance(e, ErrorEvent) for e in events)
     assert isinstance(events[-1], TurnDone)
@@ -343,6 +408,20 @@ async def test_large_report_is_refused_with_bounded_result() -> None:
     result = await calculate_exercise_statistics(ctx, rows)
     assert json.loads(result)["status"] == "report_too_large"
     assert len(result.encode()) <= RESULT_BYTES
+
+
+@pytest.mark.anyio
+async def test_existing_41_question_report_keeps_its_original_byte_capacity() -> None:
+    ctx = _ctx([])
+    rows = [ExerciseQuestion(question=str(i), submissions=[]) for i in range(41)]
+    raw = await calculate_exercise_statistics(ctx, rows)
+    result = json.loads(raw)
+    assert result["status"] == "calculated"
+    assert len(raw.encode()) <= RESULT_BYTES
+    assert len(result["questions"]) == 41
+    assert result["totals"]["unanswered"] == 41
+    assert all("non_answer_messages" not in row for row in result["questions"])
+    assert "non_answer_messages" not in result["totals"]
 
 
 @pytest.mark.anyio
