@@ -25,7 +25,8 @@ The text is selectable and works in the existing desktop and mobile menus.
 - [x] 2026-10-10 07:26 CST: Simulation PR #3079 deployed commit `6002c0108bbdcb9a989470b0b193b1aacca85923` as `sim-6002c01` (build 488); API and Web rollouts completed. The browser menu shows the same SHA on desktop and at 390x844, including Chinese text, selectable 12px styling and no footer overflow.
 - [x] 2026-10-10 07:27 CST: Refreshed main and rebased the feature branch for the repository's up-to-date merge rule. Both original commit patches are unchanged; the production PR's first complete CI run passed all applicable checks.
 - [x] 2026-10-10 07:42 CST: Addressed Docker development review discussion r4235386594. The dev script now prepares HEAD before the Web build, clears stale archive metadata and stops on marker update failures. Direct Compose and standalone build instructions are aligned; 10 new executable regressions pass, and a second entrypoint audit found no remaining build path omission.
-- [x] 2026-10-10 00:00 UTC: PR #3077 squash-merged as `0840a55f03c322366aab7203c50c5bbdaf990117`. Production build 489 / Drone 5278 published `20261010-0840a55`; all eight CN/US deployments completed and the queue converged. Both regional browser menus display `v2.3.3 · 0840a55`, matching the image source.
+- [x] 2026-10-09 23:52:55 UTC: PR #3077 squash-merged as `0840a55f03c322366aab7203c50c5bbdaf990117`, matching GitHub's `mergedAt` readback.
+- [x] 2026-10-10 00:00:30 UTC: Completed regional browser acceptance. Production build 489 / Drone 5278 published `20261010-0840a55`; all eight CN/US deployments completed and the queue converged. Both regional browser menus display `v2.3.3 · 0840a55`, matching the image source.
 
 ## Surprises & Discoveries
 
