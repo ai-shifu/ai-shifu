@@ -1,11 +1,12 @@
-# Keep follow-up memory answers within available evidence
+# Separate current memory from past save outcomes
 
 ## Purpose / Big Picture
 
 A current memory answer must report the verified value without inventing why
-an earlier preference differs or is missing. Explicit historical questions
-retain original wording, without treating assistant confirmations as database
-receipts. This is a focused answer-quality change, not a new memory audit log.
+an earlier preference differs or is missing. Preserve historical messages and
+do not treat assistant confirmations as database receipts. This is a focused
+current-memory/causal-quality change, not a new memory audit log. Exact historical
+quoting remains a separately demonstrated failure, recorded below.
 
 ## Progress
 
@@ -33,11 +34,26 @@ receipts. This is a focused answer-quality change, not a new memory audit log.
 - [x] 2026-10-10T06:40:20Z: Six post-read integration cases fail without the
   correction. Restored code passes 3,076 learning/profile tests plus four subtests,
   one expected skip, developer tools and repository all-files gates.
-- [ ] Publish the verified correction to the same PR and sim.
-- [ ] Verify both ready replicas, replay the original natural scenarios once,
-  preserve failures and reconcile the scoped read-only usage ledger.
-- [ ] Review all AI opinions and reply in their original discussions; leave
-  manual merge to the user and keep remaining milestone acceptance explicit.
+- [x] 2026-10-10T06:52:03Z: Published correction 12aa03571 and sim d501ff4a0.
+  Both ready API replicas match 39 runtime hashes; API/web are ready. Functional
+  head technical CI passes, including runtime-harness.
+- [x] 2026-10-10T06:52:03Z: Separate final eight-HTTP sample: four current
+  reads and the explicit cause question do not invent earlier save outcomes.
+  Fresh deleted-memory wording and unrelated background disclosure improve.
+  Exact historical quotation still fails: the analogy is right but suggested
+  assistant wording is claimed as a learner quote. Verbosity and generic unrelated
+  field lists in the why answer also remain. Do not call full quality accepted.
+- [x] 2026-10-10T06:52:03Z: All 18 final requests match eight new answer blocks,
+  real progress and owner, zero failures/missing IDs, fully settled 10.25 credits.
+  All 184 original elements, profile, unrelated memory, eleven progress rows and
+  nine completed sessions survive; the temporary preference is deleted.
+- [x] 2026-10-10T06:52:03Z: CodeRabbit substantively reviewed 12aa03571 with
+  no actionable code comments; its docstring advisory has an original-discussion
+  reply explaining the D102/D103 pytest exemption and verification. Codex/Devin
+  first-head reviews have no findings; verify the final increment separately.
+- [ ] Verify final documentation-head checks and any new opinions before
+  handoff. Manual merge belongs to the user. Keep exact quotes and remaining
+  milestone acceptance open in the named quality reference.
 
 ## Surprises & Discoveries
 
@@ -67,13 +83,22 @@ the fixed interpretation after exact reads, beside the result used to answer.
   Do not append metadata to the bounded tool value, add calls or modify stored
   history. Discovery returns stay unchanged. The notice never joins the raw
   learner input tuple used for write authorization.
+- Keep this PR focused on the original save-cause defect. The attempted
+  quotation guidance did not fix exact wording in either natural sample;
+  transfer that newly demonstrated issue to
+  [exact follow-up quotations](../../references/markdownflow-memory-quality.md#remaining-exact-follow-up-quotations).
+  Do not relabel either failed quotation or broaden the current acceptance claim.
 
 ## Outcomes & Retrospective
 
-First-candidate live quality is not accepted. Its eight HTTP answers and 17
-settled requests (9.43 credits) are retained; attribution and preservation pass,
-but fresh deleted-memory wording and exact historical quotation fail. The
-post-read correction is offline verified and awaits separate sim acceptance.
+The post-read correction passes the narrow final sample's four current-value
+questions and explicit unknown-cause question without the earlier false save
+diagnoses. Eighteen requests fully settle (10.25 credits), with correct current
+answer/progress/owner attribution and all 184 original elements preserved.
+The first eight-HTTP sample and 17 settled requests (9.43 credits) remain failed
+quality evidence. Final exact quotation still fails; verbose suggestions and
+generic unrelated field lists also remain. Neither this sample nor a prompt
+assertion establishes complete memory, human, provider or language acceptance.
 The original three failures remain in the memory quality reference.
 
 ## Context and Orientation
@@ -114,6 +139,11 @@ delete only the dedicated test preference. Reconcile new answer/progress IDs,
 ownership, settlement and costs. Retain each initial failure without overwriting
 or repeated paid calls to obtain a pass. Other models/providers and humans
 remain separate acceptance items.
+
+The original additional exact-quotation criterion remains failed, not waived
+or marked passed. Transfer it to the named quotation backlog in the quality
+reference. The final acceptance claim is limited to current facts and unknown
+historical save causes, with all storage/protocol boundaries preserved.
 
 ## Idempotence and Recovery
 

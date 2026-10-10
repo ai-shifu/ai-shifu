@@ -341,6 +341,29 @@ post-read context is excluded from raw write permission evidence and still
 counts toward the gateway's total input budget. The first candidate's fresh-
 lesson and quotation failures remain failed evidence, not overwritten retries.
 
+The corrected sim sample has four correct current-value answers and an explicit
+unknown-cause answer without the earlier false save diagnoses. Eighteen requests
+settle completely (10.25 credits), with correct answer/progress/owner attribution
+and all 184 original elements preserved. This is narrow current-memory/causal
+acceptance only. Initial failures, including the first candidate's 17 requests
+(9.43 credits), remain recorded. Verbose suggestions and a generic unrelated
+field list in the final why answer remain quality observations.
+
+### Remaining exact follow-up quotations
+
+Both new natural samples correctly name the earlier analogy but present an
+assistant's suggested request as the learner's verbatim original. Stronger
+quotation guidance did not fix this. Exact-quotation acceptance remains failed
+and is the next separate evidence-grounding task, not part of the narrow
+save-cause acceptance. Preserve the original messages and failed responses.
+Inspect actual role-bearing context and the bounded follow-up history window
+in `follow_up_context.py` before choosing a fix. Quotation evidence must come
+from learner messages; if the exact source is outside available context, report
+that limitation rather than upgrading an assistant suggestion into evidence.
+Do not solve this by restoring deleted memory, loading unrelated private facts,
+or inventing historical save receipts. Other models and human acceptance remain
+open independently.
+
 ### Follow-up usage attribution
 
 Text follow-up model requests, including memory admission and guardrail
