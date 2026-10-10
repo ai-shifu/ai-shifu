@@ -382,17 +382,26 @@ def test_recent_follow_up_window_keeps_question_answer_turn_order(
 
 
 @pytest.mark.parametrize(
-    ("content", "raw_input", "expected"),
+    ("content", "raw_input", "transport", "expected"),
     [
-        ("Compare {{cache}}", None, []),
-        ("Compare {cache}", "Compare {cache}", ["Compare {cache}"]),
-        ("Compare {{cache}}", "Compare {{cache}}", ["Compare {{cache}}"]),
-        ("Original brace-free request", None, ["Original brace-free request"]),
+        ("Compare {{cache}}", None, None, []),
+        ("Compare {cache}", "Compare {cache}", None, ["Compare {cache}"]),
+        ("Compare {{cache}}", "Compare {{cache}}", None, ["Compare {{cache}}"]),
+        ("Original brace-free request", None, None, ["Original brace-free request"]),
+        ("trimmed Live transcript", None, "live_voice", []),
+        ("trimmed {Live} transcript", None, "live_voice", []),
+        (
+            "trimmed Live transcript",
+            "  raw Live transcript  ",
+            "live_voice",
+            ["  raw Live transcript  "],
+        ),
     ],
 )
 def test_quote_sources_require_original_sidecar_provenance(
     content: str,
     raw_input: str | None,
+    transport: str | None,
     expected: list[str],
 ) -> None:
     """Ambiguous old escaping is unavailable; current raw metadata preserves literal braces."""
@@ -404,7 +413,9 @@ def test_quote_sources_require_original_sidecar_provenance(
         SimpleNamespace(
             element_type="ask",
             content_text=content,
-            payload=_serialize_payload(ElementPayloadDTO(user_input=raw_input)),
+            payload=_serialize_payload(
+                ElementPayloadDTO(user_input=raw_input, interaction_mode=transport)
+            ),
         ),
         SimpleNamespace(
             element_type="answer", content_text="Assistant suggestion", payload=""
