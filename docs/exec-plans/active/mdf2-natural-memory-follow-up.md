@@ -22,10 +22,22 @@ questions but must not establish that a preference is still saved.
   repository gates and commit hooks pass. Published #3083 as db46e0837.
 - [x] 2026-10-10T02:03:00Z: Released only the runtime/test delta to sim as
   d50b3d25c; both ready API replicas match all 37 relevant runtime fingerprints.
-- [ ] 2026-10-10T01:52:11Z: Release to sim through its normal branch pipeline,
-  verify both runtime replicas, repeat the natural journey and reconcile usage.
-- [ ] 2026-10-10T01:52:11Z: Inspect CI and reply to every actionable AI opinion
-  in its original thread; record acceptance limits.
+- [x] 2026-10-10T02:17:28Z: Final b8f14677d passes 3,063 learning/profile tests
+  and four subtests, with one expected skip; repository gates/hooks pass. Both
+  sim-ea3da3b API replicas match all 37 runtime fingerprints.
+- [x] 2026-10-10T02:17:28Z: Final natural HTTP journey answers current values
+  correctly in all seven recall questions: updated old-anchor preference 3/3,
+  deleted old-anchor 2/2, fresh deleted context 1/1 and initial cross-lesson 1/1.
+  Historical analogy is retained; all 142 original elements across nine lessons,
+  canonical profile and unrelated memory survive. Test preference is deleted.
+- [x] 2026-10-10T02:17:28Z: Reconciled final 24 successful, settled requests,
+  13.47 credits. All lack attempt/block IDs; keep this attribution failure open.
+- [x] 2026-10-10T02:17:28Z: Replied to Devin's budget finding and CodeRabbit's
+  docstring advice in their original discussions, with pushed SHAs and tests.
+  Technical checks except the running runtime-harness have passed at this time.
+- [ ] 2026-10-10T02:17:28Z: Confirm final CI before handoff; manual merge and
+  post-merge archival remain with the user. Track causal explanation quality and
+  follow-up accounting as separate unfinished acceptance work.
 
 ## Surprises & Discoveries
 
@@ -79,8 +91,21 @@ raw learner evidence and stored history.
 
 ## Outcomes & Retrospective
 
-Pending candidate live acceptance. Keep the initial failures as evidence; do not
-overwrite them with subsequent passing reports or declare human acceptance.
+The final natural journey correctly reports current saved values in seven of
+seven recall questions, including three consecutive old-anchor reads after an
+update and two after deletion. The historical analogy remains available without
+claiming it is currently saved. Both sim replicas match the runtime; 142 original
+elements across nine lessons, canonical profile and unrelated memory remain
+unchanged. Final usage is 24 successful, settled requests costing 13.47 credits.
+Initial baseline and first-candidate failures remain preserved separately.
+
+This is narrow current-value acceptance only. Three final answers still invented
+why a historical save differed or said the preference had never been saved;
+the host reminder did not eliminate these causal/chronological errors. They
+remain failed natural answer-quality evidence. All 49 requests across the three
+windows settled (28.71 credits) but lack attempt/block attribution. Neither
+issue is closed by the correct current values, and neither synthetic tests nor
+this internal learner journey establish human or full memory acceptance.
 
 ## Context and Orientation
 
