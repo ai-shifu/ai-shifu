@@ -341,6 +341,7 @@ def _seed_billing_order(
     *,
     creator_bid: str,
     bill_order_bid: str,
+    subscription_bid: str = "subscription-1",
     metadata_json: dict | None = None,
 ) -> object:
     order = BillingOrder(
@@ -348,7 +349,7 @@ def _seed_billing_order(
         creator_bid=creator_bid,
         order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
         product_bid="product-1",
-        subscription_bid="subscription-1",
+        subscription_bid=subscription_bid,
         currency="CNY",
         payable_amount=0,
         paid_amount=0,
@@ -1330,6 +1331,11 @@ def test_list_operator_users_includes_creator_credit_summaries(app: object) -> N
             current_period_start_at=active_start_at,
             current_period_end_at=active_end_at,
         )
+        _seed_billing_order(
+            creator_bid="creator-credits-user",
+            bill_order_bid="order-creator-credits-user",
+            subscription_bid="subscription-creator-credits-user",
+        )
         _seed_credit_wallet_bucket(
             creator_bid="creator-credits-user",
             wallet_bid="wallet-creator-credits-user",
@@ -1385,11 +1391,17 @@ def test_list_operator_users_includes_creator_credit_summaries(app: object) -> N
     assert creator_item.topup_credits == "8"
     assert creator_item.credits_expire_at == active_end_at
     assert creator_item.has_active_subscription is True
+    assert creator_item.can_terminate_paid_subscription is True
+    assert (
+        creator_item.termination_subscription_bid == "subscription-creator-credits-user"
+    )
     assert regular_item.available_credits == ""
     assert regular_item.subscription_credits == ""
     assert regular_item.topup_credits == ""
     assert regular_item.credits_expire_at is None
     assert regular_item.has_active_subscription is False
+    assert regular_item.can_terminate_paid_subscription is False
+    assert regular_item.termination_subscription_bid == ""
 
 
 def test_list_operator_users_filters_by_learner_role(app: object) -> None:
@@ -4229,6 +4241,8 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "topup_credits": "",
             "credits_expire_at": None,
             "has_active_subscription": False,
+            "can_terminate_paid_subscription": False,
+            "termination_subscription_bid": "",
             "last_login_at": None,
             "last_learning_at": None,
             "created_at": _z(datetime(2026, 4, 6, 8, 0, 0)),
@@ -4320,6 +4334,8 @@ def test_admin_operation_user_detail_route_returns_payload(
         "topup_credits": "",
         "credits_expire_at": None,
         "has_active_subscription": False,
+        "can_terminate_paid_subscription": False,
+        "termination_subscription_bid": "",
         "last_login_at": None,
         "last_learning_at": None,
         "created_at": _z(datetime(2026, 4, 10, 8, 0, 0)),

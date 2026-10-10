@@ -50,6 +50,8 @@ export type AdminOperationUserItem = {
   topup_credits: string;
   credits_expire_at: string;
   has_active_subscription: boolean;
+  can_terminate_paid_subscription?: boolean;
+  termination_subscription_bid?: string;
   last_login_at: string;
   last_learning_at: string;
   created_at: string;
@@ -151,12 +153,24 @@ export type AdminOperationUserContactChangeResponse = {
   revoked_sessions: number;
 };
 
+export type AdminOperationUserSubscriptionTerminationResponse = {
+  status: 'terminated' | LooseString;
+  user_bid: string;
+  subscription_bid: string;
+  provider: string;
+  forfeited_credits: string;
+  ledger_bid?: string;
+  replayed: boolean;
+};
+
 export type AdminOperationUserCreditSummary = {
   available_credits: string;
   subscription_credits: string;
   topup_credits: string;
   credits_expire_at: string;
   has_active_subscription: boolean;
+  can_terminate_paid_subscription?: boolean;
+  termination_subscription_bid?: string;
 };
 
 export type AdminOperationUserCreditTypeFilter =

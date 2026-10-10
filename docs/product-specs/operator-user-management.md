@@ -121,6 +121,17 @@ renewal cancellation, and final cancellation.
   `surface=operator_user_management` plus `outcome=success|failed` on results;
   no user, amount, balance, reason, note, request identifier or raw error is
   collected.
+- User Management provides a separate plan termination action. It ends the
+  current paid or operator-granted plan immediately, stops provider renewal
+  where applicable, and forfeits only remaining credits proven to originate
+  from that plan. Credit packs, referral rewards, and other promotional
+  benefits are not removed. Zero remaining plan credits do not block termination; a non-zero
+  mixed-origin plan bucket is rejected for manual reconciliation.
+- The termination UI emits `operator_subscription_termination_attempt` and
+  `operator_subscription_termination_result`. Its allowlist contains only
+  `surface=operator_user_management` and `outcome=success|failed` on results;
+  identifiers, providers, balances, reasons, dates, request IDs, and raw errors
+  are excluded.
 
 ## Backend Plan
 

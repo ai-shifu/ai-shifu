@@ -33,6 +33,7 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
+    BILLING_SUBSCRIPTION_STATUS_TERMINATING,
 )
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
@@ -154,6 +155,7 @@ def _is_subscription_obsolete(subscription: BillingSubscription) -> bool:
     return int(subscription.status or 0) in {
         BILLING_SUBSCRIPTION_STATUS_CANCELED,
         BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+        BILLING_SUBSCRIPTION_STATUS_TERMINATING,
     }
 
 

@@ -4,7 +4,8 @@
     "cancelAccount": "Cancel account",
     "deductCredits": "Deduct Credits",
     "grantCredits": "Grant Credits/Package",
-    "moreForUser": "More actions for {user}"
+    "moreForUser": "More actions for {user}",
+    "terminateSubscription": "Terminate plan"
   },
   "cancellation": {
     "back": "Back",
@@ -506,6 +507,22 @@
     "totalPaidAmount": "Total Paid",
     "updatedAt": "Updated At",
     "userId": "User ID"
+  },
+  "terminationDialog": {
+    "account": "Account",
+    "cancel": "Cancel",
+    "confirm": "Terminate now",
+    "description": "The plan becomes invalid immediately and renewal stops where applicable. All available credits in its current plan bucket are cleared, including active trial or referral rewards mixed into that bucket; separate credit packs are preserved.",
+    "errors": {
+      "reason": "Enter a termination reason.",
+      "submitFailed": "Plan termination failed. Please try again."
+    },
+    "reason": "Reason",
+    "reasonPlaceholder": "Record why this plan is being terminated",
+    "submitting": "Terminating...",
+    "subscriptionId": "Plan ID",
+    "success": "Plan terminated",
+    "title": "Terminate plan"
   },
   "title": "User Management"
 }

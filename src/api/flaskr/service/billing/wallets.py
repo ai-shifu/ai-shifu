@@ -933,6 +933,7 @@ def load_primary_credit_bucket_by_category(
     creator_bid: str,
     *,
     bucket_category: int,
+    for_update: bool = False,
 ) -> CreditWalletBucket | None:
     """Load primary credit bucket by category."""
     normalized_creator_bid = str(creator_bid or "").strip()
@@ -945,21 +946,29 @@ def load_primary_credit_bucket_by_category(
     ):
         return None
 
-    rows = (
-        CreditWalletBucket.query.filter(
-            CreditWalletBucket.deleted == 0,
-            CreditWalletBucket.creator_bid == normalized_creator_bid,
-        )
-        .order_by(
-            CreditWalletBucket.created_at.asc(),
-            CreditWalletBucket.id.asc(),
-        )
-        .all()
+    query = CreditWalletBucket.query.filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.creator_bid == normalized_creator_bid,
+    ).order_by(
+        CreditWalletBucket.created_at.asc(),
+        CreditWalletBucket.id.asc(),
     )
+    if for_update:
+        query = query.with_for_update()
+    rows = query.all()
     candidates = [
         row
         for row in rows
         if int(row.source_type or 0) != CREDIT_SOURCE_TYPE_MANUAL
+        and not (
+            isinstance(row.metadata_json, dict)
+            and (
+                row.metadata_json.get("operator_terminated_subscription_bid")
+                or row.metadata_json.get(
+                    "operator_termination_pending_subscription_bid"
+                )
+            )
+        )
         and resolve_wallet_bucket_runtime_category(
             row,
             load_order_type=load_billing_order_type_by_bid,
@@ -1017,6 +1026,7 @@ def load_or_create_credit_bucket_by_category(
     bucket = load_primary_credit_bucket_by_category(
         creator_bid,
         bucket_category=normalized_category,
+        for_update=True,
     )
     if bucket is not None:
         return bucket

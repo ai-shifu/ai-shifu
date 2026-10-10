@@ -8,13 +8,18 @@ from decimal import Decimal
 import pytest
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_MANUAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.models import (
@@ -220,7 +225,190 @@ def test_subscription_without_product_retains_end_date_but_has_no_display_name(
         "topup_credits": 0,
         "credits_expire_at": ends,
         "has_active_subscription": True,
+        "can_terminate_paid_subscription": False,
+        "termination_subscription_bid": "",
     }
+
+
+def test_legacy_manual_plan_is_terminable_but_referral_plan_is_not(
+    usage_scope: dict,
+) -> None:
+    now = now_utc()
+    legacy_creator_bid = usage_scope["user_bid"]
+    referral_creator_bid = uuid.uuid4().hex
+    for creator_bid, subscription_bid, metadata in (
+        (
+            legacy_creator_bid,
+            "subscription-legacy-manual",
+            {},
+        ),
+        (
+            referral_creator_bid,
+            "subscription-referral-reward",
+            {
+                "checkout_type": "referral_invitation_reward",
+                "referral_invitation_reward": True,
+            },
+        ),
+    ):
+        db.session.add(
+            BillingSubscription(
+                subscription_bid=subscription_bid,
+                creator_bid=creator_bid,
+                product_bid=f"product-{creator_bid}",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="manual",
+                current_period_start_at=now - timedelta(days=1),
+                current_period_end_at=now + timedelta(days=30),
+            )
+        )
+        db.session.add(
+            BillingOrder(
+                bill_order_bid=f"order-{subscription_bid}",
+                creator_bid=creator_bid,
+                order_type=BILLING_ORDER_TYPE_MANUAL,
+                product_bid=f"product-{creator_bid}",
+                subscription_bid=subscription_bid,
+                payment_provider="manual",
+                provider_reference_id="",
+                status=BILLING_ORDER_STATUS_PAID,
+                metadata_json=metadata,
+            )
+        )
+    db.session.flush()
+
+    summaries = credit_service._load_operator_user_credit_summary_map(
+        [legacy_creator_bid, referral_creator_bid]
+    )
+
+    assert summaries[legacy_creator_bid]["can_terminate_paid_subscription"] is True
+    assert summaries[legacy_creator_bid]["termination_subscription_bid"] == (
+        "subscription-legacy-manual"
+    )
+    assert summaries[referral_creator_bid]["can_terminate_paid_subscription"] is False
+    assert summaries[referral_creator_bid]["termination_subscription_bid"] == ""
+
+
+def test_historical_manual_order_type_plan_is_terminable(
+    usage_scope: dict,
+) -> None:
+    now = now_utc()
+    creator_bid = usage_scope["user_bid"]
+    subscription_bid = "subscription-historical-manual-order-type"
+    db.session.add(
+        BillingSubscription(
+            subscription_bid=subscription_bid,
+            creator_bid=creator_bid,
+            product_bid="product-historical-manual-order-type",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="manual",
+            current_period_start_at=now - timedelta(days=1),
+            current_period_end_at=now + timedelta(days=30),
+        )
+    )
+    db.session.add(
+        BillingOrder(
+            bill_order_bid="order-historical-manual-order-type",
+            creator_bid=creator_bid,
+            order_type=BILLING_ORDER_TYPE_MANUAL,
+            product_bid="product-historical-manual-order-type",
+            subscription_bid=subscription_bid,
+            payment_provider="manual",
+            status=BILLING_ORDER_STATUS_PAID,
+            metadata_json={},
+        )
+    )
+    db.session.flush()
+
+    summary = credit_service._load_operator_user_credit_summary_map([creator_bid])[
+        creator_bid
+    ]
+
+    assert summary["can_terminate_paid_subscription"] is True
+    assert summary["termination_subscription_bid"] == subscription_bid
+
+
+def test_termination_eligibility_prefers_the_subscription_backing_available_credits(
+    usage_scope: dict,
+) -> None:
+    now = now_utc()
+    creator_bid = usage_scope["user_bid"]
+    qualifying_subscription = BillingSubscription(
+        subscription_bid="subscription-non-primary-paid",
+        creator_bid=creator_bid,
+        product_bid="product-non-primary",
+        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        billing_provider="alipay",
+        current_period_start_at=now - timedelta(days=1),
+        current_period_end_at=now + timedelta(days=10),
+    )
+    primary_subscription = BillingSubscription(
+        subscription_bid="subscription-primary-unqualified",
+        creator_bid=creator_bid,
+        product_bid="product-primary",
+        status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        billing_provider="manual",
+        current_period_start_at=now - timedelta(days=1),
+        current_period_end_at=now + timedelta(days=30),
+    )
+    qualifying_order = BillingOrder(
+        bill_order_bid="order-non-primary-paid",
+        creator_bid=creator_bid,
+        order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+        product_bid=qualifying_subscription.product_bid,
+        subscription_bid=qualifying_subscription.subscription_bid,
+        payment_provider="alipay",
+        status=BILLING_ORDER_STATUS_PAID,
+    )
+    bucket = CreditWalletBucket(
+        wallet_bucket_bid="bucket-current-plan",
+        wallet_bid="wallet-current-plan",
+        creator_bid=creator_bid,
+        bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+        source_bid=qualifying_order.bill_order_bid,
+        priority=20,
+        available_credits=Decimal(10),
+        reserved_credits=0,
+        original_credits=Decimal(10),
+        consumed_credits=0,
+        expired_credits=0,
+        effective_from=now - timedelta(days=1),
+        effective_to=now + timedelta(days=10),
+        status=CREDIT_BUCKET_STATUS_ACTIVE,
+    )
+    grant = CreditLedgerEntry(
+        ledger_bid="ledger-current-plan",
+        creator_bid=creator_bid,
+        wallet_bid=bucket.wallet_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+        source_bid=qualifying_order.bill_order_bid,
+        amount=Decimal(10),
+        balance_after=Decimal(10),
+        consumable_from=now - timedelta(days=1),
+        expires_at=now + timedelta(days=10),
+    )
+    db.session.add_all(
+        [
+            qualifying_subscription,
+            primary_subscription,
+            qualifying_order,
+            bucket,
+            grant,
+        ]
+    )
+    db.session.flush()
+
+    summary = credit_service._load_operator_user_credit_summary_map([creator_bid])[
+        creator_bid
+    ]
+
+    assert summary["can_terminate_paid_subscription"] is True
+    assert summary["termination_subscription_bid"] == (
+        qualifying_subscription.subscription_bid
+    )
 
 
 def test_credit_usage_keyword_limits_results_to_matching_account(
