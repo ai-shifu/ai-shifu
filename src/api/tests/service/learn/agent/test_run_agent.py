@@ -24,7 +24,12 @@ from flaskr.service.learn.agent.engine.events import (
     ToolCall,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
+from flaskr.service.learn.agent.engine.interaction import (
+    InteractionSpec,
+    Option,
+    answer_is_usable,
+    normalize_answer,
+)
 from flaskr.service.learn.agent.session_store import StoredSessionUnusable
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
@@ -2783,3 +2788,60 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
     assert "".join(
         str(event.content) for event in events if event.type == GeneratedType.CONTENT
     ) == ("Next choose how to measure that outcome.")
+
+
+@pytest.mark.parametrize("kind", ["single_or_text", "multi_or_text"])
+@pytest.mark.parametrize("sent", [{"input": [""]}, {"input": [" \t", "\n"]}, " "])
+def test_blank_browser_text_cannot_select_an_empty_valued_option(
+    kind: str, sent: str | dict
+) -> None:
+    question = InteractionSpec(
+        type=kind,
+        prompt="Choose or describe.",
+        options=[Option(display="Skip", value="")],
+    )
+    pending = _Session(started=True, pending=[object()])
+    turn = run_agent._turn_input(pending, run_agent.learner_values(sent))
+    assert turn.values == []
+    assert not answer_is_usable(question, normalize_answer(question, turn.answer()))
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize(
+    "span",
+    ["?[...]", "?[... ]", "?[%{{project}} ...]", "?[A//a | ...]", "?[A//a || ... ]"],
+)
+def test_narrated_text_question_without_a_hint_remains_writable(span: str) -> None:
+    from flaskr.i18n import _
+    from markdown_flow import InteractionParser
+
+    events = _run(
+        _Engine(
+            [ContentDelta(text="Describe your project." + span), TurnDone(reason="end")]
+        )
+    )
+    interaction = _interactions(events)[0]
+    original = InteractionParser().parse(span)
+    parsed = InteractionParser().parse(interaction)
+    assert parsed.pop("question") == _("server.learn.freeTextPlaceholder")
+    original.pop("question")
+    assert parsed == original
+    assert _narration(events) == "Describe your project."
+
+
+@pytest.mark.parametrize(
+    "span",
+    [
+        "?[Continue]",
+        "?[%{{project}} A//a | ...Your own answer]",
+        r"?[A\|B//a | ...Answer\]here]",
+        "?[A || B]",
+    ],
+)
+def test_narrated_controls_with_authored_hints_or_choices_stay_exact(span: str) -> None:
+    events = list(
+        run_agent._narrated_question(
+            span, voice=None, outline_bid="outline", generated_block_bid="block"
+        )
+    )
+    assert _interactions(events) == [span]

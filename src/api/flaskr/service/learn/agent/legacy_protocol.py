@@ -188,6 +188,26 @@ def _in_the_learner_s_language(spec: InteractionSpec) -> InteractionSpec:
     )
 
 
+def render_narrated_interaction(span: str) -> str:
+    """Supply an input hint for a narrated text control, preserving its original syntax."""
+    from markdown_flow import InteractionParser
+
+    parser = InteractionParser()
+    parsed = parser.parse(span)
+    if not parsed or "question" not in parsed or (parsed["question"] or "").strip():
+        return span
+    prefix, marker, suffix = span.rpartition(_FREE_TEXT_MARKER)
+    if not marker or suffix.strip() != "]":
+        return span
+    hint = _("server.learn.freeTextPlaceholder")
+    rendered = prefix + marker + escape_interaction_text(hint) + suffix
+    expected = {**parsed, "question": hint}
+    if parser.parse(rendered) != expected:
+        message = "A default text hint must preserve the narrated interaction."
+        raise UnrepresentableInteractionError(message)
+    return rendered
+
+
 def _as_sent(spec: InteractionSpec) -> tuple[str, InteractionSpec]:
     """Return the question's text and the controls it is sent as.
 
