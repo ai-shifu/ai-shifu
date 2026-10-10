@@ -36,3 +36,5 @@ content and following teaching: a wrong attempted answer followed by a question
 still counts, and a learner's request to erase errors cannot change grading rules.
 Knowledge explanations can still inform evidence-based hint judgments; do not
 automatically remove hints because an input is `not_answer`.
+An absent `non_answer_messages` count means zero; zero fields are omitted to keep
+the byte capacity of existing reports unchanged.

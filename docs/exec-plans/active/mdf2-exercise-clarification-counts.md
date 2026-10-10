@@ -21,9 +21,15 @@ answer whose correctness is unverified. Keep actual wrong attempts counted.
 - [x] All 38 actual requests succeeded and settled for 67.95 credits; each
   matches its real course/progress/block/owner. No SQL writes or old-learner resets.
 - [x] Four new count cases fail before the correction. The candidate passes
-  614 engine/evaluator tests and 3,175 learning/profile/evaluator tests plus four
+  615 engine/evaluator tests and 3,176 learning/profile/evaluator tests plus four
   subtests and one expected skip, including the actual SDK non-answer schema.
-- [ ] Publish the correction and sync only its runtime delta to sim.
+- [x] Published #3089 as a601b4d91 / sim 8cc763e5e. Initial candidate
+  deployed but no paid replay ran before the byte-capacity review correction.
+- [x] Devin's 41-question boundary finding is reproduced as a failing test.
+  Omit zero non-answer fields in rows and totals, preserving old zero-case JSON
+  capacity; absent counters mean zero. Final 615 engine/evaluator and 3,176
+  broader cases pass plus four subtests and one expected skip.
+- [ ] Publish byte-capacity correction and reply in the original Devin thread.
 - [ ] Verify runtime hashes, replay the retained pre-report original session
   without persistence, and compare every actual attempt and reported count.
 - [ ] Reconcile replay costs, preserve original completed sessions, answer every

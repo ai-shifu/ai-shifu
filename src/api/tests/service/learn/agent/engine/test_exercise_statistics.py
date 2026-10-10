@@ -90,7 +90,6 @@ async def test_counts_preserve_early_corrections_and_derive_every_total() -> Non
         "retries": 3,
         "failed_submissions": 3,
         "unverified_submissions": 0,
-        "non_answer_messages": 0,
         "hints": 3,
         "first_correct": 8,
         "corrected": 3,
@@ -360,7 +359,9 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
             result = json.loads(messages[-1].parts[0].content)
             assert result["totals"]["first_correct"] == (outcome == "correct")
             assert result["totals"]["attempts"] == (outcome == "correct")
-            assert result["totals"]["non_answer_messages"] == (outcome == "not_answer")
+            assert result["totals"].get("non_answer_messages", 0) == (
+                outcome == "not_answer"
+            )
             yield {
                 0: DeltaToolCall(
                     name="finish", json_args='{"summary":"Done"}', tool_call_id="end"
@@ -407,6 +408,20 @@ async def test_large_report_is_refused_with_bounded_result() -> None:
     result = await calculate_exercise_statistics(ctx, rows)
     assert json.loads(result)["status"] == "report_too_large"
     assert len(result.encode()) <= RESULT_BYTES
+
+
+@pytest.mark.anyio
+async def test_existing_41_question_report_keeps_its_original_byte_capacity() -> None:
+    ctx = _ctx([])
+    rows = [ExerciseQuestion(question=str(i), submissions=[]) for i in range(41)]
+    raw = await calculate_exercise_statistics(ctx, rows)
+    result = json.loads(raw)
+    assert result["status"] == "calculated"
+    assert len(raw.encode()) <= RESULT_BYTES
+    assert len(result["questions"]) == 41
+    assert result["totals"]["unanswered"] == 41
+    assert all("non_answer_messages" not in row for row in result["questions"])
+    assert "non_answer_messages" not in result["totals"]
 
 
 @pytest.mark.anyio

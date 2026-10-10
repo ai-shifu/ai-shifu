@@ -159,8 +159,10 @@ errors. Classification and hint judgments remain model-supplied, without a new
 classifier or keyword filter. Original references, byte bounds, exhaustive
 coverage, memory isolation and actual wrong-answer counts remain protected.
 
-Four regression cases fail before the change; 614 engine/evaluator cases and
-3,175 learning/profile/evaluator cases plus four subtests pass, with one expected
+Zero non-answer fields are omitted from both rows and totals; absence means
+zero, so old reports do not lose byte capacity. Devin's 41-question case fails
+before this correction. Four count cases fail before the outcome change;
+615 engine/evaluator cases and 3,176 learning/profile/evaluator cases plus four subtests pass, with one expected
 skip. Distinct original-session replay against the deployed candidate is pending.
 See the [clarification-count plan](../exec-plans/active/mdf2-exercise-clarification-counts.md).
 The synthetic scorer accepts only exact fixture IDs, prompts, teaching titles or

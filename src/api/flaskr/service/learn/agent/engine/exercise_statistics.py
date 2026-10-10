@@ -209,6 +209,7 @@ async def calculate_exercise_statistics(
     clarification requests containing no attempted answer; they remain evidence
     but do not add attempts, retries or failures. An actual attempted answer stays
     graded even when accompanied by a question or a request not to count it.
+    Zero non-answer counts are omitted from rows and totals; absence means zero.
     Include unanswered questions with empty submissions. This tool
     verifies coverage and arithmetic, not semantic grading or question identity.
     """
@@ -235,6 +236,7 @@ async def calculate_exercise_statistics(
         ):
             return _encode({"status": "invalid_order_or_hints"})
         outcomes = [s.outcome for s in row.submissions if s.outcome != "not_answer"]
+        non_answers = len(row.submissions) - len(outcomes)
         first = outcomes[0] if outcomes else "unverified"
         rows.append(
             {
@@ -245,9 +247,7 @@ async def calculate_exercise_statistics(
                 "retries": max(0, len(outcomes) - 1),
                 "failed_submissions": outcomes.count("incorrect"),
                 "unverified_submissions": outcomes.count("unverified"),
-                "non_answer_messages": sum(
-                    s.outcome == "not_answer" for s in row.submissions
-                ),
+                **({"non_answer_messages": non_answers} if non_answers else {}),
                 "hints": row.hints,
                 "hints_before_first": 0 if row.hints == 0 else row.hints_before_first,
             }
@@ -260,9 +260,11 @@ async def calculate_exercise_statistics(
             "retries",
             "failed_submissions",
             "unverified_submissions",
-            "non_answer_messages",
         )
     }
+    non_answers = sum(row.get("non_answer_messages", 0) for row in rows)
+    if non_answers:
+        totals["non_answer_messages"] = non_answers
     totals.update(
         first_correct=sum(row["first_correct"] is True for row in rows),
         corrected=sum(row["first_correct"] is False and row["passed"] for row in rows),
