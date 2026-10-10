@@ -31,9 +31,20 @@ work together in a new classroom. Keep all failed evidence and all legacy code.
   handling, retries and final report against actual learner-visible responses.
 - [ ] 2026-10-11: Verify persisted history, real compression when present,
   request attribution and settled billing with read-only evidence.
-- [ ] 2026-10-11: If a defect is found, reproduce it, implement one focused fix,
-  validate locally and on sim, and open a PR for manual merge. Otherwise record
-  the bounded acceptance without inventing unrelated code changes.
+- [x] 2026-10-11: Open #3097 for the focused unexecuted-interaction defect.
+  Source d7b12d477 passes 3,283 learning/script checks and 50 subtests (three
+  expected skips); sim's 732 engine/host checks and repository gates pass.
+  Reply to all four inline AI findings and the separate docstring observation.
+- [x] 2026-10-11: Sim a7c72ea22 builds successfully (build 530 / Drone 5319),
+  API 2/2 and web 1/1 Ready. Both API replicas match all 55 source/runtime hashes.
+  Restore the genuine saved pre-repeat checkpoint in memory: turn two, four
+  original messages, unfinished and no pending input. The actual course model
+  repeats the textual tag once, receives the runtime retry, then calls interact
+  for the original first question with its meaningful text placeholder. No
+  display leakage, errors or completion; original prefix and memory preserved.
+  Two real generations settle 2.31 credits, with actual user/course/lesson/owner
+  attribution and no invented classroom attempt IDs. Original progress,
+  session, variables, four blocks and ten history elements remain unchanged.
 
 ## Surprises & Discoveries
 
@@ -68,7 +79,13 @@ not evidence of completion when the model never created the question.
 
 The fresh classroom is retained as failed at the first question. Prior failed
 classrooms remain failed; #3096's saved-answer replay does not replace them.
-Candidate deployment and bounded actual-model validation remain pending.
+The focused recovery passes on the deployed candidate. The same actual model
+first repeats the tag, then follows the single output retry and creates the
+original first text question. The trace confirms both requests; no summary is
+requested. Failure plus recovery costs 5.73 credits in total (3.42 + 2.31).
+This is in-memory recovery from a genuine saved checkpoint, not a new successful
+HTTP lesson or a repair to its persisted completed state. Full natural grading,
+retry/report acceptance and the other remaining milestone checks stay open.
 
 ## Context and Orientation
 
