@@ -9,10 +9,10 @@ canonical: true
 # MarkdownFlow Memory Quality Evaluation
 
 The opt-in evaluator at `src/api/scripts/evaluate_mdf2_memory.py` supplies a
-repeatable synthetic baseline for the current course model. Its thirty-three fixed
+repeatable synthetic baseline for the current course model. Its thirty-four fixed
 cases cover fourteen semantic admission decisions, six actual-engine recall
 turns, four long-teaching-history journeys, four exercise-statistics reports and
-five authored-rubric grading checks.
+six authored-rubric grading checks.
 This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
@@ -60,13 +60,15 @@ rewrite the rubric. Missing or contradictory required points still need correcti
 This is model guidance, not a deterministic grading oracle or a change to saved
 judgments and statistics.
 
-Five synthetic cases use the real engine to ask a question, serialize/reload its
+Six synthetic cases use the real engine to ask a question, serialize/reload its
 session, submit one answer and observe the next text interaction. A complete
-paraphrase must advance; missing program control, a learner's request to bypass
+paraphrase without optional facts must advance, as must one with a correct
+optional addition; missing program control, a learner's request to bypass
 criteria, a contradictory extra claim and a missing explicitly authored
 peripheral-device requirement must retry the same question. The next question
-requires peripherals even when the first does not. Exact fixture prompt labels
-make advancement observable without asking a model to grade its own output.
+requires peripherals even when the first does not. Exact, full question prompts
+make advancement observable without asking a model to grade its own output;
+bare internal labels do not satisfy question delivery.
 Feedback, preserved prior history, unchanged memory and a waiting interaction
 without errors are also required. A content-only turn gets at most one ordinary
 host continuation, never another answer. These cases use temperature zero,

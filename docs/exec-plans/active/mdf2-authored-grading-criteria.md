@@ -13,7 +13,7 @@ failure and its original grades; reporting fidelity does not prove grading fidel
 - [x] 2026-10-10: Verify #3095 merged as 186184dc8 and read the complete saved
   lesson, original answer and teacher feedback. The next question has different
   requirements; the cause of the observed drift is not proven to be compression.
-- [x] 2026-10-10: Add runtime answer-criteria guidance and five opt-in synthetic
+- [x] 2026-10-10: Add runtime answer-criteria guidance and six opt-in synthetic
   cases with observable advance/retry checks through serialized engine sessions.
 - [x] 2026-10-10: Local learning/script checks pass 3,254 tests and 50 subtests
   with three expected skips; developer-tool and all-files repository gates pass.
@@ -23,6 +23,12 @@ failure and its original grades; reporting fidelity does not prove grading fidel
   to each AI opinion. Leave human and fresh complete-course acceptance open.
 
 ## Surprises & Discoveries
+
+AI review identifies two evaluator blind spots: the advancing fixture already
+supplied optional digital codes, and bare internal question labels could count
+as delivery. Both reproduce as failing offline checks. Add a minimal complete
+answer without optional facts, retain a separate optional-addition control and
+require full question prompts instead of labels before any paid candidate run.
 
 The original answer satisfies program control, speed, precision, storage and
 generality; optional digital-code details do not require another point. Peripheral
