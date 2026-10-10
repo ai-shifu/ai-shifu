@@ -31,7 +31,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from tests.service.billing.renewal_execution_test_helpers import (
     add_paid_renewal_with_reserved_grant,
@@ -271,7 +271,7 @@ def test_run_billing_renewal_event_queues_pingxx_order_without_provider_sync(
         assert order.payment_provider == "pingxx"
         assert order.provider_reference_id == ""
         assert order.metadata_json["provider_reference_type"] == "charge"
-        assert order.metadata_json["renewal_cycle_start_at"] == cycle_end.isoformat()
+        assert order.metadata_json["renewal_cycle_start_at"] == to_utc_iso(cycle_end)
 
 
 def test_run_billing_renewal_event_writes_daily_cycle_metadata(
@@ -339,8 +339,7 @@ def test_run_billing_renewal_event_writes_daily_cycle_metadata(
         order = BillingOrder.query.filter_by(
             bill_order_bid=payload["bill_order_bid"]
         ).one()
-        assert order.metadata_json["renewal_cycle_start_at"] == cycle_end.isoformat()
-        assert (
-            order.metadata_json["renewal_cycle_end_at"]
-            == expected_cycle_end.isoformat()
+        assert order.metadata_json["renewal_cycle_start_at"] == to_utc_iso(cycle_end)
+        assert order.metadata_json["renewal_cycle_end_at"] == to_utc_iso(
+            expected_cycle_end
         )

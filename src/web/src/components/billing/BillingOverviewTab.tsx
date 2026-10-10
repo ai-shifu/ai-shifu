@@ -716,6 +716,7 @@ export function BillingOverviewTab({
                 paymentChannel: qrCode.channel,
                 billOrderBid: result.bill_order_bid,
               },
+              billingOrderBid: result.bill_order_bid,
               expiresInSeconds: result.expires_in_seconds,
               provider: result.provider,
               qrUrl: qrCode.url,
@@ -984,6 +985,7 @@ export function BillingOverviewTab({
       />
 
       <BillingPingxxQrDialog
+        billingOrderBid={pingxxCheckout?.billingOrderBid || ''}
         amountInMinor={pingxxCheckout?.amountInMinor || 0}
         currency={pingxxCheckout?.currency || 'CNY'}
         description={pingxxCheckout?.description || ''}

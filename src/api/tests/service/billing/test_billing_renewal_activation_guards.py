@@ -38,7 +38,7 @@ def test_pingxx_renewal_activation_defers_before_cycle_start() -> None:
         metadata_json={"renewal_cycle_start_at": renewal_cycle_start.isoformat()},
     )
 
-    assert subscriptions_mod._should_defer_pingxx_renewal_activation(order) is True
+    assert subscriptions_mod._should_defer_manual_renewal_activation(order) is True
 
 
 @pytest.mark.parametrize(
@@ -76,7 +76,7 @@ def test_pingxx_renewal_activation_does_not_defer_when_guard_fails(
 ) -> None:
     order = create_cycle_state_renewal_order(**order_kwargs)
 
-    assert subscriptions_mod._should_defer_pingxx_renewal_activation(order) is False
+    assert subscriptions_mod._should_defer_manual_renewal_activation(order) is False
 
 
 @pytest.mark.parametrize(

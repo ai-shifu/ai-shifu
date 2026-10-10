@@ -250,7 +250,7 @@
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
-| `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-08-31` | `true` |
+| `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-10` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
 | `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
