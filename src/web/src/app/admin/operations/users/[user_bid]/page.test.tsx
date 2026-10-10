@@ -959,7 +959,7 @@ describe('AdminOperationUserDetailPage', () => {
   test('activates the credits tab when the hash is present', async () => {
     const getBoundingClientRectSpy = jest
       .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-      .mockImplementation(function () {
+      .mockImplementation(function (this: HTMLElement) {
         const top =
           this.getAttribute('data-testid') ===
           'admin-operation-user-detail-scroll'
@@ -1023,7 +1023,7 @@ describe('AdminOperationUserDetailPage', () => {
           originalScrollTopDescriptor,
         );
       } else {
-        delete HTMLElement.prototype.scrollTop;
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollTop');
       }
     }
   });
