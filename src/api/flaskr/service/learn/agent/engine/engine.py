@@ -295,6 +295,25 @@ def _display_text(text: str, *, complete: bool = True) -> str:
     return displayed + markers.flush() if complete else displayed
 
 
+def _unanswered_interaction_markup(
+    messages: Sequence[object], literals: frozenset[str]
+) -> bool:
+    """Find an unexecuted tag after the most recent actual interaction answer."""
+    for message in reversed(messages):
+        if isinstance(message, ModelRequest) and any(
+            isinstance(part, ToolReturnPart)
+            and part.tool_name == "interact"
+            and part.content != NO_PAUSE
+            for part in message.parts
+        ):
+            return False
+        if isinstance(message, ModelResponse) and contains_interaction_markup(
+            _text_of([message], keep_whitespace=True), literals
+        ):
+            return True
+    return False
+
+
 def _last_display_line(text: str) -> str:
     """Return the last nonempty displayed line, normalized for comparison."""
     lines = _display_text(text).rstrip().splitlines()
@@ -662,6 +681,11 @@ class Engine:
             else frozenset(),
         )
         deps.history_len = len(session.messages) if session.started else 0
+        if session.started and not session.pending:
+            deps.interaction_markup_pending = _unanswered_interaction_markup(
+                session.messages,
+                deps.literal_interaction_markup,
+            )
         deps.finished = _finished_in(session.messages)
         kwargs: dict[str, Any] = {"deps": deps, "usage_limits": self.limits}
         resumed: set[str] = set()
@@ -929,6 +953,7 @@ class Engine:
         history_saved = False
         was_interrupted = session.interrupted
         markup = InteractionMarkupFilter(deps.literal_interaction_markup)
+        markup_noticed = False
 
         def _closing_was_shown() -> bool:
             """Require a complete standalone closing line in the latest displayed text."""
@@ -981,13 +1006,19 @@ class Engine:
             released, held[:] = _held_output(trim_repeat=True), []
             return _out(released) if released else []
 
-        def _text(text: str) -> list[Event]:
-            displayed = markup.feed(text)
+        def _markup_output(displayed: str) -> list[Event]:
+            """Keep the first suppressed question pending across intervening tools."""
+            nonlocal markup_noticed
+            if markup.invalid and not markup_noticed:
+                deps.interaction_markup_pending = True
+                markup_noticed = True
             return _display(displayed) if displayed else []
 
+        def _text(text: str) -> list[Event]:
+            return _markup_output(markup.feed(text))
+
         def _flush_markup() -> list[Event]:
-            text = markup.flush()
-            return _display(text) if text else []
+            return _markup_output(markup.flush())
 
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:

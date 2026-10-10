@@ -21,6 +21,12 @@ work together in a new classroom. Keep all failed evidence and all legacy code.
   validation, hide only standalone unexecuted tags and refuse finish while the
   question has not been created. All 591 engine checks and 3,277 learning/script
   checks plus 50 subtests pass, with three expected skips.
+- [x] 2026-10-11: Reproduce and fix intervening-tool loss and custom-element
+  false positives from AI review. Reconstruct the unfinished guard from saved
+  history, stopping at an actual answered interaction. A separate saved-history
+  regression fails before correction, and completion after a real answer remains
+  allowed. Final learning/script checks pass 3,283 tests and 50 subtests with
+  three expected skips; developer-tool/all-files gates pass.
 - [ ] 2026-10-11: Review question order, authored answer criteria, clarification
   handling, retries and final report against actual learner-visible responses.
 - [ ] 2026-10-11: Verify persisted history, real compression when present,

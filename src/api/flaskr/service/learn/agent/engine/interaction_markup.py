@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-_TAG = re.compile(r"[ ]{0,3}<interact\b[^<\n]*?/?>[ \t]*$")
+_TAG = re.compile(r"[ ]{0,3}<interact(?=[ \t/>])[^<\n]*?/?>[ \t]*$")
 _FENCE = re.compile(r"[ ]{0,3}(`{3,}|~{3,})(.*)$")
 INTERACTION_MARKUP_RETRY = (
     "You wrote an <interact ...> tag as text instead of calling a tool. "
