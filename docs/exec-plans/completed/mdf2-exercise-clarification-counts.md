@@ -43,9 +43,14 @@ answer whose correctness is unverified. Keep actual wrong attempts counted.
 - [x] Functional head 62fd4c25f passes every technical CI check, including the
   8m48s runtime harness; CodeRabbit substantively reviews that head with no new
   actionable comments. Final documentation increments need their own CI audit.
-- [ ] Record final documentation CI and any new AI opinions after publication.
-- [ ] User manually merges; verify merge and archive this narrow counting plan.
-  Actual natural compaction acceptance remains separate.
+- [x] 2026-10-10: Final documentation d51930329 passes all technical CI,
+  including the 8m03s runtime harness. All AI opinions have original-discussion
+  replies. CodeRabbit's final docs-only increment is rate-limited; substantive
+  coverage remains at functional 62fd4c25f.
+- [x] 2026-10-10 10:13 UTC: User manually merges #3089 as c6f0a8bc9.
+  Verify the merge and archive this narrow counting plan. Actual natural
+  compaction acceptance remains separate; a new reported text-control bug is
+  tracked in the natural-text-controls plan before continuing that acceptance.
 
 ## Surprises & Discoveries
 

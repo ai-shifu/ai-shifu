@@ -160,3 +160,30 @@ def test_an_option_written_with_spaces_still_matches_the_answer_it_gets_back() -
     answer = normalize_answer(s, InteractionAnswer(values=["yes"]))
     assert answer.values == ["yes"]
     assert answer_is_usable(s, answer)
+
+
+@pytest.mark.parametrize("kind", ["text", "single_or_text", "multi_or_text"])
+@pytest.mark.parametrize(
+    "answer",
+    [
+        InteractionAnswer(values=[""]),
+        InteractionAnswer(values=[" \t", "\n"]),
+        InteractionAnswer(text=" \n\t"),
+        InteractionAnswer(values=[""], text=" "),
+    ],
+)
+def test_blank_free_text_does_not_answer_a_question(
+    kind: str, answer: InteractionAnswer
+) -> None:
+    question = spec(kind, () if kind == "text" else ("A", "B"))
+    assert not answer_is_usable(question, normalize_answer(question, answer))
+
+
+@pytest.mark.parametrize("kind", ["single", "multi", "single_or_text", "multi_or_text"])
+def test_a_named_option_may_intentionally_store_an_empty_value(kind: str) -> None:
+    question = InteractionSpec(
+        type=kind, prompt="Choose.", options=[Option(display="Skip", value="")]
+    )
+    answer = normalize_answer(question, InteractionAnswer(values=[""]))
+    assert answer_is_usable(question, answer)
+    assert stored_value(question, answer) == ""

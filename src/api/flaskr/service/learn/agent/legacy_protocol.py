@@ -155,6 +155,12 @@ def render_interaction(spec: InteractionSpec) -> str:
     does. The variable prefix is emitted only when the script named one to store the answer under;
     a confirm carries none by construction, since pressing continue is not an answer.
     """
+    if spec.type in _FREE_TEXT_TYPES and not (spec.placeholder or "").strip():
+        # The UI uses a nonempty hint to expose its text box. A bare ... marker
+        # parses successfully but displays only Submit, even for type="text".
+        spec = spec.model_copy(
+            update={"placeholder": _("server.learn.freeTextPlaceholder")}
+        )
     rendered = _compose(spec)
     _verify_round_trip(spec, rendered)
     return rendered
