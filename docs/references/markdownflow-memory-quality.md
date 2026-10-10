@@ -78,6 +78,36 @@ memory remain intact, with no summary request, errors or lesson completion.
 Read-only checks preserve the original progress, session, variables, four blocks
 and ten history elements. This scoped replay does not close fresh-lesson acceptance.
 
+### Pre-answer help and independent first answers
+
+Hint timing is relative to the first actual answer attempt, after skipping
+`not_answer` inputs. Apply the author's definition of help: an explanation that
+qualifies as a hint before the first attempt contributes to both `hints` and
+`hints_before_first`. A later correct first answer remains first-correct but is
+not independent-first. Formatting clarification, unrelated explanations and
+post-answer teaching do not automatically count as pre-answer hints. Unknown
+timing remains null. The calculator performs arithmetic on model-supplied
+judgments; it does not infer semantic hints from the mere presence of a question.
+The same timing guidance reaches the model in its report policy, calculator
+description and parameter schema after a saved-session resume.
+
+After #3097, the retained new learner completed all eleven authored questions in
+27 normal HTTP/SSE requests with valid controls, order and correction boundaries.
+All 27 visible teaching elements match stable persisted history (54 elements).
+The 39 actual model requests settle 65.70 credits with matching real progress,
+block and owner attribution. No actual compression occurs: maximum original
+teaching is 3,412 bytes, below the unchanged 4,096-byte threshold.
+
+The report correctly counts 14 attempts, three retries, eight first-correct and
+two non-answer knowledge questions, but incorrectly reports eight independent
+first answers instead of six. Both pre-answer explanations qualify as hints
+under the author's explicit rules, yet the model supplies zero pre-first hints.
+Keep this completed classroom as failed report evidence. A genuine saved
+pre-final-answer checkpoint can verify a correction without overwriting that
+history; it does not establish a new successful whole-lesson acceptance. The
+[fresh classroom plan](../exec-plans/active/mdf2-fresh-grading-classroom.md) tracks
+that verification and remaining natural/human acceptance.
+
 ### Answer criteria
 
 The runtime's answer-criteria policy anchors judgments to the current question's
