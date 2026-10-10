@@ -20,6 +20,8 @@
     "llmStreamInterrupted": "Die Generationsverbindung wurde unterbrochen. Bitte aktualisieren und versuchen Sie es erneut.",
     "nextChapterButton": "Nächste Lektion",
     "outputInProgress": "Es werden noch Inhalte ausgegeben. Bitte warten Sie, bis die Ausgabe abgeschlossen ist, und versuchen Sie es dann erneut.",
+    "resetLimitReached": "Du hast alle Wiederholungen für diese Lektion genutzt. Du kannst weiterhin lernen, vorhandene Inhalte ansehen oder Fragen stellen.",
+    "resetUnavailable": "Die Wiederholung ist vorübergehend nicht verfügbar. Versuche es später erneut. Deine vorhandenen Lerninhalte bleiben erhalten.",
     "ttsRateLimited": "Der Sprachdienst ist gerade beschäftigt. Bitte versuchen Sie es gleich noch einmal."
   }
 }

@@ -20,6 +20,8 @@
     "llmStreamInterrupted": "Se ha interrumpido la conexión durante la generación. Actualiza la página e inténtalo de nuevo.",
     "nextChapterButton": "Siguiente lección",
     "outputInProgress": "El contenido aún se está generando. Espera a que termine antes de intentarlo de nuevo.",
+    "resetLimitReached": "Has agotado los reinicios de esta lección. Puedes seguir aprendiendo, repasar el contenido existente o hacer preguntas.",
+    "resetUnavailable": "El reinicio no está disponible temporalmente. Inténtalo más tarde. Tu contenido de aprendizaje se conserva.",
     "ttsRateLimited": "El servicio de voz está ocupado. Inténtalo de nuevo en unos momentos."
   }
 }

@@ -20,6 +20,8 @@
     "llmStreamInterrupted": "La connexion de génération a été interrompue. Veuillez actualiser puis réessayer.",
     "nextChapterButton": "Suivant",
     "outputInProgress": "Le contenu est encore en cours de génération. Veuillez patienter avant de réessayer.",
+    "resetLimitReached": "Vous avez utilisé toutes les reprises de cette leçon. Vous pouvez continuer, revoir le contenu existant ou poser des questions.",
+    "resetUnavailable": "La reprise est temporairement indisponible. Réessayez plus tard. Votre contenu existant est conservé.",
     "ttsRateLimited": "Le service vocal est actuellement occupé. Veuillez réessayer dans un instant."
   }
 }

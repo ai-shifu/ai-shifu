@@ -20,6 +20,8 @@
     "llmStreamInterrupted": "生成过程中连接中断，请刷新后重试",
     "nextChapterButton": "下一节",
     "outputInProgress": "正在有内容输出中，请等待输出结束后再重试",
+    "resetLimitReached": "本节重修次数已用完，无法再次重新生成。你仍可继续学习、回看已有内容或提问。",
+    "resetUnavailable": "暂时无法重修，请稍后再试。已有学习内容已保留。",
     "ttsRateLimited": "语音服务当前繁忙，请稍后重试"
   }
 }

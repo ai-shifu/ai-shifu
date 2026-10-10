@@ -31,6 +31,7 @@
   "lessonPdfPrintHint": "سيُفتح مربع الطباعة عند التنزيل، يرجى اختيار «حفظ بصيغة PDF»",
   "lessonUpdateRecommendRetake": "تم تحديث هذا الدرس، نوصي بـ<action>إعادة التعلم</action>",
   "lessonUpdateRetakeAccessibleLabel": "إعادة تعلم هذا الدرس",
+  "lessonUpdateReviewAvailable": "يتوفر إصدار جديد من هذا الدرس. يمكنك مواصلة التعلم أو مراجعة المحتوى الحالي أو طرح الأسئلة.",
   "listenAudioBackfillFailed": "فشل إنشاء الصوت، يرجى المحاولة مرة أخرى أو متابعة القراءة",
   "listenInteractionHint": "أكمل هذه الخطوة أولًا ثم تابع الاستماع",
   "listenModeTtsDisabled": "لم يتم تفعيل وضع الاستماع للدورة الحالية، ولا يمكن استخدامه",

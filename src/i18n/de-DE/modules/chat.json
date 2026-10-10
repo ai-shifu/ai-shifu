@@ -31,6 +31,7 @@
   "lessonPdfPrintHint": "Der Druckdialog öffnet sich. Wählen Sie „Als PDF speichern“, um die Datei herunterzuladen.",
   "lessonUpdateRecommendRetake": "Diese Lektion wurde aktualisiert. Es wird empfohlen, sie <action>erneut zu lernen</action>.",
   "lessonUpdateRetakeAccessibleLabel": "Diese Lektion erneut lernen",
+  "lessonUpdateReviewAvailable": "Für diese Lektion gibt es eine neue Version. Du kannst weiterlernen, vorhandene Inhalte ansehen oder Fragen stellen.",
   "listenAudioBackfillFailed": "Die Audiodatei konnte nicht erstellt werden. Bitte versuchen Sie es erneut oder lesen Sie weiter.",
   "listenInteractionHint": "Schließen Sie diesen Schritt ab, bevor Sie weiter zuhören.",
   "listenModeTtsDisabled": "Der Hörmodus ist für diesen Kurs nicht aktiviert.",

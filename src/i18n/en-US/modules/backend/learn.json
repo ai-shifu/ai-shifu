@@ -20,6 +20,8 @@
     "llmStreamInterrupted": "The generation connection was interrupted. Please refresh and try again.",
     "nextChapterButton": "Next",
     "outputInProgress": "Content is still generating. Please wait before retrying.",
+    "resetLimitReached": "You've used all resets for this lesson. You can still continue, review existing content, or ask questions.",
+    "resetUnavailable": "Reset is temporarily unavailable. Please try again later. Your existing learning content is preserved.",
     "ttsRateLimited": "The voice service is busy right now. Please try again in a moment."
   }
 }

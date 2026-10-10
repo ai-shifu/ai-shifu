@@ -31,6 +31,7 @@
   "lessonPdfPrintHint": "La fenêtre d’impression s’ouvrira ; choisissez « Enregistrer au format PDF » pour télécharger",
   "lessonUpdateRecommendRetake": "Cette leçon a été mise à jour. Nous vous recommandons de la <action>réinitialiser</action>.",
   "lessonUpdateRetakeAccessibleLabel": "Réinitialiser cette leçon",
+  "lessonUpdateReviewAvailable": "Une nouvelle version de cette leçon est disponible. Vous pouvez continuer, revoir le contenu existant ou poser des questions.",
   "listenAudioBackfillFailed": "La génération audio a échoué. Veuillez réessayer ou continuer la lecture.",
   "listenInteractionHint": "Terminez cette étape avant de poursuivre l’écoute.",
   "listenModeTtsDisabled": "Le mode écoute n’est pas activé pour ce cours.",

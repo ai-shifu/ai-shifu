@@ -24,6 +24,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Gemini Live follow-up acceptance](./active/gemini-live-voice-follow-up.md)
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)
 - [Publish repository Docker images to GHCR](./active/ghcr-image-publication.md)
+- [Simple lesson reset limit](./active/lesson-reset-limit-simple.md)
 - [Keep Authored Input Hints Out of Choice Buttons](./active/markdownflow-authored-inputs.md)
 - [MarkdownFlow total input budget](./active/markdownflow-total-input-budget.md)
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)

@@ -365,7 +365,10 @@ def test_preview_reset_checks_permission_before_scoped_reset(
     assert permission.call_args.args[1:] == (preview_user, feedback_course.bid)
     if allowed:
         assert response["data"] is True
-        assert reset.call_args.kwargs == {"preview_mode": True}
+        assert reset.call_args.kwargs == {
+            "preview_mode": True,
+            "reset_request_id": None,
+        }
     else:
         assert response["code"] != 0
         reset.assert_not_called()
@@ -643,3 +646,50 @@ def test_editor_preview_keeps_legacy_path_without_matching_client_and_allowlist(
 
     assert '"done"' in response.get_data(as_text=True)
     legacy.assert_called_once()
+
+
+@pytest.mark.parametrize("allowed", [True, False])
+def test_reset_availability_preserves_preview_permissions_and_identity(
+    monkeypatch: object, test_client: object, feedback_course: object, allowed: bool
+) -> None:
+    """The availability endpoint cannot turn a preview flag into a learner bypass."""
+    reader = "reset-status-reader"
+    feedback_course.user.user_id = reader
+    availability = Mock(return_value={"can_reset": True})
+    permission = Mock()
+    if not allowed:
+        permission.side_effect = lambda *_args: routes.raise_error(
+            "server.shifu.shifuNotFound"
+        )
+    monkeypatch.setattr(routes, "get_lesson_reset_status", availability)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", permission)
+    response = test_client.get(
+        f"/api/learn/shifu/{feedback_course.bid}/records/lesson/reset-status?preview_mode=true&user_id=forged",
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+    assert permission.call_args.args[1:] == (reader, feedback_course.bid)
+    if allowed:
+        assert response["data"] == {"can_reset": True}
+        assert availability.call_args.args[1:] == (
+            feedback_course.bid,
+            "lesson",
+            reader,
+        )
+        assert availability.call_args.kwargs == {"preview_mode": True}
+    else:
+        assert response["code"] != 0
+        availability.assert_not_called()
+
+
+def test_reset_route_preserves_shared_retry_identity(
+    monkeypatch: object, test_client: object, feedback_course: object
+) -> None:
+    """Pass the existing trace header through rather than replacing retry identity."""
+    reset = Mock(return_value=True)
+    monkeypatch.setattr(routes, "reset_learn_record", reset)
+    response = test_client.delete(
+        f"/api/learn/shifu/{feedback_course.bid}/records/lesson",
+        headers={"Token": "test-token", "X-Request-ID": "existing-client-trace"},
+    ).get_json(force=True)
+    assert response["data"] is True
+    assert reset.call_args.kwargs["reset_request_id"] == "existing-client-trace"
