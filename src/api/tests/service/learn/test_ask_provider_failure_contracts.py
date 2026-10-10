@@ -340,12 +340,12 @@ def test_workflow_item_uses_structured_fields_before_fallback(
         ({"code": 0, "data": " "}, "no retrievable text"),
         (
             {"code": 3, "message": "failed", "detail": {"logid": "trace"}},
-            r"failed \(logid: trace\)",
+            "returned an error response",
         ),
-        ({"code": 3}, "unknown error"),
+        ({"code": 3}, "returned an error response"),
     ],
 )
-def test_workflow_business_errors_have_actionable_diagnostics(
+def test_workflow_business_errors_keep_sanitized_domain_contract(
     payload: object, message: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     response = MagicMock(status=200)

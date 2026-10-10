@@ -166,4 +166,53 @@ describe('buildAskProviderConfigForSubmit', () => {
 
     expect(result).toEqual({});
   });
+
+  it('preserves advanced workflow bindings when the server allows additional properties', () => {
+    const providerConfig = {
+      api_key: 'saved-secret',
+      workflow_id: 'workflow',
+      context_key: 'classroom_context',
+      query_key: 'input',
+      parameters: { tenant: 'static' },
+      extra_body: { bot_id: 'bot' },
+      optional_text: '  ',
+    };
+    const original = JSON.parse(JSON.stringify(providerConfig));
+    const result = buildAskProviderConfigForSubmit({
+      schema: {
+        additionalProperties: true,
+        properties: {
+          api_key: { type: 'string' },
+          workflow_id: { type: 'string' },
+          optional_text: { type: 'string' },
+        },
+        required: ['api_key', 'workflow_id'],
+      },
+      providerConfig,
+    });
+    expect(result).toEqual({
+      api_key: 'saved-secret',
+      workflow_id: 'workflow',
+      context_key: 'classroom_context',
+      query_key: 'input',
+      parameters: { tenant: 'static' },
+      extra_body: { bot_id: 'bot' },
+    });
+    expect(providerConfig).toEqual(original);
+  });
+
+  it.each([false, undefined])(
+    'keeps undeclared fields excluded for additionalProperties=%s',
+    additionalProperties => {
+      expect(
+        buildAskProviderConfigForSubmit({
+          schema: {
+            additionalProperties,
+            properties: { api_key: { type: 'string' } },
+          },
+          providerConfig: { api_key: 'secret', context_key: 'context' },
+        }),
+      ).toEqual({ api_key: 'secret' });
+    },
+  );
 });
