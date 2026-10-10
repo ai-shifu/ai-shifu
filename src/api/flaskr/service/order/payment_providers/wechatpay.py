@@ -114,8 +114,10 @@ class WechatPayProvider(PaymentProvider):
         provider_reference: str,
         reference_type: str,
         app: Flask,
+        context: dict[str, object] | None = None,
     ) -> PaymentCancellationResult:
         """Close an unpaid WeChat Pay transaction by merchant attempt ID."""
+        _ = context
         if str(reference_type or "").lower() not in {"payment", "trade"}:
             message = f"Unsupported WeChat Pay reference type: {reference_type}"
             raise RuntimeError(message)
