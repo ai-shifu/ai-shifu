@@ -29,6 +29,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Keep common payment synchronization idempotent](./active/idempotent-payment-sync.md)
 - [Learner listen playback stability](./active/learner-listen-playback-stability.md)
 - [Lobster Course Entry Analytics](./active/lobster-course-entry-analytics.md)
+- [Local storage response safety](./active/local-storage-response-safety.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./active/markdownflow-model-arena.md)
 - [Notification Channel Foundation](./active/notification-channel-foundation.md)
 - [Numbered course models](./active/numbered-course-models.md)

@@ -44,6 +44,7 @@
 | `docs/exec-plans/active/idempotent-payment-sync.md` | Keep common payment synchronization idempotent | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/learner-listen-playback-stability.md` | Learner listen playback stability | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/local-storage-response-safety.md` | Local storage response safety | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-model-arena.md` | Local MarkdownFlow slide comparison ExecPlan | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/notification-channel-foundation.md` | Notification Channel Foundation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/numbered-course-models.md` | Numbered course models | `exec-plan-active` | `active` | `repo` | `-` | `true` |
