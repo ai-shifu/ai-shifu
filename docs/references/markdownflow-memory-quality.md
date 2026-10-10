@@ -516,6 +516,9 @@ Opted-in reporting now appends request-local host status to model instructions.
 It names the next contiguous original-history page, then the calculation step,
 then only successful calculator totals. Out-of-order/invalid reads cannot advance
 that status; invalid/oversized calculations cannot provide successful totals.
+Only a successful post-read calculation supplies those totals. Earlier calculator
+responses retain compatibility but require recalculation after reading. A latest
+SDK schema rejection invalidates old success even when the function was not called.
 The real SDK sees the state changes on successive requests. State lives only in
 Deps and resets for the next run; original messages, answers, semantic grades,
 tool-result byte limits, schemas and portable defaults remain unchanged.
@@ -527,5 +530,7 @@ feedback before evidence reads and reporting.
 See the [natural compressed-statistics plan](../exec-plans/active/mdf2-natural-compressed-statistics.md)
 for candidate validation. A non-persisting replay of a real pre-report checkpoint
 must be identified as such; it cannot relabel the failed classroom or establish a
-new full-course/human acceptance. The attempted trace reads did not yield a wire
-capture, so stored summaries and verified runtime evidence are stated separately.
+new full-course/human acceptance. Initial trace reads failed; the supported trace
+API through the observed internal service later returns eighteen traces and all
+twenty-one generations. Fourteen actual teaching requests contain a semantic
+summary bound by position and content hash to the original 4,110-byte source.

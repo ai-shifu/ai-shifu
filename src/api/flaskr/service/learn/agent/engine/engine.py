@@ -546,7 +546,7 @@ class Engine:
             if notice:
                 instructions += "\n\n" + notice
         if self.exercise_statistics:
-            instructions += "\n\n" + exercise_report_notice(ctx.deps)
+            instructions += "\n\n" + exercise_report_notice(ctx)
         return instructions
 
     # -- sessions ----------------------------------------------------------------------------

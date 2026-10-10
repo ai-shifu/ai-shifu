@@ -20,6 +20,16 @@ did not cross that threshold and cannot establish this acceptance.
   requests settle for 30.35 credits with complete classroom/owner attribution.
 - [x] 2026-10-10: Four request-status regressions fail before the correction;
   add transient read/calculation guidance and verify the real SDK sees each state.
+- [x] 2026-10-10: Six checks fail when the new request guidance is withdrawn;
+  restoring it passes all 34 focused cases. Broader regression passes 3,338 cases
+  and 50 subtests, with three expected skips; developer-tool/all-files gates pass.
+- [x] 2026-10-10: Publish PR #3094 as 5fdf92544 and sim 4924de52e. No paid
+  candidate replay runs before review corrections. Two Devin boundary findings
+  each reproduce as a failing test, including real SDK schema rejection.
+- [x] 2026-10-10: Record totals only after complete reads; invalidate prior
+  totals when the SDK rejects the latest calculation before its body executes.
+  Legacy calculator responses remain compatible; the status requires a new
+  successful post-read calculation. All 36 focused cases pass.
 - [ ] 2026-10-10: Check original submissions, semantic judgments, question rows,
   final totals, stored history and actual billed request attribution.
 - [ ] 2026-10-10: Record findings and validation in a focused PR, fixing any
@@ -37,8 +47,13 @@ cache entry from later turns. All eleven questions complete, but no original-rea
 or calculator call occurs before finish. Four questions require corrections, yet
 the report claims only three; its table and totals contradict each other. This is
 not evidence that the summary caused the failure. Direct instructions were present
-but did not establish compliance. A trace read timed out and a newer observations
-endpoint returned 404; do not claim captured provider-input proof from those reads.
+but did not establish compliance. Initial trace reads timed out or used an
+unsupported observations endpoint. Reading the supported trace API through the
+observed internal service succeeds: eighteen traces contain twenty-one generations,
+including one summary request. Fourteen actual teaching inputs carry a semantic
+summary bound by position and SHA-256 to the exact 4,110-byte original. The local
+checker initially assumed every generation input was an object; summary inputs
+are lists. Handle both and verify the same retained data without extra model calls.
 The teacher also required a peripheral-device point absent from the authored
 five-point criterion, and added hardware multithreading to another criterion.
 Track that grading drift separately: faithful reporting of the original graded
