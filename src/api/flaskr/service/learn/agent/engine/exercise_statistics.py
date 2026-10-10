@@ -178,11 +178,11 @@ async def read_exercise_history(ctx: RunContext[Deps], offset: int = 0) -> str:
 
 
 class SubmissionJudgment(BaseModel):
-    """A semantic grade attached to one original accepted answer."""
+    """A semantic answer or non-answer judgment bound to one original input."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
     reference: Annotated[str, Field(min_length=1, max_length=80)]
-    outcome: Literal["correct", "incorrect", "unverified"]
+    outcome: Literal["correct", "incorrect", "unverified", "not_answer"]
 
 
 class ExerciseQuestion(BaseModel):
@@ -205,7 +205,12 @@ async def calculate_exercise_statistics(
     Read read_exercise_history first. Group submissions by actual question and
     grade each from original teacher feedback in time order. Excluded references
     must be non-exercise answers. Never guess grades or hints; unverified remains
-    unresolved. Include unanswered questions with empty submissions. This tool
+    an unresolved answer attempt. Use not_answer for knowledge questions or
+    clarification requests containing no attempted answer; they remain evidence
+    but do not add attempts, retries or failures. An actual attempted answer stays
+    graded even when accompanied by a question or a request not to count it.
+    Zero non-answer counts are omitted from rows and totals; absence means zero.
+    Include unanswered questions with empty submissions. This tool
     verifies coverage and arithmetic, not semantic grading or question identity.
     """
     if ctx.deps.finished is not None:
@@ -230,7 +235,8 @@ async def calculate_exercise_statistics(
             and row.hints_before_first > row.hints
         ):
             return _encode({"status": "invalid_order_or_hints"})
-        outcomes = [s.outcome for s in row.submissions]
+        outcomes = [s.outcome for s in row.submissions if s.outcome != "not_answer"]
+        non_answers = len(row.submissions) - len(outcomes)
         first = outcomes[0] if outcomes else "unverified"
         rows.append(
             {
@@ -241,6 +247,7 @@ async def calculate_exercise_statistics(
                 "retries": max(0, len(outcomes) - 1),
                 "failed_submissions": outcomes.count("incorrect"),
                 "unverified_submissions": outcomes.count("unverified"),
+                **({"non_answer_messages": non_answers} if non_answers else {}),
                 "hints": row.hints,
                 "hints_before_first": 0 if row.hints == 0 else row.hints_before_first,
             }
@@ -255,6 +262,9 @@ async def calculate_exercise_statistics(
             "unverified_submissions",
         )
     }
+    non_answers = sum(row.get("non_answer_messages", 0) for row in rows)
+    if non_answers:
+        totals["non_answer_messages"] = non_answers
     totals.update(
         first_correct=sum(row["first_correct"] is True for row in rows),
         corrected=sum(row["first_correct"] is False and row["passed"] for row in rows),
