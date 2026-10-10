@@ -68,6 +68,18 @@ async def evaluate_grading(case: dict[str, Any], model: Model) -> dict[str, Any]
     )
     session = await engine.new_session(grading_script(case))
     setup = [event async for event in engine.run_turn(session)]
+    if (
+        setup
+        and isinstance(setup[-1], TurnDone)
+        and setup[-1].reason == "end"
+        and any(
+            isinstance(event, ContentDelta) and event.text.strip() for event in setup
+        )
+        and not any(isinstance(event, ErrorEvent) for event in setup)
+    ):
+        setup.extend(
+            [event async for event in engine.run_turn(session, ContinueTurn())]
+        )
     setup_ok = (
         not any(isinstance(event, ErrorEvent) for event in setup)
         and len(session.pending) == 1
