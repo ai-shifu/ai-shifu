@@ -9,9 +9,9 @@ canonical: true
 # MarkdownFlow Memory Quality Evaluation
 
 The opt-in evaluator at `src/api/scripts/evaluate_mdf2_memory.py` supplies a
-repeatable synthetic baseline for the current course model. Its twenty-six fixed
+repeatable synthetic baseline for the current course model. Its twenty-eight fixed
 cases cover fourteen semantic admission decisions, six actual-engine recall
-turns, four long-teaching-history journeys and two exercise-statistics reports.
+turns, four long-teaching-history journeys and four exercise-statistics reports.
 This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
@@ -92,9 +92,20 @@ Fixture responses stay below the teaching-excerpt threshold and no semantic
 summarizer is configured. These are intentionally full-history statistics cases,
 matching the observed natural failure's absence of teaching summaries. Enabling
 the projection option does not establish that projection happened. The four
-separate long-history cases cover summary/read behavior; neither family establishes
-exercise-report accuracy after teaching-summary compaction. That combination
-remains a separate quality-acceptance item.
+separate long-history cases cover summary/read behavior.
+
+Two additional exercise cases place one older correction and hint in the middle
+of an eligible long teaching part, outside both excerpt edges. One requires a
+real production-factory semantic summary; the other explicitly injects a failure
+and requires cached excerpt fallback, not a real provider-outage claim. Both warm
+the derivative cache, serialize/reload the session, and observe source-bound
+markers in actual engine requests. A projection flag alone is insufficient.
+They require one summary attempt, no additional summary after reload, unchanged
+original history and the same strict original-read/calculation/report checks.
+A missing or invalid required summary is an evaluation error even when the final
+statistics are correct. Summary usage remains separate from exercise usage.
+These are selected synthetic statistics-after-compaction checks, not evidence
+of a complete natural long-course or long-term fee acceptance.
 
 The author requests one JSON object (plain or in a single Markdown JSON fence)
 containing per-question first-result booleans,
@@ -149,8 +160,10 @@ The evaluator initially rejected exact original prompt/title labels; their
 normalization plus reference grouping rescores six unchanged captured outputs
 6/6, with a subsequent fresh final-source selected CLI run passing 2/2. Earlier
 failing reports remain retained privately, not relabeled as new passing runs.
-Statistics after semantic-summary
-compaction and other models/languages remain separate acceptance items.
+The additional compacted exercise cases now cover summary success and injected
+failure/cache fallback with selected synthetic evidence. Natural-course
+statistics after semantic-summary compaction, other models/languages, full-catalog
+repetitions and independent human acceptance remain separate items.
 
 ## Running
 

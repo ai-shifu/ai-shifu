@@ -7,7 +7,7 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
-from pydantic_ai.messages import ModelRequest, ToolReturnPart
+from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ToolReturnPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from scripts.mdf2_memory_quality import exercise
 
@@ -20,7 +20,11 @@ if TYPE_CHECKING:
     from pydantic_ai.models.function import AgentInfo
 
 pytestmark = pytest.mark.anyio
-CASES = [case for case in quality.load_cases() if case["family"] == "exercise"]
+CASES = [
+    case
+    for case in quality.load_cases()
+    if case["family"] == "exercise" and not case.get("compacted_history")
+]
 
 
 def summary_model(
@@ -360,3 +364,168 @@ def test_question_label_aliases_do_not_hide_wrong_or_invented_titles(
 ) -> None:
     with pytest.raises(ValueError, match="invalid fixture question label"):
         exercise._question_number(label)
+
+
+COMPACTED_CASES = [
+    case for case in quality.load_cases() if case.get("compacted_history")
+]
+
+
+def teaching_summary_model(*, empty: bool = False) -> FunctionModel:
+    def summarize(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        from pydantic_ai.usage import RequestUsage
+
+        # Even a misleading derivative cannot replace the original evidence.
+        return ModelResponse(
+            parts=[TextPart("" if empty else "All questions passed on the first try.")],
+            usage=RequestUsage(input_tokens=100, output_tokens=10),
+        )
+
+    return FunctionModel(summarize)
+
+
+@pytest.mark.parametrize("case", COMPACTED_CASES, ids=lambda case: case["id"])
+async def test_compacted_statistics_read_originals_and_reuse_reloaded_cache(
+    case: dict,
+) -> None:
+    families = []
+
+    def factory(family: str) -> FunctionModel:
+        families.append(family)
+        if family == "teaching_summary":
+            if case["summary_failure"]:
+
+                def unexpected(
+                    _messages: list[ModelMessage], _info: AgentInfo
+                ) -> ModelResponse:
+                    pytest.fail("injected summary failure must not call a provider")
+
+                return FunctionModel(unexpected)
+            return teaching_summary_model()
+        return summary_model(json.dumps(exercise.expected_report(case)))
+
+    results = await quality.evaluate([case], factory, 1)
+    result = results[0]
+    assert result["passed"], result
+    assert families == ["exercise", "teaching_summary"]
+    assert result["summary_calls"] == 1
+    assert result["injected_summary_failure"] is case["summary_failure"]
+    assert result["summary_usage"] == (
+        {}
+        if case["summary_failure"]
+        else {"requests": 1, "input_tokens": 100, "output_tokens": 10}
+    )
+    report = quality.report([case], results, 1)
+    assert not report["full_catalog"]
+    assert "Learner wrote:" not in json.dumps(report)
+    assert "All questions passed" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("case", COMPACTED_CASES, ids=lambda case: case["id"])
+def test_long_correction_is_eligible_and_hidden_outside_excerpt_edges(
+    case: dict,
+) -> None:
+    from flaskr.service.learn.agent.engine.teaching_history import (
+        project_teaching_history,
+    )
+    from pydantic_ai.messages import ModelMessagesTypeAdapter
+
+    session = exercise.exercise_session(case)
+    original = ModelMessagesTypeAdapter.dump_json(session.messages)
+    projected, sources = project_teaching_history(session.messages)
+    assert len(sources) == 1
+    source = next(iter(sources.values()))
+    assert "Hint: add one, not three." in source
+    assert "Hint: add one, not three." not in source[:256] + source[-128:]
+    markers = [
+        json.loads(part.content)
+        for message in projected
+        if isinstance(message, ModelResponse)
+        for part in message.parts
+        if isinstance(part, TextPart)
+        and part.content.startswith('{"status":"teaching_excerpt"')
+    ]
+    assert len(markers) == 1
+    assert "Hint: add one, not three." not in json.dumps(markers[0])
+    assert ModelMessagesTypeAdapter.dump_json(session.messages) == original
+
+
+@pytest.mark.parametrize("case", COMPACTED_CASES, ids=lambda case: case["id"])
+async def test_correct_compacted_report_without_original_reads_fails(
+    case: dict,
+) -> None:
+    result = await exercise.evaluate_exercise(
+        case,
+        summary_model(json.dumps(exercise.expected_report(case)), use_tools=False),
+        teaching_summary_model(),
+    )
+    assert result["checks"]["question_evidence"]
+    assert result["checks"]["history_projected"]
+    assert not result["checks"]["original_evidence_read"]
+    assert not result["passed"]
+
+
+@pytest.mark.parametrize("case", COMPACTED_CASES, ids=lambda case: case["id"])
+@pytest.mark.parametrize("defect", ["projection", "cache"])
+async def test_correct_report_cannot_hide_missing_compaction_or_cache_reuse(
+    case: dict,
+    defect: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.learn.agent.engine import Engine
+
+    if defect == "projection":
+        original_init = Engine.__init__
+
+        def without_projection(engine: Engine, *args: object, **kwargs: object) -> None:
+            kwargs["teaching_history_compaction"] = False
+            kwargs["teaching_summarizer"] = None
+            original_init(engine, *args, **kwargs)
+
+        monkeypatch.setattr(Engine, "__init__", without_projection)
+    else:
+        original_run = Engine.run_turn
+
+        async def without_cache(
+            engine: Engine, session: object, *args: object, **kwargs: object
+        ) -> AsyncIterator[object]:
+            session.teaching_summaries.clear()
+            async for event in original_run(engine, session, *args, **kwargs):
+                yield event
+
+        monkeypatch.setattr(Engine, "run_turn", without_cache)
+    result = await exercise.evaluate_exercise(
+        case,
+        summary_model(json.dumps(exercise.expected_report(case))),
+        teaching_summary_model(),
+    )
+    assert result["checks"]["question_evidence"]
+    assert not result["checks"][
+        "history_projected" if defect == "projection" else "cache_reused_after_reload"
+    ]
+    assert not result["passed"]
+
+
+async def test_missing_real_summary_is_not_successful_statistics_acceptance() -> None:
+    case = COMPACTED_CASES[0]
+    result = await exercise.evaluate_exercise(
+        case,
+        summary_model(json.dumps(exercise.expected_report(case))),
+        teaching_summary_model(empty=True),
+    )
+    assert result["checks"]["question_evidence"]
+    assert result["error"] == "summary_unavailable_or_invalid"
+    assert not result["passed"]
+
+
+@pytest.mark.parametrize("case", COMPACTED_CASES, ids=lambda case: case["id"])
+async def test_compaction_keeps_swapped_question_sources_invalid(case: dict) -> None:
+    result = await exercise.evaluate_exercise(
+        case,
+        summary_model(json.dumps(exercise.expected_report(case)), swap_sources=True),
+        teaching_summary_model(),
+    )
+    assert result["checks"]["history_projected"]
+    assert result["checks"]["aggregate_evidence"]
+    assert not result["checks"]["calculated_evidence"]
+    assert not result["passed"]
