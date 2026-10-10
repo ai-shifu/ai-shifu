@@ -70,6 +70,14 @@ classroom and its three settled requests; offline recovery controls do not turn
 it into a successful full-lesson acceptance. See the
 [fresh classroom plan](../exec-plans/active/mdf2-fresh-grading-classroom.md).
 
+On sim a7c72ea22, both API replicas match 55 source/runtime hashes. An in-memory
+restore of the genuine saved pre-repeat checkpoint recovers the original first
+text question: the course model repeats the tag, receives the bounded retry and
+calls the real tool. Two traced generations settle 2.31 credits; prefix and
+memory remain intact, with no summary request, errors or lesson completion.
+Read-only checks preserve the original progress, session, variables, four blocks
+and ten history elements. This scoped replay does not close fresh-lesson acceptance.
+
 ### Answer criteria
 
 The runtime's answer-criteria policy anchors judgments to the current question's
