@@ -52,6 +52,26 @@ and `tests/service/profile/`.
 
 ## Authored-rubric grading cases
 
+### Interaction tool boundary
+
+An unexecuted standalone `<interact ...>` text tag creates no controls and is
+not evidence that the learner answered. The engine suppresses complete
+single-line tags outside Markdown code and asks the model to call the real tool,
+under the SDK's existing bounded output retry. It never executes parsed tag
+attributes or writes a named answer. A failed recovery emits an error and keeps
+the lesson unfinished; `finish` cannot bypass that unresolved interaction.
+Exact tag literals in the author's documents, fenced/indented code, inline
+examples and ordinary HTML remain content. Inline/multiline tool imitations are
+outside this deliberately narrow correction.
+
+The first fresh eleven-question classroom after #3096 failed at its first
+question because repeated tags were treated as completion. Retain that failed
+classroom and its three settled requests; offline recovery controls do not turn
+it into a successful full-lesson acceptance. See the
+[fresh classroom plan](../exec-plans/active/mdf2-fresh-grading-classroom.md).
+
+### Answer criteria
+
 The runtime's answer-criteria policy anchors judgments to the current question's
 authored requirements, including applicable lesson-wide requirements. Equivalent
 wording may satisfy a criterion. Optional facts, another question's rubric and

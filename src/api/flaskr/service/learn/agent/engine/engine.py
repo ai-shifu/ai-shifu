@@ -13,6 +13,7 @@ from pydantic_ai import (
     AgentRunResultEvent,
     DeferredToolRequests,
     DeferredToolResults,
+    ModelRetry,
     RunContext,
     Tool,
     UsageLimits,
@@ -70,6 +71,12 @@ from .interaction import (
     format_answer_for_model,
     normalize_answer,
     stored_value,
+)
+from .interaction_markup import (
+    INTERACTION_MARKUP_RETRY,
+    InteractionMarkupFilter,
+    authored_interaction_markup,
+    contains_interaction_markup,
 )
 from .memory_context import project_memory_history
 from .recall import recall
@@ -499,6 +506,19 @@ class Engine:
             toolsets=list(toolsets or []),
             model_settings=model_settings,
         )
+        self.agent.output_validator(self._validate_output)
+
+    def _validate_output(
+        self, ctx: RunContext[Deps], output: str | DeferredToolRequests
+    ) -> str | DeferredToolRequests:
+        """Require an actual tool call after an unexecuted textual interaction."""
+        if isinstance(output, str) and (
+            ctx.deps.interaction_markup_pending
+            or contains_interaction_markup(output, ctx.deps.literal_interaction_markup)
+        ):
+            ctx.deps.interaction_markup_pending = True
+            raise ModelRetry(INTERACTION_MARKUP_RETRY)
+        return output
 
     def compose_instructions(
         self,
@@ -621,6 +641,7 @@ class Engine:
             interaction_check=self.interaction_check,
             script_options=script_options(script_text) if uses_v1_syntax else {},
             script_text_inputs=text_inputs,
+            literal_interaction_markup=authored_interaction_markup(script_text),
             # The lesson's own script only: a brief or a reference document may show `?[继续]`
             # as an example of the notation, which is not a pause in this lesson.
             no_pauses=(
@@ -907,6 +928,7 @@ class Engine:
         after_pause = False
         history_saved = False
         was_interrupted = session.interrupted
+        markup = InteractionMarkupFilter(deps.literal_interaction_markup)
 
         def _closing_was_shown() -> bool:
             """Require a complete standalone closing line in the latest displayed text."""
@@ -942,7 +964,7 @@ class Engine:
                 out.extend(self._segment(segmenter.feed(text), seg_state, session))
             return out
 
-        def _text(text: str) -> list[Event]:
+        def _display(text: str) -> list[Event]:
             """Hold potential repeats until they are known or diverge into new content."""
             nonlocal holding, held_text
             if not holding:
@@ -958,6 +980,14 @@ class Engine:
             holding = False
             released, held[:] = _held_output(trim_repeat=True), []
             return _out(released) if released else []
+
+        def _text(text: str) -> list[Event]:
+            displayed = markup.feed(text)
+            return _display(displayed) if displayed else []
+
+        def _flush_markup() -> list[Event]:
+            text = markup.flush()
+            return _display(text) if text else []
 
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
@@ -995,6 +1025,8 @@ class Engine:
                             held.clear()
                     silent = deps.finished is not None and not speak_after_finish
                     if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
+                        for e in _flush_markup():
+                            yield e
                         if ev.part.content and not silent:
                             for e in _text(ev.part.content):
                                 yield e
@@ -1006,6 +1038,8 @@ class Engine:
                         for e in _text(ev.delta.content_delta):
                             yield e
                     elif isinstance(ev, FunctionToolCallEvent):
+                        for e in _flush_markup():
+                            yield e
                         if ev.part.tool_call_id in resumed:
                             continue
                         yield ToolCall(
@@ -1048,6 +1082,8 @@ class Engine:
                                 content=getattr(ev.part, "content", None),
                             )
                     elif isinstance(ev, AgentRunResultEvent):
+                        for e in _flush_markup():
+                            yield e
                         result = ev.result
                         # A resumed request may use a projected copy of an old initial prompt.
                         # Keep its original saved evidence and append only this run's messages.
