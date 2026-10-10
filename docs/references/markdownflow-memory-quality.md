@@ -138,6 +138,31 @@ Known zero total hints establishes zero hints before the first answer. Semantic
 grades, question grouping
 and hint identification remain model judgments. Unknown hint counts remain null.
 No profile or course memory is written, and no persistent grading ledger is added.
+
+### Knowledge questions are not answer attempts
+
+A new natural eleven-question journey completed in 28 HTTP turns, but its report
+counted two knowledge clarifications as unverified answers: sixteen attempts and
+five retries instead of fourteen and three. The original calculator also reported
+two unverified submissions. Preserve this failure. All 38 actual requests settled
+for 67.95 credits with real progress/block/owner attribution. The longest teaching
+part was 4,055 JSON-wire bytes and no semantic summary existed; this is not a
+compressed-history test or evidence that compression caused the counting error.
+
+The existing SubmissionJudgment now accepts not_answer for a knowledge question
+or clarification containing no attempted answer. Its original reference remains
+covered in chronological order, and a separate non_answer_messages count makes
+the distinction visible. It does not add an attempt, retry or failure, or replace
+the first real answer. Unverified real answers still count as attempts. A wrong
+attempt accompanied by a question remains graded; learner requests cannot erase
+errors. Classification and hint judgments remain model-supplied, without a new
+classifier or keyword filter. Original references, byte bounds, exhaustive
+coverage, memory isolation and actual wrong-answer counts remain protected.
+
+Four regression cases fail before the change; 614 engine/evaluator cases and
+3,175 learning/profile/evaluator cases plus four subtests pass, with one expected
+skip. Distinct original-session replay against the deployed candidate is pending.
+See the [clarification-count plan](../exec-plans/active/mdf2-exercise-clarification-counts.md).
 The synthetic scorer accepts only exact fixture IDs, prompts, teaching titles or
 short arithmetic titles; it still independently checks each answer's original
 question membership. Calculation diagnostics are fixed status enums, without
@@ -388,7 +413,7 @@ not that the learner never said them. Assistant suggestions and current memory
 cannot substitute. Reading historical save requests grants no write permission
 and must not restore deleted notes. No additional DB history is loaded.
 
-See the [quotation plan](../exec-plans/active/mdf2-follow-up-learner-quotations.md).
+See the [quotation plan](../exec-plans/completed/mdf2-follow-up-learner-quotations.md).
 The first new candidate (18da49cdc / sim 5ea6b4011) quotes exact complete text
 but misstates its order relative to an earlier identical question in two answers.
 Both remain failed evidence. Seven questions completed; fourteen requests settled
@@ -396,8 +421,16 @@ for 7.7 credits, with correct new-answer attribution. All 200 original elements,
 nine lessons, eleven progress rows, nine finished sessions, profile and unrelated
 memory survive. Deleted-current-memory, missing-source and literal-brace checks
 hold. Explicit current-relative metadata and the late notice are the next
-correction; six relevant assertions fail before it. Distinct final natural
-acceptance is pending. Other models and human acceptance remain open independently.
+correction; six relevant assertions fail before it. The final candidate (291df6c57 / sim f0108018c) passes three new complete
+quotation answers: first ask, identical repeated ask and post-deletion ask, with
+correct chronology relative to the current question. Four HTTP questions complete;
+nine actual requests settle for 4.7 credits with real new-answer attribution.
+All 214 original elements, nine lessons, eleven progress rows, nine finished
+sessions, profile and unrelated memory survive. The temporary preference remains
+deleted. Both ready sim APIs match 42 runtime hashes. User merged #3088 as
+2ba2420f7; this closes only the narrow quotation/chronology task. First-candidate
+verbosity and unrelated profile disclosure remain quality observations; other
+models and human acceptance remain open independently.
 
 ### Follow-up usage attribution
 

@@ -56,9 +56,19 @@ bounded window; acknowledge when that window does not supply the original.
   tests plus four subtests and one expected skip. Actual SDK mapping puts the
   host notice after the byte-bounded tool JSON; neither notice nor historical
   request authorizes a write, including with a repeated question in history.
-- [ ] Publish explicit before-current-question metadata and late host notice,
-  verify final sim hashes and retain a distinct focused natural sample.
-- [ ] Reconcile usage/preservation, handle every AI opinion in its discussion.
+- [x] Published 291df6c57 / sim f0108018c; both ready APIs match 42 hashes.
+  Three distinct natural answers (including an identical repeated question and
+  a post-deletion quotation) quote the complete original with correct current-
+  relative chronology. No unchanged paid retries or overwritten failures.
+- [x] Four HTTP questions, nine actual requests settled for 4.7 credits;
+  new-answer/progress/owner attribution holds. All 214 original elements,
+  nine lessons, eleven progress rows and nine finished sessions survive, as do
+  the profile and unrelated memory. The test preference was deleted via HTTP.
+- [x] User merged #3088 as 2ba2420f7 at 2026-10-10T07:59:48Z. All three
+  actionable AI findings and the docstring advisory have original-discussion
+  replies. At merge, runtime-harness and final CodeRabbit increment were still
+  pending; final technical CI subsequently passed, including runtime-harness.
+  Final CodeRabbit coverage remains pending and is not claimed complete.
 
 ## Surprises & Discoveries
 
@@ -97,9 +107,14 @@ after the tool result, without trusting assistant narration as temporal evidence
 
 ## Outcomes & Retrospective
 
-Implementation and model-quality acceptance are pending. FunctionModel verifies
-source/protocol invariants, not whether a production language model follows them.
-Exact quotation in #3087 remains failed evidence until a distinct new sample.
+The narrow quotation/chronology correction passes three new answers on the
+published sim candidate. First-candidate temporal failures and the older #3087
+quotation failures remain failed evidence. FunctionModel verifies invariants;
+the distinct natural sample adds one-course, one-model behavior evidence only.
+Other models, languages, providers, verbosity, unrelated disclosures, humans and
+long-term costs remain open. The first missing-source answer listed unrelated
+profile fields, and its save answer was verbose; these are separate quality
+observations, not erased by accurate quotations.
 
 ## Context and Orientation
 
