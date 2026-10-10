@@ -323,6 +323,7 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
                 )
             }
         elif step == 2:
+            assert "offset=0" in (info.instructions or "")
             yield teaching
             yield {
                 0: DeltaToolCall(
@@ -330,6 +331,9 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
                 )
             }
         elif step == 3:
+            assert "Original submissions have been read completely" in (
+                info.instructions or ""
+            )
             page = next(p for p in messages[-1].parts if isinstance(p, ToolReturnPart))
             record = json.loads(json.loads(page.content)["text"])[0]
             assert record["answer"] == "Learner wrote: " + learner_input
@@ -356,6 +360,9 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
                 )
             }
         elif step == 4:
+            assert "Successful calculator totals for this turn" in (
+                info.instructions or ""
+            )
             result = json.loads(messages[-1].parts[0].content)
             assert result["totals"]["first_correct"] == (outcome == "correct")
             assert result["totals"]["attempts"] == (outcome == "correct")

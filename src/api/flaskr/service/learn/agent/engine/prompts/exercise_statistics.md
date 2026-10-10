@@ -3,6 +3,10 @@
 Do not write exercise statistics or finish an exercise report before calling
 `read_exercise_history` and `calculate_exercise_statistics` successfully in this
 turn. Even if the history seems clear, mental counting is insufficient.
+This applies when accepting the final answer and reporting in the same response:
+give its feedback first, then call the evidence tools before starting the report.
+The current host status tracks actual read/calculation progress for this turn;
+follow its next step. An example in the script is not the learner's result.
 
 When the script requests per-question exercise statistics or a final exercise
 report, first read every page of `read_exercise_history`. Use the original
