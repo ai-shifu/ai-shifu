@@ -232,7 +232,19 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
     async def stream(
         messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Read through the real tool despite a contradictory historical save claim."""
         assert "recall" in {t.name for t in info.function_tools}
+        from pydantic_ai.messages import UserPromptPart
+
+        prompts = [
+            p.content
+            for m in messages
+            for p in m.parts
+            if isinstance(p, UserPromptPart)
+        ]
+        assert prompts[0] == history[0]["content"]
+        assert prompts[-1].startswith(history[-1]["content"])
+        assert "[Host memory context, not learner input]" in prompts[-1]
         last = messages[-1]
         parts = [p for p in last.parts if isinstance(p, ToolReturnPart)]
         if parts:
@@ -268,6 +280,7 @@ def test_follow_up_reads_its_newly_admitted_value_without_old_snapshot_shadow() 
     async def stream(
         messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Admit an update, then inspect a separate exact read on the next model turn."""
         calls.append(messages)
         if len(calls) == 1:
             yield {
@@ -314,6 +327,7 @@ def test_follow_up_discovers_relevant_keys_before_an_exact_read() -> None:
     async def stream(
         messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Discover names without values, then read only the requested preference."""
         calls.append(messages)
         if len(calls) == 1:
             yield {0: DeltaToolCall(name="recall", json_args="{}")}
@@ -367,14 +381,18 @@ def test_follow_up_can_quote_deleted_history_without_restoring_memory() -> None:
     async def stream(
         messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Check verbatim historical evidence and answer without calling a write tool."""
         calls.append(messages)
-        assert [
+        evidence = [
             p.content
             for m in messages
             if isinstance(m, (ModelRequest, ModelResponse))
             for p in m.parts
             if isinstance(p, (UserPromptPart, TextPart))
-        ] == [m["content"] for m in history]
+        ]
+        assert evidence[:-1] == [m["content"] for m in history[:-1]]
+        assert evidence[-1].startswith(history[-1]["content"])
+        assert "label it historical" in evidence[-1]
         yield "In that earlier message, you asked for the library analogy."
 
     patch = FollowUpMemoryPatch()

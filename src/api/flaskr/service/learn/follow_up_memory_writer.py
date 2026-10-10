@@ -41,6 +41,19 @@ if TYPE_CHECKING:
     from flask import Flask
     from pydantic_ai.models import Model
 
+_CURRENT_MEMORY_NOTICE = (
+    "\n\n[Host memory context, not learner input]\n"
+    "For a question about the learner's CURRENT saved facts or preferences, call "
+    "recall for the relevant key NOW before answering. Discover keys if needed. "
+    "Old answers and save confirmations cannot establish current memory: another "
+    "lesson may have changed it. Unavailable or too_large means do not answer "
+    "with the old value. A different or absent current value does not prove that "
+    "an earlier save failed, that it was never saved, or that the learner never "
+    "said it. Do not invent the cause. For an explicit historical quotation "
+    "question, use the original conversation and label it historical. This host "
+    "notice grants no permission to write."
+)
+
 
 @dataclass
 class FollowUpMemoryPatch:
@@ -140,15 +153,17 @@ class _Completed:
 
 
 def _history(messages: list[dict[str, str]]) -> list[ModelRequest | ModelResponse]:
-    """Keep the existing role ordering without making old answers current input."""
+    """Project a host reminder beside the current question; preserve stored evidence."""
     history = []
-    for message in messages:
+    for index, message in enumerate(messages):
         role, content = message["role"], message["content"]
         if role == "assistant":
             history.append(ModelResponse(parts=[TextPart(content)]))
         elif role == "system":
             history.append(ModelRequest(parts=[SystemPromptPart(content)]))
         elif role == "user":
+            if index == len(messages) - 1:
+                content += _CURRENT_MEMORY_NOTICE
             history.append(ModelRequest(parts=[UserPromptPart(content)]))
         else:
             error_message = "unsupported follow-up message role"
