@@ -1048,7 +1048,7 @@ def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(
     assert context.langfuse_outputs == ["guardrail response"]
 
 
-def _run_numbered_ask(app: object, module: object) -> list:
+def _run_numbered_ask(app: object, module: object, *, preview: bool = False) -> list:
     return list(
         module.handle_input_ask(
             app=app,
@@ -1064,6 +1064,7 @@ def _run_numbered_ask(app: object, module: object) -> list:
             ),
             trace_args={},
             trace=_DummyTrace(),
+            is_preview=preview,
         )
     )
 
@@ -1133,11 +1134,13 @@ def test_external_answers_only_require_a_selection_for_actual_fallback(
             assert provider_calls == [provider]
 
 
+@pytest.mark.parametrize("preview", [False, True])
 @pytest.mark.parametrize("route", ["llm", "fallback", "synthesis"])
 def test_actual_llm_routes_snapshot_selection_model_and_metadata(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     route: str,
+    preview: bool,
 ) -> None:
     from unittest.mock import Mock
 
@@ -1178,11 +1181,25 @@ def test_actual_llm_routes_snapshot_selection_model_and_metadata(
     monkeypatch.setattr(module, "chat_llm", chat)
     monkeypatch.setattr(module, "stream_ask_provider_response", stream)
     with app.app_context():
-        assert _collect_content_chunks(_run_numbered_ask(app, module)) == [
-            "selection-answer"
-        ]
+        events = _run_numbered_ask(app, module, preview=preview)
+        assert _collect_content_chunks(events) == ["selection-answer"]
     resolve.assert_called_once_with("1")
     assert llm_calls[0]["model"] == "mapped-fast"
+    usage_context = llm_calls[0]["usage_context"]
+    assert usage_context.generated_block_bid == events[0].generated_block_bid == "gb-2"
+    assert usage_context.progress_record_bid == "selection-attend"
+    assert usage_context.user_bid == "selection-user"
+    assert usage_context.shifu_bid == "selection-course"
+    assert usage_context.outline_item_bid == "selection-outline"
+    assert usage_context.learning_mode == "read"
+    from flaskr.service.metering.consts import (
+        BILL_USAGE_SCENE_PREVIEW,
+        BILL_USAGE_SCENE_PROD,
+    )
+
+    assert usage_context.usage_scene == (
+        BILL_USAGE_SCENE_PREVIEW if preview else BILL_USAGE_SCENE_PROD
+    )
     assert llm_calls[0]["usage_metadata"] == {
         "model_selection_scope": "course",
         "model_selection_original": "fast",
@@ -1384,9 +1401,143 @@ def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_co
         assert call["usage_context"].outline_item_bid == "outline-1"
         assert call["usage_context"].progress_record_bid == "attend-1"
         assert call["usage_context"].learning_mode == "classroom"
+        assert call["usage_context"].generated_block_bid == "gb-2"
+        assert (
+            call["usage_context"].generated_block_bid == events[0].generated_block_bid
+        )
     assert all(
         event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
         for event in events
     )
     if source == "get_biji_knowledge":
         assert "RETRIEVED KNOWLEDGE" in str(calls[0]["messages"])
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
+def test_guardrail_reply_usage_belongs_to_the_current_answer(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    preview: bool,
+    learning_mode: str,
+) -> None:
+    from flaskr.service.learn import check_text
+    from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.metering.consts import (
+        BILL_USAGE_SCENE_PREVIEW,
+        BILL_USAGE_SCENE_PROD,
+    )
+
+    config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    monkeypatch.setattr(
+        module, "check_text_with_llm_response", check_text.check_text_with_llm_response
+    )
+    monkeypatch.setattr(check_text, "add_risk_control_result", lambda *_args: None)
+    checked = []
+
+    def reject(_app: object, block_bid: str, *_args: object) -> object:
+        """Keep moderation attached to the learner's question block."""
+        checked.append(block_bid)
+        return types.SimpleNamespace(
+            check_result=check_text.CHECK_RESULT_REJECT,
+            provider="test",
+            raw_data={},
+            risk_labels=[],
+        )
+
+    calls = []
+
+    def respond(*_args: object, **kwargs: object) -> object:
+        """Capture the actual guardrail model call, then stream its reply."""
+        calls.append(kwargs)
+        yield _LLMChunk("guardrail response")
+
+    monkeypatch.setattr(check_text, "check_text", reject)
+    monkeypatch.setattr(check_text, "invoke_llm", respond)
+    monkeypatch.setattr(check_text, "init_generated_block", module.init_generated_block)
+    monkeypatch.setattr(
+        module,
+        "stream_ask_provider_response",
+        lambda **_kwargs: pytest.fail("Rejected input entered the answer provider"),
+    )
+    context = _Context()
+    context._learning_mode = learning_mode
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=context,
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            user_input="blocked question",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="shifu-1", bid="outline-1", title="Lesson", position=1
+            ),
+            trace_args={},
+            trace=_DummyTrace(),
+            is_preview=preview,
+            anchor_element_bid="older-teaching-anchor",
+        )
+    )
+    assert checked == ["gb-1"]
+    assert _collect_content_chunks(events) == ["guardrail response"]
+    assert len(calls) == 1
+    usage = calls[0]["usage_context"]
+    assert usage.generated_block_bid == events[0].generated_block_bid == "gb-2"
+    assert usage.progress_record_bid == "attend-1"
+    assert usage.learning_mode == learning_mode
+    assert (
+        usage.usage_scene
+        == calls[0]["usage_scene"]
+        == (BILL_USAGE_SCENE_PREVIEW if preview else BILL_USAGE_SCENE_PROD)
+    )
+
+
+def test_interleaved_follow_ups_keep_distinct_answer_usage_snapshots(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import FrozenInstanceError
+
+    from flaskr.service.learn import handle_input_ask as module
+
+    config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    calls = []
+
+    def chat(*_args: object, **kwargs: object) -> object:
+        """Retain each immutable usage context beyond the next handler's start."""
+        calls.append(kwargs["usage_context"])
+        yield _LLMChunk("answer")
+
+    def provider(**kwargs: object) -> object:
+        """Exercise the actual handler's deferred LLM factory."""
+        return (
+            types.SimpleNamespace(content=chunk.result)
+            for chunk in kwargs["runtime"].llm_stream_factory()
+        )
+
+    monkeypatch.setattr(module, "chat_llm", chat)
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    common = {
+        "app": app,
+        "context": _Context(),
+        "user_info": types.SimpleNamespace(user_id="user-1"),
+        "attend_id": "attend-1",
+        "user_input": "question",
+        "outline_item_info": types.SimpleNamespace(
+            shifu_bid="shifu-1", bid="outline-1", title="Lesson", position=1
+        ),
+        "anchor_element_bid": "same-old-teaching-anchor",
+    }
+    first = module.handle_input_ask(**common, trace_args={}, trace=_DummyTrace())
+    second = module.handle_input_ask(**common, trace_args={}, trace=_DummyTrace())
+    first_start = next(first)
+    second_start = next(second)
+    assert first_start.generated_block_bid == "gb-2"
+    assert second_start.generated_block_bid == "gb-4"
+    assert _collect_content_chunks(list(first)) == ["answer"]
+    assert _collect_content_chunks(list(second)) == ["answer"]
+    assert [usage.generated_block_bid for usage in calls] == ["gb-2", "gb-4"]
+    assert all(usage.progress_record_bid == "attend-1" for usage in calls)
+    with pytest.raises(FrozenInstanceError):
+        calls[0].generated_block_bid = "gb-4"
