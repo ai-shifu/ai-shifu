@@ -115,7 +115,7 @@ jobs:
       - name: Run contract tests
         if: steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
-        run: python -m pytest tests/contract -v --tb=short
+        run: python -m pytest -n 2 --dist loadfile tests/contract -v --tb=short
 
       - name: Select test targets (PR only)
         if: github.event_name == 'pull_request' && steps.backend-changes.outputs.run == 'true'
@@ -299,15 +299,15 @@ jobs:
           if [[ "$FULL_BACKEND_TESTS" == "1" ]]; then
             # Migration discovery and other filesystem dependencies may be
             # invisible to testmon. A full target set must also disable selection.
-            python -m pytest --testmon-noselect "${test_targets[@]}"
+            python -m pytest -n 2 --dist loadfile --testmon-noselect "${test_targets[@]}"
           else
-            python -m pytest --testmon "${test_targets[@]}"
+            python -m pytest -n 2 --dist loadfile --testmon "${test_targets[@]}"
           fi
 
       - name: Run tests (main)
         if: github.event_name == 'push' && steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
-        run: python -m pytest --testmon-noselect tests
+        run: python -m pytest -n 2 --dist loadfile --testmon-noselect tests
 
       - name: Run full backend coverage
         id: coverage
@@ -317,7 +317,8 @@ jobs:
           python -m coverage erase
           test_status=0
           # Coverage must execute every test, independently of testmon's cache.
-          python -m coverage run -m pytest -p no:testmon tests || test_status=$?
+          # pytest-cov combines both workers; enforce the shared threshold below.
+          python -m pytest -n 2 --dist loadfile -p no:testmon --cov --cov-config=.coveragerc --cov-report= --cov-fail-under=0 tests || test_status=$?
           python -m coverage json --fail-under=0
           python -m coverage xml --fail-under=0
           coverage_status=0
