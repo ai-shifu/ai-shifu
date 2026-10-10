@@ -9,9 +9,10 @@ canonical: true
 # MarkdownFlow Memory Quality Evaluation
 
 The opt-in evaluator at `src/api/scripts/evaluate_mdf2_memory.py` supplies a
-repeatable synthetic baseline for the current course model. Its twenty-eight fixed
+repeatable synthetic baseline for the current course model. Its thirty-four fixed
 cases cover fourteen semantic admission decisions, six actual-engine recall
-turns, four long-teaching-history journeys and four exercise-statistics reports.
+turns, four long-teaching-history journeys, four exercise-statistics reports and
+six authored-rubric grading checks.
 This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
@@ -48,6 +49,40 @@ language benchmark. The synthetic snapshots are already authorized inputs; they
 do not independently prove the host's database authorization or course isolation.
 Those remain covered by the real storage tests in `test_memory_*_integration.py`
 and `tests/service/profile/`.
+
+## Authored-rubric grading cases
+
+The runtime's answer-criteria policy anchors judgments to the current question's
+authored requirements, including applicable lesson-wide requirements. Equivalent
+wording may satisfy a criterion. Optional facts, another question's rubric and
+the teacher's own earlier hints do not add pass conditions; learners cannot
+rewrite the rubric. Missing or contradictory required points still need correction.
+When the author requires a corrected learner submission, a teacher-supplied hint
+or explanation cannot replace it or authorize advancement. Authored retry limits
+still apply.
+This is model guidance, not a deterministic grading oracle or a change to saved
+judgments and statistics.
+
+Six synthetic cases use the real engine to ask a question, serialize/reload its
+session, submit one answer and observe the next text interaction. A complete
+paraphrase without optional facts must advance, as must one with a correct
+optional addition; missing program control, a learner's request to bypass
+criteria, a contradictory extra claim and a missing explicitly authored
+peripheral-device requirement must retry the same question. The next question
+requires peripherals even when the first does not. Exact, full question prompts
+make advancement observable without asking a model to grade its own output;
+bare internal labels do not satisfy question delivery.
+Feedback, preserved prior history, unchanged memory and a waiting interaction
+without errors are also required. During both initial question setup and answer
+feedback, a content-only turn gets at most one ordinary host continuation,
+never another answer. Empty or failed setup is not continued. These cases use temperature zero,
+2,048 output tokens and the existing twelve-request limit. Reports include the
+grading evaluator fingerprint and generation settings without raw answers/output.
+
+Offline doubles test evaluator failure detection and policy delivery after
+reload; they do not establish semantic grading quality. Live selected cases and
+saved-checkpoint replays remain bounded evidence for that model/context, not a
+new complete natural classroom, other models/languages or human acceptance.
 
 ## Long-history cases
 
@@ -534,8 +569,13 @@ justify retrying refused writes. A candidate replay produced correct rows/counts
 but exhausted its unchanged twelve-request budget attempting that unauthorized
 write; retain the unfinished failure while validating this completion guidance.
 
-See the [natural compressed-statistics plan](../exec-plans/active/mdf2-natural-compressed-statistics.md)
-for candidate validation. A non-persisting replay of a real pre-final-answer checkpoint
+The final report-turn replay succeeds with exact totals, normal finish and no
+memory-write attempts; #3094 is merged. See the
+[completed compressed-statistics plan](../exec-plans/completed/mdf2-natural-compressed-statistics.md)
+for retained failures and bounded validation, and the
+[authored-grading plan](../exec-plans/active/mdf2-authored-grading-criteria.md)
+for the separate grading drift and fresh complete-course follow-up.
+A non-persisting replay of a real pre-final-answer checkpoint
 must be identified as such; it cannot relabel the failed classroom or establish a
 new full-course/human acceptance. Initial trace reads failed; the supported trace
 API through the observed internal service later returns eighteen traces and all

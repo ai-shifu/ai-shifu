@@ -46,10 +46,13 @@ did not cross that threshold and cannot establish this acceptance.
 - [x] 2026-10-10: Add a real SDK failing assertion for post-report finish and
   existing memory authorization, then clarify successful-report guidance. Do not
   raise the request budget or grant a script's undeclared summary write.
-- [ ] 2026-10-10: Check original submissions, semantic judgments, question rows,
-  final totals, stored history and actual billed request attribution.
-- [ ] 2026-10-10: Record findings and validation in a focused PR, fixing any
-  reproduced defect before proposing acceptance. Reply to every AI opinion.
+- [x] 2026-10-10: Final turn-17 checkpoint replay verifies original submissions,
+  question rows, visible/calculated totals, preserved history and attribution.
+  Sixteen actual requests settle for 42.16 credits; finish succeeds without memory
+  writes or engine errors. This closes only the saved report-turn replay.
+- [x] 2026-10-10: #3094 merges as 7f083b3e3 after local/CI checks and replies
+  to all AI opinions. Transfer grading drift and fresh complete-course acceptance
+  to `../active/mdf2-authored-grading-criteria.md`; retain the failed classroom.
 
 ## Surprises & Discoveries
 
@@ -94,8 +97,11 @@ outcomes does not establish that those teaching judgments were correct.
 
 ## Outcomes & Retrospective
 
-Natural compression occurs, but report quality fails. The correction is under
-validation; the original report remains failed. A passing narrow replay does not
+The original natural classroom fails. The corrected saved report-turn replay
+passes, with exact evidence-based totals and normal finish. #3094 is merged;
+this narrow report-turn scope is complete. Fresh complete-course acceptance and
+grading drift remain in `../active/mdf2-authored-grading-criteria.md`. The original
+report remains failed. A passing narrow replay does not
 close fresh-course, human, other-model/language/provider or long-term acceptance.
 
 ## Context and Orientation

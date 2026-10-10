@@ -675,6 +675,10 @@ async def evaluate(
                         if case.get("compacted_history")
                         else None,
                     )
+                elif case["family"] == "grading":
+                    from scripts.mdf2_memory_quality.grading import evaluate_grading
+
+                    result = await evaluate_grading(case, model)
                 else:
                     runner = (
                         evaluate_admission
@@ -701,6 +705,9 @@ def report(
 ) -> dict:
     """Publish denominators and source fingerprints without prompts, answers or credentials."""
     from scripts.mdf2_memory_quality.exercise import GENERATION_SETTINGS
+    from scripts.mdf2_memory_quality.grading import (
+        GENERATION_SETTINGS as GRADING_GENERATION_SETTINGS,
+    )
 
     expected = {(case["id"], n) for case in cases for n in range(1, repeats + 1)}
     observed = [(result["id"], result["repetition"]) for result in results]
@@ -713,6 +720,8 @@ def report(
         "scripts/mdf2_memory_quality/cases.json": CASES_PATH,
         "scripts/mdf2_memory_quality/exercise.py": API_DIR
         / "scripts/mdf2_memory_quality/exercise.py",
+        "scripts/mdf2_memory_quality/grading.py": API_DIR
+        / "scripts/mdf2_memory_quality/grading.py",
     }
     for name in (
         "memory_admission.py",
@@ -758,6 +767,7 @@ def report(
         "recall_generation_settings": dict(RECALL_MODEL_SETTINGS),
         "teaching_generation_settings": dict(RECALL_MODEL_SETTINGS),
         "exercise_generation_settings": dict(GENERATION_SETTINGS),
+        "grading_generation_settings": dict(GRADING_GENERATION_SETTINGS),
         "teaching_summary_generation_settings": {
             "temperature": 0,
             "max_tokens": 256,
