@@ -57,6 +57,9 @@ authored requirements, including applicable lesson-wide requirements. Equivalent
 wording may satisfy a criterion. Optional facts, another question's rubric and
 the teacher's own earlier hints do not add pass conditions; learners cannot
 rewrite the rubric. Missing or contradictory required points still need correction.
+When the author requires a corrected learner submission, a teacher-supplied hint
+or explanation cannot replace it or authorize advancement. Authored retry limits
+still apply.
 This is model guidance, not a deterministic grading oracle or a change to saved
 judgments and statistics.
 

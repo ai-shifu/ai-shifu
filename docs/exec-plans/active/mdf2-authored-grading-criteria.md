@@ -17,6 +17,16 @@ failure and its original grades; reporting fidelity does not prove grading fidel
   cases with observable advance/retry checks through serialized engine sessions.
 - [x] 2026-10-10: Local learning/script checks pass 3,254 tests and 50 subtests
   with three expected skips; developer-tool and all-files repository gates pass.
+- [x] 2026-10-10: Both AI evaluator findings reproduce before correction;
+  658 focused engine/quality checks pass and both original threads have replies.
+- [x] 2026-10-10: Sim ca8e6ee2e matches all 54 runtime/resource hashes on two
+  ready API replicas. Six real-model cases produce five passes and one failure:
+  the teacher notices missing program control but supplies it and advances.
+  Preserve all twelve actual requests (7.49 settled credits) and the failed report.
+  Progress, sessions, variables and all 72 retained element rows remain identical. Trace listing times
+  out; direct reads of the observed trace ID recover all twelve generations.
+- [x] 2026-10-10: Clarify that teacher-supplied hints cannot replace an authored
+  required learner correction; an SDK policy-delivery assertion fails first.
 - [ ] 2026-10-10: Verify offline checks, real selected cases and a non-persisting
   replay of the actual pre-answer checkpoint on the corrected sim runtime.
 - [ ] 2026-10-10: Publish a focused PR, deploy sim, document evidence and reply
