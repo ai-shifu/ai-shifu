@@ -298,6 +298,10 @@ Current saved-fact answers require a fresh relevant read, using key discovery
 when necessary. An update or menu deletion in another lesson invalidates old
 answer/save-confirmation claims as current evidence. Explicit historical
 questions can still quote the original conversation without restoring memory.
+The final model-facing question carries a fixed host revalidation reminder;
+stored messages and raw learner write evidence remain unchanged. A current
+missing or different value cannot establish that an earlier save failed or
+that the learner never supplied it, so the answer must not invent that cause.
 The follow-up run keeps its authorized snapshot in user memory so a same-turn
 accepted write is visible to subsequent recall. Read-only calls do not invoke
 semantic write admission. Existing request/tool budgets and preview no-write

@@ -17,8 +17,11 @@ questions but must not establish that a preference is still saved.
 - [x] 2026-10-10T01:52:11Z: Four new offline integration cases failed without
   recall, then passed with the existing bounded engine tool. Same-run writes
   must not be shadowed by a duplicate local snapshot.
-- [ ] 2026-10-10T01:52:11Z: Complete historical/discovery regressions, learning
-  suite and repository gates; publish the focused PR without merging it.
+- [x] 2026-10-10T02:03:00Z: Historical/discovery regressions and 3,061 learning/
+  profile tests plus four subtests pass, with one expected skip. Developer tools,
+  repository gates and commit hooks pass. Published #3083 as db46e0837.
+- [x] 2026-10-10T02:03:00Z: Released only the runtime/test delta to sim as
+  d50b3d25c; both ready API replicas match all 37 relevant runtime fingerprints.
 - [ ] 2026-10-10T01:52:11Z: Release to sim through its normal branch pipeline,
   verify both runtime replicas, repeat the natural journey and reconcile usage.
 - [ ] 2026-10-10T01:52:11Z: Inspect CI and reply to every actionable AI opinion
@@ -33,6 +36,20 @@ deletion. A new lesson reported unknown. Persistence was correct. Follow-up
 Deps also copied the same snapshot into both user and local memory; a newly
 admitted user value would be hidden by the stale local copy during recall.
 
+Read-only reconciliation of the initial natural HTTP window found eleven
+successful, settled requests totaling 7.76 credits, with correct owner/course.
+All eleven lack progress/block IDs. The original eleven progress records and
+nine completed sessions are unchanged. This is a separate existing follow-up
+attribution defect, not evidence of complete accounting acceptance.
+
+The first deployed candidate exposed recall but still skipped it for one
+old-anchor current-preference question. It correctly handled deletion and the
+historical quotation. A separate cross-lesson answer read the right current
+value but invented that a previous save had failed. Preserve this mixed result;
+add a current-question host reminder that also forbids inventing a cause for
+changed/missing memory. The notice is only a model-facing projection, outside
+raw learner evidence and stored history.
+
 ## Decision Log
 
 - Reuse the existing exact, bounded recall tool; no new storage, endpoint,
@@ -44,6 +61,14 @@ admitted user value would be hidden by the stale local copy during recall.
   This remains model guidance, not deterministic output enforcement.
 - Keep existing request/tool budgets, semantic admission, deletion epochs,
   preview no-write behavior and system/course scope rules. Retain engine 1.0.
+- Transfer the demonstrated follow-up accounting defect to the next focused
+  usage-attribution task; do not fabricate IDs or expand this memory fix.
+- Add meaningful protocol docstrings to the four new FunctionModel stream
+  helpers. Behavior-named pytest functions remain exempt under the engineering
+  baseline's D102/D103 rules, regardless of a reviewer coverage warning.
+- Place the bounded host reminder beside the final current user prompt, as the
+  teaching engine already does for revalidation. No memory values or permission
+  evidence are copied into it; original messages stay untouched.
 
 ## Outcomes & Retrospective
 
@@ -85,8 +110,9 @@ discovery and unchanged historical evidence. Current factual reads must not
 write memory or invoke semantic admission. Ordinary questions retain one model
 request. The natural journey must answer the new preference after update and
 unknown after deletion while preserving the earlier quotation, original lesson
-records, completed progress and canonical profile. All actual gateway usage
-must carry matching real attempts/blocks and settle correctly. This closes only
+records, completed progress and canonical profile. Reconcile all actual gateway
+usage and retain incomplete attribution as a failed, separate acceptance item.
+Settlement alone does not prove attempt/block ownership. This closes only
 the tested model and learner journey, not other-provider, human or long-term
 memory/fees acceptance.
 
