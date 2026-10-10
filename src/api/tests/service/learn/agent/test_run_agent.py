@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from pydantic_ai.messages import ModelMessage
+
 import pytest
 from flaskr.service.learn.agent import run_agent
 from flaskr.service.learn.agent.engine.events import (
@@ -2703,7 +2705,7 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
     """Persist a real interrupted engine run before reloading it through the host."""
     from flaskr.service.learn.agent import session_store
     from flaskr.service.learn.agent.engine import Engine
-    from pydantic_ai.messages import ModelMessage, TextPart
+    from pydantic_ai.messages import TextPart
     from pydantic_ai.models.function import AgentInfo, FunctionModel
 
     partial = (
@@ -2788,6 +2790,85 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
     assert "".join(
         str(event.content) for event in events if event.type == GeneratedType.CONTENT
     ) == ("Next choose how to measure that outcome.")
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+def test_invalid_interaction_markup_stays_unfinished_and_recovers_after_reload(
+    app: object, calls: list, monkeypatch: pytest.MonkeyPatch, preview_mode: bool
+) -> None:
+    """A failed tool correction must not persist completion or advance the outline."""
+    import json
+
+    from flaskr.service.learn.agent import session_store
+    from flaskr.service.learn.agent.engine import Engine
+    from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+    recover = False
+
+    async def stream(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        if not recover:
+            yield 'Answer this question.\n<interact type="text" placeholder="Your answer" />'
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "text",
+                            "prompt": "Answer this question.",
+                            "placeholder": "Your answer",
+                        }
+                    ),
+                    tool_call_id="recovered-question",
+                )
+            }
+
+    monkeypatch.setattr(
+        run_agent, "save_agent_session", session_store.save_agent_session
+    )
+    monkeypatch.setattr(
+        run_agent, "load_agent_session", session_store.load_agent_session
+    )
+
+    def run() -> list:
+        return list(
+            run_agent.run_agent_lesson(
+                app,
+                engine=Engine(FunctionModel(stream_function=stream), render="none"),
+                script=SCRIPT,
+                user_bid="markup-host-learner",
+                shifu_bid=SHIFU,
+                outline_bid="markup-host-lesson",
+                preview_mode=preview_mode,
+                iter_turn=_drive,
+            )
+        )
+
+    events = run()
+    saved = session_store.load_agent_session(
+        app, "markup-host-learner", "markup-host-lesson", preview_mode=preview_mode
+    )
+    assert saved is not None
+    assert not saved.finished
+    assert not saved.pending
+    assert not any(name == "resolve_outline" for name, _ in calls)
+    assert "<interact" not in "".join(
+        str(e.content) for e in events if e.type == GeneratedType.CONTENT
+    )
+    recover = True
+    calls.clear()
+    events = run()
+    saved = session_store.load_agent_session(
+        app, "markup-host-learner", "markup-host-lesson", preview_mode=preview_mode
+    )
+    assert saved is not None
+    assert not saved.finished
+    assert len(saved.pending) == 1
+    assert saved.pending[0].spec.type == "text"
+    assert not any(name == "resolve_outline" for name, _ in calls)
+    assert any(e.type == GeneratedType.INTERACTION for e in events)
 
 
 @pytest.mark.parametrize("kind", ["single_or_text", "multi_or_text"])
