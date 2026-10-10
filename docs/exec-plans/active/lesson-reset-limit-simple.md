@@ -107,3 +107,13 @@ Focused backend/config validation: 110 cases passed with real Redis available. F
 The repository-wide TypeScript check remains red due to unchanged main tests in `src/web/src/app/admin/operations/users/[user_bid]/page.test.tsx`: an untyped mock `this` and deletion of a nonoptional property. The dev02 Dockerfile runs `npm run build`, so this is a build-readiness gap. Do not silently mix that unrelated fix into the reset PR. A proposed two-line test-only correction is held for the user's scope decision.
 
 Implemented and locally tested; not pushed to dev02, not deployed, not production-released. Redis persistence/eviction and environment isolation remain unverified in the actual deployment. No test/production SQL tables or migration markers have been modified.
+
+## Deployment preparation (2026-10-10)
+
+The user approved a separate two-line operations-test type fix and one temporary read-only Redis diagnostic, with CICD configuration restoration. The type-only fix is PR #3090 (`codex/fix-operations-test-types`, commit `e4faeb151`); it passed the whole web TypeScript check, user-detail hash/scroll regression and full lefthook gate. The reset feature branch does not contain those changes.
+
+A separate integration branch `codex/lesson-reset-limit-dev02` combines the reset feature with that test-only fix. Dev02 alone now has `LESSON_RESET_LIMIT=10`. No SQL records, migration revisions or production configuration were modified. The CICD manual branch-build call returned HTTP 500 Not Found and created no build. The normal push path then created build 510 / Drone 5299, source `2e4134e5620dcc2333cf8877108c1321efb4fe57`, image tag `20261010-2e4134e`. Dev02 CICD branch routing is temporarily the integration branch; restore it to `dev02` after this acceptance deployment. Git `dev02` history remains unchanged.
+
+The temporary API post-script issues only Redis PING, INFO and CONFIG GET commands using existing environment configuration; it reads no learner data and emits no credentials or literal masked prefix. It reports prefix scope classification, persistence and eviction settings. The original API post-script is empty and script timeout is zero; restore those after the one check, preserving any concurrent unrelated CICD edits. A classified prefix does not prove cross-environment isolation by itself.
+
+Build/deployment and real browser acceptance are still pending. Old test tables remain untouched.
