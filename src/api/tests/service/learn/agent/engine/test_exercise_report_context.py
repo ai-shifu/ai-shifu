@@ -184,6 +184,12 @@ async def test_schema_rejection_invalidates_a_previous_success_in_real_sdk() -> 
             assert "Successful calculator totals for this turn" in (
                 info.instructions or ""
             )
+            assert "call finish if nothing in the script remains" in (
+                info.instructions or ""
+            )
+            assert "does not declare a memory key or authorize remember" in (
+                info.instructions or ""
+            )
             yield {0: DeltaToolCall(name="finish", json_args="{}", tool_call_id="end")}
         else:
             yield ""
