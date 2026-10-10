@@ -502,7 +502,7 @@ def ensure_subscription_renewal_order(
 ) -> BillingOrder | None:
     """Ensure subscription renewal order."""
     cycle_start_at = scheduled_at or subscription.current_period_end_at
-    provider_name = _normalize_bid(subscription.billing_provider)
+    provider_name = _normalize_bid(subscription.billing_provider).lower()
     if (
         is_manual_payment_provider(provider_name)
         and subscription.current_period_end_at is not None
@@ -823,6 +823,25 @@ def _is_same_product_preorder_renewal(order: BillingOrder) -> bool:
     )
 
 
+def _is_stale_manual_cycle(
+    order: BillingOrder,
+    subscription: BillingSubscription,
+    effective_from: datetime,
+) -> bool:
+    """Reject old payments while allowing repair of the current cycle order."""
+    metadata = (
+        subscription.metadata_json
+        if isinstance(subscription.metadata_json, dict)
+        else {}
+    )
+    return bool(
+        is_manual_payment_provider(order.payment_provider)
+        and subscription.current_period_start_at is not None
+        and effective_from < subscription.current_period_start_at
+        and metadata.get("active_cycle_order_bid") != order.bill_order_bid
+    )
+
+
 def _activate_subscription_for_paid_order(
     app: Flask,
     order: BillingOrder,
@@ -873,13 +892,7 @@ def _activate_subscription_for_paid_order(
         return False
 
     # A replay of an older paid order must not replace a newer effective cycle.
-    if (
-        is_manual_payment_provider(order.payment_provider)
-        and subscription.current_period_start_at is not None
-        and effective_from < subscription.current_period_start_at
-        and (subscription.metadata_json or {}).get("active_cycle_order_bid")
-        != order.bill_order_bid
-    ):
+    if _is_stale_manual_cycle(order, subscription, effective_from):
         return False
 
     activated_reserved_targets: tuple[ReservedActivationTarget, ...] = ()
@@ -907,12 +920,18 @@ def _activate_subscription_for_paid_order(
             effective_to=effective_to,
         )
         if is_manual_payment_provider(order.payment_provider):
-            subscription.billing_provider = order.payment_provider
+            subscription.billing_provider = _normalize_bid(
+                order.payment_provider
+            ).lower()
             order_metadata = (
                 order.metadata_json if isinstance(order.metadata_json, dict) else {}
             )
             subscription.metadata_json = {
-                **(subscription.metadata_json or {}),
+                **(
+                    subscription.metadata_json
+                    if isinstance(subscription.metadata_json, dict)
+                    else {}
+                ),
                 **{
                     key: order_metadata[key]
                     for key in (
@@ -1453,6 +1472,7 @@ def _load_preorder_replaced_by_paid_upgrade(
             BillingOrder.bill_order_bid == preorder_order_bid,
         )
         .order_by(BillingOrder.id.desc())
+        .populate_existing()
         .with_for_update()
         .first()
     )
@@ -1545,6 +1565,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
                 subscription_bid=order.subscription_bid,
                 deleted=0,
             )
+            .populate_existing()
             .with_for_update()
             .first()
         )
@@ -1553,12 +1574,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
             order=order,
             default_effective_from=order.paid_at or now_utc(),
         )
-        if (
-            is_manual_payment_provider(order.payment_provider)
-            and effective_from < subscription.current_period_start_at
-            and (subscription.metadata_json or {}).get("active_cycle_order_bid")
-            != order.bill_order_bid
-        ):
+        if _is_stale_manual_cycle(order, subscription, effective_from):
             metadata = (
                 dict(order.metadata_json)
                 if isinstance(order.metadata_json, dict)

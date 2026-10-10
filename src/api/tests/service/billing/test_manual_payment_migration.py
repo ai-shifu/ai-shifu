@@ -26,7 +26,10 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.payment_policy import manual_payments_are_compatible
-from flaskr.service.order.payment_providers.base import PaymentCreationResult
+from flaskr.service.order.payment_providers.base import (
+    PaymentCreationResult,
+    PaymentNotificationResult,
+)
 from flaskr.util.datetime import now_utc, to_utc_iso
 
 from tests.service.billing.renewal_execution_test_helpers import (
@@ -225,13 +228,22 @@ def test_checkout_reuse_requires_same_payment_and_offset_snapshot(changed: str) 
 
 
 @pytest.mark.parametrize("provider", ["alipay", "wechatpay"])
+@pytest.mark.parametrize(
+    "current_product_bid",
+    ["bill-product-plan-monthly", "bill-product-plan-monthly-pro"],
+)
 def test_old_pingxx_subscription_can_preorder_using_native_provider(
-    billing_renewal_app: Flask, monkeypatch: pytest.MonkeyPatch, provider: str
+    billing_renewal_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    current_product_bid: str,
 ) -> None:
     with billing_renewal_app.app_context():
         subscription = create_renewal_subscription(
-            "preorder", billing_provider="pingxx"
+            "preorder", billing_provider="pingxx", product_bid=current_product_bid
         )
+        subscription.cancel_at_period_end = 1
+        subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
         with unit_of_work():
             db.session.add(subscription)
         end_at = subscription.current_period_end_at
@@ -257,7 +269,7 @@ def test_old_pingxx_subscription_can_preorder_using_native_provider(
             billing_renewal_app,
             subscription.creator_bid,
             {
-                "product_bid": subscription.product_bid,
+                "product_bid": "bill-product-plan-monthly",
                 "payment_provider": provider,
                 "action": "preorder",
             },
@@ -274,11 +286,35 @@ def test_old_pingxx_subscription_can_preorder_using_native_provider(
         assert subscription.billing_provider == "pingxx"
         assert subscription.current_period_end_at == end_at
         assert order.metadata_json["preorder_state"] == "pending_effective"
+        bucket = CreditWalletBucket.query.filter_by(
+            source_bid=order.bill_order_bid
+        ).one()
+        assert bucket.reserved_credits > 0
+        assert bucket.available_credits == 0
+        assert subscription.cancel_at_period_end == 1
+        monkeypatch.setattr(subscriptions, "now_utc", lambda: end_at)
+        with unit_of_work():
+            assert subscriptions.activate_subscription_for_paid_order(
+                billing_renewal_app, order
+            )
+            assert not subscriptions.grant_paid_order_credits(
+                billing_renewal_app, order
+            )
+        assert subscription.billing_provider == provider
+        assert subscription.product_bid == "bill-product-plan-monthly"
+        assert subscription.current_period_start_at == end_at
         assert (
-            CreditWalletBucket.query.filter_by(source_bid=order.bill_order_bid)
-            .one()
-            .reserved_credits
-            > 0
+            to_utc_iso(subscription.current_period_end_at)
+            == order.metadata_json["renewal_cycle_end_at"]
+        )
+        assert bucket.effective_to == subscription.current_period_end_at
+        assert subscription.cancel_at_period_end == 1
+        assert order.metadata_json["preorder_state"] == "effective_applied"
+        assert bucket.reserved_credits == 0
+        assert bucket.available_credits > 0
+        assert (
+            CreditLedgerEntry.query.filter_by(source_bid=order.bill_order_bid).count()
+            == 1
         )
 
 
@@ -596,7 +632,19 @@ def test_repeated_native_checkout_reuses_credential_and_original_subscription(
             raw_response={},
             extra={"credential": {channel: "https://payments.test/qr"}},
         )
+        fake.sync_reference.return_value = PaymentNotificationResult(
+            order_bid="",
+            status="pending",
+            provider_payload={
+                "trade": {
+                    "out_trade_no": "one-attempt",
+                    "trade_status": "WAIT_BUYER_PAY",
+                    "trade_state": "NOTPAY",
+                }
+            },
+        )
         monkeypatch.setattr(checkout, "get_payment_provider", lambda _: fake)
+        monkeypatch.setattr(checkout, "_credit_ledger_lock", lambda *_: nullcontext())
         payload = {"product_bid": "bill-product-plan-monthly"}
         first = checkout.create_billing_subscription_checkout(
             billing_renewal_app, "owner", payload

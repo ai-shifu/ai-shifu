@@ -23,6 +23,7 @@ from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_PAID,
     extract_native_trade_payload,
     extract_native_trade_status,
+    is_native_payment_payable,
     resolve_native_payment_state,
 )
 from flaskr.service.config import get_config
@@ -565,6 +566,7 @@ def create_billing_subscription_checkout(
         app_context_scope(app),
         _subscription_checkout_lock(app, normalized_creator_bid),
     ):
+        closed_order_bids: set[str] = set()
         while True:
             try:
                 prepared = _prepare_subscription_checkout(
@@ -577,6 +579,9 @@ def create_billing_subscription_checkout(
                 )
                 break
             except _ManualPaymentNeedsClosureError as pending:
+                if pending.bill_order_bid in closed_order_bids:
+                    raise_error("server.order.orderStatusError")
+                closed_order_bids.add(pending.bill_order_bid)
                 _close_manual_payment_before_replacement(
                     app,
                     normalized_creator_bid,
@@ -1094,7 +1099,7 @@ def create_billing_order_checkout(
     bill_order_bid: str,
     payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
-    """Create or refresh a Pingxx charge for one existing pending billing order."""
+    """Reopen a pending billing payment while preserving each attempt's identity."""
     # An expiry detected below is committed in its own unit of work before the
     # error is raised; nested, that write would roll back with the caller.
     require_transaction_owner("billing order checkout", app)
@@ -1182,10 +1187,11 @@ def _prepare_existing_billing_order_checkout(
 ) -> BillingCheckoutResultDTO | _ProviderCheckoutRequest:
     """Reopen a pending order: read, reconcile at the provider, build the request.
 
-    The Stripe reconcile talks to the provider, so it runs between two units of
-    work rather than inside one.
+    Provider reconciliation runs between persistence steps. A saved native QR
+    is reusable only while the provider confirms that its trade is payable.
     """
     pending_stripe_session_id = ""
+    saved_manual_checkout: BillingCheckoutResultDTO | None = None
     manual_attempt_needs_replacement = False
     with unit_of_work():
         order, product = _load_reopen_targets(bill_order_bid, product_bid)
@@ -1212,7 +1218,7 @@ def _prepare_existing_billing_order_checkout(
                     metadata.get("checkout") or {},
                     extra,
                 )
-                return BillingCheckoutResultDTO(**response)
+                saved_manual_checkout = BillingCheckoutResultDTO(**response)
             manual_attempt_needs_replacement = True
         if _normalize_bid(order.payment_provider) == "stripe":
             provider_price_mapping = _resolve_required_stripe_provider_price_mapping(
@@ -1233,13 +1239,38 @@ def _prepare_existing_billing_order_checkout(
                 return stored_checkout_result
             pending_stripe_session_id = _stored_stripe_checkout_session_id(order)
 
+    if saved_manual_checkout is not None:
+        if saved_manual_checkout.provider == "pingxx":
+            return saved_manual_checkout
+        sync_billing_order(app, creator_bid, bill_order_bid, {})
+        with unit_of_work():
+            order = _load_billing_order_by_bid(bill_order_bid)
+            if order is None or order.status == BILLING_ORDER_STATUS_PAID:
+                raise_error("server.order.orderStatusError")
+            metadata = (
+                order.metadata_json if isinstance(order.metadata_json, dict) else {}
+            )
+            if (
+                order.status == BILLING_ORDER_STATUS_PENDING
+                and is_native_payment_payable(
+                    order.payment_provider,
+                    metadata.get("latest_provider_payload") or {},
+                )
+            ):
+                return saved_manual_checkout
+
     if manual_attempt_needs_replacement:
         _close_manual_payment_before_replacement(app, creator_bid, bill_order_bid)
         with unit_of_work():
             old_order = _load_billing_order_by_bid(bill_order_bid)
             if old_order is None or old_order.status != BILLING_ORDER_STATUS_CANCELED:
                 raise_error("server.order.orderStatusError")
-            metadata = dict(old_order.metadata_json or {})
+            old_metadata = (
+                old_order.metadata_json
+                if isinstance(old_order.metadata_json, dict)
+                else {}
+            )
+            metadata = dict(old_metadata)
             for key in (
                 "checkout",
                 "provider_extra",
@@ -1273,7 +1304,7 @@ def _prepare_existing_billing_order_checkout(
                 campaign_bonus_credit_amount=old_order.campaign_bonus_credit_amount,
             )
             old_order.metadata_json = {
-                **(old_order.metadata_json or {}),
+                **old_metadata,
                 "replaced_by_bill_order_bid": replacement.bill_order_bid,
             }
             db.session.add(replacement)

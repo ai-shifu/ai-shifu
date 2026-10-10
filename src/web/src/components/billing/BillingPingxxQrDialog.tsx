@@ -26,6 +26,7 @@ const BILLING_PINGXX_CHANNELS: BillingPingxxChannel[] = [
 ];
 
 type BillingPingxxQrDialogProps = {
+  billingOrderBid: string;
   amountInMinor: number;
   currency: string;
   description: string;
@@ -44,6 +45,7 @@ type BillingPingxxQrDialogProps = {
 };
 
 export function BillingPingxxQrDialog({
+  billingOrderBid,
   amountInMinor,
   currency,
   description,
@@ -103,7 +105,7 @@ export function BillingPingxxQrDialog({
     return () => {
       window.clearInterval(timer);
     };
-  }, [expiresInSeconds, open]);
+  }, [billingOrderBid, expiresInSeconds, open]);
 
   const countdownLabel =
     remainingSeconds === null

@@ -985,6 +985,7 @@ export function BillingOverviewTab({
       />
 
       <BillingPingxxQrDialog
+        billingOrderBid={pingxxCheckout?.billingOrderBid || ''}
         amountInMinor={pingxxCheckout?.amountInMinor || 0}
         currency={pingxxCheckout?.currency || 'CNY'}
         description={pingxxCheckout?.description || ''}
