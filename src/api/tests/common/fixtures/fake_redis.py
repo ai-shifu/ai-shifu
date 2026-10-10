@@ -141,11 +141,11 @@ class FakeRedis:
     def eval(self, script: str, numkeys: int, *keys_and_args: object) -> object:
         """Execute the small authentication and lesson reset scripts under test."""
         if numkeys == 2 and "lesson_reset:" in str(keys_and_args[0]):
-            counter_key, lock_key, token, state = keys_and_args
+            counter_key, lock_key, token, state, *ttl = keys_and_args
             if self._locks.get(str(lock_key)) != token:
                 return 0
             json.loads(str(state))
-            self.set(str(counter_key), state)
+            self.set(str(counter_key), state, ex=int(ttl[0]) if ttl else None)
             return 1
         if numkeys != 3 or "password_login" not in str(keys_and_args[0]):
             message = "FakeRedis only supports the password login counter script"

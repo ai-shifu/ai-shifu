@@ -509,6 +509,84 @@ def real_reset_redis(monkeypatch: pytest.MonkeyPatch) -> Iterator[object]:
                 process.wait(timeout=5)
 
 
+def test_real_redis_empty_reset_retry_preserves_new_learning_without_charging(
+    app: Flask,
+    reset_course: SimpleNamespace,
+    real_reset_redis: object,
+) -> None:
+    """A lost empty-reset response can be retried safely within the approved day."""
+    identity = uuid.uuid4().hex
+    assert reset(app, reset_course, request_id=identity)
+    from flaskr.service.learn.lesson_reset_limit import normalize_reset_request_id
+
+    guard = LessonResetGuard(
+        app,
+        reset_course.course,
+        reset_course.lesson,
+        reset_course.learner,
+        normalize_reset_request_id(identity),
+    )
+    assert count(app, reset_course, real_reset_redis) == 0
+    assert real_reset_redis.get(guard.key) is None
+    assert 86390 <= real_reset_redis.ttl(guard.noop_receipt_key) <= 86400
+    current = start(app, reset_course)[0]
+    assert reset(app, reset_course, request_id=identity)
+    assert count(app, reset_course, real_reset_redis) == 0
+    with app.app_context():
+        assert (
+            LearnProgressRecord.query.filter_by(progress_record_bid=current)
+            .one()
+            .status
+            == LEARN_STATUS_IN_PROGRESS
+        )
+
+
+def test_empty_reset_failure_does_not_store_a_success_receipt(
+    app: Flask,
+    reset_course: SimpleNamespace,
+    mock_redis_client: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rollback cancels even a scheduled free reset receipt."""
+    original = learn_funcs._stage_lesson_reset
+
+    def fail(*args: object, **kwargs: object) -> Never:
+        original(*args, **kwargs)
+        message = "injected empty reset rollback"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(learn_funcs, "_stage_lesson_reset", fail)
+    with pytest.raises(RuntimeError, match="injected empty reset rollback"):
+        reset(app, reset_course)
+    assert not mock_redis_client._store
+
+
+def test_empty_reset_receipt_expires_without_expiring_the_allowance(
+    app: Flask,
+    reset_course: SimpleNamespace,
+    mock_redis_client: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Document the accepted late-retry boundary while retaining charged uses."""
+    timestamp = [1000]
+    monkeypatch.setattr(mock_redis_client, "_now", lambda: timestamp[0])
+    identity = uuid.uuid4().hex
+    assert reset(app, reset_course, request_id=identity)
+    start(app, reset_course)
+    assert reset(app, reset_course)
+    current = start(app, reset_course)[0]
+    timestamp[0] += 86401
+    assert reset(app, reset_course, request_id=identity)
+    assert count(app, reset_course, mock_redis_client) == 2
+    with app.app_context():
+        assert (
+            LearnProgressRecord.query.filter_by(progress_record_bid=current)
+            .one()
+            .status
+            == LEARN_STATUS_RESET
+        )
+
+
 def test_real_redis_status_preserves_an_active_reset_lock(
     app: Flask,
     reset_course: SimpleNamespace,

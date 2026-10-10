@@ -33,9 +33,14 @@ if TYPE_CHECKING:
     from flask import Flask
 
 _LOCK_SECONDS = 60
+_NOOP_RECEIPT_SECONDS = 24 * 60 * 60
 _WRITE_STATE = """
 if redis.call('GET', KEYS[2]) ~= ARGV[1] then return 0 end
-redis.call('SET', KEYS[1], ARGV[2])
+if ARGV[3] then
+    redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
+else
+    redis.call('SET', KEYS[1], ARGV[2])
+end
 return 1
 """
 
@@ -88,6 +93,7 @@ class LessonResetGuard:
         prefix = str(app.config.get("REDIS_KEY_PREFIX", "ai-shifu:"))
         self.key = f"{prefix}lesson_reset:{user_id}:{course_id}:{lesson_id}"
         self.request_id = request_id
+        self.noop_receipt_key = f"{self.key}:noop:{request_id}"
         self.limit = int(app.config.get("LESSON_RESET_LIMIT", 9999))
         self.state = {"count": 0, "requests": []}
         self.duplicate = False
@@ -116,7 +122,10 @@ class LessonResetGuard:
             )
             self.renewer.start()
             self._read_state()
-            self.duplicate = self.request_id in self.state["requests"]
+            self.duplicate = (
+                self.request_id in self.state["requests"]
+                or self.client.get(self.noop_receipt_key) == b"1"
+            )
         except Exception:
             self._release()
             raise_error("server.learn.resetUnavailable")
@@ -210,6 +219,21 @@ class LessonResetGuard:
         )
         if not recorded:
             message = "Reset committed after its guard was lost"
+            raise RuntimeError(message)
+
+    def record_noop_success(self) -> None:
+        """Protect a completed empty reset's retries for 24 hours without charging."""
+        recorded = self.client.eval(
+            _WRITE_STATE,
+            2,
+            self.noop_receipt_key,
+            self.key + ":lock",
+            self.token,
+            "1",
+            _NOOP_RECEIPT_SECONDS,
+        )
+        if not recorded:
+            message = "Empty reset committed after its guard was lost"
             raise RuntimeError(message)
 
     def __exit__(

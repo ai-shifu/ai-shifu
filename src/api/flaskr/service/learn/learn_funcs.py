@@ -860,9 +860,13 @@ def _stage_lesson_reset(
         outline_item_bid=outline_bid,
         preview_mode=False if guard is not None else None,
     )
-    if guard is not None and (progress_records or has_agent_session):
+    if guard is not None:
         guard.check_before_commit()
-        on_commit(guard.record_success)
+        on_commit(
+            guard.record_success
+            if progress_records or has_agent_session
+            else guard.record_noop_success
+        )
     return True
 
 
