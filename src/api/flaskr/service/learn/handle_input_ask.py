@@ -286,15 +286,6 @@ def handle_input_ask(
     learning_mode = getattr(context, "_learning_mode", None)
     if learning_mode not in {"read", "listen", "classroom"}:
         learning_mode = "listen" if getattr(context, "_listen", False) else "read"
-    usage_context = UsageContext(
-        user_bid=user_info.user_id,
-        shifu_bid=outline_item_info.shifu_bid,
-        outline_item_bid=outline_item_info.bid,
-        progress_record_bid=attend_id,
-        usage_scene=usage_scene,
-        learning_mode=learning_mode,
-    )
-
     app.logger.info("follow_up_info:%s", follow_up_info.__json__())
     chapter_title = outline_item_info.title
     ask_scene = "lesson_preview_ask" if is_preview else "lesson_ask"
@@ -405,6 +396,18 @@ def handle_input_ask(
         app, outline_item_info, attend_id, user_info.user_id, "", last_position
     )
     db.session.flush()
+
+    # Bind the new reply before guardrail or provider calls. The question's
+    # historical anchor belongs to an earlier block, not this answer's usage.
+    usage_context = UsageContext(
+        user_bid=user_info.user_id,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        generated_block_bid=answer_block.generated_block_bid,
+        usage_scene=usage_scene,
+        learning_mode=learning_mode,
+    )
 
     # Emit internal ASK event for listen adapter
     yield RunMarkdownFlowDTO(

@@ -25,7 +25,7 @@ separate acceptance requirements.
   settled credits. Copied/verified private evidence before remote cleanup.
 - [x] 2026-10-10T01:52:11Z: PR #3082 merged as efa38c70c. Final technical CI
   succeeded; no actionable AI comments. CodeRabbit was quota-limited. Natural
-  follow-up acceptance continues in the [next plan](../active/mdf2-natural-memory-follow-up.md).
+  follow-up acceptance continues in the [next plan](mdf2-natural-memory-follow-up.md).
 
 ## Surprises & Discoveries
 

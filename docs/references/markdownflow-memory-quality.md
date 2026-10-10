@@ -309,8 +309,31 @@ actual byte-bounded discovery pages, one exact read and three write attempts
 (plus up to three new pages). Write attempts remain capped at three separately;
 ordinary answers still need only one model request. Preview no-write rules
 remain unchanged. External provider-only answers and Live do not acquire
-these tools. See the [natural follow-up plan](../exec-plans/active/mdf2-natural-memory-follow-up.md)
+these tools. See the [natural follow-up plan](../exec-plans/completed/mdf2-natural-memory-follow-up.md)
 for the initial failing journey and candidate acceptance.
+
+### Remaining natural answer quality
+
+The merged current-value fix does not close causal or chronological quality.
+Three final natural answers reported the correct current value but invented
+that an earlier save failed, did not overwrite a value, or never happened.
+Those transcripts remain failed evidence. Future quality acceptance must
+preserve historical statements without inferring a past operation's outcome
+from the current snapshot alone. Current-value correctness does not erase
+these failures or establish full memory, human or provider acceptance.
+
+### Follow-up usage attribution
+
+Text follow-up model requests, including memory admission and guardrail
+replies, use the new answer block's generated_block_bid. Create the frozen
+UsageContext after that placeholder is allocated and flushed, before model
+or provider execution. Preserve the actual progress, user, course, lesson,
+scene and learning mode. The question's block and historical teaching anchor
+must not stand in for this answer. Guardrail audit records still identify the
+learner's question. Existing usage rows are not backfilled. See the
+[follow-up attribution plan](../exec-plans/active/mdf2-follow-up-block-attribution.md)
+for regression and live-ledger acceptance; this does not change settlement,
+transaction ownership, external provider-only routing or Live behavior.
 
 ## Release boundary
 
