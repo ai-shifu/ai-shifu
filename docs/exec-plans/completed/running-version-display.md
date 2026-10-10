@@ -1,8 +1,8 @@
 ---
 title: Display the running frontend version
-status: active
+status: completed
 owner_surface: web
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-10
 ---
 
 # Display the running frontend version
@@ -25,7 +25,7 @@ The text is selectable and works in the existing desktop and mobile menus.
 - [x] 2026-10-10 07:26 CST: Simulation PR #3079 deployed commit `6002c0108bbdcb9a989470b0b193b1aacca85923` as `sim-6002c01` (build 488); API and Web rollouts completed. The browser menu shows the same SHA on desktop and at 390x844, including Chinese text, selectable 12px styling and no footer overflow.
 - [x] 2026-10-10 07:27 CST: Refreshed main and rebased the feature branch for the repository's up-to-date merge rule. Both original commit patches are unchanged; the production PR's first complete CI run passed all applicable checks.
 - [x] 2026-10-10 07:42 CST: Addressed Docker development review discussion r4235386594. The dev script now prepares HEAD before the Web build, clears stale archive metadata and stops on marker update failures. Direct Compose and standalone build instructions are aligned; 10 new executable regressions pass, and a second entrypoint audit found no remaining build path omission.
-- [ ] Merge through a focused PR and verify domestic and overseas production pages against the deployed source revision.
+- [x] 2026-10-10 00:00 UTC: PR #3077 squash-merged as `0840a55f03c322366aab7203c50c5bbdaf990117`. Production build 489 / Drone 5278 published `20261010-0840a55`; all eight CN/US deployments completed and the queue converged. Both regional browser menus display `v2.3.3 · 0840a55`, matching the image source.
 
 ## Surprises & Discoveries
 
@@ -47,10 +47,30 @@ therefore supports both build paths without changing the deployment Dockerfile.
 
 ## Outcomes & Retrospective
 
-Implementation and simulation acceptance are complete. The shared menu in the
-simulation browser renders `Version v2.3.3 · 6002c01` on desktop and
-`版本 v2.3.3 · 6002c01` at 390x844, matching the deployed source. Production
-acceptance remains open until both regional pages match their deployed image.
+Implementation, simulation and production acceptance are complete. Simulation
+PR #3079 deployed `6002c0108bbdcb9a989470b0b193b1aacca85923` and the browser
+menu matched `6002c01` on desktop and at 390x844. Production PR #3077 deployed
+`0840a55f03c322366aab7203c50c5bbdaf990117` as `20261010-0840a55` through build
+489 / Drone 5278. The actual build log contains HEAD-marker generation. At
+2026-10-09 23:59:38 UTC, deployment records 2324 through 2331 were successful:
+all eight CN/US services had ready, updated and available replicas equal to
+the desired counts, and deployment queue 495 had no active work.
+
+After rollout, the domestic browser menu displayed
+`Version v2.3.3 · 0840a55` on desktop and `版本 v2.3.3 · 0840a55` at 390x844,
+with selectable 12px text and no overflow. The overseas guest learner shell
+also displayed `Version v2.3.3 · 0840a55`, matching the deployed source. The
+CN example course does not exist in the US catalog, so this overseas readback
+verifies frontend identity, not course-content availability. Authenticated
+teacher behavior is covered by the shared menu and layout tests; the live
+browser verification used guest learner menus.
+
+The final feature head passed all applicable GitHub checks, including native
+ARM64 images and the production runtime/browser harness. Local validation
+included 93 related frontend tests, 53 packaging/metadata regressions, the
+production build, full lint, translations, architecture boundaries and the
+all-file pre-commit gate. Standalone type-check retains only the two unchanged
+main-baseline operator user-page test errors (TS2683 and TS2790).
 
 ## Context and Orientation
 
