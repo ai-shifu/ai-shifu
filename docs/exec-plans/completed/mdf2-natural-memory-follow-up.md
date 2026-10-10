@@ -38,7 +38,7 @@ questions but must not establish that a preference is still saved.
   Technical checks except the running runtime-harness have passed at this time.
 - [x] 2026-10-10T03:22:03Z: Confirmed #3083 manually merged as caa1211e1;
   final technical CI passed. Archived this narrow current-value fix. Transfer
-  missing block attribution to the [follow-up usage plan](../active/mdf2-follow-up-block-attribution.md)
+  missing block attribution to the [follow-up usage plan](mdf2-follow-up-block-attribution.md)
   and causal explanation failures to the [memory quality backlog](../../references/markdownflow-memory-quality.md#remaining-natural-answer-quality).
   These acceptance gaps remain open independently of this merged fix.
 

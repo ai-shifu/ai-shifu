@@ -322,6 +322,48 @@ preserve historical statements without inferring a past operation's outcome
 from the current snapshot alone. Current-value correctness does not erase
 these failures or establish full memory, human or provider acceptance.
 
+The [follow-up evidence plan](../exec-plans/active/mdf2-follow-up-memory-evidence.md)
+adds explicit provenance guidance to the system instructions, final-question
+projection and follow-up-only recall description. Found establishes the current
+value only; unavailable does not mean never saved, and too_large does not mean
+absent. Historical assistant confirmations are not write receipts. Answer a
+current-memory question directly without an unsolicited historical diagnosis;
+when explicitly asked for a cause, acknowledge that it is not established.
+Only the current run's remember result supports an acknowledged write outcome.
+This remains model guidance requiring natural validation. It does not alter
+recall's exact byte-bounded results, learner authorization or stored messages.
+An exact follow-up read also carries a separate fixed host interpretation after
+the unchanged tool return. Current absence uses present-tense wording; do not
+claim a value was never saved or list unrelated profile fields. Exact historical
+quotes must come verbatim from learner messages, not assistant suggestions;
+label paraphrases and acknowledge when original wording is unavailable. The
+post-read context is excluded from raw write permission evidence and still
+counts toward the gateway's total input budget. The first candidate's fresh-
+lesson and quotation failures remain failed evidence, not overwritten retries.
+
+The corrected sim sample has four correct current-value answers and an explicit
+unknown-cause answer without the earlier false save diagnoses. Eighteen requests
+settle completely (10.25 credits), with correct answer/progress/owner attribution
+and all 184 original elements preserved. This is narrow current-memory/causal
+acceptance only. Initial failures, including the first candidate's 17 requests
+(9.43 credits), remain recorded. Verbose suggestions and a generic unrelated
+field list in the final why answer remain quality observations.
+
+### Remaining exact follow-up quotations
+
+Both new natural samples correctly name the earlier analogy but present an
+assistant's suggested request as the learner's verbatim original. Stronger
+quotation guidance did not fix this. Exact-quotation acceptance remains failed
+and is the next separate evidence-grounding task, not part of the narrow
+save-cause acceptance. Preserve the original messages and failed responses.
+Inspect actual role-bearing context and the bounded follow-up history window
+in `follow_up_context.py` before choosing a fix. Quotation evidence must come
+from learner messages; if the exact source is outside available context, report
+that limitation rather than upgrading an assistant suggestion into evidence.
+Do not solve this by restoring deleted memory, loading unrelated private facts,
+or inventing historical save receipts. Other models and human acceptance remain
+open independently.
+
 ### Follow-up usage attribution
 
 Text follow-up model requests, including memory admission and guardrail
@@ -331,7 +373,7 @@ or provider execution. Preserve the actual progress, user, course, lesson,
 scene and learning mode. The question's block and historical teaching anchor
 must not stand in for this answer. Guardrail audit records still identify the
 learner's question. Existing usage rows are not backfilled. See the
-[follow-up attribution plan](../exec-plans/active/mdf2-follow-up-block-attribution.md)
+[follow-up attribution plan](../exec-plans/completed/mdf2-follow-up-block-attribution.md)
 for regression and live-ledger acceptance; this does not change settlement,
 transaction ownership, external provider-only routing or Live behavior.
 
