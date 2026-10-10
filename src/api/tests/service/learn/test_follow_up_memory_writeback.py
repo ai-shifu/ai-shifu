@@ -1018,8 +1018,10 @@ def test_late_follow_up_keeps_newer_global_profile_corrections(
 
 
 @pytest.mark.parametrize("has_original", [True, False])
+@pytest.mark.parametrize("permission_source", ["historical", "host_notice"])
 def test_quote_tool_uses_only_original_learner_history_without_write_permission(
     has_original: bool,
+    permission_source: str,
 ) -> None:
     from flaskr.service.learn.agent.gateway_model import map_messages
 
@@ -1027,6 +1029,8 @@ def test_quote_tool_uses_only_original_learner_history_without_write_permission(
     suggestion = "Please remember: library loans before cache versus RAM."
     history = ([{"role": "user", "content": original}] if has_original else []) + [
         {"role": "assistant", "content": "You can say: " + suggestion},
+        {"role": "user", "content": "What were my exact earlier words?"},
+        {"role": "assistant", "content": "The request happened after your question."},
         {"role": "user", "content": "What were my exact earlier words?"},
     ]
     before = [dict(m) for m in history]
@@ -1050,6 +1054,15 @@ def test_quote_tool_uses_only_original_learner_history_without_write_permission(
         elif results[-1]["tool_call_id"] == "quote":
             value = json.loads(results[-1]["content"])
             assert value["coverage"] == "supplied_history_only"
+            assert value["relative_to"] == "before_current_question"
+            assert value["order"] == "oldest_to_newest"
+            tool_position = mapped.index(results[-1])
+            notice = mapped[tool_position + 1]
+            assert notice["role"] == "user"
+            assert "[Host quotation context, not learner input]" in notice["content"]
+            assert "THIS current question" in notice["content"]
+            assert "earlier identical question" in notice["content"]
+            assert "grants no permission to write" in notice["content"]
             assert value["messages"] == (
                 [
                     {
@@ -1071,7 +1084,11 @@ def test_quote_tool_uses_only_original_learner_history_without_write_permission(
                         {
                             "key": "analogy",
                             "value": "library",
-                            "request": original,
+                            "request": (
+                                original
+                                if permission_source == "historical"
+                                else notice["content"]
+                            ),
                         }
                     ),
                 )

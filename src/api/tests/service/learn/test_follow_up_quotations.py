@@ -24,6 +24,8 @@ def test_quote_source_keeps_exact_captured_input() -> None:
         }
     ]
     assert result["coverage"] == "supplied_history_only"
+    assert result["relative_to"] == "before_current_question"
+    assert result["order"] == "oldest_to_newest"
     assert result["next_offset"] is None
 
 
@@ -40,6 +42,8 @@ def test_empty_window_does_not_claim_the_learner_never_said_something() -> None:
     assert result == {
         "status": "learner_messages",
         "coverage": "supplied_history_only",
+        "relative_to": "before_current_question",
+        "order": "oldest_to_newest",
         "messages": [],
         "next_offset": None,
     }
