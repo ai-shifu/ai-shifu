@@ -2,7 +2,7 @@
 title: MarkdownFlow Memory Quality Evaluation
 status: active
 owner_surface: learner
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-10
 canonical: true
 ---
 
@@ -162,8 +162,52 @@ normalization plus reference grouping rescores six unchanged captured outputs
 failing reports remain retained privately, not relabeled as new passing runs.
 The additional compacted exercise cases now cover summary success and injected
 failure/cache fallback with selected synthetic evidence. Natural-course
-statistics after semantic-summary compaction, other models/languages, full-catalog
-repetitions and independent human acceptance remain separate items.
+statistics after semantic-summary compaction, other models/languages and
+independent human acceptance remain separate items. Full-catalog repetitions on
+the current course model are recorded below; they do not close those other items.
+
+## Complete current-model baseline: October 10, 2026
+
+The unchanged twenty-eight-case catalog passed three complete repetitions
+(**84/84**, zero evaluation errors) on `ark/deepseek-v4-1-flash-260910`, from
+01:24:00Z to 01:29:59Z. The evaluator and fixtures came from merged revision
+`6bbae6ecc`, including the original-message/part binding added in `d7cf9ba6b`.
+All twenty-eight report fingerprints match that checkout. Both ready sim API
+replicas (`sim-6002c01`) match the twenty-five runtime fingerprints. Contributor
+scripts ran from an isolated temporary directory, importing the unchanged
+installed runtime; no candidate prompt or engine overrides were used.
+
+| Case family | Fixed cases | Repetitions | Passing results |
+| --- | --- | --- | --- |
+| Semantic admission | 14 | 3 | 42/42 |
+| Current-memory recall | 6 | 3 | 18/18 |
+| Long teaching history | 4 | 3 | 12/12 |
+| Exercise statistics | 4 | 3 | 12/12 |
+| Total | 28 | 3 | 84/84 |
+
+There were eighteen logical summary attempts: twelve completed provider requests
+and six explicitly injected failures that make no summary-provider request.
+Summary and excerpt evidence, serialized cache reuse, exact original reads and
+per-question statistics passed the existing checks in each relevant repetition.
+The observer rejects known references copied into later responses or wrong parts;
+its eight offline position cases include four demonstrated pre-fix failures.
+
+Read-only reconciliation found 252 actual gateway rows: 42 admission, 75 recall,
+61 teaching, 62 exercise and 12 summary requests. Diagnostic request counts agree
+with that ledger count, but the ledger independently establishes billing. Every
+row is attributed to the dedicated learner, validated course/lesson and resolved
+owner; no classroom progress/block IDs were fabricated. There are zero failed
+rows or unsettled billable successes. Settled cost is **135.19 credits**, separate
+from earlier natural-classroom and selected-case runs. This is one complete
+synthetic evaluation cost, not a per-lesson price or long-term savings estimate.
+
+The initial report, observational diagnostics and ledger evidence are retained
+privately, with no real memory or classroom-session persistence. The isolated
+remote directory was removed after evidence was copied and verified. This result
+does not replace natural-course statistics after compaction, storage-backed
+journeys, real Bot/knowledge-base/Workflow acceptance, other models/languages,
+human teaching-quality feedback or long-term cost observation. Earlier failures
+remain historical evidence; this passing run does not relabel them.
 
 ## Running
 
