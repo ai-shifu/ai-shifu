@@ -780,3 +780,48 @@ def test_a_question_the_controls_cannot_carry_says_why(spec: InteractionSpec) ->
             outline_bid="o",
             generated_block_bid="b",
         )
+
+
+@pytest.mark.parametrize("kind", ["text", "single_or_text", "multi_or_text"])
+@pytest.mark.parametrize("placeholder", [None, "", " \t\n"])
+def test_text_controls_without_a_hint_still_have_a_visible_input(
+    kind: str, placeholder: str | None
+) -> None:
+    options = [] if kind == "text" else [Option(display="A", value="a")]
+    spec = _spec(
+        type=kind,
+        prompt="Describe your project.",
+        options=options,
+        variable="project",
+        placeholder=placeholder,
+    )
+    before = spec.model_dump()
+    rendered = legacy_protocol.render_interaction(spec)
+    parsed = _parse(rendered)
+    assert parsed["question"].strip()
+    assert parsed["question"] == _("server.learn.freeTextPlaceholder")
+    assert [(b["display"], b["value"]) for b in parsed.get("buttons", [])] == [
+        (o.display, o.stored) for o in options
+    ]
+    assert bool(parsed.get("is_multi_select")) == (kind == "multi_or_text")
+    assert parsed["variable"] == "project"
+    assert spec.model_dump() == before
+    assert legacy_protocol.unrenderable_reason(spec) is None
+
+
+@pytest.mark.parametrize(
+    "language", ["zh-CN", "en-US", "fr-FR", "de-DE", "es-ES", "ar-SA", "th-TH", "ur-PK"]
+)
+@pytest.mark.usefixtures("app")
+def test_default_text_hint_uses_the_learners_language(language: str) -> None:
+    from flaskr.i18n import clear_language, set_language, translate_for_language
+
+    key = "server.learn.freeTextPlaceholder"
+    expected = translate_for_language(key, language)
+    assert expected != key
+    set_language(language)
+    try:
+        rendered = legacy_protocol.render_interaction(_spec(type="text", prompt=""))
+    finally:
+        clear_language()
+    assert _parse(rendered)["question"] == expected
