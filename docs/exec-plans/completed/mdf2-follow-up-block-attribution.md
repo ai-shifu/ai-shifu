@@ -38,7 +38,7 @@ ledger without rewriting historical usage or retiring engine 1.0.
   successful final technical CI, including runtime-harness. No new actionable
   AI comments; the docstring advisory already has an original-discussion reply.
   Archive this accepted accounting scope. Historical-cause quality continues
-  in the [evidence plan](../active/mdf2-follow-up-memory-evidence.md).
+  in the [evidence plan](mdf2-follow-up-memory-evidence.md).
 
 ## Surprises & Discoveries
 

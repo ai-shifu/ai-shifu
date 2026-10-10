@@ -1386,7 +1386,8 @@ def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_co
     assert "undeclared current-course facts CAN be saved" in system
     assert "never prohibit calling the available remember tool" in system
     tools = {t["function"]["name"]: t["function"] for t in calls[0]["tools"]}
-    assert set(tools) == {"recall", "remember"}
+    assert set(tools) == {"recall", "remember", "learner_quotes"}
+    assert set(tools["learner_quotes"]["parameters"]["properties"]) == {"offset"}
     schema = tools["remember"]["parameters"]
     assert "request" in schema["required"]
     assert "EXACTLY" in schema["properties"]["request"]["description"]

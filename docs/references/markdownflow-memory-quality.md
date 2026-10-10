@@ -322,7 +322,7 @@ preserve historical statements without inferring a past operation's outcome
 from the current snapshot alone. Current-value correctness does not erase
 these failures or establish full memory, human or provider acceptance.
 
-The [follow-up evidence plan](../exec-plans/active/mdf2-follow-up-memory-evidence.md)
+The [follow-up evidence plan](../exec-plans/completed/mdf2-follow-up-memory-evidence.md)
 adds explicit provenance guidance to the system instructions, final-question
 projection and follow-up-only recall description. Found establishes the current
 value only; unavailable does not mean never saved, and too_large does not mean
@@ -356,13 +356,27 @@ assistant's suggested request as the learner's verbatim original. Stronger
 quotation guidance did not fix this. Exact-quotation acceptance remains failed
 and is the next separate evidence-grounding task, not part of the narrow
 save-cause acceptance. Preserve the original messages and failed responses.
-Inspect actual role-bearing context and the bounded follow-up history window
-in `follow_up_context.py` before choosing a fix. Quotation evidence must come
-from learner messages; if the exact source is outside available context, report
-that limitation rather than upgrading an assistant suggestion into evidence.
-Do not solve this by restoring deleted memory, loading unrelated private facts,
-or inventing historical save receipts. Other models and human acceptance remain
-open independently.
+Read-only reconstruction of the final sample found that the actual last ten
+sidecars were all assistant answers: query ordering compared run-local counters
+across requests. Order sidecars by their original question row IDs, binding
+answer snapshots through ask_element_bid so late updates stay in their turn.
+Unlinked legacy rows retain insertion order. History limits and anchor scope
+remain unchanged for both text and Live consumers.
+
+Native text follow-ups expose learner_quotes over immutable original user-role
+messages in that authorized window, captured before host projection and excluding
+the current question. Results include source index, learner role and explicit
+supplied-history-only coverage. Page complete messages within 8192 UTF-8 JSON
+bytes; an oversized message reports too_large, never shortened wording. Reserve
+read calls in the existing Agent budget. Exact quotations must copy available
+source content verbatim; missing originals mean unavailable in this context,
+not that the learner never said them. Assistant suggestions and current memory
+cannot substitute. Reading historical save requests grants no write permission
+and must not restore deleted notes. No additional DB history is loaded.
+
+See the [quotation plan](../exec-plans/active/mdf2-follow-up-learner-quotations.md).
+Model-quality acceptance of this correction is pending; preserve both old failed
+quotations. Other models and human acceptance remain open independently.
 
 ### Follow-up usage attribution
 
