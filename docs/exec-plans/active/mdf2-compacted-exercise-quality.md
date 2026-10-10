@@ -10,13 +10,17 @@ The exercise evaluator currently keeps every teaching message below the compacti
 - [x] 2026-10-09T15:48:00Z: Add successful-summary and injected-failure statistics cases with immutable long feedback evidence.
 - [x] 2026-10-09T15:48:00Z: Prove missing projection/cache reuse cannot pass, run selected live cases with scoped billing, and retain failures.
 - [x] 2026-10-09T15:57:13Z: Developer-tool checks, full gates and commit hooks passed; published [PR #3075](https://github.com/ai-shifu/ai-shifu/pull/3075) with functional commit b94979ac1.
-- [ ] 2026-10-09T15:58:40Z: Independent AI/CI review remains pending; CodeRabbit is currently rate-limited, not substantive approval. Reply to any actionable opinions in their original threads before declaring review handling complete.
+- [ ] 2026-10-10T01:03:00Z: Publish the positional-evidence correction, reply to the new CodeRabbit finding and coverage advisory, and inspect final CI/review status. CodeRabbit has now completed substantive review; its initial quota restriction is historical.
 
 - [x] 2026-10-09T15:59:45Z: Accepted Devin documentation finding: distinguish completed selected synthetic compaction coverage from remaining natural-course/other-model acceptance in the canonical history paragraph.
+
+- [x] 2026-10-10T01:03:00Z: Reproduced four false positives from known references copied to a later model response or another part. Bind observation to original message/part positions; all eight new summary/excerpt cases and 655 evaluator/engine regressions pass.
 
 ## Surprises & Discoveries
 
 The projection flag is enabled in existing exercise cases, but none of their text is eligible and no semantic summarizer is configured. Actual compaction must be observed in model requests rather than inferred from options.
+
+A known reference alone is insufficient projection evidence: a later model response may repeat it. The observer must enforce the same original-position binding as production summary decoration.
 
 ## Decision Log
 
@@ -27,7 +31,7 @@ The projection flag is enabled in existing exercise cases, but none of their tex
 
 ## Outcomes & Retrospective
 
-Offline evaluator and engine regressions pass (647 total); 107 evaluator tests pass after restoring a mutation that disables projection/cache assertions. That mutation makes all four missing-projection/cache regressions fail. Selected sim live evaluation passes 2/2 on ark/deepseek-v4-1-flash-260910, with actual original reads, calculated results, one summary attempt/cache reuse and required projection markers. All 28 report fingerprints match the local candidate. Thirteen gateway rows are fully attributed to the dedicated learner, course, lesson and owner, with no fabricated classroom IDs, failures or unsettled billable successes; settled cost is 12.17 credits. One completed summary request is accounted separately; the failure case intentionally makes no summary-provider request. This single selected repetition is not a full-catalog result. Developer-tool verification, repository gates and commit hooks passed; PR #3075 is open with functional commit b94979ac1. Independent AI/CI review remains pending, with CodeRabbit currently rate-limited. Keep this plan active for that follow-up; no application deployment is required for the evaluator-only delta. This scope closes repeatable statistics-after-compaction coverage only; natural courses, other models/languages, external providers, human teaching quality and long-term fees remain separate acceptance items.
+Offline evaluator and engine regressions pass (647 total); 107 evaluator tests pass after restoring a mutation that disables projection/cache assertions. That mutation makes all four missing-projection/cache regressions fail. Selected sim live evaluation passes 2/2 on ark/deepseek-v4-1-flash-260910, with actual original reads, calculated results, one summary attempt/cache reuse and required projection markers. All 28 report fingerprints match the local candidate. Thirteen gateway rows are fully attributed to the dedicated learner, course, lesson and owner, with no fabricated classroom IDs, failures or unsettled billable successes; settled cost is 12.17 credits. One completed summary request is accounted separately; the failure case intentionally makes no summary-provider request. This single selected repetition is not a full-catalog result. Developer-tool verification, repository gates and commit hooks passed; PR #3075 is open with functional commit b94979ac1. Devin's documentation finding is fixed and replied to. CodeRabbit subsequently completed substantive review and identified a valid positional-evidence gap; the correction passes 655 offline tests (115 evaluator and 540 engine), including eight new cases with four demonstrated pre-fix failures. Final publication/replies and CI inspection remain pending. The earlier live run and its fingerprints describe the pre-review candidate, not a fresh live validation of this observer correction. Keep this plan active for that follow-up; no application deployment is required for the evaluator-only delta. This scope closes repeatable statistics-after-compaction coverage only; natural courses, other models/languages, external providers, human teaching quality and long-term fees remain separate acceptance items.
 
 ## Context and Orientation
 

@@ -495,10 +495,10 @@ def observe_teaching_projection(
             run_context: RunContext[Any] | None = None,
         ) -> AsyncIterator[StreamedResponse]:
             """Record source-bound excerpt/summary markers sent to the model."""
-            for message in messages:
+            for message_index, message in enumerate(messages):
                 if not isinstance(message, ModelResponse):
                     continue
-                for part in message.parts:
+                for part_index, part in enumerate(message.parts):
                     if not isinstance(part, TextPart):
                         continue
                     try:
@@ -509,6 +509,9 @@ def observe_teaching_projection(
                         isinstance(marker, dict)
                         and isinstance(marker.get("reference"), str)
                         and marker["reference"] in sources
+                        and marker["reference"].startswith(
+                            f"teaching-{message_index}-{part_index}-"
+                        )
                     ):
                         markers.add(marker.get("status"))
             async with super().request_stream(
