@@ -29,11 +29,23 @@ answer whose correctness is unverified. Keep actual wrong attempts counted.
   Omit zero non-answer fields in rows and totals, preserving old zero-case JSON
   capacity; absent counters mean zero. Final 615 engine/evaluator and 3,176
   broader cases pass plus four subtests and one expected skip.
-- [ ] Publish byte-capacity correction and reply in the original Devin thread.
-- [ ] Verify runtime hashes, replay the retained pre-report original session
-  without persistence, and compare every actual attempt and reported count.
-- [ ] Reconcile replay costs, preserve original completed sessions, answer every
-  AI opinion and record final CI. Do not claim compressed-course acceptance.
+- [x] Publish byte-capacity correction 62fd4c25f; reply in the original Devin
+  thread with the pushed fix and validation. The docstring advisory is answered.
+- [x] Sim abc0d39c0 is Ready; both API replicas match all 44 expected runtime
+  hashes. Independent sim changes are retained; its 607 engine/evaluator cases pass.
+- [x] One non-persisting replay of the exact original pre-report pause reads all
+  16 original inputs. Two knowledge questions are not_answer; all eleven report
+  rows, 14 attempts, three retries, three wrong attempts, eight first-correct,
+  three corrected and five hints match the original evidence.
+- [x] All twelve replay requests succeed and settle for 31.53 credits with the
+  real course, lesson and owner, without fabricated classroom progress/block IDs.
+  Original completed progress/session and variables are preserved; no SQL writes.
+- [x] Functional head 62fd4c25f passes every technical CI check, including the
+  8m48s runtime harness; CodeRabbit substantively reviews that head with no new
+  actionable comments. Final documentation increments need their own CI audit.
+- [ ] Record final documentation CI and any new AI opinions after publication.
+- [ ] User manually merges; verify merge and archive this narrow counting plan.
+  Actual natural compaction acceptance remains separate.
 
 ## Surprises & Discoveries
 
@@ -69,8 +81,17 @@ compression evidence.
 
 ## Outcomes & Retrospective
 
-The narrow counting correction is pending natural replay. This is a one-course, one-model technical journey, not human acceptance,
-an all-provider benchmark, a production switch or permission to delete 1.0.
+The narrow counting correction passes one original-session replay on the deployed
+candidate. The first failed natural report remains preserved and failed. This is
+one course and one model; a new complete classroom journey, natural compaction,
+other providers and human acceptance remain open. No production configuration
+switch or permission to delete 1.0 is implied.
+
+Two verification-helper mistakes were corrected offline against the same captured
+result, without additional paid calls: HTTP text values used the canonical
+Learner chose prefix rather than only Learner wrote, and an empty database tuple
+needed conversion to a list before comparison with the saved empty JSON list.
+Original raw records and the first failed helper check are retained.
 
 ## Context and Orientation
 
@@ -98,8 +119,10 @@ in its original discussion. The user merges manually.
 
 Require unchanged original history, complete reference coverage, correct grading
 membership, exactly 14 real attempts / three retries / two non-answer inputs, normal
-HTTP/SSE completion, and real usage/progress/block/owner attribution. Report
-unknown hint counts as unknown. Missing compaction is not a passing compressed
+HTTP/SSE completion for the original classroom journey, normal engine completion
+for its non-persisting replay, and real usage attribution. Classroom calls require
+actual progress/block IDs; auxiliary replay calls must never fabricate those IDs.
+Report unknown hint counts as unknown. Missing compaction is not a passing compressed
 statistics test. Preserve failed answers and distinguish logical turns from paid
 provider requests and auxiliary summaries.
 

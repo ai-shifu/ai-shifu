@@ -162,8 +162,20 @@ coverage, memory isolation and actual wrong-answer counts remain protected.
 Zero non-answer fields are omitted from both rows and totals; absence means
 zero, so old reports do not lose byte capacity. Devin's 41-question case fails
 before this correction. Four count cases fail before the outcome change;
-615 engine/evaluator cases and 3,176 learning/profile/evaluator cases plus four subtests pass, with one expected
-skip. Distinct original-session replay against the deployed candidate is pending.
+615 engine/evaluator cases and 3,176 learning/profile/evaluator cases plus four
+subtests pass, with one expected skip. Sim abc0d39c0 has both API replicas Ready
+and all 44 expected runtime hashes matching functional source 62fd4c25f.
+
+One non-persisting replay of the original pre-report pause reads all sixteen
+accepted inputs and correctly classifies both knowledge questions as not_answer.
+All eleven final question rows match the originals: fourteen attempts, three
+retries, three known wrong attempts, eight first-correct, three corrected and five
+hints. Original messages, memory, completed progress/session and variables remain
+unchanged. Twelve successful replay requests settle for 31.53 credits with real
+course/lesson/owner attribution and no fabricated classroom IDs. This passes the
+narrow correction, not a new complete classroom or compressed-history journey.
+Functional CI and CodeRabbit review pass; documentation increments are checked
+separately. Earlier failed evidence remains retained.
 See the [clarification-count plan](../exec-plans/active/mdf2-exercise-clarification-counts.md).
 The synthetic scorer accepts only exact fixture IDs, prompts, teaching titles or
 short arithmetic titles; it still independently checks each answer's original
