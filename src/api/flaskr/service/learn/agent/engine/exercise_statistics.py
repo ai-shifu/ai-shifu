@@ -13,6 +13,7 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
     ModelResponse,
+    RetryPromptPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -25,8 +26,22 @@ RESULT_BYTES = 8192
 MAX_SUBMISSIONS = 200
 
 
-def exercise_report_notice(deps: Deps) -> str:
+def exercise_report_notice(ctx: RunContext[Deps]) -> str:
     """Describe real tool progress for this run without grading or reading answers."""
+    deps = ctx.deps
+    latest = next(
+        (
+            part
+            for message in reversed(ctx.messages[deps.history_len :])
+            for part in reversed(message.parts)
+            if isinstance(part, (RetryPromptPart, ToolReturnPart))
+            and part.tool_name == "calculate_exercise_statistics"
+        ),
+        None,
+    )
+    if isinstance(latest, RetryPromptPart):
+        # Schema errors occur before the calculator body can invalidate old totals.
+        deps.exercise_report_totals = None
     prefix = (
         "Current exercise-report status (host context, not learner input). "
         "Only when the script requests exercise statistics or a final report: "
@@ -332,5 +347,6 @@ async def calculate_exercise_statistics(
     )
     if len(result.encode()) > RESULT_BYTES:
         return _encode({"status": "report_too_large"})
-    ctx.deps.exercise_report_totals = dict(totals)
+    if ctx.deps.exercise_read_offset is None:
+        ctx.deps.exercise_report_totals = dict(totals)
     return result
