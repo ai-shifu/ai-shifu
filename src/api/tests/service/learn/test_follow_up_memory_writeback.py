@@ -208,6 +208,195 @@ def test_plain_question_does_not_add_admission_model_requests() -> None:
     assert patch.variables == []
 
 
+@pytest.mark.parametrize(
+    ("snapshot", "expected"),
+    [
+        ({"analogy": "bus station"}, {"status": "found", "value": "bus station"}),
+        ({}, {"status": "unavailable"}),
+        ({"analogy": "x" * 9000}, {"status": "too_large"}),
+    ],
+)
+def test_follow_up_reads_current_memory_instead_of_old_answer(
+    snapshot: dict[str, str], expected: dict[str, str]
+) -> None:
+    checker = AsyncMock()
+    patch = FollowUpMemoryPatch()
+    history = [
+        {"role": "user", "content": "Please remember the library analogy."},
+        {"role": "assistant", "content": "Your library preference is saved."},
+        {"role": "user", "content": "What is my current analogy preference?"},
+    ]
+    original = [dict(m) for m in history]
+    results = []
+
+    async def stream(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        assert "recall" in {t.name for t in info.function_tools}
+        last = messages[-1]
+        parts = [p for p in last.parts if isinstance(p, ToolReturnPart)]
+        if parts:
+            results.append(json.loads(parts[0].content))
+            yield "Current memory checked."
+        else:
+            yield {0: DeltaToolCall(name="recall", json_args='{"key":"analogy"}')}
+
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input=history[-1]["content"],
+        declared_keys=frozenset(),
+        snapshot=snapshot,
+        deleted_keys=frozenset({"analogy"}) if not snapshot else frozenset(),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=checker,
+        preview=False,
+    )
+    assert "".join(x.result for x in run.stream(history)) == "Current memory checked."
+    assert results == [expected]
+    assert history == original
+    assert run.snapshot == snapshot
+    assert patch.variables == []
+    checker.assert_not_awaited()
+
+
+def test_follow_up_reads_its_newly_admitted_value_without_old_snapshot_shadow() -> None:
+    patch = FollowUpMemoryPatch()
+    calls = []
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        calls.append(messages)
+        if len(calls) == 1:
+            yield {
+                0: DeltaToolCall(
+                    name="remember",
+                    json_args=json.dumps(
+                        {"key": "practice_code", "value": "7319", "request": REQUEST}
+                    ),
+                )
+            }
+        elif len(calls) == 2:
+            assert messages[-1].parts[0].content.startswith("remembered ")
+            yield {0: DeltaToolCall(name="recall", json_args='{"key":"practice_code"}')}
+        else:
+            assert json.loads(messages[-1].parts[0].content) == {
+                "status": "found",
+                "value": "7319",
+            }
+            yield "The new practice code is saved."
+
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input=REQUEST,
+        declared_keys=frozenset(),
+        snapshot={"practice_code": "old code"},
+        deleted_keys=frozenset(),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=AsyncMock(return_value=True),
+        preview=False,
+    )
+    list(run.stream([{"role": "user", "content": REQUEST}]))
+    assert len(calls) == 3
+    assert [(x.key, x.value) for x in patch.variables] == [("practice_code", "7319")]
+    assert run.snapshot == {"practice_code": "old code"}
+
+
+def test_follow_up_discovers_relevant_keys_before_an_exact_read() -> None:
+    calls = []
+    patch = FollowUpMemoryPatch()
+    checker = AsyncMock()
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        calls.append(messages)
+        if len(calls) == 1:
+            yield {0: DeltaToolCall(name="recall", json_args="{}")}
+        elif len(calls) == 2:
+            result = json.loads(messages[-1].parts[0].content)
+            assert result == {
+                "status": "keys",
+                "keys": ["analogy", "sys_nickname"],
+                "next_offset": None,
+                "skipped": 0,
+            }
+            yield {0: DeltaToolCall(name="recall", json_args='{"key":"analogy"}')}
+        else:
+            assert json.loads(messages[-1].parts[0].content) == {
+                "status": "found",
+                "value": "bus station",
+            }
+            yield "You prefer the bus station analogy."
+
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input="What analogy do I prefer now?",
+        declared_keys=frozenset(),
+        snapshot={"analogy": "bus station", "sys_nickname": "Learner"},
+        deleted_keys=frozenset(),
+        generations={},
+        reserved_keys=frozenset({"sys_nickname"}),
+        request_check=checker,
+        preview=True,
+    )
+    list(run.stream([{"role": "user", "content": run.current_input}]))
+    assert len(calls) == 3
+    assert patch.variables == []
+    checker.assert_not_awaited()
+
+
+def test_follow_up_can_quote_deleted_history_without_restoring_memory() -> None:
+    from pydantic_ai.messages import ModelResponse, TextPart, UserPromptPart
+
+    history = [
+        {"role": "user", "content": "Please remember the library analogy."},
+        {"role": "assistant", "content": "Your library preference is saved."},
+        {
+            "role": "user",
+            "content": "What analogy did I ask for in that earlier message?",
+        },
+    ]
+    calls = []
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        calls.append(messages)
+        assert [
+            p.content
+            for m in messages
+            if isinstance(m, (ModelRequest, ModelResponse))
+            for p in m.parts
+            if isinstance(p, (UserPromptPart, TextPart))
+        ] == [m["content"] for m in history]
+        yield "In that earlier message, you asked for the library analogy."
+
+    patch = FollowUpMemoryPatch()
+    checker = AsyncMock()
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input=history[-1]["content"],
+        declared_keys=frozenset(),
+        snapshot={},
+        deleted_keys=frozenset({"analogy"}),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=checker,
+        preview=False,
+    )
+    list(run.stream(history))
+    assert len(calls) == 1
+    assert patch.variables == []
+    checker.assert_not_awaited()
+
+
 @pytest.fixture
 def storage_scope(app: object) -> object:
     """Create a real learner, retained published script and learning attempt."""

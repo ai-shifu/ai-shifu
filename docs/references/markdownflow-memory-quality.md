@@ -293,6 +293,18 @@ It requests a relevant read for memory questions, not an exhaustive memory scan.
 This is model guidance, not deterministic output enforcement. Retain intermittent
 violations as failed quality evidence; a passing run cannot erase an earlier failure.
 
+Default contextual text follow-ups also expose the same bounded `recall` tool.
+Current saved-fact answers require a fresh relevant read, using key discovery
+when necessary. An update or menu deletion in another lesson invalidates old
+answer/save-confirmation claims as current evidence. Explicit historical
+questions can still quote the original conversation without restoring memory.
+The follow-up run keeps its authorized snapshot in user memory so a same-turn
+accepted write is visible to subsequent recall. Read-only calls do not invoke
+semantic write admission. Existing request/tool budgets and preview no-write
+rules remain unchanged. External provider-only answers and Live do not acquire
+these tools. See the [natural follow-up plan](../exec-plans/active/mdf2-natural-memory-follow-up.md)
+for the initial failing journey and candidate acceptance.
+
 ## Release boundary
 
 A passing suite does not complete the entire memory milestone or authorize a
