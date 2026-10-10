@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
+from flaskr.service.order.payment_providers.base import (
+    PaymentCancellationResult,
+    PaymentNotificationResult,
+)
 
 from tests.service.billing import (
     billing_write_routes_test_helpers as write_route_helpers,
 )
 from tests.service.billing.billing_write_routes_test_helpers import (
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -76,6 +82,45 @@ def test_mark_preorder_effective_applied_preserves_terminal_preorder_states() ->
 @pytest.fixture
 def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     yield from write_route_helpers.billing_write_client(monkeypatch)
+
+
+def _install_unpaid_pingxx_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    provider = billing_checkout_module.get_payment_provider("pingxx")
+    reversed_references: set[str] = set()
+
+    def sync_reference(
+        *, provider_reference: str, **_kwargs: object
+    ) -> PaymentNotificationResult:
+        return PaymentNotificationResult(
+            order_bid="",
+            status="manual_sync",
+            charge_id=provider_reference,
+            provider_payload={
+                "charge": {
+                    "id": provider_reference,
+                    "paid": False,
+                    "reversed": provider_reference in reversed_references,
+                }
+            },
+        )
+
+    def cancel_payment(
+        *, provider_reference: str, **_kwargs: object
+    ) -> PaymentCancellationResult:
+        reversed_references.add(provider_reference)
+        return PaymentCancellationResult(
+            provider_reference=provider_reference, raw_response={}, status="cancelled"
+        )
+
+    monkeypatch.setattr(
+        billing_checkout_module,
+        "get_payment_provider",
+        lambda _: SimpleNamespace(
+            create_payment=provider.create_payment,
+            sync_reference=sync_reference,
+            cancel_payment=cancel_payment,
+        ),
+    )
 
 
 class TestBillingWriteRoutesPreorder:
@@ -149,7 +194,7 @@ class TestBillingWriteRoutesPreorder:
         ("subscription_provider", "payment_provider"),
         [
             ("stripe", "pingxx"),
-            ("pingxx", "alipay"),
+            ("manual", "pingxx"),
         ],
     )
     def test_subscription_checkout_rejects_preorder_for_managed_or_mismatched_provider(
@@ -279,8 +324,9 @@ class TestBillingWriteRoutesPreorder:
         )
 
     def test_subscription_checkout_ignores_unpaid_preorder_attempt(
-        self, billing_write_client: object
+        self, billing_write_client: object, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        _install_unpaid_pingxx_provider(monkeypatch)
         client = billing_write_client["client"]
         app = billing_write_client["app"]
         now = now_utc()
@@ -351,7 +397,7 @@ class TestBillingWriteRoutesPreorder:
                 bill_order_bid=payload["data"]["bill_order_bid"],
             ).one()
 
-            assert old_order.status == BILLING_ORDER_STATUS_PENDING
+            assert old_order.status == BILLING_ORDER_STATUS_CANCELED
             assert old_order.metadata_json["preorder_state"] == "pending_effective"
             assert new_order.status == BILLING_ORDER_STATUS_PENDING
             assert new_order.metadata_json["checkout_type"] == "subscription_preorder"
@@ -1351,8 +1397,9 @@ class TestBillingWriteRoutesPreorder:
             assert upgrade_order is None
 
     def test_subscription_checkout_allows_immediate_upgrade_with_unpaid_preorder_attempt(
-        self, billing_write_client: object
+        self, billing_write_client: object, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        _install_unpaid_pingxx_provider(monkeypatch)
         client = billing_write_client["client"]
         app = billing_write_client["app"]
         now = now_utc()
@@ -1429,7 +1476,7 @@ class TestBillingWriteRoutesPreorder:
             assert upgrade_order is not None
             assert upgrade_order.status == BILLING_ORDER_STATUS_PENDING
             assert upgrade_order.metadata_json["prepaid_offset_amount"] == 0
-            assert preorder_order.status == BILLING_ORDER_STATUS_PENDING
+            assert preorder_order.status == BILLING_ORDER_STATUS_CANCELED
             assert preorder_order.metadata_json["preorder_state"] == (
                 "pending_effective"
             )

@@ -2,7 +2,7 @@
 title: Cook Web Umami Contract Remediation
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-08-31
+last_reviewed: 2026-10-10
 canonical: true
 ---
 
@@ -377,6 +377,12 @@ raw rejection.
   storage suppresses the cancellation event without changing synchronization,
   UI, or retry behavior. Cancellation and confirmation-failure events omit an
   unverified query parameter.
+- QR replacement compatibility: when a refresh or channel switch returns a new
+  `bill_order_bid`, both subsequent synchronization and attempt/result/status
+  correlation use that confirmed replacement key. The closed order retains its
+  financial history; the replacement is a distinct order for outcome grouping.
+  Event names, triggers, population, payload allowlist and terminal deduplication
+  stay unchanged; no QR URL or provider credential is tracked.
 - Consumer: billing checkout adoption and provider reliability analysis; the
   billing ledger remains the financial source of truth.
 - Replacement: delete the `creator_billing_checkout_click` producer and
