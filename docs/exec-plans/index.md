@@ -31,6 +31,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Keep grading within authored answer criteria](./active/mdf2-authored-grading-criteria.md)
 - [Deliver classroom context to Coze follow-ups](./active/mdf2-coze-follow-up-context.md)
 - [Admit and persist memory from completed follow-up answers](./active/mdf2-follow-up-memory-writeback.md)
+- [Fresh classroom after authored grading corrections](./active/mdf2-fresh-grading-classroom.md)
 - [Keep concurrent gevent lesson streams responsive](./active/mdf2-gevent-bridge-stability.md)
 - [Continue teaching after a failed model stream](./active/mdf2-interrupted-teaching-history.md)
 - [Keep native usage classification inside an application scope](./active/mdf2-native-usage-classification.md)
