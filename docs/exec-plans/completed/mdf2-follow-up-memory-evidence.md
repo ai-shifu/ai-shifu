@@ -51,9 +51,11 @@ quoting remains a separately demonstrated failure, recorded below.
   no actionable code comments; its docstring advisory has an original-discussion
   reply explaining the D102/D103 pytest exemption and verification. Codex/Devin
   first-head reviews have no findings; verify the final increment separately.
-- [ ] Verify final documentation-head checks and any new opinions before
-  handoff. Manual merge belongs to the user. Keep exact quotes and remaining
-  milestone acceptance open in the named quality reference.
+- [x] 2026-10-10T07:04:16Z: User manually merged #3087 as 85ee0afff.
+  Final documentation-head technical checks all succeeded. No unaddressed AI
+  opinions; final documentation-only CodeRabbit increment was rate limited.
+  Exact quotations transfer to the active learner-quotation plan; other
+  acceptance stays in the quality reference.
 
 ## Surprises & Discoveries
 

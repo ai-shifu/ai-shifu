@@ -53,6 +53,7 @@ class FollowUpConversationContext:
     provider_messages: list[dict[str, str]]
     use_learner_language: bool
     output_language: str
+    quotation_messages: tuple[str, ...] = ()
 
 
 def resolve_course_system_prompt(
@@ -175,6 +176,8 @@ def build_follow_up_element_history(
     anchor_element: object,
     follow_up_elements: object,
     max_history_messages: int,
+    *,
+    quotation_messages: list[str] | None = None,
 ) -> list[dict[str, str]] | None:
     """Build anchor-bound history from canonical or legacy sidecar elements."""
     if anchor_element is None or not isinstance(follow_up_elements, (list, tuple)):
@@ -189,6 +192,7 @@ def build_follow_up_element_history(
         messages.append({"role": "assistant", "content": anchor_content})
 
     row_messages: list[dict[str, str]] = []
+    quote_sources: dict[int, str] = {}
     legacy_ask_element = None
     for row in follow_up_elements:
         element_type = str(getattr(row, "element_type", "") or "")
@@ -200,6 +204,16 @@ def build_follow_up_element_history(
         if not content:
             continue
         if element_type == "ask":
+            # New text sidecars retain raw input explicitly. Older brace-free
+            # asks are unchanged by the historical brace escaping; ambiguous
+            # legacy text and synthesized classroom values are not exact sources.
+            raw_input = payload.user_input
+            if raw_input is not None:
+                quote_sources[len(row_messages)] = raw_input
+            elif payload.interaction_mode != "live_voice" and not any(
+                brace in content for brace in ("{", "}")
+            ):
+                quote_sources[len(row_messages)] = content
             row_messages.append({"role": "user", "content": content})
         elif element_type == "answer":
             row_messages.append({"role": "assistant", "content": content})
@@ -207,6 +221,14 @@ def build_follow_up_element_history(
     if row_messages:
         if history_limit > 0:
             messages.extend(row_messages[-history_limit:])
+            if quotation_messages is not None:
+                quotation_messages.extend(
+                    quote_sources[index]
+                    for index in range(
+                        max(0, len(row_messages) - history_limit), len(row_messages)
+                    )
+                    if index in quote_sources
+                )
         return messages
     if legacy_ask_element is not None:
         return build_legacy_follow_up_history(
@@ -293,6 +315,7 @@ def load_follow_up_history(
     latest_element_loader: Callable[[str], object | None] | None = None,
     element_rows_loader: Callable[[str, str], list[object]] | None = None,
     generated_block_model: object | None = None,
+    quotation_messages: list[str] | None = None,
 ) -> list[dict[str, str]]:
     """Load prior classroom turns, the selected anchor and its recent sidecar."""
     history_limit = max(0, int(max_history_messages))
@@ -317,6 +340,7 @@ def load_follow_up_history(
         anchor_element,
         follow_up_elements,
         history_limit,
+        quotation_messages=quotation_messages,
     )
     if anchor_element is not None:
         anchor_content = str(anchor_element.content_text or "")
@@ -451,6 +475,7 @@ def build_follow_up_conversation_context(
     if memory_prompt:
         system_instruction += "\n\n" + memory_prompt
 
+    quotation_messages: list[str] = []
     history = load_follow_up_history(
         progress_record_bid=progress_record_bid,
         anchor_element_bid=anchor_element_bid,
@@ -458,6 +483,7 @@ def build_follow_up_conversation_context(
         latest_element_loader=latest_element_loader,
         element_rows_loader=element_rows_loader,
         generated_block_model=generated_block_model,
+        quotation_messages=quotation_messages,
     )
     llm_messages = [{"role": "system", "content": system_instruction}, *history]
     provider_messages = list(history)
@@ -474,4 +500,5 @@ def build_follow_up_conversation_context(
         provider_messages=provider_messages,
         use_learner_language=use_learner_language,
         output_language=resolved_output_language,
+        quotation_messages=tuple(quotation_messages),
     )

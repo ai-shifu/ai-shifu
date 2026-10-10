@@ -386,7 +386,7 @@ def handle_input_ask(
         outline_item_info,
         attend_id,
         user_info.user_id,
-        escaped_input,
+        raw_input,
         last_position,
     )
 
@@ -414,7 +414,7 @@ def handle_input_ask(
         outline_bid=outline_item_info.bid,
         generated_block_bid=answer_block.generated_block_bid,
         type=GeneratedType.ASK,
-        content=escaped_input,
+        content=raw_input,
         anchor_element_bid=anchor_element_bid,
     )
 
@@ -461,7 +461,7 @@ def handle_input_ask(
             outline_bid=outline_item_info.bid,
             generated_block_bid=answer_block.generated_block_bid,
             type=GeneratedType.INTERACTION,
-            content=escaped_input,
+            content=raw_input,
         )
         answer_block.generated_content = guardrail_text
         _finalize_ask_trace(
@@ -570,6 +570,7 @@ def handle_input_ask(
                 answer_model,
                 patch=memory_patch,
                 current_input=raw_input,
+                quotation_messages=conversation_context.quotation_messages,
                 declared_keys=memory_policy.declared_keys,
                 snapshot=dict(runtime_profiles or {}),
                 deleted_keys=memory_policy.deleted_keys,

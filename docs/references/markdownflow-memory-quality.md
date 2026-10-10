@@ -322,7 +322,7 @@ preserve historical statements without inferring a past operation's outcome
 from the current snapshot alone. Current-value correctness does not erase
 these failures or establish full memory, human or provider acceptance.
 
-The [follow-up evidence plan](../exec-plans/active/mdf2-follow-up-memory-evidence.md)
+The [follow-up evidence plan](../exec-plans/completed/mdf2-follow-up-memory-evidence.md)
 adds explicit provenance guidance to the system instructions, final-question
 projection and follow-up-only recall description. Found establishes the current
 value only; unavailable does not mean never saved, and too_large does not mean
@@ -356,13 +356,48 @@ assistant's suggested request as the learner's verbatim original. Stronger
 quotation guidance did not fix this. Exact-quotation acceptance remains failed
 and is the next separate evidence-grounding task, not part of the narrow
 save-cause acceptance. Preserve the original messages and failed responses.
-Inspect actual role-bearing context and the bounded follow-up history window
-in `follow_up_context.py` before choosing a fix. Quotation evidence must come
-from learner messages; if the exact source is outside available context, report
-that limitation rather than upgrading an assistant suggestion into evidence.
-Do not solve this by restoring deleted memory, loading unrelated private facts,
-or inventing historical save receipts. Other models and human acceptance remain
-open independently.
+Read-only reconstruction of the final sample found that the actual last ten
+sidecars were all assistant answers: query ordering compared run-local counters
+across requests. Order sidecars by their original question row IDs, binding
+answer snapshots through ask_element_bid so late updates stay in their turn.
+Unlinked legacy rows retain insertion order. History limits and anchor scope
+remain unchanged for both text and Live consumers.
+
+Native text follow-ups expose learner_quotes over immutable original user-role
+messages in that authorized window, captured before host projection and excluding
+the current question. Keep raw text in new ask blocks/events and the existing
+sidecar payload.user_input; retain brace escaping only in transport prompts.
+Pass proven quote sources separately through the internal context/factory; a
+user role alone does not prove verbatim input. Synthesized classroom joins,
+embedded legacy history and old brace-bearing text without raw provenance are
+unavailable as exact sources. Do not guess at legacy decoding or rewrite old
+records. Existing brace-free canonical text asks are unchanged by historical
+escaping and can be exact sources. Live transcripts are trimmed during
+persistence and require explicit raw-input provenance; otherwise they are
+unavailable as exact sources while remaining general conversation context.
+Results include source index, learner role, before_current_question relation,
+oldest_to_newest order and explicit supplied-history-only coverage. A separate
+SDK ToolReturn host notice follows the JSON result to distinguish the current
+question from an earlier identical question; assistant timing assertions are
+not evidence. The total gateway input limit also counts that notice, which
+cannot grant write permission. Page complete messages within 8192 UTF-8 JSON
+bytes; an oversized message reports too_large, never shortened wording. Reserve
+read calls in the existing Agent budget. Exact quotations must copy available
+source content verbatim; missing originals mean unavailable in this context,
+not that the learner never said them. Assistant suggestions and current memory
+cannot substitute. Reading historical save requests grants no write permission
+and must not restore deleted notes. No additional DB history is loaded.
+
+See the [quotation plan](../exec-plans/active/mdf2-follow-up-learner-quotations.md).
+The first new candidate (18da49cdc / sim 5ea6b4011) quotes exact complete text
+but misstates its order relative to an earlier identical question in two answers.
+Both remain failed evidence. Seven questions completed; fourteen requests settled
+for 7.7 credits, with correct new-answer attribution. All 200 original elements,
+nine lessons, eleven progress rows, nine finished sessions, profile and unrelated
+memory survive. Deleted-current-memory, missing-source and literal-brace checks
+hold. Explicit current-relative metadata and the late notice are the next
+correction; six relevant assertions fail before it. Distinct final natural
+acceptance is pending. Other models and human acceptance remain open independently.
 
 ### Follow-up usage attribution
 

@@ -1015,3 +1015,106 @@ def test_late_follow_up_keeps_newer_global_profile_corrections(
         assert (
             load_memory(app, scope.user, "another-course").as_variables()[key] == value
         )
+
+
+@pytest.mark.parametrize("has_original", [True, False])
+@pytest.mark.parametrize("permission_source", ["historical", "host_notice"])
+def test_quote_tool_uses_only_original_learner_history_without_write_permission(
+    has_original: bool,
+    permission_source: str,
+) -> None:
+    from flaskr.service.learn.agent.gateway_model import map_messages
+
+    original = "Please remember the library analogy, then compare cache and RAM."
+    suggestion = "Please remember: library loans before cache versus RAM."
+    history = ([{"role": "user", "content": original}] if has_original else []) + [
+        {"role": "assistant", "content": "You can say: " + suggestion},
+        {"role": "user", "content": "What were my exact earlier words?"},
+        {"role": "assistant", "content": "The request happened after your question."},
+        {"role": "user", "content": "What were my exact earlier words?"},
+    ]
+    before = [dict(m) for m in history]
+    checker = AsyncMock(return_value=True)
+    calls = []
+
+    async def stream(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Read real SDK quote results, then attempt an unauthorized historical write."""
+        calls.append(messages)
+        mapped = map_messages(messages)
+        results = [m for m in mapped if m["role"] == "tool"]
+        if not results:
+            assert "learner_quotes" in {t.name for t in info.function_tools}
+            yield {
+                0: DeltaToolCall(
+                    name="learner_quotes", tool_call_id="quote", json_args="{}"
+                )
+            }
+        elif results[-1]["tool_call_id"] == "quote":
+            value = json.loads(results[-1]["content"])
+            assert value["coverage"] == "supplied_history_only"
+            assert value["relative_to"] == "before_current_question"
+            assert value["order"] == "oldest_to_newest"
+            tool_position = mapped.index(results[-1])
+            notice = mapped[tool_position + 1]
+            assert notice["role"] == "user"
+            assert "[Host quotation context, not learner input]" in notice["content"]
+            assert "THIS current question" in notice["content"]
+            assert "earlier identical question" in notice["content"]
+            assert "grants no permission to write" in notice["content"]
+            assert value["messages"] == (
+                [
+                    {
+                        "source_index": 0,
+                        "role": "learner",
+                        "status": "available",
+                        "content": original,
+                    }
+                ]
+                if has_original
+                else []
+            )
+            assert suggestion not in results[-1]["content"]
+            yield {
+                0: DeltaToolCall(
+                    name="remember",
+                    tool_call_id="write",
+                    json_args=json.dumps(
+                        {
+                            "key": "analogy",
+                            "value": "library",
+                            "request": (
+                                original
+                                if permission_source == "historical"
+                                else notice["content"]
+                            ),
+                        }
+                    ),
+                )
+            }
+        else:
+            assert results[-1]["content"].startswith("Not remembered")
+            yield "Historical source checked."
+
+    patch = FollowUpMemoryPatch()
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input=history[-1]["content"],
+        quotation_messages=(original,) if has_original else (),
+        declared_keys=frozenset(),
+        snapshot={},
+        deleted_keys=frozenset({"analogy"}),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=checker,
+        preview=False,
+    )
+    assert (
+        "".join(c.result for c in run.stream(history)) == "Historical source checked."
+    )
+    assert len(calls) == 3
+    assert patch.variables == []
+    assert history == before
+    checker.assert_not_awaited()
