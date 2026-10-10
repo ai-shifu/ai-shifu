@@ -1368,7 +1368,9 @@ def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_co
     assert system.index("COURSE_PROMPT") < system.index("Follow-up memory capability:")
     assert "undeclared current-course facts CAN be saved" in system
     assert "never prohibit calling the available remember tool" in system
-    schema = calls[0]["tools"][0]["function"]["parameters"]
+    tools = {t["function"]["name"]: t["function"] for t in calls[0]["tools"]}
+    assert set(tools) == {"recall", "remember"}
+    schema = tools["remember"]["parameters"]
     assert "request" in schema["required"]
     assert "EXACTLY" in schema["properties"]["request"]["description"]
     assert len(calls) == 3
