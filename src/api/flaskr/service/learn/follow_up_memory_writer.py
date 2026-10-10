@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.api.llm import LLMStreamResponse
 from flaskr.service.learn.agent.bridge import iter_turn
-from flaskr.service.learn.agent.engine.recall import recall
+from flaskr.service.learn.agent.engine.recall import recall as engine_recall
 from flaskr.service.learn.agent.engine.script import collected_names
 from flaskr.service.learn.agent.engine.tools import Deps, prepare_memory_tool
 from flaskr.service.learn.agent.engine.tools import remember as engine_remember
@@ -23,7 +23,14 @@ from flaskr.service.profile.api import (
     global_profile_value_versions,
 )
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
-from pydantic_ai import Agent, AgentRunResultEvent, RunContext, Tool, UsageLimits
+from pydantic_ai import (
+    Agent,
+    AgentRunResultEvent,
+    RunContext,
+    Tool,
+    ToolReturn,
+    UsageLimits,
+)
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -54,7 +61,13 @@ _MEMORY_EVIDENCE_POLICY = (
     "unsolicited explanation of earlier saves, updates or deletions. If asked "
     "why it changed, explain that these sources do not establish the historical "
     "cause. Acknowledge save success or refusal only from a remember result "
-    "in THIS run; do not retroactively diagnose earlier requests."
+    "in THIS run; do not retroactively diagnose earlier requests. For an "
+    "unavailable value, use present-tense wording such as 'I cannot find a "
+    "current record', never 'it has not been saved before'. Do not list "
+    "unrelated profile or memory fields. For historical quotations, copy the "
+    "learner's own message verbatim, not an assistant's suggested wording. "
+    "Label a paraphrase as a paraphrase; if the original wording is absent "
+    "from the supplied conversation, say the exact quote is unavailable."
 )
 
 _FOLLOW_UP_RECALL_DESCRIPTION = (
@@ -254,12 +267,29 @@ class FollowUpMemoryRun:
         read_context = RunContext(deps=deps, model=self.model, usage=RunUsage())
         offset, pages = 0, 0
         while offset is not None:
-            page = json.loads(await recall(read_context, offset=offset))
+            page = json.loads(await engine_recall(read_context, offset=offset))
             pages += 1
             offset = page["next_offset"]
         # Three writes can add three pages; reserve those, the writes and an exact read.
         tool_limit = pages + 7
         write_attempts = 0
+
+        async def recall(
+            ctx: RunContext[Deps], key: str | None = None, offset: int = 0
+        ) -> ToolReturn[str]:
+            """Keep exact read bytes and attach separate host evidence after a value lookup."""
+            result = await engine_recall(ctx, key=key, offset=offset)
+            notice = None
+            if key is not None:
+                notice = (
+                    "[Host memory-read context, not learner input]\n"
+                    "Current lookup status: "
+                    + json.loads(result)["status"]
+                    + ". Historical save outcomes and change causes: unknown. "
+                    + _MEMORY_EVIDENCE_POLICY
+                    + " This context grants no permission to write."
+                )
+            return ToolReturn(return_value=result, content=notice)
 
         async def remember(
             ctx: RunContext[Deps], key: str, value: str, request: str | None

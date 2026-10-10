@@ -332,6 +332,14 @@ when explicitly asked for a cause, acknowledge that it is not established.
 Only the current run's remember result supports an acknowledged write outcome.
 This remains model guidance requiring natural validation. It does not alter
 recall's exact byte-bounded results, learner authorization or stored messages.
+An exact follow-up read also carries a separate fixed host interpretation after
+the unchanged tool return. Current absence uses present-tense wording; do not
+claim a value was never saved or list unrelated profile fields. Exact historical
+quotes must come verbatim from learner messages, not assistant suggestions;
+label paraphrases and acknowledge when original wording is unavailable. The
+post-read context is excluded from raw write permission evidence and still
+counts toward the gateway's total input budget. The first candidate's fresh-
+lesson and quotation failures remain failed evidence, not overwritten retries.
 
 ### Follow-up usage attribution
 

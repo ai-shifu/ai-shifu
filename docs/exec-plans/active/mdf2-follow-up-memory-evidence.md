@@ -18,7 +18,22 @@ receipts. This is a focused answer-quality change, not a new memory audit log.
   profile tests pass, plus four subtests and one expected skip. Exact UTF-8
   boundary cases preserve the 8192-byte return contract. Developer tools and
   repository all-files gates pass. Language-model quality is not yet verified.
-- [ ] Publish one focused PR and the approved runtime/test delta to sim.
+- [x] 2026-10-10T06:37:31Z: Published #3087 as ed6d8d4e9 and sim delta
+  dc69297b5. Both API replicas match 39 runtime hashes; API/web are ready.
+- [x] 2026-10-10T06:37:31Z: Retained the first eight-HTTP replay: current
+  values are correct, but a deleted fresh-lesson answer still implies never
+  saved and discloses unrelated background. The historical answer labels an
+  assistant's suggested wording as the learner's exact quote. This is failed
+  quality evidence. All 17 requests settle (9.43 credits), with correct answer/
+  progress/owner attribution; 168 original elements and completed state survive.
+- [x] 2026-10-10T06:37:31Z: Added a separate post-read host interpretation
+  using ToolReturn, preserving the original exact tool bytes. Clarified present-
+  tense absence, unrelated fields and verbatim learner quotations. All 43
+  focused cases pass, including gateway ordering and host-notice write rejection.
+- [x] 2026-10-10T06:40:20Z: Six post-read integration cases fail without the
+  correction. Restored code passes 3,076 learning/profile tests plus four subtests,
+  one expected skip, developer tools and repository all-files gates.
+- [ ] Publish the verified correction to the same PR and sim.
 - [ ] Verify both ready replicas, replay the original natural scenarios once,
   preserve failures and reconcile the scoped read-only usage ledger.
 - [ ] Review all AI opinions and reply in their original discussions; leave
@@ -31,6 +46,9 @@ failed save, failed overwrite, and never-saved explanation in three answers.
 The existing final-question reminder forbade this, but system instructions and
 the tool description did not explain the evidence boundary and desired concise
 response. A partial lesson conversation cannot establish cross-lesson history.
+The first candidate still failed after read-tool output, and copied assistant
+suggestions as a supposed exact learner quotation. Keep those failures; place
+the fixed interpretation after exact reads, beside the result used to answer.
 
 ## Decision Log
 
@@ -45,10 +63,17 @@ response. A partial lesson conversation cannot establish cross-lesson history.
   output word filters, extra classifiers, new storage or a fabricated audit log.
 - Treat this as model guidance requiring natural acceptance, not deterministic
   enforcement. Earlier failed evidence remains failed even if this sample passes.
+- Use ToolReturn's separate UserPromptPart for post-read host interpretation.
+  Do not append metadata to the bounded tool value, add calls or modify stored
+  history. Discovery returns stay unchanged. The notice never joins the raw
+  learner input tuple used for write authorization.
 
 ## Outcomes & Retrospective
 
-Implementation and acceptance are in progress. No new live result is claimed.
+First-candidate live quality is not accepted. Its eight HTTP answers and 17
+settled requests (9.43 credits) are retained; attribution and preservation pass,
+but fresh deleted-memory wording and exact historical quotation fail. The
+post-read correction is offline verified and awaits separate sim acceptance.
 The original three failures remain in the memory quality reference.
 
 ## Context and Orientation
@@ -101,5 +126,7 @@ only this runtime delta if required; do not alter production configuration.
 ## Interfaces and Dependencies
 
 No schema, API, frontend, dependency, analytics or metering contract changes.
-Use Pydantic AI's existing Tool description override; the recall implementation,
-return bytes, raw learner write evidence and native bridge remain unchanged.
+Use Pydantic AI's existing Tool description override and ToolReturn content;
+the recall implementation, return bytes, raw learner write evidence and native
+bridge remain unchanged. The existing gateway maps tool returns before the
+separate host UserPromptPart and counts both toward its total input budget.
