@@ -31,7 +31,8 @@ questions but must not establish that a preference is still saved.
   Historical analogy is retained; all 142 original elements across nine lessons,
   canonical profile and unrelated memory survive. Test preference is deleted.
 - [x] 2026-10-10T02:17:28Z: Reconciled final 24 successful, settled requests,
-  13.47 credits. All lack attempt/block IDs; keep this attribution failure open.
+  13.47 credits. All have matching real progress IDs but lack block IDs; keep
+  this incomplete attribution acceptance open.
 - [x] 2026-10-10T02:17:28Z: Replied to Devin's budget finding and CodeRabbit's
   docstring advice in their original discussions, with pushed SHAs and tests.
   Technical checks except the running runtime-harness have passed at this time.
@@ -50,7 +51,7 @@ admitted user value would be hidden by the stale local copy during recall.
 
 Read-only reconciliation of the initial natural HTTP window found eleven
 successful, settled requests totaling 7.76 credits, with correct owner/course.
-All eleven lack progress/block IDs. The original eleven progress records and
+All eleven have matching real progress IDs but lack generated-block IDs. The original eleven progress records and
 nine completed sessions are unchanged. This is a separate existing follow-up
 attribution defect, not evidence of complete accounting acceptance.
 
@@ -103,7 +104,8 @@ This is narrow current-value acceptance only. Three final answers still invented
 why a historical save differed or said the preference had never been saved;
 the host reminder did not eliminate these causal/chronological errors. They
 remain failed natural answer-quality evidence. All 49 requests across the three
-windows settled (28.71 credits) but lack attempt/block attribution. Neither
+windows settled (28.71 credits) and have matching real progress IDs, but
+all lack generated-block attribution. Neither
 issue is closed by the correct current values, and neither synthetic tests nor
 this internal learner journey establish human or full memory acceptance.
 
