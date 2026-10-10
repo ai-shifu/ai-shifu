@@ -91,6 +91,11 @@ async def test_only_successful_calculation_supplies_current_totals() -> None:
     notice = _engine()._instructions(ctx)
     assert "Successful calculator totals for this turn" in notice
     assert json.dumps(result["totals"], separators=(",", ":")) in notice
+    assert "does not declare a memory key or authorize remember" not in notice
+    ctx.deps.memory_keys = set()
+    assert "does not declare a memory key or authorize remember" in (
+        _engine()._instructions(ctx)
+    )
     await calculate_exercise_statistics(ctx, rows[:-1])
     assert "Successful calculator totals for this turn" not in _engine()._instructions(
         ctx
@@ -194,7 +199,11 @@ async def test_schema_rejection_invalidates_a_previous_success_in_real_sdk() -> 
         else:
             yield ""
 
-    engine = Engine(FunctionModel(stream_function=model), exercise_statistics=True)
+    engine = Engine(
+        FunctionModel(stream_function=model),
+        exercise_statistics=True,
+        memory_admission=True,
+    )
     session = Session(
         script=ScriptBundle(script="Report the exercise results."),
         messages=ctx.messages,

@@ -62,18 +62,22 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
             "by its actual question and graded from its original feedback. "
             "Do not write report numbers or call finish before it succeeds."
         )
-    return prefix + (
+    notice = prefix + (
         "Successful calculator totals for this turn: "
         + _encode(deps.exercise_report_totals)
         + ". Copy the successful tool result's exact question rows and totals; "
         "derive percentages and review lists from those same rows. "
         "A knowledge question is not another answer attempt. "
         "Do not invent a second set of counts, even if the script has an example. "
-        "Once the report is delivered, call finish if nothing in the script remains. "
-        "A script request to remember a report does not declare a memory key or "
-        "authorize remember; follow the memory policy and do not invent a summary "
-        "key or retry a refused write."
+        "Once the report is delivered, call finish if nothing in the script remains."
     )
+    if deps.memory_keys is not None:
+        notice += (
+            " A script request to remember a report does not declare a memory key or "
+            "authorize remember; follow the memory policy and do not invent a summary "
+            "key or retry a refused write."
+        )
+    return notice
 
 
 def _encode(value: object) -> str:
