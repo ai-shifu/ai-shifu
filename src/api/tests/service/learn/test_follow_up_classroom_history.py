@@ -292,3 +292,90 @@ def test_live_entry_keeps_preceding_classroom_and_its_voice_boundary(
         ]
         assert routes.load_prompt_template("live_follow_up").strip() in instruction
         assert "PRIVATE MODEL PROMPT" not in instruction
+
+
+@pytest.mark.parametrize("late_snapshot", [False, True])
+def test_recent_follow_up_window_keeps_question_answer_turn_order(
+    app: Flask,
+    late_snapshot: bool,
+) -> None:
+    """Run-local counters must not group all questions before all answers."""
+    with app.app_context():
+        anchor = _seed_classroom(sidecars=False)
+        fields = {
+            key: getattr(anchor, key)
+            for key in (
+                "progress_record_bid",
+                "user_bid",
+                "shifu_bid",
+                "outline_item_bid",
+            )
+        }
+        first_ask = ""
+        first_answer = None
+        with unit_of_work():
+            for turn in range(7):
+                ask_bid = uuid.uuid4().hex
+                if turn == 0:
+                    first_ask = ask_bid
+                for kind, text, sequence in [
+                    ("ask", f"Exact learner request {turn}", 61),
+                    ("answer", f"Assistant suggestion {turn}", 62),
+                ]:
+                    row = LearnGeneratedElement(
+                        **fields,
+                        element_bid=ask_bid if kind == "ask" else uuid.uuid4().hex,
+                        run_session_bid=f"run-{turn}",
+                        event_type="element",
+                        element_type=kind,
+                        content_text=text,
+                        sequence_number=sequence,
+                        run_event_seq=sequence,
+                        payload=_serialize_payload(
+                            ElementPayloadDTO(
+                                anchor_element_bid=anchor.element_bid,
+                                ask_element_bid=ask_bid if kind == "answer" else None,
+                            )
+                        ),
+                        status=1,
+                    )
+                    db.session.add(row)
+                    db.session.flush()
+                    if turn == 0 and kind == "answer":
+                        first_answer = row
+            if late_snapshot:
+                assert first_answer is not None
+                first_answer.status = 0
+                db.session.add(
+                    LearnGeneratedElement(
+                        **fields,
+                        element_bid=first_answer.element_bid,
+                        run_session_bid="old-run-late-patch",
+                        event_type="element",
+                        element_type="answer",
+                        content_text="Updated old assistant suggestion",
+                        sequence_number=999,
+                        run_event_seq=999,
+                        payload=_serialize_payload(
+                            ElementPayloadDTO(
+                                anchor_element_bid=anchor.element_bid,
+                                ask_element_bid=first_ask,
+                            )
+                        ),
+                        status=1,
+                    )
+                )
+        before = LearnGeneratedElement.query.count()
+        history = load_follow_up_history(
+            progress_record_bid=anchor.progress_record_bid,
+            anchor_element_bid=anchor.element_bid,
+            max_history_messages=10,
+        )
+        expected = [{"role": "assistant", "content": "Selected anchor"}]
+        for turn in range(2, 7):
+            expected += [
+                {"role": "user", "content": f"Exact learner request {turn}"},
+                {"role": "assistant", "content": f"Assistant suggestion {turn}"},
+            ]
+        assert history == expected
+        assert LearnGeneratedElement.query.count() == before
