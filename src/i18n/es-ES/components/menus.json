@@ -4,6 +4,7 @@
     "adminConsole": "Ir al panel de administración",
     "createCourse": "Crear un curso",
     "language": "Idioma",
-    "personalInfo": "Personalización"
+    "personalInfo": "Personalización",
+    "version": "Versión"
   }
 }

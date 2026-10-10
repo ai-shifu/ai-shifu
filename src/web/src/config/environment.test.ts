@@ -1,3 +1,50 @@
+describe('frontend build metadata', () => {
+  const originalBuildEnvironment = {
+    NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
+    NEXT_PUBLIC_APP_BUILD_SHA: process.env.NEXT_PUBLIC_APP_BUILD_SHA,
+  };
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(originalBuildEnvironment)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  it('exposes the bundled release and full commit without runtime configuration', async () => {
+    process.env.NEXT_PUBLIC_APP_VERSION = '9.8.7';
+    process.env.NEXT_PUBLIC_APP_BUILD_SHA = 'a'.repeat(40);
+
+    await jest.isolateModulesAsync(async () => {
+      const { environment } = await import('./environment');
+
+      expect(environment.appVersion).toBe('9.8.7');
+      expect(environment.appBuildSha).toBe('a'.repeat(40));
+
+      process.env.NEXT_PUBLIC_APP_VERSION = '1.0.0';
+      process.env.NEXT_PUBLIC_APP_BUILD_SHA = 'b'.repeat(40);
+
+      expect(environment.appVersion).toBe('9.8.7');
+      expect(environment.appBuildSha).toBe('a'.repeat(40));
+    });
+  });
+
+  it('does not invent unavailable build metadata', async () => {
+    delete process.env.NEXT_PUBLIC_APP_VERSION;
+    delete process.env.NEXT_PUBLIC_APP_BUILD_SHA;
+
+    await jest.isolateModulesAsync(async () => {
+      const { environment } = await import('./environment');
+
+      expect(environment.appVersion).toBe('');
+      expect(environment.appBuildSha).toBe('');
+    });
+  });
+});
+
 describe('cached runtime API base URL', () => {
   const originalFetch = global.fetch;
 

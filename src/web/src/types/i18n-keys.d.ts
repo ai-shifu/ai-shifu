@@ -122,6 +122,7 @@ export type I18nKey =
   | 'component.menus.navigationMenus.createCourse'
   | 'component.menus.navigationMenus.language'
   | 'component.menus.navigationMenus.personalInfo'
+  | 'component.menus.navigationMenus.version'
   | 'component.navigation.contactUs'
   | 'component.outlineTree.cancel'
   | 'component.outlineTree.confirm'
