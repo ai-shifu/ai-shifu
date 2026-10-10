@@ -8,6 +8,10 @@ if TYPE_CHECKING:
     from pydantic_ai.models import Model
 
 GENERATION_SETTINGS = {"temperature": 0, "max_tokens": 2048}
+QUESTION_PROMPTS = {
+    "FEATURES": "What are the main characteristics of a digital computer?",
+    "PERIPHERALS": "Name an input device and explain its function.",
+}
 
 
 def grading_script(case: dict[str, Any]) -> str:
@@ -19,8 +23,10 @@ def grading_script(case: dict[str, Any]) -> str:
     )
     return (
         "Teach these two questions in order. Ask one text interaction at a time. "
-        "Use exactly FEATURES and PERIPHERALS as their interaction prompts, "
-        "including on retries. Do not finish before both answers pass. "
+        f"Use exactly {QUESTION_PROMPTS['FEATURES']!r} and "
+        f"{QUESTION_PROMPTS['PERIPHERALS']!r} as their interaction prompts, "
+        "including on retries, so the learner sees the actual question. "
+        "Do not finish before both answers pass. "
         "First, ask FEATURES: What are the main characteristics of a digital "
         "computer? The required points are automatic continuous operation under "
         "program control, fast computation, high precision, large information "
@@ -66,7 +72,7 @@ async def evaluate_grading(case: dict[str, Any], model: Model) -> dict[str, Any]
         not any(isinstance(event, ErrorEvent) for event in setup)
         and len(session.pending) == 1
         and session.pending[0].spec.type == "text"
-        and session.pending[0].spec.prompt == "FEATURES"
+        and session.pending[0].spec.prompt == QUESTION_PROMPTS["FEATURES"]
     )
     if not setup_ok:
         return {
@@ -93,7 +99,7 @@ async def evaluate_grading(case: dict[str, Any], model: Model) -> dict[str, Any]
     checks = {
         "expected_question": len(questions) == 1
         and questions[0].spec.type == "text"
-        and questions[0].spec.prompt == case["expected_question"],
+        and questions[0].spec.prompt == QUESTION_PROMPTS[case["expected_question"]],
         "feedback_present": any(
             isinstance(event, ContentDelta) and event.text.strip() for event in events
         ),
