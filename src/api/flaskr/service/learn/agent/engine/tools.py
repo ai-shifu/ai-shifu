@@ -70,6 +70,8 @@ class Deps:
     # Original messages before request projection.
     exercise_history: tuple[Any, ...] = ()
     exercise_evidence: list[dict[str, Any]] | None = None  # Frozen within this run.
+    exercise_read_offset: int | None = 0  # Next contiguous original-evidence page.
+    exercise_report_totals: dict[str, int | None] | None = None
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.

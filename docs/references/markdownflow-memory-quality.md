@@ -479,7 +479,7 @@ Blank free-text values, including a nonempty list of empty strings, keep the
 original question pending without model execution or answer/memory writes.
 Real answers retain their original whitespace. Confirmations and named choices
 that intentionally store an empty value preserve their existing meanings.
-See the [text-control plan](../exec-plans/active/mdf2-natural-text-controls.md)
+See the [text-control plan](../exec-plans/completed/mdf2-natural-text-controls.md)
 for current component, saved-session, sim and CI evidence. This reported bug takes
 priority before the next natural compressed-statistics journey; it does not close
 that acceptance item or authorize 1.0 deletion.
@@ -493,3 +493,39 @@ text as received by the engine; the browser's existing trim/deduplication contra
 is unchanged. Blank browser input is already removed before `_turn_input`, so it
 cannot choose an empty-valued option accidentally; explicitly selected empty SDK
 values remain valid.
+
+
+### Natural compressed classroom: report-tool compliance
+
+After #3092 merged, a new internal learner completed the eleven-question course
+in eighteen successful HTTP requests and nineteen engine turns. A genuine
+4,110-byte explanation crosses the unchanged 4,096-byte threshold; later turns
+retain one successful semantic-summary cache entry. This establishes actual
+natural compression, unlike the earlier short-history sample. The final report
+still fails: it calls neither original-submission reads nor the calculator,
+miscounts a knowledge question, and contradicts its own per-question table.
+Four questions required corrections, while the summary claimed three. Preserve
+this failure; compression occurring does not establish that it caused the defect.
+All twenty-one actual requests settle for 30.35 credits with real classroom and
+owner attribution. No original learner is reset and no SQL writes are performed.
+The teacher also expanded two authored grading criteria; retain this separate
+quality finding. Original pass/fail reporting fidelity does not validate the
+teacher's underlying grading or authorize changing those criteria.
+
+Opted-in reporting now appends request-local host status to model instructions.
+It names the next contiguous original-history page, then the calculation step,
+then only successful calculator totals. Out-of-order/invalid reads cannot advance
+that status; invalid/oversized calculations cannot provide successful totals.
+The real SDK sees the state changes on successive requests. State lives only in
+Deps and resets for the next run; original messages, answers, semantic grades,
+tool-result byte limits, schemas and portable defaults remain unchanged.
+The reminder applies only when the script requests statistics and does not add
+reports to ordinary lessons. This is model guidance, not deterministic prevention
+of reporting or finishing without tools. A same-turn final answer still needs
+feedback before evidence reads and reporting.
+
+See the [natural compressed-statistics plan](../exec-plans/active/mdf2-natural-compressed-statistics.md)
+for candidate validation. A non-persisting replay of a real pre-report checkpoint
+must be identified as such; it cannot relabel the failed classroom or establish a
+new full-course/human acceptance. The attempted trace reads did not yield a wire
+capture, so stored summaries and verified runtime evidence are stated separately.
