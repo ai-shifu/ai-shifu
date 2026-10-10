@@ -68,7 +68,11 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
         + ". Copy the successful tool result's exact question rows and totals; "
         "derive percentages and review lists from those same rows. "
         "A knowledge question is not another answer attempt. "
-        "Do not invent a second set of counts, even if the script has an example."
+        "Do not invent a second set of counts, even if the script has an example. "
+        "Once the report is delivered, call finish if nothing in the script remains. "
+        "A script request to remember a report does not declare a memory key or "
+        "authorize remember; follow the memory policy and do not invent a summary "
+        "key or retry a refused write."
     )
 
 

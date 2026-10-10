@@ -508,9 +508,11 @@ Four questions required corrections, while the summary claimed three. Preserve
 this failure; compression occurring does not establish that it caused the defect.
 All twenty-one actual requests settle for 30.35 credits with real classroom and
 owner attribution. No original learner is reset and no SQL writes are performed.
-The teacher also expanded two authored grading criteria; retain this separate
-quality finding. Original pass/fail reporting fidelity does not validate the
-teacher's underlying grading or authorize changing those criteria.
+The teacher also required peripheral devices beyond the authored five-point
+criterion; retain this separate quality finding. Hardware multithreading was
+initially misidentified as another expansion, but the full saved lesson explicitly
+requires it. Original pass/fail reporting fidelity does not validate the teacher's
+underlying grading or authorize changing the criteria.
 
 Opted-in reporting now appends request-local host status to model instructions.
 It names the next contiguous original-history page, then the calculation step,
@@ -525,10 +527,15 @@ tool-result byte limits, schemas and portable defaults remain unchanged.
 The reminder applies only when the script requests statistics and does not add
 reports to ordinary lessons. This is model guidance, not deterministic prevention
 of reporting or finishing without tools. A same-turn final answer still needs
-feedback before evidence reads and reporting.
+feedback before evidence reads and reporting. After delivering the report, finish
+when the script is complete. A script request to remember the report cannot bypass
+the existing declared-or-learner-requested memory policy, invent a summary key, or
+justify retrying refused writes. A candidate replay produced correct rows/counts
+but exhausted its unchanged twelve-request budget attempting that unauthorized
+write; retain the unfinished failure while validating this completion guidance.
 
 See the [natural compressed-statistics plan](../exec-plans/active/mdf2-natural-compressed-statistics.md)
-for candidate validation. A non-persisting replay of a real pre-report checkpoint
+for candidate validation. A non-persisting replay of a real pre-final-answer checkpoint
 must be identified as such; it cannot relabel the failed classroom or establish a
 new full-course/human acceptance. Initial trace reads failed; the supported trace
 API through the observed internal service later returns eighteen traces and all

@@ -30,6 +30,22 @@ did not cross that threshold and cannot establish this acceptance.
   totals when the SDK rejects the latest calculation before its body executes.
   Legacy calculator responses remain compatible; the status requires a new
   successful post-read calculation. All 36 focused cases pass.
+- [x] 2026-10-10: Deploy bc5ded802 as sim 1b77d9420; both API replicas match
+  all 54 runtime/resource hashes. Broader regression passes 3,340 cases and 50
+  subtests with three expected skips; sim passes 725 cases and 46 subtests.
+- [x] 2026-10-10: Preserve a mistaken post-report checkpoint probe (three actual
+  requests, 3.86 credits); it only finishes and cannot validate report generation.
+  Correct the harness to the actual turn-17, 34-message checkpoint and submit the
+  exact final answer recorded in that block. No history is fabricated or written.
+- [x] 2026-10-10: The corrected replay reads nine pages and matches all seventeen
+  input references, semantic groups/outcomes, eleven rows and all calculator /
+  visible totals (15 attempts, four retries, seven first-correct, six hints).
+  It then attempts an undeclared summary write twice and exhausts twelve requests;
+  retain this unfinished failure. Thirteen actual requests settle for 32.17 credits.
+  Original history, completed progress/session and variables remain unchanged.
+- [x] 2026-10-10: Add a real SDK failing assertion for post-report finish and
+  existing memory authorization, then clarify successful-report guidance. Do not
+  raise the request budget or grant a script's undeclared summary write.
 - [ ] 2026-10-10: Check original submissions, semantic judgments, question rows,
   final totals, stored history and actual billed request attribution.
 - [ ] 2026-10-10: Record findings and validation in a focused PR, fixing any
@@ -55,8 +71,10 @@ summary bound by position and SHA-256 to the exact 4,110-byte original. The loca
 checker initially assumed every generation input was an object; summary inputs
 are lists. Handle both and verify the same retained data without extra model calls.
 The teacher also required a peripheral-device point absent from the authored
-five-point criterion, and added hardware multithreading to another criterion.
-Track that grading drift separately: faithful reporting of the original graded
+five-point criterion. An initial review incorrectly also called hardware
+multithreading an added criterion; the complete saved lesson explicitly requires
+it. Correct that assessment without changing retained evidence.
+Track the peripheral grading drift separately: faithful reporting of the original graded
 outcomes does not establish that those teaching judgments were correct.
 
 ## Decision Log
@@ -71,7 +89,7 @@ outcomes does not establish that those teaching judgments were correct.
   reads and successful calculator totals only in per-run dependencies; reflect
   actual status in model instructions without changing stored answers, judgments,
   tool result schemas or portable defaults. Invalid calculations clear stale totals.
-- Reuse the real saved pre-report block checkpoint only in a non-persisting
+- Reuse the real saved pre-final-answer block checkpoint only in a non-persisting
   candidate replay. Never rewrite the failed classroom or call that a fresh course.
 
 ## Outcomes & Retrospective
