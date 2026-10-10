@@ -57,7 +57,11 @@ from .events import (
     ToolResult,
     TurnDone,
 )
-from .exercise_statistics import calculate_exercise_statistics, read_exercise_history
+from .exercise_statistics import (
+    calculate_exercise_statistics,
+    exercise_report_notice,
+    read_exercise_history,
+)
 from .history_context import compact_recall_history, current_recall_notice
 from .interaction import (
     InteractionAnswer,
@@ -541,6 +545,8 @@ class Engine:
             )
             if notice:
                 instructions += "\n\n" + notice
+        if self.exercise_statistics:
+            instructions += "\n\n" + exercise_report_notice(ctx)
         return instructions
 
     # -- sessions ----------------------------------------------------------------------------

@@ -13,6 +13,7 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
     ModelResponse,
+    RetryPromptPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -23,6 +24,60 @@ from .tools import LESSON_OVER, Deps
 
 RESULT_BYTES = 8192
 MAX_SUBMISSIONS = 200
+
+
+def exercise_report_notice(ctx: RunContext[Deps]) -> str:
+    """Describe real tool progress for this run without grading or reading answers."""
+    deps = ctx.deps
+    latest = next(
+        (
+            part
+            for message in reversed(ctx.messages[deps.history_len :])
+            for part in reversed(message.parts)
+            if isinstance(part, (RetryPromptPart, ToolReturnPart))
+            and part.tool_name == "calculate_exercise_statistics"
+        ),
+        None,
+    )
+    if isinstance(latest, RetryPromptPart):
+        # Schema errors occur before the calculator body can invalidate old totals.
+        deps.exercise_report_totals = None
+    prefix = (
+        "Current exercise-report status (host context, not learner input). "
+        "Only when the script requests exercise statistics or a final report: "
+        "stop writing before the statistics and follow this status. "
+        "Otherwise keep teaching normally; do not add a report. "
+    )
+    if deps.exercise_read_offset is not None:
+        return prefix + (
+            "Original submissions have not been read completely in this turn. "
+            f"Call read_exercise_history with offset={deps.exercise_read_offset}, "
+            "then follow next_offset to null before calculating or writing a report. "
+            "Do not replace these steps with mental counts or call finish first."
+        )
+    if deps.exercise_report_totals is None:
+        return prefix + (
+            "Original submissions have been read completely. Next call "
+            "calculate_exercise_statistics with every original reference grouped "
+            "by its actual question and graded from its original feedback. "
+            "Do not write report numbers or call finish before it succeeds."
+        )
+    notice = prefix + (
+        "Successful calculator totals for this turn: "
+        + _encode(deps.exercise_report_totals)
+        + ". Copy the successful tool result's exact question rows and totals; "
+        "derive percentages and review lists from those same rows. "
+        "A knowledge question is not another answer attempt. "
+        "Do not invent a second set of counts, even if the script has an example. "
+        "Once the report is delivered, call finish if nothing in the script remains."
+    )
+    if deps.memory_keys is not None:
+        notice += (
+            " A script request to remember a report does not declare a memory key or "
+            "authorize remember; follow the memory policy and do not invent a summary "
+            "key or retry a refused write."
+        )
+    return notice
 
 
 def _encode(value: object) -> str:
@@ -174,6 +229,8 @@ async def read_exercise_history(ctx: RunContext[Deps], offset: int = 0) -> str:
             low = middle
         else:
             high = middle - 1
+    if offset == ctx.deps.exercise_read_offset:
+        ctx.deps.exercise_read_offset = low if low < len(source) else None
     return page(low)
 
 
@@ -215,6 +272,7 @@ async def calculate_exercise_statistics(
     """
     if ctx.deps.finished is not None:
         return LESSON_OVER
+    ctx.deps.exercise_report_totals = None
     records = _records(ctx)
     if records is None:
         return _encode({"status": "invalid_history"})
@@ -295,8 +353,8 @@ async def calculate_exercise_statistics(
             "semantic_judgments": "model_supplied",
         }
     )
-    return (
-        result
-        if len(result.encode()) <= RESULT_BYTES
-        else _encode({"status": "report_too_large"})
-    )
+    if len(result.encode()) > RESULT_BYTES:
+        return _encode({"status": "report_too_large"})
+    if ctx.deps.exercise_read_offset is None:
+        ctx.deps.exercise_report_totals = dict(totals)
+    return result

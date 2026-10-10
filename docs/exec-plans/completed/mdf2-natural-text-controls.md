@@ -35,10 +35,13 @@ without a model call, a fabricated answer or a memory write.
   input; the SDK explicitly distinguishes selected values from typed text.
   Expanded regression: 3,230 cases and four subtests pass, one expected skip;
   783 host/protocol/engine cases pass. Verify the narrated fallback in all locales.
-- [ ] 2026-10-10: Publish the review correction and verify its sim rollout;
-  record final deployment/CI evidence and review decisions on PR #3092.
-- [ ] 2026-10-10: Reply to every AI opinion in its original discussion and record
-  final CI. User merges manually; retain 1.0 and the natural-compaction backlog.
+- [x] 2026-10-10: Publish 18cfa9b20; sim d6f19cf80 is Ready. Both API
+  replicas match 54 runtime/resource hashes and pass two saved-session cases,
+  72 typed controls, 32 narrated controls and six blank-input boundary cases.
+- [x] 2026-10-10: Every independent AI opinion has an original-discussion reply.
+  Final head 73520d9ea merges main without changing the learning runtime; all
+  technical CI passes. User manually merges as 6e79a55d9 at 13:06:33 UTC.
+  Retain 1.0; natural compaction continues in the compressed-statistics plan.
 
 ## Surprises & Discoveries
 
@@ -72,8 +75,8 @@ course, not proof that a later cached run is the screenshot's original run.
 
 ## Outcomes & Retrospective
 
-Implementation, independent component proof and the initial sim checks pass;
-the review correction and final CI are being completed on PR #3092. The exact screenshot run is
+Implementation, component proof, final sim checks and technical CI pass;
+PR #3092 is manually merged and this narrow plan is complete. The exact screenshot run is
 not retained; local reproduction establishes the missing-hint and blank-answer
 contracts independently. Do not call this production-browser acceptance.
 
