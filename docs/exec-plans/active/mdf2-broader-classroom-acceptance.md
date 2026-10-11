@@ -27,6 +27,23 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       ai-shifu conda bin directory first on PATH passes without repository changes.
 - [ ] Verify grounded feedback on deployed sim, then start a separate fresh
       ordinary-request eleven-question journey with natural compression.
+- [x] 2026-10-11: Deployed feedback checkpoint passes the focused manual
+      comparison: the correction explanation cites the learner's actual prior
+      denial of storage and presents the disk-file distinction generally, without
+      assigning that example to this learner. All three requests receive the new
+      policy; wrong/correct/navigation boundaries pass and one real semantic
+      summary occurs. Three teaching generations plus one summary settle 4.31
+      credits, matching actual progress/block/owner attribution, with no failed
+      or unsettled usage. Original session/progress/variables and eight history
+      elements are unchanged. This is not broad factual teaching accuracy or a
+      fresh compressed-classroom pass. Begin the independent new HTTP/SSE journey.
+- [x] 2026-10-11: Submit focused #3108 at 5a530cd66 and integrate sim
+      baf57b452. Automatic build 552 / Drone 5341 succeeds; API 2/2 and
+      web 1/1 finish rollout, HTTP returns 200. Both APIs match 55
+      runtime/resource fingerprints and pass ten isolated navigation/feedback
+      SDK cases each. Sim engine/quality checks pass 696 cases. The first
+      fingerprint attempt sees old terminating replicas and stops before any
+      paid requests; repeat only after rollout completion establishes the result.
 - [x] 2026-10-11 03:25 UTC: Transfer outstanding external acceptance from the
       completed grading plans into this named active continuation record.
 - [ ] Run a fresh complete journey that naturally triggers history compression.

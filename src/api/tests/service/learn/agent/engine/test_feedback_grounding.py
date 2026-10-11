@@ -31,6 +31,7 @@ async def test_feedback_policy_keeps_author_examples_separate_from_submissions(
     async def model(
         messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Inspect SDK evidence and return controlled content and an input control."""
         nonlocal calls
         calls += 1
         if calls > 1:
