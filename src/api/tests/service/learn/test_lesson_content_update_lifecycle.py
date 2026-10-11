@@ -62,7 +62,12 @@ def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
                         id=course.id,
                         type="shifu",
                         children=[
-                            HistoryItem(bid=identity, id=outline.id, type="outline")
+                            HistoryItem(
+                                bid=identity,
+                                id=outline.id,
+                                type="outline",
+                                content_revision=11,
+                            )
                         ],
                     ).to_json(),
                 )
@@ -75,6 +80,7 @@ def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
                     outline_item_bid=identity,
                     active_key=active_key_for(identity, identity, preview_mode=preview),
                     schema_version=1,
+                    content_revision=11,
                     session_data=json.dumps(
                         {
                             "script": {"script": "Original"},
@@ -109,8 +115,16 @@ def _assert_flags(lesson: SimpleNamespace, preview: bool, expected: bool) -> Non
 
 def _change_body(lesson: SimpleNamespace, preview: bool, content: str) -> None:
     model = DraftOutlineItem if preview else PublishedOutlineItem
+    struct_model = LogDraftStruct if preview else LogPublishedStruct
     with lesson.app.app_context(), unit_of_work():
-        model.query.filter_by(shifu_bid=lesson.identity).one().content = content
+        outline = model.query.filter_by(shifu_bid=lesson.identity).one()
+        if outline.content == content:
+            return
+        outline.content = content
+        structure = struct_model.query.filter_by(shifu_bid=lesson.identity).one()
+        parsed = HistoryItem.from_json(structure.struct)
+        parsed.children[0].content_revision += 1
+        structure.struct = parsed.to_json()
 
 
 @pytest.mark.parametrize("preview", [False, True])
@@ -143,7 +157,8 @@ def test_content_changes_reverts_and_resume_do_not_move_the_baseline(
         ).one().updated_at = now_utc()
     _assert_flags(lesson, preview, expected=True)
     _change_body(lesson, preview, "Original")
-    _assert_flags(lesson, preview, expected=False)
+    # Restoring the old text is a later revision, so the recommendation remains.
+    _assert_flags(lesson, preview, expected=True)
 
 
 @pytest.mark.parametrize("preview", [False, True])
@@ -215,6 +230,9 @@ def test_cleared_body_retakes_are_scoped_and_new_sessions_establish_new_baseline
         )
     _change_body(lesson, preview, "New attempt")
     with app.app_context(), unit_of_work():
+        struct_model = LogDraftStruct if preview else LogPublishedStruct
+        structure = struct_model.query.filter_by(shifu_bid=identity).one()
+        revision = HistoryItem.from_json(structure.struct).children[0].content_revision
         db.session.add(
             LearnAgentSession(
                 agent_session_bid=uuid4().hex,
@@ -223,6 +241,7 @@ def test_cleared_body_retakes_are_scoped_and_new_sessions_establish_new_baseline
                 outline_item_bid=identity,
                 active_key=active_key_for(identity, identity, preview_mode=preview),
                 schema_version=1,
+                content_revision=revision,
                 session_data=json.dumps(
                     {"script": {"script": "New attempt"}, "messages": [{}]}
                 ),
@@ -243,19 +262,31 @@ def test_cleared_body_retakes_are_scoped_and_new_sessions_establish_new_baseline
     _assert_flags(lesson, preview, expected=True)
 
 
-@pytest.mark.parametrize(
-    "raw", ["broken", "{}", '{"script":{"script":"Original"},"messages":[]}']
-)
+@pytest.mark.parametrize("baseline", [None, 0])
 @pytest.mark.parametrize("preview", [False, True])
-def test_missing_or_invalid_teaching_history_never_infers_a_baseline(
-    lesson: SimpleNamespace, preview: bool, raw: str
+def test_unknown_baselines_never_infer_a_version_from_history(
+    lesson: SimpleNamespace, preview: bool, baseline: int | None
 ) -> None:
     identity = lesson.identity
     _change_body(lesson, preview, "Changed")
     with lesson.app.app_context(), unit_of_work():
         LearnAgentSession.query.filter_by(
             active_key=active_key_for(identity, identity, preview_mode=preview)
-        ).one().session_data = raw
+        ).one().content_revision = baseline
+    _assert_flags(lesson, preview, expected=False)
+
+
+@pytest.mark.parametrize("preview", [False, True])
+def test_missing_current_revision_never_uses_the_physical_row_id(
+    lesson: SimpleNamespace, preview: bool
+) -> None:
+    _change_body(lesson, preview, "Changed")
+    struct_model = LogDraftStruct if preview else LogPublishedStruct
+    with lesson.app.app_context(), unit_of_work():
+        structure = struct_model.query.filter_by(shifu_bid=lesson.identity).one()
+        parsed = HistoryItem.from_json(structure.struct)
+        parsed.children[0].content_revision = None
+        structure.struct = parsed.to_json()
     _assert_flags(lesson, preview, expected=False)
 
 
@@ -266,7 +297,7 @@ def test_records_query_only_the_requested_published_session(
     loader = listen_elements.load_lesson_content_states
 
     def capture(**kwargs: object) -> dict:
-        calls.append(kwargs["outline_ids"])
+        calls.append(kwargs["outline_revisions"])
         return loader(**kwargs)
 
     monkeypatch.setattr(listen_elements, "load_lesson_content_states", capture)
@@ -382,3 +413,48 @@ def test_record_contract_defaults_to_false() -> None:
         LearnElementRecordDTO().__json__()["has_content_update_for_current_user"]
         is False
     )
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize(
+    "attribute", ["deleted", "hidden", "shifu_bid", "outline_item_bid"]
+)
+def test_current_physical_outline_must_be_visible_and_match_the_lesson(
+    lesson: SimpleNamespace, preview: bool, attribute: str
+) -> None:
+    _change_body(lesson, preview, "Changed")
+    model = DraftOutlineItem if preview else PublishedOutlineItem
+    with lesson.app.app_context(), unit_of_work():
+        row = model.query.filter_by(shifu_bid=lesson.identity).one()
+        setattr(row, attribute, 1 if attribute in {"deleted", "hidden"} else "other")
+    with lesson.app.app_context():
+        record = listen_elements.get_listen_element_record(
+            lesson.app, lesson.identity, lesson.identity, lesson.identity, preview
+        )
+        assert record.has_content_update_for_current_user is False
+    tree = get_outline_item_tree(lesson.app, lesson.identity, lesson.identity, preview)
+    assert not any(
+        item.has_content_update_for_current_user for item in tree.outline_items
+    )
+
+
+@pytest.mark.parametrize(
+    ("turn", "finished", "expected"),
+    [(1, 0, LearnStatus.IN_PROGRESS), (0, 1, LearnStatus.COMPLETED)],
+)
+def test_unknown_legacy_preview_keeps_progress_without_an_update_notice(
+    lesson: SimpleNamespace, turn: int, finished: int, expected: LearnStatus
+) -> None:
+    _change_body(lesson, preview=True, content="Changed")
+    with lesson.app.app_context(), unit_of_work():
+        row = LearnAgentSession.query.filter_by(
+            active_key=active_key_for(
+                lesson.identity, lesson.identity, preview_mode=True
+            )
+        ).one()
+        row.content_revision, row.turn, row.finished = None, turn, finished
+    tree = get_outline_item_tree(
+        lesson.app, lesson.identity, lesson.identity, preview_mode=True
+    )
+    assert tree.outline_items[0].status == expected
+    _assert_flags(lesson, preview=True, expected=False)

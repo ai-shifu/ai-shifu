@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import pytest
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import session_store
 from flaskr.service.learn.agent.engine import ScriptBundle, Session
 from flaskr.service.learn.agent.models import (
     AGENT_SESSION_SCHEMA_VERSION,
     LearnAgentSession,
+    active_key_for,
 )
+from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 USER = "learner-1"
 SHIFU = "course-a"
@@ -38,13 +41,21 @@ def a_session(**kw: object) -> Session:
     return session
 
 
-def store(app: object, session: Session) -> None:
+def store(
+    app: object,
+    session: Session,
+    *,
+    content_revision: int | None = None,
+    preview_mode: bool = False,
+) -> None:
     session_store.save_agent_session(
         app,
         session,
         user_bid=USER,
         shifu_bid=SHIFU,
         outline_item_bid=OUTLINE,
+        content_revision=content_revision,
+        preview_mode=preview_mode,
     )
 
 
@@ -384,3 +395,178 @@ def test_resetting_published_learning_preserves_the_preview_session(
             session_store.load_agent_session(app, USER, OUTLINE, preview_mode=True)
             is not None
         )
+
+
+def _teaching_session() -> Session:
+    return a_session(messages=[ModelRequest(parts=[UserPromptPart(content="Start")])])
+
+
+def _revision_row(preview: bool) -> LearnAgentSession:
+    return LearnAgentSession.query.filter_by(
+        active_key=active_key_for(USER, OUTLINE, preview_mode=preview)
+    ).one()
+
+
+@pytest.mark.parametrize("preview", [False, True])
+def test_first_teaching_captures_the_revision_and_continuation_keeps_it(
+    app: object, preview: bool
+) -> None:
+    with app.app_context():
+        session = _teaching_session()
+        store(app, session, content_revision=11, preview_mode=preview)
+        assert _revision_row(preview).content_revision == 11
+        session.messages.append(
+            ModelRequest(parts=[UserPromptPart(content="Follow up")])
+        )
+        session.turn += 1
+        session.finished = True
+        store(app, session, content_revision=12, preview_mode=preview)
+        assert _revision_row(preview).content_revision == 11
+
+
+@pytest.mark.parametrize("preview", [False, True])
+def test_empty_first_save_waits_for_actual_messages_before_capturing_revision(
+    app: object, preview: bool
+) -> None:
+    with app.app_context():
+        session = a_session()
+        session.turn = 0
+        store(app, session, content_revision=11, preview_mode=preview)
+        assert _revision_row(preview).content_revision is None
+        session.messages.append(ModelRequest(parts=[UserPromptPart(content="Start")]))
+        store(app, session, content_revision=12, preview_mode=preview)
+        assert _revision_row(preview).content_revision == 12
+
+
+@pytest.mark.parametrize("preview", [False, True])
+def test_an_old_started_session_without_a_revision_is_never_backfilled(
+    app: object, preview: bool
+) -> None:
+    with app.app_context():
+        session = _teaching_session()
+        store(app, session, content_revision=11, preview_mode=preview)
+        with unit_of_work():
+            _revision_row(preview).content_revision = None
+        session.messages.append(
+            ModelRequest(parts=[UserPromptPart(content="Continue")])
+        )
+        store(app, session, content_revision=12, preview_mode=preview)
+        assert _revision_row(preview).content_revision is None
+
+
+@pytest.mark.parametrize("preview", [False, True])
+def test_unknown_source_revision_marks_started_and_stays_unknown(
+    app: object, preview: bool
+) -> None:
+    with app.app_context():
+        session = _teaching_session()
+        store(app, session, content_revision=None, preview_mode=preview)
+        assert _revision_row(preview).content_revision == 0
+        store(app, session, content_revision=12, preview_mode=preview)
+        assert _revision_row(preview).content_revision == 0
+
+
+@pytest.mark.parametrize("preview", [False, True])
+def test_retaking_records_a_new_baseline_without_changing_the_other_scope(
+    app: object, preview: bool
+) -> None:
+    with app.app_context():
+        store(app, _teaching_session(), content_revision=11, preview_mode=preview)
+        store(app, _teaching_session(), content_revision=21, preview_mode=not preview)
+        old_id = _revision_row(preview).id
+        with unit_of_work():
+            session_store.stage_agent_session_discard(
+                user_bid=USER,
+                outline_item_bid=OUTLINE,
+                preview_mode=preview,
+                shifu_bid=SHIFU,
+            )
+        store(app, _teaching_session(), content_revision=12, preview_mode=preview)
+        assert _revision_row(preview).content_revision == 12
+        assert _revision_row(preview).id != old_id
+        assert db.session.get(LearnAgentSession, old_id).content_revision == 11
+        assert _revision_row(not preview).content_revision == 21
+
+
+def test_preview_reservation_captures_no_baseline_until_teaching_is_saved(
+    app: object,
+) -> None:
+    from flaskr.service.learn.agent.preview_history import begin_preview_run
+
+    with app.app_context():
+        generation = begin_preview_run(
+            app, user_bid=USER, shifu_bid=SHIFU, outline_bid=OUTLINE, run_bid="run-1"
+        )
+        assert _revision_row(preview=True).content_revision is None
+        session_store.save_agent_session(
+            app,
+            _teaching_session(),
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_item_bid=OUTLINE,
+            preview_mode=True,
+            preview_generation=generation,
+            content_revision=12,
+        )
+        assert _revision_row(preview=True).content_revision == 12
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize(
+    "unusable", ["schema", "pydantic", "broken-json", "scalar-json"]
+)
+def test_restarting_an_unusable_session_establishes_the_new_teaching_baseline(
+    app: object, preview: bool, unusable: str
+) -> None:
+    with app.app_context():
+        original = _teaching_session()
+        store(app, original, content_revision=11, preview_mode=preview)
+        with unit_of_work():
+            row = _revision_row(preview)
+            if unusable == "schema":
+                row.schema_version += 1
+            elif unusable == "pydantic":
+                row.pydantic_ai_version = "incompatible-version"
+            else:
+                row.session_data = "broken" if unusable == "broken-json" else "null"
+        with pytest.raises(session_store.StoredSessionUnusable):
+            session_store.load_agent_session(app, USER, OUTLINE, preview_mode=preview)
+        restarted = _teaching_session()
+        assert restarted.id != original.id
+        store(app, restarted, content_revision=12, preview_mode=preview)
+        assert _revision_row(preview).content_revision == 12
+        assert (
+            session_store.load_agent_session(
+                app, USER, OUTLINE, preview_mode=preview
+            ).id
+            == restarted.id
+        )
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("revision", [12, None])
+def test_a_different_engine_generation_owns_its_own_revision(
+    app: object, preview: bool, revision: int | None
+) -> None:
+    with app.app_context():
+        first, second = _teaching_session(), _teaching_session()
+        assert first.id != second.id
+        store(app, first, content_revision=11, preview_mode=preview)
+        store(app, second, content_revision=revision, preview_mode=preview)
+        assert _revision_row(preview).content_revision == (revision or 0)
+        store(app, second, content_revision=99, preview_mode=preview)
+        assert _revision_row(preview).content_revision == (revision or 0)
+
+
+@pytest.mark.parametrize("preview", [False, True])
+def test_empty_restarted_generation_clears_the_previous_attempt_baseline(
+    app: object, preview: bool
+) -> None:
+    with app.app_context():
+        store(app, _teaching_session(), content_revision=11, preview_mode=preview)
+        restarted = a_session()
+        store(app, restarted, content_revision=12, preview_mode=preview)
+        assert _revision_row(preview).content_revision is None
+        restarted.messages.append(ModelRequest(parts=[UserPromptPart(content="Start")]))
+        store(app, restarted, content_revision=13, preview_mode=preview)
+        assert _revision_row(preview).content_revision == 13

@@ -8,7 +8,10 @@ import pytest
 from flaskr.dao import db
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
 from flaskr.service.shifu.repair import repair_shifu_outline_structure
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.shifu_history_manager import (
+    HistoryItem,
+    outline_content_revisions,
+)
 
 
 def _mk_shifu(shifu_bid: str, title: str = "Draft") -> DraftShifu:
@@ -87,6 +90,12 @@ def test_repair_shifu_outline_structure_repairs_collision_and_rebuilds_struct(
         _mk_outline("shifu-repair-1", "child-a", "0401", parent_bid="")
         _mk_outline("shifu-repair-1", "child-b", "0401", parent_bid="root-4")
         _mk_outline("shifu-repair-1", "child-c", "0402", parent_bid="root-4")
+        baseline_revisions = {
+            row.outline_item_bid: row.id
+            for row in DraftOutlineItem.query.filter_by(
+                shifu_bid="shifu-repair-1"
+            ).all()
+        }
         db.session.commit()
 
         result = repair_shifu_outline_structure(
@@ -126,6 +135,7 @@ def test_repair_shifu_outline_structure_repairs_collision_and_rebuilds_struct(
 
     assert latest_struct is not None
     history = HistoryItem.from_json(latest_struct.struct)
+    assert outline_content_revisions(history) == baseline_revisions
     assert history.id == shifu_db_id
     root4 = next(child for child in history.children if child.bid == "root-4")
     assert [child.bid for child in root4.children] == ["child-a", "child-b", "child-c"]

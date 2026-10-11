@@ -62,15 +62,39 @@ class HistoryItem(BaseModel, Generic[T]):
     type: str
     children: list["HistoryItem"] = []
     child_count: int = 0
+    content_revision: int | None = None
 
     def to_json(self) -> str:
         """To json."""
-        return self.model_dump_json()
+        return self.model_dump_json(exclude_none=True)
 
     @classmethod
     def from_json(cls, json: str) -> "HistoryItem":
         """From json to history item."""
         return cls.model_validate_json(json)
+
+
+def normalize_outline_content(content: str | None) -> str:
+    """Keep authored differences except platform-specific line endings."""
+    return (content or "").replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _outline_nodes(history: HistoryItem) -> Iterator[HistoryItem]:
+    pending = [history]
+    while pending:
+        node = pending.pop()
+        if node.type == "outline":
+            yield node
+        pending.extend(node.children)
+
+
+def outline_content_revisions(history: HistoryItem) -> dict[str, int]:
+    """Read recorded content revisions without loading lesson bodies or history."""
+    return {
+        node.bid: node.content_revision
+        for node in _outline_nodes(history)
+        if isinstance(node.content_revision, int) and node.content_revision > 0
+    }
 
 
 def _get_latest_draft_log(
@@ -91,6 +115,7 @@ def iter_outline_item_versions_desc(
     *,
     batch_size: int = 200,
     max_rows: int | None = None,
+    max_id: int | None = None,
 ) -> Iterator[DraftOutlineItem]:
     """Yield draft outline versions newest-first in buffered keyset batches.
 
@@ -113,6 +138,8 @@ def iter_outline_item_versions_desc(
         )
         if last_id is not None:
             query = query.filter(DraftOutlineItem.id < last_id)
+        if max_id is not None:
+            query = query.filter(DraftOutlineItem.id <= max_id)
         limit = batch_size
         if max_rows is not None:
             limit = min(batch_size, max_rows - yielded)
@@ -147,20 +174,86 @@ def _get_latest_outline_content_log(
     if latest_version.deleted == 1:
         return latest_version
 
-    latest_content = latest_version.content or ""
+    latest_log = _get_latest_draft_log(shifu_bid)
+    if latest_log is not None:
+        node = next(
+            (
+                node
+                for node in _outline_nodes(HistoryItem.from_json(latest_log.struct))
+                if node.bid == outline_bid and node.id == latest_version.id
+            ),
+            None,
+        )
+        if node is not None and node.content_revision:
+            anchor = DraftOutlineItem.query.filter_by(
+                id=node.content_revision,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                deleted=0,
+            ).first()
+            if anchor is not None:
+                return anchor
+    return _outline_content_anchor(latest_version)
+
+
+def _outline_content_anchor(latest_version: DraftOutlineItem) -> DraftOutlineItem:
+    """Recover a missing revision only from rows at or before the exact draft."""
+    latest_content = normalize_outline_content(latest_version.content)
     latest_content_revision = latest_version
     recent_active_versions = iter_outline_item_versions_desc(
-        shifu_bid,
-        outline_bid,
+        latest_version.shifu_bid,
+        latest_version.outline_item_bid,
         max_rows=OUTLINE_CONTENT_LOOKBACK_LIMIT,
+        max_id=int(latest_version.id),
     )
     for version in recent_active_versions:
         if version.id == latest_version.id:
             continue
-        if (version.content or "") != latest_content:
+        if normalize_outline_content(version.content) != latest_content:
             break
         latest_content_revision = version
     return latest_content_revision
+
+
+def _initialize_outline_content_revisions(shifu_bid: str, history: HistoryItem) -> None:
+    """Initialize legacy structure metadata on a write, never a learner read."""
+    for node in _outline_nodes(history):
+        if node.content_revision is not None:
+            continue
+        row = DraftOutlineItem.query.filter_by(
+            id=node.id,
+            shifu_bid=shifu_bid,
+            outline_item_bid=node.bid,
+            deleted=0,
+        ).first()
+        if row is not None:
+            node.content_revision = int(_outline_content_anchor(row).id)
+
+
+def ensure_outline_content_revisions(
+    app: Flask,
+    user_id: str,
+    shifu_bid: str,
+    outlines: list[DraftOutlineItem],
+) -> dict[str, int]:
+    """Resolve publication revisions and record missing draft metadata atomically."""
+    history = get_shifu_history(app, shifu_bid, for_update=True)
+    nodes = {node.bid: node for node in _outline_nodes(history)}
+    revisions = {}
+    changed = False
+    for row in outlines:
+        node = nodes.get(row.outline_item_bid)
+        matching_node = node is not None and node.id == row.id
+        revision = node.content_revision if matching_node else None
+        if revision is None:
+            revision = int(_outline_content_anchor(row).id)
+            if matching_node:
+                node.content_revision = revision
+                changed = True
+        revisions[row.outline_item_bid] = revision
+    if changed:
+        __save_shifu_history(app, user_id, shifu_bid, history)
+    return revisions
 
 
 def _mask_phone_identifier(identifier: str | None) -> str:
@@ -306,6 +399,7 @@ def __save_shifu_history(
         None.
 
     """
+    _initialize_outline_content_revisions(shifu_bid, history)
     now = now_utc()
     shifu_history = LogDraftStruct(
         struct_bid=generate_id(app),
@@ -368,7 +462,14 @@ def __save_new_item_history(
         if not history.children:
             history.children = []
         history.children.insert(
-            index, HistoryItem(bid=item_bid, id=row_id, type=item_type, children=[])
+            index,
+            HistoryItem(
+                bid=item_bid,
+                id=row_id,
+                type=item_type,
+                children=[],
+                content_revision=row_id if item_type == "outline" else None,
+            ),
         )
         __save_shifu_history(app, user_id, shifu_bid, history)
         return
@@ -380,7 +481,13 @@ def __save_new_item_history(
         item = q.get()
         if item.bid == parent_bid:
             item.children.append(
-                HistoryItem(bid=item_bid, id=row_id, type=item_type, children=[])
+                HistoryItem(
+                    bid=item_bid,
+                    id=row_id,
+                    type=item_type,
+                    children=[],
+                    content_revision=row_id if item_type == "outline" else None,
+                )
             )
             parent_found = True
             break
@@ -464,6 +571,8 @@ def save_outline_history(
     outline_bid: str,
     row_id: int,
     child_count: int = 0,
+    *,
+    content_revision: int | None = None,
 ) -> int:
     """Save outline history.
 
@@ -474,6 +583,7 @@ def save_outline_history(
         outline_bid: Outline bid
         row_id: Outline id
         child_count: Optional child count to store on the history item.
+        content_revision: New content revision, or None to retain the existing one.
 
     Returns:
         None.
@@ -484,8 +594,10 @@ def save_outline_history(
     q.put(history)
     while not q.empty():
         item = q.get()
-        if item.bid == outline_bid:
+        if item.type == "outline" and item.bid == outline_bid:
             item.id = row_id
+            if content_revision is not None:
+                item.content_revision = content_revision
             if child_count > 0:
                 item.child_count = child_count
             break
@@ -540,6 +652,7 @@ def save_outline_tree_history(
         if for_update
         else get_shifu_history(app, shifu_bid)
     )
+    previous_revisions = outline_content_revisions(history)
     if shifu_id is not None:
         history.id = shifu_id
     q = queue.Queue()
@@ -556,6 +669,9 @@ def save_outline_tree_history(
             for child in item.children:
                 q.put(child)
     history.children = outline_tree
+    for node in _outline_nodes(history):
+        if node.content_revision is None:
+            node.content_revision = previous_revisions.get(node.bid)
     q.put(history)
     while not q.empty():
         item = q.get()

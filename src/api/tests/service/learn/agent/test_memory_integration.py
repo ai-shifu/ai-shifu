@@ -217,8 +217,10 @@ def test_failed_session_save_rolls_back_answer_and_note_together(
     before = session_store.load_agent_session(app, user, lesson).dumps()
     original_apply = session_store._apply
 
-    def fail_after_apply(row: object, session: object) -> None:
-        original_apply(row, session)
+    def fail_after_apply(
+        row: object, session: object, *, content_revision: int | None = None
+    ) -> None:
+        original_apply(row, session, content_revision=content_revision)
         # Memory has already been staged inside this very transaction.
         assert (
             VariableValue.query.filter_by(user_bid=user, key="goal").one().value

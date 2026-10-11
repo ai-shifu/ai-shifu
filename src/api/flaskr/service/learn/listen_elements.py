@@ -12,7 +12,7 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.learn_funcs import (
-    get_current_lesson_outline_id,
+    get_current_lesson_outline,
     get_learn_record,
 )
 from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
@@ -45,6 +45,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_RESET,
 )
+from flaskr.service.shifu.models import PublishedOutlineItem
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -263,14 +264,29 @@ def get_listen_element_record(
             LEARN_STATUS_IN_PROGRESS,
             LEARN_STATUS_COMPLETED,
         ):
-            current_id = get_current_lesson_outline_id(
+            current = get_current_lesson_outline(
                 shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=False
+            )
+            visible = (
+                PublishedOutlineItem.query.with_entities(PublishedOutlineItem.id)
+                .filter_by(
+                    id=current.id,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_bid,
+                    deleted=0,
+                    hidden=0,
+                )
+                .first()
+                if current
+                else None
             )
             states = load_lesson_content_states(
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
                 preview_mode=False,
-                outline_ids={outline_bid: current_id} if current_id is not None else {},
+                outline_revisions={outline_bid: current.content_revision}
+                if visible
+                else {},
             )
             state = states.get(outline_bid)
             record.has_content_update_for_current_user = bool(

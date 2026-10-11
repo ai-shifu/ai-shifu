@@ -87,6 +87,11 @@ class LearnAgentSession(db.Model):
         default="",
         comment="Engine session document as JSON",
     )
+    content_revision = Column(
+        BIGINT,
+        nullable=True,
+        comment="Body revision at first teaching; NULL legacy, 0 unknown",
+    )
     schema_version = Column(
         Integer,
         nullable=False,
