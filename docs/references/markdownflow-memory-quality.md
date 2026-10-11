@@ -72,6 +72,14 @@ SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.
 
+The report-specific prompt, calculator description and successful-calculation
+reminder repeat the original-submission evidence boundary at the point of final
+review. A correct evidence table does not license unsupported personal advice:
+quote the actual mistake briefly or name the observed omission, without attaching
+an authored diagnosis or inferred cause. Closing prose uses calculated counts.
+SDK delivery regressions establish these reminders reach the model after a real
+calculation; real-model compliance remains a separate acceptance check.
+
 ### Interaction tool boundary
 
 An unexecuted standalone `<interact ...>` text tag creates no controls and is

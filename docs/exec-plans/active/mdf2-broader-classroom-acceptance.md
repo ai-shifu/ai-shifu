@@ -73,6 +73,32 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       and repository gates pass. CodeRabbit's original docstring warning has a
       reply linking pushed 875f1315d and focused validation; its rerun reports
       100%. No actionable code findings are present at this point.
+- [x] 2026-10-11: Deploy expanded functional head 93e4e5ccf as sim
+      c795d3a32, automatic build 554 / Drone 5343. API 2/2 and web 1/1
+      finish rollout; both APIs match 55 runtime/resource fingerprints and
+      each passes twelve isolated navigation/feedback SDK checks. Sim checks
+      pass 698 cases. A second new learner starts the unchanged published
+      lesson; no previous classroom is reset or overwritten.
+- [x] 2026-10-11: The second fresh journey completes all eleven questions on
+      sim c795d3a32 through the same 28 ordinary requests. One real summary
+      follows a 5118-byte initial explanation; nine pages cover 27 original
+      records. All eleven rows and independent pre-final counts match; all
+      28 texts match 56 stable stored history elements. All 41 generations
+      settle 79.32 credits with correct actual attribution and no unsettled or
+      failed usage. Keep the feedback failure: final advice reassigns the
+      author's disk-file example to the learner despite correctly quoting the
+      actual denial of storage in the table. Other advice infers unsupported
+      attention/causes, and closing prose says two corrections where calculated
+      totals say three. Neither completed journey passes personal feedback.
+- [x] 2026-10-11: Reinforce the existing report prompt, calculator description
+      and successful-calculation reminder with the same original-submission
+      evidence boundary for every personal diagnosis, advice and closing.
+      Quote the actual mistake or directly observed omission; do not attach an
+      author's diagnosis to a real quote, invent causes or recount totals.
+      Two existing real SDK resume cases fail before delivery changes and pass
+      after them. Local checks pass 629 engine cases and 4208 related cases,
+      four subtests and one expected skip. Fetch and merge main 851937de1
+      (independent login visibility fix); real-model verification remains open.
 - [x] 2026-10-11: Confirm #3103 merged as a7345f6de with all technical CI
       passing, including runtime harness. A new internal learner starts from the
       first question on sim de8cf2629; both APIs match 55 runtime fingerprints.
@@ -242,9 +268,12 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Outcomes & Retrospective
 
-Broader external acceptance remains incomplete. Focused fresh eleven-question
-report acceptance passed; do not extrapolate that evidence to a full course,
-natural compression, multiple providers, or independent human experience.
+Broader external acceptance remains incomplete. A fresh eleven-question
+report journey now completes with real natural compression, original-evidence
+coverage and settled attribution, but its final advice retains an unsupported
+personal inference. Preserve that failure while verifying the expanded correction.
+Graduated-hint fidelity remains a separate concern. Do not extrapolate these
+results to other providers, independent human experience or full authored teaching.
 
 ## Context and Orientation
 

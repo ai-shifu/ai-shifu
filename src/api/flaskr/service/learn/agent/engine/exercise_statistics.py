@@ -75,6 +75,12 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
         "derive percentages and review lists from those same rows. "
         "A knowledge question is not another answer attempt. "
         "Do not invent a second set of counts, even if the script has an example. "
+        "Personal review evidence: quote the actual submitted mistake briefly or "
+        "name the directly observed missing point in every personal diagnosis, "
+        "including study advice and closing remarks; do not turn authored examples into personal mistakes "
+        "or attach an unsupported diagnosis to a real quote. Omit unsupported causes, "
+        "habits, attention, ability or beliefs. Previous teaching and lossy summaries "
+        "do not prove those personal claims. Use calculated counts in closing prose too. "
         "Once the report is delivered, call finish if nothing in the script remains."
     )
     if deps.memory_keys is not None:
@@ -392,6 +398,10 @@ async def calculate_exercise_statistics(
     Zero non-answer counts are omitted from rows and totals; absence means zero.
     Include unanswered questions with empty submissions. This tool
     verifies coverage and arithmetic, not semantic grading or question identity.
+    Its counts are not evidence of personal misconceptions or causes. Ground
+    every personal statement in the final table, advice and closing prose in an
+    actual submission quote or directly observed omission, never an authored
+    example or earlier generated diagnosis; omit unsupported claims.
     """
     if ctx.deps.finished is not None:
         return LESSON_OVER
