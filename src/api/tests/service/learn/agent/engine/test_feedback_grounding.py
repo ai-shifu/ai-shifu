@@ -207,6 +207,7 @@ async def test_resumed_answer_receives_current_criterion_review(
             assert "already covered, contradicted, or not supplied" in policy
             assert "A missing label cannot undo a successful meaning match" in policy
             assert "Select hints only from genuinely unmatched requirements" in policy
+            assert "A question followed by its own worked reasoning" in policy
             assert "An ordered checklist of the answer" in policy
             assert "An internal list of all gaps is not the current hint" in policy
             assert "across both content and interaction fields" in policy

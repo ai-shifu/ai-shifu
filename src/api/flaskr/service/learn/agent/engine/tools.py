@@ -586,6 +586,12 @@ async def interact(
     When complete-answer disclosure is forbidden, a worked answer or an ordered
     answer checklist followed by "try again" still violates that limit. Keep
     direction-only hints about what to examine rather than what answer to copy.
+    At an authored checking-direction stage, leave the guiding question unanswered:
+    briefly identify the issue, ask one bounded question, then wait without its
+    worked reasoning or several explanatory paragraphs. Later steps or examples
+    require the author's next help stage; reporting prior knowledge help as a
+    hint does not itself authorize skipping a correction stage. Follow explicit
+    author rules that permit immediate explanation or a different progression.
     An authored navigation with one choice is still `single`, not an optional `confirm`.
     Do not replace an unanswered navigation with the following question's input. If the
     author puts navigation after answer feedback/explanation, call this tool for that

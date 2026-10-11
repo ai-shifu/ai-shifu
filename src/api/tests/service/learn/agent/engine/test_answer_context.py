@@ -89,6 +89,15 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
             assert "Earlier answer" not in focused[0]["text"]
             assert original in ModelMessagesTypeAdapter.dump_json(messages).decode()
             assert "# Review this returned interaction" in (info.instructions or "")
+            assert "feedback permitted at the current authored stage" in (
+                info.instructions or ""
+            )
+            assert "A question followed by its own worked reasoning" in (
+                info.instructions or ""
+            )
+            assert "leave the guiding question unanswered" in next(
+                t.description for t in info.function_tools if t.name == "interact"
+            )
             assert "An ordered checklist of the answer" in (info.instructions or "")
             assert "An internal list of all gaps is not the current hint" in (
                 info.instructions or ""
