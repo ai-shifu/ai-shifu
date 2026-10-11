@@ -8,6 +8,36 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: User merges #3113 final head 560f91df7 as ff8d65577.
+      All exact-head technical CI passes, including runtime harness. Its source
+      tree equals main; CN API 6/6 and web 3/3 run 20261011-ff8d655 on a
+      read-only deployment check. All actionable AI findings have original-thread
+      replies; adopting fixes do not establish a complete latest-head AI review.
+- [x] 2026-10-11: Final paired-tag correction plus #3111 deploys as sim
+      5a540c7df, build 566 / Drone 5355. Both APIs match 57 fingerprints and
+      each passes 137 isolated SDK cases; local combined checks pass 796 cases
+      and gates. A seventh isolated learner completes eleven questions through
+      28 ordinary HTTP/SSE requests, with source, answers and budget unchanged.
+      CPU feedback and final advice retain already covered meaning and name only
+      actual gaps. Preserve the separate one-aspect-per-round hint violation.
+- [x] 2026-10-11: Preserve the seventh completed journey's reporting failure.
+      Ten read pages exactly cover 27 original records; all seventeen semantic
+      inputs and ten navigation exclusions bind correctly. One successful
+      calculation reports seven hints, against six independently frozen before
+      the final answer; question 1-2 has three instead of two. Do not repair or
+      relabel its stored calculation. All 28 texts match 56 stable history
+      elements. A 4131-byte original naturally creates one summary/cache entry.
+      Forty-one teaching generations plus one summary settle 87.57 credits with
+      actual progress/block/owner attribution and no failed or unsettled usage.
+      No variables are written; the published source and prior session evidence
+      remain unchanged. Twenty-eight traces contain 37 summary projections bound
+      to original text and the cached summary, plus 28 exact authored-section
+      references. The opening course outline and question have no solution help,
+      but the model sets hint_before=true and separately counts the later
+      knowledge explanation; retain this semantic overcount.
+- [ ] Resolve the seventh journey's hint attribution in an independent focused
+      follow-up; full reporting and graduated-hint acceptance remain open.
+
 - [x] 2026-10-11: Request-local checklist candidate a9a0e2289 deploys as
       sim f704f0fc4, build 562 / Drone 5351; both APIs match 56 fingerprints
       and each passes 72 isolated SDK checks. Sim checks pass 752 cases.
@@ -31,8 +61,10 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       failed CPU interaction resolves to an exact 2128-byte authored section
       containing the equivalent-coverage allowance and hardware threading,
       excluding the next question. These checks do not establish model compliance.
-- [ ] Validate focused authored context on sim; only after focused
-      real feedback passes start another independent fresh compressed classroom.
+- [x] 2026-10-11: Focused sim feedback and real navigation pass at
+      debbfe49f / sim d312f7ad6. Each API matches 57 fingerprints and passes
+      92 isolated SDK cases; the independent fresh follow-ups below remain
+      separate from this derived-slice result.
 - [x] 2026-10-11: User merges #3110 at f1e9bf190, final head
       ac1c6421e. Its tree equals fetched main and all technical CI passes.
       CN API 6/6 and web 3/3 run 20261011-f1e9bf1. CodeRabbit substantively
@@ -78,8 +110,55 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       for a question never shown is not a learner answer. Two SDK reload
       regressions fail before the prompt correction; all 637 engine cases pass
       after it. Re-asking a renderable control is retained without a grade.
-- [ ] Verify request-local review on deployed sim and with an independent fresh
-      classroom; preserve all prior failures and separate focused probes.
+- [ ] Close independent fresh classroom acceptance after the failures below;
+      deployed request-local guidance alone does not establish full compliance.
+- [x] 2026-10-11: Keep #3111's focused authored-context probe separate from
+      full acceptance. Its three teaching generations and one summary settle
+      5.78 credits with unchanged original state/history. Meaning coverage and
+      real next-question selection pass; one-aspect-per-round hint fidelity
+      remains open. This does not supersede any earlier failed fresh classroom.
+- [x] 2026-10-11: Preserve a sixth fresh learner's navigation failure on
+      sim d312f7ad6 after four ordinary HTTP requests. The accepted correction
+      prints an empty paired interact tag, then advances without a click. Main's
+      text-tag recognizer also misses that shape; no focused authored section
+      reaches these variable-mismatched interactions. Stop the unfinished run.
+      Nine teaching generations plus one real summary settle 13.00 credits with
+      correct progress/block/owner attribution; nine visible text elements match
+      thirteen stable persisted history elements. A 4976-byte original produces
+      one summary/cache entry; four actual inputs bind its projection to source.
+      Published source is unchanged. No final-report or full-classroom pass.
+- [x] 2026-10-11: Independently extend the existing text-tag guard to empty
+      single-line paired tags. Never parse their attributes into a question,
+      answer or memory write. Nine regressions fail before the correction,
+      covering every streaming split, bounded refusal, finish protection and
+      an accepted answer followed by real navigation selection. Preserve exact
+      authored examples, inline/fenced/indented code and nonempty HTML content.
+- [x] 2026-10-11: Paired-tag validation passes 647 engine cases and
+      4272 learning/profile/user/quality cases, four subtests and one expected
+      skip. The first broader command names absent test files and runs no tests;
+      the corrected selection produces this receipt. Initial lint rejects test
+      assertion style; use the established assert pattern rather than exclusions.
+- [x] 2026-10-11: Verify paired-tag recovery on sim and real navigation;
+      preserve its derived-slice scope and the separate fresh failure below.
+- [x] 2026-10-11: Adopt the AI finding that permissive opening-tag matching
+      can consume nonempty bodies ending in `>`. Two additional SDK regressions
+      fail before delimiting the opening tag with quote-aware attribute runs.
+      Preserve quoted `>` in empty controls and nonempty body text. All 650
+      engine cases and repository gates pass; do not claim earlier CI covers
+      the new head or that an untested sim deployment establishes real recovery.
+- [x] 2026-10-11: Candidate 0126fb094 plus #3111 deploys as sim f3f605180,
+      build 565 / Drone 5354, with 791 local engine/quality cases and gates.
+      Both APIs match 57 fingerprints and each passes 132 isolated SDK cases.
+      A derived original-history navigation probe actually triggers three paired
+      text-tag recoveries: wrong answer waits for correction, correction waits
+      for selection and selection opens the next question. Six teaching requests
+      plus one summary settle 9.05 credits; original state and thirteen history
+      elements remain unchanged. Hint fidelity and full fresh acceptance stay open.
+- [x] 2026-10-11: Adopt the quoted-less-than review finding. Four new
+      finish-path and streaming checks fail before permitting `<` inside either
+      quote style; unquoted delimiters and nonempty bodies stay bounded. All
+      655 engine cases and repository gates pass. The preceding paid probe is
+      attributed only to its actual head, without an unchanged paid retry.
 - [x] 2026-10-11: Fetch latest main e39ac3e9f and confirm #3104 merged.
       Its final head 7ac1d262e passes all technical checks, including runtime
       harness; CodeRabbit remains pending. CN API 6/6 and web 3/3 run
@@ -350,6 +429,14 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Surprises & Discoveries
 
+The seventh completed fresh journey isolates a new hint overcount: original
+first-interaction teaching contains only course logistics and the question, yet
+hint_before is true. Its subsequent knowledge explanation and wrong-answer hint
+are correctly marked hint_after. The resulting three rounds should be two;
+all reference coverage and arithmetic remain correct. Retain the frozen
+pre-final expectation and stored report. This is distinct from previous
+undercounts and personal-omission failures.
+
 The new fresh journey retains a separate first-question hint concern: after the
 wrong answer, the teacher gives all three target answer stages explicitly even
 though the authored lesson asks for a directional, graduated hint rather than
@@ -400,10 +487,13 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Outcomes & Retrospective
 
-Broader external acceptance remains incomplete. A fresh eleven-question
-report journey now completes with real natural compression, original-evidence
-coverage and settled attribution, but its final advice retains an unsupported
-personal inference. Preserve that failure while verifying the expanded correction.
+Broader external acceptance remains incomplete. The seventh fresh eleven-question
+journey completes with real natural compression, exact original-evidence reads,
+settled attribution and corrected personal-omission feedback. Its report still
+overcounts one hint by treating initial question instructions as help. Preserve
+that failure, all preceding failures and the separate graduated-hint finding.
+The focused authored-reference correction passes its stated meaning-coverage
+scope; it does not close the independent reporting issue.
 Graduated-hint fidelity remains a separate concern. Do not extrapolate these
 results to other providers, independent human experience or full authored teaching.
 
