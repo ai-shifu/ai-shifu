@@ -68,7 +68,7 @@ export interface Outline {
 
 export interface LessonCreationSettings {
   name: string;
-  learningPermission: LearningPermission;
+  learningPermission?: LearningPermission;
   isHidden: boolean;
   systemPrompt: string;
 }

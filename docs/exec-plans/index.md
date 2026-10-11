@@ -143,6 +143,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator User Contact Change](./completed/operator-user-contact-change.md)
 - [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
 - [Optional model output limits](./completed/optional-model-output-limits.md)
+- [Centralize the free outline default in the backend](./completed/outline-learning-permission-default.md)
 - [ExecPlan: Package Campaigns](./completed/package-campaigns.md)
 - [Run frontend and backend tests with two workers](./completed/parallel-test-workers.md)
 - [Password Login Account Rate Limit](./completed/password-login-rate-limit.md)
