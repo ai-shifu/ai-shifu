@@ -84,7 +84,9 @@ match every authored requirement to the complete original answer, distinguish
 covered, contradicted and absent points, and select hints only from genuinely
 unmatched requirements. Explicit equivalent-coverage allowances apply before
 checking whether a category title is present. Clarifications and navigation do
-not become answer attempts. This transient guidance adds no grade, persisted
+not become answer attempts. A synthetic host result for an unshown question is
+not learner evidence; re-ask that unanswered question in a renderable form.
+This transient guidance adds no grade, persisted
 evidence, model call or request budget; custom prompt bundles can omit it.
 It remains model guidance rather than a semantic validator.
 
