@@ -568,6 +568,11 @@ async def interact(
     explicitly names; follow the host memory policy for eligible declarations. Leave it empty
     otherwise.
     The learner's answer is returned as the tool result; then continue the script.
+    Before personal feedback and the next interaction, cite the original submission
+    supporting each claimed misconception. A quoted denial of prior storage does not
+    establish confusion about disk files; present an unsupported authored distinction
+    generally, never as "your earlier mistake". Describe omissions without inventing
+    beliefs, habits or causes. Apply this after corrections as well as wrong answers.
     An authored navigation with one choice is still `single`, not an optional `confirm`.
     Do not replace an unanswered navigation with the following question's input. If the
     author puts navigation after answer feedback/explanation, call this tool for that
