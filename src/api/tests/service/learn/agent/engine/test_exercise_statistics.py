@@ -583,6 +583,12 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
         assert "following_teaching" in submission_schema["hint_after"]["description"]
         assert "answer_group" in submission_schema["hint_after"]["description"]
         assert "Count every qualifying teaching round" in (info.instructions or "")
+        assert "Quote the actual submitted mistake" in (info.instructions or "")
+        assert "not evidence of personal misconceptions" in next(
+            t.description
+            for t in info.function_tools
+            if t.name == "calculate_exercise_statistics"
+        )
         if step == 1:
             yield {
                 0: DeltaToolCall(
@@ -633,6 +639,10 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
             }
         elif step == 4:
             assert "Successful calculator totals for this turn" in (
+                info.instructions or ""
+            )
+            assert "Personal review evidence" in (info.instructions or "")
+            assert "do not turn authored examples into personal mistakes" in (
                 info.instructions or ""
             )
             result = json.loads(messages[-1].parts[0].content)

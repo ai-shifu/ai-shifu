@@ -52,6 +52,34 @@ and `tests/service/profile/`.
 
 ## Authored-rubric grading cases
 
+### Personal feedback grounding
+
+Author-provided mistakes and sample diagnoses are possible answers, not evidence
+of this learner's beliefs. Wrong-answer hints, accepted-answer explanations and
+later reviews must ground personal diagnoses in original submissions for the
+current question, distinguishing earlier attempts, corrections and omissions.
+An omitted point does not establish an opposite or unrelated misconception.
+Required authored distinctions may still be taught as general examples without
+claiming the learner made those mistakes. Earlier generated feedback and lossy
+teaching summaries cannot substitute for original learner input; unavailable
+evidence limits the personal claim. Grading criteria and retries stay unchanged.
+Final reports and study advice have the same evidence boundary: an omitted item
+does not prove a personal habit, belief, ability or cause. Describe the observed
+omission, without narrowing away items the learner actually supplied. A corrected
+submission after a supplied hint does not prove independent reasoning or effort.
+
+SDK feedback tests verify policy delivery and preservation of original attempts
+through corrections and reload. Controlled responses do not establish real-model
+compliance; deployed checkpoint and fresh-classroom evidence remain separate.
+
+The report-specific prompt, calculator description and successful-calculation
+reminder repeat the original-submission evidence boundary at the point of final
+review. A correct evidence table does not license unsupported personal advice:
+quote the actual mistake briefly or name the observed omission, without attaching
+an authored diagnosis or inferred cause. Closing prose uses calculated counts.
+SDK delivery regressions establish these reminders reach the model after a real
+calculation; real-model compliance remains a separate acceptance check.
+
 ### Interaction tool boundary
 
 An unexecuted standalone `<interact ...>` text tag creates no controls and is
