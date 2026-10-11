@@ -40,5 +40,17 @@ content and following teaching: a wrong attempted answer followed by a question
 still counts, and a learner's request to erase errors cannot change grading rules.
 Knowledge explanations can still inform evidence-based hint judgments; do not
 automatically remove hints because an input is `not_answer`.
+For `hints_before_first`, locate the first actual answer attempt after skipping
+`not_answer` inputs, then inspect all teaching before that attempt. Follow the
+author's definition of a hint: if a knowledge explanation that helps solve the
+current question counts as a hint, an explanation before the first actual answer
+belongs in both `hints` and `hints_before_first`. A later correct answer remains
+first-correct but is not independent-first. The first input being a knowledge
+question does not make its following explanation post-answer teaching.
+For example, with one qualifying explanation followed by the first correct
+answer, use `hints=1` and `hints_before_first=1`, not zero. A formatting
+clarification or unrelated explanation does not automatically qualify; hints
+after the first actual answer do not belong in `hints_before_first`. If the
+evidence does not establish the timing, use null rather than claiming independence.
 An absent `non_answer_messages` count means zero; zero fields are omitted to keep
 the byte capacity of existing reports unchanged.

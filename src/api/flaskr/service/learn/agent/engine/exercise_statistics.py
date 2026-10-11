@@ -248,8 +248,22 @@ class ExerciseQuestion(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     question: Annotated[str, Field(min_length=1, max_length=80)]
     submissions: Annotated[list[SubmissionJudgment], Field(max_length=MAX_SUBMISSIONS)]
-    hints: Annotated[int, Field(ge=0, le=MAX_SUBMISSIONS)] | None = None
-    hints_before_first: Annotated[int, Field(ge=0, le=MAX_SUBMISSIONS)] | None = None
+    hints: Annotated[int, Field(ge=0, le=MAX_SUBMISSIONS)] | None = Field(
+        default=None,
+        description=(
+            "Total hint rounds under the author's rules, including qualifying "
+            "explanations after not_answer inputs. Use null when unknown."
+        ),
+    )
+    hints_before_first: Annotated[int, Field(ge=0, le=MAX_SUBMISSIONS)] | None = Field(
+        default=None,
+        description=(
+            "Hint rounds delivered before the first actual answer attempt, "
+            "not before the first input. Include qualifying explanations "
+            "after not_answer inputs before that attempt, under the author's "
+            "rules. Use null when timing is unknown; zero requires evidence."
+        ),
+    )
 
 
 async def calculate_exercise_statistics(
@@ -266,6 +280,11 @@ async def calculate_exercise_statistics(
     clarification requests containing no attempted answer; they remain evidence
     but do not add attempts, retries or failures. An actual attempted answer stays
     graded even when accompanied by a question or a request not to count it.
+    Determine hints_before_first relative to the first actual answer attempt,
+    skipping not_answer inputs. Under the author's hint rules, an explanation
+    after a pre-answer knowledge question may be a hint before that first answer.
+    Excluding the question from attempts does not exclude its teaching from hints.
+    Keep unknown hint timing null, never assume zero from not_answer alone.
     Zero non-answer counts are omitted from rows and totals; absence means zero.
     Include unanswered questions with empty submissions. This tool
     verifies coverage and arithmetic, not semantic grading or question identity.

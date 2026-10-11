@@ -11,7 +11,7 @@ work together in a new classroom. Keep all failed evidence and all legacy code.
 
 - [x] 2026-10-11: Confirm #3096 merged as ebccd9037. Sim already serves the
   corrected runtime; check both replicas against merged source before learning.
-- [ ] 2026-10-11: Start a new internal test learner and complete the existing
+- [x] 2026-10-11: Start a new internal test learner and complete the existing
   published eleven-question lesson without resetting or replaying its session.
 - [x] 2026-10-11: The first fresh HTTP request fails before any answer: text-only
   `<interact ... />` is repeated across three turns and the repeat heuristic
@@ -27,9 +27,9 @@ work together in a new classroom. Keep all failed evidence and all legacy code.
   regression fails before correction, and completion after a real answer remains
   allowed. Final learning/script checks pass 3,283 tests and 50 subtests with
   three expected skips; developer-tool/all-files gates pass.
-- [ ] 2026-10-11: Review question order, authored answer criteria, clarification
+- [x] 2026-10-11: Review question order, authored answer criteria, clarification
   handling, retries and final report against actual learner-visible responses.
-- [ ] 2026-10-11: Verify persisted history, real compression when present,
+- [x] 2026-10-11: Verify persisted history, real compression when present,
   request attribution and settled billing with read-only evidence.
 - [x] 2026-10-11: Open #3097 for the focused unexecuted-interaction defect.
   Source d7b12d477 passes 3,283 learning/script checks and 50 subtests (three
@@ -45,6 +45,52 @@ work together in a new classroom. Keep all failed evidence and all legacy code.
   Two real generations settle 2.31 credits, with actual user/course/lesson/owner
   attribution and no invented classroom attempt IDs. Original progress,
   session, variables, four blocks and ten history elements remain unchanged.
+
+- [x] 2026-10-11: Confirm #3097 manually merged as 267c16ad6. Merged source
+  matches the deployed sim runtime on all 55 paths across both API replicas.
+  Resume the retained new HTTP learner at its first pending question; never reset
+  the earlier failed classroom. The first deliberate wrong answer receives a
+  directional hint and another real text input without advancing.
+
+- [x] 2026-10-11: Continue the retained new learner through all eleven questions,
+  in 27 ordinary HTTP/SSE requests. All controls and question ordering pass;
+  three incorrect/incomplete answers require genuine learner corrections. The
+  completed lesson's 27 visible text elements exactly match persisted history;
+  two reads return the same 54 elements. All 39 actual generations settle 65.70
+  credits with real progress/block/owner attribution. No original exceeds the
+  4,096-byte compaction threshold (maximum 3,412), and no summary is generated.
+- [x] 2026-10-11: Preserve the failed report: attempts 14, retries 3, first-correct
+  8 and two excluded knowledge questions are correct, but independent-first is
+  8 instead of 6. The calculator received hints_before_first=0 for both qualifying
+  pre-answer explanations. Save independent expectations before the final answer.
+- [x] 2026-10-11: Clarify actual-answer timing in the runtime report policy,
+  calculator documentation and provider-visible hint fields. Cover schema delivery
+  after serialized resume and independent/assisted/unknown timing arithmetic.
+  Both schema-delivery controls fail before correction; final learning/script
+  checks pass 3,286 tests and 50 subtests, with three expected skips. Developer
+  tools and the all-files repository gate pass.
+- [x] 2026-10-11: Verify the corrected report on the deployed candidate using the
+  genuine pre-final-answer checkpoint without rewriting the failed classroom;
+  then open #3098 and reply to every AI opinion. Sim 116f7287f serves API 2/2
+  and web 1/1 Ready; both API replicas match all 55 runtime/resource fingerprints.
+  One in-memory replay produces all eleven correct report rows, 14 attempts,
+  three retries, eight first-correct and six independent-first, matching the
+  expectation saved before the final answer. All eleven traced generations carry
+  the timing guidance and settle 25.25 credits. No summary, errors or invented
+  attempt IDs; original messages/memory, persisted progress/session/variables and
+  all 108 element rows (including historical rows) remain unchanged. Current
+  learner history still contains the stable 54 elements. Initial result-file
+  retrieval failed; reading the already-created file recovered it without a
+  second model run.
+- [x] 2026-10-11: Adopt the AI fixture observation in a4b0cc503, using a genuine
+  knowledge-question/answer pair and explicitly limiting the deterministic test
+  to arithmetic. All 33 focused checks and all-files gates pass; reply in the
+  original thread. Decline the external docstring-percentage suggestion with the
+  repository's existing test exemptions and documented runtime contract.
+- [ ] 2026-10-11: After the focused correction merges, run a new complete natural
+  lesson to validate report behavior across the whole journey. The retained
+  completed classroom still fails report acceptance; the checkpoint replay does
+  not replace that remaining acceptance.
 
 ## Surprises & Discoveries
 
@@ -84,8 +130,17 @@ first repeats the tag, then follows the single output retry and creates the
 original first text question. The trace confirms both requests; no summary is
 requested. Failure plus recovery costs 5.73 credits in total (3.42 + 2.31).
 This is in-memory recovery from a genuine saved checkpoint, not a new successful
-HTTP lesson or a repair to its persisted completed state. Full natural grading,
-retry/report acceptance and the other remaining milestone checks stay open.
+HTTP lesson or a repair to its persisted completed state. The separate retained new learner now completes the lesson, but fails report
+acceptance: two pre-answer explanations are counted as hints while their timing
+is incorrectly supplied as zero. First-correct remains eight; independent-first
+must be six under the unchanged authored rules. Completion and stable history
+cannot override this failed semantic count. Its 39 actual generations settle
+65.70 credits separately from the earlier 5.73-credit failure/recovery. The
+deployed scoped replay now passes all eleven per-question and total counts,
+including six independent-first and two non-answer knowledge questions. Eleven
+traced requests settle another 25.25 credits, without any classroom repair.
+A new complete natural report after the correction still remains to be tested.
+Other models/languages, human acceptance and long-term observation remain open.
 
 ## Context and Orientation
 

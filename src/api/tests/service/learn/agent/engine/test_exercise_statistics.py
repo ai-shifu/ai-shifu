@@ -314,6 +314,17 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
                 if t.name == "calculate_exercise_statistics"
             )
         )
+        schema = next(
+            t.parameters_json_schema
+            for t in info.function_tools
+            if t.name == "calculate_exercise_statistics"
+        )
+        question_schema = schema["$defs"]["ExerciseQuestion"]["properties"]
+        timing = question_schema["hints_before_first"]["description"]
+        assert "first actual answer attempt" in timing
+        assert "not_answer" in timing
+        assert "null" in timing
+        assert "author" in question_schema["hints"]["description"]
         if step == 1:
             yield {
                 0: DeltaToolCall(
@@ -387,6 +398,64 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
     assert not any(isinstance(e, ErrorEvent) for e in events)
     assert isinstance(events[-1], TurnDone)
     assert events[-1].reason == "finished"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("before_first", [0, 1, None])
+async def test_non_answer_classification_does_not_determine_hint_timing(
+    before_first: int | None,
+) -> None:
+    ctx = _ctx(
+        [
+            ModelResponse(
+                parts=[
+                    TextPart("What is 1+1?"),
+                    ToolCallPart("interact", {"type": "text"}, "question"),
+                ]
+            ),
+            ModelRequest(
+                parts=[
+                    ToolReturnPart(
+                        "interact",
+                        "Learner wrote: Please explain addition.",
+                        "question",
+                    )
+                ]
+            ),
+            ModelResponse(
+                parts=[
+                    TextPart("Addition combines quantities. Now give your answer."),
+                    ToolCallPart("interact", {"type": "text"}, "answer"),
+                ]
+            ),
+            ModelRequest(
+                parts=[ToolReturnPart("interact", "Learner wrote: 2", "answer")]
+            ),
+            ModelResponse(parts=[TextPart("Correct.")]),
+        ]
+    )
+    records = _records(ctx)
+    assert records is not None
+    assert len(records) == 2
+    # Timing remains a model judgment; this control only checks its arithmetic.
+    row = ExerciseQuestion(
+        question="1",
+        submissions=[
+            SubmissionJudgment(reference=records[0]["reference"], outcome="not_answer"),
+            SubmissionJudgment(reference=records[1]["reference"], outcome="correct"),
+        ],
+        hints=1,
+        hints_before_first=before_first,
+    )
+    result = json.loads(await calculate_exercise_statistics(ctx, [row]))
+    assert result["status"] == "calculated"
+    assert result["totals"]["attempts"] == 1
+    assert result["totals"]["non_answer_messages"] == 1
+    assert result["totals"]["first_correct"] == 1
+    assert result["totals"]["hints"] == 1
+    assert result["totals"]["independent_first"] == (
+        None if before_first is None else int(before_first == 0)
+    )
 
 
 async def _collect(events: AsyncIterator[object]) -> list[object]:
