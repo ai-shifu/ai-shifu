@@ -25,8 +25,20 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       required selection; the actual click advances directly without a second
       confirmation. No new pauses, label-based host inference or state mutation.
       Six SDK guidance-delivery/deferred-control cases cover first answers,
-      corrections, knowledge clarification and reload; these are controlled
-      model fixtures, not proof of real-model semantic compliance.
+      corrections, clarification submissions and reload; these are controlled
+      model fixtures, not proof of real-model semantic compliance. A true
+      MessageTurn while navigation is pending is rejected without advancing or
+      consuming the option; automatic continuation also cannot select it.
+- [x] 2026-10-11: Preserve the failed notation-only recovery on sim 42dcaf263
+      (build 547 / Drone 5336). Both APIs match 55 fingerprints and each passes
+      six isolated SDK checks. The real gateway receives the new policy, but
+      the correct retry still skips navigation. Stop after two teaching requests;
+      all settle 2.75 credits with actual attribution, with original session,
+      progress, variables and eight history elements unchanged. No summary runs.
+- [x] 2026-10-11: Reinforce the same authored boundary in core turn structure
+      and the actual interact tool description, with an explicit three-turn
+      example. Six provider-delivery assertions fail before those additions.
+      These remain guidance, not a host cursor or deterministic semantic guard.
 - [ ] Verify the navigation correction against the genuine pre-wrong-answer
       checkpoint on deployed sim, without overwriting the failed classroom.
 - [x] 2026-10-11: Locate the retained hint undercount in question 1-2. The

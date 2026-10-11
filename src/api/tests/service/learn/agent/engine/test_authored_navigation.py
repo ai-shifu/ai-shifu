@@ -11,6 +11,7 @@ from flaskr.service.learn.agent.engine import (
     ErrorEvent,
     InteractionRequest,
     InteractionResponseTurn,
+    MessageTurn,
     Session,
 )
 from pydantic_ai.messages import ModelMessage
@@ -19,16 +20,18 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
-@pytest.mark.parametrize("prelude", [None, "incorrect", "knowledge question"])
+@pytest.mark.parametrize("prelude", [None, "incorrect", "clarification submission"])
 async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     reload: bool, prelude: str | None
 ) -> None:
+    """Check policy delivery and pending controls, including non-selection messages."""
     calls = 0
     correcting = prelude is not None
 
     async def model(
         _messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Emit controlled teaching to isolate SDK turn and pause mechanics."""
         nonlocal calls
         calls += 1
         if calls == 1 or (calls == 2 and correcting):
@@ -39,6 +42,14 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
             assert "one-option navigation" in policy
             assert "A correct answer or a side question is not that selection" in policy
             assert "without asking to continue again" in policy
+            assert "three separate learner-facing turns" in policy
+            interaction_tool = next(
+                t for t in info.function_tools if t.name == "interact"
+            )
+            assert (
+                "Do not replace an unanswered navigation"
+                in interaction_tool.description
+            )
             yield "Correct; here is the required explanation."
             spec = {
                 "type": "single",
@@ -95,6 +106,19 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
     assert calls == before
     if reload:
         session = Session.loads(session.dumps())
+    pending = (session.pending[0].tool_call_id, session.pending[0].spec.model_dump())
+    answers = dict(session.answers)
+    side_question = await _events(
+        engine.run_turn(session, MessageTurn(text="Why is that answer correct?"))
+    )
+    assert calls == before
+    assert any(isinstance(event, ErrorEvent) for event in side_question)
+    assert not any(isinstance(event, ContentDelta) for event in side_question)
+    assert (
+        session.pending[0].tool_call_id,
+        session.pending[0].spec.model_dump(),
+    ) == pending
+    assert session.answers == answers
     events = await _events(
         engine.run_turn(
             session,
@@ -111,4 +135,5 @@ async def test_authored_navigation_waits_for_click_after_answer_and_reload(
 
 
 async def _events(events: AsyncIterator[object]) -> list[object]:
+    """Collect one streamed SDK turn for assertions."""
     return [event async for event in events]
