@@ -8,6 +8,29 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: #3117 second head 5785901db deploys as sim 319164313,
+      build 577 / Drone 5366. Both actual APIs match 57 fingerprints and each
+      passes 169 SDK cases; actual API 2/2 and web 1/1 are Ready. Local merged
+      checks pass 846 cases and gates. All technical CI for this head passes,
+      including runtime harness 38151317846. CodeRabbit skips the draft, so
+      its success state is not substantive review.
+- [x] 2026-10-11: Preserve the second semantic failure. The wrong-answer hint
+      answers its own retrieval question, adds another question and worked
+      reasoning, then explains development versus execution before waiting.
+      Six teaching generations settle 10.02 credits with correct attribution and
+      no failed/unsettled usage; original session/progress/variables and six
+      history elements are unchanged, with no actual summary. Actual gateway
+      trace confirms the new system review and exact authored context are sent;
+      no delivery loss is found. No tenth learner is created or taught.
+- [x] 2026-10-11: Thirty-six SDK assertions reproduce missing explicit feedback
+      branches and source-before-notice order. Replace the dense resumed review
+      with distinct internal comparison, failed-output and passing-output branches.
+      A checking-direction branch has a brief observed issue, one unanswered
+      bounded question, then the correction tool and wait; it cannot also emit
+      the passing explanation. Place the phase notice after unchanged authored
+      source and subordinate generic diagnostic explanation to its permitted phase.
+- [ ] 2026-10-11: Validate the same-issue branch rewrite and changed runtime
+      before starting fresh acceptance; do not overwrite either failed probe.
 - [x] 2026-10-11: Draft #3117 initial d1024391f deploys as sim 2fa773aea,
       build 576 / Drone 5365. Actual API 2/2 and web 1/1 are Ready, both APIs
       match 57 fingerprints and each passes 169 SDK cases; merged local checks
