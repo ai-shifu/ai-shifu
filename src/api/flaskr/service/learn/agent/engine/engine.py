@@ -878,6 +878,7 @@ class Engine:
                     kwargs["message_history"],
                     session.script.script,
                     resumed,
+                    memory_keys=deps.memory_keys,
                 )
             if self.memory_recall and prompt is not None:
                 notice = current_recall_notice(

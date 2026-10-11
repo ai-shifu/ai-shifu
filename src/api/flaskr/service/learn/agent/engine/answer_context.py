@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from pydantic_ai.messages import ModelRequest, ToolCallPart, UserPromptPart
 
 from .interaction import InteractionSpec
-from .tools import _script_questions
+from .tools import _script_questions, normalize_script_text_input, script_text_inputs
 
 if TYPE_CHECKING:
     from collections.abc import Set as AbstractSet
@@ -118,6 +118,8 @@ def project_answer_context(
     messages: list[ModelMessage],
     script: str,
     resumed: AbstractSet[str],
+    *,
+    memory_keys: AbstractSet[str] | None = None,
 ) -> list[ModelMessage]:
     """Add an authored reference to a request copy, never to durable learner evidence."""
     calls = [
@@ -135,6 +137,12 @@ def project_answer_context(
         spec = InteractionSpec.model_validate(call.args_as_dict())
     except (AssertionError, TypeError, ValueError, ValidationError):
         return messages
+    # Deferred-call arguments retain what the model originally sent, while the
+    # displayed control has already dropped unadmitted keys and restored exact
+    # authored input hints. Match the same control without rewriting evidence.
+    if memory_keys is not None and spec.variable not in memory_keys:
+        spec = spec.model_copy(update={"variable": None})
+    spec = normalize_script_text_input(spec, script_text_inputs(script))
     section = authored_answer_section(script, spec)
     if section is None:
         return messages
