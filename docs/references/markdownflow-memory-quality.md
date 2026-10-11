@@ -148,6 +148,14 @@ A matching local example remains subject to the lesson-wide stage and aspect
 limit. At a direction stage, stop after the bounded question; follow-up
 subquestions must not collectively reveal the remaining solution.
 
+The request-only reference keeps its source text before the host phase notice.
+The resumed-answer review separates failed and passing feedback branches: at an
+authored checking direction, a brief observed issue and one unanswered guiding
+question are followed by the correction input. Worked reasoning and a transfer
+method remain in the passing branch unless the author permits an earlier help
+stage. These instructions do not introduce a host semantic filter or another
+model request, and require separate actual-model acceptance.
+
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.

@@ -84,6 +84,11 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
                 if p.startswith('{"status":"authored_section"')
             ]
             assert len(focused) == 1
+            assert list(focused[0]) == ["status", "text", "notice"]
+            assert "## If the submission does not pass" in (info.instructions or "")
+            assert "Do not combine the failed and passing branches" in (
+                info.instructions or ""
+            )
             assert (
                 "Select the current feedback phase before using this reference"
                 in focused[0]["notice"]
