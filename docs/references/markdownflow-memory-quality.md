@@ -216,6 +216,77 @@ Persisted summaries and the attributed summary usage establish summary activity.
 No old learner is reset, no published lesson is changed, and no replay or paid
 retry relabels this failed journey as a passing natural classroom.
 
+### Hint rounds spanning the first answer
+
+The same retained failed classroom exposes a separate model-supplied undercount
+in question 1-2. Its pre-answer knowledge explanation and later incorrect-answer
+correction are two qualifying rounds under the author rules. Both calculator
+attempts instead supply hints=1 and hints_before_first=1. Original records retain
+both teaching rounds; the calculator correctly sums the supplied count. This is
+not an arithmetic defect or proof of missing original evidence after compression.
+
+A prompt/schema-description-only candidate still reports five hints in a
+non-persisting real-model checkpoint probe on sim a77744fea. It reads all ten
+pages, excludes ten navigation records correctly, and finishes, but its first
+question still has total one. Fifteen teaching requests and one new summary
+settle 42.72 credits. Observed gateway inputs retain one summary marker and
+projected original, with the guidance present. Preserve this failed candidate;
+more wording alone does not establish correct aggregation.
+
+The tool now accepts semantic round judgments: question-level `hint_before`
+classifies teaching accompanying the first submitted interaction, and each
+submission's `hint_after` classifies its exact `following_teaching`. These strict
+boolean-or-null flags follow the author's definition; outcomes do not imply
+hints. The calculator derives total hints and before-first timing from original
+answer-group positions. A shared answer group counts once per question, and
+conflicting flags are refused. Unknown relevant rounds preserve null counts;
+a known before-first subset can remain known when only later rounds are unknown.
+A known zero total also yields zero before-first hints for an unanswered question;
+nonzero or unknown totals without an actual answer retain unknown timing.
+Initial qualifying teaching counts before the first actual answer, while
+ordinary question instructions and post-correct analysis do not automatically
+qualify. Semantic classification still belongs to the model.
+
+Legacy scalar counts remain optional assertions; they cannot override or
+replace round evidence. Mismatches or known assertions over unknown rounds are
+refused with bounded derived-count diagnostics, and old successful totals are
+cleared. Omit assertions in new calls. Stored sessions and old tool arguments
+remain loadable without rewriting; new calculations use this stronger contract.
+Original reference coverage, answer grading arithmetic, request/result limits,
+memory permissions and authored scripts are unchanged. Hint aggregation now
+comes from classified rounds rather than trusting a model-supplied total.
+
+The final classified-round candidate is verified on sim de8cf2629, built by
+push-triggered build 545 / Drone 5334. API 2/2 and web 1/1 are ready; both APIs
+match 55 runtime/resource fingerprints and each passes 58 isolated report checks.
+Final local checks pass: 617 engine, 3179 learning/quality (one expected skip and
+four subtests), and full repository gates; sim engine/quality checks pass 663.
+
+One genuine pre-final checkpoint probe reads ten exact pages containing all 27
+original records, binds seventeen relevant inputs and explicitly excludes ten
+navigation records. One calculation and the generated report match all eleven
+rows and the independently saved totals: six hints across five questions,
+fourteen attempts, three retries, eight first-correct and six independent-first.
+The first question has two hint rounds, one before its first actual answer.
+The report finishes normally. Fourteen teaching requests and one summary settle
+39.65 credits with actual progress/block and owner attribution. Each observed
+teaching gateway request retains the summary/projection and round-field guidance.
+Original persisted session, progress and variables are unchanged, as are the
+content/order of 55 history elements; a synthetic pending element ID varies on
+read-only projection. No classroom state is persisted by this probe, while normal
+generation metering and tracing remain enabled. Keep the earlier 42.72-credit
+prompt-only failure and original natural classroom failure separately. This
+checkpoint pass does not establish a fresh complete compressed-classroom pass,
+other-provider readiness, or independent human acceptance.
+
+Regression coverage includes provider delivery and reload, original long
+teaching under a model-facing projection, before/after aggregation, strict flags,
+initial hints, shared-group deduplication/conflicts, scalar disagreement and
+unknown propagation. Fixed judgments in offline tests do not prove real model
+classification. Retained real-model verification and fresh complete compressed
+acceptance remain separate in the
+[broader plan](../exec-plans/active/mdf2-broader-classroom-acceptance.md).
+
 ### Answer criteria
 
 The runtime's answer-criteria policy anchors judgments to the current question's

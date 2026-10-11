@@ -67,11 +67,13 @@ def _questions(ctx: SimpleNamespace) -> list[ExerciseQuestion]:
                     SubmissionJudgment(
                         reference=records[at + i]["reference"],
                         outcome="incorrect" if count == 2 and i == 0 else "correct",
+                        hint_after=count == 2 and i == 0,
                     )
                     for i in range(count)
                 ],
                 hints=count - 1,
                 hints_before_first=0,
+                hint_before=False,
             )
         )
         at += count
@@ -356,8 +358,6 @@ async def test_knowledge_questions_preserve_evidence_without_inflating_attempts(
             SubmissionJudgment(reference=record["reference"], outcome=outcome)
             for record, outcome in zip(records, outcomes, strict=False)
         ],
-        hints=2,
-        hints_before_first=1,
     )
     result = json.loads(
         await calculate_exercise_statistics(
@@ -372,10 +372,92 @@ async def test_knowledge_questions_preserve_evidence_without_inflating_attempts(
     assert actual["unverified_submissions"] == unverified
     assert actual["non_answer_messages"] == 1
     assert actual["failed_submissions"] == outcomes.count("incorrect")
-    assert actual["hints"] == 2
+    assert actual["hints"] is None
     assert result["totals"]["non_answer_messages"] == 1
     assert result["totals"]["unanswered"] == (attempts == 0)
     assert ModelMessagesTypeAdapter.dump_json(ctx.messages) == before
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("projected", [False, True])
+async def test_original_rounds_support_pre_answer_and_correction_hint_totals(
+    projected: bool,
+) -> None:
+    explanation = "Adding one means taking the next integer. " * 130
+    correction = "Incorrect. Add one to two, not three. Try again."
+    messages = [
+        ModelResponse(
+            parts=[
+                TextPart("What is 2 + 1?"),
+                ToolCallPart("interact", {"type": "text", "prompt": "Answer"}, "ask"),
+            ]
+        ),
+        ModelRequest(
+            parts=[ToolReturnPart("interact", "Learner wrote: Please explain.", "ask")]
+        ),
+        ModelResponse(
+            parts=[
+                TextPart(explanation),
+                TextPart("Return to the same question."),
+                ToolCallPart("interact", {"type": "text", "prompt": "Answer"}, "first"),
+            ]
+        ),
+        ModelRequest(parts=[ToolReturnPart("interact", "Learner wrote: 5", "first")]),
+        ModelResponse(
+            parts=[
+                TextPart(correction),
+                ToolCallPart("interact", {"type": "text", "prompt": "Retry"}, "retry"),
+            ]
+        ),
+        ModelRequest(parts=[ToolReturnPart("interact", "Learner wrote: 3", "retry")]),
+        ModelResponse(parts=[TextPart("Correct. Here is the final explanation.")]),
+    ]
+    ctx = _ctx(messages)
+    ctx.deps.exercise_history = tuple(messages)
+    original = ModelMessagesTypeAdapter.dump_json(messages)
+    if projected:
+        ctx.messages = [ModelResponse(parts=[TextPart("Short teaching summary.")])]
+    text = ""
+    offset = 0
+    while offset is not None:
+        page = json.loads(await read_exercise_history(ctx, offset))
+        text += page["text"]
+        offset = page["next_offset"]
+    records = json.loads(text)
+    assert records[0]["following_teaching"] == [
+        explanation,
+        "Return to the same question.",
+    ]
+    assert records[1]["following_teaching"] == [correction]
+    assert records[2]["following_teaching"] == [
+        "Correct. Here is the final explanation."
+    ]
+    # These are supplied semantic judgments; this check does not grade teaching.
+    row = ExerciseQuestion(
+        question="1",
+        submissions=[
+            SubmissionJudgment(
+                reference=record["reference"], outcome=outcome, hint_after=hint
+            )
+            for record, outcome, hint in zip(
+                records,
+                ["not_answer", "incorrect", "correct"],
+                [True, True, False],
+                strict=True,
+            )
+        ],
+        hint_before=False,
+    )
+    result = json.loads(await calculate_exercise_statistics(ctx, [row]))
+    assert result["status"] == "calculated"
+    assert result["totals"]["hints"] == 2
+    assert result["questions"][0]["hints_before_first"] == 1
+    assert result["totals"]["attempts"] == 2
+    assert result["totals"]["non_answer_messages"] == 1
+    assert result["totals"]["first_correct"] == 0
+    assert (
+        ModelMessagesTypeAdapter.dump_json(list(ctx.deps.exercise_history)) == original
+    )
 
 
 @pytest.mark.anyio
@@ -491,6 +573,16 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
         assert "not_answer" in timing
         assert "null" in timing
         assert "author" in question_schema["hints"]["description"]
+        assert (
+            "before and after the first actual answer"
+            in (question_schema["hints"]["description"])
+        )
+        assert "two rounds" in question_schema["hints"]["description"]
+        assert "round evidence" in question_schema["hint_before"]["description"]
+        submission_schema = schema["$defs"]["SubmissionJudgment"]["properties"]
+        assert "following_teaching" in submission_schema["hint_after"]["description"]
+        assert "answer_group" in submission_schema["hint_after"]["description"]
+        assert "Count every qualifying teaching round" in (info.instructions or "")
         if step == 1:
             yield {
                 0: DeltaToolCall(
@@ -509,6 +601,9 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
             }
         elif step == 3:
             assert "Original submissions have been read completely" in (
+                info.instructions or ""
+            )
+            assert "both before and after the first actual answer" in (
                 info.instructions or ""
             )
             page = next(p for p in messages[-1].parts if isinstance(p, ToolReturnPart))
@@ -603,22 +698,27 @@ async def test_non_answer_classification_does_not_determine_hint_timing(
     records = _records(ctx)
     assert records is not None
     assert len(records) == 2
-    # Timing remains a model judgment; this control only checks its arithmetic.
+    # Round classifications remain supplied judgments, not runtime text grading.
     row = ExerciseQuestion(
         question="1",
         submissions=[
-            SubmissionJudgment(reference=records[0]["reference"], outcome="not_answer"),
-            SubmissionJudgment(reference=records[1]["reference"], outcome="correct"),
+            SubmissionJudgment(
+                reference=records[0]["reference"],
+                outcome="not_answer",
+                hint_after=None if before_first is None else bool(before_first),
+            ),
+            SubmissionJudgment(
+                reference=records[1]["reference"], outcome="correct", hint_after=False
+            ),
         ],
-        hints=1,
-        hints_before_first=before_first,
+        hint_before=False,
     )
     result = json.loads(await calculate_exercise_statistics(ctx, [row]))
     assert result["status"] == "calculated"
     assert result["totals"]["attempts"] == 1
     assert result["totals"]["non_answer_messages"] == 1
     assert result["totals"]["first_correct"] == 1
-    assert result["totals"]["hints"] == 1
+    assert result["totals"]["hints"] == before_first
     assert result["totals"]["independent_first"] == (
         None if before_first is None else int(before_first == 0)
     )
@@ -634,11 +734,136 @@ async def test_unknown_hint_counts_are_not_silently_zero() -> None:
     rows = _questions(ctx)
     rows[1].hints = None
     rows[1].hints_before_first = None
+    rows[1].submissions[0].hint_after = None
+    rows[1].hint_before = None
     result = json.loads(await calculate_exercise_statistics(ctx, rows))
     assert result["questions"][1]["hints"] is None
     assert result["totals"]["hints"] is None
     assert result["totals"]["hint_questions"] is None
     assert result["totals"]["independent_first"] is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("hint", "total", "before"), [(False, 0, 0), (True, 1, None), (None, None, None)]
+)
+async def test_unanswered_hint_timing_preserves_known_zero_and_unknown_evidence(
+    hint: bool | None, total: int | None, before: int | None
+) -> None:
+    ctx = _fixture()
+    records = _records(ctx)
+    assert records is not None
+    row = ExerciseQuestion(
+        question="1",
+        hint_before=False,
+        submissions=[
+            SubmissionJudgment(
+                reference=records[0]["reference"], outcome="not_answer", hint_after=hint
+            )
+        ],
+    )
+    result = json.loads(
+        await calculate_exercise_statistics(
+            ctx, [row], [r["reference"] for r in records[1:]]
+        )
+    )
+    assert result["status"] == "calculated"
+    actual = result["questions"][0]
+    assert actual["attempts"] == 0
+    assert actual["hints"] == total
+    assert actual["hints_before_first"] == before
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("missing_round", [False, True])
+async def test_scalar_counts_cannot_override_or_replace_round_evidence(
+    missing_round: bool,
+) -> None:
+    ctx = _fixture()
+    rows = _questions(ctx)
+    rows[0].hints = 0
+    if missing_round:
+        rows[0].submissions[0].hint_after = None
+    ctx.deps.exercise_report_totals = {"hints": 0}
+    result = json.loads(await calculate_exercise_statistics(ctx, rows))
+    assert result["status"] == "invalid_hint_counts"
+    assert result["derived_hints"] == (None if missing_round else 1)
+    assert "totals" not in result
+    assert ctx.deps.exercise_report_totals is None
+    rows[0].hints = None
+    result = json.loads(await calculate_exercise_statistics(ctx, rows))
+    assert result["status"] == "calculated"
+    assert result["totals"]["hints"] == (None if missing_round else 3)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("second_hint", [True, False, None])
+async def test_shared_answer_group_hints_count_once_or_reject_conflicting_flags(
+    second_hint: bool | None,
+) -> None:
+    ctx = _ctx(
+        [
+            ModelResponse(
+                parts=[
+                    TextPart("Give both parts of the answer."),
+                    ToolCallPart("interact", {"type": "text"}, "a"),
+                    ToolCallPart("interact", {"type": "text"}, "b"),
+                ]
+            ),
+            ModelRequest(
+                parts=[
+                    ToolReturnPart("interact", "Learner wrote: first part", "a"),
+                    ToolReturnPart("interact", "Learner wrote: second part", "b"),
+                ]
+            ),
+            ModelResponse(parts=[TextPart("One hint for the combined answer.")]),
+        ]
+    )
+    records = _records(ctx)
+    assert records is not None
+    row = ExerciseQuestion(
+        question="1",
+        hint_before=False,
+        submissions=[
+            SubmissionJudgment(
+                reference=record["reference"], outcome="incorrect", hint_after=hint
+            )
+            for record, hint in zip(records, [True, second_hint], strict=True)
+        ],
+    )
+    result = json.loads(await calculate_exercise_statistics(ctx, [row]))
+    if second_hint is True:
+        assert result["status"] == "calculated"
+        assert result["totals"]["hints"] == 1
+        assert result["questions"][0]["hints_before_first"] == 0
+    else:
+        assert result["status"] == "conflicting_hint_round"
+        assert "totals" not in result
+
+
+@pytest.mark.anyio
+async def test_initial_teaching_hint_contributes_to_total_and_first_answer_timing() -> (
+    None
+):
+    ctx = _fixture()
+    rows = _questions(ctx)
+    rows[1].hint_before = True
+    rows[1].hints = None
+    rows[1].hints_before_first = None
+    result = json.loads(await calculate_exercise_statistics(ctx, rows))
+    assert result["status"] == "calculated"
+    assert result["questions"][1]["hints"] == 1
+    assert result["questions"][1]["hints_before_first"] == 1
+    assert result["totals"]["hints"] == 4
+    assert result["totals"]["independent_first"] == 7
+
+
+@pytest.mark.parametrize("flag", ["true", 0, [], {}])
+def test_hint_round_flags_are_strict_booleans_or_unknown(flag: object) -> None:
+    with pytest.raises(ValidationError):
+        SubmissionJudgment(reference="answer", outcome="correct", hint_after=flag)
+    with pytest.raises(ValidationError):
+        ExerciseQuestion(question="1", submissions=[], hint_before=flag)
 
 
 @pytest.mark.anyio

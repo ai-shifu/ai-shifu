@@ -11,6 +11,50 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 - [x] 2026-10-11 03:25 UTC: Transfer outstanding external acceptance from the
       completed grading plans into this named active continuation record.
 - [ ] Run a fresh complete journey that naturally triggers history compression.
+- [x] 2026-10-11: Locate the retained hint undercount in question 1-2. The
+      original pre-answer explanation and later wrong-answer correction are two
+      qualifying rounds; both refused calculator calls supply hints=1 and
+      hints_before_first=1 instead of total hints=2. Arithmetic is unchanged.
+- [x] 2026-10-11: Clarify total hint rounds before and after the first answer in
+      provider schema, report instructions and request-local report guidance.
+- [x] 2026-10-11: Retain the failed prompt-only checkpoint probe on sim
+      a77744fea. Ten pages and 27 records read exactly; navigation coverage and
+      finish recover, but total hints stays five. Fifteen teaching requests and
+      one summary settle 42.72 credits; original session/progress are retained.
+- [x] 2026-10-11 06:35 UTC: Verify classified-round aggregation on sim
+      de8cf2629 (automatic build 545 / Drone 5334). API 2/2 and web 1/1 are
+      ready; both APIs match 55 runtime/resource fingerprints and each passes
+      58 isolated report checks. The genuine pre-final checkpoint reads ten
+      pages and 27 original records exactly, binds all seventeen relevant inputs,
+      excludes ten navigation records, and calculates once. All eleven rows and
+      saved totals match: six hints, five hinted questions, fourteen attempts,
+      three retries, eight first-correct and six independent-first. The generated
+      report agrees and ends normally. Fourteen teaching requests plus one summary
+      settle 39.65 credits with matching actual progress/block/owner attribution.
+      All fourteen gateway requests retain the observed summary/projection and
+      round-field guidance. Original session, progress, variables, and 55 history
+      elements retain their content/order; one synthetic pending element ID varies
+      during read-only history projection. This non-persisting checkpoint does not
+      close fresh complete compressed-classroom acceptance.
+- [x] 2026-10-11: Address the AI-reviewed zero-total invariant. Three regressions
+      distinguish unanswered zero, nonzero, and unknown hints; the zero case fails
+      before correction. Final engine checks: 617; learning/quality checks: 3179
+      with one expected skip and four subtests. Developer tools and full gates
+      pass; sim engine/quality checks: 663. An initial broad test invocation from
+      the repository root fails fixture setup because it expects src/api as cwd;
+      the corrected src/api run is the passing receipt above. Both actionable AI
+      findings have original-thread replies with pushed fixes; the independent
+      docstring percentage warning is explained without claiming it passes.
+- [x] 2026-10-11: Add initial/following-teaching round flags, unique-group
+      aggregation, before-first derivation and scalar consistency checks. All
+      614 engine checks and 3176 learning/quality checks pass, with one expected
+      skip and four subtests; repository-wide gates pass. Original outcome
+      arithmetic and reference coverage remain unchanged.
+- [x] 2026-10-11: Two provider-delivery regressions fail before the correction.
+      Corrected guidance passes 604 engine checks and 3120 learning checks with
+      one expected skip and four subtests. Two additional original-evidence cases
+      preserve distinct pre-answer/correction rounds under a projected history;
+      supplied-count arithmetic is checked without claiming semantic grading.
 - [x] 2026-10-11: Preserve a new 28-request natural classroom failure on sim
       96d6b87c8. A 4237-byte explanation triggers one real summary. The final
       report reads all ten evidence pages but omits ten ordinary single-choice
@@ -49,6 +93,10 @@ its status-only error does not identify the missing references. Compression
 activity alone does not demonstrate that compression caused this failure.
 The failed model judgments also undercount one hint round. Keep that independent
 semantic discrepancy visible; fixing reference coverage does not close it.
+The omitted round is the first question's correction after an incorrect answer;
+the pre-answer explanation is counted, but the model's total collapses both to
+one. The final-report contract must distinguish total rounds from a per-question
+help flag and from the before-first subset. Original messages contain both rounds.
 
 ## Decision Log
 
@@ -61,6 +109,11 @@ semantic discrepancy visible; fixing reference coverage does not close it.
 - Keep coverage validation, original evidence, result-byte bounds and request
   budgets unchanged. Expose reference-only missing/unknown/duplicate diagnostics
   and clarify explicit exclusions; never infer navigation from an option label.
+- After the prompt-only probe fails, derive hint counts from explicit initial
+  and following-teaching round judgments bound to original references. Do not
+  infer hint flags from outcomes. Deduplicate shared answer groups, reject
+  conflicting flags or scalar assertions, and propagate unknown rounds. Keep
+  authored definitions, outcome arithmetic and existing budgets unchanged.
 
 ## Outcomes & Retrospective
 
@@ -110,9 +163,11 @@ Use existing Engine tools, normal learning HTTP/SSE routes, published course
 configuration, history reads, and usage ledgers. No schema change, new memory
 scope, provider bypass, or MDF 1.0 deletion is authorized by this acceptance plan.
 
-The focused correction owns engine/exercise_statistics.py, its existing prompt
-and tests. Exercise report status and arithmetic remain compatible; invalid
-coverage retains its status and adds bounded reference diagnostics. Verify real
-SDK recovery, exact coverage, duplicate/unknown rejection and multibyte result
-limits. Source plans/reference updates must preserve the failed classroom and
-keep fresh full compressed acceptance open until independently completed.
+The focused correction owns engine/exercise_statistics.py, its prompt, report
+tests and the exercise-quality fixture consumer. Hint flags extend tool inputs;
+old stored arguments remain loadable, but new calls cannot use unsupported scalar
+counts. Derived hint totals keep the output shape and byte budget. Outcome
+arithmetic and exact reference coverage remain compatible. Verify real SDK
+delivery, unknown propagation, shared-group consistency and actual-model report
+accuracy. Preserve failed classrooms and probes; keep fresh full compressed
+acceptance open until independently completed.
