@@ -165,6 +165,57 @@ remain outside the repository. See the
 [completed classroom plan](../exec-plans/completed/mdf2-fresh-grading-classroom.md)
 and [completed grading plan](../exec-plans/completed/mdf2-authored-grading-criteria.md).
 
+### Single-choice navigation and refused report coverage
+
+A new isolated learner starts the same published eleven-question lesson on sim
+96d6b87c8 through normal HTTP/SSE. Both API replicas match 55 source fingerprints.
+A substantive pre-answer explanation reaches 4237 JSON-wire bytes and triggers
+one billed teaching-summary generation and one nonempty summary-cache entry at
+the unchanged 4096-byte threshold. All eleven exercise answers reach their
+feedback, but the final report fails; the lesson remains unfinished.
+
+The final turn reads all ten original-evidence pages. Its 27 records include
+seventeen relevant exercise inputs and ten ordinary single-choice navigation
+clicks. Unlike typed confirms, those single choices remain in the evidence.
+Both calculator attempts cover the seventeen exercise inputs but omit every
+navigation reference from `excluded`. Exact coverage correctly returns
+`invalid_coverage`, then the unchanged twelve-request budget is exhausted.
+This is not proof that compression caused the failure. The 28 HTTP requests
+include one terminal SSE error. All forty actual generations settle 71.82 credits
+with real progress/block attribution, matching owner charges, no failed
+generations and no unsettled billable requests. A successful model response is
+not a successful engine turn or finished lesson.
+
+Coverage errors now retain their status and return bounded missing, unknown and
+duplicate reference lists, complete category counts and an explicit truncation
+flag. At most 32 references per category are considered for the diagnostic, and
+the serialized result still fits the existing 8192-byte UTF-8 limit. No raw
+answers or teaching are added. Reader/tool/report instructions clarify that the
+model must explicitly exclude non-exercise navigation; an option label alone
+never causes automatic exclusion. Invalid calculations still clear successful
+totals, and original messages, reference membership and arithmetic are unchanged.
+
+Four new regressions fail before this correction and pass afterward, including
+real SDK recovery and multibyte/escaped result bounds. An offline check of the
+retained failed input identifies all ten missing navigation references; adding
+their explicit exclusions permits calculation without model calls or database
+writes. This is calculator recovery only. The original model judgments count
+five hints where the independently saved pre-final expectation requires six;
+that semantic quality gap remains separate. The original classroom stays failed,
+and fresh complete compressed-classroom acceptance remains open in the
+[broader classroom plan](../exec-plans/active/mdf2-broader-classroom-acceptance.md).
+
+The correction deploys to sim 1f1e27f75 through manual Drone build 5330
+(build 541) followed by automatic rollout on 2026-10-11. API 2/2 and web 1/1
+are ready. Both APIs match 55 source/resource fingerprints and each deployed
+image passes 43 isolated report checks, including SDK recovery. These checks
+use no paid model calls or database writes and do not replace fresh acceptance.
+
+Private trace-list retrieval timed out; no trace-input observation is claimed.
+Persisted summaries and the attributed summary usage establish summary activity.
+No old learner is reset, no published lesson is changed, and no replay or paid
+retry relabels this failed journey as a passing natural classroom.
+
 ### Answer criteria
 
 The runtime's answer-criteria policy anchors judgments to the current question's
