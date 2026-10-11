@@ -11,6 +11,18 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 - [x] 2026-10-11 03:25 UTC: Transfer outstanding external acceptance from the
       completed grading plans into this named active continuation record.
 - [ ] Run a fresh complete journey that naturally triggers history compression.
+- [x] 2026-10-11: Preserve a new 28-request natural classroom failure on sim
+      96d6b87c8. A 4237-byte explanation triggers one real summary. The final
+      report reads all ten evidence pages but omits ten ordinary single-choice
+      navigation references; two invalid calculations exhaust the unchanged
+      twelve-request budget. All forty generations settle 71.82 credits.
+- [ ] Fix explicit navigation exclusions and actionable bounded coverage errors;
+      verify offline and on sim before another justified natural acceptance run.
+- [x] 2026-10-11: Four regressions fail before the correction; all 43 report
+      protocol/statistics checks and 602 engine checks pass afterward. The real
+      SDK repairs a missing navigation exclusion without counting it as an answer.
+      Offline retained-input repair identifies all ten missing references, but
+      the model's five hint rounds differ from the saved expectation of six.
 - [ ] Exercise additional configured providers, models, and teaching languages.
 - [ ] Verify broader multi-lesson memory and Ask journeys with ordinary requests.
 - [ ] Collect independent human feedback and evaluate longer-term generation cost.
@@ -22,6 +34,16 @@ The successful eleven-question run did not trigger compression: its largest
 original-message JSON was 3712 bytes. Passing it cannot establish naturally
 compressed teaching or other models' compliance.
 
+The next fresh journey does trigger compression, but cannot finish its report.
+Typed confirms are omitted from original-answer evidence; ordinary single-choice
+navigation remains evidence and must be explicitly excluded by the teaching
+model. The model supplies seventeen relevant inputs but omits all ten navigation
+references. The existing coverage check correctly refuses both calculations;
+its status-only error does not identify the missing references. Compression
+activity alone does not demonstrate that compression caused this failure.
+The failed model judgments also undercount one hint round. Keep that independent
+semantic discrepancy visible; fixing reference coverage does not close it.
+
 ## Decision Log
 
 - Preserve original published lessons, generated history, and learner records.
@@ -30,6 +52,9 @@ compressed teaching or other models' compliance.
   variables stay within their course. Do not reintroduce custom cross-course sharing.
 - Keep MDF 1.0 retirement limited to inventory; deletion is outside this plan.
 - Each further change remains a focused PR, with user-owned merging.
+- Keep coverage validation, original evidence, result-byte bounds and request
+  budgets unchanged. Expose reference-only missing/unknown/duplicate diagnostics
+  and clarify explicit exclusions; never infer navigation from an option label.
 
 ## Outcomes & Retrospective
 
@@ -78,3 +103,10 @@ is required. Avoid rerunning paid generation solely to repair an evidence parser
 Use existing Engine tools, normal learning HTTP/SSE routes, published course
 configuration, history reads, and usage ledgers. No schema change, new memory
 scope, provider bypass, or MDF 1.0 deletion is authorized by this acceptance plan.
+
+The focused correction owns engine/exercise_statistics.py, its existing prompt
+and tests. Exercise report status and arithmetic remain compatible; invalid
+coverage retains its status and adds bounded reference diagnostics. Verify real
+SDK recovery, exact coverage, duplicate/unknown rejection and multibyte result
+limits. Source plans/reference updates must preserve the failed classroom and
+keep fresh full compressed acceptance open until independently completed.
