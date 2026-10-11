@@ -283,6 +283,8 @@ async def test_paired_navigation_after_an_answer_requires_an_actual_click() -> N
         "    " + PAIRED_MARKUP,
         "A literal example: " + PAIRED_MARKUP,
         "<interact>Illustrative content</interact>",
+        "<interact>Next ></interact>",
+        '<interact title="Comparison >">Next ></interact>',
     ],
 )
 async def test_code_and_ordinary_content_remain_verbatim(text: str) -> None:
@@ -322,6 +324,7 @@ async def test_an_exact_authored_literal_tag_is_not_a_tool_request(markup: str) 
         PAIRED_MARKUP,
         PAIRED_NAVIGATION,
         "   " + PAIRED_MARKUP,
+        PAIRED_MARKUP.replace("Explain program control", "Explain A > B"),
     ],
 )
 def test_stream_filter_is_independent_of_every_two_chunk_boundary(tag: str) -> None:

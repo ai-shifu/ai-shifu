@@ -36,6 +36,12 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       assertion style; use the established assert pattern rather than exclusions.
 - [ ] Verify the paired-tag correction on sim and real navigation, then use
       another fresh learner for independent full natural-compression acceptance.
+- [x] 2026-10-11: Adopt the AI finding that permissive opening-tag matching
+      can consume nonempty bodies ending in `>`. Two additional SDK regressions
+      fail before delimiting the opening tag with quote-aware attribute runs.
+      Preserve quoted `>` in empty controls and nonempty body text. All 650
+      engine cases and repository gates pass; do not claim earlier CI covers
+      the new head or that an untested sim deployment establishes real recovery.
 - [x] 2026-10-11: Request-local checklist candidate a9a0e2289 deploys as
       sim f704f0fc4, build 562 / Drone 5351; both APIs match 56 fingerprints
       and each passes 72 isolated SDK checks. Sim checks pass 752 cases.
