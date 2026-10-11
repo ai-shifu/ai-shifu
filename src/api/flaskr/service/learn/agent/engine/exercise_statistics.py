@@ -64,6 +64,8 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
             "submissions; single-choice continue clicks can remain in the evidence. "
             "Audit qualifying hint rounds both before and after the first actual answer; "
             "hints is their sum, while hints_before_first is only the earlier subset. "
+            "Supply hint_before and each submission's hint_after from original "
+            "teaching; omit scalar count assertions and let the calculator sum rounds. "
             "Do not write report numbers or call finish before it succeeds."
         )
     notice = prefix + (
@@ -246,6 +248,16 @@ class SubmissionJudgment(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     reference: Annotated[str, Field(min_length=1, max_length=80)]
     outcome: Literal["correct", "incorrect", "unverified", "not_answer"]
+    hint_after: bool | None = Field(
+        default=None,
+        description=(
+            "Whether this input's exact following_teaching delivers a hint under "
+            "the author's rules. true for qualifying help, false for non-hint "
+            "teaching such as post-correct analysis, null when unknown. Classify "
+            "each input including not_answer; records sharing answer_group must "
+            "agree and count as one teaching round for this question."
+        ),
+    )
 
 
 class ExerciseQuestion(BaseModel):
@@ -254,23 +266,35 @@ class ExerciseQuestion(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     question: Annotated[str, Field(min_length=1, max_length=80)]
     submissions: Annotated[list[SubmissionJudgment], Field(max_length=MAX_SUBMISSIONS)]
+    hint_before: bool | None = Field(
+        default=None,
+        description=(
+            "Whether teaching accompanying this question's first submitted "
+            "interaction already delivered a qualifying hint. Use false for "
+            "ordinary question instructions, true for qualifying help, null if "
+            "unknown. Together with each submission's hint_after this supplies "
+            "round evidence; the calculator derives totals and first-answer timing."
+        ),
+    )
     hints: Annotated[int, Field(ge=0, le=MAX_SUBMISSIONS)] | None = Field(
         default=None,
         description=(
-            "Total hint rounds under the author's rules, including qualifying "
+            "Optional asserted total hint rounds under the author's rules, including qualifying "
             "explanations after not_answer inputs, before and after the first actual "
             "answer. One pre-answer explanation plus one later correction hint "
             "means two rounds, not one. Exclude post-correct analysis. "
-            "Use null when unknown."
+            "Prefer omitting this assertion: supply hint_before and hint_after "
+            "for each input, and the calculator derives the count. Use null when unknown."
         ),
     )
     hints_before_first: Annotated[int, Field(ge=0, le=MAX_SUBMISSIONS)] | None = Field(
         default=None,
         description=(
-            "Hint rounds delivered before the first actual answer attempt, "
+            "Optional asserted hint rounds delivered before the first actual answer attempt, "
             "not before the first input. Include qualifying explanations "
             "after not_answer inputs before that attempt, under the author's "
-            "rules. Use null when timing is unknown; zero requires evidence."
+            "rules. Prefer omitting this assertion and supplying round judgments. "
+            "Use null when timing is unknown; zero requires evidence."
         ),
     )
 
@@ -295,6 +319,39 @@ def _coverage_error(references: dict[str, int], used: list[str]) -> str:
         result[largest].pop()
         result["diagnostics_truncated"] = True
     return _encode(result)
+
+
+def _hint_counts(
+    row: ExerciseQuestion, records: dict[str, dict[str, Any]]
+) -> tuple[int | None, int | None] | None:
+    """Derive counts from supplied round judgments; None means conflicting evidence."""
+    if not row.submissions:
+        return None, None
+    groups: dict[int, bool | None] = {}
+    first = None
+    for submission in row.submissions:
+        group = records[submission.reference]["answer_group"]
+        if group in groups and groups[group] != submission.hint_after:
+            return None
+        groups[group] = submission.hint_after
+        if first is None and submission.outcome != "not_answer":
+            first = group
+    all_rounds = [row.hint_before, *groups.values()]
+    before = [
+        row.hint_before,
+        *(
+            hint
+            for group, hint in groups.items()
+            if first is not None and group < first
+        ),
+    ]
+    total = None if None in all_rounds else sum(hint is True for hint in all_rounds)
+    earlier = (
+        None
+        if first is None or None in before
+        else sum(hint is True for hint in before)
+    )
+    return total, earlier
 
 
 async def calculate_exercise_statistics(
@@ -324,6 +381,11 @@ async def calculate_exercise_statistics(
     not merely whether the question ever received help. One pre-answer explanation
     and one later wrong-answer hint give hints=2 and hints_before_first=1.
     Do not count post-correct analysis or split one teaching round into paragraphs.
+    Supply hint_before for the first interaction's teaching and hint_after for
+    every submission's following_teaching. These are semantic judgments under
+    the author rules, not guessed from outcomes. The calculator counts unique
+    answer_group rounds and derives first-answer timing. Omit legacy scalar
+    counts or provide matching assertions; unsupported counts are refused.
     Keep unknown hint timing null, never assume zero from not_answer alone.
     Zero non-answer counts are omitted from rows and totals; absence means zero.
     Include unanswered questions with empty submissions. This tool
@@ -336,6 +398,7 @@ async def calculate_exercise_statistics(
     if records is None:
         return _encode({"status": "invalid_history"})
     references = {record["reference"]: index for index, record in enumerate(records)}
+    by_reference = {record["reference"]: record for record in records}
     used = [
         submission.reference for row in questions for submission in row.submissions
     ] + list(excluded or ())
@@ -352,6 +415,30 @@ async def calculate_exercise_statistics(
             and row.hints_before_first > row.hints
         ):
             return _encode({"status": "invalid_order_or_hints"})
+        hint_counts = _hint_counts(row, by_reference)
+        if hint_counts is None:
+            return _encode(
+                {"status": "conflicting_hint_round", "question": row.question}
+            )
+        hints, hints_before_first = hint_counts
+        if (row.hints is not None and row.hints != hints) or (
+            row.hints_before_first is not None
+            and row.hints_before_first != hints_before_first
+        ):
+            return _encode(
+                {
+                    "status": "invalid_hint_counts",
+                    "question": row.question,
+                    "derived_hints": hints,
+                    "derived_hints_before_first": hints_before_first,
+                    "notice": (
+                        "Supply hint_before and every submission's hint_after "
+                        "from original teaching; omit scalar assertions or make "
+                        "them match. Unknown round judgments cannot support a "
+                        "known count. Do not infer hints from outcomes."
+                    ),
+                }
+            )
         outcomes = [s.outcome for s in row.submissions if s.outcome != "not_answer"]
         non_answers = len(row.submissions) - len(outcomes)
         first = outcomes[0] if outcomes else "unverified"
@@ -365,8 +452,8 @@ async def calculate_exercise_statistics(
                 "failed_submissions": outcomes.count("incorrect"),
                 "unverified_submissions": outcomes.count("unverified"),
                 **({"non_answer_messages": non_answers} if non_answers else {}),
-                "hints": row.hints,
-                "hints_before_first": 0 if row.hints == 0 else row.hints_before_first,
+                "hints": hints,
+                "hints_before_first": hints_before_first,
             }
         )
     totals = {

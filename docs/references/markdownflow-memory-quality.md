@@ -225,25 +225,42 @@ attempts instead supply hints=1 and hints_before_first=1. Original records retai
 both teaching rounds; the calculator correctly sums the supplied count. This is
 not an arithmetic defect or proof of missing original evidence after compression.
 
-Report instructions, provider field guidance and the request-local pre-calculation
-notice now require an audit of qualifying teaching both before and after the
-first actual answer. Total hints is their sum; before-first hints is a subset.
-One qualifying pre-answer explanation plus a later correction hint gives total
-two and before-first one, even when both discuss the same concept. A question's
-help flag, paragraphs and repeated text parts are not distinct hint rounds.
-Original answer groups distinguish teaching rounds, and post-correct analysis,
-formatting-only clarification and uniform question instructions do not
-automatically qualify. Unknown rounds remain null; wrong outcomes alone do not
-prove a hint. Semantic classification stays with the teaching model, without a
-new schema, heuristic counter or changes to calculator arithmetic.
+A prompt/schema-description-only candidate still reports five hints in a
+non-persisting real-model checkpoint probe on sim a77744fea. It reads all ten
+pages, excludes ten navigation records correctly, and finishes, but its first
+question still has total one. Fifteen teaching requests and one new summary
+settle 42.72 credits. Observed gateway inputs retain one summary marker and
+projected original, with the guidance present. Preserve this failed candidate;
+more wording alone does not establish correct aggregation.
 
-Provider-delivery regressions must fail without this guidance and survive a
-session round trip afterward. Original-evidence and supplied-count checks keep
-the long pre-answer explanation, correction and post-correct analysis distinct,
-including when the model-facing history is projected. These offline checks do
-not prove a real model's hint classification or close fresh compressed acceptance;
-the [broader plan](../exec-plans/active/mdf2-broader-classroom-acceptance.md)
-records the remaining real-model and classroom verification.
+The tool now accepts semantic round judgments: question-level `hint_before`
+classifies teaching accompanying the first submitted interaction, and each
+submission's `hint_after` classifies its exact `following_teaching`. These strict
+boolean-or-null flags follow the author's definition; outcomes do not imply
+hints. The calculator derives total hints and before-first timing from original
+answer-group positions. A shared answer group counts once per question, and
+conflicting flags are refused. Unknown relevant rounds preserve null counts;
+a known before-first subset can remain known when only later rounds are unknown.
+Initial qualifying teaching counts before the first actual answer, while
+ordinary question instructions and post-correct analysis do not automatically
+qualify. Semantic classification still belongs to the model.
+
+Legacy scalar counts remain optional assertions; they cannot override or
+replace round evidence. Mismatches or known assertions over unknown rounds are
+refused with bounded derived-count diagnostics, and old successful totals are
+cleared. Omit assertions in new calls. Stored sessions and old tool arguments
+remain loadable without rewriting; new calculations use this stronger contract.
+Original reference coverage, answer grading arithmetic, request/result limits,
+memory permissions and authored scripts are unchanged. Hint aggregation now
+comes from classified rounds rather than trusting a model-supplied total.
+
+Regression coverage includes provider delivery and reload, original long
+teaching under a model-facing projection, before/after aggregation, strict flags,
+initial hints, shared-group deduplication/conflicts, scalar disagreement and
+unknown propagation. Fixed judgments in offline tests do not prove real model
+classification. Retained real-model verification and fresh complete compressed
+acceptance remain separate in the
+[broader plan](../exec-plans/active/mdf2-broader-classroom-acceptance.md).
 
 ### Answer criteria
 
