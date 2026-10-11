@@ -66,7 +66,8 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
             "hints is their sum, while hints_before_first is only the earlier subset. "
             "Supply hint_before and each submission's hint_after from original "
             "teaching; omit scalar count assertions and let the calculator sum rounds. "
-            "For hint_before inspect only the first record's teaching, not following_teaching. "
+            "For hint_before inspect the first record's teaching, not following_teaching, "
+            "plus its visible question fields, including qualifying placeholder help. "
             "Keep course logistics and question-only teaching false under rules that exclude "
             "ordinary instructions. A later pre-answer explanation is hint_after for its "
             "not_answer input, not also hint_before; timing before the first answer is "
@@ -285,8 +286,10 @@ class ExerciseQuestion(BaseModel):
     hint_before: bool | None = Field(
         default=None,
         description=(
-            "Whether the first record's teaching, not following_teaching, already "
-            "delivered a qualifying hint with the initial question. Use false for "
+            "Whether the first record's teaching, not following_teaching, or its "
+            "visible question fields delivered a qualifying initial hint. Include "
+            "qualifying placeholder help under the author's rules, but ordinary "
+            "input labels and formatting cues do not automatically qualify. Use false for "
             "course logistics and question-only teaching under rules that exclude "
             "ordinary instructions. Do not set true merely because a later "
             "not_answer input receives an explanation before the first actual "
@@ -403,7 +406,10 @@ async def calculate_exercise_statistics(
     not merely whether the question ever received help. One pre-answer explanation
     and one later wrong-answer hint give hints=2 and hints_before_first=1.
     Do not count post-correct analysis or split one teaching round into paragraphs.
-    Supply hint_before only for the first record's teaching, not following_teaching.
+    Supply hint_before from the first record's teaching, not following_teaching,
+    and its visible question fields, including qualifying placeholder help under
+    the author's rules. Ordinary input labels and formatting cues are not
+    automatically hints; judge actual initial help rather than excluding a field.
     Course logistics and question-only teaching do not count under author rules
     excluding ordinary instructions. Supply hint_after for every submission's
     following_teaching. A later pre-answer knowledge explanation is hint_after

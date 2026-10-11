@@ -380,16 +380,27 @@ async def test_knowledge_questions_preserve_evidence_without_inflating_attempts(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("projected", [False, True])
+@pytest.mark.parametrize("initial_help", ["none", "teaching", "placeholder"])
 async def test_original_rounds_support_pre_answer_and_correction_hint_totals(
     projected: bool,
+    initial_help: str,
 ) -> None:
     explanation = "Adding one means taking the next integer. " * 130
     correction = "Incorrect. Add one to two, not three. Try again."
+    initial = "We will give hints after errors. What is 2 + 1?"
+    help_text = "Start at two and move one integer forward."
+    if initial_help == "teaching":
+        initial += " " + help_text
+    placeholder = help_text if initial_help == "placeholder" else "Your answer"
     messages = [
         ModelResponse(
             parts=[
-                TextPart("What is 2 + 1?"),
-                ToolCallPart("interact", {"type": "text", "prompt": "Answer"}, "ask"),
+                TextPart(initial),
+                ToolCallPart(
+                    "interact",
+                    {"type": "text", "prompt": "Answer", "placeholder": placeholder},
+                    "ask",
+                ),
             ]
         ),
         ModelRequest(
@@ -424,6 +435,8 @@ async def test_original_rounds_support_pre_answer_and_correction_hint_totals(
         text += page["text"]
         offset = page["next_offset"]
     records = json.loads(text)
+    assert records[0]["teaching"] == initial
+    assert records[0]["question"]["placeholder"] == placeholder
     assert records[0]["following_teaching"] == [
         explanation,
         "Return to the same question.",
@@ -446,12 +459,12 @@ async def test_original_rounds_support_pre_answer_and_correction_hint_totals(
                 strict=True,
             )
         ],
-        hint_before=False,
+        hint_before=initial_help != "none",
     )
     result = json.loads(await calculate_exercise_statistics(ctx, [row]))
     assert result["status"] == "calculated"
-    assert result["totals"]["hints"] == 2
-    assert result["questions"][0]["hints_before_first"] == 1
+    assert result["totals"]["hints"] == 2 + (initial_help != "none")
+    assert result["questions"][0]["hints_before_first"] == 1 + (initial_help != "none")
     assert result["totals"]["attempts"] == 2
     assert result["totals"]["non_answer_messages"] == 1
     assert result["totals"]["first_correct"] == 0
@@ -583,6 +596,10 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
             "first record's teaching" in question_schema["hint_before"]["description"]
         )
         assert "not following_teaching" in question_schema["hint_before"]["description"]
+        assert (
+            "qualifying placeholder help"
+            in question_schema["hint_before"]["description"]
+        )
         submission_schema = schema["$defs"]["SubmissionJudgment"]["properties"]
         assert "following_teaching" in submission_schema["hint_after"]["description"]
         assert "answer_group" in submission_schema["hint_after"]["description"]
@@ -622,6 +639,7 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
             )
             assert "first record's teaching" in (info.instructions or "")
             assert "not also hint_before" in (info.instructions or "")
+            assert "qualifying placeholder help" in (info.instructions or "")
             page = next(p for p in messages[-1].parts if isinstance(p, ToolReturnPart))
             record = json.loads(json.loads(page.content)["text"])[0]
             assert record["answer"] == "Learner wrote: " + learner_input

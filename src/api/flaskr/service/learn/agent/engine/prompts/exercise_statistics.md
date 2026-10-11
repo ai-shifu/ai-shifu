@@ -47,8 +47,11 @@ Every reference must appear exactly once across submissions and `excluded`.
 If coverage is refused, use its missing, unknown and duplicate reference lists to
 repair the arguments. Diagnostics may be truncated; their counts cover the full
 failure. Do not repeat unchanged arguments or reread an already complete history.
-For every question, set `hint_before` from only the first record's teaching,
-not following_teaching or the question's placeholder. Under author rules that
+For every question, set `hint_before` from the first record's teaching,
+not following_teaching, and its visible question fields. Include qualifying
+placeholder help when it actually helps solve the exercise under the author's
+rules; do not categorically exclude input hints. Ordinary input labels or
+formatting cues are not automatically hints. Under author rules that
 exclude ordinary instructions, course logistics and question-only teaching are
 false. A promise to give hints later is not a hint delivered now. Inspect the
 initial round independently of later help.
