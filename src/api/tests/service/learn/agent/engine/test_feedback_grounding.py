@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 import pytest
 from flaskr.service.learn.agent.engine import (
     ContentDelta,
+    ContinueTurn,
     Engine,
     ErrorEvent,
     InteractionResponseTurn,
@@ -168,6 +169,87 @@ async def test_final_review_receives_original_omissions_over_prior_generated_dia
     assert not any(isinstance(event, ErrorEvent) for event in events)
     assert session.finished
     assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+@pytest.mark.parametrize("retry_saved_answer", [False, True])
+async def test_resumed_answer_receives_current_criterion_review(
+    reload: bool, retry_saved_answer: bool
+) -> None:
+    """Scope the review to resumed SDK calls without changing original evidence."""
+    calls = 0
+    original = "Cache reduces memory waits; DMA reduces I/O waits; superscalar issues together."
+
+    async def model(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Inspect real request instructions and emit controlled deferred calls."""
+        nonlocal calls
+        calls += 1
+        policy = info.instructions or ""
+        if calls == 1:
+            assert "# Review this returned interaction" not in policy
+            yield "Describe the required techniques and effects."
+            spec = {"type": "text", "prompt": "Techniques", "placeholder": "Answer"}
+        elif calls == 2:
+            assert policy.endswith(
+                "Do not expose this review procedure to the learner."
+            )
+            assert "Match every required point" in policy
+            assert "already covered, contradicted, or not supplied" in policy
+            assert "A missing label cannot undo a successful meaning match" in policy
+            assert "Select hints only from genuinely unmatched requirements" in policy
+            assert (
+                "A clarification or navigation response is not an answer attempt"
+                in policy
+            )
+            assert original in ModelMessagesTypeAdapter.dump_json(messages).decode()
+            yield "RISC and hardware threading were not supplied. Please address RISC first."
+            spec = {"type": "text", "prompt": "Techniques", "placeholder": "Correction"}
+        else:
+            assert calls == 3
+            # A later free-form review is not a newly resumed interaction.
+            assert "# Review this returned interaction" not in policy
+            yield "General explanation."
+            spec = {"type": "text", "prompt": "Follow-up", "placeholder": "Answer"}
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(spec),
+                tool_call_id=f"review-{calls}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(
+        "Require RISC, hardware threading, superscalar and memory/I/O bottleneck relief. "
+        "Concrete methods with effects suffice; the category title is optional."
+    )
+    await _events(engine.run_turn(session))
+    before = ModelMessagesTypeAdapter.dump_json(session.messages)
+    count = len(session.messages)
+    if retry_saved_answer:
+        # The answer was accepted before a provider request failed. Resume the
+        # saved deferred call without asking the learner to submit again.
+        session.answers[session.pending[0].tool_call_id] = original
+        session.pending = []
+    if reload:
+        session = Session.loads(session.dumps())
+    turn = (
+        ContinueTurn()
+        if retry_saved_answer
+        else InteractionResponseTurn(id=session.pending[0].tool_call_id, text=original)
+    )
+    events = await _events(engine.run_turn(session, turn))
+    assert not any(isinstance(event, ErrorEvent) for event in events)
+    assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
+    assert not session.finished
+    assert session.pending[0].spec.type == "text"
+    # The same engine must not leak a previous run's review into another session.
+    another = await engine.new_session("Explain generally, then ask a follow-up.")
+    await _events(engine.run_turn(another, MessageTurn(text="Explain generally.")))
+    assert calls == 3
 
 
 async def _events(events: AsyncIterator[object]) -> list[object]:

@@ -8,6 +8,49 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: User merges #3110 at f1e9bf190, final head
+      ac1c6421e. Its tree equals fetched main and all technical CI passes.
+      CN API 6/6 and web 3/3 run 20261011-f1e9bf1. CodeRabbit substantively
+      reviews without code findings; its 77.78% docstring warning has an
+      original-discussion reply citing the repository's pytest exemption, without
+      claiming the third-party 80% threshold passes.
+- [x] 2026-10-11: Sim 4670de604 deploys through build 559 / Drone 5348;
+      both APIs match 55 fingerprints and each passes 66 isolated SDK checks;
+      sim checks pass 700 cases. Preserve a genuine pre-final probe failure:
+      duplicate navigation references cause a refused calculation, repair uses
+      the twelfth allowed request, and no report follows. Twelve teaching
+      generations and one summary settle 33.52 credits; original state and
+      56 history elements remain unchanged. Do not repeat it with a larger budget.
+- [x] 2026-10-11: A separately derived single-question slice preserves the
+      original interaction and input, passes focused meaning coverage and
+      navigation, and settles three teaching generations plus one summary for
+      5.94 credits. This is explicitly a constructed in-memory slice, not a
+      persisted checkpoint or fresh classroom; original state/history is retained.
+- [x] 2026-10-11: Preserve the fifth fresh ordinary classroom's failure after
+      27 HTTP/SSE requests, before the final answer. Despite original Cache/DMA
+      effects and the author's explicit acceptance, the CPU hint again requests
+      the category title and overlooks genuinely absent hardware threading.
+      Its actual request contains original input, authored allowance and #3110
+      guidance. The unfinished 54-message session is retained. A 4625-byte
+      explanation naturally creates one summary; 23 generation inputs contain
+      projections bound to original and cached content. All 28 generations
+      (27 teaching plus one summary) settle 43.29 credits with actual
+      progress/block/owner attribution, no failed/unsettled usage and unchanged
+      published source. A read-only trace timeout is retained before successful
+      re-read; teaching requests are not retried. No final-report pass is claimed.
+- [x] 2026-10-11: Add current-request criterion matching to default prompts
+      when deferred interactions resume, including saved-answer recovery.
+      Match all authored requirements to original meaning before finding gaps
+      and applying authored hint limits; clarification/navigation is not an
+      answer. Four SDK regressions fail before delivery. This adds no semantic
+      validator, model call, persisted grade, source mutation or request budget.
+- [x] 2026-10-11: Request-local review passes 635 engine cases and 4260
+      learning/profile/user/quality cases, four subtests and one expected skip.
+      Developer tools and repository gates pass after regenerating the knowledge
+      inventory for the new prompt. The initial broader command names a missing
+      test path and runs no tests; the corrected test selection is the receipt above.
+- [ ] Verify request-local review on deployed sim and with an independent fresh
+      classroom; preserve all prior failures and separate focused probes.
 - [x] 2026-10-11: Fetch latest main e39ac3e9f and confirm #3104 merged.
       Its final head 7ac1d262e passes all technical checks, including runtime
       harness; CodeRabbit remains pending. CN API 6/6 and web 3/3 run
