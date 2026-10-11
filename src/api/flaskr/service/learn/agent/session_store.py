@@ -52,6 +52,11 @@ def preview_presentation(row: LearnAgentSession | None) -> dict:
         data = json.loads(row.session_data) if row is not None else {}
     except (TypeError, ValueError):
         return {}
+    return preview_presentation_from_document(data)
+
+
+def preview_presentation_from_document(data: object) -> dict:
+    """Read presentation from an already decoded session without parsing it again."""
     value = data.get(PREVIEW_PRESENTATION_KEY) if isinstance(data, dict) else None
     if (
         isinstance(value, dict)

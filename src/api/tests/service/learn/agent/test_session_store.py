@@ -362,8 +362,10 @@ def test_resetting_a_lesson_retires_its_session(app: object) -> None:
         assert session_store.load_agent_session(app, USER, OUTLINE) is None
 
 
-def test_resetting_a_lesson_retires_the_preview_session_too(app: object) -> None:
-    """An author resetting a lesson means the preview as well."""
+def test_resetting_published_learning_preserves_the_preview_session(
+    app: object,
+) -> None:
+    """Published retakes do not discard a teacher's independent preview."""
     from flaskr.service.learn.learn_funcs import reset_learn_record
 
     with app.app_context():
@@ -380,5 +382,5 @@ def test_resetting_a_lesson_retires_the_preview_session_too(app: object) -> None
 
         assert (
             session_store.load_agent_session(app, USER, OUTLINE, preview_mode=True)
-            is None
+            is not None
         )

@@ -135,7 +135,6 @@ interface NewChatComponentsProps {
   titleLanguage?: string;
   contentLanguage?: string;
   lessonStatus?: string;
-  lessonHasContentUpdate?: boolean;
   followUpMode?: 'text' | 'live_voice' | 'disabled';
   onPurchased: () => void;
   chapterUpdate: ChapterUpdateHandler;
@@ -164,7 +163,6 @@ export const NewChatComponents = ({
   titleLanguage,
   contentLanguage,
   lessonStatus = '',
-  lessonHasContentUpdate = false,
   followUpMode = 'text',
   onPurchased,
   chapterUpdate,
@@ -507,7 +505,6 @@ export const NewChatComponents = ({
     lessonId: resolvedLessonId,
     chapterId,
     previewMode,
-    lessonHasContentUpdate,
     isListenMode: isListenModeActive,
     learningMode,
     trackEvent,

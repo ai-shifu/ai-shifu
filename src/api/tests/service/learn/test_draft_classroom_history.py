@@ -246,8 +246,9 @@ def test_multiple_requests_keep_order_and_accepted_answers(classroom: tuple) -> 
     assert history(lesson="another-lesson").elements == []
 
 
+@pytest.mark.parametrize("clear_body", [False, True])
 def test_preview_catalog_and_reset_are_independent_of_published_learning(
-    app: Flask, classroom: tuple
+    app: Flask, classroom: tuple, clear_body: bool
 ) -> None:
     identity, run, history, _calls = classroom
     with app.app_context(), unit_of_work():
@@ -277,6 +278,12 @@ def test_preview_catalog_and_reset_are_independent_of_published_learning(
         .status
         == LearnStatus.IN_PROGRESS
     )
+    if clear_body:
+        with app.app_context(), unit_of_work():
+            DraftOutlineItem.query.filter_by(
+                outline_item_bid=identity
+            ).one().content = ""
+        assert history().has_content_update_for_current_user
     reset_learn_record(app, identity, identity, identity, preview_mode=True)
     assert history().elements == []
     assert (
@@ -293,6 +300,37 @@ def test_preview_catalog_and_reset_are_independent_of_published_learning(
         )
     run()
     assert "question 2" in history().elements[0].content
+
+
+def test_preview_history_and_continuation_preserve_the_taught_body(
+    app: Flask, classroom: tuple
+) -> None:
+    identity, run, history, _calls = classroom
+    original = (
+        "Teach a topic, then ask a question. Wait for an answer before proceeding."
+    )
+    with app.app_context(), unit_of_work():
+        DraftOutlineItem.query.filter_by(
+            outline_item_bid=identity
+        ).one().content = original
+    run()
+    assert history().has_content_update_for_current_user is False
+    with app.app_context(), unit_of_work():
+        DraftOutlineItem.query.filter_by(
+            outline_item_bid=identity
+        ).one().content = "Changed"
+    assert history().has_content_update_for_current_user is True
+    run("My answer")
+    assert history().has_content_update_for_current_user is True
+    assert (
+        load_agent_session(app, identity, identity, preview_mode=True).script.script
+        == original
+    )
+    with app.app_context(), unit_of_work():
+        DraftOutlineItem.query.filter_by(
+            outline_item_bid=identity
+        ).one().content = original
+    assert history().has_content_update_for_current_user is False
 
 
 def test_preview_reset_rejects_an_in_flight_first_save(

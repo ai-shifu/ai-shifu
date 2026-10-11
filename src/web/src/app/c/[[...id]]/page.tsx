@@ -575,21 +575,6 @@ export default function ChatPage() {
     return '';
   }, [resolvedLessonId, tree]);
 
-  const currentLessonHasContentUpdate = useMemo(() => {
-    if (!tree || !resolvedLessonId) {
-      return false;
-    }
-    for (const catalog of tree.catalogs || []) {
-      const lesson = (catalog.lessons || []).find(
-        entry => entry.id === resolvedLessonId,
-      );
-      if (lesson) {
-        return Boolean(lesson.has_content_update_for_current_user);
-      }
-    }
-    return false;
-  }, [resolvedLessonId, tree]);
-
   const currentLessonFollowUpMode = useMemo(() => {
     if (!tree || !resolvedLessonId) {
       return 'text' as const;
@@ -912,7 +897,6 @@ export default function ChatPage() {
             titleLanguage={tree?.titleLanguage}
             contentLanguage={tree?.contentLanguage}
             lessonStatus={currentLessonStatus}
-            lessonHasContentUpdate={currentLessonHasContentUpdate}
             followUpMode={currentLessonFollowUpMode}
             lessonUpdate={onLessonUpdate}
             onGoChapter={onGoChapter}

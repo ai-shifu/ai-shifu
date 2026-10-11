@@ -11,8 +11,12 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.learn_funcs import get_learn_record
+from flaskr.service.learn.learn_funcs import (
+    get_current_lesson_outline_id,
+    get_learn_record,
+)
 from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
+from flaskr.service.learn.lesson_content_updates import load_lesson_content_states
 from flaskr.service.learn.listen_element_history import (
     get_listen_element_record as _get_listen_element_record,
 )
@@ -31,9 +35,15 @@ from flaskr.service.learn.listen_element_run_sidecar import (
 from flaskr.service.learn.listen_element_run_stream import (
     ListenElementRunStreamMixin,
 )
+from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.learn.type_state_machine import (
     TypeInput,
     TypeStateMachine,
+)
+from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_RESET,
 )
 
 if TYPE_CHECKING:
@@ -200,13 +210,16 @@ def get_listen_element_record(
     """Return listen element record."""
     from flaskr.service.learn.agent.routing import uses_agent_engine
 
-    if preview_mode and uses_agent_engine(shifu_bid):
+    agent_enabled = uses_agent_engine(shifu_bid)
+    if preview_mode and agent_enabled:
         from flaskr.service.learn.agent.preview_history import (
             get_preview_record,
-            has_preview_script,
+            uses_preview_session_history,
         )
 
-        if has_preview_script(app, shifu_bid=shifu_bid, outline_bid=outline_bid):
+        if uses_preview_session_history(
+            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+        ):
             return get_preview_record(
                 app,
                 user_bid=user_bid,
@@ -214,7 +227,7 @@ def get_listen_element_record(
                 outline_bid=outline_bid,
                 include_non_navigable=include_non_navigable,
             )
-    return _get_listen_element_record(
+    record = _get_listen_element_record(
         app=app,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
@@ -233,3 +246,34 @@ def get_listen_element_record(
             progress_record_bid=progress_record_bid,
         ),
     )
+    if agent_enabled and not preview_mode:
+        progress = (
+            LearnProgressRecord.query.with_entities(LearnProgressRecord.status)
+            .filter(
+                LearnProgressRecord.user_bid == user_bid,
+                LearnProgressRecord.shifu_bid == shifu_bid,
+                LearnProgressRecord.outline_item_bid == outline_bid,
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+            )
+            .order_by(LearnProgressRecord.id.desc())
+            .first()
+        )
+        if progress and progress.status in (
+            LEARN_STATUS_IN_PROGRESS,
+            LEARN_STATUS_COMPLETED,
+        ):
+            current_id = get_current_lesson_outline_id(
+                shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=False
+            )
+            states = load_lesson_content_states(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                preview_mode=False,
+                outline_ids={outline_bid: current_id} if current_id is not None else {},
+            )
+            state = states.get(outline_bid)
+            record.has_content_update_for_current_user = bool(
+                state and state.has_content_update
+            )
+    return record

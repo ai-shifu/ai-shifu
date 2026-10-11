@@ -291,7 +291,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
     is_paid: bool = Field(..., description="outline is paid")
     has_content_update_for_current_user: bool = Field(
         default=False,
-        description="Whether the published lesson content is newer than this user's latest learning progress",
+        description="Whether the current lesson body differs from this user's active teaching baseline",
     )
     follow_up_mode: Literal["text", "live_voice", "disabled"] = Field(
         default="text",
@@ -1059,27 +1059,34 @@ class LearnElementRecordDTO(BaseModel):
         default=None,
         description="Latest update time for the learner's progress on this lesson",
     )
+    has_content_update_for_current_user: bool = Field(
+        default=False,
+        description="Whether the current lesson body differs from the active teaching baseline",
+    )
 
     def __init__(
         self,
         elements: list[ElementDTO] | None = None,
         events: list[RunElementSSEMessageDTO] | None = None,
         last_progress_updated_at: str | None = None,
+        has_content_update_for_current_user: bool = False,
     ) -> None:
         """Build the recorded learner-element payload."""
         super().__init__(
             elements=elements or [],
             events=events,
             last_progress_updated_at=last_progress_updated_at,
+            has_content_update_for_current_user=has_content_update_for_current_user,
         )
 
     def __json__(self) -> dict:
         """Return the learner element record as JSON-compatible data."""
         ret = {
+            "has_content_update_for_current_user": self.has_content_update_for_current_user,
             "elements": [
                 item.__json__() if isinstance(item, BaseModel) else item
                 for item in self.elements
-            ]
+            ],
         }
         if self.events is not None:
             ret["events"] = [
