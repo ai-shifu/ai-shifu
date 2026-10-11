@@ -125,6 +125,149 @@ describe('EmailLogin', () => {
     storeState.getToken.mockReset().mockReturnValue('');
   });
 
+  test('shows a disabled login button before sending a code', () => {
+    render(<EmailLogin onLoginSuccess={jest.fn()} />);
+
+    const loginButton = screen.getByRole('button', {
+      name: 'module.auth.login',
+    });
+    expect(loginButton).toBeVisible();
+    expect(loginButton).toBeDisabled();
+    fireEvent.click(loginButton);
+    fireEvent.keyDown(
+      screen.getByPlaceholderText('module.auth.verificationCodePlaceholder'),
+      { key: 'Enter' },
+    );
+
+    expect(mockEmailLogin).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('keeps login disabled while sending a code and after delivery fails', async () => {
+    let rejectSend!: (error: Error) => void;
+    mockSendEmailCode.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectSend = reject;
+        }),
+    );
+    render(<EmailLogin onLoginSuccess={jest.fn()} />);
+
+    await submitEmail();
+    const loginButton = screen.getByRole('button', {
+      name: 'module.auth.login',
+    });
+    const codeInput = screen.getByPlaceholderText(
+      'module.auth.verificationCodePlaceholder',
+    );
+    expect(loginButton).toBeDisabled();
+    expect(codeInput).toBeDisabled();
+
+    await act(async () => {
+      rejectSend(new Error('Email delivery failed'));
+    });
+
+    expect(loginButton).toBeVisible();
+    expect(loginButton).toBeDisabled();
+    expect(codeInput).toBeDisabled();
+    fireEvent.click(loginButton);
+    fireEvent.keyDown(codeInput, { key: 'Enter' });
+    expect(mockEmailLogin).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test.each(['click', 'Enter'])(
+    'only submits email login with all four code digits via %s',
+    async submission => {
+      const onLoginSuccess = jest.fn();
+      render(<EmailLogin onLoginSuccess={onLoginSuccess} />);
+      await submitEmail();
+
+      const loginButton = screen.getByRole('button', {
+        name: 'module.auth.login',
+      });
+      const codeInput = screen.getByPlaceholderText(
+        'module.auth.verificationCodePlaceholder',
+      );
+      expect(loginButton).toBeDisabled();
+      fireEvent.click(loginButton);
+      fireEvent.keyDown(codeInput, { key: 'Enter' });
+      fireEvent.change(codeInput, { target: { value: '123' } });
+      expect(loginButton).toBeDisabled();
+      fireEvent.click(loginButton);
+      fireEvent.keyDown(codeInput, { key: 'Enter' });
+      expect(mockEmailLogin).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      fireEvent.change(codeInput, { target: { value: '1234' } });
+      expect(loginButton).toBeEnabled();
+      await act(async () => {
+        if (submission === 'Enter') {
+          fireEvent.keyDown(codeInput, { key: 'Enter' });
+        } else {
+          fireEvent.click(loginButton);
+        }
+      });
+
+      expect(mockEmailLogin).toHaveBeenCalledTimes(1);
+      expect(mockEmailLogin).toHaveBeenCalledWith(
+        {
+          email: 'learner@example.com',
+          code: '1234',
+          language: 'en-US',
+          login_context: undefined,
+          course_id: undefined,
+        },
+        { skipErrorToast: true },
+      );
+      expect(onLoginSuccess).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['learner_login_attempt', { login_method: 'email' }],
+        ['learner_login_result', { login_method: 'email', outcome: 'success' }],
+      ]);
+    },
+  );
+
+  test('blocks repeated email submission while pending and allows retry after failure', async () => {
+    let resolveLogin!: (response: { code: number; message: string }) => void;
+    mockEmailLogin.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolveLogin = resolve;
+        }),
+    );
+    render(<EmailLogin onLoginSuccess={jest.fn()} />);
+    await submitEmail();
+
+    const codeInput = screen.getByPlaceholderText(
+      'module.auth.verificationCodePlaceholder',
+    );
+    const loginButton = screen.getByRole('button', {
+      name: 'module.auth.login',
+    });
+    fireEvent.change(codeInput, { target: { value: '1234' } });
+    fireEvent.click(loginButton);
+    expect(loginButton).toBeDisabled();
+    fireEvent.click(loginButton);
+    fireEvent.keyDown(codeInput, { key: 'Enter' });
+    expect(mockEmailLogin).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['learner_login_attempt', { login_method: 'email' }],
+    ]);
+
+    await act(async () => {
+      resolveLogin({
+        code: 1031,
+        message: 'Email code rejected',
+      });
+    });
+    expect(loginButton).toBeEnabled();
+    await act(async () => {
+      fireEvent.click(loginButton);
+    });
+    expect(mockEmailLogin).toHaveBeenCalledTimes(2);
+  });
+
   test('cleans up the active countdown when unmounted', async () => {
     jest.useFakeTimers();
     try {
@@ -215,6 +358,15 @@ describe('EmailLogin', () => {
 
       expect(codeInput).toBeDisabled();
       expect(codeInput).toHaveValue('');
+      const loginButton = screen.getByRole('button', {
+        name: 'module.auth.login',
+      });
+      expect(loginButton).toBeVisible();
+      expect(loginButton).toBeDisabled();
+      fireEvent.click(loginButton);
+      fireEvent.keyDown(codeInput, { key: 'Enter' });
+      expect(mockEmailLogin).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }
