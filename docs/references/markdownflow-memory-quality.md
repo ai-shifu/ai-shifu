@@ -216,6 +216,35 @@ Persisted summaries and the attributed summary usage establish summary activity.
 No old learner is reset, no published lesson is changed, and no replay or paid
 retry relabels this failed journey as a passing natural classroom.
 
+### Hint rounds spanning the first answer
+
+The same retained failed classroom exposes a separate model-supplied undercount
+in question 1-2. Its pre-answer knowledge explanation and later incorrect-answer
+correction are two qualifying rounds under the author rules. Both calculator
+attempts instead supply hints=1 and hints_before_first=1. Original records retain
+both teaching rounds; the calculator correctly sums the supplied count. This is
+not an arithmetic defect or proof of missing original evidence after compression.
+
+Report instructions, provider field guidance and the request-local pre-calculation
+notice now require an audit of qualifying teaching both before and after the
+first actual answer. Total hints is their sum; before-first hints is a subset.
+One qualifying pre-answer explanation plus a later correction hint gives total
+two and before-first one, even when both discuss the same concept. A question's
+help flag, paragraphs and repeated text parts are not distinct hint rounds.
+Original answer groups distinguish teaching rounds, and post-correct analysis,
+formatting-only clarification and uniform question instructions do not
+automatically qualify. Unknown rounds remain null; wrong outcomes alone do not
+prove a hint. Semantic classification stays with the teaching model, without a
+new schema, heuristic counter or changes to calculator arithmetic.
+
+Provider-delivery regressions must fail without this guidance and survive a
+session round trip afterward. Original-evidence and supplied-count checks keep
+the long pre-answer explanation, correction and post-correct analysis distinct,
+including when the model-facing history is projected. These offline checks do
+not prove a real model's hint classification or close fresh compressed acceptance;
+the [broader plan](../exec-plans/active/mdf2-broader-classroom-acceptance.md)
+records the remaining real-model and classroom verification.
+
 ### Answer criteria
 
 The runtime's answer-criteria policy anchors judgments to the current question's
