@@ -52,6 +52,22 @@ and `tests/service/profile/`.
 
 ## Authored-rubric grading cases
 
+### Personal feedback grounding
+
+Author-provided mistakes and sample diagnoses are possible answers, not evidence
+of this learner's beliefs. Wrong-answer hints, accepted-answer explanations and
+later reviews must ground personal diagnoses in original submissions for the
+current question, distinguishing earlier attempts, corrections and omissions.
+An omitted point does not establish an opposite or unrelated misconception.
+Required authored distinctions may still be taught as general examples without
+claiming the learner made those mistakes. Earlier generated feedback and lossy
+teaching summaries cannot substitute for original learner input; unavailable
+evidence limits the personal claim. Grading criteria and retries stay unchanged.
+
+SDK feedback tests verify policy delivery and preservation of original attempts
+through corrections and reload. Controlled responses do not establish real-model
+compliance; deployed checkpoint and fresh-classroom evidence remain separate.
+
 ### Interaction tool boundary
 
 An unexecuted standalone `<interact ...>` text tag creates no controls and is

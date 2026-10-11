@@ -8,6 +8,25 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: Fetch latest main e39ac3e9f and confirm #3104 merged.
+      Its final head 7ac1d262e passes all technical checks, including runtime
+      harness; CodeRabbit remains pending. CN API 6/6 and web 3/3 run
+      20261011-e39ac3e; sim still runs ecbe49e29. Main also includes the
+      independent lesson-permission and translated-notice changes.
+- [x] 2026-10-11: Preserve the original feedback-grounding failure: the
+      incorrect submission denies prior storage, but the accepted-answer
+      explanation calls the author's disk-file example the learner's earlier
+      confusion. Add base feedback guidance separating authored examples,
+      original attempts, corrections and omissions. Four SDK regressions fail
+      before the guidance and pass after it, including saved-session reload.
+      These verify instruction and original-input delivery, not semantic grading.
+- [x] 2026-10-11: Local validation passes 627 engine cases and 4206
+      learning/profile/user/quality cases, four subtests and one expected skip.
+      Developer tools and repository-wide gates pass. The initial gate uses
+      system Python 3.9 for python3 and fails on tomllib; rerunning with the
+      ai-shifu conda bin directory first on PATH passes without repository changes.
+- [ ] Verify grounded feedback on deployed sim, then start a separate fresh
+      ordinary-request eleven-question journey with natural compression.
 - [x] 2026-10-11 03:25 UTC: Transfer outstanding external acceptance from the
       completed grading plans into this named active continuation record.
 - [ ] Run a fresh complete journey that naturally triggers history compression.
