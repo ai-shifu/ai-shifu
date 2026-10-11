@@ -220,7 +220,7 @@ def _apply(
     if new_attempt:
         row.content_revision = None
     # Continuing the same attempt, including a legacy NULL baseline, must never
-    # relabel the original script. Empty reservations have not taught anything.
+    # relabel the original lesson content. Empty reservations have no learning messages.
     if (
         (new_attempt or not previous.get("messages"))
         and data.get("messages")

@@ -1,4 +1,4 @@
-"""Record the body revision learned by an agent session.
+"""Record the lesson content revision for a learning attempt.
 
 Revision ID: f569f2199973
 Revises: fde432bceab4
@@ -17,7 +17,10 @@ down_revision = "fde432bceab4"
 branch_labels = None
 depends_on = None
 
-_COMMENT = "Body revision at first teaching; NULL legacy, 0 unknown"
+_COMMENT = (
+    "Lesson content (MarkdownFlow script) revision saved with the first "
+    "messages of a learning attempt; NULL legacy/unstarted, 0 unknown"
+)
 
 
 def upgrade():
