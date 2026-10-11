@@ -573,6 +573,9 @@ async def interact(
     establish confusion about disk files; present an unsupported authored distinction
     generally, never as "your earlier mistake". Describe omissions without inventing
     beliefs, habits or causes. Apply this after corrections as well as wrong answers.
+    Judge coverage by the authored acceptance rule and the full submitted meaning:
+    do not ask again for a point already supplied through equivalent wording or
+    concrete examples. A missing category label alone is not a missing concept.
     An authored navigation with one choice is still `single`, not an optional `confirm`.
     Do not replace an unanswered navigation with the following question's input. If the
     author puts navigation after answer feedback/explanation, call this tool for that

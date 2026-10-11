@@ -19,7 +19,10 @@ Earlier teacher explanations and semantic summaries are not proof of the
 learner's personal misconceptions. If no original submission supports a personal
 claim, omit that claim and give general review advice. Apply these rules to
 every recommendation, even after the table correctly describes the original
-answer. Copy calculated counts in closing prose too; do not add an informal
+answer. Recheck each alleged omission against the full submission and the author's
+acceptance rule: concrete examples and their effects may cover a category without
+its title. Do not list that category as missing just because its label is absent,
+or reuse an earlier hint's gap list without checking the original answer. Copy calculated counts in closing prose too; do not add an informal
 second count or praise independent reasoning after a supplied hint.
 
 When the script requests per-question exercise statistics or a final exercise
