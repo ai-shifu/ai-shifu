@@ -66,6 +66,11 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
             "hints is their sum, while hints_before_first is only the earlier subset. "
             "Supply hint_before and each submission's hint_after from original "
             "teaching; omit scalar count assertions and let the calculator sum rounds. "
+            "For hint_before inspect only the first record's teaching, not following_teaching. "
+            "Keep course logistics and question-only teaching false under rules that exclude "
+            "ordinary instructions. A later pre-answer explanation is hint_after for its "
+            "not_answer input, not also hint_before; timing before the first answer is "
+            "derived separately. "
             "Do not write report numbers or call finish before it succeeds."
         )
     notice = prefix + (
@@ -264,7 +269,9 @@ class SubmissionJudgment(BaseModel):
             "the author's rules. true for qualifying help, false for non-hint "
             "teaching such as post-correct analysis, null when unknown. Classify "
             "each input including not_answer; records sharing answer_group must "
-            "agree and count as one teaching round for this question."
+            "agree and count as one teaching round for this question. A pre-answer "
+            "knowledge explanation belongs here, not also hint_before; the calculator "
+            "derives its before-first-answer timing from chronological inputs."
         ),
     )
 
@@ -278,9 +285,13 @@ class ExerciseQuestion(BaseModel):
     hint_before: bool | None = Field(
         default=None,
         description=(
-            "Whether teaching accompanying this question's first submitted "
-            "interaction already delivered a qualifying hint. Use false for "
-            "ordinary question instructions, true for qualifying help, null if "
+            "Whether the first record's teaching, not following_teaching, already "
+            "delivered a qualifying hint with the initial question. Use false for "
+            "course logistics and question-only teaching under rules that exclude "
+            "ordinary instructions. Do not set true merely because a later "
+            "not_answer input receives an explanation before the first actual "
+            "answer; that explanation is the input's hint_after. Use true for "
+            "qualifying help in the initial teaching, null if "
             "unknown. Together with each submission's hint_after this supplies "
             "round evidence; the calculator derives totals and first-answer timing."
         ),
@@ -392,8 +403,12 @@ async def calculate_exercise_statistics(
     not merely whether the question ever received help. One pre-answer explanation
     and one later wrong-answer hint give hints=2 and hints_before_first=1.
     Do not count post-correct analysis or split one teaching round into paragraphs.
-    Supply hint_before for the first interaction's teaching and hint_after for
-    every submission's following_teaching. These are semantic judgments under
+    Supply hint_before only for the first record's teaching, not following_teaching.
+    Course logistics and question-only teaching do not count under author rules
+    excluding ordinary instructions. Supply hint_after for every submission's
+    following_teaching. A later pre-answer knowledge explanation is hint_after
+    for its not_answer input, not also hint_before; before-first-answer timing
+    is derived separately. These are semantic judgments under
     the author rules, not guessed from outcomes. The calculator counts unique
     answer_group rounds and derives first-answer timing. Omit legacy scalar
     counts or provide matching assertions; unsupported counts are refused.
