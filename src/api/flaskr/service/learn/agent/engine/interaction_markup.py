@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import re
 
-_TAG = re.compile(r"[ ]{0,3}<interact(?=[ \t/>])[^<\n]*?/?>[ \t]*$")
+_TAG = re.compile(
+    r"[ ]{0,3}<interact(?=[ \t/>])"
+    r"""(?:[^<>"'\n]|"[^"\n]*"|'[^'\n]*')*"""
+    r"/?>[ \t]*(?:</interact[ \t]*>)?[ \t]*$"
+)
 _FENCE = re.compile(r"[ ]{0,3}(`{3,}|~{3,})(.*)$")
 INTERACTION_MARKUP_RETRY = (
     "You wrote an <interact ...> tag as text instead of calling a tool. "
@@ -24,8 +28,9 @@ def authored_interaction_markup(script: str) -> frozenset[str]:
 class InteractionMarkupFilter:
     """Hold only possible tag/fence lines; ordinary prose continues streaming.
 
-    Recognition is deliberately limited to complete single-line tags at a Markdown
-    line start. Inline examples, four-space code and fenced blocks are untouched.
+    Recognition is deliberately limited to complete single-line tags, including
+    empty paired tags, at a Markdown line start. Inline examples, four-space code
+    and fenced blocks are untouched.
     No attributes are parsed into interactions, variables or memory writes.
     """
 

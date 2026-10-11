@@ -8,6 +8,53 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: Keep #3111's focused authored-context probe separate from
+      full acceptance. Its three teaching generations and one summary settle
+      5.78 credits with unchanged original state/history. Meaning coverage and
+      real next-question selection pass; one-aspect-per-round hint fidelity
+      remains open. This does not supersede any earlier failed fresh classroom.
+- [x] 2026-10-11: Preserve a sixth fresh learner's navigation failure on
+      sim d312f7ad6 after four ordinary HTTP requests. The accepted correction
+      prints an empty paired interact tag, then advances without a click. Main's
+      text-tag recognizer also misses that shape; no focused authored section
+      reaches these variable-mismatched interactions. Stop the unfinished run.
+      Nine teaching generations plus one real summary settle 13.00 credits with
+      correct progress/block/owner attribution; nine visible text elements match
+      thirteen stable persisted history elements. A 4976-byte original produces
+      one summary/cache entry; four actual inputs bind its projection to source.
+      Published source is unchanged. No final-report or full-classroom pass.
+- [x] 2026-10-11: Independently extend the existing text-tag guard to empty
+      single-line paired tags. Never parse their attributes into a question,
+      answer or memory write. Nine regressions fail before the correction,
+      covering every streaming split, bounded refusal, finish protection and
+      an accepted answer followed by real navigation selection. Preserve exact
+      authored examples, inline/fenced/indented code and nonempty HTML content.
+- [x] 2026-10-11: Paired-tag validation passes 647 engine cases and
+      4272 learning/profile/user/quality cases, four subtests and one expected
+      skip. The first broader command names absent test files and runs no tests;
+      the corrected selection produces this receipt. Initial lint rejects test
+      assertion style; use the established assert pattern rather than exclusions.
+- [ ] Verify the paired-tag correction on sim and real navigation, then use
+      another fresh learner for independent full natural-compression acceptance.
+- [x] 2026-10-11: Adopt the AI finding that permissive opening-tag matching
+      can consume nonempty bodies ending in `>`. Two additional SDK regressions
+      fail before delimiting the opening tag with quote-aware attribute runs.
+      Preserve quoted `>` in empty controls and nonempty body text. All 650
+      engine cases and repository gates pass; do not claim earlier CI covers
+      the new head or that an untested sim deployment establishes real recovery.
+- [x] 2026-10-11: Candidate 0126fb094 plus #3111 deploys as sim f3f605180,
+      build 565 / Drone 5354, with 791 local engine/quality cases and gates.
+      Both APIs match 57 fingerprints and each passes 132 isolated SDK cases.
+      A derived original-history navigation probe actually triggers three paired
+      text-tag recoveries: wrong answer waits for correction, correction waits
+      for selection and selection opens the next question. Six teaching requests
+      plus one summary settle 9.05 credits; original state and thirteen history
+      elements remain unchanged. Hint fidelity and full fresh acceptance stay open.
+- [x] 2026-10-11: Adopt the quoted-less-than review finding. Four new
+      finish-path and streaming checks fail before permitting `<` inside either
+      quote style; unquoted delimiters and nonempty bodies stay bounded. All
+      655 engine cases and repository gates pass. The preceding paid probe is
+      attributed only to its actual head, without an unchanged paid retry.
 - [x] 2026-10-11: Fetch latest main e39ac3e9f and confirm #3104 merged.
       Its final head 7ac1d262e passes all technical checks, including runtime
       harness; CodeRabbit remains pending. CN API 6/6 and web 3/3 run
