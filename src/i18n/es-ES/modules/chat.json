@@ -29,7 +29,7 @@
   "lessonPdfPrepareFailed": "No se ha podido preparar el PDF. Inténtalo de nuevo.",
   "lessonPdfPreparing": "Preparando PDF de la lección…",
   "lessonPdfPrintHint": "Se abrirá el cuadro de impresión; elige «Guardar como PDF» para descargarlo",
-  "lessonUpdateRecommendRetake": "Esta lección se ha actualizado. Te recomendamos <action>restablecerla</action>.",
+  "lessonUpdateRecommendRetake": "Actualizada. ¿<action>Repetir</action>?",
   "lessonUpdateRetakeAccessibleLabel": "Restablecer esta lección",
   "listenAudioBackfillFailed": "No se ha podido generar el audio. Inténtalo de nuevo o sigue leyendo.",
   "listenInteractionHint": "Completa este paso antes de seguir escuchando.",

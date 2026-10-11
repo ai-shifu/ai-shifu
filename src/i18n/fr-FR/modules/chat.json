@@ -29,7 +29,7 @@
   "lessonPdfPrepareFailed": "Impossible de préparer le PDF. Veuillez réessayer.",
   "lessonPdfPreparing": "Préparation du PDF de la leçon…",
   "lessonPdfPrintHint": "La fenêtre d’impression s’ouvrira ; choisissez « Enregistrer au format PDF » pour télécharger",
-  "lessonUpdateRecommendRetake": "Cette leçon a été mise à jour. Nous vous recommandons de la <action>réinitialiser</action>.",
+  "lessonUpdateRecommendRetake": "À jour. <action>Recommencer</action> ?",
   "lessonUpdateRetakeAccessibleLabel": "Réinitialiser cette leçon",
   "listenAudioBackfillFailed": "La génération audio a échoué. Veuillez réessayer ou continuer la lecture.",
   "listenInteractionHint": "Terminez cette étape avant de poursuivre l’écoute.",

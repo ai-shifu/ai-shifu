@@ -29,7 +29,7 @@
   "lessonPdfPrepareFailed": "پی ڈی ایف کی تیاری ناکام ہوگئی، براہ کرم دوبارہ کوشش کریں۔",
   "lessonPdfPreparing": "اس سیکشن کی پی ڈی ایف تیار کی جا رہی ہے…",
   "lessonPdfPrintHint": "ڈاؤن لوڈ کرنے پر ایک پرنٹ ونڈو کھل جائے گی، براہ کرم \"پی ڈی ایف کے طور پر محفوظ کریں\" کو منتخب کریں",
-  "lessonUpdateRecommendRetake": "یہ سبق اپ ڈیٹ ہو گیا ہے۔ بہتر ہے کہ اسے <action>دوبارہ پڑھیں</action>۔",
+  "lessonUpdateRecommendRetake": "اپ ڈیٹ ہوا۔ <action>پھر پڑھنا</action> بہتر ہے۔",
   "lessonUpdateRetakeAccessibleLabel": "اس کورس کو دہرائیں۔",
   "listenAudioBackfillFailed": "آڈیو جنریشن ناکام، براہ کرم دوبارہ کوشش کریں یا پڑھنا جاری رکھیں",
   "listenInteractionHint": "پہلے یہ مرحلہ مکمل کریں اور پھر کلاس سننا جاری رکھیں",
