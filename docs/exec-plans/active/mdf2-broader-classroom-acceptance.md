@@ -21,8 +21,30 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       a77744fea. Ten pages and 27 records read exactly; navigation coverage and
       finish recover, but total hints stays five. Fifteen teaching requests and
       one summary settle 42.72 credits; original session/progress are retained.
-- [ ] 2026-10-11: Verify classified-round aggregation on deployed sim. Keep
-      this checkpoint verification separate from a fresh complete classroom.
+- [x] 2026-10-11 06:35 UTC: Verify classified-round aggregation on sim
+      de8cf2629 (automatic build 545 / Drone 5334). API 2/2 and web 1/1 are
+      ready; both APIs match 55 runtime/resource fingerprints and each passes
+      58 isolated report checks. The genuine pre-final checkpoint reads ten
+      pages and 27 original records exactly, binds all seventeen relevant inputs,
+      excludes ten navigation records, and calculates once. All eleven rows and
+      saved totals match: six hints, five hinted questions, fourteen attempts,
+      three retries, eight first-correct and six independent-first. The generated
+      report agrees and ends normally. Fourteen teaching requests plus one summary
+      settle 39.65 credits with matching actual progress/block/owner attribution.
+      All fourteen gateway requests retain the observed summary/projection and
+      round-field guidance. Original session, progress, variables, and 55 history
+      elements retain their content/order; one synthetic pending element ID varies
+      during read-only history projection. This non-persisting checkpoint does not
+      close fresh complete compressed-classroom acceptance.
+- [x] 2026-10-11: Address the AI-reviewed zero-total invariant. Three regressions
+      distinguish unanswered zero, nonzero, and unknown hints; the zero case fails
+      before correction. Final engine checks: 617; learning/quality checks: 3179
+      with one expected skip and four subtests. Developer tools and full gates
+      pass; sim engine/quality checks: 663. An initial broad test invocation from
+      the repository root fails fixture setup because it expects src/api as cwd;
+      the corrected src/api run is the passing receipt above. Both actionable AI
+      findings have original-thread replies with pushed fixes; the independent
+      docstring percentage warning is explained without claiming it passes.
 - [x] 2026-10-11: Add initial/following-teaching round flags, unique-group
       aggregation, before-first derivation and scalar consistency checks. All
       614 engine checks and 3176 learning/quality checks pass, with one expected
