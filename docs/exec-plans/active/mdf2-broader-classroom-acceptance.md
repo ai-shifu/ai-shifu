@@ -42,6 +42,19 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       Preserve quoted `>` in empty controls and nonempty body text. All 650
       engine cases and repository gates pass; do not claim earlier CI covers
       the new head or that an untested sim deployment establishes real recovery.
+- [x] 2026-10-11: Candidate 0126fb094 plus #3111 deploys as sim f3f605180,
+      build 565 / Drone 5354, with 791 local engine/quality cases and gates.
+      Both APIs match 57 fingerprints and each passes 132 isolated SDK cases.
+      A derived original-history navigation probe actually triggers three paired
+      text-tag recoveries: wrong answer waits for correction, correction waits
+      for selection and selection opens the next question. Six teaching requests
+      plus one summary settle 9.05 credits; original state and thirteen history
+      elements remain unchanged. Hint fidelity and full fresh acceptance stay open.
+- [x] 2026-10-11: Adopt the quoted-less-than review finding. Four new
+      finish-path and streaming checks fail before permitting `<` inside either
+      quote style; unquoted delimiters and nonempty bodies stay bounded. All
+      655 engine cases and repository gates pass. The preceding paid probe is
+      attributed only to its actual head, without an unchanged paid retry.
 - [x] 2026-10-11: Fetch latest main e39ac3e9f and confirm #3104 merged.
       Its final head 7ac1d262e passes all technical checks, including runtime
       harness; CodeRabbit remains pending. CN API 6/6 and web 3/3 run
