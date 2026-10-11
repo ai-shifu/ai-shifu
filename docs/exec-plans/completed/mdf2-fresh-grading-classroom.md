@@ -87,14 +87,36 @@ work together in a new classroom. Keep all failed evidence and all legacy code.
   to arithmetic. All 33 focused checks and all-files gates pass; reply in the
   original thread. Decline the external docstring-percentage suggestion with the
   repository's existing test exemptions and documented runtime contract.
-- [ ] 2026-10-11: After the focused correction merges, run a new complete natural
-  lesson to validate report behavior across the whole journey. The retained
-  completed classroom still fails report acceptance; the checkpoint replay does
-  not replace that remaining acceptance.
+- [x] 2026-10-11: Confirm #3098 merged as 7190bd64c and the intervening UI
+  upgrade #3099 merged as 323612b6c. On sim f138f1fd3, both ready API replicas
+  match all 55 runtime/resource hashes from the merged source.
+- [x] 2026-10-11: A new internal learner completes the same eleven-question
+  published lesson in 27 ordinary HTTP/SSE requests, without reset or checkpoint
+  replay. Three wrong/incomplete answers require new learner corrections; two
+  knowledge questions do not count as answer attempts. The minimal five-point
+  answer advances without an added peripheral requirement; the authored dot
+  matrix is preserved. Save independent expectations before the final answer.
+- [x] 2026-10-11: Four sequential original-history pages cover all 16 relevant
+  inputs. Every input's question/outcome binding, all eleven calculator rows,
+  all totals and the visible report match that pre-saved expectation: 14 attempts,
+  three retries, eight first-correct, six independent-first and five hints.
+  Both knowledge explanations have one pre-first hint. The lesson finishes
+  normally; a single unsolicited remember attempt is refused and no custom
+  memory is stored. Original pre-final messages and the script remain intact.
+- [x] 2026-10-11: All 27 visible teaching elements exactly match persisted
+  history; two reads return the same 54 elements. All 35 actual generations
+  settle 54.21 credits with matching real progress/block/owner attribution and
+  no failed or outstanding charges. No summary generation or summary cache;
+  maximum original teaching is 3,712 JSON-wire bytes, below 4,096.
+- [x] 2026-10-11: Close this one-lesson acceptance scope and transfer remaining
+  coverage to the memory-quality reference: other models/languages/providers,
+  new naturally compressed full lessons, human feedback, long-term costs and
+  broader course journeys remain open. Earlier failed classrooms remain failed;
+  all MarkdownFlow 1.0 code is retained.
 
 ## Surprises & Discoveries
 
-Production still serves the preceding UI release when this run starts. Sim's
+Production still served the preceding UI release when the initial run started. Sim's
 existing deployment contains the merged grading correction, so identical runtime
 code does not require another deployment or paid replay before a fresh lesson.
 
@@ -105,6 +127,10 @@ at turn three, with no pending interaction or submitted answer. Repetition is
 not evidence of completion when the model never created the question.
 
 ## Decision Log
+
+- Archive only the completed single-lesson acceptance scope. Keep prior failures
+  and narrow replays labeled separately, and carry the remaining wider acceptance
+  in `docs/references/markdownflow-memory-quality.md`.
 
 - Use the existing temporary-learner and learner HTTP/SSE path on sim, where
   billing and persistence are real. No payment, SMS, course edits or learner reset.
@@ -123,6 +149,10 @@ not evidence of completion when the model never created the question.
 
 ## Outcomes & Retrospective
 
+Outstanding broader external acceptance continues in the active
+[broader classroom acceptance plan](../active/mdf2-broader-classroom-acceptance.md).
+
+
 The fresh classroom is retained as failed at the first question. Prior failed
 classrooms remain failed; #3096's saved-answer replay does not replace them.
 The focused recovery passes on the deployed candidate. The same actual model
@@ -139,8 +169,15 @@ cannot override this failed semantic count. Its 39 actual generations settle
 deployed scoped replay now passes all eleven per-question and total counts,
 including six independent-first and two non-answer knowledge questions. Eleven
 traced requests settle another 25.25 credits, without any classroom repair.
-A new complete natural report after the correction still remains to be tested.
-Other models/languages, human acceptance and long-term observation remain open.
+A separate new complete natural lesson now passes after #3098: 27 normal
+HTTP/SSE requests, all eleven authored questions and the report's exact original
+input bindings, rows and totals. All 35 generations settle another 54.21 credits;
+this is separate from earlier failed journeys and scoped replays, never a repair
+to them. The new lesson generates no teaching summary, so it closes neither
+compressed natural acceptance nor broader course/provider/language/human/cost
+coverage. Those remaining items stay in the memory-quality reference. This plan's
+single-lesson acceptance scope is complete; no runtime or legacy-code change is
+needed to record its outcome.
 
 ## Context and Orientation
 
