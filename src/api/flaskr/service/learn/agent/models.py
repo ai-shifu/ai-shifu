@@ -90,7 +90,10 @@ class LearnAgentSession(db.Model):
     content_revision = Column(
         BIGINT,
         nullable=True,
-        comment="Body revision at first teaching; NULL legacy, 0 unknown",
+        comment=(
+            "Lesson content (MarkdownFlow script) revision saved with the first "
+            "messages of a learning attempt; NULL legacy/unstarted, 0 unknown"
+        ),
     )
     schema_version = Column(
         Integer,

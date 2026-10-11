@@ -9,39 +9,45 @@ canonical: true
 # Lesson Content Update Recommendations
 
 A started or completed MarkdownFlow 2.0 lesson recommends a retake when its
-current body revision differs from the revision recorded when that learning
-attempt first taught content. Published learning uses the published revision;
-teacher preview uses the draft revision.
+current lesson content revision differs from the revision saved with the first
+messages of that learning attempt. Published learning uses the published
+revision; teacher preview uses the draft revision.
 
-Saving a changed body advances its revision. CRLF, CR and LF are treated as
-equivalent line endings; other whitespace, case and Markdown edits count.
-Titles, ordering, models, audio
-settings, course/teaching briefs and follow-up configuration do not advance
-it. Publishing carries the draft body's revision into the published structure;
-republishing unchanged content does not itself count as a body update.
-Changing a body and later restoring its original text still advances the
+Here, **lesson content** means the lesson's MarkdownFlow script stored in its
+`content` field, excluding the title and settings. **Learning attempt** means
+one learning session, including a teacher preview or a retake.
+
+Saving changed lesson content advances its revision. CRLF, CR and LF are
+treated as equivalent line endings; other whitespace, case and Markdown edits
+count. Titles, ordering, models, audio settings, course/teaching briefs and
+follow-up configuration do not advance it. Publishing carries the draft
+content revision into the published structure;
+republishing unchanged content does not itself count as a content update.
+Changing lesson content and later restoring its original text still advances the
 revision and can keep the retake recommendation visible. The recommendation
 means the lesson was revised since this attempt began, not that its present
-text necessarily differs from the originally taught text.
+text necessarily differs from the content at the start of learning.
 
 Continuing, asking a follow-up question or reading history never advances the
 attempt's baseline. Retaking retires that scoped session; its replacement
-records a new baseline when teaching actually begins. Formal learning and
-preview do not read or retire each other's baselines, including when a draft
-body has been cleared.
+records a new baseline when its first nonempty message history is saved. Formal
+learning and preview do not read or retire each other's baselines, including
+when draft content has been cleared.
 
 ## Revision and API contract
 
-- `HistoryItem.content_revision` stores the body revision in existing draft and
-  published structure JSON. Authoring save/publish paths establish missing
-  metadata using the existing draft body-revision calculation. Read paths do
-  not reconstruct a revision from timestamps, physical row IDs or session JSON.
+- `HistoryItem.content_revision` stores the lesson content revision in existing
+  draft and published structure JSON. Authoring save/publish paths establish
+  missing metadata using the existing draft content revision calculation. Read
+  paths do not reconstruct a revision from timestamps, physical row IDs or
+  session JSON.
 - The only new database column is nullable `BIGINT`
   `LearnAgentSession.content_revision`. A new attempt records its baseline at
-  its first actual teaching persistence, never when merely reserving a preview
-  session. A positive value is a known baseline; `0` means teaching started
-  while the source revision was unknown. Existing sessions retain `NULL` and
-  are never backfilled, including when they resume.
+  the first save of a nonempty message history, never when merely reserving a
+  preview session. A positive value is a known baseline; `0` means messages were
+  saved while the source revision was unknown. `NULL` means a legacy or unstarted
+  session. Existing legacy sessions retain `NULL` and are never backfilled,
+  including when they resume.
 - A notice requires an active, correctly scoped session, known positive
   current and baseline revisions, and unequal revisions. Formal learning also
   requires current in-progress or completed progress. Unknown revisions,
@@ -51,7 +57,7 @@ body has been cleared.
   its new document ID establishes a new attempt and baseline. Resuming the
   same engine session preserves even an unknown legacy baseline.
 - Detection reads revision metadata and scalar session fields; it does not
-  parse or compare the stored lesson body or message history. Session JSON
+  parse or compare the stored lesson content or message history. Session JSON
   validity is no longer a detection condition. Unusable stored conversations
   remain the responsibility of the existing session loading/error path.
 - The outline tree retains `has_content_update_for_current_user`; lesson
@@ -96,9 +102,9 @@ This additive event family follows [frontend product analytics](../references/fr
 | `surface` | string | `published_learning`, `teacher_preview` | Low / non-personal | Separate populations |
 | `outcome` | string | `success`, `failed`; result event only | Low / non-personal | Terminal outcome |
 
-No body, title, content fingerprint, profile, URL, token or raw error is sent.
-Tests assert exact events/payloads, eligibility, timing, duplicate protection,
-terminal outcomes and continued retake behavior under tracking failure.
+No lesson content, title, content fingerprint, profile, URL, token or raw error
+is sent. Tests assert exact events/payloads, eligibility, timing, duplicate
+protection, terminal outcomes and continued retake behavior under tracking failure.
 
 ## Delivery
 

@@ -1,4 +1,4 @@
-"""Compare body revision IDs without reading lesson text or conversation JSON."""
+"""Compare lesson content revisions without reading text or conversation JSON."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class LessonContentState:
-    """Teaching status and content freshness for one scoped lesson attempt."""
+    """Learning status and content freshness for one scoped lesson attempt."""
 
     started: bool = False
     finished: bool = False
