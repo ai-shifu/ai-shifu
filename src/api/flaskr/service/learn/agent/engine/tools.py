@@ -19,6 +19,7 @@ from pydantic_ai.messages import (
 )
 
 from .interaction import InteractionSpec, InteractionType, Option
+from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .session import answer_fingerprint
 
 if TYPE_CHECKING:
@@ -49,6 +50,8 @@ class Deps:
     script_options: dict[str, str] = field(default_factory=dict)
     # Authored text-input questions, used only to repair an extra placeholder button.
     script_text_inputs: tuple[_Question, ...] = ()
+    literal_interaction_markup: frozenset[str] = frozenset()
+    interaction_markup_pending: bool = False
     # Set when the host's scripts pause only where their notation puts a button and this lesson's
     # script has none: a `confirm` is then answered without asking the learner. See
     # `script_pauses` and `Engine(pauses_from_notation=)`.
@@ -70,6 +73,8 @@ class Deps:
     # Original messages before request projection.
     exercise_history: tuple[Any, ...] = ()
     exercise_evidence: list[dict[str, Any]] | None = None  # Frozen within this run.
+    exercise_read_offset: int | None = 0  # Next contiguous original-evidence page.
+    exercise_report_totals: dict[str, int | None] | None = None
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
@@ -563,6 +568,20 @@ async def interact(
     explicitly names; follow the host memory policy for eligible declarations. Leave it empty
     otherwise.
     The learner's answer is returned as the tool result; then continue the script.
+    Before personal feedback and the next interaction, cite the original submission
+    supporting each claimed misconception. A quoted denial of prior storage does not
+    establish confusion about disk files; present an unsupported authored distinction
+    generally, never as "your earlier mistake". Describe omissions without inventing
+    beliefs, habits or causes. Apply this after corrections as well as wrong answers.
+    Judge coverage by the authored acceptance rule and the full submitted meaning:
+    do not ask again for a point already supplied through equivalent wording or
+    concrete examples. A missing category label alone is not a missing concept.
+    An authored navigation with one choice is still `single`, not an optional `confirm`.
+    Do not replace an unanswered navigation with the following question's input. If the
+    author puts navigation after answer feedback/explanation, call this tool for that
+    navigation alone and wait; only its returned selection permits the following step.
+    Do not include the following question in the same response as that explanation.
+    When no intervening navigation is authored, follow the author's next step normally.
     """
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
@@ -620,6 +639,7 @@ async def interact(
             "non-empty text without `%{{` or `}}`, and the variable must be a short plain name."
         )
         raise ModelRetry(msg)
+    ctx.deps.interaction_markup_pending = False
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 
@@ -763,5 +783,14 @@ async def finish(ctx: RunContext[Deps], summary: str = "") -> str:
     it remains to do. `summary` is one short line about what the learner did. Do not call it
     when the script merely pauses, asks a question, or waits for the learner.
     """
+    current = [
+        m for m in ctx.messages[ctx.deps.history_len :] if isinstance(m, ModelResponse)
+    ]
+    if ctx.deps.interaction_markup_pending or contains_interaction_markup(
+        "".join(p.content for m in current for p in m.parts if isinstance(p, TextPart)),
+        ctx.deps.literal_interaction_markup,
+    ):
+        ctx.deps.interaction_markup_pending = True
+        raise ModelRetry(INTERACTION_MARKUP_RETRY)
     ctx.deps.finished = summary.strip() or "done"
     return "finished. The lesson is over: write nothing more and call no other tool."

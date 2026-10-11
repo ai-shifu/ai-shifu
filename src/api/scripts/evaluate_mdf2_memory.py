@@ -476,6 +476,52 @@ def observe_summary_usage(model: Model, totals: dict[str, int]) -> Model:
     return ObservedSummaryModel(model)
 
 
+def observe_teaching_projection(
+    model: Model, sources: dict[str, str], markers: set[str]
+) -> Model:
+    """Observe source-bound projection markers in requests, without changing them."""
+    from pydantic_ai.messages import ModelResponse, TextPart
+    from pydantic_ai.models.wrapper import WrapperModel
+
+    class ObservedModel(WrapperModel):
+        """Observe the actual request projection without changing model behavior."""
+
+        @asynccontextmanager
+        async def request_stream(
+            self,
+            messages: list[ModelMessage],
+            model_settings: ModelSettings | None,
+            model_request_parameters: ModelRequestParameters,
+            run_context: RunContext[Any] | None = None,
+        ) -> AsyncIterator[StreamedResponse]:
+            """Record source-bound excerpt/summary markers sent to the model."""
+            for message_index, message in enumerate(messages):
+                if not isinstance(message, ModelResponse):
+                    continue
+                for part_index, part in enumerate(message.parts):
+                    if not isinstance(part, TextPart):
+                        continue
+                    try:
+                        marker = json.loads(part.content)
+                    except ValueError:
+                        continue
+                    if (
+                        isinstance(marker, dict)
+                        and isinstance(marker.get("reference"), str)
+                        and marker["reference"] in sources
+                        and marker["reference"].startswith(
+                            f"teaching-{message_index}-{part_index}-"
+                        )
+                    ):
+                        markers.add(marker.get("status"))
+            async with super().request_stream(
+                messages, model_settings, model_request_parameters, run_context
+            ) as response:
+                yield response
+
+    return ObservedModel(model)
+
+
 async def evaluate_teaching(
     case: dict[str, Any], model: Model, summary_model: Model
 ) -> dict[str, Any]:
@@ -498,8 +544,7 @@ async def evaluate_teaching(
         summarize_teaching_history,
     )
     from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
-    from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelResponse, TextPart
-    from pydantic_ai.models.wrapper import WrapperModel
+    from pydantic_ai.messages import ModelMessagesTypeAdapter
 
     session = teaching_session(case)
     projected, sources = project_teaching_history(session.messages)
@@ -530,41 +575,8 @@ async def evaluate_teaching(
     original_history = ModelMessagesTypeAdapter.dump_json(session.messages)
     markers = set()
 
-    class ObservedModel(WrapperModel):
-        """Observe the actual request projection without changing model behavior."""
-
-        @asynccontextmanager
-        async def request_stream(
-            self,
-            messages: list[ModelMessage],
-            model_settings: ModelSettings | None,
-            model_request_parameters: ModelRequestParameters,
-            run_context: RunContext[Any] | None = None,
-        ) -> AsyncIterator[StreamedResponse]:
-            """Record source-bound excerpt/summary markers sent to the model."""
-            for message in messages:
-                if not isinstance(message, ModelResponse):
-                    continue
-                for part in message.parts:
-                    if not isinstance(part, TextPart):
-                        continue
-                    try:
-                        marker = json.loads(part.content)
-                    except ValueError:
-                        continue
-                    if (
-                        isinstance(marker, dict)
-                        and isinstance(marker.get("reference"), str)
-                        and marker["reference"] in sources
-                    ):
-                        markers.add(marker.get("status"))
-            async with super().request_stream(
-                messages, model_settings, model_request_parameters, run_context
-            ) as response:
-                yield response
-
     engine = Engine(
-        ObservedModel(model),
+        observe_teaching_projection(model, sources, markers),
         memory_admission=True,
         memory_recall=True,
         memory_context_limit=100,
@@ -656,7 +668,17 @@ async def evaluate(
                 elif case["family"] == "exercise":
                     from scripts.mdf2_memory_quality.exercise import evaluate_exercise
 
-                    result = await evaluate_exercise(case, model)
+                    result = await evaluate_exercise(
+                        case,
+                        model,
+                        model_factory("teaching_summary")
+                        if case.get("compacted_history")
+                        else None,
+                    )
+                elif case["family"] == "grading":
+                    from scripts.mdf2_memory_quality.grading import evaluate_grading
+
+                    result = await evaluate_grading(case, model)
                 else:
                     runner = (
                         evaluate_admission
@@ -683,6 +705,9 @@ def report(
 ) -> dict:
     """Publish denominators and source fingerprints without prompts, answers or credentials."""
     from scripts.mdf2_memory_quality.exercise import GENERATION_SETTINGS
+    from scripts.mdf2_memory_quality.grading import (
+        GENERATION_SETTINGS as GRADING_GENERATION_SETTINGS,
+    )
 
     expected = {(case["id"], n) for case in cases for n in range(1, repeats + 1)}
     observed = [(result["id"], result["repetition"]) for result in results]
@@ -695,6 +720,8 @@ def report(
         "scripts/mdf2_memory_quality/cases.json": CASES_PATH,
         "scripts/mdf2_memory_quality/exercise.py": API_DIR
         / "scripts/mdf2_memory_quality/exercise.py",
+        "scripts/mdf2_memory_quality/grading.py": API_DIR
+        / "scripts/mdf2_memory_quality/grading.py",
     }
     for name in (
         "memory_admission.py",
@@ -740,6 +767,7 @@ def report(
         "recall_generation_settings": dict(RECALL_MODEL_SETTINGS),
         "teaching_generation_settings": dict(RECALL_MODEL_SETTINGS),
         "exercise_generation_settings": dict(GENERATION_SETTINGS),
+        "grading_generation_settings": dict(GRADING_GENERATION_SETTINGS),
         "teaching_summary_generation_settings": {
             "temperature": 0,
             "max_tokens": 256,

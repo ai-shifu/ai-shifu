@@ -29,6 +29,7 @@ import { useUserStore } from '@/store';
 import { shifu } from '@/lib/shifu/Shifu';
 import { useTracking, EVENT_NAMES } from '@/hooks/useTracking';
 import { useEnvStore } from '@/store/envStore';
+import { environment } from '@/config/environment';
 import SetPasswordModal from '../Settings/SetPasswordModal';
 import SessionManagerModal from '../Settings/SessionManagerModal';
 import CourseMemoryDialog from '../Settings/CourseMemoryDialog';
@@ -87,6 +88,34 @@ const MainMenuModal = ({
 
   const { trackEvent } = useTracking();
   const previewMode = useSystemStore(state => state.previewMode);
+  const versionRef = useRef<HTMLDivElement | null>(null);
+  const versionViewed = useRef(false);
+  const appVersion = environment.appVersion;
+  const appBuildSha = environment.appBuildSha.slice(0, 7);
+  const versionText = `v${appVersion}${appBuildSha ? ` · ${appBuildSha}` : ''}`;
+  useEffect(() => {
+    if (!open) {
+      versionViewed.current = false;
+      return;
+    }
+    if (
+      !appVersion ||
+      !versionRef.current ||
+      (surface === 'learner' && previewMode) ||
+      versionViewed.current
+    ) {
+      return;
+    }
+
+    versionViewed.current = true;
+    try {
+      void Promise.resolve(
+        trackEvent(EVENT_NAMES.USER_APP_VERSION_VIEWED, { surface }),
+      ).catch(() => {});
+    } catch {
+      // Analytics must never affect the visible version information.
+    }
+  }, [open, appVersion, previewMode, surface, trackEvent]);
   const memoryContext = `${courseId || ''}:${userInfo?.user_id || ''}`;
   const [memoryOpen, setMemoryOpen] = useState<string | null>(null);
   const memoryOpening = useRef<string | null>(null);
@@ -371,6 +400,15 @@ const MainMenuModal = ({
               <div className={styles.rowTitle}>{t('module.user.logout')}</div>
             </div>
           )}
+          {appVersion ? (
+            <div
+              className={styles.appVersion}
+              ref={versionRef}
+            >
+              {t('component.menus.navigationMenus.version')}{' '}
+              <bdi dir='ltr'>{versionText}</bdi>
+            </div>
+          ) : null}
         </div>
       </PopupModal>
       <SessionManagerModal

@@ -46,6 +46,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Record frontend build revision
+        run: git rev-parse HEAD > src/web/.app-build-sha
+
       - name: Initialize runtime timeline
         run: |
           mkdir -p artifacts/runtime-harness

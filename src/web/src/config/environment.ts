@@ -8,6 +8,10 @@
  */
 
 interface EnvironmentConfig {
+  // Immutable Frontend Build Metadata
+  appVersion: string;
+  appBuildSha: string;
+
   // Core API Configuration
   apiBaseUrl: string;
 
@@ -455,6 +459,10 @@ function getLegalUrls(): {
  * Environment configuration instance with new organized structure
  */
 export const environment: EnvironmentConfig = {
+  // Next replaces these direct reads with constants from next.config.ts.
+  appVersion: process.env.NEXT_PUBLIC_APP_VERSION || '',
+  appBuildSha: process.env.NEXT_PUBLIC_APP_BUILD_SHA || '',
+
   // Core API Configuration
   apiBaseUrl: getApiBaseUrl(),
 

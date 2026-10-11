@@ -102,6 +102,7 @@ The Node 22.16.0 Alpine base and `npm start` entrypoint remain unchanged.
 Build from the repository root on a native runner for each supported platform:
 
 ```bash
+git rev-parse HEAD > src/web/.app-build-sha
 docker build --platform linux/amd64 -f src/web/Dockerfile -t ai-shifu-web:deps .
 docker run --rm --network none --entrypoint node ai-shifu-web:deps scripts/check-production-dependencies.mjs
 ```

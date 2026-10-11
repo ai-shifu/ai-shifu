@@ -247,8 +247,16 @@ The only contact enum is `surface=admin|invite|other`.
   the earlier start only at aggregate level.
 - Population: guests using email, password, SMS, or Google login. Validation-only and
   terms-dialog opens are excluded.
+- Verification-code submission: the SMS/email login button is visible from the
+  initial render and remains disabled until the form has entered the code stage,
+  the phone number or normalized email is valid, and the four-digit code is
+  complete. Clicking the button and pressing Enter share the same submission
+  guard; incomplete forms and requests already in progress emit no login events.
 - Deduplication: UI submission guards own concurrent suppression; otherwise none.
 - Consumer: login conversion and reliability analysis.
+- Compatibility: the always-visible verification login button reuses the existing
+  attempt/result producers and payloads. Consumers keep the same event names and
+  aggregate metric; disabled-button exposure does not count as an attempt.
 - Replacement: delete the `learner_login_success` producer and consumers. Login
   queries use `learner_login_attempt` and `learner_login_result`.
 

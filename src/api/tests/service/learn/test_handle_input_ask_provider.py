@@ -1048,7 +1048,7 @@ def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(
     assert context.langfuse_outputs == ["guardrail response"]
 
 
-def _run_numbered_ask(app: object, module: object) -> list:
+def _run_numbered_ask(app: object, module: object, *, preview: bool = False) -> list:
     return list(
         module.handle_input_ask(
             app=app,
@@ -1064,6 +1064,7 @@ def _run_numbered_ask(app: object, module: object) -> list:
             ),
             trace_args={},
             trace=_DummyTrace(),
+            is_preview=preview,
         )
     )
 
@@ -1133,11 +1134,13 @@ def test_external_answers_only_require_a_selection_for_actual_fallback(
             assert provider_calls == [provider]
 
 
+@pytest.mark.parametrize("preview", [False, True])
 @pytest.mark.parametrize("route", ["llm", "fallback", "synthesis"])
 def test_actual_llm_routes_snapshot_selection_model_and_metadata(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     route: str,
+    preview: bool,
 ) -> None:
     from unittest.mock import Mock
 
@@ -1178,11 +1181,25 @@ def test_actual_llm_routes_snapshot_selection_model_and_metadata(
     monkeypatch.setattr(module, "chat_llm", chat)
     monkeypatch.setattr(module, "stream_ask_provider_response", stream)
     with app.app_context():
-        assert _collect_content_chunks(_run_numbered_ask(app, module)) == [
-            "selection-answer"
-        ]
+        events = _run_numbered_ask(app, module, preview=preview)
+        assert _collect_content_chunks(events) == ["selection-answer"]
     resolve.assert_called_once_with("1")
     assert llm_calls[0]["model"] == "mapped-fast"
+    usage_context = llm_calls[0]["usage_context"]
+    assert usage_context.generated_block_bid == events[0].generated_block_bid == "gb-2"
+    assert usage_context.progress_record_bid == "selection-attend"
+    assert usage_context.user_bid == "selection-user"
+    assert usage_context.shifu_bid == "selection-course"
+    assert usage_context.outline_item_bid == "selection-outline"
+    assert usage_context.learning_mode == "read"
+    from flaskr.service.metering.consts import (
+        BILL_USAGE_SCENE_PREVIEW,
+        BILL_USAGE_SCENE_PROD,
+    )
+
+    assert usage_context.usage_scene == (
+        BILL_USAGE_SCENE_PREVIEW if preview else BILL_USAGE_SCENE_PROD
+    )
     assert llm_calls[0]["usage_metadata"] == {
         "model_selection_scope": "course",
         "model_selection_original": "fast",
@@ -1368,7 +1385,10 @@ def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_co
     assert system.index("COURSE_PROMPT") < system.index("Follow-up memory capability:")
     assert "undeclared current-course facts CAN be saved" in system
     assert "never prohibit calling the available remember tool" in system
-    schema = calls[0]["tools"][0]["function"]["parameters"]
+    tools = {t["function"]["name"]: t["function"] for t in calls[0]["tools"]}
+    assert set(tools) == {"recall", "remember", "learner_quotes"}
+    assert set(tools["learner_quotes"]["parameters"]["properties"]) == {"offset"}
+    schema = tools["remember"]["parameters"]
     assert "request" in schema["required"]
     assert "EXACTLY" in schema["properties"]["request"]["description"]
     assert len(calls) == 3
@@ -1382,9 +1402,265 @@ def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_co
         assert call["usage_context"].outline_item_bid == "outline-1"
         assert call["usage_context"].progress_record_bid == "attend-1"
         assert call["usage_context"].learning_mode == "classroom"
+        assert call["usage_context"].generated_block_bid == "gb-2"
+        assert (
+            call["usage_context"].generated_block_bid == events[0].generated_block_bid
+        )
     assert all(
         event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
         for event in events
     )
     if source == "get_biji_knowledge":
         assert "RETRIEVED KNOWLEDGE" in str(calls[0]["messages"])
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
+def test_guardrail_reply_usage_belongs_to_the_current_answer(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    preview: bool,
+    learning_mode: str,
+) -> None:
+    from flaskr.service.learn import check_text
+    from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.metering.consts import (
+        BILL_USAGE_SCENE_PREVIEW,
+        BILL_USAGE_SCENE_PROD,
+    )
+
+    config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    monkeypatch.setattr(
+        module, "check_text_with_llm_response", check_text.check_text_with_llm_response
+    )
+    monkeypatch.setattr(check_text, "add_risk_control_result", lambda *_args: None)
+    checked = []
+
+    def reject(_app: object, block_bid: str, *_args: object) -> object:
+        """Keep moderation attached to the learner's question block."""
+        checked.append(block_bid)
+        return types.SimpleNamespace(
+            check_result=check_text.CHECK_RESULT_REJECT,
+            provider="test",
+            raw_data={},
+            risk_labels=[],
+        )
+
+    calls = []
+
+    def respond(*_args: object, **kwargs: object) -> object:
+        """Capture the actual guardrail model call, then stream its reply."""
+        calls.append(kwargs)
+        yield _LLMChunk("guardrail response")
+
+    monkeypatch.setattr(check_text, "check_text", reject)
+    monkeypatch.setattr(check_text, "invoke_llm", respond)
+    monkeypatch.setattr(check_text, "init_generated_block", module.init_generated_block)
+    monkeypatch.setattr(
+        module,
+        "stream_ask_provider_response",
+        lambda **_kwargs: pytest.fail("Rejected input entered the answer provider"),
+    )
+    context = _Context()
+    context._learning_mode = learning_mode
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=context,
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            user_input="blocked question",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="shifu-1", bid="outline-1", title="Lesson", position=1
+            ),
+            trace_args={},
+            trace=_DummyTrace(),
+            is_preview=preview,
+            anchor_element_bid="older-teaching-anchor",
+        )
+    )
+    assert checked == ["gb-1"]
+    assert _collect_content_chunks(events) == ["guardrail response"]
+    assert len(calls) == 1
+    usage = calls[0]["usage_context"]
+    assert usage.generated_block_bid == events[0].generated_block_bid == "gb-2"
+    assert usage.progress_record_bid == "attend-1"
+    assert usage.learning_mode == learning_mode
+    assert (
+        usage.usage_scene
+        == calls[0]["usage_scene"]
+        == (BILL_USAGE_SCENE_PREVIEW if preview else BILL_USAGE_SCENE_PROD)
+    )
+
+
+def test_interleaved_follow_ups_keep_distinct_answer_usage_snapshots(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import FrozenInstanceError
+
+    from flaskr.service.learn import handle_input_ask as module
+
+    config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    calls = []
+
+    def chat(*_args: object, **kwargs: object) -> object:
+        """Retain each immutable usage context beyond the next handler's start."""
+        calls.append(kwargs["usage_context"])
+        yield _LLMChunk("answer")
+
+    def provider(**kwargs: object) -> object:
+        """Exercise the actual handler's deferred LLM factory."""
+        return (
+            types.SimpleNamespace(content=chunk.result)
+            for chunk in kwargs["runtime"].llm_stream_factory()
+        )
+
+    monkeypatch.setattr(module, "chat_llm", chat)
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    common = {
+        "app": app,
+        "context": _Context(),
+        "user_info": types.SimpleNamespace(user_id="user-1"),
+        "attend_id": "attend-1",
+        "user_input": "question",
+        "outline_item_info": types.SimpleNamespace(
+            shifu_bid="shifu-1", bid="outline-1", title="Lesson", position=1
+        ),
+        "anchor_element_bid": "same-old-teaching-anchor",
+    }
+    first = module.handle_input_ask(**common, trace_args={}, trace=_DummyTrace())
+    second = module.handle_input_ask(**common, trace_args={}, trace=_DummyTrace())
+    first_start = next(first)
+    second_start = next(second)
+    assert first_start.generated_block_bid == "gb-2"
+    assert second_start.generated_block_bid == "gb-4"
+    assert _collect_content_chunks(list(first)) == ["answer"]
+    assert _collect_content_chunks(list(second)) == ["answer"]
+    assert [usage.generated_block_bid for usage in calls] == ["gb-2", "gb-4"]
+    assert all(usage.progress_record_bid == "attend-1" for usage in calls)
+    with pytest.raises(FrozenInstanceError):
+        calls[0].generated_block_bid = "gb-4"
+
+
+@pytest.mark.parametrize(
+    "original",
+    ["Compare {cache} with RAM", "  Compare {{cache}} with {RAM}.\nKeep spacing.  "],
+)
+def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
+    app: object,
+    monkeypatch: object,
+    original: str,
+) -> None:
+    """Drive the real ask producer, sidecar storage and next request's quote source."""
+    import uuid
+
+    from flaskr.dao import db
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.follow_up_quotations import LearnerQuotationSource
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
+    from flaskr.service.shifu.consts import (
+        BLOCK_TYPE_MDASK_VALUE,
+        BLOCK_TYPE_MDCONTENT_VALUE,
+    )
+
+    real_add, real_flush, real_init = (
+        db.session.add,
+        db.session.flush,
+        module.init_generated_block,
+    )
+    real_latest, real_sidecars = (
+        module._load_latest_active_element_row,
+        module.find_follow_up_element_rows,
+    )
+    _setup_llm_only_patches(monkeypatch, module, ["Assistant suggestion differs."])
+    monkeypatch.setattr(db.session, "add", real_add)
+    monkeypatch.setattr(db.session, "flush", real_flush)
+    monkeypatch.setattr(module, "init_generated_block", real_init)
+    monkeypatch.setattr(module, "LearnGeneratedBlock", LearnGeneratedBlock)
+    monkeypatch.setattr(module, "_load_latest_active_element_row", real_latest)
+    monkeypatch.setattr(module, "find_follow_up_element_rows", real_sidecars)
+    seen = []
+    quote_contexts = []
+    real_context_builder = module.build_follow_up_conversation_context
+
+    def build_context(*args: object, **kwargs: object) -> object:
+        context = real_context_builder(*args, **kwargs)
+        quote_contexts.append(context.quotation_messages)
+        return context
+
+    monkeypatch.setattr(module, "build_follow_up_conversation_context", build_context)
+
+    def provider(**kwargs: object) -> object:
+        seen.append(kwargs["messages"])
+        yield types.SimpleNamespace(content="Assistant suggestion differs.")
+
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    identity = uuid.uuid4().hex
+    fields = dict.fromkeys(
+        ("user_bid", "shifu_bid", "outline_item_bid", "progress_record_bid"), identity
+    )
+    with app.app_context(), unit_of_work():
+        block = LearnGeneratedBlock(
+            **fields,
+            generated_block_bid=uuid.uuid4().hex,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            generated_content="Anchor",
+            status=1,
+        )
+        db.session.add(block)
+        anchor = LearnGeneratedElement(
+            **fields,
+            element_bid=uuid.uuid4().hex,
+            generated_block_bid=block.generated_block_bid,
+            event_type="element",
+            element_type="text",
+            content_text="Anchor",
+            status=1,
+        )
+        db.session.add(anchor)
+        db.session.flush()
+        for current in [original, "What were my exact earlier words?"]:
+            events = list(
+                module.handle_input_ask(
+                    app=app,
+                    context=_Context(),
+                    user_info=types.SimpleNamespace(user_id=identity),
+                    attend_id=identity,
+                    user_input=current,
+                    outline_item_info=types.SimpleNamespace(
+                        shifu_bid=identity, bid=identity, title="Lesson", position=1
+                    ),
+                    trace_args={},
+                    trace=_DummyTrace(),
+                    anchor_element_bid=anchor.element_bid,
+                )
+            )
+            assert (
+                next(e.content for e in events if e.type == GeneratedType.ASK)
+                == current
+            )
+            adapter = ListenElementRunAdapter(
+                app, shifu_bid=identity, outline_bid=identity, user_bid=identity
+            )
+            list(adapter.process(events))
+            db.session.flush()
+        asks = (
+            LearnGeneratedBlock.query.filter_by(
+                user_bid=identity, type=BLOCK_TYPE_MDASK_VALUE
+            )
+            .order_by(LearnGeneratedBlock.id)
+            .all()
+        )
+        assert [r.generated_content for r in asks] == [
+            original,
+            "What were my exact earlier words?",
+        ]
+        source = LearnerQuotationSource(quote_contexts[1])
+        import json
+
+        assert json.loads(source.read())["messages"][0]["content"] == original
+        assert original.replace("{", "{{").replace("}", "}}") in seen[0][-1]["content"]

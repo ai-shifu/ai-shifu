@@ -29,7 +29,7 @@
   "lessonPdfPrepareFailed": "เตรียม PDF ไม่สำเร็จ โปรดลองอีกครั้ง",
   "lessonPdfPreparing": "กำลังเตรียม PDF ของบทเรียนนี้…",
   "lessonPdfPrintHint": "เมื่อดาวน์โหลดจะเปิดหน้าต่างพิมพ์ โปรดเลือก “บันทึกเป็น PDF”",
-  "lessonUpdateRecommendRetake": "บทเรียนนี้ได้รับการอัปเดตแล้ว แนะนำให้<action>เรียนซ้ำ</action>",
+  "lessonUpdateRecommendRetake": "อัปเดตแล้ว แนะนำให้<action>เรียนซ้ำ</action>",
   "lessonUpdateRetakeAccessibleLabel": "เรียนบทเรียนนี้ซ้ำ",
   "listenAudioBackfillFailed": "สร้างเสียงไม่สำเร็จ โปรดลองอีกครั้งหรืออ่านต่อ",
   "listenInteractionHint": "ทำขั้นตอนนี้ให้เสร็จก่อน แล้วจึงฟังต่อ",

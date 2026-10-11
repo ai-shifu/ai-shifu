@@ -105,6 +105,20 @@ cp .env.example.full .env
 
 `dev_in_docker.sh` builds the backend and frontend images from your local source tree and then launches `docker-compose.dev.yml` (hot reload + bind mounts). Use it whenever you need to iterate on code without managing Python/Node runtimes locally.
 
+The script records the checkout's current commit before building the Web image,
+so the user menu can show its source revision. Source archives without Git
+metadata show only the package version.
+
+To start the dev stack directly with Compose, run these commands from `docker/`:
+
+```bash
+git rev-parse HEAD > ../src/web/.app-build-sha 2>/dev/null || rm -f ../src/web/.app-build-sha
+docker compose -f docker-compose.dev.yml up --build -d
+```
+
+Prepare the marker and rebuild each time you start from a different commit so
+an existing dev image does not keep an older revision.
+
 ### Compose files
 
 - `docker-compose.latest.yml`: tracks the `:latest` tags for `aishifu/ai-shifu-api` and `aishifu/ai-shifu-web`. Use this when you want the freshest container build (either from Docker Hub or after running your own `docker build ... -t aishifu/...:latest`).

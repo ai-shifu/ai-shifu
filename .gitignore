@@ -181,6 +181,9 @@ src/api/.deps_installed
 src/web/.next/
 src/web/next-env.d.ts
 
+# Frontend source revision copied into Docker build contexts by CI.
+/src/web/.app-build-sha
+
 # Docker data directories
 docker/cook_data/
 docker/mysql_data/

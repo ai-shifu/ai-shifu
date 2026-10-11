@@ -4,6 +4,7 @@
     "adminConsole": "เข้าสู่แผงผู้ดูแลระบบ",
     "createCourse": "สร้างหลักสูตร",
     "language": "ภาษา",
-    "personalInfo": "ปรับให้เหมาะกับบุคคล"
+    "personalInfo": "ปรับให้เหมาะกับบุคคล",
+    "version": "เวอร์ชัน"
   }
 }

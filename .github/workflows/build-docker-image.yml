@@ -29,7 +29,7 @@ on:
         default: false
       build-args:
         type: string
-        default: ''
+        default: ""
       update-description:
         type: boolean
         default: false
@@ -58,6 +58,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+
+      - name: Record frontend build revision
+        if: inputs.service == 'web'
+        run: git rev-parse HEAD > src/web/.app-build-sha
 
       - name: Verify native runner
         env:

@@ -13,6 +13,7 @@
     "continueButton": "ดำเนินการต่อ",
     "debugSessionExpired": "เซสชันการทดสอบนี้หมดอายุหรือสคริปต์มีการเปลี่ยนแปลง โปรดเริ่มทดสอบใหม่",
     "defaultLearnerName": "ผู้เรียน",
+    "freeTextPlaceholder": "คำตอบของคุณ",
     "generatedBlockNotFound": "ไม่พบบล็อกที่สร้างขึ้น",
     "invalidAction": "การดำเนินการไม่ถูกต้อง",
     "lessonFeedbackCommentPlaceholder": "ไม่บังคับ: บอกข้อเสนอแนะของคุณให้เราทราบ",

@@ -13,6 +13,7 @@
     "continueButton": "Continue",
     "debugSessionExpired": "This debug session has expired or the script changed. Start debugging again.",
     "defaultLearnerName": "Learner",
+    "freeTextPlaceholder": "Your answer",
     "generatedBlockNotFound": "Generated block not found",
     "invalidAction": "Invalid action",
     "lessonFeedbackCommentPlaceholder": "Optional: leave your feedback",

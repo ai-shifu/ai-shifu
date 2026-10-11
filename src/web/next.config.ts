@@ -3,6 +3,9 @@ import createMDX from '@next/mdx';
 import fs from 'fs';
 import type { NextConfig } from 'next';
 import path from 'path';
+import { resolveAppBuildMetadata } from './src/config/build-metadata';
+
+const appBuildMetadata = resolveAppBuildMetadata(__dirname);
 
 // Resolve shared i18n directory robustly for both local and Docker builds
 const looksLikeI18nDir = (candidate: string): boolean => {
@@ -128,6 +131,8 @@ const nextConfig: NextConfig = {
   },
   env: {
     NEXT_PUBLIC_I18N_META: JSON.stringify(frontendLocalesMetadata),
+    NEXT_PUBLIC_APP_VERSION: appBuildMetadata.appVersion,
+    NEXT_PUBLIC_APP_BUILD_SHA: appBuildMetadata.appBuildSha,
   },
   // Include MDX in page extensions if pages/ has MDX pages; for pure app/ it can be removed
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
