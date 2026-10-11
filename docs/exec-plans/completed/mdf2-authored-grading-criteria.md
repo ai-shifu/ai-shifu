@@ -79,6 +79,10 @@ finding authorizes rewriting the failed classroom or its historical counts.
 
 ## Outcomes & Retrospective
 
+Outstanding broader external acceptance continues in the active
+[broader classroom acceptance plan](../active/mdf2-broader-classroom-acceptance.md).
+
+
 The original answer passes the corrected saved-checkpoint replay, and six
 semantic controls are covered across a five-pass batch and the selected
 previously unsubmitted case after correcting host-style setup continuation.

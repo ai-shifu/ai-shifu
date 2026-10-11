@@ -149,6 +149,10 @@ not evidence of completion when the model never created the question.
 
 ## Outcomes & Retrospective
 
+Outstanding broader external acceptance continues in the active
+[broader classroom acceptance plan](../active/mdf2-broader-classroom-acceptance.md).
+
+
 The fresh classroom is retained as failed at the first question. Prior failed
 classrooms remain failed; #3096's saved-answer replay does not replace them.
 The focused recovery passes on the deployed candidate. The same actual model
