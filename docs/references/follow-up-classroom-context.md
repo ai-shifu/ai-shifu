@@ -129,9 +129,50 @@ and existing provider transport limits are unchanged. Valid error responses rais
 a fixed provider error even if they contain data; no-text response warnings report
 only the payload type, so echoed private notes do not reach host logs.
 
-Coze Workflow still discards provider messages; its configured interface needs
-separate context-delivery work. The builder supplying a message list is not proof
-that every adapter transmits it.
+### Coze Workflow explicit binding
+
+Workflow start-node input names and types belong to the published workflow;
+there is no universal native history parameter. Existing workflows remain
+query-only unless advanced `config.context_key` names a declared **String** input.
+This can be configured through the existing course API config serializer;
+the minimal settings form does not add a new control in this increment. Ordinary
+settings saves retain undeclared advanced fields only when the server schema
+explicitly allows additional properties, while declared fields keep their existing
+validation and normalization. Provider switches still start from the new provider
+defaults. The existing settings-save event excludes private configuration and
+tracking failures cannot block a save. Alongside
+the existing credentials and workflow ID, for example:
+
+```json
+{"context_key": "classroom_context", "query_key": "query"}
+```
+
+The workflow must declare `classroom_context` as a String and explicitly reference
+it in the relevant node. Its value is a JSON string of the form
+`{"messages":[{"role":"system","content":"..."},...]}`, containing the host's
+scoped encoded memory and ordered valid system/user/assistant text. The current
+query is appended after removing only its existing trailing copy. Text stays exact,
+nontext/unsupported entries are omitted, and the host's existing history and
+memory budgets remain. Treat stored facts and learner/history text as reference
+data, without granting permission to modify memory or override workflow rules.
+
+The original `query_key` still receives only the actual current question. Missing,
+null or blank `context_key` disables automatic context. Nonstring names and names
+colliding with the normalized query_key fail with fixed configuration errors before
+network. The generated context owns its named parameter, overriding a static value
+there just as the current question owns query_key; other static parameters stay
+unchanged. Explicit `extra_body.parameters` continues to replace the complete
+parameter payload and opts out of automatic delivery. Other extra-body options
+do not disable the binding. Inputs/configuration are not mutated.
+
+Business errors now raise a fixed provider exception without raw messages, codes,
+details or log IDs that could echo newly forwarded notes. Existing safe outbound
+limits, response formatting, routing, billing and host transactions remain.
+Provider-only workflows do not write AI-Shifu memory. Tests prove configured
+request delivery and scope/freshness; a separately configured real workflow must
+establish that its nodes consume the string and produce a useful answer. See the
+[official workflow run input contract](https://docs.coze.cn/developer_guides_workflow_run).
+The builder supplying messages is not proof that an unbound workflow receives them.
 
 ## Memory writes in contextual LLM follow-ups
 

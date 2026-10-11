@@ -175,32 +175,43 @@ def test_follow_up_formatter_does_not_log_course_notes(
     assert "Prefers short examples" not in repr(logged)
 
 
-@pytest.mark.parametrize("provider", ["coze", "volc_knowledge"])
+@pytest.mark.parametrize("provider", ["coze", "volc_knowledge", "coze_workflow"])
 def test_provider_outbound_observes_scoped_memory_updates_and_deletion(
     app: Flask, scope: tuple[str, str], monkeypatch: pytest.MonkeyPatch, provider: str
 ) -> None:
     """Real stored notes reach native providers with fresh scope and no adapter writes."""
     from flaskr.service.learn.ask_provider_adapters import (
         coze_adapter,
+        coze_workflow_adapter,
         volc_knowledge_adapter,
     )
 
-    adapter_module = coze_adapter if provider == "coze" else volc_knowledge_adapter
-    adapter = (
-        coze_adapter.CozeAskProviderAdapter()
-        if provider == "coze"
-        else volc_knowledge_adapter.VolcKnowledgeAskProviderAdapter()
-    )
-    config = (
-        {"api_key": "test-key", "bot_id": "bot"}
-        if provider == "coze"
-        else {
-            "account_id": "account",
-            "ak": "test-ak",
-            "sk": "test-sk",
-            "collection_name": "collection",
-        }
-    )
+    adapter_module, adapter, config = {
+        "coze": (
+            coze_adapter,
+            coze_adapter.CozeAskProviderAdapter(),
+            {"api_key": "test-key", "bot_id": "bot"},
+        ),
+        "volc_knowledge": (
+            volc_knowledge_adapter,
+            volc_knowledge_adapter.VolcKnowledgeAskProviderAdapter(),
+            {
+                "account_id": "account",
+                "ak": "test-ak",
+                "sk": "test-sk",
+                "collection_name": "collection",
+            },
+        ),
+        "coze_workflow": (
+            coze_workflow_adapter,
+            coze_workflow_adapter.CozeWorkflowAskProviderAdapter(),
+            {
+                "api_key": "test-key",
+                "workflow_id": "workflow",
+                "context_key": "context",
+            },
+        ),
+    }[provider]
     payloads = []
 
     class Response(SimpleNamespace):
@@ -218,7 +229,11 @@ def test_provider_outbound_observes_scoped_memory_updates_and_deletion(
         payloads.append(json.loads(kwargs["body"]))
         return Response(
             status=200,
-            content=b'{"code":0,"data":{"records":[{"content":"ok"}]}}',
+            content=(
+                b'{"code":0,"data":"ok"}'
+                if provider == "coze_workflow"
+                else b'{"code":0,"data":{"records":[{"content":"ok"}]}}'
+            ),
             iter_lines=lambda **_kwargs: iter(
                 ['data: {"event":"message","content":"ok"}']
             ),
@@ -266,13 +281,14 @@ def test_provider_outbound_observes_scoped_memory_updates_and_deletion(
             (row.id, row.key, row.value, row.deleted)
             for row in VariableValue.query.all()
         ] == before
-        sent = (
-            payloads[-1]["additional_messages"]
-            if provider == "coze"
-            else payloads[-1]["pre_processing"]["messages"]
-        )
-        if provider == "volc_knowledge":
+        if provider == "coze":
+            sent = payloads[-1]["additional_messages"]
+        elif provider == "volc_knowledge":
+            sent = payloads[-1]["pre_processing"]["messages"]
             assert payloads[-1]["pre_processing"]["rewrite"] is True
+        else:
+            sent = json.loads(payloads[-1]["parameters"]["context"])["messages"]
+            assert payloads[-1]["parameters"]["query"] == query
         assert [m["content"] for m in sent[1:]] == [
             "Selected classroom anchor",
             "Earlier learner question",
