@@ -99,6 +99,24 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       after them. Local checks pass 629 engine cases and 4208 related cases,
       four subtests and one expected skip. Fetch and merge main 851937de1
       (independent login visibility fix); real-model verification remains open.
+- [x] 2026-10-11: Report-path head e98826f47 deploys as sim 855a6420d,
+      build 555 / Drone 5344; API 2/2, web 1/1 Ready and HTTP 200.
+      Both APIs match 55 fingerprints and pass 64 isolated SDK checks each;
+      sim checks pass 698 cases. A third new learner stops after four ordinary
+      requests because the first corrected-answer explanation again personalizes
+      the disk-file example. Preserve this failed classroom; it has no actual
+      summary/cache and never reaches the final report. Four generations settle
+      5.50 credits with correct actual attribution, no failed/unsettled usage.
+- [x] 2026-10-11 09:31 UTC: User merges #3108 at ed5854690;
+      its final head is e98826f47. Fetch main and branch the uncommitted
+      follow-up from that merge; the fetched main tree equals the tested
+      candidate. Preserve all three fresh feedback failures and isolate the
+      core/tool quote requirement in the next PR. Do not merge automatically.
+- [x] 2026-10-11: Require an original quote for each personal misconception
+      in core feedback and the actual interact tool description as well as base
+      guidance. Without supporting original input, explain the distinction
+      generally. Add six failing SDK delivery assertions before this correction;
+      this remains guidance, not a semantic output validator or grading change.
 - [x] 2026-10-11: Confirm #3103 merged as a7345f6de with all technical CI
       passing, including runtime harness. A new internal learner starts from the
       first question on sim de8cf2629; both APIs match 55 runtime fingerprints.

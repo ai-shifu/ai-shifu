@@ -68,6 +68,10 @@ does not prove a personal habit, belief, ability or cause. Describe the observed
 omission, without narrowing away items the learner actually supplied. A corrected
 submission after a supplied hint does not prove independent reasoning or effort.
 
+Core feedback and the interaction tool also require a supporting original quote
+before naming a personal misconception, including after a correction. Without
+that evidence, teach the authored distinction generally.
+
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.
