@@ -311,6 +311,17 @@ Initial qualifying teaching counts before the first actual answer, while
 ordinary question instructions and post-correct analysis do not automatically
 qualify. Semantic classification still belongs to the model.
 
+Initial `hint_before` judges the first record's `teaching` and visible question
+fields, independently of its `following_teaching`. A solution-helping placeholder
+can qualify under the author's rules; ordinary input labels and formatting cues
+do not automatically qualify. Under rules excluding ordinary
+instructions, course logistics, a question-only introduction and a promise of
+future hints are not delivered help. A later knowledge explanation belongs only
+to that input's `hint_after`; the calculator derives whether it preceded the
+first answer. Initial teaching that actually provides qualifying help still
+counts. This refines model-facing evidence selection without changing schemas,
+original records, semantic ownership, arithmetic or budgets.
+
 Legacy scalar counts remain optional assertions; they cannot override or
 replace round evidence. Mismatches or known assertions over unknown rounds are
 refused with bounded derived-count diagnostics, and old successful totals are
