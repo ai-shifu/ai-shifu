@@ -60,6 +60,8 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
             "Original submissions have been read completely. Next call "
             "calculate_exercise_statistics with every original reference grouped "
             "by its actual question and graded from its original feedback. "
+            "Put non-exercise navigation references in excluded, not in question "
+            "submissions; single-choice continue clicks can remain in the evidence. "
             "Do not write report numbers or call finish before it succeeds."
         )
     notice = prefix + (
@@ -196,8 +198,10 @@ def _records(ctx: RunContext[Deps]) -> list[dict[str, Any]] | None:
 async def read_exercise_history(ctx: RunContext[Deps], offset: int = 0) -> str:
     """Read exact chronological submitted-answer evidence as paginated JSON text.
 
-    Join text pages in offset order, then parse the JSON array. Confirm clicks,
-    pending questions and host refusals are excluded. Follow next_offset to null.
+    Join text pages in offset order, then parse the JSON array. Typed confirm
+    clicks, pending questions and host refusals are excluded. Ordinary single-choice
+    navigation clicks can remain: put their references in the calculator's excluded
+    list after checking their original meaning. Follow next_offset to null.
     Following teaching is exact same-turn context, not extracted grading: it can
     also introduce the following_interaction. Records with the same answer_group
     were answered together, so that teaching can address several submissions.
@@ -266,6 +270,28 @@ class ExerciseQuestion(BaseModel):
     )
 
 
+def _coverage_error(references: dict[str, int], used: list[str]) -> str:
+    """Expose bounded reference-only repair details without guessing exclusions."""
+    counts = Counter(used)
+    groups = {
+        "missing": [reference for reference in references if reference not in counts],
+        "unknown": [reference for reference in counts if reference not in references],
+        "duplicate": [reference for reference, count in counts.items() if count > 1],
+    }
+    result: dict[str, Any] = {
+        "status": "invalid_coverage",
+        "reference_counts": {name: len(values) for name, values in groups.items()},
+        "diagnostics_truncated": any(len(values) > 32 for values in groups.values()),
+        **{name + "_references": values[:32] for name, values in groups.items()},
+    }
+    fields = [name + "_references" for name in groups]
+    while len(_encode(result).encode()) > RESULT_BYTES:
+        largest = max(fields, key=lambda name: len(_encode(result[name]).encode()))
+        result[largest].pop()
+        result["diagnostics_truncated"] = True
+    return _encode(result)
+
+
 async def calculate_exercise_statistics(
     ctx: RunContext[Deps],
     questions: Annotated[list[ExerciseQuestion], Field(min_length=1, max_length=100)],
@@ -275,7 +301,12 @@ async def calculate_exercise_statistics(
 
     Read read_exercise_history first. Group submissions by actual question and
     grade each from original teacher feedback in time order. Excluded references
-    must be non-exercise answers. Never guess grades or hints; unverified remains
+    must be non-exercise answers, including ordinary single-choice navigation
+    clicks that remain in the evidence. Every reference must appear exactly once
+    across submissions and excluded. Invalid coverage returns bounded missing,
+    unknown and duplicate references; repair those lists without rereading unchanged
+    history or treating a navigation click as a graded attempt.
+    Never guess grades or hints; unverified remains
     an unresolved answer attempt. Use not_answer for knowledge questions or
     clarification requests containing no attempted answer; they remain evidence
     but do not add attempts, retries or failures. An actual attempted answer stays
@@ -300,7 +331,7 @@ async def calculate_exercise_statistics(
         submission.reference for row in questions for submission in row.submissions
     ] + list(excluded or ())
     if len(used) != len(set(used)) or set(used) != set(references):
-        return _encode({"status": "invalid_coverage"})
+        return _coverage_error(references, used)
     if len({row.question for row in questions}) != len(questions):
         return _encode({"status": "duplicate_question"})
     rows = []

@@ -42,11 +42,16 @@ failure and its original grades; reporting fidelity does not prove grading fidel
   batches, settle for 17.29 credits with real course/lesson/owner attribution and
   no fabricated classroom IDs. Progress, sessions, variables and all 72 retained
   element rows remain identical to the read-only baseline.
-- [ ] 2026-10-10: Finish PR #3096 checks/review and final sim evaluator sync;
-  both existing AI opinions have original-thread replies. Manual merge remains
-  the user's decision.
-- [ ] 2026-10-10: Complete a fresh natural classroom after this grading correction;
-  the saved-checkpoint and synthetic checks do not close that acceptance.
+- [x] 2026-10-11: Finish #3096 checks/review and final sim evaluator sync.
+  Final source 9aead7c61 passes technical CI; both original AI findings and the
+  separate review observations have original-thread replies. The user manually
+  merges #3096 as ebccd9037.
+- [x] 2026-10-11: Complete a separate new natural classroom after the subsequent
+  interaction and report corrections (#3097 and #3098). All eleven authored
+  questions, genuine corrections and the minimal five-point answer behave
+  correctly; exact report counts and retained history pass. All 35 real requests
+  settle 54.21 credits. The completed fresh-classroom plan records the full
+  evidence and limitations; earlier failed classrooms and batches remain failed.
 
 ## Surprises & Discoveries
 
@@ -74,13 +79,22 @@ finding authorizes rewriting the failed classroom or its historical counts.
 
 ## Outcomes & Retrospective
 
+Outstanding broader external acceptance continues in the active
+[broader classroom acceptance plan](../active/mdf2-broader-classroom-acceptance.md).
+
+
 The original answer passes the corrected saved-checkpoint replay, and six
 semantic controls are covered across a five-pass batch and the selected
 previously unsubmitted case after correcting host-style setup continuation.
 Neither unsuccessful aggregate batch is relabeled as passing. The original
 natural failure and 17.29 credits of complete request evidence are retained. Full
-natural-course acceptance, human feedback and other providers/languages remain
-open in the memory-quality reference and workspace status document.
+broader course acceptance, human feedback and other providers/languages remain
+open in the memory-quality reference and workspace status document. A separate
+fresh eleven-question lesson now passes after #3098, with faithful question
+order, authored criteria, learner corrections and final statistics; see
+[the completed classroom plan](mdf2-fresh-grading-classroom.md). The two focused
+plans are complete, while naturally compressed full lessons and wider coverage
+remain open. No historical failure or grade is rewritten.
 
 ## Context and Orientation
 

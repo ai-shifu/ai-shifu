@@ -2,7 +2,7 @@
 title: MarkdownFlow Memory Quality Evaluation
 status: active
 owner_surface: learner
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-11
 canonical: true
 ---
 
@@ -68,7 +68,7 @@ The first fresh eleven-question classroom after #3096 failed at its first
 question because repeated tags were treated as completion. Retain that failed
 classroom and its three settled requests; offline recovery controls do not turn
 it into a successful full-lesson acceptance. See the
-[fresh classroom plan](../exec-plans/active/mdf2-fresh-grading-classroom.md).
+[fresh classroom plan](../exec-plans/completed/mdf2-fresh-grading-classroom.md).
 
 On sim a7c72ea22, both API replicas match 55 source/runtime hashes. An in-memory
 restore of the genuine saved pre-repeat checkpoint recovers the original first
@@ -105,8 +105,110 @@ under the author's explicit rules, yet the model supplies zero pre-first hints.
 Keep this completed classroom as failed report evidence. A genuine saved
 pre-final-answer checkpoint can verify a correction without overwriting that
 history; it does not establish a new successful whole-lesson acceptance. The
-[fresh classroom plan](../exec-plans/active/mdf2-fresh-grading-classroom.md) tracks
-that verification and remaining natural/human acceptance.
+[fresh classroom plan](../exec-plans/completed/mdf2-fresh-grading-classroom.md) tracks
+the failed journey, scoped verification and separate successful fresh lesson.
+
+On sim 116f7287f (API 2/2, web 1/1 Ready; 55 matching fingerprints per API
+replica), a single in-memory replay of that genuine checkpoint reports six
+independent-first, eight first-correct, 14 attempts and three retries. All eleven
+calculator rows and the visible eleven-row report match the pre-saved expectation;
+the two knowledge explanations each have one pre-first hint. All eleven traced
+generations carry the timing guidance and settle 25.25 credits with matching
+learner/course/lesson/owner scope and no fabricated classroom attempt IDs. No
+errors or summary generation. Read-only comparison preserves original progress,
+sessions, variables and all historical element rows. The failed natural report
+remains failed; this scoped replay does not close fresh full-lesson acceptance.
+
+### Fresh full-lesson acceptance after the corrections
+
+After #3098 and the separate #3099 UI upgrade merged, a new internal learner
+completed the existing eleven-question published lesson through normal HTTP/SSE
+on sim f138f1fd3. Both API replicas matched all 55 merged runtime/resource
+fingerprints. This was 27 requests from the first question to the final report,
+without checkpoint replay, learner reset, authored-script edits or retrospective
+changes to expected results. Three wrong/incomplete answers required actual
+learner corrections; two knowledge questions remained non-answer inputs. The
+complete five-point answer advanced without an extra peripheral requirement,
+and the authored dot matrix stayed unchanged.
+
+Before the final answer, independent expectations were saved. Four sequential
+original-history pages covered all 16 relevant inputs, and all question/outcome
+bindings, eleven calculator rows, visible rows and report totals matched:
+
+| Measure | Expected and observed |
+| --- | --- |
+| Passed questions | 11 |
+| Answer attempts / retries | 14 / 3 |
+| First-correct / independent-first | 8 / 6 |
+| Corrected passes / known failed submissions | 3 / 3 |
+| Hint rounds / questions with hints | 5 / 5 |
+| Non-answer knowledge questions | 2 |
+
+Both qualifying pre-answer explanations contribute one pre-first hint. The
+session finishes normally. One unsolicited memory attempt is refused; custom
+memory remains empty and no course variable is stored. Original pre-final
+messages and the script remain unchanged. All 27 visible teaching elements match
+persisted history exactly; two reads return the same 54 elements.
+
+All 35 actual model generations settle **54.21 credits**, with real
+progress/block attribution, matching course-owner charges and no failed or
+outstanding billable requests. This cost is separate from every earlier failed
+journey and scoped replay. The model is `ark/deepseek-v4-1-flash-260910`.
+Maximum original teaching is 3,712 JSON-wire bytes, below the unchanged 4,096-byte
+threshold: no summary generation or summary cache occurs. This establishes one
+fresh lesson's report acceptance, not natural compression, full-course, browser
+rendering, other-model/language/provider, human or long-term cost acceptance.
+Those wider items remain open. MarkdownFlow 1.0 is retained.
+
+Private identities, tokens, course content, session records and billing evidence
+remain outside the repository. See the
+[completed classroom plan](../exec-plans/completed/mdf2-fresh-grading-classroom.md)
+and [completed grading plan](../exec-plans/completed/mdf2-authored-grading-criteria.md).
+
+### Single-choice navigation and refused report coverage
+
+A new isolated learner starts the same published eleven-question lesson on sim
+96d6b87c8 through normal HTTP/SSE. Both API replicas match 55 source fingerprints.
+A substantive pre-answer explanation reaches 4237 JSON-wire bytes and triggers
+one billed teaching-summary generation and one nonempty summary-cache entry at
+the unchanged 4096-byte threshold. All eleven exercise answers reach their
+feedback, but the final report fails; the lesson remains unfinished.
+
+The final turn reads all ten original-evidence pages. Its 27 records include
+seventeen relevant exercise inputs and ten ordinary single-choice navigation
+clicks. Unlike typed confirms, those single choices remain in the evidence.
+Both calculator attempts cover the seventeen exercise inputs but omit every
+navigation reference from `excluded`. Exact coverage correctly returns
+`invalid_coverage`, then the unchanged twelve-request budget is exhausted.
+This is not proof that compression caused the failure. The 28 HTTP requests
+include one terminal SSE error. All forty actual generations settle 71.82 credits
+with real progress/block attribution, matching owner charges, no failed
+generations and no unsettled billable requests. A successful model response is
+not a successful engine turn or finished lesson.
+
+Coverage errors now retain their status and return bounded missing, unknown and
+duplicate reference lists, complete category counts and an explicit truncation
+flag. At most 32 references per category are considered for the diagnostic, and
+the serialized result still fits the existing 8192-byte UTF-8 limit. No raw
+answers or teaching are added. Reader/tool/report instructions clarify that the
+model must explicitly exclude non-exercise navigation; an option label alone
+never causes automatic exclusion. Invalid calculations still clear successful
+totals, and original messages, reference membership and arithmetic are unchanged.
+
+Four new regressions fail before this correction and pass afterward, including
+real SDK recovery and multibyte/escaped result bounds. An offline check of the
+retained failed input identifies all ten missing navigation references; adding
+their explicit exclusions permits calculation without model calls or database
+writes. This is calculator recovery only. The original model judgments count
+five hints where the independently saved pre-final expectation requires six;
+that semantic quality gap remains separate. The original classroom stays failed,
+and fresh complete compressed-classroom acceptance remains open in the
+[broader classroom plan](../exec-plans/active/mdf2-broader-classroom-acceptance.md).
+
+Private trace-list retrieval timed out; no trace-input observation is claimed.
+Persisted summaries and the attributed summary usage establish summary activity.
+No old learner is reset, no published lesson is changed, and no replay or paid
+retry relabels this failed journey as a passing natural classroom.
 
 ### Answer criteria
 
@@ -631,8 +733,8 @@ The final report-turn replay succeeds with exact totals, normal finish and no
 memory-write attempts; #3094 is merged. See the
 [completed compressed-statistics plan](../exec-plans/completed/mdf2-natural-compressed-statistics.md)
 for retained failures and bounded validation, and the
-[authored-grading plan](../exec-plans/active/mdf2-authored-grading-criteria.md)
-for the separate grading drift and fresh complete-course follow-up.
+[authored-grading plan](../exec-plans/completed/mdf2-authored-grading-criteria.md)
+for the separate grading drift and completed fresh-lesson follow-up.
 A non-persisting replay of a real pre-final-answer checkpoint
 must be identified as such; it cannot relabel the failed classroom or establish a
 new full-course/human acceptance. Initial trace reads failed; the supported trace

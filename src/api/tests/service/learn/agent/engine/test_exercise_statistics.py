@@ -133,6 +133,172 @@ async def test_invalid_evidence_never_produces_successful_totals(mutation: str) 
     assert "totals" not in result
 
 
+def _with_navigation() -> SimpleNamespace:
+    """Retain a next-step click represented as an ordinary single choice."""
+    messages = list(_fixture().messages)
+    messages.extend(
+        [
+            ModelResponse(
+                parts=[
+                    ToolCallPart(
+                        "interact",
+                        {"type": "single", "options": ["Next question"]},
+                        "navigation",
+                    )
+                ]
+            ),
+            ModelRequest(
+                parts=[
+                    ToolReturnPart(
+                        "interact", "Learner chose: Next question", "navigation"
+                    )
+                ]
+            ),
+        ]
+    )
+    return _ctx(messages)
+
+
+@pytest.mark.anyio
+async def test_navigation_requires_explicit_exclusion_and_reports_the_missing_reference() -> (
+    None
+):
+    ctx = _with_navigation()
+    before = ModelMessagesTypeAdapter.dump_json(ctx.messages)
+    records = _records(ctx)
+    assert records is not None
+    assert len(records) == 15
+    navigation = records[-1]["reference"]
+    rows = _questions(ctx)
+    refused = json.loads(await calculate_exercise_statistics(ctx, rows))
+    assert refused["status"] == "invalid_coverage"
+    assert refused["missing_references"] == [navigation]
+    assert refused["unknown_references"] == refused["duplicate_references"] == []
+    assert not refused["diagnostics_truncated"]
+    assert "totals" not in refused
+    assert ctx.deps.exercise_report_totals is None
+    repaired = json.loads(await calculate_exercise_statistics(ctx, rows, [navigation]))
+    assert repaired["status"] == "calculated"
+    assert repaired["excluded_answers"] == 1
+    assert repaired["totals"]["attempts"] == 14
+    assert repaired["totals"]["first_correct"] == 8
+    assert ModelMessagesTypeAdapter.dump_json(ctx.messages) == before
+
+
+@pytest.mark.anyio
+async def test_coverage_diagnostics_distinguish_missing_unknown_and_duplicate_references() -> (
+    None
+):
+    ctx = _fixture()
+    records = _records(ctx)
+    assert records is not None
+    rows = _questions(ctx)
+    missing = rows[0].submissions[0].reference
+    rows[0].submissions[0].reference = "unknown-reference"
+    duplicated = rows[1].submissions[0]
+    rows[1].submissions.append(duplicated)
+    result = json.loads(await calculate_exercise_statistics(ctx, rows))
+    assert result["missing_references"] == [missing]
+    assert result["unknown_references"] == ["unknown-reference"]
+    assert result["duplicate_references"] == [duplicated.reference]
+    assert result["reference_counts"] == {"missing": 1, "unknown": 1, "duplicate": 1}
+    assert not result["diagnostics_truncated"]
+    assert all(record["answer"] not in json.dumps(result) for record in records)
+
+
+@pytest.mark.anyio
+async def test_coverage_diagnostics_keep_utf8_byte_bounds_and_full_counts() -> None:
+    ctx = _fixture()
+    rows = [
+        ExerciseQuestion(
+            question=str(i),
+            submissions=[
+                SubmissionJudgment(
+                    reference=("\u0000🙂" * 35) + str(i), outcome="correct"
+                )
+            ],
+        )
+        for i in range(100)
+    ]
+    raw = await calculate_exercise_statistics(ctx, rows)
+    result = json.loads(raw)
+    assert len(raw.encode()) <= RESULT_BYTES
+    assert result["status"] == "invalid_coverage"
+    assert "totals" not in result
+    assert result["reference_counts"] == {"missing": 14, "unknown": 100, "duplicate": 0}
+    assert result["diagnostics_truncated"]
+    assert len(result["unknown_references"]) < 100
+    assert ctx.deps.exercise_report_totals is None
+
+
+@pytest.mark.anyio
+async def test_sdk_repairs_navigation_coverage_without_counting_clicks_as_answers() -> (
+    None
+):
+    ctx = _with_navigation()
+    rows = _questions(ctx)
+    calls = 0
+    repair = False
+
+    async def model(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls, repair
+        calls += 1
+        results = [
+            part for part in messages[-1].parts if isinstance(part, ToolReturnPart)
+        ]
+        latest = results[-1] if results else None
+        args: dict[str, object] = {}
+        if latest is None or latest.tool_name not in {
+            "read_exercise_history",
+            "calculate_exercise_statistics",
+        }:
+            name = "read_exercise_history"
+        elif latest.tool_name == "read_exercise_history":
+            page = json.loads(latest.content)
+            if page["next_offset"] is not None:
+                name = "read_exercise_history"
+                args = {"offset": page["next_offset"]}
+            else:
+                assert "excluded" in (info.instructions or "")
+                name = "calculate_exercise_statistics"
+                args = {"questions": [row.model_dump() for row in rows]}
+        else:
+            result = json.loads(latest.content)
+            if result["status"] == "invalid_coverage":
+                assert not repair
+                repair = True
+                name = "calculate_exercise_statistics"
+                args = {
+                    "questions": [row.model_dump() for row in rows],
+                    "excluded": result["missing_references"],
+                }
+            else:
+                assert result["status"] == "calculated"
+                assert result["totals"]["attempts"] == 14
+                assert result["excluded_answers"] == 1
+                name = "finish"
+                args = {"summary": "Report complete."}
+        yield {
+            0: DeltaToolCall(
+                name=name, json_args=json.dumps(args), tool_call_id=f"call-{calls}"
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model), exercise_statistics=True)
+    session = Session(
+        script=ScriptBundle(script="Report the exercise results."),
+        messages=ctx.messages,
+    )
+    events = await _collect(engine.run_turn(session))
+    assert repair
+    assert calls <= 12
+    assert not any(isinstance(event, ErrorEvent) for event in events)
+    assert isinstance(events[-1], TurnDone)
+    assert events[-1].reason == "finished"
+
+
 @pytest.mark.anyio
 async def test_unknown_and_unanswered_remain_unresolved_and_nonquiz_is_explicit() -> (
     None
@@ -405,9 +571,39 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
 async def test_non_answer_classification_does_not_determine_hint_timing(
     before_first: int | None,
 ) -> None:
-    ctx = _fixture()
+    ctx = _ctx(
+        [
+            ModelResponse(
+                parts=[
+                    TextPart("What is 1+1?"),
+                    ToolCallPart("interact", {"type": "text"}, "question"),
+                ]
+            ),
+            ModelRequest(
+                parts=[
+                    ToolReturnPart(
+                        "interact",
+                        "Learner wrote: Please explain addition.",
+                        "question",
+                    )
+                ]
+            ),
+            ModelResponse(
+                parts=[
+                    TextPart("Addition combines quantities. Now give your answer."),
+                    ToolCallPart("interact", {"type": "text"}, "answer"),
+                ]
+            ),
+            ModelRequest(
+                parts=[ToolReturnPart("interact", "Learner wrote: 2", "answer")]
+            ),
+            ModelResponse(parts=[TextPart("Correct.")]),
+        ]
+    )
     records = _records(ctx)
     assert records is not None
+    assert len(records) == 2
+    # Timing remains a model judgment; this control only checks its arithmetic.
     row = ExerciseQuestion(
         question="1",
         submissions=[
@@ -417,11 +613,7 @@ async def test_non_answer_classification_does_not_determine_hint_timing(
         hints=1,
         hints_before_first=before_first,
     )
-    result = json.loads(
-        await calculate_exercise_statistics(
-            ctx, [row], [r["reference"] for r in records[2:]]
-        )
-    )
+    result = json.loads(await calculate_exercise_statistics(ctx, [row]))
     assert result["status"] == "calculated"
     assert result["totals"]["attempts"] == 1
     assert result["totals"]["non_answer_messages"] == 1
