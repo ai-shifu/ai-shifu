@@ -15,9 +15,19 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       original pre-answer explanation and later wrong-answer correction are two
       qualifying rounds; both refused calculator calls supply hints=1 and
       hints_before_first=1 instead of total hints=2. Arithmetic is unchanged.
-- [ ] 2026-10-11: Clarify total hint rounds before and after the first answer in
-      provider schema, report instructions and request-local report guidance;
-      verify delivery, focused tests and the retained real-model report on sim.
+- [x] 2026-10-11: Clarify total hint rounds before and after the first answer in
+      provider schema, report instructions and request-local report guidance.
+- [x] 2026-10-11: Retain the failed prompt-only checkpoint probe on sim
+      a77744fea. Ten pages and 27 records read exactly; navigation coverage and
+      finish recover, but total hints stays five. Fifteen teaching requests and
+      one summary settle 42.72 credits; original session/progress are retained.
+- [ ] 2026-10-11: Verify classified-round aggregation on deployed sim. Keep
+      this checkpoint verification separate from a fresh complete classroom.
+- [x] 2026-10-11: Add initial/following-teaching round flags, unique-group
+      aggregation, before-first derivation and scalar consistency checks. All
+      614 engine checks and 3176 learning/quality checks pass, with one expected
+      skip and four subtests; repository-wide gates pass. Original outcome
+      arithmetic and reference coverage remain unchanged.
 - [x] 2026-10-11: Two provider-delivery regressions fail before the correction.
       Corrected guidance passes 604 engine checks and 3120 learning checks with
       one expected skip and four subtests. Two additional original-evidence cases
@@ -77,10 +87,11 @@ help flag and from the before-first subset. Original messages contain both round
 - Keep coverage validation, original evidence, result-byte bounds and request
   budgets unchanged. Expose reference-only missing/unknown/duplicate diagnostics
   and clarify explicit exclusions; never infer navigation from an option label.
-- Fix hint aggregation guidance without inferring hints from wrong outcomes or
-  knowledge-question labels. Count qualifying teaching rounds under the author's
-  rules, including both sides of the first actual answer; exclude post-correct
-  analysis and formatting-only clarification, and preserve unknown counts.
+- After the prompt-only probe fails, derive hint counts from explicit initial
+  and following-teaching round judgments bound to original references. Do not
+  infer hint flags from outcomes. Deduplicate shared answer groups, reject
+  conflicting flags or scalar assertions, and propagate unknown rounds. Keep
+  authored definitions, outcome arithmetic and existing budgets unchanged.
 
 ## Outcomes & Retrospective
 
@@ -130,9 +141,11 @@ Use existing Engine tools, normal learning HTTP/SSE routes, published course
 configuration, history reads, and usage ledgers. No schema change, new memory
 scope, provider bypass, or MDF 1.0 deletion is authorized by this acceptance plan.
 
-The focused correction owns engine/exercise_statistics.py, its existing prompt
-and tests. Exercise report status and arithmetic remain compatible; invalid
-coverage retains its status and adds bounded reference diagnostics. Verify real
-SDK recovery, exact coverage, duplicate/unknown rejection and multibyte result
-limits. Source plans/reference updates must preserve the failed classroom and
-keep fresh full compressed acceptance open until independently completed.
+The focused correction owns engine/exercise_statistics.py, its prompt, report
+tests and the exercise-quality fixture consumer. Hint flags extend tool inputs;
+old stored arguments remain loadable, but new calls cannot use unsupported scalar
+counts. Derived hint totals keep the output shape and byte budget. Outcome
+arithmetic and exact reference coverage remain compatible. Verify real SDK
+delivery, unknown propagation, shared-group consistency and actual-model report
+accuracy. Preserve failed classrooms and probes; keep fresh full compressed
+acceptance open until independently completed.

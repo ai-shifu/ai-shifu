@@ -80,9 +80,12 @@ async def test_only_successful_calculation_supplies_current_totals() -> None:
         ExerciseQuestion(
             question=str(index),
             submissions=[
-                SubmissionJudgment(reference=r["reference"], outcome="correct")
+                SubmissionJudgment(
+                    reference=r["reference"], outcome="correct", hint_after=False
+                )
             ],
             hints=0,
+            hint_before=False,
         )
         for index, r in enumerate(records)
     ]
