@@ -137,7 +137,15 @@ async def test_repeated_markup_has_a_bounded_retry_and_never_finishes(
     assert _said(events) == ""
 
 
-@pytest.mark.parametrize("markup", [MARKUP, PAIRED_NAVIGATION])
+@pytest.mark.parametrize(
+    "markup",
+    [
+        MARKUP,
+        PAIRED_NAVIGATION,
+        PAIRED_NAVIGATION.replace('prompt="Continue"', 'prompt="Is x < y?"'),
+        PAIRED_NAVIGATION.replace('prompt="Continue"', "prompt='Is x < y?'"),
+    ],
+)
 async def test_finish_cannot_replace_a_refused_markup_question(markup: str) -> None:
     calls = 0
 
@@ -285,6 +293,7 @@ async def test_paired_navigation_after_an_answer_requires_an_actual_click() -> N
         "<interact>Illustrative content</interact>",
         "<interact>Next ></interact>",
         '<interact title="Comparison >">Next ></interact>',
+        '<interact title="Comparison <">Next ></interact>',
     ],
 )
 async def test_code_and_ordinary_content_remain_verbatim(text: str) -> None:
@@ -325,6 +334,10 @@ async def test_an_exact_authored_literal_tag_is_not_a_tool_request(markup: str) 
         PAIRED_NAVIGATION,
         "   " + PAIRED_MARKUP,
         PAIRED_MARKUP.replace("Explain program control", "Explain A > B"),
+        PAIRED_MARKUP.replace("Explain program control", "Explain A < B"),
+        PAIRED_MARKUP.replace(
+            'prompt="Explain program control"', "prompt='Explain A < B'"
+        ),
     ],
 )
 def test_stream_filter_is_independent_of_every_two_chunk_boundary(tag: str) -> None:

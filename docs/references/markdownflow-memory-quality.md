@@ -360,7 +360,7 @@ it never interprets attributes as a question, a learner answer or memory
 permission. Finish cannot replace the unasked question, and repeat attempts
 retain the same bounded retry. Inline, indented and fenced examples, exact
 authored literals and nonempty HTML content retain their original behavior.
-Quote-aware opening-tag boundaries preserve `>` inside attribute values and
+Quote-aware opening-tag boundaries preserve `<` and `>` inside attribute values and
 prevent nonempty body text ending in `>` from being mistaken for an empty pair.
 This recognizes a control-shaped text boundary; it does not infer course
 progress or decide whether an answer is correct.
