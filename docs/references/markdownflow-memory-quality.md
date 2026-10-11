@@ -327,6 +327,24 @@ acceptance remain separate in the
 
 ### Authored next-question navigation
 
+Standalone text imitations of `interact` include both an opening/self-closing tag
+and an empty single-line pair such as `<interact type="single"></interact>`.
+The existing guard suppresses these imitations and requests the actual tool;
+it never interprets attributes as a question, a learner answer or memory
+permission. Finish cannot replace the unasked question, and repeat attempts
+retain the same bounded retry. Inline, indented and fenced examples, exact
+authored literals and nonempty HTML content retain their original behavior.
+This recognizes a control-shaped text boundary; it does not infer course
+progress or decide whether an answer is correct.
+
+The sixth fresh learner on sim d312f7ad6 exposes the previously missed paired
+shape: the first accepted correction prints navigation as text and proceeds
+without a click. Stop after four ordinary requests and preserve the unfinished
+classroom, thirteen history elements, one real summary and 13.00 settled credits.
+No final report or complete fresh pass follows. The paired-tag correction has
+nine initially failing regressions; actual model recovery and another complete
+fresh journey remain separate acceptance work.
+
 After #3103 merges as a7345f6de, a fresh internal learner on sim de8cf2629
 exposes an independent order/pacing failure. Question 1-2 is explained and
 corrected, but the model directly asks question 1-3 instead of offering the
