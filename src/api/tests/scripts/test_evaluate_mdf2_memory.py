@@ -466,7 +466,12 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
     monkeypatch.setattr(app_module, "create_app", lambda **_kwargs: app)
     monkeypatch.setattr(routing, "uses_agent_engine", lambda _course: enabled)
     resolve = Mock(
-        return_value=("", "", SimpleNamespace(model="selected", usage_metadata={}))
+        return_value=(
+            "",
+            "",
+            SimpleNamespace(model="selected", usage_metadata={}),
+            None,
+        )
     )
     monkeypatch.setattr(lesson_entry, "_resolve", resolve)
     selection = Mock(return_value=("resolved-model", {"source": "evaluation-test"}))
