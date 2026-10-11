@@ -10,7 +10,6 @@ from typing import Any, Literal
 
 from flask import Flask
 from flaskr.common.swagger import register_schema_to_swagger
-from flaskr.service.shifu.consts import DEFAULT_OUTLINE_TYPE
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
 )
@@ -139,10 +138,6 @@ class ShifuDetailDto(BaseModel):
     )
     can_publish: bool = Field(
         default=False, description="whether current user can publish"
-    )
-    default_learning_permission: str = Field(
-        default=DEFAULT_OUTLINE_TYPE,
-        description="Default permission for newly created outlines",
     )
     created_user_bid: str = Field("", description="owner user business id")
     # TTS Configuration
@@ -292,7 +287,6 @@ class ShifuDetailDto(BaseModel):
             "archived": self.archived,
             "can_manage_archive": self.can_manage_archive,
             "can_publish": self.can_publish,
-            "default_learning_permission": self.default_learning_permission,
             "created_user_bid": self.created_user_bid,
             "tts_enabled": self.tts_enabled,
             "tts_provider": self.tts_provider,

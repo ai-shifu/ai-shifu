@@ -8,13 +8,11 @@ import {
   within,
 } from '@testing-library/react';
 import ChapterSettingsDialog from './ChapterSetting';
-import type { LearningPermission } from '@/api/studyV2';
 
 const mockGetOutlineInfo = jest.fn();
 const mockModifyOutline = jest.fn();
 const mockTrackEvent = jest.fn();
 let mockReadonly = false;
-let mockDefaultLearningPermission: LearningPermission | undefined = 'trial';
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -37,7 +35,6 @@ jest.mock('@/store', () => ({
     currentShifu: {
       bid: 'course-1',
       readonly: mockReadonly,
-      default_learning_permission: mockDefaultLearningPermission,
     },
   }),
 }));
@@ -129,7 +126,6 @@ describe('ChapterSettingsDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockReadonly = false;
-    mockDefaultLearningPermission = 'trial';
     mockTrackEvent.mockReset();
     mockModifyOutline.mockResolvedValue(undefined);
     mockGetOutlineInfo.mockResolvedValue({
@@ -155,62 +151,7 @@ describe('ChapterSettingsDialog', () => {
         { target: { value: 'New lesson' } },
       );
 
-    it.each(['guest', 'trial', 'normal'] as const)(
-      'displays the backend %s default and omits an unchanged permission',
-      permission => {
-        mockDefaultLearningPermission = permission;
-        const onFooterAction = jest.fn();
-        render(
-          <ChapterSettingsDialog
-            open
-            footerActionLabel='Create lesson'
-            onFooterAction={onFooterAction}
-          />,
-        );
-        expect(
-          permissionOptions().getByRole('radio', { checked: true }),
-        ).toHaveAttribute('value', permission);
-        fillLessonName();
-        fireEvent.click(screen.getByRole('button', { name: 'Create lesson' }));
-
-        expect(onFooterAction).toHaveBeenCalledWith({
-          name: 'New lesson',
-          isHidden: false,
-          systemPrompt: '',
-        });
-        expect(mockGetOutlineInfo).not.toHaveBeenCalled();
-        expect(mockModifyOutline).not.toHaveBeenCalled();
-        expect(mockTrackEvent).not.toHaveBeenCalled();
-      },
-    );
-
-    it.each(['guest', 'normal'] as const)(
-      'passes an explicit %s selection',
-      permission => {
-        const onFooterAction = jest.fn();
-        render(
-          <ChapterSettingsDialog
-            open
-            footerActionLabel='Create lesson'
-            onFooterAction={onFooterAction}
-          />,
-        );
-        fillLessonName();
-        fireEvent.click(
-          screen.getByRole('radio', {
-            name: `module.chapterSetting.${permission === 'normal' ? 'paid' : 'guest'}`,
-          }),
-        );
-        fireEvent.click(screen.getByRole('button', { name: 'Create lesson' }));
-
-        expect(onFooterAction).toHaveBeenCalledWith(
-          expect.objectContaining({ learningPermission: permission }),
-        );
-      },
-    );
-
-    it('does not invent a frontend default when backend metadata is unavailable', () => {
-      mockDefaultLearningPermission = undefined;
+    it('starts without a frontend permission and leaves the default to the backend', () => {
       const onFooterAction = jest.fn();
       render(
         <ChapterSettingsDialog
@@ -224,12 +165,43 @@ describe('ChapterSettingsDialog', () => {
       ).not.toBeInTheDocument();
       fillLessonName();
       fireEvent.click(screen.getByRole('button', { name: 'Create lesson' }));
-      expect(onFooterAction.mock.calls[0][0]).not.toHaveProperty(
-        'learningPermission',
-      );
+
+      expect(onFooterAction).toHaveBeenCalledWith({
+        name: 'New lesson',
+        isHidden: false,
+        systemPrompt: '',
+      });
+      expect(mockGetOutlineInfo).not.toHaveBeenCalled();
+      expect(mockModifyOutline).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
     });
 
-    it('resets a reopened form to the current backend metadata', () => {
+    it.each(['guest', 'trial', 'normal'] as const)(
+      'passes an explicit %s selection',
+      permission => {
+        const onFooterAction = jest.fn();
+        render(
+          <ChapterSettingsDialog
+            open
+            footerActionLabel='Create lesson'
+            onFooterAction={onFooterAction}
+          />,
+        );
+        fillLessonName();
+        fireEvent.click(
+          screen.getByRole('radio', {
+            name: `module.chapterSetting.${permission === 'normal' ? 'paid' : permission === 'trial' ? 'free' : 'guest'}`,
+          }),
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'Create lesson' }));
+
+        expect(onFooterAction).toHaveBeenCalledWith(
+          expect.objectContaining({ learningPermission: permission }),
+        );
+      },
+    );
+
+    it('clears the selected permission when reopening a creation form', () => {
       const onFooterAction = jest.fn();
       const { rerender } = render(
         <ChapterSettingsDialog
@@ -249,7 +221,6 @@ describe('ChapterSettingsDialog', () => {
           onFooterAction={onFooterAction}
         />,
       );
-      mockDefaultLearningPermission = 'normal';
       rerender(
         <ChapterSettingsDialog
           open
@@ -258,8 +229,8 @@ describe('ChapterSettingsDialog', () => {
         />,
       );
       expect(
-        permissionOptions().getByRole('radio', { checked: true }),
-      ).toHaveAttribute('value', 'normal');
+        permissionOptions().queryByRole('radio', { checked: true }),
+      ).not.toBeInTheDocument();
       expect(
         screen.getByPlaceholderText(
           'module.chapterSetting.lessonNamePlaceholder',
@@ -272,7 +243,7 @@ describe('ChapterSettingsDialog', () => {
       );
     });
 
-    it('keeps an existing lesson permission instead of the creation default', async () => {
+    it('reads an existing lesson permission from the backend', async () => {
       mockGetOutlineInfo.mockResolvedValue({
         name: 'Existing lesson',
         type: 'guest',
@@ -305,8 +276,7 @@ describe('ChapterSettingsDialog', () => {
       );
     });
 
-    it('saves chapter changes when no permission metadata is available', async () => {
-      mockDefaultLearningPermission = undefined;
+    it('saves chapter changes without a lesson permission', async () => {
       mockGetOutlineInfo.mockResolvedValue({ name: 'Existing chapter' });
       render(
         <ChapterSettingsDialog

@@ -60,9 +60,8 @@ const ChapterSettingsDialog = ({
   const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
   const { t } = useTranslation();
-  const [learningPermission, setLearningPermission] = useState<
-    LearningPermission | undefined
-  >(currentShifu?.default_learning_permission);
+  const [learningPermission, setLearningPermission] =
+    useState<LearningPermission>();
   const [systemPrompt, setSystemPrompt] = useState('');
   const [hideChapter, setHideChapter] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -77,12 +76,11 @@ const ChapterSettingsDialog = ({
     title: '',
     systemPrompt: '',
     hideChapter: false,
-    learningPermission: currentShifu?.default_learning_permission,
   });
 
   const fetchOutlineInfo = useCallback(async () => {
     if (!outlineBid) {
-      setLearningPermission(currentShifu?.default_learning_permission);
+      setLearningPermission(undefined);
       setSystemPrompt('');
       setHideChapter(false);
       setIsDirty(false);
@@ -91,7 +89,6 @@ const ChapterSettingsDialog = ({
         title: '',
         systemPrompt: '',
         hideChapter: false,
-        learningPermission: currentShifu?.default_learning_permission,
       };
       return;
     }
@@ -105,9 +102,9 @@ const ChapterSettingsDialog = ({
         return;
       }
 
-      const normalizedLearningPermission =
-        (result.type as LearningPermission | undefined) ??
-        currentShifu?.default_learning_permission;
+      const normalizedLearningPermission = result.type as
+        | LearningPermission
+        | undefined;
       const normalizedSystemPrompt = result.system_prompt ?? '';
       const normalizedHidden = result.is_hidden ?? false;
       const normalizedTitle = result.name ?? '';
@@ -126,11 +123,7 @@ const ChapterSettingsDialog = ({
     } finally {
       setLoading(false);
     }
-  }, [
-    outlineBid,
-    currentShifu?.bid,
-    currentShifu?.default_learning_permission,
-  ]);
+  }, [outlineBid, currentShifu?.bid]);
 
   const hasFormChanges = useCallback(
     (trimmedTitle: string) => {
@@ -532,11 +525,7 @@ const ChapterSettingsDialog = ({
                 type='button'
                 onClick={() =>
                   onFooterAction({
-                    ...((outlineBid ||
-                      learningPermission !==
-                        initialValuesRef.current.learningPermission) && {
-                      learningPermission,
-                    }),
+                    ...(learningPermission && { learningPermission }),
                     isHidden: hideChapter,
                     systemPrompt,
                     name: title.trim(),

@@ -31,7 +31,6 @@ export interface Shifu {
   state?: number;
   is_favorite?: boolean;
   readonly?: boolean;
-  default_learning_permission?: LearningPermission;
   archived?: boolean;
   created_user_bid?: string;
   can_manage_archive?: boolean;

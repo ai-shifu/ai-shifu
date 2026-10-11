@@ -192,7 +192,6 @@ describe('useShifu outline-create analytics producers', () => {
       bid: 'course-1',
       name: 'Private course name',
       readonly: false,
-      default_learning_permission: 'trial',
     });
   });
 
@@ -370,7 +369,10 @@ describe('useShifu outline-create analytics producers', () => {
   );
   it.each(
     (['addSubOutline', 'addSiblingOutline'] as const).flatMap(path =>
-      (['guest', 'normal'] as const).map(permission => ({ path, permission })),
+      (['guest', 'trial', 'normal'] as const).map(permission => ({
+        path,
+        permission,
+      })),
     ),
   )(
     'preserves an explicit $permission selection in $path',

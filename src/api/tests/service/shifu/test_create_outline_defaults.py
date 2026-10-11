@@ -9,7 +9,6 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.shifu import route as shifu_routes
 from flaskr.service.shifu import shifu_outline_funcs
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_GUEST, UNIT_TYPE_VALUE_TRIAL
-from flaskr.service.shifu.dtos import ShifuDetailDto
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 
 OWNER = "outline-default-teacher"
@@ -147,23 +146,3 @@ def test_direct_creation_defaults_to_free_without_changing_existing_guest(
     assert created.type == "trial"
     assert _persisted_type(app, course, created.bid) == UNIT_TYPE_VALUE_TRIAL
     assert _persisted_type(app, course, guest.bid) == UNIT_TYPE_VALUE_GUEST
-
-
-def test_course_detail_serializes_backend_default_permission() -> None:
-    detail = ShifuDetailDto(
-        shifu_id="course",
-        shifu_name="Course",
-        shifu_description="Description",
-        shifu_avatar="",
-        shifu_keywords=[],
-        shifu_model="1",
-        shifu_price=0,
-        shifu_preview_url="",
-        shifu_url="",
-        shifu_system_prompt="",
-        readonly=False,
-        archived=False,
-    )
-
-    assert detail.default_learning_permission == "trial"
-    assert detail.__json__()["default_learning_permission"] == "trial"
