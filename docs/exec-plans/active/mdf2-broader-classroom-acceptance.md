@@ -117,6 +117,48 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       guidance. Without supporting original input, explain the distinction
       generally. Add six failing SDK delivery assertions before this correction;
       this remains guidance, not a semantic output validator or grading change.
+- [x] 2026-10-11: User merges #3109 at ad109f9d3, final head
+      a6830abc2. All final-head technical CI passes, including runtime harness;
+      CodeRabbit remains rate-limited, not substantively reviewed. CN API 6/6
+      and web 3/3 run 20261011-ad109f9. Sim 503b9d462 deploys through
+      build 557 / Drone 5346; both APIs match 55 fingerprints and pass
+      64 isolated SDK checks each. Original-storage-error checkpoint passes:
+      quote the actual denial of storage and teach disk files generally;
+      wrong/correction/navigation boundaries hold. Three teaching generations
+      plus one summary settle 4.42 credits; original state and eight history
+      elements remain unchanged. No previous failed classroom is relabeled.
+- [x] 2026-10-11: A fourth new learner completes eleven questions on that
+      sim through 28 ordinary HTTP/SSE requests. A 4263-byte explanation
+      naturally creates one real summary/cache; 39 actual generation inputs
+      contain summary projections bound to the original and cached content.
+      Ten pages exactly read 27 original records, all seventeen semantic inputs
+      and ten navigation exclusions; one successful calculation, all eleven
+      rows and independent pre-final totals match. Twenty-eight texts match
+      56 stable history elements. All 44 generations settle 91.78 credits with
+      correct actual progress/block/owner attribution, no failed/unsettled usage.
+      Published source remains unchanged. Original disk-file attribution and
+      performance-indicator narrowing are absent, and closing counts three
+      corrections. This does not establish complete authored teaching quality.
+- [x] 2026-10-11: Preserve a distinct false-omission finding in that journey.
+      The first single-CPU answer explains both memory-wait reduction through
+      Cache and I/O-wait reduction through DMA. The author explicitly accepts
+      such coverage without the balanced-throughput title, but correction and
+      final advice list the missing title as another omitted requirement. A
+      hint also asks again about already supplied superscalar execution. Numeric
+      grading remains unchanged because RISC and hardware threading truly are
+      missing. Full feedback acceptance remains open despite exact statistics.
+- [x] 2026-10-11: Add a focused correction for false omissions in core
+      feedback, interaction guidance, the report prompt and post-calculation
+      reminder. Compare the complete original meaning with authored acceptance;
+      category-label absence alone cannot establish missing knowledge, and earlier
+      hint gap lists are not evidence. Four SDK delivery assertions fail before
+      guidance; eight feedback cases pass after it, including equivalent concrete
+      coverage, earlier misleading feedback and reload. Local validation passes
+      631 engine and 4210 related cases, four subtests and one expected skip.
+      Controlled models prove delivery and retained evidence, not real grading.
+- [ ] Verify the focused semantic-coverage correction on deployed sim, then
+      repeat a separate fresh ordinary compressed journey without changing the
+      course, criteria or request budget.
 - [x] 2026-10-11: Confirm #3103 merged as a7345f6de with all technical CI
       passing, including runtime harness. A new internal learner starts from the
       first question on sim de8cf2629; both APIs match 55 runtime fingerprints.
