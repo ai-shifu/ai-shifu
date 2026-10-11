@@ -90,6 +90,20 @@ This transient guidance adds no grade, persisted
 evidence, model call or request budget; custom prompt bundles can omit it.
 It remains model guidance rather than a semantic validator.
 
+For one resumed text interaction with a unique exact authored input hint, the
+default engine may also copy its static Markdown section near that interaction
+in the model-facing history. The whole enclosing section is bounded by heading
+ancestry and the next authored interaction, at most 8 KiB. The copy retains the
+author's acceptance alternatives and lesson-wide requirements; it never selects
+a grade or advances the script. Ambiguous hints, non-standalone/multiline controls,
+variable-containing sections and oversized sections retain the full script
+without a focused copy. Code/comment examples do not locate an interaction.
+This projection is host reference data, not learner input or memory permission;
+original messages and tool-result answers are retained unchanged, including
+without other history compaction. It adds no model call or request budget and
+remains subject to the existing complete-request input backstop. Real-model
+compliance is independently required.
+
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.

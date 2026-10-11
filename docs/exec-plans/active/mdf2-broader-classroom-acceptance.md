@@ -8,6 +8,31 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: Request-local checklist candidate a9a0e2289 deploys as
+      sim f704f0fc4, build 562 / Drone 5351; both APIs match 56 fingerprints
+      and each passes 72 isolated SDK checks. Sim checks pass 752 cases.
+      Preserve another derived-slice semantic failure: the wrong-answer hint
+      still requests the already covered bottleneck title despite all three
+      requests receiving the checklist. Correction/navigation mechanics pass,
+      but do not repair the false hint. Three teaching generations plus one
+      summary settle 5.71 credits; original state and 54 history elements remain
+      unchanged. No unchanged paid retry or sixth fresh classroom is started.
+- [x] 2026-10-11: Add a read-only authored-section projection to the same
+      focused correction. A unique standalone text-input anchor selects an exact
+      static section near the resumed answer, retaining full authored acceptance.
+      Duplicate/unsupported anchors, variables and oversized sections decline
+      focusing and retain the original full script. This is reference placement,
+      not a host grading/cursor decision, new model call or budget increase.
+      Four SDK delivery cases fail before the projection; compaction-off,
+      reload, saved-answer recovery and unchanged evidence are verified separately.
+- [x] 2026-10-11: Focused-source validation passes 657 engine cases and
+      4281 broader learning/profile/user/quality cases, four subtests and one
+      expected skip. Developer tools and repository gates pass. The actual
+      failed CPU interaction resolves to an exact 2128-byte authored section
+      containing the equivalent-coverage allowance and hardware threading,
+      excluding the next question. These checks do not establish model compliance.
+- [ ] Validate focused authored context on sim; only after focused
+      real feedback passes start another independent fresh compressed classroom.
 - [x] 2026-10-11: User merges #3110 at f1e9bf190, final head
       ac1c6421e. Its tree equals fetched main and all technical CI passes.
       CN API 6/6 and web 3/3 run 20261011-f1e9bf1. CodeRabbit substantively
