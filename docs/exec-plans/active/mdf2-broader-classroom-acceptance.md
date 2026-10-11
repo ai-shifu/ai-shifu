@@ -11,6 +11,24 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 - [x] 2026-10-11 03:25 UTC: Transfer outstanding external acceptance from the
       completed grading plans into this named active continuation record.
 - [ ] Run a fresh complete journey that naturally triggers history compression.
+- [x] 2026-10-11: Confirm #3103 merged as a7345f6de with all technical CI
+      passing, including runtime harness. A new internal learner starts from the
+      first question on sim de8cf2629; both APIs match 55 runtime fingerprints.
+      Preserve its four-request navigation failure: after genuine clarification,
+      an incorrect answer and learner correction, the model skips the authored
+      single-option next-question control and asks question 1-3 immediately.
+      All four generations settle 5.29 credits with actual progress/block/owner
+      attribution. The 4663-byte explanation is eligible for later compression,
+      but no summary has run yet; neither fresh completion nor compression passes.
+- [x] 2026-10-11: Clarify authored one-option navigation boundaries in the
+      notation policy. Answer acceptance and side questions cannot consume the
+      required selection; the actual click advances directly without a second
+      confirmation. No new pauses, label-based host inference or state mutation.
+      Six SDK guidance-delivery/deferred-control cases cover first answers,
+      corrections, knowledge clarification and reload; these are controlled
+      model fixtures, not proof of real-model semantic compliance.
+- [ ] Verify the navigation correction against the genuine pre-wrong-answer
+      checkpoint on deployed sim, without overwriting the failed classroom.
 - [x] 2026-10-11: Locate the retained hint undercount in question 1-2. The
       original pre-answer explanation and later wrong-answer correction are two
       qualifying rounds; both refused calculator calls supply hints=1 and
@@ -21,8 +39,30 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       a77744fea. Ten pages and 27 records read exactly; navigation coverage and
       finish recover, but total hints stays five. Fifteen teaching requests and
       one summary settle 42.72 credits; original session/progress are retained.
-- [ ] 2026-10-11: Verify classified-round aggregation on deployed sim. Keep
-      this checkpoint verification separate from a fresh complete classroom.
+- [x] 2026-10-11 06:35 UTC: Verify classified-round aggregation on sim
+      de8cf2629 (automatic build 545 / Drone 5334). API 2/2 and web 1/1 are
+      ready; both APIs match 55 runtime/resource fingerprints and each passes
+      58 isolated report checks. The genuine pre-final checkpoint reads ten
+      pages and 27 original records exactly, binds all seventeen relevant inputs,
+      excludes ten navigation records, and calculates once. All eleven rows and
+      saved totals match: six hints, five hinted questions, fourteen attempts,
+      three retries, eight first-correct and six independent-first. The generated
+      report agrees and ends normally. Fourteen teaching requests plus one summary
+      settle 39.65 credits with matching actual progress/block/owner attribution.
+      All fourteen gateway requests retain the observed summary/projection and
+      round-field guidance. Original session, progress, variables, and 55 history
+      elements retain their content/order; one synthetic pending element ID varies
+      during read-only history projection. This non-persisting checkpoint does not
+      close fresh complete compressed-classroom acceptance.
+- [x] 2026-10-11: Address the AI-reviewed zero-total invariant. Three regressions
+      distinguish unanswered zero, nonzero, and unknown hints; the zero case fails
+      before correction. Final engine checks: 617; learning/quality checks: 3179
+      with one expected skip and four subtests. Developer tools and full gates
+      pass; sim engine/quality checks: 663. An initial broad test invocation from
+      the repository root fails fixture setup because it expects src/api as cwd;
+      the corrected src/api run is the passing receipt above. Both actionable AI
+      findings have original-thread replies with pushed fixes; the independent
+      docstring percentage warning is explained without claiming it passes.
 - [x] 2026-10-11: Add initial/following-teaching round flags, unique-group
       aggregation, before-first derivation and scalar consistency checks. All
       614 engine checks and 3176 learning/quality checks pass, with one expected
