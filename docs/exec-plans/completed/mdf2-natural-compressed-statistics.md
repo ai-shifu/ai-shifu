@@ -52,7 +52,7 @@ did not cross that threshold and cannot establish this acceptance.
   writes or engine errors. This closes only the saved report-turn replay.
 - [x] 2026-10-10: #3094 merges as 7f083b3e3 after local/CI checks and replies
   to all AI opinions. Transfer grading drift and fresh complete-course acceptance
-  to `../active/mdf2-authored-grading-criteria.md`; retain the failed classroom.
+  to [the grading plan](mdf2-authored-grading-criteria.md); retain the failed classroom.
 
 ## Surprises & Discoveries
 
@@ -100,7 +100,7 @@ outcomes does not establish that those teaching judgments were correct.
 The original natural classroom fails. The corrected saved report-turn replay
 passes, with exact evidence-based totals and normal finish. #3094 is merged;
 this narrow report-turn scope is complete. Fresh complete-course acceptance and
-grading drift remain in `../active/mdf2-authored-grading-criteria.md`. The original
+grading drift remain in [the grading plan](mdf2-authored-grading-criteria.md). The original
 report remains failed. A passing narrow replay does not
 close fresh-course, human, other-model/language/provider or long-term acceptance.
 
