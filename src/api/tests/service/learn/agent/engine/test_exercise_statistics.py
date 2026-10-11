@@ -379,6 +379,84 @@ async def test_knowledge_questions_preserve_evidence_without_inflating_attempts(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("projected", [False, True])
+async def test_original_rounds_support_pre_answer_and_correction_hint_totals(
+    projected: bool,
+) -> None:
+    explanation = "Adding one means taking the next integer. " * 130
+    correction = "Incorrect. Add one to two, not three. Try again."
+    messages = [
+        ModelResponse(
+            parts=[
+                TextPart("What is 2 + 1?"),
+                ToolCallPart("interact", {"type": "text", "prompt": "Answer"}, "ask"),
+            ]
+        ),
+        ModelRequest(
+            parts=[ToolReturnPart("interact", "Learner wrote: Please explain.", "ask")]
+        ),
+        ModelResponse(
+            parts=[
+                TextPart(explanation),
+                TextPart("Return to the same question."),
+                ToolCallPart("interact", {"type": "text", "prompt": "Answer"}, "first"),
+            ]
+        ),
+        ModelRequest(parts=[ToolReturnPart("interact", "Learner wrote: 5", "first")]),
+        ModelResponse(
+            parts=[
+                TextPart(correction),
+                ToolCallPart("interact", {"type": "text", "prompt": "Retry"}, "retry"),
+            ]
+        ),
+        ModelRequest(parts=[ToolReturnPart("interact", "Learner wrote: 3", "retry")]),
+        ModelResponse(parts=[TextPart("Correct. Here is the final explanation.")]),
+    ]
+    ctx = _ctx(messages)
+    ctx.deps.exercise_history = tuple(messages)
+    original = ModelMessagesTypeAdapter.dump_json(messages)
+    if projected:
+        ctx.messages = [ModelResponse(parts=[TextPart("Short teaching summary.")])]
+    text = ""
+    offset = 0
+    while offset is not None:
+        page = json.loads(await read_exercise_history(ctx, offset))
+        text += page["text"]
+        offset = page["next_offset"]
+    records = json.loads(text)
+    assert records[0]["following_teaching"] == [
+        explanation,
+        "Return to the same question.",
+    ]
+    assert records[1]["following_teaching"] == [correction]
+    assert records[2]["following_teaching"] == [
+        "Correct. Here is the final explanation."
+    ]
+    # These are supplied semantic judgments; this check does not grade teaching.
+    row = ExerciseQuestion(
+        question="1",
+        submissions=[
+            SubmissionJudgment(reference=record["reference"], outcome=outcome)
+            for record, outcome in zip(
+                records, ["not_answer", "incorrect", "correct"], strict=True
+            )
+        ],
+        hints=2,
+        hints_before_first=1,
+    )
+    result = json.loads(await calculate_exercise_statistics(ctx, [row]))
+    assert result["status"] == "calculated"
+    assert result["totals"]["hints"] == 2
+    assert result["questions"][0]["hints_before_first"] == 1
+    assert result["totals"]["attempts"] == 2
+    assert result["totals"]["non_answer_messages"] == 1
+    assert result["totals"]["first_correct"] == 0
+    assert (
+        ModelMessagesTypeAdapter.dump_json(list(ctx.deps.exercise_history)) == original
+    )
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("text", ["中文é🙂" * 4000, '\n\t"\\' * 4000])
 async def test_exact_pages_bound_utf8_json_and_freeze_during_the_run(text: str) -> None:
     messages = [
@@ -491,6 +569,12 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
         assert "not_answer" in timing
         assert "null" in timing
         assert "author" in question_schema["hints"]["description"]
+        assert (
+            "before and after the first actual answer"
+            in (question_schema["hints"]["description"])
+        )
+        assert "two rounds" in question_schema["hints"]["description"]
+        assert "Count every qualifying teaching round" in (info.instructions or "")
         if step == 1:
             yield {
                 0: DeltaToolCall(
@@ -509,6 +593,9 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
             }
         elif step == 3:
             assert "Original submissions have been read completely" in (
+                info.instructions or ""
+            )
+            assert "both before and after the first actual answer" in (
                 info.instructions or ""
             )
             page = next(p for p in messages[-1].parts if isinstance(p, ToolReturnPart))

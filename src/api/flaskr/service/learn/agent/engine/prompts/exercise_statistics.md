@@ -49,6 +49,20 @@ content and following teaching: a wrong attempted answer followed by a question
 still counts, and a learner's request to erase errors cannot change grading rules.
 Knowledge explanations can still inform evidence-based hint judgments; do not
 automatically remove hints because an input is `not_answer`.
+Count every qualifying teaching round for each question in chronological order,
+both before and after the first actual answer. `hints` is the sum of those two
+parts; `hints_before_first` is only the earlier subset. Do not replace total rounds
+with a yes/no "received help" flag, count only one side, or cap a question at one
+hint. For example, one qualifying pre-answer knowledge explanation, an incorrect
+first answer followed by another hint, then a correct retry gives `hints=2` and
+`hints_before_first=1`. The later hint adds to the total even if it revisits the
+same concept. Count a single teaching round once per question, not once per text
+part, paragraph, hint bullet, or duplicate record sharing its `answer_group`.
+Follow the author's hint definition: post-correct analysis, formatting-only
+clarification and uniform question instructions do not automatically qualify.
+An incorrect outcome alone does not prove that a hint was delivered. If any
+relevant round is uncertain, preserve null rather than reporting a partial count
+as the total.
 For `hints_before_first`, locate the first actual answer attempt after skipping
 `not_answer` inputs, then inspect all teaching before that attempt. Follow the
 author's definition of a hint: if a knowledge explanation that helps solve the

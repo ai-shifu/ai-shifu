@@ -11,18 +11,36 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 - [x] 2026-10-11 03:25 UTC: Transfer outstanding external acceptance from the
       completed grading plans into this named active continuation record.
 - [ ] Run a fresh complete journey that naturally triggers history compression.
+- [x] 2026-10-11: Locate the retained hint undercount in question 1-2. The
+      original pre-answer explanation and later wrong-answer correction are two
+      qualifying rounds; both refused calculator calls supply hints=1 and
+      hints_before_first=1 instead of total hints=2. Arithmetic is unchanged.
+- [ ] 2026-10-11: Clarify total hint rounds before and after the first answer in
+      provider schema, report instructions and request-local report guidance;
+      verify delivery, focused tests and the retained real-model report on sim.
+- [x] 2026-10-11: Two provider-delivery regressions fail before the correction.
+      Corrected guidance passes 604 engine checks and 3120 learning checks with
+      one expected skip and four subtests. Two additional original-evidence cases
+      preserve distinct pre-answer/correction rounds under a projected history;
+      supplied-count arithmetic is checked without claiming semantic grading.
 - [x] 2026-10-11: Preserve a new 28-request natural classroom failure on sim
       96d6b87c8. A 4237-byte explanation triggers one real summary. The final
       report reads all ten evidence pages but omits ten ordinary single-choice
       navigation references; two invalid calculations exhaust the unchanged
       twelve-request budget. All forty generations settle 71.82 credits.
-- [ ] Fix explicit navigation exclusions and actionable bounded coverage errors;
-      verify offline and on sim before another justified natural acceptance run.
+- [x] 2026-10-11: Fix explicit navigation exclusions and bounded coverage errors.
+      Verify retained-input recovery offline and 43 isolated report checks on each
+      deployed sim API replica; a fresh natural classroom remains a separate step.
 - [x] 2026-10-11: Four regressions fail before the correction; all 43 report
       protocol/statistics checks and 602 engine checks pass afterward. The real
       SDK repairs a missing navigation exclusion without counting it as an answer.
       Offline retained-input repair identifies all ten missing references, but
       the model's five hint rounds differ from the saved expectation of six.
+- [x] 2026-10-11 05:45 UTC: sim integration 1f1e27f75 deploys through manual
+      Drone build 5330 (build 541) and automatic API/web rollout. API 2/2 and
+      web 1/1 are ready; both APIs match 55 source/resource fingerprints. Each
+      deployed image passes all 43 isolated report checks without paid generation
+      or database writes. This proves the focused correction, not a new classroom.
 - [ ] Exercise additional configured providers, models, and teaching languages.
 - [ ] Verify broader multi-lesson memory and Ask journeys with ordinary requests.
 - [ ] Collect independent human feedback and evaluate longer-term generation cost.
@@ -43,6 +61,10 @@ its status-only error does not identify the missing references. Compression
 activity alone does not demonstrate that compression caused this failure.
 The failed model judgments also undercount one hint round. Keep that independent
 semantic discrepancy visible; fixing reference coverage does not close it.
+The omitted round is the first question's correction after an incorrect answer;
+the pre-answer explanation is counted, but the model's total collapses both to
+one. The final-report contract must distinguish total rounds from a per-question
+help flag and from the before-first subset. Original messages contain both rounds.
 
 ## Decision Log
 
@@ -55,6 +77,10 @@ semantic discrepancy visible; fixing reference coverage does not close it.
 - Keep coverage validation, original evidence, result-byte bounds and request
   budgets unchanged. Expose reference-only missing/unknown/duplicate diagnostics
   and clarify explicit exclusions; never infer navigation from an option label.
+- Fix hint aggregation guidance without inferring hints from wrong outcomes or
+  knowledge-question labels. Count qualifying teaching rounds under the author's
+  rules, including both sides of the first actual answer; exclude post-correct
+  analysis and formatting-only clarification, and preserve unknown counts.
 
 ## Outcomes & Retrospective
 

@@ -62,6 +62,8 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
             "by its actual question and graded from its original feedback. "
             "Put non-exercise navigation references in excluded, not in question "
             "submissions; single-choice continue clicks can remain in the evidence. "
+            "Audit qualifying hint rounds both before and after the first actual answer; "
+            "hints is their sum, while hints_before_first is only the earlier subset. "
             "Do not write report numbers or call finish before it succeeds."
         )
     notice = prefix + (
@@ -256,7 +258,10 @@ class ExerciseQuestion(BaseModel):
         default=None,
         description=(
             "Total hint rounds under the author's rules, including qualifying "
-            "explanations after not_answer inputs. Use null when unknown."
+            "explanations after not_answer inputs, before and after the first actual "
+            "answer. One pre-answer explanation plus one later correction hint "
+            "means two rounds, not one. Exclude post-correct analysis. "
+            "Use null when unknown."
         ),
     )
     hints_before_first: Annotated[int, Field(ge=0, le=MAX_SUBMISSIONS)] | None = Field(
@@ -315,6 +320,10 @@ async def calculate_exercise_statistics(
     skipping not_answer inputs. Under the author's hint rules, an explanation
     after a pre-answer knowledge question may be a hint before that first answer.
     Excluding the question from attempts does not exclude its teaching from hints.
+    Count every qualifying teaching round before and after that first answer,
+    not merely whether the question ever received help. One pre-answer explanation
+    and one later wrong-answer hint give hints=2 and hints_before_first=1.
+    Do not count post-correct analysis or split one teaching round into paragraphs.
     Keep unknown hint timing null, never assume zero from not_answer alone.
     Zero non-answer counts are omitted from rows and totals; absence means zero.
     Include unanswered questions with empty submissions. This tool
