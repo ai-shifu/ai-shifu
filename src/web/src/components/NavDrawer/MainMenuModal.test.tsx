@@ -1,10 +1,23 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import MainMenuModal from './MainMenuModal';
+import arabicMenus from '../../../../i18n/ar-SA/components/menus.json';
+import germanMenus from '../../../../i18n/de-DE/components/menus.json';
+import englishMenus from '../../../../i18n/en-US/components/menus.json';
+import spanishMenus from '../../../../i18n/es-ES/components/menus.json';
+import frenchMenus from '../../../../i18n/fr-FR/components/menus.json';
+import thaiMenus from '../../../../i18n/th-TH/components/menus.json';
+import urduMenus from '../../../../i18n/ur-PK/components/menus.json';
+import chineseMenus from '../../../../i18n/zh-CN/components/menus.json';
 
 const mockUpdateUserInfo = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockRefreshUserInfo = jest.fn();
+const mockEnvironment = {
+  appVersion: '2.3.3',
+  appBuildSha: 'a1b2c3d4e5f678901234567890123456789012345',
+};
+let mockVersionLabel = 'Version';
 
 const mockEnvState = {
   loginMethodsEnabled: ['password', 'phone'],
@@ -31,8 +44,17 @@ jest.mock('next/image', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string) =>
+      key === 'component.menus.navigationMenus.version'
+        ? mockVersionLabel
+        : key,
   }),
+}));
+
+jest.mock('@/config/environment', () => ({
+  get environment() {
+    return mockEnvironment;
+  },
 }));
 
 jest.mock('@/i18n', () => ({
@@ -65,6 +87,8 @@ jest.mock('@/hooks/useTracking', () => ({
     USER_MENU_BASIC_INFO: 'USER_MENU_BASIC_INFO',
     USER_MENU_PERSONALIZED: 'USER_MENU_PERSONALIZED',
     USER_MENU_SET_PASSWORD: 'USER_MENU_SET_PASSWORD',
+    USER_APP_VERSION_VIEWED:
+      jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_VERSION_VIEWED,
     POP_LOGIN: 'POP_LOGIN',
   },
   useTracking: () => ({
@@ -182,7 +206,216 @@ describe('MainMenuModal', () => {
     };
     mockEnvState.loginMethodsEnabled = ['password', 'phone'];
     mockSystemState.previewMode = false;
+    mockEnvironment.appVersion = '2.3.3';
+    mockEnvironment.appBuildSha = 'a1b2c3d4e5f678901234567890123456789012345';
+    mockVersionLabel = 'Version';
   });
+
+  test.each([
+    ['admin', false, false],
+    ['admin', true, true],
+    ['learner', false, true],
+    ['learner', true, false],
+  ] as const)(
+    'shows and tracks the committed version for surface=%s member=%s mobile=%s',
+    (surface, member, mobileStyle) => {
+      mockUserStoreState.isLoggedIn = member;
+      let versionPresentAtEmission = false;
+      mockTrackEvent.mockImplementation(() => {
+        versionPresentAtEmission = !!screen.queryByText('v2.3.3 · a1b2c3d');
+      });
+      render(
+        <MainMenuModal
+          open
+          surface={surface}
+          mobileStyle={mobileStyle}
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+
+      const build = screen.getByText('v2.3.3 · a1b2c3d');
+      const version = build.parentElement;
+      expect(version).toHaveTextContent('Version v2.3.3 · a1b2c3d');
+      expect(build).toHaveAttribute('dir', 'ltr');
+      expect(version?.tagName).toBe('DIV');
+      expect(version).not.toHaveAttribute('role');
+      expect(version).not.toHaveAttribute('tabindex');
+      expect(version?.previousElementSibling).toHaveTextContent(
+        member ? 'module.user.logout' : 'module.user.login',
+      );
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(versionPresentAtEmission).toBe(true);
+      expect(mockTrackEvent).toHaveBeenCalledWith('user_app_version_viewed', {
+        surface,
+      });
+      expect(Object.keys(mockTrackEvent.mock.calls[0][1])).toEqual(['surface']);
+    },
+  );
+
+  test.each([
+    ['ar-SA', arabicMenus],
+    ['de-DE', germanMenus],
+    ['en-US', englishMenus],
+    ['es-ES', spanishMenus],
+    ['fr-FR', frenchMenus],
+    ['th-TH', thaiMenus],
+    ['ur-PK', urduMenus],
+    ['zh-CN', chineseMenus],
+  ] as const)(
+    'renders the localized version label for %s',
+    (_locale, menus) => {
+      mockVersionLabel = menus.navigationMenus.version;
+      render(
+        <MainMenuModal
+          open
+          surface='learner'
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      expect(
+        screen.getByText('v2.3.3 · a1b2c3d').parentElement,
+      ).toHaveTextContent(`${menus.navigationMenus.version} v2.3.3 · a1b2c3d`);
+    },
+  );
+
+  test('shows only the release version when the build SHA is unavailable', () => {
+    mockEnvironment.appBuildSha = '';
+    render(
+      <MainMenuModal
+        open
+        surface='admin'
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('v2.3.3').parentElement).toHaveTextContent(
+      /^Version v2\.3\.3$/,
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith('user_app_version_viewed', {
+      surface: 'admin',
+    });
+  });
+
+  test('does not render or track an unavailable release version', () => {
+    mockEnvironment.appVersion = '';
+    render(
+      <MainMenuModal
+        open
+        surface='admin'
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText('Version')).not.toBeInTheDocument();
+    expect(screen.queryByText(/a1b2c3d/)).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('tracks once per open, never for closed or repeated renders', () => {
+    const props = {
+      surface: 'learner' as const,
+      onPersonalInfoClick: jest.fn(),
+    };
+    const { rerender } = render(
+      <MainMenuModal
+        {...props}
+        open={false}
+      />,
+    );
+    expect(screen.queryByText('v2.3.3 · a1b2c3d')).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    rerender(
+      <MainMenuModal
+        {...props}
+        open
+      />,
+    );
+    rerender(
+      <MainMenuModal
+        {...props}
+        open
+        mobileStyle
+      />,
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MainMenuModal
+        {...props}
+        open={false}
+      />,
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    rerender(
+      <MainMenuModal
+        {...props}
+        open
+      />,
+    );
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['user_app_version_viewed', { surface: 'learner' }],
+      ['user_app_version_viewed', { surface: 'learner' }],
+    ]);
+  });
+
+  test('does not count Strict Mode effect replay as another menu open', () => {
+    render(
+      <React.StrictMode>
+        <MainMenuModal
+          open
+          surface='admin'
+          onPersonalInfoClick={jest.fn()}
+        />
+      </React.StrictMode>,
+    );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(['learner', 'admin'] as const)(
+    'excludes learner preview only from version tracking on %s',
+    surface => {
+      mockSystemState.previewMode = true;
+      render(
+        <MainMenuModal
+          open
+          surface={surface}
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      expect(screen.getByText('v2.3.3 · a1b2c3d')).toBeInTheDocument();
+      expect(mockTrackEvent).toHaveBeenCalledTimes(surface === 'admin' ? 1 : 0);
+    },
+  );
+
+  test.each(['throws', 'rejects'])(
+    'keeps the version visible when analytics %s',
+    async failure => {
+      if (failure === 'throws') {
+        mockTrackEvent.mockImplementationOnce(() => {
+          throw new Error('Analytics unavailable');
+        });
+      } else {
+        mockTrackEvent.mockRejectedValueOnce(
+          new Error('Analytics unavailable'),
+        );
+      }
+
+      await act(async () => {
+        render(
+          <MainMenuModal
+            open
+            surface='admin'
+            onPersonalInfoClick={jest.fn()}
+          />,
+        );
+      });
+      expect(screen.getByText('v2.3.3 · a1b2c3d')).toBeInTheDocument();
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.settings.setPassword' }),
+      );
+      expect(screen.getByTestId('set-password-modal')).toBeInTheDocument();
+    },
+  );
 
   test.each([true, false])(
     'opens course memory for member=%s with one dialog on double click',

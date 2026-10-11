@@ -11,6 +11,29 @@ GitHub Actions builds the public API and Web images from the repository root
 using `src/api/Dockerfile` and `src/web/Dockerfile`. This path is independent
 of the production CICD/Drone build and its deployment Dockerfiles.
 
+## Frontend source revision
+
+Before building Web, both the reusable native-image workflow and the runtime
+harness write the checked-out `git rev-parse HEAD` to
+`src/web/.app-build-sha`. Use the checkout's actual HEAD rather than the event's
+SHA so release tags and PR merge checkouts retain the correct source identity.
+The generated file is Git-ignored and remains included by Docker ignore rules.
+The tested and published images use the same prepared source context.
+
+Production CICD replaces the repository Dockerfiles, so its existing
+`build_before` preparation must also generate the marker, after checkout and
+before the Web image build:
+
+```bash
+git -C /drone/src rev-parse HEAD > /drone/src/src/web/.app-build-sha
+```
+
+Append that command without replacing plugin, Dockerfile or translation
+preparation. The production Web Dockerfile's existing `COPY . .` includes the
+marker before Next compiles the public version constants. Manual Docker builds
+use the same marker preparation from the repository root. See the
+[frontend configuration reference](../../src/web/src/config/ENVIRONMENT_CONFIG.md#frontend-build-identity).
+
 ## Destinations and permissions
 
 Publishing callers enable GHCR at

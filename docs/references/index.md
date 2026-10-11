@@ -15,6 +15,7 @@ Evergreen repository references and operational guides live here.
 - [Internationalization (i18n) Guide](../references/i18n.md)
 - [MarkdownFlow Authored Input Hints](../references/markdownflow-authored-inputs.md)
 - [MarkdownFlow Cache Usage Observations](../references/markdownflow-cache-usage.md)
+- [MarkdownFlow Draft Classroom History](../references/markdownflow-draft-classroom-history.md)
 - [MarkdownFlow recall history compaction](../references/markdownflow-history-compaction.md)
 - [MarkdownFlow Input Budget](../references/markdownflow-input-budget.md)
 - [MarkdownFlow Memory Quality Evaluation](../references/markdownflow-memory-quality.md)

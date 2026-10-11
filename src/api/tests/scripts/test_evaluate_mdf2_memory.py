@@ -16,6 +16,7 @@ from pydantic_ai.messages import (
     ToolCallPart,
     ToolReturnPart,
 )
+from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from scripts import evaluate_mdf2_memory as quality
@@ -38,8 +39,14 @@ def test_list_needs_no_app_or_credentials() -> None:
         timeout=10,
     )
     cases = json.loads(process.stdout)
-    assert len(cases) == 24
-    assert {case["family"] for case in cases} == {"admission", "recall", "teaching"}
+    assert len(cases) == 34
+    assert {case["family"] for case in cases} == {
+        "admission",
+        "recall",
+        "teaching",
+        "exercise",
+        "grading",
+    }
 
 
 @pytest.mark.parametrize("args", [[], ["--live"], ["--course", "course"]])
@@ -235,6 +242,60 @@ def _teaching_model(case: dict, behavior: str = "correct") -> FunctionModel:
     return FunctionModel(stream_function=model)
 
 
+@pytest.mark.parametrize("status", ["teaching_summary", "teaching_excerpt"])
+@pytest.mark.parametrize(
+    "location", ["source", "later-response", "other-part", "unknown-reference"]
+)
+async def test_projection_evidence_requires_original_message_and_part(
+    status: str, location: str
+) -> None:
+    from copy import deepcopy
+
+    from flaskr.service.learn.agent.engine.teaching_history import (
+        project_teaching_history,
+    )
+
+    case = quality.load_cases(["teaching-exact-example"])[0]
+    original = quality.teaching_session(case).messages
+    projected, sources = project_teaching_history(original)
+    assert len(sources) == 1
+    reference = next(iter(sources))
+    _, message_index, part_index, _digest = reference.split("-", 3)
+    message_index, part_index = int(message_index), int(part_index)
+    marker = TextPart(json.dumps({"reference": reference, "status": status}))
+    messages = deepcopy(original)
+    if location == "source":
+        messages = deepcopy(projected)
+        messages[message_index].parts[part_index] = marker
+    elif location == "later-response":
+        messages.append(ModelResponse(parts=[marker]))
+    elif location == "other-part":
+        messages[message_index].parts.append(marker)
+    else:
+        messages[message_index].parts[part_index] = TextPart(
+            json.dumps({"reference": reference + "-unknown", "status": status})
+        )
+    before = deepcopy(messages)
+
+    async def model(sent: list[ModelMessage], _info: AgentInfo) -> AsyncIterator[str]:
+        assert sent == before
+        yield "Unchanged response."
+
+    markers: set[str] = set()
+    observed = quality.observe_teaching_projection(
+        FunctionModel(stream_function=model), sources, markers
+    )
+    async with observed.request_stream(
+        messages, None, ModelRequestParameters()
+    ) as response:
+        async for _event in response:
+            pass
+        assert response.get().parts == [TextPart("Unchanged response.")]
+
+    assert markers == ({status} if location == "source" else set())
+    assert messages == before
+
+
 @pytest.mark.parametrize(
     "case",
     [c for c in quality.load_cases() if c["family"] == "teaching"],
@@ -396,6 +457,7 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
     from flaskr.api.llm import model_selection
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn.agent import gateway_model, lesson_entry, routing
+    from flaskr.service.metering.api import UsageContext
     from flaskr.service.user.repository import create_user_entity
 
     identity = uuid4().hex
@@ -462,6 +524,9 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
     assert value["model_selection"] == "selected"
     assert value["model"] == "resolved-model"
     assert calls[0][3]["usage_metadata"] == {"source": "evaluation-test"}
+    assert calls[0][3]["usage_context"] == UsageContext(
+        user_bid=identity, shifu_bid="course", outline_item_bid="lesson"
+    )
     selection.assert_called_once_with("selected", {})
     assert finalize.call_args.kwargs["trace"] is trace
     assert finalize.call_args.kwargs["root_span"] is span

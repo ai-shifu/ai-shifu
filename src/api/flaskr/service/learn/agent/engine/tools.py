@@ -19,6 +19,7 @@ from pydantic_ai.messages import (
 )
 
 from .interaction import InteractionSpec, InteractionType, Option
+from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .session import answer_fingerprint
 
 if TYPE_CHECKING:
@@ -49,6 +50,8 @@ class Deps:
     script_options: dict[str, str] = field(default_factory=dict)
     # Authored text-input questions, used only to repair an extra placeholder button.
     script_text_inputs: tuple[_Question, ...] = ()
+    literal_interaction_markup: frozenset[str] = frozenset()
+    interaction_markup_pending: bool = False
     # Set when the host's scripts pause only where their notation puts a button and this lesson's
     # script has none: a `confirm` is then answered without asking the learner. See
     # `script_pauses` and `Engine(pauses_from_notation=)`.
@@ -67,6 +70,11 @@ class Deps:
     memory_recall_blocked_keys: frozenset[str] = frozenset()
     # Exact original teaching available only for this run's request projection.
     teaching_history: dict[str, str] = field(default_factory=dict)
+    # Original messages before request projection.
+    exercise_history: tuple[Any, ...] = ()
+    exercise_evidence: list[dict[str, Any]] | None = None  # Frozen within this run.
+    exercise_read_offset: int | None = 0  # Next contiguous original-evidence page.
+    exercise_report_totals: dict[str, int | None] | None = None
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
@@ -617,6 +625,7 @@ async def interact(
             "non-empty text without `%{{` or `}}`, and the variable must be a short plain name."
         )
         raise ModelRetry(msg)
+    ctx.deps.interaction_markup_pending = False
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 
@@ -760,5 +769,14 @@ async def finish(ctx: RunContext[Deps], summary: str = "") -> str:
     it remains to do. `summary` is one short line about what the learner did. Do not call it
     when the script merely pauses, asks a question, or waits for the learner.
     """
+    current = [
+        m for m in ctx.messages[ctx.deps.history_len :] if isinstance(m, ModelResponse)
+    ]
+    if ctx.deps.interaction_markup_pending or contains_interaction_markup(
+        "".join(p.content for m in current for p in m.parts if isinstance(p, TextPart)),
+        ctx.deps.literal_interaction_markup,
+    ):
+        ctx.deps.interaction_markup_pending = True
+        raise ModelRetry(INTERACTION_MARKUP_RETRY)
     ctx.deps.finished = summary.strip() or "done"
     return "finished. The lesson is over: write nothing more and call no other tool."

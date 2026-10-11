@@ -60,6 +60,7 @@ import {
 } from '@/lib/interaction-user-input';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import LoadingBar from './LoadingBar';
+import { startPreviewRewindTracking } from './previewRewindTracking';
 import { useTranslation } from 'react-i18next';
 import { show as showToast, toast, toastOnce } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
@@ -328,8 +329,16 @@ function useChatLogicHook({
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
   const pendingInteractionAnchorBidRef = useRef('');
-  const runRef = useRef<((params: SSEParams) => void) | null>(null);
+  const runRef = useRef<
+    | ((
+        params: SSEParams,
+        continuingRewind?: ReturnType<typeof startPreviewRewindTracking>,
+      ) => void)
+    | null
+  >(null);
   const sseRef = useRef<any>(null);
+  const previewRewindResultRef =
+    useRef<ReturnType<typeof startPreviewRewindTracking>>(undefined);
   const sseRunSerialRef = useRef(0);
   const refreshDataSerialRef = useRef(0);
   // The lesson an empty-input run has already been started for. Loading a lesson calls
@@ -1344,7 +1353,11 @@ function useChatLogicHook({
    * Applies stream-driven lesson status updates and triggers follow-up actions.
    */
   const lessonUpdateResp = useCallback(
-    (response, isEnd: boolean) => {
+    (
+      response,
+      isEnd: boolean,
+      continuingRewind?: ReturnType<typeof startPreviewRewindTracking>,
+    ) => {
       const {
         outline_bid: currentOutlineBid,
         status,
@@ -1357,10 +1370,13 @@ function useChatLogicHook({
         status_value: status,
       });
       if (status === LESSON_STATUS_VALUE.PREPARE_LEARNING && !isEnd) {
-        runRef.current?.({
-          input: '',
-          input_type: SSE_INPUT_TYPE.NORMAL,
-        });
+        runRef.current?.(
+          {
+            input: '',
+            input_type: SSE_INPUT_TYPE.NORMAL,
+          },
+          continuingRewind,
+        );
       }
 
       if (status === LESSON_STATUS_VALUE.LEARNING && !isEnd) {
@@ -1372,6 +1388,7 @@ function useChatLogicHook({
 
   const stopActiveRunStream = useCallback(() => {
     clearRunStreamTimeout();
+    previewRewindResultRef.current?.('cancelled');
     if (sseRef.current) {
       try {
         sseRef.current.close();
@@ -1435,13 +1452,18 @@ function useChatLogicHook({
    * Starts the SSE request and streams content into the chat list.
    */
   const run = useCallback(
-    (sseParams: SSEParams) => {
+    (
+      sseParams: SSEParams,
+      continuingRewind?: ReturnType<typeof startPreviewRewindTracking>,
+    ) => {
       if (creditInsufficientAudience === null) {
         return;
       }
       const runSerial = sseRunSerialRef.current + 1;
       sseRunSerialRef.current = runSerial;
       clearRunStreamTimeout();
+      // Internal continuation retains the original attempt; a user replacement cancels it.
+      if (!continuingRewind) previewRewindResultRef.current?.('cancelled');
       if (sseRef.current) {
         try {
           sseRef.current?.close();
@@ -1478,6 +1500,20 @@ function useChatLogicHook({
         });
       }
 
+      const finishPreviewRewind =
+        continuingRewind ??
+        startPreviewRewindTracking({
+          preview: effectivePreviewMode,
+          anchor:
+            sseParams.reload_element_bid ||
+            sseParams.reload_generated_block_bid,
+          answering: Boolean(sseParams.input),
+          shifuBid,
+          outlineBid,
+          learningMode,
+          trackEvent,
+        });
+      previewRewindResultRef.current = finishPreviewRewind;
       let isEnd = false;
       let didReachTerminalSuccess = false;
       const clearLoadingPlaceholder = () => {
@@ -1515,6 +1551,7 @@ function useChatLogicHook({
           return;
         }
 
+        finishPreviewRewind?.('failed');
         cleanupRunStreamState();
         setHasRunFailed(true);
         appendRunTimeoutError(runSerial);
@@ -1562,6 +1599,7 @@ function useChatLogicHook({
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           try {
             if (response?.type === SSE_OUTPUT_TYPE.ERROR) {
+              finishPreviewRewind?.('failed');
               clearRunStreamTimeout();
               setHasRunFailed(true);
               const rawContent = response?.content;
@@ -1945,7 +1983,7 @@ function useChatLogicHook({
                     isEnd = true;
                     setHasRunFailed(false);
                   }
-                  lessonUpdateResp(response, isEnd);
+                  lessonUpdateResp(response, isEnd, finishPreviewRewind);
                 }
               }
             } else if (
@@ -1954,6 +1992,7 @@ function useChatLogicHook({
             ) {
               if (response.is_terminal === true) {
                 didReachTerminalSuccess = true;
+                finishPreviewRewind?.('success');
                 setHasRunFailed(false);
                 cleanupRunStreamState();
                 try {
@@ -1982,10 +2021,13 @@ function useChatLogicHook({
                   lastRenderableItem &&
                   lastRenderableItem.type === ChatContentItemType.CONTENT
                 ) {
-                  runRef.current?.({
-                    input: '',
-                    input_type: SSE_INPUT_TYPE.NORMAL,
-                  });
+                  runRef.current?.(
+                    {
+                      input: '',
+                      input_type: SSE_INPUT_TYPE.NORMAL,
+                    },
+                    finishPreviewRewind,
+                  );
                 }
                 return updatedList;
               });
@@ -2166,6 +2208,7 @@ function useChatLogicHook({
           if (!isLatestRun || !isCurrentSource) {
             return;
           }
+          finishPreviewRewind?.('failed');
           const businessError = (
             error as { detail?: { code?: number; message?: string } }
           )?.detail;
@@ -2203,6 +2246,7 @@ function useChatLogicHook({
         }
         if (source.readyState === 2) {
           if (isActiveSource) {
+            finishPreviewRewind?.('failed');
             // Always clear the loading placeholder when the active stream closes.
             // Some interaction flows may only emit control events before closing,
             // which still leaves the placeholder visible without this cleanup.
@@ -2262,6 +2306,7 @@ function useChatLogicHook({
   useEffect(() => {
     return () => {
       clearRunStreamTimeout();
+      previewRewindResultRef.current?.('cancelled');
       sseRef.current?.close();
       isStreamingRef.current = false;
     };
@@ -2577,6 +2622,7 @@ function useChatLogicHook({
         }
         setIsLoading(true);
         if (curr === lessonId) {
+          previewRewindResultRef.current?.('cancelled');
           sseRef.current?.close();
           // A reset clears the lesson, so the run that follows it is a new first run, not the
           // one already started for this lesson.
@@ -2651,6 +2697,7 @@ function useChatLogicHook({
     if (hasResetLandedForOpenLesson) {
       return;
     }
+    previewRewindResultRef.current?.('cancelled');
     sseRef.current?.close();
     if (!lessonId || creditInsufficientAudience === null) {
       return;
@@ -2718,7 +2765,7 @@ function useChatLogicHook({
         item => item.element_bid === blockBid,
       );
       const variableName = params.variableName;
-      if (variableName) {
+      if (variableName && needChangeItemIndex === -1) {
         // first find the item with the same variable value
         const variableMatchIndex = newList.findIndex(item =>
           item.content?.includes(variableName),
@@ -2840,7 +2887,12 @@ function useChatLogicHook({
         return;
       }
 
-      newList.length = needChangeItemIndex;
+      const firstBlockIndex = newList.findIndex(
+        item =>
+          resolveSourceGeneratedBlockBid(item.element_bid) === sourceBlockBid,
+      );
+      newList.length =
+        firstBlockIndex === -1 ? needChangeItemIndex : firstBlockIndex;
       setTrackedContentList(newList);
 
       isTypeFinishedRef.current = false;
@@ -2848,7 +2900,7 @@ function useChatLogicHook({
         input: '',
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_generated_block_bid: sourceBlockBid,
-        reload_element_bid: sourceBlockBid,
+        reload_element_bid: elementBid,
       });
     },
     [
@@ -3064,12 +3116,9 @@ function useChatLogicHook({
       isTypeFinishedRef.current = false;
 
       const { values } = resolveInteractionSubmission(content);
-      const reload_generated_block_bid =
-        isReGenerate && needChangeItemIndex !== -1
-          ? resolveSourceGeneratedBlockBid(
-              newList[needChangeItemIndex].element_bid,
-            )
-          : undefined;
+      const reload_generated_block_bid = isReGenerate
+        ? sourceBlockBid
+        : undefined;
       runRef.current?.({
         input: {
           // No-variable interactions have an empty variableName; submit
@@ -3078,7 +3127,7 @@ function useChatLogicHook({
           [variableName || 'input']: values,
         },
         input_type: SSE_INPUT_TYPE.NORMAL,
-        reload_element_bid: reload_generated_block_bid,
+        reload_element_bid: isReGenerate ? blockBid : undefined,
         reload_generated_block_bid,
       });
     },

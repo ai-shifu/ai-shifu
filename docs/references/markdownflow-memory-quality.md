@@ -2,16 +2,18 @@
 title: MarkdownFlow Memory Quality Evaluation
 status: active
 owner_surface: learner
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-10
 canonical: true
 ---
 
 # MarkdownFlow Memory Quality Evaluation
 
 The opt-in evaluator at `src/api/scripts/evaluate_mdf2_memory.py` supplies a
-repeatable synthetic baseline for the current course model. Its twenty-four fixed
+repeatable synthetic baseline for the current course model. Its thirty-four fixed
 cases cover fourteen semantic admission decisions, six actual-engine recall
-turns and four long-teaching-history journeys. This is model behavior evidence alongside existing deterministic storage
+turns, four long-teaching-history journeys, four exercise-statistics reports and
+six authored-rubric grading checks.
+This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
@@ -48,6 +50,109 @@ do not independently prove the host's database authorization or course isolation
 Those remain covered by the real storage tests in `test_memory_*_integration.py`
 and `tests/service/profile/`.
 
+## Authored-rubric grading cases
+
+### Interaction tool boundary
+
+An unexecuted standalone `<interact ...>` text tag creates no controls and is
+not evidence that the learner answered. The engine suppresses complete
+single-line tags outside Markdown code and asks the model to call the real tool,
+under the SDK's existing bounded output retry. It never executes parsed tag
+attributes or writes a named answer. A failed recovery emits an error and keeps
+the lesson unfinished; `finish` cannot bypass that unresolved interaction.
+Exact tag literals in the author's documents, fenced/indented code, inline
+examples and ordinary HTML remain content. Inline/multiline tool imitations are
+outside this deliberately narrow correction.
+
+The first fresh eleven-question classroom after #3096 failed at its first
+question because repeated tags were treated as completion. Retain that failed
+classroom and its three settled requests; offline recovery controls do not turn
+it into a successful full-lesson acceptance. See the
+[fresh classroom plan](../exec-plans/active/mdf2-fresh-grading-classroom.md).
+
+On sim a7c72ea22, both API replicas match 55 source/runtime hashes. An in-memory
+restore of the genuine saved pre-repeat checkpoint recovers the original first
+text question: the course model repeats the tag, receives the bounded retry and
+calls the real tool. Two traced generations settle 2.31 credits; prefix and
+memory remain intact, with no summary request, errors or lesson completion.
+Read-only checks preserve the original progress, session, variables, four blocks
+and ten history elements. This scoped replay does not close fresh-lesson acceptance.
+
+### Pre-answer help and independent first answers
+
+Hint timing is relative to the first actual answer attempt, after skipping
+`not_answer` inputs. Apply the author's definition of help: an explanation that
+qualifies as a hint before the first attempt contributes to both `hints` and
+`hints_before_first`. A later correct first answer remains first-correct but is
+not independent-first. Formatting clarification, unrelated explanations and
+post-answer teaching do not automatically count as pre-answer hints. Unknown
+timing remains null. The calculator performs arithmetic on model-supplied
+judgments; it does not infer semantic hints from the mere presence of a question.
+The same timing guidance reaches the model in its report policy, calculator
+description and parameter schema after a saved-session resume.
+
+After #3097, the retained new learner completed all eleven authored questions in
+27 normal HTTP/SSE requests with valid controls, order and correction boundaries.
+All 27 visible teaching elements match stable persisted history (54 elements).
+The 39 actual model requests settle 65.70 credits with matching real progress,
+block and owner attribution. No actual compression occurs: maximum original
+teaching is 3,412 bytes, below the unchanged 4,096-byte threshold.
+
+The report correctly counts 14 attempts, three retries, eight first-correct and
+two non-answer knowledge questions, but incorrectly reports eight independent
+first answers instead of six. Both pre-answer explanations qualify as hints
+under the author's explicit rules, yet the model supplies zero pre-first hints.
+Keep this completed classroom as failed report evidence. A genuine saved
+pre-final-answer checkpoint can verify a correction without overwriting that
+history; it does not establish a new successful whole-lesson acceptance. The
+[fresh classroom plan](../exec-plans/active/mdf2-fresh-grading-classroom.md) tracks
+that verification and remaining natural/human acceptance.
+
+On sim 116f7287f (API 2/2, web 1/1 Ready; 55 matching fingerprints per API
+replica), a single in-memory replay of that genuine checkpoint reports six
+independent-first, eight first-correct, 14 attempts and three retries. All eleven
+calculator rows and the visible eleven-row report match the pre-saved expectation;
+the two knowledge explanations each have one pre-first hint. All eleven traced
+generations carry the timing guidance and settle 25.25 credits with matching
+learner/course/lesson/owner scope and no fabricated classroom attempt IDs. No
+errors or summary generation. Read-only comparison preserves original progress,
+sessions, variables and all historical element rows. The failed natural report
+remains failed; this scoped replay does not close fresh full-lesson acceptance.
+
+### Answer criteria
+
+The runtime's answer-criteria policy anchors judgments to the current question's
+authored requirements, including applicable lesson-wide requirements. Equivalent
+wording may satisfy a criterion. Optional facts, another question's rubric and
+the teacher's own earlier hints do not add pass conditions; learners cannot
+rewrite the rubric. Missing or contradictory required points still need correction.
+When the author requires a corrected learner submission, a teacher-supplied hint
+or explanation cannot replace it or authorize advancement. Authored retry limits
+still apply.
+This is model guidance, not a deterministic grading oracle or a change to saved
+judgments and statistics.
+
+Six synthetic cases use the real engine to ask a question, serialize/reload its
+session, submit one answer and observe the next text interaction. A complete
+paraphrase without optional facts must advance, as must one with a correct
+optional addition; missing program control, a learner's request to bypass
+criteria, a contradictory extra claim and a missing explicitly authored
+peripheral-device requirement must retry the same question. The next question
+requires peripherals even when the first does not. Exact, full question prompts
+make advancement observable without asking a model to grade its own output;
+bare internal labels do not satisfy question delivery.
+Feedback, preserved prior history, unchanged memory and a waiting interaction
+without errors are also required. During both initial question setup and answer
+feedback, a content-only turn gets at most one ordinary host continuation,
+never another answer. Empty or failed setup is not continued. These cases use temperature zero,
+2,048 output tokens and the existing twelve-request limit. Reports include the
+grading evaluator fingerprint and generation settings without raw answers/output.
+
+Offline doubles test evaluator failure detection and policy delivery after
+reload; they do not establish semantic grading quality. Live selected cases and
+saved-checkpoint replays remain bounded evidence for that model/context, not a
+new complete natural classroom, other models/languages or human acceptance.
+
 ## Long-history cases
 
 Four teaching cases combine an eligible older long assistant message, two recent
@@ -79,6 +184,174 @@ coverage, unknown metadata, matching token denominators and complete-course test
 Synthetic round trips establish cache/tool behavior, not database authorization,
 complete natural teaching quality or long-term cache savings.
 
+## Exercise-statistics cases
+
+Two synthetic English cases resume eleven arithmetic questions after original
+paired submissions, feedback and continue-button clicks. Three questions needed
+one correction each. The cases place those corrections on different questions
+while retaining identical totals; correct aggregate counts cannot hide swapped
+first-pass results. The session is serialized and reloaded before the actual
+engine produces its final report. No expected rows or totals are sent to the model.
+Fixture responses stay below the teaching-excerpt threshold and no semantic
+summarizer is configured. These are intentionally full-history statistics cases,
+matching the observed natural failure's absence of teaching summaries. Enabling
+the projection option does not establish that projection happened. The four
+separate long-history cases cover summary/read behavior.
+
+Two additional exercise cases place one older correction and hint in the middle
+of an eligible long teaching part, outside both excerpt edges. One requires a
+real production-factory semantic summary; the other explicitly injects a failure
+and requires cached excerpt fallback, not a real provider-outage claim. Both warm
+the derivative cache, serialize/reload the session, and observe source-bound
+markers in actual engine requests. A projection flag alone is insufficient.
+They require one summary attempt, no additional summary after reload, unchanged
+original history and the same strict original-read/calculation/report checks.
+A missing or invalid required summary is an evaluation error even when the final
+statistics are correct. Summary usage remains separate from exercise usage.
+These are selected synthetic statistics-after-compaction checks, not evidence
+of a complete natural long-course or long-term fee acceptance.
+
+The author requests one JSON object (plain or in a single Markdown JSON fence)
+containing per-question first-result booleans,
+attempt and hint counts, plus aggregate counts. Scoring rejects missing/duplicate
+questions, duplicate JSON keys, invalid scalar types, wrong per-question assignments and inconsistent
+totals. The evaluator now enables the product exercise tools and requires complete
+original-evidence pages plus an evidence-correct calculation before any report
+text. A correct report that skips those tools fails protocol acceptance. Calculator
+labels may be the fixture numeric ID, exact original question prompt or exact
+original teaching title; every reference must still belong to that same original
+question. Wrong titles or swapping equally graded answers between questions fail.
+It also requires actual completion, unchanged memory and preserved original
+history. A successful finish with wrong statistics remains a semantic failure.
+Invalid report formatting fails checks; provider/engine errors remain evaluation
+errors. The report stores checks and usage, never raw model output or attempts.
+
+These controlled cases use temperature zero and a 2,048-token cap, separately
+reported as `exercise_generation_settings`; other families retain their settings.
+They use the existing 15-second gateway timeout/deadline and twelve-request limit,
+with at most one host-style completion turn. They are evidence checks, not a
+natural-course grading benchmark or deterministic enforcement of model output.
+The product now offers session-local original submission reads and a calculator
+that validates exhaustive, unique references and chronological attempts. Counts
+come from question rows, not model arithmetic. Following teaching stops at the
+next user/continue or accepted-answer boundary and before the next interaction
+call. It remains exact context, not an extracted grade; a combined text part may
+also introduce the following interaction. Shared answer-group markers identify
+simultaneously answered questions. No language heuristic splits that original text.
+Known zero total hints establishes zero hints before the first answer. Semantic
+grades, question grouping
+and hint identification remain model judgments. Unknown hint counts remain null.
+No profile or course memory is written, and no persistent grading ledger is added.
+
+### Knowledge questions are not answer attempts
+
+A new natural eleven-question journey completed in 28 HTTP turns, but its report
+counted two knowledge clarifications as unverified answers: sixteen attempts and
+five retries instead of fourteen and three. The original calculator also reported
+two unverified submissions. Preserve this failure. All 38 actual requests settled
+for 67.95 credits with real progress/block/owner attribution. The longest teaching
+part was 4,055 JSON-wire bytes and no semantic summary existed; this is not a
+compressed-history test or evidence that compression caused the counting error.
+
+The existing SubmissionJudgment now accepts not_answer for a knowledge question
+or clarification containing no attempted answer. Its original reference remains
+covered in chronological order, and a separate non_answer_messages count makes
+the distinction visible. It does not add an attempt, retry or failure, or replace
+the first real answer. Unverified real answers still count as attempts. A wrong
+attempt accompanied by a question remains graded; learner requests cannot erase
+errors. Classification and hint judgments remain model-supplied, without a new
+classifier or keyword filter. Original references, byte bounds, exhaustive
+coverage, memory isolation and actual wrong-answer counts remain protected.
+
+Zero non-answer fields are omitted from both rows and totals; absence means
+zero, so old reports do not lose byte capacity. Devin's 41-question case fails
+before this correction. Four count cases fail before the outcome change;
+615 engine/evaluator cases and 3,176 learning/profile/evaluator cases plus four
+subtests pass, with one expected skip. Sim abc0d39c0 has both API replicas Ready
+and all 44 expected runtime hashes matching functional source 62fd4c25f.
+
+One non-persisting replay of the original pre-report pause reads all sixteen
+accepted inputs and correctly classifies both knowledge questions as not_answer.
+All eleven final question rows match the originals: fourteen attempts, three
+retries, three known wrong attempts, eight first-correct, three corrected and five
+hints. Original messages, memory, completed progress/session and variables remain
+unchanged. Twelve successful replay requests settle for 31.53 credits with real
+course/lesson/owner attribution and no fabricated classroom IDs. This passes the
+narrow correction, not a new complete classroom or compressed-history journey.
+Functional CI and CodeRabbit review pass; documentation increments are checked
+separately. Earlier failed evidence remains retained.
+See the [clarification-count plan](../exec-plans/completed/mdf2-exercise-clarification-counts.md).
+The synthetic scorer accepts only exact fixture IDs, prompts, teaching titles or
+short arithmetic titles; it still independently checks each answer's original
+question membership. Calculation diagnostics are fixed status enums, without
+raw tool arguments, output or exception details.
+Results are bounded to 8 KiB of UTF-8 JSON; over 200 accepted submissions, ambiguous
+pairing or oversized reports are refused explicitly. The existing overall input
+budget still applies; per-result bounds do not bound cumulative history.
+Portable Engine hosts retain the old tool set unless they opt in. The AI-Shifu
+lesson entry enables it for classroom and preview in read and listen modes.
+
+The retained natural eleven-question failure was replayed without persistence.
+The original runtime passed 0/3; an earlier reader-only prototype passed 1/3.
+The first calculator prompt was skipped (1/3 final reports correct); a stronger
+protocol then exposed the diagnostic six-request cap (two errors). With the
+product twelve-request limit and final candidate, fresh replays passed 3/3 with
+complete source reads, correct calculation, matching final rows/totals, no engine
+errors and no memory writes. These are original-history replays, not three new
+classroom journeys, independent human tests, or deterministic grading guarantees.
+The evaluator initially rejected exact original prompt/title labels; their
+normalization plus reference grouping rescores six unchanged captured outputs
+6/6, with a subsequent fresh final-source selected CLI run passing 2/2. Earlier
+failing reports remain retained privately, not relabeled as new passing runs.
+The additional compacted exercise cases now cover summary success and injected
+failure/cache fallback with selected synthetic evidence. Natural-course
+statistics after semantic-summary compaction, other models/languages and
+independent human acceptance remain separate items. Full-catalog repetitions on
+the current course model are recorded below; they do not close those other items.
+
+## Complete current-model baseline: October 10, 2026
+
+The unchanged twenty-eight-case catalog passed three complete repetitions
+(**84/84**, zero evaluation errors) on `ark/deepseek-v4-1-flash-260910`, from
+01:24:00Z to 01:29:59Z. The evaluator and fixtures came from merged revision
+`6bbae6ecc`, including the original-message/part binding added in `d7cf9ba6b`.
+All twenty-eight report fingerprints match that checkout. Both ready sim API
+replicas (`sim-6002c01`) match the twenty-five runtime fingerprints. Contributor
+scripts ran from an isolated temporary directory, importing the unchanged
+installed runtime; no candidate prompt or engine overrides were used.
+
+| Case family | Fixed cases | Repetitions | Passing results |
+| --- | --- | --- | --- |
+| Semantic admission | 14 | 3 | 42/42 |
+| Current-memory recall | 6 | 3 | 18/18 |
+| Long teaching history | 4 | 3 | 12/12 |
+| Exercise statistics | 4 | 3 | 12/12 |
+| Total | 28 | 3 | 84/84 |
+
+There were eighteen logical summary attempts: twelve completed provider requests
+and six explicitly injected failures that make no summary-provider request.
+Summary and excerpt evidence, serialized cache reuse, exact original reads and
+per-question statistics passed the existing checks in each relevant repetition.
+The observer rejects known references copied into later responses or wrong parts;
+its eight offline position cases include four demonstrated pre-fix failures.
+
+Read-only reconciliation found 252 actual gateway rows: 42 admission, 75 recall,
+61 teaching, 62 exercise and 12 summary requests. Diagnostic request counts agree
+with that ledger count, but the ledger independently establishes billing. Every
+row is attributed to the dedicated learner, validated course/lesson and resolved
+owner; no classroom progress/block IDs were fabricated. There are zero failed
+rows or unsettled billable successes. Settled cost is **135.19 credits**, separate
+from earlier natural-classroom and selected-case runs. This is one complete
+synthetic evaluation cost, not a per-lesson price or long-term savings estimate.
+
+The initial report, observational diagnostics and ledger evidence are retained
+privately, with no real memory or classroom-session persistence. The isolated
+remote directory was removed after evidence was copied and verified. This result
+does not replace natural-course statistics after compaction, storage-backed
+journeys, real Bot/knowledge-base/Workflow acceptance, other models/languages,
+human teaching-quality feedback or long-term cost observation. Earlier failures
+remain historical evidence; this passing run does not relabel them.
+
 ## Running
 
 From `src/api` in the backend environment:
@@ -96,9 +369,16 @@ The evaluator refuses a 1.0 deployment and resolves the model through the same
 course-selection/access path as teaching. It supplies only synthetic inputs and
 never loads real learner memory or calls the session/profile persistence path.
 Existing shared-gateway usage, billing and tracing still occur, attributed to the
-provided dedicated learner under `agent_memory_quality_admission`,
-`agent_memory_quality_recall`, `agent_memory_quality_teaching` and the separate
-`agent_memory_quality_teaching_summary` generation. The evaluator does not modify the engine switch.
+provided dedicated learner, validated course and published lesson under
+`agent_memory_quality_admission`,
+`agent_memory_quality_recall`, `agent_memory_quality_teaching`,
+`agent_memory_quality_exercise` and the separate
+`agent_memory_quality_teaching_summary` generation. Shared settlement resolves
+that course's owner; normal billability and built-in-demo exemptions still apply.
+Generation names distinguish these synthetic costs from natural classroom costs.
+No classroom progress/block IDs or learning mode are fabricated. Earlier rows
+created before course attribution was added remain unchanged; do not infer their
+course from a learner ID alone. The evaluator does not modify the engine switch.
 
 `--case ID` may be repeated to diagnose selected cases; `--repeat` accepts 1–5,
 defaulting to one. Recall deliberately uses controlled temperature 0 and a
@@ -156,6 +436,133 @@ It requests a relevant read for memory questions, not an exhaustive memory scan.
 This is model guidance, not deterministic output enforcement. Retain intermittent
 violations as failed quality evidence; a passing run cannot erase an earlier failure.
 
+Default contextual text follow-ups also expose the same bounded `recall` tool.
+Current saved-fact answers require a fresh relevant read, using key discovery
+when necessary. An update or menu deletion in another lesson invalidates old
+answer/save-confirmation claims as current evidence. Explicit historical
+questions can still quote the original conversation without restoring memory.
+The final model-facing question carries a fixed host revalidation reminder;
+stored messages and raw learner write evidence remain unchanged. A current
+missing or different value cannot establish that an earlier save failed or
+that the learner never supplied it, so the answer must not invent that cause.
+The follow-up run keeps its authorized snapshot in user memory so a same-turn
+accepted write is visible to subsequent recall. Read-only calls do not invoke
+semantic write admission. Follow-up request/tool limits cover the snapshot's
+actual byte-bounded discovery pages, one exact read and three write attempts
+(plus up to three new pages). Write attempts remain capped at three separately;
+ordinary answers still need only one model request. Preview no-write rules
+remain unchanged. External provider-only answers and Live do not acquire
+these tools. See the [natural follow-up plan](../exec-plans/completed/mdf2-natural-memory-follow-up.md)
+for the initial failing journey and candidate acceptance.
+
+### Remaining natural answer quality
+
+The merged current-value fix does not close causal or chronological quality.
+Three final natural answers reported the correct current value but invented
+that an earlier save failed, did not overwrite a value, or never happened.
+Those transcripts remain failed evidence. Future quality acceptance must
+preserve historical statements without inferring a past operation's outcome
+from the current snapshot alone. Current-value correctness does not erase
+these failures or establish full memory, human or provider acceptance.
+
+The [follow-up evidence plan](../exec-plans/completed/mdf2-follow-up-memory-evidence.md)
+adds explicit provenance guidance to the system instructions, final-question
+projection and follow-up-only recall description. Found establishes the current
+value only; unavailable does not mean never saved, and too_large does not mean
+absent. Historical assistant confirmations are not write receipts. Answer a
+current-memory question directly without an unsolicited historical diagnosis;
+when explicitly asked for a cause, acknowledge that it is not established.
+Only the current run's remember result supports an acknowledged write outcome.
+This remains model guidance requiring natural validation. It does not alter
+recall's exact byte-bounded results, learner authorization or stored messages.
+An exact follow-up read also carries a separate fixed host interpretation after
+the unchanged tool return. Current absence uses present-tense wording; do not
+claim a value was never saved or list unrelated profile fields. Exact historical
+quotes must come verbatim from learner messages, not assistant suggestions;
+label paraphrases and acknowledge when original wording is unavailable. The
+post-read context is excluded from raw write permission evidence and still
+counts toward the gateway's total input budget. The first candidate's fresh-
+lesson and quotation failures remain failed evidence, not overwritten retries.
+
+The corrected sim sample has four correct current-value answers and an explicit
+unknown-cause answer without the earlier false save diagnoses. Eighteen requests
+settle completely (10.25 credits), with correct answer/progress/owner attribution
+and all 184 original elements preserved. This is narrow current-memory/causal
+acceptance only. Initial failures, including the first candidate's 17 requests
+(9.43 credits), remain recorded. Verbose suggestions and a generic unrelated
+field list in the final why answer remain quality observations.
+
+### Remaining exact follow-up quotations
+
+Both new natural samples correctly name the earlier analogy but present an
+assistant's suggested request as the learner's verbatim original. Stronger
+quotation guidance did not fix this. Exact-quotation acceptance remains failed
+and is the next separate evidence-grounding task, not part of the narrow
+save-cause acceptance. Preserve the original messages and failed responses.
+Read-only reconstruction of the final sample found that the actual last ten
+sidecars were all assistant answers: query ordering compared run-local counters
+across requests. Order sidecars by their original question row IDs, binding
+answer snapshots through ask_element_bid so late updates stay in their turn.
+Unlinked legacy rows retain insertion order. History limits and anchor scope
+remain unchanged for both text and Live consumers.
+
+Native text follow-ups expose learner_quotes over immutable original user-role
+messages in that authorized window, captured before host projection and excluding
+the current question. Keep raw text in new ask blocks/events and the existing
+sidecar payload.user_input; retain brace escaping only in transport prompts.
+Pass proven quote sources separately through the internal context/factory; a
+user role alone does not prove verbatim input. Synthesized classroom joins,
+embedded legacy history and old brace-bearing text without raw provenance are
+unavailable as exact sources. Do not guess at legacy decoding or rewrite old
+records. Existing brace-free canonical text asks are unchanged by historical
+escaping and can be exact sources. Live transcripts are trimmed during
+persistence and require explicit raw-input provenance; otherwise they are
+unavailable as exact sources while remaining general conversation context.
+Results include source index, learner role, before_current_question relation,
+oldest_to_newest order and explicit supplied-history-only coverage. A separate
+SDK ToolReturn host notice follows the JSON result to distinguish the current
+question from an earlier identical question; assistant timing assertions are
+not evidence. The total gateway input limit also counts that notice, which
+cannot grant write permission. Page complete messages within 8192 UTF-8 JSON
+bytes; an oversized message reports too_large, never shortened wording. Reserve
+read calls in the existing Agent budget. Exact quotations must copy available
+source content verbatim; missing originals mean unavailable in this context,
+not that the learner never said them. Assistant suggestions and current memory
+cannot substitute. Reading historical save requests grants no write permission
+and must not restore deleted notes. No additional DB history is loaded.
+
+See the [quotation plan](../exec-plans/completed/mdf2-follow-up-learner-quotations.md).
+The first new candidate (18da49cdc / sim 5ea6b4011) quotes exact complete text
+but misstates its order relative to an earlier identical question in two answers.
+Both remain failed evidence. Seven questions completed; fourteen requests settled
+for 7.7 credits, with correct new-answer attribution. All 200 original elements,
+nine lessons, eleven progress rows, nine finished sessions, profile and unrelated
+memory survive. Deleted-current-memory, missing-source and literal-brace checks
+hold. Explicit current-relative metadata and the late notice are the next
+correction; six relevant assertions fail before it. The final candidate (291df6c57 / sim f0108018c) passes three new complete
+quotation answers: first ask, identical repeated ask and post-deletion ask, with
+correct chronology relative to the current question. Four HTTP questions complete;
+nine actual requests settle for 4.7 credits with real new-answer attribution.
+All 214 original elements, nine lessons, eleven progress rows, nine finished
+sessions, profile and unrelated memory survive. The temporary preference remains
+deleted. Both ready sim APIs match 42 runtime hashes. User merged #3088 as
+2ba2420f7; this closes only the narrow quotation/chronology task. First-candidate
+verbosity and unrelated profile disclosure remain quality observations; other
+models and human acceptance remain open independently.
+
+### Follow-up usage attribution
+
+Text follow-up model requests, including memory admission and guardrail
+replies, use the new answer block's generated_block_bid. Create the frozen
+UsageContext after that placeholder is allocated and flushed, before model
+or provider execution. Preserve the actual progress, user, course, lesson,
+scene and learning mode. The question's block and historical teaching anchor
+must not stand in for this answer. Guardrail audit records still identify the
+learner's question. Existing usage rows are not backfilled. See the
+[follow-up attribution plan](../exec-plans/completed/mdf2-follow-up-block-attribution.md)
+for regression and live-ledger acceptance; this does not change settlement,
+transaction ownership, external provider-only routing or Live behavior.
+
 ## Release boundary
 
 A passing suite does not complete the entire memory milestone or authorize a
@@ -163,3 +570,83 @@ production switch. System-registered profile fields remain global; ordinary cour
 variables, named answers and explicit remembered notes remain course-local. No
 custom cross-course sharing is restored by this evaluator. Historical data and
 engine 1.0 remain until their separate acceptance and retirement conditions hold.
+
+### Natural-language text controls
+
+Text-bearing interactions must remain writable when the model omits a hint.
+The legacy UI uses a nonempty placeholder to expose its text box, so the host
+renders absent or whitespace-only hints through shared learner-language text.
+Explicit hints, prompts, options, variables and stored specs remain unchanged;
+this presentation fallback does not guess an authored question or an answer.
+
+Blank free-text values, including a nonempty list of empty strings, keep the
+original question pending without model execution or answer/memory writes.
+Real answers retain their original whitespace. Confirmations and named choices
+that intentionally store an empty value preserve their existing meanings.
+See the [text-control plan](../exec-plans/completed/mdf2-natural-text-controls.md)
+for current component, saved-session, sim and CI evidence. This reported bug takes
+priority before the next natural compressed-statistics journey; it does not close
+that acceptance item or authorize 1.0 deletion.
+
+
+The same missing-hint correction applies to narrated interaction spans emitted
+without a typed tool call. Add only an escaped localized hint; require parsed
+options, variable and selection semantics to remain identical, and leave existing
+hints/choice-only spans byte-for-byte unchanged. SDK whitespace preservation means
+text as received by the engine; the browser's existing trim/deduplication contract
+is unchanged. Blank browser input is already removed before `_turn_input`, so it
+cannot choose an empty-valued option accidentally; explicitly selected empty SDK
+values remain valid.
+
+
+### Natural compressed classroom: report-tool compliance
+
+After #3092 merged, a new internal learner completed the eleven-question course
+in eighteen successful HTTP requests and nineteen engine turns. A genuine
+4,110-byte explanation crosses the unchanged 4,096-byte threshold; later turns
+retain one successful semantic-summary cache entry. This establishes actual
+natural compression, unlike the earlier short-history sample. The final report
+still fails: it calls neither original-submission reads nor the calculator,
+miscounts a knowledge question, and contradicts its own per-question table.
+Four questions required corrections, while the summary claimed three. Preserve
+this failure; compression occurring does not establish that it caused the defect.
+All twenty-one actual requests settle for 30.35 credits with real classroom and
+owner attribution. No original learner is reset and no SQL writes are performed.
+The teacher also required peripheral devices beyond the authored five-point
+criterion; retain this separate quality finding. Hardware multithreading was
+initially misidentified as another expansion, but the full saved lesson explicitly
+requires it. Original pass/fail reporting fidelity does not validate the teacher's
+underlying grading or authorize changing the criteria.
+
+Opted-in reporting now appends request-local host status to model instructions.
+It names the next contiguous original-history page, then the calculation step,
+then only successful calculator totals. Out-of-order/invalid reads cannot advance
+that status; invalid/oversized calculations cannot provide successful totals.
+Only a successful post-read calculation supplies those totals. Earlier calculator
+responses retain compatibility but require recalculation after reading. A latest
+SDK schema rejection invalidates old success even when the function was not called.
+The real SDK sees the state changes on successive requests. State lives only in
+Deps and resets for the next run; original messages, answers, semantic grades,
+tool-result byte limits, schemas and portable defaults remain unchanged.
+The reminder applies only when the script requests statistics and does not add
+reports to ordinary lessons. This is model guidance, not deterministic prevention
+of reporting or finishing without tools. A same-turn final answer still needs
+feedback before evidence reads and reporting. After delivering the report, finish
+when the script is complete. A script request to remember the report cannot bypass
+the existing declared-or-learner-requested memory policy, invent a summary key, or
+justify retrying refused writes. A candidate replay produced correct rows/counts
+but exhausted its unchanged twelve-request budget attempting that unauthorized
+write; retain the unfinished failure while validating this completion guidance.
+
+The final report-turn replay succeeds with exact totals, normal finish and no
+memory-write attempts; #3094 is merged. See the
+[completed compressed-statistics plan](../exec-plans/completed/mdf2-natural-compressed-statistics.md)
+for retained failures and bounded validation, and the
+[authored-grading plan](../exec-plans/active/mdf2-authored-grading-criteria.md)
+for the separate grading drift and fresh complete-course follow-up.
+A non-persisting replay of a real pre-final-answer checkpoint
+must be identified as such; it cannot relabel the failed classroom or establish a
+new full-course/human acceptance. Initial trace reads failed; the supported trace
+API through the observed internal service later returns eighteen traces and all
+twenty-one generations. Fourteen actual teaching requests contain a semantic
+summary bound by position and content hash to the original 4,110-byte source.

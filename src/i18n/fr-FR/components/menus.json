@@ -4,6 +4,7 @@
     "adminConsole": "Accéder à l’administration",
     "createCourse": "Créer un cours",
     "language": "Langue",
-    "personalInfo": "Personnaliser"
+    "personalInfo": "Personnaliser",
+    "version": "Version"
   }
 }
