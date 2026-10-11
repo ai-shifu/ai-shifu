@@ -64,17 +64,19 @@ Object.defineProperty(global, 'IntersectionObserver', {
 });
 
 jest.mock('react-i18next', () => {
+  const chat = jest.requireActual<Record<string, string>>(
+    '../../../../../../../i18n/zh-CN/modules/chat.json',
+  );
   const translations: Record<string, string> = {
     'common.core.cancel': '取消',
     'common.core.ok': '确认',
     'common.core.scrollToBottom': '滚动到底部',
     'module.chat.ask': '追问',
-    'module.chat.lessonUpdateRecommendRetake':
-      '本节课程已更新，建议<action>重修</action>',
+    'module.chat.lessonUpdateRecommendRetake': chat.lessonUpdateRecommendRetake,
     'module.chat.lessonFeedbackSubmit': '提交',
     'module.chat.lessonPdfCourseQrLabel': '扫码进入课程，获得一对一讲解与答疑',
-    'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
-    'module.chat.lessonUpdateRetakeAction': '重修',
+    'module.chat.lessonUpdateRetakeAccessibleLabel':
+      chat.lessonUpdateRetakeAccessibleLabel,
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
     'module.lesson.reset.confirmTitle': '确认重修',
     'module.billing.alerts.actions.checkoutTopup': '购买积分',
@@ -519,7 +521,7 @@ describe('NewChatComponents', () => {
       name: '重修本节课程',
     });
     expect(retakeAction.closest('span')).toHaveTextContent(
-      '本节课程已更新，建议重修',
+      '本节已更新，建议重修',
     );
     expect(retakeAction).toHaveTextContent('重修');
 
@@ -549,9 +551,7 @@ describe('NewChatComponents', () => {
         name: '重修本节课程',
       }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('本节课程已更新，建议重修'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('本节已更新，建议重修')).not.toBeInTheDocument();
   });
 
   it('shows the credit purchase action only to the course owner in preview mode', () => {

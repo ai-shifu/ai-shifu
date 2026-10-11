@@ -168,7 +168,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   }: {
     name: string;
     isHidden: boolean;
-    learningPermission: LearningPermission;
+    learningPermission?: LearningPermission;
   }) => {
     if (!props.item.id) {
       return;

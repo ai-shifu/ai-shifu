@@ -174,6 +174,7 @@
 | `docs/exec-plans/completed/operator-user-contact-change.md` | Operator User Contact Change | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/operator-user-detail-page-slimming.md` | Operator User Detail Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/optional-model-output-limits.md` | Optional model output limits | `exec-plan-completed` | `completed` | `backend` | `2026-09-27` | `false` |
+| `docs/exec-plans/completed/outline-learning-permission-default.md` | Centralize the free outline default in the backend | `exec-plan-completed` | `completed` | `shared` | `2026-10-11` | `false` |
 | `docs/exec-plans/completed/package-campaigns.md` | ExecPlan: Package Campaigns | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/parallel-test-workers.md` | Run frontend and backend tests with two workers | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/password-login-rate-limit.md` | Password Login Account Rate Limit | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -253,6 +254,7 @@
 | `docs/product-specs/operator-user-management.md` | Operator User Management | `product-spec` | `implemented` | `shared` | `2026-09-08` | `true` |
 | `docs/product-specs/operator-user-points-columns.md` | Operator User Points | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
 | `docs/product-specs/operator-user-points-grant.md` | Operator User Points Grant | `product-spec` | `needs-review` | `frontend` | `-` | `true` |
+| `docs/product-specs/outline-learning-permission-default.md` | Backend-owned outline learning permission default | `product-spec` | `implemented` | `shared` | `2026-10-11` | `true` |
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
