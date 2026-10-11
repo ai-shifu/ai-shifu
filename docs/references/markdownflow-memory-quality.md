@@ -98,6 +98,13 @@ author's acceptance alternatives and lesson-wide requirements; it never selects
 a grade or advances the script. Ambiguous hints, non-standalone/multiline controls,
 variable-containing sections and oversized sections retain the full script
 without a focused copy. Code/comment examples do not locate an interaction.
+Matching first applies the host's existing interaction normalization to a copy
+of the original tool arguments: unadmitted variable names are ignored only under
+the declared-key policy, and exact authored input hints are restored by the same
+normalizer used for displayed controls. The raw call and answer stay unchanged.
+Unrestricted memory hosts and admitted-but-mismatched bindings retain conservative
+matching; normalization does not resolve duplicate anchors or enlarge the 8 KiB
+bound. Ignoring a rejected key for matching never grants permission to store it.
 This projection is host reference data, not learner input or memory permission;
 original messages and tool-result answers are retained unchanged, including
 without other history compaction. It adds no model call or request budget and

@@ -8,6 +8,42 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: User merges #3115 final head e106d2534 as a659a3523.
+      All final-head technical CI passes, including runtime harness. Sim build
+      573 / Drone 5362 succeeds; actual API 2/2 and web 1/1 are Ready on
+      sim-972155d. Both APIs match 57 fingerprints and each passes 141 SDK cases.
+      CN production still runs 53153e9 in a read-only check: the main push hook
+      for a659a3523 returns 502, so merging is not a deployment receipt.
+- [x] 2026-10-11: Preserve the refined first-question probe failure. Its three
+      phases pass navigation, but the wrong-answer hint again supplies the full
+      preparation/storage/automatic-execution answer. Six teaching generations
+      settle 9.40 credits, correctly attributed, without a real summary. Original
+      session, progress, variables and six history elements are unchanged. This
+      derived non-persisting probe does not supersede the ninth fresh failure;
+      the tenth learner is prepared but not created and receives no paid call.
+- [x] 2026-10-11: Identify a concrete context mismatch. The real raw interact
+      call names an undeclared variable; the host rejects that binding for the
+      displayed control, but focused context matches the unnormalized raw call
+      and declines the authored section. The canonical first-question section
+      already includes lesson-wide pacing and is 5406 bytes; adding another
+      preamble is unnecessary and that uncommitted experiment is discarded.
+- [x] 2026-10-11: Match request-local authored context using the existing host
+      key policy and text-input normalization, without changing raw tool calls,
+      original answers, persistence or permissions. Twenty-four real SDK cases
+      fail before the change, covering rejected variables and restored hints
+      under reload, compaction and saved-answer recovery. Four conservative
+      matching cases cover unrestricted/admitted keys and ambiguous anchors.
+      All 713 engine and 4356 broader learning/profile/user/quality cases pass,
+      with four subtests and one expected skip; developer tools and full gates
+      pass. The retained first-question input now gets one exact 5406-byte
+      reference containing its original global pacing. A private diagnostic
+      initially imports collected_names from the wrong module; correcting that
+      import verifies the projection without a paid call or source change.
+      Real-model disclosure compliance remains open.
+- [ ] 2026-10-11: Submit the independent normalized-context fix, integrate sim,
+      verify both actual replicas and SDK inputs, and test original first-question
+      evidence. Start another fresh classroom only after semantic hint review
+      passes; keep all earlier failures and unchanged course/request budgets.
 - [x] 2026-10-11: Pacing head 63c375975 deploys as sim 49d0e473b,
       build 572 / Drone 5361, API 2/2 and web 1/1 Ready. Both APIs match
       57 fingerprints and each passes 141 isolated SDK cases; local combined
