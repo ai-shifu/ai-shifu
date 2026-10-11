@@ -42,6 +42,8 @@ class Deps:
     finished: str | None = None  # set by `finish`; the summary the model gave
     # len(message history) when this turn started; anything after it belongs to this turn.
     history_len: int = 0
+    # Transient request guidance; never persisted as learner evidence or a grade.
+    resuming_interaction: bool = False
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None

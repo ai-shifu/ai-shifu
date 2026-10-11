@@ -1,0 +1,9 @@
+# Review this returned interaction
+
+The host is resuming an interaction with the learner's actual response. A clarification or navigation response is not an answer attempt; answer or advance according to that interaction without inventing a grade. When this is an answer to evaluate, apply the following order before writing feedback:
+
+1. Find this question's authored acceptance requirements, including explicit alternatives and equivalent-coverage allowances. Match every required point to evidence in the complete submitted answer. Classify each point as already covered, contradicted, or not supplied. Match concrete methods and their effects to the concept they demonstrate; do not count headings or category names instead of meaning. A missing label cannot undo a successful meaning match.
+2. Derive the correction from that comparison. Select hints only from genuinely unmatched requirements, including required points the answer never names. Do not replace an absent requirement with a covered one merely because the latter lacks a heading. If two concepts are absent, neither a covered concept nor an earlier teacher diagnosis belongs on that missing list. Preserve the author's hint order, number of aspects per round and retry limits.
+3. Keep covered points accepted while requesting a correction for the remaining gaps. A passing correction does not make an earlier unsupported diagnosis true. In later explanations and reports, recheck the original submission rather than copying your hint's gap list. If original evidence is unavailable, avoid a specific personal diagnosis.
+
+This is a review of the existing authored requirements, not an additional condition for passing. Follow the authored interaction and navigation boundaries after feedback. Do not expose this review procedure to the learner.

@@ -194,6 +194,7 @@ class Prompts:
     v1_syntax: str
     html_display: str = ""
     html_display_generic: str = ""
+    answer_review: str = ""
 
     @classmethod
     def default(cls) -> Prompts:
@@ -204,6 +205,7 @@ class Prompts:
             v1_syntax=(PROMPTS_DIR / "v1_syntax.md").read_text(),
             html_display=(PROMPTS_DIR / "html_display.md").read_text(),
             html_display_generic=(PROMPTS_DIR / "html_display_generic.md").read_text(),
+            answer_review=(PROMPTS_DIR / "answer_review.md").read_text().strip(),
         )
 
 
@@ -586,6 +588,8 @@ class Engine:
                 instructions += "\n\n" + notice
         if self.exercise_statistics:
             instructions += "\n\n" + exercise_report_notice(ctx)
+        if ctx.deps.resuming_interaction and self.prompts.answer_review:
+            instructions += "\n\n" + self.prompts.answer_review
         return instructions
 
     # -- sessions ----------------------------------------------------------------------------
@@ -841,6 +845,7 @@ class Engine:
             yield TurnDone(reason="finished", usage=session.usage)
             return
 
+        deps.resuming_interaction = bool(resumed)
         if session.started:
             kwargs["message_history"] = (
                 project_memory_history(
