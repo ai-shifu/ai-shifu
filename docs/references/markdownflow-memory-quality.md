@@ -138,6 +138,16 @@ knowledge explanation counting as help in the report does not itself authorize
 skipping a required correction stage. Explicit author permission for immediate
 explanation or a different progression remains authoritative.
 
+Select the feedback phase before applying a local authored hint example.
+Conditional examples are alternatives for matching submitted cases, not a
+checklist to combine for every wrong answer. Acceptance criteria support internal
+comparison; post-correct explanations require a passing submission. The
+request-local exact reference repeats this interpretation beside the original
+text without editing it or deciding the grade, hint level or next step in code.
+A matching local example remains subject to the lesson-wide stage and aspect
+limit. At a direction stage, stop after the bounded question; follow-up
+subquestions must not collectively reveal the remaining solution.
+
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.
