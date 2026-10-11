@@ -42,7 +42,6 @@ interface ChatUiProps {
   onPurchased: () => void;
   lessonTitle?: string;
   lessonStatus?: string;
-  lessonHasContentUpdate?: boolean;
   followUpMode?: 'text' | 'live_voice' | 'disabled';
   runtimeReady?: boolean;
   titleLanguage?: string;
@@ -69,7 +68,6 @@ export const ChatUi = ({
   onPurchased,
   lessonTitle = '',
   lessonStatus = '',
-  lessonHasContentUpdate = false,
   followUpMode = 'text',
   runtimeReady = true,
   titleLanguage,
@@ -225,7 +223,6 @@ export const ChatUi = ({
           titleLanguage={titleLanguage}
           contentLanguage={contentLanguage}
           lessonStatus={lessonStatus}
-          lessonHasContentUpdate={lessonHasContentUpdate}
           followUpMode={followUpMode}
           className={styles.chatComponents}
           previewMode={previewMode}

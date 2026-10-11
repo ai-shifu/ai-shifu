@@ -192,6 +192,7 @@ jest.mock('@/store/envStore', () => ({
   useEnvStore: Object.assign(
     (selector: (state: any) => unknown) =>
       selector({
+        courseId: 'shifu-1',
         logoHorizontal: mockLogoHorizontal,
         logoWideUrl: mockLogoWideUrl,
         officialSiteUrl: mockOfficialSiteUrl,
@@ -230,6 +231,7 @@ jest.mock('@/store/useCourseStore', () => ({
 jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector: (state: any) => unknown) =>
     selector({
+      previewMode: true,
       learningMode: mockLearningMode,
       updateLearningMode: jest.fn(),
     }),
@@ -417,7 +419,6 @@ const createNewChatComponentsElement = (
       chapterId='chapter-1'
       chapterUpdate={jest.fn()}
       getNextLessonId={jest.fn()}
-      lessonHasContentUpdate={true}
       lessonId='lesson-1'
       lessonTitle='第一课'
       titleLanguage={titleLanguage}
