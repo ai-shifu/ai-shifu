@@ -347,7 +347,9 @@ def _hint_counts(
     ]
     total = None if None in all_rounds else sum(hint is True for hint in all_rounds)
     earlier = (
-        None
+        0
+        if total == 0
+        else None
         if first is None or None in before
         else sum(hint is True for hint in before)
     )
