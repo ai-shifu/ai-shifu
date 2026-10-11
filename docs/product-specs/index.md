@@ -52,6 +52,8 @@ User-facing workflow and page behavior specifications live here.
   - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
 - [Operator User Points Grant](../product-specs/operator-user-points-grant.md)
   - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Backend-owned outline learning permission default](../product-specs/outline-learning-permission-default.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-11` | Canonical: `true`
 - [Password Login Feature Design](../product-specs/password-login-design.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Teacher Analytics Dashboard (v1)](../product-specs/teacher-analytics-dashboard.md)
