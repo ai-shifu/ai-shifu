@@ -72,6 +72,12 @@ Core feedback and the interaction tool also require a supporting original quote
 before naming a personal misconception, including after a correction. Without
 that evidence, teach the authored distinction generally.
 
+Personal omission claims must also follow the authored equivalent-coverage rule:
+compare the full submitted meaning before repeating a hint or listing a gap.
+Concrete examples and their effects can cover a category without its title; an
+answer still missing another concept does not make already covered points missing.
+Recheck original input instead of inheriting a prior generated gap list.
+
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.

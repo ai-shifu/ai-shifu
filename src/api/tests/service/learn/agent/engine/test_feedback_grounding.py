@@ -146,6 +146,7 @@ async def test_final_review_receives_original_omissions_over_prior_generated_dia
         policy = info.instructions or ""
         assert "Do not infer a personal habit" in policy
         assert "In final reports and study advice" in policy
+        assert "Judge omissions by submitted meaning" in policy
         assert (
             "Quote the actual submitted mistake before naming a personal misconception"
             in policy
@@ -172,3 +173,73 @@ async def test_final_review_receives_original_omissions_over_prior_generated_dia
 async def _events(events: AsyncIterator[object]) -> list[object]:
     """Collect a streamed SDK turn while retaining every error event."""
     return [event async for event in events]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+async def test_feedback_omissions_use_meaning_instead_of_missing_category_labels(
+    reload: bool,
+) -> None:
+    """Deliver original covered concepts and the authored equivalent-coverage rule."""
+    original = (
+        "Cache reduces memory waiting; DMA overlaps I/O and CPU work to reduce idle time. "
+        "Superscalar executes several instructions in a cycle."
+    )
+    session = Session(
+        script=ScriptBundle(
+            script=(
+                "Require RISC, hardware threading, superscalar execution and balanced throughput. "
+                "For balanced throughput, concrete memory-side and I/O-side methods with their "
+                "bottleneck effects suffice; the category title is not required. "
+                "Describe only genuinely missing concepts in feedback and review."
+            )
+        ),
+        messages=[
+            ModelRequest(
+                parts=[
+                    UserPromptPart(
+                        "Explain processor performance techniques. For balanced throughput, "
+                        "memory-side and I/O-side examples with their effects suffice; "
+                        "the category title is not required."
+                    )
+                ]
+            ),
+            ModelResponse(parts=[TextPart("Give techniques and their effects.")]),
+            ModelRequest(parts=[UserPromptPart(original)]),
+            ModelResponse(
+                parts=[TextPart("You omitted balanced throughput and superscalar.")]
+            ),
+        ],
+    )
+    if reload:
+        session = Session.loads(session.dumps())
+    before = ModelMessagesTypeAdapter.dump_json(session.messages)
+    count = len(session.messages)
+
+    async def model(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Inspect instructions and retained evidence, without judging real-model prose."""
+        policy = info.instructions or ""
+        assert "Judge omissions by submitted meaning" in policy
+        assert "missing category title does not establish missing knowledge" in policy
+        assert "do not ask again for a point already supplied" in next(
+            t.description for t in info.function_tools if t.name == "interact"
+        )
+        evidence = ModelMessagesTypeAdapter.dump_json(messages).decode()
+        assert original in evidence
+        assert "the category title is not required" in evidence
+        yield "Your answer is missing RISC and hardware threading."
+        yield {
+            0: DeltaToolCall(
+                name="finish", json_args='{"summary":"Reviewed actual omissions."}'
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    events = await _events(
+        engine.run_turn(session, MessageTurn(text="Review my original answer."))
+    )
+    assert not any(isinstance(event, ErrorEvent) for event in events)
+    assert session.finished
+    assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before

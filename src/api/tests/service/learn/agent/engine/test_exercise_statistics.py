@@ -642,6 +642,7 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
                 info.instructions or ""
             )
             assert "Personal review evidence" in (info.instructions or "")
+            assert "a missing category label alone" in (info.instructions or "")
             assert "do not turn authored examples into personal mistakes" in (
                 info.instructions or ""
             )

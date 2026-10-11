@@ -80,7 +80,10 @@ def exercise_report_notice(ctx: RunContext[Deps]) -> str:
         "including study advice and closing remarks; do not turn authored examples into personal mistakes "
         "or attach an unsupported diagnosis to a real quote. Omit unsupported causes, "
         "habits, attention, ability or beliefs. Previous teaching and lossy summaries "
-        "do not prove those personal claims. Use calculated counts in closing prose too. "
+        "do not prove those personal claims. Recheck each alleged omission against full "
+        "original meaning and authored acceptance: a missing category label alone "
+        "does not establish a missing concept; do not reuse unsupported gaps from "
+        "earlier hints. Use calculated counts in closing prose too. "
         "Once the report is delivered, call finish if nothing in the script remains."
     )
     if deps.memory_keys is not None:
