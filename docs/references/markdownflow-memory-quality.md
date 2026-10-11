@@ -104,6 +104,18 @@ without other history compaction. It adds no model call or request budget and
 remains subject to the existing complete-request input backstop. Real-model
 compliance is independently required.
 
+Correction pacing follows the author's current hint level and aspect limit
+across the entire response, including the interaction's question and placeholder.
+Checking every requirement internally does not authorize exposing every gap in
+one correction. An authored one-aspect hint addresses the current unresolved
+aspect only; authored graduated help starts with a checking direction and deepens
+as later learner responses warrant. Keep accepted points unless contradicted.
+A partial correction does not pass other unmet requirements, while a complete
+answer can pass immediately without artificial staged resubmissions. Scripts
+that permit multiple aspects or worked solutions retain that behavior; this
+policy adds no global one-aspect rule or retry limit. These remain model-facing
+instructions, not a semantic output filter or a host-generated hint.
+
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.

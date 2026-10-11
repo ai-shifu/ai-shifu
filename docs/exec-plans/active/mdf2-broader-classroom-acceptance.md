@@ -8,6 +8,33 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: User merges #3114 final head 4d396b35d as 53153e91e.
+      Fetched main equals the final tested head; all exact-head technical CI
+      passes, including runtime harness. Preserve the eighth uncompressed
+      classroom and seventh reporting failure without relabeling either. CN
+      actual API 6/6 and web 3/3 run 20261011-53153e9, all Ready; automatic
+      build 571 / Drone 5360 succeeds. Production checks remain read-only.
+- [x] 2026-10-11: Isolate authored correction pacing as the next focused
+      problem. The eighth CPU correction identifies two genuine gaps but requests
+      both in one turn despite the one-aspect rule. Earlier first-question hints
+      also supply the full answer before graduated help is exhausted. Existing
+      request-local guidance checks all gaps without distinguishing the visible
+      hint's scope; the original authored rules and actual failures are retained.
+- [x] 2026-10-11: Clarify authored hint stage and aspect limits in base guidance,
+      resumed-answer review and interaction-tool documentation. Internal coverage
+      checks do not authorize listing all gaps; apply the current scope across
+      content and interaction fields, retain accepted points and wait for the
+      correction. Accept a complete answer without staged resubmissions, and do
+      not impose one-aspect hints or a new retry limit when not authored. Sixteen
+      SDK delivery assertions fail before the guidance; they are not semantic
+      grading or proof of real-model compliance.
+- [x] 2026-10-11: Pacing guidance passes 685 engine cases and 4328 broader
+      learning/profile/user/quality cases, four subtests and one expected skip.
+      Developer tools and full repository gates pass. No original lesson, grading
+      criterion, evidence, state machine, arithmetic or request budget changes.
+- [ ] Submit the independent pacing PR, verify deployed sim and a non-persisting
+      original-evidence probe, then use another independent fresh naturally
+      compressed classroom. Passing SDK delivery does not close this acceptance.
 - [x] 2026-10-11: User merges #3111 final head d1f87ce1a as 611656a99.
       All final-head technical CI passes, including runtime harness. Merge the
       fetched main into #3114 and retain both independent acceptance histories;
@@ -553,6 +580,9 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Decision Log
 
+- Keep correction pacing authored and model-facing. Do not add a host semantic
+  grader, generated hint, automatic rejection, retry cap or extra model call.
+  Full internal coverage and the permitted visible hint are separate decisions.
 - Preserve original published lessons, generated history, and learner records.
   Use isolated internal learners for automated acceptance.
 - Keep system variables shared only through registered `sys_` keys; course
