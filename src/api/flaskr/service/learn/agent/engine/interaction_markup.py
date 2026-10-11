@@ -5,7 +5,9 @@ from __future__ import annotations
 import re
 
 _TAG = re.compile(
-    r"[ ]{0,3}<interact(?=[ \t/>])[^<\n]*?/?>[ \t]*(?:</interact[ \t]*>)?[ \t]*$"
+    r"[ ]{0,3}<interact(?=[ \t/>])"
+    r"""(?:[^<>"'\n]|"[^"<\n]*"|'[^'<\n]*')*"""
+    r"/?>[ \t]*(?:</interact[ \t]*>)?[ \t]*$"
 )
 _FENCE = re.compile(r"[ ]{0,3}(`{3,}|~{3,})(.*)$")
 INTERACTION_MARKUP_RETRY = (
