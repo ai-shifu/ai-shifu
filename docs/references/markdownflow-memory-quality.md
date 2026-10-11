@@ -113,7 +113,12 @@ as later learner responses warrant. Keep accepted points unless contradicted.
 A partial correction does not pass other unmet requirements, while a complete
 answer can pass immediately without artificial staged resubmissions. Scripts
 that permit multiple aspects or worked solutions retain that behavior; this
-policy adds no global one-aspect rule or retry limit. These remain model-facing
+policy adds no global one-aspect rule or retry limit. When complete-answer
+disclosure is forbidden, a copyable passing answer, an ordered answer checklist
+or a worked solution ending in "try again" still violates that boundary. A
+direction-only hint points to what to examine without reciting the answer;
+previous side-question help does not relax the authored restriction on correction
+hints. These remain model-facing
 instructions, not a semantic output filter or a host-generated hint.
 
 SDK feedback tests verify policy delivery and preservation of original attempts

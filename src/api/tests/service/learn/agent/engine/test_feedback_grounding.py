@@ -49,6 +49,8 @@ async def test_feedback_policy_keeps_author_examples_separate_from_submissions(
             assert "Author-provided mistakes and sample diagnoses" in policy
             assert "actual submissions" in policy
             assert "a missing point is not proof" in policy
+            assert "Could the learner copy this hint as a passing answer?" in policy
+            assert "A prior side-question explanation" in policy
             assert "# Correction pacing" in policy
             assert "do not reveal the complete answer" in policy
             assert "the current hint stage and aspect limit" in next(
@@ -205,6 +207,7 @@ async def test_resumed_answer_receives_current_criterion_review(
             assert "already covered, contradicted, or not supplied" in policy
             assert "A missing label cannot undo a successful meaning match" in policy
             assert "Select hints only from genuinely unmatched requirements" in policy
+            assert "An ordered checklist of the answer" in policy
             assert "An internal list of all gaps is not the current hint" in policy
             assert "across both content and interaction fields" in policy
             assert (

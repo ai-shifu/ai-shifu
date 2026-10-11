@@ -583,6 +583,9 @@ async def interact(
     other gaps in the question, options or placeholder. Ask for the authored correction,
     not every internally identified gap; do not supply a complete answer when the
     author calls for a graduated hint. Do not impose these limits when not authored.
+    When complete-answer disclosure is forbidden, a worked answer or an ordered
+    answer checklist followed by "try again" still violates that limit. Keep
+    direction-only hints about what to examine rather than what answer to copy.
     An authored navigation with one choice is still `single`, not an optional `confirm`.
     Do not replace an unanswered navigation with the following question's input. If the
     author puts navigation after answer feedback/explanation, call this tool for that
