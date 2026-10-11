@@ -16,16 +16,23 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       the completed report and earlier failures; do not alter course or counts.
 - [x] 2026-10-11: Clarify initial-round evidence in the report prompt, tool
       schema descriptions, calculator description and current request status.
-      hint_before uses only the first record's teaching. Later pre-answer help
+      hint_before uses the first record's teaching and visible question fields.
+      Qualifying placeholder help remains eligible under the author's rules;
+      ordinary labels and formatting cues do not automatically count. Later help
       belongs only to the corresponding hint_after; chronological timing still
       makes it help before the first answer. Genuine initial help remains valid.
       Two saved-session SDK delivery cases fail before the correction.
 - [x] 2026-10-11: Initial-round source passes 655 engine cases and repository
       gates, plus 4252 learning/profile/user/memory-quality/grading cases, four
       subtests and one expected skip. No evidence shape, semantic grading,
-      arithmetic, stored state or
-      model/request budget changes. Saved-session SDK checks establish delivery,
+      arithmetic, stored state or model/request budget changes. Saved-session SDK checks establish delivery,
       not real-model compliance.
+- [x] 2026-10-11: Adopt AI review's qualifying-placeholder boundary. Include
+      visible initial input hints when they actually provide solution help under
+      author rules; ordinary labels remain semantic non-hints. Two SDK delivery
+      cases fail before the refinement. Add original-round cases covering help
+      supplied through initial teaching or only the placeholder, with and without
+      history projection. Preserve original evidence and later-round deduplication.
 - [ ] Validate initial-round guidance locally, deploy it with current focused
       authored-context code on sim and run a distinct bounded report probe.
       A probe cannot relabel the seventh classroom or close fresh acceptance.
