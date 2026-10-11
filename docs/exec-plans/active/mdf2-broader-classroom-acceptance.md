@@ -8,6 +8,35 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: Pacing head 63c375975 deploys as sim 49d0e473b,
+      build 572 / Drone 5361, API 2/2 and web 1/1 Ready. Both APIs match
+      57 fingerprints and each passes 141 isolated SDK cases; local combined
+      checks pass 818 cases and gates. The initial fingerprint check stops on
+      old ready replicas before any paid request; wait for rollout and retain
+      that failure before the successful verification.
+- [x] 2026-10-11: A derived original-history CPU probe passes one-aspect
+      feedback and correction/navigation mechanics. Only the instruction-system
+      gap is requested; the other genuinely absent threading point is not listed
+      or hidden in input fields. A complete correction is accepted immediately.
+      Three teaching generations plus one actual summary settle 5.94 credits
+      with correct attribution and unchanged original session/variables/history.
+      This does not establish fresh classroom or first-question hint compliance.
+- [x] 2026-10-11: Preserve the ninth fresh learner's failure after three
+      ordinary HTTP/SSE requests. The first wrong-answer hint recites preparation,
+      storage and execution, then asks the learner to repeat the complete answer.
+      Actual trace inputs contain both the new pacing guidance and the author's
+      disclosure restriction. Stop without a correction or further teaching.
+      Six teaching generations settle 8.74 credits with actual progress/block/owner
+      attribution and no failed or unsettled usage. Six history elements are
+      retained; the 3580-byte maximum creates no summary/cache. Source and
+      variables stay unchanged. Do not relabel this failure using the CPU probe.
+- [x] 2026-10-11: Refine the same correction to distinguish a checking direction
+      from a copyable passing answer or ordered answer checklist. A complete
+      solution ending in "try again" remains disclosure; earlier side-question
+      explanations do not relax an authored correction limit. Sixteen SDK
+      assertions fail before this refinement. All 685 engine and 4328 broader
+      cases, four subtests and one expected skip pass, plus developer tools and
+      repository gates. Deployed direction-only verification remains open.
 - [x] 2026-10-11: User merges #3114 final head 4d396b35d as 53153e91e.
       Fetched main equals the final tested head; all exact-head technical CI
       passes, including runtime harness. Preserve the eighth uncompressed
