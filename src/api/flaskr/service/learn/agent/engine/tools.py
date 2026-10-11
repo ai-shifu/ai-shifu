@@ -568,6 +568,12 @@ async def interact(
     explicitly names; follow the host memory policy for eligible declarations. Leave it empty
     otherwise.
     The learner's answer is returned as the tool result; then continue the script.
+    An authored navigation with one choice is still `single`, not an optional `confirm`.
+    Do not replace an unanswered navigation with the following question's input. If the
+    author puts navigation after answer feedback/explanation, call this tool for that
+    navigation alone and wait; only its returned selection permits the following step.
+    Do not include the following question in the same response as that explanation.
+    When no intervening navigation is authored, follow the author's next step normally.
     """
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
