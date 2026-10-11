@@ -47,12 +47,26 @@ Every reference must appear exactly once across submissions and `excluded`.
 If coverage is refused, use its missing, unknown and duplicate reference lists to
 repair the arguments. Diagnostics may be truncated; their counts cover the full
 failure. Do not repeat unchanged arguments or reread an already complete history.
-For every question, set `hint_before` for teaching accompanying its first
-submitted interaction. For every submission, including `not_answer`, set
+For every question, set `hint_before` from only the first record's teaching,
+not following_teaching or the question's placeholder. Under author rules that
+exclude ordinary instructions, course logistics and question-only teaching are
+false. A promise to give hints later is not a hint delivered now. Inspect the
+initial round independently of later help.
+For every submission, including `not_answer`, set
 `hint_after` for its exact `following_teaching`: true for a qualifying hint under
 the author's rules, false for non-hint teaching, null when unknown. Ordinary
 question instructions are not automatically an initial hint. Inspect every
-round rather than supplying one overall count. The calculator derives total
+round rather than supplying one overall count. A later pre-answer explanation
+belongs to that input's `hint_after`, not also hint_before. Its timing before the
+first actual answer contributes to `hints_before_first` through the calculator,
+without turning the initial question into a hint. For example, an initial question
+with ordinary instructions, a knowledge request followed by one helpful
+explanation, one wrong answer followed by one hint, and a correct retry followed
+by analysis has `hint_before=false`, chronological `hint_after=true,true,false`,
+`hints=2` and `hints_before_first=1`. If the initial teaching itself supplies
+qualifying help under the author's rules, classify it true separately; do not
+force all initial rounds to false.
+The calculator derives total
 hints and timing from these flags and original `answer_group` order. Records
 sharing an answer group have the same following teaching: classify consistently
 and count the round once for that question. Prefer omitting the optional legacy

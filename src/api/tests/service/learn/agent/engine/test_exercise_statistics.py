@@ -579,9 +579,17 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
         )
         assert "two rounds" in question_schema["hints"]["description"]
         assert "round evidence" in question_schema["hint_before"]["description"]
+        assert (
+            "first record's teaching" in question_schema["hint_before"]["description"]
+        )
+        assert "not following_teaching" in question_schema["hint_before"]["description"]
         submission_schema = schema["$defs"]["SubmissionJudgment"]["properties"]
         assert "following_teaching" in submission_schema["hint_after"]["description"]
         assert "answer_group" in submission_schema["hint_after"]["description"]
+        assert "not also hint_before" in submission_schema["hint_after"]["description"]
+        assert "course logistics and question-only teaching" in (
+            info.instructions or ""
+        )
         assert "Count every qualifying teaching round" in (info.instructions or "")
         assert "Quote the actual submitted mistake" in (info.instructions or "")
         assert "not evidence of personal misconceptions" in next(
@@ -612,6 +620,8 @@ async def test_engine_deferred_resume_reads_original_answer_and_feedback(
             assert "both before and after the first actual answer" in (
                 info.instructions or ""
             )
+            assert "first record's teaching" in (info.instructions or "")
+            assert "not also hint_before" in (info.instructions or "")
             page = next(p for p in messages[-1].parts if isinstance(p, ToolReturnPart))
             record = json.loads(json.loads(page.content)["text"])[0]
             assert record["answer"] == "Learner wrote: " + learner_input

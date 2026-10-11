@@ -8,6 +8,28 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: Isolate the seventh fresh classroom's hint overcount.
+      Original course logistics and the first question contain no solution help,
+      but hint_before is true. The following knowledge explanation and correction
+      hint are also true, yielding three rounds instead of the independently
+      frozen two. All references and calculator arithmetic are correct. Preserve
+      the completed report and earlier failures; do not alter course or counts.
+- [x] 2026-10-11: Clarify initial-round evidence in the report prompt, tool
+      schema descriptions, calculator description and current request status.
+      hint_before uses only the first record's teaching. Later pre-answer help
+      belongs only to the corresponding hint_after; chronological timing still
+      makes it help before the first answer. Genuine initial help remains valid.
+      Two saved-session SDK delivery cases fail before the correction.
+- [x] 2026-10-11: Initial-round source passes 655 engine cases and repository
+      gates, plus 4252 learning/profile/user/memory-quality/grading cases, four
+      subtests and one expected skip. No evidence shape, semantic grading,
+      arithmetic, stored state or
+      model/request budget changes. Saved-session SDK checks establish delivery,
+      not real-model compliance.
+- [ ] Validate initial-round guidance locally, deploy it with current focused
+      authored-context code on sim and run a distinct bounded report probe.
+      A probe cannot relabel the seventh classroom or close fresh acceptance.
+
 - [x] 2026-10-11: Keep #3111's focused authored-context probe separate from
       full acceptance. Its three teaching generations and one summary settle
       5.78 credits with unchanged original state/history. Meaning coverage and
