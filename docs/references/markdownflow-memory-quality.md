@@ -78,6 +78,32 @@ Concrete examples and their effects can cover a category without its title; an
 answer still missing another concept does not make already covered points missing.
 Recheck original input instead of inheriting a prior generated gap list.
 
+Default engine prompts also append a request-local review when deferred
+interaction answers are resumed, including saved-answer recovery. Before feedback,
+match every authored requirement to the complete original answer, distinguish
+covered, contradicted and absent points, and select hints only from genuinely
+unmatched requirements. Explicit equivalent-coverage allowances apply before
+checking whether a category title is present. Clarifications and navigation do
+not become answer attempts. A synthetic host result for an unshown question is
+not learner evidence; re-ask that unanswered question in a renderable form.
+This transient guidance adds no grade, persisted
+evidence, model call or request budget; custom prompt bundles can omit it.
+It remains model guidance rather than a semantic validator.
+
+For one resumed text interaction with a unique exact authored input hint, the
+default engine may also copy its static Markdown section near that interaction
+in the model-facing history. The whole enclosing section is bounded by heading
+ancestry and the next authored interaction, at most 8 KiB. The copy retains the
+author's acceptance alternatives and lesson-wide requirements; it never selects
+a grade or advances the script. Ambiguous hints, non-standalone/multiline controls,
+variable-containing sections and oversized sections retain the full script
+without a focused copy. Code/comment examples do not locate an interaction.
+This projection is host reference data, not learner input or memory permission;
+original messages and tool-result answers are retained unchanged, including
+without other history compaction. It adds no model call or request budget and
+remains subject to the existing complete-request input backstop. Real-model
+compliance is independently required.
+
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.
