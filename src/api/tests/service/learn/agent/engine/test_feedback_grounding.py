@@ -49,6 +49,13 @@ async def test_feedback_policy_keeps_author_examples_separate_from_submissions(
             assert "actual submissions" in policy
             assert "a missing point is not proof" in policy
             assert "general example" in policy
+            assert (
+                "Quote the actual submitted mistake before naming a personal misconception"
+                in policy
+            )
+            assert "cite the original submission" in next(
+                t.description for t in info.function_tools if t.name == "interact"
+            )
             assert "If the original evidence is unavailable" in policy
             assert "Do not infer a personal habit" in policy
             evidence = ModelMessagesTypeAdapter.dump_json(messages).decode()
@@ -139,6 +146,10 @@ async def test_final_review_receives_original_omissions_over_prior_generated_dia
         policy = info.instructions or ""
         assert "Do not infer a personal habit" in policy
         assert "In final reports and study advice" in policy
+        assert (
+            "Quote the actual submitted mistake before naming a personal misconception"
+            in policy
+        )
         assert "not proof of independent reasoning or effort" in policy
         assert "not your earlier feedback" in policy
         assert original in ModelMessagesTypeAdapter.dump_json(messages).decode()
