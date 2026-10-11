@@ -11,11 +11,17 @@ from flaskr.service.learn.agent.engine import (
     InteractionResponseTurn,
     Session,
 )
-from flaskr.service.learn.agent.engine.answer_context import authored_answer_section
+from flaskr.service.learn.agent.engine.answer_context import (
+    authored_answer_section,
+    project_answer_context,
+)
 from flaskr.service.learn.agent.engine.interaction import InteractionSpec
 from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
+    ModelRequest,
+    ModelResponse,
+    ToolCallPart,
     ToolReturnPart,
     UserPromptPart,
 )
@@ -39,8 +45,9 @@ SCRIPT = (
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("compaction", [False, True])
 @pytest.mark.parametrize("retry_saved_answer", [False, True])
+@pytest.mark.parametrize("normalized_case", ["exact", "variable", "hint", "both"])
 async def test_sdk_receives_exact_local_author_rule_without_persisting_projection(
-    reload: bool, compaction: bool, retry_saved_answer: bool
+    reload: bool, compaction: bool, retry_saved_answer: bool, normalized_case: str
 ) -> None:
     """Retain original answers and authored evidence through both history paths."""
     calls = 0
@@ -58,6 +65,11 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
                 "prompt": "Explain techniques.",
                 "placeholder": "Techniques and effects",
             }
+            if normalized_case in ("variable", "both"):
+                spec["variable"] = "model_invented_key"
+            if normalized_case in ("hint", "both"):
+                spec["prompt"] = "Techniques and effects"
+                spec.pop("placeholder")
             yield "Explain techniques."
         else:
             parts = [
@@ -105,6 +117,8 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
     )
     session = await engine.new_session(SCRIPT)
     await _events(engine.run_turn(session))
+    assert session.pending[0].spec.variable is None
+    assert session.pending[0].spec.placeholder == "Techniques and effects"
     if retry_saved_answer:
         session.answers[session.pending[0].tool_call_id] = "Learner wrote: " + original
         session.pending = []
@@ -180,6 +194,42 @@ def test_ambiguous_unsupported_and_oversized_sections_keep_full_script(
 def test_navigation_is_not_an_answer_context_anchor() -> None:
     spec = InteractionSpec(type="single", prompt="", options=[{"display": "Next"}])
     assert authored_answer_section(SCRIPT, spec) is None
+
+
+@pytest.mark.parametrize(
+    ("memory_keys", "script", "expected"),
+    [
+        (None, SCRIPT, False),
+        (frozenset(), SCRIPT, True),
+        (frozenset({"model_invented_key"}), SCRIPT, False),
+        (frozenset(), SCRIPT + SECTION, False),
+    ],
+)
+def test_only_host_rejected_variables_can_be_ignored_for_matching(
+    memory_keys: frozenset[str] | None, script: str, expected: bool
+) -> None:
+    """Keep unrestricted, declared and ambiguous variable bindings conservative."""
+    spec = _spec().model_copy(update={"variable": "model_invented_key"})
+    messages = [
+        ModelRequest(parts=[UserPromptPart(script)]),
+        ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name="interact",
+                    args=spec.model_dump(),
+                    tool_call_id="current",
+                )
+            ]
+        ),
+    ]
+    before = ModelMessagesTypeAdapter.dump_json(messages)
+    projected = project_answer_context(
+        messages, script, {"current"}, memory_keys=memory_keys
+    )
+    assert (projected is not messages) == expected
+    assert ModelMessagesTypeAdapter.dump_json(messages) == before
+    if expected:
+        assert json.loads(projected[0].parts[-1].content)["text"] == SECTION
 
 
 async def _events(events: AsyncIterator[object]) -> list[object]:
