@@ -8,6 +8,60 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: User merges #3116 final head 0b8fd5224 as 00ff97fba.
+      Fetch confirms identical trees. All final-head technical CI passes,
+      including runtime harness 38149399794. CodeRabbit substantively reviews
+      all five files through the final head with no actionable comments and
+      85.71% docstring coverage; Devin and Codex have no functional-head findings.
+      Automatic main build 575 / Drone 5364 succeeds; actual CN API 6/6 and web
+      3/3 are Ready on 20261011-00ff97f. This release also includes #3115, so
+      the earlier failed hook needs no replay. Production checks remain read-only.
+- [x] 2026-10-11: Isolate the remaining direction-before-explanation problem.
+      The prior trace proves exact authored pacing is delivered, but the first
+      correction still teaches local reasoning immediately. Generic instructions
+      to explain a gap can invite that later help stage. Keep their feedback
+      requirement subordinate to the author's current stage: at a checking
+      direction, briefly identify the issue, give one bounded guiding question
+      and wait without answering it. A prior knowledge explanation counting as
+      help does not itself skip correction stages. Preserve explicit author
+      permission for immediate explanation or another progression.
+- [x] 2026-10-11: Thirty-six SDK assertions fail before the stage clarification
+      across reload, saved answers, compaction and normalized controls. Controlled
+      callbacks check instruction/tool delivery, not semantic compliance.
+- [x] 2026-10-11: The clarification passes 713 engine and 4356 broader
+      learning/profile/user/quality cases, four subtests and one expected skip,
+      plus developer tools and full gates. Published source remains the retained
+      original snapshot. The next original-prefix probe is prepared with unchanged
+      inputs and twelve-request budget; its semantic result is not yet known.
+- [ ] 2026-10-11: Validate the independent direction-stage correction locally,
+      submit its focused PR, deploy sim and compare frozen original-prefix output
+      before starting any new fresh classroom. Preserve all preceding failures,
+      course criteria, memory permissions, interaction boundaries and budgets.
+- [x] 2026-10-11: Independent normalized-context PR #3116, functional head
+      01e92512b, deploys as sim 330cf65bc, build 574 / Drone 5363. Actual
+      API 2/2 and web 1/1 are Ready; both APIs match 57 fingerprints and each
+      passes 169 isolated SDK cases. Local merged engine/quality checks pass
+      846 cases and full gates. Devin and Codex report no findings on this
+      functional head; CodeRabbit is rate limited, not substantively reviewed.
+- [x] 2026-10-11: The changed-runtime original-prefix probe verifies author
+      context delivery on all four answer/correction model requests; both
+      navigation requests have no answer-section projection. The three phases
+      preserve correct waiting and navigation. Six teaching generations settle
+      9.78 credits with actual progress/block/owner attribution, no failed or
+      unsettled usage and no summary. Original session/progress/variables and
+      six stable history elements are unchanged. This closes only #3116's
+      normalized-context delivery problem, not authored hint quality.
+- [x] 2026-10-11: Preserve the remaining hint-stage failure separately. The
+      new wrong-answer hint no longer recites the complete three-stage answer,
+      but immediately provides several paragraphs of local memory-fetch and
+      preparation reasoning plus two guiding questions. It does not stop at
+      the planned checking direction. Do not loosen the stage expectation or
+      start the prepared tenth learner; no fresh learner or paid fresh call
+      exists. Preserve both preceding probe and ninth classroom failures.
+- [ ] 2026-10-11: Continue the independent authored hint-stage issue with
+      original published rules and frozen submissions. Normalized reference
+      delivery and navigation passing cannot establish semantic stage fidelity
+      or fresh naturally compressed full-classroom acceptance.
 - [x] 2026-10-11: User merges #3115 final head e106d2534 as a659a3523.
       All final-head technical CI passes, including runtime harness. Sim build
       573 / Drone 5362 succeeds; actual API 2/2 and web 1/1 are Ready on
@@ -40,10 +94,10 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       initially imports collected_names from the wrong module; correcting that
       import verifies the projection without a paid call or source change.
       Real-model disclosure compliance remains open.
-- [ ] 2026-10-11: Submit the independent normalized-context fix, integrate sim,
+- [x] 2026-10-11: Submit the independent normalized-context fix, integrate sim,
       verify both actual replicas and SDK inputs, and test original first-question
-      evidence. Start another fresh classroom only after semantic hint review
-      passes; keep all earlier failures and unchanged course/request budgets.
+      evidence. The focused delivery receipt above passes; the independent hint
+      stage remains failed, so fresh classroom acceptance stays open.
 - [x] 2026-10-11: Pacing head 63c375975 deploys as sim 49d0e473b,
       build 572 / Drone 5361, API 2/2 and web 1/1 Ready. Both APIs match
       57 fingerprints and each passes 141 isolated SDK cases; local combined

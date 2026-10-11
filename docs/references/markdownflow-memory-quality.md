@@ -128,6 +128,16 @@ previous side-question help does not relax the authored restriction on correctio
 hints. These remain model-facing
 instructions, not a semantic output filter or a host-generated hint.
 
+At an authored checking-direction stage, feedback briefly identifies the issue
+and gives one bounded guiding question, leaving that question unanswered for the
+learner. A question surrounded by its worked reasoning or several explanatory
+paragraphs already moves into explanation, even without disclosing the complete
+answer. The generic feedback requirement does not override the author's stage.
+Actual correction history and authored progression determine later steps; a
+knowledge explanation counting as help in the report does not itself authorize
+skipping a required correction stage. Explicit author permission for immediate
+explanation or a different progression remains authoritative.
+
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.
