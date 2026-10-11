@@ -8,6 +8,31 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: #3117 branch rewrite 9f69659aa passes 713 engine and
+      4356 broader cases, four subtests, one expected skip and full gates.
+      All functional-head technical CI passes, including runtime 38152421162.
+      Sim 79fd8d60e, build 578 / Drone 5367, is Ready on API 2/2 and web 1/1;
+      both APIs match 57 fingerprints and each passes 169 SDK cases, with 846
+      combined local checks and gates. Draft status still skips substantive bot
+      review. No automatic merge occurs.
+- [x] 2026-10-11: Preserve the third probe's failed overall pacing verdict.
+      No full answer checklist or worked reasoning is disclosed before correction,
+      but the hint asks both where the first instruction comes from and how the
+      processor knows its next action. These are two checks rather than the frozen
+      single bounded direction. Partial improvement does not relax the criterion.
+      Complete correction is accepted and actual navigation works. Personal
+      feedback quotes the real storage denial; the disk-file distinction remains
+      general. Six teaching generations settle 9.94 credits with correct actual
+      attribution and no failed/unsettled usage or real summary. Exact reference
+      counts are 1/1/1/1/0/0 with the system review delivered; source and original
+      session/progress/variables/six history elements are unchanged.
+- [ ] 2026-10-11: Keep #3117 Draft and do not start the tenth learner. Prompt
+      delivery, local gates and navigation have passed, but the configured model's
+      single-aspect direction compliance has not. Investigate a bounded feedback
+      phase contract before another changed-runtime paid probe; do not keep adding
+      prose or rerun the same version. Preserve all three failed probes, existing
+      classrooms, original author text, criteria, variables and request limits.
+      Fresh natural compression, complete report and broader milestones remain open.
 - [x] 2026-10-11: #3117 second head 5785901db deploys as sim 319164313,
       build 577 / Drone 5366. Both actual APIs match 57 fingerprints and each
       passes 169 SDK cases; actual API 2/2 and web 1/1 are Ready. Local merged
