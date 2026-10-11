@@ -205,6 +205,12 @@ that semantic quality gap remains separate. The original classroom stays failed,
 and fresh complete compressed-classroom acceptance remains open in the
 [broader classroom plan](../exec-plans/active/mdf2-broader-classroom-acceptance.md).
 
+The correction deploys to sim 1f1e27f75 through manual Drone build 5330
+(build 541) followed by automatic rollout on 2026-10-11. API 2/2 and web 1/1
+are ready. Both APIs match 55 source/resource fingerprints and each deployed
+image passes 43 isolated report checks, including SDK recovery. These checks
+use no paid model calls or database writes and do not replace fresh acceptance.
+
 Private trace-list retrieval timed out; no trace-input observation is claimed.
 Persisted summaries and the attributed summary usage establish summary activity.
 No old learner is reset, no published lesson is changed, and no replay or paid

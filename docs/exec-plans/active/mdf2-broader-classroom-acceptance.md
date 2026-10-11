@@ -16,13 +16,19 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       report reads all ten evidence pages but omits ten ordinary single-choice
       navigation references; two invalid calculations exhaust the unchanged
       twelve-request budget. All forty generations settle 71.82 credits.
-- [ ] Fix explicit navigation exclusions and actionable bounded coverage errors;
-      verify offline and on sim before another justified natural acceptance run.
+- [x] 2026-10-11: Fix explicit navigation exclusions and bounded coverage errors.
+      Verify retained-input recovery offline and 43 isolated report checks on each
+      deployed sim API replica; a fresh natural classroom remains a separate step.
 - [x] 2026-10-11: Four regressions fail before the correction; all 43 report
       protocol/statistics checks and 602 engine checks pass afterward. The real
       SDK repairs a missing navigation exclusion without counting it as an answer.
       Offline retained-input repair identifies all ten missing references, but
       the model's five hint rounds differ from the saved expectation of six.
+- [x] 2026-10-11 05:45 UTC: sim integration 1f1e27f75 deploys through manual
+      Drone build 5330 (build 541) and automatic API/web rollout. API 2/2 and
+      web 1/1 are ready; both APIs match 55 source/resource fingerprints. Each
+      deployed image passes all 43 isolated report checks without paid generation
+      or database writes. This proves the focused correction, not a new classroom.
 - [ ] Exercise additional configured providers, models, and teaching languages.
 - [ ] Verify broader multi-lesson memory and Ask journeys with ordinary requests.
 - [ ] Collect independent human feedback and evaluate longer-term generation cost.
