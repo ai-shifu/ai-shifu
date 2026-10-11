@@ -47,6 +47,32 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 - [x] 2026-10-11 03:25 UTC: Transfer outstanding external acceptance from the
       completed grading plans into this named active continuation record.
 - [ ] Run a fresh complete journey that naturally triggers history compression.
+- [x] 2026-10-11: New learner completes all eleven questions through 28
+      ordinary HTTP/SSE requests on sim baf57b452. The 4354-byte initial
+      explanation triggers one real summary/cache entry. Nine original-history
+      pages contain 27 records; all seventeen relevant inputs and ten navigation
+      exclusions match. One calculation, all eleven rows and visible totals match
+      the independent pre-final expectation: fourteen attempts, three retries,
+      eight first-correct, six independent-first, six hints across five questions,
+      and three non-answer questions. Twenty-eight visible texts match stored
+      history exactly; repeated reads preserve all 56 elements. All 42 generations
+      settle 81.89 credits with actual progress/block/owner attribution and no
+      failed or unsettled usage. Published source is unchanged. This establishes
+      the fresh compressed reporting path, but the feedback finding below prevents
+      closing full authored classroom acceptance.
+- [x] 2026-10-11: Retain that journey's final feedback failure: the advice
+      infers that the learner tends to remember only frequency, memory and disk,
+      despite their original answer also supplying word length. Reinforce the
+      same personal-feedback evidence boundary for omissions, habits and final
+      advice; do not infer independent effort from a correction after a supplied
+      hint. Add two SDK final-review/reload cases retaining original input despite
+      a misleading prior generated diagnosis; all six delivery assertions fail
+      without the added guidance. Real-model verification remains separate.
+- [x] 2026-10-11: The expanded correction passes 4208 learning/profile/
+      user/quality cases, four subtests and one expected skip; developer tools
+      and repository gates pass. CodeRabbit's original docstring warning has a
+      reply linking pushed 875f1315d and focused validation; its rerun reports
+      100%. No actionable code findings are present at this point.
 - [x] 2026-10-11: Confirm #3103 merged as a7345f6de with all technical CI
       passing, including runtime harness. A new internal learner starts from the
       first question on sim de8cf2629; both APIs match 55 runtime fingerprints.
@@ -165,6 +191,12 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 - [ ] Record evidence, remaining failures, and final acceptance boundaries here.
 
 ## Surprises & Discoveries
+
+The new fresh journey retains a separate first-question hint concern: after the
+wrong answer, the teacher gives all three target answer stages explicitly even
+though the authored lesson asks for a directional, graduated hint rather than
+the complete answer. Keep the original turn and assess this independently of
+personal-feedback grounding, successful navigation or correct report arithmetic.
 
 The narrow navigation recovery also exposes a separate feedback-grounding
 observation: after the actual wrong answer says the program can be written while

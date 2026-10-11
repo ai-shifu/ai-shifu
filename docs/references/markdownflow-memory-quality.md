@@ -63,6 +63,10 @@ Required authored distinctions may still be taught as general examples without
 claiming the learner made those mistakes. Earlier generated feedback and lossy
 teaching summaries cannot substitute for original learner input; unavailable
 evidence limits the personal claim. Grading criteria and retries stay unchanged.
+Final reports and study advice have the same evidence boundary: an omitted item
+does not prove a personal habit, belief, ability or cause. Describe the observed
+omission, without narrowing away items the learner actually supplied. A corrected
+submission after a supplied hint does not prove independent reasoning or effort.
 
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
