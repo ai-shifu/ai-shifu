@@ -39,8 +39,28 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       and the actual interact tool description, with an explicit three-turn
       example. Six provider-delivery assertions fail before those additions.
       These remain guidance, not a host cursor or deterministic semantic guard.
-- [ ] Verify the navigation correction against the genuine pre-wrong-answer
-      checkpoint on deployed sim, without overwriting the failed classroom.
+- [x] 2026-10-11 07:32 UTC: Verify the reinforced navigation correction on
+      sim ecbe49e29, automatic build 548 / Drone 5337. API 2/2 and web 1/1 are
+      updated/ready; HTTP 200; both APIs match 55 runtime/resource fingerprints
+      and each passes six isolated SDK cases. From the genuine turn-two
+      checkpoint, wrong answer waits for correction, the accepted correction
+      produces only the authored next-question control, and its actual selection
+      opens question 1-3 directly. All three gateway requests receive notation,
+      core-turn and tool-description guidance. The third request also contains
+      one actual semantic-summary projection/cache entry for the long original.
+      Three teaching generations plus one summary settle 4.27 credits with actual
+      progress/block/owner attribution and no failed or unsettled generations.
+      Original messages/memory remain in the in-memory session; stored session,
+      progress, variables and eight history elements are unchanged. This passes
+      narrow navigation recovery, not a fresh compressed-classroom journey.
+- [x] 2026-10-11: Final focused validation passes 623 engine checks and 3185
+      learning/quality checks, one expected skip and four subtests; tools and full
+      gates pass. Sim engine/quality checks pass 669 cases. The executable interact
+      AST is unchanged apart from its model-visible docstring. The AI channel
+      coverage finding and independent docstring warning both have original-thread
+      replies after pushed commit 76aa35e5e; CodeRabbit substantively reviews that
+      functional head with no new findings and its docstring check reports 100%.
+      Final receipt-only CI is tracked separately and must not be assumed passed.
 - [x] 2026-10-11: Locate the retained hint undercount in question 1-2. The
       original pre-answer explanation and later wrong-answer correction are two
       qualifying rounds; both refused calculator calls supply hints=1 and
@@ -109,6 +129,13 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 - [ ] Record evidence, remaining failures, and final acceptance boundaries here.
 
 ## Surprises & Discoveries
+
+The narrow navigation recovery also exposes a separate feedback-grounding
+observation: after the actual wrong answer says the program can be written while
+executing, the accepted-answer explanation attributes a hard-disk/file-saving
+confusion to the learner. That confusion is an authored example, not this
+learner's submitted mistake. Preserve the output and review this separately;
+navigation passing does not establish full feedback or grading quality.
 
 The successful eleven-question run did not trigger compression: its largest
 original-message JSON was 3712 bytes. Passing it cannot establish naturally

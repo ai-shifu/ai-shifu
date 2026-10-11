@@ -296,17 +296,49 @@ script's single-option next-question interaction. Preserve all four normal
 HTTP requests and 5.29 settled credits. The 4663-byte original explanation has
 not yet produced a summary, so this is not successful compression acceptance.
 
-The notation policy now explicitly preserves authored one-option navigation
-as a required single-choice interaction after the answer's explanation. A
-correct answer or side question cannot stand in for selecting that control;
-only its actual selection permits following content. Proceed directly after
-selection without asking for another confirmation. This is model guidance,
-not a host cursor or inference that every option named next is navigation.
-It leaves ordinary choices, authored retries, section separators and existing
-pause permissions intact. Six controlled SDK cases check delivery and actual
-deferred-control mechanics with first answers, corrections, clarification and
-serialization. Real-model verification remains separate and pending; fresh
-complete compressed-classroom acceptance stays open.
+The notation-only candidate deployed on sim 42dcaf263, build 547 / Drone 5336.
+Both APIs match 55 runtime/resource fingerprints and pass six isolated SDK
+checks each. The genuine pre-wrong-answer checkpoint still skips navigation
+after the correct retry, despite the actual Gateway receiving the new policy.
+Stop after two teaching requests, all settled at 2.75 credits with actual
+progress/block/owner attribution. Original session, progress, variables and
+eight history elements retain their content and order. No summary runs.
+Preserve this separate failed checkpoint probe.
+
+Notation guidance, core turn structure and the actual interact tool description
+now preserve authored one-option navigation as a required single-choice
+interaction after the answer's explanation. A three-turn example separates the
+answer input, explanation with navigation, and the following question after the
+actual selection. A correct answer or side question cannot replace that click;
+proceed directly after selection without asking for another confirmation.
+This is model guidance, not a host cursor or inference that every option named
+next is navigation. Ordinary choices, authored retries, section separators,
+existing pause permissions, grading, budgets and memory scope remain intact.
+Six controlled SDK cases check policy/tool-description delivery and deferred
+controls across corrections, clarification submissions and serialization.
+A real MessageTurn while navigation is pending is rejected without another
+model call, changed answers or a consumed option; this is not semantic Ask
+handling. The core/tool delivery assertions fail before their additions.
+All 623 engine tests and 3185 learning/quality tests pass, with one expected skip
+and four subtests; developer tools and repository gates pass.
+
+The reinforced policy passes narrow real-model recovery on sim ecbe49e29,
+automatic build 548 / Drone 5337. API 2/2 and web 1/1 are updated/ready; HTTP 200;
+both APIs match 55 runtime/resource fingerprints and pass six isolated checks
+each. From the genuine turn-two checkpoint, a wrong answer waits for correction;
+the accepted correction offers only next-question navigation; its actual selection
+opens question 1-3 directly. All three Gateway requests receive the guidance;
+the third also receives one actual semantic-summary projection/cache entry.
+Three teaching generations plus one summary settle 4.27 credits, with actual
+progress/block/owner attribution and no failed or unsettled generation. Original
+messages/memory remain intact; stored session, progress, variables and eight
+history elements are unchanged. The authored example of hard-disk/file-saving
+confusion is still incorrectly attributed to this learner in feedback; preserve
+that independent quality observation rather than declaring feedback acceptance.
+Fresh complete compressed-classroom acceptance remains separate and open, as do
+broader model/language/provider, memory/Ask, human and cost checks. MDF 1.0 remains
+intact. AI findings have original-thread replies; CodeRabbit substantively reviews
+functional head 76aa35e5e without new findings and reports 100% docstring coverage.
 
 ### Answer criteria
 
