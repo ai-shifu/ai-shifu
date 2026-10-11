@@ -49,6 +49,10 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       Developer tools and repository gates pass after regenerating the knowledge
       inventory for the new prompt. The initial broader command names a missing
       test path and runs no tests; the corrected test selection is the receipt above.
+- [x] 2026-10-11: Adopt the AI review boundary finding: a deferred host result
+      for a question never shown is not a learner answer. Two SDK reload
+      regressions fail before the prompt correction; all 637 engine cases pass
+      after it. Re-asking a renderable control is retained without a grade.
 - [ ] Verify request-local review on deployed sim and with an independent fresh
       classroom; preserve all prior failures and separate focused probes.
 - [x] 2026-10-11: Fetch latest main e39ac3e9f and confirm #3104 merged.

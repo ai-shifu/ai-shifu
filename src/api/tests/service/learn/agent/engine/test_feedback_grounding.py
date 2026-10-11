@@ -252,6 +252,57 @@ async def test_resumed_answer_receives_current_criterion_review(
     assert calls == 3
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+async def test_unshown_interaction_review_does_not_claim_a_learner_answer(
+    reload: bool,
+) -> None:
+    """Keep synthetic host refusals distinct from submitted learner evidence."""
+    calls = 0
+
+    async def model(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Inspect resumed host context and emit a renderable replacement."""
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            policy = info.instructions or ""
+            assert "When the host says the question was never shown" in policy
+            assert "do not grade or attribute a response to the learner" in policy
+            assert "with the learner's actual response" not in policy
+            assert (
+                "nothing was answered"
+                in ModelMessagesTypeAdapter.dump_json(messages).decode()
+            )
+        spec = {
+            "type": "text",
+            "prompt": "Unshowable" if calls == 1 else "Renderable question",
+            "placeholder": "Answer",
+        }
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(spec),
+                tool_call_id=f"unshown-{calls}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Ask the question.")
+    await _events(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    engine.interaction_check = lambda spec: (
+        "Cannot render" if spec.prompt == "Unshowable" else None
+    )
+    events = await _events(engine.run_turn(session, ContinueTurn()))
+    assert not any(isinstance(event, ErrorEvent) for event in events)
+    assert session.pending[0].spec.prompt == "Renderable question"
+    assert session.answers == {}
+    assert not session.finished
+
+
 async def _events(events: AsyncIterator[object]) -> list[object]:
     """Collect a streamed SDK turn while retaining every error event."""
     return [event async for event in events]
