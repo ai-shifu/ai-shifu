@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 
+from .answer_context import project_answer_context
 from .events import (
     ContentDelta,
     ErrorEvent,
@@ -872,6 +873,12 @@ class Engine:
                         session.teaching_summaries,
                         self.teaching_summarizer,
                     )
+            if self.prompts.answer_review and resumed:
+                kwargs["message_history"] = project_answer_context(
+                    kwargs["message_history"],
+                    session.script.script,
+                    resumed,
+                )
             if self.memory_recall and prompt is not None:
                 notice = current_recall_notice(
                     kwargs["message_history"],
@@ -1130,6 +1137,7 @@ class Engine:
                                 self.memory_context_limit is not None
                                 or self.recall_history_compaction
                                 or self.teaching_history_compaction
+                                or deps.resuming_interaction
                             )
                             else list(result.all_messages())
                         )
