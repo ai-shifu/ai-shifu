@@ -8,6 +8,26 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: Draft #3117 initial d1024391f deploys as sim 2fa773aea,
+      build 576 / Drone 5365. Actual API 2/2 and web 1/1 are Ready, both APIs
+      match 57 fingerprints and each passes 169 SDK cases; merged local checks
+      pass 846 cases and gates. Its unchanged-prefix three-phase probe passes
+      navigation but fails the authored direction stage: after the retrieval
+      question it supplies preparation, storage and automatic execution as
+      another multi-part question. Preserve this failure; no tenth learner starts.
+      Six teaching generations settle 9.90 credits with actual attribution and no
+      failed/unsettled usage; no real summary occurs. The original session,
+      progress, variables and six history elements remain unchanged. Actual trace
+      author counts are 1/1/1/1/0/0, all exact source with global pacing.
+- [x] 2026-10-11: Thirty-two SDK cases reproduce missing feedback-phase guidance
+      beside the exact authored reference. Clarify that conditional local hint
+      examples are alternatives for matching submissions, not a checklist to
+      combine; acceptance and post-pass analysis are not current hint disclosure.
+      Local examples remain subject to lesson-wide stage and aspect limits. Keep
+      source text, history, grading, state, permissions and budgets unchanged.
+- [ ] 2026-10-11: Validate the same-issue #3117 phase clarification locally and
+      on a new changed-runtime probe before starting the prepared tenth learner.
+      Initial failure evidence and all prior failures remain separate and open.
 - [x] 2026-10-11: User merges #3116 final head 0b8fd5224 as 00ff97fba.
       Fetch confirms identical trees. All final-head technical CI passes,
       including runtime harness 38149399794. CodeRabbit substantively reviews

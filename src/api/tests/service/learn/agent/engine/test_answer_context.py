@@ -84,6 +84,11 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
                 if p.startswith('{"status":"authored_section"')
             ]
             assert len(focused) == 1
+            assert (
+                "Select the current feedback phase before using this reference"
+                in focused[0]["notice"]
+            )
+            assert "conditional hint examples are alternatives" in focused[0]["notice"]
             assert focused[0]["text"] == SECTION
             assert "the category title is optional" in focused[0]["text"]
             assert "Earlier answer" not in focused[0]["text"]
