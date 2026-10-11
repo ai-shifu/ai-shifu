@@ -287,6 +287,27 @@ classification. Retained real-model verification and fresh complete compressed
 acceptance remain separate in the
 [broader plan](../exec-plans/active/mdf2-broader-classroom-acceptance.md).
 
+### Authored next-question navigation
+
+After #3103 merges as a7345f6de, a fresh internal learner on sim de8cf2629
+exposes an independent order/pacing failure. Question 1-2 is explained and
+corrected, but the model directly asks question 1-3 instead of offering the
+script's single-option next-question interaction. Preserve all four normal
+HTTP requests and 5.29 settled credits. The 4663-byte original explanation has
+not yet produced a summary, so this is not successful compression acceptance.
+
+The notation policy now explicitly preserves authored one-option navigation
+as a required single-choice interaction after the answer's explanation. A
+correct answer or side question cannot stand in for selecting that control;
+only its actual selection permits following content. Proceed directly after
+selection without asking for another confirmation. This is model guidance,
+not a host cursor or inference that every option named next is navigation.
+It leaves ordinary choices, authored retries, section separators and existing
+pause permissions intact. Six controlled SDK cases check delivery and actual
+deferred-control mechanics with first answers, corrections, clarification and
+serialization. Real-model verification remains separate and pending; fresh
+complete compressed-classroom acceptance stays open.
+
 ### Answer criteria
 
 The runtime's answer-criteria policy anchors judgments to the current question's

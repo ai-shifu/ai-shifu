@@ -11,6 +11,24 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 - [x] 2026-10-11 03:25 UTC: Transfer outstanding external acceptance from the
       completed grading plans into this named active continuation record.
 - [ ] Run a fresh complete journey that naturally triggers history compression.
+- [x] 2026-10-11: Confirm #3103 merged as a7345f6de with all technical CI
+      passing, including runtime harness. A new internal learner starts from the
+      first question on sim de8cf2629; both APIs match 55 runtime fingerprints.
+      Preserve its four-request navigation failure: after genuine clarification,
+      an incorrect answer and learner correction, the model skips the authored
+      single-option next-question control and asks question 1-3 immediately.
+      All four generations settle 5.29 credits with actual progress/block/owner
+      attribution. The 4663-byte explanation is eligible for later compression,
+      but no summary has run yet; neither fresh completion nor compression passes.
+- [x] 2026-10-11: Clarify authored one-option navigation boundaries in the
+      notation policy. Answer acceptance and side questions cannot consume the
+      required selection; the actual click advances directly without a second
+      confirmation. No new pauses, label-based host inference or state mutation.
+      Six SDK guidance-delivery/deferred-control cases cover first answers,
+      corrections, knowledge clarification and reload; these are controlled
+      model fixtures, not proof of real-model semantic compliance.
+- [ ] Verify the navigation correction against the genuine pre-wrong-answer
+      checkpoint on deployed sim, without overwriting the failed classroom.
 - [x] 2026-10-11: Locate the retained hint undercount in question 1-2. The
       original pre-answer explanation and later wrong-answer correction are two
       qualifying rounds; both refused calculator calls supply hints=1 and
