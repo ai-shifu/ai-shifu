@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 from flaskr import dao
 from flaskr.service.common.models import AppError
+from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_TRIAL
 
 
 def _get_models() -> object:
@@ -209,6 +210,10 @@ def test_create_shifu_draft_initializes_default_chapter_and_lesson(
         "lesson-default-outline",
     ]
     assert [item.position for item in outline_items] == ["01", "0101"]
+    assert [item.type for item in outline_items] == [
+        UNIT_TYPE_VALUE_TRIAL,
+        UNIT_TYPE_VALUE_TRIAL,
+    ]
     assert latest_struct is not None
     history = HistoryItem.from_json(latest_struct.struct)
     assert [child.bid for child in history.children] == ["chapter-default-outline"]

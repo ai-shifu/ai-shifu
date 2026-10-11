@@ -17,6 +17,7 @@ from markdown_flow import MarkdownFlow
 from sqlalchemy.orm import load_only
 
 from .consts import (
+    DEFAULT_OUTLINE_TYPE,
     UNIT_TYPE_GUEST,
     UNIT_TYPE_TRIAL,
     UNIT_TYPE_VALUE_TRIAL,
@@ -338,7 +339,7 @@ def __insert_outline_locked(
     # A brand-new outline has no current value to preserve, so a None
     # type/is_hidden (caller omitted it) falls back to a concrete default.
     if outline_type is None:
-        outline_type = UNIT_TYPE_GUEST
+        outline_type = DEFAULT_OUTLINE_TYPE
     if is_hidden is None:
         is_hidden = False
 
@@ -368,10 +369,10 @@ def __insert_outline_locked(
             max([int(item.position) for item in root_items]) if root_items else 0
         )
         new_position = f"{max_index + 1:02d}"
-    type_value = UNIT_TYPE_VALUES.get(outline_type, UNIT_TYPE_VALUE_TRIAL)
-    type_label = UNIT_TYPE_VALUES_REVERSE.get(
-        type_value, outline_type or UNIT_TYPE_TRIAL
+    type_value = UNIT_TYPE_VALUES.get(
+        outline_type, UNIT_TYPE_VALUES[DEFAULT_OUTLINE_TYPE]
     )
+    type_label = UNIT_TYPE_VALUES_REVERSE.get(type_value, DEFAULT_OUTLINE_TYPE)
 
     # create new outline
     new_outline = DraftOutlineItem(
@@ -417,7 +418,7 @@ def create_outline(
     shifu_id: str,
     parent_id: str,
     outline_name: str,
-    outline_type: str = UNIT_TYPE_GUEST,
+    outline_type: str | None = None,
     system_prompt: str | None = None,
     is_hidden: bool = False,
 ) -> SimpleOutlineDto:
@@ -487,7 +488,7 @@ def create_default_outlines_for_new_shifu(
         shifu_id,
         "",
         normalized_chapter_name,
-        UNIT_TYPE_GUEST,
+        DEFAULT_OUTLINE_TYPE,
         None,
         is_hidden=False,
         now_time=now_time,
@@ -500,7 +501,7 @@ def create_default_outlines_for_new_shifu(
         shifu_id,
         chapter_bid,
         normalized_lesson_name,
-        UNIT_TYPE_GUEST,
+        DEFAULT_OUTLINE_TYPE,
         None,
         is_hidden=False,
         now_time=now_time,

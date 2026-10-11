@@ -17,6 +17,7 @@ import { useTracking } from '@/hooks/useTracking';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
+import type { LessonCreationSettings } from '@/types/shifu';
 import Image from 'next/image';
 import guestIcon from './icons/svg-guest.svg';
 import trialIcon from './icons/svg-trial.svg';
@@ -32,16 +33,11 @@ type ChapterSettingsDialogProps = {
   onOpenChange?: (open: boolean) => void;
   variant?: 'chapter' | 'lesson';
   footerActionLabel?: string;
-  onFooterAction?: (data: {
-    learningPermission: LearningPermission;
-    isHidden: boolean;
-    systemPrompt: string;
-    name: string;
-  }) => void;
+  onFooterAction?: (data: LessonCreationSettings) => void;
   onDeleteRequest?: () => void;
   deleteButtonLabel?: string;
   onChange?: (data: {
-    learningPermission: LearningPermission;
+    learningPermission?: LearningPermission;
     isHidden: boolean;
     name: string;
     variant: 'chapter' | 'lesson';
@@ -64,8 +60,9 @@ const ChapterSettingsDialog = ({
   const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
   const { t } = useTranslation();
-  const [learningPermission, setLearningPermission] =
-    useState<LearningPermission>(LEARNING_PERMISSION.TRIAL);
+  const [learningPermission, setLearningPermission] = useState<
+    LearningPermission | undefined
+  >(currentShifu?.default_learning_permission);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [hideChapter, setHideChapter] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -75,17 +72,17 @@ const ChapterSettingsDialog = ({
     title: string;
     systemPrompt: string;
     hideChapter: boolean;
-    learningPermission: LearningPermission;
+    learningPermission?: LearningPermission;
   }>({
     title: '',
     systemPrompt: '',
     hideChapter: false,
-    learningPermission: LEARNING_PERMISSION.TRIAL,
+    learningPermission: currentShifu?.default_learning_permission,
   });
 
   const fetchOutlineInfo = useCallback(async () => {
     if (!outlineBid) {
-      setLearningPermission(LEARNING_PERMISSION.TRIAL);
+      setLearningPermission(currentShifu?.default_learning_permission);
       setSystemPrompt('');
       setHideChapter(false);
       setIsDirty(false);
@@ -94,7 +91,7 @@ const ChapterSettingsDialog = ({
         title: '',
         systemPrompt: '',
         hideChapter: false,
-        learningPermission: LEARNING_PERMISSION.TRIAL,
+        learningPermission: currentShifu?.default_learning_permission,
       };
       return;
     }
@@ -109,7 +106,8 @@ const ChapterSettingsDialog = ({
       }
 
       const normalizedLearningPermission =
-        (result.type as LearningPermission) || LEARNING_PERMISSION.TRIAL;
+        (result.type as LearningPermission | undefined) ??
+        currentShifu?.default_learning_permission;
       const normalizedSystemPrompt = result.system_prompt ?? '';
       const normalizedHidden = result.is_hidden ?? false;
       const normalizedTitle = result.name ?? '';
@@ -128,7 +126,11 @@ const ChapterSettingsDialog = ({
     } finally {
       setLoading(false);
     }
-  }, [outlineBid, currentShifu?.bid]);
+  }, [
+    outlineBid,
+    currentShifu?.bid,
+    currentShifu?.default_learning_permission,
+  ]);
 
   const hasFormChanges = useCallback(
     (trimmedTitle: string) => {
@@ -166,7 +168,7 @@ const ChapterSettingsDialog = ({
         }
 
         const trimmedTitle = title.trim();
-        if (!trimmedTitle) {
+        if (!trimmedTitle || (isLesson && !learningPermission)) {
           return;
         }
         if (!hasFormChanges(trimmedTitle)) {
@@ -194,7 +196,7 @@ const ChapterSettingsDialog = ({
           | 'creator_outline_setting_save'
           | 'creator_outline_prompt_save' = 'creator_outline_setting_save';
 
-        if (isLesson) {
+        if (isLesson && learningPermission) {
           const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
           const requiresLogin =
             learningPermission !== LEARNING_PERMISSION.GUEST;
@@ -225,22 +227,23 @@ const ChapterSettingsDialog = ({
           variant,
         });
 
-        const analytics = isLesson
-          ? buildLessonSettingSaveAnalytics({
-              outlineBid,
-              shifuBid: currentShifu?.bid,
-              saveType,
-              promptChange,
-              variant,
-              learningPermission,
-              hideChapter,
-            })
-          : buildOutlinePromptSaveAnalytics({
-              outlineBid,
-              shifuBid: currentShifu?.bid,
-              saveType,
-              promptChange,
-            });
+        const analytics =
+          isLesson && learningPermission
+            ? buildLessonSettingSaveAnalytics({
+                outlineBid,
+                shifuBid: currentShifu?.bid,
+                saveType,
+                promptChange,
+                variant,
+                learningPermission,
+                hideChapter,
+              })
+            : buildOutlinePromptSaveAnalytics({
+                outlineBid,
+                shifuBid: currentShifu?.bid,
+                saveType,
+                promptChange,
+              });
         try {
           void Promise.resolve(trackEvent(eventName, analytics)).catch(
             () => {},
@@ -364,7 +367,7 @@ const ChapterSettingsDialog = ({
                   </div>
                   <RadioGroup
                     disabled={currentShifu?.readonly}
-                    value={learningPermission}
+                    value={learningPermission ?? ''}
                     onValueChange={value => {
                       setLearningPermission(value as LearningPermission);
                       setIsDirty(true);
@@ -529,7 +532,11 @@ const ChapterSettingsDialog = ({
                 type='button'
                 onClick={() =>
                   onFooterAction({
-                    learningPermission,
+                    ...((outlineBid ||
+                      learningPermission !==
+                        initialValuesRef.current.learningPermission) && {
+                      learningPermission,
+                    }),
                     isHidden: hideChapter,
                     systemPrompt,
                     name: title.trim(),
