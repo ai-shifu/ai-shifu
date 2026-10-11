@@ -8,6 +8,42 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-11: User merges #3114 final head 4d396b35d as 53153e91e.
+      Fetched main equals the final tested head; all exact-head technical CI
+      passes, including runtime harness. Preserve the eighth uncompressed
+      classroom and seventh reporting failure without relabeling either. CN
+      actual API 6/6 and web 3/3 run 20261011-53153e9, all Ready; automatic
+      build 571 / Drone 5360 succeeds. Production checks remain read-only.
+- [x] 2026-10-11: Isolate authored correction pacing as the next focused
+      problem. The eighth CPU correction identifies two genuine gaps but requests
+      both in one turn despite the one-aspect rule. Earlier first-question hints
+      also supply the full answer before graduated help is exhausted. Existing
+      request-local guidance checks all gaps without distinguishing the visible
+      hint's scope; the original authored rules and actual failures are retained.
+- [x] 2026-10-11: Clarify authored hint stage and aspect limits in base guidance,
+      resumed-answer review and interaction-tool documentation. Internal coverage
+      checks do not authorize listing all gaps; apply the current scope across
+      content and interaction fields, retain accepted points and wait for the
+      correction. Accept a complete answer without staged resubmissions, and do
+      not impose one-aspect hints or a new retry limit when not authored. Sixteen
+      SDK delivery assertions fail before the guidance; they are not semantic
+      grading or proof of real-model compliance.
+- [x] 2026-10-11: Pacing guidance passes 685 engine cases and 4328 broader
+      learning/profile/user/quality cases, four subtests and one expected skip.
+      Developer tools and full repository gates pass. No original lesson, grading
+      criterion, evidence, state machine, arithmetic or request budget changes.
+- [ ] Submit the independent pacing PR, verify deployed sim and a non-persisting
+      original-evidence probe, then use another independent fresh naturally
+      compressed classroom. Passing SDK delivery does not close this acceptance.
+- [x] 2026-10-11: User merges #3111 final head d1f87ce1a as 611656a99.
+      All final-head technical CI passes, including runtime harness. Merge the
+      fetched main into #3114 and retain both independent acceptance histories;
+      conflicts affect only this progress document. CN actual API 6/6 and web
+      3/3 are Ready on 20261011-611656a in a read-only check. The combined
+      runtime and tests equal sim 52a0f1d9f; all 57 recorded fingerprints match
+      and 685 engine cases pass. Developer tools and repository gates pass.
+      No classroom replay or acceptance relabeling follows from this integration;
+      full external acceptance stays open.
 - [x] 2026-10-11: Isolate the seventh fresh classroom's hint overcount.
       Original course logistics and the first question contain no solution help,
       but hint_before is true. The following knowledge explanation and correction
@@ -33,9 +69,45 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       cases fail before the refinement. Add original-round cases covering help
       supplied through initial teaching or only the placeholder, with and without
       history projection. Preserve original evidence and later-round deduplication.
-- [ ] Validate initial-round guidance locally, deploy it with current focused
-      authored-context code on sim and run a distinct bounded report probe.
-      A probe cannot relabel the seventh classroom or close fresh acceptance.
+- [x] 2026-10-11: Final initial-round source 68dd143cb passes 659 engine
+      and 4256 related cases, four subtests and one expected skip, plus gates.
+      Sim 52a0f1d9f, build 569 / Drone 5358, finishes API 2/2 and web 1/1
+      rollout; both APIs match 57 fingerprints and pass 141 isolated SDK cases
+      each. Combined local engine/quality checks pass 818 cases and gates.
+- [x] 2026-10-11: The exact seventh saved pre-final checkpoint finishes a
+      separate non-persisting report probe with the original twelve-request
+      limit. Ten pages exactly read all 27 originals; seventeen semantic inputs,
+      ten navigation exclusions, one calculation, all eleven rows and frozen
+      counts match. Initial hint_before is false; its three hint_after flags are
+      true/true/false, giving two rounds and one before first answer. Visible
+      totals are six hints, with grounded original mistakes and CPU coverage.
+      Twelve teaching generations plus one real summary settle 34.91 credits
+      with actual progress/block/owner attribution. Twelve actual summary
+      projections bind to original text/cache. Original session/progress/variables
+      and 56 stable history elements remain unchanged. The seventh completed
+      failure and all older failures remain independent.
+- [x] 2026-10-11: The eighth isolated learner completes eleven questions
+      through 28 unchanged ordinary HTTP/SSE requests. Eight pages exactly read
+      27 originals; seventeen semantic inputs, ten navigation exclusions, one
+      calculation and all eleven rows match the independently frozen counts.
+      Six hints, five hinted questions, fourteen attempts, three corrections,
+      eight first-correct and six independent-first are reported correctly.
+      Initial help is not overcounted; personal error/omission feedback remains
+      grounded. All 28 visible texts match 56 stable history elements. Thirty-eight
+      teaching generations settle 77.44 credits with actual progress/block/owner
+      attribution, no failed/unsettled usage and unchanged source/variables.
+- [x] 2026-10-11: Retain the eighth journey's natural-compression insufficiency.
+      Its pre-final maximum teaching is 3665 bytes, with no eligible original or
+      summary cache. Final-report text raises the raw maximum to 4135 bytes but
+      stays in protected recent history; there is no actual summary generation
+      or cache. The full acceptance assertion correctly remains false despite
+      all report/count/evidence checks passing. Do not add requests, alter
+      answers, enlarge budgets or replay the completed classroom to force it.
+      Preserve the separate CPU two-aspect hint fidelity violation as well.
+- [ ] Complete independent naturally compressed fresh acceptance and graduated
+      hint fidelity. Neither the passing compressed checkpoint nor the eighth
+      uncompressed complete classroom closes these remaining requirements.
+
 
 - [x] 2026-10-11: User merges #3113 final head 560f91df7 as ff8d65577.
       All exact-head technical CI passes, including runtime harness. Its source
@@ -64,8 +136,10 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       references. The opening course outline and question have no solution help,
       but the model sets hint_before=true and separately counts the later
       knowledge explanation; retain this semantic overcount.
-- [ ] Resolve the seventh journey's hint attribution in an independent focused
-      follow-up; full reporting and graduated-hint acceptance remain open.
+- [x] 2026-10-11: Isolate the seventh journey's hint attribution in independent
+      #3114. Its saved-checkpoint and eighth-classroom receipts above pass
+      initial-hint reporting; fresh natural compression and graduated hints
+      remain open.
 
 - [x] 2026-10-11: Request-local checklist candidate a9a0e2289 deploys as
       sim f704f0fc4, build 562 / Drone 5351; both APIs match 56 fingerprints
@@ -458,6 +532,13 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Surprises & Discoveries
 
+The eighth fresh classroom completes with exact hint counts and original
+feedback, but its first explanation is only 3665 bytes. A 4135-byte final report
+cannot establish compression: recent teaching is protected and no actual summary
+or cache exists. Preserve the failed natural-compression assertion separately
+from successful report semantics; do not concatenate outputs, lower thresholds,
+add turns or rerun a completed classroom to manufacture a pass.
+
 The seventh completed fresh journey isolates a new hint overcount: original
 first-interaction teaching contains only course logistics and the question, yet
 hint_before is true. Its subsequent knowledge explanation and wrong-answer hint
@@ -499,6 +580,9 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Decision Log
 
+- Keep correction pacing authored and model-facing. Do not add a host semantic
+  grader, generated hint, automatic rejection, retry cap or extra model call.
+  Full internal coverage and the permitted visible hint are separate decisions.
 - Preserve original published lessons, generated history, and learner records.
   Use isolated internal learners for automated acceptance.
 - Keep system variables shared only through registered `sys_` keys; course
@@ -516,7 +600,14 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Outcomes & Retrospective
 
-Broader external acceptance remains incomplete. The seventh fresh eleven-question
+Broader external acceptance remains incomplete. The focused initial-hint
+correction passes a genuine saved pre-final report probe with real summary
+projection, original-evidence coverage and settled attribution. A separate eighth
+fresh complete classroom passes report counts and grounded feedback but has no
+natural summary; its full acceptance assertion remains false. Retain both scope
+boundaries and all preceding failed classrooms.
+
+The seventh fresh eleven-question
 journey completes with real natural compression, exact original-evidence reads,
 settled attribution and corrected personal-omission feedback. Its report still
 overcounts one hint by treating initial question instructions as help. Preserve
