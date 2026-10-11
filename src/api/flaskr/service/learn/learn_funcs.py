@@ -275,9 +275,9 @@ def get_shifu_info(
         )
 
 
-def get_current_lesson_outline_id(
+def get_current_lesson_outline(
     *, shifu_bid: str, outline_bid: str, preview_mode: bool
-) -> int | None:
+) -> HistoryItem | None:
     """Resolve a leaf's physical row from the same structure used by the directory."""
     struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
     row = (
@@ -292,9 +292,19 @@ def get_current_lesson_outline_id(
     while pending:
         item = pending.pop()
         if item.type == "outline" and item.bid == outline_bid and not item.children:
-            return item.id
+            return item
         pending.extend(item.children)
     return None
+
+
+def get_current_lesson_outline_id(
+    *, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> int | None:
+    """Return the current physical row for history/reset scope selection."""
+    item = get_current_lesson_outline(
+        shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+    )
+    return item.id if item else None
 
 
 def get_outline_item_tree(
@@ -401,6 +411,8 @@ def get_outline_item_tree(
             for item in outline_items
             if not item.children
             and item.id in outline_items_db_map
+            and outline_items_db_map[item.id].shifu_bid == shifu_bid
+            and outline_items_db_map[item.id].outline_item_bid == item.bid
             and not outline_items_db_map[item.id].hidden
         }
         # A cleared 2.0 draft must stay isolated even after its session is reset.
@@ -466,7 +478,11 @@ def get_outline_item_tree(
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
                 preview_mode=preview_mode,
-                outline_ids=eligible_outline_ids,
+                outline_revisions={
+                    item.bid: item.content_revision
+                    for item in outline_items
+                    if item.bid in eligible_outline_ids
+                },
             )
             if agent_enabled
             else {}

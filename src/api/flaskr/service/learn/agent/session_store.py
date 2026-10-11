@@ -140,6 +140,7 @@ def save_agent_session(
     preview_mode: bool = False,
     stage: Callable[[], object] | None = None,
     preview_generation: str | None = None,
+    content_revision: int | None = None,
 ) -> None:
     """Write the session back, replacing the learner's previous one for this lesson.
 
@@ -195,16 +196,39 @@ def save_agent_session(
                 row = LearnAgentSession.query.filter(
                     LearnAgentSession.active_key == key
                 ).one()
-        _apply(row, session)
+        _apply(row, session, content_revision=content_revision)
 
 
-def _apply(row: LearnAgentSession, session: Session) -> None:
+def _apply(
+    row: LearnAgentSession, session: Session, *, content_revision: int | None = None
+) -> None:
     """Copy the session onto the row, recording what wrote it."""
     # The engine's own stores stamp this before serializing; without it the timestamp inside the
     # document stays at whatever the session was created with, however many turns it has run.
     session.updated_at = datetime.now(UTC).isoformat()
-    presentation = preview_presentation(row)
+    try:
+        previous = json.loads(row.session_data) if row.session_data else {}
+    except (TypeError, ValueError):
+        previous = {"messages": ["unknown"]}
+    if not isinstance(previous, dict):
+        previous = {"messages": ["unknown"]}
+    presentation = preview_presentation_from_document(previous)
     data = json.loads(session.dumps())
+    # A loader-incompatible session starts a new engine attempt on the same DB
+    # row. Its baseline follows its new document ID, just like an explicit retake.
+    new_attempt = previous.get("id") != data["id"]
+    if new_attempt:
+        row.content_revision = None
+    # Continuing the same attempt, including a legacy NULL baseline, must never
+    # relabel the original script. Empty reservations have not taught anything.
+    if (
+        (new_attempt or not previous.get("messages"))
+        and data.get("messages")
+        and row.content_revision is None
+    ):
+        row.content_revision = (
+            content_revision if content_revision and content_revision > 0 else 0
+        )
     if presentation:
         data[PREVIEW_PRESENTATION_KEY] = presentation
     row.session_data = json.dumps(data, ensure_ascii=False)

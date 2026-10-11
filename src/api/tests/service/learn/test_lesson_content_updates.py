@@ -1,8 +1,5 @@
-"""Detect changed lesson sources from scoped, recognizable teaching snapshots."""
+"""Compare scoped body revisions without inspecting lesson or conversation text."""
 
-from __future__ import annotations
-
-import json
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -16,72 +13,49 @@ from flaskr.service.learn.agent.models import (
 )
 from flaskr.service.learn.lesson_content_updates import (
     LessonContentState,
-    _lesson_content_state_query,
-    lesson_content_state_from_document,
+    lesson_content_state_from_session,
     load_lesson_content_states,
 )
-from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from sqlalchemy import event
-from sqlalchemy.dialects import mysql, sqlite
-
-
-def _document(source: object = "Original lesson", **overrides: object) -> dict:
-    return {
-        "script": {"script": source, "constraints": "Old course prompt"},
-        "messages": [{"kind": "request", "parts": []}],
-        **overrides,
-    }
 
 
 def _seed(
     *,
-    document: object,
-    current_content: str,
-    preview_mode: bool = False,
-    raw_document: str | None = None,
-    finished: bool = False,
+    baseline: int | None = 11,
+    current: int | None = 12,
+    preview: bool = False,
+    turn: int = 0,
+    finished: int = 0,
     user_bid: str | None = None,
     shifu_bid: str | None = None,
+    outline_bid: str | None = None,
 ) -> SimpleNamespace:
-    user_bid = user_bid or uuid4().hex
-    shifu_bid = shifu_bid or uuid4().hex
-    outline_bid = uuid4().hex
-    model = DraftOutlineItem if preview_mode else PublishedOutlineItem
+    user_bid, shifu_bid = user_bid or uuid4().hex, shifu_bid or uuid4().hex
+    outline_bid = outline_bid or uuid4().hex
     row = LearnAgentSession(
         agent_session_bid=uuid4().hex,
         user_bid=user_bid,
         shifu_bid=shifu_bid,
         outline_item_bid=outline_bid,
-        active_key=active_key_for(user_bid, outline_bid, preview_mode=preview_mode),
-        session_data=(
-            json.dumps(document, ensure_ascii=False)
-            if raw_document is None
-            else raw_document
-        ),
+        active_key=active_key_for(user_bid, outline_bid, preview_mode=preview),
+        content_revision=baseline,
+        # Revision reads do not deserialize history; resuming owns validation.
+        session_data="not json",
         schema_version=AGENT_SESSION_SCHEMA_VERSION,
-        # Comparing source text does not deserialize pydantic-ai history.
         pydantic_ai_version="older-version",
-        turn=0,
-        finished=int(finished),
-        deleted=0,
-    )
-    outline = model(
-        shifu_bid=shifu_bid,
-        outline_item_bid=outline_bid,
-        content=current_content,
+        turn=turn,
+        finished=finished,
         deleted=0,
     )
     with unit_of_work():
-        db.session.add_all([row, outline])
-        db.session.flush()
+        db.session.add(row)
     return SimpleNamespace(
         row=row,
-        outline=outline,
         user_bid=user_bid,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
-        outline_ids={outline_bid: outline.id},
-        preview_mode=preview_mode,
+        outline_revisions={outline_bid: current},
+        preview_mode=preview,
     )
 
 
@@ -90,15 +64,14 @@ def _load(fixture: SimpleNamespace) -> dict[str, LessonContentState]:
         user_bid=fixture.user_bid,
         shifu_bid=fixture.shifu_bid,
         preview_mode=fixture.preview_mode,
-        outline_ids=fixture.outline_ids,
+        outline_revisions=fixture.outline_revisions,
     )
 
 
-def _parsed_state(fixture: SimpleNamespace, document: object) -> LessonContentState:
-    return lesson_content_state_from_document(
+def _loaded_state(fixture: SimpleNamespace) -> LessonContentState:
+    return lesson_content_state_from_session(
         row=fixture.row,
-        document=document,
-        current_content=fixture.outline.content,
+        current_revision=fixture.outline_revisions[fixture.outline_bid],
         user_bid=fixture.user_bid,
         shifu_bid=fixture.shifu_bid,
         outline_bid=fixture.outline_bid,
@@ -106,102 +79,46 @@ def _parsed_state(fixture: SimpleNamespace, document: object) -> LessonContentSt
     )
 
 
-@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize("preview", [False, True])
 @pytest.mark.parametrize(
-    ("original", "current", "changed"),
+    ("baseline", "current", "turn", "finished", "expected"),
     [
-        ("Lesson", "Lesson", False),
-        ("Lesson", "lesson", True),
-        ("café", "cafe", True),
-        ("é", "e\u0301", True),
-        ("讲解：{{姓名}}", "讲解：{{姓名}}", False),
-        ("讲解：{{姓名}}", "讲解：学生", True),
-        ("line one\r\nline two\rline three", "line one\nline two\nline three", False),
-        ("text", "text ", True),
-        (" text", "text", True),
-        ("text\n", "text", True),
-        ("before\x00after", "before\x00After", True),
-        ("before\x00after", "before\x00after", False),
-        ("", "New lesson", True),
-        ("", "", False),
+        (11, 11, 0, 0, LessonContentState(started=True)),
+        (11, 12, 0, 0, LessonContentState(started=True, has_content_update=True)),
+        (
+            11,
+            13,
+            9,
+            1,
+            LessonContentState(started=True, finished=True, has_content_update=True),
+        ),
+        (11, None, 0, 0, LessonContentState(started=True)),
+        (11, 0, 0, 0, LessonContentState(started=True)),
+        (0, 12, 0, 0, LessonContentState(started=True)),
+        (None, 12, 0, 0, LessonContentState()),
+        (None, 12, 3, 0, LessonContentState(started=True)),
+        (None, 12, 0, 1, LessonContentState(started=True, finished=True)),
     ],
 )
-def test_sql_and_parsed_comparison_preserve_authored_text(
+def test_batch_and_loaded_session_agree_on_revisions_and_legacy_progress(
     app: object,
-    preview_mode: bool,
-    original: str,
-    current: str,
-    changed: bool,
+    preview: bool,
+    baseline: int | None,
+    current: int | None,
+    turn: int,
+    finished: int,
+    expected: LessonContentState,
 ) -> None:
-    document = _document(original)
     with app.app_context():
         fixture = _seed(
-            document=document,
-            current_content=current,
-            preview_mode=preview_mode,
+            baseline=baseline,
+            current=current,
+            preview=preview,
+            turn=turn,
+            finished=finished,
         )
-        expected = LessonContentState(started=True, has_content_update=changed)
         assert _load(fixture)[fixture.outline_bid] == expected
-        assert _parsed_state(fixture, document) == expected
-        # A partial persisted turn may have taught text without advancing turn.
-        assert fixture.row.turn == 0
-
-
-@pytest.mark.parametrize(
-    "document",
-    [
-        None,
-        [],
-        "string document",
-        {},
-        _document(None),
-        _document(7),
-        _document(source=False),
-        _document(["Original lesson"]),
-        _document({"source": "Original lesson"}),
-        {"script": "Original lesson", "messages": [{}]},
-        {"script": {}, "messages": [{}]},
-        _document(messages=None),
-        _document(messages=[]),
-        _document(messages="nonempty string"),
-        _document(messages=1),
-        _document(messages=True),
-        _document(messages={"0": {}}),
-        {"script": {"script": "Original lesson"}},
-    ],
-)
-def test_unrecognized_or_unstarted_documents_have_no_baseline(
-    app: object, document: object
-) -> None:
-    with app.app_context():
-        fixture = _seed(
-            document=document, current_content="Changed lesson", finished=True
-        )
-        assert _load(fixture)[fixture.outline_bid] == LessonContentState()
-        assert _parsed_state(fixture, document) == LessonContentState()
-
-
-@pytest.mark.parametrize("raw_document", ["", "{", '{"script":', "not json"])
-def test_invalid_json_does_not_fail_the_batch(app: object, raw_document: str) -> None:
-    with app.app_context():
-        broken = _seed(
-            document=None,
-            raw_document=raw_document,
-            current_content="Changed lesson",
-        )
-        valid = _seed(
-            document=_document(),
-            current_content="Changed lesson",
-            user_bid=broken.user_bid,
-            shifu_bid=broken.shifu_bid,
-        )
-        broken.outline_ids.update(valid.outline_ids)
-        assert _load(broken) == {
-            broken.outline_bid: LessonContentState(),
-            valid.outline_bid: LessonContentState(
-                started=True, has_content_update=True
-            ),
-        }
+        assert _loaded_state(fixture) == expected
 
 
 @pytest.mark.parametrize(
@@ -220,140 +137,65 @@ def test_invalid_json_does_not_fail_the_batch(app: object, raw_document: str) ->
 def test_identity_and_schema_are_required_by_both_paths(
     app: object, attribute: str, value: object
 ) -> None:
-    document = _document()
     with app.app_context():
-        fixture = _seed(document=document, current_content="Changed lesson")
+        fixture = _seed()
         with unit_of_work():
             setattr(fixture.row, attribute, value)
         assert _load(fixture) == {}
-        assert _parsed_state(fixture, document) == LessonContentState()
+        assert _loaded_state(fixture) == LessonContentState()
 
 
-def test_formal_and_preview_use_distinct_current_snapshots(app: object) -> None:
+def test_published_and_preview_use_independent_baselines(app: object) -> None:
     with app.app_context():
-        formal = _seed(document=_document(), current_content="Changed lesson")
-        with unit_of_work():
-            draft = DraftOutlineItem(
-                shifu_bid=formal.shifu_bid,
-                outline_item_bid=formal.outline_bid,
-                content="Original lesson",
-                deleted=0,
-            )
-            preview_row = LearnAgentSession(
-                agent_session_bid=uuid4().hex,
-                user_bid=formal.user_bid,
-                shifu_bid=formal.shifu_bid,
-                outline_item_bid=formal.outline_bid,
-                active_key=active_key_for(
-                    formal.user_bid, formal.outline_bid, preview_mode=True
-                ),
-                schema_version=AGENT_SESSION_SCHEMA_VERSION,
-                session_data=json.dumps(_document()),
-                finished=1,
-                deleted=0,
-            )
-            db.session.add_all([draft, preview_row])
-            db.session.flush()
-        assert _load(formal)[formal.outline_bid] == LessonContentState(
-            started=True, has_content_update=True
-        )
-        assert load_lesson_content_states(
+        formal = _seed()
+        preview = _seed(
+            baseline=12,
+            current=12,
+            preview=True,
             user_bid=formal.user_bid,
             shifu_bid=formal.shifu_bid,
-            preview_mode=True,
-            outline_ids={formal.outline_bid: draft.id},
-        )[formal.outline_bid] == LessonContentState(started=True, finished=True)
-        formal.preview_mode = True
-        assert _parsed_state(formal, _document()) == LessonContentState()
-
-
-@pytest.mark.parametrize(
-    "attribute", ["deleted", "hidden", "shifu_bid", "outline_item_bid"]
-)
-def test_current_outline_identity_and_liveness_are_required(
-    app: object, attribute: str
-) -> None:
-    with app.app_context():
-        fixture = _seed(document=_document(), current_content="Changed lesson")
-        with unit_of_work():
-            setattr(
-                fixture.outline,
-                attribute,
-                1 if attribute in {"deleted", "hidden"} else "other",
-            )
-        assert _load(fixture) == {}
-
-
-def test_physical_row_mapping_is_not_replaced_by_latest_outline(app: object) -> None:
-    with app.app_context():
-        fixture = _seed(document=_document(), current_content="Original lesson")
-        other = _seed(
-            document=_document(),
-            current_content="Changed lesson",
-            user_bid=fixture.user_bid,
-            shifu_bid=fixture.shifu_bid,
+            outline_bid=formal.outline_bid,
         )
-        with unit_of_work():
-            db.session.add(
-                PublishedOutlineItem(
-                    shifu_bid=fixture.shifu_bid,
-                    outline_item_bid=fixture.outline_bid,
-                    content="Newer row",
-                    deleted=0,
-                )
-            )
-        assert _load(fixture)[fixture.outline_bid].has_content_update is False
-        fixture.outline_ids = {
-            fixture.outline_bid: other.outline.id,
-            other.outline_bid: fixture.outline.id,
-        }
-        assert _load(fixture) == {}
+        assert _load(formal)[formal.outline_bid].has_content_update is True
+        assert _load(preview)[preview.outline_bid].has_content_update is False
+        formal.preview_mode = True
+        assert _loaded_state(formal) == LessonContentState()
+        formal.row = None
+        assert _loaded_state(formal) == LessonContentState()
 
 
 def test_another_requested_lessons_active_key_cannot_authorize_a_session(
     app: object,
 ) -> None:
     with app.app_context():
-        first = _seed(document=_document(), current_content="Changed lesson")
-        second = _seed(
-            document=_document(),
-            current_content="Changed lesson",
-            user_bid=first.user_bid,
-            shifu_bid=first.shifu_bid,
-        )
-        first.outline_ids.update(second.outline_ids)
+        first = _seed()
+        second = _seed(user_bid=first.user_bid, shifu_bid=first.shifu_bid)
+        first.outline_revisions.update(second.outline_revisions)
         with unit_of_work():
             original_key = first.row.active_key
             first.row.active_key = None
             db.session.flush()
             second.row.active_key = original_key
         assert _load(first) == {}
-        assert _parsed_state(second, _document()) == LessonContentState()
+        assert _loaded_state(second) == LessonContentState()
 
 
-def test_batch_projects_only_scalar_state_in_one_select(app: object) -> None:
+def test_batch_reads_only_scalars_once_and_empty_requests_read_nothing(
+    app: object,
+) -> None:
     with app.app_context():
-        first = _seed(document=_document(), current_content="Changed lesson")
+        first = _seed()
         second = _seed(
-            document=_document(),
-            current_content="Original lesson",
-            finished=True,
-            user_bid=first.user_bid,
-            shifu_bid=first.shifu_bid,
+            current=11, finished=1, user_bid=first.user_bid, shifu_bid=first.shifu_bid
         )
-        first.outline_ids.update(second.outline_ids)
+        first.outline_revisions.update(second.outline_revisions)
         db.session.expunge_all()
         statements = []
 
         def capture(
-            _connection: object,
-            _cursor: object,
-            statement: str,
-            _parameters: object,
-            _context: object,
-            _executemany: bool,
+            _conn: object, _cursor: object, statement: str, *_args: object
         ) -> None:
-            statements.append(statement)
+            statements.append(statement.lower())
 
         event.listen(db.engine, "before_cursor_execute", capture)
         try:
@@ -365,66 +207,14 @@ def test_batch_projects_only_scalar_state_in_one_select(app: object) -> None:
             }
             assert len(statements) == 1
             assert not db.session.identity_map
-            assert "active_key IN" in statements[0]
-            first.outline_ids = {}
+            sql = statements[0]
+            assert "active_key in" in sql
+            assert "content_revision" in sql
+            assert "session_data" not in sql
+            assert "json_" not in sql
+            assert "outline_items" not in sql
+            first.outline_revisions = {}
             assert _load(first) == {}
             assert len(statements) == 1
         finally:
             event.remove(db.engine, "before_cursor_execute", capture)
-
-
-@pytest.mark.parametrize("dialect", [mysql.dialect(), sqlite.dialect()])
-def test_query_compiles_with_guarded_json_and_exact_binary_comparison(
-    dialect: object,
-) -> None:
-    query = _lesson_content_state_query(
-        user_bid="learner",
-        shifu_bid="course",
-        preview_mode=False,
-        outline_ids={"lesson": 3},
-        dialect_name=dialect.name,
-    )
-    assert list(query.selected_columns.keys()) == [
-        "outline_item_bid",
-        "started",
-        "finished",
-        "source_changed",
-    ]
-    compiled = str(query.compile(dialect=dialect)).lower()
-    assert "json_valid(learn_agent_sessions.session_data)" in compiled
-    assert "json_type(" in compiled
-    assert "active_key in" in compiled
-    if dialect.name == "mysql":
-        assert "force index (uq_learn_agent_sessions_active)" in compiled
-        assert "json_table(case when" in compiled
-        assert "source json path '$.script.script'" in compiled
-        assert "messages_present integer exists path '$.messages[*]'" in compiled
-        assert "json_extract(" not in compiled
-        assert "json_unquote(" in compiled
-        assert "json_length(" not in compiled
-        assert " as binary)" in compiled
-        assert "json_array_length(" not in compiled
-    else:
-        assert "force index" not in compiled
-        assert "json_extract(case when" in compiled
-        assert "json_array_length(" in compiled
-        assert " as blob)" in compiled
-
-
-@pytest.mark.parametrize("dialect_name", ["mariadb", "mysql"])
-def test_older_mysql_and_mariadb_use_compatible_json_extraction(
-    dialect_name: str,
-) -> None:
-    query = _lesson_content_state_query(
-        user_bid="learner",
-        shifu_bid="course",
-        preview_mode=True,
-        outline_ids={"lesson": 3},
-        dialect_name=dialect_name,
-        mysql_json_table=False,
-    )
-    compiled = str(query.compile(dialect=mysql.dialect())).lower()
-    assert "json_table(" not in compiled
-    assert "json_extract(case when" in compiled
-    assert "json_unquote(" in compiled
-    assert "json_length(" in compiled

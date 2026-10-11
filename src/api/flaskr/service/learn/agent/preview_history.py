@@ -25,7 +25,7 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
 )
 from flaskr.service.learn.lesson_content_updates import (
-    lesson_content_state_from_document,
+    lesson_content_state_from_session,
 )
 from flaskr.service.learn.listen_element_history import (
     _attach_follow_up_history_to_anchor_payload,
@@ -194,7 +194,7 @@ def get_preview_record(
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
     """Restore only the active draft's adapter snapshots, in request/event order."""
-    from flaskr.service.learn.learn_funcs import get_current_lesson_outline_id
+    from flaskr.service.learn.learn_funcs import get_current_lesson_outline
 
     with app_context_scope(app):
         row = LearnAgentSession.query.filter_by(
@@ -209,26 +209,25 @@ def get_preview_record(
         except (TypeError, ValueError):
             document = {}
         presentation = preview_presentation_from_document(document)
-        current_id = get_current_lesson_outline_id(
+        current_outline = get_current_lesson_outline(
             shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=True
         )
         current = (
-            DraftOutlineItem.query.with_entities(DraftOutlineItem.content)
+            DraftOutlineItem.query.with_entities(DraftOutlineItem.id)
             .filter_by(
-                id=current_id,
+                id=current_outline.id,
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_bid,
                 deleted=0,
                 hidden=0,
             )
             .first()
-            if current_id is not None
+            if current_outline is not None
             else None
         )
-        content_state = lesson_content_state_from_document(
+        content_state = lesson_content_state_from_session(
             row=row,
-            document=document,
-            current_content=current.content if current else None,
+            current_revision=current_outline.content_revision if current else None,
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,

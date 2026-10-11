@@ -8,48 +8,56 @@ canonical: true
 
 # Lesson Content Update Recommendations
 
-A started or completed MarkdownFlow 2.0 lesson recommends a retake only when
-its current authored body differs from the original body retained in its live
-learning session. Published learning compares the current publication; teacher
-preview compares the current draft. CRLF and standalone CR normalize to LF;
-all other text, including case, whitespace and Markdown, remains significant.
-Equal-length edits count. Reverting to the original body removes the notice.
+A started or completed MarkdownFlow 2.0 lesson recommends a retake when its
+current body revision differs from the revision recorded when that learning
+attempt first taught content. Published learning uses the published revision;
+teacher preview uses the draft revision.
 
-Titles, ordering, models, audio settings, course/teaching briefs and follow-up
-configuration do not participate. Continuing, asking a follow-up question or
-reading history does not advance the original body baseline. Retaking starts
-a new scoped session. Formal learning and preview do not read or retire each
-other's baselines, including when a draft body has been cleared.
+Saving a changed body advances its revision. CRLF, CR and LF are treated as
+equivalent line endings; other whitespace, case and Markdown edits count.
+Titles, ordering, models, audio
+settings, course/teaching briefs and follow-up configuration do not advance
+it. Publishing carries the draft body's revision into the published structure;
+republishing unchanged content does not itself count as a body update.
+Changing a body and later restoring its original text still advances the
+revision and can keep the retake recommendation visible. The recommendation
+means the lesson was revised since this attempt began, not that its present
+text necessarily differs from the originally taught text.
 
-Only a correctly scoped, active session with a recognized schema, string body
-and nonempty message array establishes a baseline. Formal learning additionally
-requires current in-progress or completed progress. Missing, malformed,
-unrecognized, unstarted and reset sessions, and legacy 1.0 records, do not
-produce a recommendation. Unknown is not proof of unchanged content; it simply
-does not justify a retake notice. Never infer a baseline from timestamps or
-backfill one with the current body.
+Continuing, asking a follow-up question or reading history never advances the
+attempt's baseline. Retaking retires that scoped session; its replacement
+records a new baseline when teaching actually begins. Formal learning and
+preview do not read or retire each other's baselines, including when a draft
+body has been cleared.
 
-## API and storage contract
+## Revision and API contract
 
-The outline tree retains `has_content_update_for_current_user`. The lesson
-records response adds the same boolean, defaulting to false. The browser uses
-the records response for both scopes and treats an absent field as false,
-without falling back to timestamps or an older outline response.
-
-Directory evaluation uses the existing active-session key index and the
-physical outline row IDs named by the current structure. It batches eligible
-lessons and projects only identifiers and state booleans, never complete
-session JSON, message history or historical body text. SQL comparisons use
-binary semantics after newline normalization and guard invalid JSON and
-unexpected JSON types. Preview history reuses its already decoded document;
-the equivalent in-memory predicate is covered by the same comparison cases.
-
-There are no new database columns, indexes, migrations, fingerprints or caches.
-Extracting values from the existing LONGTEXT JSON still costs database reads
-and parsing. Small result sets do not imply small physical reads; benchmark
-results must distinguish these costs and identify synthetic fixtures.
-See the [measurement report](../references/lesson-content-update-performance.md)
-for reproducible fixtures, execution plans and the database-CPU tradeoff.
+- `HistoryItem.content_revision` stores the body revision in existing draft and
+  published structure JSON. Authoring save/publish paths establish missing
+  metadata using the existing draft body-revision calculation. Read paths do
+  not reconstruct a revision from timestamps, physical row IDs or session JSON.
+- The only new database column is nullable `BIGINT`
+  `LearnAgentSession.content_revision`. A new attempt records its baseline at
+  its first actual teaching persistence, never when merely reserving a preview
+  session. A positive value is a known baseline; `0` means teaching started
+  while the source revision was unknown. Existing sessions retain `NULL` and
+  are never backfilled, including when they resume.
+- A notice requires an active, correctly scoped session, known positive
+  current and baseline revisions, and unequal revisions. Formal learning also
+  requires current in-progress or completed progress. Unknown revisions,
+  legacy 1.0 records and reset/unstarted attempts do not produce a notice.
+  Existing preview progress display retains its `turn`/`finished` fallback.
+- If existing runtime compatibility handling starts a new engine session,
+  its new document ID establishes a new attempt and baseline. Resuming the
+  same engine session preserves even an unknown legacy baseline.
+- Detection reads revision metadata and scalar session fields; it does not
+  parse or compare the stored lesson body or message history. Session JSON
+  validity is no longer a detection condition. Unusable stored conversations
+  remain the responsibility of the existing session loading/error path.
+- The outline tree retains `has_content_update_for_current_user`; lesson
+  records return the same boolean, defaulting to false. The browser uses the
+  records result for both scopes and treats an absent field as false, without
+  falling back to timestamps or an older outline response.
 
 ## Retake analytics contract
 
@@ -94,6 +102,14 @@ terminal outcomes and continued retake behavior under tracking failure.
 
 ## Delivery
 
-Deploy the additive backend response before the frontend consumer. Old clients
-keep the outline contract; new clients hide the notice on older responses.
-Rollback is code-only. Engine routing and 1.0 storage remain unchanged.
+Apply the additive nullable-column migration before deploying the backend,
+then deploy the frontend consumer. Existing structure JSON remains readable
+when revision metadata is absent; missing metadata produces no notice until
+write paths establish it. Existing session baselines remain unknown.
+
+Old clients retain the outline boolean contract; new clients hide the notice
+on older records responses. An application rollback can leave the nullable
+column and optional JSON metadata in place. Do not remove the column while
+running code still reads or writes it. Engine routing and 1.0 storage remain
+unchanged; preview history/reset isolation does not redefine the existing
+scriptless 1.0 execution fallback.

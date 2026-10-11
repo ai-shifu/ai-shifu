@@ -2705,6 +2705,7 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
     """Persist a real interrupted engine run before reloading it through the host."""
     from flaskr.service.learn.agent import session_store
     from flaskr.service.learn.agent.engine import Engine
+    from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
     from pydantic_ai.messages import TextPart
     from pydantic_ai.models.function import AgentInfo, FunctionModel
 
@@ -2738,13 +2739,14 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
         run_agent, "load_agent_session", session_store.load_agent_session
     )
 
-    def run() -> list:
+    def run(revision: int) -> list:
         """Construct a fresh engine as a later HTTP request would."""
         return list(
             run_agent.run_agent_lesson(
                 app,
                 engine=Engine(FunctionModel(stream_function=stream), render="none"),
                 script=SCRIPT,
+                content_revision=revision,
                 user_bid="interrupted-host-learner",
                 shifu_bid=SHIFU,
                 outline_bid="interrupted-host-lesson",
@@ -2753,13 +2755,26 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
             )
         )
 
-    events = run()
+    events = run(11)
     saved = session_store.load_agent_session(
         app,
         "interrupted-host-learner",
         "interrupted-host-lesson",
         preview_mode=preview_mode,
     )
+    with app.app_context():
+        assert (
+            LearnAgentSession.query.filter_by(
+                active_key=active_key_for(
+                    "interrupted-host-learner",
+                    "interrupted-host-lesson",
+                    preview_mode=preview_mode,
+                )
+            )
+            .one()
+            .content_revision
+            == 11
+        )
     assert saved is not None
     assert saved.interrupted
     assert not saved.finished
@@ -2777,7 +2792,7 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
             == partial
         )
     calls.clear()
-    events = run()
+    events = run(12)
     saved = session_store.load_agent_session(
         app,
         "interrupted-host-learner",
@@ -2785,6 +2800,19 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
         preview_mode=preview_mode,
     )
     assert saved is not None
+    with app.app_context():
+        assert (
+            LearnAgentSession.query.filter_by(
+                active_key=active_key_for(
+                    "interrupted-host-learner",
+                    "interrupted-host-lesson",
+                    preview_mode=preview_mode,
+                )
+            )
+            .one()
+            .content_revision
+            == 11
+        )
     assert not saved.interrupted
     assert requests == 2
     assert "".join(

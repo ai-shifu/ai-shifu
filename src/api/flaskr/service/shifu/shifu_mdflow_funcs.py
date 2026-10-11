@@ -19,8 +19,11 @@ from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.shifu.shifu_history_manager import (
     get_shifu_draft_meta,
     get_shifu_draft_revision,
+    get_shifu_history,
     iter_outline_item_versions_desc,
     mask_contact_identifier,
+    normalize_outline_content,
+    outline_content_revisions,
     save_outline_history,
 )
 from flaskr.service.user.models import UserInfo
@@ -80,7 +83,6 @@ def cleanup_outline_history_versions(
     content-anchor version. Therefore, actual retained rows can exceed strict
     limits by protected anchor rows.
     """
-    _ = app
     latest_version = (
         DraftOutlineItem.query.filter(
             DraftOutlineItem.shifu_bid == shifu_bid,
@@ -94,15 +96,23 @@ def cleanup_outline_history_versions(
         return
 
     latest_id = int(latest_version.id)
-    latest_content = latest_version.content or ""
-    content_anchor_version = latest_version
-    for version in iter_outline_item_versions_desc(shifu_bid, outline_bid):
-        if version.id == latest_version.id:
-            continue
-        if (version.content or "") != latest_content:
-            break
-        content_anchor_version = version
-    protected_ids = {latest_id, int(content_anchor_version.id)}
+    content_revision = outline_content_revisions(get_shifu_history(app, shifu_bid)).get(
+        outline_bid
+    )
+    if content_revision is None:
+        # Legacy structures have no recorded anchor. Keep the prior recovery
+        # strategy until an authoring write establishes one.
+        latest_content = normalize_outline_content(latest_version.content)
+        content_revision = latest_id
+        for version in iter_outline_item_versions_desc(shifu_bid, outline_bid):
+            if version.id == latest_version.id:
+                continue
+            if normalize_outline_content(version.content) != latest_content:
+                break
+            content_revision = int(version.id)
+    # Once recorded, the revision is authoritative. A deleted intermediate
+    # version must not turn A -> B -> A into the earlier A's revision.
+    protected_ids = {latest_id, content_revision}
 
     cutoff_time = now_utc() - timedelta(days=max(1, keep_days))
     to_mark_deleted_ids: set[int] = set()
@@ -191,7 +201,9 @@ def save_shifu_mdflow(
         # Risk control writes and commits its own audit row, so it must run before
         # the outline write lock is acquired. The locked transaction below always
         # re-reads the latest outline version after this possible commit.
-        if (preflight_outline.content or "") != content:
+        if normalize_outline_content(
+            preflight_outline.content
+        ) != normalize_outline_content(content):
             check_text_with_risk_control(
                 app, preflight_outline.outline_item_bid, user_id, content
             )
@@ -234,7 +246,9 @@ def save_shifu_mdflow(
                 }
 
             new_revision = None
-            if (outline_item.content or "") != content:
+            if normalize_outline_content(
+                outline_item.content
+            ) != normalize_outline_content(content):
                 new_outline: DraftOutlineItem = outline_item.clone()
                 new_outline.content = content
                 new_outline.updated_user_bid = user_id
@@ -267,6 +281,7 @@ def save_shifu_mdflow(
                     outline_bid,
                     new_outline.id,
                     len(blocks),
+                    content_revision=int(new_outline.id),
                 )
                 cleanup_outline_history_versions(
                     app,
@@ -491,7 +506,9 @@ def restore_shifu_mdflow_history_version(
 
         target_content = target_version.content or ""
         current_content = latest_outline.content or ""
-        if target_content == current_content:
+        if normalize_outline_content(target_content) == normalize_outline_content(
+            current_content
+        ):
             return {
                 "restored": False,
                 "new_revision": get_shifu_draft_revision(app, shifu_bid, outline_bid),
