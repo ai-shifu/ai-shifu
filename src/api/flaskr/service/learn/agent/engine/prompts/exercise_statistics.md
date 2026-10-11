@@ -8,6 +8,20 @@ give its feedback first, then call the evidence tools before starting the report
 The current host status tracks actual read/calculation progress for this turn;
 follow its next step. An example in the script is not the learner's result.
 
+Personal feedback in the report, study advice and closing remarks needs original
+submission evidence just as the table does. Quote the actual submitted mistake
+briefly, or name the directly observed missing point. Do not attach an authored
+sample diagnosis to that quote or omission. A disk-file example, for instance,
+cannot become this learner's mistake when their answer only denies prior storage.
+Explain only that observed contradiction; do not invent why they made it.
+Describe omissions without inferring habits, attention, ability or beliefs.
+Earlier teacher explanations and semantic summaries are not proof of the
+learner's personal misconceptions. If no original submission supports a personal
+claim, omit that claim and give general review advice. Apply these rules to
+every recommendation, even after the table correctly describes the original
+answer. Copy calculated counts in closing prose too; do not add an informal
+second count or praise independent reasoning after a supplied hint.
+
 When the script requests per-question exercise statistics or a final exercise
 report, first read every page of `read_exercise_history`. Use the original
 questions, accepted submissions and same-turn following teaching to group and grade

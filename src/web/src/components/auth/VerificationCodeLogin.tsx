@@ -262,6 +262,12 @@ export function VerificationCodeLogin({
     await doSendCode();
   };
 
+  const canSubmit =
+    showCodeInput &&
+    identifierConfig.isValid(normalizeIdentifier(identifier)) &&
+    verificationCode.length === VERIFICATION_CODE_LENGTH &&
+    !isLoading;
+
   const handleVerifyCode = async () => {
     const code = verificationCode.trim();
     const normalizedIdentifier = normalizeIdentifier(identifier);
@@ -270,6 +276,9 @@ export function VerificationCodeLogin({
         title: t('module.auth.verificationCodeRequired'),
         variant: 'destructive',
       });
+      return;
+    }
+    if (!canSubmit) {
       return;
     }
     if (!termsAccepted) {
@@ -302,12 +311,7 @@ export function VerificationCodeLogin({
   };
 
   const handleCodeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (
-      event.key === 'Enter' &&
-      showCodeInput &&
-      verificationCode &&
-      !isLoading
-    ) {
+    if (event.key === 'Enter' && canSubmit) {
       event.preventDefault();
       void handleVerifyCode();
     }
@@ -432,18 +436,16 @@ export function VerificationCodeLogin({
           />
         </div>
 
-        {showCodeInput && (
-          <Button
-            className='w-full h-8'
-            onClick={handleVerifyCode}
-            disabled={isLoading || (!isPhone && !verificationCode)}
-          >
-            {isLoading ? (
-              <Loader2 className='h-4 w-4 animate-spin mr-2' />
-            ) : null}
-            {t('module.auth.login')}
-          </Button>
-        )}
+        <Button
+          className='w-full h-8'
+          onClick={handleVerifyCode}
+          disabled={!canSubmit}
+        >
+          {isLoading && showCodeInput ? (
+            <Loader2 className='h-4 w-4 animate-spin mr-2' />
+          ) : null}
+          {t('module.auth.login')}
+        </Button>
       </div>
     </>
   );
