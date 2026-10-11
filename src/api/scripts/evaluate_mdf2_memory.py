@@ -877,7 +877,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         if UserInfo.query.filter_by(user_bid=args.learner, deleted=0).first() is None:
             parser.error("the dedicated evaluation learner does not exist")
-        _, _, settings = _resolve(
+        _, _, settings, _content_revision = _resolve(
             app,
             user_bid=args.learner,
             shifu_bid=args.course,

@@ -25,6 +25,8 @@ interaction and analytics contracts in
 - [x] 2026-10-12 CST: Clarified review terminology: lesson content means the
   MarkdownFlow script; a learning attempt records its baseline with its first
   saved messages. Aligned the model, migration and product documentation.
+- [x] 2026-10-12 CST: Completed the changed `_resolve` return contract in the
+  memory-evaluation CLI and remaining course-usage/evaluation test doubles.
 - [ ] 2026-10-12 CST: Verify migration/deployment order and formal/preview
   behavior after release.
 
@@ -86,10 +88,11 @@ MySQL upgrade/NULL preservation/new-value/downgrade verification. No configured
 development database was migrated and no deployment is claimed.
 
 The terminology follow-up passed 76 migration, session-persistence and content
-update tests. The preceding PR-head backend CI run reported 12 failures in
-`tests/test_llm.py`: its `_resolve` stubs still return three values instead of
-the four now required. This separate test-contract issue is outside the
-requested terminology correction.
+update tests. Backend CI then exposed remaining three-value `_resolve` test
+doubles in `tests/test_llm.py`. The same return-contract audit found the
+memory-evaluation CLI and its test double; these now accept the content revision
+as the fourth value. All 83 focused course-usage and memory-evaluation tests
+passed, including the 12 previously failing CI cases.
 
 ## Context and Orientation
 
