@@ -8,6 +8,41 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Head e934cf87d passes all eleven checks including runtime
+      38246491992. CodeRabbit d65b7a23 reports no actionable finding, with the
+      similar acceptance-plan file skipped and the existing coverage warning
+      deferred in its original thread. Sim 7c4ad18f2 / build 604 / Drone 5393
+      deploys as sim-7c4ad18 in records 2807/2808; API 2/2 and web 1/1 Ready,
+      both APIs match 67 files and pass 390 SDK cases. Merged checks pass 3798
+      cases, 50 subtests and three expected skips plus all gates. Preserve two
+      local launch mistakes separately from the corrected passing results.
+- [x] 2026-10-12: Preserve the seventeenth independent classroom failure.
+      First four questions pass, including actual-error attribution, correction
+      explanation and explicit navigation. On the fifth incomplete answer, the
+      model selects authored_help from a local checking checklist on its first
+      failure and reveals multiple missing categories. Stop after 13 ordinary
+      requests; no correction or later phases. Thirteen original traces contain
+      17 teaching generations and one natural summary, uniquely matching every
+      output/token tuple, actual attempt/block and ledger source. All 34.60
+      credits settle, including 0.12 for the summary; 26 history rows are stable,
+      source unchanged, turn 13 unfinished and variables unwritten. Ten actual
+      projection markers bind to the preserved 4752-byte original and its cached
+      summary. Provider-cache tokens remain separate. This is a narrow natural
+      summary/billing success and a failed full journey, not whole-course acceptance.
+- [ ] 2026-10-12: Correct focused authored-context scope. Later questions receive
+      only their local section near the answer; the enclosing introductions stay
+      distant in the complete script. Copy exact Markdown ancestor introductions
+      alongside the local section, excluding sibling exercises and preserving the
+      existing combined 8 KiB source limit. If complete scope cannot be copied,
+      retain the opaque answer binding and full-script notice without a local-only
+      reference. No semantic parser, stage grader, policy compilation, new tool or
+      call/budget increase. Native SDK tests cover single/multiple/uncounted rules,
+      reload, unprojectable ancestors and sibling isolation. Initial fixture errors
+      are retained; corrected regressions fail on the preceding implementation.
+      Complete local gates, push/reply, current CI and both deployed sim proofs
+      before considering an eighteenth learner. No such learner exists yet.
+
+
 - [x] 2026-10-12: Head ff1e5d62f passes all eleven checks including runtime
       38243636439 and current-head CodeRabbit review 8ef852f2, with no new
       actionable finding. The 43.22%/118-function coverage warning remains

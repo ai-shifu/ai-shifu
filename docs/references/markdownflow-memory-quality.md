@@ -93,9 +93,16 @@ It remains model guidance rather than a semantic validator.
 For one resumed text interaction with a unique exact authored input hint, the
 default engine may also copy its static Markdown section near that interaction
 in the model-facing history. The whole enclosing section is bounded by heading
-ancestry and the next authored interaction, at most 8 KiB. The copy retains the
-author's acceptance alternatives and lesson-wide requirements; it never selects
-a grade or advances the script. Ambiguous hints, non-standalone/multiline controls,
+ancestry and the next authored interaction. Exact introductions from the enclosing
+Markdown ancestors are copied alongside the local section, before their first
+child heading or interaction. This keeps a later question's local hint near the
+applicable parent instructions without copying sibling exercises. It does not
+interpret precedence or infer an aspect count. The combined source remains at
+most 8 KiB; no grade is selected and the script does not advance. If ancestor
+context contains substitution syntax or the combined source exceeds this bound,
+the reference retains only its answer binding and a full-script notice, with
+null local text and no preambles. A local-only copy must not imply complete scope.
+Ambiguous hints, non-standalone/multiline controls,
 variable-containing sections and oversized sections retain the full script
 without a focused copy. Code/comment examples do not locate an interaction.
 Matching first applies the host's existing interaction normalization to a copy
