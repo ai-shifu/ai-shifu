@@ -31,6 +31,10 @@ interaction and analytics contracts in
   notices, decouple retakes from analytics metadata, retain unknown-schema
   progress, recognize legacy block children, batch legacy revision recovery,
   and prefer instant MySQL column addition with explicit compatibility fallback.
+- [x] 2026-10-12 CST: Deferred retake analytics callbacks until after the
+  stop/reset calls begin. Verified callback order, duplicate protection, and
+  retake completion even when tracking delivery never settles; clarified the
+  timing and JavaScript-thread limits in the product contract.
 - [ ] 2026-10-12 CST: Verify migration/deployment order and formal/preview
   behavior after release.
 
@@ -129,6 +133,13 @@ current main. Replayed only this review round's unpublished commits onto that
 head, preserving the remote history. The integration run passed 840 engine and
 focused backend tests. Frontend type checking now passes because main includes
 the separate admin-user test fix; the earlier failure above is historical.
+
+The next unchanged remote rebase retained all 13 PR patches. All checks passed
+on head `93e7e48`, including 11,611 backend tests (23 skipped), frontend tests,
+runtime harness and automated review. That review added a callback-timing
+finding; the focused tracking and notice suites passed 18 tests after the fix.
+The combined notice, tracking and history suites passed 120 tests, and frontend
+type checking passed again.
 
 ## Context and Orientation
 
