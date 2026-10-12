@@ -59,6 +59,13 @@ of this learner's beliefs. Wrong-answer hints, accepted-answer explanations and
 later reviews must ground personal diagnoses in original submissions for the
 current question, distinguishing earlier attempts, corrections and omissions.
 An omitted point does not establish an opposite or unrelated misconception.
+A conditional hint applies only when its stated case matches the actual
+submission. When none matches, follow the current authored stage using a
+genuinely unmatched requirement instead of forcing an unrelated sample. Under
+an authored one-aspect limit, select the relevant exact clause from a compound
+criterion and ask about that gap alone; a paragraph is not one indivisible
+requirement. Matching and focus selection remain model judgments, not host
+semantic validation.
 Required authored distinctions may still be taught as general examples without
 claiming the learner made those mistakes. Earlier generated feedback and lossy
 teaching summaries cannot substitute for original learner input; unavailable

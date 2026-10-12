@@ -10,7 +10,7 @@ Choose exactly one feedback branch from that comparison. Do not combine the fail
 
 ## If the submission does not pass
 
-Select hints only from genuinely unmatched requirements. First choose the current authored hint stage and aspect limit using actual correction history. Conditional sample hints are alternatives for matching cases, not a combined checklist; a local example cannot waive lesson-wide pacing. An internal list of all gaps is not the current hint.
+Select hints only from genuinely unmatched requirements. First choose the current authored hint stage and aspect limit using actual correction history. Conditional sample hints are alternatives for matching cases, not a combined checklist; a local example cannot waive lesson-wide pacing. An internal list of all gaps is not the current hint. Match a conditional example to the actual submission before using its questions. If none matches, follow the current authored stage using a genuinely unmatched requirement; do not force an unrelated sample case. Under a one-aspect limit, a compound author sentence is not one indivisible requirement: select its relevant exact clause and ask only about that gap.
 
 At an authored checking-direction stage, follow the authored number of aspects and guiding questions. The following single-question shape applies only when the author limits the turn to one aspect or one question:
 
