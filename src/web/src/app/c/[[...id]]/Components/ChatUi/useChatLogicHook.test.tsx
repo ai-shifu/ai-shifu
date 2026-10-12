@@ -4448,19 +4448,31 @@ describe('useChatLogicHook stream cleanup', () => {
       },
     );
 
-    it.each([false, true])(
-      'hides the notice for empty history in preview mode %s',
-      async previewMode => {
+    it.each([
+      [false, true],
+      [true, true],
+      [false, false],
+      [true, false],
+      [false, undefined],
+      [true, undefined],
+    ])(
+      'uses the records flag for empty history in preview %s with comparison %s',
+      async (previewMode, hasContentUpdate) => {
         mockGetLessonStudyRecord.mockResolvedValue({
           elements: [],
-          has_content_update_for_current_user: false,
+          ...(hasContentUpdate === undefined
+            ? {}
+            : { has_content_update_for_current_user: hasContentUpdate }),
         });
         const { result } = renderHook(
           () => useChatLogicHook({ ...buildBaseParams(), previewMode }),
           { wrapper },
         );
         await waitFor(() => expect(result.current.isLoading).toBe(false));
-        expect(result.current.showLessonUpdateNotice).toBe(false);
+        expect(result.current.showLessonUpdateNotice).toBe(
+          hasContentUpdate === true,
+        );
+        expect(mockGetRunMessage).toHaveBeenCalledTimes(1);
         expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
       },
     );
