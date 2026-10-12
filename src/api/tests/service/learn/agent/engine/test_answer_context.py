@@ -46,12 +46,24 @@ SCRIPT = (
 @pytest.mark.parametrize("compaction", [False, True])
 @pytest.mark.parametrize("retry_saved_answer", [False, True])
 @pytest.mark.parametrize("normalized_case", ["exact", "variable", "hint", "both"])
+@pytest.mark.parametrize("direction_rule", ["single", "multiple", "unspecified"])
 async def test_sdk_receives_exact_local_author_rule_without_persisting_projection(
-    reload: bool, compaction: bool, retry_saved_answer: bool, normalized_case: str
+    reload: bool,
+    compaction: bool,
+    retry_saved_answer: bool,
+    normalized_case: str,
+    direction_rule: str,
 ) -> None:
     """Retain original answers and authored evidence through both history paths."""
     calls = 0
     original = "Cache reduces memory waits and DMA reduces I/O waits."
+    hint = {
+        "single": "Ask one genuinely missing aspect.",
+        "multiple": "Ask two guiding questions together, about RISC and hardware threading.",
+        "unspecified": "Give a checking direction and wait for a correction.",
+    }[direction_rule]
+    section = SECTION.replace("Ask one genuinely missing aspect.", hint)
+    script = SCRIPT.replace(SECTION, section)
 
     async def model(
         messages: list[ModelMessage], info: AgentInfo
@@ -94,7 +106,22 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
                 in focused[0]["notice"]
             )
             assert "conditional hint examples are alternatives" in focused[0]["notice"]
-            assert focused[0]["text"] == SECTION
+            assert focused[0]["text"] == section
+            assert hint in focused[0]["text"]
+            policy = info.instructions or ""
+            assert (
+                "only when the author limits the turn to one aspect or one question"
+                in policy
+            )
+            assert (
+                "If no count is authored, do not invent a one-question limit" in policy
+            )
+            assert "Preserve authored multiplicity" in focused[0]["notice"]
+            assert "Preserve authored multiplicity" in next(
+                t.description for t in info.function_tools if t.name == "interact"
+            )
+            system_policy = policy.split("# Review this returned interaction")[0]
+            assert "Preserve authored multiplicity" in system_policy
             assert "the category title is optional" in focused[0]["text"]
             assert "Earlier answer" not in focused[0]["text"]
             assert original in ModelMessagesTypeAdapter.dump_json(messages).decode()
@@ -134,7 +161,7 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
         memory_admission=True,
         teaching_history_compaction=compaction,
     )
-    session = await engine.new_session(SCRIPT)
+    session = await engine.new_session(script)
     await _events(engine.run_turn(session))
     assert session.pending[0].spec.variable is None
     assert session.pending[0].spec.placeholder == "Techniques and effects"
@@ -171,7 +198,7 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
     assert not session.memory
     assert not session.user_memory
     assert not session.finished
-    assert session.script.script == SCRIPT
+    assert session.script.script == script
     assert calls == 2
 
 
