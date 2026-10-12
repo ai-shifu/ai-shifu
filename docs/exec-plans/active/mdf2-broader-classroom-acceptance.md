@@ -8,6 +8,39 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Head 5e97f7fd7 passes every technical CI and a fresh
+      CodeRabbit review with no new functional finding. The updated 43.10%/116-
+      function coverage warning is explicitly deferred in its original conversation.
+      Sim 58d32beb5 / build 600 / Drone 5389 succeeds with API 2/2 and web 1/1
+      Ready, 67 matching files and 386 deployed SDK cases per API. The merged
+      suite passes 3736 cases, four subtests and one expected skip with all gates.
+- [x] 2026-10-12: Preserve the fourteenth fresh classroom failure after start,
+      knowledge and wrong answer. The wrong answer now returns content, but an
+      ordinary authored_help branch quotes a conditional local example and asks
+      three questions plus a complete correction outline, bypassing the global
+      one-aspect checking stage. Stop before all 25 later phases. Eight teaching
+      generations settle 15.33 credits with exact attribution; six stable history
+      rows, source unchanged, turn three unfinished, no summary usage or cache.
+      Largest original teaching is 2510 wire bytes. The later accepted-content
+      fix is not reached. Trace reads encounter ClickHouse connection refusal,
+      HTTP 500 and timeout; the observed pod was OOMKilled at 09:44:26Z.
+      Keep those failures and restrict any recovery to read-only bounded queries.
+- [ ] 2026-10-12: Put the branch-choice restrictions directly in native
+      review.phase guidance: local samples do not waive lesson-wide checking
+      counts, and knowledge help is not a failed answer attempt. Keep grading and
+      stage selection with the model, all authored source checks and portable
+      behavior; do not add a planner, a call or a semantic judge. Shorten redundant
+      schema descriptions rather than raise the existing 64 KiB assertion. The
+      first full run and successive compact descriptions exceed that assertion;
+      retain those failures separately from final passing validation. This is
+      policy delivery/regression coverage, not a claim of real semantic success.
+      Final validation passes 3736 learning/evaluation cases, four subtests and
+      one expected skip, the unchanged 64 KiB assertion, tooling and all gates.
+      Even a read-only trace list bounded to the ledger's 09:37:38Z-09:40:24Z
+      generation window with limit three times out. Retain the evidence gap; do
+      not create a fifteenth paid learner until observation recovery is readable.
+      Usage/progress/checkpoints remain independently available and unchanged.
+
 - [x] 2026-10-12: Head 2fd84bc96 passes every technical CI, including runtime;
       CodeRabbit remains rate-limited. Sim b0c18c603 / build 599 / Drone 5388
       succeeds with API 2/2, web 1/1, 67 matching files and 382 SDK cases per API;
