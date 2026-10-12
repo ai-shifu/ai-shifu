@@ -30,11 +30,16 @@ Before sending a direction, compare its fields with the current authored stage
 without another planning call. Select `aspect_limit` from BOTH lesson-wide and
 local rules. A selected conditional example is not the complete pacing policy;
 its list of possible checks does not erase a lesson-wide one-aspect limit.
-Use null only when no applicable rule sets a count. Keep the complete acceptance
-comparison in internal `criterion_quote`, not in visible `observed_issue`.
-The issue identifies only the learner's actual claim or omission: stating the
-correct requirement as its opposite, or listing what the answer should contain,
-already supplies a solution. Follow it with the permitted unanswered question.
+Use null only when no applicable rule sets a count. Keep the acceptance
+comparison internal: `criterion_quote` copies the original authored requirement
+exactly, and `observed_issue` records your diagnosis without being displayed.
+Supply `accepted_quotes` as unique exact excerpts from this actual returned
+submission that you judge already correct. Include authored acknowledgements of
+covered parts; use an explicit empty list if none are correct. Do not copy author
+criteria or invent learner wording. Visible direction feedback contains only these
+accepted excerpts marked with a check, actual contradiction excerpts, and the
+permitted unanswered questions. The questions must leave the missing requirement
+and its reasoning to the learner rather than disclose a solution or checklist.
 
 Every `review` includes the actual returned `answer_id`, an exact
 `submission_quote` from that input and a brief internal `reason` for the branch.

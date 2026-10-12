@@ -31,7 +31,7 @@ SCRIPT = (
 WRONG = "A program executes without prior memory storage."
 ISSUE = "Your answer denies prior storage."
 QUESTION = "Where does the processor obtain its first instruction?"
-DISPLAY = "> " + WRONG + "\n\n" + ISSUE + "\n\n" + QUESTION
+DISPLAY = "> " + WRONG + "\n\n" + QUESTION
 
 
 def _direction() -> dict:
@@ -39,6 +39,7 @@ def _direction() -> dict:
         "answer_id": "original",
         "rule_quote": RULE,
         "aspect_limit": 1,
+        "accepted_quotes": [],
         "focuses": [
             {
                 "criterion_quote": CRITERION,
@@ -485,7 +486,7 @@ async def test_omitted_requirement_has_no_invented_submission_quote() -> None:
             session, InteractionResponseTurn(text="Instructions run automatically.")
         )
     )
-    assert _text(events) == "Your answer omits prior storage.\n\n" + QUESTION
+    assert _text(events) == QUESTION
     assert calls == 2
 
 

@@ -2956,9 +2956,9 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     )
     wrong = "A program executes without prior memory storage."
     question = "Where does the processor obtain its first instruction?"
-    rendered = "> " + wrong + "\n\nYour answer denies prior storage.\n\n" + question
+    rendered = "> " + wrong + "\n\n" + question
     if filter_buffered:
-        rendered = "<memory>\nYour answer denies prior storage.\n\n" + question
+        rendered = "<memory>\n" + question
     requests = 0
     learner = f"direction-host-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
     lesson = f"direction-lesson-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
@@ -2991,13 +2991,14 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
                 "answer_id": "original",
                 "rule_quote": rule,
                 "aspect_limit": 1,
+                "accepted_quotes": [],
                 "focuses": [
                     {
                         "criterion_quote": criterion,
                         "submission_quote": None if filter_buffered else wrong,
-                        "observed_issue": ("<memory>\n" if filter_buffered else "")
-                        + "Your answer denies prior storage.",
-                        "guiding_question": question,
+                        "observed_issue": "Your answer denies prior storage.",
+                        "guiding_question": ("<memory>\n" if filter_buffered else "")
+                        + question,
                     }
                 ],
             }
@@ -3031,9 +3032,9 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     calls.clear()
     response = run(wrong)
     for event in response:
-        if event.type == GeneratedType.CONTENT and "Your answer denies" in str(
-            event.content
-        ):
+        if event.type == GeneratedType.CONTENT and (
+            question if filter_buffered else wrong
+        ) in str(event.content):
             break
     else:
         pytest.fail("No visible validated feedback")
