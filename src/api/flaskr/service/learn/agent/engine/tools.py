@@ -554,6 +554,38 @@ def _turn_text_before(messages: list, index: int, call_id: str) -> str:
     return _visible("".join(_text_up_to(messages[begin : index + 1], call_id)))
 
 
+def current_tool_response(ctx: RunContext[Deps]) -> ModelResponse | None:
+    """Find the complete response containing this tool, including concurrent siblings."""
+    return next(
+        (
+            m
+            for m in reversed(ctx.messages)
+            if isinstance(m, ModelResponse)
+            and any(
+                isinstance(p, ToolCallPart) and p.tool_call_id == ctx.tool_call_id
+                for p in m.parts
+            )
+        ),
+        None,
+    )
+
+
+def validate_direction_call(
+    ctx: RunContext[Deps], *_args: object, **_kwargs: object
+) -> None:
+    """Reject mixed direction calls before any built-in tool can change state."""
+    response = current_tool_response(ctx)
+    if (
+        response is not None
+        and any(
+            isinstance(p, ToolCallPart) and has_direction(p) for p in response.parts
+        )
+        and sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
+    ):
+        message = "structured direction must be the sole tool call in its response"
+        raise ModelRetry(message)
+
+
 async def interact(
     ctx: RunContext[Deps],
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
@@ -621,7 +653,7 @@ async def interact(
     mistake. The host displays submitted quotes, issues and questions after validating this
     structure and provenance; it does not grade or prove semantic single-focus quality.
     Use type `text`, an empty `prompt`, and the same authored placeholder and eligible
-    variable as the answered input. Do not add another interaction or any free
+    variable as the answered input. Do not add another tool call or any free
     content to that model response. This collects the correction directly, without
     a planning request. For passing answers, later authored help, navigation,
     clarification, multiple questions within one aspect, or an input without an
@@ -631,31 +663,8 @@ async def interact(
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
-    response = next(
-        (
-            m
-            for m in reversed(ctx.messages)
-            if isinstance(m, ModelResponse)
-            and any(
-                isinstance(p, ToolCallPart) and p.tool_call_id == ctx.tool_call_id
-                for p in m.parts
-            )
-        ),
-        None,
-    )
-    if (
-        response is not None
-        and any(
-            isinstance(p, ToolCallPart) and has_direction(p) for p in response.parts
-        )
-        and sum(
-            isinstance(p, ToolCallPart) and p.tool_name == "interact"
-            for p in response.parts
-        )
-        != 1
-    ):
-        message = "structured direction must be the sole interaction in its response"
-        raise ModelRetry(message)
+    validate_direction_call(ctx)
+    response = current_tool_response(ctx)
     if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
         message = "This variable is a read-only reference. Ask using a local variable instead."
         raise ModelRetry(message)
@@ -727,13 +736,9 @@ async def interact(
             or any(
                 isinstance(p, TextPart) and p.content.strip() for p in response.parts
             )
-            or sum(
-                isinstance(p, ToolCallPart) and p.tool_name == "interact"
-                for p in response.parts
-            )
-            != 1
+            or sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
         ):
-            problem = "direction must be the sole interaction, without free content in its response"
+            problem = "direction must be the sole tool call, without free content in its response"
         if problem:
             raise ModelRetry(
                 problem + "; correct the whole call before anything is displayed"

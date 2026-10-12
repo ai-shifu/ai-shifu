@@ -72,10 +72,18 @@ async def _collect(events: AsyncIterator) -> list:
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("listen", [False, True])
 @pytest.mark.parametrize("saved_answer", [False, True])
+@pytest.mark.parametrize("transport", ["text", "browser_values"])
+@pytest.mark.parametrize("normalized_control", [False, True])
 async def test_structured_direction_uses_one_request_and_preserves_navigation(
-    reload: bool, listen: bool, saved_answer: bool
+    reload: bool,
+    listen: bool,
+    saved_answer: bool,
+    transport: str,
+    normalized_control: bool,
 ) -> None:
     """Keep original source/answers and complete correction acceptance across reload."""
+    from flaskr.service.learn.agent.run_agent import _turn_input
+
     calls = 0
 
     async def model(
@@ -92,7 +100,16 @@ async def test_structured_direction_uses_one_request_and_preserves_navigation(
         if calls == 1:
             yield "Explain stored-program execution."
             yield _call(
-                {"type": "text", "prompt": "Explain", "placeholder": "Answer"},
+                {
+                    "type": "single" if normalized_control else "text",
+                    "prompt": "Explain",
+                    "placeholder": "Answer",
+                    **(
+                        {"options": [{"display": "...Answer"}]}
+                        if normalized_control
+                        else {}
+                    ),
+                },
                 "original",
             )
         elif calls == 2:
@@ -132,7 +149,9 @@ async def test_structured_direction_uses_one_request_and_preserves_navigation(
     before = ModelMessagesTypeAdapter.dump_json(session.messages)
     count = len(session.messages)
     if saved_answer:
-        session.answers["original"] = "Learner wrote: " + WRONG
+        session.answers["original"] = (
+            "Learner chose: " if transport == "browser_values" else "Learner wrote: "
+        ) + WRONG
         session.pending = []
         session.request_inputs = [WRONG]
     if reload:
@@ -140,10 +159,18 @@ async def test_structured_direction_uses_one_request_and_preserves_navigation(
     events = await _collect(
         engine.run_turn(
             session,
-            ContinueTurn() if saved_answer else InteractionResponseTurn(text=WRONG),
+            ContinueTurn()
+            if saved_answer
+            else _turn_input(session, [WRONG])
+            if transport == "browser_values"
+            else InteractionResponseTurn(text=WRONG),
         )
     )
     assert _text(events) == DISPLAY
+    for event in events:
+        if isinstance(event, ContentDelta):
+            assert event.prepared_content == DISPLAY
+            assert set(event.model_dump()) == {"type", "text"}
     assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
     assert session.script.script == SCRIPT
     assert len(session.pending) == 1
@@ -186,6 +213,11 @@ async def test_structured_direction_uses_one_request_and_preserves_navigation(
         "other_section",
         "answer_wrapper",
         "markup",
+        "chosen_wrapper",
+        "finish_first",
+        "finish_last",
+        "remember_first",
+        "remember_last",
     ],
 )
 async def test_invalid_direction_is_retried_before_display_and_not_saved_as_teaching(
@@ -227,6 +259,8 @@ async def test_invalid_direction_is_retried_before_display_and_not_saved_as_teac
                 args["direction"]["focuses"][0]["criterion_quote"] = (
                     "Explain an instruction."
                 )
+            elif bad == "chosen_wrapper":
+                args["direction"]["focuses"][0]["submission_quote"] = "Learner chose: "
             elif bad == "answer_wrapper":
                 args["direction"]["focuses"][0]["submission_quote"] = "Learner wrote: "
             elif bad == "markup":
@@ -245,6 +279,22 @@ async def test_invalid_direction_is_retried_before_display_and_not_saved_as_teac
                     json_args='{"type":"text","prompt":"extra"}',
                     tool_call_id="extra",
                 )
+            if bad.startswith(("finish_", "remember_")):
+                name = bad.split("_", 1)[0]
+                sibling = DeltaToolCall(
+                    name=name,
+                    json_args=json.dumps(
+                        {"summary": "done"}
+                        if name == "finish"
+                        else {"key": "unsafe_note", "value": "unaccepted direction"}
+                    ),
+                    tool_call_id="sibling",
+                )
+                call = (
+                    {0: sibling, 1: call[0]}
+                    if bad.endswith("first")
+                    else {0: call[0], 1: sibling}
+                )
             yield call
         else:
             assert calls == 3
@@ -259,6 +309,8 @@ async def test_invalid_direction_is_retried_before_display_and_not_saved_as_teac
     assert _text(events) == DISPLAY
     assert session.pending[0].tool_call_id == "valid"
     assert len(session.pending) == 1
+    assert not session.finished
+    assert session.memory == session.user_memory == {}
     teaching = "".join(
         p.content for m in session.messages for p in m.parts if isinstance(p, TextPart)
     )
