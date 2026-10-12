@@ -2520,7 +2520,6 @@ function useChatLogicHook({
           }
         }
       } else {
-        setShowLessonUpdateNotice(false);
         if (autoRunStartedForRef.current !== outlineBid) {
           autoRunStartedForRef.current = outlineBid;
           runRef.current?.({
