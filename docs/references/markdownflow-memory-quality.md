@@ -93,6 +93,33 @@ navigation and request limits remain unchanged. Native SDK instruction/reload
 tests establish delivery only; deployed teaching quality and the complete fresh
 natural-compaction journey still require independent acceptance.
 
+The phase-scoped runtime 6a3aa06d7 deploys as sim-c91e50d. Both APIs match
+67 production fingerprints and pass 422 SDK checks; source and integrated sim
+pass 3830 learning/script cases, 50 subtests, three expected skips and all gates.
+The fifth scoped actual-model check restores explanation and traces but still
+fails factual acceptance: byte addressing with two-byte instructions conflicts
+with one-byte instruction placement/PC movement, and a result write overwrites
+the next HALT while claiming instructions remain unchanged. Do not repair the
+output by changing address units, padding instructions or moving the result.
+One trace/generation settles 2.01 credits with verbatim output/token and actual
+attempt/block binding; original source and classroom state are unchanged. No
+summary or new learner is created. Retain all five scoped failures separately
+from the original failed fresh journey.
+
+A separate process-local capability diagnostic enables provider thinking only
+for the same original-model checkpoint. Product minimum-thinking policy remains
+intentional and unchanged in the serving API, course and shared configuration.
+Actual trace metadata confirms thinking enabled, but the displayed answer omits
+the program/two-iteration trace and defers details. This diagnostic fails the
+frozen semantic check and does not show that reasoning fixes factual errors.
+One trace/generation settles 2.00 credits; the existing Langfuse content field
+matches billing verbatim with unique tokens and actual attempt/block binding.
+Reasoning evidence is retained separately. Source and original classroom state
+remain unchanged. This is neither serving-runtime nor fresh-classroom acceptance.
+Do not change global reasoning policy or repeat an unchanged paid request based
+on this result. A model comparison must preserve the original source, request,
+standards and per-turn limits, and remain separate from course acceptance.
+
 ## Cases and scoring
 
 Admission calls the product's `make_request_check`, including its actual prompt,

@@ -8,6 +8,38 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Independent clarification-scope PR #3123 opens directly Ready
+      on #3122. Runtime 6a3aa06d7 deploys as c91e50d54 / build 615 / Drone 5404
+      in successful records 2835/2836, API 2/2 and web 1/1. Both APIs match 67
+      production files and pass 422 SDK checks; source/sim pass 3830 cases,
+      50 subtests, three expected skips and all gates. CodeRabbit's actual
+      four-file review finds no functional issue; its touched-function docstring
+      warning is addressed in pushed 552a2345b with four checks/all gates and an
+      original-conversation reply. That commit changes only a test docstring;
+      its seven CI checks pass and production bytes still match deployed 6a.
+      Codex and Devin complete without findings on the functional head.
+- [x] 2026-10-13: Fifth scoped actual-model check restores explanation/traces but
+      fails factual acceptance: byte-addressed two-byte instructions conflict
+      with one-byte placement/PC movement; the result overwrites the next HALT
+      while claiming instructions do not change. Do not repair stored output.
+      One trace/generation settles 2.01 credits, with exact output/token and
+      actual attempt/block binding; original source and classroom state remain
+      unchanged. No summary or twentieth learner. All earlier failures remain.
+- [x] 2026-10-13: Isolated process-local thinking-enabled diagnostic preserves
+      the original model/source/input/temperature and all per-turn limits.
+      Actual trace confirms enabled thinking; displayed output still omits the
+      program/two-iteration trace and defers details. It fails the semantic
+      check, not serving-runtime acceptance. One trace/generation settles 2.00
+      credits; Langfuse's existing content field matches billing verbatim and
+      tokens/actual attempt/block uniquely. Reasoning remains separate evidence.
+      Original classroom/source and serving/global minimum-thinking policy are
+      unchanged. Two existing minimum-policy tests pass; initial structured-output
+      audit failure is retained and recovered by reading existing evidence only.
+- [ ] Compare already configured teaching models using the original checkpoint,
+      question, source, standards and per-turn limits. Freeze candidates before
+      calls; separate process-local model diagnostics from course acceptance.
+      Do not start a fresh learner until a serving-runtime semantic gate passes.
+      #3122/#3123 remain not recommended for merge; milestone 4/5 is unchanged.
 - [x] 2026-10-13: Requested-behavior guidance 8012b33f2 deploys as sim
       5d88b7ad6 / build 614 / Drone 5403 in records 2833/2834, API 2/2, web 1/1.
       Both APIs match 67 files and pass 418 SDK checks; integrated 3826 cases,
@@ -22,12 +54,12 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       and original two-iteration request. Source and original classroom state
       remain unchanged; no summary or twentieth learner. Stop further paid calls
       while inspecting authored brevity and the host's feedback-phase guidance.
-- [ ] 2026-10-13: Investigate the host reference's unqualified instruction to
+- [x] 2026-10-13: Investigate the host reference's unqualified instruction to
       leave questions unanswered and withhold later reasoning, despite applying
       also to knowledge clarification. Keep the author's brief-response boundary;
       any independent phase-scope fix must not force long answers or dilute the
       frozen example/trace acceptance. Preserve all four failed checks.
-- [ ] 2026-10-13: Independently scope the host reference's correction limits to
+- [x] 2026-10-13: Independently scope the host reference's correction limits to
       checking-direction feedback. Clarification must answer the actual question
       within authored brevity/disclosure and return to the pending exercise;
       do not apply correction-only withholding to permitted knowledge help.
