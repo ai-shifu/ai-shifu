@@ -8,6 +8,125 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Mark #3117 Ready for Review at the maintainer's request;
+      future PRs start ready so automated reviews run. Remote merge de93f2f89
+      incorporates main d61983f9a with only its web test type fix, and all technical
+      checks for that head pass, including runtime 38190211127. Earlier Draft
+      records below describe historical states, not the current review status.
+- [x] 2026-10-12: Codex identifies an overbroad one-question instruction across
+      checking-direction stages. Scope that shape to an authored one-aspect or
+      one-question limit in the resumed review, system prompt, tool guidance and
+      request-local reference. Preserve explicitly multiple questions and avoid
+      inventing a count when none is authored. Ninety-six SDK delivery cases fail
+      before the fix across single, multiple and unspecified authored counts,
+      reload, saved answers, compaction and normalized controls. Original source,
+      answers, memory permissions and interaction boundaries remain unchanged.
+      The fix passes 777 engine cases and 4420 learning/profile/user/quality cases,
+      four subtests and one expected skip, developer tooling and full local gates.
+      SDK assertions prove delivery and source preservation, not model semantics.
+- [ ] 2026-10-12: Devin and CodeRabbit correctly flag the retained real-model
+      two-direction failure. This compatibility correction does not resolve that
+      semantic acceptance blocker. Keep their findings open while investigating
+      an effective bounded phase/focus contract before another paid probe; do not
+      retry prose-only changes, start the tenth learner or overwrite prior failures.
+      Ready for Review does not mean ready to merge.
+- [x] 2026-10-11: #3117 branch rewrite 9f69659aa passes 713 engine and
+      4356 broader cases, four subtests, one expected skip and full gates.
+      All functional-head technical CI passes, including runtime 38152421162.
+      Sim 79fd8d60e, build 578 / Drone 5367, is Ready on API 2/2 and web 1/1;
+      both APIs match 57 fingerprints and each passes 169 SDK cases, with 846
+      combined local checks and gates. Draft status still skips substantive bot
+      review. No automatic merge occurs.
+- [x] 2026-10-11: Preserve the third probe's failed overall pacing verdict.
+      No full answer checklist or worked reasoning is disclosed before correction,
+      but the hint asks both where the first instruction comes from and how the
+      processor knows its next action. These are two checks rather than the frozen
+      single bounded direction. Partial improvement does not relax the criterion.
+      Complete correction is accepted and actual navigation works. Personal
+      feedback quotes the real storage denial; the disk-file distinction remains
+      general. Six teaching generations settle 9.94 credits with correct actual
+      attribution and no failed/unsettled usage or real summary. Exact reference
+      counts are 1/1/1/1/0/0 with the system review delivered; source and original
+      session/progress/variables/six history elements are unchanged.
+- [ ] 2026-10-11: Keep #3117 Draft and do not start the tenth learner. Prompt
+      delivery, local gates and navigation have passed, but the configured model's
+      single-aspect direction compliance has not. Investigate a bounded feedback
+      phase contract before another changed-runtime paid probe; do not keep adding
+      prose or rerun the same version. Preserve all three failed probes, existing
+      classrooms, original author text, criteria, variables and request limits.
+      Fresh natural compression, complete report and broader milestones remain open.
+- [x] 2026-10-11: #3117 second head 5785901db deploys as sim 319164313,
+      build 577 / Drone 5366. Both actual APIs match 57 fingerprints and each
+      passes 169 SDK cases; actual API 2/2 and web 1/1 are Ready. Local merged
+      checks pass 846 cases and gates. All technical CI for this head passes,
+      including runtime harness 38151317846. CodeRabbit skips the draft, so
+      its success state is not substantive review.
+- [x] 2026-10-11: Preserve the second semantic failure. The wrong-answer hint
+      answers its own retrieval question, adds another question and worked
+      reasoning, then explains development versus execution before waiting.
+      Six teaching generations settle 10.02 credits with correct attribution and
+      no failed/unsettled usage; original session/progress/variables and six
+      history elements are unchanged, with no actual summary. Actual gateway
+      trace confirms the new system review and exact authored context are sent;
+      no delivery loss is found. No tenth learner is created or taught.
+- [x] 2026-10-11: Thirty-six SDK assertions reproduce missing explicit feedback
+      branches and source-before-notice order. Replace the dense resumed review
+      with distinct internal comparison, failed-output and passing-output branches.
+      A checking-direction branch has a brief observed issue, one unanswered
+      bounded question, then the correction tool and wait; it cannot also emit
+      the passing explanation. Place the phase notice after unchanged authored
+      source and subordinate generic diagnostic explanation to its permitted phase.
+- [ ] 2026-10-11: Validate the same-issue branch rewrite and changed runtime
+      before starting fresh acceptance; do not overwrite either failed probe.
+- [x] 2026-10-11: Draft #3117 initial d1024391f deploys as sim 2fa773aea,
+      build 576 / Drone 5365. Actual API 2/2 and web 1/1 are Ready, both APIs
+      match 57 fingerprints and each passes 169 SDK cases; merged local checks
+      pass 846 cases and gates. Its unchanged-prefix three-phase probe passes
+      navigation but fails the authored direction stage: after the retrieval
+      question it supplies preparation, storage and automatic execution as
+      another multi-part question. Preserve this failure; no tenth learner starts.
+      Six teaching generations settle 9.90 credits with actual attribution and no
+      failed/unsettled usage; no real summary occurs. The original session,
+      progress, variables and six history elements remain unchanged. Actual trace
+      author counts are 1/1/1/1/0/0, all exact source with global pacing.
+- [x] 2026-10-11: Thirty-two SDK cases reproduce missing feedback-phase guidance
+      beside the exact authored reference. Clarify that conditional local hint
+      examples are alternatives for matching submissions, not a checklist to
+      combine; acceptance and post-pass analysis are not current hint disclosure.
+      Local examples remain subject to lesson-wide stage and aspect limits. Keep
+      source text, history, grading, state, permissions and budgets unchanged.
+- [ ] 2026-10-11: Validate the same-issue #3117 phase clarification locally and
+      on a new changed-runtime probe before starting the prepared tenth learner.
+      Initial failure evidence and all prior failures remain separate and open.
+- [x] 2026-10-11: User merges #3116 final head 0b8fd5224 as 00ff97fba.
+      Fetch confirms identical trees. All final-head technical CI passes,
+      including runtime harness 38149399794. CodeRabbit substantively reviews
+      all five files through the final head with no actionable comments and
+      85.71% docstring coverage; Devin and Codex have no functional-head findings.
+      Automatic main build 575 / Drone 5364 succeeds; actual CN API 6/6 and web
+      3/3 are Ready on 20261011-00ff97f. This release also includes #3115, so
+      the earlier failed hook needs no replay. Production checks remain read-only.
+- [x] 2026-10-11: Isolate the remaining direction-before-explanation problem.
+      The prior trace proves exact authored pacing is delivered, but the first
+      correction still teaches local reasoning immediately. Generic instructions
+      to explain a gap can invite that later help stage. Keep their feedback
+      requirement subordinate to the author's current stage: at a checking
+      direction, briefly identify the issue, give one bounded guiding question
+      and wait without answering it. A prior knowledge explanation counting as
+      help does not itself skip correction stages. Preserve explicit author
+      permission for immediate explanation or another progression.
+- [x] 2026-10-11: Thirty-six SDK assertions fail before the stage clarification
+      across reload, saved answers, compaction and normalized controls. Controlled
+      callbacks check instruction/tool delivery, not semantic compliance.
+- [x] 2026-10-11: The clarification passes 713 engine and 4356 broader
+      learning/profile/user/quality cases, four subtests and one expected skip,
+      plus developer tools and full gates. Published source remains the retained
+      original snapshot. The next original-prefix probe is prepared with unchanged
+      inputs and twelve-request budget; its semantic result is not yet known.
+- [ ] 2026-10-11: Validate the independent direction-stage correction locally,
+      submit its focused PR, deploy sim and compare frozen original-prefix output
+      before starting any new fresh classroom. Preserve all preceding failures,
+      course criteria, memory permissions, interaction boundaries and budgets.
 - [x] 2026-10-11: Independent normalized-context PR #3116, functional head
       01e92512b, deploys as sim 330cf65bc, build 574 / Drone 5363. Actual
       API 2/2 and web 1/1 are Ready; both APIs match 57 fingerprints and each

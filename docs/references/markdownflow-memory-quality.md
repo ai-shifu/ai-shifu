@@ -128,6 +128,39 @@ previous side-question help does not relax the authored restriction on correctio
 hints. These remain model-facing
 instructions, not a semantic output filter or a host-generated hint.
 
+At an authored checking-direction stage, feedback briefly identifies the issue
+and follows the authored aspect and guiding-question limits. A one-aspect or
+one-question limit uses one bounded unanswered question. Stages permitting or
+requiring several aspects or questions retain that multiplicity; an unspecified
+count does not create a one-question limit. Leave the questions unanswered for the
+learner. A question surrounded by its worked reasoning or several explanatory
+paragraphs already moves into explanation, even without disclosing the complete
+answer. The generic feedback requirement does not override the author's stage.
+Actual correction history and authored progression determine later steps; a
+knowledge explanation counting as help in the report does not itself authorize
+skipping a required correction stage. Explicit author permission for immediate
+explanation or a different progression remains authoritative.
+
+Select the feedback phase before applying a local authored hint example.
+Conditional examples are alternatives for matching submitted cases, not a
+checklist to combine for every wrong answer. Acceptance criteria support internal
+comparison; post-correct explanations require a passing submission. The
+request-local exact reference repeats this interpretation beside the original
+text without editing it or deciding the grade, hint level or next step in code.
+A matching local example remains subject to the lesson-wide stage and aspect
+limit. At a direction stage, stop after the permitted question or questions;
+follow-up subquestions must not exceed the authored count or collectively reveal
+the remaining solution.
+
+The request-only reference keeps its source text before the host phase notice.
+The resumed-answer review separates failed and passing feedback branches: at an
+authored checking direction with a one-aspect or one-question limit, a brief
+observed issue and one unanswered guiding question are followed by the correction
+input. Other authored counts remain authoritative. Worked reasoning and a transfer
+method remain in the passing branch unless the author permits an earlier help
+stage. These instructions do not introduce a host semantic filter or another
+model request, and require separate actual-model acceptance.
+
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model
 compliance; deployed checkpoint and fresh-classroom evidence remain separate.

@@ -203,10 +203,13 @@ async def test_resumed_answer_receives_current_criterion_review(
             assert policy.endswith(
                 "Do not expose this review procedure to the learner."
             )
+            assert "## If the submission does not pass" in policy
+            assert "Do not combine the failed and passing branches" in policy
             assert "Match every required point" in policy
             assert "already covered, contradicted, or not supplied" in policy
             assert "A missing label cannot undo a successful meaning match" in policy
             assert "Select hints only from genuinely unmatched requirements" in policy
+            assert "A question followed by its own worked reasoning" in policy
             assert "An ordered checklist of the answer" in policy
             assert "An internal list of all gaps is not the current hint" in policy
             assert "across both content and interaction fields" in policy
