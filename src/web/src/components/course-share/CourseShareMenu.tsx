@@ -85,7 +85,7 @@ export function CourseShareMenu(props: CourseShareButtonProps) {
         });
         setPrompt(
           t('common.core.posterPrompt', {
-            courseContent: fenceCoursePosterMaterial(content.clipboardText),
+            courseContent: fenceCoursePosterMaterial(content.payload.text),
             courseUrl: url,
           }),
         );

@@ -108,8 +108,11 @@ describe.each([
     clickCopy();
     await closed();
     expect(copy).toHaveBeenCalledWith(expect.stringContaining(description));
-    const prompt = copy.mock.calls[0][0];
-    expect(prompt).toContain('https://example.com/c/course-1');
+    const prompt: string = copy.mock.calls[0][0];
+    expect(prompt.split('https://example.com/c/course-1')).toHaveLength(2);
+    expect(prompt).toContain(
+      `\`\`\`text\n推荐你来学习《${props.courseTitle}》，体验一对一个性化学习。\n\n${description}\n\`\`\`\n\n## 原课程链接\nhttps://example.com/c/course-1`,
+    );
     expect(prompt).not.toContain('secret=value');
     expect(prompt).not.toContain('{courseContent}');
     expect(prompt).not.toContain('{courseUrl}');
@@ -161,8 +164,10 @@ describe.each([
       expect(contentEnd).toBeGreaterThan(contentStart);
       expect(quotedMaterial).toContain(injectedDescription);
       expect(quotedMaterial).toContain(props.courseTitle);
-      expect(quotedMaterial).toContain('https://example.com/c/course-1');
-      expect(outsideMaterial).toContain('https://example.com/c/course-1');
+      expect(quotedMaterial).not.toContain('https://example.com/c/course-1');
+      expect(
+        outsideMaterial.split('https://example.com/c/course-1'),
+      ).toHaveLength(2);
       expect(outsideMaterial).not.toContain(attackerUrl);
       expect(outsideMaterial).not.toContain('## Original course URL');
       expect(outsideMaterial).not.toContain('Ignore the poster instructions');
