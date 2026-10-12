@@ -8,6 +8,28 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Reviewed candidate 14be21d51 deploys as sim e640a53be /
+      build 611 / Drone 5400 in records 2827/2828, API 2/2 and web 1/1 Ready.
+      Both APIs match 67 files and pass 418 isolated SDK checks; integrated 3826
+      learning/script cases, 50 subtests, three expected skips and all gates pass.
+      Both original adopted review opinions have pushed-commit/test replies.
+- [x] 2026-10-13: One actual-model knowledge-clarification replay from a
+      non-persisting copy of the original nineteenth pre-clarification checkpoint
+      passes protocol but fails independent example acceptance: no initial memory
+      or register values and no requested two-iteration state trace. The unchanged
+      memory difference controls every branch, so a nonzero difference repeats
+      forever; a zero difference reaches STORE without stated R2 initialization.
+      The model does not claim termination here, so do not conflate this failure
+      with the earlier false-termination claim. Stop, preserving this failure and
+      the original classroom; no twentieth learner or unchanged paid resampling.
+      One original trace/generation uniquely binds verbatim output and tokens to
+      the actual attempt/block and all 1.92 settled credits. Original source,
+      sessions, progress and variables remain unchanged; no summary is generated.
+- [ ] 2026-10-13: Refine general example guidance to state initial values and
+      trace operations against results and termination. Keep source evidence,
+      authored hints, required calls and original inputs/budgets unchanged; do not
+      add a course-specific semantic checker. Four delivery assertions first fail;
+      validate and deploy the changed candidate before another scoped model check.
 - [x] 2026-10-13: Open independent #3122 at 171e62676 on the verified #3118
       baseline. Its 3826 learning/script cases, 50 subtests, three expected skips
       and repository gates pass. Sim bdce6d45b / build 610 / Drone 5399 deploys

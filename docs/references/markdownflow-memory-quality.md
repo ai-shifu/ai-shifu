@@ -21,8 +21,8 @@ acceptance, persisted cross-lesson acceptance or long-term cost observation.
 ## Worked example consistency
 
 Before claiming a worked result or termination, the default runtime instructions
-ask the model to check exact values and operations, including reinitialization
-and branch targets. Correct model-created errors before presenting them; preserve
+ask the model to state initial values and trace operations, including
+reinitialization and branch targets. Correct model-created errors before presenting them; preserve
 authored, learner and quoted evidence instead of silently repairing it. Respect
 the authored hint stage and state uncertainty when the result is unverified.
 This is model guidance, not a host factual grader, new tool or extra request.
@@ -40,6 +40,15 @@ whole fresh-classroom acceptance remains separate. The original nineteenth
 failed classroom is preserved. Its generated loop reloads unchanged memory on
 each back-edge and cannot terminate as claimed; do not repair stored evidence or
 count a subsequent targeted success as a pass for that journey.
+
+The first scoped actual-model check on 14be21d51/sim-e640a53 passes native
+interaction delivery but fails example acceptance: no initial memory/register
+values or requested two-iteration trace. It does not claim termination; retain
+this separate under-specified-example failure. One generation settles 1.92
+credits, with exact output/token and actual attempt/block binding; original
+source and classroom state remain unchanged. No new learner or unchanged paid
+retry follows. Explicit initial-state/trace guidance requires a changed deployed
+candidate and separate acceptance; controlled-output tests alone cannot supply it.
 
 ## Cases and scoring
 

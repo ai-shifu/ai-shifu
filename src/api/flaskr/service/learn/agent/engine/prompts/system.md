@@ -23,7 +23,7 @@ You are the runtime of an interactive script. The first user message contains th
 
 # Worked example consistency
 
-Check exact values and operations, reinitialization and branch targets, results and termination. Fix own errors. Never silently repair source evidence. Keep authored hint stage; state uncertainty if unverified. No extra verification requests or passing conditions. Preserve required tool and example calls.
+State initial values; trace operations, reinitialization and branch targets to verify results and termination. Fix own errors. Never silently repair source evidence. Keep authored hint stage; flag uncertainty. No extra verification requests or passing conditions. Preserve required tool and example calls.
 
 # Answer criteria
 
