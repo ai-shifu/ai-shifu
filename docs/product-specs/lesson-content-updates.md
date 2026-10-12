@@ -75,9 +75,12 @@ This additive event family follows [frontend product analytics](../references/fr
   terminal results, grouped by course and surface. Best-effort event delivery
   does not support billing, audit counts or exact attempt-to-result joins.
 - Events: `lesson_update_retake_attempt` and `lesson_update_retake_result`.
-- Trigger: Attempt is emitted after a valid confirmation passes the existing
-  single-flight guard, immediately before stopping the stream and resetting.
-  Result is emitted once after the operation resolves or rejects.
+- Trigger: Attempt is queued after a valid confirmation passes the existing
+  single-flight guard, immediately before stopping the stream and starting the
+  reset. The tracking callback runs in a subsequent microtask, after those
+  synchronous calls begin. Result is queued once after the operation resolves
+  or rejects. Tracking callbacks run in attempt-then-result order; network
+  delivery order is not guaranteed.
 - Population: Formal learners, including guests with access, and authorized
   teacher previews. Missing course/lesson identifiers exclude analytics events;
   missing course metadata does not prevent an otherwise valid lesson retake.
@@ -93,8 +96,11 @@ This additive event family follows [frontend product analytics](../references/fr
   event queries remain unchanged and are not combined with this family.
 - Compatibility: Additive events; no renamed event, historical backfill or
   changes to legacy reset-event eligibility.
-- Failure isolation: Synchronous tracking errors and asynchronous rejections
-  do not block, delay, fail or change the retake operation.
+- Failure isolation: Tracking callbacks are not invoked synchronously before
+  the retake starts, and the retake never awaits analytics delivery. Synchronous
+  tracking errors and asynchronous rejections are swallowed without changing
+  the retake outcome. Callbacks still use the browser's JavaScript thread;
+  this is not a guarantee of zero effect on the operation's total elapsed time.
 
 | Field | Type | Allowed values | Cardinality / privacy | Purpose |
 | --- | --- | --- | --- | --- |

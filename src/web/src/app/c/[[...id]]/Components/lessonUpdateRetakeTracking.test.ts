@@ -1,8 +1,8 @@
 import { startLessonUpdateRetakeTracking } from './lessonUpdateRetakeTracking';
 
 describe('recommended retake tracking lifecycle', () => {
-  it('emits at most one terminal result for an accepted attempt', () => {
-    const trackEvent = jest.fn();
+  it('defers ordered callbacks without awaiting delivery and deduplicates terminal results', async () => {
+    const trackEvent = jest.fn(() => new Promise<void>(() => {}));
     const finish = startLessonUpdateRetakeTracking({
       shifuBid: 'course-1',
       outlineBid: 'lesson-1',
@@ -12,6 +12,8 @@ describe('recommended retake tracking lifecycle', () => {
     finish?.('success');
     finish?.('failed');
     finish?.('success');
+    expect(trackEvent).not.toHaveBeenCalled();
+    await Promise.resolve();
     expect(trackEvent.mock.calls).toEqual([
       [
         'lesson_update_retake_attempt',
@@ -38,7 +40,7 @@ describe('recommended retake tracking lifecycle', () => {
     ['course-1', ''],
     [' ', 'lesson-1'],
     ['course-1', ' '],
-  ])('excludes missing identifiers %j / %j', (shifuBid, outlineBid) => {
+  ])('excludes missing identifiers %j / %j', async (shifuBid, outlineBid) => {
     const trackEvent = jest.fn();
     expect(
       startLessonUpdateRetakeTracking({
@@ -48,6 +50,7 @@ describe('recommended retake tracking lifecycle', () => {
         trackEvent,
       }),
     ).toBeUndefined();
+    await Promise.resolve();
     expect(trackEvent).not.toHaveBeenCalled();
   });
 });

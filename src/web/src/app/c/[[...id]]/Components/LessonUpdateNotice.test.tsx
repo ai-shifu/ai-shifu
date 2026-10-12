@@ -106,7 +106,7 @@ describe('recommended lesson retake analytics', () => {
     [false, 'published_learning'],
     [true, 'teacher_preview'],
   ])(
-    'tracks one guarded attempt and confirmed success for preview %s',
+    'starts the guarded retake before tracking and reports success for preview %s',
     async (previewMode, surface) => {
       mockSystemState.previewMode = previewMode as boolean;
       let finishReset!: () => void;
@@ -119,6 +119,13 @@ describe('recommended lesson retake analytics', () => {
       fireEvent.click(screen.getByText('common.core.ok'));
       fireEvent.click(screen.getByText('common.core.ok'));
 
+      expect(mockStopActiveLessonStream).toHaveBeenCalledTimes(1);
+      expect(mockResetChapter).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      await act(async () => {
+        await Promise.resolve();
+      });
+
       const payload = {
         shifu_bid: 'course-1',
         outline_bid: 'lesson-1',
@@ -127,9 +134,8 @@ describe('recommended lesson retake analytics', () => {
       expect(mockTrackEvent.mock.calls).toEqual([
         ['lesson_update_retake_attempt', payload],
       ]);
-      expect(mockResetChapter).toHaveBeenCalledTimes(1);
-      expect(mockTrackEvent.mock.invocationCallOrder[0]).toBeLessThan(
-        mockStopActiveLessonStream.mock.invocationCallOrder[0],
+      expect(mockResetChapter.mock.invocationCallOrder[0]).toBeLessThan(
+        mockTrackEvent.mock.invocationCallOrder[0],
       );
       expect(
         mockStopActiveLessonStream.mock.invocationCallOrder[0],
@@ -257,12 +263,14 @@ describe('recommended lesson retake analytics', () => {
     },
   );
 
-  it.each(['throw', 'reject'])(
-    'completes the retake when tracking fails by %s',
+  it.each(['throw', 'reject', 'pending'])(
+    'completes the retake when tracking is %s',
     async failure => {
       mockTrackEvent.mockImplementation(() => {
         if (failure === 'throw') throw new Error('Tracking unavailable');
-        return Promise.reject(new Error('Tracking unavailable'));
+        if (failure === 'reject')
+          return Promise.reject(new Error('Tracking unavailable'));
+        return new Promise<void>(() => {});
       });
       renderNotice();
       openConfirm();

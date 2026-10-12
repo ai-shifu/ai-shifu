@@ -21,9 +21,9 @@ export function startLessonUpdateRetakeTracking({
     surface: previewMode ? 'teacher_preview' : 'published_learning',
   };
   const emit = (name: string, data: Record<string, unknown>) => {
-    try {
-      void Promise.resolve(trackEvent(name, data)).catch(() => {});
-    } catch {}
+    void Promise.resolve()
+      .then(() => trackEvent(name, data))
+      .catch(() => {});
   };
   emit('lesson_update_retake_attempt', payload);
 
