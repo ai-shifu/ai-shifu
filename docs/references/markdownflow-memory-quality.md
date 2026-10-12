@@ -120,6 +120,25 @@ Do not change global reasoning policy or repeat an unchanged paid request based
 on this result. A model comparison must preserve the original source, request,
 standards and per-turn limits, and remain separate from course acceptance.
 
+The frozen two-candidate configured-model comparison preserves the original
+checkpoint/question/source, product parameter policy and per-turn limits. Model
+2 passes this isolated example check: initialization at a distinct data cell,
+two increments, a conditional back-edge and final fall-through/HALT all match its
+six displayed PC/memory rows. Three native generations settle 28.52 credits.
+Model 3 fails native delivery with no displayed answer after five generations;
+retained tool results reject a serialized JSON string in the object-valued review
+field. Do not coerce the schema or infer factual acceptance from missing output.
+Its five generations settle 77.93 credits. All eight outputs/tokens uniquely bind
+to actual attempt/block usage, all fees settle, source/classroom remain unchanged
+and no summary/new learner is created. A diagnostic route guard initially stops
+before provider usage; explicit course scope fixes only the private runner, not
+product routing. Structured-output audit recovery reads existing evidence only.
+
+This comparison changes no serving course/model or global reasoning policy and
+does not close either the original model's failure or fresh eleven-question
+natural-compaction acceptance. Model 2 is a candidate for a separately scoped
+classroom evaluation, not an automatic course migration or a pass for #3122.
+
 ## Cases and scoring
 
 Admission calls the product's `make_request_check`, including its actual prompt,

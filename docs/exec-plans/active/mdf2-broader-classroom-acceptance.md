@@ -8,6 +8,23 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Frozen configured-model comparison completes once per
+      candidate, retaining original source/checkpoint/question/standards and
+      per-turn limits. Model 2's displayed initialization/two-iteration branch
+      loop/six PC-memory rows are internally consistent; scoped comparison PASS
+      only, three native generations/28.52 settled credits. Model 3 fails delivery
+      after five generations with no displayed answer; native tool results reject
+      serialized review JSON instead of an object. Five generations/77.93 credits
+      settle, with no schema coercion or paid resampling. All eight outputs/tokens
+      uniquely bind actual attempt/block billing; source/classroom unchanged,
+      no summary/new learner. Initial diagnostic route guard uses an unscoped
+      model number and stops before provider usage; explicit course scope repairs
+      only the private runner, with the zero-usage receipt retained. Initial
+      structured-output audit errors recover from existing trace content only.
+      The frozen common baseline remains unchanged; candidate 2's three rows are
+      separately audited when binding candidate 3's five rows. No serving course,
+      model or global reasoning policy changes. Original-model and fresh-classroom
+      acceptance remain open; model 2 is only a candidate for further evaluation.
 - [x] 2026-10-13: Independent clarification-scope PR #3123 opens directly Ready
       on #3122. Runtime 6a3aa06d7 deploys as c91e50d54 / build 615 / Drone 5404
       in successful records 2835/2836, API 2/2 and web 1/1. Both APIs match 67
@@ -35,7 +52,7 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       Original classroom/source and serving/global minimum-thinking policy are
       unchanged. Two existing minimum-policy tests pass; initial structured-output
       audit failure is retained and recovered by reading existing evidence only.
-- [ ] Compare already configured teaching models using the original checkpoint,
+- [x] Compare already configured teaching models using the original checkpoint,
       question, source, standards and per-turn limits. Freeze candidates before
       calls; separate process-local model diagnostics from course acceptance.
       Do not start a fresh learner until a serving-runtime semantic gate passes.
