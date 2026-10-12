@@ -98,6 +98,7 @@ from .teaching_summary import TeachingSummarizer, summarize_teaching_history
 from .tools import (
     NO_PAUSE,
     Deps,
+    feedback_response_problem,
     finish,
     interact,
     normalize_script_text_input,
@@ -395,6 +396,7 @@ class Engine:
         teaching_history_compaction: bool = False,
         teaching_summarizer: TeachingSummarizer | None = None,
         exercise_statistics: bool = False,
+        feedback_contract: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -434,12 +436,19 @@ class Engine:
         reference-validated arithmetic calculator. Semantic grades and question
         grouping still come from the model; no learner memory is written.
 
+        `feedback_contract` requires a model-declared feedback branch before
+        displaying supported returned text answers. Ordinary feedback uses review
+        on an existing tool; checking directions use interact.direction. Sources
+        are checked before display, but the model still chooses the grade/stage.
+        Off preserves portable hosts' previous optional contract.
+
         `teaching_history_compaction` offers exact paginated reads of older long
         teaching replaced by excerpts in requests. It preserves two recent turns,
         all learner input and original stored evidence. `teaching_summarizer` optionally
         decorates excerpts with bounded session-local semantic summaries; without it
         projection makes no extra model call.
         """
+        self.feedback_contract = feedback_contract
         self.exercise_statistics = exercise_statistics
         self.exercise_instructions = (
             (PROMPTS_DIR / "exercise_statistics.md").read_text()
@@ -554,6 +563,18 @@ class Engine:
         self, ctx: RunContext[Deps], output: str | DeferredToolRequests
     ) -> str | DeferredToolRequests:
         """Require an actual tool call after an unexecuted textual interaction."""
+        if isinstance(output, str) and ctx.deps.feedback_contract:
+            response = next(
+                (m for m in reversed(ctx.messages) if isinstance(m, ModelResponse)),
+                None,
+            )
+            if response is not None:
+                problem, _ = feedback_response_problem(ctx.deps, response)
+                if problem:
+                    ctx.deps.hidden_feedback_responses.add(id(response))
+                    raise ModelRetry(
+                        problem + "; correct the whole response before any display"
+                    )
         if isinstance(output, str) and (
             ctx.deps.interaction_markup_pending
             or contains_interaction_markup(output, ctx.deps.literal_interaction_markup)
@@ -611,6 +632,8 @@ class Engine:
             instructions += "\n\n" + exercise_report_notice(ctx)
         if ctx.deps.resuming_interaction and self.prompts.answer_review:
             instructions += "\n\n" + self.prompts.answer_review
+        if ctx.deps.feedback_contract and ctx.deps.direction_sections:
+            instructions += "\n\n" + (PROMPTS_DIR / "feedback_contract.md").read_text()
         return instructions
 
     # -- sessions ----------------------------------------------------------------------------
@@ -868,6 +891,7 @@ class Engine:
             return
 
         deps.resuming_interaction = bool(resumed)
+        deps.feedback_contract = self.feedback_contract
         for message in session.messages:
             for part in message.parts:
                 if (
@@ -1029,7 +1053,7 @@ class Engine:
         markup_noticed = False
         # Until the first new tool, a resumed answer may select structured direction
         # feedback. Its free prose must not reach the learner before tool validation.
-        # An ordinary tool releases the original chunks and restores normal streaming;
+        # A declared ordinary tool releases chunks and restores normal streaming;
         # report pagination therefore adds no preflight request or whole-turn buffer.
         buffer_direction = bool(deps.direction_sections)
         direction_chunks: list[str] = []
@@ -1120,8 +1144,11 @@ class Engine:
                     ):
                         # A validator can retry ordinary text without calling a tool.
                         # Preserve those original chunks before the next response.
-                        for e in _release_direction_chunks():
-                            yield e
+                        if deps.feedback_contract and deps.feedback_review is None:
+                            direction_chunks.clear()
+                        else:
+                            for e in _release_direction_chunks():
+                                yield e
                         buffer_direction = True
                     # Once the model has said the lesson is over, nothing more of its writing is
                     # the lesson. The tool result goes back to it like any other, so it takes
@@ -1180,13 +1207,23 @@ class Engine:
                                 ),
                                 None,
                             )
-                            if response is not None and any(
-                                isinstance(p, ToolCallPart) and has_direction(p)
-                                for p in response.parts
+                            problem = (
+                                feedback_response_problem(deps, response)[0]
+                                if response is not None
+                                else None
+                            )
+                            if response is not None and (
+                                problem
+                                or any(
+                                    isinstance(p, ToolCallPart) and has_direction(p)
+                                    for p in response.parts
+                                )
                             ):
                                 # The entire structured response is validated in interact.
                                 # Mixed free content is rejected, not clipped into a hint.
                                 direction_chunks.clear()
+                                if problem:
+                                    deps.hidden_feedback_responses.add(id(response))
                             else:
                                 for e in _release_direction_chunks():
                                     yield e
@@ -1234,7 +1271,9 @@ class Engine:
                             )
                     elif isinstance(ev, AgentRunResultEvent):
                         if buffer_direction:
-                            if deps.direction_rendered:
+                            if deps.direction_rendered or (
+                                deps.feedback_contract and deps.feedback_review is None
+                            ):
                                 direction_chunks.clear()
                             else:
                                 for e in _release_direction_chunks():
@@ -1249,7 +1288,9 @@ class Engine:
                             [
                                 *session.messages,
                                 *direction_history(
-                                    result.new_messages(), deps.direction_rendered
+                                    result.new_messages(),
+                                    deps.direction_rendered,
+                                    deps.hidden_feedback_responses,
                                 ),
                             ]
                             if session.started
@@ -1385,7 +1426,11 @@ class Engine:
                 # new messages also preserves original evidence behind history projections.
                 session.messages = [
                     *session.messages,
-                    *direction_history(events.new_messages(), deps.direction_rendered),
+                    *direction_history(
+                        events.new_messages(),
+                        deps.direction_rendered,
+                        deps.hidden_feedback_responses,
+                    ),
                 ]
                 session.answers = {}
                 session.usage = accumulate_usage(session.usage, events.usage)

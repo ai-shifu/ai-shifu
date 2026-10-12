@@ -8,6 +8,52 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Reproduce the optional-field bypass with SDK responses and
+      require a same-response feedback branch in the production host for supported
+      returned text. Direction corrections use the structured input; accepted,
+      clarification and authored-help branches use review on an existing tool.
+      Verify actual input and current help-source provenance before releasing
+      prose or executing terminal tools. Pure read lookups may precede the
+      decision and subsequent report pages inherit it without planning requests.
+      Portable hosts, unsupported anchors and navigation retain compatibility;
+      the model still chooses the semantic grade, stage and authored limits.
+- [x] 2026-10-12: CodeRabbit correctly identifies host filters dropping the
+      pre-display commit metadata when they buffer the whole direction. Eight
+      isolated real-store cases first fail with the original input restored.
+      Retain the metadata even on an empty filtered delta, persist immediately
+      and suppress empty frontend content before the later filter flush.
+- [x] 2026-10-12: Twenty-three phase-contract cases pass, including omission,
+      forged sources, plain-text bypass, all built-in tools, one-request ordinary
+      branches, inherited report pages, unseen provider failures and unsupported
+      inputs. The broader suite passes 4671 cases including all 853 engine cases,
+      four subtests and one expected skip. Sixteen real-store direction cases
+      cover buffered/unbuffered text, preceding content, preview and disconnect.
+      Retain the failed SDK baseline, incomplete test import, direct-call fixture
+      regression and filter fixture identity collision as development evidence.
+- [ ] 2026-10-12: Push the mandatory-branch/filter fix, reply in CodeRabbit's
+      original thread, and validate its final-head CI and changed sim runtime.
+      Previous sim/probe receipts below cover 67497c16c only. A further real
+      probe must retain the original inputs, criteria and twelve-request limit.
+
+- [x] 2026-10-12: Push review fixes 67497c16c and reply to all three original
+      findings with the pushed commit and validation. Sim 3f6b0ceb5 passes 1108
+      combined cases and gates. Build 583 / Drone 5372 succeeds; actual API 2/2
+      and web 1/1 are Ready on sim-3f6b0ce. Both APIs match 59 fingerprints and
+      each passes 286 isolated SDK cases.
+- [x] 2026-10-12: Retain the failed frozen-prefix real probe on that runtime.
+      The model omits optional direction in all three phases and ordinary wrong-
+      answer prose discloses the first answer requirement and chains questions.
+      Correction/navigation boundaries pass, but strict hint pacing fails.
+      Six teaching generations settle 10.40 credits with correct attribution;
+      no actual summary occurs. Original classroom, variables, six historical
+      records and author source remain unchanged. Actual traces contain exact
+      authored references 1/1/1/1/0/0 and the current system guidance.
+- [ ] 2026-10-12: Require a feedback branch before supported answer feedback
+      becomes visible, retaining clarification, accepted answers and authored
+      direct-help behavior. Validate the changed contract before another probe;
+      do not start the tenth fresh learner, retry unchanged runtime, change the
+      author source or raise the existing twelve-request limit.
+
 - [x] 2026-10-12: Open #3118 at 9b54f2323 and integrate sim 8817a61b7.
       Local merged checks pass 934 cases and gates. Build 582 / Drone 5371
       succeeds; actual API 2/2 and web 1/1 are Ready on sim-8817a61, with both

@@ -7,7 +7,7 @@ grade an answer or prove that a free-form question has only one semantic focus.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
@@ -31,6 +31,51 @@ class DirectionFocus(BaseModel):
         min_length=1,
         description="One unanswered question about this focus, without subquestions or reasoning.",
     )
+
+
+class FeedbackReview(BaseModel):
+    """An explicit model judgment authorizing ordinary answer feedback.
+
+    Checking-direction feedback uses DirectionFeedback instead. These fields
+    make the branch decision reviewable; provenance checks do not grade it.
+    """
+
+    answer_id: str
+    phase: Literal["accepted", "clarification", "authored_help"]
+    submission_quote: str = Field(
+        min_length=1, description="Exact evidence from the actual returned submission."
+    )
+    rule_quote: str | None = Field(
+        default=None,
+        description="For authored_help, exact current author text permitting this help now.",
+    )
+    reason: str = Field(
+        min_length=1,
+        description="Internal branch justification using actual submission and correction history.",
+    )
+
+    def problem(self, answers: dict[str, str], sections: dict[str, str]) -> str | None:
+        """Validate actual answer provenance and an authored help source."""
+        if self.answer_id not in sections or self.answer_id not in answers:
+            return (
+                "review.answer_id must name a supported interaction returned this turn"
+            )
+        if (
+            not self.submission_quote.strip()
+            or self.submission_quote not in answers[self.answer_id]
+        ):
+            return "review.submission_quote must copy actual returned input exactly"
+        if not self.reason.strip():
+            return "review.reason must explain the chosen feedback branch"
+        if self.phase == "authored_help" and (
+            not self.rule_quote
+            or not self.rule_quote.strip()
+            or self.rule_quote not in sections[self.answer_id]
+        ):
+            return (
+                "authored_help needs exact current author text permitting this help now"
+            )
+        return None
 
 
 class DirectionFeedback(BaseModel):
@@ -99,7 +144,9 @@ def has_direction(call: ToolCallPart) -> bool:
 
 
 def direction_history(
-    messages: list[ModelMessage], rendered: dict[str, str]
+    messages: list[ModelMessage],
+    rendered: dict[str, str],
+    hidden: set[int] | None = None,
 ) -> list[ModelMessage]:
     """Keep only displayed direction text in new teaching, retaining all tool/user evidence.
 
@@ -118,7 +165,7 @@ def direction_history(
             if isinstance(message, ModelResponse)
             else []
         )
-        if not calls:
+        if not calls and (hidden is None or id(message) not in hidden):
             result.append(message)
             continue
         parts = [p for p in message.parts if not isinstance(p, TextPart)]

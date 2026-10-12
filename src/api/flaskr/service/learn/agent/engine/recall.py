@@ -9,7 +9,8 @@ from pydantic_ai import (
     RunContext,  # noqa: TC002 - Tool schemas resolve this annotation at runtime.
 )
 
-from .tools import LESSON_OVER, Deps, recall_exclusions
+from .direction import FeedbackReview  # noqa: TC001 - Runtime tool schema annotation.
+from .tools import LESSON_OVER, Deps, recall_exclusions, validate_direction_call
 
 RECALL_RESULT_BYTES = 8192
 RECALL_PAGE_SIZE = 20
@@ -23,7 +24,12 @@ def _fits(result: str) -> bool:
     return len(result.encode("utf-8")) <= RECALL_RESULT_BYTES
 
 
-async def recall(ctx: RunContext[Deps], key: str | None = None, offset: int = 0) -> str:
+async def recall(
+    ctx: RunContext[Deps],
+    key: str | None = None,
+    offset: int = 0,
+    review: FeedbackReview | None = None,
+) -> str:
     """Read authorized memory without storing or changing anything.
 
     With no key, list up to 20 available keys. Pass the returned next_offset to list the next
@@ -40,6 +46,8 @@ async def recall(ctx: RunContext[Deps], key: str | None = None, offset: int = 0)
     For an explicit question about an earlier classroom example or quotation, use original
     teaching evidence instead of substituting this current memory snapshot.
     """
+    if review is not None:
+        validate_direction_call(ctx, review=review)
     if ctx.deps.finished is not None:
         return LESSON_OVER
     if offset < 0 or (key is not None and offset != 0):
