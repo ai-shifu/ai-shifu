@@ -60,6 +60,16 @@ source and classroom state remain unchanged. No new learner is created. Retain
 both targeted failures and require full initial state separately for each example
 before checking a changed deployed candidate; keep original input and budgets.
 
+The third scoped check on b5e25f8db/sim-a7ff2b9 also fails: values are stated,
+but the purported real loop has no back-edge. The model correctly traces its
+one-pass fall-through into HALT and acknowledges it runs once, yet still presents
+it instead of the requested two-iteration demonstration. Do not insert a missing
+jump into stored evidence. Its one generation settles 1.99 credits with the same
+exact output/token and actual attempt/block binding; source and original classroom
+state remain unchanged, with no new learner. The next refinement requires
+verification against requested behavior and correction before presentation, not
+merely a consistent description of an example that fails the requested task.
+
 ## Cases and scoring
 
 Admission calls the product's `make_request_check`, including its actual prompt,
