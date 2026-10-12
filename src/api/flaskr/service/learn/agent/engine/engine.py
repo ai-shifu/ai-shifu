@@ -44,7 +44,8 @@ if TYPE_CHECKING:
 
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 
-from .answer_context import project_answer_context
+from .answer_context import authored_answer_section, project_answer_context
+from .direction import direction_history, has_direction
 from .events import (
     ContentDelta,
     ErrorEvent,
@@ -651,6 +652,7 @@ class Engine:
         for pending in session.pending:
             pending.spec = normalize_script_text_input(pending.spec, text_inputs)
         deps = Deps(
+            authored_text=session.script.all_text(),
             memory_deleted_keys=memory_deleted_keys,
             memory_current_inputs=(turn.text,)
             if isinstance(turn, MessageTurn) and not replaying_input
@@ -847,6 +849,36 @@ class Engine:
             return
 
         deps.resuming_interaction = bool(resumed)
+        deps.direction_answers = {
+            key: value.removeprefix("Learner wrote: ")
+            for key, value in session.answers.items()
+            if key in resumed
+            and isinstance(value, str)
+            and value.startswith("Learner wrote: ")
+        }
+        for message in session.messages:
+            for part in message.parts:
+                if (
+                    isinstance(part, ToolCallPart)
+                    and part.tool_name == "interact"
+                    and part.tool_call_id in deps.direction_answers
+                ):
+                    try:
+                        spec = InteractionSpec.model_validate(part.args_as_dict())
+                    except (TypeError, ValueError):
+                        continue
+                    if spec.type != "text":
+                        continue
+                    if (
+                        deps.memory_keys is not None
+                        and spec.variable not in deps.memory_keys
+                    ):
+                        spec = spec.model_copy(update={"variable": None})
+                    spec = normalize_script_text_input(spec, text_inputs)
+                    deps.direction_inputs[part.tool_call_id] = spec
+                    section = authored_answer_section(session.script.script, spec)
+                    if section is not None:
+                        deps.direction_sections[part.tool_call_id] = section
         if session.started:
             kwargs["message_history"] = (
                 project_memory_history(
@@ -967,6 +999,12 @@ class Engine:
         was_interrupted = session.interrupted
         markup = InteractionMarkupFilter(deps.literal_interaction_markup)
         markup_noticed = False
+        # Until the first new tool, a resumed answer may select structured direction
+        # feedback. Its free prose must not reach the learner before tool validation.
+        # An ordinary tool releases the original chunks and restores normal streaming;
+        # report pagination therefore adds no preflight request or whole-turn buffer.
+        buffer_direction = bool(deps.direction_sections)
+        direction_chunks: list[str] = []
 
         def _closing_was_shown() -> bool:
             """Require a complete standalone closing line in the latest displayed text."""
@@ -1028,7 +1066,18 @@ class Engine:
             return _display(displayed) if displayed else []
 
         def _text(text: str) -> list[Event]:
+            if buffer_direction:
+                direction_chunks.append(text)
+                return []
             return _markup_output(markup.feed(text))
+
+        def _release_direction_chunks() -> list[Event]:
+            """Release unchanged ordinary text once this response has no direction call."""
+            released: list[Event] = []
+            for chunk in direction_chunks:
+                released.extend(_markup_output(markup.feed(chunk)))
+            direction_chunks.clear()
+            return released
 
         def _flush_markup() -> list[Event]:
             return _markup_output(markup.flush())
@@ -1036,6 +1085,16 @@ class Engine:
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
                 async for ev in events:
+                    if (
+                        isinstance(ev, PartStartEvent)
+                        and ev.index == 0
+                        and deps.direction_sections
+                    ):
+                        # A validator can retry ordinary text without calling a tool.
+                        # Preserve those original chunks before the next response.
+                        for e in _release_direction_chunks():
+                            yield e
+                        buffer_direction = True
                     # Once the model has said the lesson is over, nothing more of its writing is
                     # the lesson. The tool result goes back to it like any other, so it takes
                     # another turn and writes again -- the closing line a second time, or a
@@ -1082,10 +1141,30 @@ class Engine:
                         for e in _text(ev.delta.content_delta):
                             yield e
                     elif isinstance(ev, FunctionToolCallEvent):
-                        for e in _flush_markup():
-                            yield e
                         if ev.part.tool_call_id in resumed:
                             continue
+                        if buffer_direction:
+                            response = next(
+                                (
+                                    m
+                                    for m in reversed(events.new_messages())
+                                    if isinstance(m, ModelResponse)
+                                ),
+                                None,
+                            )
+                            if response is not None and any(
+                                isinstance(p, ToolCallPart) and has_direction(p)
+                                for p in response.parts
+                            ):
+                                # The entire structured response is validated in interact.
+                                # Mixed free content is rejected, not clipped into a hint.
+                                direction_chunks.clear()
+                            else:
+                                for e in _release_direction_chunks():
+                                    yield e
+                                buffer_direction = False
+                        for e in _flush_markup():
+                            yield e
                         yield ToolCall(
                             id=ev.part.tool_call_id,
                             name=ev.part.tool_name,
@@ -1126,13 +1205,25 @@ class Engine:
                                 content=getattr(ev.part, "content", None),
                             )
                     elif isinstance(ev, AgentRunResultEvent):
+                        if buffer_direction:
+                            if deps.direction_rendered:
+                                direction_chunks.clear()
+                            else:
+                                for e in _release_direction_chunks():
+                                    yield e
+                            buffer_direction = False
                         for e in _flush_markup():
                             yield e
                         result = ev.result
                         # A resumed request may use a projected copy of an old initial prompt.
                         # Keep its original saved evidence and append only this run's messages.
                         session.messages = (
-                            [*session.messages, *result.new_messages()]
+                            [
+                                *session.messages,
+                                *direction_history(
+                                    result.new_messages(), deps.direction_rendered
+                                ),
+                            ]
                             if session.started
                             and (
                                 self.memory_context_limit is not None
@@ -1143,6 +1234,19 @@ class Engine:
                             else list(result.all_messages())
                         )
                         history_saved = True
+                        direction_pending: set[str] = set()
+                        if isinstance(result.output, DeferredToolRequests):
+                            for call in result.output.calls:
+                                if call.tool_call_id in deps.direction_rendered:
+                                    spec = InteractionSpec.model_validate(
+                                        result.output.metadata.get(
+                                            call.tool_call_id, {}
+                                        )
+                                    )
+                                    session.pending.append(
+                                        PendingInteraction(call.tool_call_id, spec)
+                                    )
+                                    direction_pending.add(call.tool_call_id)
                         repeated = carried_on and _repeats_previous_turn(
                             session.messages,
                             deps.history_len,
@@ -1185,6 +1289,11 @@ class Engine:
                         if not session.interrupted:
                             session.request_inputs = []
                         session.usage = accumulate_usage(session.usage, result.usage)
+                        for call_id in direction_pending:
+                            for e in _text(deps.direction_rendered[call_id]):
+                                yield e
+                        for e in _flush_markup():
+                            yield e
                         if segmenter:
                             for e in self._segment(
                                 segmenter.finish(), seg_state, session, final=True
@@ -1200,9 +1309,10 @@ class Engine:
                                 spec = InteractionSpec.model_validate(
                                     result.output.metadata.get(call.tool_call_id, {})
                                 )
-                                session.pending.append(
-                                    PendingInteraction(call.tool_call_id, spec)
-                                )
+                                if call.tool_call_id not in direction_pending:
+                                    session.pending.append(
+                                        PendingInteraction(call.tool_call_id, spec)
+                                    )
                                 yield InteractionRequest(
                                     id=call.tool_call_id, spec=spec
                                 )
@@ -1236,7 +1346,10 @@ class Engine:
                 # interrupted run, including accepted answers and completed tool results,
                 # so a retry can continue rather than replay that teaching. Appending only
                 # new messages also preserves original evidence behind history projections.
-                session.messages = [*session.messages, *events.new_messages()]
+                session.messages = [
+                    *session.messages,
+                    *direction_history(events.new_messages(), deps.direction_rendered),
+                ]
                 session.answers = {}
                 session.usage = accumulate_usage(session.usage, events.usage)
                 session.interrupted = True
