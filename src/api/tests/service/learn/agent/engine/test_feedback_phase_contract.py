@@ -1391,3 +1391,76 @@ async def test_textual_interaction_reports_markup_and_feedback_errors_together(
     raw = session.dumps()
     assert "Undisplayed explanation with a fake control" not in raw
     assert tag not in _text(events)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+@pytest.mark.parametrize("phase", ["accepted", "clarification", "authored_help"])
+async def test_control_only_retry_retains_native_feedback_recovery(
+    reload: bool, phase: str
+) -> None:
+    """Keep native-tool and complete-content guidance after rejected text is projected out."""
+    calls = 0
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        args = {"type": "text", "prompt": "", "placeholder": "Answer"}
+        if calls == 1:
+            yield _call(args, "original")
+        elif calls == 2:
+            yield 'Undisplayed explanation.\n<interact type="text" />'
+        elif calls == 3:
+            yield _call({**args, "review": _review(phase)}, "control-only")
+        else:
+            retry = [
+                p for m in messages for p in m.parts if isinstance(p, RetryPromptPart)
+            ][-1]
+            assert "Earlier feedback prose was not displayed" in str(retry.content)
+            assert "Use actual tool calls, not textual interaction tags" in str(
+                retry.content
+            )
+            assert "applicable branch in the same response" in str(retry.content)
+            assert (
+                "Undisplayed explanation"
+                not in ModelMessagesTypeAdapter.dump_json(messages).decode()
+            )
+            yield "Fresh explanation with its native control."
+            yield _call({**args, "review": _review(phase)}, "complete")
+
+    engine = _engine(stream)
+    # Match the three generations already spent by the failed real turn.
+    engine.limits.request_limit = 3
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == "Fresh explanation with its native control."
+    assert session.pending[0].tool_call_id == "complete"
+    assert not any(isinstance(event, ErrorEvent) for event in events)
+    assert not session.finished
+    assert not session.memory
+    assert calls == 4
+
+
+def test_pending_feedback_retry_notice_is_idempotent_without_rejected_prose() -> None:
+    """A repeated request projection retains the latest recovery notice exactly once."""
+    from flaskr.service.learn.agent.engine.direction import feedback_retry_history
+    from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart
+
+    successful = ModelResponse(parts=[TextPart("Earlier displayed page.")])
+    request = ModelRequest(
+        parts=[RetryPromptPart(content="Earlier feedback prose was not displayed.")]
+    )
+    messages = [successful, request]
+    projected = feedback_retry_history(messages, set(), feedback_text_pending=True)
+    repeated = feedback_retry_history(projected, set(), feedback_text_pending=True)
+    assert repeated == projected
+    assert repeated[0] is successful
+    assert messages[-1] is request
+    notice = str(repeated[-1].parts[0].content)
+    assert notice.count("Use actual tool calls, not textual interaction tags") == 1
+    assert feedback_retry_history(messages, set()) is messages

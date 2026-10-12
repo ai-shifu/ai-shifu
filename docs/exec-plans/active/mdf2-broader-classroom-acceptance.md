@@ -8,6 +8,38 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Head 8c9c11ca8 passes all eleven checks including runtime
+      38251324157. CodeRabbit c0bc443b reviews runtime/tests without an actionable
+      finding, skipping two similar docs; the 46.83%/126-function coverage warning
+      remains deferred in its original conversation. Sim c033d4ca4 / build 606 /
+      Drone 5395 is Ready as sim-c033d4c, API 2/2 and web 1/1. Both actual APIs
+      match 67 files and pass 399 isolated SDK cases. Latest main 2da98b19a has
+      only frontend course-poster increments, with no backend delta.
+- [x] 2026-10-12: Preserve the eighteenth independent classroom failure.
+      The second ordinary request, a knowledge clarification, returns terminal
+      unknown error without visible elements. Stop before the remaining 26
+      phases; do not retry/reset this learner. Two original traces contain five
+      generations (two start, three clarification), uniquely matching output/token
+      tuples, actual attempts/blocks and all 9.04 settled credits. Two history
+      rows are stable, source unchanged, turn two unfinished, variables unwritten.
+      Actual summary generation/projection/cache are zero; 128000 provider-cache
+      tokens are separate. No wrong-answer or later-question acceptance is reached.
+      The first hidden clarification imitates an interaction as text; a native
+      control-only retry lacks the replacement prose; the final retry again emits
+      a text tag. Rejected output also contains an incorrect loop explanation;
+      it was never shown and must not be restored as teaching.
+- [ ] 2026-10-12: Retain recovery guidance after SDK history projection removes
+      the rejected response. Pending delivery remains true, but the next retry
+      previously lost the complete native-tool/branch notice because lookup
+      depended only on the removed response identity. Use the existing request-local
+      pending flag and latest actual retry; preserve its validation error, avoid
+      duplicate notices and retain all successful pages. Seven regressions first
+      fail, including six native SDK phase/reload cases. Do not change authored
+      content, inputs, source checks, semantic grading or request/retry budgets.
+      All 3814 learning/script cases, 50 subtests, three expected skips, developer
+      tooling and repository gates pass. Push/reply, current CI and deployed sim
+      checks remain required before another learner. The full journey remains failed.
+
 - [x] 2026-10-12: Head e934cf87d passes all eleven checks including runtime
       38246491992. CodeRabbit d65b7a23 reports no actionable finding, with the
       similar acceptance-plan file skipped and the existing coverage warning
@@ -39,8 +71,9 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       call/budget increase. Native SDK tests cover single/multiple/uncounted rules,
       reload, unprojectable ancestors and sibling isolation. Initial fixture errors
       are retained; corrected regressions fail on the preceding implementation.
-      Complete local gates, push/reply, current CI and both deployed sim proofs
-      before considering an eighteenth learner. No such learner exists yet.
+      Local gates, push/reply, current CI and both deployed sim proofs completed
+      on 8c9c11ca8. The eighteenth failure precedes later questions and cannot
+      establish this context correction's real-model compliance.
 
 
 - [x] 2026-10-12: Head ff1e5d62f passes all eleven checks including runtime
@@ -1331,6 +1364,10 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Surprises & Discoveries
 
+- 2026-10-12: SDK ProcessHistory can remove a rejected pure-text response before
+  a second retry. Its object identity alone cannot carry the pending delivery
+  obligation; the existing request-local state must retain the recovery notice.
+
 - 2026-10-12: In the sixteenth fresh classroom, one focus and one sentence still
   bundle three omitted performance categories. The model selects an exactly
   sourced coverage heading instead of one concrete requirement. Neither exact
@@ -1391,6 +1428,10 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Decision Log
 
+- 2026-10-12: Reuse pending delivery when projecting the latest retry rather than
+  restoring hidden prose or increasing retries. Preserve the actual error and
+  native-tool/branch recovery requirements together, with idempotent notices.
+
 - 2026-10-12: Put the concrete-requirement restriction directly on criterion,
   issue and guiding-question schema fields. Keep the host as a provenance/shape
   validator and require independent real-model acceptance; do not add a hidden
@@ -1425,6 +1466,11 @@ help flag and from the before-first subset. Original messages contain both round
   authored definitions, outcome arithmetic and existing budgets unchanged.
 
 ## Outcomes & Retrospective
+
+- 2026-10-12: The eighteenth journey fails on knowledge clarification, before
+  wrong-answer feedback or later scoped context. Retain its five settled
+  generations and 9.04 credits; do not infer full acceptance from local tests or
+  the seventeenth journey's narrow natural-summary success.
 
 Current acceptance remains incomplete after the sixteenth fresh classroom stops
 at a multi-aspect fifth-question direction. The first-question actual-cause,
