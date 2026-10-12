@@ -20,6 +20,7 @@ import {
 import {
   buildCourseShareContent,
   copyCourseShareText,
+  fenceCoursePosterMaterial,
   normalizeCourseShareUrl,
 } from '@/lib/courseShare';
 import {
@@ -84,7 +85,8 @@ export function CourseShareMenu(props: CourseShareButtonProps) {
         });
         setPrompt(
           t('common.core.posterPrompt', {
-            courseContent: content.clipboardText,
+            courseContent: fenceCoursePosterMaterial(content.clipboardText),
+            courseUrl: url,
           }),
         );
         setStatus('idle');
