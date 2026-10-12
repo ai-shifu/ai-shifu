@@ -91,8 +91,12 @@ evidence, model call or request budget; custom prompt bundles can omit it.
 It remains model guidance rather than a semantic validator.
 
 For one resumed text interaction with a unique exact authored input hint, the
-default engine may also copy its static Markdown section near that interaction
-in the model-facing history. The whole enclosing section is bounded by heading
+default engine may also copy its static Markdown section into the final
+current-turn feedback instructions. The reference is supplied once, after the
+feedback policies, rather than in an older learner request preceding the
+unanswered question. Only its exact instruction suffix is removed when saving
+new SDK requests, including interrupted teaching; learner parts, tool returns,
+other instructions and original history stay unchanged. The whole enclosing section is bounded by heading
 ancestry and the next authored interaction. Exact introductions from the enclosing
 Markdown ancestors are copied alongside the local section, before their first
 child heading or interaction. This keeps a later question's local hint near the

@@ -47,7 +47,12 @@ if TYPE_CHECKING:
 
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 
-from .answer_context import authored_answer_section, project_answer_context
+from .answer_context import (
+    answer_reference_instructions,
+    authored_answer_reference,
+    authored_answer_section,
+    without_answer_reference,
+)
 from .direction import direction_history, feedback_retry_history, has_direction
 from .events import (
     ContentDelta,
@@ -663,6 +668,10 @@ class Engine:
             instructions += "\n\n" + self.prompts.answer_review
         if ctx.deps.feedback_contract and ctx.deps.direction_sections:
             instructions += "\n\n" + self.feedback_instructions
+        if ctx.deps.authored_answer_reference is not None:
+            instructions += answer_reference_instructions(
+                ctx.deps.authored_answer_reference
+            )
         return instructions
 
     # -- sessions ----------------------------------------------------------------------------
@@ -987,7 +996,7 @@ class Engine:
                         self.teaching_summarizer,
                     )
             if self.prompts.answer_review and resumed:
-                kwargs["message_history"] = project_answer_context(
+                deps.authored_answer_reference = authored_answer_reference(
                     kwargs["message_history"],
                     session.script.script,
                     resumed,
@@ -1369,7 +1378,10 @@ class Engine:
                             [
                                 *session.messages,
                                 *direction_history(
-                                    result.new_messages(),
+                                    without_answer_reference(
+                                        result.new_messages(),
+                                        deps.authored_answer_reference,
+                                    ),
                                     deps.direction_rendered,
                                     deps.hidden_feedback_responses,
                                 ),
@@ -1521,7 +1533,9 @@ class Engine:
                 session.messages = [
                     *session.messages,
                     *direction_history(
-                        events.new_messages(),
+                        without_answer_reference(
+                            events.new_messages(), deps.authored_answer_reference
+                        ),
                         deps.direction_rendered,
                         deps.hidden_feedback_responses,
                     ),

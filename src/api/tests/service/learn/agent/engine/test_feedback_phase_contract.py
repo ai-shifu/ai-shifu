@@ -662,7 +662,7 @@ async def test_feedback_copies_explicit_returned_id_from_host_reference(
     calls = 0
     answer_id = "call_provider_opaque_731"
 
-    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+    async def stream(_messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
         nonlocal calls
         calls += 1
         if calls == 1:
@@ -670,14 +670,10 @@ async def test_feedback_copies_explicit_returned_id_from_host_reference(
                 {"type": "text", "prompt": "", "placeholder": "Answer"}, answer_id
             )
         else:
-            reference = next(
-                json.loads(p.content)
-                for m in messages
-                for p in m.parts
-                if isinstance(p, UserPromptPart)
-                and isinstance(p.content, str)
-                and p.content.startswith('{"status":"authored_section"')
-            )
+            instructions = info.instructions or ""
+            marker = '{"status":"authored_section"'
+            reference = json.loads(instructions[instructions.index(marker) :])
+            assert instructions.count(marker) == 1
             copied = reference["answer_id"]
             assert copied == answer_id
             assert copied != "Answer"
