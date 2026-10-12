@@ -47,11 +47,15 @@ from flaskr.service.user.models import UserInfo
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc, to_utc_iso
 from pydantic import BaseModel
+from sqlalchemy import literal, select, tuple_, union_all
 
 from .models import DraftOutlineItem, LogDraftStruct
 
 T = TypeVar("T", bound="HistoryItem")
 OUTLINE_CONTENT_LOOKBACK_LIMIT = 1000
+# Buffer at most 400 historical bodies per query; prompt sizes vary by course.
+OUTLINE_CONTENT_NODE_BATCH_SIZE = 20
+OUTLINE_CONTENT_VERSION_BATCH_SIZE = 20
 
 
 class HistoryItem(BaseModel, Generic[T]):
@@ -215,19 +219,90 @@ def _outline_content_anchor(latest_version: DraftOutlineItem) -> DraftOutlineIte
     return latest_content_revision
 
 
+def _outline_content_anchor_ids(outlines: list[DraftOutlineItem]) -> dict[int, int]:
+    """Recover anchors with bounded version pages for a batch of exact rows."""
+    anchors = {int(row.id): int(row.id) for row in outlines}
+    for start in range(0, len(outlines), OUTLINE_CONTENT_NODE_BATCH_SIZE):
+        pending = {
+            int(row.id): row
+            for row in outlines[start : start + OUTLINE_CONTENT_NODE_BATCH_SIZE]
+        }
+        contents = {
+            row_id: normalize_outline_content(row.content)
+            for row_id, row in pending.items()
+        }
+        cursors = {row_id: row_id for row_id in pending}
+        for offset in range(
+            0, OUTLINE_CONTENT_LOOKBACK_LIMIT, OUTLINE_CONTENT_VERSION_BATCH_SIZE
+        ):
+            if not pending:
+                break
+            limit = min(
+                OUTLINE_CONTENT_VERSION_BATCH_SIZE,
+                OUTLINE_CONTENT_LOOKBACK_LIMIT - offset,
+            )
+            queries = []
+            for row_id, row in pending.items():
+                # A LIMIT inside each subquery preserves the per-lesson scan
+                # bound; a global limit or window rank can scan all history.
+                page = (
+                    select(
+                        literal(row_id).label("source_id"),
+                        DraftOutlineItem.id,
+                        DraftOutlineItem.content,
+                    )
+                    .where(
+                        DraftOutlineItem.shifu_bid == row.shifu_bid,
+                        DraftOutlineItem.outline_item_bid == row.outline_item_bid,
+                        DraftOutlineItem.deleted == 0,
+                        DraftOutlineItem.id <= cursors[row_id],
+                    )
+                    .order_by(DraftOutlineItem.id.desc())
+                    .limit(limit)
+                    .subquery()
+                )
+                queries.append(select(page))
+            versions = {row_id: [] for row_id in pending}
+            for version in db.session.execute(union_all(*queries)).all():
+                versions[version.source_id].append(version)
+            next_pending = {}
+            for row_id, row in pending.items():
+                page = sorted(
+                    versions[row_id], key=lambda version: version.id, reverse=True
+                )
+                for version in page:
+                    if version.id == row_id:
+                        continue
+                    if normalize_outline_content(version.content) != contents[row_id]:
+                        break
+                    anchors[row_id] = int(version.id)
+                else:
+                    if len(page) == limit:
+                        cursors[row_id] = int(page[-1].id) - 1
+                        next_pending[row_id] = row
+            pending = next_pending
+    return anchors
+
+
 def _initialize_outline_content_revisions(shifu_bid: str, history: HistoryItem) -> None:
     """Initialize legacy structure metadata on a write, never a learner read."""
-    for node in _outline_nodes(history):
-        if node.content_revision is not None:
-            continue
-        row = DraftOutlineItem.query.filter_by(
-            id=node.id,
-            shifu_bid=shifu_bid,
-            outline_item_bid=node.bid,
-            deleted=0,
-        ).first()
-        if row is not None:
-            node.content_revision = int(_outline_content_anchor(row).id)
+    missing = [
+        node for node in _outline_nodes(history) if node.content_revision is None
+    ]
+    for start in range(0, len(missing), OUTLINE_CONTENT_NODE_BATCH_SIZE):
+        nodes = missing[start : start + OUTLINE_CONTENT_NODE_BATCH_SIZE]
+        rows = DraftOutlineItem.query.filter(
+            DraftOutlineItem.shifu_bid == shifu_bid,
+            DraftOutlineItem.deleted == 0,
+            tuple_(DraftOutlineItem.id, DraftOutlineItem.outline_item_bid).in_(
+                [(node.id, node.bid) for node in nodes]
+            ),
+        ).all()
+        anchor_ids = _outline_content_anchor_ids(rows)
+        anchors = {(row.id, row.outline_item_bid): anchor_ids[row.id] for row in rows}
+        for node in nodes:
+            if (node.id, node.bid) in anchors:
+                node.content_revision = anchors[node.id, node.bid]
 
 
 def ensure_outline_content_revisions(
@@ -239,6 +314,14 @@ def ensure_outline_content_revisions(
     """Resolve publication revisions and record missing draft metadata atomically."""
     history = get_shifu_history(app, shifu_bid, for_update=True)
     nodes = {node.bid: node for node in _outline_nodes(history)}
+    missing = [
+        row
+        for row in outlines
+        if (node := nodes.get(row.outline_item_bid)) is None
+        or node.id != row.id
+        or node.content_revision is None
+    ]
+    anchors = _outline_content_anchor_ids(missing)
     revisions = {}
     changed = False
     for row in outlines:
@@ -246,7 +329,7 @@ def ensure_outline_content_revisions(
         matching_node = node is not None and node.id == row.id
         revision = node.content_revision if matching_node else None
         if revision is None:
-            revision = int(_outline_content_anchor(row).id)
+            revision = anchors[row.id]
             if matching_node:
                 node.content_revision = revision
                 changed = True

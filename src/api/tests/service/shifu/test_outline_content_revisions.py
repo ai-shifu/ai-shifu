@@ -16,6 +16,7 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
+from sqlalchemy import event
 
 
 @pytest.fixture
@@ -276,3 +277,181 @@ def test_publish_locks_before_reading_drafts_and_reads_current_structure_for_upd
     assert _publish(app, course, lesson) == baseline
     assert locked
     assert history_lock_modes == [True]
+
+
+@pytest.mark.parametrize("lesson_count", [10, 100])
+@pytest.mark.parametrize("entrypoint", ["history_write", "publication"])
+def test_legacy_revision_initialization_batches_reads_across_lessons(
+    app: object,
+    revision_course: tuple[str, str, int],
+    lesson_count: int,
+    entrypoint: str,
+) -> None:
+    course, _, _ = revision_course
+    lessons = [uuid4().hex for _ in range(lesson_count)]
+    db.session.execute(
+        DraftOutlineItem.__table__.insert(),
+        [
+            {
+                "shifu_bid": course,
+                "outline_item_bid": lesson,
+                "content": content,
+            }
+            for lesson in lessons
+            # The restored body spans two pages and must not reuse the first A.
+            for content in ["Alpha\nBeta", "Changed"]
+            + ["Alpha\r\nBeta", "Alpha\rBeta", "Alpha\nBeta"] * 7
+        ],
+    )
+    versions = {lesson: [] for lesson in lessons}
+    for row in (
+        db.session.query(DraftOutlineItem.outline_item_bid, DraftOutlineItem.id)
+        .filter(
+            DraftOutlineItem.shifu_bid == course,
+            DraftOutlineItem.outline_item_bid.in_(lessons),
+        )
+        .order_by(DraftOutlineItem.id)
+        .all()
+    ):
+        versions[row.outline_item_bid].append(row.id)
+    expected = {lesson: ids[2] for lesson, ids in versions.items()}
+    latest_log = (
+        LogDraftStruct.query.filter_by(shifu_bid=course)
+        .order_by(LogDraftStruct.id.desc())
+        .first()
+    )
+    struct = history.HistoryItem.from_json(latest_log.struct)
+    struct.children.extend(
+        history.HistoryItem(bid=lesson, id=ids[-1], type="outline")
+        for lesson, ids in versions.items()
+    )
+    latest_log.struct = struct.to_json()
+    db.session.flush()
+    outlines = DraftOutlineItem.query.filter(
+        DraftOutlineItem.id.in_([ids[-1] for ids in versions.values()])
+    ).all()
+    queries = []
+
+    def record_query(
+        _conn: object,
+        _cursor: object,
+        statement: str,
+        _params: object,
+        _context: object,
+        _many: object,
+    ) -> None:
+        if statement.lstrip().upper().startswith("SELECT") and (
+            DraftOutlineItem.__tablename__ in statement
+        ):
+            queries.append(statement)
+
+    event.listen(db.engine, "before_cursor_execute", record_query)
+    try:
+        if entrypoint == "history_write":
+            history.save_shifu_history(app, "revision-author", course, struct.id)
+        else:
+            assert (
+                history.ensure_outline_content_revisions(
+                    app, "revision-author", course, outlines
+                )
+                == expected
+            )
+        # Both sizes use two pages per bounded group, not two queries per lesson.
+        # Authoring also loads the group's exact current rows once.
+        group_count = 1 if lesson_count == 10 else 5
+        assert len(queries) == group_count * (3 if entrypoint == "history_write" else 2)
+        actual = history.outline_content_revisions(
+            history.get_shifu_history(app, course)
+        )
+        assert {lesson: actual[lesson] for lesson in lessons} == expected
+
+        queries.clear()
+        history.save_shifu_history(app, "revision-author", course, struct.id)
+        assert (
+            history.ensure_outline_content_revisions(
+                app, "revision-author", course, outlines
+            )
+            == expected
+        )
+        assert queries == []
+    finally:
+        event.remove(db.engine, "before_cursor_execute", record_query)
+
+
+def test_batch_recovery_keeps_per_lesson_lookback_and_exact_physical_row_bounds(
+    revision_course: tuple[str, str, int],
+) -> None:
+    course, _, _ = revision_course
+    lessons = [uuid4().hex for _ in range(3)]
+    db.session.execute(
+        DraftOutlineItem.__table__.insert(),
+        [
+            {"shifu_bid": course, "outline_item_bid": lesson, "content": "Same"}
+            for lesson in lessons
+            for _ in range(history.OUTLINE_CONTENT_LOOKBACK_LIMIT + 1)
+        ],
+    )
+    versions = {lesson: [] for lesson in lessons}
+    for row in (
+        DraftOutlineItem.query.filter(
+            DraftOutlineItem.shifu_bid == course,
+            DraftOutlineItem.outline_item_bid.in_(lessons),
+        )
+        .order_by(DraftOutlineItem.id)
+        .all()
+    ):
+        versions[row.outline_item_bid].append(row)
+    first, second, third = [versions[lesson] for lesson in lessons]
+    # Deleted rows do not consume the active-version lookback budget.
+    third[-2].deleted = 1
+    db.session.flush()
+    assert history._outline_content_anchor_ids([first[-1], second[500], third[-1]]) == {
+        first[-1].id: first[1].id,
+        second[500].id: second[0].id,
+        third[-1].id: third[0].id,
+    }
+
+
+def test_batch_initialization_validates_each_node_identity_and_preserves_recorded_revision(
+    revision_course: tuple[str, str, int],
+) -> None:
+    course, lesson, baseline = revision_course
+    original = DraftOutlineItem.query.filter_by(id=baseline).one()
+    renamed = original.clone()
+    deleted = original.clone()
+    deleted.outline_item_bid = uuid4().hex
+    deleted.deleted = 1
+    db.session.add_all([renamed, deleted])
+    db.session.flush()
+    struct = history.HistoryItem(
+        bid=course,
+        id=0,
+        type="shifu",
+        children=[
+            history.HistoryItem(bid=lesson, id=renamed.id, type="outline"),
+            history.HistoryItem(bid="wrong-lesson", id=renamed.id, type="outline"),
+            history.HistoryItem(bid=lesson, id=0, type="outline"),
+            history.HistoryItem(
+                bid=deleted.outline_item_bid, id=deleted.id, type="outline"
+            ),
+            history.HistoryItem(
+                bid=lesson, id=renamed.id, type="outline", content_revision=renamed.id
+            ),
+        ],
+    )
+    history._initialize_outline_content_revisions(course, struct)
+    assert [node.content_revision for node in struct.children] == [
+        baseline,
+        None,
+        None,
+        None,
+        renamed.id,
+    ]
+    foreign = history.HistoryItem(
+        bid="other-course",
+        id=0,
+        type="shifu",
+        children=[history.HistoryItem(bid=lesson, id=renamed.id, type="outline")],
+    )
+    history._initialize_outline_content_revisions("other-course", foreign)
+    assert foreign.children[0].content_revision is None
