@@ -96,7 +96,6 @@ class DirectionFeedback(BaseModel):
         description="Exact author text permitting this checking-direction stage.",
     )
     aspect_limit: int | None = Field(
-        default=None,
         ge=1,
         description="Authored aspect/question limit; null when no count is authored.",
     )

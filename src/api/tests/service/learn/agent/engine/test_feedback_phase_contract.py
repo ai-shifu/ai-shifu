@@ -822,3 +822,65 @@ def test_retry_projection_preserves_successful_pages_and_raw_validation_errors()
     assert "not displayed" in projected[-1].parts[0].content
     assert ModelMessagesTypeAdapter.dump_json(messages) == before
     assert feedback_retry_history(projected, {id(rejected)}) is projected
+
+
+@pytest.mark.anyio
+async def test_saved_legacy_direction_without_limit_can_resume_its_original_answer() -> (
+    None
+):
+    from pydantic_ai.messages import ToolCallPart
+
+    calls = 0
+    correct = "The program and data are stored before execution."
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Answer",
+                    "direction": _direction(),
+                },
+                "legacy-correction",
+            )
+        else:
+            yield "Accepted complete correction."
+            yield _call(
+                {
+                    "type": "single",
+                    "prompt": "",
+                    "options": [{"display": "Next"}],
+                    "review": _review(
+                        answer_id="legacy-correction", submission_quote=correct
+                    ),
+                },
+                "next",
+            )
+
+    engine = _engine(stream)
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    await _collect(engine.run_turn(session, InteractionResponseTurn(text=WRONG)))
+    for message in session.messages:
+        for part in message.parts:
+            if (
+                isinstance(part, ToolCallPart)
+                and part.tool_call_id == "legacy-correction"
+            ):
+                args = part.args_as_dict()
+                args["direction"].pop("aspect_limit")
+                part.args = json.dumps(args)
+    session = Session.loads(session.dumps())
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=correct))
+    )
+    assert _text(events) == "Accepted complete correction."
+    assert session.pending[0].tool_call_id == "next"
+    assert calls == 3
