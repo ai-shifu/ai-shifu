@@ -25,7 +25,12 @@ if TYPE_CHECKING:
 class DirectionFocus(BaseModel):
     """One model-selected missing or contradicted authored requirement."""
 
-    criterion_quote: str = Field(min_length=1, description="Exact authored criterion.")
+    criterion_quote: str = Field(
+        min_length=1,
+        description=(
+            "Exact one concrete authored requirement, not a heading or coverage checklist."
+        ),
+    )
     submission_quote: str | None = Field(
         default=None,
         description="Exact submitted evidence for a contradiction; null for an omission.",
@@ -33,15 +38,15 @@ class DirectionFocus(BaseModel):
     observed_issue: str = Field(
         min_length=1,
         description=(
-            "Internal diagnosis for selecting this focus, not displayed. Bind it to "
-            "the actual submission, not an author's sample misconception."
+            "Internal issue for this requirement alone; never bundle gaps or copy a "
+            "sample misconception. Cite actual input."
         ),
     )
     guiding_question: str = Field(
         min_length=1,
         description=(
-            "One unanswered interrogative sentence about this focus, without subquestions "
-            "or reasoning. Do not repeat the same question in a second sentence."
+            "One unanswered question about that single requirement; no subquestions, "
+            "reasoning, repetition or broad 'what else is missing' request."
         ),
     )
 

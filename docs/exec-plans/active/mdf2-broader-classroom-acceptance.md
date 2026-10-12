@@ -8,6 +8,43 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Head ff1e5d62f passes all eleven checks including runtime
+      38243636439 and current-head CodeRabbit review 8ef852f2, with no new
+      actionable finding. The 43.22%/118-function coverage warning remains
+      deferred in the original conversation; all eight inline roots have replies.
+      Sim 1643e41ac integrates current main, passes 3740 learning/evaluation cases,
+      four subtests/one expected skip and all gates. Build 603 / Drone 5392 and
+      deployment records 2805/2806 succeed; API 2/2, web 1/1 Ready, both APIs match
+      67 files and pass 390 SDK cases. Initial proof observes still-old rollout
+      pods and correctly fails; wait for rollout completion before the passing
+      receipt. The first push names a stale local sim ref and is rejected; fetch
+      confirms no remote increment, then push the checked descendant HEAD to sim
+      without force. Retain these failures, not as deployment success.
+- [x] 2026-10-12: Preserve the sixteenth fresh classroom failure at the fifth
+      question's incomplete answer. Knowledge clarification, actual-error quote,
+      one unanswered first-question direction, correction explanation and actual
+      Next all pass. The next three accepted answers include authored explanations,
+      including the previously omitted third-question content. The fifth direction
+      declares one focus but quotes a seven-category coverage heading, diagnoses
+      three distinct omissions and asks broadly for remaining system parts. This
+      violates the authored one-aspect stage despite passing structural validation.
+      Stop after 13 ordinary requests; no correction or remaining 15 phases run.
+      Thirteen traces/22 generations uniquely match exact output/token tuples to
+      settled usage and 45.75 credits, with one real attempt/content block per trace.
+      Twenty-six history rows read stably, source unchanged, turn 13 unfinished,
+      no variables written. Actual summary generations/projections/cache are zero;
+      624512 provider-cache tokens are not summaries. Maximum original is 2440
+      wire bytes. Preserve every earlier failure and this learner unchanged.
+- [ ] 2026-10-12: Native focus fields must ask for one concrete authored
+      requirement, not a heading/coverage checklist; diagnose that requirement
+      alone and avoid broad requests for all remaining gaps. Keep authored
+      multiplicity, provenance/cardinality validation and all budgets. Do not
+      add semantic grading or treat a field-description change as proof of model
+      compliance. All existing 3740 learning/evaluation cases, four subtests and
+      one expected skip pass, including the unchanged context/retry assertions.
+      FunctionModel regressions cannot establish this semantic behavior. Complete
+      gates, push, reply and refresh actual sim before another independent journey.
+
 - [x] 2026-10-12: Head 544a65c77 passes all technical CI including runtime
       38232818206. Sim bb2fa32b8 / build 601 / Drone 5390 has API 2/2 and
       web 1/1 Ready, 67 matching files and 386 SDK cases per API. Recheck both
@@ -35,7 +72,7 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       turn two unfinished, variables unchanged, maximum original 529 wire bytes.
       Actual summary generations/projection/cache are zero; 102016 provider-cache
       input tokens are not teaching summaries. Wrong-answer phase is not reached.
-- [ ] 2026-10-12: Four new reload/tag-shape regressions first fail: feedback
+- [x] 2026-10-12: Four new reload/tag-shape regressions first fail: feedback
       validation masks the already-known textual-interaction diagnostic. Report
       both problems in the same existing retry and retain the unanswered markup
       flag. Do not parse/execute tag attributes, restore withheld prose, relax
@@ -1259,6 +1296,11 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Surprises & Discoveries
 
+- 2026-10-12: In the sixteenth fresh classroom, one focus and one sentence still
+  bundle three omitted performance categories. The model selects an exactly
+  sourced coverage heading instead of one concrete requirement. Neither exact
+  provenance nor array cardinality establishes semantic one-aspect compliance.
+
 - 2026-10-12: The fifteenth knowledge retry first omits a native review, then
   returns a valid review without the withheld explanation, then writes the review
   inside another textual interaction tag. The feedback validator reports its
@@ -1314,6 +1356,11 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Decision Log
 
+- 2026-10-12: Put the concrete-requirement restriction directly on criterion,
+  issue and guiding-question schema fields. Keep the host as a provenance/shape
+  validator and require independent real-model acceptance; do not add a hidden
+  semantic judge or reinterpret the existing one-aspect standard as one array item.
+
 - 2026-10-12: Combine known textual-interaction and feedback errors before
   retrying. Keep the native-tool boundary, rejected-prose protection and existing
   budgets. A text tag carrying a serialized review is still text, never an
@@ -1344,12 +1391,14 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Outcomes & Retrospective
 
-Current acceptance remains incomplete after the fifteenth fresh classroom stops
-at knowledge clarification. Infrastructure recovery closes the original
-fourteenth trace gap without changing its failed classroom verdict. The new
-combined diagnostic needs current-head validation, deployment and an independent
-real-model result. Full eleven-question natural compression, original-record
-statistics and billing acceptance remain open; milestone 4/5, keep unmerged.
+Current acceptance remains incomplete after the sixteenth fresh classroom stops
+at a multi-aspect fifth-question direction. The first-question actual-cause,
+correction/navigation and third-question explanation checkpoints now pass on
+ff1e5d62f, without replacing any earlier failed journey. Original trace evidence
+is readable and billing attribution matches. Concrete-focus field guidance needs
+current-head validation/deployment and independent real-model acceptance. Full
+eleven-question natural compression, original-record statistics and billing
+acceptance remain open; milestone 4/5, keep unmerged.
 
 Broader external acceptance remains incomplete. The focused initial-hint
 correction passes a genuine saved pre-final report probe with real summary

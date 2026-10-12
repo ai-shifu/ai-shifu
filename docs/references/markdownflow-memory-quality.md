@@ -167,7 +167,12 @@ For a uniquely anchored returned text input, the existing `interact` tool accept
 an optional `direction` object when the current stage has an authored positive
 aspect/question count. The model selects that count, phase and unmatched focuses. Each focus carries an exact current-section
 criterion, an exact submitted quote for a contradiction (null for an omission),
-an internal observed issue and one unanswered guiding question. Required
+an internal observed issue and one unanswered guiding question. Select one
+concrete missing or contradicted requirement per focus, not a heading or coverage
+checklist bundling several gaps. Diagnose only that requirement and ask about it;
+a broad request for everything else missing is not one aspect just because it is
+one sentence. These native-field instructions guide the model; quote provenance
+and array length cannot prove semantic focus. Required
 `accepted_quotes` contains unique exact excerpts from this actual submission that
 the model judges correct, including acknowledgements required by the author, or
 an explicit empty list. The stage rule must also quote original author text. The
