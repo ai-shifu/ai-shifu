@@ -219,10 +219,15 @@ names, payloads, populations and count units below remain unchanged. Opening
 means a closed-to-open transition of the anchored choices, not a modal view.
 
 The teacher and eligible learner headers open the same share popover with the
-existing ordinary share action and a poster prompt containing the exact full recommendation,
-description, and canonical URL. The prompt is assembled locally and copied
-only on an explicit click. The learner wrapper always uses the shared menu;
-learner preview remains excluded. The `surface` value identifies the analytics
+existing ordinary share action and a poster prompt containing the exact full
+recommendation and description inside the untrusted course-material fence.
+The app supplies the canonical URL once in its separate original-course-URL
+section, without appending it to the course material. Links authored in the
+description remain verbatim inside the fence, even when they match the canonical
+URL; deleting matching substrings could corrupt Markdown links or other URLs.
+The prompt is assembled locally
+and copied only on an explicit click. The learner wrapper always uses the shared
+menu; learner preview remains excluded. The `surface` value identifies the analytics
 source without changing the menu.
 Copy failure leaves selectable text. Opening or copying never publishes a course.
 
