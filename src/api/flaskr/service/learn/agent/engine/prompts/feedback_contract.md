@@ -40,8 +40,8 @@ comparison internal: `criterion_quote` copies the original authored requirement
 exactly, and `observed_issue` records your diagnosis without being displayed.
 Supply `accepted_quotes` as unique exact excerpts from this actual returned
 submission that you judge already correct. Include authored acknowledgements of
-covered parts; use an explicit empty list if none are correct. Do not copy author
-criteria or invent learner wording. Visible direction feedback contains only these
+covered parts, or [] if none. Never also label contradiction evidence as correct;
+do not invent learner wording. Visible direction feedback contains only these
 accepted excerpts marked with a check, actual contradiction excerpts, and the
 permitted unanswered questions. The questions must leave the missing requirement
 and its reasoning to the learner rather than disclose a solution or checklist.

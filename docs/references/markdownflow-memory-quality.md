@@ -224,6 +224,12 @@ that never had rejected prose retain authored control-only behavior. This checks
 presence and tool success, not whether new text is a correct or complete answer;
 never restore rejected explanations verbatim or increase request budgets.
 
+Accepted excerpts cannot also appear as the same exact contradiction quote in a
+structured direction. Reject incompatible annotations before display and let the
+existing retry select distinct correct excerpts or an empty list. This does not
+grade the answer, compare overlapping text spans or invent an acknowledgement;
+different model-selected correct and contradicted excerpts remain supported.
+
 On supported resumed answers, text waits until the first new tool identifies
 whether its model response uses this contract. Declared ordinary calls release the
 unchanged chunks; a structured response is displayed only after validation, with

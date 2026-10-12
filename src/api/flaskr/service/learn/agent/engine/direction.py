@@ -114,9 +114,9 @@ class DirectionFeedback(BaseModel):
     )
     accepted_quotes: list[str] = Field(
         description=(
-            "Unique exact excerpts from this returned answer judged correct. Include "
-            "author-required acknowledgements; [] if none. Shown with a check mark. "
-            "Never invent learner wording."
+            "Unique exact correct excerpts from this answer; [] if none. Do not also "
+            "use them as contradiction evidence. Shown with a check for authored "
+            "acknowledgement; never invent learner wording."
         )
     )
     focuses: list[DirectionFocus] = Field(min_length=1)
@@ -136,6 +136,14 @@ class DirectionFeedback(BaseModel):
             for quote in self.accepted_quotes
         ):
             return "accepted_quotes must copy actual returned input exactly"
+        if set(self.accepted_quotes).intersection(
+            focus.submission_quote for focus in self.focuses
+        ):
+            return (
+                "The same exact excerpt cannot be both accepted and contradiction evidence. "
+                "Select genuinely correct distinct excerpts, or [] if none; do not label "
+                "a contradicted claim as correct merely to acknowledge the learner"
+            )
         for focus in self.focuses:
             if (
                 not focus.criterion_quote.strip()

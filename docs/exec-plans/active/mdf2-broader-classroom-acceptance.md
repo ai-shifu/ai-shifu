@@ -8,9 +8,42 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Functional head 6c4c42ca7 passes every technical CI and
+      a fresh CodeRabbit review. Both new inline findings have pushed-fix replies;
+      defer its summary-only wording suggestion and coverage warning explicitly
+      in the original PR conversation. Sim baf85addf / build 597 / Drone 5386
+      succeeds with API 2/2, web 1/1, 67 matching fingerprints including the lesson
+      revision migration/session files, and 368 isolated SDK cases per API.
+- [x] 2026-10-12: Preserve the eleventh fresh classroom failure after three
+      ordinary requests: start, knowledge and wrong answer. The knowledge response
+      now visibly explains the question and waits for its answer. The wrong-answer
+      direction then marks the entire incorrect quote both accepted with a check
+      and contradicted, despite otherwise grounded single-question feedback.
+      Stop immediately; no corrected answer, navigation or later phases run.
+      Seven teaching generations settle 13.28 credits with exact attribution;
+      source unchanged, turn three unfinished, zero summary cache. The original
+      explanation is 4539 wire bytes but currently protected; this is not summary
+      acceptance. Preserve the earlier ten fresh failures independently.
+- [ ] 2026-10-12: Four reload/transport SDK cases first fail on incompatible
+      annotations. Reject equality between accepted and contradicted excerpts
+      before rendering; do not interpret correctness, match overlapping spans,
+      generate acknowledgements or add calls/budget. Keep distinct partial-correct
+      excerpts and legacy resume behavior. Validate/push/deploy before another
+      changed-runtime result. The stopped learner must not be reset or retried.
+      All 3704 learning/evaluation cases, four subtests and one expected skip,
+      developer tooling and repository gates pass. Six history rows read stably.
+      Actual trace parsing confirms three traces, seven generations and zero
+      summary generations/projection markers; policy text is not a projection.
+      The first checkpoint helper lacks PYTHONPATH, and a first history helper
+      uses system Python without requests; recover read-only under conda without
+      repeating generation. The first trace query returns HTTP 422 at limit 100;
+      retain it and retrieve the same three traces at limit 20 without model calls.
+      Knowledge clarification succeeds in one generation, so it does not by
+      itself prove the new rejected-prose retry guard ran in production.
+
 - [ ] 2026-10-12: New-head CodeRabbit review identifies two valid feedback
-      contract defects before any paid classroom request. Later-question authored
-      help incorrectly rejects exact lesson-header rules, and multiple authored
+      contract defects before any paid classroom request. Authored help for later
+      questions incorrectly rejects exact lesson-header rules, and multiple authored
       guiding questions collapse to one Markdown paragraph. Two reload-aware SDK
       cases and one paragraph assertion first fail. Accept exact quotes from the
       same full lesson or current section without judging stage applicability;
