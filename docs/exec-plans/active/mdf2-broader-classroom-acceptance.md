@@ -8,6 +8,53 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Mark #3117 Ready for Review at the maintainer's request;
+      future PRs start ready so automated reviews run. Remote merge de93f2f89
+      incorporates main d61983f9a with only its web test type fix, and all technical
+      checks for that head pass, including runtime 38190211127. Earlier Draft
+      records below describe historical states, not the current review status.
+- [x] 2026-10-12: Codex identifies an overbroad one-question instruction across
+      checking-direction stages. Scope that shape to an authored one-aspect or
+      one-question limit in the resumed review, system prompt, tool guidance and
+      request-local reference. Preserve explicitly multiple questions and avoid
+      inventing a count when none is authored. Ninety-six SDK delivery cases fail
+      before the fix across single, multiple and unspecified authored counts,
+      reload, saved answers, compaction and normalized controls. Original source,
+      answers, memory permissions and interaction boundaries remain unchanged.
+      The fix passes 777 engine cases and 4420 learning/profile/user/quality cases,
+      four subtests and one expected skip, developer tooling and full local gates.
+      SDK assertions prove delivery and source preservation, not model semantics.
+- [ ] 2026-10-12: Devin and CodeRabbit correctly flag the retained real-model
+      two-direction failure. This compatibility correction does not resolve that
+      semantic acceptance blocker. Keep their findings open while investigating
+      an effective bounded phase/focus contract before another paid probe; do not
+      retry prose-only changes, start the tenth learner or overwrite prior failures.
+      Ready for Review does not mean ready to merge.
+- [x] 2026-10-11: #3117 branch rewrite 9f69659aa passes 713 engine and
+      4356 broader cases, four subtests, one expected skip and full gates.
+      All functional-head technical CI passes, including runtime 38152421162.
+      Sim 79fd8d60e, build 578 / Drone 5367, is Ready on API 2/2 and web 1/1;
+      both APIs match 57 fingerprints and each passes 169 SDK cases, with 846
+      combined local checks and gates. Draft status still skips substantive bot
+      review. No automatic merge occurs.
+- [x] 2026-10-11: Preserve the third probe's failed overall pacing verdict.
+      No full answer checklist or worked reasoning is disclosed before correction,
+      but the hint asks both where the first instruction comes from and how the
+      processor knows its next action. These are two checks rather than the frozen
+      single bounded direction. Partial improvement does not relax the criterion.
+      Complete correction is accepted and actual navigation works. Personal
+      feedback quotes the real storage denial; the disk-file distinction remains
+      general. Six teaching generations settle 9.94 credits with correct actual
+      attribution and no failed/unsettled usage or real summary. Exact reference
+      counts are 1/1/1/1/0/0 with the system review delivered; source and original
+      session/progress/variables/six history elements are unchanged.
+- [ ] 2026-10-11: Keep #3117 Draft and do not start the tenth learner. Prompt
+      delivery, local gates and navigation have passed, but the configured model's
+      single-aspect direction compliance has not. Investigate a bounded feedback
+      phase contract before another changed-runtime paid probe; do not keep adding
+      prose or rerun the same version. Preserve all three failed probes, existing
+      classrooms, original author text, criteria, variables and request limits.
+      Fresh natural compression, complete report and broader milestones remain open.
 - [x] 2026-10-11: #3117 second head 5785901db deploys as sim 319164313,
       build 577 / Drone 5366. Both actual APIs match 57 fingerprints and each
       passes 169 SDK cases; actual API 2/2 and web 1/1 are Ready. Local merged

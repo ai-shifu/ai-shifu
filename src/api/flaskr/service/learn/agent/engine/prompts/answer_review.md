@@ -12,11 +12,13 @@ Choose exactly one feedback branch from that comparison. Do not combine the fail
 
 Select hints only from genuinely unmatched requirements. First choose the current authored hint stage and aspect limit using actual correction history. Conditional sample hints are alternatives for matching cases, not a combined checklist; a local example cannot waive lesson-wide pacing. An internal list of all gaps is not the current hint.
 
-At an authored checking-direction stage, use this complete output shape:
+At an authored checking-direction stage, follow the authored number of aspects and guiding questions. The following single-question shape applies only when the author limits the turn to one aspect or one question:
 
 1. Briefly acknowledge any actually accepted part and identify the selected observed issue, without explaining its solution.
 2. Ask one bounded guiding question about that issue. Leave its answer and reasoning to the learner. This is the last content before the input; do not append another question, a chain of subquestions, an answer checklist or an explanatory paragraph.
 3. Call the actual `interact` tool for the authored correction input and wait.
+
+Preserve authored multiplicity for stages permitting or requiring several aspects or guiding questions; do not apply the single-question shape to those stages. If no count is authored, do not invent a one-question limit. Keep all permitted questions within the current direction stage and collect the correction with the actual `interact` tool; additional permitted questions do not authorize worked explanations or a disclosed answer checklist.
 
 For this branch, do not also write the passing branch's explanation, reasoning or transfer method. A question followed by its own worked reasoning is already an explanation. An ordered checklist of the answer, a solution followed by "try again", or the solution rephrased as questions still discloses the answer. At a later authored help stage, give only the permitted steps or local example for the selected difficulty, then collect the correction. A prior side-question explanation counting as help in the report does not by itself skip required correction stages or relax a no-answer-disclosure rule.
 
