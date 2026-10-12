@@ -89,3 +89,46 @@ describe('installed MarkdownFlow mixed interaction replay', () => {
     expect(restored.getByText('Ready')).not.toHaveClass('select');
   });
 });
+
+describe('historical structured answer defaults', () => {
+  it.each([
+    ['text', '?[...Answer]', [], 'First, second\nThird'],
+    ['single', '?[Visible A//a,b|Visible B//c]', ['a,b'], ''],
+    ['multi', '?[Visible A//a,b||Visible B//c]', ['a,b', 'c'], ''],
+    [
+      'mixed',
+      '?[Visible A//a,b||Visible B//c||...Answer]',
+      ['a,b'],
+      'Custom, answer',
+    ],
+  ])(
+    'restores %s inputs after leaving and reopening the lesson',
+    (kind, content, selectedValues, inputText) => {
+      const userInput = JSON.stringify({
+        selectedValues,
+        inputText,
+        buttonText: kind === 'single' ? selectedValues[0] : '',
+      });
+      const onSend = jest.fn();
+      const props = { content, userInput, readonly: true, onSend };
+      const first = render(<ContentRender {...props} />);
+      first.unmount();
+      const reopened = render(<ContentRender {...props} />);
+      if (content.includes('...')) {
+        expect(reopened.getByRole('textbox')).toHaveValue(inputText);
+      }
+      if (selectedValues.includes('a,b')) {
+        if (kind === 'single') {
+          expect(reopened.getByText('Visible A')).toHaveClass('select');
+        } else {
+          expect(reopened.getAllByRole('checkbox')[0]).toBeChecked();
+        }
+      }
+      if (selectedValues.includes('c')) {
+        expect(reopened.getAllByRole('checkbox')[1]).toBeChecked();
+      }
+      expect(onSend).not.toHaveBeenCalled();
+      reopened.unmount();
+    },
+  );
+});
