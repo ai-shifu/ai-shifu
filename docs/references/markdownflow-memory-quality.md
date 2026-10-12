@@ -2,7 +2,7 @@
 title: MarkdownFlow Memory Quality Evaluation
 status: active
 owner_surface: learner
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 canonical: true
 ---
 
@@ -160,6 +160,42 @@ input. Other authored counts remain authoritative. Worked reasoning and a transf
 method remain in the passing branch unless the author permits an earlier help
 stage. These instructions do not introduce a host semantic filter or another
 model request, and require separate actual-model acceptance.
+
+### Structured checking directions
+
+For a uniquely anchored returned text input, the existing `interact` tool accepts
+an optional `direction` object. The model selects the phase, authored aspect
+limit and unmatched focuses. Each focus carries an exact current-section
+criterion, an exact submitted quote for a contradiction (null for an omission),
+a brief observed issue and one unanswered guiding question. The stage rule must
+also quote original author text. The host verifies these sources and the declared
+cardinality before displaying submitted quotes, issues and questions. Author
+criteria, internal rule and declared limit are not teaching text.
+
+The call defers the same normalized text input with an empty prompt and its
+original placeholder and eligible variable. Mixed free prose, additional
+interactions, forged sources and unexecuted interaction markup reject the whole
+response through the existing SDK retry budget. The host neither clips a hint
+nor adds a planning request. A valid first call works with a one-request budget.
+Explicit multiple and unspecified authored counts remain supported. Passing
+answers, later help, navigation, clarifications, multiple required questions within one aspect and unsupported
+anchors retain
+the ordinary interaction path and protocols.
+
+On supported resumed answers, text waits until the first new tool identifies
+whether its model response uses this contract. Ordinary calls release the
+unchanged chunks; a structured response is displayed only after validation, with
+its pending correction and visible history already saved. Buffered provider
+failures before any display retain the original answer for recovery. This adds
+response-level latency for supported ordinary answer turns but no whole-turn
+report buffer. Old evidence stays unchanged; new rejected prose is retained only
+in raw tool/retry evidence, not as displayed teaching.
+
+This is structural provenance, not a semantic grader: the model can still choose
+the wrong phase, misread an authored count, combine checks in one question or
+misdiagnose a genuine quoted answer. Real-model pacing and complete fresh
+natural-compression acceptance therefore remain separate gates. Earlier failed
+probes cannot be replaced by controlled SDK success.
 
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model

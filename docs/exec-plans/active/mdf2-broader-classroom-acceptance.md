@@ -8,6 +8,32 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: The maintainer merges #3117 as 74d4e2eed. Fetch confirms
+      its tree matches final head 891f799fe. All final technical checks pass,
+      including runtime 38191646280; CodeRabbit's latest reply acknowledges the
+      deferred semantic concern. Automatic main build 581 / Drone 5370 succeeds.
+      Actual CN API 6/6 and web 3/3 are Ready on 20261012-74d4e2e, verified
+      read-only. The three failed direction probes remain failed.
+- [x] 2026-10-12: Implement an optional direction object on the existing
+      deferred interaction, binding the returned answer, exact authored phase
+      rule/current criterion, declared aspect count and actual submission quote.
+      Reject invalid whole responses before display on supported text anchors;
+      preserve omission handling, authored multiplicity, complete corrections,
+      normal navigation, memory admission and the existing request budget.
+      Supported ordinary responses gain first-tool buffering; other controls
+      retain their streaming behavior. No additional planning request is added.
+- [x] 2026-10-12: Twenty-four new SDK cases pass, including provenance,
+      omissions, multiplicity, reload, listen, disconnect and unseen provider
+      failures. All 801 engine and 4603 learning/profile/profile-research/user/
+      quality cases pass, with four subtests and one expected skip. The initial
+      broad buffer broke three ordinary interruption cases; narrowing to exact
+      supported text anchors restores them. Retain that failed baseline.
+- [ ] 2026-10-12: Finish sim checks, open a focused Ready PR and
+      validate the changed runtime against the frozen original-prefix probe.
+      Controlled structure/provenance tests cannot prove semantic single-focus
+      quality. Do not start the tenth fresh learner before that strict check
+      passes, or overwrite the earlier direction and natural-compression failures.
+
 - [x] 2026-10-12: Mark #3117 Ready for Review at the maintainer's request;
       future PRs start ready so automated reviews run. Remote merge de93f2f89
       incorporates main d61983f9a with only its web test type fix, and all technical

@@ -18,6 +18,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from .direction import DirectionFeedback, has_direction
 from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .session import answer_fingerprint
@@ -44,6 +45,11 @@ class Deps:
     history_len: int = 0
     # Transient request guidance; never persisted as learner evidence or a grade.
     resuming_interaction: bool = False
+    authored_text: str = ""
+    direction_answers: dict[str, str] = field(default_factory=dict)
+    direction_inputs: dict[str, InteractionSpec] = field(default_factory=dict)
+    direction_sections: dict[str, str] = field(default_factory=dict)
+    direction_rendered: dict[str, str] = field(default_factory=dict)
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
@@ -555,6 +561,7 @@ async def interact(
     options: list[Option] | None = None,
     variable: str | None = None,
     placeholder: str | None = None,
+    direction: DirectionFeedback | None = None,
 ) -> str:
     """Show an interaction to the learner and wait for the answer.
 
@@ -601,10 +608,54 @@ async def interact(
     navigation alone and wait; only its returned selection permits the following step.
     Do not include the following question in the same response as that explanation.
     When no intervening navigation is authored, follow the author's next step normally.
+
+    For an authored checking-direction correction of a uniquely anchored text input,
+    send `direction` in this same tool call instead of writing free content. Copy
+    `answer_id` from the returned interaction, `rule_quote` from the author's stage
+    rule, and each criterion from the current authored section. Select only the
+    genuinely unmatched focus or focuses allowed now. Copy the authored aspect
+    limit, or null when none is specified; never invent or relax it. Each focus
+    has a brief observed issue and one unanswered guiding question, without worked
+    reasoning, compound checks or a list of the other gaps. Quote actual submitted
+    evidence for a contradiction; use null for an omission, never an authored sample
+    mistake. The host displays submitted quotes, issues and questions after validating this
+    structure and provenance; it does not grade or prove semantic single-focus quality.
+    Use type `text`, an empty `prompt`, and the same authored placeholder and eligible
+    variable as the answered input. Do not add another interaction or any free
+    content to that model response. This collects the correction directly, without
+    a planning request. For passing answers, later authored help, navigation,
+    clarification, multiple questions within one aspect, or an input without an
+    exact authored anchor, omit `direction`
+    and follow the ordinary authored behavior.
     """
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
+    response = next(
+        (
+            m
+            for m in reversed(ctx.messages)
+            if isinstance(m, ModelResponse)
+            and any(
+                isinstance(p, ToolCallPart) and p.tool_call_id == ctx.tool_call_id
+                for p in m.parts
+            )
+        ),
+        None,
+    )
+    if (
+        response is not None
+        and any(
+            isinstance(p, ToolCallPart) and has_direction(p) for p in response.parts
+        )
+        and sum(
+            isinstance(p, ToolCallPart) and p.tool_name == "interact"
+            for p in response.parts
+        )
+        != 1
+    ):
+        message = "structured direction must be the sole interaction in its response"
+        raise ModelRetry(message)
     if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
         message = "This variable is a read-only reference. Ask using a local variable instead."
         raise ModelRetry(message)
@@ -648,6 +699,45 @@ async def interact(
         placeholder=placeholder,
     )
     spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
+    if direction is not None:
+        problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)
+        section = ctx.deps.direction_sections.get(direction.answer_id)
+        previous = ctx.deps.direction_inputs.get(direction.answer_id)
+        if not problem and (
+            section is None
+            or any(f.criterion_quote not in section for f in direction.focuses)
+        ):
+            problem = "direction criteria require the exact current authored section"
+        if not problem and (
+            previous is None
+            or spec.type != "text"
+            or spec.prompt != ""
+            or spec.placeholder != previous.placeholder
+            or spec.variable != previous.variable
+        ):
+            problem = (
+                "direction requires an empty prompt and the original text input binding"
+            )
+        if not problem and contains_interaction_markup(
+            direction.render(), ctx.deps.literal_interaction_markup
+        ):
+            problem = "direction must not contain unexecuted interaction markup"
+        if not problem and (
+            response is None
+            or any(
+                isinstance(p, TextPart) and p.content.strip() for p in response.parts
+            )
+            or sum(
+                isinstance(p, ToolCallPart) and p.tool_name == "interact"
+                for p in response.parts
+            )
+            != 1
+        ):
+            problem = "direction must be the sole interaction, without free content in its response"
+        if problem:
+            raise ModelRetry(
+                problem + "; correct the whole call before anything is displayed"
+            )
     problem = ctx.deps.interaction_check(spec) if ctx.deps.interaction_check else None
     if problem:
         # Deferred, the question would wait for an answer the learner has no controls to give.
@@ -659,6 +749,8 @@ async def interact(
         )
         raise ModelRetry(msg)
     ctx.deps.interaction_markup_pending = False
+    if direction is not None:
+        ctx.deps.direction_rendered[ctx.tool_call_id] = direction.render()
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 
