@@ -11,6 +11,7 @@ DDL. Existing sessions remain NULL; current content cannot establish history.
 from alembic import op
 from sqlalchemy import Column
 from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy.exc import OperationalError
 
 revision = "f569f2199973"
 down_revision = "fde432bceab4"
@@ -25,12 +26,21 @@ _COMMENT = (
 
 def upgrade():
     if op.get_bind().dialect.name == "mysql":
-        # Fail rather than fall back to COPY or a blocking table lock.
-        op.execute(
+        statement = (
             "ALTER TABLE `learn_agent_sessions` "
             f"ADD COLUMN `content_revision` BIGINT NULL COMMENT '{_COMMENT}', "
-            "ALGORITHM=INPLACE, LOCK=NONE"
         )
+        try:
+            # INSTANT only permits the default lock clause. Offline SQL keeps
+            # this explicit algorithm and requires deployment-time review.
+            op.execute(f"{statement}ALGORITHM=INSTANT")
+        except OperationalError as exc:
+            args = getattr(exc.orig, "args", ())
+            if not args or args[0] not in (1845, 1846):
+                raise
+            # Some deployed builds reject INSTANT. Only that explicit refusal
+            # permits a rebuild; never fall back to COPY or a blocking lock.
+            op.execute(f"{statement}ALGORITHM=INPLACE, LOCK=NONE")
     else:
         op.add_column(
             "learn_agent_sessions",
