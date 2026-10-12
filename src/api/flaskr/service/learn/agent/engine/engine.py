@@ -582,6 +582,14 @@ class Engine:
                 problem, _ = feedback_response_problem(ctx.deps, response)
                 if problem:
                     ctx.deps.hide_feedback_response(response)
+                    if (
+                        ctx.deps.interaction_markup_pending
+                        or contains_interaction_markup(
+                            output, ctx.deps.literal_interaction_markup
+                        )
+                    ):
+                        ctx.deps.interaction_markup_pending = True
+                        problem += "; " + INTERACTION_MARKUP_RETRY
                     raise ModelRetry(
                         problem + "; correct the whole response before any display"
                     )

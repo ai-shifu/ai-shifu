@@ -8,6 +8,48 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Head 544a65c77 passes all technical CI including runtime
+      38232818206. Sim bb2fa32b8 / build 601 / Drone 5390 has API 2/2 and
+      web 1/1 Ready, 67 matching files and 386 SDK cases per API. Recheck both
+      current API pods before the next journey; all fingerprints and SDK cases
+      still pass. Latest main cdf077366 adds only poster-share links, tests and
+      translations, with no backend increment over the deployed sim baseline.
+      Paginated review surfaces have no new actionable finding; the existing
+      coverage warning remains deferred, and similar-file skips are disclosed.
+- [x] 2026-10-12: Recover the stopped fourteenth classroom's original three
+      traces/eight generations with read-only page-size-three queries bounded to
+      its original ledger window. Exact output and input/output-token tuples
+      uniquely match every usage row and its settled debit, totaling 15.33
+      credits. The traces have one, four and three generations, each bound to one
+      actual attempt/content block. Actual summary generations, projection markers
+      and cache entries are all zero. Retain every earlier read failure and the
+      original wrong-answer stage failure. Authorized infrastructure mitigation
+      and the separate Kubernetes monitor are outside this source PR.
+- [x] 2026-10-12: Preserve the fifteenth independent fresh classroom failure.
+      Two ordinary HTTP requests run: start and knowledge clarification. The
+      latter returns terminal unknown error with no visible elements. Stop before
+      all 26 later phases; do not retry/reset this learner. Two original traces
+      contain two start generations and three clarification generations, all
+      uniquely matched by exact output/token tuples to five usage rows and their
+      8.98-credit settled debit. Two history rows read stably, source unchanged,
+      turn two unfinished, variables unchanged, maximum original 529 wire bytes.
+      Actual summary generations/projection/cache are zero; 102016 provider-cache
+      input tokens are not teaching summaries. Wrong-answer phase is not reached.
+- [ ] 2026-10-12: Four new reload/tag-shape regressions first fail: feedback
+      validation masks the already-known textual-interaction diagnostic. Report
+      both problems in the same existing retry and retain the unanswered markup
+      flag. Do not parse/execute tag attributes, restore withheld prose, relax
+      review/source checks or increase calls/budgets. The model still must return
+      fresh content with a real native tool. An initial broad assertion also
+      matches the policy's literal tag text; restrict it to learner-visible output
+      and retain that fixture failure. Validate, push, reply and refresh sim before
+      another changed-runtime journey; this diagnostic fix is not acceptance.
+      All 3740 learning/evaluation cases, four subtests and one expected skip pass,
+      including the entire engine and unchanged context/retry assertions. Tooling
+      and all repository gates pass. The first hook invocation resolves python3
+      to system Python 3.9 and lacks tomllib; rerun with python3 bound to the
+      existing conda ai-shifu interpreter, without a dependency or gate change.
+
 - [x] 2026-10-12: Head 5e97f7fd7 passes every technical CI and a fresh
       CodeRabbit review with no new functional finding. The updated 43.10%/116-
       function coverage warning is explicitly deferred in its original conversation.
@@ -1217,6 +1259,13 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Surprises & Discoveries
 
+- 2026-10-12: The fifteenth knowledge retry first omits a native review, then
+  returns a valid review without the withheld explanation, then writes the review
+  inside another textual interaction tag. The feedback validator reports its
+  error before reaching the existing markup diagnostic. Both errors are known
+  in that same response; their combined retry must not make the tag executable.
+  Original traces are readable again and preserve this failed sequence.
+
 The eighth fresh classroom completes with exact hint counts and original
 feedback, but its first explanation is only 3665 bytes. A 4135-byte final report
 cannot establish compression: recent teaching is protected and no actual summary
@@ -1265,6 +1314,11 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Decision Log
 
+- 2026-10-12: Combine known textual-interaction and feedback errors before
+  retrying. Keep the native-tool boundary, rejected-prose protection and existing
+  budgets. A text tag carrying a serialized review is still text, never an
+  alternate tool interface. No semantic grading or new model planning is added.
+
 - Keep internal diagnoses out of public checking-direction text. Render only
   source-bound actual accepted/contradicted excerpts and the model's unanswered
   questions; preserve original tool arguments for audit. Exact-quote validation
@@ -1289,6 +1343,13 @@ help flag and from the before-first subset. Original messages contain both round
   authored definitions, outcome arithmetic and existing budgets unchanged.
 
 ## Outcomes & Retrospective
+
+Current acceptance remains incomplete after the fifteenth fresh classroom stops
+at knowledge clarification. Infrastructure recovery closes the original
+fourteenth trace gap without changing its failed classroom verdict. The new
+combined diagnostic needs current-head validation, deployment and an independent
+real-model result. Full eleven-question natural compression, original-record
+statistics and billing acceptance remain open; milestone 4/5, keep unmerged.
 
 Broader external acceptance remains incomplete. The focused initial-hint
 correction passes a genuine saved pre-final report probe with real summary
