@@ -124,7 +124,8 @@ def turn_record(checkpoint: dict[str, Any], values: list[str]) -> str:
     )
 
 
-def _read_turn_record(block: LearnGeneratedBlock) -> dict[str, Any] | None:
+def read_turn_record(block: LearnGeneratedBlock) -> dict[str, Any] | None:
+    """Read a recognized durable turn checkpoint without exposing session state to clients."""
     try:
         data = json.loads(block.block_content_conf or "")
     except ValueError:
@@ -143,7 +144,7 @@ def read_turn_learner_values(block: LearnGeneratedBlock) -> list[str]:
     Follow-up history uses this durable input evidence without reading agent
     sessions or exposing checkpoint memory, pending tools or configuration.
     """
-    record = _read_turn_record(block)
+    record = read_turn_record(block)
     if record is None:
         return []
     values = record.get("values")
@@ -236,7 +237,7 @@ def plan_rewind(
         target = later[0]
     else:
         target = block
-    record = _read_turn_record(target)
+    record = read_turn_record(target)
     if record is None:
         raise RewindUnavailableError
     if answering and not record["checkpoint"].get("pending"):
