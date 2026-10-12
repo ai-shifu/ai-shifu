@@ -1333,3 +1333,61 @@ def test_rejected_text_with_thinking_does_not_leave_an_empty_provider_assistant(
         for message in map_messages(projected)
         if message["role"] == "assistant"
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+@pytest.mark.parametrize("tag_review", [False, True])
+async def test_textual_interaction_reports_markup_and_feedback_errors_together(
+    reload: bool, tag_review: bool
+) -> None:
+    """Repair rejected prose and a text imitation in the same existing retry."""
+    calls = 0
+    tag = '<interact type="text" prompt="Answer"'
+    if tag_review:
+        tag += " review='" + json.dumps(_review("clarification")) + "'"
+    tag += " /></interact>"
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Undisplayed explanation with a fake control.\n" + tag
+        else:
+            retry = [
+                p for m in messages for p in m.parts if isinstance(p, RetryPromptPart)
+            ][-1]
+            assert "Declare the feedback branch" in str(retry.content)
+            assert "tag as text instead of calling a tool" in str(retry.content)
+            assert "No question was created" in str(retry.content)
+            yield "New explanation supplied together with its real control."
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Answer",
+                    "review": _review("clarification"),
+                },
+                "repaired",
+            )
+
+    engine = _engine(stream)
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == "New explanation supplied together with its real control."
+    assert session.pending[0].tool_call_id == "repaired"
+    assert calls == 3
+    assert not session.finished
+    assert not session.memory
+    raw = session.dumps()
+    assert "Undisplayed explanation with a fake control" not in raw
+    assert tag not in _text(events)
