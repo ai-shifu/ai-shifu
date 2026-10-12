@@ -488,6 +488,30 @@ def test_unreadable_preview_restarts_its_presentation_together(
     assert "question 1" not in records[0].content
 
 
+@pytest.mark.parametrize("finished", [False, True])
+def test_unknown_session_schema_does_not_erase_preview_progress(
+    app: Flask, classroom: tuple, finished: bool
+) -> None:
+    identity, run, history, _calls = classroom
+    run()
+    if finished:
+        run("finish-preview")
+    with app.app_context(), unit_of_work():
+        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
+        row.schema_version = 999
+        structure = LogDraftStruct.query.filter_by(shifu_bid=identity).one()
+        parsed = HistoryItem.from_json(structure.struct)
+        parsed.children[0].content_revision += 1
+        structure.struct = parsed.to_json()
+    tree = get_outline_item_tree(app, identity, identity, preview_mode=True)
+    lesson = tree.outline_items[0]
+    assert lesson.status == (
+        LearnStatus.COMPLETED if finished else LearnStatus.IN_PROGRESS
+    )
+    assert lesson.has_content_update_for_current_user is False
+    assert history().has_content_update_for_current_user is False
+
+
 def test_preview_reset_cannot_retire_another_courses_lesson(
     app: Flask, classroom: tuple
 ) -> None:
