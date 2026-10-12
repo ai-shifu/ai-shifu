@@ -884,3 +884,23 @@ async def test_saved_legacy_direction_without_limit_can_resume_its_original_answ
     assert _text(events) == "Accepted complete correction."
     assert session.pending[0].tool_call_id == "next"
     assert calls == 3
+
+
+def test_rejected_text_with_thinking_does_not_leave_an_empty_provider_assistant() -> (
+    None
+):
+    from flaskr.service.learn.agent.engine.direction import feedback_retry_history
+    from flaskr.service.learn.agent.gateway_model import map_messages
+    from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ThinkingPart
+
+    rejected = ModelResponse(
+        parts=[ThinkingPart("Private reasoning."), TextPart("Undisplayed explanation.")]
+    )
+    request = ModelRequest(parts=[RetryPromptPart("Declare the feedback branch.")])
+    projected = feedback_retry_history([rejected, request], {id(rejected)})
+    assert projected == [projected[-1]]
+    assert all(
+        message.get("content") or message.get("tool_calls")
+        for message in map_messages(projected)
+        if message["role"] == "assistant"
+    )

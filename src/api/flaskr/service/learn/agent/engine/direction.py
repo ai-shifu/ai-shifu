@@ -216,7 +216,7 @@ def feedback_retry_history(
     for i, message in enumerate(messages):
         if i in rejected:
             parts = [p for p in message.parts if not isinstance(p, TextPart)]
-            if parts:
+            if any(isinstance(p, ToolCallPart) for p in parts):
                 result.append(replace(message, parts=parts))
         elif (
             i > rejected[-1]

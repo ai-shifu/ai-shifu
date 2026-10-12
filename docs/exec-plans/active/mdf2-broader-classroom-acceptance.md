@@ -43,6 +43,11 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       related cases pass with four subtests and one expected skip. Final engine
       checks pass 879 cases, including a saved legacy pending direction without
       aspect_limit resuming its original correction after reload.
+- [x] 2026-10-12: Self-review first reproduces an empty-provider-assistant
+      regression when rejected text also contains ThinkingPart. Omit an unseen
+      response unless it retains actual tool-call evidence, matching existing
+      durable-history behavior. Final engine checks pass 880 cases; the preceding
+      related suite passes 3521 cases, four subtests and one expected skip.
 
 - [x] 2026-10-12: Push interruption recovery fe1e36c53 and refresh both
       original review threads. All 864 engine and 4619 related cases pass,
