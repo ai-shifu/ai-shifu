@@ -8,6 +8,39 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Functional head 220d3f099 passes all eleven checks, including
+      runtime 38253615721. CodeRabbit 0a81b8fe reviews runtime/tests/reference
+      without an actionable finding, skipping the similar plan. The 47.29%/129
+      function coverage warning remains deferred in its original conversation.
+      Sim 9fb396953 / build 607 / Drone 5396 deploys as sim-9fb3969 in successful
+      records 2819/2820: API 2/2 and web 1/1 Ready, both APIs match 67 files and
+      pass 406 isolated SDK cases. Merged 3814 cases, 50 subtests, three expected
+      skips and repository gates pass. Original inputs/source/budgets stay unchanged.
+- [x] 2026-10-12: Preserve the nineteenth independent classroom failure after
+      two ordinary requests. Knowledge clarification uses a valid native review
+      and delivers prose plus input, but its displayed worked program reloads
+      the counter on each loop while the explanation incorrectly claims it
+      decreases to zero and halts. Stop before the remaining 26 phases; no
+      reset/retry or twentieth learner. Two traces have one generation each,
+      uniquely matching output/token tuples, actual attempts/blocks and all 3.52
+      settled credits. Four history rows are stable, source unchanged, turn two
+      unfinished and variables unwritten. No actual summary/projection/cache;
+      48384 provider-cache tokens remain separate. The exact example and claim
+      bind to original model output, not authored source or frontend remapping.
+      An independent bounded hand-trace proves the cycle; its initial recurrence
+      assertion is corrected without changing retained program or verdict.
+      The nineteenth run does not exercise multi-retry recovery or reach
+      wrong-answer feedback/later parent context. Do not infer those passes.
+- [ ] 2026-10-12: Investigate generated worked-example consistency as a separate
+      quality problem before another fresh journey. The valid-protocol response
+      still teaches a false state transition; do not patch the course, add a
+      course-specific recognizer or host semantic grader, restore rejected output,
+      increase budgets, or rerun the same paid runtime to sample for success.
+      Define a generic verifiable-example design and independent acceptance for
+      both nonterminating reload loops and valid decreasing counters. Offline
+      delivery fixtures cannot prove model truthfulness. No generic runtime
+      correction is claimed yet. Full classroom acceptance remains open.
+
 - [x] 2026-10-12: Head 8c9c11ca8 passes all eleven checks including runtime
       38251324157. CodeRabbit c0bc443b reviews runtime/tests without an actionable
       finding, skipping two similar docs; the 46.83%/126-function coverage warning
@@ -1364,6 +1397,11 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Surprises & Discoveries
 
+- 2026-10-12: Valid native clarification and fresh prose do not establish factual
+  correctness. The nineteenth run emits a reload loop and a contradictory
+  terminating walkthrough in one generation, while the retained seventeenth
+  example initializes outside its loop and correctly traces its actual states.
+
 - 2026-10-12: SDK ProcessHistory can remove a rejected pure-text response before
   a second retry. Its object identity alone cannot carry the pending delivery
   obligation; the existing request-local state must retain the recovery notice.
@@ -1428,6 +1466,11 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Decision Log
 
+- 2026-10-12: Keep the nineteenth visible worked-example failure distinct from
+  feedback recovery. Preserve all earlier verdicts and investigate generic
+  example consistency separately; do not add a course-specific semantic gate to
+  the feedback PR or use unchanged paid reruns as a substitute for a correction.
+
 - 2026-10-12: Reuse pending delivery when projecting the latest retry rather than
   restoring hidden prose or increasing retries. Preserve the actual error and
   native-tool/branch recovery requirements together, with idempotent notices.
@@ -1466,6 +1509,12 @@ help flag and from the before-first subset. Original messages contain both round
   authored definitions, outcome arithmetic and existing budgets unchanged.
 
 ## Outcomes & Retrospective
+
+- 2026-10-12: The functional correction passes current CI and deployed SDK checks,
+  but the nineteenth journey stops on factual teaching quality before exercises.
+  Two settled generations/3.52 credits, stable history and exact original-output
+  bindings are narrow observations. The full fresh natural-summary journey and
+  final exercise report remain unaccepted; retain milestone 4/5 and keep unmerged.
 
 - 2026-10-12: The eighteenth journey fails on knowledge clarification, before
   wrong-answer feedback or later scoped context. Retain its five settled
