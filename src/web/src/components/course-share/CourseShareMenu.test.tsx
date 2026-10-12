@@ -127,6 +127,34 @@ describe.each([
     ]);
   });
 
+  test('preserves authored links while supplying the original course URL once outside the material', async () => {
+    const url = 'https://example.com/c/course-1';
+    const authoredDescription = [
+      `Learn more: [course page](${url}).`,
+      `Campaign: ${url}?ref=teacher`,
+      `Related course: ${url}0`,
+    ].join('\n');
+    render(
+      <CourseShareMenu
+        {...props}
+        courseDescription={authoredDescription}
+      />,
+    );
+    open();
+    clickCopy();
+    await closed();
+
+    const prompt: string = copy.mock.calls[0][0];
+    const [beforeMaterial, materialAndRest] = prompt.split('```text\n');
+    const [material, afterMaterial] = materialAndRest.split('\n```');
+
+    expect(material).toBe(
+      `推荐你来学习《${props.courseTitle}》，体验一对一个性化学习。\n\n${authoredDescription}`,
+    );
+    expect(`${beforeMaterial}${afterMaterial}`.split(url)).toHaveLength(2);
+    expect(afterMaterial).toContain(`## 原课程链接\n${url}`);
+  });
+
   test.each([3, 7])(
     'quotes embedded instructions and %i-backtick fences while keeping the authoritative URL separate',
     async fenceLength => {
