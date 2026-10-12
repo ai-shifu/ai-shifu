@@ -39,10 +39,13 @@ def _record(pending: list, values: list[str]) -> str:
 def classroom(app: object) -> Iterator[str]:
     with app.app_context():
         scope = uuid.uuid4().hex
-        yield scope
-        LearnGeneratedElement.query.filter_by(user_bid=scope).delete()
-        LearnGeneratedBlock.query.filter_by(user_bid=scope).delete()
-        db.session.commit()
+        try:
+            yield scope
+        finally:
+            db.session.rollback()
+            LearnGeneratedElement.query.filter_by(user_bid=scope).delete()
+            LearnGeneratedBlock.query.filter_by(user_bid=scope).delete()
+            db.session.commit()
 
 
 def _block(
@@ -66,7 +69,9 @@ def _block(
     return block
 
 
-def _control(scope: str, block: LearnGeneratedBlock, content: str) -> None:
+def _control(
+    scope: str, block: LearnGeneratedBlock, content: str, index: int = 0
+) -> None:
     db.session.add(
         LearnGeneratedElement(
             user_bid=scope,
@@ -74,10 +79,10 @@ def _control(scope: str, block: LearnGeneratedBlock, content: str) -> None:
             outline_item_bid=scope,
             progress_record_bid=scope,
             generated_block_bid=block.generated_block_bid,
-            element_bid=block.generated_block_bid + "-control",
+            element_bid=block.generated_block_bid + f"-control-{index}",
             event_type="element",
             element_type="interaction",
-            sequence_number=1,
+            sequence_number=index + 1,
             is_final=1,
             content_text=content,
             payload="{}",
@@ -216,7 +221,10 @@ def test_unrelated_or_unproven_inputs_stay_empty(classroom: str, boundary: str) 
     db.session.commit()
 
 
-def test_same_named_control_keeps_each_historical_answer(classroom: str) -> None:
+@pytest.mark.parametrize("reused_call_id", [False, True])
+def test_same_named_control_keeps_each_historical_answer(
+    classroom: str, reused_call_id: bool
+) -> None:
     spec = InteractionSpec(
         type="text", prompt="Question", variable="answer", placeholder="Answer"
     )
@@ -230,7 +238,7 @@ def test_same_named_control_keeps_each_historical_answer(classroom: str) -> None
         block_content_conf=_record(pending, ["First answer"]),
     )
     _control(classroom, second, render_interaction(spec))
-    pending[0]["tool_call_id"] = "call-second"
+    pending[0]["tool_call_id"] = "call-first" if reused_call_id else "call-second"
     _block(
         classroom,
         classroom + "-third",
@@ -254,3 +262,101 @@ def test_legacy_interaction_still_reads_its_own_answer(classroom: str) -> None:
     _control(classroom, question, "?[...Answer]")
     db.session.commit()
     assert _history_input(question) == "Previously submitted"
+
+
+@pytest.mark.parametrize("identical", [False, True])
+def test_parallel_questions_keep_element_specific_answers(
+    classroom: str, identical: bool
+) -> None:
+    first = InteractionSpec(type="text", prompt="First", placeholder="First answer")
+    second = (
+        first
+        if identical
+        else InteractionSpec(type="text", prompt="Second", placeholder="Second answer")
+    )
+    question = _block(classroom, classroom + "-parallel", 0)
+    _control(classroom, question, render_interaction(first), 0)
+    _control(classroom, question, render_interaction(second), 1)
+    pending = [
+        {"tool_call_id": "call-first", "spec": first.model_dump()},
+        {"tool_call_id": "call-second", "spec": second.model_dump()},
+    ]
+    next_question = _block(
+        classroom,
+        classroom + "-next",
+        1,
+        block_content_conf=_record(pending, ["First submitted"]),
+    )
+    _control(classroom, next_question, render_interaction(second))
+    _block(
+        classroom,
+        classroom + "-last",
+        2,
+        block_content_conf=_record(pending[1:], ["Second submitted"]),
+    )
+    db.session.commit()
+    elements = get_final_elements_for_generated_block(
+        generated_block_bid=question.generated_block_bid
+    )
+    assert len(elements) == 2
+    assert [
+        json.loads(element.payload.user_input)["inputText"] for element in elements
+    ] == ["First submitted", "Second submitted"]
+    assert json.loads(_history_input(next_question))["inputText"] == "Second submitted"
+
+
+def test_omitted_placeholder_survives_locale_change(
+    classroom: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spec = InteractionSpec(type="text", prompt="Question")
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.legacy_protocol._",
+        lambda _key: "Original locale hint",
+    )
+    question = _block(classroom, classroom + "-locale", 0)
+    _control(classroom, question, render_interaction(spec))
+    _block(
+        classroom,
+        classroom + "-answer",
+        1,
+        block_content_conf=_record(
+            [{"tool_call_id": "call-locale", "spec": spec.model_dump()}],
+            ["Retained answer"],
+        ),
+    )
+    db.session.commit()
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.legacy_protocol._", lambda _key: "New locale hint"
+    )
+    assert json.loads(_history_input(question))["inputText"] == "Retained answer"
+
+
+@pytest.mark.parametrize("matching_owner", [True, False])
+def test_blank_progress_uses_only_its_owned_active_block(
+    classroom: str, matching_owner: bool
+) -> None:
+    spec = InteractionSpec(type="text", prompt="Question", placeholder="Answer")
+    question = _block(classroom, classroom + "-blank", 0)
+    _control(classroom, question, render_interaction(spec))
+    LearnGeneratedElement.query.filter_by(user_bid=classroom).update(
+        {"progress_record_bid": ""}
+    )
+    _block(
+        classroom,
+        classroom + "-answer",
+        1,
+        block_content_conf=_record(
+            [{"tool_call_id": "call-blank", "spec": spec.model_dump()}],
+            ["Retained answer"],
+        ),
+    )
+    if not matching_owner:
+        question.user_bid = "unrelated"
+    db.session.commit()
+    value = _history_input(question)
+    if matching_owner:
+        assert json.loads(value)["inputText"] == "Retained answer"
+    else:
+        assert not value
+    db.session.delete(question)
+    db.session.commit()
