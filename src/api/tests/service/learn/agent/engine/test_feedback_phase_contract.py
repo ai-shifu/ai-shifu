@@ -1460,3 +1460,81 @@ def test_pending_feedback_retry_notice_is_idempotent_without_rejected_prose() ->
     notice = str(repeated[-1].parts[0].content)
     assert notice.count("Use actual tool calls, not textual interaction tags") == 1
     assert feedback_retry_history(messages, set()) is messages
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+async def test_unmatched_conditional_hint_keeps_actual_contradiction_in_current_scope(
+    reload: bool,
+) -> None:
+    """Require an explicit fallback without a host selecting the matching case."""
+    rule = "Select one missing aspect and wait for a correction."
+    criterion = "store instructions in memory"
+    sample = "If the learner only mentions saving a disk file, ask about preparation, fetching and automatic sequencing."
+    script = (
+        rule
+        + "\n\n## Question\n?[...Answer]\n\n### Acceptance\nPrepare the program; store instructions in memory; execute automatically.\n\n### Hints\n"
+        + sample
+    )
+    actual = "Instructions need not be stored in memory before execution."
+    calls = 0
+
+    async def stream(messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        else:
+            instructions = info.instructions or ""
+            marker = '{"status":"authored_section"'
+            reference = json.loads(instructions[instructions.index(marker) :])
+            assert sample in reference["text"]
+            assert "When no conditional example matches" in reference["notice"]
+            assert "actual submission" in reference["notice"]
+            assert "compound criterion" in reference["notice"]
+            assert actual in ModelMessagesTypeAdapter.dump_json(messages).decode()
+            tool = next(t for t in info.function_tools if t.name == "interact")
+            assert "exact clause" in json.dumps(tool.parameters_json_schema).lower()
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Answer",
+                    "direction": {
+                        "answer_id": "original",
+                        "rule_quote": rule,
+                        "aspect_limit": 1,
+                        "accepted_quotes": [],
+                        "focuses": [
+                            {
+                                "criterion_quote": criterion,
+                                "submission_quote": actual,
+                                "observed_issue": "Denies instruction storage before execution.",
+                                "guiding_question": "Where can the processor fetch its next instruction?",
+                            }
+                        ],
+                    },
+                },
+                "correction",
+            )
+
+    engine = _engine(stream)
+    session = await engine.new_session(script)
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    before = ModelMessagesTypeAdapter.dump_json(session.messages)
+    count = len(session.messages)
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=actual))
+    )
+    assert not any(isinstance(e, ErrorEvent) for e in events)
+    assert calls == 2
+    assert (
+        _text(events)
+        == "> " + actual + "\n\nWhere can the processor fetch its next instruction?"
+    )
+    assert session.pending[0].tool_call_id == "correction"
+    assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before

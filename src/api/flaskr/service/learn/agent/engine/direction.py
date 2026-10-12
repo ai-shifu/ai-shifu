@@ -28,7 +28,8 @@ class DirectionFocus(BaseModel):
     criterion_quote: str = Field(
         min_length=1,
         description=(
-            "Exact one concrete authored requirement, not a heading or coverage checklist."
+            "Exact clause for one authored requirement; do not copy a compound sentence, "
+            "heading or checklist."
         ),
     )
     submission_quote: str | None = Field(
@@ -38,15 +39,15 @@ class DirectionFocus(BaseModel):
     observed_issue: str = Field(
         min_length=1,
         description=(
-            "Internal issue for this requirement alone; never bundle gaps or copy a "
-            "sample misconception. Cite actual input."
+            "Internal issue for this clause alone; never list other gaps or copy an "
+            "unmatched sample diagnosis. Cite actual input."
         ),
     )
     guiding_question: str = Field(
         min_length=1,
         description=(
-            "One unanswered question about that single requirement; no subquestions, "
-            "reasoning, repetition or broad 'what else is missing' request."
+            "One unanswered check of the selected clause only; no subquestions, other "
+            "requirements, worked reasoning or broad completion request."
         ),
     )
 

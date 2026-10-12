@@ -8,6 +8,45 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Functional head 7be467f86 passes all eleven checks. CodeRabbit
+      51f00c85 reviews runtime/tests/reference without actionable findings, skipping
+      the similar plan. The existing docstring warning is now 48.91%/137 functions
+      and remains deferred, not passed. Sim 994d51e50 / build 608 / Drone 5397
+      deploys successfully in records 2821/2822; API 2/2 and web 1/1 Ready,
+      both actual APIs match 67 files and pass 412 isolated SDK cases. Merged
+      3820 learning/script cases, 50 subtests, three expected skips and gates pass.
+- [x] 2026-10-12: The fifth-question non-persisting replay passes its scoped three
+      phases: first incomplete answer selects only the actual data-path-width gap
+      and acknowledges covered excerpts, full correction receives explanation and
+      only Next, and its actual selection opens question six. Do not claim a
+      single question sentence: two linked clauses address the same requirement;
+      the original author limits aspects, without an explicit question count.
+      Invalid opaque IDs are rejected before display and corrected within existing
+      budgets. Three original traces uniquely bind five teaching generations and
+      one summary to actual attempt/block usage and all 11.85 settled credits.
+      Original session remains unchanged. Read transport initially misses/truncates
+      large receipts; recover the already generated files with compression and SHA
+      validation, without repeating model calls. Full fresh acceptance is unchanged.
+- [x] 2026-10-12: Stop a separate original first-question wrong-answer replay after
+      its first phase. It quotes the actual denial of prior instruction storage,
+      but uses three checks from the unmatched file-only conditional example and
+      a compound three-requirement criterion. This still fails authored pacing;
+      source/cardinality guards cannot prove one semantic focus. No correction or
+      navigation follows. Its one original trace uniquely binds three generations
+      to actual attempt/block usage and all 6.02 settled credits. Sessions, progress
+      and variables match the before snapshot. This related failure blocks #3118.
+- [ ] 2026-10-12: Remove the forced-example ambiguity. A conditional hint applies
+      only to its stated actual submission case; when no example matches, follow
+      the current authored stage and the genuinely unmatched requirement. Select
+      the relevant exact clause from a compound requirement rather than treating
+      its whole paragraph as one aspect. Keep semantic selection with the model,
+      source validation and original author multiplicity/inputs/budgets unchanged.
+      Native SDK reload guidance regressions first fail; 282 focused and all
+      3822 learning/script cases, 50 subtests, three expected skips and repository
+      gates pass. The first schema-description assertion has a case mismatch,
+      corrected independently without changing the actual acceptance rule. Push,
+      reply, integrate sim and recheck first/fifth-question scoped behavior.
+
 - [x] 2026-10-12: Separate PR #3118 merge readiness from the complete MDF 2.0
       milestone. Its gate covers feedback attribution/stages, explicit navigation,
       complete native recovery, current CI/sim and original-thread review replies.
