@@ -8,6 +8,36 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Verify the next independent failure from the retained
+      nineteenth classroom. The model's loop branches back through initialization
+      and reloads unchanged memory, contradicting its claimed decreasing counter
+      and termination. Exact code/claim co-occur in original generated output;
+      bounded hand-tracing establishes this discrepancy without a model call or
+      database write. Keep the original failed verdict and classroom intact.
+- [x] 2026-10-13: Add concise default-runtime worked-example checking guidance:
+      exact values/operations, reinitialization, branch targets and termination;
+      fix only model-created errors, preserve original evidence, respect authored
+      hint stages and state uncertainty. Compact the existing author-ownership
+      rule while retaining its tested permissions and prohibitions. Net instruction
+      growth is 102 bytes; keep the original 64 KiB regression and all actual
+      input/request/retry limits. Four native SDK delivery/reload checks first fail;
+      the final authority/budget set passes 13 cases. Controlled outputs do not
+      establish factual model compliance. Retain initial fixture/path failures and
+      the overlong prompt's real budget failure separately.
+- [ ] 2026-10-13: Complete broader checks, current PR CI/review, sim integration
+      and actual-model verification from a non-persisting copy of the nineteenth
+      pre-clarification checkpoint. Keep the exact source and original question;
+      inspect actual code/trace/claim and billing evidence, stopping at a failure.
+      Then resume full fresh natural-compression eleven-question acceptance with
+      an isolated new learner, unchanged authored criteria/inputs/budgets and
+      first-failure stop. Do not claim a twentieth learner or full acceptance yet.
+- [ ] 2026-10-13: Reconcile predecessor #3118's GitHub state. The human reports
+      merging, but live GitHub still shows Open at bc4456a2b, an update from main,
+      with all eleven checks passing and no backend delta from verified 0a809595e.
+      Do not infer a main merge or production deployment from that branch update.
+      Prepare this independent fix on that verified baseline; retain an explicit
+      PR dependency until the actual main merge is observed. No automatic merge.
+
 - [x] 2026-10-12: Functional head 3d57d9944 passes all eleven current checks.
       CodeRabbit review 85388724 covers its runtime/tests/reference changes,
       skipping the similar plan. Reply to its review-body nitpick in the original

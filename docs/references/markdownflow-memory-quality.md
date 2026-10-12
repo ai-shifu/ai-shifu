@@ -17,6 +17,27 @@ This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
+
+## Worked example consistency
+
+Before claiming a worked result or termination, the default runtime instructions
+ask the model to check exact values and operations, including reinitialization
+and branch targets. Correct model-created errors before presenting them; preserve
+authored, learner and quoted evidence instead of silently repairing it. Respect
+the authored hint stage and state uncertainty when the result is unverified.
+This is model guidance, not a host factual grader, new tool or extra request.
+Existing author ownership, correction/navigation rules and request/retry limits
+remain authoritative.
+
+Native SDK regressions inspect delivery on initial and resumed clarification
+requests, with and without feedback contracts and session reload. Controlled
+FunctionModel outputs do not establish factual model compliance. Actual deployed
+model acceptance must independently check its example against its explanation;
+whole fresh-classroom acceptance remains separate. The original nineteenth
+failed classroom is preserved. Its generated loop reloads unchanged memory on
+each back-edge and cannot terminate as claimed; do not repair stored evidence or
+count a subsequent targeted success as a pass for that journey.
+
 ## Cases and scoring
 
 Admission calls the product's `make_request_check`, including its actual prompt,
