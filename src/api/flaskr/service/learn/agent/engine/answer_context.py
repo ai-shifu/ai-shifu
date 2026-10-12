@@ -8,7 +8,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
-from pydantic_ai.messages import ModelRequest, ToolCallPart, UserPromptPart
+from pydantic_ai.messages import ModelRequest, ToolCallPart
 
 from .interaction import InteractionSpec
 from .tools import _script_questions, normalize_script_text_input, script_text_inputs
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 _FENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})(.*)$")
 _HEADING = re.compile(r"^[ ]{0,3}(#{1,6})(?:[ \t]+|$)")
 _SECTION_BYTES = 8192
+_REFERENCE_HEADING = "\n\n# Current authored feedback scope\n"
 
 
 def _masked_lines(script: str) -> list[str]:
@@ -157,29 +158,29 @@ def authored_answer_section(script: str, spec: InteractionSpec) -> str | None:
     return scope[0] if scope is not None else None
 
 
-def project_answer_context(
+def authored_answer_reference(
     messages: list[ModelMessage],
     script: str,
     resumed: AbstractSet[str],
     *,
     memory_keys: AbstractSet[str] | None = None,
-) -> list[ModelMessage]:
-    """Add an authored reference to a request copy, never to durable learner evidence."""
+) -> str | None:
+    """Build bounded current-turn instruction context, never learner history."""
     calls = [
-        (i, part)
-        for i, message in enumerate(messages)
+        part
+        for message in messages
         for part in message.parts
         if isinstance(part, ToolCallPart)
         and part.tool_name == "interact"
         and part.tool_call_id in resumed
     ]
     if len(calls) != 1:
-        return messages
-    index, call = calls[0]
+        return None
+    call = calls[0]
     try:
         spec = InteractionSpec.model_validate(call.args_as_dict())
     except (AssertionError, TypeError, ValueError, ValidationError):
-        return messages
+        return None
     # Deferred-call arguments retain what the model originally sent, while the
     # displayed control has already dropped unadmitted keys and restored exact
     # authored input hints. Match the same control without rewriting evidence.
@@ -188,15 +189,9 @@ def project_answer_context(
     spec = normalize_script_text_input(spec, script_text_inputs(script))
     scope = _authored_answer_scope(script, spec)
     if scope is None:
-        return messages
+        return None
     section, preambles = scope
-    prior = next(
-        (i for i in range(index - 1, -1, -1) if isinstance(messages[i], ModelRequest)),
-        None,
-    )
-    if prior is None:
-        return messages
-    reference = json.dumps(
+    return json.dumps(
         {
             "status": "authored_section",
             "answer_id": call.tool_call_id,
@@ -207,9 +202,25 @@ def project_answer_context(
         ensure_ascii=False,
         separators=(",", ":"),
     )
-    request = messages[prior]
-    projected = list(messages)
-    projected[prior] = replace(
-        request, parts=[*request.parts, UserPromptPart(reference)]
-    )
-    return projected
+
+
+def answer_reference_instructions(reference: str) -> str:
+    """Keep the ephemeral reference as the final current-turn instruction."""
+    return _REFERENCE_HEADING + reference
+
+
+def without_answer_reference(
+    messages: list[ModelMessage], reference: str | None
+) -> list[ModelMessage]:
+    """Remove only this run's exact instruction suffix from saved SDK requests."""
+    if reference is None:
+        return messages
+    suffix = answer_reference_instructions(reference)
+    return [
+        replace(m, instructions=m.instructions.removesuffix(suffix))
+        if isinstance(m, ModelRequest)
+        and m.instructions
+        and m.instructions.endswith(suffix)
+        else m
+        for m in messages
+    ]

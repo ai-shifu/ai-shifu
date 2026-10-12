@@ -12,8 +12,10 @@ from flaskr.service.learn.agent.engine import (
     Session,
 )
 from flaskr.service.learn.agent.engine.answer_context import (
+    answer_reference_instructions,
+    authored_answer_reference,
     authored_answer_section,
-    project_answer_context,
+    without_answer_reference,
 )
 from flaskr.service.learn.agent.engine.interaction import InteractionSpec
 from pydantic_ai.messages import (
@@ -84,17 +86,9 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
                 spec.pop("placeholder")
             yield "Explain techniques."
         else:
-            parts = [
-                p.content
-                for m in messages
-                for p in m.parts
-                if isinstance(p, UserPromptPart)
-            ]
-            focused = [
-                json.loads(p)
-                for p in parts
-                if p.startswith('{"status":"authored_section"')
-            ]
+            instructions = info.instructions or ""
+            marker = '{"status":"authored_section"'
+            focused = [json.loads(instructions[instructions.index(marker) :])]
             assert len(focused) == 1
             assert list(focused[0]) == [
                 "status",
@@ -276,13 +270,13 @@ def test_only_host_rejected_variables_can_be_ignored_for_matching(
         ),
     ]
     before = ModelMessagesTypeAdapter.dump_json(messages)
-    projected = project_answer_context(
+    projected = authored_answer_reference(
         messages, script, {"current"}, memory_keys=memory_keys
     )
-    assert (projected is not messages) == expected
+    assert (projected is not None) == expected
     assert ModelMessagesTypeAdapter.dump_json(messages) == before
     if expected:
-        assert json.loads(projected[0].parts[-1].content)["text"] == SECTION
+        assert json.loads(projected)["text"] == SECTION
 
 
 async def _events(events: AsyncIterator[object]) -> list[object]:
@@ -314,19 +308,15 @@ async def test_later_answer_sdk_keeps_enclosing_rules_with_local_hint(
     calls = 0
 
     async def model(
-        messages: list[ModelMessage], _info: AgentInfo
+        _messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
         """Inspect the actual request after resuming a later authored input."""
         nonlocal calls
         calls += 1
         if calls == 2:
-            refs = [
-                json.loads(p.content)
-                for m in messages
-                for p in m.parts
-                if isinstance(p, UserPromptPart)
-                and p.content.startswith('{"status":"authored_section"')
-            ]
+            instructions = info.instructions or ""
+            marker = '{"status":"authored_section"'
+            refs = [json.loads(instructions[instructions.index(marker) :])]
             assert len(refs) == 1
             assert refs[0]["text"] == local
             assert refs[0]["ancestor_preambles"] == [root, unit]
@@ -382,12 +372,12 @@ def test_unprojectable_parent_does_not_present_a_local_only_rule(parent: str) ->
             parts=[ToolCallPart("interact", _spec().model_dump(), "current")]
         ),
     ]
-    projected = project_answer_context(messages, script, {"current"})
-    ref = json.loads(projected[0].parts[-1].content)
+    projected = authored_answer_reference(messages, script, {"current"})
+    ref = json.loads(projected)
     assert ref["answer_id"] == "current"
     assert ref["text"] is None
     assert ref["ancestor_preambles"] == []
-    assert projected[0].parts[0].content == script
+    assert messages[0].parts[0].content == script
 
 
 def test_sibling_unit_introductions_do_not_become_current_rules() -> None:
@@ -407,7 +397,180 @@ def test_sibling_unit_introductions_do_not_become_current_rules() -> None:
             parts=[ToolCallPart("interact", _spec().model_dump(), "current")]
         ),
     ]
-    projected = project_answer_context(messages, script, {"current"})
-    ref = json.loads(projected[0].parts[-1].content)
+    projected = authored_answer_reference(messages, script, {"current"})
+    ref = json.loads(projected)
     assert ref["text"] == SECTION
     assert ref["ancestor_preambles"] == [current]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+async def test_current_feedback_instructions_end_with_complete_authored_scope(
+    reload: bool,
+) -> None:
+    """An old question's user prompt must not own the current feedback policy."""
+    root = (
+        "On the first failed answer, select one concrete missing aspect and wait.\n\n"
+    )
+    local = SECTION.replace(
+        "Ask one genuinely missing aspect.",
+        "Possible checks include processor, transfer, peripheral and software coverage.",
+    )
+    script = root + SCRIPT.replace(SECTION, local)
+    calls = 0
+
+    async def model(messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            instructions = info.instructions or ""
+            marker = '{"status":"authored_section"'
+            assert marker in instructions
+            reference = json.loads(instructions[instructions.index(marker) :])
+            assert reference["ancestor_preambles"] == [root]
+            assert reference["text"] == local
+            assert reference["answer_id"] == "current-policy-1"
+            assert not any(
+                isinstance(p, UserPromptPart)
+                and isinstance(p.content, str)
+                and p.content.startswith(marker)
+                for m in messages
+                for p in m.parts
+            )
+            assert any(
+                isinstance(p, ToolReturnPart)
+                and "Actual partial answer" in str(p.content)
+                for m in messages
+                for p in m.parts
+            )
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    _spec().model_dump(exclude={"labelled_by_engine"})
+                ),
+                tool_call_id=f"current-policy-{calls}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(script)
+    await _events(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    before = ModelMessagesTypeAdapter.dump_json(session.messages)
+    count = len(session.messages)
+    events = await _events(
+        engine.run_turn(session, InteractionResponseTurn(text="Actual partial answer"))
+    )
+    assert calls == 2
+    assert not any(isinstance(e, ErrorEvent) for e in events)
+    assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
+    assert not any(
+        isinstance(m, ModelRequest)
+        and "# Current authored feedback scope" in (m.instructions or "")
+        for m in session.messages
+    )
+
+
+@pytest.mark.parametrize("suffix_present", [False, True])
+def test_only_current_instruction_reference_is_removed_from_saved_history(
+    suffix_present: bool,
+) -> None:
+    """Never erase an authored/learner lookalike or a different run's guidance."""
+    reference = '{"status":"authored_section","answer_id":"current"}'
+    suffix = answer_reference_instructions(reference)
+    instructions = "Original current instructions" + (
+        suffix if suffix_present else suffix + "Keep this unrelated trailing rule"
+    )
+    messages = [
+        ModelRequest(parts=[UserPromptPart(reference)], instructions=instructions),
+        ModelResponse(
+            parts=[ToolCallPart("interact", {"prompt": reference}, "current")]
+        ),
+    ]
+    before = ModelMessagesTypeAdapter.dump_json(messages)
+    projected = without_answer_reference(messages, reference)
+    assert projected[0].parts == messages[0].parts
+    assert projected[1] is messages[1]
+    assert projected[0].instructions == (
+        "Original current instructions" if suffix_present else instructions
+    )
+    assert ModelMessagesTypeAdapter.dump_json(messages) == before
+    assert without_answer_reference(messages, None) is messages
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+async def test_interrupted_teaching_keeps_answer_without_current_reference(
+    reload: bool,
+) -> None:
+    """A projected instruction must not become stored evidence after stream failure."""
+    calls = 0
+
+    async def model(_messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        _spec().model_dump(exclude={"labelled_by_engine"})
+                    ),
+                    tool_call_id="interrupted-answer",
+                )
+            }
+        elif calls == 2:
+            assert '{"status":"authored_section"' in (info.instructions or "")
+            yield "Already delivered teaching. " * 200
+            yield {
+                0: DeltaToolCall(
+                    name="read_exercise_history",
+                    json_args=json.dumps(
+                        {
+                            "review": {
+                                "phase": "clarification",
+                                "answer_id": "interrupted-answer",
+                                "submission_quote": "Original answer evidence",
+                                "reason": "Answer the side question under the current author rules.",
+                            }
+                        }
+                    ),
+                    tool_call_id="lookup",
+                )
+            }
+        else:
+            message = "Interrupted provider"
+            raise RuntimeError(message)
+
+    engine = Engine(
+        FunctionModel(stream_function=model),
+        exercise_statistics=True,
+        feedback_contract=True,
+    )
+    session = await engine.new_session(SCRIPT)
+    await _events(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    before = ModelMessagesTypeAdapter.dump_json(session.messages)
+    count = len(session.messages)
+    events = await _events(
+        engine.run_turn(
+            session, InteractionResponseTurn(text="Original answer evidence")
+        )
+    )
+    assert any(
+        isinstance(e, ErrorEvent) and "Interrupted provider" in e.message
+        for e in events
+    )
+    assert session.interrupted
+    assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
+    raw = session.dumps()
+    assert "Original answer evidence" in raw
+    assert "Already delivered teaching" in raw
+    assert not any(
+        isinstance(m, ModelRequest)
+        and "# Current authored feedback scope" in (m.instructions or "")
+        for m in session.messages
+    )

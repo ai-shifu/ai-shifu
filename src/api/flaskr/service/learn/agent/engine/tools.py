@@ -46,6 +46,7 @@ class Deps:
     # Transient request guidance; never persisted as learner evidence or a grade.
     resuming_interaction: bool = False
     authored_text: str = ""
+    authored_answer_reference: str | None = None
     direction_answers: dict[str, str] = field(default_factory=dict)
     direction_inputs: dict[str, InteractionSpec] = field(default_factory=dict)
     direction_sections: dict[str, str] = field(default_factory=dict)

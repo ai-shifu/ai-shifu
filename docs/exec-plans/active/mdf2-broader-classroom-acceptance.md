@@ -8,6 +8,38 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Separate PR #3118 merge readiness from the complete MDF 2.0
+      milestone. Its gate covers feedback attribution/stages, explicit navigation,
+      complete native recovery, current CI/sim and original-thread review replies.
+      A targeted checkpoint cannot replace failed fresh eleven-question journeys.
+      Generated-example factual consistency remains independent quality work.
+- [x] 2026-10-12: Current docs head 39f8ef72d passes all eleven checks, including
+      runtime 38255976486. Both actual sim APIs still match all 67 fingerprints.
+      All eight original actionable roots have owner replies; the latest bot
+      follow-up is an acknowledgement, not a new functional finding.
+- [x] 2026-10-12: A non-persisting targeted replay restores the seventeenth
+      isolated learner's actual pre-fifth-answer checkpoint using the existing
+      restore helper. Keep the original authored source and exact incomplete
+      submission. One teaching generation again selects authored_help from the
+      local checklist and asks for multiple missing categories. Strictly fail
+      and stop before correction/navigation; do not retry unchanged paid output.
+      One teaching plus one summary generation uniquely bind original output/token
+      tuples to actual attempt/block usage and all 2.43 settled credits; the
+      stored classroom session remains untouched. This directly related failure
+      continues to block #3118, independently of full-journey quality work.
+- [ ] 2026-10-12: Deliver the bounded exact parent/local reference in current-turn
+      feedback instructions, rather than an earlier learner request preceding
+      the unanswered question. Keep one reference, the original 8 KiB source
+      bound, original answer/tool history and all request/retry limits. Strip only
+      the exact current reference suffix from saved SDK request instructions,
+      including interrupted teaching. Do not select a semantic grade or stage.
+      New native SDK reload checks first fail. All 3820 learning/script cases,
+      50 subtests, three expected skips and repository gates pass. Preserve the
+      initial wrong working-directory run and corrected fixture assertions
+      separately. Push, reply,
+      integrate sim and repeat the isolated fifth-answer acceptance before
+      recommending merge. Full fresh natural-compression acceptance stays open.
+
 - [x] 2026-10-12: Functional head 220d3f099 passes all eleven checks, including
       runtime 38253615721. CodeRabbit 0a81b8fe reviews runtime/tests/reference
       without an actionable finding, skipping the similar plan. The 47.29%/129
