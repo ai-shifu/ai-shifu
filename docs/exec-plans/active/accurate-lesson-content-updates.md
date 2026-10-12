@@ -124,6 +124,12 @@ module also passed 17 tests on an isolated local MySQL database after correcting
 the test request boundary. Tooling doctor and all-files pre-commit, including
 the repository harness and architecture/UOW checks, passed.
 
+The remote branch then rebased the original four PR commits unchanged onto
+current main. Replayed only this review round's unpublished commits onto that
+head, preserving the remote history. The integration run passed 840 engine and
+focused backend tests. Frontend type checking now passes because main includes
+the separate admin-user test fix; the earlier failure above is historical.
+
 ## Context and Orientation
 
 Authoring history and publishing own the structure's content revision.
