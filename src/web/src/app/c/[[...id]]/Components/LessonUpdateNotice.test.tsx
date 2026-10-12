@@ -201,16 +201,59 @@ describe('recommended lesson retake analytics', () => {
     expect(mockResetChapter).not.toHaveBeenCalled();
   });
 
-  it.each(['course', 'lesson', 'pending'])(
+  it.each(['lesson', 'pending'])(
     'excludes invalid or disabled %s state',
     state => {
-      if (state === 'course') mockEnvState.courseId = '';
       if (state === 'pending') mockCourseState.resettingLessonId = 'lesson-1';
       renderNotice(state === 'lesson' ? '' : 'lesson-1');
       openConfirm();
       expect(screen.queryByText('common.core.ok')).not.toBeInTheDocument();
       expect(mockTrackEvent).not.toHaveBeenCalled();
       expect(mockResetChapter).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [false, false],
+    [true, false],
+    [false, true],
+    [true, true],
+  ])(
+    'retakes without analytics course metadata in preview %s with reset failure %s',
+    async (previewMode, resetFails) => {
+      mockEnvState.courseId = '';
+      mockSystemState.previewMode = previewMode;
+      let finishReset!: () => void;
+      mockResetChapter.mockImplementation(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            finishReset = () =>
+              resetFails ? reject(new Error('Reset failed')) : resolve();
+          }),
+      );
+      renderNotice();
+      openConfirm();
+      fireEvent.click(screen.getByText('common.core.ok'));
+      fireEvent.click(screen.getByText('common.core.ok'));
+      expect(mockResetChapter).toHaveBeenCalledTimes(1);
+      expect(mockResetChapter).toHaveBeenCalledWith('lesson-1');
+      expect(mockStopActiveLessonStream).toHaveBeenCalledTimes(1);
+      expect(mockStopActiveLessonStream).toHaveBeenCalledWith('lesson-1');
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      await act(async () => finishReset());
+      if (resetFails) {
+        expect(mockFail).toHaveBeenCalledWith('Reset failed');
+        expect(mockUpdateLessonId).not.toHaveBeenCalled();
+        expect(mockResetTools).not.toHaveBeenCalled();
+        expect(screen.getByText('common.core.ok')).toBeInTheDocument();
+      } else {
+        expect(mockFail).not.toHaveBeenCalled();
+        expect(mockUpdateLessonId).toHaveBeenCalledWith('lesson-1');
+        expect(mockResetTools).toHaveBeenCalledTimes(1);
+        expect(screen.queryByText('common.core.ok')).not.toBeInTheDocument();
+      }
+      expect(mockTrackEvent).not.toHaveBeenCalled();
     },
   );
 

@@ -53,11 +53,7 @@ export const LessonUpdateNotice = ({
   const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
 
   const handleRetakeCurrentLesson = useSingleFlight(async () => {
-    if (
-      !resolvedLessonId.trim() ||
-      !shifuBid?.trim() ||
-      isRetakingCurrentLesson
-    ) {
+    if (!resolvedLessonId.trim() || isRetakingCurrentLesson) {
       return false;
     }
 
@@ -88,16 +84,12 @@ export const LessonUpdateNotice = ({
   });
 
   const handleRetakeButtonClick = useCallback(() => {
-    if (
-      !resolvedLessonId.trim() ||
-      !shifuBid?.trim() ||
-      isRetakingCurrentLesson
-    ) {
+    if (!resolvedLessonId.trim() || isRetakingCurrentLesson) {
       return;
     }
 
     setShowRetakeConfirm(true);
-  }, [isRetakingCurrentLesson, resolvedLessonId, shifuBid]);
+  }, [isRetakingCurrentLesson, resolvedLessonId]);
 
   const handleRetakeConfirmOpenChange = useCallback(
     (open: boolean) => {
