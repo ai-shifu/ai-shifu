@@ -8,6 +8,28 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Initial-state guidance 2ef1c1129 deploys as sim 0cef6915d /
+      build 612 / Drone 5401 in records 2829/2830. Both APIs match 67 files and
+      pass 418 SDK checks; source and sim pass 3826 cases, 50 subtests, three
+      expected skips and all gates. All seven current PR checks pass, including
+      runtime 38279390312; CodeRabbit's success is a rate-limit response, not a
+      review of this head. The original semantic-acceptance thread has a reply.
+- [x] 2026-10-13: A second non-persisting checkpoint check fails semantic
+      acceptance despite passing protocol. The first branch example specifies
+      values, but the separate loop omits its counter initialization and a full
+      two-iteration trace. The earlier counter would exit after one iteration if
+      retained; do not infer a replacement or repair the generated evidence.
+      One trace/generation settles 1.96 credits with exact output/token and
+      actual attempt/block binding. Source and original sessions/progress/variables
+      remain unchanged; no summary or twentieth learner. Retain both scoped
+      failures and the original nineteenth failed journey separately.
+- [ ] 2026-10-13: Require each example's full initial state independently.
+      Four delivery checks first fail; final 13 focused and 3826 broader cases,
+      50 subtests, three expected skips and all repository gates pass. Net prompt
+      growth is 128 bytes; the unchanged 64 KiB regression passes. Deploy this refinement
+      before one scoped actual-model check with unchanged source/input/budgets.
+      The complete fresh natural-compaction journey remains blocked on semantic
+      acceptance; do not treat passing deterministic delivery tests as completion.
 - [x] 2026-10-13: Reviewed candidate 14be21d51 deploys as sim e640a53be /
       build 611 / Drone 5400 in records 2827/2828, API 2/2 and web 1/1 Ready.
       Both APIs match 67 files and pass 418 isolated SDK checks; integrated 3826
@@ -25,11 +47,12 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       One original trace/generation uniquely binds verbatim output and tokens to
       the actual attempt/block and all 1.92 settled credits. Original source,
       sessions, progress and variables remain unchanged; no summary is generated.
-- [ ] 2026-10-13: Refine general example guidance to state initial values and
+- [x] 2026-10-13: Refine general example guidance to state initial values and
       trace operations against results and termination. Keep source evidence,
       authored hints, required calls and original inputs/budgets unchanged; do not
       add a course-specific semantic checker. Four delivery assertions first fail;
-      validate and deploy the changed candidate before another scoped model check.
+      validate 13 focused and 3826 broader cases and deploy 2ef1c1129 before
+      the second scoped model check, whose semantic failure is recorded above.
 - [x] 2026-10-13: Open independent #3122 at 171e62676 on the verified #3118
       baseline. Its 3826 learning/script cases, 50 subtests, three expected skips
       and repository gates pass. Sim bdce6d45b / build 610 / Drone 5399 deploys

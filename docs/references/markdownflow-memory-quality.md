@@ -21,7 +21,7 @@ acceptance, persisted cross-lesson acceptance or long-term cost observation.
 ## Worked example consistency
 
 Before claiming a worked result or termination, the default runtime instructions
-ask the model to state initial values and trace operations, including
+ask the model to state each example's full initial state and trace operations, including
 reinitialization and branch targets. Correct model-created errors before presenting them; preserve
 authored, learner and quoted evidence instead of silently repairing it. Respect
 the authored hint stage and state uncertainty when the result is unverified.
@@ -49,6 +49,16 @@ credits, with exact output/token and actual attempt/block binding; original
 source and classroom state remain unchanged. No new learner or unchanged paid
 retry follows. Explicit initial-state/trace guidance requires a changed deployed
 candidate and separate acceptance; controlled-output tests alone cannot supply it.
+
+The second scoped check on 2ef1c1129/sim-0cef691 also fails: its first branch
+example specifies values, but the separate loop omits its counter initialization
+and the requested complete two-iteration trace. Reusing the earlier counter
+would exit after one iteration; do not invent a replacement value. Protocol
+delivery passes, but this is not semantic acceptance. Its one generation settles
+1.96 credits with exact output/token and actual attempt/block binding; original
+source and classroom state remain unchanged. No new learner is created. Retain
+both targeted failures and require full initial state separately for each example
+before checking a changed deployed candidate; keep original input and budgets.
 
 ## Cases and scoring
 
