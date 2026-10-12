@@ -238,12 +238,17 @@ def direction_history(
 
 
 def feedback_retry_history(
-    messages: list[ModelMessage], hidden: set[int]
+    messages: list[ModelMessage],
+    hidden: set[int],
+    *,
+    feedback_text_pending: bool = False,
 ) -> list[ModelMessage]:
     """Tell a retry what was withheld, preserving tool/error and accepted evidence.
 
     The SDK processes this request copy before each model call. Rejected prose
     cannot serve as already-delivered teaching during the same run, either.
+    Pending delivery keeps the recovery notice on later retries even after an
+    earlier projection has removed the rejected response from SDK history.
     """
     rejected = [
         i
@@ -252,7 +257,16 @@ def feedback_retry_history(
         and isinstance(message, ModelResponse)
         and any(isinstance(p, TextPart) and p.content.strip() for p in message.parts)
     ]
-    if not rejected:
+    last_retry = max(
+        (
+            i
+            for i, message in enumerate(messages)
+            if isinstance(message, ModelRequest)
+            and any(isinstance(p, RetryPromptPart) for p in message.parts)
+        ),
+        default=-1,
+    )
+    if not rejected and (not feedback_text_pending or last_retry < 0):
         return messages
     result = []
     for i, message in enumerate(messages):
@@ -261,7 +275,10 @@ def feedback_retry_history(
             if any(isinstance(p, ToolCallPart) for p in parts):
                 result.append(replace(message, parts=parts))
         elif (
-            i > rejected[-1]
+            (
+                (bool(rejected) and i > rejected[-1])
+                or (feedback_text_pending and i == last_retry)
+            )
             and isinstance(message, ModelRequest)
             and any(isinstance(p, RetryPromptPart) for p in message.parts)
         ):
@@ -284,7 +301,7 @@ def feedback_retry_history(
                                 p.content
                                 if isinstance(p.content, str)
                                 else p.model_response()
-                            )
+                            ).removesuffix(notice)
                             + notice,
                         )
                         if isinstance(p, RetryPromptPart)

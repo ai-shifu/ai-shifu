@@ -606,7 +606,11 @@ class Engine:
     ) -> list[ModelMessage]:
         if not ctx.deps.feedback_contract:
             return messages
-        return feedback_retry_history(messages, ctx.deps.hidden_feedback_responses)
+        return feedback_retry_history(
+            messages,
+            ctx.deps.hidden_feedback_responses,
+            feedback_text_pending=ctx.deps.feedback_text_pending,
+        )
 
     def compose_instructions(
         self,

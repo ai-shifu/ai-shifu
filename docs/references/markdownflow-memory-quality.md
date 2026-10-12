@@ -248,6 +248,13 @@ never restore rejected explanations verbatim or increase request budgets.
 When both a replacement's rule source and its missing content are invalid,
 report those problems together in the existing retry. Do not mask the source
 error until a later retry or spend an additional request to discover it.
+The request-local pending-delivery state also keeps the complete recovery notice
+on the latest retry after an earlier SDK projection has removed rejected prose.
+Do not infer that recovery is complete merely because that response is absent
+from the projected history. Preserve the actual validation error, require fresh
+content with a native tool and applicable branch, and append the notice only
+once. Successful earlier pages and raw stored evidence remain unchanged; this
+does not restore rejected prose or increase the existing request/retry budget.
 
 Accepted excerpts cannot also appear as the same exact contradiction quote in a
 structured direction. Reject incompatible annotations before display and let the
