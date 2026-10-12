@@ -70,6 +70,16 @@ state remain unchanged, with no new learner. The next refinement requires
 verification against requested behavior and correction before presentation, not
 merely a consistent description of an example that fails the requested task.
 
+The fourth scoped check on 8012b33f2/sim-5d88b7a supplies no displayed program
+or two-iteration trace and defers requested details until the learner answers.
+This is failed acceptance, not evidence of correct examples. Three generations
+within existing native retry limits settle 5.75 credits with verbatim output/token
+and actual attempt/block binding. The policy and original request are present in
+actual generation inputs. Original source and classroom state remain unchanged;
+no new learner or summary is created. Preserve the author's brief-clarification
+rule. Investigate potentially conflicting correction-only host guidance without
+overriding that rule or spending on unchanged-runtime resampling.
+
 ## Cases and scoring
 
 Admission calls the product's `make_request_check`, including its actual prompt,
