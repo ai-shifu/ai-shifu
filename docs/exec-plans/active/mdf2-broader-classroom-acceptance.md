@@ -8,6 +8,32 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Explicit-ID head 06d978641 passes all technical CI,
+      including runtime. Sim 21d95d972 / build 589 / Drone 5378 succeeds;
+      API 2/2 and web 1/1 are Ready with 62 matching fingerprints and
+      330 isolated SDK cases per API. Merged local checks pass 3476 cases.
+- [x] 2026-10-12: Preserve the separate failed explicit-ID probe. The wrong
+      and corrected phases satisfy their navigation checks, but strict feedback
+      and actual Next advancement fail. A direction chains two questions;
+      rejected passing prose is hidden and the valid replacement control has
+      no explanation; the actual Next click repeats that explanation and control.
+      Eight teaching generations settle 15.59 credits with matching owners and
+      attempts. Original classroom, six history records and source are unchanged;
+      no actual summary or fresh learner is created. This does not supersede
+      the preceding failed probe or close full natural-compression acceptance.
+- [ ] 2026-10-12: Prevent rejected prose from looking like delivered teaching
+      during the same SDK retry. Two regressions first fail: text-only rejection
+      and host-refused interaction both resend unseen assistant prose without
+      delivery status. Project only rejected prose out before the next request,
+      retain tool/error evidence and annotate the existing retry to regenerate
+      the complete authored feedback with its valid native tool. Preserve prior
+      successful pages and unchanged grading, navigation and request budgets.
+      All 3520 learning/evaluation cases pass, with four subtests and one expected
+      skip; developer tooling and full repository gates pass. A third regression
+      preserves raw validation errors, successful pages and projection idempotence.
+      Push, refresh review replies and deploy before another probe; semantic
+      single-focus quality and full fresh acceptance remain open.
+
 - [x] 2026-10-12: Push interruption recovery fe1e36c53 and refresh both
       original review threads. All 864 engine and 4619 related cases pass,
       with four subtests, one expected skip, developer tooling and full gates.

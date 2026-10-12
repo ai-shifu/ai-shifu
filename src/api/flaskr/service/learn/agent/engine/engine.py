@@ -18,9 +18,11 @@ from pydantic_ai import (
     Tool,
     UsageLimits,
 )
+from pydantic_ai.capabilities import ProcessHistory
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
+    ModelMessage,
     ModelRequest,
     ModelResponse,
     PartDeltaEvent,
@@ -46,7 +48,7 @@ if TYPE_CHECKING:
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 
 from .answer_context import authored_answer_section, project_answer_context
-from .direction import direction_history, has_direction
+from .direction import direction_history, feedback_retry_history, has_direction
 from .events import (
     ContentDelta,
     ErrorEvent,
@@ -516,6 +518,7 @@ class Engine:
             deps_type=Deps,
             output_type=[str, DeferredToolRequests],
             instructions=self._instructions,
+            capabilities=[ProcessHistory(self._feedback_retry_history)],
             # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
             # again, and a model rewriting options sometimes needs more than one attempt.
             tools=[
@@ -588,6 +591,13 @@ class Engine:
             ctx.deps.interaction_markup_pending = True
             raise ModelRetry(INTERACTION_MARKUP_RETRY)
         return output
+
+    async def _feedback_retry_history(
+        self, ctx: RunContext[Deps], messages: list[ModelMessage]
+    ) -> list[ModelMessage]:
+        if not ctx.deps.feedback_contract:
+            return messages
+        return feedback_retry_history(messages, ctx.deps.hidden_feedback_responses)
 
     def compose_instructions(
         self,

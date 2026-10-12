@@ -10,7 +10,13 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
-from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    RetryPromptPart,
+    TextPart,
+    ToolCallPart,
+)
 
 if TYPE_CHECKING:
     from pydantic_ai.messages import ModelMessage
@@ -29,7 +35,10 @@ class DirectionFocus(BaseModel):
     )
     guiding_question: str = Field(
         min_length=1,
-        description="One unanswered question about this focus, without subquestions or reasoning.",
+        description=(
+            "One unanswered interrogative sentence about this focus, without subquestions "
+            "or reasoning. Do not repeat the same question in a second sentence."
+        ),
     )
 
 
@@ -184,4 +193,65 @@ def direction_history(
                 parts=[*([TextPart("\n\n".join(shown))] if shown else []), *parts],
             )
         )
+    return result
+
+
+def feedback_retry_history(
+    messages: list[ModelMessage], hidden: set[int]
+) -> list[ModelMessage]:
+    """Tell a retry what was withheld, preserving tool/error and accepted evidence.
+
+    The SDK processes this request copy before each model call. Rejected prose
+    cannot serve as already-delivered teaching during the same run, either.
+    """
+    rejected = [
+        i
+        for i, message in enumerate(messages)
+        if id(message) in hidden
+        and isinstance(message, ModelResponse)
+        and any(isinstance(p, TextPart) and p.content.strip() for p in message.parts)
+    ]
+    if not rejected:
+        return messages
+    result = []
+    for i, message in enumerate(messages):
+        if i in rejected:
+            parts = [p for p in message.parts if not isinstance(p, TextPart)]
+            if parts:
+                result.append(replace(message, parts=parts))
+        elif (
+            i > rejected[-1]
+            and isinstance(message, ModelRequest)
+            and any(isinstance(p, RetryPromptPart) for p in message.parts)
+        ):
+            notice = (
+                "\n\nThe rejected response was not displayed to the learner. "
+                "Regenerate the complete authored feedback together with its valid "
+                "native tool call and applicable branch in the same response; "
+                "do not send only a replacement control assuming prior prose was shown. "
+                "Use actual tool calls, not textual interaction tags. A checking "
+                "direction still uses direction alone, without free prose. Preserve "
+                "earlier successfully displayed pages and the author's navigation boundary."
+            )
+            result.append(
+                replace(
+                    message,
+                    parts=[
+                        replace(
+                            p,
+                            content=(
+                                p.content
+                                if isinstance(p.content, str)
+                                else p.model_response()
+                            )
+                            + notice,
+                        )
+                        if isinstance(p, RetryPromptPart)
+                        else p
+                        for p in message.parts
+                    ],
+                )
+            )
+        else:
+            result.append(message)
     return result

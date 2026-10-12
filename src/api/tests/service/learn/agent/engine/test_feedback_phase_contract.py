@@ -705,3 +705,120 @@ async def test_unknown_feedback_id_retry_supplies_exact_supported_id(
     )
     assert session.pending[0].tool_call_id == "next"
     assert calls == 3
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("rejection", ["text", "host"])
+async def test_retry_sees_delivery_status_and_regenerates_hidden_feedback(
+    rejection: str,
+) -> None:
+    calls = 0
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Undisplayed passing explanation."
+            if rejection == "host":
+                yield _call(
+                    {
+                        "type": "single",
+                        "prompt": "Rejected",
+                        "options": [{"display": "Next"}],
+                        "review": _review(),
+                    },
+                    "rejected",
+                )
+        else:
+            from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
+
+            assert not any(
+                "Undisplayed passing explanation" in part.content
+                for message in messages
+                if isinstance(message, ModelResponse)
+                for part in message.parts
+                if isinstance(part, TextPart)
+            )
+            retries = [
+                part
+                for message in messages
+                for part in message.parts
+                if isinstance(part, RetryPromptPart)
+            ]
+            assert any("not displayed" in str(part.content) for part in retries)
+            assert any("regenerate" in str(part.content).lower() for part in retries)
+            if rejection == "host":
+                assert any(
+                    isinstance(part, ToolCallPart) and part.tool_call_id == "rejected"
+                    for message in messages
+                    for part in message.parts
+                )
+                assert any("rejected by host" in str(part.content) for part in retries)
+            yield "Regenerated authored explanation before navigation."
+            yield _call(
+                {
+                    "type": "single",
+                    "prompt": "",
+                    "options": [{"display": "Next"}],
+                    "review": _review(),
+                },
+                "next",
+            )
+
+    engine = _engine(stream)
+    engine.interaction_check = lambda spec: (
+        "rejected by host" if spec.prompt == "Rejected" else None
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == "Regenerated authored explanation before navigation."
+    assert session.pending[0].tool_call_id == "next"
+    raw = ModelMessagesTypeAdapter.dump_json(session.messages).decode()
+    assert "Undisplayed passing explanation" not in raw
+    assert "not displayed" in raw
+    assert calls == 3
+
+
+def test_retry_projection_preserves_successful_pages_and_raw_validation_errors() -> (
+    None
+):
+    from flaskr.service.learn.agent.engine.direction import feedback_retry_history
+    from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ToolCallPart
+
+    accepted = ModelResponse(parts=[TextPart("Already displayed page.")])
+    rejected = ModelResponse(
+        parts=[
+            TextPart("Undisplayed page."),
+            ToolCallPart("interact", {"type": "invalid"}, "failed-control"),
+        ]
+    )
+    retry = RetryPromptPart(
+        content=[
+            {
+                "type": "string_type",
+                "loc": ("type",),
+                "msg": "Invalid control",
+                "input": 4,
+            }
+        ],
+        tool_name="interact",
+        tool_call_id="failed-control",
+    )
+    request = ModelRequest(parts=[retry])
+    messages = [accepted, rejected, request]
+    before = ModelMessagesTypeAdapter.dump_json(messages)
+    projected = feedback_retry_history(messages, {id(rejected)})
+    assert projected[0] is accepted
+    assert projected[1].parts == rejected.parts[1:]
+    assert projected[-1].parts[0].tool_call_id == "failed-control"
+    assert "Invalid control" in projected[-1].parts[0].content
+    assert "not displayed" in projected[-1].parts[0].content
+    assert ModelMessagesTypeAdapter.dump_json(messages) == before
+    assert feedback_retry_history(projected, {id(rejected)}) is projected
