@@ -376,6 +376,8 @@ async def test_feedback_preserves_multiple_or_unspecified_authored_counts(
         engine.run_turn(session, InteractionResponseTurn(text=WRONG))
     )
     assert _text(events).count(QUESTION) == 2
+    if limit is not None:
+        assert QUESTION + "\n\n" + QUESTION in _text(events)
     assert calls == 2
 
 

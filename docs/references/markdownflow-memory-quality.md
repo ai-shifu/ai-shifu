@@ -202,7 +202,10 @@ returned text answers, visible ordinary feedback or an interaction/finish must
 declare `review` in that same existing tool response: `accepted`, `clarification`
 or `authored_help`, bound to an actual answer ID and submitted quote with an
 internal reason. Authored help also cites exact current author text permitting
-that stage. A checking-direction correction must instead use `direction`.
+that stage, including lesson-wide rules outside the current question heading.
+Exact source provenance does not establish that the quoted rule applies now.
+A checking-direction correction must instead use `direction`; multiple authored
+guiding questions keep separate Markdown paragraphs.
 Omitting the branch retries before display, including plain-text output and
 prose preceding any built-in tool; invalid finish/memory siblings cannot execute.
 Read-only lookups without prose may precede the decision, and later report pages

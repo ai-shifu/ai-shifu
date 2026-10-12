@@ -55,6 +55,62 @@ def _engine(stream: Callable[[list[ModelMessage], AgentInfo], AsyncIterator]) ->
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+async def test_later_question_accepts_help_rule_from_the_lesson_header(
+    reload: bool,
+) -> None:
+    calls = 0
+    rule = "After two failed attempts, explain fully."
+    script = "# Lesson\n" + rule + "\n## First\n?[...First]\n## Second\n?[...Second]\n"
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "First"}, "original"
+            )
+        elif calls == 2:
+            yield "First answer accepted."
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Second",
+                    "review": _review(),
+                },
+                "second",
+            )
+        else:
+            yield "Authored later-stage help under the lesson-wide rule."
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Second",
+                    "review": _review(
+                        "authored_help", answer_id="second", rule_quote=rule
+                    ),
+                },
+                "help",
+            )
+
+    engine = _engine(stream)
+    engine.limits.request_limit = 1
+    session = await engine.new_session(script)
+    await _collect(engine.run_turn(session))
+    await _collect(engine.run_turn(session, InteractionResponseTurn(text=WRONG)))
+    if reload:
+        session = Session.loads(session.dumps())
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == "Authored later-stage help under the lesson-wide rule."
+    assert session.pending[0].tool_call_id == "help"
+    assert calls == 3
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("name", "args"),
     [
