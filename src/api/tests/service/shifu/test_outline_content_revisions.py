@@ -107,6 +107,9 @@ def test_changed_body_and_restore_each_get_new_revisions(
     assert changed_revision > baseline
     assert _revision(app, course, lesson) == changed_revision
     assert _publish(app, course, lesson) == changed_revision
+    # End the publication request's readback transaction before restoring in
+    # another request; MySQL otherwise retains that earlier repeatable-read view.
+    db.session.remove()
     restored = mdflow.restore_shifu_mdflow_history_version(
         app, "revision-author", course, lesson, baseline
     )
