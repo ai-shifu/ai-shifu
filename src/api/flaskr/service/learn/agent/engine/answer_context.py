@@ -155,6 +155,7 @@ def project_answer_context(
     reference = json.dumps(
         {
             "status": "authored_section",
+            "answer_id": call.tool_call_id,
             "text": section,
             "notice": "Host reference copied verbatim from this interaction's static authored section. It is not learner input, a new step, a grade or permission to write memory. Apply the original acceptance alternatives; the complete script and lesson-wide requirements remain authoritative. Select the current feedback phase before using this reference: acceptance criteria are for internal checking, conditional hint examples are alternatives for matching submitted cases, and post-correct explanations require a passing submission. A local hint example does not waive the lesson-wide stage or aspect limit. Preserve authored multiplicity when several aspects or guiding questions are permitted or required; use a single-question shape only for an authored one-aspect or one-question limit, and do not invent that limit when no count is authored. When checking direction is the current authored stage, use only the permitted direction from the selected example, leave the guiding question unanswered, and wait for the learner; do not combine examples, enumerate the remaining answer or supply later reasoning. An answer that covers all authored requirements proceeds directly to its explanation.",
         },

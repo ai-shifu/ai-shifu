@@ -8,6 +8,37 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Push interruption recovery fe1e36c53 and refresh both
+      original review threads. All 864 engine and 4619 related cases pass,
+      with four subtests, one expected skip, developer tooling and full gates.
+      Sim c4867da14 passes 3466 merged cases and gates; automatic build 588 /
+      Drone 5377 succeeds. API 2/2 and web 1/1 are Ready on sim-c4867da;
+      both APIs match 62 fingerprints and each passes 320 isolated SDK cases.
+- [x] 2026-10-12: Retain the failed changed-runtime frozen probe. Five
+      successful teaching generations settle 9.75 credits with exact original
+      attempt/owner attribution, but the wrong-answer phase never displays any
+      prose or deferred control. The model substitutes a course variable for
+      answer_id and mixes ordinary review with direction, exhausting retries.
+      The host correctly suppresses rejected prose; this is not a hint, navigation
+      or classroom acceptance pass. Original session, progress, variables, six
+      history records and published author source remain unchanged; no summary
+      occurs. Actual trace author-section counts are 1/1/1/1/1. No tenth learner
+      starts and no unchanged-runtime paid retry is allowed.
+- [x] 2026-10-12: Ten SDK regressions first fail because the model cannot copy
+      the opaque interaction ID from the host reference or recover it from an
+      unknown-ID retry. Add the exact answer_id to the transient authored-section
+      reference and identify the supported IDs in existing direction/review retry
+      errors. Keep ID equality, evidence provenance and all budgets unchanged;
+      never alias variables to IDs. Clarify which supplied field to copy. All 874
+      engine and 4629 related cases pass, four subtests and one expected skip;
+      tools and repository gates pass. Update the existing 96 wire-shape assertions
+      to verify the added exact ID; retain their initial shape failures. Technical
+      CI on the preceding fe1e36c53 head passes, including runtime; new-head
+      CI must be checked separately.
+- [ ] 2026-10-12: Validate and push explicit ID bindings, refresh sim proofs,
+      and only then run a separate unchanged-input probe. Preserve the failed
+      c4867da14 evidence separately from the next runtime's results.
+
 - [x] 2026-10-12: Push retry correction f1ee25a7b and reply to both original
       inline findings; accept the optional static-prompt cache suggestion in
       the original PR conversation linking its review. Merge current main;
