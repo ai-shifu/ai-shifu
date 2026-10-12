@@ -2931,6 +2931,7 @@ def test_narrated_controls_with_authored_hints_or_choices_stay_exact(span: str) 
 @pytest.mark.parametrize("preview_mode", [False, True])
 @pytest.mark.parametrize("disconnect", [False, True])
 @pytest.mark.parametrize("prefix", [False, True])
+@pytest.mark.parametrize("filter_buffered", [False, True])
 def test_validated_direction_is_durable_before_first_visible_feedback(
     app: object,
     calls: list,
@@ -2938,6 +2939,7 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     preview_mode: bool,
     disconnect: bool,
     prefix: bool,
+    filter_buffered: bool,
 ) -> None:
     """Use the real bridge/store so a disconnect restores the correction, not its old input."""
     import json
@@ -2955,9 +2957,11 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     wrong = "A program executes without prior memory storage."
     question = "Where does the processor obtain its first instruction?"
     rendered = "> " + wrong + "\n\nYour answer denies prior storage.\n\n" + question
+    if filter_buffered:
+        rendered = "<memory>\nYour answer denies prior storage.\n\n" + question
     requests = 0
-    learner = f"direction-host-{preview_mode}-{disconnect}-{prefix}"
-    lesson = f"direction-lesson-{preview_mode}-{disconnect}-{prefix}"
+    learner = f"direction-host-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
+    lesson = f"direction-lesson-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
     monkeypatch.setattr(bridge, "BUFFER_LIMIT", 1)
     monkeypatch.setattr(
         run_agent, "save_agent_session", session_store.save_agent_session
@@ -2990,8 +2994,9 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
                 "focuses": [
                     {
                         "criterion_quote": criterion,
-                        "submission_quote": wrong,
-                        "observed_issue": "Your answer denies prior storage.",
+                        "submission_quote": None if filter_buffered else wrong,
+                        "observed_issue": ("<memory>\n" if filter_buffered else "")
+                        + "Your answer denies prior storage.",
                         "guiding_question": question,
                     }
                 ],

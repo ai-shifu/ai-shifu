@@ -802,7 +802,9 @@ def _without_markers(
             yield event
             continue
         text = syntax.feed(markers.feed(echoes.feed(event.text)))
-        if text:
+        if text or event.prepared_content is not None:
+            # Even fully buffered text carries the pre-display commit barrier.
+            # A later filter flush must not expose its correction before saving it.
             yield (
                 event if text == event.text else event.model_copy(update={"text": text})
             )
@@ -1026,6 +1028,8 @@ def _stream_turn(
                     return TurnOutcome(reason=None, taught=False)
                 persisted = True
                 pending_memory = []
+            if not event.text:
+                continue
             taught.append(event.text)
             if pager is not None:
                 # A listening lesson is read page by page, and the audio for a page is bound to

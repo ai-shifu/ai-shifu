@@ -18,7 +18,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from .direction import DirectionFeedback, has_direction
+from .direction import DirectionFeedback, FeedbackReview, has_direction
 from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .session import answer_fingerprint
@@ -50,6 +50,9 @@ class Deps:
     direction_inputs: dict[str, InteractionSpec] = field(default_factory=dict)
     direction_sections: dict[str, str] = field(default_factory=dict)
     direction_rendered: dict[str, str] = field(default_factory=dict)
+    feedback_contract: bool = False
+    feedback_review: FeedbackReview | None = None
+    hidden_feedback_responses: set[int] = field(default_factory=set)
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
@@ -584,6 +587,68 @@ def validate_direction_call(
     ):
         message = "structured direction must be the sole tool call in its response"
         raise ModelRetry(message)
+    if response is not None and ctx.deps.feedback_contract:
+        problem, review = feedback_response_problem(ctx.deps, response)
+        if problem:
+            ctx.deps.hidden_feedback_responses.add(id(response))
+            raise ModelRetry(
+                problem + "; correct the whole response before any display"
+            )
+        if review is not None:
+            ctx.deps.feedback_review = review
+
+
+def feedback_response_problem(
+    deps: Deps, response: ModelResponse
+) -> tuple[str | None, FeedbackReview | None]:
+    """Gate visible feedback and terminal tools, without making semantic judgments."""
+    if not deps.feedback_contract or not deps.direction_sections:
+        return None, None
+    calls = [p for p in response.parts if isinstance(p, ToolCallPart)]
+    reviews = []
+    for call in calls:
+        try:
+            value = call.args_as_dict().get("review")
+            if value is not None:
+                reviews.append(FeedbackReview.model_validate(value))
+        except (TypeError, ValueError):
+            return "invalid feedback branch declaration", None
+    if len(reviews) > 1:
+        return "declare one feedback branch for this response", None
+    if any(has_direction(call) for call in calls):
+        if reviews or deps.feedback_review is not None:
+            return (
+                "checking direction cannot be mixed with an ordinary feedback branch",
+                None,
+            )
+        return (
+            None,
+            None,
+        )  # interact validates its entire structured call before display.
+    if reviews:
+        review = reviews[0]
+        if problem := review.problem(deps.direction_answers, deps.direction_sections):
+            return problem, None
+        if deps.feedback_review is not None and review != deps.feedback_review:
+            return (
+                "do not change an already displayed feedback branch in this turn",
+                None,
+            )
+        return None, review
+    if deps.feedback_review is None and (
+        any(isinstance(p, TextPart) and p.content.strip() for p in response.parts)
+        or any(call.tool_name in ("interact", "finish") for call in calls)
+    ):
+        return (
+            "Declare the feedback branch in this same tool response: use interact.direction "
+            "for an authored checking-direction correction; otherwise attach review with "
+            "the actual answer_id, phase accepted/clarification/authored_help, exact "
+            "submission_quote and internal reason. authored_help also requires exact "
+            "current rule_quote permitting that help now. Do not skip the author's stage. "
+            "A read-only lookup without free content can precede the declaration",
+            None,
+        )
+    return None, None
 
 
 async def interact(
@@ -594,6 +659,7 @@ async def interact(
     variable: str | None = None,
     placeholder: str | None = None,
     direction: DirectionFeedback | None = None,
+    review: FeedbackReview | None = None,
 ) -> str:
     """Show an interaction to the learner and wait for the answer.
 
@@ -659,11 +725,15 @@ async def interact(
     clarification, multiple questions within one aspect, or an input without an
     exact authored anchor, omit `direction`
     and follow the ordinary authored behavior.
+    When the host requires an explicit feedback branch for supported returned
+    text, ordinary feedback attaches `review` here or to its first existing read,
+    memory or finish call. A direction uses `direction` alone. Follow the host's
+    source/phase instructions without an additional planning request.
     """
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
-    validate_direction_call(ctx)
+    validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
     if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
         message = "This variable is a read-only reference. Ask using a local variable instead."
@@ -840,6 +910,7 @@ async def remember(
     value: str,
     scope: Literal["session", "user"] = "session",
     request: str | None = None,
+    review: FeedbackReview | None = None,
 ) -> str:
     """Store something about the learner.
 
@@ -857,6 +928,8 @@ async def remember(
     Record required notes before `finish`; a finished lesson accepts no further model notes.
 
     """
+    if review is not None:
+        validate_direction_call(ctx, review=review)
     if ctx.deps.finished is not None:
         return LESSON_OVER
     if not key.strip() or len(key) > _MEMORY_KEY_LIMIT:
@@ -892,13 +965,17 @@ async def remember(
     return f"remembered {key} ({scope})"
 
 
-async def finish(ctx: RunContext[Deps], summary: str = "") -> str:
+async def finish(
+    ctx: RunContext[Deps], summary: str = "", review: FeedbackReview | None = None
+) -> str:
     """Mark the script as delivered to its end.
 
     Call this once, only after the last step of the script has been completed and nothing in
     it remains to do. `summary` is one short line about what the learner did. Do not call it
     when the script merely pauses, asks a question, or waits for the learner.
     """
+    if review is not None:
+        validate_direction_call(ctx, review=review)
     current = [
         m for m in ctx.messages[ctx.deps.history_len :] if isinstance(m, ModelResponse)
     ]

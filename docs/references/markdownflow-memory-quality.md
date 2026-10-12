@@ -186,13 +186,28 @@ answers, later help, navigation, clarifications, multiple required questions wit
 anchors retain
 the ordinary interaction path and protocols.
 
+The production host enables `Engine(feedback_contract=True)`. For supported
+returned text answers, visible ordinary feedback or an interaction/finish must
+declare `review` in that same existing tool response: `accepted`, `clarification`
+or `authored_help`, bound to an actual answer ID and submitted quote with an
+internal reason. Authored help also cites exact current author text permitting
+that stage. A checking-direction correction must instead use `direction`.
+Omitting the branch retries before display, including plain-text output and
+prose preceding any built-in tool; invalid finish/memory siblings cannot execute.
+Read-only lookups without prose may precede the decision, and later report pages
+inherit it without a separate planning request. Portable hosts default to the
+previous optional contract. Unsupported anchors and navigation are unaffected.
+The declaration makes the model decision explicit and validates its sources;
+it does not prove that the model graded the answer or chose the stage correctly.
+
 On supported resumed answers, text waits until the first new tool identifies
-whether its model response uses this contract. Ordinary calls release the
+whether its model response uses this contract. Declared ordinary calls release the
 unchanged chunks; a structured response is displayed only after validation, with
 its pending correction and visible history already prepared. A host-only content
 metadata field carries the complete validated turn, including earlier ordinary
 chunks. It is excluded from SSE serialization. The production host commits that
-state and full filtered block before displaying the first direction chunk; a
+state and full filtered block before displaying the first direction chunk,
+including content fully held by host filters and later released during flush; a
 disconnect reloads the correction rather than the original answered input. The
 normal terminal path does not commit it twice. Buffered provider
 failures before any display retain the original answer for recovery. This adds
