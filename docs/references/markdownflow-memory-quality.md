@@ -80,6 +80,19 @@ no new learner or summary is created. Preserve the author's brief-clarification
 rule. Investigate potentially conflicting correction-only host guidance without
 overriding that rule or spending on unchanged-runtime resampling.
 
+## Clarification and correction scope
+
+The current authored reference accompanies both attempted answers and knowledge
+questions. Its correction-only guidance must be explicitly limited to
+checking-direction feedback, where permitted questions remain unanswered and
+later reasoning is withheld. Clarification answers the actual side question
+within authored brevity and disclosure rules, then returns to the pending
+exercise. This distinction neither authorizes a full solution forbidden by the
+author nor imposes a new answer requirement. Exact source, history, memory,
+navigation and request limits remain unchanged. Native SDK instruction/reload
+tests establish delivery only; deployed teaching quality and the complete fresh
+natural-compaction journey still require independent acceptance.
+
 ## Cases and scoring
 
 Admission calls the product's `make_request_check`, including its actual prompt,

@@ -27,6 +27,18 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       also to knowledge clarification. Keep the author's brief-response boundary;
       any independent phase-scope fix must not force long answers or dilute the
       frozen example/trace acceptance. Preserve all four failed checks.
+- [ ] 2026-10-13: Independently scope the host reference's correction limits to
+      checking-direction feedback. Clarification must answer the actual question
+      within authored brevity/disclosure and return to the pending exercise;
+      do not apply correction-only withholding to permitted knowledge help.
+      Four real-SDK instruction/reload checks first fail with unchanged source,
+      history, memory, input and one-request-per-turn limits. Initial invalid
+      control/first-section/ScriptBundle fixture, wrong-cwd and Ruff failures are
+      retained separately. Final 245 focused and 3830 broader cases, 50 subtests
+      and three expected skips pass, including the unchanged 64 KiB regression;
+      all repository gates pass. Open a separate Ready PR, deploy and inspect one changed-runtime
+      check before starting any fresh learner. This is guidance, not factual or
+      semantic acceptance; all earlier failed journeys remain unchanged.
 - [x] 2026-10-13: Complete-state guidance b5e25f8db deploys as sim a7ff2b94f /
       build 613 / Drone 5402 in successful records 2831/2832, API 2/2, web 1/1.
       Both APIs match 67 files and pass 418 SDK checks; source and sim pass
