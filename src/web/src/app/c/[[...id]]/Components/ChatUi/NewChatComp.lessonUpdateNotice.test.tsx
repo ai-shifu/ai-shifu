@@ -5,6 +5,14 @@ import { AppContext } from '../AppContext';
 import { NewChatComponents } from './NewChatComp';
 import LessonUpdateNotice from '../LessonUpdateNotice';
 
+let mockLessonResetPhase = 'ready';
+jest.mock('@/hooks/useLessonResetStatus', () => ({
+  useLessonResetStatus: () => ({
+    phase: mockLessonResetPhase,
+    setFailure: jest.fn(),
+  }),
+}));
+
 const mockUseChatLogicHook = jest.fn();
 let mockCourseAvatar = '';
 let mockIsCurrentUserCourseOwner = false;
@@ -1110,4 +1118,24 @@ describe('NewChatComponents', () => {
       container.querySelector('[data-lesson-print-site-logo="true"]'),
     ).toHaveAttribute('src', '/ai-shifu-logo-horizontal.png');
   });
+});
+
+it('offers existing-content review instead of an unusable reset link after exhaustion', () => {
+  mockLessonResetPhase = 'exhausted';
+  render(
+    <LessonUpdateNotice
+      chapterId='chapter-1'
+      lessonId='lesson-1'
+    />,
+  );
+  expect(
+    screen.getByText('module.chat.lessonUpdateReviewAvailable'),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: '重修本节课程' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByText('重修会清空本节学习数据。确定重修？'),
+  ).not.toBeInTheDocument();
+  mockLessonResetPhase = 'ready';
 });

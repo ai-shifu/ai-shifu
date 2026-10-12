@@ -14,6 +14,10 @@ import {
 import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
 import { useLessonRunContentStore } from '@/store/useLessonRunContentStore';
 
+jest.mock('@/api/lesson', () => ({
+  getScriptInfo: jest.fn(),
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,

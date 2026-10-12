@@ -211,6 +211,32 @@ Visibility changes emit no event; their saved outcome is measured through the
 
 The only contact enum is `surface=admin|invite|other`.
 
+### Lesson reset limit outcomes
+
+- Decision: determine whether learners encounter the reset limit or a temporary
+  reset outage. Count `lesson_reset_blocked` per day by reason and source;
+  compare with reset-dialog opens as an aggregate ratio, not a joined funnel.
+- Trigger: a catalog or updated-lesson reset dialog displays a blocked state,
+  including a server rejection after confirmation. Background availability
+  checks and update notices alone emit nothing.
+- Population: the existing live-course guest/member population; exclude preview,
+  invalid/unloaded courses and controls without a lesson. Exempt course staff
+  cannot generate a limit-reached outcome through the server.
+- Deduplication: at most one blocked event per dialog opening, even after a
+  render or repeated confirm click. Closing and deliberately reopening is new.
+- Complete payload: `shifu_bid`, `chapter_id`, `lesson_id`, `source` limited to
+  `catalog|lesson_update`, and `reason` limited to `limit_reached|unavailable`.
+  Never include remaining counts, request IDs, lesson names or raw errors.
+- Compatibility and consumers: existing product reset-usage queries retain
+  `reset_chapter` and `reset_chapter_confirm`, with the updated-lesson control
+  now included under their existing meanings. Historical usage counts had less
+  surface coverage. Product/operations can query the additive blocked event;
+  it is not quota, billing or an exhaustive outage signal. No dashboard or
+  historical backfill is added.
+- Verification: both dialog producers cover terminal success/rejection,
+  exhaustion/outage copy, per-open deduplication, preview exclusions and exact
+  allowlisted fields. Tracking failure must not affect reset or dialog dismissal.
+
 ## Creator publishing
 
 - Business question: how often do accepted publish attempts finish, and at

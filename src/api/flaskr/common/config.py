@@ -1931,6 +1931,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="shifu",
         required=False,
     ),
+    "LESSON_RESET_LIMIT": EnvVar(
+        name="LESSON_RESET_LIMIT",
+        default=9999,
+        type=int,
+        validator=lambda value: type(value) is int and value > 0,
+        description=(
+            "Maximum successful extra resets per learner, course and lesson. "
+            "Default 9999 is effectively unrestricted for normal use. "
+            "Applies only to learners; course owners and active collaborators "
+            "including read-only collaborators are exempt. Requires Redis. "
+            "SQL commits before Redis accounting; interruptions can miss a use."
+        ),
+        group="shifu",
+    ),
     # TTS Configuration
     "MINIMAX_API_KEY": EnvVar(
         name="MINIMAX_API_KEY",

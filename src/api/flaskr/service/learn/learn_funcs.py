@@ -7,6 +7,7 @@ import queue
 import time
 import uuid
 from collections.abc import Iterator
+from contextlib import nullcontext
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -22,7 +23,12 @@ from flaskr.api.tts import (
     is_tts_configured,
     synthesize_text,
 )
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import (
+    app_context_scope,
+    on_commit,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.i18n import _
 from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.learn.agent.session_store import (
@@ -52,6 +58,12 @@ from flaskr.service.learn.legacy_record_builder import (
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
     is_lesson_feedback_interaction,
+)
+from flaskr.service.learn.lesson_reset_limit import (
+    LessonResetGuard,
+    is_course_reset_exempt,
+    normalize_reset_request_id,
+    require_reset_lesson,
 )
 from flaskr.service.learn.listen_element_matching import (
     get_speakable_text_elements,
@@ -748,49 +760,114 @@ def reset_learn_record(
     user_bid: str,
     *,
     preview_mode: bool = False,
+    reset_request_id: str | None = None,
 ) -> bool:
-    """Reset learner progress, or only the explicitly selected draft preview."""
-    with app_context_scope(app), unit_of_work():
-        from flaskr.service.learn.agent.routing import uses_agent_engine
-
-        if preview_mode and uses_agent_engine(shifu_bid):
-            from flaskr.service.learn.agent.preview_history import has_preview_script
-
-            if not DraftOutlineItem.query.filter_by(
-                shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
-            ).first():
-                return True
-            if has_preview_script(app, shifu_bid=shifu_bid, outline_bid=outline_bid):
-                stage_agent_session_discard(
-                    user_bid=user_bid,
-                    shifu_bid=shifu_bid,
-                    outline_item_bid=outline_bid,
-                    preview_mode=True,
-                )
-                return True
-        progress_records = (
-            LearnProgressRecord.query.filter(
-                LearnProgressRecord.user_bid == user_bid,
-                LearnProgressRecord.shifu_bid == shifu_bid,
-                LearnProgressRecord.outline_item_bid == outline_bid,
-                LearnProgressRecord.deleted == 0,
-                LearnProgressRecord.status != LEARN_STATUS_RESET,
-            )
-            # Locked, because a 2.0 turn already running claims the same row before it writes.
-            # Without this the two interleave: the turn sees a live lesson, this finds no session
-            # to discard, and the turn inserts one afterwards -- returning the conversation the
-            # learner just cleared. Taking the lock makes one of them go first, either way.
-            .with_for_update()
-            .all()
+    """Reset progress and count effective learner resets after the SQL commit."""
+    with app_context_scope(app):
+        limited = not preview_mode and not is_course_reset_exempt(
+            app, shifu_bid, user_bid
         )
-        for progress_record in progress_records:
-            progress_record.status = LEARN_STATUS_RESET
-        # A 2.0 lesson keeps its conversation in its own table, which resetting the progress
-        # records does not touch. Left behind, the next run resumes a session that may hold
-        # `finished=True` -- it would report the lesson complete immediately and never start it
-        # again, which also breaks taking a course back off the allowlist as a way out.
-        stage_agent_session_discard(user_bid=user_bid, outline_item_bid=outline_bid)
-        return True
+        if limited:
+            require_transaction_owner("reset_learn_record", app=app)
+            require_reset_lesson(shifu_bid, outline_bid)
+        guard_context = (
+            LessonResetGuard(
+                app,
+                shifu_bid,
+                outline_bid,
+                user_bid,
+                normalize_reset_request_id(reset_request_id),
+            )
+            if limited
+            else nullcontext()
+        )
+        with guard_context as guard, unit_of_work():
+            if guard is not None and guard.duplicate:
+                return True
+            return _stage_lesson_reset(
+                app,
+                shifu_bid,
+                outline_bid,
+                user_bid,
+                preview_mode=preview_mode,
+                guard=guard,
+            )
+
+
+def _stage_lesson_reset(
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    *,
+    preview_mode: bool,
+    guard: LessonResetGuard | None,
+) -> bool:
+    """Stage the original reset under its caller's transaction and admission guard."""
+    from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+    from flaskr.service.learn.agent.routing import uses_agent_engine
+
+    if preview_mode and uses_agent_engine(shifu_bid):
+        from flaskr.service.learn.agent.preview_history import has_preview_script
+
+        if not DraftOutlineItem.query.filter_by(
+            shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
+        ).first():
+            return True
+        if has_preview_script(app, shifu_bid=shifu_bid, outline_bid=outline_bid):
+            stage_agent_session_discard(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                preview_mode=True,
+            )
+            return True
+    progress_records = (
+        LearnProgressRecord.query.filter(
+            LearnProgressRecord.user_bid == user_bid,
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.outline_item_bid == outline_bid,
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+        )
+        # Locked, because a 2.0 turn already running claims the same row before it writes.
+        # Without this the two interleave: the turn sees a live lesson, this finds no session
+        # to discard, and the turn inserts one afterwards -- returning the conversation the
+        # learner just cleared. Taking the lock makes one of them go first, either way.
+        .with_for_update()
+        .all()
+    )
+    has_agent_session = (
+        guard is not None
+        and LearnAgentSession.query.filter_by(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            deleted=0,
+            active_key=active_key_for(user_bid, outline_bid, preview_mode=False),
+        ).first()
+        is not None
+    )
+    for progress_record in progress_records:
+        progress_record.status = LEARN_STATUS_RESET
+    # A 2.0 lesson keeps its conversation in its own table, which resetting the progress
+    # records does not touch. Left behind, the next run resumes a session that may hold
+    # `finished=True` -- it would report the lesson complete immediately and never start it
+    # again, which also breaks taking a course back off the allowlist as a way out.
+    stage_agent_session_discard(
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_bid,
+        preview_mode=False if guard is not None else None,
+    )
+    if guard is not None:
+        guard.check_before_commit()
+        on_commit(
+            guard.record_success
+            if progress_records or has_agent_session
+            else guard.record_noop_success
+        )
+    return True
 
 
 def handle_reaction(
