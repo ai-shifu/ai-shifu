@@ -641,6 +641,7 @@ def feedback_response_problem(
             None,
             None,
         )  # interact validates its entire structured call before display.
+    delivery_problem = None
     if (
         deps.feedback_text_pending
         and any(call.tool_name in ("interact", "finish") for call in calls)
@@ -648,12 +649,11 @@ def feedback_response_problem(
             isinstance(p, TextPart) and p.content.strip() for p in response.parts
         )
     ):
-        return (
+        delivery_problem = (
             "Earlier feedback prose was not displayed. Regenerate complete authored "
             "feedback as content with its valid tool/branch before pausing or finishing; "
             "a replacement control or internal review reason alone cannot deliver it. "
-            "Do not restore rejected prose verbatim or skip the author's stage",
-            None,
+            "Do not restore rejected prose verbatim or skip the author's stage"
         )
     review = None
     if reviews:
@@ -665,12 +665,14 @@ def feedback_response_problem(
                 problem += "; supported answer_id values: " + json.dumps(
                     sorted(deps.direction_sections)
                 )
-            return problem, None
+            return "; ".join(p for p in (problem, delivery_problem) if p), None
         if deps.feedback_review is not None and review != deps.feedback_review:
             return (
                 "do not change an already displayed feedback branch in this turn",
                 None,
             )
+    if delivery_problem:
+        return delivery_problem, None
     if (
         deps.feedback_review is None
         and (

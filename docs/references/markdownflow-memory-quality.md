@@ -229,6 +229,9 @@ the exception in reason. All supplied rule quotes are source-checked, without
 interpreting whether the model selected the applicable rule. This checks
 presence and tool success, not whether new text is a correct or complete answer;
 never restore rejected explanations verbatim or increase request budgets.
+When both a replacement's rule source and its missing content are invalid,
+report those problems together in the existing retry. Do not mask the source
+error until a later retry or spend an additional request to discover it.
 
 Accepted excerpts cannot also appear as the same exact contradiction quote in a
 structured direction. Reject incompatible annotations before display and let the
