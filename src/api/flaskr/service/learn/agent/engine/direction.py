@@ -47,24 +47,25 @@ class DirectionFocus(BaseModel):
 
 
 class FeedbackReview(BaseModel):
-    """An explicit model judgment authorizing ordinary answer feedback.
-
-    Checking-direction feedback uses DirectionFeedback instead. These fields
-    make the branch decision reviewable; provenance checks do not grade it.
-    """
+    """Bind ordinary feedback to the actual submission and authored stage."""
 
     answer_id: str
-    phase: Literal["accepted", "clarification", "authored_help"]
+    phase: Literal["accepted", "clarification", "authored_help"] = Field(
+        description=(
+            "authored_help cannot use local samples to waive global checking counts. "
+            "Knowledge help is not a failed attempt. First counted failures use direction."
+        )
+    )
     submission_quote: str = Field(
-        min_length=1, description="Exact evidence from the actual returned submission."
+        min_length=1, description="Exact excerpt of this returned input."
     )
     rule_quote: str | None = Field(
         default=None,
-        description="Exact authored_help rule, or rule expressly permitting accepted control-only feedback.",
+        description="Exact authored rule permitting this help/control-only stage now.",
     )
     reason: str = Field(
         min_length=1,
-        description="Internal branch justification using actual submission and correction history.",
+        description="Justify this stage from actual correction history.",
     )
 
     def problem(

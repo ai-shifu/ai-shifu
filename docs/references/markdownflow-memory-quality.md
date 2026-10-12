@@ -213,6 +213,10 @@ inherit it without a separate planning request. Portable hosts default to the
 previous optional contract. Unsupported anchors and navigation are unaffected.
 The declaration makes the model decision explicit and validates its sources;
 it does not prove that the model graded the answer or chose the stage correctly.
+Native review.phase guidance repeats the branch-choice boundary where the model
+selects it: a local conditional hint is not permission to waive a lesson-wide
+checking count, and earlier knowledge help is not a failed answer attempt. These
+remain model judgments, not a new host semantic grader or planning request.
 
 When ordinary prose has been withheld during this run, a replacement interaction
 or finish cannot silently complete with only a control or internal review reason.
