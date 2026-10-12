@@ -8,6 +8,36 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Head 2fd84bc96 passes every technical CI, including runtime;
+      CodeRabbit remains rate-limited. Sim b0c18c603 / build 599 / Drone 5388
+      succeeds with API 2/2, web 1/1, 67 matching files and 382 SDK cases per API;
+      its merged suite passes 3732 cases, four subtests and one expected skip.
+      Existing inline roots have pushed-fix replies; the updated 44.44%/108-function
+      docstring warning is explicitly deferred in its original PR conversation.
+- [x] 2026-10-12: Preserve the thirteenth fresh classroom failure after three
+      ordinary requests. Knowledge clarification exercises the rejected-prose
+      guard and eventually delivers complete content. The next wrong answer has
+      no visible output and returns an unknown error after four invalid feedback
+      responses. Retained-output offline replay confirms the unchanged three-tool-
+      retry limit is exhausted. Four history rows remain stable, source unchanged,
+      turn three unfinished. Nine generations settle 17.66 credits with exact
+      attribution. Actual trace parsing confirms zero summary generations,
+      projections or cache; largest original teaching is 4041 wire bytes. Do not
+      run the remaining 25 phases or claim the later accepted-content fix tested.
+      The first read-only trace list returns HTTP 422; retain it and recover the
+      same three traces/nine generations without another classroom/model request.
+- [ ] 2026-10-12: Four new reload/interact/finish SDK regressions first fail:
+      the missing replacement prose check masks an invalid authored rule source,
+      consuming a later retry to discover it. Report both known protocol problems
+      in the same existing retry; preserve all source/delivery checks, semantic
+      responsibility, three-tool-retry limit and request budgets. Validate, push,
+      reply and deploy before a new independent real-model journey. The unchanged
+      retained outputs still fail closed; offline diagnostics are not a classroom
+      success or proof that the model will choose the correct feedback stage.
+      All 3736 learning/evaluation cases, four subtests and one expected skip,
+      developer tools and repository gates pass, including the original context
+      size and retry-budget regressions. No additional model call is introduced.
+
 - [x] 2026-10-12: Head 651ae816b passes every technical CI, including runtime;
       current-head CodeRabbit is rate-limited, not a completed fresh review.
       All eight inline roots retain original-thread replies. Sim e7b5e7d4d /

@@ -1146,6 +1146,70 @@ async def test_lookup_alone_cannot_clear_undelivered_prose_but_a_visible_page_ca
     assert session.pending[0].tool_call_id == "next"
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+@pytest.mark.parametrize("terminal", ["interact", "finish"])
+async def test_retry_reports_missing_prose_and_invalid_rule_together(
+    reload: bool, terminal: str
+) -> None:
+    """Repair both withheld content and source provenance within the existing retry."""
+    calls = 0
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Undeclared explanation that was never displayed."
+        elif calls == 3:
+            args = (
+                {"summary": "Not visible teaching"}
+                if terminal == "finish"
+                else {"type": "text", "prompt": "", "placeholder": "Answer"}
+            )
+            args["review"] = _review("authored_help", rule_quote="Invented rule")
+            yield {
+                0: DeltaToolCall(
+                    name=terminal,
+                    json_args=json.dumps(args),
+                    tool_call_id="two-problems",
+                )
+            }
+        else:
+            retry = [
+                p for m in messages for p in m.parts if isinstance(p, RetryPromptPart)
+            ][-1]
+            assert "rule_quote" in str(retry.content)
+            assert "not displayed" in str(retry.content)
+            yield "New authored explanation with its exact current source."
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Answer",
+                    "review": _review("authored_help"),
+                },
+                "repaired",
+            )
+
+    engine = _engine(stream)
+    engine.limits.request_limit = 3
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == "New authored explanation with its exact current source."
+    assert session.pending[0].tool_call_id == "repaired"
+    assert calls == 4
+    assert not session.finished
+
+
 def test_retry_projection_preserves_successful_pages_and_raw_validation_errors() -> (
     None
 ):
