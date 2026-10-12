@@ -96,7 +96,13 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
                 if p.startswith('{"status":"authored_section"')
             ]
             assert len(focused) == 1
-            assert list(focused[0]) == ["status", "answer_id", "text", "notice"]
+            assert list(focused[0]) == [
+                "status",
+                "answer_id",
+                "text",
+                "ancestor_preambles",
+                "notice",
+            ]
             assert focused[0]["answer_id"] == "focused-1"
             assert "## If the submission does not pass" in (info.instructions or "")
             assert "Do not combine the failed and passing branches" in (
@@ -282,3 +288,126 @@ def test_only_host_rejected_variables_can_be_ignored_for_matching(
 async def _events(events: AsyncIterator[object]) -> list[object]:
     """Retain errors emitted by the streaming engine for assertions."""
     return [event async for event in events]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+@pytest.mark.parametrize(
+    "rule",
+    [
+        "On a failed answer, choose one missing requirement and wait.",
+        "On a failed answer, ask two guiding questions before waiting.",
+        "On a failed answer, give the authored checking direction.",
+    ],
+)
+async def test_later_answer_sdk_keeps_enclosing_rules_with_local_hint(
+    reload: bool, rule: str
+) -> None:
+    """Project parent instructions without sibling answers or durable rewrites."""
+    root = rule + "\n\n"
+    unit = "# Unit\nKeep accepted parts while collecting a correction.\n\n"
+    local = SECTION.replace(
+        "Ask one genuinely missing aspect.",
+        "Check processor, transfer, peripheral and software coverage.",
+    )
+    script = root + unit + SCRIPT.removeprefix("# Exercise\n\n").replace(SECTION, local)
+    calls = 0
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Inspect the actual request after resuming a later authored input."""
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            refs = [
+                json.loads(p.content)
+                for m in messages
+                for p in m.parts
+                if isinstance(p, UserPromptPart)
+                and p.content.startswith('{"status":"authored_section"')
+            ]
+            assert len(refs) == 1
+            assert refs[0]["text"] == local
+            assert refs[0]["ancestor_preambles"] == [root, unit]
+            assert "Earlier answer" not in "".join(refs[0]["ancestor_preambles"])
+            assert "Later answer" not in "".join(refs[0]["ancestor_preambles"])
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(
+                    _spec().model_dump(exclude={"labelled_by_engine"})
+                ),
+                tool_call_id=f"scope-{calls}",
+            )
+        }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session(script)
+    initial = await _events(engine.run_turn(session))
+    assert not [e for e in initial if isinstance(e, ErrorEvent)]
+    assert calls == 1
+    if reload:
+        session = Session.loads(session.dumps())
+    original = ModelMessagesTypeAdapter.dump_json(session.messages)
+    count = len(session.messages)
+    events = await _events(
+        engine.run_turn(session, InteractionResponseTurn(text="Actual answer"))
+    )
+    assert not [e for e in events if isinstance(e, ErrorEvent)]
+    assert calls == 2
+    assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == original
+    assert not any(
+        isinstance(p, UserPromptPart)
+        and p.content.startswith('{"status":"authored_section"')
+        for m in session.messages
+        for p in m.parts
+    )
+    assert session.script.script == script
+
+
+@pytest.mark.parametrize(
+    "parent",
+    [
+        pytest.param("x" * 8192, id="oversized"),
+        pytest.param("Keep {{learner_fact}} in view.", id="variable"),
+    ],
+)
+def test_unprojectable_parent_does_not_present_a_local_only_rule(parent: str) -> None:
+    """Keep the opaque answer binding while declining an incomplete focused copy."""
+    script = parent + "\n\n" + SCRIPT
+    messages = [
+        ModelRequest(parts=[UserPromptPart(script)]),
+        ModelResponse(
+            parts=[ToolCallPart("interact", _spec().model_dump(), "current")]
+        ),
+    ]
+    projected = project_answer_context(messages, script, {"current"})
+    ref = json.loads(projected[0].parts[-1].content)
+    assert ref["answer_id"] == "current"
+    assert ref["text"] is None
+    assert ref["ancestor_preambles"] == []
+    assert projected[0].parts[0].content == script
+
+
+def test_sibling_unit_introductions_do_not_become_current_rules() -> None:
+    """A first heading at offset zero is not an implicit ancestor of later units."""
+    earlier = "# Earlier unit\nExplain every missing point immediately.\n\n"
+    current = "# Current unit\nChoose one missing point and wait.\n\n"
+    script = (
+        earlier
+        + "?[...Earlier]\n\n"
+        + current
+        + "## Current warmup\n?[...Current warmup]\n\n"
+        + SECTION
+    )
+    messages = [
+        ModelRequest(parts=[UserPromptPart(script)]),
+        ModelResponse(
+            parts=[ToolCallPart("interact", _spec().model_dump(), "current")]
+        ),
+    ]
+    projected = project_answer_context(messages, script, {"current"})
+    ref = json.loads(projected[0].parts[-1].content)
+    assert ref["text"] == SECTION
+    assert ref["ancestor_preambles"] == [current]
