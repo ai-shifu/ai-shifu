@@ -9,6 +9,7 @@ from flaskr.service.learn.agent.engine import (
     Engine,
     ErrorEvent,
     InteractionResponseTurn,
+    InteractionSpec,
     Session,
 )
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
@@ -346,3 +347,244 @@ async def test_unsupported_text_anchor_keeps_ordinary_stream_without_review() ->
     )
     assert _text(events) == "Ordinary unsupported feedback."
     assert calls == 2
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("retry_branch", ["omitted", "changed"])
+@pytest.mark.parametrize("guard", ["host", "readonly"])
+async def test_rejected_review_neither_displays_nor_commits_its_branch(
+    retry_branch: str, guard: str
+) -> None:
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Rejected reviewed prose."
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "Rejected" if guard == "host" else "",
+                    "placeholder": "Answer",
+                    "variable": "locked_value" if guard == "readonly" else None,
+                    "review": _review(),
+                },
+                "rejected",
+            )
+        elif retry_branch == "omitted" and calls == 3:
+            yield "Undeclared retry prose."
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "undeclared"
+            )
+        elif retry_branch == "omitted":
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Answer",
+                    "direction": _direction(),
+                },
+                "correction",
+            )
+        else:
+            yield "Valid clarification."
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Answer",
+                    "review": _review("clarification"),
+                },
+                "clarification",
+            )
+
+    engine = _engine(stream)
+    engine.limits.request_limit = 3
+    engine.memory_readonly_prefixes = ("locked_",)
+    engine.interaction_check = lambda spec: (
+        "rejected by host" if spec.prompt == "Rejected" else None
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == (
+        DISPLAY if retry_branch == "omitted" else "Valid clarification."
+    )
+    assert session.pending[0].tool_call_id == (
+        "correction" if retry_branch == "omitted" else "clarification"
+    )
+    raw = ModelMessagesTypeAdapter.dump_json(session.messages).decode()
+    assert "Rejected reviewed prose" not in raw
+    assert "Undeclared retry prose" not in raw
+    assert calls == (4 if retry_branch == "omitted" else 3)
+
+
+@pytest.mark.anyio
+async def test_failed_inherited_interaction_preserves_prior_successful_review() -> None:
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Accepted report page."
+            yield {
+                0: DeltaToolCall(
+                    name="read_exercise_history",
+                    json_args=json.dumps({"review": _review()}),
+                    tool_call_id="page",
+                )
+            }
+        elif calls == 3:
+            yield "Rejected inherited prose."
+            yield _call(
+                {"type": "text", "prompt": "Rejected", "placeholder": "Answer"},
+                "rejected",
+            )
+        else:
+            yield "Valid inherited continuation."
+            yield _call({"type": "text", "prompt": "", "placeholder": "Answer"}, "next")
+
+    engine = _engine(stream)
+    engine.limits.request_limit = 3
+    engine.interaction_check = lambda spec: (
+        "rejected by host" if spec.prompt == "Rejected" else None
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == "Accepted report page.Valid inherited continuation."
+    assert session.pending[0].tool_call_id == "next"
+    assert calls == 4
+    assert (
+        "Rejected inherited prose"
+        not in ModelMessagesTypeAdapter.dump_json(session.messages).decode()
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("parallel", [False, True])
+@pytest.mark.parametrize("review_first", [False, True])
+async def test_schema_rejection_hides_whole_response_and_requires_new_branch(
+    parallel: bool, review_first: bool
+) -> None:
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Schema-rejected prose."
+            parts = [
+                DeltaToolCall(
+                    name="read_exercise_history",
+                    json_args=json.dumps(
+                        {
+                            "offset": "not an integer",
+                            "review": _review() if not parallel else None,
+                        }
+                    ),
+                    tool_call_id="invalid",
+                )
+            ]
+            if parallel:
+                reviewed = DeltaToolCall(
+                    name="recall",
+                    json_args=json.dumps({"review": _review()}),
+                    tool_call_id="reviewed",
+                )
+                parts.insert(0 if review_first else 1, reviewed)
+            yield dict(enumerate(parts))
+        else:
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Answer",
+                    "direction": _direction(),
+                },
+                "correction",
+            )
+
+    engine = _engine(stream)
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == DISPLAY
+    assert session.pending[0].tool_call_id == "correction"
+    assert calls == 3
+    assert (
+        "Schema-rejected prose"
+        not in ModelMessagesTypeAdapter.dump_json(session.messages).decode()
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("failure", ["provider", "tool"])
+async def test_failure_after_successful_page_saves_only_already_visible_prose(
+    failure: str,
+) -> None:
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Visible accepted page."
+            yield {
+                0: DeltaToolCall(
+                    name="read_exercise_history",
+                    json_args=json.dumps({"review": _review()}),
+                    tool_call_id="page",
+                )
+            }
+        else:
+            yield "Undisplayed failed continuation."
+            if failure == "provider":
+                message = "provider interrupted"
+                raise RuntimeError(message)
+            yield _call(
+                {"type": "text", "prompt": "Crash", "placeholder": "Answer"}, "crash"
+            )
+
+    def check(spec: InteractionSpec) -> None:
+        if spec.prompt == "Crash":
+            message = "host interrupted"
+            raise RuntimeError(message)
+
+    engine = _engine(stream)
+    engine.interaction_check = check
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+    assert _text(events) == "Visible accepted page."
+    assert any(isinstance(e, ErrorEvent) for e in events)
+    assert session.interrupted
+    raw = ModelMessagesTypeAdapter.dump_json(session.messages).decode()
+    assert "Visible accepted page" in raw
+    assert "Undisplayed failed continuation" not in raw

@@ -25,6 +25,7 @@ from pydantic_ai.messages import (
     ModelResponse,
     PartDeltaEvent,
     PartStartEvent,
+    RetryPromptPart,
     TextPart,
     TextPartDelta,
     ToolCallPart,
@@ -449,6 +450,11 @@ class Engine:
         projection makes no extra model call.
         """
         self.feedback_contract = feedback_contract
+        self.feedback_instructions = (
+            (PROMPTS_DIR / "feedback_contract.md").read_text()
+            if feedback_contract
+            else ""
+        )
         self.exercise_statistics = exercise_statistics
         self.exercise_instructions = (
             (PROMPTS_DIR / "exercise_statistics.md").read_text()
@@ -633,7 +639,7 @@ class Engine:
         if ctx.deps.resuming_interaction and self.prompts.answer_review:
             instructions += "\n\n" + self.prompts.answer_review
         if ctx.deps.feedback_contract and ctx.deps.direction_sections:
-            instructions += "\n\n" + (PROMPTS_DIR / "feedback_contract.md").read_text()
+            instructions += "\n\n" + self.feedback_instructions
         return instructions
 
     # -- sessions ----------------------------------------------------------------------------
@@ -1051,12 +1057,14 @@ class Engine:
         was_interrupted = session.interrupted
         markup = InteractionMarkupFilter(deps.literal_interaction_markup)
         markup_noticed = False
-        # Until the first new tool, a resumed answer may select structured direction
-        # feedback. Its free prose must not reach the learner before tool validation.
-        # A declared ordinary tool releases chunks and restores normal streaming;
-        # report pagination therefore adds no preflight request or whole-turn buffer.
+        # A resumed answer may select structured direction feedback. Ordinary
+        # prose waits for its tool response to succeed, including deferred controls.
+        # Successful report pages release independently, without a planning request.
+        # A rejected tool response contributes neither visible prose nor a new branch.
         buffer_direction = bool(deps.direction_sections)
         direction_chunks: list[str] = []
+        feedback_response: ModelResponse | None = None
+        feedback_completed: set[str] = set()
 
         def _closing_was_shown() -> bool:
             """Require a complete standalone closing line in the latest displayed text."""
@@ -1224,6 +1232,12 @@ class Engine:
                                 direction_chunks.clear()
                                 if problem:
                                     deps.hidden_feedback_responses.add(id(response))
+                            elif deps.feedback_contract and response is not None:
+                                # Validation is not tool success: later interaction guards
+                                # and argument checks can still request a retry.
+                                if response is not feedback_response:
+                                    feedback_response = response
+                                    feedback_completed.clear()
                             else:
                                 for e in _release_direction_chunks():
                                     yield e
@@ -1238,6 +1252,31 @@ class Engine:
                     elif isinstance(ev, FunctionToolResultEvent):
                         if ev.part.tool_call_id in resumed:
                             continue
+                        if feedback_response is not None:
+                            calls = {
+                                p.tool_call_id: p
+                                for p in feedback_response.parts
+                                if isinstance(p, ToolCallPart)
+                            }
+                            if ev.part.tool_call_id in calls:
+                                if isinstance(ev.part, RetryPromptPart):
+                                    deps.hidden_feedback_responses.add(
+                                        id(feedback_response)
+                                    )
+                                    direction_chunks.clear()
+                                    feedback_response = None
+                                else:
+                                    feedback_completed.add(ev.part.tool_call_id)
+                                    if feedback_completed == calls.keys():
+                                        _, review = feedback_response_problem(
+                                            deps, feedback_response
+                                        )
+                                        if review is not None:
+                                            deps.feedback_review = review
+                                        for e in _release_direction_chunks():
+                                            yield e
+                                        buffer_direction = False
+                                        feedback_response = None
                         if (
                             ev.part.tool_name == "interact"
                             and getattr(ev.part, "content", None) == NO_PAUSE
@@ -1270,6 +1309,29 @@ class Engine:
                                 content=getattr(ev.part, "content", None),
                             )
                     elif isinstance(ev, AgentRunResultEvent):
+                        if feedback_response is not None:
+                            calls = {
+                                p.tool_call_id
+                                for p in feedback_response.parts
+                                if isinstance(p, ToolCallPart)
+                            }
+                            deferred = (
+                                {call.tool_call_id for call in ev.result.output.calls}
+                                if isinstance(ev.result.output, DeferredToolRequests)
+                                else set()
+                            )
+                            if calls <= feedback_completed | deferred:
+                                _, review = feedback_response_problem(
+                                    deps, feedback_response
+                                )
+                                if review is not None:
+                                    deps.feedback_review = review
+                            else:
+                                deps.hidden_feedback_responses.add(
+                                    id(feedback_response)
+                                )
+                                direction_chunks.clear()
+                            feedback_response = None
                         if buffer_direction:
                             if deps.direction_rendered or (
                                 deps.feedback_contract and deps.feedback_review is None
@@ -1419,6 +1481,19 @@ class Engine:
                             yield TurnDone(reason="end", usage=session.usage)
         # Surface any failure to the host and keep the session usable.
         except Exception as exc:
+            if buffer_direction and direction_chunks:
+                # Earlier pages may already be visible. Preserve their recovery
+                # history without including the current undisplayed response.
+                response = next(
+                    (
+                        m
+                        for m in reversed(events.new_messages())
+                        if isinstance(m, ModelResponse)
+                    ),
+                    None,
+                )
+                if response is not None:
+                    deps.hidden_feedback_responses.add(id(response))
             if delivered and not history_saved:
                 # The stream may fail after teaching has reached the learner. Keep the
                 # interrupted run, including accepted answers and completed tool results,

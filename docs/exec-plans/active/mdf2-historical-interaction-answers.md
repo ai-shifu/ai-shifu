@@ -39,9 +39,19 @@ blocks correctly remain excluded: their generated text is teacher prose.
       load only projection columns and roll back failed test sessions before cleanup,
       addressing the three CodeRabbit review-summary suggestions. All 3317 learning
       cases pass, with four subtests and one expected skip.
-- [ ] 2026-10-12: Verify final CI and the corrected sim candidate.
-- [ ] 2026-10-12: Open one Ready for Review PR, reply to each substantive AI finding in its
-      original thread, integrate sim and verify actual history responses.
+- [x] 2026-10-12: Corrected sim 68a2f77ad, build 586 / Drone 5375, is Ready
+      on both APIs and the web replica; five relevant file fingerprints match on
+      each API. The merged candidate passes 3409 learning cases, four subtests,
+      one expected skip and all-file gates. A read-only internal learner comparison
+      restores three submitted text controls, preserves the fourth pending control
+      and every other history field, matches original checkpoint inputs, and is
+      stable across repeated reads. No teaching request or database write occurs.
+- [ ] 2026-10-12: Complete final-head CI; runtime is still pending on functional
+      commit e98e98ead while backend/frontend/static/security checks pass.
+- [x] 2026-10-12: Open Ready for Review #3119 and reply to all four inline findings
+      in their original threads, plus each of three CodeRabbit review-summary
+      suggestions in the original PR conversation with a link to that review.
+      Accepted replies cite pushed e98e98ead and the passing validation.
 - [ ] 2026-10-12: Maintainer merge and production rollout; no automatic merge.
 
 ## Decision Log
@@ -80,9 +90,12 @@ sections; complete the required plan structure before rerunning.
 ## Outcomes & Retrospective
 
 The local reader restores historical submissions without changing persisted data.
-Technical checks and the private read-only projection support the fix; the first
-review surfaced two edge cases and both have database regressions. Final deployed
-history responses, automated review and production rollout remain outstanding.
+Technical checks and the private read-only projection support the fix. Review
+findings have regressions and replies. Corrected sim history requests verify actual
+text recovery, while installed renderer and database tests cover single/multiple
+choices and mixed inputs. Final CI and maintainer-controlled production rollout
+remain outstanding. The first deployment check rejected a rolling mixed-image
+state; verification succeeded only after both APIs and web were ready.
 
 ## Context and Orientation
 
