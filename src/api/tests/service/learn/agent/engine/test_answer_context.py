@@ -96,7 +96,8 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
                 if p.startswith('{"status":"authored_section"')
             ]
             assert len(focused) == 1
-            assert list(focused[0]) == ["status", "text", "notice"]
+            assert list(focused[0]) == ["status", "answer_id", "text", "notice"]
+            assert focused[0]["answer_id"] == "focused-1"
             assert "## If the submission does not pass" in (info.instructions or "")
             assert "Do not combine the failed and passing branches" in (
                 info.instructions or ""

@@ -626,6 +626,10 @@ def feedback_response_problem(
     if reviews:
         review = reviews[0]
         if problem := review.problem(deps.direction_answers, deps.direction_sections):
+            if review.answer_id not in deps.direction_sections:
+                problem += "; supported answer_id values: " + json.dumps(
+                    sorted(deps.direction_sections)
+                )
             return problem, None
         if deps.feedback_review is not None and review != deps.feedback_review:
             return (
@@ -778,6 +782,12 @@ async def interact(
     spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
     if direction is not None:
         problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)
+        if direction.answer_id not in ctx.deps.direction_sections:
+            problem = (
+                "direction.answer_id must name an interaction returned in this turn; "
+                "supported answer_id values: "
+                + json.dumps(sorted(ctx.deps.direction_sections))
+            )
         section = ctx.deps.direction_sections.get(direction.answer_id)
         previous = ctx.deps.direction_inputs.get(direction.answer_id)
         if not problem and (

@@ -6,7 +6,8 @@ the branch causes a retry before display within the existing request budget.
 
 - A failed answer at the author's checking-direction stage MUST use
   `interact.direction`, without free content or sibling calls. This is the
-  correction input itself, not a planning call. Copy the actual answer ID,
+  correction input itself, not a planning call. Copy `answer_id` exactly from
+  the host `authored_section.answer_id` reference, together with the
   original authored rule/criterion and actual submission evidence. A direction
   points to a bounded check and leaves its reasoning unanswered; it does not
   recite a requirement as the answer. Honor the author's aspect/question count.
@@ -27,6 +28,9 @@ the branch causes a retry before display within the existing request budget.
 
 Every `review` includes the actual returned `answer_id`, an exact
 `submission_quote` from that input and a brief internal `reason` for the branch.
+The host reference supplies the opaque interaction ID explicitly. A course variable,
+question number or input placeholder is not that ID. Copy the same reference ID
+for either `direction` or `review`; a direction must omit ordinary `review`.
 These internal fields are not displayed. Do not label an incomplete answer as
 accepted, an attempted answer as clarification or a direction as later help to
 bypass the contract. The host checks sources and shape; you still choose the

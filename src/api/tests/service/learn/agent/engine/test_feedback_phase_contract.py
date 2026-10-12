@@ -12,7 +12,12 @@ from flaskr.service.learn.agent.engine import (
     InteractionSpec,
     Session,
 )
-from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelMessagesTypeAdapter,
+    RetryPromptPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 from .test_direction_feedback import (
@@ -588,3 +593,115 @@ async def test_failure_after_successful_page_saves_only_already_visible_prose(
     raw = ModelMessagesTypeAdapter.dump_json(session.messages).decode()
     assert "Visible accepted page" in raw
     assert "Undisplayed failed continuation" not in raw
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+@pytest.mark.parametrize("transport", ["text", "values"])
+@pytest.mark.parametrize("branch", ["direction", "review"])
+async def test_feedback_copies_explicit_returned_id_from_host_reference(
+    reload: bool, transport: str, branch: str
+) -> None:
+    calls = 0
+    answer_id = "call_provider_opaque_731"
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, answer_id
+            )
+        else:
+            reference = next(
+                json.loads(p.content)
+                for m in messages
+                for p in m.parts
+                if isinstance(p, UserPromptPart)
+                and isinstance(p.content, str)
+                and p.content.startswith('{"status":"authored_section"')
+            )
+            copied = reference["answer_id"]
+            assert copied == answer_id
+            assert copied != "Answer"
+            args = {"type": "text", "prompt": "", "placeholder": "Answer"}
+            if branch == "direction":
+                args["direction"] = {**_direction(), "answer_id": copied}
+            else:
+                yield "Valid clarification."
+                args["review"] = _review("clarification", answer_id=copied)
+            yield _call(args, "next")
+
+    engine = _engine(stream)
+    engine.limits.request_limit = 1
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    before = ModelMessagesTypeAdapter.dump_json(session.messages)
+    count = len(session.messages)
+    turn = (
+        InteractionResponseTurn(text=WRONG)
+        if transport == "text"
+        else InteractionResponseTurn(values=[WRONG])
+    )
+    events = await _collect(engine.run_turn(session, turn))
+    assert _text(events) == (
+        DISPLAY if branch == "direction" else "Valid clarification."
+    )
+    assert session.pending[0].tool_call_id == "next"
+    assert calls == 2
+    assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
+    assert not any(
+        isinstance(p, UserPromptPart)
+        and isinstance(p.content, str)
+        and p.content.startswith('{"status":"authored_section"')
+        for m in session.messages
+        for p in m.parts
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("branch", ["direction", "review"])
+async def test_unknown_feedback_id_retry_supplies_exact_supported_id(
+    branch: str,
+) -> None:
+    calls = 0
+    answer_id = "call_provider_opaque_953"
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, answer_id
+            )
+        else:
+            selected = "course_answer_variable" if calls == 2 else answer_id
+            if calls == 3:
+                retry = [
+                    p.content
+                    for m in messages
+                    for p in m.parts
+                    if isinstance(p, RetryPromptPart)
+                ]
+                assert any(answer_id in str(content) for content in retry)
+            args = {"type": "text", "prompt": "", "placeholder": "Answer"}
+            if branch == "direction":
+                args["direction"] = {**_direction(), "answer_id": selected}
+            else:
+                yield "Hidden invalid ID." if calls == 2 else "Valid clarification."
+                args["review"] = _review("clarification", answer_id=selected)
+            yield _call(args, "bad" if calls == 2 else "next")
+
+    engine = _engine(stream)
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == (
+        DISPLAY if branch == "direction" else "Valid clarification."
+    )
+    assert session.pending[0].tool_call_id == "next"
+    assert calls == 3
