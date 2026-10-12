@@ -93,7 +93,7 @@ def _resolve(
     outline_bid: str,
     preview_mode: bool,
     require_script: bool = True,
-) -> tuple[str, str, LLMSettings]:
+) -> tuple[str, str, LLMSettings, int | None]:
     """Read the script, the author's teaching brief, and the model settings for this lesson.
 
     Model resolution follows 1.0: use the course selection with runtime fallback.
@@ -111,6 +111,16 @@ def _resolve(
         app, user_bid=user_bid, shifu=shifu, outline=outline, preview_mode=preview_mode
     )
 
+    from flaskr.service.learn.learn_funcs import get_current_lesson_outline
+
+    current = get_current_lesson_outline(
+        shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+    )
+    # Bind the revision to the exact physical row supplying this turn's script.
+    # A concurrent publish/edit or legacy structure leaves the baseline unknown.
+    content_revision = (
+        current.content_revision if current and current.id == outline.id else None
+    )
     course_model = selection_model(shifu)
     brief = _teaching_brief(outline_model, outline=outline, shifu=shifu)
     return (
@@ -121,6 +131,7 @@ def _resolve(
             temperature=shifu.llm_temperature,
             usage_metadata=selection_metadata(shifu),
         ),
+        content_revision,
     )
 
 
@@ -284,7 +295,7 @@ def agent_lesson_events(
                     )
         except RewindUnavailableError:
             raise_error("server.learn.agentRewindUnavailable")
-    script, brief, settings = _resolve(
+    script, brief, settings, content_revision = _resolve(
         app,
         user_bid=user_bid,
         shifu_bid=shifu_bid,
@@ -409,6 +420,7 @@ def agent_lesson_events(
                 engine=engine,
                 script=script,
                 teaching_brief=brief,
+                content_revision=content_revision,
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
                 outline_bid=outline_bid,

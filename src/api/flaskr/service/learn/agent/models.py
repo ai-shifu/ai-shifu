@@ -87,6 +87,14 @@ class LearnAgentSession(db.Model):
         default="",
         comment="Engine session document as JSON",
     )
+    content_revision = Column(
+        BIGINT,
+        nullable=True,
+        comment=(
+            "Lesson content (MarkdownFlow script) revision saved with the first "
+            "messages of a learning attempt; NULL legacy/unstarted, 0 unknown"
+        ),
+    )
     schema_version = Column(
         Integer,
         nullable=False,

@@ -374,7 +374,7 @@ def test_get_outline_item_tree_never_infers_live_mode_from_primary_model(
     assert result.outline_items[0].follow_up_mode == "text"
 
 
-def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(
+def test_get_outline_item_tree_does_not_infer_legacy_updates_from_timestamps(
     app: object,
 ) -> None:
     with app.app_context():
@@ -455,7 +455,7 @@ def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(
     assert result.outline_items
     assert result.outline_items[0].has_content_update_for_current_user is False
     assert (
-        result.outline_items[0].children[0].has_content_update_for_current_user is True
+        result.outline_items[0].children[0].has_content_update_for_current_user is False
     )
 
 
@@ -527,7 +527,7 @@ def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lesson
     assert result.outline_items[0].has_content_update_for_current_user is False
 
 
-def test_get_outline_item_tree_uses_normalized_published_effective_time(
+def test_get_outline_item_tree_does_not_infer_unknown_baselines_from_timezones(
     app: object,
 ) -> None:
     with app.app_context():
@@ -588,7 +588,7 @@ def test_get_outline_item_tree_uses_normalized_published_effective_time(
     )
 
     assert result.outline_items
-    assert result.outline_items[0].has_content_update_for_current_user is True
+    assert result.outline_items[0].has_content_update_for_current_user is False
 
 
 def test_get_outline_item_tree_ignores_published_copy_created_at_for_updates(

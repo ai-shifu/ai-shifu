@@ -26,6 +26,8 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-26` | Canonical: `true`
 - [Learner Memory Admission](../product-specs/learner-memory-admission.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-07` | Canonical: `true`
+- [Lesson Content Update Recommendations](../product-specs/lesson-content-updates.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-12` | Canonical: `true`
 - [Lesson Memory Context](../product-specs/lesson-memory-context.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-07` | Canonical: `true`
 - [MDFlow Element Backfill](../product-specs/mdflow-element-backfill.md)
