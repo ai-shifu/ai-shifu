@@ -107,6 +107,13 @@ async def test_omitting_phase_cannot_release_worked_prose_or_side_effects(
     raw = ModelMessagesTypeAdapter.dump_json(session.messages).decode()
     assert "Unreviewed worked answer" not in raw
     assert "correct the whole" in raw or "feedback branch" in raw
+    from flaskr.service.learn.agent.gateway_model import map_messages
+
+    assert all(
+        message.get("content") or message.get("tool_calls")
+        for message in map_messages(session.messages)
+        if message["role"] == "assistant"
+    )
 
 
 @pytest.mark.anyio
