@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  buildCourseShareContent,
   copyCourseShareText,
   fenceCoursePosterMaterial,
   normalizeCourseShareUrl,
@@ -74,21 +75,18 @@ export function CourseShareMenu(props: CourseShareButtonProps) {
       try {
         const url = normalizeCourseShareUrl(props.resolveShareUrl());
         if (!url) throw new Error('Invalid course URL');
-        const courseMaterial = [
-          props.courseTitle,
-          props.courseDescription?.trim(),
-        ]
-          .filter(Boolean)
-          .join('\n\n');
+        const content = buildCourseShareContent({
+          courseTitle: props.courseTitle,
+          courseDescription: props.courseDescription,
+          recommendation: t('common.core.shareCourseMessage', {
+            courseName: props.courseTitle,
+          }),
+          url,
+        });
         setPrompt(
           t('common.core.posterPrompt', {
-            courseContent: fenceCoursePosterMaterial(courseMaterial),
+            courseContent: fenceCoursePosterMaterial(content.payload.text),
             courseUrl: url,
-            shareRecommendation: fenceCoursePosterMaterial(
-              t('common.core.shareCourseMessage', {
-                courseName: props.courseTitle,
-              }),
-            ),
           }),
         );
         setStatus('idle');
