@@ -321,6 +321,7 @@ def run_agent_lesson(
     engine: Engine,
     script: str,
     teaching_brief: str = "",
+    content_revision: int | None = None,
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
@@ -415,6 +416,7 @@ def run_agent_lesson(
     session_holder: dict[str, Any] = {
         "rewind": rewind,
         "preview_generation": preview_generation,
+        "content_revision": content_revision,
         "memory_generations": memory_generations,
     }
 
@@ -1144,6 +1146,7 @@ def _stream_turn(
                         rewind=session_holder.get("rewind"),
                         memory_generations=session_holder.get("memory_generations"),
                         preview_generation=session_holder.get("preview_generation"),
+                        content_revision=session_holder.get("content_revision"),
                         preview_question_ids=preview_question_ids,
                     )
                 pending_memory = []
@@ -1272,6 +1275,7 @@ def _stream_turn(
                 rewind=session_holder.get("rewind"),
                 memory_generations=session_holder.get("memory_generations"),
                 preview_generation=session_holder.get("preview_generation"),
+                content_revision=session_holder.get("content_revision"),
                 preview_question_ids=preview_question_ids,
             )
 
@@ -1317,6 +1321,7 @@ def _persist(
     memory_generations: dict[str, int] | None = None,
     preview_generation: str | None = None,
     preview_question_ids: list[str] | None = None,
+    content_revision: int | None = None,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -1447,6 +1452,7 @@ def _persist(
             outline_item_bid=outline_bid,
             preview_mode=preview_mode,
             stage=stage_everything,
+            content_revision=content_revision,
             **(
                 {"preview_generation": preview_generation} if preview_generation else {}
             ),

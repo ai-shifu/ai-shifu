@@ -53,6 +53,7 @@ class Deps:
     feedback_contract: bool = False
     feedback_review: FeedbackReview | None = None
     hidden_feedback_responses: set[int] = field(default_factory=set)
+    feedback_text_pending: bool = False
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
@@ -86,6 +87,21 @@ class Deps:
     exercise_evidence: list[dict[str, Any]] | None = None  # Frozen within this run.
     exercise_read_offset: int | None = 0  # Next contiguous original-evidence page.
     exercise_report_totals: dict[str, int | None] | None = None
+
+    def hide_feedback_response(self, response: ModelResponse) -> None:
+        """Track withheld prose until a successful replacement actually supplies it."""
+        self.hidden_feedback_responses.add(id(response))
+        if any(isinstance(p, TextPart) and p.content.strip() for p in response.parts):
+            self.feedback_text_pending = True
+
+    def accept_feedback_response(
+        self, response: ModelResponse, review: FeedbackReview | None
+    ) -> None:
+        """Commit delivery state only after every tool succeeds or truly defers."""
+        if review is not None:
+            self.feedback_review = review
+        if any(isinstance(p, TextPart) and p.content.strip() for p in response.parts):
+            self.feedback_text_pending = False
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
@@ -590,7 +606,7 @@ def validate_direction_call(
     if response is not None and ctx.deps.feedback_contract:
         problem, _ = feedback_response_problem(ctx.deps, response)
         if problem:
-            ctx.deps.hidden_feedback_responses.add(id(response))
+            ctx.deps.hide_feedback_response(response)
             raise ModelRetry(
                 problem + "; correct the whole response before any display"
             )
@@ -623,6 +639,20 @@ def feedback_response_problem(
             None,
             None,
         )  # interact validates its entire structured call before display.
+    if (
+        deps.feedback_text_pending
+        and any(call.tool_name in ("interact", "finish") for call in calls)
+        and not any(
+            isinstance(p, TextPart) and p.content.strip() for p in response.parts
+        )
+    ):
+        return (
+            "Earlier feedback prose was not displayed. Regenerate complete authored "
+            "feedback as content with its valid tool/branch before pausing or finishing; "
+            "a replacement control or internal review reason alone cannot deliver it. "
+            "Do not restore rejected prose verbatim or skip the author's stage",
+            None,
+        )
     if reviews:
         review = reviews[0]
         if problem := review.problem(deps.direction_answers, deps.direction_sections):

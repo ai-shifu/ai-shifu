@@ -1,0 +1,203 @@
+# Lesson content revision tracking with one nullable column
+
+## Purpose / Big Picture
+
+Simplify PR #3112 to compare lesson content revisions for formal and preview 2.0
+attempts. Store current revisions in existing structure JSON and add only the
+nullable session baseline column. Preserve the frontend boolean, retake
+interaction and analytics contracts in
+[Lesson Content Update Recommendations](../../product-specs/lesson-content-updates.md).
+
+## Progress
+
+- [x] 2026-10-12 CST: User approved reusing revisions and retaining a notice
+  after text reversion. Selected one nullable column and conservative unknown
+  baselines to simplify the implementation.
+- [x] 2026-10-12 CST: Updated the existing product contract and this plan for
+  the simplified implementation.
+- [x] 2026-10-12 CST: Implemented authoring revision metadata, nullable
+  baseline migration, capture with the first saved learning messages and scalar
+  comparisons.
+- [x] 2026-10-12 CST: Verified authoring, publication, learning lifecycle,
+  migration compatibility and frontend contract regressions.
+- [x] 2026-10-12 CST: Passed repository gates and prepared the simplified
+  implementation and verification description for PR #3112.
+- [x] 2026-10-12 CST: Clarified review terminology: lesson content means the
+  MarkdownFlow script; a learning attempt records its baseline with its first
+  saved messages. Aligned the model, migration and product documentation.
+- [x] 2026-10-12 CST: Completed the changed `_resolve` return contract in the
+  memory-evaluation CLI and remaining course-usage/evaluation test doubles.
+- [x] 2026-10-12 CST: Addressed the next review round: preserve empty-history
+  notices, decouple retakes from analytics metadata, retain unknown-schema
+  progress, recognize legacy block children, batch legacy revision recovery,
+  and prefer instant MySQL column addition with explicit compatibility fallback.
+- [x] 2026-10-12 CST: Deferred retake analytics callbacks until after the
+  stop/reset calls begin. Verified callback order, duplicate protection, and
+  retake completion even when tracking delivery never settles; clarified the
+  timing and JavaScript-thread limits in the product contract.
+- [ ] 2026-10-12 CST: Verify migration/deployment order and formal/preview
+  behavior after release.
+
+## Surprises & Discoveries
+
+- Comparing lesson content extracted from session LONGTEXT still parses
+  conversation history in the database. Revision metadata removes that work
+  from detection and avoids maintaining JSON extraction and database-version branches.
+- Missing historical revision metadata cannot establish what an existing
+  learner originally studied. Old session baselines must stay `NULL`.
+- Clearing a draft previously allowed history/reset to reach formal learning.
+  Keep the scoped lifecycle safeguards while simplifying detection.
+- Historical cleanup can cross a deleted intermediate content version and find
+  earlier identical content. Protect the structure's recorded revision explicitly
+  so reverting text still keeps its new version.
+- Initializing legacy revision metadata during publish is a draft write. Use
+  the existing course lock and current-read structure to avoid overwriting a
+  concurrent edit.
+- Unknown session schemas must suppress update notices without suppressing
+  scalar learning progress. Legacy block children do not make a lesson a chapter.
+- A MySQL repeatable-read test snapshot survived a separate restore request;
+  close the test's previous request session before checking the restore result.
+  The production restore path already persists content and revision together.
+
+## Decision Log
+
+- Current revision belongs to `HistoryItem.content_revision` in existing
+  structure JSON; only `LearnAgentSession.content_revision` adds a column.
+- Save/publish paths establish missing structure revisions with the existing
+  draft content revision calculation. Reads do not guess or backfill them.
+- Capture the baseline with a new learning attempt's first saved messages.
+  Use `0` for a started attempt with an unknown source revision; existing
+  sessions retain `NULL`. Both unknown states suppress recommendations.
+- Changed lesson content advances the revision even if a later edit restores
+  its old text. Title/settings edits and republishing unchanged content retain
+  the revision.
+- Resume/follow-up/history reads preserve the baseline. Reset retires only the
+  selected course/lesson/scope; the next attempt establishes its own baseline.
+- Compare known positive revisions without parsing session JSON. Runtime
+  deserialization errors remain on the existing session loading path; preview
+  status retains the legacy `turn`/`finished` fallback.
+- Treat an engine document ID change as a new attempt when existing loader
+  compatibility handling restarts an unusable session; preserve the baseline
+  on all same-ID continuations, including legacy NULL sessions.
+- Keep frontend fields, missing-field behavior and analytics unchanged.
+  Engine routing and the existing scriptless 1.0 execution fallback are outside
+  this change.
+- Batch missing authoring revisions in groups of 20 lessons and pages of 20
+  historical versions per lesson. Preserve the 1,000-active-version bound and
+  exact physical-row identity; already initialized revisions need no recovery.
+- Prefer `ALGORITHM=INSTANT` for the new nullable column. Only explicit MySQL
+  unsupported-algorithm errors 1845/1846 retry `INPLACE, LOCK=NONE`, retaining
+  compatibility with the deployed build recorded by an earlier migration.
+  Offline SQL remains instant-only and requires target-environment review.
+
+## Outcomes & Retrospective
+
+The revision replacement is implemented. Related backend learning, authoring,
+API, adapter, golden and migration tests passed: 4,384 passed, 96 skipped.
+Four frontend notice/history/retake suites passed 135 tests. Frontend lint
+passed with existing warnings; type-check still reports the same two pre-existing
+admin users test errors at lines 964 and 1026, previously reproduced on the
+clean base with identical locked dependencies.
+
+Eight isolated MySQL/SQLite benchmark scenarios use the existing active-key
+index and one scalar query. After adding the schema scalar, local MySQL
+100 x 1 MiB sessions measured 4.61/5.17 ms
+p50/sample p95; see the [measurement boundaries and migration verification](../../references/lesson-content-update-performance.md).
+Tooling doctor, repository harness, architecture/UOW gates and all-files
+pre-commit passed. The actual Alembic migration passed SQLite regression tests and isolated local
+MySQL upgrade/NULL preservation/new-value/downgrade verification. No configured
+development database was migrated and no deployment is claimed.
+
+The terminology follow-up passed 76 migration, session-persistence and content
+update tests. Backend CI then exposed remaining three-value `_resolve` test
+doubles in `tests/test_llm.py`. The same return-contract audit found the
+memory-evaluation CLI and its test double; these now accept the content revision
+as the fourth value. All 83 focused course-usage and memory-evaluation tests
+passed, including the 12 previously failing CI cases.
+
+The next review round passed 98 learning lifecycle, loaded-session and real
+preview regressions, 12 migration tests, and all 1,200 authoring tests (3 skipped).
+Three affected frontend suites passed 119 tests; lint passed with existing
+warnings and type checking retained only the two previously verified admin-test
+errors. The eight isolated comparison scenarios still use one indexed scalar
+query. Real local MySQL migration execution selected INSTANT and preserved old
+NULLs, new values and rows across downgrade. A read-only dev01 capability check
+reported MySQL 8.0.36 Source distribution; no remote DDL or deployment was run.
+The final combined focused backend run passed 127 tests. The complete revision
+module also passed 17 tests on an isolated local MySQL database after correcting
+the test request boundary. Tooling doctor and all-files pre-commit, including
+the repository harness and architecture/UOW checks, passed.
+
+The remote branch then rebased the original four PR commits unchanged onto
+current main. Replayed only this review round's unpublished commits onto that
+head, preserving the remote history. The integration run passed 840 engine and
+focused backend tests. Frontend type checking now passes because main includes
+the separate admin-user test fix; the earlier failure above is historical.
+
+The next unchanged remote rebase retained all 13 PR patches. All checks passed
+on head `93e7e48`, including 11,611 backend tests (23 skipped), frontend tests,
+runtime harness and automated review. That review added a callback-timing
+finding; the focused tracking and notice suites passed 18 tests after the fix.
+The combined notice, tracking and history suites passed 120 tests, and frontend
+type checking passed again.
+
+## Context and Orientation
+
+Authoring history and publishing own the structure's content revision.
+`agent/session_store.py` owns the persisted attempt baseline. Learning
+history/directory helpers expose the comparison, and `active_key_for`
+separates formal and preview sessions. The frontend already consumes the
+records boolean and emits the two documented retake events.
+
+## Plan of Work
+
+Update authoring/publication revision propagation and add the nullable session
+column. Capture it with the first saved learning messages, replace content
+parsing with scalar revision comparison, retain scoped history/reset behavior,
+and remove the superseded comparison branches. Verify the changed contracts before updating
+PR #3112 and planning rollout.
+
+## Concrete Steps
+
+Use the repository's existing migration and unit-of-work workflows. Run
+focused authoring, publication, session persistence and lesson update tests,
+then related learn/API regressions. Recheck the frontend notice, scope-switch,
+reset and analytics suites; run type-check and lint with locked dependencies.
+Regenerate knowledge indexes after documentation settles. Run the tooling
+doctor, harness, architecture, UOW ratchet and all-files pre-commit gates
+before committing. Record actual outcomes here after they complete.
+
+## Validation and Acceptance
+
+- Lesson content changes advance revisions; settings-only changes and identical
+  republication preserve them. A change followed by text restoration remains
+  a revision change.
+- The first saved learning messages record the baseline; preview reservation
+  does not.
+  Resume, follow-up and history reads never replace it. Old `NULL`, new
+  unknown `0` and missing current metadata never prompt a retake.
+- Directory and records agree for in-progress/completed attempts, use current
+  structure revisions, and keep formal/preview histories and resets isolated,
+  including cleared draft content and repeated retakes.
+- Existing structure JSON loads without the optional field. Migration adds
+  exactly one nullable baseline column without historical backfill. Detection
+  needs neither stored-message parsing nor historical content transfer.
+- Frontend absent-field behavior, late-response protection and the existing
+  retake analytics contract remain covered. Earlier JSON-comparison benchmark
+  numbers are not acceptance evidence for the new path.
+
+## Idempotence and Recovery
+
+Never backfill old session baselines with a current revision. Repeating a
+title/settings save or unchanged publication must not manufacture updates. Apply
+the additive migration before code that uses it. Application rollback can
+retain the nullable column and optional structure metadata; remove neither
+while deployed code depends on it. Keep test data isolated from development
+or production learning records.
+
+## Interfaces and Dependencies
+
+The public boolean contracts remain unchanged. `HistoryItem` gains optional
+revision metadata in its existing JSON, and `LearnAgentSession` gains one
+nullable `BIGINT` baseline. No new revision table, digest, cache, dependency
+version or frontend payload is required.

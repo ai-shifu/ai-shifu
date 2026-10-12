@@ -2,6 +2,7 @@
   "code": 0,
   "message": "success",
   "data": {
+    "has_content_update_for_current_user": false,
     "elements": []
   }
 }

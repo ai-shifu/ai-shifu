@@ -8,7 +8,6 @@ import time
 import uuid
 from collections.abc import Iterator
 from dataclasses import replace
-from datetime import UTC, datetime
 
 from flask import Flask, has_request_context, request
 from flaskr.api.llm import is_live_follow_up_model_available
@@ -49,6 +48,7 @@ from flaskr.service.learn.legacy_record_builder import (
     LegacyLearnRecord,
     build_legacy_record_for_progress,
 )
+from flaskr.service.learn.lesson_content_updates import load_lesson_content_states
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
     is_lesson_feedback_interaction,
@@ -136,31 +136,6 @@ from flaskr.util import generate_id
 from markdown_flow import (
     InteractionParser,
 )
-
-
-def _normalize_dt_to_utc(
-    value: datetime | None,
-) -> datetime | None:
-    if value is None:
-        return None
-    if value.tzinfo is not None:
-        return value.astimezone(UTC)
-    return value.replace(tzinfo=UTC)
-
-
-def _resolve_published_effective_updated_at(
-    outline_item: PublishedOutlineItem,
-) -> datetime | None:
-    return _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
-
-
-def _resolve_progress_effective_updated_at(
-    progress_record: LearnProgressRecord | None,
-) -> datetime | None:
-    return _normalize_dt_to_utc(
-        getattr(progress_record, "updated_at", None) if progress_record else None,
-    )
-
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -300,6 +275,45 @@ def get_shifu_info(
         )
 
 
+def _is_lesson_outline(item: HistoryItem) -> bool:
+    """Legacy block children belong to a lesson; outline children make a chapter."""
+    return item.type == "outline" and not any(
+        child.type == "outline" for child in item.children
+    )
+
+
+def get_current_lesson_outline(
+    *, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> HistoryItem | None:
+    """Resolve a leaf's physical row from the same structure used by the directory."""
+    struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
+    row = (
+        struct_model.query.with_entities(struct_model.struct)
+        .filter_by(shifu_bid=shifu_bid, deleted=0)
+        .order_by(struct_model.id.desc())
+        .first()
+    )
+    if row is None:
+        return None
+    pending = [HistoryItem.from_json(row.struct)]
+    while pending:
+        item = pending.pop()
+        if item.bid == outline_bid and _is_lesson_outline(item):
+            return item
+        pending.extend(item.children)
+    return None
+
+
+def get_current_lesson_outline_id(
+    *, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> int | None:
+    """Return the current physical row for history/reset scope selection."""
+    item = get_current_lesson_outline(
+        shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+    )
+    return item.id if item else None
+
+
 def get_outline_item_tree(
     app: Flask, shifu_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnOutlineItemsWithBannerInfoDTO:
@@ -392,35 +406,60 @@ def get_outline_item_tree(
                 return "disabled"
             return interaction_mode
 
-        progress_records = LearnProgressRecord.query.filter(
-            LearnProgressRecord.user_bid == user_bid,
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.outline_item_bid.in_(outline_items_bids),
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-            LearnProgressRecord.deleted == 0,
-        ).all()
-        from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+        from flaskr.service.learn.agent.preview_history import (
+            outlines_with_agent_history,
+        )
         from flaskr.service.learn.agent.routing import uses_agent_engine
 
-        agent_preview = preview_mode and uses_agent_engine(shifu_bid)
-        preview_sessions = {}
-        if agent_preview:
-            preview_sessions = {
-                row.outline_item_bid: row
-                for row in LearnAgentSession.query.filter(
-                    LearnAgentSession.user_bid == user_bid,
-                    LearnAgentSession.shifu_bid == shifu_bid,
-                    LearnAgentSession.active_key.in_(
-                        [
-                            active_key_for(user_bid, bid, preview_mode=True)
-                            for bid in outline_items_bids
-                        ]
-                    ),
-                    LearnAgentSession.deleted == 0,
-                ).all()
-            }
+        agent_enabled = uses_agent_engine(shifu_bid)
+        agent_preview = preview_mode and agent_enabled
+        candidate_outline_ids = {
+            item.bid: item.id
+            for item in outline_items
+            if _is_lesson_outline(item)
+            and item.id in outline_items_db_map
+            and outline_items_db_map[item.id].shifu_bid == shifu_bid
+            and outline_items_db_map[item.id].outline_item_bid == item.bid
+            and not outline_items_db_map[item.id].hidden
+        }
+        # A cleared 2.0 draft must stay isolated even after its session is reset.
+        # Truly scriptless 1.0 lessons retain their existing history behavior.
+        scoped_empty_previews = (
+            outlines_with_agent_history(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bids=[
+                    bid
+                    for bid, row_id in candidate_outline_ids.items()
+                    if not (outline_items_db_map[row_id].content or "").strip()
+                ],
+            )
+            if agent_preview
+            else set()
+        )
+        progress_outline_bids = (
+            [
+                item.bid
+                for item in outline_items
+                if item.id in outline_items_db_map
+                and not (outline_items_db_map[item.id].content or "").strip()
+                and item.bid not in scoped_empty_previews
+            ]
+            if agent_preview
+            else outline_items_bids
+        )
+        progress_records = (
+            LearnProgressRecord.query.filter(
+                LearnProgressRecord.user_bid == user_bid,
+                LearnProgressRecord.shifu_bid == shifu_bid,
+                LearnProgressRecord.outline_item_bid.in_(progress_outline_bids),
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+                LearnProgressRecord.deleted == 0,
+            ).all()
+            if progress_outline_bids
+            else []
+        )
         progress_records_map: dict[str, LearnProgressRecord] = {}
-        latest_progress_record_map: dict[str, LearnProgressRecord] = {}
         for progress_record in progress_records:
             current_status_record = progress_records_map.get(
                 progress_record.outline_item_bid
@@ -430,37 +469,37 @@ def get_outline_item_tree(
                 or progress_record.id > current_status_record.id
             ):
                 progress_records_map[progress_record.outline_item_bid] = progress_record
-            latest_progress_record = latest_progress_record_map.get(
-                progress_record.outline_item_bid
+
+        eligible_outline_ids = {
+            bid: row_id
+            for bid, row_id in candidate_outline_ids.items()
+            if agent_preview
+            or (
+                bid in progress_records_map
+                and progress_records_map[bid].status
+                in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
             )
-            progress_updated_at = _resolve_progress_effective_updated_at(
-                progress_record
+        }
+        content_states = (
+            load_lesson_content_states(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                preview_mode=preview_mode,
+                outline_revisions={
+                    item.bid: item.content_revision
+                    for item in outline_items
+                    if item.bid in eligible_outline_ids
+                },
             )
-            latest_progress_updated_at = _resolve_progress_effective_updated_at(
-                latest_progress_record
-            )
-            if latest_progress_record is None or (
-                (
-                    progress_updated_at is not None
-                    and latest_progress_updated_at is not None
-                    and progress_updated_at > latest_progress_updated_at
-                )
-                or (
-                    latest_progress_updated_at is None
-                    and progress_updated_at is not None
-                )
-                or (
-                    progress_updated_at == latest_progress_updated_at
-                    and progress_record.id > latest_progress_record.id
-                )
-            ):
-                latest_progress_record_map[progress_record.outline_item_bid] = (
-                    progress_record
-                )
+            if agent_enabled
+            else {}
+        )
 
         def build_outline_item_tree(
             item: HistoryItem,
         ) -> LearnOutlineItemInfoDTO | None:
+            if item.type != "outline":
+                return None
             outline_item: DraftOutlineItem | PublishedOutlineItem = (
                 outline_items_db_map.get(item.id)
             )
@@ -473,35 +512,22 @@ def get_outline_item_tree(
                 status = progress_record.status
                 if status == LEARN_STATUS_LOCKED:
                     status = LEARN_STATUS_NOT_STARTED
-            if agent_preview and (outline_item.content or "").strip():
+            content_state = content_states.get(outline_item.outline_item_bid)
+            if agent_preview and (
+                (outline_item.content or "").strip()
+                or outline_item.outline_item_bid in scoped_empty_previews
+            ):
                 status = LEARN_STATUS_NOT_STARTED
-                draft_session = preview_sessions.get(outline_item.outline_item_bid)
-                if draft_session is not None:
+                if content_state is not None and content_state.started:
                     status = (
                         LEARN_STATUS_COMPLETED
-                        if draft_session.finished
+                        if content_state.finished
                         else LEARN_STATUS_IN_PROGRESS
                     )
-            is_lesson_node = not bool(item.children)
-            has_content_update_for_current_user = False
-            if not preview_mode and is_lesson_node:
-                latest_progress_record = latest_progress_record_map.get(
-                    outline_item.outline_item_bid
-                )
-                published_updated_at = _resolve_published_effective_updated_at(
-                    outline_item
-                )
-                latest_progress_updated_at = _resolve_progress_effective_updated_at(
-                    latest_progress_record
-                )
-                has_content_update_for_current_user = bool(
-                    latest_progress_record is not None
-                    and latest_progress_record.status
-                    in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
-                    and published_updated_at
-                    and latest_progress_updated_at
-                    and published_updated_at > latest_progress_updated_at
-                )
+            is_lesson_node = _is_lesson_outline(item)
+            has_content_update_for_current_user = bool(
+                is_lesson_node and content_state and content_state.has_content_update
+            )
             outline_item_info = LearnOutlineItemInfoDTO(
                 bid=outline_item.outline_item_bid,
                 position=outline_item.position,
@@ -754,13 +780,17 @@ def reset_learn_record(
         from flaskr.service.learn.agent.routing import uses_agent_engine
 
         if preview_mode and uses_agent_engine(shifu_bid):
-            from flaskr.service.learn.agent.preview_history import has_preview_script
+            from flaskr.service.learn.agent.preview_history import (
+                uses_preview_session_history,
+            )
 
             if not DraftOutlineItem.query.filter_by(
                 shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
             ).first():
                 return True
-            if has_preview_script(app, shifu_bid=shifu_bid, outline_bid=outline_bid):
+            if uses_preview_session_history(
+                app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+            ):
                 stage_agent_session_discard(
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
@@ -789,7 +819,12 @@ def reset_learn_record(
         # records does not touch. Left behind, the next run resumes a session that may hold
         # `finished=True` -- it would report the lesson complete immediately and never start it
         # again, which also breaks taking a course back off the allowlist as a way out.
-        stage_agent_session_discard(user_bid=user_bid, outline_item_bid=outline_bid)
+        stage_agent_session_discard(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            preview_mode=preview_mode,
+        )
         return True
 
 

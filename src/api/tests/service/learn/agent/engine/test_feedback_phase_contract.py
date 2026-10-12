@@ -786,6 +786,178 @@ async def test_retry_sees_delivery_status_and_regenerates_hidden_feedback(
     assert calls == 3
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("rejection", ["text", "host", "schema"])
+@pytest.mark.parametrize("phase", ["accepted", "clarification", "authored_help"])
+@pytest.mark.parametrize("terminal", ["interact", "finish"])
+async def test_rejected_prose_cannot_be_replaced_by_only_an_ordinary_control(
+    rejection: str, phase: str, terminal: str
+) -> None:
+    calls = 0
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Undisplayed explanation must be regenerated, not restored verbatim."
+            if rejection != "text":
+                yield _call(
+                    {
+                        "type": "invalid" if rejection == "schema" else "text",
+                        "prompt": "Rejected",
+                        "review": _review(phase),
+                    },
+                    "rejected",
+                )
+        elif calls == 3:
+            # A valid internal reason and a question in prompt do not replace prose.
+            args = (
+                {
+                    "summary": "Internal summary is not visible feedback",
+                    "review": _review(phase),
+                }
+                if terminal == "finish"
+                else {
+                    "type": "text",
+                    "prompt": "What is stored-program operation?",
+                    "review": _review(phase),
+                }
+            )
+            yield {
+                0: DeltaToolCall(
+                    name=terminal,
+                    json_args=json.dumps(args),
+                    tool_call_id="control-only",
+                )
+            }
+        else:
+            retries = [
+                p for m in messages for p in m.parts if isinstance(p, RetryPromptPart)
+            ]
+            assert any("regenerate" in str(p.content).lower() for p in retries)
+            yield "New authored explanation delivered with its control."
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Answer",
+                    "review": _review(phase),
+                },
+                "complete",
+            )
+
+    engine = _engine(stream)
+    engine.limits.request_limit = 3
+    engine.interaction_check = lambda spec: (
+        "rejected by host" if spec.prompt == "Rejected" else None
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == "New authored explanation delivered with its control."
+    assert session.pending[0].tool_call_id == "complete"
+    assert calls == 4
+    assert not session.finished
+    assert not any(isinstance(event, ErrorEvent) for event in events)
+    raw = ModelMessagesTypeAdapter.dump_json(session.messages).decode()
+    assert "Undisplayed explanation must" not in raw
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reject_control", [False, True])
+async def test_authored_control_only_feedback_without_rejected_prose_stays_valid(
+    reject_control: bool,
+) -> None:
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        else:
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "Rejected" if reject_control and calls == 2 else "",
+                    "placeholder": "Answer",
+                    "review": _review("clarification"),
+                },
+                "replacement" if reject_control and calls == 3 else "control",
+            )
+
+    engine = _engine(stream)
+    engine.interaction_check = lambda spec: (
+        "rejected by host" if spec.prompt == "Rejected" else None
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == ""
+    assert session.pending[0].tool_call_id == (
+        "replacement" if reject_control else "control"
+    )
+    assert calls == (3 if reject_control else 2)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("deliver_at_lookup", [False, True])
+async def test_lookup_alone_cannot_clear_undelivered_prose_but_a_visible_page_can(
+    deliver_at_lookup: bool,
+) -> None:
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Rejected explanation."
+        elif calls == 3:
+            if deliver_at_lookup:
+                yield "Replacement explanation before a successful lookup."
+            yield {
+                0: DeltaToolCall(
+                    name="recall",
+                    json_args=json.dumps({"review": _review()}),
+                    tool_call_id="lookup",
+                )
+            }
+        else:
+            if calls == 5:
+                yield "Replacement explanation with the final interaction."
+            # The lookup committed a branch; terminal tools may inherit it.
+            yield _call({"type": "text", "prompt": "", "placeholder": "Answer"}, "next")
+
+    engine = _engine(stream)
+    engine.limits.request_limit = 4
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == (
+        "Replacement explanation before a successful lookup."
+        if deliver_at_lookup
+        else "Replacement explanation with the final interaction."
+    )
+    assert calls == (4 if deliver_at_lookup else 5)
+    assert session.pending[0].tool_call_id == "next"
+
+
 def test_retry_projection_preserves_successful_pages_and_raw_validation_errors() -> (
     None
 ):

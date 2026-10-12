@@ -46,11 +46,15 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
+from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.shifu.shifu_draft_funcs import (
     get_latest_shifu_draft,
     serialize_ask_provider_config,
 )
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.shifu_history_manager import (
+    HistoryItem,
+    ensure_outline_content_revisions,
+)
 from flaskr.service.shifu.shifu_outline_funcs import (
     ShifuOutlineTreeNode,
     assert_outline_items_publishable,
@@ -122,6 +126,9 @@ def publish_shifu_draft(
 
     """
     with app_context_scope(app), unit_of_work():
+        # Publishing can initialize revision metadata in the draft structure.
+        # Serialize that write with lesson edits and tree changes.
+        lock_shifu_for_outline_write(shifu_id)
         now_time = now_utc()
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
@@ -193,6 +200,9 @@ def publish_shifu_draft(
         # dropping orphaned/colliding nodes from the published result.
         assert_outline_items_publishable(app, shifu_id, outline_items)
         outline_tree = build_outline_tree_from_items(app, outline_items)
+        content_revisions = ensure_outline_content_revisions(
+            app, user_id, shifu_id, outline_items
+        )
 
         def publish_outline_item(
             node: ShifuOutlineTreeNode, history_item: HistoryItem
@@ -230,6 +240,9 @@ def publish_shifu_draft(
                 type="outline",
                 children=[],
                 child_count=len(blocks),
+                content_revision=content_revisions.get(
+                    draft_outline_item.outline_item_bid
+                ),
             )
             history_item.children.append(outline_item_history_item)
             if node.children and len(node.children) > 0:
