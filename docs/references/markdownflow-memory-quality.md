@@ -173,9 +173,13 @@ cardinality before displaying submitted quotes, issues and questions. Author
 criteria, internal rule and declared limit are not teaching text.
 
 The call defers the same normalized text input with an empty prompt and its
-original placeholder and eligible variable. Mixed free prose, additional
-interactions, forged sources and unexecuted interaction markup reject the whole
-response through the existing SDK retry budget. The host neither clips a hint
+original placeholder and eligible variable. Eligibility follows that normalized
+text control; both browser `values` and portable-host `text` transports, including
+saved-answer recovery, provide actual evidence without their formatting prefixes. Mixed free prose, additional
+tool calls, forged sources and unexecuted interaction markup reject the whole
+response through the existing SDK retry budget. Built-in sibling calls are
+rejected before their bodies execute, including finish and memory writes in either
+order. The host neither clips a hint
 nor adds a planning request. A valid first call works with a one-request budget.
 Explicit multiple and unspecified authored counts remain supported. Passing
 answers, later help, navigation, clarifications, multiple required questions within one aspect and unsupported
@@ -185,7 +189,12 @@ the ordinary interaction path and protocols.
 On supported resumed answers, text waits until the first new tool identifies
 whether its model response uses this contract. Ordinary calls release the
 unchanged chunks; a structured response is displayed only after validation, with
-its pending correction and visible history already saved. Buffered provider
+its pending correction and visible history already prepared. A host-only content
+metadata field carries the complete validated turn, including earlier ordinary
+chunks. It is excluded from SSE serialization. The production host commits that
+state and full filtered block before displaying the first direction chunk; a
+disconnect reloads the correction rather than the original answered input. The
+normal terminal path does not commit it twice. Buffered provider
 failures before any display retain the original answer for recovery. This adds
 response-level latency for supported ordinary answer turns but no whole-turn
 report buffer. Old evidence stays unchanged; new rejected prose is retained only

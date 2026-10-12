@@ -8,6 +8,35 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Open #3118 at 9b54f2323 and integrate sim 8817a61b7.
+      Local merged checks pass 934 cases and gates. Build 582 / Drone 5371
+      succeeds; actual API 2/2 and web 1/1 are Ready on sim-8817a61, with both
+      APIs matching 58 fingerprints and each passing 257 isolated SDK cases.
+      No paid probe runs on this version because review finds missing host paths.
+- [x] 2026-10-12: Devin correctly identifies browser text submitted in values
+      and mixed finish/direction side effects. Twelve new cases reproduce them.
+      Bind eligibility to the normalized original text control, supporting both
+      stored transport labels without rewriting evidence. Require the sole tool
+      call and reject built-in siblings before execution in either order.
+- [x] 2026-10-12: Codex correctly identifies that an in-memory pending pause
+      is not a durable host save. Four real-store/producer-bridge cases reproduce
+      the disconnect loss. Add host-only content metadata excluded from SSE,
+      carrying the whole completed visible turn, so the existing persistence
+      path commits its correction, filtered block and memory before display.
+      Cover previews, normal completion and disconnect, plus earlier ordinary
+      chunks without losing them or duplicating the terminal commit.
+- [x] 2026-10-12: Review fixes pass 53 direction SDK cases, all 830 engine
+      cases and 975 combined engine/host cases. Eight real-bridge/store cases
+      cover previews, disconnects, normal completion and preceding ordinary
+      chunks; SSE serialization excludes the host metadata. The broader suite
+      passes 4640 cases, four subtests and one expected skip, plus tooling and
+      all local gates. Retain twelve transport/sibling failures and four original
+      host-persistence failures; no paid call or fresh learner runs yet.
+- [ ] 2026-10-12: Push all three review corrections, reply in their
+      original threads with the pushed commit and evidence, then redeploy sim
+      before the unchanged-budget real probe. Earlier rollout receipts are a
+      baseline, not final-head coverage. No tenth fresh learner has started.
+
 - [x] 2026-10-12: The maintainer merges #3117 as 74d4e2eed. Fetch confirms
       its tree matches final head 891f799fe. All final technical checks pass,
       including runtime 38191646280; CodeRabbit's latest reply acknowledges the

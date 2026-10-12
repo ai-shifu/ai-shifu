@@ -2926,3 +2926,139 @@ def test_narrated_controls_with_authored_hints_or_choices_stay_exact(span: str) 
         )
     )
     assert _interactions(events) == [span]
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize("disconnect", [False, True])
+@pytest.mark.parametrize("prefix", [False, True])
+def test_validated_direction_is_durable_before_first_visible_feedback(
+    app: object,
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    disconnect: bool,
+    prefix: bool,
+) -> None:
+    """Use the real bridge/store so a disconnect restores the correction, not its old input."""
+    import json
+
+    from flaskr.service.learn.agent import bridge, session_store
+    from flaskr.service.learn.agent.engine import Engine
+    from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+    rule = "First give one checking direction, one aspect per round."
+    criterion = "Require prior memory storage."
+    script = (
+        "# Lesson\n" + rule + "\n## Memory\nExplain memory preparation.\n"
+        "?[...Answer]\n### Acceptance\n" + criterion + "\n?[Next]\n"
+    )
+    wrong = "A program executes without prior memory storage."
+    question = "Where does the processor obtain its first instruction?"
+    rendered = "> " + wrong + "\n\nYour answer denies prior storage.\n\n" + question
+    requests = 0
+    learner = f"direction-host-{preview_mode}-{disconnect}-{prefix}"
+    lesson = f"direction-lesson-{preview_mode}-{disconnect}-{prefix}"
+    monkeypatch.setattr(bridge, "BUFFER_LIMIT", 1)
+    monkeypatch.setattr(
+        run_agent, "save_agent_session", session_store.save_agent_session
+    )
+    monkeypatch.setattr(
+        run_agent, "load_agent_session", session_store.load_agent_session
+    )
+
+    async def stream(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Return a validated direction, then accept the complete restored correction."""
+        nonlocal requests
+        requests += 1
+        args = {"type": "text", "prompt": "", "placeholder": "Answer"}
+        call_id = "original"
+        if requests == 2 and prefix:
+            yield "Review submitted evidence.\n\n"
+            yield {
+                0: DeltaToolCall(
+                    name="recall", json_args='{"key":"unused"}', tool_call_id="read"
+                )
+            }
+            return
+        if requests == (3 if prefix else 2):
+            args["direction"] = {
+                "answer_id": "original",
+                "rule_quote": rule,
+                "aspect_limit": 1,
+                "focuses": [
+                    {
+                        "criterion_quote": criterion,
+                        "submission_quote": wrong,
+                        "observed_issue": "Your answer denies prior storage.",
+                        "guiding_question": question,
+                    }
+                ],
+            }
+            call_id = "correction"
+        elif requests == (4 if prefix else 3):
+            yield "Accepted."
+            args = {"type": "single", "prompt": "", "options": [{"display": "Next"}]}
+            call_id = "next"
+        yield {
+            0: DeltaToolCall(
+                name="interact", json_args=json.dumps(args), tool_call_id=call_id
+            )
+        }
+
+    def run(answer: str | None = None) -> object:
+        """Start a new production host request with its own model producer thread."""
+        return run_agent.run_agent_lesson(
+            app,
+            engine=Engine(
+                FunctionModel(stream_function=stream), render="none", memory_recall=True
+            ),
+            script=script,
+            user_bid=learner,
+            shifu_bid=SHIFU,
+            outline_bid=lesson,
+            user_input=answer,
+            preview_mode=preview_mode,
+        )
+
+    list(run())
+    calls.clear()
+    response = run(wrong)
+    for event in response:
+        if event.type == GeneratedType.CONTENT and "Your answer denies" in str(
+            event.content
+        ):
+            break
+    else:
+        pytest.fail("No visible validated feedback")
+    saved = session_store.load_agent_session(
+        app, learner, lesson, preview_mode=preview_mode
+    )
+    assert saved is not None
+    assert saved.pending[0].tool_call_id == "correction"
+    assert not saved.answers
+    assert not saved.finished
+    if not preview_mode:
+        assert (
+            next(kw for name, kw in calls if name == "record_content")["content"]
+            == ("Review submitted evidence.\n\n" if prefix else "") + rendered
+        )
+    if disconnect:
+        response.close()
+    else:
+        list(response)
+    restored = session_store.load_agent_session(
+        app, learner, lesson, preview_mode=preview_mode
+    )
+    assert restored is not None
+    assert restored.pending[0].tool_call_id == "correction"
+    if not preview_mode:
+        assert len([c for c in calls if c[0] == "record_content"]) == 1
+    list(run("Prepare the program in memory before automatic execution."))
+    accepted = session_store.load_agent_session(
+        app, learner, lesson, preview_mode=preview_mode
+    )
+    assert accepted is not None
+    assert accepted.pending[0].tool_call_id == "next"
+    assert requests == (4 if prefix else 3)

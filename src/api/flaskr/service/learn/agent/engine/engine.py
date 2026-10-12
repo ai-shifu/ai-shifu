@@ -107,6 +107,7 @@ from .tools import (
     script_options,
     script_pauses,
     script_text_inputs,
+    validate_direction_call,
 )
 from .usage import accumulate_usage
 
@@ -512,19 +513,37 @@ class Engine:
                 ),
                 Tool(
                     remember,
+                    args_validator=validate_direction_call,
                     prepare=prepare_memory_tool if memory_admission else None,
                     description=(remember.__doc__ or "")
                     + "\n"
                     + self.memory_instructions,
                 ),
-                finish,
+                Tool(finish, args_validator=validate_direction_call),
                 *(
-                    [read_exercise_history, calculate_exercise_statistics]
+                    [
+                        Tool(
+                            read_exercise_history,
+                            args_validator=validate_direction_call,
+                        ),
+                        Tool(
+                            calculate_exercise_statistics,
+                            args_validator=validate_direction_call,
+                        ),
+                    ]
                     if exercise_statistics
                     else []
                 ),
-                *([recall] if memory_recall else []),
-                *([read_teaching] if teaching_history_compaction else []),
+                *(
+                    [Tool(recall, args_validator=validate_direction_call)]
+                    if memory_recall
+                    else []
+                ),
+                *(
+                    [Tool(read_teaching, args_validator=validate_direction_call)]
+                    if teaching_history_compaction
+                    else []
+                ),
             ],
             toolsets=list(toolsets or []),
             model_settings=model_settings,
@@ -849,25 +868,16 @@ class Engine:
             return
 
         deps.resuming_interaction = bool(resumed)
-        deps.direction_answers = {
-            key: value.removeprefix("Learner wrote: ")
-            for key, value in session.answers.items()
-            if key in resumed
-            and isinstance(value, str)
-            and value.startswith("Learner wrote: ")
-        }
         for message in session.messages:
             for part in message.parts:
                 if (
                     isinstance(part, ToolCallPart)
                     and part.tool_name == "interact"
-                    and part.tool_call_id in deps.direction_answers
+                    and part.tool_call_id in resumed
                 ):
                     try:
                         spec = InteractionSpec.model_validate(part.args_as_dict())
                     except (TypeError, ValueError):
-                        continue
-                    if spec.type != "text":
                         continue
                     if (
                         deps.memory_keys is not None
@@ -875,6 +885,24 @@ class Engine:
                     ):
                         spec = spec.model_copy(update={"variable": None})
                     spec = normalize_script_text_input(spec, text_inputs)
+                    if spec.type != "text":
+                        continue
+                    # Eligibility comes from the original text control, not the
+                    # transport label: the browser returns text in `values`.
+                    original = session.answers.get(part.tool_call_id)
+                    if not isinstance(original, str):
+                        continue
+                    prefix = next(
+                        (
+                            p
+                            for p in ("Learner wrote: ", "Learner chose: ")
+                            if original.startswith(p)
+                        ),
+                        None,
+                    )
+                    if prefix is None:
+                        continue
+                    deps.direction_answers[part.tool_call_id] = original[len(prefix) :]
                     deps.direction_inputs[part.tool_call_id] = spec
                     section = authored_answer_section(session.script.script, spec)
                     if section is not None:
@@ -1289,11 +1317,20 @@ class Engine:
                         if not session.interrupted:
                             session.request_inputs = []
                         session.usage = accumulate_usage(session.usage, result.usage)
+                        prepared_events: list[Event] = []
                         for call_id in direction_pending:
-                            for e in _text(deps.direction_rendered[call_id]):
-                                yield e
-                        for e in _flush_markup():
-                            yield e
+                            prepared_events.extend(
+                                _text(deps.direction_rendered[call_id])
+                            )
+                        prepared_events.extend(_flush_markup())
+                        prepared_content = "".join(shown)
+                        for event in prepared_events:
+                            if direction_pending and isinstance(event, ContentDelta):
+                                yield event.model_copy(
+                                    update={"prepared_content": prepared_content}
+                                )
+                            else:
+                                yield event
                         if segmenter:
                             for e in self._segment(
                                 segmenter.finish(), seg_state, session, final=True
