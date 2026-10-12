@@ -8,6 +8,26 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Open independent #3122 at 171e62676 on the verified #3118
+      baseline. Its 3826 learning/script cases, 50 subtests, three expected skips
+      and repository gates pass. Sim bdce6d45b / build 610 / Drone 5399 deploys
+      successfully in records 2825/2826. No actual-model probe has run yet.
+- [x] 2026-10-13: Address both original Codex review threads: restore the
+      explicit script-instructions/non-recitation boundary, and limit the new
+      no-call guidance to extra verification requests while preserving required
+      tool and example calls. Four SDK guidance regressions first fail. Final
+      author-authority/budget/policy set passes 13 cases; final net prompt growth
+      is 124 bytes and the unchanged 64 KiB fixture passes. Retain the initial
+      case-sensitive assertion and over-budget candidate failures separately.
+      Broader validation, pushed-commit thread replies and updated sim/model
+      verification remain pending; do not spend against the obsolete candidate.
+- [x] 2026-10-13: Investigate #3118's new streaming-lifecycle opinion on pinned
+      SDK 2.43.0. Continuous/reloaded observation at FunctionToolCallEvent proves
+      its matching response is already recorded and has stable object identity;
+      rejected prose is neither visible nor persisted. Two checks plus existing
+      feedback coverage pass 103 cases without external models or DB writes.
+      Reply to original thread 4249642002 with evidence and reject the proposed
+      lifecycle rewrite; no runtime change or increased budget is needed.
 - [x] 2026-10-13: Verify the next independent failure from the retained
       nineteenth classroom. The model's loop branches back through initialization
       and reloads unchanged memory, contradicting its claimed decreasing counter

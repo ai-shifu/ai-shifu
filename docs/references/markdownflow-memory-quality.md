@@ -26,6 +26,9 @@ and branch targets. Correct model-created errors before presenting them; preserv
 authored, learner and quoted evidence instead of silently repairing it. Respect
 the authored hint stage and state uncertainty when the result is unverified.
 This is model guidance, not a host factual grader, new tool or extra request.
+The restriction covers extra verification requests, while required runtime tools
+and calls inside the example remain allowed. Script instructions direct teaching;
+they are not text to recite to the learner.
 Existing author ownership, correction/navigation rules and request/retry limits
 remain authoritative.
 
