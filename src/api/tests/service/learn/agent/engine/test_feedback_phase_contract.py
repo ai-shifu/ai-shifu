@@ -16,6 +16,7 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
     RetryPromptPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
@@ -964,6 +965,137 @@ async def test_authored_control_only_feedback_without_rejected_prose_stays_valid
         "replacement" if reject_control else "control"
     )
     assert calls == (3 if reject_control else 2)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+@pytest.mark.parametrize("terminal", ["interact", "finish"])
+@pytest.mark.parametrize("lookup_first", [False, True])
+async def test_initial_acceptance_cannot_omit_feedback_content(
+    reload: bool, terminal: str, lookup_first: bool
+) -> None:
+    calls = 0
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if any(
+            isinstance(p, ToolReturnPart) and p.tool_name == "finish"
+            for m in messages
+            for p in m.parts
+        ):
+            yield ""
+            return
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+            return
+        if lookup_first and calls == 2:
+            yield {
+                0: DeltaToolCall(
+                    name="recall",
+                    json_args=json.dumps({"review": _review()}),
+                    tool_call_id="lookup",
+                )
+            }
+            return
+        rejected = calls == (3 if lookup_first else 2)
+        if not rejected:
+            retries = [
+                p for m in messages for p in m.parts if isinstance(p, RetryPromptPart)
+            ]
+            assert any("content" in str(p.content).lower() for p in retries)
+            yield "Accepted answer with its authored explanation."
+        args = (
+            {"summary": "Accepted"}
+            if terminal == "finish"
+            else {"type": "single", "prompt": "Next", "options": [{"display": "Next"}]}
+        )
+        if not lookup_first:
+            args["review"] = _review()
+        yield {
+            0: DeltaToolCall(
+                name=terminal if rejected else "interact",
+                json_args=json.dumps(
+                    args
+                    if rejected
+                    else {
+                        "type": "single",
+                        "prompt": "",
+                        "options": [{"display": "Next"}],
+                        **({"review": _review()} if not lookup_first else {}),
+                    }
+                ),
+                tool_call_id="omitted" if rejected else "complete",
+            )
+        }
+
+    engine = _engine(stream)
+    engine.limits.request_limit = 3
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == "Accepted answer with its authored explanation."
+    assert not session.finished
+    assert session.pending[0].tool_call_id == "complete"
+    assert calls == (4 if lookup_first else 3)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("foreign_quote", [False, True])
+async def test_accepted_control_only_feedback_needs_an_actual_authored_rule(
+    foreign_quote: bool,
+) -> None:
+    terminal = "interact"
+    calls = 0
+    rule = "After accepting an answer, show only the next control without explanation."
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if any(
+            isinstance(p, ToolReturnPart) and p.tool_name == "finish"
+            for m in messages
+            for p in m.parts
+        ):
+            yield ""
+            return
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+            return
+        args = (
+            {"summary": "Accepted"}
+            if terminal == "finish"
+            else {"type": "single", "prompt": "", "options": [{"display": "Next"}]}
+        )
+        args["review"] = _review(
+            rule_quote="Foreign control-only rule"
+            if foreign_quote and calls == 2
+            else rule
+        )
+        yield {
+            0: DeltaToolCall(
+                name=terminal, json_args=json.dumps(args), tool_call_id="control"
+            )
+        }
+
+    engine = _engine(stream)
+    engine.limits.request_limit = 3
+    session = await engine.new_session(rule + "\n" + SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == ""
+    assert calls == (3 if foreign_quote else 2)
+    assert session.finished == (terminal == "finish")
 
 
 @pytest.mark.anyio
