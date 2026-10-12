@@ -99,13 +99,12 @@ class DirectionFeedback(BaseModel):
         min_length=1,
         description="Exact author text permitting this checking-direction stage.",
     )
-    aspect_limit: int | None = Field(
+    aspect_limit: int = Field(
         ge=1,
         description=(
-            "The applicable authored aspect/question limit across lesson-wide and local rules, "
-            "not only rule_quote. A local example listing several possible checks cannot "
-            "waive a lesson-wide limit. Use null only if no applicable author rule "
-            "sets a count; never use null merely because rule_quote omits the count."
+            "Applicable count across lesson-wide and local rules; local examples cannot "
+            "waive it. Must be positive; never omit or use null. Without an authored "
+            "count, use ordinary review-authored feedback; never invent one."
         ),
     )
     accepted_quotes: list[str] = Field(
@@ -123,7 +122,7 @@ class DirectionFeedback(BaseModel):
             return "direction.answer_id must name an interaction returned in this turn"
         if not self.rule_quote.strip() or self.rule_quote not in authored:
             return "direction.rule_quote must copy original author text exactly"
-        if self.aspect_limit is not None and len(self.focuses) > self.aspect_limit:
+        if len(self.focuses) > self.aspect_limit:
             return "direction.focuses exceeds the declared authored aspect limit"
         if len(set(self.accepted_quotes)) != len(self.accepted_quotes):
             return "accepted_quotes must contain unique actual submission excerpts"

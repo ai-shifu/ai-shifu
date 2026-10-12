@@ -321,7 +321,7 @@ async def test_invalid_direction_is_retried_before_display_and_not_saved_as_teac
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("limit", [2, None])
-async def test_direction_preserves_multiple_or_unspecified_authored_counts(
+async def test_feedback_preserves_multiple_or_unspecified_authored_counts(
     limit: int | None,
 ) -> None:
     """Allow authored multiplicity without creating a global single-question rule."""
@@ -342,17 +342,34 @@ async def test_direction_preserves_multiple_or_unspecified_authored_counts(
         """Return controlled arguments to exercise provenance and display boundaries."""
         nonlocal calls
         calls += 1
+        feedback = {}
+        if calls == 2:
+            if limit is None:
+                yield QUESTION + "\n" + QUESTION
+                feedback = {
+                    "review": {
+                        "answer_id": "original",
+                        "phase": "authored_help",
+                        "submission_quote": WRONG,
+                        "rule_quote": rule,
+                        "reason": "The current checking direction has no authored count; preserve ordinary multiplicity.",
+                    }
+                }
+            else:
+                feedback = {"direction": plan}
         yield _call(
             {
                 "type": "text",
                 "prompt": "",
                 "placeholder": "Answer",
-                **({"direction": plan} if calls == 2 else {}),
+                **feedback,
             },
             "original" if calls == 1 else "multiple",
         )
 
-    engine = Engine(FunctionModel(stream_function=model), request_limit=1)
+    engine = Engine(
+        FunctionModel(stream_function=model), request_limit=1, feedback_contract=True
+    )
     session = await engine.new_session(SCRIPT.replace(RULE, rule))
     await _collect(engine.run_turn(session))
     events = await _collect(
@@ -490,7 +507,7 @@ async def test_omitted_requirement_has_no_invented_submission_quote() -> None:
     assert calls == 2
 
 
-def test_direction_requires_an_explicit_authored_limit_or_null() -> None:
+def test_direction_requires_an_explicit_positive_authored_limit() -> None:
     from flaskr.service.learn.agent.engine.direction import DirectionFeedback
     from pydantic import ValidationError
 
@@ -499,4 +516,5 @@ def test_direction_requires_an_explicit_authored_limit_or_null() -> None:
     with pytest.raises(ValidationError, match="aspect_limit"):
         DirectionFeedback.model_validate(plan)
     plan["aspect_limit"] = None
-    assert DirectionFeedback.model_validate(plan).aspect_limit is None
+    with pytest.raises(ValidationError, match="aspect_limit"):
+        DirectionFeedback.model_validate(plan)
