@@ -29,6 +29,7 @@ async def test_clarification_keeps_authored_limits_without_correction_withholdin
     calls = 0
 
     async def stream(messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        """Inspect real SDK phase guidance and return a controlled clarification."""
         nonlocal calls
         calls += 1
         if calls == 1:
