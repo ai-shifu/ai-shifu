@@ -27,6 +27,10 @@ interaction and analytics contracts in
   saved messages. Aligned the model, migration and product documentation.
 - [x] 2026-10-12 CST: Completed the changed `_resolve` return contract in the
   memory-evaluation CLI and remaining course-usage/evaluation test doubles.
+- [x] 2026-10-12 CST: Addressed the next review round: preserve empty-history
+  notices, decouple retakes from analytics metadata, retain unknown-schema
+  progress, recognize legacy block children, batch legacy revision recovery,
+  and prefer instant MySQL column addition with explicit compatibility fallback.
 - [ ] 2026-10-12 CST: Verify migration/deployment order and formal/preview
   behavior after release.
 
@@ -45,6 +49,11 @@ interaction and analytics contracts in
 - Initializing legacy revision metadata during publish is a draft write. Use
   the existing course lock and current-read structure to avoid overwriting a
   concurrent edit.
+- Unknown session schemas must suppress update notices without suppressing
+  scalar learning progress. Legacy block children do not make a lesson a chapter.
+- A MySQL repeatable-read test snapshot survived a separate restore request;
+  close the test's previous request session before checking the restore result.
+  The production restore path already persists content and revision together.
 
 ## Decision Log
 
@@ -69,6 +78,13 @@ interaction and analytics contracts in
 - Keep frontend fields, missing-field behavior and analytics unchanged.
   Engine routing and the existing scriptless 1.0 execution fallback are outside
   this change.
+- Batch missing authoring revisions in groups of 20 lessons and pages of 20
+  historical versions per lesson. Preserve the 1,000-active-version bound and
+  exact physical-row identity; already initialized revisions need no recovery.
+- Prefer `ALGORITHM=INSTANT` for the new nullable column. Only explicit MySQL
+  unsupported-algorithm errors 1845/1846 retry `INPLACE, LOCK=NONE`, retaining
+  compatibility with the deployed build recorded by an earlier migration.
+  Offline SQL remains instant-only and requires target-environment review.
 
 ## Outcomes & Retrospective
 
@@ -80,7 +96,8 @@ admin users test errors at lines 964 and 1026, previously reproduced on the
 clean base with identical locked dependencies.
 
 Eight isolated MySQL/SQLite benchmark scenarios use the existing active-key
-index and one scalar query. Local MySQL 100 x 1 MiB sessions measured 4.45/4.83 ms
+index and one scalar query. After adding the schema scalar, local MySQL
+100 x 1 MiB sessions measured 4.61/5.17 ms
 p50/sample p95; see the [measurement boundaries and migration verification](../../references/lesson-content-update-performance.md).
 Tooling doctor, repository harness, architecture/UOW gates and all-files
 pre-commit passed. The actual Alembic migration passed SQLite regression tests and isolated local
@@ -93,6 +110,19 @@ doubles in `tests/test_llm.py`. The same return-contract audit found the
 memory-evaluation CLI and its test double; these now accept the content revision
 as the fourth value. All 83 focused course-usage and memory-evaluation tests
 passed, including the 12 previously failing CI cases.
+
+The next review round passed 98 learning lifecycle, loaded-session and real
+preview regressions, 12 migration tests, and all 1,200 authoring tests (3 skipped).
+Three affected frontend suites passed 119 tests; lint passed with existing
+warnings and type checking retained only the two previously verified admin-test
+errors. The eight isolated comparison scenarios still use one indexed scalar
+query. Real local MySQL migration execution selected INSTANT and preserved old
+NULLs, new values and rows across downgrade. A read-only dev01 capability check
+reported MySQL 8.0.36 Source distribution; no remote DDL or deployment was run.
+The final combined focused backend run passed 127 tests. The complete revision
+module also passed 17 tests on an isolated local MySQL database after correcting
+the test request boundary. Tooling doctor and all-files pre-commit, including
+the repository harness and architecture/UOW checks, passed.
 
 ## Context and Orientation
 

@@ -2,7 +2,7 @@
 title: Lesson Content Update Recommendations
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 canonical: true
 ---
 
@@ -79,8 +79,9 @@ This additive event family follows [frontend product analytics](../references/fr
   single-flight guard, immediately before stopping the stream and resetting.
   Result is emitted once after the operation resolves or rejects.
 - Population: Formal learners, including guests with access, and authorized
-  teacher previews. Missing course/lesson identifiers, disabled or reentrant
-  operations and cancellation before confirmation are excluded. Test traffic
+  teacher previews. Missing course/lesson identifiers exclude analytics events;
+  missing course metadata does not prevent an otherwise valid lesson retake.
+  Disabled or reentrant operations and cancellation before confirmation are excluded. Test traffic
   is excluded by the deployment's normal analytics configuration.
 - Count unit and deduplication: One accepted operation; the single-flight guard
   prevents repeated confirmation from creating concurrent attempts. At most

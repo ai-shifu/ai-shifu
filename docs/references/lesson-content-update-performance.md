@@ -8,12 +8,13 @@ compares stored lesson text.
 
 The helper compares the current revision supplied by the caller with the
 session's saved `content_revision`. It selects only `outline_item_bid`,
-`content_revision`, `turn`, and `finished` in one batch. It does not select
+`content_revision`, `turn`, `finished`, and `schema_version` in one batch. Schema
+eligibility does not discard scalar learning progress. It does not select
 `session_data`, execute JSON functions, or join lesson-body tables. Existing
 structure JSON is read by the caller; that work is outside this microbenchmark.
 
-On local MySQL, comparing 100 sessions with 1 MiB histories took **4.45 ms p50**
-and **4.83 ms sample p95**, returned 1,425 bytes of values, and used about 104 KB
+On local MySQL, comparing 100 sessions with 1 MiB histories took **4.61 ms p50**
+and **5.17 ms sample p95**, returned 1,525 bytes of values, and used about 103 KB
 of peak traced Python allocation. Increasing history size from 100 KiB to
 1 MiB did not increase returned data or materially change MySQL latency in
 this run. The query still performs indexed row reads; this is not a claim of
@@ -48,14 +49,14 @@ tracing ran separately from the latency samples.
 
 | Database | Sessions | History KiB | p50 ms | Sample p95 ms | Returned value bytes | Python peak bytes |
 | --- | --- | --- | --- | --- | --- | --- |
-| MySQL 26.7.0 | 10 | 100 | 0.939 | 1.052 | 144 | 26,954 |
-| MySQL 26.7.0 | 100 | 100 | 4.508 | 4.592 | 1,425 | 109,432 |
-| MySQL 26.7.0 | 10 | 1,024 | 0.802 | 0.983 | 144 | 26,834 |
-| MySQL 26.7.0 | 100 | 1,024 | 4.451 | 4.831 | 1,425 | 103,776 |
-| SQLite 3.54.0 | 10 | 100 | 0.336 | 0.587 | 144 | 22,165 |
-| SQLite 3.54.0 | 100 | 100 | 2.209 | 2.640 | 1,425 | 76,100 |
-| SQLite 3.54.0 | 10 | 1,024 | 1.972 | 2.210 | 144 | 21,397 |
-| SQLite 3.54.0 | 100 | 1,024 | 12.503 | 12.857 | 1,425 | 76,100 |
+| MySQL 26.7.0 | 10 | 100 | 0.940 | 1.101 | 154 | 27,094 |
+| MySQL 26.7.0 | 100 | 100 | 4.758 | 5.020 | 1,525 | 102,985 |
+| MySQL 26.7.0 | 10 | 1,024 | 0.874 | 1.138 | 154 | 26,974 |
+| MySQL 26.7.0 | 100 | 1,024 | 4.608 | 5.165 | 1,525 | 102,985 |
+| SQLite 3.54.0 | 10 | 100 | 0.298 | 0.389 | 154 | 21,542 |
+| SQLite 3.54.0 | 100 | 100 | 2.089 | 2.309 | 1,525 | 75,477 |
+| SQLite 3.54.0 | 10 | 1,024 | 1.566 | 2.027 | 154 | 20,774 |
+| SQLite 3.54.0 | 100 | 1,024 | 14.656 | 15.250 | 1,525 | 75,477 |
 
 `EXPLAIN` confirmed the existing unique `uq_learn_agent_sessions_active` index
 on every final scenario in both engines. MySQL selected it without an index
@@ -66,6 +67,22 @@ The larger SQLite rows still affected latency despite the small projection and
 correct index. The benchmark does not attribute that difference to a specific
 storage mechanism; it demonstrates why avoiding a large column does not prove
 that all row-storage costs disappear.
+
+## Legacy authoring initialization
+
+Missing structure revisions are initialized only during authoring or publication,
+not learner reads. Recovery now batches at most 20 lessons with 20 historical
+versions each per query, selecting only source ID, version ID and content. Each
+lesson stops at its first different normalized content, with the existing
+1,000-active-version and exact physical-row bounds preserved. A query returns at
+most 400 historical content rows; this is a row bound, not a fixed byte limit.
+
+The 10/100-lesson regressions span two version pages. Authoring uses 3/15 outline
+SELECTs, including exact-row loads; publication uses 2/10. Once metadata is
+initialized, both paths make zero history-recovery queries. Worst-case recovery
+for 100 lessons that each exhaust 1,000 versions uses 250 version queries, rather
+than per-lesson point queries. The bounds trade database round trips against
+loading many large content versions simultaneously.
 
 ## Boundaries and Migration Check
 
@@ -81,7 +98,18 @@ that all row-storage costs disappear.
 
 The real Alembic revision `f569f2199973` was separately exercised on an isolated
 MySQL 26.7.0 legacy table. `upgrade()` successfully added the nullable BIGINT
-column using its `ALGORITHM=INPLACE, LOCK=NONE` statement; the old row remained
+column using `ALGORITHM=INSTANT`; the old row remained
 null, and a new positive revision round-tripped correctly. `downgrade()` removed
 the column and preserved both rows. This is functional DDL verification on a
 small fixture, not a production migration-duration or concurrent-lock test.
+
+The migration tries `INSTANT` without an incompatible `LOCK=NONE` clause. Only
+explicit unsupported-algorithm errors 1845/1846 permit the existing
+`INPLACE, LOCK=NONE` fallback, which can rebuild the table. Permission errors,
+duplicate columns, lock timeouts and connection failures propagate without a
+retry. The fallback preserves compatibility with the deployment build recorded
+in migration `e5a7c9d1f3b4`; a read-only dev01 check still reported MySQL 8.0.36
+Source distribution. No remote DDL was executed. Neither algorithm removes the
+need for metadata locks. Offline-generated SQL contains only `INSTANT`: use the
+normal online Alembic upgrade for runtime fallback, or review offline SQL for
+the target environment before execution.
