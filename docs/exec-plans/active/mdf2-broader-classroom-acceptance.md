@@ -8,6 +8,37 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Requested-behavior guidance 8012b33f2 deploys as sim
+      5d88b7ad6 / build 614 / Drone 5403 in records 2833/2834, API 2/2, web 1/1.
+      Both APIs match 67 files and pass 418 SDK checks; integrated 3826 cases,
+      50 subtests, three expected skips and all gates pass. CodeRabbit review of
+      this head remains rate-limited and is not counted as an actual review.
+- [x] 2026-10-13: Fourth scoped check fails: the displayed clarification omits
+      the requested program/two-iteration trace and defers details until an answer.
+      Absent examples do not establish factual consistency. Existing native retry
+      limits recover from a missing declaration and a control-only replacement;
+      all three generations uniquely bind exact output/tokens to actual attempt,
+      block and 5.75 settled credits. Actual generation inputs contain the policy
+      and original two-iteration request. Source and original classroom state
+      remain unchanged; no summary or twentieth learner. Stop further paid calls
+      while inspecting authored brevity and the host's feedback-phase guidance.
+- [ ] 2026-10-13: Investigate the host reference's unqualified instruction to
+      leave questions unanswered and withhold later reasoning, despite applying
+      also to knowledge clarification. Keep the author's brief-response boundary;
+      any independent phase-scope fix must not force long answers or dilute the
+      frozen example/trace acceptance. Preserve all four failed checks.
+- [ ] 2026-10-13: Independently scope the host reference's correction limits to
+      checking-direction feedback. Clarification must answer the actual question
+      within authored brevity/disclosure and return to the pending exercise;
+      do not apply correction-only withholding to permitted knowledge help.
+      Four real-SDK instruction/reload checks first fail with unchanged source,
+      history, memory, input and one-request-per-turn limits. Initial invalid
+      control/first-section/ScriptBundle fixture, wrong-cwd and Ruff failures are
+      retained separately. Final 245 focused and 3830 broader cases, 50 subtests
+      and three expected skips pass, including the unchanged 64 KiB regression;
+      all repository gates pass. Open a separate Ready PR, deploy and inspect one changed-runtime
+      check before starting any fresh learner. This is guidance, not factual or
+      semantic acceptance; all earlier failed journeys remain unchanged.
 - [x] 2026-10-13: Complete-state guidance b5e25f8db deploys as sim a7ff2b94f /
       build 613 / Drone 5402 in successful records 2831/2832, API 2/2, web 1/1.
       Both APIs match 67 files and pass 418 SDK checks; source and sim pass
@@ -22,13 +53,13 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       attempt/block binding; original source/sessions/progress/variables remain
       unchanged, with no summary or twentieth learner. Retain all three scoped
       failures and the original nineteenth failed journey independently.
-- [ ] 2026-10-13: Verify self-created examples against requested behavior and
+- [x] 2026-10-13: Verify self-created examples against requested behavior and
       correct discrepancies before presentation. Four delivery assertions first
       fail; final 13 focused and 3826 broader cases, 50 subtests, three expected
       skips and all gates pass. Preserve the initial one-byte-over strict 64 KiB
       failure; final prompt growth is 126 bytes and the unchanged fixture passes.
-      Keep original source, inputs, hint stages and budgets; deploy before another
-      scoped check. Do not resample an unchanged runtime.
+      Keep original source, inputs, hint stages and budgets; deploy before the
+      separately recorded fourth check. Do not resample an unchanged runtime.
 - [x] 2026-10-13: Initial-state guidance 2ef1c1129 deploys as sim 0cef6915d /
       build 612 / Drone 5401 in records 2829/2830. Both APIs match 67 files and
       pass 418 SDK checks; source and sim pass 3826 cases, 50 subtests, three
