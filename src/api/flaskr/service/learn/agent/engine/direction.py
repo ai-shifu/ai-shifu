@@ -168,6 +168,14 @@ def direction_history(
         if not calls and (hidden is None or id(message) not in hidden):
             result.append(message)
             continue
+        if (
+            hidden is not None
+            and id(message) in hidden
+            and not any(isinstance(part, ToolCallPart) for part in message.parts)
+        ):
+            # A pure-text rejection has no tool evidence to retain. Its retry
+            # remains, but an empty assistant would be invalid provider history.
+            continue
         parts = [p for p in message.parts if not isinstance(p, TextPart)]
         shown = [rendered[p.tool_call_id] for p in calls if p.tool_call_id in rendered]
         result.append(

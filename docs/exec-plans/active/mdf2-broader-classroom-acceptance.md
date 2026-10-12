@@ -8,6 +8,13 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Push the mandatory-branch and filter fix as 3768fdf35 and
+      reply to CodeRabbit's original finding with the commit and validation.
+      The sim merge passes 1139 cases and gates. Before rollout, a provider-
+      mapping assertion reproduces an empty assistant left by rejecting pure
+      text. Keep its retry evidence without persisting that empty response;
+      all 853 engine cases pass, including actual gateway-message mapping.
+
 - [x] 2026-10-12: Reproduce the optional-field bypass with SDK responses and
       require a same-response feedback branch in the production host for supported
       returned text. Direction corrections use the structured input; accepted,
