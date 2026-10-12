@@ -33,6 +33,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Calculate exercise statistics from original submissions](./active/mdf2-exercise-statistics-calculation.md)
 - [Admit and persist memory from completed follow-up answers](./active/mdf2-follow-up-memory-writeback.md)
 - [Keep concurrent gevent lesson streams responsive](./active/mdf2-gevent-bridge-stability.md)
+- [Restore historical MDF 2.0 interaction answers](./active/mdf2-historical-interaction-answers.md)
 - [Continue teaching after a failed model stream](./active/mdf2-interrupted-teaching-history.md)
 - [Keep native usage classification inside an application scope](./active/mdf2-native-usage-classification.md)
 - [Restore authored text inputs in lesson previews](./active/mdf2-preview-text-placeholder.md)

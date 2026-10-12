@@ -67,6 +67,7 @@
 | `docs/exec-plans/active/mdf2-exercise-statistics-calculation.md` | Calculate exercise statistics from original submissions | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-follow-up-memory-writeback.md` | Admit and persist memory from completed follow-up answers | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-gevent-bridge-stability.md` | Keep concurrent gevent lesson streams responsive | `exec-plan-active` | `active` | `learner` | `2026-10-08` | `true` |
+| `docs/exec-plans/active/mdf2-historical-interaction-answers.md` | Restore historical MDF 2.0 interaction answers | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-interrupted-teaching-history.md` | Continue teaching after a failed model stream | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-native-usage-classification.md` | Keep native usage classification inside an application scope | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-preview-text-placeholder.md` | Restore authored text inputs in lesson previews | `exec-plan-active` | `active` | `repo` | `-` | `true` |

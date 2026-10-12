@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
+from flaskr.service.learn.agent.interaction_history import project_interaction_inputs
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     BlockType,
@@ -31,7 +32,11 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, LEARN_STATUS_RESET
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.util.datetime import to_utc_iso
@@ -74,6 +79,39 @@ def _load_interaction_user_input_by_block_bid(
         interaction_user_input_by_block_bid[
             interaction_block.generated_block_bid or ""
         ] = str(interaction_block.generated_content or "")
+    # MDF 2.0 stores submitted values on the following turn, together with the
+    # exact pending control. Scope the look-ahead to the same learner and attempt.
+    scopes = {
+        (row.user_bid, row.shifu_bid, row.outline_item_bid, row.progress_record_bid)
+        for row in rows
+        if row.generated_block_bid in interaction_block_bids and row.progress_record_bid
+    }
+    if scopes:
+        turn_blocks = (
+            LearnGeneratedBlock.query.filter(
+                or_(
+                    *[
+                        and_(
+                            LearnGeneratedBlock.user_bid == user,
+                            LearnGeneratedBlock.shifu_bid == course,
+                            LearnGeneratedBlock.outline_item_bid == lesson,
+                            LearnGeneratedBlock.progress_record_bid == progress,
+                        )
+                        for user, course, lesson, progress in sorted(scopes)
+                    ]
+                ),
+                LearnGeneratedBlock.type.notin_(
+                    [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDANSWER_VALUE]
+                ),
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
+            )
+            .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
+            .all()
+        )
+        interaction_user_input_by_block_bid.update(
+            project_interaction_inputs(turn_blocks, rows)
+        )
     return interaction_user_input_by_block_bid
 
 
