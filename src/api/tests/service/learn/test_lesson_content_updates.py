@@ -130,11 +130,9 @@ def test_batch_and_loaded_session_agree_on_revisions_and_legacy_progress(
         ("active_key", None),
         ("active_key", "another-key"),
         ("deleted", 1),
-        ("schema_version", AGENT_SESSION_SCHEMA_VERSION + 1),
-        ("schema_version", 0),
     ],
 )
-def test_identity_and_schema_are_required_by_both_paths(
+def test_identity_is_required_by_both_paths(
     app: object, attribute: str, value: object
 ) -> None:
     with app.app_context():
@@ -143,6 +141,35 @@ def test_identity_and_schema_are_required_by_both_paths(
             setattr(fixture.row, attribute, value)
         assert _load(fixture) == {}
         assert _loaded_state(fixture) == LessonContentState()
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("schema_version", [0, AGENT_SESSION_SCHEMA_VERSION + 1])
+@pytest.mark.parametrize("baseline", [None, 11])
+@pytest.mark.parametrize(
+    ("turn", "finished", "expected"),
+    [
+        (1, 0, LessonContentState(started=True)),
+        (0, 1, LessonContentState(started=True, finished=True)),
+    ],
+)
+def test_unknown_schema_keeps_scalar_progress_but_cannot_recommend_updates(
+    app: object,
+    preview: bool,
+    schema_version: int,
+    baseline: int | None,
+    turn: int,
+    finished: int,
+    expected: LessonContentState,
+) -> None:
+    with app.app_context():
+        fixture = _seed(
+            baseline=baseline, preview=preview, turn=turn, finished=finished
+        )
+        with unit_of_work():
+            fixture.row.schema_version = schema_version
+        assert _load(fixture)[fixture.outline_bid] == expected
+        assert _loaded_state(fixture) == expected
 
 
 def test_published_and_preview_use_independent_baselines(app: object) -> None:

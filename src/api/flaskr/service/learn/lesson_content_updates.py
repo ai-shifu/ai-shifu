@@ -27,16 +27,22 @@ class LessonContentState:
 
 
 def _content_state(
-    baseline: int | None, current: int | None, turn: int, finished: int
+    baseline: int | None,
+    current: int | None,
+    turn: int,
+    finished: int,
+    schema_version: int,
 ) -> LessonContentState:
     # A persisted revision (including unknown=0) means actual messages were saved.
     # Legacy sessions retain their scalar progress even without a known baseline.
+    # An unreadable document schema only disqualifies the update recommendation.
     started = baseline is not None or turn > 0 or finished == 1
     return LessonContentState(
         started=started,
         finished=started and finished == 1,
         has_content_update=bool(
-            baseline
+            schema_version == AGENT_SESSION_SCHEMA_VERSION
+            and baseline
             and baseline > 0
             and current
             and current > 0
@@ -63,11 +69,14 @@ def lesson_content_state_from_session(
         or row.active_key
         != active_key_for(user_bid, outline_bid, preview_mode=preview_mode)
         or row.deleted != 0
-        or row.schema_version != AGENT_SESSION_SCHEMA_VERSION
     ):
         return LessonContentState()
     return _content_state(
-        row.content_revision, current_revision, row.turn, row.finished
+        row.content_revision,
+        current_revision,
+        row.turn,
+        row.finished,
+        row.schema_version,
     )
 
 
@@ -96,13 +105,13 @@ def load_lesson_content_states(
         session.content_revision,
         session.turn,
         session.finished,
+        session.schema_version,
     ).where(
         session.active_key.in_([key for _, key in scoped_keys]),
         tuple_(session.outline_item_bid, session.active_key).in_(scoped_keys),
         session.user_bid == user_bid,
         session.shifu_bid == shifu_bid,
         session.deleted == 0,
-        session.schema_version == AGENT_SESSION_SCHEMA_VERSION,
     )
     return {
         row.outline_item_bid: _content_state(
@@ -110,6 +119,7 @@ def load_lesson_content_states(
             outline_revisions[row.outline_item_bid],
             row.turn,
             row.finished,
+            row.schema_version,
         )
         for row in db.session.execute(query)
     }
