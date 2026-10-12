@@ -35,8 +35,9 @@ async def test_example_check_reaches_clarification_without_rewriting_evidence(
         assert "instructions, not text to recite" in instructions
         assert "State each example's full initial state" in instructions
         assert "trace operations" in instructions
-        assert "reinitialization and branch targets" in instructions
-        assert "verify results and termination" in instructions
+        assert "resets and jumps" in instructions
+        assert "verify requested behavior and termination" in instructions
+        assert "Fix own errors before showing" in instructions
         assert "Never silently repair" in instructions
         assert "uncertainty" in instructions
         assert "authored hint stage" in instructions

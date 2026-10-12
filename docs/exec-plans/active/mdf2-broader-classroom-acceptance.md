@@ -8,6 +8,27 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Complete-state guidance b5e25f8db deploys as sim a7ff2b94f /
+      build 613 / Drone 5402 in successful records 2831/2832, API 2/2, web 1/1.
+      Both APIs match 67 files and pass 418 SDK checks; source and sim pass
+      3826 cases, 50 subtests, three expected skips and all gates. The original
+      semantic-acceptance review thread has a pushed-commit/test reply.
+- [x] 2026-10-13: Third scoped actual-model check fails semantic acceptance:
+      examples now state initial values, but the purported real loop has no
+      back-edge. The model traces and acknowledges one-pass fall-through into
+      HALT instead of supplying the originally requested two-iteration example.
+      Do not repair its output or claim the old false-termination bug repeated.
+      One trace/generation settles 1.99 credits with exact output/token and actual
+      attempt/block binding; original source/sessions/progress/variables remain
+      unchanged, with no summary or twentieth learner. Retain all three scoped
+      failures and the original nineteenth failed journey independently.
+- [ ] 2026-10-13: Verify self-created examples against requested behavior and
+      correct discrepancies before presentation. Four delivery assertions first
+      fail; final 13 focused and 3826 broader cases, 50 subtests, three expected
+      skips and all gates pass. Preserve the initial one-byte-over strict 64 KiB
+      failure; final prompt growth is 126 bytes and the unchanged fixture passes.
+      Keep original source, inputs, hint stages and budgets; deploy before another
+      scoped check. Do not resample an unchanged runtime.
 - [x] 2026-10-13: Initial-state guidance 2ef1c1129 deploys as sim 0cef6915d /
       build 612 / Drone 5401 in records 2829/2830. Both APIs match 67 files and
       pass 418 SDK checks; source and sim pass 3826 cases, 50 subtests, three
@@ -23,11 +44,11 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       actual attempt/block binding. Source and original sessions/progress/variables
       remain unchanged; no summary or twentieth learner. Retain both scoped
       failures and the original nineteenth failed journey separately.
-- [ ] 2026-10-13: Require each example's full initial state independently.
+- [x] 2026-10-13: Require each example's full initial state independently.
       Four delivery checks first fail; final 13 focused and 3826 broader cases,
       50 subtests, three expected skips and all repository gates pass. Net prompt
-      growth is 128 bytes; the unchanged 64 KiB regression passes. Deploy this refinement
-      before one scoped actual-model check with unchanged source/input/budgets.
+      growth is 128 bytes; the unchanged 64 KiB regression passes. Deploy and
+      perform one scoped model check, recording its separate third failure above.
       The complete fresh natural-compaction journey remains blocked on semantic
       acceptance; do not treat passing deterministic delivery tests as completion.
 - [x] 2026-10-13: Reviewed candidate 14be21d51 deploys as sim e640a53be /
