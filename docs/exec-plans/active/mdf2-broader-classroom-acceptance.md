@@ -8,6 +8,34 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Positive-count head 5c083f38e and sim b54607827 pass the
+      strict three-step direction/correction/actual-Next checkpoint. Six teaching
+      generations settle 11.85 credits; original classroom and source are unchanged.
+      This narrow success does not replace earlier fresh-classroom failures.
+- [x] 2026-10-12: Preserve the tenth fresh isolated classroom failure after
+      start and q1-knowledge: two ordinary HTTP requests, four generations, 7.04
+      settled credits with exact attribution. Unreviewed explanation is correctly
+      withheld, but a valid clarification retry sends only an input question.
+      Stop before the remaining 26 phases. Four history rows are stable, source
+      unchanged, and no summary occurs; final statistics/compression are not reached.
+- [ ] 2026-10-12: Reproduce and fix replacement-control-only feedback after
+      rejected ordinary prose. Nine new SDK cases first fail across text, host and
+      schema rejection and three ordinary phases; two authored control-only cases
+      pass. Track undelivered text per run until a successful replacement supplies
+      content. Keep structured directions, lookup-only steps, portable hosts and
+      authored control-only flows; do not interpret answer semantics, restore
+      rejected text or increase any budget. Finish, inherited-page and legitimate
+      control-only coverage pass: 910 engine cases and 3698 learning/evaluation
+      cases, four subtests and one expected skip, with developer tools and all
+      repository gates. These suites overlap. The first broad invocation names a
+      nonexistent evaluation test and runs no cases; preserve it separately from
+      the corrected passing command. An initial edit uses the wrong working-directory
+      prefix; preserve its incomplete-edit run before the corrected engine run.
+      Push, review and deploy remain pending. Start one new ordinary fresh classroom
+      only after runtime verification, inspect its knowledge/correction boundary
+      before continuing, and stop at the first failure without extra turns. Prior
+      failures remain retained; broader acceptance is still incomplete.
+
 - [x] 2026-10-12: Evidence-rendering head c8a5145e4 passes every technical CI
       check, including runtime. Resume CodeRabbit's automatically paused review;
       all three review surfaces have no unanswered opinions. Sim 7276b068a /

@@ -581,7 +581,7 @@ class Engine:
             if response is not None:
                 problem, _ = feedback_response_problem(ctx.deps, response)
                 if problem:
-                    ctx.deps.hidden_feedback_responses.add(id(response))
+                    ctx.deps.hide_feedback_response(response)
                     raise ModelRetry(
                         problem + "; correct the whole response before any display"
                     )
@@ -1242,7 +1242,7 @@ class Engine:
                                 # Mixed free content is rejected, not clipped into a hint.
                                 direction_chunks.clear()
                                 if problem:
-                                    deps.hidden_feedback_responses.add(id(response))
+                                    deps.hide_feedback_response(response)
                             elif deps.feedback_contract and response is not None:
                                 # Validation is not tool success: later interaction guards
                                 # and argument checks can still request a retry.
@@ -1271,9 +1271,7 @@ class Engine:
                             }
                             if ev.part.tool_call_id in calls:
                                 if isinstance(ev.part, RetryPromptPart):
-                                    deps.hidden_feedback_responses.add(
-                                        id(feedback_response)
-                                    )
+                                    deps.hide_feedback_response(feedback_response)
                                     direction_chunks.clear()
                                     feedback_response = None
                                 else:
@@ -1282,8 +1280,9 @@ class Engine:
                                         _, review = feedback_response_problem(
                                             deps, feedback_response
                                         )
-                                        if review is not None:
-                                            deps.feedback_review = review
+                                        deps.accept_feedback_response(
+                                            feedback_response, review
+                                        )
                                         for e in _release_direction_chunks():
                                             yield e
                                         buffer_direction = False
@@ -1335,12 +1334,9 @@ class Engine:
                                 _, review = feedback_response_problem(
                                     deps, feedback_response
                                 )
-                                if review is not None:
-                                    deps.feedback_review = review
+                                deps.accept_feedback_response(feedback_response, review)
                             else:
-                                deps.hidden_feedback_responses.add(
-                                    id(feedback_response)
-                                )
+                                deps.hide_feedback_response(feedback_response)
                                 direction_chunks.clear()
                             feedback_response = None
                         if buffer_direction:
@@ -1504,7 +1500,7 @@ class Engine:
                     None,
                 )
                 if response is not None:
-                    deps.hidden_feedback_responses.add(id(response))
+                    deps.hide_feedback_response(response)
             if delivered and not history_saved:
                 # The stream may fail after teaching has reached the learner. Keep the
                 # interrupted run, including accepted answers and completed tool results,

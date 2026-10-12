@@ -211,6 +211,16 @@ previous optional contract. Unsupported anchors and navigation are unaffected.
 The declaration makes the model decision explicit and validates its sources;
 it does not prove that the model graded the answer or chose the stage correctly.
 
+When ordinary prose has been withheld during this run, a replacement interaction
+or finish cannot silently complete with only a control or internal review reason.
+It must supply new visible content with its valid branch, or a successful earlier
+page must already have supplied the replacement. Read-only lookups remain allowed
+without content but cannot clear this delivery obligation. A valid structured
+direction supplies its own rendered correction instead of ordinary prose. Calls
+that never had rejected prose retain authored control-only behavior. This checks
+presence and tool success, not whether new text is a correct or complete answer;
+never restore rejected explanations verbatim or increase request budgets.
+
 On supported resumed answers, text waits until the first new tool identifies
 whether its model response uses this contract. Declared ordinary calls release the
 unchanged chunks; a structured response is displayed only after validation, with
