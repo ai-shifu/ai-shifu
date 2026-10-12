@@ -111,7 +111,7 @@ describe.each([
     const prompt: string = copy.mock.calls[0][0];
     expect(prompt.split('https://example.com/c/course-1')).toHaveLength(2);
     expect(prompt).toContain(
-      `\`\`\`text\n推荐你来学习《${props.courseTitle}》，体验一对一个性化学习。\n\n${description}\n\`\`\`\n\n## 原课程链接\nhttps://example.com/c/course-1`,
+      `\`\`\`text\n推荐你来学习《${props.courseTitle}》，体验一对一个性化学习。\n\n${description}\n\`\`\`\n\n## 原课程链接\n\nhttps://example.com/c/course-1`,
     );
     expect(prompt).not.toContain('secret=value');
     expect(prompt).not.toContain('{courseContent}');
@@ -152,7 +152,7 @@ describe.each([
       `推荐你来学习《${props.courseTitle}》，体验一对一个性化学习。\n\n${authoredDescription}`,
     );
     expect(`${beforeMaterial}${afterMaterial}`.split(url)).toHaveLength(2);
-    expect(afterMaterial).toContain(`## 原课程链接\n${url}`);
+    expect(afterMaterial).toContain(`## 原课程链接\n\n${url}`);
   });
 
   test.each([3, 7])(
