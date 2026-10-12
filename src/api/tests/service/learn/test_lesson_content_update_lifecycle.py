@@ -11,7 +11,11 @@ from flaskr.service.learn import listen_elements
 from flaskr.service.learn.agent import routing
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.learn_dtos import LearnElementRecordDTO, LearnStatus
-from flaskr.service.learn.learn_funcs import get_outline_item_tree, reset_learn_record
+from flaskr.service.learn.learn_funcs import (
+    get_current_lesson_outline,
+    get_outline_item_tree,
+    reset_learn_record,
+)
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_RESET
 from flaskr.service.shifu.models import (
@@ -458,3 +462,32 @@ def test_unknown_legacy_preview_keeps_progress_without_an_update_notice(
     )
     assert tree.outline_items[0].status == expected
     _assert_flags(lesson, preview=True, expected=False)
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("child_type", ["block", "outline"])
+def test_only_outline_children_exclude_a_lesson_from_content_update_detection(
+    lesson: SimpleNamespace, preview: bool, child_type: str
+) -> None:
+    _change_body(lesson, preview, "Changed")
+    struct_model = LogDraftStruct if preview else LogPublishedStruct
+    with lesson.app.app_context(), unit_of_work():
+        structure = struct_model.query.filter_by(shifu_bid=lesson.identity).one()
+        parsed = HistoryItem.from_json(structure.struct)
+        node = parsed.children[0]
+        # A legacy block ID can equal an outline table's independent row ID.
+        node.children = [HistoryItem(bid="legacy-child", id=node.id, type=child_type)]
+        structure.struct = parsed.to_json()
+    with lesson.app.app_context():
+        current = get_current_lesson_outline(
+            shifu_bid=lesson.identity,
+            outline_bid=lesson.identity,
+            preview_mode=preview,
+        )
+        assert (current is not None) is (child_type == "block")
+    _assert_flags(lesson, preview, expected=child_type == "block")
+    if child_type == "block":
+        tree = get_outline_item_tree(
+            lesson.app, lesson.identity, lesson.identity, preview
+        )
+        assert tree.outline_items[0].children == []

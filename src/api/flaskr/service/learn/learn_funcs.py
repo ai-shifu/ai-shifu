@@ -275,6 +275,13 @@ def get_shifu_info(
         )
 
 
+def _is_lesson_outline(item: HistoryItem) -> bool:
+    """Legacy block children belong to a lesson; outline children make a chapter."""
+    return item.type == "outline" and not any(
+        child.type == "outline" for child in item.children
+    )
+
+
 def get_current_lesson_outline(
     *, shifu_bid: str, outline_bid: str, preview_mode: bool
 ) -> HistoryItem | None:
@@ -291,7 +298,7 @@ def get_current_lesson_outline(
     pending = [HistoryItem.from_json(row.struct)]
     while pending:
         item = pending.pop()
-        if item.type == "outline" and item.bid == outline_bid and not item.children:
+        if item.bid == outline_bid and _is_lesson_outline(item):
             return item
         pending.extend(item.children)
     return None
@@ -409,7 +416,7 @@ def get_outline_item_tree(
         candidate_outline_ids = {
             item.bid: item.id
             for item in outline_items
-            if not item.children
+            if _is_lesson_outline(item)
             and item.id in outline_items_db_map
             and outline_items_db_map[item.id].shifu_bid == shifu_bid
             and outline_items_db_map[item.id].outline_item_bid == item.bid
@@ -491,6 +498,8 @@ def get_outline_item_tree(
         def build_outline_item_tree(
             item: HistoryItem,
         ) -> LearnOutlineItemInfoDTO | None:
+            if item.type != "outline":
+                return None
             outline_item: DraftOutlineItem | PublishedOutlineItem = (
                 outline_items_db_map.get(item.id)
             )
@@ -515,7 +524,7 @@ def get_outline_item_tree(
                         if content_state.finished
                         else LEARN_STATUS_IN_PROGRESS
                     )
-            is_lesson_node = not bool(item.children)
+            is_lesson_node = _is_lesson_outline(item)
             has_content_update_for_current_user = bool(
                 is_lesson_node and content_state and content_state.has_content_update
             )
