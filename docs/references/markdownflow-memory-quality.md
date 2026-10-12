@@ -167,10 +167,16 @@ For a uniquely anchored returned text input, the existing `interact` tool accept
 an optional `direction` object. The model selects the phase, authored aspect
 limit and unmatched focuses. Each focus carries an exact current-section
 criterion, an exact submitted quote for a contradiction (null for an omission),
-a brief observed issue and one unanswered guiding question. The stage rule must
-also quote original author text. The host verifies these sources and the declared
-cardinality before displaying submitted quotes, issues and questions. Author
-criteria, internal rule and declared limit are not teaching text.
+an internal observed issue and one unanswered guiding question. Required
+`accepted_quotes` contains unique exact excerpts from this actual submission that
+the model judges correct, including acknowledgements required by the author, or
+an explicit empty list. The stage rule must also quote original author text. The
+host verifies these sources and the declared cardinality before displaying
+accepted excerpts with a check mark, contradiction excerpts and unanswered
+questions. Criteria, diagnoses, internal rules and declared limits are retained in
+the original tool arguments for audit, without becoming teaching text. The host
+verifies quote provenance, not correctness. Saved pending controls lacking this
+new field can still resume their original answer; existing history is preserved.
 
 The call defers the same normalized text input with an empty prompt and its
 original placeholder and eligible variable. Eligibility follows that normalized

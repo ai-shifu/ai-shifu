@@ -715,11 +715,13 @@ async def interact(
     rule, and each criterion from the current authored section. Select only the
     genuinely unmatched focus or focuses allowed now. Copy the authored aspect
     limit, or null when none is specified; never invent or relax it. Each focus
-    has a brief observed issue and one unanswered guiding question, without worked
+    has an internal observed issue and one unanswered guiding question, without worked
     reasoning, compound checks or a list of the other gaps. Quote actual submitted
     evidence for a contradiction; use null for an omission, never an authored sample
-    mistake. The host displays submitted quotes, issues and questions after validating this
-    structure and provenance; it does not grade or prove semantic single-focus quality.
+    mistake. `accepted_quotes` contains unique exact correct answer excerpts for
+    authored acknowledgement, or []. Only accepted/contradicted answer quotes and
+    unanswered questions are displayed; diagnoses/criteria stay internal. The host
+    checks provenance, not correctness or semantic focus.
     Use type `text`, an empty `prompt`, and the same authored placeholder and eligible
     variable as the answered input. Do not add another tool call or any free
     content to that model response. This collects the correction directly, without

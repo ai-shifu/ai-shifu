@@ -8,6 +8,37 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Guidance head b5291df6c passes all technical CI. Sim
+      cfdb2e9b6 / build 592 / Drone 5381 succeeds with API 2/2 and web 1/1
+      Ready, 62 matching fingerprints and 336 isolated SDK cases per API;
+      3523 merged learning/evaluation cases and repository gates pass.
+- [x] 2026-10-12: Preserve the separate authored-scope probe as a strict
+      failure. All three navigation checks, actual-submission grounding, one
+      unanswered question and the explicit aspect_limit=1 pass. Native-field
+      guidance is actually delivered, but the visible observed_issue still
+      contrasts the submitted claim with positive acceptance requirements.
+      Six teaching generations settle 11.76 credits with exact attribution;
+      original classroom, six history records, variables and author source
+      remain unchanged. No actual summary or fresh learner starts. Earlier
+      failures remain independent; do not repeat an unchanged runtime.
+- [ ] 2026-10-12: Separate internal diagnosis from public checking evidence.
+      Five new regressions first fail: a solution copied into observed_issue
+      becomes visible after both in-memory and saved-session resumes, and
+      invented, blank or duplicate accepted excerpts are admitted. Keep diagnosis
+      and criteria in original tool arguments. Display only model-selected actual
+      accepted excerpts, actual contradiction excerpts and unanswered questions.
+      Require accepted_quotes (explicitly empty when none) so authored recognition
+      of correct parts remains supported. Verify quote provenance without judging
+      correctness, generating a hint or adding a call. Legacy pending controls
+      without the new field must still resume, and first-visible durability must
+      remain intact. Focused checks pass 108 cases; engine, real-host durability
+      and history-budget checks pass 1041 cases. Broader checks pass 3574 cases,
+      four subtests and one expected skip; developer tools and all repository gates
+      pass. The first broader run exposes a 64 KiB context regression; shorten
+      redundant tool descriptions rather than changing the assertion or budget,
+      then pass both focused and full checks. Retain the failed baseline. Push,
+      review, deployment and changed-runtime strict acceptance remain pending.
+
 - [x] 2026-10-12: Final retry-delivery head bb2e84a16 passes all technical
       CI including runtime. Sim 1a4d25fa9 / build 591 / Drone 5380 succeeds;
       API 2/2 and web 1/1 are Ready, with 62 matching fingerprints and 336
@@ -1032,6 +1063,11 @@ help flag and from the before-first subset. Original messages contain both round
 
 ## Decision Log
 
+- Keep internal diagnoses out of public checking-direction text. Render only
+  source-bound actual accepted/contradicted excerpts and the model's unanswered
+  questions; preserve original tool arguments for audit. Exact-quote validation
+  establishes provenance, not correctness. This is a deliberate public/internal
+  contract change, not a semantic grader, keyword filter or generated hint.
 - Keep correction pacing authored and model-facing. Do not add a host semantic
   grader, generated hint, automatic rejection, retry cap or extra model call.
   Full internal coverage and the permitted visible hint are separate decisions.

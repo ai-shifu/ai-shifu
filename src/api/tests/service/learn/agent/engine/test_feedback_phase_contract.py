@@ -876,6 +876,7 @@ async def test_saved_legacy_direction_without_limit_can_resume_its_original_answ
             ):
                 args = part.args_as_dict()
                 args["direction"].pop("aspect_limit")
+                args["direction"].pop("accepted_quotes")
                 part.args = json.dumps(args)
     session = Session.loads(session.dumps())
     events = await _collect(

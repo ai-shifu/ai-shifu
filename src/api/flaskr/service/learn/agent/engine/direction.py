@@ -33,9 +33,8 @@ class DirectionFocus(BaseModel):
     observed_issue: str = Field(
         min_length=1,
         description=(
-            "Briefly identify only the learner's actual claim or omission. Do not state "
-            "the correct requirement, contrast with its solution, or paraphrase the "
-            "internal criterion_quote here; that would already disclose the answer."
+            "Internal diagnosis for selecting this focus, not displayed. Bind it to "
+            "the actual submission, not an author's sample misconception."
         ),
     )
     guiding_question: str = Field(
@@ -109,6 +108,13 @@ class DirectionFeedback(BaseModel):
             "sets a count; never use null merely because rule_quote omits the count."
         ),
     )
+    accepted_quotes: list[str] = Field(
+        description=(
+            "Unique exact excerpts from this returned answer judged correct. Include "
+            "author-required acknowledgements; [] if none. Shown with a check mark. "
+            "Never invent learner wording."
+        )
+    )
     focuses: list[DirectionFocus] = Field(min_length=1)
 
     def problem(self, authored: str, answers: dict[str, str]) -> str | None:
@@ -119,6 +125,13 @@ class DirectionFeedback(BaseModel):
             return "direction.rule_quote must copy original author text exactly"
         if self.aspect_limit is not None and len(self.focuses) > self.aspect_limit:
             return "direction.focuses exceeds the declared authored aspect limit"
+        if len(set(self.accepted_quotes)) != len(self.accepted_quotes):
+            return "accepted_quotes must contain unique actual submission excerpts"
+        if any(
+            not quote.strip() or quote not in answers[self.answer_id]
+            for quote in self.accepted_quotes
+        ):
+            return "accepted_quotes must copy actual returned input exactly"
         for focus in self.focuses:
             if (
                 not focus.criterion_quote.strip()
@@ -137,18 +150,21 @@ class DirectionFeedback(BaseModel):
         return None
 
     def render(self) -> str:
-        """Display submitted quotes, selected issues and questions, never author criteria."""
-        issues = "\n\n".join(
-            (
-                "> " + focus.submission_quote.replace("\n", "\n> ") + "\n\n"
-                if focus.submission_quote is not None
-                else ""
-            )
-            + focus.observed_issue
+        """Display actual evidence and unanswered questions, not internal diagnoses.
+
+        Correctness of the selected excerpts remains the model's judgment. The
+        host formats source-bound evidence; it never generates a replacement hint.
+        """
+        quotes = [
+            "> ✓ " + quote.replace("\n", "\n> ") for quote in self.accepted_quotes
+        ]
+        quotes.extend(
+            "> " + focus.submission_quote.replace("\n", "\n> ")
             for focus in self.focuses
+            if focus.submission_quote is not None
         )
         questions = "\n".join(focus.guiding_question for focus in self.focuses)
-        return issues + "\n\n" + questions
+        return "\n\n".join([*quotes, questions])
 
 
 def has_direction(call: ToolCallPart) -> bool:
