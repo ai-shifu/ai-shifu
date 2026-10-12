@@ -8,6 +8,80 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Verify the next independent failure from the retained
+      nineteenth classroom. The model's loop branches back through initialization
+      and reloads unchanged memory, contradicting its claimed decreasing counter
+      and termination. Exact code/claim co-occur in original generated output;
+      bounded hand-tracing establishes this discrepancy without a model call or
+      database write. Keep the original failed verdict and classroom intact.
+- [x] 2026-10-13: Add concise default-runtime worked-example checking guidance:
+      exact values/operations, reinitialization, branch targets and termination;
+      fix only model-created errors, preserve original evidence, respect authored
+      hint stages and state uncertainty. Compact the existing author-ownership
+      rule while retaining its tested permissions and prohibitions. Net instruction
+      growth is 102 bytes; keep the original 64 KiB regression and all actual
+      input/request/retry limits. Four native SDK delivery/reload checks first fail;
+      the final authority/budget set passes 13 cases. Controlled outputs do not
+      establish factual model compliance. Retain initial fixture/path failures and
+      the overlong prompt's real budget failure separately.
+- [ ] 2026-10-13: Complete broader checks, current PR CI/review, sim integration
+      and actual-model verification from a non-persisting copy of the nineteenth
+      pre-clarification checkpoint. Keep the exact source and original question;
+      inspect actual code/trace/claim and billing evidence, stopping at a failure.
+      Then resume full fresh natural-compression eleven-question acceptance with
+      an isolated new learner, unchanged authored criteria/inputs/budgets and
+      first-failure stop. Do not claim a twentieth learner or full acceptance yet.
+- [ ] 2026-10-13: Reconcile predecessor #3118's GitHub state. The human reports
+      merging, but live GitHub still shows Open at bc4456a2b, an update from main,
+      with all eleven checks passing and no backend delta from verified 0a809595e.
+      Do not infer a main merge or production deployment from that branch update.
+      Prepare this independent fix on that verified baseline; retain an explicit
+      PR dependency until the actual main merge is observed. No automatic merge.
+
+- [x] 2026-10-12: Functional head 3d57d9944 passes all eleven current checks.
+      CodeRabbit review 85388724 covers its runtime/tests/reference changes,
+      skipping the similar plan. Reply to its review-body nitpick in the original
+      PR conversation: FunctionModel tests guidance delivery, not semantic model
+      choice; the actual-model acceptance below supplies the separate evidence.
+      Its 48.92%/139-function docstring warning remains explicitly deferred, not
+      passed. No private identities, tokens or classroom payloads are committed.
+- [x] 2026-10-12: Sim 063b22a8c / build 609 / Drone 5398 deploys successfully
+      in records 2823/2824 as sim-063b22a. API 2/2 and web 1/1 are Ready. Both
+      actual APIs match 67 fingerprints and pass 414 isolated SDK cases. Merged
+      3822 learning/script cases, 50 subtests, three expected skips and all gates
+      pass. Fetched main 2da98b19a adds only poster frontend changes; no backend
+      delta is being represented as a fresh deployed backend change.
+- [x] 2026-10-12: Both original first- and fifth-answer checkpoints pass three
+      actual-model phases on this candidate, using non-persisting in-memory copies
+      and the original authored source/submissions. The first wrong answer quotes
+      the actual denial of prior storage and selects one exact storage clause,
+      without the unrelated file-only example or its three checks. The fifth
+      incomplete answer quotes the covered categories and selects only the real
+      missing data-path-width aspect. Two linked question clauses address one
+      aspect in each case; do not claim a one-sentence question limit absent from
+      the authored rule. Each full correction receives complete actual-evidence
+      explanation and Next alone; only its actual selection opens question two
+      or six. Native malformed/missing/old-ID tool calls are rejected before
+      display. First-answer correction recovers after three rejected calls within
+      the unchanged retry budget; no rejected prose is restored.
+- [x] 2026-10-12: Six original traces uniquely bind twelve teaching generations
+      and two summaries to actual attempt/block usage and all 26.18 settled
+      credits (first-answer phases 14.29, fifth-answer phases 11.89). Thirteen
+      outputs match verbatim; one malformed-call output differs only by a trailing
+      space removed by the existing billing output sink. Compare that original
+      output with the sink's exact outer-whitespace normalization and its exact
+      input/output token tuple; do not use semantic normalization. Original source,
+      sessions, progress and variables remain unchanged. Initial strict raw-output
+      audit failure is preserved; complete the audit locally against the already
+      fetched original traces, without another model or trace request.
+- [ ] 2026-10-12: Finish the documentation receipt, original-thread replies and
+      current documentation-head CI before recommending #3118 for merge. These
+      scoped passes close the earlier related checkpoint failures on the changed
+      runtime; they do not change those failures' historical verdicts. No twentieth
+      learner or ordinary HTTP full journey is created. Full fresh eleven-question
+      natural compression, final statistics/billing and independent nineteenth
+      generated-example consistency work remain open at milestone 4/5.
+
 - [x] 2026-10-12: Functional head 7be467f86 passes all eleven checks. CodeRabbit
       51f00c85 reviews runtime/tests/reference without actionable findings, skipping
       the similar plan. The existing docstring warning is now 48.91%/137 functions
@@ -35,7 +109,7 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       navigation follows. Its one original trace uniquely binds three generations
       to actual attempt/block usage and all 6.02 settled credits. Sessions, progress
       and variables match the before snapshot. This related failure blocks #3118.
-- [ ] 2026-10-12: Remove the forced-example ambiguity. A conditional hint applies
+- [x] 2026-10-12: Remove the forced-example ambiguity. A conditional hint applies
       only to its stated actual submission case; when no example matches, follow
       the current authored stage and the genuinely unmatched requirement. Select
       the relevant exact clause from a compound requirement rather than treating
@@ -66,7 +140,7 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       tuples to actual attempt/block usage and all 2.43 settled credits; the
       stored classroom session remains untouched. This directly related failure
       continues to block #3118, independently of full-journey quality work.
-- [ ] 2026-10-12: Deliver the bounded exact parent/local reference in current-turn
+- [x] 2026-10-12: Deliver the bounded exact parent/local reference in current-turn
       feedback instructions, rather than an earlier learner request preceding
       the unanswered question. Keep one reference, the original 8 KiB source
       bound, original answer/tool history and all request/retry limits. Strip only
