@@ -41,6 +41,7 @@ from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudi
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.util.datetime import to_utc_iso
 from sqlalchemy import and_, or_
+from sqlalchemy.orm import load_only
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -86,6 +87,45 @@ def _load_interaction_user_input_by_block_bid(
         for row in rows
         if row.generated_block_bid in interaction_block_bids and row.progress_record_bid
     }
+    missing_progress = {
+        (row.user_bid, row.shifu_bid, row.outline_item_bid, row.generated_block_bid)
+        for row in rows
+        if row.generated_block_bid in interaction_block_bids
+        and not row.progress_record_bid
+    }
+    if missing_progress:
+        owned_blocks = LearnGeneratedBlock.query.filter(
+            or_(
+                *[
+                    and_(
+                        LearnGeneratedBlock.user_bid == user,
+                        LearnGeneratedBlock.shifu_bid == course,
+                        LearnGeneratedBlock.outline_item_bid == lesson,
+                        LearnGeneratedBlock.generated_block_bid == bid,
+                    )
+                    for user, course, lesson, bid in sorted(missing_progress)
+                ]
+            ),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        ).options(
+            load_only(
+                LearnGeneratedBlock.user_bid,
+                LearnGeneratedBlock.shifu_bid,
+                LearnGeneratedBlock.outline_item_bid,
+                LearnGeneratedBlock.progress_record_bid,
+            )
+        )
+        scopes.update(
+            (
+                block.user_bid,
+                block.shifu_bid,
+                block.outline_item_bid,
+                block.progress_record_bid,
+            )
+            for block in owned_blocks
+            if block.progress_record_bid
+        )
     if scopes:
         turn_blocks = (
             LearnGeneratedBlock.query.filter(
@@ -106,6 +146,17 @@ def _load_interaction_user_input_by_block_bid(
                 LearnGeneratedBlock.deleted == 0,
                 LearnGeneratedBlock.status == 1,
             )
+            .options(
+                load_only(
+                    LearnGeneratedBlock.generated_block_bid,
+                    LearnGeneratedBlock.user_bid,
+                    LearnGeneratedBlock.shifu_bid,
+                    LearnGeneratedBlock.outline_item_bid,
+                    LearnGeneratedBlock.progress_record_bid,
+                    LearnGeneratedBlock.block_content_conf,
+                    LearnGeneratedBlock.position,
+                )
+            )
             .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
             .all()
         )
@@ -113,6 +164,16 @@ def _load_interaction_user_input_by_block_bid(
             project_interaction_inputs(turn_blocks, rows)
         )
     return interaction_user_input_by_block_bid
+
+
+def _historical_user_input(row: LearnGeneratedElement, inputs: dict[str, str]) -> str:
+    """Prefer the 2.0 interaction element; legacy answers belong to their own block."""
+    return inputs.get(
+        row.element_bid or "",
+        inputs.get(
+            row.target_element_bid or "", inputs.get(row.generated_block_bid or "", "")
+        ),
+    )
 
 
 def _load_progress_bid_by_generated_block_bid(
@@ -172,9 +233,8 @@ def _build_final_elements_from_rows(
             continue
         dto = _element_from_row(
             row,
-            interaction_user_input=interaction_user_input_by_block_bid.get(
-                row.generated_block_bid or "",
-                "",
+            interaction_user_input=_historical_user_input(
+                row, interaction_user_input_by_block_bid
             ),
         )
         if not dto.is_new and dto.target_element_bid:
@@ -191,9 +251,8 @@ def _build_final_elements_from_rows(
         events = [
             _event_from_row(
                 row,
-                interaction_user_input=interaction_user_input_by_block_bid.get(
-                    row.generated_block_bid or "",
-                    "",
+                interaction_user_input=_historical_user_input(
+                    row, interaction_user_input_by_block_bid
                 ),
             )
             for row in sorted_rows
@@ -635,8 +694,7 @@ def _merge_progress_elements(
         progress_bid = (
             row.progress_record_bid
             or progress_bid_by_generated_block_bid.get(
-                row.generated_block_bid or "",
-                "",
+                row.generated_block_bid or "", ""
             )
         )
         if not progress_bid:

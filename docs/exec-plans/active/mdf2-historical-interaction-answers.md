@@ -26,15 +26,31 @@ blocks correctly remain excluded: their generated text is teacher prose.
       the private snapshot projects 24 controls, including both reported controls.
 - [x] 2026-10-12: Broader validation passes 3311 learning cases, four subtests and
       one expected skip, frontend type checking, developer tooling and all-file gates.
-- [ ] 2026-10-12: Verify final CI.
+- [x] 2026-10-12: Codex identifies block-level answer attribution for parallel
+      controls and locale-dependent default hints. Three new database cases fail
+      before the correction. Match ordered interaction elements to checkpoint tool
+      identities, preserve each queued question across re-display, and take only an
+      omitted default hint from its persisted control. Twenty-four focused cases cover these boundaries, including a reproduced
+      provider tool-ID reuse regression. Preserve identities only while the original
+      deferred queue remains unanswered; new questions cannot overwrite old answers.
+- [x] 2026-10-12: Devin also reproduces blank-progress element compatibility.
+      Resolve that attempt from its active owned generated block; a foreign-owner
+      block cannot supply a scope. Expose the existing turn-record reader publicly,
+      load only projection columns and roll back failed test sessions before cleanup,
+      addressing the three CodeRabbit review-summary suggestions. All 3317 learning
+      cases pass, with four subtests and one expected skip.
+- [ ] 2026-10-12: Verify final CI and the corrected sim candidate.
 - [ ] 2026-10-12: Open one Ready for Review PR, reply to each substantive AI finding in its
       original thread, integrate sim and verify actual history responses.
 - [ ] 2026-10-12: Maintainer merge and production rollout; no automatic merge.
 
 ## Decision Log
 
-Use a read projection, requiring exact pending-control evidence and adjacent active
-turns in the same classroom attempt. This repairs existing records without database
+Use a read projection, requiring pending-control evidence and adjacent active
+turns in the same classroom attempt. Bind each ordered interaction element to its
+checkpoint tool identity so parallel identical controls retain separate answers.
+For an omitted input hint, compare with the persisted original hint, preserving
+all authored options, variables and explicit placeholders across locale changes. This repairs existing records without database
 writes or migrations. Follow-up Ask/Answer blocks do not advance the lesson turn
 chain. Missing or ambiguous evidence leaves a control empty rather than inventing
 an answer. Existing history DTOs and renderer structured-default support carry the
@@ -64,7 +80,8 @@ sections; complete the required plan structure before rerunning.
 ## Outcomes & Retrospective
 
 The local reader restores historical submissions without changing persisted data.
-Technical checks and the private read-only projection support the fix; final deployed
+Technical checks and the private read-only projection support the fix; the first
+review surfaced two edge cases and both have database regressions. Final deployed
 history responses, automated review and production rollout remain outstanding.
 
 ## Context and Orientation
