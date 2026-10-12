@@ -8,6 +8,31 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Fetch main after the independent historical-answer PR #3119
+      merges as 774e8ad4b. Its final technical checks pass and automatic main
+      build 587 / Drone 5376 succeeds. Read-only production verification finds
+      six API and three web replicas Ready on 20261012-774e8ad; all six APIs
+      match the five relevant history source fingerprints. That history fix
+      does not close the retained hint or natural-compression acceptance failures.
+- [x] 2026-10-12: Reproduce CodeRabbit's two retry findings with five failing
+      SDK cases: rejected host/readonly interactions leak prose and commit a
+      feedback branch; inherited feedback also leaks a later rejected response.
+      Remove branch mutation from argument validation. Buffer each supported
+      ordinary response until all tools succeed or its controls defer, discard
+      rejected prose from display and saved provider history, and commit only
+      the successful response's review. Earlier successful report-page branches
+      remain available to later retries. Schema failures and parallel tool order
+      also retain the same rule. Cache the unchanged contract prompt at engine
+      initialization as suggested in the same review summary. All 862 engine and
+      4617 learning/profile/profile-research/user/exercise-quality cases pass,
+      with four subtests and one expected skip; repository gates pass. Retain
+      the initially incorrect quality-test path as a failed development command.
+- [ ] 2026-10-12: Finish broader local checks, push the retry correction in
+      #3118, reply with the pushed commit in both original review threads,
+      integrate sim and verify both actual API replicas before a paid probe.
+      No tenth fresh learner or new paid probe has run. Keep the authored source,
+      original prefix/answers, model, temperature and twelve-request limit fixed.
+
 - [x] 2026-10-12: Push the mandatory-branch and filter fix as 3768fdf35 and
       reply to CodeRabbit's original finding with the commit and validation.
       The sim merge passes 1139 cases and gates. Before rollout, a provider-

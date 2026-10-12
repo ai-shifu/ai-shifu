@@ -588,14 +588,12 @@ def validate_direction_call(
         message = "structured direction must be the sole tool call in its response"
         raise ModelRetry(message)
     if response is not None and ctx.deps.feedback_contract:
-        problem, review = feedback_response_problem(ctx.deps, response)
+        problem, _ = feedback_response_problem(ctx.deps, response)
         if problem:
             ctx.deps.hidden_feedback_responses.add(id(response))
             raise ModelRetry(
                 problem + "; correct the whole response before any display"
             )
-        if review is not None:
-            ctx.deps.feedback_review = review
 
 
 def feedback_response_problem(
