@@ -655,7 +655,9 @@ def feedback_response_problem(
         )
     if reviews:
         review = reviews[0]
-        if problem := review.problem(deps.direction_answers, deps.direction_sections):
+        if problem := review.problem(
+            deps.direction_answers, deps.direction_sections, deps.authored_text
+        ):
             if review.answer_id not in deps.direction_sections:
                 problem += "; supported answer_id values: " + json.dumps(
                     sorted(deps.direction_sections)

@@ -67,7 +67,9 @@ class FeedbackReview(BaseModel):
         description="Internal branch justification using actual submission and correction history.",
     )
 
-    def problem(self, answers: dict[str, str], sections: dict[str, str]) -> str | None:
+    def problem(
+        self, answers: dict[str, str], sections: dict[str, str], authored: str = ""
+    ) -> str | None:
         """Validate actual answer provenance and an authored help source."""
         if self.answer_id not in sections or self.answer_id not in answers:
             return (
@@ -83,7 +85,10 @@ class FeedbackReview(BaseModel):
         if self.phase == "authored_help" and (
             not self.rule_quote
             or not self.rule_quote.strip()
-            or self.rule_quote not in sections[self.answer_id]
+            or (
+                self.rule_quote not in sections[self.answer_id]
+                and self.rule_quote not in authored
+            )
         ):
             return (
                 "authored_help needs exact current author text permitting this help now"
@@ -162,7 +167,7 @@ class DirectionFeedback(BaseModel):
             for focus in self.focuses
             if focus.submission_quote is not None
         )
-        questions = "\n".join(focus.guiding_question for focus in self.focuses)
+        questions = "\n\n".join(focus.guiding_question for focus in self.focuses)
         return "\n\n".join([*quotes, questions])
 
 

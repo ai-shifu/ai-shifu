@@ -8,6 +8,22 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [ ] 2026-10-12: New-head CodeRabbit review identifies two valid feedback
+      contract defects before any paid classroom request. Later-question authored
+      help incorrectly rejects exact lesson-header rules, and multiple authored
+      guiding questions collapse to one Markdown paragraph. Two reload-aware SDK
+      cases and one paragraph assertion first fail. Accept exact quotes from the
+      same full lesson or current section without judging stage applicability;
+      render separate question paragraphs. Keep unknown/foreign quotes rejected
+      and ordinary authored content unchanged. All 3700 learning/evaluation
+      cases, four subtests and one expected skip pass, including the complete
+      engine suite; developer tools and repository gates pass. The preceding
+      1f0195a05 passes every technical CI and real sim 5ab1e2a78 / build 596 /
+      Drone 5385 has API 2/2 and web 1/1 Ready, 62 fingerprints and 366 deployed
+      SDK cases per API. Retain that superseded receipt; it cannot validate these
+      latest changes. Push/reply and refreshed runtime receipts remain pending.
+      No new learner or paid generation has started.
+
 - [x] 2026-10-12: Positive-count head 5c083f38e and sim b54607827 pass the
       strict three-step direction/correction/actual-Next checkpoint. Six teaching
       generations settle 11.85 credits; original classroom and source are unchanged.
