@@ -31,7 +31,12 @@ class DirectionFocus(BaseModel):
         description="Exact submitted evidence for a contradiction; null for an omission.",
     )
     observed_issue: str = Field(
-        min_length=1, description="Brief actual gap, without its solution."
+        min_length=1,
+        description=(
+            "Briefly identify only the learner's actual claim or omission. Do not state "
+            "the correct requirement, contrast with its solution, or paraphrase the "
+            "internal criterion_quote here; that would already disclose the answer."
+        ),
     )
     guiding_question: str = Field(
         min_length=1,
@@ -97,7 +102,12 @@ class DirectionFeedback(BaseModel):
     )
     aspect_limit: int | None = Field(
         ge=1,
-        description="Authored aspect/question limit; null when no count is authored.",
+        description=(
+            "The applicable authored aspect/question limit across lesson-wide and local rules, "
+            "not only rule_quote. A local example listing several possible checks cannot "
+            "waive a lesson-wide limit. Use null only if no applicable author rule "
+            "sets a count; never use null merely because rule_quote omits the count."
+        ),
     )
     focuses: list[DirectionFocus] = Field(min_length=1)
 

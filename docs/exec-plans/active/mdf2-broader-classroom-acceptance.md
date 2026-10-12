@@ -8,6 +8,30 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Final retry-delivery head bb2e84a16 passes all technical
+      CI including runtime. Sim 1a4d25fa9 / build 591 / Drone 5380 succeeds;
+      API 2/2 and web 1/1 are Ready, with 62 matching fingerprints and 336
+      isolated SDK cases per API. Merged checks pass 3523 cases, four subtests
+      and one expected skip; all gates pass. Current main remains 774e8ad4b.
+- [x] 2026-10-12: Retain the separate retry-delivery probe. All three
+      wrong/correct/actual-Next navigation checks pass; passing prose is now
+      regenerated and displayed before Next, and the actual click advances.
+      Strict hint-stage acceptance still fails: aspect_limit is null despite
+      the applicable global one-aspect rule, and observed_issue restates two
+      positive requirements. Actual-submission grounding and one unanswered
+      question pass. Six generations settle 11.72 credits with exact original
+      owner/attempt attribution. Classroom, six history records and author source
+      remain unchanged; no actual summary or fresh learner starts. Earlier failures
+      remain separate. Do not repeat this unchanged runtime or start the full class.
+- [ ] 2026-10-12: Clarify the same direction fields at the native schema and
+      contract: resolve limits from both global and local authored instructions,
+      and keep positive acceptance requirements out of the visible issue text.
+      This is model-facing guidance only, not a host semantic grader, keyword
+      filter, generated hint or additional call. All 880 engine cases and repository
+      gates pass; this verifies delivery and regression safety, not real semantics.
+      Push, deploy and retain another independent strict result before any
+      fresh-classroom request.
+
 - [x] 2026-10-12: Explicit-ID head 06d978641 passes all technical CI,
       including runtime. Sim 21d95d972 / build 589 / Drone 5378 succeeds;
       API 2/2 and web 1/1 are Ready with 62 matching fingerprints and

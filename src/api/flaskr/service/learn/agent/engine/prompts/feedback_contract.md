@@ -26,6 +26,16 @@ the branch causes a retry before display within the existing request budget.
   This branch also supports authored shapes requiring several questions within
   one aspect; it does not change the author's disclosure limits.
 
+Before sending a direction, compare its fields with the current authored stage
+without another planning call. Select `aspect_limit` from BOTH lesson-wide and
+local rules. A selected conditional example is not the complete pacing policy;
+its list of possible checks does not erase a lesson-wide one-aspect limit.
+Use null only when no applicable rule sets a count. Keep the complete acceptance
+comparison in internal `criterion_quote`, not in visible `observed_issue`.
+The issue identifies only the learner's actual claim or omission: stating the
+correct requirement as its opposite, or listing what the answer should contain,
+already supplies a solution. Follow it with the permitted unanswered question.
+
 Every `review` includes the actual returned `answer_id`, an exact
 `submission_quote` from that input and a brief internal `reason` for the branch.
 The host reference supplies the opaque interaction ID explicitly. A course variable,
