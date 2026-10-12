@@ -825,9 +825,10 @@ def test_retry_projection_preserves_successful_pages_and_raw_validation_errors()
 
 
 @pytest.mark.anyio
-async def test_saved_legacy_direction_without_limit_can_resume_its_original_answer() -> (
-    None
-):
+@pytest.mark.parametrize("legacy_limit", ["missing", "null"])
+async def test_saved_legacy_direction_can_resume_its_original_answer(
+    legacy_limit: str,
+) -> None:
     from pydantic_ai.messages import ToolCallPart
 
     calls = 0
@@ -875,7 +876,10 @@ async def test_saved_legacy_direction_without_limit_can_resume_its_original_answ
                 and part.tool_call_id == "legacy-correction"
             ):
                 args = part.args_as_dict()
-                args["direction"].pop("aspect_limit")
+                if legacy_limit == "missing":
+                    args["direction"].pop("aspect_limit")
+                else:
+                    args["direction"]["aspect_limit"] = None
                 args["direction"].pop("accepted_quotes")
                 part.args = json.dumps(args)
     session = Session.loads(session.dumps())

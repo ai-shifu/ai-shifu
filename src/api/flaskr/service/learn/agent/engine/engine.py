@@ -441,8 +441,9 @@ class Engine:
 
         `feedback_contract` requires a model-declared feedback branch before
         displaying supported returned text answers. Ordinary feedback uses review
-        on an existing tool; checking directions use interact.direction. Sources
-        are checked before display, but the model still chooses the grade/stage.
+        on an existing tool; checking directions with an authored positive count
+        use interact.direction. Sources are checked before display, but the model
+        still chooses the grade/stage. Unspecified counts retain ordinary feedback.
         Off preserves portable hosts' previous optional contract.
 
         `teaching_history_compaction` offers exact paginated reads of older long

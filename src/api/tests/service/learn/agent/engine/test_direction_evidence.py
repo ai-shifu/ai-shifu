@@ -3,7 +3,12 @@
 from collections.abc import AsyncIterator
 
 import pytest
-from flaskr.service.learn.agent.engine import Engine, InteractionResponseTurn, Session
+from flaskr.service.learn.agent.engine import (
+    Engine,
+    ErrorEvent,
+    InteractionResponseTurn,
+    Session,
+)
 from flaskr.service.learn.agent.engine.direction import DirectionFeedback
 from pydantic_ai.messages import ModelMessage, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
@@ -12,6 +17,7 @@ from .test_direction_feedback import (
     CRITERION,
     QUESTION,
     SCRIPT,
+    WRONG,
     _call,
     _collect,
     _direction,
@@ -86,3 +92,42 @@ def test_accepted_quotes_require_unique_actual_submission_evidence(
         DirectionFeedback.model_validate(plan).problem(SCRIPT, {"original": PARTIAL})
         is not None
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+async def test_new_direction_cannot_skip_an_authored_count_with_null(
+    reload: bool,
+) -> None:
+    calls = 0
+    plan = _direction()
+    plan["aspect_limit"] = None
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        yield _call(
+            {
+                "type": "text",
+                "prompt": "",
+                "placeholder": "Answer",
+                **({"direction": plan} if calls == 2 else {}),
+            },
+            "original" if calls == 1 else "invalid-correction",
+        )
+
+    engine = Engine(
+        FunctionModel(stream_function=stream), request_limit=1, feedback_contract=True
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+    assert not _text(events)
+    assert any(isinstance(e, ErrorEvent) for e in events)
+    assert not session.pending
+    assert session.answers == {"original": "Learner wrote: " + WRONG}
+    assert calls == 2

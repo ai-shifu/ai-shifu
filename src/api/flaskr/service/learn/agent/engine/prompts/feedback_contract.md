@@ -4,7 +4,8 @@ This host requires an explicit branch in the SAME tool response that first gives
 feedback on a uniquely anchored text input. It buffers undeclared prose; omitting
 the branch causes a retry before display within the existing request budget.
 
-- A failed answer at the author's checking-direction stage MUST use
+- A failed answer at the author's checking-direction stage with an authored
+  aspect/question count MUST use
   `interact.direction`, without free content or sibling calls. This is the
   correction input itself, not a planning call. Copy `answer_id` exactly from
   the host `authored_section.answer_id` reference, together with the
@@ -23,14 +24,18 @@ the branch causes a retry before display within the existing request budget.
   sample hint, previous knowledge explanation or post-correct rule does not
   authorize skipping an initial direction. If no staged help is authored, quote
   the current feedback/acceptance instruction and follow that ordinary behavior.
-  This branch also supports authored shapes requiring several questions within
-  one aspect; it does not change the author's disclosure limits.
+  This ordinary branch also supports a checking-direction stage with no authored
+  count and shapes requiring several questions within one aspect. Quote its current
+  rule and explain that shape; do not invent a count or skip its disclosure limits.
 
 Before sending a direction, compare its fields with the current authored stage
 without another planning call. Select `aspect_limit` from BOTH lesson-wide and
 local rules. A selected conditional example is not the complete pacing policy;
 its list of possible checks does not erase a lesson-wide one-aspect limit.
-Use null only when no applicable rule sets a count. Keep the acceptance
+A structured direction must declare the positive authored count; null is invalid.
+When no applicable rule sets a count, use ordinary review-authored feedback with
+its current stage rule and preserve the author's multiplicity. Never invent a
+one-question limit just to use the structured field. Keep the acceptance
 comparison internal: `criterion_quote` copies the original authored requirement
 exactly, and `observed_issue` records your diagnosis without being displayed.
 Supply `accepted_quotes` as unique exact excerpts from this actual returned

@@ -8,6 +8,36 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Evidence-rendering head c8a5145e4 passes every technical CI
+      check, including runtime. Resume CodeRabbit's automatically paused review;
+      all three review surfaces have no unanswered opinions. Sim 7276b068a /
+      build 593 / Drone 5382 succeeds with API 2/2 and web 1/1 Ready, 62 matching
+      fingerprints and 341 isolated SDK cases per API. Merged checks pass 3574
+      cases, four subtests, one expected skip and repository gates.
+- [x] 2026-10-12: Retain the separate evidence-rendering probe as a strict
+      failure. Actual-submission grounding, one unanswered question, no visible
+      internal solution, and all three navigation steps pass. But aspect_limit
+      is null despite the applicable global one-aspect rule. Five generations
+      settle 9.81 credits with exact attribution; original classroom, variables,
+      six history records and author source are unchanged, with no actual summary.
+      The first local result read fails; recover the same remote result read-only
+      without repeating any generation. Preserve that wrapper failure separately.
+      No fresh learner starts and no unchanged-runtime retry is allowed.
+- [ ] 2026-10-12: Narrow new structured directions to positive authored counts.
+      Two SDK regressions first fail because null still displays a direction
+      despite the existing authored count. Require a positive declared count for
+      this structured shape. Authors with no count retain ordinary review-authored
+      checking feedback with their exact current rule, multiplicity and disclosure
+      limits; never invent one. Keep explicit multiple counts and legacy pending
+      controls with null or missing fields resumable. This is a tool-shape change,
+      not semantic interpretation of author text. All 114 focused cases and 1044
+      engine/host/context cases pass. Broader checks pass 3577 cases, four subtests
+      and one expected skip; tools and all gates pass. The first full run exceeds
+      the unchanged 64 KiB context assertion by 27 bytes; shorten redundant schema
+      text and pass the original assertion and full checks, retaining the failure.
+      Push, new-head CI/review/deployment and one changed-runtime strict result
+      remain pending.
+
 - [x] 2026-10-12: Guidance head b5291df6c passes all technical CI. Sim
       cfdb2e9b6 / build 592 / Drone 5381 succeeds with API 2/2 and web 1/1
       Ready, 62 matching fingerprints and 336 isolated SDK cases per API;

@@ -164,8 +164,8 @@ model request, and require separate actual-model acceptance.
 ### Structured checking directions
 
 For a uniquely anchored returned text input, the existing `interact` tool accepts
-an optional `direction` object. The model selects the phase, authored aspect
-limit and unmatched focuses. Each focus carries an exact current-section
+an optional `direction` object when the current stage has an authored positive
+aspect/question count. The model selects that count, phase and unmatched focuses. Each focus carries an exact current-section
 criterion, an exact submitted quote for a contradiction (null for an omission),
 an internal observed issue and one unanswered guiding question. Required
 `accepted_quotes` contains unique exact excerpts from this actual submission that
@@ -176,7 +176,8 @@ accepted excerpts with a check mark, contradiction excerpts and unanswered
 questions. Criteria, diagnoses, internal rules and declared limits are retained in
 the original tool arguments for audit, without becoming teaching text. The host
 verifies quote provenance, not correctness. Saved pending controls lacking this
-new field can still resume their original answer; existing history is preserved.
+new field, or with an old null/missing count, can still resume their original
+answer; existing history is preserved.
 
 The call defers the same normalized text input with an empty prompt and its
 original placeholder and eligible variable. Eligibility follows that normalized
@@ -187,7 +188,11 @@ response through the existing SDK retry budget. Built-in sibling calls are
 rejected before their bodies execute, including finish and memory writes in either
 order. The host neither clips a hint
 nor adds a planning request. A valid first call works with a one-request budget.
-Explicit multiple and unspecified authored counts remain supported. Passing
+Explicit multiple authored counts remain supported by the structured tool. New
+structured calls cannot use null to avoid declaring a count. When no count is
+authored, ordinary review-authored feedback quotes the current stage rule and
+preserves the author's multiplicity and disclosure limits; no one-question rule
+is invented. Passing
 answers, later help, navigation, clarifications, multiple required questions within one aspect and unsupported
 anchors retain
 the ordinary interaction path and protocols.

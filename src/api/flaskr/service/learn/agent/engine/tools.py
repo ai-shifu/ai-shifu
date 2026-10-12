@@ -709,12 +709,13 @@ async def interact(
     Do not include the following question in the same response as that explanation.
     When no intervening navigation is authored, follow the author's next step normally.
 
-    For an authored checking-direction correction of a uniquely anchored text input,
+    For an authored checking-direction correction of a uniquely anchored text input
+    with an authored aspect/question count,
     send `direction` in this same tool call instead of writing free content. Copy
     `answer_id` from the returned interaction, `rule_quote` from the author's stage
     rule, and each criterion from the current authored section. Select only the
     genuinely unmatched focus or focuses allowed now. Copy the authored aspect
-    limit, or null when none is specified; never invent or relax it. Each focus
+    positive limit; null is invalid. Never invent or relax it. Each focus
     has an internal observed issue and one unanswered guiding question, without worked
     reasoning, compound checks or a list of the other gaps. Quote actual submitted
     evidence for a contradiction; use null for an omission, never an authored sample
@@ -726,7 +727,8 @@ async def interact(
     variable as the answered input. Do not add another tool call or any free
     content to that model response. This collects the correction directly, without
     a planning request. For passing answers, later authored help, navigation,
-    clarification, multiple questions within one aspect, or an input without an
+    clarification, stages without an authored count, multiple questions within one
+    aspect, or an input without an
     exact authored anchor, omit `direction`
     and follow the ordinary authored behavior.
     When the host requires an explicit feedback branch for supported returned
