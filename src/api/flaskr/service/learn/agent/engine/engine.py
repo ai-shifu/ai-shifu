@@ -1481,6 +1481,19 @@ class Engine:
                             yield TurnDone(reason="end", usage=session.usage)
         # Surface any failure to the host and keep the session usable.
         except Exception as exc:
+            if buffer_direction and direction_chunks:
+                # Earlier pages may already be visible. Preserve their recovery
+                # history without including the current undisplayed response.
+                response = next(
+                    (
+                        m
+                        for m in reversed(events.new_messages())
+                        if isinstance(m, ModelResponse)
+                    ),
+                    None,
+                )
+                if response is not None:
+                    deps.hidden_feedback_responses.add(id(response))
             if delivered and not history_saved:
                 # The stream may fail after teaching has reached the learner. Keep the
                 # interrupted run, including accepted answers and completed tool results,

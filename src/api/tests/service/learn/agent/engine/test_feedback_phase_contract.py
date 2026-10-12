@@ -9,6 +9,7 @@ from flaskr.service.learn.agent.engine import (
     Engine,
     ErrorEvent,
     InteractionResponseTurn,
+    InteractionSpec,
     Session,
 )
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
@@ -535,3 +536,55 @@ async def test_schema_rejection_hides_whole_response_and_requires_new_branch(
         "Schema-rejected prose"
         not in ModelMessagesTypeAdapter.dump_json(session.messages).decode()
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("failure", ["provider", "tool"])
+async def test_failure_after_successful_page_saves_only_already_visible_prose(
+    failure: str,
+) -> None:
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield "Visible accepted page."
+            yield {
+                0: DeltaToolCall(
+                    name="read_exercise_history",
+                    json_args=json.dumps({"review": _review()}),
+                    tool_call_id="page",
+                )
+            }
+        else:
+            yield "Undisplayed failed continuation."
+            if failure == "provider":
+                message = "provider interrupted"
+                raise RuntimeError(message)
+            yield _call(
+                {"type": "text", "prompt": "Crash", "placeholder": "Answer"}, "crash"
+            )
+
+    def check(spec: InteractionSpec) -> None:
+        if spec.prompt == "Crash":
+            message = "host interrupted"
+            raise RuntimeError(message)
+
+    engine = _engine(stream)
+    engine.interaction_check = check
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    ]
+    assert _text(events) == "Visible accepted page."
+    assert any(isinstance(e, ErrorEvent) for e in events)
+    assert session.interrupted
+    raw = ModelMessagesTypeAdapter.dump_json(session.messages).decode()
+    assert "Visible accepted page" in raw
+    assert "Undisplayed failed continuation" not in raw

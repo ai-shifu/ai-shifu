@@ -8,6 +8,20 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Push retry correction f1ee25a7b and reply to both original
+      inline findings; accept the optional static-prompt cache suggestion in
+      the original PR conversation linking its review. Merge current main;
+      sim has only a receipt-document add/add conflict, with no runtime conflict.
+      The merged candidate passes 3464 learning/exercise-quality cases and gates.
+- [x] 2026-10-12: Before any paid probe, self-review reproduces two further
+      interruption cases: after a visible successful report page, a provider or
+      host-tool exception saves the next buffered, undisplayed prose. Exclude
+      that in-flight response from recovery history while preserving the earlier
+      accepted page and tool/retry evidence. Keep both failed baselines.
+- [ ] 2026-10-12: Validate and push interruption recovery, refresh both original
+      finding replies, then integrate the final candidate into sim. The previous
+      sim merge is an unpushed test candidate, not final runtime evidence.
+
 - [x] 2026-10-12: Fetch main after the independent historical-answer PR #3119
       merges as 774e8ad4b. Its final technical checks pass and automatic main
       build 587 / Drone 5376 succeeds. Read-only production verification finds
