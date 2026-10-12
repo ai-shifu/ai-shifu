@@ -487,3 +487,15 @@ async def test_omitted_requirement_has_no_invented_submission_quote() -> None:
     )
     assert _text(events) == "Your answer omits prior storage.\n\n" + QUESTION
     assert calls == 2
+
+
+def test_direction_requires_an_explicit_authored_limit_or_null() -> None:
+    from flaskr.service.learn.agent.engine.direction import DirectionFeedback
+    from pydantic import ValidationError
+
+    plan = _direction()
+    plan.pop("aspect_limit")
+    with pytest.raises(ValidationError, match="aspect_limit"):
+        DirectionFeedback.model_validate(plan)
+    plan["aspect_limit"] = None
+    assert DirectionFeedback.model_validate(plan).aspect_limit is None
