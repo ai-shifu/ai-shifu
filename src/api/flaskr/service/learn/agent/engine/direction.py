@@ -60,7 +60,7 @@ class FeedbackReview(BaseModel):
     )
     rule_quote: str | None = Field(
         default=None,
-        description="For authored_help, exact current author text permitting this help now.",
+        description="Exact authored_help rule, or rule expressly permitting accepted control-only feedback.",
     )
     reason: str = Field(
         min_length=1,
@@ -70,7 +70,7 @@ class FeedbackReview(BaseModel):
     def problem(
         self, answers: dict[str, str], sections: dict[str, str], authored: str = ""
     ) -> str | None:
-        """Validate actual answer provenance and an authored help source."""
+        """Validate actual answer provenance and any supplied authored rule source."""
         if self.answer_id not in sections or self.answer_id not in answers:
             return (
                 "review.answer_id must name a supported interaction returned this turn"
@@ -82,7 +82,7 @@ class FeedbackReview(BaseModel):
             return "review.submission_quote must copy actual returned input exactly"
         if not self.reason.strip():
             return "review.reason must explain the chosen feedback branch"
-        if self.phase == "authored_help" and (
+        if (self.phase == "authored_help" or self.rule_quote is not None) and (
             not self.rule_quote
             or not self.rule_quote.strip()
             or (
@@ -90,9 +90,7 @@ class FeedbackReview(BaseModel):
                 and self.rule_quote not in authored
             )
         ):
-            return (
-                "authored_help needs exact current author text permitting this help now"
-            )
+            return "rule_quote needs exact current author text permitting this feedback"
         return None
 
 

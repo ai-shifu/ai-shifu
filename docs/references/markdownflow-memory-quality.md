@@ -220,7 +220,13 @@ It must supply new visible content with its valid branch, or a successful earlie
 page must already have supplied the replacement. Read-only lookups remain allowed
 without content but cannot clear this delivery obligation. A valid structured
 direction supplies its own rendered correction instead of ordinary prose. Calls
-that never had rejected prose retain authored control-only behavior. This checks
+that never had rejected prose retain authored control-only behavior. Accepted
+answers must deliver content before navigation or finish even when no earlier
+prose was rejected. A successful earlier content page satisfies that obligation;
+a lookup alone does not. Explicit authored control-only acceptance remains
+available by quoting its exact current rule in review.rule_quote and explaining
+the exception in reason. All supplied rule quotes are source-checked, without
+interpreting whether the model selected the applicable rule. This checks
 presence and tool success, not whether new text is a correct or complete answer;
 never restore rejected explanations verbatim or increase request budgets.
 

@@ -13,8 +13,10 @@ the branch causes a retry before display within the existing request budget.
   points to a bounded check and leaves its reasoning unanswered; it does not
   recite a requirement as the answer. Honor the author's aspect/question count.
 - For a genuinely complete answer use `review.phase="accepted"` on the existing
-  next interaction, finish or read tool. Accept the complete answer immediately
-  and give only the authored passing feedback/navigation.
+  next interaction, finish or read tool. Accept immediately and deliver authored
+  confirmation/explanation as content before navigation. Internal reason, summary
+  and control prompt are not teaching. Only an explicit authored control-only rule
+  allows omission: copy it in `rule_quote` and justify the exception in `reason`.
 - For a learner's side question containing no attempted answer use
   `review.phase="clarification"`. Answer the question under the author's rules,
   then return to its pending exercise without inventing an attempted answer.

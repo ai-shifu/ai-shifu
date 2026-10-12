@@ -8,6 +8,38 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-12: Head 651ae816b passes every technical CI, including runtime;
+      current-head CodeRabbit is rate-limited, not a completed fresh review.
+      All eight inline roots retain original-thread replies. Sim e7b5e7d4d /
+      build 598 / Drone 5387 succeeds, with API 2/2 and web 1/1 Ready,
+      67 matching files and 372 isolated SDK cases per API.
+- [x] 2026-10-12: Preserve the twelfth fresh classroom failure independently.
+      Wrong-answer attribution, correction feedback and actual Next pass on the
+      first question; the second knowledge/acceptance stages also pass. The third
+      correct answer receives only a Next prompt/control with no confirmation or
+      explanation. Its single generation has no TextPart; an internal reason
+      promises explanation but does not deliver it. Stop before all 19 remaining
+      phases, without another classroom request. Nine ordinary requests and 13
+      teaching generations settle 26.06 credits with exact attribution. Eighteen
+      history rows read stably with exact visible text; source unchanged, turn
+      nine unfinished. Maximum original teaching is 3817 wire bytes, zero summary
+      generations/cache, so natural compression is not accepted.
+- [ ] 2026-10-12: Nine corrected-fixture regressions first fail and the authored
+      control-only positive case passes. Require content before accepted terminal
+      tools even without earlier rejected prose; retain successful earlier pages
+      and permit explicit control-only acceptance with an exact authored rule.
+      Source-check supplied rules without grading their meaning. Preserve lookup
+      and legacy/control-only flows, existing budgets and the stopped learner.
+      Initial finish fixtures assume the wrong SDK completion shape; correct the
+      fixture before confirming the baseline. A first edit uses the wrong path,
+      and a first broad command names a nonexistent test; retain those failures
+      separately from corrected validation. Complete local checks, push, reply
+      and refresh actual sim before another independent runtime result.
+      Corrected validation passes 3732 non-overlapping learning/evaluation cases
+      across the learning/two evaluation suites and 46 exercise-quality cases,
+      four subtests and one expected skip. The original 64 KiB projection check,
+      developer tools and all repository gates pass unchanged.
+
 - [x] 2026-10-12: Functional head 6c4c42ca7 passes every technical CI and
       a fresh CodeRabbit review. Both new inline findings have pushed-fix replies;
       defer its summary-only wording suggestion and coverage warning explicitly

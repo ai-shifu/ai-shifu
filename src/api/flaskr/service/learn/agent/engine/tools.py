@@ -54,6 +54,7 @@ class Deps:
     feedback_review: FeedbackReview | None = None
     hidden_feedback_responses: set[int] = field(default_factory=set)
     feedback_text_pending: bool = False
+    feedback_text_delivered: bool = False
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
@@ -102,6 +103,7 @@ class Deps:
             self.feedback_review = review
         if any(isinstance(p, TextPart) and p.content.strip() for p in response.parts):
             self.feedback_text_pending = False
+            self.feedback_text_delivered = True
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
@@ -653,6 +655,7 @@ def feedback_response_problem(
             "Do not restore rejected prose verbatim or skip the author's stage",
             None,
         )
+    review = None
     if reviews:
         review = reviews[0]
         if problem := review.problem(
@@ -668,10 +671,13 @@ def feedback_response_problem(
                 "do not change an already displayed feedback branch in this turn",
                 None,
             )
-        return None, review
-    if deps.feedback_review is None and (
-        any(isinstance(p, TextPart) and p.content.strip() for p in response.parts)
-        or any(call.tool_name in ("interact", "finish") for call in calls)
+    if (
+        deps.feedback_review is None
+        and (
+            any(isinstance(p, TextPart) and p.content.strip() for p in response.parts)
+            or any(call.tool_name in ("interact", "finish") for call in calls)
+        )
+        and review is None
     ):
         return (
             "Declare the feedback branch in this same tool response: use interact.direction "
@@ -682,7 +688,26 @@ def feedback_response_problem(
             "A read-only lookup without free content can precede the declaration",
             None,
         )
-    return None, None
+    selected = review or deps.feedback_review
+    if (
+        selected is not None
+        and selected.phase == "accepted"
+        and any(call.tool_name in ("interact", "finish") for call in calls)
+        and not deps.feedback_text_delivered
+        and not any(
+            isinstance(p, TextPart) and p.content.strip() for p in response.parts
+        )
+        and not selected.rule_quote
+    ):
+        return (
+            "Accepted feedback needs the author's confirmation and explanation as content "
+            "before navigation or finish; an internal reason or control prompt is not "
+            "teaching. For explicitly authored control-only acceptance, supply its exact "
+            "rule_quote and explain that exception in reason. Otherwise deliver the "
+            "authored feedback with the valid branch and tool in this response",
+            None,
+        )
+    return None, review
 
 
 async def interact(
