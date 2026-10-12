@@ -136,8 +136,10 @@ def test_failed_session_save_rolls_back_an_admitted_request(
         before = session_store.load_agent_session(app, user, lesson).dumps()
         original = session_store._apply
 
-        def fail(row: object, session: object) -> None:
-            original(row, session)
+        def fail(
+            row: object, session: object, *, content_revision: int | None = None
+        ) -> None:
+            original(row, session, content_revision=content_revision)
             assert (
                 VariableValue.query.filter_by(
                     user_bid=user, key="requested_pace"

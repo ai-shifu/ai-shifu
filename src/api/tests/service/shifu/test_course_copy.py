@@ -19,7 +19,10 @@ from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin import copy_operator_course
 from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
-from flaskr.service.shifu.shifu_history_manager import get_shifu_history
+from flaskr.service.shifu.shifu_history_manager import (
+    get_shifu_history,
+    outline_content_revisions,
+)
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
@@ -287,6 +290,9 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app: object) ->
         )
         copied_by_title = {item.title: item for item in copied_outlines}
         copied_history = get_shifu_history(app, new_shifu_bid)
+        assert outline_content_revisions(copied_history) == {
+            row.outline_item_bid: row.id for row in copied_outlines
+        }
         copied_auths = AiCourseAuth.query.filter_by(course_id=new_shifu_bid).all()
 
         assert result["source_shifu_bid"] == shifu_bid

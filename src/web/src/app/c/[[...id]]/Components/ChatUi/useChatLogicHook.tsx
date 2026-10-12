@@ -15,7 +15,6 @@ import {
 import { useCourseStore } from '@/store/useCourseStore';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
-import api from '@/api';
 import {
   StudyRecordItem,
   LikeStatus,
@@ -71,7 +70,6 @@ import {
   EMPTY_LESSON_RUN_ITEMS,
   useLessonRunContentStore,
 } from '@/store/useLessonRunContentStore';
-import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 import { resolveLearnerErrorToast } from '@/lib/learnerError';
 import {
   AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
@@ -236,7 +234,6 @@ function useChatLogicHook({
   lessonId,
   chapterId,
   previewMode,
-  lessonHasContentUpdate = false,
   isListenMode = false,
   learningMode = isListenMode ? 'listen' : 'read',
   listenRequestEnabled = false,
@@ -2476,40 +2473,9 @@ function useChatLogicHook({
       if (!isCurrentRefresh()) {
         return false;
       }
-      let shouldShowLessonUpdateNotice = false;
-      const latestStudyUpdatedAt =
-        effectivePreviewMode && recordResp?.elements?.length > 0
-          ? parseLessonHistoryDate(recordResp.last_progress_updated_at)
-          : null;
-      if (
-        effectivePreviewMode &&
-        recordResp?.elements?.length > 0 &&
-        latestStudyUpdatedAt
-      ) {
-        const draftMeta = await api
-          .getShifuDraftMeta({
-            shifu_bid: shifuBid,
-            outline_bid: outlineBid,
-          })
-          .catch(() => null);
-        if (!isCurrentRefresh()) {
-          return false;
-        }
-        const latestDraftUpdatedAt = parseLessonHistoryDate(
-          draftMeta?.updated_at,
-        );
-        shouldShowLessonUpdateNotice = Boolean(
-          latestDraftUpdatedAt &&
-          latestStudyUpdatedAt &&
-          latestDraftUpdatedAt.getTime() > latestStudyUpdatedAt.getTime(),
-        );
-      } else if (!effectivePreviewMode && recordResp?.elements?.length > 0) {
-        shouldShowLessonUpdateNotice = Boolean(lessonHasContentUpdate);
-      }
-      if (!isCurrentRefresh()) {
-        return false;
-      }
-      setShowLessonUpdateNotice(shouldShowLessonUpdateNotice);
+      setShowLessonUpdateNotice(
+        recordResp?.has_content_update_for_current_user === true,
+      );
 
       if (recordResp?.elements?.length > 0) {
         const contentRecords = mapRecordsToContent(recordResp.elements);
@@ -2554,7 +2520,6 @@ function useChatLogicHook({
           }
         }
       } else {
-        setShowLessonUpdateNotice(false);
         if (autoRunStartedForRef.current !== outlineBid) {
           autoRunStartedForRef.current = outlineBid;
           runRef.current?.({
@@ -2588,7 +2553,6 @@ function useChatLogicHook({
     creditInsufficientAudience,
     getLessonFeedbackDefaults,
     isLessonFeedbackContent,
-    lessonHasContentUpdate,
     mapRecordsToContent,
     openLessonFeedbackPopup,
     outlineBid,

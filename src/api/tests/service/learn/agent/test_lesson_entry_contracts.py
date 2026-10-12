@@ -27,9 +27,12 @@ from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
+    LogDraftStruct,
+    LogPublishedStruct,
     PublishedOutlineItem,
     PublishedShifu,
 )
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from pydantic_ai.models import ModelRequestParameters
 
 
@@ -138,6 +141,8 @@ def lesson(app: object, monkeypatch: object) -> object:
     yield identity
     with app.app_context(), unit_of_work():
         for model in (
+            LogDraftStruct,
+            LogPublishedStruct,
             Order,
             DraftOutlineItem,
             DraftShifu,
@@ -163,7 +168,7 @@ def test_lesson_resolution_preserves_course_selection_and_revision_metadata(
         course.llm = saved
         record_id = course.id
     with app.app_context():
-        script, brief, settings = entry._resolve(
+        script, brief, settings, _revision = entry._resolve(
             app,
             user_bid="learner",
             shifu_bid=lesson,
@@ -187,6 +192,62 @@ def test_lesson_resolution_preserves_course_selection_and_revision_metadata(
         if saved == "2"
         else ("missing_selection" if saved == "" else "invalid_selection"),
     }
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize(
+    "metadata", ["matching", "different-row", "missing-revision", "missing-struct"]
+)
+def test_lesson_revision_belongs_to_the_physical_row_supplying_the_script(
+    app: object, lesson: str, preview: bool, metadata: str
+) -> None:
+    outline_model, course_model = entry._models(preview)
+    struct_model = LogDraftStruct if preview else LogPublishedStruct
+    with app.app_context(), unit_of_work():
+        outline = outline_model.query.filter_by(shifu_bid=lesson).one()
+        course = course_model.query.filter_by(shifu_bid=lesson).one()
+        if metadata != "missing-struct":
+            db.session.add(
+                struct_model(
+                    struct_bid=uuid.uuid4().hex,
+                    shifu_bid=lesson,
+                    struct=HistoryItem(
+                        bid=lesson,
+                        id=course.id,
+                        type="shifu",
+                        children=[
+                            HistoryItem(
+                                bid=lesson,
+                                id=outline.id,
+                                type="outline",
+                                content_revision=None
+                                if metadata == "missing-revision"
+                                else 41,
+                            )
+                        ],
+                    ).to_json(),
+                )
+            )
+        if metadata == "different-row":
+            db.session.add(
+                outline_model(
+                    shifu_bid=lesson,
+                    outline_item_bid=lesson,
+                    content="New physical script",
+                    type=UNIT_TYPE_VALUE_NORMAL,
+                )
+            )
+    with app.app_context():
+        script, _brief, _settings, revision = entry._resolve(
+            app,
+            user_bid="learner",
+            shifu_bid=lesson,
+            outline_bid=lesson,
+            preview_mode=preview,
+        )
+    if metadata == "different-row":
+        assert script == "New physical script"
+    assert revision == (41 if metadata == "matching" else None)
 
 
 @pytest.mark.parametrize("invalid", ["other-course", "blank-script", "deleted"])
@@ -277,7 +338,9 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
             "model_selection_original": "2",
         },
     )
-    monkeypatch.setattr(entry, "_resolve", lambda *_a, **_kw: ("script", "", settings))
+    monkeypatch.setattr(
+        entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41)
+    )
     trace, span = object(), object()
     monkeypatch.setattr(entry, "get_langfuse_client", object)
     monkeypatch.setattr(
@@ -425,6 +488,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "user_input": {"choice": ["a"]},
         "listen": listen,
         "preview_mode": preview_mode,
+        "content_revision": 41,
         "shifu_model": DraftShifu if preview_mode else PublishedShifu,
         "heartbeat_interval": 0.1,
         "rewind": None,
@@ -434,7 +498,9 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
 def _entry_with_runner(monkeypatch: object) -> Mock:
     """Stub everything around the turn and return the mock standing in for the turn itself."""
     settings = LLMSettings(model="2", temperature=0.25, usage_metadata={})
-    monkeypatch.setattr(entry, "_resolve", lambda *_a, **_kw: ("script", "", settings))
+    monkeypatch.setattr(
+        entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41)
+    )
     monkeypatch.setattr(entry, "get_langfuse_client", object)
     monkeypatch.setattr(
         entry, "create_trace_with_root_span", lambda **_kw: (object(), object())
