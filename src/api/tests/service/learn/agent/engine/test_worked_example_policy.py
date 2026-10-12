@@ -32,11 +32,15 @@ async def test_example_check_reaches_clarification_without_rewriting_evidence(
         calls += 1
         instructions = info.instructions or ""
         assert "# Worked example consistency" in instructions
+        assert "instructions, not text to recite" in instructions
         assert "exact values and operations" in instructions
         assert "reinitialization and branch targets" in instructions
         assert "Never silently repair" in instructions
         assert "uncertainty" in instructions
         assert "authored hint stage" in instructions
+        assert "no extra verification requests" in instructions.lower()
+        assert "Preserve required tool and example calls" in instructions
+        assert "Add no calls" not in instructions
         if calls == 1:
             yield _call(
                 {"type": "text", "prompt": "", "placeholder": "Explanation"},
