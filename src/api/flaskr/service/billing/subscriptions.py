@@ -546,13 +546,11 @@ def ensure_subscription_renewal_order(
     if order is not None and (
         _is_paid_referral_invitation_renewal(order)
         or _is_preorder_order(order)
+        or _normalize_bid(order.payment_provider).lower() != provider_name
+        or order.status != BILLING_ORDER_STATUS_PENDING
         or (
             is_manual_payment_provider(order.payment_provider)
-            and (
-                order.provider_reference_id
-                or order.status != BILLING_ORDER_STATUS_PENDING
-                or order.payment_provider != provider_name
-            )
+            and order.provider_reference_id
         )
     ):
         metadata = (
@@ -611,8 +609,9 @@ def ensure_subscription_renewal_order(
         )
 
     else:
-        # An unissued manual business order can refresh its price. Once it
-        # carries an external credential, the early return preserves identity.
+        # An unissued manual order can refresh its price. Pending Stripe
+        # subscription-reference rows also follow the same current contract;
+        # terminal orders and cross-provider identities are preserved above.
         order.creator_bid = subscription.creator_bid
         order.product_bid = product.product_bid
         order.currency = product.currency
@@ -843,10 +842,18 @@ def _is_stale_manual_cycle(
         == _normalize_bid(order.payment_provider).lower()
         and subscription.last_renewed_at == effective_from
     )
+    # A Stripe checkout can take over without advancing the period boundary.
+    # The preceding manual order must not reclaim that same cycle on replay.
     return bool(
         is_manual_payment_provider(order.payment_provider)
         and subscription.current_period_start_at is not None
-        and effective_from < subscription.current_period_start_at
+        and (
+            effective_from < subscription.current_period_start_at
+            or (
+                effective_from == subscription.current_period_start_at
+                and _normalize_bid(subscription.billing_provider).lower() == "stripe"
+            )
+        )
         and not is_current_cycle_order
     )
 

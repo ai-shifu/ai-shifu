@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
@@ -13,6 +13,7 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.billing import checkout, provider_state, subscriptions
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_CANCELED,
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_TIMEOUT,
@@ -22,6 +23,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWalletBucket,
@@ -65,6 +67,97 @@ def test_historical_provider_names_create_usable_renewals(
         billing_renewal_app, creator_bid, bill_order_bid, {}
     )
     assert result.status == "pending"
+
+
+@pytest.mark.parametrize("provider", ["pingxx", "alipay", "wechatpay"])
+@pytest.mark.parametrize(
+    "status", [BILLING_ORDER_STATUS_PENDING, BILLING_ORDER_STATUS_PAID]
+)
+def test_stripe_renewal_keeps_its_identity_after_provider_change(
+    billing_renewal_app: Flask, provider: str, status: int
+) -> None:
+    with billing_renewal_app.app_context(), unit_of_work():
+        # November has 30 days, so both providers find the same cycle window.
+        subscription = create_renewal_subscription(
+            "stripe-identity",
+            billing_provider="stripe",
+            provider_subscription_id="sub_original",
+            current_period_end_at=datetime(2026, 11, 10, 15, 59, 59),
+        )
+        db.session.add(subscription)
+        db.session.flush()
+        order = subscriptions.ensure_subscription_renewal_order(
+            billing_renewal_app, subscription
+        )
+        order.status = status
+        identity = (
+            order.creator_bid,
+            order.product_bid,
+            order.payment_provider,
+            order.provider_reference_id,
+            order.currency,
+            order.payable_amount,
+            order.channel,
+            dict(order.metadata_json),
+        )
+        subscription.billing_provider = provider
+        product = BillingProduct.query.filter_by(product_bid=order.product_bid).one()
+        product.price_amount = int(product.price_amount) + 100
+        product.currency = "USD"
+        again = subscriptions.ensure_subscription_renewal_order(
+            billing_renewal_app, subscription, renewal_event_bid="next-event"
+        )
+        assert again.bill_order_bid == order.bill_order_bid
+        assert (
+            again.creator_bid,
+            again.product_bid,
+            again.payment_provider,
+            again.provider_reference_id,
+            again.currency,
+            again.payable_amount,
+            again.channel,
+            {**again.metadata_json, "renewal_event_bid": None},
+        ) == identity
+        assert again.metadata_json["renewal_event_bid"] == "next-event"
+        assert BillingOrder.query.count() == 1
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        BILLING_ORDER_STATUS_PAID,
+        BILLING_ORDER_STATUS_FAILED,
+        BILLING_ORDER_STATUS_TIMEOUT,
+        BILLING_ORDER_STATUS_CANCELED,
+    ],
+)
+def test_terminal_stripe_renewal_keeps_its_amount_and_contract(
+    billing_renewal_app: Flask, status: int
+) -> None:
+    with billing_renewal_app.app_context(), unit_of_work():
+        subscription = create_renewal_subscription(
+            "stripe-terminal", billing_provider="stripe"
+        )
+        db.session.add(subscription)
+        db.session.flush()
+        order = subscriptions.ensure_subscription_renewal_order(
+            billing_renewal_app, subscription
+        )
+        order.status = status
+        original = (order.provider_reference_id, order.currency, order.payable_amount)
+        product = BillingProduct.query.filter_by(product_bid=order.product_bid).one()
+        product.price_amount = int(product.price_amount) + 100
+        subscription.provider_subscription_id = "sub_replacement"
+        again = subscriptions.ensure_subscription_renewal_order(
+            billing_renewal_app, subscription, renewal_event_bid="retry-event"
+        )
+        assert again.bill_order_bid == order.bill_order_bid
+        assert (again.provider_reference_id, again.currency, again.payable_amount) == (
+            original
+        )
+        assert again.status == status
+        assert again.metadata_json["renewal_event_bid"] == "retry-event"
+        assert BillingOrder.query.count() == 1
 
 
 def test_closure_retry_stops_when_same_order_reappears(
@@ -295,7 +388,14 @@ def test_closed_timed_out_trade_can_be_replaced_without_closing_again(
 @pytest.mark.parametrize("provider", ["pingxx", "alipay", "wechatpay"])
 @pytest.mark.parametrize(
     "advance",
-    ["paid_order", "provider_update", "checkout_success", "historical_marker"],
+    [
+        "paid_order",
+        "provider_update",
+        "checkout_success",
+        "historical_marker",
+        "same_cycle_provider_update",
+        "same_cycle_checkout_success",
+    ],
 )
 def test_old_manual_payment_cannot_replace_a_later_cycle(
     billing_renewal_app: Flask, provider: str, advance: str
@@ -335,7 +435,9 @@ def test_old_manual_payment_cannot_replace_a_later_cycle(
             db.session.flush()
             assert subscriptions.grant_paid_order_credits(billing_renewal_app, later)
             assert "active_cycle_order_bid" not in subscription.metadata_json
-        elif advance == "provider_update":
+        elif advance in {"provider_update", "same_cycle_provider_update"}:
+            if advance == "same_cycle_provider_update":
+                next_start = subscription.current_period_start_at
             provider_state._apply_billing_subscription_provider_update(
                 billing_renewal_app,
                 subscription,
@@ -350,7 +452,7 @@ def test_old_manual_payment_cannot_replace_a_later_cycle(
                 },
             )
             assert "active_cycle_order_bid" not in subscription.metadata_json
-        elif advance == "checkout_success":
+        elif advance in {"checkout_success", "same_cycle_checkout_success"}:
             provider_state._apply_subscription_checkout_success(
                 billing_renewal_app,
                 subscription,
@@ -359,8 +461,9 @@ def test_old_manual_payment_cannot_replace_a_later_cycle(
                 payload={"subscription": "sub_stripe_cycle"},
             )
             assert "active_cycle_order_bid" not in subscription.metadata_json
-            subscription.current_period_start_at = next_start
-            subscription.current_period_end_at = next_end
+            if advance == "checkout_success":
+                subscription.current_period_start_at = next_start
+                subscription.current_period_end_at = next_end
         else:
             # Historical state may retain an old marker even on the same provider.
             subscription.current_period_start_at = next_start
