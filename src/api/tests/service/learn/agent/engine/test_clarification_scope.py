@@ -51,8 +51,9 @@ async def test_clarification_keeps_authored_limits_without_correction_withholdin
         assert reference["text"] == preamble + section
         assert reference["ancestor_preambles"] == []
         notice = reference["notice"]
-        assert "For checking-direction feedback only," in notice
-        assert notice.index("For checking-direction feedback only,") < notice.index(
+        correction = "For checking-direction and authored-help correction feedback,"
+        assert correction in notice
+        assert notice.index(correction) < notice.index(
             "Leave permitted questions unanswered"
         )
         assert (
@@ -115,6 +116,71 @@ async def test_clarification_keeps_authored_limits_without_correction_withholdin
         and "# Current authored feedback scope" in (message.instructions or "")
         for message in session.messages
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+@pytest.mark.parametrize("aspect_limit", [None, 2])
+async def test_authored_help_retains_correction_scope_and_teacher_multiplicity(
+    reload: bool, aspect_limit: int | None
+) -> None:
+    """Keep correction authority outside the one-aspect direction branch too."""
+    rule = (
+        "For an incorrect answer, ask two guiding questions without revealing reasoning."
+        if aspect_limit == 2
+        else "For an incorrect answer, ask guiding questions without revealing reasoning."
+    )
+    script = rule + "\n\n## Question\nExplain a loop.\n?[...Explanation]\n"
+    answer = "A loop always runs once."
+    args = {"type": "text", "prompt": "", "placeholder": "Explanation"}
+    review = {
+        "answer_id": "original",
+        "phase": "authored_help",
+        "submission_quote": answer,
+        "rule_quote": rule,
+        "reason": "Use the teacher's permitted guiding questions and withhold reasoning.",
+    }
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        """Inspect the actual authored-help request before returning native feedback."""
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(args, "original")
+            return
+        instructions = info.instructions or ""
+        marker = '{"status":"authored_section"'
+        reference = json.loads(instructions[instructions.index(marker) :])
+        assert reference["text"] == script
+        notice = reference["notice"]
+        assert "For checking-direction and authored-help correction feedback," in notice
+        assert "Preserve authored multiplicity" in notice
+        assert "A conditional example applies only when its condition matches" in notice
+        assert "do not enumerate other gaps or supply later reasoning" in notice
+        assert "within authored brevity and disclosure rules" in notice
+        yield "What determines repetition? When does the loop stop?"
+        yield _call({**args, "review": review}, "continued")
+
+    engine = Engine(
+        FunctionModel(stream_function=stream), feedback_contract=True, request_limit=1
+    )
+    session = await engine.new_session(script)
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    before = ModelMessagesTypeAdapter.dump_json(session.messages)
+    count = len(session.messages)
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=answer))
+    )
+    assert calls == 2
+    assert _text(events) == "What determines repetition? When does the loop stop?"
+    assert session.pending[0].tool_call_id == "continued"
+    assert not session.finished
+    assert not session.all_memory()
+    assert session.script.script == script
+    assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
 
 
 @pytest.mark.anyio

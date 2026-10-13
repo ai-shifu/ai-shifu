@@ -8,12 +8,16 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
-- [x] 2026-10-13: Prepare independent-main #3123 0b885270e and #3125
-      c61022c51 with merged #3128/#3130, excluding the held #3122 example policy.
+- [x] 2026-10-13: Prepare independent-main #3123 557352ec3 and #3125
+      dd3da5a63 with merged #3128/#3130, excluding the held #3122 example policy.
       The API tree is exactly #3125 plus #3123's authored-reference source and
       focused test. Explicit feedback object types preserve native rejection;
       teacher brevity and disclosure limits remain unchanged. Prior original
       fast-model and balanced-classroom failures remain preserved.
+- [x] 2026-10-13: Earlier sim 15224a9c8/build639 is superseded before paid
+      acceptance after review 4257773675 identifies authored-help correction
+      limits. Include repair 557352ec3 and its four initially failing regressions;
+      retain checking-direction and authored-help limits, exempt clarification only.
 - [ ] Verify this new built sim on both APIs before any changed-runtime model
       acceptance; no current actual-model success is implied by local checks.
 

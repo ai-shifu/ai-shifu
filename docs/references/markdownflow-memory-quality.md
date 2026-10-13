@@ -19,7 +19,8 @@ acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
 ## Knowledge clarification phase boundary
 
-Checking-direction withholding applies only to that phase. A permitted knowledge
+Checking-direction and authored-help feedback retain correction withholding,
+condition matching and teacher multiplicity. A permitted knowledge
 clarification follows the teacher's exact brevity/disclosure limits and returns to
 the same pending exercise; it does not grant access to later questions or require
 a worked example when the teacher prohibits one. The independent continuation
