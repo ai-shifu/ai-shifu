@@ -3029,4 +3029,61 @@ describe('BillingOverviewTab', () => {
       ),
     ).toHaveLength(1);
   });
+  test('uses server-owned options and redirect actions for an added hosted provider', async () => {
+    const user = userEvent.setup();
+    const option = {
+      id: 'fixture-hosted:fixture_checkout',
+      provider: 'fixture-hosted',
+      channel: 'fixture_checkout',
+      method: 'hosted',
+      scene: 'hosted',
+      action: 'redirect',
+      billing_mode: 'provider_managed',
+      label_key: 'module.billing.catalog.labels.providerStripe',
+      poll_provider: false,
+      requires_open_id: false,
+    };
+    mockEnvState.paymentChannels = [];
+    const currentOverview = mockUseBillingOverview();
+    mockUseBillingOverview.mockReturnValue({
+      ...currentOverview,
+      data: { ...currentOverview.data, subscription: null },
+    });
+    mockUseSWR.mockReturnValue({
+      data: { ...CATALOG_RESPONSE, payment_options: [option] },
+      error: undefined,
+      isLoading: false,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'fixture-order',
+      provider: 'fixture-hosted',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_contract_version: 1,
+      payment_action: {
+        type: 'redirect',
+        url: 'https://fixture.test/checkout',
+      },
+      redirect_url: 'https://fixture.test/obsolete',
+    });
+    renderOverviewTab();
+    await user.click(
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly-action'),
+    );
+    await acceptBillingAgreement(user);
+    await user.click(
+      screen.getByRole('button', { name: 'module.billing.checkout.confirm' }),
+    );
+    await waitFor(() =>
+      expect(mockOpenBillingCheckoutUrl).toHaveBeenCalledWith(
+        'https://fixture.test/checkout',
+      ),
+    );
+    expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_provider: 'fixture-hosted',
+        channel: 'fixture_checkout',
+      }),
+    );
+  });
 });

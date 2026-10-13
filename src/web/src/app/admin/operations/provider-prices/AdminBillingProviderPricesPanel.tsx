@@ -240,7 +240,9 @@ function getActiveProductMapping(
   return mappings.find(mapping => mapping.status_label === 'active') || null;
 }
 
-export function AdminBillingProviderPricesPanel() {
+export function AdminBillingProviderPricesPanel({
+  provider,
+}: { provider?: string } = {}) {
   const { t, i18n } = useTranslation();
   const [productFilter, setProductFilter] = React.useState(ALL_PRODUCTS);
   const [statusFilter, setStatusFilter] = React.useState(ALL_STATUSES);
@@ -255,10 +257,12 @@ export function AdminBillingProviderPricesPanel() {
 
   const { data, error, isLoading, mutate } =
     useSWR<AdminBillingProviderPricesPage>(
-      ['admin-package-management'],
+      provider
+        ? ['admin-package-management', provider]
+        : ['admin-package-management'],
       async () =>
         (await api.getAdminBillingProviderPrices(
-          {},
+          provider ? { provider } : {},
           PASSIVE_REQUEST_CONFIG,
         )) as AdminBillingProviderPricesPage,
       { revalidateOnFocus: false },
@@ -421,6 +425,7 @@ export function AdminBillingProviderPricesPanel() {
       const createResult = (await api.createAdminBillingProviderPrice(
         {
           product_bid: form.product_bid,
+          ...(data?.provider ? { provider: data.provider } : {}),
           provider_product_id: form.provider_product_id.trim(),
           provider_price_id: form.provider_price_id.trim(),
         },

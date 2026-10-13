@@ -4,7 +4,11 @@ export type LearnerPaymentChannel =
   | 'alipay_qr'
   | 'stripe'
   | 'other';
-export type LearnerPaymentSurface = 'desktop' | 'mobile' | 'stripe_return';
+export type LearnerPaymentSurface =
+  | 'desktop'
+  | 'mobile'
+  | 'stripe_return'
+  | 'payment_return';
 export type LearnerPaymentFailureCategory =
   | 'provider_failed'
   | 'missing_order'

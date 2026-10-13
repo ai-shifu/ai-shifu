@@ -42,7 +42,7 @@ def test_generate_charge_uses_pingxx_channel(app: object, monkeypatch: object) -
 
     captured = {}
 
-    def fake_generate_pingxx_charge(**kwargs: object) -> object:
+    def fake_generate_registered_charge(**kwargs: object) -> object:
         captured.update(kwargs)
         return BuyRecordDTO(
             kwargs["buy_record"].order_bid,
@@ -54,10 +54,11 @@ def test_generate_charge_uses_pingxx_channel(app: object, monkeypatch: object) -
         )
 
     monkeypatch.setattr(
-        order_funs, "_generate_pingxx_charge", fake_generate_pingxx_charge
+        order_funs, "_generate_registered_charge", fake_generate_registered_charge
     )
 
     result = generate_charge(app, order_bid, "wx_wap", "127.0.0.1")
     assert result.channel == "wx_wap"
     assert result.payment_channel == "pingxx"
     assert captured["channel"] == "wx_wap"
+    assert captured["provider_name"] == "pingxx"

@@ -18,12 +18,13 @@ from flaskr.service.common.models import (
 )
 from flaskr.service.common.pagination import normalize_pagination
 from flaskr.service.config import get_config
+from flaskr.service.order.payment_providers.api import payment_definition
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import func
 
 from .campaign_provider_discounts import (
-    assert_current_stripe_campaign_provider_discounts_ready,
+    assert_campaign_provider_discounts_ready,
     has_open_campaign_provider_coupons,
     summarize_campaign_provider_discounts,
 )
@@ -420,11 +421,13 @@ def update_admin_billing_campaign(
         if draft["enabled"] and _should_require_provider_discount_sync_for_benefit(
             draft["benefit_type_code"]
         ):
-            assert_current_stripe_campaign_provider_discounts_ready(
-                app,
-                campaign_bid=normalized_campaign_bid,
-                product_bids=[config.product_bid for config in product_configs],
-            )
+            for provider in _enabled_discount_providers():
+                assert_campaign_provider_discounts_ready(
+                    app,
+                    campaign_bid=normalized_campaign_bid,
+                    product_bids=[config.product_bid for config in product_configs],
+                    provider=provider,
+                )
 
         _validate_campaign_overlap(
             product_bids=sorted(config.product_bid for config in product_configs),
@@ -478,11 +481,13 @@ def update_admin_billing_campaign_status(
         if enabled and _should_require_provider_discount_sync_for_benefit(
             int(row.benefit_type or 0)
         ):
-            assert_current_stripe_campaign_provider_discounts_ready(
-                app,
-                campaign_bid=normalized_campaign_bid,
-                product_bids=product_bids,
-            )
+            for provider in _enabled_discount_providers():
+                assert_campaign_provider_discounts_ready(
+                    app,
+                    campaign_bid=normalized_campaign_bid,
+                    product_bids=product_bids,
+                    provider=provider,
+                )
         if not enabled and has_open_campaign_provider_coupons(normalized_campaign_bid):
             raise_error("server.billing.campaignProviderDiscountLocked")
         _validate_campaign_overlap(
@@ -506,7 +511,20 @@ def _should_require_provider_discount_sync_for_benefit(benefit_type: int) -> boo
     enabled_channels = {
         item.strip().lower() for item in enabled_raw.split(",") if item.strip()
     }
-    return enabled_channels == {"stripe"}
+    return bool(enabled_channels) and all(
+        _supports_provider_discounts(provider) for provider in enabled_channels
+    )
+
+
+def _enabled_discount_providers() -> list[str]:
+    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe") or "")
+    return sorted(
+        {
+            item.strip().lower()
+            for item in enabled_raw.split(",")
+            if item.strip() and _supports_provider_discounts(item.strip().lower())
+        }
+    )
 
 
 def resolve_catalog_campaign_payload(
@@ -1413,3 +1431,10 @@ def _load_active_campaign_binding_for_product(
     if row is None:
         return None
     return row[0], row[1]
+
+
+def _supports_provider_discounts(provider: str) -> bool:
+    try:
+        return payment_definition(provider).capabilities.discounts
+    except ValueError:
+        return False

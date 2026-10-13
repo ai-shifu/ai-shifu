@@ -650,8 +650,13 @@ def test_admin_provider_price_create_infers_account_and_mode_from_stripe(
     product_bid = "bill-product-mapping-admin-infer"
 
     def fake_read_snapshot(
-        _app: Flask, *, provider_product_id: str, provider_price_id: str
+        _app: Flask,
+        *,
+        provider_product_id: str,
+        provider_price_id: str,
+        provider: str = "stripe",
     ) -> ProviderCatalogSnapshot:
+        assert provider == "stripe"
         assert provider_product_id == "prod_admin_infer"
         assert provider_price_id == "price_admin_infer"
         return _snapshot(

@@ -610,3 +610,50 @@ def test_runtime_config_falls_back_when_billing_context_build_fails(
         "host": None,
         "binding_status": None,
     }
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (True, True),
+        ("true", True),
+        ("yes", True),
+        (" Y ", True),
+        ("on", True),
+        ("1", True),
+        (False, False),
+        ("off", False),
+        ("0", False),
+        (None, False),
+        ("unknown", False),
+    ],
+)
+def test_stripe_runtime_flag_and_checkout_options_share_boolean_semantics(
+    runtime_config_client: FlaskClient,
+    monkeypatch: pytest.MonkeyPatch,
+    value: object,
+    expected: bool,
+) -> None:
+    from flaskr.service.order import payment_channel_resolution
+    from flaskr.service.order.payment_providers import options
+
+    original_get_config = config_route.get_config
+
+    def get_config(key: str, default: object = None) -> object:
+        return value if key == "STRIPE_ENABLED" else original_get_config(key, default)
+
+    monkeypatch.setattr(config_route, "get_config", get_config)
+    monkeypatch.setattr(payment_channel_resolution, "get_config", get_config)
+    monkeypatch.setattr(options, "get_config", get_config)
+    payload = runtime_config_client.get("/api/runtime-config").get_json(force=True)[
+        "data"
+    ]
+    assert payload["stripeEnabled"] is expected
+    for domain in ("order", "billing"):
+        assert (
+            any(
+                item.provider == "stripe"
+                for item in options.configured_payment_options(biz_domain=domain)
+            )
+            is expected
+        )

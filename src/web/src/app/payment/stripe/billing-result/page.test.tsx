@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 
 import StripeBillingResultPage from './page';
+import BillingPaymentResult from '@/components/payment/BillingPaymentResult';
 import api from '@/api';
 import { buildBillingSwrKey } from '@/lib/billing';
 import request from '@/lib/request';
@@ -596,5 +597,36 @@ describe('StripeBillingResultPage', () => {
         outcome: 'success',
       }),
     );
+  });
+  test('confirms a generic hosted billing return without Stripe session parameters or analytics dependency', async () => {
+    mockSearchParams.set('bill_order_bid', 'generic-billing-order');
+    mockSearchParams.set('provider', 'untrusted-provider-name');
+    mockRequestPost.mockResolvedValue({ status: 'paid' });
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    render(<BillingPaymentResult />);
+    await waitFor(() =>
+      expect(mockRequestPost).toHaveBeenCalledWith(
+        '/api/billing/orders/generic-billing-order/sync',
+        { session_id: undefined },
+      ),
+    );
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_billing_checkout_result',
+        expect.objectContaining({
+          bill_order_bid: 'generic-billing-order',
+          payment_provider: 'other',
+          source_surface: 'payment_return',
+          outcome: 'success',
+        }),
+      ),
+    );
+    expect(mockGetBillingOverview).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'untrusted-provider-name',
+    );
+    expect(mockRequestPost).toHaveBeenCalledTimes(1);
   });
 });

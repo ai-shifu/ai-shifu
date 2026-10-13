@@ -1,3 +1,5 @@
+import { resolvePlanCheckoutPresentation } from '@/lib/billingCheckoutContracts';
+import type { PaymentOption } from '@/types/payment';
 import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -18,6 +20,7 @@ import {
   resolveBillingProductTitle,
 } from '@/lib/billing';
 import type {
+  BillingCheckoutOperation,
   BillingPlan,
   BillingProvider,
   BillingSubscription,
@@ -34,7 +37,6 @@ import styles from './BillingPlanComparisonTable.module.scss';
 // i18n.
 const ROW_MARKER_LEARNING_TIME = '*';
 const ROW_MARKER_VALIDITY = '**';
-const SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 const MIN_PLAN_COLUMN_WIDTH_PX = 180;
 
 type FeatureRow = {
@@ -65,74 +67,12 @@ function buildFeatureRows(
     .sort((a, b) => a.unlockIndex - b.unlockIndex);
 }
 
-function planRankIn(ordered: BillingPlan[], productBid: string | null): number {
-  if (!productBid) return -1;
-  return ordered.findIndex(plan => plan.product_bid === productBid);
-}
-
-function planTierIn(ordered: BillingPlan[], plan: BillingPlan | null): number {
-  if (!plan) return Number.NaN;
-  if (typeof plan.plan_tier === 'number') return plan.plan_tier;
-  const rank = planRankIn(ordered, plan.product_bid);
-  return rank >= 0 ? rank : Number.NaN;
-}
-
 function shortenIntervalLabel(label: string): string {
   if (!label) return '';
   return label
     .replace(/^每\s*/, '')
     .replace(/^per\s*/i, '')
     .trim();
-}
-
-function resolveCheckoutProvider(
-  stripeAvailable: boolean,
-  pingxxAvailable: boolean,
-  alipayAvailable: boolean,
-  wechatpayAvailable: boolean,
-): BillingProvider | null {
-  if (stripeAvailable) return 'stripe';
-  if (alipayAvailable) return 'alipay';
-  if (wechatpayAvailable) return 'wechatpay';
-  if (pingxxAvailable) return 'pingxx';
-  return null;
-}
-
-function isProviderAvailable(
-  provider: BillingProvider | null | undefined,
-  stripeAvailable: boolean,
-  pingxxAvailable: boolean,
-  alipayAvailable: boolean,
-  wechatpayAvailable: boolean,
-): provider is BillingProvider {
-  if (provider === 'stripe') return stripeAvailable;
-  if (provider === 'pingxx') return pingxxAvailable;
-  if (provider === 'alipay') return alipayAvailable;
-  if (provider === 'wechatpay') return wechatpayAvailable;
-  return false;
-}
-
-function isSelfManagedPreorderProvider(
-  provider: BillingProvider | null | undefined,
-): provider is BillingProvider {
-  return (
-    provider === 'pingxx' || provider === 'alipay' || provider === 'wechatpay'
-  );
-}
-
-function resolveImmediateUpgradeProvider(
-  currentProvider: BillingProvider | null,
-  fallbackProvider: BillingProvider | null,
-  options: {
-    isTrialCurrentPlan: boolean;
-    hasPendingPreorder: boolean;
-  },
-): BillingProvider | null {
-  if (options.isTrialCurrentPlan) return fallbackProvider;
-  if (currentProvider === 'manual' && !options.hasPendingPreorder) {
-    return fallbackProvider;
-  }
-  return currentProvider;
 }
 
 type ActionTone = 'primary' | 'current' | 'muted';
@@ -193,59 +133,6 @@ function resolvePlanValidityShort(
   return '';
 }
 
-function endOfLocalDay(value: Date): Date {
-  const end = new Date(value.getTime());
-  end.setHours(23, 59, 59, 0);
-  return end;
-}
-
-function calculateSelfManagedCycleEndFromNow(
-  plan: BillingPlan,
-  now = new Date(),
-): Date | null {
-  const intervalCount = Math.max(plan.billing_interval_count || 0, 0);
-  if (intervalCount <= 0) return null;
-
-  if (plan.billing_interval === 'day') {
-    return endOfLocalDay(
-      new Date(now.getTime() + (intervalCount - 1) * 24 * 60 * 60 * 1000),
-    );
-  }
-
-  if (plan.billing_interval === 'month') {
-    return endOfLocalDay(
-      new Date(now.getTime() + (30 * intervalCount - 1) * 24 * 60 * 60 * 1000),
-    );
-  }
-
-  if (plan.billing_interval === 'year') {
-    const end = new Date(now.getTime());
-    end.setFullYear(end.getFullYear() + intervalCount);
-    return endOfLocalDay(end);
-  }
-
-  return null;
-}
-
-function isSamePlanRenewalLimitReached(
-  currentSubscription: BillingSubscription | null,
-  plan: BillingPlan,
-): boolean {
-  const currentPeriodEndAt = currentSubscription?.current_period_end_at;
-  if (!currentPeriodEndAt) return false;
-
-  const currentPeriodEnd = new Date(currentPeriodEndAt);
-  if (Number.isNaN(currentPeriodEnd.getTime())) return false;
-
-  const maxSinglePrepaidEnd = calculateSelfManagedCycleEndFromNow(plan);
-  if (!maxSinglePrepaidEnd) return false;
-
-  return (
-    currentPeriodEnd.getTime() - maxSinglePrepaidEnd.getTime() >
-    SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS
-  );
-}
-
 export type BillingPlanComparisonTableProps = {
   trialOffer: BillingTrialOffer | null | undefined;
   paidPlans: BillingPlan[];
@@ -256,6 +143,8 @@ export type BillingPlanComparisonTableProps = {
   isTrialCurrentPlan: boolean;
   renderFreeColumn: boolean;
   checkoutLoadingKey: string;
+  paymentOptions?: PaymentOption[];
+  checkoutOperations?: Record<string, BillingCheckoutOperation>;
   stripeAvailable: boolean;
   pingxxAvailable: boolean;
   alipayAvailable: boolean;
@@ -268,6 +157,8 @@ export type BillingPlanComparisonTableProps = {
 };
 
 export function BillingPlanComparisonTable({
+  paymentOptions,
+  checkoutOperations,
   trialOffer,
   paidPlans,
   orderedPlans,
@@ -288,26 +179,8 @@ export function BillingPlanComparisonTable({
   const emptyValue = t('module.billing.package.table.emptyValue');
   const trialFeatureKeys = getFreeFeatureData().items;
   const featureRows = buildFeatureRows(trialFeatureKeys, paidPlans);
-  const provider = resolveCheckoutProvider(
-    stripeAvailable,
-    pingxxAvailable,
-    alipayAvailable,
-    wechatpayAvailable,
-  );
-  const currentTier = planTierIn(orderedPlans, currentPlan);
-  const currentProvider = currentSubscription?.billing_provider || null;
-  const pendingPreorderProductBid =
-    currentSubscription?.next_product_bid || null;
   const hasPendingPreorder = Boolean(
-    hasActiveSubscription && pendingPreorderProductBid,
-  );
-  const immediateUpgradeProvider = resolveImmediateUpgradeProvider(
-    currentProvider,
-    provider,
-    {
-      isTrialCurrentPlan,
-      hasPendingPreorder,
-    },
+    hasActiveSubscription && currentSubscription?.next_product_bid,
   );
 
   const columns: ColumnDescriptor[] = [];
@@ -368,104 +241,27 @@ export function BillingPlanComparisonTable({
 
   paidPlans.forEach((plan, idx) => {
     const isCurrentPlan = currentPlan?.product_bid === plan.product_bid;
-    const targetTier = planTierIn(orderedPlans, plan);
-    const hasComparableTier =
-      Number.isFinite(currentTier) && Number.isFinite(targetTier);
-    const isHigherTier =
-      hasActiveSubscription && (!hasComparableTier || targetTier > currentTier);
-    const isSameOrLowerTier =
-      hasActiveSubscription && hasComparableTier && targetTier <= currentTier;
-    const isPendingPreorderTarget =
-      pendingPreorderProductBid === plan.product_bid;
-    const samePlanRenewalLimitReached =
-      isCurrentPlan && isSamePlanRenewalLimitReached(currentSubscription, plan);
-    let action: BillingSubscriptionCheckoutAction | undefined;
-    let actionProvider = hasActiveSubscription ? null : provider;
-    let actionLabelKey = 'module.billing.package.actions.subscribeNow';
-    let actionDisabled = !actionProvider;
-    let actionTone: ActionTone = 'primary';
-    let actionTooltipKey: string | undefined;
-
-    if (hasActiveSubscription) {
-      if (hasPendingPreorder) {
-        if (isPendingPreorderTarget) {
-          actionLabelKey = 'module.billing.package.actions.preorderScheduled';
-          actionDisabled = true;
-          actionTone = 'muted';
-          actionTooltipKey =
-            'module.billing.package.actions.preorderLockedTooltip';
-        } else if (isHigherTier) {
-          action = 'upgrade_immediate';
-          actionLabelKey = 'module.billing.package.actions.upgradeNow';
-          if (
-            isProviderAvailable(
-              immediateUpgradeProvider,
-              stripeAvailable,
-              pingxxAvailable,
-              alipayAvailable,
-              wechatpayAvailable,
-            )
-          ) {
-            actionProvider = immediateUpgradeProvider;
-          }
-          actionDisabled = !actionProvider;
-        } else {
-          actionLabelKey = isCurrentPlan
-            ? 'module.billing.package.actions.currentSubscription'
-            : 'module.billing.package.actions.preorderLocked';
-          actionDisabled = true;
-          actionTone = isCurrentPlan ? 'current' : 'muted';
-          actionTooltipKey = isCurrentPlan
-            ? undefined
-            : 'module.billing.package.actions.preorderLockedTooltip';
-        }
-      } else if (isSameOrLowerTier) {
-        const canPreorder =
-          isSelfManagedPreorderProvider(currentProvider) &&
-          isProviderAvailable(
-            currentProvider,
-            stripeAvailable,
-            pingxxAvailable,
-            alipayAvailable,
-            wechatpayAvailable,
-          );
-        if (samePlanRenewalLimitReached) {
-          action = 'preorder';
-          actionProvider = null;
-          actionLabelKey = 'module.billing.package.actions.preorderScheduled';
-          actionDisabled = true;
-          actionTone = 'muted';
-          actionTooltipKey =
-            'module.billing.package.actions.preorderLockedTooltip';
-        } else {
-          action = 'preorder';
-          actionProvider = canPreorder ? currentProvider : null;
-          actionLabelKey = isCurrentPlan
-            ? 'module.billing.package.actions.preorderRenewal'
-            : 'module.billing.package.actions.preorderDowngrade';
-          actionDisabled = !canPreorder;
-          actionTone = canPreorder ? 'primary' : 'muted';
-          actionTooltipKey = canPreorder
-            ? undefined
-            : 'module.billing.package.actions.preorderProviderUnsupportedTooltip';
-        }
-      } else {
-        action = 'upgrade_immediate';
-        actionLabelKey = 'module.billing.package.actions.upgradeNow';
-        if (
-          isProviderAvailable(
-            immediateUpgradeProvider,
-            stripeAvailable,
-            pingxxAvailable,
-            alipayAvailable,
-            wechatpayAvailable,
-          )
-        ) {
-          actionProvider = immediateUpgradeProvider;
-        }
-        actionDisabled = !actionProvider;
-      }
-    }
+    const {
+      action,
+      actionProvider,
+      actionLabelKey,
+      actionDisabled,
+      actionTone,
+      actionTooltipKey,
+    } = resolvePlanCheckoutPresentation({
+      plan,
+      orderedPlans,
+      currentPlan,
+      currentSubscription,
+      hasActiveSubscription,
+      isTrialCurrentPlan,
+      paymentOptions,
+      stripeAvailable,
+      pingxxAvailable,
+      alipayAvailable,
+      wechatpayAvailable,
+      operation: checkoutOperations?.[plan.product_bid],
+    });
 
     const checkoutKey = actionProvider
       ? `plan:${actionProvider}:${plan.product_bid}:${action || 'subscription'}`

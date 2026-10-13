@@ -273,3 +273,23 @@ def test_matching_integration_uses_latest_order_snapshot_and_exact_owner(
         else:
             with pytest.raises(RuntimeError, match="does not match"):
                 callback._require_matching_integration(*args)
+
+
+@pytest.mark.parametrize("provider_name", ["pingxx", "stripe", "unregistered"])
+def test_generic_callback_rejects_unregistered_or_dedicated_legacy_transports(
+    billing_callback_app: Flask,
+    services: SimpleNamespace,
+    provider_name: str,
+) -> None:
+    """A forged Pingxx event cannot enter the new generic callback path."""
+    response = billing_callback_app.test_client().post(
+        f"/api/callback/payments/{provider_name}",
+        json={
+            "type": "charge.succeeded",
+            "data": {"object": {"id": "forged", "order_no": "attempt", "paid": True}},
+        },
+    )
+    assert response.status_code == 400
+    services.provider.verify_webhook.assert_not_called()
+    services.billing.assert_not_called()
+    services.legacy.assert_not_called()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from flaskr.service.common.stripe_client import get_stripe_client_options
 
@@ -23,6 +23,8 @@ from .consts import (
 from .primitives import normalize_bid, to_decimal
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from flask import Flask
 
     from .models import BillingProduct
@@ -704,3 +706,48 @@ def _build_safe_stripe_error_message(exc: Exception) -> str:
             f"Stripe catalog retrieve failed ({status or 'unknown'} {code or 'error'})"
         )
     return f"Stripe catalog retrieve failed: {exc.__class__.__name__}"
+
+
+class CatalogReader(Protocol):
+    """Existing normalized reads required by price mapping and reconciliation."""
+
+    def retrieve_account_snapshot(self, app: Flask) -> ProviderAccountSnapshot:
+        """Read account identity and environment."""
+
+    def retrieve_mapping_snapshot(
+        self, app: Flask, *, provider_product_id: str, provider_price_id: str
+    ) -> ProviderCatalogSnapshot:
+        """Read the product and price in one account scope."""
+
+    def list_product_snapshots(self, app: Flask) -> list[ProviderProductSnapshot]:
+        """Read normalized products for reconciliation."""
+
+    def list_price_snapshots(self, app: Flask) -> list[ProviderPriceSnapshot]:
+        """Read normalized prices for reconciliation."""
+
+
+_CATALOG_READERS: dict[str, Callable[[], CatalogReader]] = {
+    "stripe": StripeCatalogReadAdapter
+}
+
+
+def register_catalog_reader(
+    provider: str, factory: Callable[[], CatalogReader]
+) -> None:
+    """Register an optional catalog capability; no client is constructed here."""
+    _CATALOG_READERS[provider] = factory
+
+
+def catalog_reader(provider: str) -> CatalogReader:
+    """Resolve an optional protocol adapter without a business-layer allowlist."""
+    try:
+        return _CATALOG_READERS[provider]()
+    except KeyError as exc:
+        message = "Provider catalog is not supported"
+        code = "unsupported_provider"
+        raise ProviderCatalogReadError(code, message) from exc
+
+
+def has_catalog_reader(provider: str) -> bool:
+    """Report capability registration without contacting an external gateway."""
+    return provider in _CATALOG_READERS

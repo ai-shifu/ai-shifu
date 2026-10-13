@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import uow
@@ -11,13 +11,19 @@ from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_CANCELED,
     NATIVE_PAYMENT_STATE_FAILED,
     NATIVE_PAYMENT_STATE_PAID,
-    extract_native_trade_payload,
-    extract_native_trade_status,
+    reported_payment_currency_matches,
     resolve_native_payment_state,
 )
 from flaskr.service.order.payment_providers import (
     PaymentNotificationResult,
+    describe_notification,
     get_payment_provider,
+)
+from flaskr.service.order.payment_providers.api import (
+    SubscriptionFacts,
+    legacy_native_amount,
+    native_facts,
+    saved_refund_controls_state,
 )
 
 from .checkout import (
@@ -27,28 +33,16 @@ from .checkout import (
     load_billing_order_for_pingxx_event as _load_billing_order_for_pingxx_event,
 )
 from .checkout import (
-    load_billing_order_for_stripe_event as _load_billing_order_for_stripe_event,
-)
-from .checkout import (
-    load_billing_subscription_for_stripe_event as _load_billing_subscription_for_stripe_event,
-)
-from .checkout import (
-    persist_billing_native_raw_snapshot as _persist_billing_native_raw_snapshot,
-)
-from .checkout import (
     persist_billing_pingxx_raw_snapshot as _persist_billing_pingxx_raw_snapshot,
-)
-from .checkout import (
-    persist_billing_stripe_raw_snapshot as _persist_billing_stripe_raw_snapshot,
 )
 from .consts import (
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_REFUNDED,
-    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
 )
+from .models import BillingOrder, BillingSubscription
+from .primitives import coerce_datetime
 from .primitives import normalize_bid as _normalize_bid
 from .provider_catalog_sync import (
     apply_stripe_catalog_notification as _apply_stripe_catalog_notification,
@@ -58,45 +52,20 @@ from .provider_catalog_sync import (
 )
 from .provider_state import (
     BillingOrderProviderUpdateResult,
+    apply_subscription_contract,
+    contract_can_activate,
+    contract_renewal_order_status,
+    paid_upgrade_can_rebind_contract,
+    renewal_order_for_contract,
 )
 from .provider_state import (
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
-)
-from .provider_state import (
-    apply_billing_subscription_provider_update as _apply_billing_subscription_provider_update,
 )
 from .provider_state import (
     apply_subscription_checkout_failure as _apply_subscription_checkout_failure,
 )
 from .provider_state import (
     apply_subscription_checkout_success as _apply_subscription_checkout_success,
-)
-from .provider_state import (
-    extract_stripe_failure_code as _extract_stripe_failure_code,
-)
-from .provider_state import (
-    extract_stripe_failure_message as _extract_stripe_failure_message,
-)
-from .provider_state import (
-    extract_stripe_provider_reference as _extract_stripe_provider_reference,
-)
-from .provider_state import (
-    load_billing_renewal_order_for_stripe_event as _load_billing_renewal_order_for_stripe_event,
-)
-from .provider_state import (
-    map_stripe_order_status as _map_stripe_order_status,
-)
-from .provider_state import (
-    resolve_stripe_paid_amount as _resolve_stripe_paid_amount,
-)
-from .provider_state import (
-    resolve_stripe_paid_currency as _resolve_stripe_paid_currency,
-)
-from .provider_state import (
-    resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
-)
-from .queries import (
-    load_latest_billing_order_by_subscription as _load_latest_billing_order_by_subscription,
 )
 
 if TYPE_CHECKING:
@@ -198,195 +167,289 @@ def apply_billing_stripe_notification(
     app: Flask,
     notification: PaymentNotificationResult,
 ) -> BillingWebhookResult:
-    """Apply a normalized Stripe notification to billing state."""
-    event = notification.provider_payload or {}
-    event_type = str(notification.status or event.get("type") or "")
-    data_object = event.get("data", {}).get("object", {}) or {}
-    metadata = data_object.get("metadata", {}) or {}
-    bill_order_bid = _normalize_bid(
-        metadata.get("bill_order_bid")
-        or notification.order_bid
-        or metadata.get("order_bid")
-    )
+    """Compatibility entry point; all business decisions consume typed evidence."""
+    return apply_billing_provider_notification(app, "stripe", notification)
 
+
+def apply_billing_provider_notification(
+    app: Flask,
+    provider: str,
+    notification: PaymentNotificationResult,
+) -> BillingWebhookResult:
+    """Apply a hosted payment/contract event without inspecting its protocol payload."""
+    from .provider_catalog_sync import apply_registered_catalog_notification
+
+    catalog_result = apply_registered_catalog_notification(app, provider, notification)
+    if catalog_result is not None:
+        return BillingWebhookResult(
+            status=catalog_result.status,
+            status_code=catalog_result.status_code,
+            matched=True,
+            event_type=catalog_result.event_type,
+        )
+    event = describe_notification(provider, notification)
+    event_type = event.payment.event_type or notification.status
     with app_context_scope(app), unit_of_work():
-        order = _load_billing_order_for_stripe_event(
-            bill_order_bid=bill_order_bid,
-            data_object=data_object,
+        order = None
+        query = BillingOrder.query.filter(
+            BillingOrder.deleted == 0, BillingOrder.payment_provider == provider
         )
-        subscription = _load_billing_subscription_for_stripe_event(
-            order=order,
-            data_object=data_object,
-            metadata=metadata,
-        )
-        if order is None and subscription is not None:
-            order = _load_billing_renewal_order_for_stripe_event(
-                subscription.subscription_bid,
-                data_object,
+        if event.order_reference:
+            order = (
+                query.filter(BillingOrder.bill_order_bid == event.order_reference)
+                .order_by(BillingOrder.id.desc())
+                .first()
             )
-        if order is None and subscription is not None:
-            order = _load_latest_billing_order_by_subscription(
-                subscription.subscription_bid
+        elif event.lookup_reference:
+            order = (
+                query.filter(
+                    BillingOrder.payment_provider == provider,
+                    BillingOrder.provider_reference_id == event.lookup_reference,
+                )
+                .order_by(BillingOrder.id.desc())
+                .first()
+            )
+        if order is None:
+            from flaskr.service.order.payment_providers.api import (
+                registered_native_payment_providers,
             )
 
-        if order is None and subscription is None:
-            app.logger.warning(
-                "Billing Stripe webhook ignored. event_type=%s bill_order_bid=%s",
-                event_type,
-                bill_order_bid,
+            if provider in registered_native_payment_providers():
+                order = _load_billing_order_for_native_event(
+                    provider=provider,
+                    provider_attempt_id=event.lookup_reference,
+                    transaction_id=notification.charge_id or "",
+                )
+        subscription = None
+        if order is not None and order.subscription_bid:
+            from .subscriptions import load_subscription_by_bid
+
+            subscription = load_subscription_by_bid(order.subscription_bid)
+        if subscription is None and event.subscription_reference:
+            from .subscriptions import load_subscription_by_bid
+
+            subscription = load_subscription_by_bid(event.subscription_reference)
+        if subscription is None and event.contract_reference:
+            subscription = (
+                BillingSubscription.query.filter(
+                    BillingSubscription.deleted == 0,
+                    BillingSubscription.billing_provider == provider,
+                    BillingSubscription.provider_subscription_id
+                    == event.contract_reference,
+                )
+                .order_by(BillingSubscription.id.desc())
+                .first()
             )
+        if (
+            order is None
+            and subscription is not None
+            and subscription.billing_provider != provider
+        ):
+            subscription = None
+        if (
+            order is not None
+            and subscription is not None
+            and order.creator_bid != subscription.creator_bid
+        ):
+            message = "Payment order and contract owner mismatch"
+            raise RuntimeError(message)
+        if order is None and subscription is not None and event.contract is not None:
+            order = renewal_order_for_contract(
+                subscription.subscription_bid, event.contract
+            )
+        if order is None and subscription is not None:
+            order = (
+                query.filter(
+                    BillingOrder.subscription_bid == subscription.subscription_bid
+                )
+                .order_by(BillingOrder.id.desc())
+                .first()
+            )
+        if order is None and subscription is None:
             return BillingWebhookResult(
                 status="ignored",
                 event_type=event_type,
-                bill_order_bid=bill_order_bid or None,
+                bill_order_bid=event.order_reference or None,
                 status_code=202,
             )
 
+        statuses = {
+            "paid": BILLING_ORDER_STATUS_PAID,
+            "failed": BILLING_ORDER_STATUS_FAILED,
+            "refunded": BILLING_ORDER_STATUS_REFUNDED,
+            "canceled": BILLING_ORDER_STATUS_CANCELED,
+        }
+        target = statuses.get(event.payment.state)
+        failure_code, failure_message = event.failure_code, event.failure_message
+        update = BillingOrderProviderUpdateResult()
         response_status = "acknowledged"
-        order_update = BillingOrderProviderUpdateResult()
-        target_status = _map_stripe_order_status(event_type, data_object)
         if order is not None:
-            if target_status is None and event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
-                target_status = _resolve_stripe_subscription_order_status(
-                    order,
-                    data_object,
-                )
-            failure_code = _extract_stripe_failure_code(data_object)
-            failure_message = _extract_stripe_failure_message(data_object)
-            stripe_object_id = str(data_object.get("id") or "")
-            is_payment_object_event = stripe_object_id.startswith(("cs_", "pi_"))
-            if target_status == BILLING_ORDER_STATUS_PAID and is_payment_object_event:
-                amount_payload = (
-                    {"checkout_session": data_object}
-                    if stripe_object_id.startswith("cs_")
-                    else {"payment_intent": data_object}
-                )
-                paid_amount = _resolve_stripe_paid_amount(amount_payload)
-                paid_currency = _resolve_stripe_paid_currency(amount_payload)
-                expected_currency = str(order.currency or "").strip().upper()
-                if paid_amount is None:
-                    target_status = BILLING_ORDER_STATUS_FAILED
-                    failure_code = "provider_amount_missing"
-                    failure_message = "Stripe checkout paid amount is missing"
-                elif not paid_currency:
-                    target_status = BILLING_ORDER_STATUS_FAILED
-                    failure_code = "provider_currency_missing"
-                    failure_message = "Stripe checkout currency is missing"
-                elif paid_amount != int(order.payable_amount or 0):
-                    target_status = BILLING_ORDER_STATUS_FAILED
-                    failure_code = "provider_amount_mismatch"
-                    failure_message = (
-                        "Stripe checkout paid amount does not match billing order"
+            # Reload under the row lock before admitting a payment reference;
+            # competing callbacks cannot both establish the first binding.
+            order = (
+                query.filter(BillingOrder.id == order.id)
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            if order is None:
+                message = "Billing payment attempt changed during notification"
+                raise RuntimeError(message)
+            if saved_refund_controls_state(event, order.metadata_json):
+                # Saved operations own refund admission; inspect fresh locked
+                # state so a concurrent retry cannot bypass identity checks.
+                # Unrequested reversals retain the existing payment projection.
+                target = None
+            reported_reference = event.updated_payment_reference
+            if (
+                reported_reference
+                and order.provider_reference_id
+                and reported_reference != order.provider_reference_id
+            ):
+                message = "Billing payment notification reference mismatch"
+                raise RuntimeError(message)
+            if (
+                target is None
+                and event.kind == "contract"
+                and event.contract is not None
+            ):
+                target = contract_renewal_order_status(order, event.contract)
+            if event.validate_reported_amount:
+                if not reported_payment_currency_matches(
+                    expected_currency=order.currency,
+                    reported_currency=event.payment.currency,
+                ):
+                    message = "Billing native payment currency mismatch"
+                    raise RuntimeError(message)
+                amount = legacy_native_amount(event.payment)
+                if amount is not None and amount != int(order.payable_amount or 0):
+                    message = "Billing native payment amount mismatch"
+                    raise RuntimeError(message)
+            if event.validate_paid_amount:
+                if event.payment.order_amount is None:
+                    failure_code, failure_message = (
+                        "provider_amount_missing",
+                        "Stripe checkout paid amount is missing",
+                    )
+                elif not event.payment.currency:
+                    failure_code, failure_message = (
+                        "provider_currency_missing",
+                        "Stripe checkout currency is missing",
+                    )
+                elif event.payment.order_amount != int(order.payable_amount or 0):
+                    failure_code, failure_message = (
+                        "provider_amount_mismatch",
+                        "Stripe checkout paid amount does not match billing order",
                     )
                 elif (
-                    paid_currency
-                    and expected_currency
-                    and paid_currency != expected_currency
+                    str(order.currency or "").strip().upper()
+                    and event.payment.currency.upper()
+                    != str(order.currency).strip().upper()
                 ):
-                    target_status = BILLING_ORDER_STATUS_FAILED
-                    failure_code = "provider_currency_mismatch"
-                    failure_message = (
-                        "Stripe checkout currency does not match billing order"
+                    failure_code, failure_message = (
+                        "provider_currency_mismatch",
+                        "Stripe checkout currency does not match billing order",
                     )
-            order_update = _apply_billing_order_provider_update(
+                if failure_code:
+                    target = BILLING_ORDER_STATUS_FAILED
+            update = _apply_billing_order_provider_update(
                 order,
-                provider="stripe",
+                provider=provider,
                 event_type=event_type,
                 source="webhook",
-                payload=event,
-                provider_reference_id=_extract_stripe_provider_reference(
-                    order=order,
-                    event_type=event_type,
-                    data_object=data_object,
-                ),
-                target_status=target_status,
+                payload=notification.provider_payload,
+                provider_reference_id=event.updated_payment_reference
+                or order.provider_reference_id,
+                target_status=target,
                 failure_code=failure_code,
                 failure_message=failure_message,
+                payment_facts=event.payment,
+                contract_facts=event.contract if event.authoritative_contract else None,
             )
-            stripe_object_id = str(data_object.get("id") or "")
-            refund_metadata: dict[str, Any] = {}
-            if stripe_object_id.startswith("re_"):
-                refund_metadata["last_refund_id"] = stripe_object_id
-            checkout_object = (
-                data_object if stripe_object_id.startswith("cs_") else None
-            )
-            payment_object = data_object if stripe_object_id.startswith("pi_") else None
-            receipt_url = ""
-            charges = data_object.get("charges", {}).get("data", []) or []
-            if charges:
-                receipt_url = str(charges[0].get("receipt_url") or "")
-            _persist_billing_stripe_raw_snapshot(
-                order,
-                create_if_missing=False,
-                metadata=(metadata or refund_metadata) or None,
-                checkout_session_id=(
-                    stripe_object_id if stripe_object_id.startswith("cs_") else ""
-                ),
-                checkout_object=checkout_object,
-                payment_intent_id=(
-                    str(data_object.get("payment_intent") or "")
-                    if checkout_object is not None
-                    else ""
-                ),
-                payment_object=payment_object,
-                latest_charge_id=_normalize_bid(
-                    notification.charge_id or data_object.get("latest_charge")
-                ),
-                receipt_url=receipt_url,
-                payment_method=str(data_object.get("payment_method") or ""),
-            )
-            if target_status == BILLING_ORDER_STATUS_PAID:
-                response_status = "paid"
-            elif target_status == BILLING_ORDER_STATUS_FAILED:
-                response_status = "failed" if order_update else "acknowledged"
-            elif target_status == BILLING_ORDER_STATUS_REFUNDED:
-                response_status = "refunded" if order_update else "acknowledged"
-            elif target_status == BILLING_ORDER_STATUS_CANCELED:
-                response_status = "canceled" if order_update else "acknowledged"
+            from .checkout import apply_billing_refund_evidence
 
+            apply_billing_refund_evidence(
+                app, order, event, notification.provider_payload
+            )
+            # Project the admitted business state into raw snapshots, too.
+            persist_provider_notification(order, provider, notification)
+            response_status = {
+                BILLING_ORDER_STATUS_PAID: "paid",
+                BILLING_ORDER_STATUS_FAILED: "failed",
+                BILLING_ORDER_STATUS_REFUNDED: "refunded",
+                BILLING_ORDER_STATUS_CANCELED: "canceled",
+            }.get(target, "acknowledged")
+            if target != BILLING_ORDER_STATUS_PAID and not update:
+                response_status = "acknowledged"
+            if (
+                event.kind == "refund"
+                and order.status == BILLING_ORDER_STATUS_REFUNDED
+                and update.previous_status != BILLING_ORDER_STATUS_REFUNDED
+            ):
+                response_status = "refunded"
         if subscription is not None:
-            if event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
-                allow_activation = not (
-                    order is not None
-                    and order.order_type
-                    in {
-                        BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-                        BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-                    }
-                    and int(order.status or 0) != BILLING_ORDER_STATUS_PAID
+            subscription = (
+                BillingSubscription.query.filter(
+                    BillingSubscription.id == subscription.id,
+                    BillingSubscription.deleted == 0,
                 )
-                _apply_billing_subscription_provider_update(
+                .with_for_update()
+                .populate_existing()
+                .first()
+            )
+            if subscription is None:
+                message = "Billing subscription changed during notification"
+                raise RuntimeError(message)
+            if event.kind == "contract" and event.contract is not None:
+                apply_subscription_contract(
                     app,
                     subscription,
-                    provider="stripe",
+                    provider=provider,
                     event_type=event_type,
-                    payload=event,
-                    data_object=data_object,
-                    allow_activation=allow_activation,
+                    payload=notification.provider_payload,
+                    facts=event.contract,
+                    allow_activation=contract_can_activate(order),
+                    event_time=coerce_datetime(event.payment.event_time),
+                    confirmed=event.authoritative_contract,
+                    allow_rebinding=paid_upgrade_can_rebind_contract(order, update),
                 )
-            elif target_status == BILLING_ORDER_STATUS_PAID:
-                _apply_subscription_checkout_success(
+            elif (
+                target == BILLING_ORDER_STATUS_PAID
+                and update.applied
+                and order is not None
+                and order.status == BILLING_ORDER_STATUS_PAID
+                and not order.metadata_json.get("provider_period_start_at")
+            ):
+                apply_subscription_contract(
                     app,
                     subscription,
-                    payload={
-                        **data_object,
-                        "created": event.get("created"),
-                    },
-                    provider="stripe",
+                    provider=provider,
                     event_type=event_type,
+                    payload=notification.provider_payload,
+                    facts=event.checkout_contract
+                    or SubscriptionFacts(
+                        provider_reference=event.contract_reference,
+                        customer_reference=event.customer_reference,
+                        status="active",
+                    ),
+                    event_time=coerce_datetime(event.payment.event_time),
+                    confirmed=False,
+                    allow_rebinding=paid_upgrade_can_rebind_contract(order, update),
                 )
-            elif target_status == BILLING_ORDER_STATUS_FAILED:
+            elif (
+                target == BILLING_ORDER_STATUS_FAILED
+                and event.update_subscription_on_failure
+            ):
                 _apply_subscription_checkout_failure(
                     app,
                     subscription,
-                    provider="stripe",
+                    provider=provider,
                     event_type=event_type,
-                    payload=event,
+                    payload=notification.provider_payload,
+                    payment_facts=event.payment,
                 )
-
-        order_update.stage_after_state_changes(app, order)
-
-        uow.on_commit(lambda: order_update.dispatch_after_commit(app))
+        update.stage_after_state_changes(app, order)
+        uow.on_commit(lambda: update.dispatch_after_commit(app))
         return BillingWebhookResult(
             status=response_status,
             event_type=event_type,
@@ -394,6 +457,15 @@ def apply_billing_stripe_notification(
             subscription_bid=subscription.subscription_bid if subscription else None,
             status_code=200,
         )
+
+
+def persist_provider_notification(
+    order: BillingOrder, provider: str, notification: PaymentNotificationResult
+) -> None:
+    """Dispatch only protocol persistence at the explicit integration boundary."""
+    from .provider_snapshots import persist_notification
+
+    persist_notification(order, provider, notification)
 
 
 def handle_billing_pingxx_webhook(
@@ -516,91 +588,25 @@ def handle_billing_wechatpay_webhook(
 
 
 def apply_billing_native_notification(
-    app: Flask,
-    provider: str,
-    notification: PaymentNotificationResult,
+    app: Flask, provider: str, notification: PaymentNotificationResult
 ) -> BillingWebhookResult:
-    """Apply billing native notification."""
-    normalized_provider = _normalize_bid(provider)
-    event_type = str(notification.status or "")
-    provider_attempt_id = _normalize_bid(notification.order_bid)
-    transaction_id = _normalize_bid(notification.charge_id)
-    provider_payload = notification.provider_payload or {}
-    trade_payload = extract_native_trade_payload(provider_payload)
-
-    with app_context_scope(app), unit_of_work():
-        order = _load_billing_order_for_native_event(
-            provider=normalized_provider,
-            provider_attempt_id=provider_attempt_id,
-            transaction_id=transaction_id,
+    """Keep legacy routing acknowledgement while applying the common evidence path."""
+    result = apply_billing_provider_notification(app, provider, notification)
+    if result.status == "ignored":
+        return replace(
+            result,
+            status="not_billing",
+            matched=False,
+            charge_id=notification.charge_id or None,
+            order_no=notification.order_bid or None,
         )
-        if order is None:
-            return BillingWebhookResult(
-                status="not_billing",
-                matched=False,
-                event_type=event_type or None,
-                charge_id=transaction_id or None,
-                order_no=provider_attempt_id or None,
-                status_code=202,
-            )
-
-        actual_amount = _extract_native_amount(normalized_provider, provider_payload)
-        if (
-            actual_amount is not None
-            and int(order.payable_amount or 0) != actual_amount
-        ):
-            message = "Billing native payment amount mismatch"
-            raise RuntimeError(message)
-
-        target_status = _native_target_status(normalized_provider, trade_payload)
-        order_update = _apply_billing_order_provider_update(
-            order,
-            provider=normalized_provider,
-            event_type=event_type or "payment.notification",
-            source="webhook",
-            payload=provider_payload,
-            provider_reference_id=provider_attempt_id or order.provider_reference_id,
-            target_status=target_status,
-        )
-        _persist_billing_native_raw_snapshot(
-            order,
-            create_if_missing=False,
-            provider_attempt_id=provider_attempt_id or order.provider_reference_id,
-            transaction_id=transaction_id,
-            raw_status=extract_native_trade_status(normalized_provider, trade_payload),
-            raw_snapshot_status=_native_raw_snapshot_status(
-                target_status,
-                order.status,
-            ),
-            raw_notification=provider_payload,
-            metadata={"latest_source": "webhook"},
-        )
-        if order.subscription_bid and target_status == BILLING_ORDER_STATUS_PAID:
-            from .subscriptions import load_subscription_by_bid
-
-            subscription = load_subscription_by_bid(order.subscription_bid)
-            if subscription is not None:
-                _apply_subscription_checkout_success(
-                    app,
-                    subscription,
-                    payload=trade_payload,
-                    provider=normalized_provider,
-                    event_type=event_type or "payment.notification",
-                )
-
-        order_update.stage_after_state_changes(app, order)
-        uow.on_commit(lambda: order_update.dispatch_after_commit(app))
-        return BillingWebhookResult(
-            status="paid"
-            if target_status == BILLING_ORDER_STATUS_PAID
-            else "acknowledged",
-            matched=True,
-            event_type=event_type or None,
-            bill_order_bid=order.bill_order_bid,
-            charge_id=transaction_id or None,
-            order_no=provider_attempt_id or None,
-            status_code=200,
-        )
+    return replace(
+        result,
+        status="paid" if result.status == "paid" else "acknowledged",
+        matched=True,
+        charge_id=notification.charge_id or None,
+        order_no=notification.order_bid or None,
+    )
 
 
 def _native_target_status(provider: str, payload: dict[str, object]) -> int | None:
@@ -626,26 +632,5 @@ def _native_raw_snapshot_status(
 
 
 def _extract_native_amount(provider: str, payload: dict[str, object]) -> int | None:
-    trade_payload = extract_native_trade_payload(payload)
-    if provider == "alipay":
-        value = (
-            trade_payload.get("total_amount")
-            if isinstance(trade_payload, dict)
-            else None
-        )
-        if value in (None, ""):
-            return None
-        from decimal import Decimal
-
-        return int((Decimal(str(value)) * 100).to_integral_value())
-    if provider == "wechatpay":
-        amount = (
-            trade_payload.get("amount", {}) if isinstance(trade_payload, dict) else {}
-        )
-        if not isinstance(amount, dict):
-            return None
-        value = amount.get("payer_total", amount.get("total"))
-        if value in (None, ""):
-            return None
-        return int(value)
-    return None
+    """Preserve native amount validation through the shared adapter contract."""
+    return legacy_native_amount(native_facts(provider, payload))

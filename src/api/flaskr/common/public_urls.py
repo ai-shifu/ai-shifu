@@ -163,3 +163,8 @@ def _with_canceled(url: str, canceled: bool) -> str:
     return urlunsplit(
         (parsed.scheme, parsed.netloc, parsed.path, query, parsed.fragment)
     )
+
+
+def build_payment_result_url(path: str, *, canceled: bool = False) -> str:
+    """Build an integration-declared return path using the trusted public origin."""
+    return _with_canceled(build_public_url(path), canceled)

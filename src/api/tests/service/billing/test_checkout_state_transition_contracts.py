@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.billing import checkout
+from flaskr.service.billing import checkout, checkout_policy
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
@@ -285,7 +285,17 @@ def test_subscription_refund_commits_without_granting_credits_atomically(
             assert wallets[0].available_credits == 0
         else:
             assert order.refunded_at is None
-            assert order.metadata_json == original_metadata
+            assert {
+                key: value
+                for key, value in order.metadata_json.items()
+                if key != "refund_operation"
+            } == original_metadata
+            assert (
+                order.metadata_json["refund_operation"]["response"][
+                    "provider_reference"
+                ]
+                == reference
+            )
             assert plan.metadata_json == {}
             assert snapshot.metadata_json == "{}"
             assert snapshot.status == 1
@@ -485,14 +495,14 @@ def test_immediate_upgrade_validates_tier_and_paid_preorder_offset(gate: str) ->
     )
     if gate in {"missing-tier", "too-expensive-offset"}:
         with pytest.raises(AppError):
-            checkout._validate_immediate_upgrade_checkout(
+            checkout_policy._validate_immediate_upgrade_checkout(
                 current_product=current,
                 target_product=target,
                 active_preorder_order=preorder,
             )
     else:
         assert (
-            checkout._validate_immediate_upgrade_checkout(
+            checkout_policy._validate_immediate_upgrade_checkout(
                 current_product=current,
                 target_product=target,
                 active_preorder_order=preorder,

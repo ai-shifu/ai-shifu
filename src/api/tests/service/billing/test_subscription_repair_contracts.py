@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 from decimal import Decimal
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 from uuid import uuid4
@@ -32,6 +31,7 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.common.models import AppError
+from flaskr.service.order.payment_providers.base import SubscriptionUpdateResult
 from flaskr.util.datetime import now_utc
 
 from tests.service.billing.test_checkout_state_transition_contracts import _seed
@@ -54,10 +54,20 @@ def test_subscription_lifecycle_rejects_invalid_actions_and_preserves_state_on_f
 ) -> None:
     provider = Mock(
         cancel_subscription=Mock(
-            return_value=SimpleNamespace(raw_response={"cancel_at_period_end": True})
+            return_value=SubscriptionUpdateResult(
+                provider_reference="sub_test",
+                raw_response={"cancel_at_period_end": True},
+                status="active",
+                extra={"cancel_at_period_end": True},
+            )
         ),
         resume_subscription=Mock(
-            return_value=SimpleNamespace(raw_response={"cancel_at_period_end": False})
+            return_value=SubscriptionUpdateResult(
+                provider_reference="sub_test",
+                raw_response={"cancel_at_period_end": False},
+                status="active",
+                extra={"cancel_at_period_end": False},
+            )
         ),
     )
     monkeypatch.setattr(

@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 from flaskr.service.common.stripe_client import get_stripe_client_options
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from flask import Flask
 
 
@@ -150,3 +152,22 @@ def _stripe_coupon_to_discount_snapshot(coupon: object) -> ProviderDiscountSnaps
         ],
         metadata={str(key): str(value) for key, value in dict(metadata).items()},
     )
+
+
+_DISCOUNT_PROVIDERS = {"stripe": StripeCampaignDiscountProvider}
+
+
+def register_discount_provider(
+    provider: str, factory: Callable[[], CampaignDiscountProvider]
+) -> None:
+    """Register optional discount protocol support alongside its catalog adapter."""
+    _DISCOUNT_PROVIDERS[provider] = factory
+
+
+def discount_provider(provider: str) -> CampaignDiscountProvider:
+    """Resolve a registered protocol implementation without a business allowlist."""
+    try:
+        return _DISCOUNT_PROVIDERS[provider]()
+    except KeyError as exc:
+        message = "Provider discounts are not supported"
+        raise ValueError(message) from exc

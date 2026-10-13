@@ -9,7 +9,12 @@ import {
 import { PayModal } from './PayModal';
 import { PayModalM } from './PayModalM';
 import { ORDER_STATUS } from './constans';
+import * as orderApi from '@/api/order';
 import type { LearnerPaymentAttemptContext } from '@/lib/paymentAnalytics';
+import {
+  registerPaymentSdkHandler,
+  type PaymentSdkFormProps,
+} from './PaymentSdkForm';
 
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
@@ -23,8 +28,20 @@ const mockUsePaymentFlow = jest.fn();
 let mockPaymentFlowState: Record<string, any>;
 let mockEnvState: Record<string, any>;
 let mockWechatJsapiAvailable = false;
+let mockUseRealPaymentRadio = false;
 let mockLastStripeAttempt: LearnerPaymentAttemptContext | undefined;
 let mockDeferredStripeConfirmations: Array<() => void> = [];
+
+jest.mock('react-use', () => ({ useInterval: jest.fn() }));
+
+jest.mock('@/api/order', () => ({
+  applyDiscountCode: jest.fn(),
+  getPayUrl: jest.fn(),
+  initActiveOrder: jest.fn(),
+  initOrder: jest.fn(),
+  queryOrder: jest.fn(),
+  syncPaymentOrder: jest.fn(),
+}));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -99,12 +116,27 @@ jest.mock('@/components/ui/Button', () => ({
   ),
 }));
 
-jest.mock('@/components/ui/RadioGroup', () => ({
-  RadioGroup: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  RadioGroupItem: ({ value }: { value: string }) => (
-    <span data-testid={`radio-${value}`} />
-  ),
-}));
+jest.mock('@/components/ui/RadioGroup', () => {
+  const actual = jest.requireActual(
+    '@/components/ui/RadioGroup',
+  ) as typeof import('@/components/ui/RadioGroup');
+  return {
+    RadioGroup: (props: React.ComponentProps<typeof actual.RadioGroup>) =>
+      mockUseRealPaymentRadio ? (
+        <actual.RadioGroup {...props} />
+      ) : (
+        <div>{props.children}</div>
+      ),
+    RadioGroupItem: (
+      props: React.ComponentProps<typeof actual.RadioGroupItem>,
+    ) =>
+      mockUseRealPaymentRadio ? (
+        <actual.RadioGroupItem {...props} />
+      ) : (
+        <span data-testid={`radio-${props.value}`} />
+      ),
+  };
+});
 
 jest.mock('@/components/m/MainButtonM', () => ({
   __esModule: true,
@@ -419,11 +451,378 @@ const requiredModalProps = {
 };
 
 describe('learner payment modal analytics producers', () => {
+  test.each(['desktop', 'mobile'] as const)(
+    'clears the old hosted action while switching integrations on %s',
+    async surface => {
+      const shared = {
+        channel: 'checkout_session',
+        method: 'hosted',
+        scene: 'hosted',
+        action: 'redirect' as const,
+        billing_mode: 'provider_managed' as const,
+        poll_provider: false,
+        requires_open_id: false,
+      };
+      const options = [
+        {
+          ...shared,
+          id: 'stripe:checkout',
+          provider: 'stripe',
+          label_key: 'module.pay.payChannelStripeCard',
+        },
+        {
+          ...shared,
+          id: 'fixture:checkout',
+          provider: 'fixture-hosted',
+          label_key: 'module.pay.payChannelAlipay',
+        },
+      ];
+      const snapshot = { ...pendingOrder, payment_options: options };
+      jest.mocked(orderApi.initOrder).mockResolvedValue(snapshot);
+      jest.mocked(orderApi.queryOrder).mockResolvedValue(snapshot);
+      let resolveNext!: (
+        value: Awaited<ReturnType<typeof orderApi.getPayUrl>>,
+      ) => void;
+      const next = new Promise<Awaited<ReturnType<typeof orderApi.getPayUrl>>>(
+        resolve => {
+          resolveNext = resolve;
+        },
+      );
+      jest
+        .mocked(orderApi.getPayUrl)
+        .mockResolvedValueOnce({
+          ...qrPayment,
+          channel: shared.channel,
+          payment_channel: 'stripe',
+          payment_contract_version: 1,
+          payment_action: {
+            type: 'redirect',
+            url: 'https://stripe.example/private-old',
+            session_id: 'private-old-session',
+          },
+        })
+        .mockReturnValueOnce(next);
+      const actual = jest.requireActual(
+        './hooks/usePaymentFlow',
+      ) as typeof import('./hooks/usePaymentFlow');
+      mockUsePaymentFlow.mockImplementation(actual.usePaymentFlow);
+      render(
+        surface === 'desktop' ? (
+          <PayModal
+            {...requiredModalProps}
+            open
+          />
+        ) : (
+          <PayModalM
+            {...requiredModalProps}
+            open
+          />
+        ),
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByText('module.pay.goToStripeCheckout'),
+        ).not.toBeDisabled(),
+      );
+      mockTrackEvent.mockClear();
+      fireEvent.click(screen.getByText('module.pay.payChannelAlipay'));
+      await waitFor(() =>
+        expect(orderApi.getPayUrl).toHaveBeenLastCalledWith({
+          orderId: 'order-1',
+          channel: shared.channel,
+          paymentChannel: 'fixture-hosted',
+          paymentOption: 'fixture:checkout',
+        }),
+      );
+      expect(screen.getByText('module.pay.pay')).toBeDisabled();
+      fireEvent.click(screen.getByText('module.pay.pay'));
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(0);
+      const flow = mockUsePaymentFlow.mock.results.at(-1)?.value;
+      expect(flow.paymentInfo.paymentAction).toBeUndefined();
+      await act(async () => {
+        resolveNext({
+          ...qrPayment,
+          channel: shared.channel,
+          payment_channel: 'fixture-hosted',
+          payment_contract_version: 1,
+          payment_action: {
+            type: 'redirect',
+            url: 'https://fixture.example/private-new',
+          },
+        });
+      });
+      expect(screen.getByText('module.pay.pay')).not.toBeDisabled();
+      fireEvent.click(screen.getByText('module.pay.pay'));
+      expect(eventCalls('learner_payment_attempt')[0]?.[1]).toEqual({
+        shifu_bid: 'course-1',
+        order_id: 'order-1',
+        channel: 'other',
+        surface,
+      });
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+        /private-old|private-new|fixture-hosted/,
+      );
+    },
+  );
+
+  test.each(['desktop', 'mobile'] as const)(
+    'executes a registered SDK through the real payment flow on %s',
+    async surface => {
+      const option = {
+        id: 'fixture-sdk:embedded',
+        provider: 'fixture-sdk-provider',
+        channel: 'embedded',
+        method: 'card',
+        scene: 'embedded',
+        action: 'sdk_confirm' as const,
+        billing_mode: 'provider_managed' as const,
+        label_key: 'module.pay.payChannelStripeCard',
+        poll_provider: true,
+        requires_open_id: false,
+      };
+      const snapshot = { ...pendingOrder, payment_options: [option] };
+      jest.mocked(orderApi.initOrder).mockResolvedValue(snapshot);
+      jest.mocked(orderApi.queryOrder).mockResolvedValue(snapshot);
+      jest.mocked(orderApi.syncPaymentOrder).mockResolvedValue({
+        ...snapshot,
+        payment_channel: option.provider,
+        order_bid: 'order-1',
+        course_id: 'course-1',
+      });
+      jest.mocked(orderApi.getPayUrl).mockResolvedValue({
+        ...qrPayment,
+        channel: option.channel,
+        payment_channel: option.provider,
+        payment_contract_version: 1,
+        payment_action: {
+          type: 'sdk_confirm',
+          sdk: 'fixture-sdk',
+          client_secret: 'private-sdk-secret',
+        },
+        poll_provider: true,
+      });
+      const actual = jest.requireActual(
+        './hooks/usePaymentFlow',
+      ) as typeof import('./hooks/usePaymentFlow');
+      mockUsePaymentFlow.mockImplementation(actual.usePaymentFlow);
+      const handler = jest.fn(
+        ({
+          action,
+          onAttempt,
+          onConfirmSuccess,
+          onError,
+          onConfirmationUnavailable,
+        }: PaymentSdkFormProps) => (
+          <>
+            <button
+              data-testid='fixture-submit'
+              onClick={() => {
+                const attempt = onAttempt();
+                void onConfirmSuccess(attempt);
+              }}
+            >
+              {action.sdk}
+            </button>
+            <button
+              data-testid='fixture-fail'
+              onClick={() =>
+                onError?.('private-sdk-error', 'failed', onAttempt())
+              }
+            />
+            <button
+              data-testid='fixture-pending'
+              onClick={() => {
+                const attempt = onAttempt();
+                if (attempt) onConfirmationUnavailable?.(attempt);
+              }}
+            />
+          </>
+        ),
+      );
+      const unregister = registerPaymentSdkHandler('fixture-sdk', handler);
+      try {
+        render(
+          surface === 'desktop' ? (
+            <PayModal
+              {...requiredModalProps}
+              open
+            />
+          ) : (
+            <PayModalM
+              {...requiredModalProps}
+              open
+            />
+          ),
+        );
+        const submit = await screen.findByTestId('fixture-submit');
+        expect(screen.queryByTestId('stripe-submit')).not.toBeInTheDocument();
+        expect(handler.mock.calls.at(-1)?.[0].action.client_secret).toBe(
+          'private-sdk-secret',
+        );
+        fireEvent.click(screen.getByTestId('fixture-fail'));
+        expect(eventCalls('learner_payment_result')[0]?.[1]).toEqual({
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'other',
+          surface,
+          outcome: 'failed',
+          failure_category: 'provider_failed',
+        });
+        fireEvent.click(screen.getByTestId('fixture-pending'));
+        expect(eventCalls('learner_payment_status')[0]?.[1]).toMatchObject({
+          channel: 'other',
+          surface,
+          status: 'pending',
+        });
+        jest.mocked(orderApi.queryOrder).mockResolvedValue({
+          ...snapshot,
+          status: ORDER_STATUS.BUY_STATUS_SUCCESS,
+        });
+        mockTrackEvent.mockImplementationOnce(() => {
+          throw new Error('analytics unavailable');
+        });
+        fireEvent.click(submit);
+        await waitFor(() =>
+          expect(orderApi.syncPaymentOrder).toHaveBeenCalledWith({
+            orderId: 'order-1',
+            paymentChannel: option.provider,
+          }),
+        );
+        await waitFor(() =>
+          expect(eventCalls('learner_payment_result')).toHaveLength(2),
+        );
+        expect(eventCalls('learner_payment_result')[1]?.[1]).toEqual({
+          shifu_bid: 'course-1',
+          order_id: 'order-1',
+          channel: 'other',
+          surface,
+          outcome: 'success',
+        });
+        expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+          /private-sdk|fixture-sdk/,
+        );
+      } finally {
+        unregister();
+      }
+    },
+  );
+
+  test.each(['desktop', 'mobile'] as const)(
+    'fails closed for an unregistered SDK on %s',
+    async surface => {
+      mockPaymentFlowState.paymentOptions = [
+        {
+          id: 'unknown:embedded',
+          provider: 'unknown',
+          channel: 'embedded',
+          method: 'card',
+          scene: 'embedded',
+          action: 'sdk_confirm',
+          billing_mode: 'provider_managed',
+          label_key: 'module.pay.payChannelStripeCard',
+          poll_provider: false,
+          requires_open_id: false,
+        },
+      ];
+      mockPaymentFlowState.paymentInfo = {
+        ...mockPaymentFlowState.paymentInfo,
+        channel: 'embedded',
+        paymentChannel: 'unknown',
+        paymentAction: {
+          type: 'sdk_confirm',
+          sdk: 'unregistered',
+          client_secret: 'private-secret',
+        },
+      };
+      render(
+        surface === 'desktop' ? (
+          <PayModal
+            {...requiredModalProps}
+            open
+          />
+        ) : (
+          <PayModalM
+            {...requiredModalProps}
+            open
+          />
+        ),
+      );
+      expect(
+        await screen.findByText('module.pay.stripeError'),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('stripe-submit')).not.toBeInTheDocument();
+      expect(eventCalls('learner_payment_attempt')).toHaveLength(0);
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'private-secret',
+      );
+    },
+  );
+
+  test.each([
+    'opaque signed token',
+    'payapp://private-qr',
+    'javascript:alert(1)',
+    'data:text/html,test',
+    'file:///tmp/pay',
+  ])('renders mobile QR data without browser execution: %s', async url => {
+    const option = {
+      id: 'fixture:qr',
+      provider: 'fixture',
+      channel: 'fixture_qr',
+      method: 'alipay',
+      scene: 'qr',
+      action: 'qr' as const,
+      billing_mode: 'platform_managed' as const,
+      label_key: 'module.pay.payChannelAlipay',
+      poll_provider: true,
+      requires_open_id: false,
+    };
+    const snapshot = { ...pendingOrder, payment_options: [option] };
+    jest.mocked(orderApi.initOrder).mockResolvedValue(snapshot);
+    jest.mocked(orderApi.queryOrder).mockResolvedValue(snapshot);
+    jest.mocked(orderApi.getPayUrl).mockResolvedValue({
+      ...qrPayment,
+      channel: option.channel,
+      payment_channel: option.provider,
+      payment_contract_version: 1,
+      payment_action: { type: 'qr', url },
+      poll_provider: true,
+    });
+    const actual = jest.requireActual(
+      './hooks/usePaymentFlow',
+    ) as typeof import('./hooks/usePaymentFlow');
+    mockUsePaymentFlow.mockImplementation(actual.usePaymentFlow);
+    render(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByText('module.pay.pay')).not.toBeDisabled(),
+    );
+    expect(screen.queryByTestId('qr-code')).not.toBeInTheDocument();
+    mockTrackEvent.mockClear();
+    mockTrackEvent.mockImplementationOnce(() => {
+      throw new Error('analytics unavailable');
+    });
+    fireEvent.click(screen.getByText('module.pay.pay'));
+    expect(await screen.findByTestId('qr-code')).toHaveTextContent(url);
+    expect(window.open).not.toHaveBeenCalled();
+    expect(eventCalls('learner_payment_attempt')[0]?.[1]).toEqual({
+      shifu_bid: 'course-1',
+      order_id: 'order-1',
+      channel: 'alipay_qr',
+      surface: 'mobile',
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(url);
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     mockLastStripeAttempt = undefined;
     mockDeferredStripeConfirmations = [];
     mockWechatJsapiAvailable = false;
+    mockUseRealPaymentRadio = false;
     mockEnvState = {
       stripePublishableKey: '',
       stripeEnabled: 'false',
@@ -1314,6 +1713,8 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => {
       expect(window.open).toHaveBeenCalledWith(
         'https://provider.example/private-qr',
+        '_blank',
+        'noopener,noreferrer',
       );
     });
     expect(eventCalls('learner_pay_modal_view')).toEqual([
@@ -1530,6 +1931,8 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => {
       expect(window.open).toHaveBeenCalledWith(
         'https://provider.example/private-qr',
+        '_blank',
+        'noopener,noreferrer',
       );
     });
     expect(mockRefreshPayment).toHaveBeenLastCalledWith({
@@ -1653,6 +2056,8 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
     expect(window.open).toHaveBeenCalledWith(
       'https://provider.example/private-qr',
+      '_blank',
+      'noopener,noreferrer',
     );
   });
 
@@ -1793,5 +2198,525 @@ describe('learner payment modal analytics producers', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private-provider-credential',
     );
+  });
+
+  test.each(['desktop', 'mobile'] as const)(
+    'selects a second hosted gateway with the same route name on %s',
+    async surface => {
+      const shared = {
+        channel: 'checkout_session',
+        method: 'hosted',
+        scene: 'hosted',
+        action: 'redirect',
+        billing_mode: 'provider_managed',
+        poll_provider: false,
+        requires_open_id: false,
+      };
+      mockPaymentFlowState.paymentOptions = [
+        {
+          ...shared,
+          id: 'stripe:checkout_session',
+          provider: 'stripe',
+          label_key: 'module.pay.payChannelStripeCard',
+        },
+        {
+          ...shared,
+          id: 'fixture-hosted:checkout_session',
+          provider: 'fixture-hosted',
+          label_key: 'module.pay.pay',
+        },
+      ];
+      render(
+        surface === 'desktop' ? (
+          <PayModal
+            {...requiredModalProps}
+            open
+          />
+        ) : (
+          <PayModalM
+            {...requiredModalProps}
+            open
+          />
+        ),
+      );
+      await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+      mockRefreshPayment.mockClear();
+      fireEvent.click(screen.getByText('module.pay.pay'));
+      expect(mockRefreshPayment).toHaveBeenCalledWith({
+        channel: 'fixture-hosted:checkout_session',
+        paymentChannel: 'fixture-hosted',
+      });
+      expect(
+        screen.getByText('module.pay.payChannelStripeCard'),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it('keeps a newly selected QR method on mobile instead of restoring a built-in wallet', async () => {
+    mockPaymentFlowState.paymentOptions = [
+      {
+        id: 'fixture-pay:fixture_qr',
+        provider: 'fixture-pay',
+        channel: 'fixture_qr',
+        method: 'fixture-method',
+        scene: 'qr',
+        action: 'qr',
+        billing_mode: 'platform_managed',
+        label_key: 'module.pay.payChannelAlipay',
+        poll_provider: true,
+        requires_open_id: false,
+      },
+    ];
+    render(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+    mockRefreshPayment.mockClear();
+    fireEvent.click(screen.getByText('module.pay.payChannelAlipay'));
+    expect(mockRefreshPayment).toHaveBeenCalledWith({
+      channel: 'fixture_qr',
+      paymentChannel: 'fixture-pay',
+    });
+    expect(mockRefreshPayment).toHaveBeenCalledTimes(1);
+  });
+  test.each(['desktop', 'mobile'] as const)(
+    'shows a provider-specific hosted method on %s',
+    async surface => {
+      mockPaymentFlowState.paymentOptions = [
+        {
+          id: 'fixture-hosted:fixture_checkout',
+          provider: 'fixture-hosted',
+          channel: 'fixture_checkout',
+          method: 'fixture-wallet',
+          scene: 'hosted',
+          action: 'redirect',
+          billing_mode: 'provider_managed',
+          label_key: 'module.pay.payChannelAlipay',
+          poll_provider: false,
+          requires_open_id: false,
+        },
+      ];
+      render(
+        surface === 'desktop' ? (
+          <PayModal
+            {...requiredModalProps}
+            open
+          />
+        ) : (
+          <PayModalM
+            {...requiredModalProps}
+            open
+          />
+        ),
+      );
+      await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+      mockRefreshPayment.mockClear();
+      fireEvent.click(screen.getByText('module.pay.payChannelAlipay'));
+      expect(mockRefreshPayment).toHaveBeenCalledWith({
+        channel: 'fixture-hosted:fixture_checkout',
+        paymentChannel: 'fixture-hosted',
+      });
+    },
+  );
+  it('uses freshly loaded options when the legacy availability flags stay unchanged', async () => {
+    const view = render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+    mockRefreshPayment.mockClear();
+    const shared = {
+      provider: 'fixture-pay',
+      scene: 'qr',
+      action: 'qr',
+      billing_mode: 'platform_managed',
+      label_key: 'module.pay.pay',
+      poll_provider: true,
+      requires_open_id: false,
+    };
+    mockPaymentFlowState.paymentOptions = [
+      {
+        ...shared,
+        id: 'fixture-pay:fixture_wechat',
+        channel: 'fixture_wechat',
+        method: 'wechat',
+      },
+      {
+        ...shared,
+        id: 'fixture-pay:fixture_alipay',
+        channel: 'fixture_alipay',
+        method: 'alipay',
+      },
+    ];
+    view.rerender(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() =>
+      expect(mockRefreshPayment).toHaveBeenCalledWith({
+        channel: 'fixture_wechat',
+        paymentChannel: 'fixture-pay',
+      }),
+    );
+  });
+  it('selects the advertised WeChat QR route on mobile after switching wallets', async () => {
+    const shared = {
+      scene: 'qr',
+      action: 'qr',
+      billing_mode: 'platform_managed',
+      label_key: 'module.pay.pay',
+      poll_provider: true,
+      requires_open_id: false,
+    };
+    mockPaymentFlowState.paymentOptions = [
+      {
+        ...shared,
+        id: 'fixture-pay:wallet_qr',
+        provider: 'fixture-pay',
+        channel: 'wallet_qr',
+        method: 'wechat',
+      },
+      {
+        ...shared,
+        id: 'alipay:alipay_qr',
+        provider: 'alipay',
+        channel: 'alipay_qr',
+        method: 'alipay',
+      },
+    ];
+    render(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+    fireEvent.click(screen.getByText('module.pay.alipay'));
+    mockRefreshPayment.mockClear();
+    fireEvent.click(screen.getByText('module.pay.wechatPay'));
+    expect(mockRefreshPayment).toHaveBeenCalledTimes(1);
+    expect(mockRefreshPayment).toHaveBeenCalledWith({
+      channel: 'wallet_qr',
+      paymentChannel: 'fixture-pay',
+    });
+  });
+
+  it('syncs desktop JSAPI through the provider returned with the action', async () => {
+    mockWechatJsapiAvailable = true;
+    const parameters = {
+      appId: 'app',
+      timeStamp: '1',
+      nonceStr: 'private-nonce',
+      package: 'private-prepay',
+      signType: 'RSA',
+      paySign: 'private-signature',
+    };
+    mockPaymentFlowState.paymentOptions = [
+      {
+        id: 'fixture-pay:wallet_jsapi',
+        provider: 'fixture-pay',
+        channel: 'wallet_jsapi',
+        method: 'wechat',
+        scene: 'wechat',
+        action: 'jsapi',
+        billing_mode: 'platform_managed',
+        label_key: 'module.pay.wechatPay',
+        poll_provider: true,
+        requires_open_id: true,
+      },
+    ];
+    mockPaymentFlowState.paymentInfo = {
+      ...mockPaymentFlowState.paymentInfo,
+      channel: 'wallet_jsapi',
+      qrUrl: '',
+      paymentChannel: 'fixture-pay',
+      paymentAction: { type: 'jsapi', parameters },
+    };
+    const bridge = {
+      invoke: jest.fn((_name, _parameters, callback) =>
+        callback({ err_msg: 'get_brand_wcpay_request:ok' }),
+      ),
+    };
+    Object.defineProperty(window, 'WeixinJSBridge', {
+      configurable: true,
+      value: bridge,
+    });
+    try {
+      render(
+        <PayModal
+          {...requiredModalProps}
+          open
+        />,
+      );
+      fireEvent.click(await screen.findByText('module.pay.wechatJsapiPay'));
+      await waitFor(() =>
+        expect(mockSyncOrderStatus).toHaveBeenCalledWith({
+          paymentChannel: 'fixture-pay',
+        }),
+      );
+      expect(bridge.invoke).toHaveBeenCalledWith(
+        'getBrandWCPayRequest',
+        parameters,
+        expect.any(Function),
+      );
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'private-signature',
+      );
+    } finally {
+      delete (window as Window & { WeixinJSBridge?: unknown }).WeixinJSBridge;
+    }
+  });
+
+  test.each(['desktop', 'mobile'] as const)(
+    'attributes a custom hosted checkout attempt and result to other on %s',
+    async surface => {
+      const option = {
+        id: 'fixture-hosted:checkout_session',
+        provider: 'fixture-hosted',
+        channel: 'checkout_session',
+        method: 'hosted',
+        scene: 'hosted',
+        action: 'redirect',
+        billing_mode: 'provider_managed',
+        label_key: 'module.pay.payChannelStripeCard',
+        poll_provider: false,
+        requires_open_id: false,
+      };
+      mockPaymentFlowState.paymentOptions = [option];
+      mockPaymentFlowState.paymentInfo = {
+        ...mockPaymentFlowState.paymentInfo,
+        channel: option.id,
+        paymentChannel: option.provider,
+        paymentAction: {
+          type: 'redirect',
+          url: 'https://fixture.test/private-checkout',
+        },
+        qrUrl: '',
+      };
+      const modal = () =>
+        surface === 'desktop' ? (
+          <PayModal
+            {...requiredModalProps}
+            open
+          />
+        ) : (
+          <PayModalM
+            {...requiredModalProps}
+            open
+          />
+        );
+      const view = render(modal());
+      fireEvent.click(await screen.findByText('module.pay.pay'));
+      expect(eventCalls('learner_payment_attempt')).toEqual([
+        [
+          'learner_payment_attempt',
+          {
+            shifu_bid: 'course-1',
+            order_id: 'order-1',
+            channel: 'other',
+            surface,
+          },
+        ],
+      ]);
+      const onPaid = mockUsePaymentFlow.mock.calls.at(-1)?.[0].onOrderPaid;
+      act(() => onPaid());
+      view.rerender(modal());
+      await waitFor(() =>
+        expect(eventCalls('learner_payment_result')).toHaveLength(1),
+      );
+      expect(eventCalls('learner_payment_result')[0][1]).toEqual({
+        shifu_bid: 'course-1',
+        order_id: 'order-1',
+        channel: 'other',
+        surface,
+        outcome: 'success',
+      });
+      act(() => onPaid());
+      view.rerender(modal());
+      expect(eventCalls('learner_payment_result')).toHaveLength(1);
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'fixture-hosted',
+      );
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'private-checkout',
+      );
+    },
+  );
+  test.each(['mobile-qr', 'desktop-jsapi'] as const)(
+    'carries custom wallet identity through the real payment hook and API request on %s',
+    async scenario => {
+      const jsapi = scenario === 'desktop-jsapi';
+      // Even inside WeChat, this integration may offer QR only.
+      mockWechatJsapiAvailable = true;
+      const parameters = {
+        appId: 'app',
+        timeStamp: '1',
+        nonceStr: 'nonce',
+        package: 'prepay_id=fixture',
+        signType: 'RSA',
+        paySign: 'private-signature',
+      };
+      const option = {
+        id: 'fixture-pay:custom_wallet',
+        provider: 'fixture-pay',
+        channel: 'custom_wallet',
+        method: 'wechat',
+        scene: jsapi ? 'wechat' : 'qr',
+        action: jsapi ? ('jsapi' as const) : ('qr' as const),
+        billing_mode: 'platform_managed' as const,
+        label_key: 'module.pay.wechatPay',
+        poll_provider: true,
+        requires_open_id: jsapi,
+      };
+      const snapshot = { ...pendingOrder, payment_options: [option] };
+      jest.mocked(orderApi.initOrder).mockResolvedValue(snapshot);
+      jest.mocked(orderApi.queryOrder).mockResolvedValue(snapshot);
+      jest.mocked(orderApi.getPayUrl).mockResolvedValue({
+        ...qrPayment,
+        channel: option.channel,
+        payment_channel: option.provider,
+        payment_contract_version: 1,
+        payment_action: jsapi
+          ? { type: 'jsapi', parameters }
+          : { type: 'qr', url: 'https://fixture.test/qr' },
+        poll_provider: true,
+      });
+      const actual = jest.requireActual(
+        './hooks/usePaymentFlow',
+      ) as typeof import('./hooks/usePaymentFlow');
+      mockUsePaymentFlow.mockImplementation(actual.usePaymentFlow);
+      const bridge = {
+        invoke: jest.fn((_name, _parameters, callback) =>
+          callback({ err_msg: 'get_brand_wcpay_request:ok' }),
+        ),
+      };
+      Object.defineProperty(window, 'WeixinJSBridge', {
+        configurable: true,
+        value: bridge,
+      });
+      try {
+        render(
+          jsapi ? (
+            <PayModal
+              {...requiredModalProps}
+              open
+            />
+          ) : (
+            <PayModalM
+              {...requiredModalProps}
+              open
+            />
+          ),
+        );
+        await waitFor(() =>
+          expect(orderApi.getPayUrl).toHaveBeenCalledWith({
+            orderId: 'order-1',
+            channel: option.channel,
+            paymentChannel: option.provider,
+            paymentOption: option.id,
+          }),
+        );
+        await waitFor(() => {
+          const flow = mockUsePaymentFlow.mock.results.at(-1)?.value;
+          expect(flow.isLoading).toBe(false);
+          expect(flow.paymentInfo.paymentAction?.type).toBe(
+            jsapi ? 'jsapi' : 'qr',
+          );
+        });
+        jest.mocked(orderApi.getPayUrl).mockClear();
+        jest.mocked(orderApi.syncPaymentOrder).mockClear();
+        if (jsapi) {
+          const button = await screen.findByText('module.pay.wechatJsapiPay');
+          expect(button).not.toBeDisabled();
+          fireEvent.click(button);
+          await waitFor(() =>
+            expect(orderApi.syncPaymentOrder).toHaveBeenCalledWith({
+              orderId: 'order-1',
+              paymentChannel: 'fixture-pay',
+            }),
+          );
+        } else {
+          fireEvent.click(screen.getByText('module.pay.wechatPay'));
+          await waitFor(() =>
+            expect(orderApi.getPayUrl).toHaveBeenCalledTimes(1),
+          );
+          expect(
+            jest
+              .mocked(orderApi.getPayUrl)
+              .mock.calls.every(
+                ([request]) =>
+                  request.paymentOption === option.id &&
+                  request.channel === option.channel &&
+                  request.paymentChannel === option.provider,
+              ),
+          ).toBe(true);
+        }
+      } finally {
+        delete (window as Window & { WeixinJSBridge?: unknown }).WeixinJSBridge;
+      }
+    },
+  );
+  it('uses actual option keys and one refresh when a mobile wallet radio is clicked', async () => {
+    mockUseRealPaymentRadio = true;
+    mockWechatJsapiAvailable = true;
+    const shared = {
+      provider: 'fixture-pay',
+      scene: 'qr',
+      action: 'qr',
+      billing_mode: 'platform_managed',
+      label_key: 'module.pay.pay',
+      poll_provider: true,
+      requires_open_id: false,
+    };
+    mockPaymentFlowState.paymentOptions = [
+      {
+        ...shared,
+        id: 'fixture-pay:fixture_wechat',
+        channel: 'fixture_wechat',
+        method: 'wechat',
+      },
+      {
+        ...shared,
+        id: 'fixture-pay:fixture_alipay',
+        channel: 'fixture_alipay',
+        method: 'alipay',
+      },
+    ];
+    render(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+    const radios = screen.getAllByRole('radio');
+    expect(
+      radios.filter(radio => radio.getAttribute('aria-checked') === 'true'),
+    ).toHaveLength(1);
+    const alipay = radios.find(
+      radio => radio.getAttribute('value') === 'fixture_alipay',
+    )!;
+    const wechat = radios.find(
+      radio => radio.getAttribute('value') === 'fixture_wechat',
+    )!;
+    expect(alipay).toBeDefined();
+    expect(wechat).toBeDefined();
+    fireEvent.click(alipay);
+    mockRefreshPayment.mockClear();
+    fireEvent.click(wechat);
+    expect(mockRefreshPayment).toHaveBeenCalledTimes(1);
+    expect(mockRefreshPayment).toHaveBeenCalledWith({
+      channel: 'fixture_wechat',
+      paymentChannel: 'fixture-pay',
+    });
+    expect(wechat).toHaveAttribute('aria-checked', 'true');
+    expect(alipay).toHaveAttribute('aria-checked', 'false');
   });
 });

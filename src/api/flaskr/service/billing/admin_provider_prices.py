@@ -21,7 +21,7 @@ from .primitives import credit_decimal_to_number, normalize_bid, normalize_json_
 from .provider_catalog import (
     ProviderCatalogReadError,
     ProviderCatalogSnapshot,
-    StripeCatalogReadAdapter,
+    catalog_reader,
 )
 from .provider_price_mappings import (
     PROVIDER_STRIPE,
@@ -48,13 +48,14 @@ def build_admin_billing_provider_prices_page(
     provider_account_id: str = "",
     livemode: bool | None = None,
     status: str = "",
+    provider: str = PROVIDER_STRIPE,
 ) -> dict[str, Any]:
     """Return active billing products with their Stripe price mapping history."""
     with _maybe_app_context(app):
         products = _load_admin_provider_price_products(product_bid=product_bid)
         mappings = list_provider_price_mappings(
             product_bid=product_bid,
-            provider=PROVIDER_STRIPE,
+            provider=provider,
             provider_account_id=provider_account_id,
             livemode=livemode,
             status=_resolve_status_filter(status),
@@ -76,6 +77,7 @@ def build_admin_billing_provider_prices_page(
                 active_by_scope[_provider_price_mapping_scope_key(mapping)] = mapping
 
         return {
+            "provider": provider,
             "products": products,
             "mappings": visible_mappings,
             "active_by_scope": active_by_scope,
@@ -106,6 +108,7 @@ def create_admin_billing_provider_price_mapping(
 ) -> dict[str, Any]:
     """Create or update a draft provider price mapping from admin input."""
     with _maybe_app_context(app):
+        provider = str(payload.get("provider") or PROVIDER_STRIPE).strip().lower()
         provider_product_id = str(payload.get("provider_product_id") or "")
         provider_price_id = str(payload.get("provider_price_id") or "")
         provider_account_id = str(payload.get("provider_account_id") or "")
@@ -115,6 +118,7 @@ def create_admin_billing_provider_price_mapping(
                 app,
                 provider_product_id=provider_product_id,
                 provider_price_id=provider_price_id,
+                provider=provider,
             )
             provider_account_id = provider_account_id or snapshot.account.account_id
             if livemode is None:
@@ -126,7 +130,7 @@ def create_admin_billing_provider_price_mapping(
             provider_product_id=provider_product_id,
             provider_price_id=provider_price_id,
             livemode=_coerce_livemode(livemode),
-            provider=PROVIDER_STRIPE,
+            provider=provider,
             metadata=_coerce_metadata(payload.get("metadata")),
         )
         return {
@@ -190,9 +194,10 @@ def _read_provider_snapshot(
     *,
     provider_product_id: str,
     provider_price_id: str,
+    provider: str = PROVIDER_STRIPE,
 ) -> ProviderCatalogSnapshot:
     try:
-        return StripeCatalogReadAdapter().retrieve_mapping_snapshot(
+        return catalog_reader(provider).retrieve_mapping_snapshot(
             app,
             provider_product_id=provider_product_id,
             provider_price_id=provider_price_id,

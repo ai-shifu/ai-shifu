@@ -45,6 +45,7 @@ import {
   registerBillingTranslationUsage,
   resolveBillingBucketCategoryLabel,
 } from '@/lib/billing';
+import { normalizeCreatorBillingProvider } from '@/lib/billingAnalytics';
 import type { BillingSubscription } from '@/types/billing';
 
 type BillingCreditDetailsPanelProps = {
@@ -300,9 +301,22 @@ export function BillingCreditDetailsPanel({
     subscription?.current_period_end_at,
     i18n.language,
   );
+  const isResumeState = Boolean(
+    subscription?.cancel_at_period_end ||
+    subscription?.status === 'cancel_scheduled' ||
+    subscription?.status === 'paused',
+  );
   const manageableSubscription =
     showSubscriptionManagement &&
-    subscription?.billing_provider === 'stripe' &&
+    (subscription?.billing_mode !== undefined &&
+    subscription?.billing_mode !== null
+      ? subscription.billing_mode === 'provider_managed' &&
+        Boolean(
+          subscription.management_operations?.[
+            isResumeState ? 'resume' : 'cancel'
+          ],
+        )
+      : subscription?.billing_provider === 'stripe') &&
     hasActiveSubscription &&
     subscriptionPeriodEndLabel
       ? subscription
@@ -311,11 +325,6 @@ export function BillingCreditDetailsPanel({
     ? t(manageableSubscription.product_name_key)
     : t('module.billing.common.empty');
   const isPaused = manageableSubscription?.status === 'paused';
-  const isResumeState = Boolean(
-    manageableSubscription?.cancel_at_period_end ||
-    manageableSubscription?.status === 'cancel_scheduled' ||
-    manageableSubscription?.status === 'paused',
-  );
 
   function reportRenewalEvent(
     eventName: (typeof SUBSCRIPTION_RENEWAL_EVENTS)[keyof typeof SUBSCRIPTION_RENEWAL_EVENTS],
@@ -336,7 +345,9 @@ export function BillingCreditDetailsPanel({
     const analyticsPayload = {
       action,
       source_surface: 'credit_details',
-      payment_provider: 'stripe',
+      payment_provider: normalizeCreatorBillingProvider(
+        manageableSubscription.billing_provider,
+      ),
       subscription_bid: manageableSubscription.subscription_bid,
     };
     setIsSubmitting(true);
