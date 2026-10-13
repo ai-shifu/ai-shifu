@@ -327,14 +327,14 @@ describe('useWechatOpenIdBinding', () => {
     expect(mockWechatLogin).not.toHaveBeenCalled();
   });
 
-  it('releases Profile if the OAuth navigation never leaves the page', () => {
+  it('keeps Profile closed while an issued OAuth navigation is pending', () => {
     const { result } = renderBinding({ code: '' });
     expect(result.current).toBe(false);
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
 
     act(() => jest.advanceTimersByTime(WECHAT_OPENID_BINDING_TIMEOUT_MS));
 
-    expect(result.current).toBe(true);
+    expect(result.current).toBe(false);
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
   });
 

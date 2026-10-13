@@ -8,6 +8,25 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-14: Synchronize the still-held #3122 candidate with actual main
+      ca75a292c after the user merges #3123/#3125. Preserve both documentation
+      histories, main phase/schema/logging/lifetime fixes and all regressions.
+      Its only runtime delta remains the existing worked-example guidance;
+      this refresh adds no new guidance, paid replay or classroom reset.
+- [x] 2026-10-14: The earlier transferred hidden-response lifetime concern is
+      fixed independently by merged #3128; the earlier predecessor-state concern
+      is closed by actual #3118 merge. Retain the original time-scoped receipts.
+- [x] 2026-10-14: Synchronized learning/script regressions pass 3894 cases,
+      50 subtests and two expected skips; tooling, regenerated indexes, repository
+      harness and all-file hooks pass. These controlled checks do not establish
+      factual compliance. Current-head CI/review remains a separate receipt.
+- [ ] Original fast-model factual acceptance still fails across the twelve
+      different candidates. A changed-runtime balanced classroom excluding #3122
+      now passes object shape but stops on its own visible 1+2/LOAD2+ADD2 mismatch;
+      that failure is not a new execution of #3122's policy. Preserve both failures,
+      the author's brevity rule and all original limits. Full eleven-question
+      natural compression/statistics/summary/billing acceptance remains open.
+
 - [x] 2026-10-13: Adopt the review request to record the ninth diagnostic's
       complete initial accumulator and zero-exit sequence in both receipts.
       LOAD initializes 5, and the exit observes 4,5,6,... under the stated
@@ -240,6 +259,23 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       Do not infer a main merge or production deployment from that branch update.
       Prepare this independent fix on that verified baseline; retain an explicit
       PR dependency until the actual main merge is observed. No automatic merge.
+
+- [x] 2026-10-13: Independently scoped #3123/#3125 run on sim-f67afe0:
+      both APIs match 69 files/pass 490 SDK/logging cases, integration passes
+      3890 plus 50 subtests/two expected skips. New ordinary-HTTP learner stops
+      after two requests on a visible program/narrative mismatch (1+2 versus
+      LOAD2/ADD2=4). Three canonical feedback objects select clarification, two
+      provenance retries retain source validation and the same exercise remains
+      pending. Two traces/four generations uniquely settle 36.06 credits;
+      original classrooms, prior balanced failure and published source stay
+      unchanged. No summaries/final statistics/full-course or #3122 pass.
+
+- [x] 2026-10-13: Prepare #3123 as an independent main-based phase-boundary
+      candidate, with merged #3128/#3130 and without #3122's worked-example
+      prompt/tests or #3125's schema changes. Keep teacher brevity/disclosure
+      restrictions, including a prohibition on examples. Historical failures
+      remain unchanged; see mdf2-clarification-phase-boundary.md for final gates.
+
 - [x] 2026-10-13: Synchronize #3118 with main 2ff4af09b, including the merged
       unavailable-value handling and Profile startup changes. Resolve only the
       generated document-inventory conflict by regenerating the index from the

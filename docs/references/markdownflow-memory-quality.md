@@ -97,6 +97,38 @@ no new learner or summary is created. Preserve the author's brief-clarification
 rule. Investigate potentially conflicting correction-only host guidance without
 overriding that rule or spending on unchanged-runtime resampling.
 
+## State-scoped native feedback schema
+
+On a supported returned answer, enabled-host interact/finish definitions require
+one non-null feedback object. Interact preserves direction and ordinary-review
+branches; finish accepts review. Explicit object type and branch constraints must
+survive pinned Ark, OpenAI and DashScope transformations. Inactive/initial or
+unsupported states retain legacy definitions. Native legacy aliases and valid
+sibling declarations remain compatible. Repeated identical reviews across
+simultaneous inputs are one decision; conflicting declarations and direction
+siblings fail before display or writes.
+
+Do not parse a serialized feedback string into an object or rewrite tool-call
+history. The earlier balanced-model classroom failed on four such strings;
+its five generations settled 45.60 credits without displayed clarification. A new
+classroom on the changed runtime supplies objects from its first response, retains
+two provenance retries, and displays clarification before a separate factual
+failure stops acceptance. Its four generations settle 36.06 credits; neither run
+passes the full eleven-question journey. Explicit object typing is not constrained decoding or
+proof of semantic compliance. See [the schema plan](../exec-plans/active/mdf2-feedback-branch-schema.md)
+for final standalone verification and original failure receipts.
+
+## Knowledge clarification phase boundary
+
+Checking-direction and authored-help feedback retain correction withholding,
+condition matching and teacher multiplicity. A permitted knowledge
+clarification follows the teacher's exact brevity/disclosure limits and returns to
+the same pending exercise; it does not grant access to later questions or require
+a worked example when the teacher prohibits one. The independent continuation
+record is [the phase-boundary plan](../exec-plans/active/mdf2-clarification-phase-boundary.md).
+Controlled SDK checks establish guidance delivery and history isolation, not
+factual model compliance or full eleven-question acceptance.
+
 ## Cases and scoring
 
 Admission calls the product's `make_request_check`, including its actual prompt,
@@ -258,6 +290,13 @@ input. Other authored counts remain authoritative. Worked reasoning and a transf
 method remain in the passing branch unless the author permits an earlier help
 stage. These instructions do not introduce a host semantic filter or another
 model request, and require separate actual-model acceptance.
+
+Rejected feedback is tracked by response identity for retry and saved-history
+projection. The turn's dependencies retain the original rejected response
+objects even when the SDK replaces its history with projected copies, so Python
+cannot reuse their IDs for later accepted responses. These references end with
+the turn's dependency scope; they are not serialized into the session or made
+visible as learner evidence. Original tool calls and retry budgets are unchanged.
 
 ### Structured checking directions
 
