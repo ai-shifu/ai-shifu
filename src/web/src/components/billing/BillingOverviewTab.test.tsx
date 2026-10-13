@@ -2190,7 +2190,7 @@ describe('BillingOverviewTab', () => {
       },
     });
     mockCheckoutBillingOrder.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-1',
+      bill_order_bid: 'order-plan-pingxx-replacement',
       provider: 'pingxx',
       payment_mode: 'subscription',
       status: 'pending',
@@ -2258,6 +2258,32 @@ describe('BillingOverviewTab', () => {
         channel: 'alipay_qr',
       });
     });
+    mockSyncBillingOrder.mockResolvedValueOnce({
+      bill_order_bid: 'order-plan-pingxx-replacement',
+      status: 'pending',
+    });
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: 'module.pay.clickRefresh' }),
+      );
+    });
+    expect(mockSyncBillingOrder).toHaveBeenLastCalledWith({
+      bill_order_bid: 'order-plan-pingxx-replacement',
+    });
+    expect(mockCheckoutBillingOrder).toHaveBeenLastCalledWith({
+      bill_order_bid: 'order-plan-pingxx-replacement',
+      channel: 'alipay_qr',
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      expect.objectContaining({
+        bill_order_bid: 'order-plan-pingxx-replacement',
+        status: 'pending',
+      }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'https://pingxx.test/plan-alipay-qr',
+    );
   });
 
   test('keeps a QR dismissal non-terminal before the same order succeeds', async () => {
