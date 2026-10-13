@@ -10,6 +10,11 @@ while preserving native validation and portable-host compatibility.
 
 ## Progress
 
+- [x] 2026-10-13: Adopt CodeRabbit wording finding 4257794917: qualify
+  compatibility as valid sibling declarations and explicitly retain direction
+  sibling rejection before display/writes. This documentation-only clarification
+  changes no runtime/test tree; final current-head checks remain separate.
+
 - [x] 2026-10-13: Push c61022c51 and retarget the existing Open PR directly
   to main. Its runtime/test trees are the validated independent candidate.
   The first status snapshot after the push and base change contains only two

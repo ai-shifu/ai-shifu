@@ -23,9 +23,10 @@ On a supported returned answer, enabled-host interact/finish definitions require
 one non-null feedback object. Interact preserves direction and ordinary-review
 branches; finish accepts review. Explicit object type and branch constraints must
 survive pinned Ark, OpenAI and DashScope transformations. Inactive/initial or
-unsupported states retain legacy definitions. Native legacy aliases and sibling
-calls remain compatible; repeated identical reviews across simultaneous inputs
-are one decision, while conflicting declarations still fail before display.
+unsupported states retain legacy definitions. Native legacy aliases and valid
+sibling declarations remain compatible. Repeated identical reviews across
+simultaneous inputs are one decision; conflicting declarations and direction
+siblings fail before display or writes.
 
 Do not parse a serialized feedback string into an object or rewrite tool-call
 history. The real balanced-model classroom currently fails on four such strings;
