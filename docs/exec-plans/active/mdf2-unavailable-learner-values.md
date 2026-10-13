@@ -18,8 +18,22 @@ learner facts in teaching prose and generated visuals.
       inline/block verbatim examples without changing known personalization.
       Final 3645 learning/script checks plus 50 subtests pass (three skips),
       including 14 prompt/SDK and six legacy/current compatibility cases.
-- [ ] 2026-10-13: Complete broader tests, repository gates, Ready PR, reviews,
-      sim integration and actual-model missing/known-value verification.
+- [x] 2026-10-13: Ready PR #3124, broader tests and all repository gates pass.
+      Adopt both original-thread verbatim findings in f826f7ef3; document all
+      21 touched functions in 7dbe0f477 (local AST inspection, not whole-backend
+      coverage). The documentation follow-up passes 51 focused tests.
+- [x] 2026-10-13: Sim 00dd77e67 / build 618 / Drone 5407 serves two Ready API
+      replicas, each matching 68 files and passing 436 deployed SDK checks.
+      Integrated learning/script checks pass 3850 plus 50 subtests (three skips).
+- [x] 2026-10-13: Actual original-model diagnostics use two unchanged reported
+      lesson bundles, each with one missing and one synthetic-known input.
+      Missing timeline facts and the primary tool display as unconfirmed; known
+      goal/result/tool values appear in prose/visuals without raw placeholders or
+      metadata. Four generations settle 6.33 credits to the isolated test attempt
+      and block. Persisted sessions/progress/variables and authored sources remain
+      unchanged. These are in-memory diagnostics, not ordinary-HTTP full lessons.
+- [ ] 2026-10-13: Verify final receipt-head CI and current review status before
+      recommending merge; no automatic merge.
 
 ## Surprises & Discoveries
 
@@ -36,7 +50,10 @@ its separate brief does not, so section compatibility must be checked independen
 
 ## Outcomes & Retrospective
 
-Implementation is under verification. The reported saved output remains failure
+The missing/known paths pass actual-model prose and visual checks for both
+reported lessons. Read-only trace/token/ledger matching accounts for all four
+requests; a result-transport failure was recovered from existing remote files
+without repeating a model call. The reported saved output remains failure
 evidence. This focused fix does not close broader classroom acceptance.
 
 ## Context and Orientation

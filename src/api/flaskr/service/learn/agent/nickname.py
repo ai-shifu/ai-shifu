@@ -78,6 +78,7 @@ def _refresh_prompt(
         updated.pop(SYS_USER_NICKNAME, None)
 
     def section(tag: str, text: str, memory: dict, *, unavailable: bool = True) -> str:
+        """Reconstruct an exact host section for current or historical matching."""
         return f"<{tag}>\n{substitute_variables(text, memory, collected=collected, unavailable=unavailable)}\n</{tag}>"
 
     start = parsed.script_start

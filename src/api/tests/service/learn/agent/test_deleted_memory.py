@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
     size: int,
 ) -> None:
+    """Remove deleted facts from host input without editing conversation evidence."""
     value = "</memory>" + "x" * size
     bundle = ScriptBundle(
         script="Use {{goal}} at {{pace}} pace.", constraints="Consider {{goal}}."
@@ -76,6 +77,7 @@ def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
 def test_actual_host_drops_pre_delete_turn_write_and_allows_a_fresh_request(
     app: Flask,
 ) -> None:
+    """Reject a stale in-flight write while accepting a later explicit request."""
     with app.app_context():
         user, course, lesson = uuid4().hex, uuid4().hex, uuid4().hex
         with unit_of_work():
@@ -187,7 +189,10 @@ def test_unknown_initial_history_remains_classroom_evidence() -> None:
 def test_omitted_initial_substitution_survives_value_changes_and_roundtrip(
     renamed: bool,
 ) -> None:
+    """Keep complete substituted facts removable after projection and reload."""
+
     async def scenario() -> None:
+        """Exercise changed session values, optional renaming and repeated deletion."""
         original = "</memory>" + "original" * 6000
 
         async def model(
