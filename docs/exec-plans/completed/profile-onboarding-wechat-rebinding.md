@@ -16,9 +16,10 @@ Profile, including its menu entry, so collection starts on a stable page.
       and adjacent tests; selected bounded preparation before collection.
 - [x] 2026-10-13 CST: Implement preparation and preserve existing binding behavior.
 - [x] 2026-10-13 CST: Verified ordering, failure isolation, identity changes,
-      and StrictMode with 201 focused tests, type checking, lint, architecture,
+      and StrictMode with 205 focused tests, type checking, lint, architecture,
       and the full Lefthook repository gate.
-- [ ] 2026-10-13 CST: Publish a ready pull request and verify its checks.
+- [x] 2026-10-13 CST: Published ready PR #3126; all applicable checks passed
+      on code head `48ab0eb07`, and both verified review findings are resolved.
 
 ## Surprises & Discoveries
 
@@ -57,9 +58,11 @@ cannot replace a collection started under an unknown identity.
 
 ## Outcomes & Retrospective
 
-Implementation passes 201 focused tests, type checking, and frontend lint.
+Implementation passes 205 focused tests, type checking, and frontend lint.
 Independent review added account-info failure and late-identity regressions.
-The full repository gate also passes. Publication verification is in progress.
+The full repository gate and GitHub CI pass. Both review findings were fixed
+in independent commits and verified; a final independent review found no
+blocking issue. PR #3126 tracks publication and merge state.
 No backend schema, provider, Profile prompt, or production configuration change
 is required.
 

@@ -79,7 +79,6 @@
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/preserve-independent-credit-validity.md` | Preserve Independent Credit Validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/profile-onboarding-wechat-rebinding.md` | Keep WeChat OpenID preparation ahead of Profile onboarding | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/progressive-html-typewriter.md` | Progressive HTML alongside typed lesson text | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/public-web-image-name.md` | Publish Web images without the Cook name | `exec-plan-active` | `active` | `repository` | `2026-10-08` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -193,6 +192,7 @@
 | `docs/exec-plans/completed/profile-onboarding-multilingual-assistant-prompts.md` | Localize profile-onboarding assistant prompts for every supported language | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/profile-onboarding-retention.md` | Explain personalization before deferring profile setup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/profile-onboarding-structural-simplification.md` | Profile Onboarding Structural Simplification | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/profile-onboarding-wechat-rebinding.md` | Keep WeChat OpenID preparation ahead of Profile onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/pydantic-required-compatibility.md` | Remove deprecated Pydantic `Field(required=...)` metadata | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/recall-history-compaction.md` | Compact completed memory recall history | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/remove-minimax-in-product-voice-cloning.md` | Remove In-Product MiniMax Voice Cloning | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
