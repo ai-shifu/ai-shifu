@@ -19,11 +19,14 @@ from .test_direction_feedback import _call, _collect, _text
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("feedback_contract", [False, True])
+@pytest.mark.parametrize("examples_allowed", [False, True])
 async def test_clarification_keeps_authored_limits_without_correction_withholding(
-    reload: bool, feedback_contract: bool
+    reload: bool, feedback_contract: bool, examples_allowed: bool
 ) -> None:
     """Deliver distinct phase guidance while retaining source, input and history."""
     preamble = "Answer knowledge questions briefly; do not advance the exercise.\n\n"
+    if not examples_allowed:
+        preamble += "Do not give worked examples; provide a short conceptual hint.\n\n"
     section = (
         "## Question\nExplain a loop.\n?[...Explanation]\n\n"
         "### Acceptance\nA loop repeats while its condition holds.\n\n"
@@ -60,9 +63,12 @@ async def test_clarification_keeps_authored_limits_without_correction_withholdin
             "Do not apply correction-only withholding to permitted clarification"
             in notice
         )
-        assert "Include requested examples or walkthroughs concisely" in notice
         assert question in ModelMessagesTypeAdapter.dump_json(messages).decode()
-        yield "A counter initialized to 2 can decrease once per iteration: 2, 1, 0."
+        yield (
+            "A counter initialized to 2 can decrease once per iteration: 2, 1, 0."
+            if examples_allowed
+            else "A loop repeats while its condition holds."
+        )
         yield _call(
             {
                 "type": "text",
@@ -113,10 +119,10 @@ async def test_clarification_keeps_authored_limits_without_correction_withholdin
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
-async def test_clarification_retry_keeps_requested_walkthrough_and_native_boundary(
+async def test_clarification_retry_keeps_authored_limits_and_native_boundary(
     reload: bool,
 ) -> None:
-    """Recover requested detail after undeclared prose and a control-only retry."""
+    """Keep phase authority after undeclared prose and a control-only retry."""
     script = "Answer knowledge questions briefly.\nExplain a loop.\n?[...Explanation]\n"
     question = "Could you briefly show two loop iterations and their state changes?"
     explanation = "Iteration 1: counter 2 to 1; iteration 2: counter 1 to 0."
@@ -145,12 +151,13 @@ async def test_clarification_retry_keeps_requested_walkthrough_and_native_bounda
             retry = [
                 p for m in messages for p in m.parts if isinstance(p, RetryPromptPart)
             ][-1]
-            assert (
-                "For clarification, keep the actual question's requested examples or walkthroughs"
-                in str(retry.content)
-            )
-            assert "Include requested examples or walkthroughs concisely" in (
+            assert "Regenerate the complete authored feedback" in str(retry.content)
+            assert "within authored brevity and disclosure rules" in (
                 info.instructions or ""
+            )
+            assert (
+                "Do not apply correction-only withholding to permitted clarification"
+                in (info.instructions or "")
             )
             assert question in ModelMessagesTypeAdapter.dump_json(messages).decode()
             assert (
