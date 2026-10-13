@@ -3,11 +3,23 @@
 ## Purpose / Big Picture
 
 A current-turn authored reference applies correction-only withholding to knowledge
-clarification. Scope those limits to checking-direction feedback so a permitted
+clarification. Scope those limits to checking-direction and authored-help feedback so a permitted
 side question can receive a brief response and return to the pending exercise.
 Preserve the teacher's disclosure limits, including a prohibition on examples.
 
 ## Progress
+
+- [x] 2026-10-13: Adopt Codex finding 4257773675: authored-help correction
+  also retains condition matching, teacher multiplicity and disclosure limits.
+  Four initial/reloaded uncounted/two-question SDK checks first fail against
+  0b885270e. Limit only the clarification exemption; do not waive correction
+  rules for the ordinary authored-help branch.
+- [x] 2026-10-13: Validate the review repair: all four new authored-help cases
+  fail before the fix; final learning/script suites pass 3860 cases, 50 subtests
+  and two expected skips. Preserve both correction branches and the teacher
+  limits without changing inputs, schema or budgets.
+- [ ] Push the repair and reply in the original review thread with its final SHA,
+  then verify new CI/reviews and sim before any paid model check.
 
 - [x] 2026-10-13: Synchronize with main 7e3a34e24, including the independent
   response-lifetime fix #3128 and log-startup fix #3130.
@@ -64,7 +76,7 @@ SDK calls. The broader acceptance record remains in
 
 ## Plan of Work
 
-Keep only checking-direction restrictions scoped to that phase. Deliver the same
+Keep correction restrictions scoped to both checking-direction and authored-help. Deliver the same
 author source to knowledge clarification, preserve brevity/disclosure limits and
 return to the same pending exercise. Verify the independent candidate before
 changing its merge recommendation.
