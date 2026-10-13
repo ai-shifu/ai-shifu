@@ -1,3 +1,4 @@
+import type { PaymentOption } from '@/types/payment';
 import React, { useEffect, useState } from 'react';
 import { LoaderIcon } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -36,6 +37,7 @@ type BillingPingxxQrDialogProps = {
   prepaidOffsetAmount?: number;
   productName: string;
   provider?: BillingProvider;
+  paymentOptions?: PaymentOption[];
   qrUrl: string;
   selectedChannel: BillingPingxxChannel;
   agreed: boolean;
@@ -55,6 +57,7 @@ export function BillingPingxxQrDialog({
   prepaidOffsetAmount = 0,
   productName,
   provider = 'pingxx',
+  paymentOptions,
   qrUrl,
   selectedChannel,
   agreed,
@@ -67,12 +70,32 @@ export function BillingPingxxQrDialog({
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(
     expiresInSeconds,
   );
-  const availableChannels =
-    provider === 'alipay'
+  const availableChannels = paymentOptions
+    ? paymentOptions
+        .filter(
+          option => option.provider === provider && option.action === 'qr',
+        )
+        .map(option => option.channel)
+    : provider === 'alipay'
       ? (['alipay_qr'] as BillingPingxxChannel[])
       : provider === 'wechatpay'
         ? (['wx_pub_qr'] as BillingPingxxChannel[])
         : BILLING_PINGXX_CHANNELS;
+
+  function channelLabel(channel: string): string {
+    const option = paymentOptions?.find(
+      item => item.provider === provider && item.channel === channel,
+    );
+    if (option)
+      return t(
+        option.method === 'wechat'
+          ? 'module.pay.payChannelWechat'
+          : option.method === 'alipay'
+            ? 'module.pay.payChannelAlipay'
+            : option.label_key,
+      );
+    return resolveBillingPingxxChannelLabel(t, channel);
+  }
 
   useEffect(() => {
     const syncRemainingSeconds = (value: number | null) => {
@@ -186,7 +209,7 @@ export function BillingPingxxQrDialog({
                 type='button'
                 variant={channel === selectedChannel ? 'default' : 'outline'}
               >
-                {resolveBillingPingxxChannelLabel(t, channel)}
+                {channelLabel(channel)}
               </Button>
             ))}
           </div>
@@ -206,7 +229,7 @@ export function BillingPingxxQrDialog({
               ) : null}
             </div>
             <p className='text-center text-sm text-slate-500'>
-              {resolveBillingPingxxChannelLabel(t, selectedChannel)}
+              {channelLabel(selectedChannel)}
             </p>
           </div>
         </div>

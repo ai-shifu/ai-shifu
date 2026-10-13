@@ -1,3 +1,5 @@
+import type { BillingCheckoutOperation } from '@/types/billing';
+import type { PaymentOption } from '@/types/payment';
 import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
@@ -25,6 +27,8 @@ import styles from './BillingPlanComparisonTable.module.scss';
 
 type BillingOverviewShowcaseProps = {
   checkoutLoadingKey: string;
+  paymentOptions?: PaymentOption[];
+  checkoutOperations?: Record<string, BillingCheckoutOperation>;
   currentPlan: BillingPlan | null;
   currentSubscription: BillingSubscription | null;
   hasActiveSubscription: boolean;
@@ -71,7 +75,9 @@ function resolveCheckoutProvider(
   pingxxAvailable: boolean,
   alipayAvailable: boolean,
   wechatpayAvailable: boolean,
+  paymentOptions?: PaymentOption[],
 ): BillingProvider | null {
+  if (paymentOptions) return paymentOptions[0]?.provider || null;
   if (stripeAvailable) {
     return 'stripe';
   }
@@ -88,6 +94,8 @@ function resolveCheckoutProvider(
 }
 
 export function BillingOverviewShowcase({
+  paymentOptions,
+  checkoutOperations,
   checkoutLoadingKey,
   currentPlan,
   currentSubscription,
@@ -176,6 +184,7 @@ export function BillingOverviewShowcase({
                 pingxxAvailable,
                 alipayAvailable,
                 wechatpayAvailable,
+                paymentOptions,
               );
               const checkoutKey = provider
                 ? `topup:${provider}:${product.product_bid}`
@@ -237,6 +246,8 @@ export function BillingOverviewShowcase({
       ) : (
         <div className='space-y-6'>
           <BillingPlanComparisonTable
+            checkoutOperations={checkoutOperations}
+            paymentOptions={paymentOptions}
             checkoutLoadingKey={checkoutLoadingKey}
             currentPlan={currentPlan}
             currentSubscription={currentSubscription}

@@ -953,6 +953,7 @@ export const isPackageCampaignProviderDiscountSynced = (
     return true;
   }
   const summary = item.provider_discount_summary || {};
+  if (summary.current_sync) return summary.current_sync.complete === true;
   const total = Number(summary.total || 0);
   const active = Number(summary.active || 0);
   const expectedProducts = Number(item.product_count || 0);
@@ -961,6 +962,7 @@ export const isPackageCampaignProviderDiscountSynced = (
     summary.provider_invalid,
     summary.cleanup_required,
     summary.requires_republish,
+    summary.missing_provider_count,
   ].some(value => Number(value || 0) > 0);
   return total >= expectedProducts && active >= total && !hasAttention;
 };
@@ -1025,8 +1027,15 @@ export const resolvePackageCampaignProviderDiscountLabel = (
   if (item.benefit_type !== 'discount') {
     return tPromotion('packageCampaign.providerDiscountNotRequired');
   }
-  const summary = item.provider_discount_summary || {};
+  const history = item.provider_discount_summary || {};
+  const summary = history.current_sync || history;
+  if (history.current_sync?.complete === true) {
+    return tPromotion('packageCampaign.providerDiscountActive');
+  }
   const total = Number(summary.total || 0);
+  if (total <= 0 && history.current_sync && Number(history.total || 0) > 0) {
+    return tPromotion('packageCampaign.providerDiscountPartial');
+  }
   if (total <= 0) {
     return tPromotion('packageCampaign.providerDiscountUnpublished');
   }
@@ -1042,6 +1051,9 @@ export const resolvePackageCampaignProviderDiscountLabel = (
     return tPromotion('packageCampaign.providerDiscountRequiresRepublish');
   }
   if (active === total) {
+    if (Number(summary.missing_provider_count || 0) > 0) {
+      return tPromotion('packageCampaign.providerDiscountPartial');
+    }
     return tPromotion('packageCampaign.providerDiscountActive');
   }
   return tPromotion('packageCampaign.providerDiscountPartial');
@@ -1059,9 +1071,15 @@ export const shouldShowPackageCampaignProviderRetry = (
   item: AdminBillingCampaignItem,
 ) => {
   const summary = item.provider_discount_summary || {};
+  if (summary.current_sync) {
+    return (
+      item.benefit_type === 'discount' && summary.current_sync.complete !== true
+    );
+  }
   return (
     item.benefit_type === 'discount' &&
     (Number(summary.failed || 0) > 0 ||
+      Number(summary.missing_provider_count || 0) > 0 ||
       Number(summary.provider_invalid || 0) > 0 ||
       Number(summary.requires_republish || 0) > 0)
   );

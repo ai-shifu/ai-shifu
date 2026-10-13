@@ -20,7 +20,10 @@ from .base import (
     PaymentRefundRequest,
     PaymentRefundResult,
     PaymentRequest,
+    PaymentWebhookResponse,
 )
+from .contracts import BUILTIN_DEFINITIONS
+from .normalization import normalized_creation, normalized_notification
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -30,6 +33,11 @@ class AlipayProvider(PaymentProvider):
     """Direct Alipay OpenAPI provider implementation."""
 
     channel = "alipay"
+    definition = BUILTIN_DEFINITIONS["alipay"]
+
+    def webhook_response(self, *, succeeded: bool) -> PaymentWebhookResponse:
+        """Return Alipay's required plain-text acknowledgement."""
+        return PaymentWebhookResponse("success" if succeeded else "failure")
 
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
@@ -85,7 +93,9 @@ class AlipayProvider(PaymentProvider):
             },
             "response": response_payload,
         }
-        return PaymentCreationResult(
+        return normalized_creation(
+            "alipay",
+            request,
             provider_reference=request.order_bid,
             raw_response=response_payload,
             extra={
@@ -147,7 +157,8 @@ class AlipayProvider(PaymentProvider):
             raw_response,
             "alipay_trade_query_response",
         )
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "alipay",
             order_bid=str(response_payload.get("out_trade_no") or provider_reference),
             status="manual_sync",
             provider_payload={"trade": response_payload},
@@ -306,7 +317,8 @@ class AlipayProvider(PaymentProvider):
         self,
         payload: dict[str, object],
     ) -> PaymentNotificationResult:
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "alipay",
             order_bid=str(payload.get("out_trade_no") or ""),
             status=str(payload.get("trade_status") or ""),
             provider_payload=dict(payload),

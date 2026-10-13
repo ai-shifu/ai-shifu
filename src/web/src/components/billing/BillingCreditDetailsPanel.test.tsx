@@ -1129,4 +1129,139 @@ describe('BillingCreditDetailsPanel', () => {
       'module.billing.details.topupAvailabilityTooltip',
     );
   });
+  test('shows existing hosted-contract management from capabilities instead of gateway name', () => {
+    const currentOverview = mockUseBillingOverview();
+    mockUseBillingOverview.mockReturnValue({
+      ...currentOverview,
+      data: {
+        ...currentOverview.data,
+        subscription: {
+          ...currentOverview.data.subscription,
+          billing_provider: 'fixture-hosted',
+          billing_mode: 'provider_managed',
+          management_operations: { cancel: true, resume: false },
+        },
+      },
+    });
+    render(<BillingCreditDetailsPanel showSubscriptionManagement />);
+    expect(
+      screen.getByRole('button', {
+        name: 'module.billing.details.subscription.cancelAction',
+      }),
+    ).toBeInTheDocument();
+  });
+  test.each(['cancel', 'resume'] as const)(
+    'attributes a hosted %s operation to the bounded actual provider',
+    async action => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      const current = mockUseBillingOverview();
+      const subscription = {
+        ...current.data.subscription,
+        billing_provider: 'fixture-hosted',
+        billing_mode: 'provider_managed',
+        management_operations: { cancel: true, resume: true },
+        status: action === 'resume' ? 'cancel_scheduled' : 'active',
+        cancel_at_period_end: action === 'resume',
+      };
+      mockUseBillingOverview.mockReturnValue({
+        ...current,
+        data: { ...current.data, subscription },
+      });
+      mockCancelBillingSubscription.mockResolvedValue({
+        ...subscription,
+        cancel_at_period_end: true,
+      });
+      mockResumeBillingSubscription.mockResolvedValue({
+        ...subscription,
+        cancel_at_period_end: false,
+      });
+      render(<BillingCreditDetailsPanel showSubscriptionManagement />);
+      await user.click(
+        screen.getByRole('button', {
+          name: `module.billing.details.subscription.${action}Action`,
+        }),
+      );
+      await user.click(
+        screen.getByRole('button', {
+          name: `module.billing.details.subscription.${action}ConfirmAction`,
+        }),
+      );
+      await waitFor(() =>
+        expect(
+          action === 'cancel'
+            ? mockCancelBillingSubscription
+            : mockResumeBillingSubscription,
+        ).toHaveBeenCalledWith({ subscription_bid: 'sub-1' }),
+      );
+      expect(mockTrackEvent.mock.calls).toEqual([
+        [
+          'creator_subscription_renewal_attempt',
+          {
+            action,
+            source_surface: 'credit_details',
+            payment_provider: 'other',
+            subscription_bid: 'sub-1',
+          },
+        ],
+        [
+          'creator_subscription_renewal_result',
+          {
+            action,
+            source_surface: 'credit_details',
+            payment_provider: 'other',
+            subscription_bid: 'sub-1',
+            outcome: 'success',
+          },
+        ],
+      ]);
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+        'fixture-hosted',
+      );
+    },
+  );
+  test.each(['active', 'cancel_scheduled', 'paused'] as const)(
+    'checks the specific management operation in %s state',
+    status => {
+      const current = mockUseBillingOverview();
+      const resume = status !== 'active';
+      const subscription = {
+        ...current.data.subscription,
+        status,
+        cancel_at_period_end: status === 'cancel_scheduled',
+        billing_provider: 'fixture-hosted',
+        billing_mode: 'provider_managed',
+        management_operations: { cancel: resume, resume: !resume },
+      };
+      mockUseBillingOverview.mockReturnValue({
+        ...current,
+        data: { ...current.data, subscription },
+      });
+      const view = render(
+        <BillingCreditDetailsPanel showSubscriptionManagement />,
+      );
+      expect(
+        screen.queryByRole('button', {
+          name: `module.billing.details.subscription.${resume ? 'resume' : 'cancel'}Action`,
+        }),
+      ).not.toBeInTheDocument();
+      expect(mockCancelBillingSubscription).not.toHaveBeenCalled();
+      expect(mockResumeBillingSubscription).not.toHaveBeenCalled();
+      mockUseBillingOverview.mockReturnValue({
+        ...current,
+        data: {
+          ...current.data,
+          subscription: {
+            ...subscription,
+            management_operations: { cancel: !resume, resume },
+          },
+        },
+      });
+      view.rerender(<BillingCreditDetailsPanel showSubscriptionManagement />);
+      expect(
+        screen.getByRole('button', {
+          name: `module.billing.details.subscription.${resume ? 'resume' : 'cancel'}Action`,
+        }),
+      ).toBeInTheDocument();
+    },
+  );
 });

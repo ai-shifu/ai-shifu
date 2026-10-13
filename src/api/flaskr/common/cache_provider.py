@@ -30,6 +30,55 @@ class CacheLock(Protocol):
         raise NotImplementedError
 
 
+class CacheLockOwnershipError(RuntimeError):
+    """Signal that a leased operation can no longer rely on exclusive ownership."""
+
+
+class RenewableLockLease:
+    """Renew an acquired cache lock and verify ownership before a durable transition."""
+
+    def __init__(self, lock: CacheLock) -> None:
+        """Start the established 60-second lease with 20-second renewal."""
+        self._lock = lock
+        self._stop_renewal = threading.Event()
+        self.ownership_lost = threading.Event()
+        self._released = False
+        self._renewal = threading.Thread(target=self._renew_lease, daemon=True)
+        self._renewal.start()
+
+    def _renew_lease(self) -> None:
+        while not self._stop_renewal.wait(20):
+            try:
+                if not self._lock.extend(60, replace_ttl=True):
+                    self.ownership_lost.set()
+                    return
+            except Exception:
+                self.ownership_lost.set()
+                return
+
+    def _raise_lost(self) -> None:
+        message = "Cache lock ownership was lost"
+        raise CacheLockOwnershipError(message)
+
+    def check_owned(self) -> None:
+        """Fail before proceeding when renewal has lost the lease."""
+        if self.ownership_lost.is_set():
+            self._raise_lost()
+
+    def release_checked(self) -> None:
+        """Release the lease and reject failed renewal or lost Redis ownership."""
+        if self._released:
+            return
+        self._released = True
+        self._stop_renewal.set()
+        self._renewal.join(timeout=1)
+        try:
+            self._lock.release()
+        except Exception:
+            self.ownership_lost.set()
+        self.check_owned()
+
+
 @runtime_checkable
 class CacheProvider(Protocol):
     """Define the cache operations used by application services."""

@@ -442,3 +442,35 @@ solely because historical Umami rows or queries exist.
   repeated dismissal/reopening, guest/member and preview eligibility, missing
   version exclusion, internal and prevented outside interactions, touch timing,
   fullscreen migration, and synchronous/asynchronous tracking failures.
+
+## Payment administration provider coverage
+
+- Decision and consumer: operator tooling adoption reports compare deliberate
+  price-provider selections and discount publication outcomes by provider count.
+  These are best-effort workflow signals, never payment or accounting evidence.
+- `admin_payment_provider_selected`: once per accepted price-provider select
+  change by an authorized operator, after updating selection. Complete payload:
+  `{ surface: 'prices' }`. Rendering, automatic defaults, unchanged selection,
+  non-operators and checkout/learner/preview surfaces are excluded.
+- `admin_payment_discount_publish_start` and
+  `admin_payment_discount_publish_result`: once per accepted operator publish or
+  retry action and once after all targeted providers return or fail. Payload:
+  `{ operation: 'publish' | 'retry', provider_count: number }`; the result adds
+  `outcome: 'success' | 'failed'`. Provider-reported attention and transport
+  failures count as failed. With `summary.current_sync`, success requires complete
+  coverage in the currently required provider/account/mode/price scope; historical
+  failures outside that scope do not change the result. Older responses retain
+  item-status interpretation. Event names and payloads are unchanged. Refreshing
+  the list is not the measured operation.
+  A synchronous action guard rejects overlapping publish/retry actions; later
+  deliberate retries count again. There is no persisted deduplication or exact
+  event-level join. Loading controls, blocked actions and campaign retirement
+  are excluded. Population is the operator administration UI only.
+- No provider/account IDs, campaign/product IDs, prices, coupon codes, authored
+  text, errors or URLs are collected. Shared transport alone supplies normalized
+  routing and pseudonymous identity. All events use `useTracking`; thrown calls,
+  rejected promises and unavailable analytics cannot alter an operation.
+- Additive contract with no existing repository-owned dashboard or query to
+  migrate. Tests cover exact payloads, post-selection/start/result timing,
+  partial failure, repeat/overlapping clicks, exclusions and failure isolation;
+  shared transport tests cover the final delivered schema.

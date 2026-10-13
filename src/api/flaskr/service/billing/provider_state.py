@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from flaskr.util.datetime import now_utc
+from flaskr.service.order.payment_providers.api import (
+    subscription_facts as legacy_subscription_facts,
+)
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from .consts import (
     BILLING_ORDER_STATUS_CANCELED,
@@ -15,9 +18,12 @@ from .consts import (
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
@@ -31,11 +37,26 @@ from .paid_side_effects import (
 from .paid_side_effects import (
     stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
-from .payment_policy import is_manual_payment_provider
+from .payment_policy import (
+    is_manual_payment_provider,
+    is_provider_managed_payment_provider,
+)
 from .primitives import coerce_datetime as _coerce_datetime
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import normalize_json_value as _normalize_json_value
+from .provider_compat import (
+    _extract_provider_event_time,
+    _extract_stripe_failure_code,
+    _extract_stripe_failure_message,
+    _extract_stripe_provider_reference,
+    _is_stripe_checkout_paid,
+    _load_billing_renewal_order_for_stripe_event,
+    _map_stripe_order_status,
+    _resolve_stripe_subscription_order_status,
+    extract_stripe_paid_amount,
+    extract_stripe_paid_currency,
+)
 from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,
 )
@@ -54,37 +75,92 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from flask import Flask
+    from flaskr.service.order.payment_providers.api import (
+        PaymentFacts,
+        SubscriptionFacts,
+    )
 
     from .models import BillingOrder, BillingSubscription
 
-_STRIPE_SUCCESS_EVENT_TYPES = {
-    "payment_intent.succeeded",
-    "checkout.session.async_payment_succeeded",
-}
 
-_STRIPE_FAIL_EVENT_TYPES = {
-    "payment_intent.payment_failed",
-    "checkout.session.async_payment_failed",
-}
-
-_STRIPE_REFUND_EVENT_TYPES = {
-    "charge.refunded",
-    "refund.created",
-}
-
-_STRIPE_CANCEL_EVENT_TYPES = {
-    "payment_intent.canceled",
-}
-
-_STRIPE_SUBSCRIPTION_STATUS_MAP = {
+_SUBSCRIPTION_STATUS_MAP = {
     "active": BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     "trialing": BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     "past_due": BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    "unpaid": BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     "paused": BILLING_SUBSCRIPTION_STATUS_PAUSED,
     "canceled": BILLING_SUBSCRIPTION_STATUS_CANCELED,
-    "incomplete_expired": BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+    "expired": BILLING_SUBSCRIPTION_STATUS_EXPIRED,
 }
+
+
+def subscription_command_status(facts: SubscriptionFacts) -> int | None:
+    """Map confirmed commands without clearing a delinquent or paused state."""
+    if facts.status in {"active", "trialing"} and facts.cancel_at_period_end:
+        return BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+    return _SUBSCRIPTION_STATUS_MAP.get(facts.status)
+
+
+def contract_can_activate(order: BillingOrder | None) -> bool:
+    """Separate current contract recovery from unpaid initial or upgraded access."""
+    return (
+        order is None
+        or order.order_type
+        not in {
+            BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+        }
+        or order.status == BILLING_ORDER_STATUS_PAID
+    )
+
+
+def contract_renewal_order_status(
+    order: BillingOrder, facts: SubscriptionFacts
+) -> int | None:
+    """Match an existing renewal's frozen cycle without knowing gateway fields."""
+    if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+        return None
+    if facts.status in {"active", "trialing"}:
+        metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        expected_start = _extract_order_metadata_datetime(
+            metadata, "renewal_cycle_start_at"
+        )
+        expected_end = _extract_order_metadata_datetime(
+            metadata, "renewal_cycle_end_at"
+        )
+        start, end = (
+            _coerce_datetime(facts.period_start),
+            _coerce_datetime(facts.period_end),
+        )
+        matches = False
+        if expected_end is not None and end is not None:
+            matches = end >= expected_end and (
+                expected_start is None or start is None or start >= expected_start
+            )
+        elif expected_start is not None and start is not None:
+            matches = start >= expected_start
+        return BILLING_ORDER_STATUS_PAID if matches else BILLING_ORDER_STATUS_PENDING
+    if facts.status in {"past_due", "expired", "canceled"}:
+        return BILLING_ORDER_STATUS_FAILED
+    return BILLING_ORDER_STATUS_PENDING
+
+
+def renewal_order_for_contract(
+    subscription_bid: str, facts: SubscriptionFacts
+) -> BillingOrder | None:
+    """Associate normalized cycle evidence with the existing local renewal."""
+    statuses = (BILLING_ORDER_STATUS_PENDING, BILLING_ORDER_STATUS_FAILED)
+    if facts.status in {"active", "trialing"}:
+        return _load_subscription_renewal_order_by_cycle(
+            subscription_bid,
+            cycle_start_at=_coerce_datetime(facts.period_start),
+            cycle_end_at=_coerce_datetime(facts.period_end),
+            statuses=statuses,
+        )
+    if facts.status in {"past_due", "expired", "canceled"}:
+        return _load_latest_subscription_renewal_order(
+            subscription_bid, statuses=statuses
+        )
+    return None
 
 
 @dataclass(slots=True)
@@ -132,11 +208,17 @@ def _apply_billing_order_provider_update(
     target_status: int | None,
     failure_code: str = "",
     failure_message: str = "",
+    payment_facts: PaymentFacts | None = None,
+    contract_facts: SubscriptionFacts | None = None,
 ) -> BillingOrderProviderUpdateResult:
     result = BillingOrderProviderUpdateResult(
         previous_status=int(order.status or 0),
     )
-    event_time = _extract_provider_event_time(payload)
+    event_time = (
+        _coerce_datetime(payment_facts.event_time)
+        if payment_facts is not None
+        else _extract_provider_event_time(payload)
+    )
     if provider_reference_id:
         order.provider_reference_id = provider_reference_id
     order.metadata_json = _merge_provider_metadata(
@@ -168,6 +250,29 @@ def _apply_billing_order_provider_update(
     if target_status == BILLING_ORDER_STATUS_PAID:
         order.paid_amount = int(order.payable_amount or 0)
         order.paid_at = order.paid_at or now
+        if (
+            contract_facts is not None
+            and is_provider_managed_payment_provider(provider)
+            and order.order_type
+            in {
+                BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+            }
+        ):
+            period_start = _coerce_datetime(contract_facts.period_start)
+            period_end = _coerce_datetime(contract_facts.period_end)
+            if (
+                period_start is not None
+                and period_end is not None
+                and period_end > period_start
+            ):
+                # Freeze the confirmed contract window before credit activation.
+                order.metadata_json = {
+                    **order.metadata_json,
+                    "provider_period_start_at": to_utc_iso(period_start),
+                    "provider_period_end_at": to_utc_iso(period_end),
+                }
+
         order.failed_at = None
         order.failure_code = ""
         order.failure_message = ""
@@ -221,162 +326,6 @@ def _can_transition_billing_order_status(
     return True
 
 
-def _map_stripe_order_status(
-    event_type: str,
-    data_object: dict[str, object] | None = None,
-) -> int | None:
-    if event_type == "checkout.session.completed":
-        payment_status = (
-            str((data_object or {}).get("payment_status") or "").strip().lower()
-        )
-        if payment_status in {"paid", "no_payment_required"}:
-            return BILLING_ORDER_STATUS_PAID
-        return None
-    if event_type in _STRIPE_SUCCESS_EVENT_TYPES:
-        return BILLING_ORDER_STATUS_PAID
-    if event_type in _STRIPE_FAIL_EVENT_TYPES:
-        return BILLING_ORDER_STATUS_FAILED
-    if event_type in _STRIPE_REFUND_EVENT_TYPES:
-        return BILLING_ORDER_STATUS_REFUNDED
-    if event_type in _STRIPE_CANCEL_EVENT_TYPES:
-        return BILLING_ORDER_STATUS_CANCELED
-    return None
-
-
-def _resolve_stripe_subscription_order_status(
-    order: BillingOrder,
-    data_object: dict[str, object],
-) -> int | None:
-    if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-        return None
-
-    subscription_status = str(data_object.get("status") or "").strip().lower()
-    if subscription_status in {"active", "trialing"}:
-        if _stripe_subscription_cycle_matches_renewal_order(order, data_object):
-            return BILLING_ORDER_STATUS_PAID
-        return BILLING_ORDER_STATUS_PENDING
-    if subscription_status in {"past_due", "unpaid", "incomplete_expired", "canceled"}:
-        return BILLING_ORDER_STATUS_FAILED
-    return BILLING_ORDER_STATUS_PENDING
-
-
-def _stripe_subscription_cycle_matches_renewal_order(
-    order: BillingOrder,
-    data_object: dict[str, object],
-) -> bool:
-    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
-    expected_cycle_start = _extract_order_metadata_datetime(
-        metadata, "renewal_cycle_start_at"
-    )
-    expected_cycle_end = _extract_order_metadata_datetime(
-        metadata, "renewal_cycle_end_at"
-    )
-    current_period_start = _coerce_datetime(data_object.get("current_period_start"))
-    current_period_end = _coerce_datetime(data_object.get("current_period_end"))
-
-    if expected_cycle_end is not None and current_period_end is not None:
-        if current_period_end >= expected_cycle_end:
-            if expected_cycle_start is None or current_period_start is None:
-                return True
-            return current_period_start >= expected_cycle_start
-        return False
-
-    if expected_cycle_start is not None and current_period_start is not None:
-        return current_period_start >= expected_cycle_start
-
-    return False
-
-
-def _load_billing_renewal_order_for_stripe_event(
-    subscription_bid: str,
-    data_object: dict[str, object],
-) -> BillingOrder | None:
-    subscription_status = str(data_object.get("status") or "").strip().lower()
-    current_period_start = _coerce_datetime(data_object.get("current_period_start"))
-    current_period_end = _coerce_datetime(data_object.get("current_period_end"))
-
-    if subscription_status in {"active", "trialing"}:
-        return _load_subscription_renewal_order_by_cycle(
-            subscription_bid,
-            cycle_start_at=current_period_start,
-            cycle_end_at=current_period_end,
-            statuses=(
-                BILLING_ORDER_STATUS_PENDING,
-                BILLING_ORDER_STATUS_FAILED,
-            ),
-        )
-
-    if subscription_status in {"past_due", "unpaid", "incomplete_expired", "canceled"}:
-        return _load_latest_subscription_renewal_order(
-            subscription_bid,
-            statuses=(
-                BILLING_ORDER_STATUS_PENDING,
-                BILLING_ORDER_STATUS_FAILED,
-            ),
-        )
-
-    return None
-
-
-def _extract_stripe_provider_reference(
-    *,
-    order: BillingOrder,
-    event_type: str,
-    data_object: dict[str, object],
-) -> str:
-    reference = _normalize_bid(data_object.get("id"))
-    if event_type == "checkout.session.completed" and reference.startswith("cs_"):
-        return reference
-    return order.provider_reference_id
-
-
-def _extract_stripe_failure_code(data_object: dict[str, object]) -> str:
-    error_info = data_object.get("last_payment_error", {}) or {}
-    return str(error_info.get("code") or "")
-
-
-def _extract_stripe_failure_message(data_object: dict[str, object]) -> str:
-    error_info = data_object.get("last_payment_error", {}) or {}
-    return str(error_info.get("message") or "")
-
-
-def _coerce_stripe_int(value: object) -> int | None:
-    try:
-        if value is None or value == "":
-            return None
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def extract_stripe_paid_amount(payload: dict[str, Any]) -> int | None:
-    """Resolve Stripe's actual paid amount from a checkout or intent payload."""
-    session = payload.get("checkout_session", payload)
-    intent = payload.get("payment_intent", {})
-    if not isinstance(session, dict):
-        session = {}
-    if not isinstance(intent, dict):
-        intent = {}
-    session_amount = _coerce_stripe_int(session.get("amount_total"))
-    if session_amount is not None:
-        return session_amount
-    amount_received = _coerce_stripe_int(intent.get("amount_received"))
-    if amount_received is not None:
-        return amount_received
-    return _coerce_stripe_int(intent.get("amount"))
-
-
-def extract_stripe_paid_currency(payload: dict[str, Any]) -> str:
-    """Resolve Stripe's paid currency from a checkout or intent payload."""
-    session = payload.get("checkout_session", payload)
-    intent = payload.get("payment_intent", {})
-    if not isinstance(session, dict):
-        session = {}
-    if not isinstance(intent, dict):
-        intent = {}
-    return str(session.get("currency") or intent.get("currency") or "").upper()
-
-
 def _apply_billing_subscription_provider_update(
     app: Flask,
     subscription: BillingSubscription,
@@ -387,8 +336,89 @@ def _apply_billing_subscription_provider_update(
     data_object: dict[str, object],
     source: str = "webhook",
     allow_activation: bool = True,
+    contract_facts: SubscriptionFacts | None = None,
+    payment_facts: PaymentFacts | None = None,
 ) -> bool:
-    event_time = _extract_provider_event_time(payload)
+    facts = contract_facts or legacy_subscription_facts(
+        data_object, deleted=event_type == "customer.subscription.deleted"
+    )
+    return apply_subscription_contract(
+        app,
+        subscription,
+        provider=provider,
+        event_type=event_type,
+        payload=payload,
+        facts=facts,
+        source=source,
+        allow_activation=allow_activation,
+        event_time=_coerce_datetime(payment_facts.event_time)
+        if payment_facts is not None
+        else _extract_provider_event_time(payload),
+        confirmed=contract_facts is not None,
+    )
+
+
+def paid_upgrade_can_rebind_contract(
+    order: BillingOrder | None, update: BillingOrderProviderUpdateResult
+) -> bool:
+    """Only a newly validated paid upgrade may hand off an existing contract."""
+    return bool(
+        order is not None
+        and order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+        and order.status == BILLING_ORDER_STATUS_PAID
+        and update.applied
+    )
+
+
+def apply_subscription_contract(
+    app: Flask,
+    subscription: BillingSubscription,
+    *,
+    provider: str,
+    event_type: str,
+    payload: dict[str, object],
+    facts: SubscriptionFacts,
+    source: str = "webhook",
+    allow_activation: bool = True,
+    event_time: datetime | None = None,
+    confirmed: bool = True,
+    allow_rebinding: bool = False,
+) -> bool:
+    """Apply normalized contract evidence; raw payload is retained for audit only."""
+    # Manual payments activate only through paid-order lifecycle policy.
+    if is_manual_payment_provider(provider):
+        return False
+    current_reference = _normalize_bid(subscription.provider_subscription_id)
+    reported_reference = _normalize_bid(facts.provider_reference)
+    if (
+        current_reference
+        and reported_reference
+        and current_reference != reported_reference
+        and (not allow_rebinding or subscription.billing_provider != provider)
+    ):
+        message = "Billing subscription contract reference mismatch"
+        raise RuntimeError(message)
+    metadata = subscription.metadata_json or {}
+    if (
+        not confirmed
+        and metadata.get("provider_contract_confirmed") is True
+        and subscription.billing_provider == provider
+    ):
+        # Checkout proves payment and may bind an admitted paid upgrade, but
+        # cannot replace verified contract state or advance its event clock.
+        # Drafts withheld active access until payment; blocked contract states
+        # have already been mapped and must stay blocked.
+        if subscription.status == BILLING_SUBSCRIPTION_STATUS_DRAFT:
+            subscription.status = (
+                BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+                if subscription.cancel_at_period_end
+                else BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            )
+        if reported_reference:
+            subscription.provider_subscription_id = reported_reference
+        if not subscription.provider_customer_id and facts.customer_reference:
+            subscription.provider_customer_id = facts.customer_reference
+        return False
     if not _should_apply_subscription_event(subscription, event_time):
         return False
 
@@ -400,22 +430,21 @@ def _apply_billing_subscription_provider_update(
         event_time=event_time,
         source=source,
     )
+    if confirmed:
+        subscription.metadata_json = {
+            **subscription.metadata_json,
+            "provider_contract_confirmed": True,
+        }
     # Provider-managed state no longer proves the previous manual cycle is current.
     subscription.metadata_json.pop("active_cycle_order_bid", None)
     subscription.billing_provider = provider
-    provider_subscription_id = _normalize_bid(data_object.get("id"))
-    if provider_subscription_id.startswith("sub_"):
-        subscription.provider_subscription_id = provider_subscription_id
-    customer_id = _normalize_bid(data_object.get("customer"))
-    if customer_id:
-        subscription.provider_customer_id = customer_id
-
-    status = str(data_object.get("status") or "").strip().lower()
-    mapped_status = _STRIPE_SUBSCRIPTION_STATUS_MAP.get(status)
-    if status == "active" and int(data_object.get("cancel_at_period_end") or 0) == 1:
+    if facts.provider_reference:
+        subscription.provider_subscription_id = facts.provider_reference
+    if facts.customer_reference:
+        subscription.provider_customer_id = facts.customer_reference
+    mapped_status = _SUBSCRIPTION_STATUS_MAP.get(facts.status)
+    if facts.status == "active" and facts.cancel_at_period_end:
         mapped_status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
-    if event_type == "customer.subscription.deleted":
-        mapped_status = BILLING_SUBSCRIPTION_STATUS_CANCELED
     if not allow_activation and mapped_status in {
         BILLING_SUBSCRIPTION_STATUS_ACTIVE,
         BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
@@ -424,20 +453,15 @@ def _apply_billing_subscription_provider_update(
     if mapped_status is not None:
         subscription.status = mapped_status
 
-    subscription.cancel_at_period_end = (
-        1 if data_object.get("cancel_at_period_end") else 0
-    )
+    subscription.cancel_at_period_end = 1 if facts.cancel_at_period_end else 0
     subscription.billing_anchor_at = (
-        _coerce_datetime(data_object.get("billing_cycle_anchor"))
-        or subscription.billing_anchor_at
+        _coerce_datetime(facts.billing_anchor) or subscription.billing_anchor_at
     )
     subscription.current_period_start_at = (
-        _coerce_datetime(data_object.get("current_period_start"))
-        or subscription.current_period_start_at
+        _coerce_datetime(facts.period_start) or subscription.current_period_start_at
     )
     subscription.current_period_end_at = (
-        _coerce_datetime(data_object.get("current_period_end"))
-        or subscription.current_period_end_at
+        _coerce_datetime(facts.period_end) or subscription.current_period_end_at
     )
 
     now = event_time or now_utc()
@@ -513,13 +537,18 @@ def _apply_subscription_checkout_failure(
     event_type: str,
     payload: dict[str, object],
     source: str = "webhook",
+    payment_facts: PaymentFacts | None = None,
 ) -> bool:
     # One-time payments change entitlement only through paid-order activation.
     # In particular, future preorders and failed upgrades keep the current plan.
     if is_manual_payment_provider(provider):
         return False
 
-    event_time = _extract_provider_event_time(payload)
+    event_time = (
+        _coerce_datetime(payment_facts.event_time)
+        if payment_facts is not None
+        else _extract_provider_event_time(payload)
+    )
     if not _should_apply_subscription_event(subscription, event_time):
         return False
 
@@ -597,46 +626,6 @@ def _merge_provider_metadata(
     if event_time is not None:
         metadata["latest_event_time"] = event_time.isoformat()
     return _normalize_json_object(metadata)
-
-
-def _extract_provider_event_time(payload: object) -> datetime | None:
-    if not isinstance(payload, dict):
-        return None
-    for key in ("created", "time_paid", "current_period_end", "current_period_start"):
-        value = _coerce_datetime(payload.get(key))
-        if value is not None:
-            return value
-    data_object = payload.get("data", {}).get("object", {}) or {}
-    for key in ("created", "time_paid", "current_period_end", "current_period_start"):
-        value = _coerce_datetime(data_object.get(key))
-        if value is not None:
-            return value
-    checkout_session = payload.get("checkout_session", {}) or {}
-    for key in ("created",):
-        value = _coerce_datetime(checkout_session.get(key))
-        if value is not None:
-            return value
-    charge = payload.get("charge", {}) or {}
-    for key in ("time_paid", "created"):
-        value = _coerce_datetime(charge.get(key))
-        if value is not None:
-            return value
-    subscription = payload.get("subscription", {}) or {}
-    if isinstance(subscription, dict):
-        for key in ("created", "current_period_end", "current_period_start"):
-            value = _coerce_datetime(subscription.get(key))
-            if value is not None:
-                return value
-    return None
-
-
-def _is_stripe_checkout_paid(
-    session: dict[str, object],
-    intent: dict[str, object] | None,
-) -> bool:
-    if session.get("payment_status") in {"paid", "no_payment_required"}:
-        return True
-    return bool(intent and intent.get("status") == "succeeded")
 
 
 apply_billing_order_provider_update = _apply_billing_order_provider_update

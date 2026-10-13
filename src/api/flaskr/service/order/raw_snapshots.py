@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
+from sqlalchemy import or_
+
 from .models import AlipayOrder, PingxxOrder, StripeOrder, WechatPayOrder
 
 if TYPE_CHECKING:
@@ -30,6 +32,26 @@ _NATIVE_PAYMENT_BID_ATTRS = {
     "alipay": "alipay_order_bid",
     "wechatpay": "wechatpay_order_bid",
 }
+
+
+def register_native_snapshot_model(provider: str, model: type, bid_attr: str) -> None:
+    """Bind a direct integration's existing snapshot schema at one boundary."""
+    if not provider or not hasattr(model, bid_attr):
+        message = "Payment snapshot registration requires a provider and business key"
+        raise ValueError(message)
+    if any(
+        name != provider and existing is model
+        for name, existing in _NATIVE_PAYMENT_MODELS.items()
+    ):
+        message = "A payment snapshot schema must retain one provider identity"
+        raise ValueError(message)
+    _NATIVE_PAYMENT_MODELS[provider] = model
+    _NATIVE_PAYMENT_BID_ATTRS[provider] = bid_attr
+
+
+def registered_native_payment_providers() -> tuple[str, ...]:
+    """Keep historical snapshot access independent from active client registration."""
+    return tuple(_NATIVE_PAYMENT_MODELS)
 
 
 def legacy_stripe_snapshot_query() -> Query:
@@ -96,6 +118,17 @@ def native_snapshot_query(payment_provider: str, biz_domain: str) -> Query:
 def legacy_native_snapshot_query(payment_provider: str) -> Query:
     """Return legacy native snapshot query."""
     return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_ORDER)
+
+
+def legacy_native_reference_query(payment_provider: str, reference: str) -> Query:
+    """Resolve the original merchant attempt or its returned provider reference."""
+    model = native_snapshot_model(payment_provider)
+    return legacy_native_snapshot_query(payment_provider).filter(
+        or_(
+            model.provider_attempt_id == reference,
+            getattr(model, native_snapshot_bid_attr(payment_provider)) == reference,
+        )
+    )
 
 
 def billing_native_snapshot_query(payment_provider: str) -> Query:

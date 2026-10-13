@@ -2,7 +2,7 @@
 title: Cook Web Umami Contract Remediation
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-13
 canonical: true
 ---
 
@@ -308,8 +308,9 @@ string, user identity, URLs, and raw errors are excluded.
 - Metric definition: over a named window, distinct `order_id` terminal outcomes
   by channel compared with distinct attempted orders; modal views provide the
   eligible-view denominator. Pending status is not a terminal result.
-- Trigger: modal view once after the modal is ready; attempt when Stripe submit
-  or redirect, WeChat JSAPI, or a mobile native/QR action is accepted, and when
+- Trigger: modal view once after the modal is ready; attempt when a registered
+  SDK submit (including Stripe) or redirect, WeChat JSAPI, or a mobile native/QR
+  action is accepted (including displaying opaque QR data after a pay click), and when
   a desktop QR credential becomes usable; result once when paid,
   provider-failed, or a provider returns an explicit cancellation marker for a
   product-confirmed order. Closing the learner modal is abandonment only and
@@ -339,20 +340,31 @@ string, user identity, URLs, and raw errors are excluded.
   runs. A generic product-owned paid observation does not carry analytics
   context through the payment hook; it resolves only from the current
   unresolved channel set and uses `channel=other` when that set is ambiguous.
+- Hosted checkout attribution uses the actual returned provider identity. Only
+  Stripe is classified as `stripe`; another hosted provider uses `other` for
+  the accepted attempt and its later status/result. A shared Checkout or Stripe
+  SDK execution path does not classify another provider as Stripe. Event names,
+  eligibility, per-order/channel deduplication and bounded payloads stay unchanged.
+- SDK handlers register before payment views mount and use the same accepted
+  attempt and terminal callback contract. Unknown SDKs remain unavailable and
+  cannot fall back to Stripe. QR content, URLs, SDK secrets, provider payloads
+  and raw errors are excluded from all events. Refreshing a selection disables
+  its prior action; blocked clicks emit no attempt. Tracking failure never
+  prevents SDK confirmation, safe wallet launching, or QR display.
 - Consumer: learner checkout conversion and provider reliability dashboard.
 - Replacement: delete the `learner_pay_cancel` producer and consumers. Modal
   abandonment uses only `learner_pay_modal_dismiss`; a provider-confirmed
   cancellation of an accepted payment attempt uses `learner_payment_result`
   with `outcome=cancelled`.
 
-| Event                       | Fields and allowed values                                                                                                                                           |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `learner_pay_modal_view`    | `shifu_bid`, finite `price_amount`, `currency` as `CNY`, `USD`, or `other`                                                                                          |
-| `learner_pay_modal_dismiss` | `shifu_bid`, optional `order_id`, `dismiss_surface` is `modal` or `payment_page`, `had_payment_attempt`                                                             |
-| `learner_payment_attempt`   | `shifu_bid`, optional `order_id`, `channel` is `wechat_jsapi`, `wechat_qr`, `alipay_qr`, `stripe`, or `other`; `surface` is `desktop`, `mobile`, or `stripe_return` |
-| `learner_payment_result`    | attempt fields; `outcome` is `success`, `failed`, or `cancelled`; failed only: `failure_category` is `provider_failed`, `missing_order`, or `status_lookup_failed`  |
-| `learner_payment_status`    | attempt fields; `status=pending`                                                                                                                                    |
-| `learner_coupon_apply`      | `shifu_bid`, `outcome=success`                                                                                                                                      |
+| Event                       | Fields and allowed values                                                                                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `learner_pay_modal_view`    | `shifu_bid`, finite `price_amount`, `currency` as `CNY`, `USD`, or `other`                                                                                                            |
+| `learner_pay_modal_dismiss` | `shifu_bid`, optional `order_id`, `dismiss_surface` is `modal` or `payment_page`, `had_payment_attempt`                                                                               |
+| `learner_payment_attempt`   | `shifu_bid`, optional `order_id`, `channel` is `wechat_jsapi`, `wechat_qr`, `alipay_qr`, `stripe`, or `other`; `surface` is `desktop`, `mobile`, `stripe_return`, or `payment_return` |
+| `learner_payment_result`    | attempt fields; `outcome` is `success`, `failed`, or `cancelled`; failed only: `failure_category` is `provider_failed`, `missing_order`, or `status_lookup_failed`                    |
+| `learner_payment_status`    | attempt fields; `status=pending`                                                                                                                                                      |
+| `learner_coupon_apply`      | `shifu_bid`, `outcome=success`                                                                                                                                                        |
 
 The coupon value, checkout URL, client secret, provider payload, payment method,
 receipt, and raw failure are excluded. A Stripe SDK or network rejection after
@@ -403,7 +415,7 @@ raw rejection.
 | `creator_billing_checkout_status`  | attempt fields plus `status` as `pending` or `confirmation_failed`                                                                                                                                                                                                              |
 
 Allowed markets are `domestic|global`; product types `plan|topup`; source
-surfaces `global_pricing|billing_overview|stripe_return`; providers
+surfaces `global_pricing|billing_overview|stripe_return|payment_return`; providers
 `stripe|pingxx|alipay|wechatpay|manual|other`; payment channels
 `wx_pub_qr|alipay_qr|not_applicable`; intervals
 `day|month|year|one_time|unknown`. Failure categories are
@@ -564,6 +576,43 @@ recreated in another Umami event.
 
 ## Verification and production activation
 
+### Hosted subscription management compatibility
+
+`creator_subscription_renewal_attempt` and `creator_subscription_renewal_result`
+keep their existing confirmation trigger, deduplication and fail-open behavior.
+An eligible provider-managed subscription is attributed through the shared
+provider enum; an added integration is `other`, never mislabeled as Stripe and
+never recorded as a raw provider string. The original Stripe population remains
+unchanged. Consumers extending Stripe-only reports must filter
+`payment_provider=stripe` for historical continuity and analyze added eligible
+providers separately. The full population, schema and exclusions are owned by
+section 7.5.3 of the billing design document.
+
+### Payment client incompatibility
+
+`learner_payment_action_unavailable` is an additive event for deciding whether
+a payment API/client deployment needs compatibility repair. It records a
+rendered, pending payment whose explicit action contract cannot be executed by
+the current client. It does not mean the gateway declined a payment or that the
+business order failed.
+
+- Trigger: a post-commit effect after the current accepted response produces
+  an unsupported contract/action and the payment dialog is open.
+- Population: logged-in learners with a known course and order; exclude guests,
+  previews, closed dialogs, superseded responses and completed orders.
+- Count unit: once per order, normalized channel and reason within one dialog
+  opening. A close/reopen begins a new exposure; rerenders do not.
+- Exact allowlist: `shifu_bid`, `order_id`, `channel` (`wechat_jsapi`,
+  `wechat_qr`, `alipay_qr`, `stripe`, `other`), `surface` (`desktop`, `mobile`),
+  and `reason` (`unsupported_contract`, `unsupported_action`). URLs, provider
+  payloads, credentials, SDK secrets, signatures and raw errors are excluded.
+- Consumer: Umami event reports comparing incompatible-client exposures by
+  surface/reason during payment deployments. This series begins at deployment;
+  existing payment attempt/result/status series keep their original meanings.
+- Compatibility and failure: old payloads remain handled by the legacy adapter;
+  an unknown explicit action is never interpreted as an old QR or redirect.
+  Tracking failure cannot alter display, refresh, synchronization or payment.
+
 Focused tests cover exact names and payloads, forbidden-field absence, trigger
 timing, success/failure/cancel/pending outcomes, deduplication, SPA route
 sanitation, identity replacement, bounded queueing, and fail-open behavior.
@@ -580,3 +629,25 @@ Before using these contracts in production reporting:
 4. verify representative canonical events and their production consumers in
    each production Umami site without copying sensitive payloads into tickets
    or logs.
+
+## Generic payment return compatibility
+
+The shared hosted payment return pages reuse the existing learner and teacher
+checkout reliability event families. The decision remains whether an accepted
+checkout is pending, confirmed, failed, or explicitly cancelled. Authenticated
+order synchronization determines the result; query parameters never establish
+payment success. Generic returns use the additive bounded surface
+`payment_return` and channel/provider `other`; historical Stripe URLs retain
+`stripe_return` and `stripe`. Provider names from query strings, session IDs,
+URLs, and raw errors are excluded. Existing conversion/reliability dashboards
+must include `payment_return` alongside `stripe_return` when aggregating hosted
+returns; historical rows need no migration.
+
+Eligibility, exclusions, per-page order/outcome deduplication and terminal-state
+precedence remain those above. A generic return without a verified order reports
+only the existing missing-order category, without the query order identifier.
+An explicit cancellation still requires the original session-local accepted
+checkout marker. Storage and tracking failures cannot block synchronization,
+cache refresh or navigation. This additive schema extension is covered by
+return-page regression tests for exact payloads, untrusted query exclusions,
+one-shot synchronization and tracking failure.

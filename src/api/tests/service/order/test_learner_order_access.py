@@ -34,7 +34,10 @@ from flaskr.service.order.models import (
     StripeOrder,
     WechatPayOrder,
 )
-from flaskr.service.order.payment_providers.base import PaymentNotificationResult
+from flaskr.service.order.payment_providers.base import (
+    PaymentCancellationResult,
+    PaymentNotificationResult,
+)
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED
 from flaskr.service.promo.models import Coupon, CouponUsage
 from flaskr.util.datetime import now_utc
@@ -383,10 +386,10 @@ def test_coupon_closes_pending_attempt_before_repricing(
             provider_reference: str,
             reference_type: str,
             app: object,
-        ) -> SimpleNamespace:
+        ) -> PaymentCancellationResult:
             del app
             cancelled.append((provider_reference, reference_type))
-            return SimpleNamespace(status="cancelled")
+            return PaymentCancellationResult(cancelled[-1][0], {}, "cancelled")
 
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider", lambda _name: Provider()
@@ -477,11 +480,11 @@ def test_repricing_cancels_a_recoverable_failed_stripe_attempt(
     cancelled: list[tuple[str, str]] = []
 
     class Provider:
-        def cancel_payment(self, **kwargs: object) -> SimpleNamespace:
+        def cancel_payment(self, **kwargs: object) -> PaymentCancellationResult:
             cancelled.append(
                 (str(kwargs["provider_reference"]), str(kwargs["reference_type"]))
             )
-            return SimpleNamespace(status="cancelled")
+            return PaymentCancellationResult(cancelled[-1][0], {}, "cancelled")
 
     monkeypatch.setattr(
         "flaskr.service.order.funs.get_payment_provider", lambda _name: Provider()

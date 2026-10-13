@@ -117,7 +117,11 @@ def _ensure_billing_subscription(status: object, subscription_bid: object) -> ob
 
 
 def _ensure_billing_order(
-    status: object, bill_order_bid: object, subscription_bid: object
+    status: object,
+    bill_order_bid: object,
+    subscription_bid: object,
+    *,
+    provider_reference_id: str = "cs_billing_test",
 ) -> object:
     order = BillingOrder.query.filter(
         BillingOrder.bill_order_bid == bill_order_bid
@@ -134,7 +138,7 @@ def _ensure_billing_order(
             paid_amount=0,
             payment_provider="stripe",
             channel="card",
-            provider_reference_id="cs_billing_test",
+            provider_reference_id=provider_reference_id,
             status=status,
             failure_code="",
             failure_message="",
@@ -144,7 +148,7 @@ def _ensure_billing_order(
         dao.db.session.commit()
     order.status = status
     order.payment_provider = "stripe"
-    order.provider_reference_id = "cs_billing_test"
+    order.provider_reference_id = provider_reference_id
     dao.db.session.commit()
     return order
 
@@ -656,6 +660,7 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
             BILLING_ORDER_STATUS_PENDING,
             "bill-order-idempotent-1",
             subscription.subscription_bid,
+            provider_reference_id="cs_billing_idempotent",
         )
 
     notification = PaymentNotificationResult(
@@ -715,6 +720,55 @@ def test_handle_stripe_webhook_duplicate_paid_event_is_idempotent(
         assert wallet.available_credits == 5
         assert len(buckets) == 1
         assert len(ledgers) == 1
+
+
+@pytest.mark.parametrize(
+    "status", [BILLING_ORDER_STATUS_PENDING, BILLING_ORDER_STATUS_PAID]
+)
+def test_stripe_billing_callback_rejects_a_foreign_checkout_without_retargeting(
+    stripe_webhook_app: Flask, monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    app = stripe_webhook_app
+    with app.app_context():
+        subscription = _ensure_billing_subscription(
+            BILLING_SUBSCRIPTION_STATUS_DRAFT, "billing-subscription-bound"
+        )
+        _ensure_billing_order(
+            status,
+            "bill-order-bound",
+            subscription.subscription_bid,
+            provider_reference_id="cs_current_bound",
+        )
+        grants = CreditLedgerEntry.query.count()
+    notification = PaymentNotificationResult(
+        order_bid="bill-order-bound",
+        status="checkout.session.completed",
+        provider_payload={
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": "cs_another_same_priced_checkout",
+                    "payment_status": "paid",
+                    "amount_total": 9900,
+                    "currency": "cny",
+                    "metadata": {"bill_order_bid": "bill-order-bound"},
+                }
+            },
+        },
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_payment_provider",
+        lambda _channel: DummyStripeProvider(notification),
+    )
+    for _ in range(2):
+        with pytest.raises(RuntimeError, match="notification reference mismatch"):
+            handle_stripe_webhook(app, b"{}", "sig")
+    with app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid="bill-order-bound").one()
+        assert order.status == status
+        assert order.provider_reference_id == "cs_current_bound"
+        assert order.metadata_json == {}
+        assert CreditLedgerEntry.query.count() == grants
 
 
 def test_handle_stripe_webhook_ignores_stale_subscription_updates(

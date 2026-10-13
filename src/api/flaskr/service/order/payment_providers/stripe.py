@@ -18,6 +18,19 @@ from .base import (
     PaymentRequest,
     SubscriptionUpdateResult,
 )
+from .contracts import (
+    BUILTIN_DEFINITIONS,
+    CheckoutTerms,
+    PaymentEvent,
+    PaymentQueryTerms,
+)
+from .normalization import (
+    normalized_creation,
+    normalized_notification,
+    stripe_event,
+    stripe_query,
+    subscription_facts,
+)
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -27,6 +40,44 @@ class StripeProvider(PaymentProvider):
     """Stripe payment provider implementation."""
 
     channel = "stripe"
+    definition = BUILTIN_DEFINITIONS["stripe"]
+
+    @classmethod
+    def describe_notification(
+        cls, notification: PaymentNotificationResult
+    ) -> PaymentEvent:
+        """Interpret Stripe event names and references inside the integration."""
+        return stripe_event(notification)
+
+    @classmethod
+    def describe_query(
+        cls, notification: PaymentNotificationResult, terms: PaymentQueryTerms
+    ) -> PaymentEvent:
+        """Validate and describe queried Stripe evidence."""
+        return stripe_query(notification, terms)
+
+    @classmethod
+    def checkout_options(cls, terms: CheckoutTerms) -> dict[str, Any]:
+        """Keep Checkout's price, coupon and first-invoice protocol in this adapter."""
+        options: dict[str, Any] = {
+            "metadata": terms.metadata,
+            "mode": "checkout_session",
+            "success_url": terms.success_url,
+            "cancel_url": terms.cancel_url,
+            "session_params": {"mode": terms.payment_mode},
+            "line_items": [{"price": terms.price_reference, "quantity": 1}],
+        }
+        if terms.discount_reference:
+            options["discounts"] = [{"coupon": terms.discount_reference}]
+        if terms.payment_mode == "subscription":
+            options["session_params"].update(
+                payment_method_collection="always",
+                subscription_data={"metadata": terms.metadata},
+            )
+            discount = max(int(terms.price_amount or 0) - terms.amount, 0)
+            if discount and not terms.discount_reference:
+                options["subscription_one_time_discount_amount"] = discount
+        return options
 
     def _ensure_client(self, app: Flask) -> object:
         return get_stripe_client_options(app)[0]
@@ -161,7 +212,9 @@ class StripeProvider(PaymentProvider):
                 payment_intent_object = payment_intent.to_dict()
                 latest_charge_id = payment_intent_object.get("latest_charge", "") or ""
 
-            return PaymentCreationResult(
+            return normalized_creation(
+                "stripe",
+                request,
                 provider_reference=session_dict["id"],
                 raw_response=session_dict,
                 client_secret=session_dict.get("client_secret"),
@@ -187,7 +240,9 @@ class StripeProvider(PaymentProvider):
         )
         intent_dict = intent.to_dict()
 
-        return PaymentCreationResult(
+        return normalized_creation(
+            "stripe",
+            request,
             provider_reference=intent_dict["id"],
             raw_response=intent_dict,
             client_secret=intent_dict.get("client_secret"),
@@ -218,6 +273,8 @@ class StripeProvider(PaymentProvider):
             body=request.body,
             client_ip=request.client_ip,
             extra=options,
+            biz_domain=request.biz_domain,
+            payment_mode=request.payment_mode,
         )
         return self.create_payment(request=subscription_request, app=app)
 
@@ -240,7 +297,7 @@ class StripeProvider(PaymentProvider):
         return SubscriptionUpdateResult(
             provider_reference=payload.get("id", provider_subscription_id),
             raw_response=payload,
-            status=payload.get("status", ""),
+            status=subscription_facts(payload).status,
             extra={
                 "cancel_at_period_end": bool(payload.get("cancel_at_period_end")),
             },
@@ -265,7 +322,7 @@ class StripeProvider(PaymentProvider):
         return SubscriptionUpdateResult(
             provider_reference=payload.get("id", provider_subscription_id),
             raw_response=payload,
-            status=payload.get("status", ""),
+            status=subscription_facts(payload).status,
             extra={
                 "cancel_at_period_end": bool(payload.get("cancel_at_period_end")),
             },
@@ -419,7 +476,8 @@ class StripeProvider(PaymentProvider):
             metadata = session.get("metadata", {}) or {}
             if not metadata.get("order_bid") and intent:
                 metadata = intent.get("metadata", {}) or {}
-            return PaymentNotificationResult(
+            return normalized_notification(
+                "stripe",
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
                 provider_payload=payload,
@@ -429,7 +487,8 @@ class StripeProvider(PaymentProvider):
             intent = self.retrieve_payment_intent(intent_id=provider_reference, app=app)
             metadata = intent.get("metadata", {}) or {}
             charge_id = str(intent.get("latest_charge") or "") or None
-            return PaymentNotificationResult(
+            return normalized_notification(
+                "stripe",
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
                 provider_payload={"payment_intent": intent},
@@ -441,7 +500,8 @@ class StripeProvider(PaymentProvider):
                 app=app,
             )
             metadata = subscription.get("metadata", {}) or {}
-            return PaymentNotificationResult(
+            return normalized_notification(
+                "stripe",
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
                 provider_payload={"subscription": subscription},
@@ -504,7 +564,8 @@ class StripeProvider(PaymentProvider):
             if charges:
                 charge_id = charges[0].get("id", "")
 
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "stripe",
             order_bid=order_bid,
             status=event.get("type", ""),
             provider_payload=event,

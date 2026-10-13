@@ -11,6 +11,10 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_LLM,
     BILL_USAGE_TYPE_TTS,
 )
+from flaskr.service.order.payment_providers.api import (
+    historical_billing_mode,
+    subscription_operations,
+)
 from flaskr.util.datetime import now_utc
 
 from .bucket_categories import (
@@ -364,6 +368,13 @@ def serialize_subscription(
         product_name_key=product_name_keys.get(row.product_bid, ""),
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(runtime_status, "draft"),
         billing_provider=str(row.billing_provider or ""),
+        billing_mode=historical_billing_mode(row.billing_provider),
+        management_operations=subscription_operations(
+            row.billing_provider,
+            BILLING_SUBSCRIPTION_STATUS_LABELS.get(runtime_status, "draft"),
+            has_reference=bool(row.provider_subscription_id),
+            cancel_at_period_end=bool(row.cancel_at_period_end),
+        ),
         current_period_start_at=row.current_period_start_at,
         current_period_end_at=row.current_period_end_at,
         grace_period_end_at=row.grace_period_end_at,

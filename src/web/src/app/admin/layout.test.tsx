@@ -7,6 +7,12 @@ import { buildAdminMenuItems } from './admin-menu';
 import AdminLayout from './layout';
 import { SidebarContent } from './SidebarContent';
 
+const mockAdminProviders = {
+  items: [] as Array<{ provider: string; catalog: boolean }>,
+};
+jest.mock('@/hooks/useBillingPaymentProviders', () => ({
+  useBillingPaymentProviders: () => ({ data: mockAdminProviders }),
+}));
 const footerLabel = 'footer';
 let mockI18nLanguage = 'en-US';
 let mockTranslationPrefix = '';
@@ -523,6 +529,7 @@ describe('AdminLayout', () => {
   });
 
   beforeEach(() => {
+    mockAdminProviders.items = [];
     document.title = '';
     mockUsePathname.mockReturnValue('/admin');
     mockApplyCreatorBranding.mockReset();
@@ -563,6 +570,22 @@ describe('AdminLayout', () => {
       isLoading: false,
       mutate: mockMutateBillingOverview,
     });
+  });
+
+  test('shows price management for a non-Stripe catalog provider', () => {
+    mockUserStoreState.userInfo = { user_id: 'operator-1', is_operator: true };
+    mockAdminProviders.items = [{ provider: 'fixture-catalog', catalog: true }];
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.operations' }),
+    );
+    expect(
+      screen.getByRole('link', { name: 'common.core.packageManagement' }),
+    ).toHaveAttribute('href', '/admin/operations/provider-prices');
   });
 
   test('shows sidebar loading placeholder before user state is ready', () => {

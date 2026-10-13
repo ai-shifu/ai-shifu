@@ -6,7 +6,13 @@ from datetime import datetime
 from typing import Any
 
 from flaskr.common.swagger import register_schema_to_swagger
-from pydantic import BaseModel, ConfigDict, Field
+from flaskr.service.order.payment_providers.api import (
+    PaymentAction,
+    PaymentCreationResult,
+    PaymentOption,
+    creation_action,
+)
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class BillingBaseDTO(BaseModel):
@@ -132,6 +138,8 @@ class BillingCatalogDTO(BillingBaseDTO):
 
     plans: list[BillingPlanDTO]
     topups: list[BillingTopupProductDTO]
+    payment_options: list[PaymentOption] = Field(default_factory=list)
+    checkout_operations: dict[str, dict[str, object]] | None = None
 
 
 @register_schema_to_swagger
@@ -161,6 +169,8 @@ class BillingSubscriptionDTO(BillingBaseDTO):
     next_product_bid: str | None = None
     last_renewed_at: datetime | None = None
     last_failed_at: datetime | None = None
+    billing_mode: str | None = None
+    management_operations: dict[str, bool] | None = None
 
 
 @register_schema_to_swagger
@@ -471,6 +481,39 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
     redirect_url: str | None = None
     checkout_session_id: str | None = None
     payment_payload: dict[str, Any] | None = None
+    payment_action: PaymentAction | None = None
+    payment_contract_version: int = 1
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_reopened_action(cls, value: object) -> object:
+        """Expose the same action for new, old-snapshot and zero-amount checkouts."""
+        if not isinstance(value, dict) or value.get("payment_action") is not None:
+            return value
+        extra = dict(value.get("payment_payload") or {})
+        extra["url"] = value.get("redirect_url") or ""
+        action = (
+            PaymentAction("none")
+            if value.get("status") == "paid"
+            else creation_action(
+                str(value.get("provider") or ""),
+                str(extra.get("channel") or ""),
+                PaymentCreationResult(
+                    str(extra.get("provider_reference_id") or ""),
+                    extra.get("raw_response") or {},
+                    extra=extra,
+                    checkout_session_id=value.get("checkout_session_id"),
+                ),
+            )
+        )
+        if action.type == "none" and isinstance(extra.get("credential"), dict):
+            # Historical billing payloads lack a channel, but have one QR credential.
+            for channel in ("wx_pub_qr", "alipay_qr"):
+                url = extra["credential"].get(channel)
+                if isinstance(url, str) and url:
+                    action = PaymentAction("qr", url=url)
+                    break
+        return {**value, "payment_action": action}
 
 
 @register_schema_to_swagger
