@@ -32,6 +32,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [MDF 2.0 Broader Classroom Acceptance](./active/mdf2-broader-classroom-acceptance.md)
 - [Deliver classroom context to Coze follow-ups](./active/mdf2-coze-follow-up-context.md)
 - [Calculate exercise statistics from original submissions](./active/mdf2-exercise-statistics-calculation.md)
+- [MDF 2.0 Feedback Branch Schema](./active/mdf2-feedback-branch-schema.md)
 - [Admit and persist memory from completed follow-up answers](./active/mdf2-follow-up-memory-writeback.md)
 - [Keep concurrent gevent lesson streams responsive](./active/mdf2-gevent-bridge-stability.md)
 - [Restore historical MDF 2.0 interaction answers](./active/mdf2-historical-interaction-answers.md)
