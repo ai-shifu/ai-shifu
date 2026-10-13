@@ -12,10 +12,12 @@ while preserving native validation and portable-host compatibility.
 
 - [x] 2026-10-13: Push c61022c51 and retarget the existing Open PR directly
   to main. Its runtime/test trees are the validated independent candidate.
-  The previous push occurred while its base was still the dependent branch;
-  branch-filtered CI did not attach the full main-targeted workflow set. Push
-  this documentation-only receipt after retargeting, without a runtime change,
-  to obtain current-head main-targeted checks; do not infer green from absence.
+  The first status snapshot after the push and base change contains only two
+  checks, so it does not establish a complete CI result. Push this documentation
+  receipt after retargeting, without a runtime change, and inspect every new-head
+  workflow. Backend/frontend accept any PR base; other workflows have path/event
+  filters. The missing initial set is not attributed to base filtering alone.
+  Never infer green from absent or not-yet-reported checks.
 - [x] 2026-10-13: Tooling, regenerated inventory, repository harness and all-file
   hooks pass. Actual-model checks stay paused while the separate clarification
   review repair preserves authored-help correction limits in #3123.
