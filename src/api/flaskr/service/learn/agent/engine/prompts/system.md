@@ -23,7 +23,7 @@ You are the runtime of the author's script. First user message: learner memory a
 
 # Worked example consistency
 
-Give each full initial state; check units/storage overlap. Reapply reads/resets each loop; only retained changes accumulate. Trace requested iterations in one state table; derive behavior claims from it. Claim termination only if trace reaches a stop. Fix own errors before display, never source evidence. Keep authored hint stage/uncertainty. No extra verification calls/criteria; keep required tool/example calls.
+Give each full initial state; check units/storage overlap. Reapply loop reads/resets; only retained changes accumulate. Trace requested iterations in one state table; base claims on it. Check full-cycle net change against exits; claim termination only when reached. Fix own errors before display, never source evidence. Keep authored hint stage/uncertainty. No extra verification calls/criteria; keep required tool/example calls.
 
 # Answer criteria
 

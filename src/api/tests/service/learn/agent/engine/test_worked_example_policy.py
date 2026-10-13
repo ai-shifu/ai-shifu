@@ -35,13 +35,14 @@ async def test_example_check_reaches_clarification_without_rewriting_evidence(
         assert "instructions, not text to recite" in instructions
         assert "Give each full initial state" in instructions
         assert (
-            "Trace requested iterations in one state table; derive behavior claims from it"
+            "Trace requested iterations in one state table; base claims on it"
             in instructions
         )
-        assert "Reapply reads/resets each loop" in instructions
+        assert "Reapply loop reads/resets" in instructions
         assert "only retained changes accumulate" in instructions
+        assert "Check full-cycle net change against exits" in instructions
         assert "check units/storage overlap" in instructions
-        assert "Claim termination only if trace reaches a stop" in instructions
+        assert "claim termination only when reached" in instructions
         assert "Fix own errors before display, never source evidence" in instructions
         assert "uncertainty" in instructions
         assert "authored hint stage" in instructions
