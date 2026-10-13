@@ -21,8 +21,20 @@ while preserving native validation and portable-host compatibility.
   and canonical field guidance; the complete suite passes again. An initial candidate exceeded the unchanged 64 KiB regression by
   145 bytes; omit the new field in inactive states and retain the old schemas.
   All 30 schema/history checks then pass. No new paid request or learner yet.
-- [ ] Push canonical provider-compatible fix, reply in original threads, redeploy
-  and verify the actual current candidate before any paid model check.
+- [x] 2026-10-13 05:36 UTC: Push 634f09093; all seven CI checks pass.
+  Codex and CodeRabbit actually review this head without functional findings.
+  Address the unverified wording suggestion with plain wording in this receipt.
+  Current-main sim 319c66ea3/build 628/Drone 5417 includes main 2ff4af09b;
+  both Ready APIs match 68 files and pass 465 SDK checks, and Web shares the tag.
+  Backend tree matches the 3879-test integration; 90 current-main frontend tests
+  and all repository gates pass.
+- [x] 2026-10-13 05:36 UTC: One frozen original-model check uses canonical
+  feedback correctly in its first response, with no native feedback retries.
+  One generation/1.88 credits fully settles, with exact output/token and actual
+  attempt/block attribution. Final visible loop explanation still fails: it
+  should halt at ACC=2,N=1, but claims ACC=3,N=0 and skips the second body.
+  Original source/classroom/memory are unchanged, no summary or new learner.
+  Retain this twelfth failure and stop unchanged paid retries.
 
 - [x] 2026-10-13 04:27 UTC: Adopt Codex finding 4254687333 about simultaneous
   interactions. Three real two-interaction SDK cases first fail. Treat identical
@@ -119,14 +131,19 @@ avoidable protocol mismatch but cannot establish factual teaching correctness.
 
 ## Outcomes & Retrospective
 
-The canonical property candidate has local focused validation; its final checks
-and deployed acceptance are pending. The previous implementation, all seven CI
-checks, actual review and both deployed
-replicas and controlled SDK compatibility checks pass on functional head
-9749ae5c7. The frozen original-model check fails both initial schema adherence
-and factual teaching correctness; it does not establish fewer retries or broader
-merge readiness. All prior failures remain open; full fresh-classroom acceptance
-is pending. Later documentation-only receipts are checked separately.
+The required feedback property passes controlled compatibility, all seven CI
+checks on functional head 634f09093, current-head Codex/CodeRabbit review and both
+deployed replicas. The single actual check delivers its canonical declaration
+and ordinary clarification in one model response, with no protocol repair. This
+is bounded evidence of the contract correction, not a reliability estimate.
+
+The same visible explanation still has an incorrect loop stop state and does
+not complete the requested two-iteration trace. The original-model factual gate
+and full fresh classroom acceptance remain failed/pending. All twelve prior
+checks retain their own outputs and conclusions; no new learner, source edit,
+model replacement, larger budget or claim of broader merge readiness is made.
+Later documentation-only receipt checks are tracked separately from the tested
+functional head. No production write is authorized by this work.
 
 ## Context and Orientation
 
