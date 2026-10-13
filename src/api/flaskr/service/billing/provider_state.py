@@ -31,6 +31,7 @@ from .paid_side_effects import (
 from .paid_side_effects import (
     stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
+from .payment_policy import is_manual_payment_provider
 from .primitives import coerce_datetime as _coerce_datetime
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
@@ -399,6 +400,8 @@ def _apply_billing_subscription_provider_update(
         event_time=event_time,
         source=source,
     )
+    # Provider-managed state no longer proves the previous manual cycle is current.
+    subscription.metadata_json.pop("active_cycle_order_bid", None)
     subscription.billing_provider = provider
     provider_subscription_id = _normalize_bid(data_object.get("id"))
     if provider_subscription_id.startswith("sub_"):
@@ -459,6 +462,11 @@ def _apply_subscription_checkout_success(
     event_type: str,
     source: str = "webhook",
 ) -> bool:
+    # One-time payments change entitlement only through paid-order activation.
+    # In particular, future preorders and failed upgrades keep the current plan.
+    if is_manual_payment_provider(provider):
+        return False
+
     event_time = _extract_provider_event_time(payload)
     if not _should_apply_subscription_event(subscription, event_time):
         return False
@@ -471,6 +479,7 @@ def _apply_subscription_checkout_success(
         event_time=event_time,
         source=source,
     )
+    subscription.metadata_json.pop("active_cycle_order_bid", None)
     subscription.billing_provider = provider
     provider_subscription_id = _normalize_bid(
         payload.get("subscription")
@@ -505,6 +514,11 @@ def _apply_subscription_checkout_failure(
     payload: dict[str, object],
     source: str = "webhook",
 ) -> bool:
+    # One-time payments change entitlement only through paid-order activation.
+    # In particular, future preorders and failed upgrades keep the current plan.
+    if is_manual_payment_provider(provider):
+        return False
+
     event_time = _extract_provider_event_time(payload)
     if not _should_apply_subscription_event(subscription, event_time):
         return False
