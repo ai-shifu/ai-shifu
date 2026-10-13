@@ -120,22 +120,26 @@ function statusClass(status: string): string {
 function resolveIssueLabel(
   t: (key: string, options?: Record<string, unknown>) => string,
   code: string,
+  providerName: string,
 ): string {
   const normalizedCode = String(code || '').trim();
   if (!normalizedCode) {
     return t('module.billing.admin.providerPrices.issueMessages.unknown');
   }
   const key = `module.billing.admin.providerPrices.issueMessages.${normalizedCode}`;
-  const translated = t(key);
+  const translated = t(key, { provider: providerName });
   return translated && translated !== key ? translated : normalizedCode;
 }
 
 function formatIssues(
   t: (key: string, options?: Record<string, unknown>) => string,
   issues: Array<Record<string, string>> = [],
+  providerName = '',
 ): string {
   return issues
-    .map(issue => resolveIssueLabel(t, issue.code || issue.message || ''))
+    .map(issue =>
+      resolveIssueLabel(t, issue.code || issue.message || '', providerName),
+    )
     .filter(Boolean)
     .join(', ');
 }
@@ -240,7 +244,10 @@ function getActiveProductMapping(
   return mappings.find(mapping => mapping.status_label === 'active') || null;
 }
 
-export function AdminBillingProviderPricesPanel() {
+export function AdminBillingProviderPricesPanel({
+  provider,
+  providerLabel,
+}: { provider?: string; providerLabel?: string } = {}) {
   const { t, i18n } = useTranslation();
   const [productFilter, setProductFilter] = React.useState(ALL_PRODUCTS);
   const [statusFilter, setStatusFilter] = React.useState(ALL_STATUSES);
@@ -255,14 +262,18 @@ export function AdminBillingProviderPricesPanel() {
 
   const { data, error, isLoading, mutate } =
     useSWR<AdminBillingProviderPricesPage>(
-      ['admin-package-management'],
+      provider
+        ? ['admin-package-management', provider]
+        : ['admin-package-management'],
       async () =>
         (await api.getAdminBillingProviderPrices(
-          {},
+          provider ? { provider } : {},
           PASSIVE_REQUEST_CONFIG,
         )) as AdminBillingProviderPricesPage,
       { revalidateOnFocus: false },
     );
+
+  const providerDisplayName = providerLabel || data?.provider || provider || '';
 
   const products = React.useMemo(() => data?.products || [], [data?.products]);
   const productOptions = React.useMemo(
@@ -364,8 +375,8 @@ export function AdminBillingProviderPricesPanel() {
           result as AdminBillingProviderPriceValidationResult;
         const issueText =
           validationResult?.valid === false
-            ? formatIssues(t, validationResult.errors)
-            : formatIssues(t, validationResult.warnings);
+            ? formatIssues(t, validationResult.errors, providerDisplayName)
+            : formatIssues(t, validationResult.warnings, providerDisplayName);
         const actionFailedValidation =
           action === 'activate' && validationResult?.valid === false;
         toast({
@@ -388,7 +399,7 @@ export function AdminBillingProviderPricesPanel() {
         setActionLoading('');
       }
     },
-    [mutate, t],
+    [mutate, providerDisplayName, t],
   );
 
   const requestAction = React.useCallback(
@@ -421,6 +432,7 @@ export function AdminBillingProviderPricesPanel() {
       const createResult = (await api.createAdminBillingProviderPrice(
         {
           product_bid: form.product_bid,
+          ...(data?.provider ? { provider: data.provider } : {}),
           provider_product_id: form.provider_product_id.trim(),
           provider_price_id: form.provider_price_id.trim(),
         },
@@ -437,8 +449,8 @@ export function AdminBillingProviderPricesPanel() {
           )) as AdminBillingProviderPriceValidationResult;
           const issueText =
             validationResult?.valid === false
-              ? formatIssues(t, validationResult.errors)
-              : formatIssues(t, validationResult.warnings);
+              ? formatIssues(t, validationResult.errors, providerDisplayName)
+              : formatIssues(t, validationResult.warnings, providerDisplayName);
           toast({
             title: t(
               `module.billing.admin.providerPrices.toast.${
@@ -476,7 +488,7 @@ export function AdminBillingProviderPricesPanel() {
     } finally {
       setActionLoading('');
     }
-  }, [canSubmitDraft, form, mutate, t]);
+  }, [canSubmitDraft, form, mutate, providerDisplayName, t]);
 
   const filterItems = React.useMemo(
     () => [
@@ -882,7 +894,7 @@ export function AdminBillingProviderPricesPanel() {
                         className='rounded-lg border border-amber-200 bg-amber-50 px-3 py-2'
                       >
                         <div className='text-sm font-medium text-amber-900'>
-                          {resolveIssueLabel(t, code)}
+                          {resolveIssueLabel(t, code, providerDisplayName)}
                         </div>
                         <div className='mt-1 break-all font-mono text-xs text-amber-700'>
                           {code}
@@ -921,7 +933,9 @@ export function AdminBillingProviderPricesPanel() {
               {t('module.billing.admin.providerPrices.dialog.title')}
             </DialogTitle>
             <DialogDescription>
-              {t('module.billing.admin.providerPrices.dialog.description')}
+              {t('module.billing.admin.providerPrices.dialog.description', {
+                provider: providerDisplayName,
+              })}
             </DialogDescription>
           </DialogHeader>
           <div className='grid gap-4 py-2'>
@@ -955,7 +969,9 @@ export function AdminBillingProviderPricesPanel() {
               </Select>
             </div>
             <FieldInput
-              label={t('module.billing.admin.providerPrices.fields.productId')}
+              label={t('module.billing.admin.providerPrices.fields.productId', {
+                provider: providerDisplayName,
+              })}
               value={form.provider_product_id}
               clearLabel={clearLabel}
               onChange={value =>
@@ -963,7 +979,9 @@ export function AdminBillingProviderPricesPanel() {
               }
             />
             <FieldInput
-              label={t('module.billing.admin.providerPrices.fields.priceId')}
+              label={t('module.billing.admin.providerPrices.fields.priceId', {
+                provider: providerDisplayName,
+              })}
               value={form.provider_price_id}
               clearLabel={clearLabel}
               onChange={value =>

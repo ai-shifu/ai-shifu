@@ -117,7 +117,7 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
 
     monkeypatch.setattr(
         order_funs,
-        "_generate_pingxx_charge",
+        "_generate_registered_charge",
         _fake_pingxx_charge,
     )
 

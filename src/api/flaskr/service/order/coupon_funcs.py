@@ -252,6 +252,7 @@ def use_coupon_code(
     # The coupon lock prevents another order from consuming the last use
     # between validation and cancellation of this order's payment attempt.
     with (
+        payment_lifecycle_lock(f"create:{order_id or ''!s}"),
         payment_lifecycle_lock(str(order_id or "")),
         payment_lifecycle_lock(f"coupon:{coupon_code or ''!s}"),
     ):

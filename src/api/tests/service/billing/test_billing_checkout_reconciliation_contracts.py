@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 from flask import Flask
 from flaskr.dao import db
-from flaskr.service.billing import checkout
+from flaskr.service.billing import checkout, provider_compat
 from flaskr.service.billing.models import BillingOrder
 from flaskr.service.common.models import AppError
 
@@ -112,7 +112,7 @@ def test_native_checkout_rejects_unsupported_channels_and_unbound_jsapi_accounts
 ) -> None:
     user = SimpleNamespace(wechat_open_id=open_id) if open_id is not None else None
     load_user = Mock(return_value=user)
-    monkeypatch.setattr(checkout, "load_user_aggregate", load_user)
+    monkeypatch.setattr(provider_compat, "load_user_aggregate", load_user)
     params = {
         "creator_bid": "creator-test",
         "product": SimpleNamespace(),

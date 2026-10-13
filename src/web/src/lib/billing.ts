@@ -771,7 +771,9 @@ export function resolveBillingProviderLabel(
   t: BillingTranslator,
   provider: BillingProvider,
 ): string {
-  return t(BILLING_PROVIDER_KEYS[provider]);
+  return BILLING_PROVIDER_KEYS[provider]
+    ? t(BILLING_PROVIDER_KEYS[provider])
+    : provider;
 }
 
 export function resolveBillingRenewalEventTypeLabel(

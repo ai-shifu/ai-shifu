@@ -29,6 +29,7 @@ from flaskr.service.billing.credit_notifications import (
 )
 from flaskr.service.billing.customization import (
     build_provider_config_overrides,
+    resolve_creator_payment_options,
     resolve_creator_public_integrations,
     resolve_creator_wechat_oauth_app_id,
     resolve_payment_integration_for_new_order,
@@ -81,6 +82,9 @@ if TYPE_CHECKING:
     from decimal import Decimal
 
     from flask import Flask
+    from flaskr.service.order.payment_providers.api import PaymentNotificationResult
+
+    from .webhooks import BillingWebhookResult
 
 
 def is_billing_enabled(*, default: bool = False) -> bool:
@@ -169,6 +173,7 @@ __all__ = [
     "reserve_operation_credits",
     "resolve_creator_bid_by_host",
     "resolve_creator_limit_state",
+    "resolve_creator_payment_options",
     "resolve_creator_public_integrations",
     "resolve_creator_wechat_oauth_app_id",
     "resolve_credit_multiplier_label",
@@ -182,3 +187,28 @@ __all__ = [
     "to_decimal",
     "update_credit_notification_email_template_status",
 ]
+
+
+def apply_payment_notification(
+    app: Flask, provider: str, notification: PaymentNotificationResult
+) -> BillingWebhookResult:
+    """Apply verified provider evidence to the isolated teacher billing domain."""
+    from .webhooks import apply_billing_provider_notification
+
+    return apply_billing_provider_notification(app, provider, notification)
+
+
+def apply_stripe_catalog_notification(
+    app: Flask, notification: PaymentNotificationResult
+) -> tuple[dict[str, object], int]:
+    """Route a verified historical catalog event through the catalog inbox."""
+    from .webhooks import apply_billing_stripe_catalog_notification
+
+    return apply_billing_stripe_catalog_notification(app, notification)
+
+
+def is_stripe_catalog_event(event_type: object) -> bool:
+    """Recognize historical Stripe catalog events at the service boundary."""
+    from .webhooks import is_billing_stripe_catalog_event
+
+    return is_billing_stripe_catalog_event(event_type)

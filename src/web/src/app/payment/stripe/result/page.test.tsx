@@ -1,7 +1,12 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import StripeResultPage from './page';
-import { getPaymentDetail, syncStripeCheckout } from '@/api/order';
+import LearnerPaymentResult from '@/components/payment/LearnerPaymentResult';
+import {
+  getPaymentDetail,
+  syncStripeCheckout,
+  syncPaymentOrder,
+} from '@/api/order';
 
 const mockPush = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -9,7 +14,7 @@ const mockSearchParams = new URLSearchParams();
 const mockStableSearchParams = {
   get: (key: string) => mockSearchParams.get(key),
 };
-const mockT = (key: string) => key;
+let mockT = (key: string) => key;
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -23,6 +28,7 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/api/order', () => ({
   getPaymentDetail: jest.fn(),
   syncStripeCheckout: jest.fn(),
+  syncPaymentOrder: jest.fn(),
 }));
 
 jest.mock('@/lib/stripe-storage', () => ({
@@ -38,6 +44,7 @@ const mockSyncStripeCheckout = syncStripeCheckout as jest.Mock;
 
 describe('StripeResultPage analytics contract', () => {
   beforeEach(() => {
+    mockT = (key: string) => key;
     mockPush.mockReset();
     mockTrackEvent.mockReset();
     mockGetPaymentDetail.mockReset();
@@ -192,5 +199,64 @@ describe('StripeResultPage analytics contract', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private-person@example.test',
     );
+  });
+  it('confirms a generic hosted return through the authenticated stored order reference', async () => {
+    mockSearchParams.set('order_id', 'generic-order');
+    mockSearchParams.set('provider', 'untrusted-provider-name');
+    mockGetPaymentDetail.mockResolvedValue({
+      payment_channel: 'new-hosted',
+      status: 0,
+      course_id: 'course-1',
+    });
+    (syncPaymentOrder as jest.Mock).mockResolvedValue({
+      payment_channel: 'new-hosted',
+      status: 1,
+      course_id: 'course-1',
+    });
+    render(<LearnerPaymentResult />);
+    expect(
+      await screen.findByText('module.pay.stripeResultSuccessTitle'),
+    ).toBeInTheDocument();
+    expect(syncPaymentOrder).toHaveBeenCalledWith({ orderId: 'generic-order' });
+    expect(mockSyncStripeCheckout).not.toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenCalledWith('learner_payment_result', {
+      shifu_bid: 'course-1',
+      order_id: 'generic-order',
+      channel: 'other',
+      surface: 'payment_return',
+      outcome: 'success',
+    });
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'untrusted-provider-name',
+    );
+  });
+  it('reuses the in-flight result when translations hydrate without syncing twice or losing a stored order', async () => {
+    mockSearchParams.set('session_id', 'cs-translated');
+    const storage = jest.requireMock('@/lib/stripe-storage');
+    storage.consumeStripeCheckoutSession.mockReturnValueOnce(
+      'order-translated',
+    );
+    mockGetPaymentDetail.mockResolvedValue({
+      payment_channel: 'stripe',
+      status: 0,
+      course_id: 'course-1',
+    });
+    mockSyncStripeCheckout.mockResolvedValue({
+      payment_channel: 'stripe',
+      status: 1,
+      course_id: 'course-1',
+    });
+    const view = render(<StripeResultPage />);
+    await screen.findByText('module.pay.stripeResultSuccessTitle');
+    mockT = key => key;
+    view.rerender(<StripeResultPage />);
+    await waitFor(() =>
+      expect(
+        screen.getByText('module.pay.stripeResultSuccessTitle'),
+      ).toBeInTheDocument(),
+    );
+    expect(mockSyncStripeCheckout).toHaveBeenCalledTimes(1);
+    expect(mockGetPaymentDetail).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
   });
 });

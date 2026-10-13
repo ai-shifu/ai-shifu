@@ -366,3 +366,77 @@ def test_draft_rejects_unmanaged_logo_sources(
             payload={"branding": {"logo_wide_url": value}},
         )
     draft_storage.create_or_update_saas_user_config.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "integrations", [{}, {"stripe": {"publishable_key": "pk_scoped"}}]
+)
+def test_learner_options_respect_custom_merchant_scope(
+    integrations: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.config import config_overrides
+
+    monkeypatch.setattr(customization, "is_creator_customization_enabled", lambda: True)
+    monkeypatch.setattr(
+        customization,
+        "resolve_creator_entitlement_state",
+        lambda _creator: SimpleNamespace(custom_payment_enabled=True),
+    )
+    monkeypatch.setattr(
+        customization,
+        "resolve_creator_public_integrations",
+        lambda _creator: integrations,
+    )
+    with config_overrides(
+        {
+            "PAYMENT_CHANNELS_ENABLED": "alipay,wechatpay",
+            "STRIPE_ENABLED": False,
+            "STRIPE_PUBLISHABLE_KEY": "",
+        }
+    ):
+        options = customization.resolve_creator_payment_options("teacher-scoped")
+    assert {option["provider"] for option in options} == set(integrations)
+    if integrations:
+        from flaskr.service.order import funs
+
+        monkeypatch.setattr(
+            funs, "resolve_creator_public_integrations", lambda _creator: integrations
+        )
+        with config_overrides({"PAYMENT_CHANNELS_ENABLED": "alipay,wechatpay"}):
+            provider, channel = funs._resolve_payment_channel(
+                payment_channel_hint="stripe",
+                channel_hint="checkout_session",
+                stored_channel=None,
+                additional_enabled_providers=funs._resolve_custom_payment_provider_hints(
+                    "teacher-scoped"
+                ),
+            )
+        assert (provider, channel) == ("stripe", "checkout_session")
+
+    assert all("pk_scoped" not in str(option) for option in options)
+
+
+def test_learner_stripe_options_preserve_public_key_availability_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.config import config_overrides
+
+    monkeypatch.setattr(
+        customization, "is_creator_customization_enabled", lambda: False
+    )
+    with config_overrides(
+        {
+            "PAYMENT_CHANNELS_ENABLED": "stripe,alipay",
+            "STRIPE_ENABLED": True,
+            "STRIPE_PUBLISHABLE_KEY": "",
+        }
+    ):
+        assert {
+            option["provider"]
+            for option in customization.resolve_creator_payment_options("")
+        } == {"alipay"}
+        with config_overrides({"STRIPE_PUBLISHABLE_KEY": "pk_platform"}):
+            assert {
+                option["provider"]
+                for option in customization.resolve_creator_payment_options("")
+            } == {"alipay", "stripe"}

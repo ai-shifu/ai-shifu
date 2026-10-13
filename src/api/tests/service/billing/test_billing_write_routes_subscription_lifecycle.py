@@ -581,7 +581,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             return default
 
         monkeypatch.setattr(
-            "flaskr.service.billing.checkout.get_config",
+            "flaskr.service.order.payment_providers.pingxx.get_config",
             fake_get_config,
         )
 
@@ -1584,3 +1584,142 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert wallet.available_credits == Decimal("50.0000000000")
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.current_period_end_at == cycle_end
+
+
+@pytest.mark.parametrize("source", ["query", "notification"])
+def test_stripe_checkout_preserves_scheduled_cancellation_in_normalized_payment(
+    billing_write_client: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+) -> None:
+    """Retain Checkout's cancellation flag when confirming the payment."""
+    from flaskr.service.billing import checkout as checkout_module
+    from flaskr.service.billing.webhooks import apply_billing_stripe_notification
+    from flaskr.service.order.payment_providers.base import PaymentNotificationResult
+
+    app, client = billing_write_client["app"], billing_write_client["client"]
+    created = client.post(
+        "/api/billing/subscriptions/checkout",
+        json={"product_bid": "bill-product-plan-monthly", "payment_provider": "stripe"},
+    ).get_json(force=True)
+    assert created["code"] == 0, created
+    order_bid = created["data"]["bill_order_bid"]
+    original_provider = checkout_module.get_payment_provider("stripe")
+    original_sync = original_provider.sync_reference
+
+    def sync_with_cancellation(**kwargs: object) -> PaymentNotificationResult:
+        result = original_sync(**kwargs)
+        result.provider_payload["checkout_session"].update(
+            subscription="sub_scheduled",
+            customer="cus_scheduled",
+            cancel_at_period_end=True,
+        )
+        return result
+
+    monkeypatch.setattr(original_provider, "sync_reference", sync_with_cancellation)
+    monkeypatch.setattr(
+        checkout_module, "get_payment_provider", lambda _name: original_provider
+    )
+    if source == "query":
+        synced = client.post(
+            f"/api/billing/orders/{order_bid}/sync",
+            json={"session_id": created["data"]["checkout_session_id"]},
+        ).get_json(force=True)
+        assert synced["code"] == 0, synced
+    else:
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=order_bid).one()
+            apply_billing_stripe_notification(
+                app,
+                PaymentNotificationResult(
+                    order_bid=order_bid,
+                    status="checkout.session.completed",
+                    provider_payload={
+                        "type": "checkout.session.completed",
+                        "data": {
+                            "object": {
+                                "id": created["data"]["checkout_session_id"],
+                                "payment_status": "paid",
+                                "amount_total": order.payable_amount,
+                                "currency": order.currency.lower(),
+                                "subscription": "sub_scheduled",
+                                "customer": "cus_scheduled",
+                                "cancel_at_period_end": True,
+                                "metadata": {"bill_order_bid": order_bid},
+                            }
+                        },
+                    },
+                ),
+            )
+    with app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid=order_bid).one()
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid=order.subscription_bid
+        ).one()
+        assert order.status == BILLING_ORDER_STATUS_PAID
+        assert subscription.cancel_at_period_end == 1
+        assert subscription.provider_subscription_id == "sub_scheduled"
+        assert subscription.provider_customer_id == "cus_scheduled"
+
+
+@pytest.mark.parametrize(
+    ("raw_status", "expected"),
+    [
+        ("active", "active"),
+        ("trialing", "active"),
+        ("past_due", "past_due"),
+        ("unpaid", "past_due"),
+        ("paused", "paused"),
+        ("canceled", "canceled"),
+        ("incomplete_expired", "expired"),
+        ("incomplete", "active"),
+        ("unknown", "active"),
+    ],
+)
+@pytest.mark.parametrize("cancel_at_period_end", [False, True])
+def test_stripe_contract_status_normalization_retains_existing_business_states(
+    billing_write_client: dict,
+    raw_status: str,
+    expected: str,
+    cancel_at_period_end: bool,
+) -> None:
+    """Keep trial, delinquency and cancellation meanings through normalization."""
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.billing.consts import (
+        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+        BILLING_SUBSCRIPTION_STATUS_CANCELED,
+        BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    )
+
+    app = billing_write_client["app"]
+    write_route_helpers.add_active_subscription(app)
+    expected_status = {
+        "active": BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+        "past_due": BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+        "paused": BILLING_SUBSCRIPTION_STATUS_PAUSED,
+        "canceled": BILLING_SUBSCRIPTION_STATUS_CANCELED,
+        "expired": BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+    }[expected]
+    if raw_status == "active" and cancel_at_period_end:
+        expected_status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+    with app.app_context():
+        subscription = BillingSubscription.query.filter_by(
+            creator_bid="creator-1"
+        ).one()
+        with unit_of_work():
+            subscription.provider_subscription_id = "sub_contract_state"
+        apply_billing_subscription_provider_update(
+            app,
+            subscription,
+            provider="stripe",
+            event_type="customer.subscription.updated",
+            payload={},
+            data_object={
+                "id": "sub_contract_state",
+                "status": raw_status,
+                "cancel_at_period_end": cancel_at_period_end,
+            },
+        )
+        assert subscription.status == expected_status
+        assert subscription.cancel_at_period_end == int(cancel_at_period_end)
+        assert subscription.provider_subscription_id == "sub_contract_state"

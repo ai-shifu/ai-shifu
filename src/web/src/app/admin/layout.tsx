@@ -14,6 +14,7 @@ import { useDisclosure } from '@/hooks/useDisclosure';
 import { useEnvStore } from '@/store';
 import { EnvStoreState } from '@/types/store';
 import { useBillingOverview } from '@/hooks/useBillingData';
+import { useBillingPaymentProviders } from '@/hooks/useBillingPaymentProviders';
 import { useUserStore } from '@/store';
 import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
@@ -159,31 +160,15 @@ const MainInterface = ({
     };
   }, [currentUserId, menuReady]);
 
-  const paymentChannels = useEnvStore(
-    (state: EnvStoreState) => state.paymentChannels,
-  );
   const billingEnabled = useEnvStore(
     (state: EnvStoreState) => state.billingEnabled === 'true',
   );
-  const stripeEnabled = useEnvStore(
-    (state: EnvStoreState) => state.stripeEnabled === 'true',
+  const { data: paymentProviders } = useBillingPaymentProviders(
+    isOperator && billingEnabled,
   );
-  const normalizedPaymentChannels = useMemo(
-    () => (Array.isArray(paymentChannels) ? paymentChannels : []),
-    [paymentChannels],
-  );
-  const showPackageManagement = useMemo(
-    () =>
-      billingEnabled &&
-      stripeEnabled &&
-      normalizedPaymentChannels.some(
-        channel =>
-          String(channel || '')
-            .trim()
-            .toLowerCase() === 'stripe',
-      ),
-    [billingEnabled, normalizedPaymentChannels, stripeEnabled],
-  );
+  const showPackageManagement =
+    billingEnabled &&
+    Boolean(paymentProviders?.items.some(item => item.catalog));
 
   const activeAdminLanguage = i18n.resolvedLanguage || i18n.language;
   const menuItems = useMemo(() => {

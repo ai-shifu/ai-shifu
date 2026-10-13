@@ -18,6 +18,7 @@ def build_admin_provider_catalog_inbox_page(
     *,
     object_type: str = "",
     provider_account_id: str = "",
+    provider: str = PROVIDER_STRIPE,
     livemode: bool | None = None,
     health_status: str = "",
     limit: int = 100,
@@ -26,7 +27,7 @@ def build_admin_provider_catalog_inbox_page(
     resolved_limit = max(1, min(int(limit or 100), 200))
     snapshot_query = BillingProviderCatalogSnapshot.query.filter(
         BillingProviderCatalogSnapshot.deleted == 0,
-        BillingProviderCatalogSnapshot.provider == PROVIDER_STRIPE,
+        BillingProviderCatalogSnapshot.provider == provider,
     )
     normalized_object_type = _normalize_object_type_filter(object_type)
     if normalized_object_type:
@@ -57,7 +58,7 @@ def build_admin_provider_catalog_inbox_page(
     )
     event_query = BillingProviderCatalogEvent.query.filter(
         BillingProviderCatalogEvent.deleted == 0,
-        BillingProviderCatalogEvent.provider == PROVIDER_STRIPE,
+        BillingProviderCatalogEvent.provider == provider,
     )
     if normalized_object_type:
         event_query = event_query.filter(

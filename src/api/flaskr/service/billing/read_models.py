@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
@@ -21,6 +22,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.order.payment_providers.api import configured_payment_options
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
@@ -626,7 +628,7 @@ def _build_usage_metadata_map(
     return payload
 
 
-def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
+def build_billing_catalog(app: Flask, creator_bid: str = "") -> BillingCatalogDTO:
     """Return plan and topup catalog projections."""
     with app.app_context():
         rows = (
@@ -655,7 +657,48 @@ def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
             elif isinstance(payload, BillingTopupProductDTO):
                 topups.append(payload)
 
-        return BillingCatalogDTO(plans=plans, topups=topups)
+        options = configured_payment_options(biz_domain="billing")
+        operations = None
+        if creator_bid:
+            from .checkout_policy import describe_plan_checkout
+            from .preorders import load_active_preorder_order
+            from .queries import load_primary_active_subscription
+
+            subscription = load_primary_active_subscription(
+                creator_bid, as_of=now_utc()
+            )
+            current_product = (
+                BillingProduct.query.filter_by(
+                    product_bid=subscription.product_bid, deleted=0
+                ).first()
+                if subscription
+                else None
+            )
+            preorder = (
+                load_active_preorder_order(subscription.subscription_bid)
+                if subscription
+                else None
+            )
+            operations = {
+                row.product_bid: asdict(
+                    describe_plan_checkout(
+                        product=row,
+                        current_product=current_product,
+                        subscription=subscription,
+                        active_preorder=preorder,
+                        options=options,
+                    )
+                )
+                for row in rows
+                if row.product_type == BILLING_PRODUCT_TYPE_PLAN
+                and not _is_public_trial_catalog_product(row)
+            }
+        return BillingCatalogDTO(
+            plans=plans,
+            topups=topups,
+            payment_options=options,
+            checkout_operations=operations,
+        )
 
 
 def build_billing_overview(

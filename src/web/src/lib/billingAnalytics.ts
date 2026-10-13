@@ -31,7 +31,8 @@ export type CreatorBillingCheckoutAction =
 export type CreatorBillingSourceSurface =
   | 'global_pricing'
   | 'billing_overview'
-  | 'stripe_return';
+  | 'stripe_return'
+  | 'payment_return';
 export type CreatorBillingSourceTab = 'plans' | 'credit_packs' | 'topup';
 export type CreatorBillingFailureCategory =
   | 'checkout_request_failed'

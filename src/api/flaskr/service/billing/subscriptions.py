@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from flaskr.common import cache_provider
 from flaskr.dao import db
-from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.dao.uow import app_context_scope, require_transaction_owner, unit_of_work
 from flaskr.service.common.models import raise_error
-from flaskr.service.order.payment_providers import get_payment_provider
+from flaskr.service.order.payment_providers import (
+    get_payment_provider,
+    historical_payment_definition,
+    payment_definition,
+    registered_payment_providers,
+)
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
@@ -71,7 +78,11 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from .payment_policy import MANUAL_PAYMENT_PROVIDERS, is_manual_payment_provider
+from .payment_policy import (
+    MANUAL_PAYMENT_PROVIDERS,
+    is_manual_payment_provider,
+    is_provider_managed_payment_provider,
+)
 from .preorders import (
     PREORDER_STATE_ABSORBED_BY_UPGRADE,
     PREORDER_STATE_PENDING_EFFECTIVE,
@@ -158,6 +169,8 @@ from .wallets import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from flask import Flask
 
     from .dtos import BillingSubscriptionDTO
@@ -167,7 +180,9 @@ SELF_MANAGED_BILLING_PROVIDERS = {*MANUAL_PAYMENT_PROVIDERS, "manual"}
 
 def is_self_managed_billing_provider(provider: str | None) -> bool:
     """Return whether self managed billing provider."""
-    return _normalize_bid(provider).lower() in SELF_MANAGED_BILLING_PROVIDERS
+    return _normalize_bid(provider).lower() == "manual" or is_manual_payment_provider(
+        provider
+    )
 
 
 @dataclass(slots=True, frozen=True)
@@ -301,6 +316,8 @@ class _SubscriptionCycleEvidence:
 def _load_owned_subscription(
     creator_bid: str,
     subscription_bid: str,
+    *,
+    for_update: bool = False,
 ) -> BillingSubscription:
     query = BillingSubscription.query.filter(
         BillingSubscription.deleted == 0,
@@ -308,7 +325,10 @@ def _load_owned_subscription(
     )
     if subscription_bid:
         query = query.filter(BillingSubscription.subscription_bid == subscription_bid)
-    subscription = query.order_by(BillingSubscription.created_at.desc()).first()
+    query = query.order_by(BillingSubscription.created_at.desc())
+    if for_update:
+        query = query.with_for_update().populate_existing()
+    subscription = query.first()
     if subscription is None:
         raise_error("server.order.orderNotFound")
     return subscription
@@ -410,87 +430,194 @@ def _resolve_manual_renewal_scheduled_at(
 
 
 def cancel_billing_subscription(
-    app: Flask,
-    creator_bid: str,
-    payload: dict[str, object],
+    app: Flask, creator_bid: str, payload: dict[str, object]
 ) -> BillingSubscriptionDTO:
     """Mark the current subscription to cancel at period end."""
-    with app_context_scope(app), unit_of_work():
-        subscription = _load_owned_subscription(
-            _normalize_bid(creator_bid),
-            _normalize_bid(payload.get("subscription_bid")),
-        )
-        if _normalize_bid(subscription.billing_provider) == "manual":
-            raise_error("server.order.orderStatusError")
-        if subscription.status not in (
-            BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-            BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-            BILLING_SUBSCRIPTION_STATUS_PAUSED,
-            BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-        ):
-            raise_error("server.order.orderStatusError")
-        if subscription.provider_subscription_id:
-            provider = get_payment_provider(subscription.billing_provider)
-            provider_result = provider.cancel_subscription(
-                subscription_bid=subscription.subscription_bid,
-                provider_subscription_id=subscription.provider_subscription_id,
-                app=app,
-            )
-            subscription.metadata_json = _merge_provider_metadata(
-                existing=subscription.metadata_json,
-                provider=subscription.billing_provider,
-                source="api_cancel",
-                event_type="cancel_subscription",
-                payload=provider_result.raw_response,
-                event_time=None,
-            ).to_metadata_json()
-        subscription.cancel_at_period_end = 1
-        subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
-        subscription.updated_at = now_utc()
-        _sync_subscription_lifecycle_events(app, subscription)
-        db.session.add(subscription)
-        return _serialize_subscription(app, subscription)
+    return _manage_billing_subscription(app, creator_bid, payload, cancel=True)
 
 
 def resume_billing_subscription(
-    app: Flask,
-    creator_bid: str,
-    payload: dict[str, object],
+    app: Flask, creator_bid: str, payload: dict[str, object]
 ) -> BillingSubscriptionDTO:
     """Resume a cancel-scheduled subscription."""
-    with app_context_scope(app), unit_of_work():
-        subscription = _load_owned_subscription(
-            _normalize_bid(creator_bid),
-            _normalize_bid(payload.get("subscription_bid")),
+    return _manage_billing_subscription(app, creator_bid, payload, cancel=False)
+
+
+@contextmanager
+def _subscription_command_lock(
+    app: Flask, creator_bid: str
+) -> Iterator[cache_provider.RenewableLockLease]:
+    """Serialize opposing commands without blocking contract webhooks."""
+    prefix = str(app.config.get("REDIS_KEY_PREFIX", "ai-shifu") or "ai-shifu").rstrip(
+        ":"
+    )
+    lock = cache_provider.cache.lock(
+        f"{prefix}:billing:subscription-command:{creator_bid}",
+        timeout=60,
+        blocking_timeout=60,
+        thread_local=False,
+    )
+    if not lock or not lock.acquire(blocking=True):
+        raise_error("server.order.orderStatusError")
+    lease = cache_provider.RenewableLockLease(lock)
+    try:
+        yield lease
+    finally:
+        lease.release_checked()
+
+
+def _subscription_command_revision(subscription: BillingSubscription) -> tuple:
+    """Compare business state, ignoring metadata-only webhook replays."""
+    return tuple(
+        getattr(subscription, key)
+        for key in (
+            "id",
+            "creator_bid",
+            "subscription_bid",
+            "billing_provider",
+            "provider_subscription_id",
+            "provider_customer_id",
+            "product_bid",
+            "status",
+            "cancel_at_period_end",
+            "current_period_start_at",
+            "current_period_end_at",
+            "billing_anchor_at",
+            "grace_period_end_at",
+            "next_product_bid",
+            "last_renewed_at",
+            "last_failed_at",
         )
-        if _normalize_bid(subscription.billing_provider) == "manual":
+    )
+
+
+def _manage_billing_subscription(
+    app: Flask, creator_bid: str, payload: dict[str, object], *, cancel: bool
+) -> BillingSubscriptionDTO:
+    require_transaction_owner("billing subscription management", app)
+    creator_bid = _normalize_bid(creator_bid)
+    action = "cancel" if cancel else "resume"
+    with app_context_scope(app):
+        try:
+            with _subscription_command_lock(app, creator_bid) as lease:
+                with unit_of_work(discard=True):
+                    subscription = _load_owned_subscription(
+                        creator_bid, _normalize_bid(payload.get("subscription_bid"))
+                    )
+                    provider_name = _normalize_bid(subscription.billing_provider)
+                    if provider_name == "manual":
+                        raise_error("server.order.orderStatusError")
+                    allowed = {
+                        BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+                        BILLING_SUBSCRIPTION_STATUS_PAUSED,
+                    }
+                    if cancel or subscription.cancel_at_period_end:
+                        allowed.update(
+                            {
+                                BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                                BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+                            }
+                        )
+                    if subscription.status not in allowed:
+                        raise_error("server.order.orderStatusError")
+                    definition = (
+                        payment_definition(provider_name)
+                        if provider_name in registered_payment_providers()
+                        else historical_payment_definition(provider_name)
+                    )
+                    remote = definition.capabilities.billing_mode == "provider_managed"
+                    if remote and provider_name not in registered_payment_providers():
+                        raise_error("server.pay.payChannelNotSupport")
+                    if remote and not getattr(
+                        definition.capabilities, f"subscription_{action}"
+                    ):
+                        raise_error("server.pay.payChannelNotSupport")
+                    subscription_bid = subscription.subscription_bid
+                    contract_reference = subscription.provider_subscription_id
+                    if remote and not contract_reference:
+                        raise_error("server.order.orderStatusError")
+                    revision = _subscription_command_revision(subscription)
+                result = None
+                confirmed_contract = None
+                lease.check_owned()
+                if remote:
+                    provider = get_payment_provider(provider_name)
+                    result = getattr(provider, f"{action}_subscription")(
+                        subscription_bid=subscription_bid,
+                        provider_subscription_id=contract_reference,
+                        app=app,
+                    )
+                    if (
+                        _normalize_bid(getattr(result, "provider_reference", ""))
+                        != contract_reference
+                    ):
+                        raise_error("server.order.orderStatusError")
+                    confirmed_contract = result.confirmed_contract(
+                        cancel_at_period_end=cancel
+                    )
+                    if confirmed_contract is None:
+                        raise_error("server.order.orderStatusError")
+                # Fresh locked state wins over the detached command when a
+                # contract callback or renewal committed during provider I/O.
+                with unit_of_work():
+                    subscription = _load_owned_subscription(
+                        creator_bid, subscription_bid, for_update=True
+                    )
+                    superseded = (
+                        _subscription_command_revision(subscription) != revision
+                    )
+                    if result is not None:
+                        metadata = dict(subscription.metadata_json or {})
+                        metadata["last_subscription_command"] = {
+                            "action": action,
+                            "provider": provider_name,
+                            "contract_reference": contract_reference,
+                            "response": result.raw_response,
+                            "superseded": superseded,
+                        }
+                        subscription.metadata_json = metadata
+                    if not superseded:
+                        if result is not None:
+                            subscription.metadata_json = _merge_provider_metadata(
+                                existing=subscription.metadata_json,
+                                provider=provider_name,
+                                source=f"api_{action}",
+                                event_type=f"{action}_subscription",
+                                payload=result.raw_response,
+                                event_time=None,
+                            ).to_metadata_json()
+                        if confirmed_contract is not None:
+                            from .provider_state import (
+                                subscription_command_status,
+                            )
+
+                            subscription.status = subscription_command_status(
+                                confirmed_contract
+                            )
+                            subscription.cancel_at_period_end = int(
+                                confirmed_contract.cancel_at_period_end
+                            )
+                            subscription.metadata_json = {
+                                **subscription.metadata_json,
+                                "provider_contract_confirmed": True,
+                            }
+                        else:
+                            subscription.cancel_at_period_end = int(cancel)
+                            subscription.status = (
+                                BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+                                if cancel
+                                else BILLING_SUBSCRIPTION_STATUS_ACTIVE
+                            )
+                        subscription.updated_at = now_utc()
+                        _sync_subscription_lifecycle_events(app, subscription)
+                    db.session.add(subscription)
+                    dto = _serialize_subscription(app, subscription)
+                    lease.check_owned()
+                if superseded:
+                    raise_error("server.order.orderStatusError")
+                return dto
+        except cache_provider.CacheLockOwnershipError:
             raise_error("server.order.orderStatusError")
-        if subscription.status not in (
-            BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-            BILLING_SUBSCRIPTION_STATUS_PAUSED,
-        ):
-            raise_error("server.order.orderStatusError")
-        if subscription.provider_subscription_id:
-            provider = get_payment_provider(subscription.billing_provider)
-            provider_result = provider.resume_subscription(
-                subscription_bid=subscription.subscription_bid,
-                provider_subscription_id=subscription.provider_subscription_id,
-                app=app,
-            )
-            subscription.metadata_json = _merge_provider_metadata(
-                existing=subscription.metadata_json,
-                provider=subscription.billing_provider,
-                source="api_resume",
-                event_type="resume_subscription",
-                payload=provider_result.raw_response,
-                event_time=None,
-            ).to_metadata_json()
-        subscription.cancel_at_period_end = 0
-        subscription.status = BILLING_SUBSCRIPTION_STATUS_ACTIVE
-        subscription.updated_at = now_utc()
-        _sync_subscription_lifecycle_events(app, subscription)
-        db.session.add(subscription)
-        return _serialize_subscription(app, subscription)
 
 
 def ensure_subscription_renewal_order(
@@ -512,9 +639,14 @@ def ensure_subscription_renewal_order(
         return None
 
     provider_reference_id = _normalize_bid(subscription.provider_subscription_id)
-    if provider_name != "stripe" and not is_manual_payment_provider(provider_name):
+    if not is_provider_managed_payment_provider(
+        provider_name
+    ) and not is_manual_payment_provider(provider_name):
         return None
-    if provider_name == "stripe" and not provider_reference_id:
+    if (
+        is_provider_managed_payment_provider(provider_name)
+        and not provider_reference_id
+    ):
         return None
 
     product_bid = _normalize_bid(subscription.next_product_bid) or _normalize_bid(
@@ -572,8 +704,17 @@ def ensure_subscription_renewal_order(
             {
                 "checkout_type": "subscription_renewal",
                 "provider_reference_type": (
-                    "subscription" if provider_name == "stripe" else "charge"
+                    historical_payment_definition(
+                        provider_name
+                    ).operation_reference_type("renewal")
+                    if is_provider_managed_payment_provider(provider_name)
+                    else historical_payment_definition(
+                        provider_name
+                    ).operation_reference_type("query")
                 ),
+                "provider_reference_kind": "contract"
+                if is_provider_managed_payment_provider(provider_name)
+                else "payment",
                 "renewal_event_bid": _normalize_bid(renewal_event_bid) or None,
                 "renewal_cycle_start_at": to_utc_iso(cycle_start_at),
                 "renewal_cycle_end_at": to_utc_iso(cycle_end_at),
@@ -596,13 +737,11 @@ def ensure_subscription_renewal_order(
             payment_provider=provider_name,
             channel=(
                 "subscription"
-                if provider_name == "stripe"
-                else "wx_pub_qr"
-                if provider_name == "wechatpay"
-                else "alipay_qr"
+                if is_provider_managed_payment_provider(provider_name)
+                else _historical_renewal_channel(provider_name)
             ),
             provider_reference_id=provider_reference_id
-            if provider_name == "stripe"
+            if is_provider_managed_payment_provider(provider_name)
             else "",
             status=BILLING_ORDER_STATUS_PENDING,
             metadata_json=metadata,
@@ -619,18 +758,25 @@ def ensure_subscription_renewal_order(
         order.payment_provider = provider_name
         order.channel = order.channel or (
             "subscription"
-            if provider_name == "stripe"
-            else "wx_pub_qr"
-            if provider_name == "wechatpay"
-            else "alipay_qr"
+            if is_provider_managed_payment_provider(provider_name)
+            else _historical_renewal_channel(provider_name)
         )
-        if provider_name == "stripe":
+        if is_provider_managed_payment_provider(provider_name):
             order.provider_reference_id = provider_reference_id
         order.metadata_json = metadata
 
     db.session.add(order)
     db.session.flush()
     return order
+
+
+def _historical_renewal_channel(provider: str) -> str:
+    definition = historical_payment_definition(provider)
+    return (
+        definition.renewal_channel
+        or definition.default_channel
+        or definition.routes[0].channel
+    )
 
 
 def _ensure_manual_renewal_applied_cycle(
@@ -843,6 +989,17 @@ def _is_stale_manual_cycle(
         and subscription.last_renewed_at == effective_from
     )
     current_start = subscription.current_period_start_at
+    order_metadata = (
+        order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    )
+    if (
+        is_provider_managed_payment_provider(order.payment_provider)
+        and order_metadata.get("provider_period_start_at")
+        and current_start is not None
+        and effective_from < current_start
+    ):
+        # Replaying a confirmed older contract window cannot rewind the active cycle.
+        return True
     if (
         not is_manual_payment_provider(order.payment_provider)
         or current_start is None
@@ -854,7 +1011,7 @@ def _is_stale_manual_cycle(
     if effective_from != current_start:
         return False
     # Stripe can take over without advancing the period boundary.
-    if _normalize_bid(subscription.billing_provider).lower() == "stripe":
+    if is_provider_managed_payment_provider(subscription.billing_provider):
         return True
 
     active_order_bid = _normalize_bid(metadata.get("active_cycle_order_bid"))
@@ -965,6 +1122,26 @@ def _activate_subscription_for_paid_order(
                     _expire_credit_bucket_balance_for_transition
                 ),
             )
+        order_metadata = (
+            order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        )
+        contract_status = (
+            subscription.status
+            if is_provider_managed_payment_provider(order.payment_provider)
+            and (
+                order_metadata.get("provider_period_start_at")
+                or (subscription.metadata_json or {}).get("provider_contract_confirmed")
+                is True
+            )
+            and subscription.status
+            not in {
+                BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+            }
+            and _normalize_bid(subscription.billing_provider).lower()
+            == _normalize_bid(order.payment_provider).lower()
+            else None
+        )
         _apply_paid_subscription_cycle_state(
             subscription,
             creator_bid=order.creator_bid,
@@ -973,6 +1150,9 @@ def _activate_subscription_for_paid_order(
             effective_from=effective_from,
             effective_to=effective_to,
         )
+        if contract_status is not None:
+            # A paid-order replay cannot reactivate a blocked provider contract.
+            subscription.status = contract_status
         if is_manual_payment_provider(order.payment_provider):
             subscription.billing_provider = _normalize_bid(
                 order.payment_provider
@@ -1688,7 +1868,23 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         .first()
     )
     if existing_entry is not None:
-        _activate_subscription_for_paid_order(app, order)
+        subscription = (
+            _load_subscription_by_bid(order.subscription_bid)
+            if order.subscription_bid
+            and is_provider_managed_payment_provider(order.payment_provider)
+            else None
+        )
+        contract_metadata = getattr(subscription, "metadata_json", None)
+        confirmed_contract = (
+            subscription is not None
+            and is_provider_managed_payment_provider(subscription.billing_provider)
+            and isinstance(contract_metadata, dict)
+            and contract_metadata.get("provider_contract_confirmed") is True
+        )
+        # Repair the immutable grant without replaying activation over newer
+        # contract facts, including facts received after payment-only settlement.
+        if not confirmed_contract:
+            _activate_subscription_for_paid_order(app, order, subscription=subscription)
         _repair_existing_paid_order_grant_bucket(
             app,
             order=order,
