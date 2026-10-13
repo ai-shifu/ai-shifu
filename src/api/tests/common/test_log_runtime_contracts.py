@@ -4,12 +4,60 @@ import io
 import logging
 import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 from flask import Flask, Response
 from flaskr.common import config, log
+
+
+def test_parallel_startup_shares_a_new_log_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Make both starters create the same absent directory before either wins."""
+    monkeypatch.setattr(config, "get_config", lambda _key, default=None: default or "")
+    directory = tmp_path / "logs"
+    barrier = threading.Barrier(2)
+    mkdir = Path.mkdir
+
+    def concurrent_mkdir(path: Path, *args: object, **kwargs: object) -> None:
+        """Synchronize the actual filesystem operation, not an existence check."""
+        if path == directory:
+            barrier.wait(timeout=5)
+        mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", concurrent_mkdir)
+    apps = [Flask(f"parallel-logging-{uuid.uuid4().hex}") for _ in range(2)]
+    for app in apps:
+        app.config["LOGGING_PATH"] = str(directory / "shared.log")
+    try:
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            results = list(workers.map(log.init_log, apps))
+        assert results == apps
+        assert directory.is_dir()
+        assert (directory / "shared.log").is_file()
+    finally:
+        for app in apps:
+            for handler in app.logger.handlers:
+                handler.close()
+            app.logger.handlers = []
+
+
+def test_log_directory_rejects_an_existing_regular_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only an existing directory is safe to accept during logger setup."""
+    monkeypatch.setattr(config, "get_config", lambda _key, default=None: default or "")
+    directory = tmp_path / "not-a-directory"
+    directory.write_text("keep this file")
+    app = Flask(f"invalid-log-directory-{uuid.uuid4().hex}")
+    app.config["LOGGING_PATH"] = str(directory / "app.log")
+    with pytest.raises((FileExistsError, NotADirectoryError)):
+        log.init_log(app)
+    assert directory.read_text() == "keep this file"
 
 
 @pytest.fixture
