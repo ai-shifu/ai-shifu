@@ -23,7 +23,8 @@ acceptance, persisted cross-lesson acceptance or long-term cost observation.
 Before claiming a worked result or termination, the default runtime instructions
 ask the model to state each example's full initial state and trace operations, including
 reinitialization and branch targets, with consistent units and non-conflicting
-data/code storage. Correct model-created errors before presenting them; preserve
+data/code storage. Reapply reads and resets on each loop iteration; only
+retained state changes can accumulate. Correct model-created errors before presenting them; preserve
 authored, learner and quoted evidence instead of silently repairing it. Respect
 the authored hint stage and state uncertainty when the result is unverified.
 This is model guidance, not a host factual grader, new tool or extra request.
@@ -93,6 +94,52 @@ author nor imposes a new answer requirement. Exact source, history, memory,
 navigation and request limits remain unchanged. Native SDK instruction/reload
 tests establish delivery only; deployed teaching quality and the complete fresh
 natural-compaction journey still require independent acceptance.
+
+The phase-scoped runtime 6a3aa06d7 deploys as sim-c91e50d. Both APIs match
+67 production fingerprints and pass 422 SDK checks; source and integrated sim
+pass 3830 learning/script cases, 50 subtests, three expected skips and all gates.
+The fifth scoped actual-model check restores explanation and traces but still
+fails factual acceptance: byte addressing with two-byte instructions conflicts
+with one-byte instruction placement/PC movement, and a result write overwrites
+the next HALT while claiming instructions remain unchanged. Do not repair the
+output by changing address units, padding instructions or moving the result.
+One trace/generation settles 2.01 credits with verbatim output/token and actual
+attempt/block binding; original source and classroom state are unchanged. No
+summary or new learner is created. Retain all five scoped failures separately
+from the original failed fresh journey.
+
+A separate process-local capability diagnostic enables provider thinking only
+for the same original-model checkpoint. Product minimum-thinking policy remains
+intentional and unchanged in the serving API, course and shared configuration.
+Actual trace metadata confirms thinking enabled, but the displayed answer omits
+the program/two-iteration trace and defers details. This diagnostic fails the
+frozen semantic check and does not show that reasoning fixes factual errors.
+One trace/generation settles 2.00 credits; the existing Langfuse content field
+matches billing verbatim with unique tokens and actual attempt/block binding.
+Reasoning evidence is retained separately. Source and original classroom state
+remain unchanged. This is neither serving-runtime nor fresh-classroom acceptance.
+Do not change global reasoning policy or repeat an unchanged paid request based
+on this result. A model comparison must preserve the original source, request,
+standards and per-turn limits, and remain separate from course acceptance.
+
+The frozen two-candidate configured-model comparison preserves the original
+checkpoint/question/source, product parameter policy and per-turn limits. Model
+2 passes this isolated example check: initialization at a distinct data cell,
+two increments, a conditional back-edge and final fall-through/HALT all match its
+six displayed PC/memory rows. Three native generations settle 28.52 credits.
+Model 3 fails native delivery with no displayed answer after five generations;
+retained tool results reject a serialized JSON string in the object-valued review
+field. Do not coerce the schema or infer factual acceptance from missing output.
+Its five generations settle 77.93 credits. All eight outputs/tokens uniquely bind
+to actual attempt/block usage, all fees settle, source/classroom remain unchanged
+and no summary/new learner is created. A diagnostic route guard initially stops
+before provider usage; explicit course scope fixes only the private runner, not
+product routing. Structured-output audit recovery reads existing evidence only.
+
+This comparison changes no serving course/model or global reasoning policy and
+does not close either the original model's failure or fresh eleven-question
+natural-compaction acceptance. Model 2 is a candidate for a separately scoped
+classroom evaluation, not an automatic course migration or a pass for #3122.
 
 ## Cases and scoring
 

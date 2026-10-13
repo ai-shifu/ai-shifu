@@ -8,6 +8,24 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Final unit/storage candidate eb84a6d17 deploys as 0ae9e4b19,
+      build 617/Drone 5406. Both API replicas match 67 files and pass 422 SDK
+      cases. Source/sim full learning/script checks pass 3830/50 subtests/three
+      skips; final engine/history wording passes 969 combined cases and all gates.
+      The sixth actual-model check still fails: LOAD reads unchanged M[10]=5 on
+      every back-edge, so SUB always produces 4; the claimed 4→3→2→1→0 and HALT
+      are false. Three native generations settle 5.80 credits; exact output/tokens
+      uniquely bind actual attempt/block. Source/classroom unchanged, no summary
+      or twentieth learner. Retain local missing-checkpoint preparation failure
+      (zero usage/state change) and read-only late-result recovery; no paid retry.
+- [x] 2026-10-13: Tighten the next generic loop-state hypothesis: reapply reads
+      and resets each iteration; only retained changes accumulate. Preserve
+      per-example initial state, units/storage, requested behavior/termination,
+      authored stages, source evidence and required calls. Four SDK delivery
+      cases first fail. Compress only equivalent introductory wording to retain
+      original strict input/request/retry budgets. Verification and one
+      changed-runtime check remain pending; all prior failures stay open.
+
 - [x] 2026-10-13: Narrow the next worked-example hypothesis to unit consistency
       and overlapping data/code storage, exposed by the fifth actual-model
       failure. Add both checks to generic example guidance while retaining full
@@ -18,6 +36,55 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       64 KiB fixture passes. Actual deployed validation remains pending; earlier
       failures and the broader fresh-classroom gate remain open.
 
+- [x] 2026-10-13: Frozen configured-model comparison completes once per
+      candidate, retaining original source/checkpoint/question/standards and
+      per-turn limits. Model 2's displayed initialization/two-iteration branch
+      loop/six PC-memory rows are internally consistent; scoped comparison PASS
+      only, three native generations/28.52 settled credits. Model 3 fails delivery
+      after five generations with no displayed answer; native tool results reject
+      serialized review JSON instead of an object. Five generations/77.93 credits
+      settle, with no schema coercion or paid resampling. All eight outputs/tokens
+      uniquely bind actual attempt/block billing; source/classroom unchanged,
+      no summary/new learner. Initial diagnostic route guard uses an unscoped
+      model number and stops before provider usage; explicit course scope repairs
+      only the private runner, with the zero-usage receipt retained. Initial
+      structured-output audit errors recover from existing trace content only.
+      The frozen common baseline remains unchanged; candidate 2's three rows are
+      separately audited when binding candidate 3's five rows. No serving course,
+      model or global reasoning policy changes. Original-model and fresh-classroom
+      acceptance remain open; model 2 is only a candidate for further evaluation.
+- [x] 2026-10-13: Independent clarification-scope PR #3123 opens directly Ready
+      on #3122. Runtime 6a3aa06d7 deploys as c91e50d54 / build 615 / Drone 5404
+      in successful records 2835/2836, API 2/2 and web 1/1. Both APIs match 67
+      production files and pass 422 SDK checks; source/sim pass 3830 cases,
+      50 subtests, three expected skips and all gates. CodeRabbit's actual
+      four-file review finds no functional issue; its touched-function docstring
+      warning is addressed in pushed 552a2345b with four checks/all gates and an
+      original-conversation reply. That commit changes only a test docstring;
+      its seven CI checks pass and production bytes still match deployed 6a.
+      Codex and Devin complete without findings on the functional head.
+- [x] 2026-10-13: Fifth scoped actual-model check restores explanation/traces but
+      fails factual acceptance: byte-addressed two-byte instructions conflict
+      with one-byte placement/PC movement; the result overwrites the next HALT
+      while claiming instructions do not change. Do not repair stored output.
+      One trace/generation settles 2.01 credits, with exact output/token and
+      actual attempt/block binding; original source and classroom state remain
+      unchanged. No summary or twentieth learner. All earlier failures remain.
+- [x] 2026-10-13: Isolated process-local thinking-enabled diagnostic preserves
+      the original model/source/input/temperature and all per-turn limits.
+      Actual trace confirms enabled thinking; displayed output still omits the
+      program/two-iteration trace and defers details. It fails the semantic
+      check, not serving-runtime acceptance. One trace/generation settles 2.00
+      credits; Langfuse's existing content field matches billing verbatim and
+      tokens/actual attempt/block uniquely. Reasoning remains separate evidence.
+      Original classroom/source and serving/global minimum-thinking policy are
+      unchanged. Two existing minimum-policy tests pass; initial structured-output
+      audit failure is retained and recovered by reading existing evidence only.
+- [x] Compare already configured teaching models using the original checkpoint,
+      question, source, standards and per-turn limits. Freeze candidates before
+      calls; separate process-local model diagnostics from course acceptance.
+      Do not start a fresh learner until a serving-runtime semantic gate passes.
+      #3122/#3123 remain not recommended for merge; milestone 4/5 is unchanged.
 - [x] 2026-10-13: Requested-behavior guidance 8012b33f2 deploys as sim
       5d88b7ad6 / build 614 / Drone 5403 in records 2833/2834, API 2/2, web 1/1.
       Both APIs match 67 files and pass 418 SDK checks; integrated 3826 cases,
@@ -32,12 +99,12 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       and original two-iteration request. Source and original classroom state
       remain unchanged; no summary or twentieth learner. Stop further paid calls
       while inspecting authored brevity and the host's feedback-phase guidance.
-- [ ] 2026-10-13: Investigate the host reference's unqualified instruction to
+- [x] 2026-10-13: Investigate the host reference's unqualified instruction to
       leave questions unanswered and withhold later reasoning, despite applying
       also to knowledge clarification. Keep the author's brief-response boundary;
       any independent phase-scope fix must not force long answers or dilute the
       frozen example/trace acceptance. Preserve all four failed checks.
-- [ ] 2026-10-13: Independently scope the host reference's correction limits to
+- [x] 2026-10-13: Independently scope the host reference's correction limits to
       checking-direction feedback. Clarification must answer the actual question
       within authored brevity/disclosure and return to the pending exercise;
       do not apply correction-only withholding to permitted knowledge help.
