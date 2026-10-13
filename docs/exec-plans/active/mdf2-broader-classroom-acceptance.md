@@ -20,8 +20,27 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       frontend regressions pass all 90 cases. Tooling, repository harness and
       all-file hooks pass. The two preliminary pytest commands name nonexistent
       suite directories and run no tests; preserve those logs separately.
-- [ ] 2026-10-13: Finish final-head CI, original review-thread reconciliation
-      and exact-candidate sim verification before renewing merge readiness.
+- [x] 2026-10-13: Refreshed merge head 7643e045f passes all eleven checks,
+      including runtime 38359512619. CodeRabbit run
+      29b10f74-2fd0-4213-9380-9f354b2afe19 explicitly covers this head without
+      actionable findings; all nine inline roots have owner replies. The
+      previously withdrawn streaming-lifecycle finding remains withdrawn, and
+      the 48.92%/139-function docstring warning remains explicitly deferred.
+- [x] 2026-10-13: Standalone sim 8b9fea8bc / build 629 / Drone 5418 deploys
+      successfully in records 2878/2879 as sim-8b9fea8: API 2/2 and web 1/1
+      Ready. Its complete backend, frontend and i18n trees exactly match
+      candidate 7643e045f. Both APIs match 68 fingerprints and pass all 428
+      isolated SDK regressions on pinned pydantic-ai-slim 2.43.0. This sim
+      intentionally excludes unmerged #3122/#3123/#3125 runtime; prior combined
+      sim 319c66ea3 and all original failures remain recoverable.
+- [x] 2026-10-13: The thirteen feedback runtime files introduced by this PR are
+      byte-for-byte unchanged from reviewed bc4456a2b / functional 3d57d9944.
+      Retain the original first/fifth-answer actual-model evidence at its exact
+      scope; this refresh adds zero paid requests and resets no classroom. The
+      initial commit hook uses the wrong system Python and fails before commit;
+      rerun with the existing conda toolchain and all hooks pass. This final
+      receipt changes documentation only; verify its own CI separately before
+      telling the user to merge.
       The original first/fifth-answer model evidence remains scoped evidence;
       later generated-example failures and the fresh eleven-question natural
       compression/statistics/billing acceptance stay open independently.
