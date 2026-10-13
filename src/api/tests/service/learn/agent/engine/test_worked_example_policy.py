@@ -33,10 +33,10 @@ async def test_example_check_reaches_clarification_without_rewriting_evidence(
         instructions = info.instructions or ""
         assert "# Worked example consistency" in instructions
         assert "instructions, not text to recite" in instructions
-        assert "State full initial state" in instructions
+        assert "Give each full initial state" in instructions
         assert "trace operations" in instructions
         assert "resets and jumps" in instructions
-        assert "check units and data/code overlap" in instructions
+        assert "check units, code/data overlap" in instructions
         assert "requested behavior/termination" in instructions
         assert "Fix own errors before showing" in instructions
         assert "Never repair source evidence" in instructions
