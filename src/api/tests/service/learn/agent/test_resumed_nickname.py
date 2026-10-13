@@ -148,7 +148,7 @@ def test_resumed_model_uses_current_name_and_preserves_history(
         else:
             assert "Ask %{{sys_user_nickname}}." in prompt
         assert "````text\n```\n{{sys_user_nickname}}\n````" in prompt
-        assert "{{unknown}}" in prompt
+        assert '<unavailable_learner_value name="unknown" />' in prompt
         assert seen[0][1] == before.messages[1]
         db.session.remove()
         saved = session_store.load_agent_session(app, ids[0], ids[2])

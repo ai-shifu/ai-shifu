@@ -61,8 +61,8 @@ def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
     refresh_deleted_memory(session, frozenset({"goal"}))
     first = session.messages[0].parts[0].content
     assert "goal" not in json.JSONDecoder().raw_decode(first, len("<memory>\n"))[0]
-    assert "Use {{goal}} at slow pace." in first
-    assert "Consider {{goal}}." in first
+    assert 'Use <unavailable_learner_value name="goal" /> at slow pace.' in first
+    assert 'Consider <unavailable_learner_value name="goal" />.' in first
     assert value not in first
     assert "goal" not in session.all_memory()
     assert session.messages[1] is later
@@ -141,7 +141,10 @@ def test_actual_host_drops_pre_delete_turn_write_and_allows_a_fresh_request(
         resumed = asyncio.run(factory())
         assert "pace" not in resumed.all_memory()
         assert "old" not in resumed.messages[0].parts[0].content
-        assert "{{pace}}" in resumed.messages[0].parts[0].content
+        assert (
+            '<unavailable_learner_value name="pace" />'
+            in resumed.messages[0].parts[0].content
+        )
         kwargs["outline_bid"] = uuid4().hex
         list(run_agent.run_agent_lesson(**kwargs))
         assert (
@@ -223,8 +226,11 @@ def test_omitted_initial_substitution_survives_value_changes_and_roundtrip(
         refresh_deleted_memory(session, frozenset({"goal"}))
         first = session.messages[0].parts[0].content
         assert original not in first
-        assert f"Use {{{{goal}}}} for {'After' if renamed else 'Before'}." in first
-        assert "Consider {{goal}}." in first
+        assert (
+            f'Use <unavailable_learner_value name="goal" /> for {"After" if renamed else "Before"}.'
+            in first
+        )
+        assert 'Consider <unavailable_learner_value name="goal" />.' in first
         assert session.initial_variables == {
             "sys_user_nickname": "After" if renamed else "Before"
         }

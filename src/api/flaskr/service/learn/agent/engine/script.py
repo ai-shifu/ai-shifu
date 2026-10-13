@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from html import escape
 from typing import TYPE_CHECKING, Any
 
 # Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
@@ -145,12 +146,17 @@ def final_preserved_line(text: str) -> str | None:
 
 
 def substitute_variables(
-    text: str, values: Mapping[str, Any], *, collected: frozenset[str] = frozenset()
+    text: str,
+    values: Mapping[str, Any],
+    *,
+    collected: frozenset[str] = frozenset(),
+    unavailable: bool = False,
 ) -> str:
     """Replace `{{name}}` with `values[name]` outside fenced code blocks.
 
     `%{{name}}` and unknown names are left untouched so the model can still see what the author
-    meant.
+    meant. Host prompt rendering opts into explicit unavailable-value metadata instead;
+    this is request guidance, never a learner fact or a memory write.
 
     A name in `collected` is left untouched as well, whatever memory holds for it. Those are the
     variables this script is about to ask the learner for, and substitution happens once, before
@@ -170,7 +176,11 @@ def substitute_variables(
         if name in collected:
             return m.group(0)
         if name not in values or values[name] in (None, ""):
-            return m.group(0)
+            return (
+                f'<unavailable_learner_value name="{escape(name, quote=True)}" />'
+                if unavailable
+                else m.group(0)
+            )
         v = values[name]
         return ", ".join(map(str, v)) if isinstance(v, (list, tuple)) else str(v)
 
@@ -250,12 +260,12 @@ def render_first_prompt(
         render_memory_section(
             bundle, memory, limit=memory_limit, priority=memory_priority
         )[0],
-        f"<script>\n{substitute_variables(bundle.script, memory, collected=collected)}\n</script>",
+        f"<script>\n{substitute_variables(bundle.script, memory, collected=collected, unavailable=True)}\n</script>",
     ]
     if bundle.constraints:
         parts.append(
             f"<constraints>\n"
-            f"{substitute_variables(bundle.constraints, memory, collected=collected)}\n"
+            f"{substitute_variables(bundle.constraints, memory, collected=collected, unavailable=True)}\n"
             f"</constraints>"
         )
     for name, body in bundle.extras.items():
