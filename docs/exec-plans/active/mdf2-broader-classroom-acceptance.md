@@ -8,11 +8,50 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Synchronize clarification scope with #3122 d6cc900fd and
+      merged main 7676bc0a8 without a runtime conflict. Full learning/script
+      regressions pass 3852 cases, 50 subtests and three expected skips. Preserve
+      all original fast-model failures; this baseline repair makes no new paid
+      request and does not claim the example-quality gate passes.
+
+- [x] 2026-10-13: Adopt the review request to record the ninth diagnostic's
+      complete initial accumulator and zero-exit sequence in both receipts.
+      LOAD initializes 5, and the exit observes 4,5,6,... under the stated
+      ordinary arithmetic, not merely an unspecified positive net change.
+      No classroom/model request or historical failure verdict is changed.
+- [ ] 2026-10-13: Investigate the valid hidden-response identity lifetime concern
+      in a separate focused fix on merged main. The affected ownership code is
+      inherited from #3118, outside this PR's example-policy delta. Reply in
+      the original #3122 thread with the pushed independent fix and verification.
+
+- [x] 2026-10-13: Confirm #3118 merged as main 7676bc0a8. Synchronize #3122
+      with that actual main revision; retain both historical acceptance records
+      and regenerate the document inventory instead of selecting stale indexes.
+      This is a baseline/conflict repair, not another semantic model attempt.
+- [x] 2026-10-13: Preserve the twelfth original fast-model failure recorded by
+      the later integrated diagnostic: its displayed loop actually halts at
+      ACC=2,N=1, contrary to the claimed ACC=3,N=0, and omits the second body
+      trace. The canonical declaration passed on its first generation, while
+      factual acceptance failed. Its one generation settles 1.88 credits;
+      cumulative diagnostic usage is 42 generations / 170.64 credits. Original
+      source/classroom and all earlier failures remain unchanged.
+- [x] 2026-10-13: Current-main learning/script regressions pass 3846 cases,
+      50 subtests and three expected skips; all-file hooks and tooling pass.
+      Initial conflict-marker/inventory checks reject the incomplete resolution;
+      both progress blocks and the completed historical checkbox are now retained
+      correctly, and regeneration runs after staging the resolved documents.
+- [ ] 2026-10-13: Reconcile dependent branch conflicts and current-head CI.
+      Do not claim a factual pass from a conflict repair or repeat an unchanged
+      paid attempt. The separate-model full-classroom route awaits user preference.
+
 - [x] 2026-10-13: Ninth frozen original-model check on sim-086140b / build 621 /
       Drone 5410 follows both replicas matching 68 files and passing 438 SDK
-      cases each. Requested program/two iterations return, but SUB 1 followed
-      by ADD 2 produces a growing accumulator and never reaches the stated zero
-      exit. Factual acceptance still fails. Four generations settle 7.82 credits
+      cases each. LOAD initializes ACC=5; SUB 1 makes the first zero-exit
+      test observe 4, ADD 2 makes ACC=6, and the back-edge repeats SUB/test/ADD.
+      Later zero-exit tests observe 5, 6, and so on: cycle n tests n+3 for
+      n >= 1 under ordinary integer arithmetic. That cannot reach zero; the
+      original example gives no overflow semantics justifying its claimed stop.
+      Factual acceptance still fails. Four generations settle 7.82 credits
       with exact output/token and actual attempt/block attribution. Original
       source/classroom and prior failures remain unchanged; no new learner/summary.
 - [x] Add full-cycle net change versus exit-condition guidance to generated
@@ -289,6 +328,42 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       Do not infer a main merge or production deployment from that branch update.
       Prepare this independent fix on that verified baseline; retain an explicit
       PR dependency until the actual main merge is observed. No automatic merge.
+- [x] 2026-10-13: Synchronize #3118 with main 2ff4af09b, including the merged
+      unavailable-value handling and Profile startup changes. Resolve only the
+      generated document-inventory conflict by regenerating the index from the
+      staged merged tree; no feedback runtime or acceptance standard is changed.
+      GitHub still reports this PR open; the earlier merge of main into its
+      branch was not a merge of this PR into main.
+- [x] 2026-10-13: Combined learning/evaluation regressions pass 3784 cases,
+      four subtests and one expected skip; the complete backend script suite
+      passes 191 cases, 46 subtests and two expected skips. Profile startup
+      frontend regressions pass all 90 cases. Tooling, repository harness and
+      all-file hooks pass. The two preliminary pytest commands name nonexistent
+      suite directories and run no tests; preserve those logs separately.
+- [x] 2026-10-13: Refreshed merge head 7643e045f passes all eleven checks,
+      including runtime 38359512619. CodeRabbit run
+      29b10f74-2fd0-4213-9380-9f354b2afe19 explicitly covers this head without
+      actionable findings; all nine inline roots have owner replies. The
+      previously withdrawn streaming-lifecycle finding remains withdrawn, and
+      the 48.92%/139-function docstring warning remains explicitly deferred.
+- [x] 2026-10-13: Standalone sim 8b9fea8bc / build 629 / Drone 5418 deploys
+      successfully in records 2878/2879 as sim-8b9fea8: API 2/2 and web 1/1
+      Ready. Its complete backend, frontend and i18n trees exactly match
+      candidate 7643e045f. Both APIs match 68 fingerprints and pass all 428
+      isolated SDK regressions on pinned pydantic-ai-slim 2.43.0. This sim
+      intentionally excludes unmerged #3122/#3123/#3125 runtime; prior combined
+      sim 319c66ea3 and all original failures remain recoverable.
+- [x] 2026-10-13: The thirteen feedback runtime files introduced by this PR are
+      byte-for-byte unchanged from reviewed bc4456a2b / functional 3d57d9944.
+      Retain the original first/fifth-answer actual-model evidence at its exact
+      scope; this refresh adds zero paid requests and resets no classroom. The
+      initial commit hook uses the wrong system Python and fails before commit;
+      rerun with the existing conda toolchain and all hooks pass. This final
+      receipt changes documentation only; verify its own CI separately before
+      telling the user to merge.
+      The original first/fifth-answer model evidence remains scoped evidence;
+      later generated-example failures and the fresh eleven-question natural
+      compression/statistics/billing acceptance stay open independently.
 
 - [x] 2026-10-12: Functional head 3d57d9944 passes all eleven current checks.
       CodeRabbit review 85388724 covers its runtime/tests/reference changes,
@@ -326,7 +401,7 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       sessions, progress and variables remain unchanged. Initial strict raw-output
       audit failure is preserved; complete the audit locally against the already
       fetched original traces, without another model or trace request.
-- [ ] 2026-10-12: Finish the documentation receipt, original-thread replies and
+- [x] 2026-10-12: Finish the documentation receipt, original-thread replies and
       current documentation-head CI before recommending #3118 for merge. These
       scoped passes close the earlier related checkpoint failures on the changed
       runtime; they do not change those failures' historical verdicts. No twentieth

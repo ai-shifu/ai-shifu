@@ -10,6 +10,16 @@ while preserving native validation and portable-host compatibility.
 
 ## Progress
 
+- [x] 2026-10-13: Synchronize the schema branch with clarification head
+      e780ac9f3 and actual merged main 7676bc0a8 without a runtime conflict.
+      The existing canonical schema remains unchanged; full learning/script
+      regressions pass 3879 cases, 50 subtests and three expected skips. Keep
+      all original factual failures and first-response protocol evidence separate.
+- [ ] 2026-10-13: Verify refreshed current-head CI/review receipts. A confirmed
+      inherited hidden-response lifetime issue is fixed independently in #3128
+      on main, not silently folded into this schema PR. No new paid check or
+      fresh classroom is created by this synchronization.
+
 - [x] 2026-10-13 05:07 UTC: Offline pinned-provider conversion reproduces removal
   of the interaction root anyOf on OpenAI; Ark preserves it without strict mode.
   Seven canonical/provider cases first fail. Use one required non-null feedback
