@@ -261,8 +261,7 @@ def init_log(app: Flask) -> Flask:
     )
     log_file = app.config.get("LOGGING_PATH", "logs/ai-shifu.log")
     log_dir = str(Path(log_file).parent)
-    if not Path(log_dir).exists():
-        Path(log_dir).mkdir(parents=True)
+    Path(log_dir).mkdir(parents=True, exist_ok=True)
     file_handler = TimedRotatingFileHandler(log_file, when="midnight", backupCount=7)
     file_handler.setFormatter(formatter)
     console_handler = logging.StreamHandler()
