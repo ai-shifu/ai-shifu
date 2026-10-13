@@ -91,7 +91,10 @@ questions. Its correction-only guidance must be explicitly limited to
 checking-direction feedback, where permitted questions remain unanswered and
 later reasoning is withheld. Clarification answers the actual side question
 within authored brevity and disclosure rules, then returns to the pending
-exercise. This distinction neither authorizes a full solution forbidden by the
+exercise. Include the actual question's requested examples or walkthroughs
+concisely, including after native branch/control repair; a generic definition
+does not replace the requested illustration. Rejected drafts remain undisplayed
+and absent from persisted teaching history. This distinction neither authorizes a full solution forbidden by the
 author nor imposes a new answer requirement. Exact source, history, memory,
 navigation and request limits remain unchanged. Native SDK instruction/reload
 tests establish delivery only; deployed teaching quality and the complete fresh

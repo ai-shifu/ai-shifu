@@ -290,7 +290,10 @@ def feedback_retry_history(
                 "do not send only a replacement control assuming prior prose was shown. "
                 "Use actual tool calls, not textual interaction tags. A checking "
                 "direction still uses direction alone, without free prose. Preserve "
-                "earlier successfully displayed pages and the author's navigation boundary."
+                "earlier successfully displayed pages and the author's navigation boundary. "
+                "For clarification, keep the actual question's requested examples or "
+                "walkthroughs within the author's brevity and disclosure limits; do not "
+                "replace them with a generic definition."
             )
             result.append(
                 replace(
