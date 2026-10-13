@@ -34,7 +34,7 @@ from flaskr.service.order.payment_providers.base import (
     PaymentCreationResult,
     PaymentNotificationResult,
 )
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 from sqlalchemy import update
 
 from tests.service.billing.renewal_execution_test_helpers import (
@@ -451,6 +451,8 @@ def test_old_manual_payment_cannot_replace_a_later_cycle(
                     "current_period_end": next_end,
                 },
             )
+            assert subscription.current_period_start_at == next_start
+            assert subscription.current_period_end_at == next_end
             assert "active_cycle_order_bid" not in subscription.metadata_json
         elif advance in {"checkout_success", "same_cycle_checkout_success"}:
             provider_state._apply_subscription_checkout_success(
@@ -501,6 +503,92 @@ def test_old_manual_payment_cannot_replace_a_later_cycle(
         assert bucket_snapshots == [
             (bucket.wallet_bucket_bid, bucket.effective_from, bucket.effective_to)
             for bucket in CreditWalletBucket.query.order_by(CreditWalletBucket.id).all()
+        ]
+        assert CreditLedgerEntry.query.count() == ledger_count
+
+
+@pytest.mark.parametrize("old_provider", ["pingxx", "alipay", "wechatpay"])
+@pytest.mark.parametrize("new_provider", ["pingxx", "alipay", "wechatpay"])
+@pytest.mark.parametrize("precedence", ["paid_at", "created_at", "row_id"])
+def test_same_boundary_manual_orders_keep_the_newer_paid_cycle(
+    billing_renewal_app: Flask,
+    old_provider: str,
+    new_provider: str,
+    precedence: str,
+) -> None:
+    with billing_renewal_app.app_context(), unit_of_work():
+        boundary = now_utc() - timedelta(days=2)
+        subscription = create_renewal_subscription(
+            "same-boundary", billing_provider=old_provider
+        )
+        db.session.add(subscription)
+        old = _create_manual_order(old_provider)
+        old.creator_bid = subscription.creator_bid
+        old.subscription_bid = subscription.subscription_bid
+        old.order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+        old.status = BILLING_ORDER_STATUS_PAID
+        old.paid_at = boundary
+        old.paid_amount = old.payable_amount
+        old.created_at = boundary - timedelta(days=1)
+        old.metadata_json = {
+            "applied_cycle_start_at": to_utc_iso(boundary),
+            "applied_cycle_end_at": to_utc_iso(boundary + timedelta(days=30)),
+        }
+        db.session.flush()
+        assert subscriptions.grant_paid_order_credits(billing_renewal_app, old)
+        newer = BillingOrder(
+            bill_order_bid="newer-order",
+            creator_bid=old.creator_bid,
+            subscription_bid=old.subscription_bid,
+            product_bid="bill-product-plan-monthly-pro",
+            order_type=old.order_type,
+            payment_provider=new_provider,
+            currency=old.currency,
+            status=BILLING_ORDER_STATUS_PAID,
+            payable_amount=19900,
+            paid_amount=19900,
+            paid_at=boundary + timedelta(minutes=1)
+            if precedence == "paid_at"
+            else boundary,
+            created_at=old.created_at + timedelta(minutes=1)
+            if precedence == "created_at"
+            else old.created_at,
+            metadata_json=dict(old.metadata_json),
+        )
+        db.session.add(newer)
+        db.session.flush()
+        # Same-boundary protection must still accept a legitimate newer payment.
+        assert not subscriptions._is_stale_manual_cycle(newer, subscription, boundary)
+        assert subscriptions.grant_paid_order_credits(billing_renewal_app, newer)
+        assert subscription.product_bid == newer.product_bid
+        assert subscription.billing_provider == new_provider
+        assert subscription.current_period_start_at == boundary
+        snapshot = (
+            subscription.product_bid,
+            subscription.billing_provider,
+            subscription.current_period_start_at,
+            subscription.current_period_end_at,
+            dict(subscription.metadata_json),
+        )
+        buckets = [
+            (b.wallet_bucket_bid, b.available_credits, b.effective_from, b.effective_to)
+            for b in CreditWalletBucket.query.order_by(CreditWalletBucket.id).all()
+        ]
+        ledger_count = CreditLedgerEntry.query.count()
+        assert not subscriptions._activate_subscription_for_paid_order(
+            billing_renewal_app, old
+        )
+        assert not subscriptions.grant_paid_order_credits(billing_renewal_app, old)
+        assert snapshot == (
+            subscription.product_bid,
+            subscription.billing_provider,
+            subscription.current_period_start_at,
+            subscription.current_period_end_at,
+            subscription.metadata_json,
+        )
+        assert buckets == [
+            (b.wallet_bucket_bid, b.available_credits, b.effective_from, b.effective_to)
+            for b in CreditWalletBucket.query.order_by(CreditWalletBucket.id).all()
         ]
         assert CreditLedgerEntry.query.count() == ledger_count
 

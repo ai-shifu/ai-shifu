@@ -842,19 +842,57 @@ def _is_stale_manual_cycle(
         == _normalize_bid(order.payment_provider).lower()
         and subscription.last_renewed_at == effective_from
     )
-    # A Stripe checkout can take over without advancing the period boundary.
-    # The preceding manual order must not reclaim that same cycle on replay.
-    return bool(
-        is_manual_payment_provider(order.payment_provider)
-        and subscription.current_period_start_at is not None
-        and (
-            effective_from < subscription.current_period_start_at
-            or (
-                effective_from == subscription.current_period_start_at
-                and _normalize_bid(subscription.billing_provider).lower() == "stripe"
-            )
+    current_start = subscription.current_period_start_at
+    if (
+        not is_manual_payment_provider(order.payment_provider)
+        or current_start is None
+        or is_current_cycle_order
+    ):
+        return False
+    if effective_from < current_start:
+        return True
+    if effective_from != current_start:
+        return False
+    # Stripe can take over without advancing the period boundary.
+    if _normalize_bid(subscription.billing_provider).lower() == "stripe":
+        return True
+
+    active_order_bid = _normalize_bid(metadata.get("active_cycle_order_bid"))
+    if not active_order_bid or active_order_bid == order.bill_order_bid:
+        return False
+    active_order = (
+        BillingOrder.query.filter_by(
+            bill_order_bid=active_order_bid,
+            creator_bid=subscription.creator_bid,
+            subscription_bid=subscription.subscription_bid,
+            product_bid=subscription.product_bid,
+            status=BILLING_ORDER_STATUS_PAID,
+            deleted=0,
         )
-        and not is_current_cycle_order
+        .populate_existing()
+        .first()
+    )
+    if (
+        active_order is None
+        or _normalize_bid(active_order.payment_provider).lower()
+        != _normalize_bid(subscription.billing_provider).lower()
+        or _resolve_credit_bucket_effective_from(
+            order=active_order,
+            default_effective_from=active_order.paid_at or now_utc(),
+        )
+        != effective_from
+    ):
+        return False
+    # Paid time orders same-boundary payments. Creation time and the database
+    # row ID break ties without rejecting a legitimate later payment.
+    return (
+        active_order.paid_at or NAIVE_DATETIME_MIN,
+        active_order.created_at or NAIVE_DATETIME_MIN,
+        active_order.id or 0,
+    ) > (
+        order.paid_at or NAIVE_DATETIME_MIN,
+        order.created_at or NAIVE_DATETIME_MIN,
+        order.id or 0,
     )
 
 
