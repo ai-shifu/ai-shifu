@@ -8,6 +8,20 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Current #3128 head 6cf9a580d includes main 523ad3741.
+      Its backend CI initially fails before the selected learning test because
+      two Flask test workers race to create logs; one rerun passes all eleven
+      checks, without changing the response-lifetime fix. Preserve both runs.
+- [x] 2026-10-13: Prepare combined independent candidates #3128 6cf9a580d
+      and #3130 05c9f7644 in sim. The API tree matches #3128 except the two
+      logging source/test files from #3130; Web/i18n exactly match current #3128.
+      This contains neither the unmerged example-policy nor clarification/schema
+      changes. The logging race regression fails before its one-line fix;
+      575 two-worker logging/common/follow-up and 151 current feedback/follow-up
+      cases pass. No paid request or production/classroom write is made.
+- [ ] 2026-10-13: Verify both actual sim replicas against both candidate owners
+      and run isolated logging plus feedback SDK tests before final receipts.
+
 - [x] 2026-10-13: #3118 merges as main 7676bc0a8. Prepare independent
       hidden-response lifetime fix #3128 / fbc06e815 on the standalone sim;
       its complete API tree matches the candidate and excludes unmerged
