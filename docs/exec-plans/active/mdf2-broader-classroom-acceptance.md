@@ -8,6 +8,24 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Ninth frozen original-model check on sim-086140b / build 621 /
+      Drone 5410 follows both replicas matching 68 files and passing 438 SDK
+      cases each. Requested program/two iterations return, but SUB 1 followed
+      by ADD 2 produces a growing accumulator and never reaches the stated zero
+      exit. Factual acceptance still fails. Four generations settle 7.82 credits
+      with exact output/token and actual attempt/block attribution. Original
+      source/classroom and prior failures remain unchanged; no new learner/summary.
+- [x] Add full-cycle net change versus exit-condition guidance to generated
+      examples. Four native SDK instruction/reload cases first fail. Keep full
+      initial state, units/storage, repeated reads/resets, requested trace and
+      author boundaries. Equivalent wording compression keeps the system prompt
+      one byte below d641 and preserves strict input/request limits. Full
+      learning/script checks pass 3826 plus 50 subtests, three expected skips,
+      and repository gates.
+- [ ] Deploy and verify both replicas before one frozen original-model semantic
+      check of this changed candidate.
+
+
 - [x] 2026-10-13: Seventh original-model check fails on sim-1606797 / build
       619 / Drone 5408 after both Ready API replicas match 68 runtime files and
       pass 436 SDK checks each. Three generations settle 5.78 credits, uniquely
