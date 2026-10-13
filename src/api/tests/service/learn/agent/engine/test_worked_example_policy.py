@@ -34,16 +34,19 @@ async def test_example_check_reaches_clarification_without_rewriting_evidence(
         assert "# Worked example consistency" in instructions
         assert "instructions, not text to recite" in instructions
         assert "Give each full initial state" in instructions
-        assert "Trace operations/jumps" in instructions
-        assert "each loop iteration: reapply reads/resets" in instructions
+        assert (
+            "Trace requested iterations in one state table; derive behavior claims from it"
+            in instructions
+        )
+        assert "Reapply reads/resets each loop" in instructions
         assert "only retained changes accumulate" in instructions
-        assert "Check units, storage overlap" in instructions
-        assert "requested behavior/termination" in instructions
+        assert "check units/storage overlap" in instructions
+        assert "Claim termination only if trace reaches a stop" in instructions
         assert "Fix own errors before display, never source evidence" in instructions
         assert "uncertainty" in instructions
         assert "authored hint stage" in instructions
         assert "no extra verification calls/criteria" in instructions.lower()
-        assert "Keep required tool and example calls" in instructions
+        assert "keep required tool/example calls" in instructions
         assert "Add no calls" not in instructions
         if calls == 1:
             yield _call(
