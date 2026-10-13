@@ -4534,6 +4534,7 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
             "script",
             "",
             LLMSettings(model="gpt-test", temperature=0.25),
+            None,
         ),
     )
     monkeypatch.setattr(
@@ -4660,6 +4661,7 @@ def test_quality_cli_attributes_every_family_without_fabricating_classroom_recor
             "script",
             "",
             LLMSettings(model="gpt-test", temperature=0),
+            None,
         ),
     )
     monkeypatch.setattr(langfuse, "get_langfuse_client", lambda: None)

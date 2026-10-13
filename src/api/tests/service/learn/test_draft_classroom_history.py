@@ -82,7 +82,11 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
                     type="shifu",
                     children=[
                         HistoryItem(
-                            bid=identity, id=lesson.id, type="outline", children=[]
+                            bid=identity,
+                            id=lesson.id,
+                            type="outline",
+                            children=[],
+                            content_revision=11,
                         )
                     ],
                 ).to_json(),
@@ -132,15 +136,18 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
 
     gateway = Gateway(stream_function=model)
     monkeypatch.setattr(lesson_entry, "GatewayModel", lambda *_a, **_k: gateway)
-    monkeypatch.setattr(
-        lesson_entry,
-        "_resolve",
-        lambda *_a, **_k: (
+
+    def resolve(*_args: object, **_kwargs: object) -> tuple:
+        structure = LogDraftStruct.query.filter_by(shifu_bid=identity).one()
+        revision = HistoryItem.from_json(structure.struct).children[0].content_revision
+        return (
             "Teach a topic, then ask a question. Wait for an answer before proceeding.",
             "",
             LLMSettings(model="test-model", temperature=0.0),
-        ),
-    )
+            revision,
+        )
+
+    monkeypatch.setattr(lesson_entry, "_resolve", resolve)
     monkeypatch.setattr(lesson_entry, "get_langfuse_client", lambda: None)
     monkeypatch.setattr(
         lesson_entry, "create_trace_with_root_span", lambda **_k: (Mock(), Mock())
@@ -198,6 +205,17 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
     return identity, run, history, calls
 
 
+def _change_draft_body(identity: str, content: str) -> None:
+    """Stage the body and its authored revision in the caller's transaction."""
+    outline = DraftOutlineItem.query.filter_by(outline_item_bid=identity).one()
+    if outline.content != content:
+        outline.content = content
+        structure = LogDraftStruct.query.filter_by(shifu_bid=identity).one()
+        parsed = HistoryItem.from_json(structure.struct)
+        parsed.children[0].content_revision += 1
+        structure.struct = parsed.to_json()
+
+
 def test_reload_restores_teaching_before_pending_interaction_without_learner_progress(
     app: Flask, classroom: tuple
 ) -> None:
@@ -246,8 +264,9 @@ def test_multiple_requests_keep_order_and_accepted_answers(classroom: tuple) -> 
     assert history(lesson="another-lesson").elements == []
 
 
+@pytest.mark.parametrize("clear_body", [False, True])
 def test_preview_catalog_and_reset_are_independent_of_published_learning(
-    app: Flask, classroom: tuple
+    app: Flask, classroom: tuple, clear_body: bool
 ) -> None:
     identity, run, history, _calls = classroom
     with app.app_context(), unit_of_work():
@@ -277,6 +296,10 @@ def test_preview_catalog_and_reset_are_independent_of_published_learning(
         .status
         == LearnStatus.IN_PROGRESS
     )
+    if clear_body:
+        with app.app_context(), unit_of_work():
+            _change_draft_body(identity, "")
+        assert history().has_content_update_for_current_user
     reset_learn_record(app, identity, identity, identity, preview_mode=True)
     assert history().elements == []
     assert (
@@ -293,6 +316,31 @@ def test_preview_catalog_and_reset_are_independent_of_published_learning(
         )
     run()
     assert "question 2" in history().elements[0].content
+
+
+def test_preview_history_and_continuation_preserve_the_taught_body(
+    app: Flask, classroom: tuple
+) -> None:
+    identity, run, history, _calls = classroom
+    original = (
+        "Teach a topic, then ask a question. Wait for an answer before proceeding."
+    )
+    with app.app_context(), unit_of_work():
+        _change_draft_body(identity, original)
+    run()
+    assert history().has_content_update_for_current_user is False
+    with app.app_context(), unit_of_work():
+        _change_draft_body(identity, "Changed")
+    assert history().has_content_update_for_current_user is True
+    run("My answer")
+    assert history().has_content_update_for_current_user is True
+    assert (
+        load_agent_session(app, identity, identity, preview_mode=True).script.script
+        == original
+    )
+    with app.app_context(), unit_of_work():
+        _change_draft_body(identity, original)
+    assert history().has_content_update_for_current_user is True
 
 
 def test_preview_reset_rejects_an_in_flight_first_save(
@@ -440,6 +488,30 @@ def test_unreadable_preview_restarts_its_presentation_together(
     assert "question 1" not in records[0].content
 
 
+@pytest.mark.parametrize("finished", [False, True])
+def test_unknown_session_schema_does_not_erase_preview_progress(
+    app: Flask, classroom: tuple, finished: bool
+) -> None:
+    identity, run, history, _calls = classroom
+    run()
+    if finished:
+        run("finish-preview")
+    with app.app_context(), unit_of_work():
+        row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
+        row.schema_version = 999
+        structure = LogDraftStruct.query.filter_by(shifu_bid=identity).one()
+        parsed = HistoryItem.from_json(structure.struct)
+        parsed.children[0].content_revision += 1
+        structure.struct = parsed.to_json()
+    tree = get_outline_item_tree(app, identity, identity, preview_mode=True)
+    lesson = tree.outline_items[0]
+    assert lesson.status == (
+        LearnStatus.COMPLETED if finished else LearnStatus.IN_PROGRESS
+    )
+    assert lesson.has_content_update_for_current_user is False
+    assert history().has_content_update_for_current_user is False
+
+
 def test_preview_reset_cannot_retire_another_courses_lesson(
     app: Flask, classroom: tuple
 ) -> None:
@@ -574,9 +646,7 @@ def test_draft_update_timestamp_stays_at_generation_start_after_answer(
     with app.app_context(), unit_of_work():
         row = LearnAgentSession.query.filter_by(user_bid=identity, deleted=0).one()
         row.created_at = start
-        DraftOutlineItem.query.filter_by(
-            outline_item_bid=identity
-        ).one().content = "Edited script"
+        _change_draft_body(identity, "Edited script")
     run("An answer after editing")
     assert history().last_progress_updated_at == to_utc_iso(start)
     with app.app_context():
@@ -590,7 +660,7 @@ def test_scriptless_draft_keeps_legacy_history_status_and_reset(
     identity, run, history, _calls = classroom
     progress = uuid.uuid4().hex
     with app.app_context(), unit_of_work():
-        DraftOutlineItem.query.filter_by(outline_item_bid=identity).one().content = ""
+        _change_draft_body(identity, "")
         db.session.add(
             LearnProgressRecord(
                 progress_record_bid=progress,

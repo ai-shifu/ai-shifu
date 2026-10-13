@@ -1,0 +1,878 @@
+# MDF 2.0 Broader Classroom Acceptance
+
+## Purpose / Big Picture
+
+Continue external acceptance beyond the completed single-lesson grading and
+fresh-classroom plans. Their eleven-question acceptance closes that focused
+reporting path, while broader memory, Ask, and classroom readiness remain open.
+
+## Progress
+
+- [x] 2026-10-12: Mark #3117 Ready for Review at the maintainer's request;
+      future PRs start ready so automated reviews run. Remote merge de93f2f89
+      incorporates main d61983f9a with only its web test type fix, and all technical
+      checks for that head pass, including runtime 38190211127. Earlier Draft
+      records below describe historical states, not the current review status.
+- [x] 2026-10-12: Codex identifies an overbroad one-question instruction across
+      checking-direction stages. Scope that shape to an authored one-aspect or
+      one-question limit in the resumed review, system prompt, tool guidance and
+      request-local reference. Preserve explicitly multiple questions and avoid
+      inventing a count when none is authored. Ninety-six SDK delivery cases fail
+      before the fix across single, multiple and unspecified authored counts,
+      reload, saved answers, compaction and normalized controls. Original source,
+      answers, memory permissions and interaction boundaries remain unchanged.
+      The fix passes 777 engine cases and 4420 learning/profile/user/quality cases,
+      four subtests and one expected skip, developer tooling and full local gates.
+      SDK assertions prove delivery and source preservation, not model semantics.
+- [ ] 2026-10-12: Devin and CodeRabbit correctly flag the retained real-model
+      two-direction failure. This compatibility correction does not resolve that
+      semantic acceptance blocker. Keep their findings open while investigating
+      an effective bounded phase/focus contract before another paid probe; do not
+      retry prose-only changes, start the tenth learner or overwrite prior failures.
+      Ready for Review does not mean ready to merge.
+- [x] 2026-10-11: #3117 branch rewrite 9f69659aa passes 713 engine and
+      4356 broader cases, four subtests, one expected skip and full gates.
+      All functional-head technical CI passes, including runtime 38152421162.
+      Sim 79fd8d60e, build 578 / Drone 5367, is Ready on API 2/2 and web 1/1;
+      both APIs match 57 fingerprints and each passes 169 SDK cases, with 846
+      combined local checks and gates. Draft status still skips substantive bot
+      review. No automatic merge occurs.
+- [x] 2026-10-11: Preserve the third probe's failed overall pacing verdict.
+      No full answer checklist or worked reasoning is disclosed before correction,
+      but the hint asks both where the first instruction comes from and how the
+      processor knows its next action. These are two checks rather than the frozen
+      single bounded direction. Partial improvement does not relax the criterion.
+      Complete correction is accepted and actual navigation works. Personal
+      feedback quotes the real storage denial; the disk-file distinction remains
+      general. Six teaching generations settle 9.94 credits with correct actual
+      attribution and no failed/unsettled usage or real summary. Exact reference
+      counts are 1/1/1/1/0/0 with the system review delivered; source and original
+      session/progress/variables/six history elements are unchanged.
+- [ ] 2026-10-11: Keep #3117 Draft and do not start the tenth learner. Prompt
+      delivery, local gates and navigation have passed, but the configured model's
+      single-aspect direction compliance has not. Investigate a bounded feedback
+      phase contract before another changed-runtime paid probe; do not keep adding
+      prose or rerun the same version. Preserve all three failed probes, existing
+      classrooms, original author text, criteria, variables and request limits.
+      Fresh natural compression, complete report and broader milestones remain open.
+- [x] 2026-10-11: #3117 second head 5785901db deploys as sim 319164313,
+      build 577 / Drone 5366. Both actual APIs match 57 fingerprints and each
+      passes 169 SDK cases; actual API 2/2 and web 1/1 are Ready. Local merged
+      checks pass 846 cases and gates. All technical CI for this head passes,
+      including runtime harness 38151317846. CodeRabbit skips the draft, so
+      its success state is not substantive review.
+- [x] 2026-10-11: Preserve the second semantic failure. The wrong-answer hint
+      answers its own retrieval question, adds another question and worked
+      reasoning, then explains development versus execution before waiting.
+      Six teaching generations settle 10.02 credits with correct attribution and
+      no failed/unsettled usage; original session/progress/variables and six
+      history elements are unchanged, with no actual summary. Actual gateway
+      trace confirms the new system review and exact authored context are sent;
+      no delivery loss is found. No tenth learner is created or taught.
+- [x] 2026-10-11: Thirty-six SDK assertions reproduce missing explicit feedback
+      branches and source-before-notice order. Replace the dense resumed review
+      with distinct internal comparison, failed-output and passing-output branches.
+      A checking-direction branch has a brief observed issue, one unanswered
+      bounded question, then the correction tool and wait; it cannot also emit
+      the passing explanation. Place the phase notice after unchanged authored
+      source and subordinate generic diagnostic explanation to its permitted phase.
+- [ ] 2026-10-11: Validate the same-issue branch rewrite and changed runtime
+      before starting fresh acceptance; do not overwrite either failed probe.
+- [x] 2026-10-11: Draft #3117 initial d1024391f deploys as sim 2fa773aea,
+      build 576 / Drone 5365. Actual API 2/2 and web 1/1 are Ready, both APIs
+      match 57 fingerprints and each passes 169 SDK cases; merged local checks
+      pass 846 cases and gates. Its unchanged-prefix three-phase probe passes
+      navigation but fails the authored direction stage: after the retrieval
+      question it supplies preparation, storage and automatic execution as
+      another multi-part question. Preserve this failure; no tenth learner starts.
+      Six teaching generations settle 9.90 credits with actual attribution and no
+      failed/unsettled usage; no real summary occurs. The original session,
+      progress, variables and six history elements remain unchanged. Actual trace
+      author counts are 1/1/1/1/0/0, all exact source with global pacing.
+- [x] 2026-10-11: Thirty-two SDK cases reproduce missing feedback-phase guidance
+      beside the exact authored reference. Clarify that conditional local hint
+      examples are alternatives for matching submissions, not a checklist to
+      combine; acceptance and post-pass analysis are not current hint disclosure.
+      Local examples remain subject to lesson-wide stage and aspect limits. Keep
+      source text, history, grading, state, permissions and budgets unchanged.
+- [ ] 2026-10-11: Validate the same-issue #3117 phase clarification locally and
+      on a new changed-runtime probe before starting the prepared tenth learner.
+      Initial failure evidence and all prior failures remain separate and open.
+- [x] 2026-10-11: User merges #3116 final head 0b8fd5224 as 00ff97fba.
+      Fetch confirms identical trees. All final-head technical CI passes,
+      including runtime harness 38149399794. CodeRabbit substantively reviews
+      all five files through the final head with no actionable comments and
+      85.71% docstring coverage; Devin and Codex have no functional-head findings.
+      Automatic main build 575 / Drone 5364 succeeds; actual CN API 6/6 and web
+      3/3 are Ready on 20261011-00ff97f. This release also includes #3115, so
+      the earlier failed hook needs no replay. Production checks remain read-only.
+- [x] 2026-10-11: Isolate the remaining direction-before-explanation problem.
+      The prior trace proves exact authored pacing is delivered, but the first
+      correction still teaches local reasoning immediately. Generic instructions
+      to explain a gap can invite that later help stage. Keep their feedback
+      requirement subordinate to the author's current stage: at a checking
+      direction, briefly identify the issue, give one bounded guiding question
+      and wait without answering it. A prior knowledge explanation counting as
+      help does not itself skip correction stages. Preserve explicit author
+      permission for immediate explanation or another progression.
+- [x] 2026-10-11: Thirty-six SDK assertions fail before the stage clarification
+      across reload, saved answers, compaction and normalized controls. Controlled
+      callbacks check instruction/tool delivery, not semantic compliance.
+- [x] 2026-10-11: The clarification passes 713 engine and 4356 broader
+      learning/profile/user/quality cases, four subtests and one expected skip,
+      plus developer tools and full gates. Published source remains the retained
+      original snapshot. The next original-prefix probe is prepared with unchanged
+      inputs and twelve-request budget; its semantic result is not yet known.
+- [ ] 2026-10-11: Validate the independent direction-stage correction locally,
+      submit its focused PR, deploy sim and compare frozen original-prefix output
+      before starting any new fresh classroom. Preserve all preceding failures,
+      course criteria, memory permissions, interaction boundaries and budgets.
+- [x] 2026-10-11: Independent normalized-context PR #3116, functional head
+      01e92512b, deploys as sim 330cf65bc, build 574 / Drone 5363. Actual
+      API 2/2 and web 1/1 are Ready; both APIs match 57 fingerprints and each
+      passes 169 isolated SDK cases. Local merged engine/quality checks pass
+      846 cases and full gates. Devin and Codex report no findings on this
+      functional head; CodeRabbit is rate limited, not substantively reviewed.
+- [x] 2026-10-11: The changed-runtime original-prefix probe verifies author
+      context delivery on all four answer/correction model requests; both
+      navigation requests have no answer-section projection. The three phases
+      preserve correct waiting and navigation. Six teaching generations settle
+      9.78 credits with actual progress/block/owner attribution, no failed or
+      unsettled usage and no summary. Original session/progress/variables and
+      six stable history elements are unchanged. This closes only #3116's
+      normalized-context delivery problem, not authored hint quality.
+- [x] 2026-10-11: Preserve the remaining hint-stage failure separately. The
+      new wrong-answer hint no longer recites the complete three-stage answer,
+      but immediately provides several paragraphs of local memory-fetch and
+      preparation reasoning plus two guiding questions. It does not stop at
+      the planned checking direction. Do not loosen the stage expectation or
+      start the prepared tenth learner; no fresh learner or paid fresh call
+      exists. Preserve both preceding probe and ninth classroom failures.
+- [ ] 2026-10-11: Continue the independent authored hint-stage issue with
+      original published rules and frozen submissions. Normalized reference
+      delivery and navigation passing cannot establish semantic stage fidelity
+      or fresh naturally compressed full-classroom acceptance.
+- [x] 2026-10-11: User merges #3115 final head e106d2534 as a659a3523.
+      All final-head technical CI passes, including runtime harness. Sim build
+      573 / Drone 5362 succeeds; actual API 2/2 and web 1/1 are Ready on
+      sim-972155d. Both APIs match 57 fingerprints and each passes 141 SDK cases.
+      CN production still runs 53153e9 in a read-only check: the main push hook
+      for a659a3523 returns 502, so merging is not a deployment receipt.
+- [x] 2026-10-11: Preserve the refined first-question probe failure. Its three
+      phases pass navigation, but the wrong-answer hint again supplies the full
+      preparation/storage/automatic-execution answer. Six teaching generations
+      settle 9.40 credits, correctly attributed, without a real summary. Original
+      session, progress, variables and six history elements are unchanged. This
+      derived non-persisting probe does not supersede the ninth fresh failure;
+      the tenth learner is prepared but not created and receives no paid call.
+- [x] 2026-10-11: Identify a concrete context mismatch. The real raw interact
+      call names an undeclared variable; the host rejects that binding for the
+      displayed control, but focused context matches the unnormalized raw call
+      and declines the authored section. The canonical first-question section
+      already includes lesson-wide pacing and is 5406 bytes; adding another
+      preamble is unnecessary and that uncommitted experiment is discarded.
+- [x] 2026-10-11: Match request-local authored context using the existing host
+      key policy and text-input normalization, without changing raw tool calls,
+      original answers, persistence or permissions. Twenty-four real SDK cases
+      fail before the change, covering rejected variables and restored hints
+      under reload, compaction and saved-answer recovery. Four conservative
+      matching cases cover unrestricted/admitted keys and ambiguous anchors.
+      All 713 engine and 4356 broader learning/profile/user/quality cases pass,
+      with four subtests and one expected skip; developer tools and full gates
+      pass. The retained first-question input now gets one exact 5406-byte
+      reference containing its original global pacing. A private diagnostic
+      initially imports collected_names from the wrong module; correcting that
+      import verifies the projection without a paid call or source change.
+      Real-model disclosure compliance remains open.
+- [x] 2026-10-11: Submit the independent normalized-context fix, integrate sim,
+      verify both actual replicas and SDK inputs, and test original first-question
+      evidence. The focused delivery receipt above passes; the independent hint
+      stage remains failed, so fresh classroom acceptance stays open.
+- [x] 2026-10-11: Pacing head 63c375975 deploys as sim 49d0e473b,
+      build 572 / Drone 5361, API 2/2 and web 1/1 Ready. Both APIs match
+      57 fingerprints and each passes 141 isolated SDK cases; local combined
+      checks pass 818 cases and gates. The initial fingerprint check stops on
+      old ready replicas before any paid request; wait for rollout and retain
+      that failure before the successful verification.
+- [x] 2026-10-11: A derived original-history CPU probe passes one-aspect
+      feedback and correction/navigation mechanics. Only the instruction-system
+      gap is requested; the other genuinely absent threading point is not listed
+      or hidden in input fields. A complete correction is accepted immediately.
+      Three teaching generations plus one actual summary settle 5.94 credits
+      with correct attribution and unchanged original session/variables/history.
+      This does not establish fresh classroom or first-question hint compliance.
+- [x] 2026-10-11: Preserve the ninth fresh learner's failure after three
+      ordinary HTTP/SSE requests. The first wrong-answer hint recites preparation,
+      storage and execution, then asks the learner to repeat the complete answer.
+      Actual trace inputs contain both the new pacing guidance and the author's
+      disclosure restriction. Stop without a correction or further teaching.
+      Six teaching generations settle 8.74 credits with actual progress/block/owner
+      attribution and no failed or unsettled usage. Six history elements are
+      retained; the 3580-byte maximum creates no summary/cache. Source and
+      variables stay unchanged. Do not relabel this failure using the CPU probe.
+- [x] 2026-10-11: Refine the same correction to distinguish a checking direction
+      from a copyable passing answer or ordered answer checklist. A complete
+      solution ending in "try again" remains disclosure; earlier side-question
+      explanations do not relax an authored correction limit. Sixteen SDK
+      assertions fail before this refinement. All 685 engine and 4328 broader
+      cases, four subtests and one expected skip pass, plus developer tools and
+      repository gates. Deployed direction-only verification remains open.
+- [x] 2026-10-11: User merges #3114 final head 4d396b35d as 53153e91e.
+      Fetched main equals the final tested head; all exact-head technical CI
+      passes, including runtime harness. Preserve the eighth uncompressed
+      classroom and seventh reporting failure without relabeling either. CN
+      actual API 6/6 and web 3/3 run 20261011-53153e9, all Ready; automatic
+      build 571 / Drone 5360 succeeds. Production checks remain read-only.
+- [x] 2026-10-11: Isolate authored correction pacing as the next focused
+      problem. The eighth CPU correction identifies two genuine gaps but requests
+      both in one turn despite the one-aspect rule. Earlier first-question hints
+      also supply the full answer before graduated help is exhausted. Existing
+      request-local guidance checks all gaps without distinguishing the visible
+      hint's scope; the original authored rules and actual failures are retained.
+- [x] 2026-10-11: Clarify authored hint stage and aspect limits in base guidance,
+      resumed-answer review and interaction-tool documentation. Internal coverage
+      checks do not authorize listing all gaps; apply the current scope across
+      content and interaction fields, retain accepted points and wait for the
+      correction. Accept a complete answer without staged resubmissions, and do
+      not impose one-aspect hints or a new retry limit when not authored. Sixteen
+      SDK delivery assertions fail before the guidance; they are not semantic
+      grading or proof of real-model compliance.
+- [x] 2026-10-11: Pacing guidance passes 685 engine cases and 4328 broader
+      learning/profile/user/quality cases, four subtests and one expected skip.
+      Developer tools and full repository gates pass. No original lesson, grading
+      criterion, evidence, state machine, arithmetic or request budget changes.
+- [ ] Submit the independent pacing PR, verify deployed sim and a non-persisting
+      original-evidence probe, then use another independent fresh naturally
+      compressed classroom. Passing SDK delivery does not close this acceptance.
+- [x] 2026-10-11: User merges #3111 final head d1f87ce1a as 611656a99.
+      All final-head technical CI passes, including runtime harness. Merge the
+      fetched main into #3114 and retain both independent acceptance histories;
+      conflicts affect only this progress document. CN actual API 6/6 and web
+      3/3 are Ready on 20261011-611656a in a read-only check. The combined
+      runtime and tests equal sim 52a0f1d9f; all 57 recorded fingerprints match
+      and 685 engine cases pass. Developer tools and repository gates pass.
+      No classroom replay or acceptance relabeling follows from this integration;
+      full external acceptance stays open.
+- [x] 2026-10-11: Isolate the seventh fresh classroom's hint overcount.
+      Original course logistics and the first question contain no solution help,
+      but hint_before is true. The following knowledge explanation and correction
+      hint are also true, yielding three rounds instead of the independently
+      frozen two. All references and calculator arithmetic are correct. Preserve
+      the completed report and earlier failures; do not alter course or counts.
+- [x] 2026-10-11: Clarify initial-round evidence in the report prompt, tool
+      schema descriptions, calculator description and current request status.
+      hint_before uses the first record's teaching and visible question fields.
+      Qualifying placeholder help remains eligible under the author's rules;
+      ordinary labels and formatting cues do not automatically count. Later help
+      belongs only to the corresponding hint_after; chronological timing still
+      makes it help before the first answer. Genuine initial help remains valid.
+      Two saved-session SDK delivery cases fail before the correction.
+- [x] 2026-10-11: Initial-round source passes 655 engine cases and repository
+      gates, plus 4252 learning/profile/user/memory-quality/grading cases, four
+      subtests and one expected skip. No evidence shape, semantic grading,
+      arithmetic, stored state or model/request budget changes. Saved-session SDK checks establish delivery,
+      not real-model compliance.
+- [x] 2026-10-11: Adopt AI review's qualifying-placeholder boundary. Include
+      visible initial input hints when they actually provide solution help under
+      author rules; ordinary labels remain semantic non-hints. Two SDK delivery
+      cases fail before the refinement. Add original-round cases covering help
+      supplied through initial teaching or only the placeholder, with and without
+      history projection. Preserve original evidence and later-round deduplication.
+- [x] 2026-10-11: Final initial-round source 68dd143cb passes 659 engine
+      and 4256 related cases, four subtests and one expected skip, plus gates.
+      Sim 52a0f1d9f, build 569 / Drone 5358, finishes API 2/2 and web 1/1
+      rollout; both APIs match 57 fingerprints and pass 141 isolated SDK cases
+      each. Combined local engine/quality checks pass 818 cases and gates.
+- [x] 2026-10-11: The exact seventh saved pre-final checkpoint finishes a
+      separate non-persisting report probe with the original twelve-request
+      limit. Ten pages exactly read all 27 originals; seventeen semantic inputs,
+      ten navigation exclusions, one calculation, all eleven rows and frozen
+      counts match. Initial hint_before is false; its three hint_after flags are
+      true/true/false, giving two rounds and one before first answer. Visible
+      totals are six hints, with grounded original mistakes and CPU coverage.
+      Twelve teaching generations plus one real summary settle 34.91 credits
+      with actual progress/block/owner attribution. Twelve actual summary
+      projections bind to original text/cache. Original session/progress/variables
+      and 56 stable history elements remain unchanged. The seventh completed
+      failure and all older failures remain independent.
+- [x] 2026-10-11: The eighth isolated learner completes eleven questions
+      through 28 unchanged ordinary HTTP/SSE requests. Eight pages exactly read
+      27 originals; seventeen semantic inputs, ten navigation exclusions, one
+      calculation and all eleven rows match the independently frozen counts.
+      Six hints, five hinted questions, fourteen attempts, three corrections,
+      eight first-correct and six independent-first are reported correctly.
+      Initial help is not overcounted; personal error/omission feedback remains
+      grounded. All 28 visible texts match 56 stable history elements. Thirty-eight
+      teaching generations settle 77.44 credits with actual progress/block/owner
+      attribution, no failed/unsettled usage and unchanged source/variables.
+- [x] 2026-10-11: Retain the eighth journey's natural-compression insufficiency.
+      Its pre-final maximum teaching is 3665 bytes, with no eligible original or
+      summary cache. Final-report text raises the raw maximum to 4135 bytes but
+      stays in protected recent history; there is no actual summary generation
+      or cache. The full acceptance assertion correctly remains false despite
+      all report/count/evidence checks passing. Do not add requests, alter
+      answers, enlarge budgets or replay the completed classroom to force it.
+      Preserve the separate CPU two-aspect hint fidelity violation as well.
+- [ ] Complete independent naturally compressed fresh acceptance and graduated
+      hint fidelity. Neither the passing compressed checkpoint nor the eighth
+      uncompressed complete classroom closes these remaining requirements.
+
+
+- [x] 2026-10-11: User merges #3113 final head 560f91df7 as ff8d65577.
+      All exact-head technical CI passes, including runtime harness. Its source
+      tree equals main; CN API 6/6 and web 3/3 run 20261011-ff8d655 on a
+      read-only deployment check. All actionable AI findings have original-thread
+      replies; adopting fixes do not establish a complete latest-head AI review.
+- [x] 2026-10-11: Final paired-tag correction plus #3111 deploys as sim
+      5a540c7df, build 566 / Drone 5355. Both APIs match 57 fingerprints and
+      each passes 137 isolated SDK cases; local combined checks pass 796 cases
+      and gates. A seventh isolated learner completes eleven questions through
+      28 ordinary HTTP/SSE requests, with source, answers and budget unchanged.
+      CPU feedback and final advice retain already covered meaning and name only
+      actual gaps. Preserve the separate one-aspect-per-round hint violation.
+- [x] 2026-10-11: Preserve the seventh completed journey's reporting failure.
+      Ten read pages exactly cover 27 original records; all seventeen semantic
+      inputs and ten navigation exclusions bind correctly. One successful
+      calculation reports seven hints, against six independently frozen before
+      the final answer; question 1-2 has three instead of two. Do not repair or
+      relabel its stored calculation. All 28 texts match 56 stable history
+      elements. A 4131-byte original naturally creates one summary/cache entry.
+      Forty-one teaching generations plus one summary settle 87.57 credits with
+      actual progress/block/owner attribution and no failed or unsettled usage.
+      No variables are written; the published source and prior session evidence
+      remain unchanged. Twenty-eight traces contain 37 summary projections bound
+      to original text and the cached summary, plus 28 exact authored-section
+      references. The opening course outline and question have no solution help,
+      but the model sets hint_before=true and separately counts the later
+      knowledge explanation; retain this semantic overcount.
+- [x] 2026-10-11: Isolate the seventh journey's hint attribution in independent
+      #3114. Its saved-checkpoint and eighth-classroom receipts above pass
+      initial-hint reporting; fresh natural compression and graduated hints
+      remain open.
+
+- [x] 2026-10-11: Request-local checklist candidate a9a0e2289 deploys as
+      sim f704f0fc4, build 562 / Drone 5351; both APIs match 56 fingerprints
+      and each passes 72 isolated SDK checks. Sim checks pass 752 cases.
+      Preserve another derived-slice semantic failure: the wrong-answer hint
+      still requests the already covered bottleneck title despite all three
+      requests receiving the checklist. Correction/navigation mechanics pass,
+      but do not repair the false hint. Three teaching generations plus one
+      summary settle 5.71 credits; original state and 54 history elements remain
+      unchanged. No unchanged paid retry or sixth fresh classroom is started.
+- [x] 2026-10-11: Add a read-only authored-section projection to the same
+      focused correction. A unique standalone text-input anchor selects an exact
+      static section near the resumed answer, retaining full authored acceptance.
+      Duplicate/unsupported anchors, variables and oversized sections decline
+      focusing and retain the original full script. This is reference placement,
+      not a host grading/cursor decision, new model call or budget increase.
+      Four SDK delivery cases fail before the projection; compaction-off,
+      reload, saved-answer recovery and unchanged evidence are verified separately.
+- [x] 2026-10-11: Focused-source validation passes 657 engine cases and
+      4281 broader learning/profile/user/quality cases, four subtests and one
+      expected skip. Developer tools and repository gates pass. The actual
+      failed CPU interaction resolves to an exact 2128-byte authored section
+      containing the equivalent-coverage allowance and hardware threading,
+      excluding the next question. These checks do not establish model compliance.
+- [x] 2026-10-11: Focused sim feedback and real navigation pass at
+      debbfe49f / sim d312f7ad6. Each API matches 57 fingerprints and passes
+      92 isolated SDK cases; the independent fresh follow-ups below remain
+      separate from this derived-slice result.
+- [x] 2026-10-11: User merges #3110 at f1e9bf190, final head
+      ac1c6421e. Its tree equals fetched main and all technical CI passes.
+      CN API 6/6 and web 3/3 run 20261011-f1e9bf1. CodeRabbit substantively
+      reviews without code findings; its 77.78% docstring warning has an
+      original-discussion reply citing the repository's pytest exemption, without
+      claiming the third-party 80% threshold passes.
+- [x] 2026-10-11: Sim 4670de604 deploys through build 559 / Drone 5348;
+      both APIs match 55 fingerprints and each passes 66 isolated SDK checks;
+      sim checks pass 700 cases. Preserve a genuine pre-final probe failure:
+      duplicate navigation references cause a refused calculation, repair uses
+      the twelfth allowed request, and no report follows. Twelve teaching
+      generations and one summary settle 33.52 credits; original state and
+      56 history elements remain unchanged. Do not repeat it with a larger budget.
+- [x] 2026-10-11: A separately derived single-question slice preserves the
+      original interaction and input, passes focused meaning coverage and
+      navigation, and settles three teaching generations plus one summary for
+      5.94 credits. This is explicitly a constructed in-memory slice, not a
+      persisted checkpoint or fresh classroom; original state/history is retained.
+- [x] 2026-10-11: Preserve the fifth fresh ordinary classroom's failure after
+      27 HTTP/SSE requests, before the final answer. Despite original Cache/DMA
+      effects and the author's explicit acceptance, the CPU hint again requests
+      the category title and overlooks genuinely absent hardware threading.
+      Its actual request contains original input, authored allowance and #3110
+      guidance. The unfinished 54-message session is retained. A 4625-byte
+      explanation naturally creates one summary; 23 generation inputs contain
+      projections bound to original and cached content. All 28 generations
+      (27 teaching plus one summary) settle 43.29 credits with actual
+      progress/block/owner attribution, no failed/unsettled usage and unchanged
+      published source. A read-only trace timeout is retained before successful
+      re-read; teaching requests are not retried. No final-report pass is claimed.
+- [x] 2026-10-11: Add current-request criterion matching to default prompts
+      when deferred interactions resume, including saved-answer recovery.
+      Match all authored requirements to original meaning before finding gaps
+      and applying authored hint limits; clarification/navigation is not an
+      answer. Four SDK regressions fail before delivery. This adds no semantic
+      validator, model call, persisted grade, source mutation or request budget.
+- [x] 2026-10-11: Request-local review passes 635 engine cases and 4260
+      learning/profile/user/quality cases, four subtests and one expected skip.
+      Developer tools and repository gates pass after regenerating the knowledge
+      inventory for the new prompt. The initial broader command names a missing
+      test path and runs no tests; the corrected test selection is the receipt above.
+- [x] 2026-10-11: Adopt the AI review boundary finding: a deferred host result
+      for a question never shown is not a learner answer. Two SDK reload
+      regressions fail before the prompt correction; all 637 engine cases pass
+      after it. Re-asking a renderable control is retained without a grade.
+- [ ] Close independent fresh classroom acceptance after the failures below;
+      deployed request-local guidance alone does not establish full compliance.
+- [x] 2026-10-11: Keep #3111's focused authored-context probe separate from
+      full acceptance. Its three teaching generations and one summary settle
+      5.78 credits with unchanged original state/history. Meaning coverage and
+      real next-question selection pass; one-aspect-per-round hint fidelity
+      remains open. This does not supersede any earlier failed fresh classroom.
+- [x] 2026-10-11: Preserve a sixth fresh learner's navigation failure on
+      sim d312f7ad6 after four ordinary HTTP requests. The accepted correction
+      prints an empty paired interact tag, then advances without a click. Main's
+      text-tag recognizer also misses that shape; no focused authored section
+      reaches these variable-mismatched interactions. Stop the unfinished run.
+      Nine teaching generations plus one real summary settle 13.00 credits with
+      correct progress/block/owner attribution; nine visible text elements match
+      thirteen stable persisted history elements. A 4976-byte original produces
+      one summary/cache entry; four actual inputs bind its projection to source.
+      Published source is unchanged. No final-report or full-classroom pass.
+- [x] 2026-10-11: Independently extend the existing text-tag guard to empty
+      single-line paired tags. Never parse their attributes into a question,
+      answer or memory write. Nine regressions fail before the correction,
+      covering every streaming split, bounded refusal, finish protection and
+      an accepted answer followed by real navigation selection. Preserve exact
+      authored examples, inline/fenced/indented code and nonempty HTML content.
+- [x] 2026-10-11: Paired-tag validation passes 647 engine cases and
+      4272 learning/profile/user/quality cases, four subtests and one expected
+      skip. The first broader command names absent test files and runs no tests;
+      the corrected selection produces this receipt. Initial lint rejects test
+      assertion style; use the established assert pattern rather than exclusions.
+- [x] 2026-10-11: Verify paired-tag recovery on sim and real navigation;
+      preserve its derived-slice scope and the separate fresh failure below.
+- [x] 2026-10-11: Adopt the AI finding that permissive opening-tag matching
+      can consume nonempty bodies ending in `>`. Two additional SDK regressions
+      fail before delimiting the opening tag with quote-aware attribute runs.
+      Preserve quoted `>` in empty controls and nonempty body text. All 650
+      engine cases and repository gates pass; do not claim earlier CI covers
+      the new head or that an untested sim deployment establishes real recovery.
+- [x] 2026-10-11: Candidate 0126fb094 plus #3111 deploys as sim f3f605180,
+      build 565 / Drone 5354, with 791 local engine/quality cases and gates.
+      Both APIs match 57 fingerprints and each passes 132 isolated SDK cases.
+      A derived original-history navigation probe actually triggers three paired
+      text-tag recoveries: wrong answer waits for correction, correction waits
+      for selection and selection opens the next question. Six teaching requests
+      plus one summary settle 9.05 credits; original state and thirteen history
+      elements remain unchanged. Hint fidelity and full fresh acceptance stay open.
+- [x] 2026-10-11: Adopt the quoted-less-than review finding. Four new
+      finish-path and streaming checks fail before permitting `<` inside either
+      quote style; unquoted delimiters and nonempty bodies stay bounded. All
+      655 engine cases and repository gates pass. The preceding paid probe is
+      attributed only to its actual head, without an unchanged paid retry.
+- [x] 2026-10-11: Fetch latest main e39ac3e9f and confirm #3104 merged.
+      Its final head 7ac1d262e passes all technical checks, including runtime
+      harness; CodeRabbit remains pending. CN API 6/6 and web 3/3 run
+      20261011-e39ac3e; sim still runs ecbe49e29. Main also includes the
+      independent lesson-permission and translated-notice changes.
+- [x] 2026-10-11: Preserve the original feedback-grounding failure: the
+      incorrect submission denies prior storage, but the accepted-answer
+      explanation calls the author's disk-file example the learner's earlier
+      confusion. Add base feedback guidance separating authored examples,
+      original attempts, corrections and omissions. Four SDK regressions fail
+      before the guidance and pass after it, including saved-session reload.
+      These verify instruction and original-input delivery, not semantic grading.
+- [x] 2026-10-11: Local validation passes 627 engine cases and 4206
+      learning/profile/user/quality cases, four subtests and one expected skip.
+      Developer tools and repository-wide gates pass. The initial gate uses
+      system Python 3.9 for python3 and fails on tomllib; rerunning with the
+      ai-shifu conda bin directory first on PATH passes without repository changes.
+- [ ] Verify grounded feedback on deployed sim, then start a separate fresh
+      ordinary-request eleven-question journey with natural compression.
+- [x] 2026-10-11: Deployed feedback checkpoint passes the focused manual
+      comparison: the correction explanation cites the learner's actual prior
+      denial of storage and presents the disk-file distinction generally, without
+      assigning that example to this learner. All three requests receive the new
+      policy; wrong/correct/navigation boundaries pass and one real semantic
+      summary occurs. Three teaching generations plus one summary settle 4.31
+      credits, matching actual progress/block/owner attribution, with no failed
+      or unsettled usage. Original session/progress/variables and eight history
+      elements are unchanged. This is not broad factual teaching accuracy or a
+      fresh compressed-classroom pass. Begin the independent new HTTP/SSE journey.
+- [x] 2026-10-11: Submit focused #3108 at 5a530cd66 and integrate sim
+      baf57b452. Automatic build 552 / Drone 5341 succeeds; API 2/2 and
+      web 1/1 finish rollout, HTTP returns 200. Both APIs match 55
+      runtime/resource fingerprints and pass ten isolated navigation/feedback
+      SDK cases each. Sim engine/quality checks pass 696 cases. The first
+      fingerprint attempt sees old terminating replicas and stops before any
+      paid requests; repeat only after rollout completion establishes the result.
+- [x] 2026-10-11 03:25 UTC: Transfer outstanding external acceptance from the
+      completed grading plans into this named active continuation record.
+- [ ] Run a fresh complete journey that naturally triggers history compression.
+- [x] 2026-10-11: New learner completes all eleven questions through 28
+      ordinary HTTP/SSE requests on sim baf57b452. The 4354-byte initial
+      explanation triggers one real summary/cache entry. Nine original-history
+      pages contain 27 records; all seventeen relevant inputs and ten navigation
+      exclusions match. One calculation, all eleven rows and visible totals match
+      the independent pre-final expectation: fourteen attempts, three retries,
+      eight first-correct, six independent-first, six hints across five questions,
+      and three non-answer questions. Twenty-eight visible texts match stored
+      history exactly; repeated reads preserve all 56 elements. All 42 generations
+      settle 81.89 credits with actual progress/block/owner attribution and no
+      failed or unsettled usage. Published source is unchanged. This establishes
+      the fresh compressed reporting path, but the feedback finding below prevents
+      closing full authored classroom acceptance.
+- [x] 2026-10-11: Retain that journey's final feedback failure: the advice
+      infers that the learner tends to remember only frequency, memory and disk,
+      despite their original answer also supplying word length. Reinforce the
+      same personal-feedback evidence boundary for omissions, habits and final
+      advice; do not infer independent effort from a correction after a supplied
+      hint. Add two SDK final-review/reload cases retaining original input despite
+      a misleading prior generated diagnosis; all six delivery assertions fail
+      without the added guidance. Real-model verification remains separate.
+- [x] 2026-10-11: The expanded correction passes 4208 learning/profile/
+      user/quality cases, four subtests and one expected skip; developer tools
+      and repository gates pass. CodeRabbit's original docstring warning has a
+      reply linking pushed 875f1315d and focused validation; its rerun reports
+      100%. No actionable code findings are present at this point.
+- [x] 2026-10-11: Deploy expanded functional head 93e4e5ccf as sim
+      c795d3a32, automatic build 554 / Drone 5343. API 2/2 and web 1/1
+      finish rollout; both APIs match 55 runtime/resource fingerprints and
+      each passes twelve isolated navigation/feedback SDK checks. Sim checks
+      pass 698 cases. A second new learner starts the unchanged published
+      lesson; no previous classroom is reset or overwritten.
+- [x] 2026-10-11: The second fresh journey completes all eleven questions on
+      sim c795d3a32 through the same 28 ordinary requests. One real summary
+      follows a 5118-byte initial explanation; nine pages cover 27 original
+      records. All eleven rows and independent pre-final counts match; all
+      28 texts match 56 stable stored history elements. All 41 generations
+      settle 79.32 credits with correct actual attribution and no unsettled or
+      failed usage. Keep the feedback failure: final advice reassigns the
+      author's disk-file example to the learner despite correctly quoting the
+      actual denial of storage in the table. Other advice infers unsupported
+      attention/causes, and closing prose says two corrections where calculated
+      totals say three. Neither completed journey passes personal feedback.
+- [x] 2026-10-11: Reinforce the existing report prompt, calculator description
+      and successful-calculation reminder with the same original-submission
+      evidence boundary for every personal diagnosis, advice and closing.
+      Quote the actual mistake or directly observed omission; do not attach an
+      author's diagnosis to a real quote, invent causes or recount totals.
+      Two existing real SDK resume cases fail before delivery changes and pass
+      after them. Local checks pass 629 engine cases and 4208 related cases,
+      four subtests and one expected skip. Fetch and merge main 851937de1
+      (independent login visibility fix); real-model verification remains open.
+- [x] 2026-10-11: Report-path head e98826f47 deploys as sim 855a6420d,
+      build 555 / Drone 5344; API 2/2, web 1/1 Ready and HTTP 200.
+      Both APIs match 55 fingerprints and pass 64 isolated SDK checks each;
+      sim checks pass 698 cases. A third new learner stops after four ordinary
+      requests because the first corrected-answer explanation again personalizes
+      the disk-file example. Preserve this failed classroom; it has no actual
+      summary/cache and never reaches the final report. Four generations settle
+      5.50 credits with correct actual attribution, no failed/unsettled usage.
+- [x] 2026-10-11 09:31 UTC: User merges #3108 at ed5854690;
+      its final head is e98826f47. Fetch main and branch the uncommitted
+      follow-up from that merge; the fetched main tree equals the tested
+      candidate. Preserve all three fresh feedback failures and isolate the
+      core/tool quote requirement in the next PR. Do not merge automatically.
+- [x] 2026-10-11: Require an original quote for each personal misconception
+      in core feedback and the actual interact tool description as well as base
+      guidance. Without supporting original input, explain the distinction
+      generally. Add six failing SDK delivery assertions before this correction;
+      this remains guidance, not a semantic output validator or grading change.
+- [x] 2026-10-11: User merges #3109 at ad109f9d3, final head
+      a6830abc2. All final-head technical CI passes, including runtime harness;
+      CodeRabbit remains rate-limited, not substantively reviewed. CN API 6/6
+      and web 3/3 run 20261011-ad109f9. Sim 503b9d462 deploys through
+      build 557 / Drone 5346; both APIs match 55 fingerprints and pass
+      64 isolated SDK checks each. Original-storage-error checkpoint passes:
+      quote the actual denial of storage and teach disk files generally;
+      wrong/correction/navigation boundaries hold. Three teaching generations
+      plus one summary settle 4.42 credits; original state and eight history
+      elements remain unchanged. No previous failed classroom is relabeled.
+- [x] 2026-10-11: A fourth new learner completes eleven questions on that
+      sim through 28 ordinary HTTP/SSE requests. A 4263-byte explanation
+      naturally creates one real summary/cache; 39 actual generation inputs
+      contain summary projections bound to the original and cached content.
+      Ten pages exactly read 27 original records, all seventeen semantic inputs
+      and ten navigation exclusions; one successful calculation, all eleven
+      rows and independent pre-final totals match. Twenty-eight texts match
+      56 stable history elements. All 44 generations settle 91.78 credits with
+      correct actual progress/block/owner attribution, no failed/unsettled usage.
+      Published source remains unchanged. Original disk-file attribution and
+      performance-indicator narrowing are absent, and closing counts three
+      corrections. This does not establish complete authored teaching quality.
+- [x] 2026-10-11: Preserve a distinct false-omission finding in that journey.
+      The first single-CPU answer explains both memory-wait reduction through
+      Cache and I/O-wait reduction through DMA. The author explicitly accepts
+      such coverage without the balanced-throughput title, but correction and
+      final advice list the missing title as another omitted requirement. A
+      hint also asks again about already supplied superscalar execution. Numeric
+      grading remains unchanged because RISC and hardware threading truly are
+      missing. Full feedback acceptance remains open despite exact statistics.
+- [x] 2026-10-11: Add a focused correction for false omissions in core
+      feedback, interaction guidance, the report prompt and post-calculation
+      reminder. Compare the complete original meaning with authored acceptance;
+      category-label absence alone cannot establish missing knowledge, and earlier
+      hint gap lists are not evidence. Four SDK delivery assertions fail before
+      guidance; eight feedback cases pass after it, including equivalent concrete
+      coverage, earlier misleading feedback and reload. Local validation passes
+      631 engine and 4210 related cases, four subtests and one expected skip.
+      Controlled models prove delivery and retained evidence, not real grading.
+- [ ] Verify the focused semantic-coverage correction on deployed sim, then
+      repeat a separate fresh ordinary compressed journey without changing the
+      course, criteria or request budget.
+- [x] 2026-10-11: Confirm #3103 merged as a7345f6de with all technical CI
+      passing, including runtime harness. A new internal learner starts from the
+      first question on sim de8cf2629; both APIs match 55 runtime fingerprints.
+      Preserve its four-request navigation failure: after genuine clarification,
+      an incorrect answer and learner correction, the model skips the authored
+      single-option next-question control and asks question 1-3 immediately.
+      All four generations settle 5.29 credits with actual progress/block/owner
+      attribution. The 4663-byte explanation is eligible for later compression,
+      but no summary has run yet; neither fresh completion nor compression passes.
+- [x] 2026-10-11: Clarify authored one-option navigation boundaries in the
+      notation policy. Answer acceptance and side questions cannot consume the
+      required selection; the actual click advances directly without a second
+      confirmation. No new pauses, label-based host inference or state mutation.
+      Six SDK guidance-delivery/deferred-control cases cover first answers,
+      corrections, clarification submissions and reload; these are controlled
+      model fixtures, not proof of real-model semantic compliance. A true
+      MessageTurn while navigation is pending is rejected without advancing or
+      consuming the option; automatic continuation also cannot select it.
+- [x] 2026-10-11: Preserve the failed notation-only recovery on sim 42dcaf263
+      (build 547 / Drone 5336). Both APIs match 55 fingerprints and each passes
+      six isolated SDK checks. The real gateway receives the new policy, but
+      the correct retry still skips navigation. Stop after two teaching requests;
+      all settle 2.75 credits with actual attribution, with original session,
+      progress, variables and eight history elements unchanged. No summary runs.
+- [x] 2026-10-11: Reinforce the same authored boundary in core turn structure
+      and the actual interact tool description, with an explicit three-turn
+      example. Six provider-delivery assertions fail before those additions.
+      These remain guidance, not a host cursor or deterministic semantic guard.
+- [x] 2026-10-11 07:32 UTC: Verify the reinforced navigation correction on
+      sim ecbe49e29, automatic build 548 / Drone 5337. API 2/2 and web 1/1 are
+      updated/ready; HTTP 200; both APIs match 55 runtime/resource fingerprints
+      and each passes six isolated SDK cases. From the genuine turn-two
+      checkpoint, wrong answer waits for correction, the accepted correction
+      produces only the authored next-question control, and its actual selection
+      opens question 1-3 directly. All three gateway requests receive notation,
+      core-turn and tool-description guidance. The third request also contains
+      one actual semantic-summary projection/cache entry for the long original.
+      Three teaching generations plus one summary settle 4.27 credits with actual
+      progress/block/owner attribution and no failed or unsettled generations.
+      Original messages/memory remain in the in-memory session; stored session,
+      progress, variables and eight history elements are unchanged. This passes
+      narrow navigation recovery, not a fresh compressed-classroom journey.
+- [x] 2026-10-11: Final focused validation passes 623 engine checks and 3185
+      learning/quality checks, one expected skip and four subtests; tools and full
+      gates pass. Sim engine/quality checks pass 669 cases. The executable interact
+      AST is unchanged apart from its model-visible docstring. The AI channel
+      coverage finding and independent docstring warning both have original-thread
+      replies after pushed commit 76aa35e5e; CodeRabbit substantively reviews that
+      functional head with no new findings and its docstring check reports 100%.
+      Final receipt-only CI is tracked separately and must not be assumed passed.
+- [x] 2026-10-11: Locate the retained hint undercount in question 1-2. The
+      original pre-answer explanation and later wrong-answer correction are two
+      qualifying rounds; both refused calculator calls supply hints=1 and
+      hints_before_first=1 instead of total hints=2. Arithmetic is unchanged.
+- [x] 2026-10-11: Clarify total hint rounds before and after the first answer in
+      provider schema, report instructions and request-local report guidance.
+- [x] 2026-10-11: Retain the failed prompt-only checkpoint probe on sim
+      a77744fea. Ten pages and 27 records read exactly; navigation coverage and
+      finish recover, but total hints stays five. Fifteen teaching requests and
+      one summary settle 42.72 credits; original session/progress are retained.
+- [x] 2026-10-11 06:35 UTC: Verify classified-round aggregation on sim
+      de8cf2629 (automatic build 545 / Drone 5334). API 2/2 and web 1/1 are
+      ready; both APIs match 55 runtime/resource fingerprints and each passes
+      58 isolated report checks. The genuine pre-final checkpoint reads ten
+      pages and 27 original records exactly, binds all seventeen relevant inputs,
+      excludes ten navigation records, and calculates once. All eleven rows and
+      saved totals match: six hints, five hinted questions, fourteen attempts,
+      three retries, eight first-correct and six independent-first. The generated
+      report agrees and ends normally. Fourteen teaching requests plus one summary
+      settle 39.65 credits with matching actual progress/block/owner attribution.
+      All fourteen gateway requests retain the observed summary/projection and
+      round-field guidance. Original session, progress, variables, and 55 history
+      elements retain their content/order; one synthetic pending element ID varies
+      during read-only history projection. This non-persisting checkpoint does not
+      close fresh complete compressed-classroom acceptance.
+- [x] 2026-10-11: Address the AI-reviewed zero-total invariant. Three regressions
+      distinguish unanswered zero, nonzero, and unknown hints; the zero case fails
+      before correction. Final engine checks: 617; learning/quality checks: 3179
+      with one expected skip and four subtests. Developer tools and full gates
+      pass; sim engine/quality checks: 663. An initial broad test invocation from
+      the repository root fails fixture setup because it expects src/api as cwd;
+      the corrected src/api run is the passing receipt above. Both actionable AI
+      findings have original-thread replies with pushed fixes; the independent
+      docstring percentage warning is explained without claiming it passes.
+- [x] 2026-10-11: Add initial/following-teaching round flags, unique-group
+      aggregation, before-first derivation and scalar consistency checks. All
+      614 engine checks and 3176 learning/quality checks pass, with one expected
+      skip and four subtests; repository-wide gates pass. Original outcome
+      arithmetic and reference coverage remain unchanged.
+- [x] 2026-10-11: Two provider-delivery regressions fail before the correction.
+      Corrected guidance passes 604 engine checks and 3120 learning checks with
+      one expected skip and four subtests. Two additional original-evidence cases
+      preserve distinct pre-answer/correction rounds under a projected history;
+      supplied-count arithmetic is checked without claiming semantic grading.
+- [x] 2026-10-11: Preserve a new 28-request natural classroom failure on sim
+      96d6b87c8. A 4237-byte explanation triggers one real summary. The final
+      report reads all ten evidence pages but omits ten ordinary single-choice
+      navigation references; two invalid calculations exhaust the unchanged
+      twelve-request budget. All forty generations settle 71.82 credits.
+- [x] 2026-10-11: Fix explicit navigation exclusions and bounded coverage errors.
+      Verify retained-input recovery offline and 43 isolated report checks on each
+      deployed sim API replica; a fresh natural classroom remains a separate step.
+- [x] 2026-10-11: Four regressions fail before the correction; all 43 report
+      protocol/statistics checks and 602 engine checks pass afterward. The real
+      SDK repairs a missing navigation exclusion without counting it as an answer.
+      Offline retained-input repair identifies all ten missing references, but
+      the model's five hint rounds differ from the saved expectation of six.
+- [x] 2026-10-11 05:45 UTC: sim integration 1f1e27f75 deploys through manual
+      Drone build 5330 (build 541) and automatic API/web rollout. API 2/2 and
+      web 1/1 are ready; both APIs match 55 source/resource fingerprints. Each
+      deployed image passes all 43 isolated report checks without paid generation
+      or database writes. This proves the focused correction, not a new classroom.
+- [ ] Exercise additional configured providers, models, and teaching languages.
+- [ ] Verify broader multi-lesson memory and Ask journeys with ordinary requests.
+- [ ] Collect independent human feedback and evaluate longer-term generation cost.
+- [ ] Record evidence, remaining failures, and final acceptance boundaries here.
+
+## Surprises & Discoveries
+
+The eighth fresh classroom completes with exact hint counts and original
+feedback, but its first explanation is only 3665 bytes. A 4135-byte final report
+cannot establish compression: recent teaching is protected and no actual summary
+or cache exists. Preserve the failed natural-compression assertion separately
+from successful report semantics; do not concatenate outputs, lower thresholds,
+add turns or rerun a completed classroom to manufacture a pass.
+
+The seventh completed fresh journey isolates a new hint overcount: original
+first-interaction teaching contains only course logistics and the question, yet
+hint_before is true. Its subsequent knowledge explanation and wrong-answer hint
+are correctly marked hint_after. The resulting three rounds should be two;
+all reference coverage and arithmetic remain correct. Retain the frozen
+pre-final expectation and stored report. This is distinct from previous
+undercounts and personal-omission failures.
+
+The new fresh journey retains a separate first-question hint concern: after the
+wrong answer, the teacher gives all three target answer stages explicitly even
+though the authored lesson asks for a directional, graduated hint rather than
+the complete answer. Keep the original turn and assess this independently of
+personal-feedback grounding, successful navigation or correct report arithmetic.
+
+The narrow navigation recovery also exposes a separate feedback-grounding
+observation: after the actual wrong answer says the program can be written while
+executing, the accepted-answer explanation attributes a hard-disk/file-saving
+confusion to the learner. That confusion is an authored example, not this
+learner's submitted mistake. Preserve the output and review this separately;
+navigation passing does not establish full feedback or grading quality.
+
+The successful eleven-question run did not trigger compression: its largest
+original-message JSON was 3712 bytes. Passing it cannot establish naturally
+compressed teaching or other models' compliance.
+
+The next fresh journey does trigger compression, but cannot finish its report.
+Typed confirms are omitted from original-answer evidence; ordinary single-choice
+navigation remains evidence and must be explicitly excluded by the teaching
+model. The model supplies seventeen relevant inputs but omits all ten navigation
+references. The existing coverage check correctly refuses both calculations;
+its status-only error does not identify the missing references. Compression
+activity alone does not demonstrate that compression caused this failure.
+The failed model judgments also undercount one hint round. Keep that independent
+semantic discrepancy visible; fixing reference coverage does not close it.
+The omitted round is the first question's correction after an incorrect answer;
+the pre-answer explanation is counted, but the model's total collapses both to
+one. The final-report contract must distinguish total rounds from a per-question
+help flag and from the before-first subset. Original messages contain both rounds.
+
+## Decision Log
+
+- Keep correction pacing authored and model-facing. Do not add a host semantic
+  grader, generated hint, automatic rejection, retry cap or extra model call.
+  Full internal coverage and the permitted visible hint are separate decisions.
+- Preserve original published lessons, generated history, and learner records.
+  Use isolated internal learners for automated acceptance.
+- Keep system variables shared only through registered `sys_` keys; course
+  variables stay within their course. Do not reintroduce custom cross-course sharing.
+- Keep MDF 1.0 retirement limited to inventory; deletion is outside this plan.
+- Each further change remains a focused PR, with user-owned merging.
+- Keep coverage validation, original evidence, result-byte bounds and request
+  budgets unchanged. Expose reference-only missing/unknown/duplicate diagnostics
+  and clarify explicit exclusions; never infer navigation from an option label.
+- After the prompt-only probe fails, derive hint counts from explicit initial
+  and following-teaching round judgments bound to original references. Do not
+  infer hint flags from outcomes. Deduplicate shared answer groups, reject
+  conflicting flags or scalar assertions, and propagate unknown rounds. Keep
+  authored definitions, outcome arithmetic and existing budgets unchanged.
+
+## Outcomes & Retrospective
+
+Broader external acceptance remains incomplete. The focused initial-hint
+correction passes a genuine saved pre-final report probe with real summary
+projection, original-evidence coverage and settled attribution. A separate eighth
+fresh complete classroom passes report counts and grounded feedback but has no
+natural summary; its full acceptance assertion remains false. Retain both scope
+boundaries and all preceding failed classrooms.
+
+The seventh fresh eleven-question
+journey completes with real natural compression, exact original-evidence reads,
+settled attribution and corrected personal-omission feedback. Its report still
+overcounts one hint by treating initial question instructions as help. Preserve
+that failure, all preceding failures and the separate graduated-hint finding.
+The focused authored-reference correction passes its stated meaning-coverage
+scope; it does not close the independent reporting issue.
+Graduated-hint fidelity remains a separate concern. Do not extrapolate these
+results to other providers, independent human experience or full authored teaching.
+
+## Context and Orientation
+
+Start with [memory quality evidence](../../references/markdownflow-memory-quality.md)
+and the completed [fresh classroom plan](../completed/mdf2-fresh-grading-classroom.md).
+The Engine and learning host own context and tool behavior; published lesson
+configuration determines the real model. Existing memory and Ask plans retain
+ownership of their implementation scope.
+
+## Plan of Work
+
+Choose one acceptance gap at a time, state observable expectations before the
+run, collect ordinary teaching and persisted history evidence, and compare the
+results. If a failure requires code, reproduce it and submit a separate focused
+fix with regressions before repeating acceptance.
+
+## Concrete Steps
+
+Inspect the current evaluation CLI and deployed lesson configuration before
+selecting cases. Use the existing learning routes and usage attribution. Preserve
+private evidence outside source control; commit only a redacted receipt and
+boundary statement. Record each run and follow-up in Progress.
+
+## Validation and Acceptance
+
+A compression run must show actual summary activity and correct retained lesson
+facts and attempt accounting. Provider and language results must identify the
+actual configuration tested. Multi-lesson memory and Ask must retain correct
+scope and history. Independent feedback and cost need their own observations;
+a scripted pass cannot close them.
+
+## Idempotence and Recovery
+
+Do not reset production learners or rewrite authored courses. Reuse existing
+read-only evidence for audits and use a new isolated learner when a fresh journey
+is required. Avoid rerunning paid generation solely to repair an evidence parser.
+
+## Interfaces and Dependencies
+
+Use existing Engine tools, normal learning HTTP/SSE routes, published course
+configuration, history reads, and usage ledgers. No schema change, new memory
+scope, provider bypass, or MDF 1.0 deletion is authorized by this acceptance plan.
+
+The focused correction owns engine/exercise_statistics.py, its prompt, report
+tests and the exercise-quality fixture consumer. Hint flags extend tool inputs;
+old stored arguments remain loadable, but new calls cannot use unsupported scalar
+counts. Derived hint totals keep the output shape and byte budget. Outcome
+arithmetic and exact reference coverage remain compatible. Verify real SDK
+delivery, unknown propagation, shared-group consistency and actual-model report
+accuracy. Preserve failed classrooms and probes; keep fresh full compressed
+acceptance open until independently completed.

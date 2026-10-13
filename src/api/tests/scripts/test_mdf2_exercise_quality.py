@@ -99,12 +99,14 @@ def summary_model(
                         "submissions": [],
                         "hints": 0,
                         "hints_before_first": 0,
+                        "hint_before": False,
                     },
                 )
                 row["submissions"].append(
                     {
                         "reference": record["reference"],
                         "outcome": "correct" if correct else "incorrect",
+                        "hint_after": not correct,
                     }
                 )
                 row["hints"] += not correct

@@ -69,6 +69,7 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
             "Teach arithmetic and ask several questions. Do not finish before all questions.",
             "",
             LLMSettings(model="test-model", temperature=0.0),
+            11,
         ),
     )
     monkeypatch.setattr(lesson_entry, "get_langfuse_client", lambda: None)

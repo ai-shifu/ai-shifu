@@ -14,6 +14,7 @@ from flaskr.service.learn.agent.session_store import (
     StoredSessionUnusable,
     load_agent_session,
     preview_presentation,
+    preview_presentation_from_document,
 )
 from flaskr.service.learn.learn_dtos import (
     ElementPayloadDTO,
@@ -22,6 +23,9 @@ from flaskr.service.learn.learn_dtos import (
     LearnStatus,
     OutlineItemUpdateDTO,
     RunElementSSEMessageDTO,
+)
+from flaskr.service.learn.lesson_content_updates import (
+    lesson_content_state_from_session,
 )
 from flaskr.service.learn.listen_element_history import (
     _attach_follow_up_history_to_anchor_payload,
@@ -39,15 +43,60 @@ if TYPE_CHECKING:
 
 def has_preview_script(app: Flask, *, shifu_bid: str, outline_bid: str) -> bool:
     """Keep scriptless lessons on their existing 1.0 history and reset path."""
+    from flaskr.service.learn.learn_funcs import get_current_lesson_outline_id
+
     with app_context_scope(app):
+        current_id = get_current_lesson_outline_id(
+            shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=True
+        )
+        if current_id is None:
+            return False
         lesson = (
-            DraftOutlineItem.query.filter_by(
-                shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
+            DraftOutlineItem.query.with_entities(DraftOutlineItem.content)
+            .filter_by(
+                id=current_id,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                deleted=0,
+                hidden=0,
             )
-            .order_by(DraftOutlineItem.id.desc())
             .first()
         )
         return lesson is not None and bool((lesson.content or "").strip())
+
+
+def outlines_with_agent_history(
+    *, user_bid: str, shifu_bid: str, outline_bids: list[str]
+) -> set[str]:
+    """Keep cleared 2.0 drafts isolated, including after their preview was retired."""
+    if not outline_bids:
+        return set()
+    return {
+        row.outline_item_bid
+        for row in LearnAgentSession.query.with_entities(
+            LearnAgentSession.outline_item_bid
+        )
+        .filter(
+            LearnAgentSession.user_bid == user_bid,
+            LearnAgentSession.shifu_bid == shifu_bid,
+            LearnAgentSession.outline_item_bid.in_(outline_bids),
+        )
+        .distinct()
+    }
+
+
+def uses_preview_session_history(
+    app: Flask, *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> bool:
+    """Preserve legacy scriptless history without falling into formal 2.0 history."""
+    with app_context_scope(app):
+        return has_preview_script(
+            app, shifu_bid=shifu_bid, outline_bid=outline_bid
+        ) or bool(
+            outlines_with_agent_history(
+                user_bid=user_bid, shifu_bid=shifu_bid, outline_bids=[outline_bid]
+            )
+        )
 
 
 def begin_preview_run(
@@ -145,6 +194,8 @@ def get_preview_record(
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
     """Restore only the active draft's adapter snapshots, in request/event order."""
+    from flaskr.service.learn.learn_funcs import get_current_lesson_outline
+
     with app_context_scope(app):
         row = LearnAgentSession.query.filter_by(
             active_key=active_key_for(user_bid, outline_bid, preview_mode=True),
@@ -153,7 +204,35 @@ def get_preview_record(
             outline_item_bid=outline_bid,
             deleted=0,
         ).first()
-        presentation = preview_presentation(row)
+        try:
+            document = json.loads(row.session_data) if row else {}
+        except (TypeError, ValueError):
+            document = {}
+        presentation = preview_presentation_from_document(document)
+        current_outline = get_current_lesson_outline(
+            shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=True
+        )
+        current = (
+            DraftOutlineItem.query.with_entities(DraftOutlineItem.id)
+            .filter_by(
+                id=current_outline.id,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                deleted=0,
+                hidden=0,
+            )
+            .first()
+            if current_outline is not None
+            else None
+        )
+        content_state = lesson_content_state_from_session(
+            row=row,
+            current_revision=current_outline.content_revision if current else None,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=True,
+        )
         elements, events = [], [] if include_non_navigable else None
         if presentation:
             rows = LearnGeneratedElement.query.filter(
@@ -239,6 +318,7 @@ def get_preview_record(
             elements=elements,
             events=events,
             last_progress_updated_at=to_utc_iso(row.created_at) if row else None,
+            has_content_update_for_current_user=content_state.has_content_update,
         )
 
 

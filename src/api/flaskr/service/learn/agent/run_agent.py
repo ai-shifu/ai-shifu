@@ -51,6 +51,7 @@ from flaskr.service.learn.agent.engine.script import ScriptBundle, collected_nam
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
+    render_narrated_interaction,
     translate,
 )
 from flaskr.service.learn.agent.lesson_record import (
@@ -320,6 +321,7 @@ def run_agent_lesson(
     engine: Engine,
     script: str,
     teaching_brief: str = "",
+    content_revision: int | None = None,
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
@@ -414,6 +416,7 @@ def run_agent_lesson(
     session_holder: dict[str, Any] = {
         "rewind": rewind,
         "preview_generation": preview_generation,
+        "content_revision": content_revision,
         "memory_generations": memory_generations,
     }
 
@@ -759,9 +762,8 @@ def _narrated_question(
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
     """Send a question the model wrote into its narration as the question it meant to be.
 
-    It goes out exactly as the model wrote it. A 1.0 script carries its interactions in this same
-    notation and the browser renders it the same way, so nothing is rebuilt; what changes is that
-    it arrives as the turn's question rather than as a line of its prose.
+    Its original notation is preserved, with a localized hint added only when a text control
+    lacks one. It arrives as the turn's question rather than as a line of prose.
 
     The engine did not ask, so no answer is pending for it and the learner's reply reaches the
     model as a remark to react to. That is a lesser wrong than a lesson that sprints past a
@@ -782,7 +784,7 @@ def _narrated_question(
         outline_bid=outline_bid,
         generated_block_bid=generated_block_bid,
         type=GeneratedType.INTERACTION,
-        content=span,
+        content=render_narrated_interaction(span),
     )
 
 
@@ -1101,6 +1103,7 @@ def _stream_turn(
                         rewind=session_holder.get("rewind"),
                         memory_generations=session_holder.get("memory_generations"),
                         preview_generation=session_holder.get("preview_generation"),
+                        content_revision=session_holder.get("content_revision"),
                         preview_question_ids=preview_question_ids,
                     )
                 pending_memory = []
@@ -1229,6 +1232,7 @@ def _stream_turn(
                 rewind=session_holder.get("rewind"),
                 memory_generations=session_holder.get("memory_generations"),
                 preview_generation=session_holder.get("preview_generation"),
+                content_revision=session_holder.get("content_revision"),
                 preview_question_ids=preview_question_ids,
             )
 
@@ -1274,6 +1278,7 @@ def _persist(
     memory_generations: dict[str, int] | None = None,
     preview_generation: str | None = None,
     preview_question_ids: list[str] | None = None,
+    content_revision: int | None = None,
 ) -> bool:
     """Write what the turn produced, memory first so it commits with the session.
 
@@ -1404,6 +1409,7 @@ def _persist(
             outline_item_bid=outline_bid,
             preview_mode=preview_mode,
             stage=stage_everything,
+            content_revision=content_revision,
             **(
                 {"preview_generation": preview_generation} if preview_generation else {}
             ),

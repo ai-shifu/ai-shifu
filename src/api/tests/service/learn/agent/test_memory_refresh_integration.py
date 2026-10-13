@@ -158,8 +158,10 @@ def test_failed_resume_does_not_commit_a_partially_refreshed_session(
     rows = VariableValue.query.filter_by(user_bid=user).count()
     original_apply = session_store._apply
 
-    def fail_after_apply(row: object, session: object) -> None:
-        original_apply(row, session)
+    def fail_after_apply(
+        row: object, session: object, *, content_revision: int | None = None
+    ) -> None:
+        original_apply(row, session, content_revision=content_revision)
         message = "injected refreshed session save failure"
         raise RuntimeError(message)
 

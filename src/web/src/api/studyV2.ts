@@ -144,6 +144,7 @@ export interface StudyRecordItem {
 export interface LessonStudyRecords {
   elements: StudyRecordItem[];
   last_progress_updated_at?: string | null;
+  has_content_update_for_current_user?: boolean;
 }
 
 export interface GetLessonStudyRecordParams {

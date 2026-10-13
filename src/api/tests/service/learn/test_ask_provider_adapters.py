@@ -504,7 +504,7 @@ def test_coze_workflow_adapter_nonzero_code_raises_provider_error(
 
     with pytest.raises(
         module.AskProviderError,
-        match="coze_workflow error \\[5000\\]: service internal error, please retry after",
+        match="coze_workflow returned an error response",
     ):
         list(
             adapter.stream_answer(

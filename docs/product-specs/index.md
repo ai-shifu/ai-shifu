@@ -26,6 +26,8 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-26` | Canonical: `true`
 - [Learner Memory Admission](../product-specs/learner-memory-admission.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-07` | Canonical: `true`
+- [Lesson Content Update Recommendations](../product-specs/lesson-content-updates.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-12` | Canonical: `true`
 - [Lesson Memory Context](../product-specs/lesson-memory-context.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-07` | Canonical: `true`
 - [MDFlow Element Backfill](../product-specs/mdflow-element-backfill.md)
@@ -52,8 +54,12 @@ User-facing workflow and page behavior specifications live here.
   - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
 - [Operator User Points Grant](../product-specs/operator-user-points-grant.md)
   - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Backend-owned outline learning permission default](../product-specs/outline-learning-permission-default.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-11` | Canonical: `true`
 - [Password Login Feature Design](../product-specs/password-login-design.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+- [Profile onboarding startup](../product-specs/profile-onboarding-startup.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-13` | Canonical: `true`
 - [Teacher Analytics Dashboard (v1)](../product-specs/teacher-analytics-dashboard.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-08-16` | Canonical: `true`
 - [Operator Course Creator Transfer](../product-specs/transfer-course-creator.md)

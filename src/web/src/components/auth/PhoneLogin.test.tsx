@@ -113,6 +113,70 @@ describe('PhoneLogin captcha flow', () => {
     (useUserStore as unknown as jest.Mock).mockClear();
   });
 
+  test('shows a disabled login button before sending a code', async () => {
+    render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalled());
+
+    const loginButton = screen.getByRole('button', {
+      name: 'module.auth.login',
+    });
+    expect(loginButton).toBeVisible();
+    expect(loginButton).toBeDisabled();
+    fireEvent.click(loginButton);
+    fireEvent.keyDown(
+      screen.getByPlaceholderText('module.auth.verificationCodePlaceholder'),
+      { key: 'Enter' },
+    );
+
+    expect(apiService.smsLogin).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('keeps login disabled while sending SMS and after delivery fails', async () => {
+    let rejectSend!: (error: Error) => void;
+    (apiService.sendSmsCode as jest.Mock).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectSend = reject;
+        }),
+    );
+    render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText('module.auth.phone'), {
+      target: { value: '13800138000' },
+    });
+    fireEvent.change(screen.getByTestId('captcha-input'), {
+      target: { value: '0000' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
+    );
+    await waitFor(() => expect(apiService.sendSmsCode).toHaveBeenCalled());
+
+    const loginButton = screen.getByRole('button', {
+      name: 'module.auth.login',
+    });
+    const codeInput = screen.getByPlaceholderText(
+      'module.auth.verificationCodePlaceholder',
+    );
+    expect(loginButton).toBeDisabled();
+    expect(codeInput).toBeDisabled();
+
+    await act(async () => {
+      rejectSend(new Error('SMS delivery failed'));
+    });
+
+    expect(loginButton).toBeVisible();
+    expect(loginButton).toBeDisabled();
+    expect(codeInput).toBeDisabled();
+    fireEvent.click(loginButton);
+    fireEvent.keyDown(codeInput, { key: 'Enter' });
+    expect(apiService.smsLogin).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
   test('exchanges captcha for ticket before sending SMS', async () => {
     render(<PhoneLogin onLoginSuccess={jest.fn()} />);
 
@@ -293,6 +357,11 @@ describe('PhoneLogin captcha flow', () => {
     );
     expect((useUserStore as any).getState().login).toHaveBeenCalled();
     expect(onLoginSuccess).toHaveBeenCalled();
+    expect(apiService.smsLogin).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['learner_login_attempt', { login_method: 'sms' }],
+      ['learner_login_result', { login_method: 'sms', outcome: 'success' }],
+    ]);
   });
 
   test('passes referral metadata through SMS login payload', async () => {
@@ -339,7 +408,7 @@ describe('PhoneLogin captcha flow', () => {
     );
   });
 
-  test('prompts for SMS code when login is clicked without OTP', async () => {
+  test('only enables SMS login after all four code digits are entered', async () => {
     render(<PhoneLogin onLoginSuccess={jest.fn()} />);
 
     await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalled());
@@ -355,16 +424,71 @@ describe('PhoneLogin captcha flow', () => {
       screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
     );
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'module.auth.login' })),
+    const codeInput = screen.getByPlaceholderText(
+      'module.auth.verificationCodePlaceholder',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'module.auth.login' }));
-
-    expect(mockToast).toHaveBeenCalledWith({
-      title: 'module.auth.verificationCodeRequired',
-      variant: 'destructive',
+    await waitFor(() => expect(codeInput).toBeEnabled());
+    const loginButton = screen.getByRole('button', {
+      name: 'module.auth.login',
     });
+    expect(loginButton).toBeDisabled();
+    fireEvent.click(loginButton);
+    fireEvent.keyDown(codeInput, { key: 'Enter' });
+    fireEvent.change(codeInput, { target: { value: '123' } });
+    expect(loginButton).toBeDisabled();
+    fireEvent.click(loginButton);
+    fireEvent.keyDown(codeInput, { key: 'Enter' });
     expect(apiService.smsLogin).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+
+    fireEvent.change(codeInput, { target: { value: '1234' } });
+    expect(loginButton).toBeEnabled();
+    await act(async () => {
+      fireEvent.click(loginButton);
+    });
+    expect(apiService.smsLogin).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['learner_login_attempt', { login_method: 'sms' }],
+      ['learner_login_result', { login_method: 'sms', outcome: 'success' }],
+    ]);
+  });
+
+  test('blocks login by click and Enter when the phone becomes empty or invalid', async () => {
+    render(<PhoneLogin onLoginSuccess={jest.fn()} />);
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalled());
+
+    const phoneInput = screen.getByLabelText('module.auth.phone');
+    fireEvent.change(phoneInput, { target: { value: '13800138000' } });
+    fireEvent.change(screen.getByTestId('captcha-input'), {
+      target: { value: '0000' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.auth.sendVerificationCode' }),
+    );
+
+    const codeInput = screen.getByPlaceholderText(
+      'module.auth.verificationCodePlaceholder',
+    );
+    await waitFor(() => expect(codeInput).toBeEnabled());
+    fireEvent.change(codeInput, { target: { value: '1234' } });
+    const loginButton = screen.getByRole('button', {
+      name: 'module.auth.login',
+    });
+    expect(loginButton).toBeEnabled();
+
+    for (const phone of ['', 'invalid']) {
+      fireEvent.change(phoneInput, { target: { value: phone } });
+      expect(loginButton).toBeVisible();
+      expect(loginButton).toBeDisabled();
+      fireEvent.click(loginButton);
+      fireEvent.keyDown(codeInput, { key: 'Enter' });
+    }
+
+    expect(apiService.smsLogin).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    fireEvent.change(phoneInput, { target: { value: '13800138000' } });
+    expect(loginButton).toBeEnabled();
   });
 
   test('uses localized copy for incorrect SMS code errors', async () => {
