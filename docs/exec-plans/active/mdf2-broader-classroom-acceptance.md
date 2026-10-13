@@ -8,6 +8,22 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Independently scoped #3123/#3125 run on sim-f67afe0:
+      both APIs match 69 files/pass 490 SDK/logging cases, integration passes
+      3890 plus 50 subtests/two expected skips. New ordinary-HTTP learner stops
+      after two requests on a visible program/narrative mismatch (1+2 versus
+      LOAD2/ADD2=4). Three canonical feedback objects select clarification, two
+      provenance retries retain source validation and the same exercise remains
+      pending. Two traces/four generations uniquely settle 36.06 credits;
+      original classrooms, prior balanced failure and published source stay
+      unchanged. No summaries/final statistics/full-course or #3122 pass.
+
+- [x] 2026-10-13: Prepare #3123 as an independent main-based phase-boundary
+      candidate, with merged #3128/#3130 and without #3122's worked-example
+      prompt/tests or #3125's schema changes. Keep teacher brevity/disclosure
+      restrictions, including a prohibition on examples. Historical failures
+      remain unchanged; see mdf2-clarification-phase-boundary.md for final gates.
+
 - [x] 2026-10-13: Synchronize #3118 with main 2ff4af09b, including the merged
       unavailable-value handling and Profile startup changes. Resolve only the
       generated document-inventory conflict by regenerating the index from the

@@ -17,6 +17,17 @@ This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
+## Knowledge clarification phase boundary
+
+Checking-direction and authored-help feedback retain correction withholding,
+condition matching and teacher multiplicity. A permitted knowledge
+clarification follows the teacher's exact brevity/disclosure limits and returns to
+the same pending exercise; it does not grant access to later questions or require
+a worked example when the teacher prohibits one. The independent continuation
+record is [the phase-boundary plan](../exec-plans/active/mdf2-clarification-phase-boundary.md).
+Controlled SDK checks establish guidance delivery and history isolation, not
+factual model compliance or full eleven-question acceptance.
+
 ## Cases and scoring
 
 Admission calls the product's `make_request_check`, including its actual prompt,
