@@ -321,6 +321,13 @@ method remain in the passing branch unless the author permits an earlier help
 stage. These instructions do not introduce a host semantic filter or another
 model request, and require separate actual-model acceptance.
 
+Rejected feedback is tracked by response identity for retry and saved-history
+projection. The turn's dependencies retain the original rejected response
+objects even when the SDK replaces its history with projected copies, so Python
+cannot reuse their IDs for later accepted responses. These references end with
+the turn's dependency scope; they are not serialized into the session or made
+visible as learner evidence. Original tool calls and retry budgets are unchanged.
+
 ### Structured checking directions
 
 For a uniquely anchored returned text input, the existing `interact` tool accepts
