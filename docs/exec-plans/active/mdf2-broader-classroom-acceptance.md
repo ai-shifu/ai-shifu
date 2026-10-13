@@ -8,321 +8,51 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
-- [x] 2026-10-13: Current #3128 head 6cf9a580d includes main 523ad3741.
-      Its backend CI initially fails before the selected learning test because
-      two Flask test workers race to create logs; one rerun passes all eleven
-      checks, without changing the response-lifetime fix. Preserve both runs.
-- [x] 2026-10-13: Prepare combined independent candidates #3128 6cf9a580d
-      and #3130 05c9f7644 in sim. The API tree matches #3128 except the two
-      logging source/test files from #3130; Web/i18n exactly match current #3128.
-      This contains neither the unmerged example-policy nor clarification/schema
-      changes. The logging race regression fails before its one-line fix;
-      575 two-worker logging/common/follow-up and 151 current feedback/follow-up
-      cases pass. No paid request or production/classroom write is made.
-- [ ] 2026-10-13: Verify both actual sim replicas against both candidate owners
-      and run isolated logging plus feedback SDK tests before final receipts.
+- [x] 2026-10-13: Prepare independent-main #3123 0b885270e and #3125
+      c61022c51 with merged #3128/#3130, excluding the held #3122 example policy.
+      The API tree is exactly #3125 plus #3123's authored-reference source and
+      focused test. Explicit feedback object types preserve native rejection;
+      teacher brevity and disclosure limits remain unchanged. Prior original
+      fast-model and balanced-classroom failures remain preserved.
+- [ ] Verify this new built sim on both APIs before any changed-runtime model
+      acceptance; no current actual-model success is implied by local checks.
 
-- [x] 2026-10-13: #3118 merges as main 7676bc0a8. Prepare independent
-      hidden-response lifetime fix #3128 / fbc06e815 on the standalone sim;
-      its complete API tree matches the candidate and excludes unmerged
-      #3122/#3123/#3125. Earlier combined 319c66ea3 stays recoverable.
-      Three lifetime/native retry regressions first fail, then all 104 focused
-      and 3845 learning/script cases plus 50 subtests pass (three expected skips).
-- [ ] 2026-10-13: Verify the built #3128 sim candidate on both actual API
-      replicas before recommending that independent fix for manual merge.
-      No fresh learner or paid model request is implied by this SDK verification.
-
-- [x] 2026-10-13: Prepare an isolated sim candidate with its complete backend
-      tree exactly matching #3118 head 7643e045f and current main 2ff4af09b.
-      Temporarily exclude the unmerged #3122/#3123/#3125 runtime from this
-      deployment so it cannot mask a standalone feedback regression. Previous
-      combined sim head 319c66ea3 remains recoverable in Git; retain all its
-      original semantic-failure evidence and do not reset classroom records.
-- [ ] 2026-10-13: Build and deploy this standalone candidate, verify both API
-      fingerprints and isolated SDK regressions, then record the scoped result.
-      Full fresh eleven-question acceptance remains independently outstanding.
-
-- [x] 2026-10-13: Ninth frozen original-model check on sim-086140b / build 621 /
-      Drone 5410 follows both replicas matching 68 files and passing 438 SDK
-      cases each. Requested program/two iterations return, but SUB 1 followed
-      by ADD 2 produces a growing accumulator and never reaches the stated zero
-      exit. Factual acceptance still fails. Four generations settle 7.82 credits
-      with exact output/token and actual attempt/block attribution. Original
-      source/classroom and prior failures remain unchanged; no new learner/summary.
-- [x] Add full-cycle net change versus exit-condition guidance to generated
-      examples. Four native SDK instruction/reload cases first fail. Keep full
-      initial state, units/storage, repeated reads/resets, requested trace and
-      author boundaries. Equivalent wording compression keeps the system prompt
-      one byte below d641 and preserves strict input/request limits. Full
-      learning/script checks pass 3826 plus 50 subtests, three expected skips,
-      and repository gates.
-- [ ] Deploy and verify both replicas before one frozen original-model semantic
-      check of this changed candidate.
-- [x] 2026-10-13: Eighth original-model check on sim-40fc53a / build 620 /
-      Drone 5409 follows both replicas matching 68 files and passing 436 SDK
-      cases each. Three generations settle 5.79 credits with exact output/token
-      and actual attempt/block attribution; source/classroom remain unchanged.
-      The final displayed program retains its counter and terminates consistently,
-      but omits the requested two-iteration PC/memory walkthrough. This remains
-      failed acceptance; rejected draft errors remain separate evidence. No new
-      learner or summary is created.
-- [x] 2026-10-13: Preserve permitted clarification examples/walkthroughs in the
-      authored reference and native feedback retry notice. Both still obey the
-      author's brevity/disclosure limits and return to the pending exercise.
-      Four initial/reloaded instruction cases and two actual native two-retry
-      cases first fail, then pass without extra model calls or criteria. The
-      authored notice is 20 bytes smaller; strict input/request limits and
-      correction withholding remain unchanged. Full learning/script checks pass
-      3832 plus 50 subtests, with three expected skips. Controlled model tests
-      prove retry delivery/history isolation only, not factual acceptance.
-- [x] Deploy the clarification-detail fix, verify both sim replicas and perform
-      one frozen original-source/input/model/budget actual semantic check; retain
-      the ninth failed result above.
-
-
-- [x] 2026-10-13: Seventh original-model check fails on sim-1606797 / build
-      619 / Drone 5408 after both Ready API replicas match 68 runtime files and
-      pass 436 SDK checks each. Three generations settle 5.78 credits, uniquely
-      matched to original outputs/tokens and the isolated actual attempt/block.
-      Source and persisted classroom remain unchanged. The rejected first output
-      still reloads unchanged data but claims eventual termination; the displayed
-      retry omits the requested concrete program/two-iteration trace. Neither is
-      a semantic pass, and no fresh learner is started.
-- [x] 2026-10-13: Require requested example iterations in one state table, derive
-      behavior claims from it, and assert termination only when a stop is reached.
-      Preserve initial state, units/storage overlap, authored disclosure boundaries,
-      source evidence and original budgets; validate this changed candidate before
-      any new paid check. Four SDK delivery cases first fail; final 3826 learning/
-      evaluation checks plus 50 subtests pass (three expected skips), together
-      with repository gates. The system prompt is 15 bytes smaller than d641.
-- [x] 2026-10-13: Deploy and verify the state-table candidate on both sim API
-      replicas before one unchanged-source/input/model/budget semantic check;
-      retain the eighth failed result above.
-
-
-- [x] 2026-10-13: Final unit/storage candidate eb84a6d17 deploys as 0ae9e4b19,
-      build 617/Drone 5406. Both API replicas match 67 files and pass 422 SDK
-      cases. Source/sim full learning/script checks pass 3830/50 subtests/three
-      skips; final engine/history wording passes 969 combined cases and all gates.
-      The sixth actual-model check still fails: LOAD reads unchanged M[10]=5 on
-      every back-edge, so SUB always produces 4; the claimed 4→3→2→1→0 and HALT
-      are false. Three native generations settle 5.80 credits; exact output/tokens
-      uniquely bind actual attempt/block. Source/classroom unchanged, no summary
-      or twentieth learner. Retain local missing-checkpoint preparation failure
-      (zero usage/state change) and read-only late-result recovery; no paid retry.
-- [x] 2026-10-13: Tighten the next generic loop-state hypothesis: reapply reads
-      and resets each iteration; only retained changes accumulate. Preserve
-      per-example initial state, units/storage, requested behavior/termination,
-      authored stages, source evidence and required calls. Four SDK delivery
-      cases first fail. Compress only equivalent introductory wording to retain
-      original strict input/request/retry budgets. Verification and one
-      changed-runtime check remain pending; all prior failures stay open.
-
-- [x] 2026-10-13: Narrow the next worked-example hypothesis to unit consistency
-      and overlapping data/code storage, exposed by the fifth actual-model
-      failure. Add both checks to generic example guidance while retaining full
-      initial state, requested behavior/termination, author ownership, hint stages,
-      required tools and unchanged request limits. Four SDK policy cases first
-      fail; final learning/script checks pass (3826 plus 50 subtests, three skips).
-      Prompt bytes decrease by two from the previous head; the unchanged strict
-      64 KiB fixture passes. Actual deployed validation remains pending; earlier
-      failures and the broader fresh-classroom gate remain open.
-
-- [x] 2026-10-13: Frozen configured-model comparison completes once per
-      candidate, retaining original source/checkpoint/question/standards and
-      per-turn limits. Model 2's displayed initialization/two-iteration branch
-      loop/six PC-memory rows are internally consistent; scoped comparison PASS
-      only, three native generations/28.52 settled credits. Model 3 fails delivery
-      after five generations with no displayed answer; native tool results reject
-      serialized review JSON instead of an object. Five generations/77.93 credits
-      settle, with no schema coercion or paid resampling. All eight outputs/tokens
-      uniquely bind actual attempt/block billing; source/classroom unchanged,
-      no summary/new learner. Initial diagnostic route guard uses an unscoped
-      model number and stops before provider usage; explicit course scope repairs
-      only the private runner, with the zero-usage receipt retained. Initial
-      structured-output audit errors recover from existing trace content only.
-      The frozen common baseline remains unchanged; candidate 2's three rows are
-      separately audited when binding candidate 3's five rows. No serving course,
-      model or global reasoning policy changes. Original-model and fresh-classroom
-      acceptance remain open; model 2 is only a candidate for further evaluation.
-- [x] 2026-10-13: Independent clarification-scope PR #3123 opens directly Ready
-      on #3122. Runtime 6a3aa06d7 deploys as c91e50d54 / build 615 / Drone 5404
-      in successful records 2835/2836, API 2/2 and web 1/1. Both APIs match 67
-      production files and pass 422 SDK checks; source/sim pass 3830 cases,
-      50 subtests, three expected skips and all gates. CodeRabbit's actual
-      four-file review finds no functional issue; its touched-function docstring
-      warning is addressed in pushed 552a2345b with four checks/all gates and an
-      original-conversation reply. That commit changes only a test docstring;
-      its seven CI checks pass and production bytes still match deployed 6a.
-      Codex and Devin complete without findings on the functional head.
-- [x] 2026-10-13: Fifth scoped actual-model check restores explanation/traces but
-      fails factual acceptance: byte-addressed two-byte instructions conflict
-      with one-byte placement/PC movement; the result overwrites the next HALT
-      while claiming instructions do not change. Do not repair stored output.
-      One trace/generation settles 2.01 credits, with exact output/token and
-      actual attempt/block binding; original source and classroom state remain
-      unchanged. No summary or twentieth learner. All earlier failures remain.
-- [x] 2026-10-13: Isolated process-local thinking-enabled diagnostic preserves
-      the original model/source/input/temperature and all per-turn limits.
-      Actual trace confirms enabled thinking; displayed output still omits the
-      program/two-iteration trace and defers details. It fails the semantic
-      check, not serving-runtime acceptance. One trace/generation settles 2.00
-      credits; Langfuse's existing content field matches billing verbatim and
-      tokens/actual attempt/block uniquely. Reasoning remains separate evidence.
-      Original classroom/source and serving/global minimum-thinking policy are
-      unchanged. Two existing minimum-policy tests pass; initial structured-output
-      audit failure is retained and recovered by reading existing evidence only.
-- [x] Compare already configured teaching models using the original checkpoint,
-      question, source, standards and per-turn limits. Freeze candidates before
-      calls; separate process-local model diagnostics from course acceptance.
-      Do not start a fresh learner until a serving-runtime semantic gate passes.
-      #3122/#3123 remain not recommended for merge; milestone 4/5 is unchanged.
-- [x] 2026-10-13: Requested-behavior guidance 8012b33f2 deploys as sim
-      5d88b7ad6 / build 614 / Drone 5403 in records 2833/2834, API 2/2, web 1/1.
-      Both APIs match 67 files and pass 418 SDK checks; integrated 3826 cases,
-      50 subtests, three expected skips and all gates pass. CodeRabbit review of
-      this head remains rate-limited and is not counted as an actual review.
-- [x] 2026-10-13: Fourth scoped check fails: the displayed clarification omits
-      the requested program/two-iteration trace and defers details until an answer.
-      Absent examples do not establish factual consistency. Existing native retry
-      limits recover from a missing declaration and a control-only replacement;
-      all three generations uniquely bind exact output/tokens to actual attempt,
-      block and 5.75 settled credits. Actual generation inputs contain the policy
-      and original two-iteration request. Source and original classroom state
-      remain unchanged; no summary or twentieth learner. Stop further paid calls
-      while inspecting authored brevity and the host's feedback-phase guidance.
-- [x] 2026-10-13: Investigate the host reference's unqualified instruction to
-      leave questions unanswered and withhold later reasoning, despite applying
-      also to knowledge clarification. Keep the author's brief-response boundary;
-      any independent phase-scope fix must not force long answers or dilute the
-      frozen example/trace acceptance. Preserve all four failed checks.
-- [x] 2026-10-13: Independently scope the host reference's correction limits to
-      checking-direction feedback. Clarification must answer the actual question
-      within authored brevity/disclosure and return to the pending exercise;
-      do not apply correction-only withholding to permitted knowledge help.
-      Four real-SDK instruction/reload checks first fail with unchanged source,
-      history, memory, input and one-request-per-turn limits. Initial invalid
-      control/first-section/ScriptBundle fixture, wrong-cwd and Ruff failures are
-      retained separately. Final 245 focused and 3830 broader cases, 50 subtests
-      and three expected skips pass, including the unchanged 64 KiB regression;
-      all repository gates pass. Open a separate Ready PR, deploy and inspect one changed-runtime
-      check before starting any fresh learner. This is guidance, not factual or
-      semantic acceptance; all earlier failed journeys remain unchanged.
-- [x] 2026-10-13: Complete-state guidance b5e25f8db deploys as sim a7ff2b94f /
-      build 613 / Drone 5402 in successful records 2831/2832, API 2/2, web 1/1.
-      Both APIs match 67 files and pass 418 SDK checks; source and sim pass
-      3826 cases, 50 subtests, three expected skips and all gates. The original
-      semantic-acceptance review thread has a pushed-commit/test reply.
-- [x] 2026-10-13: Third scoped actual-model check fails semantic acceptance:
-      examples now state initial values, but the purported real loop has no
-      back-edge. The model traces and acknowledges one-pass fall-through into
-      HALT instead of supplying the originally requested two-iteration example.
-      Do not repair its output or claim the old false-termination bug repeated.
-      One trace/generation settles 1.99 credits with exact output/token and actual
-      attempt/block binding; original source/sessions/progress/variables remain
-      unchanged, with no summary or twentieth learner. Retain all three scoped
-      failures and the original nineteenth failed journey independently.
-- [x] 2026-10-13: Verify self-created examples against requested behavior and
-      correct discrepancies before presentation. Four delivery assertions first
-      fail; final 13 focused and 3826 broader cases, 50 subtests, three expected
-      skips and all gates pass. Preserve the initial one-byte-over strict 64 KiB
-      failure; final prompt growth is 126 bytes and the unchanged fixture passes.
-      Keep original source, inputs, hint stages and budgets; deploy before the
-      separately recorded fourth check. Do not resample an unchanged runtime.
-- [x] 2026-10-13: Initial-state guidance 2ef1c1129 deploys as sim 0cef6915d /
-      build 612 / Drone 5401 in records 2829/2830. Both APIs match 67 files and
-      pass 418 SDK checks; source and sim pass 3826 cases, 50 subtests, three
-      expected skips and all gates. All seven current PR checks pass, including
-      runtime 38279390312; CodeRabbit's success is a rate-limit response, not a
-      review of this head. The original semantic-acceptance thread has a reply.
-- [x] 2026-10-13: A second non-persisting checkpoint check fails semantic
-      acceptance despite passing protocol. The first branch example specifies
-      values, but the separate loop omits its counter initialization and a full
-      two-iteration trace. The earlier counter would exit after one iteration if
-      retained; do not infer a replacement or repair the generated evidence.
-      One trace/generation settles 1.96 credits with exact output/token and
-      actual attempt/block binding. Source and original sessions/progress/variables
-      remain unchanged; no summary or twentieth learner. Retain both scoped
-      failures and the original nineteenth failed journey separately.
-- [x] 2026-10-13: Require each example's full initial state independently.
-      Four delivery checks first fail; final 13 focused and 3826 broader cases,
-      50 subtests, three expected skips and all repository gates pass. Net prompt
-      growth is 128 bytes; the unchanged 64 KiB regression passes. Deploy and
-      perform one scoped model check, recording its separate third failure above.
-      The complete fresh natural-compaction journey remains blocked on semantic
-      acceptance; do not treat passing deterministic delivery tests as completion.
-- [x] 2026-10-13: Reviewed candidate 14be21d51 deploys as sim e640a53be /
-      build 611 / Drone 5400 in records 2827/2828, API 2/2 and web 1/1 Ready.
-      Both APIs match 67 files and pass 418 isolated SDK checks; integrated 3826
-      learning/script cases, 50 subtests, three expected skips and all gates pass.
-      Both original adopted review opinions have pushed-commit/test replies.
-- [x] 2026-10-13: One actual-model knowledge-clarification replay from a
-      non-persisting copy of the original nineteenth pre-clarification checkpoint
-      passes protocol but fails independent example acceptance: no initial memory
-      or register values and no requested two-iteration state trace. The unchanged
-      memory difference controls every branch, so a nonzero difference repeats
-      forever; a zero difference reaches STORE without stated R2 initialization.
-      The model does not claim termination here, so do not conflate this failure
-      with the earlier false-termination claim. Stop, preserving this failure and
-      the original classroom; no twentieth learner or unchanged paid resampling.
-      One original trace/generation uniquely binds verbatim output and tokens to
-      the actual attempt/block and all 1.92 settled credits. Original source,
-      sessions, progress and variables remain unchanged; no summary is generated.
-- [x] 2026-10-13: Refine general example guidance to state initial values and
-      trace operations against results and termination. Keep source evidence,
-      authored hints, required calls and original inputs/budgets unchanged; do not
-      add a course-specific semantic checker. Four delivery assertions first fail;
-      validate 13 focused and 3826 broader cases and deploy 2ef1c1129 before
-      the second scoped model check, whose semantic failure is recorded above.
-- [x] 2026-10-13: Open independent #3122 at 171e62676 on the verified #3118
-      baseline. Its 3826 learning/script cases, 50 subtests, three expected skips
-      and repository gates pass. Sim bdce6d45b / build 610 / Drone 5399 deploys
-      successfully in records 2825/2826. No actual-model probe has run yet.
-- [x] 2026-10-13: Address both original Codex review threads: restore the
-      explicit script-instructions/non-recitation boundary, and limit the new
-      no-call guidance to extra verification requests while preserving required
-      tool and example calls. Four SDK guidance regressions first fail. Final
-      author-authority/budget/policy set passes 13 cases; final net prompt growth
-      is 124 bytes and the unchanged 64 KiB fixture passes. Retain the initial
-      case-sensitive assertion and over-budget candidate failures separately.
-      Broader validation, pushed-commit thread replies and updated sim/model
-      verification remain pending; do not spend against the obsolete candidate.
-- [x] 2026-10-13: Investigate #3118's new streaming-lifecycle opinion on pinned
-      SDK 2.43.0. Continuous/reloaded observation at FunctionToolCallEvent proves
-      its matching response is already recorded and has stable object identity;
-      rejected prose is neither visible nor persisted. Two checks plus existing
-      feedback coverage pass 103 cases without external models or DB writes.
-      Reply to original thread 4249642002 with evidence and reject the proposed
-      lifecycle rewrite; no runtime change or increased budget is needed.
-- [x] 2026-10-13: Verify the next independent failure from the retained
-      nineteenth classroom. The model's loop branches back through initialization
-      and reloads unchanged memory, contradicting its claimed decreasing counter
-      and termination. Exact code/claim co-occur in original generated output;
-      bounded hand-tracing establishes this discrepancy without a model call or
-      database write. Keep the original failed verdict and classroom intact.
-- [x] 2026-10-13: Add concise default-runtime worked-example checking guidance:
-      exact values/operations, reinitialization, branch targets and termination;
-      fix only model-created errors, preserve original evidence, respect authored
-      hint stages and state uncertainty. Compact the existing author-ownership
-      rule while retaining its tested permissions and prohibitions. Net instruction
-      growth is 102 bytes; keep the original 64 KiB regression and all actual
-      input/request/retry limits. Four native SDK delivery/reload checks first fail;
-      the final authority/budget set passes 13 cases. Controlled outputs do not
-      establish factual model compliance. Retain initial fixture/path failures and
-      the overlong prompt's real budget failure separately.
-- [ ] 2026-10-13: Complete broader checks, current PR CI/review, sim integration
-      and actual-model verification from a non-persisting copy of the nineteenth
-      pre-clarification checkpoint. Keep the exact source and original question;
-      inspect actual code/trace/claim and billing evidence, stopping at a failure.
-      Then resume full fresh natural-compression eleven-question acceptance with
-      an isolated new learner, unchanged authored criteria/inputs/budgets and
-      first-failure stop. Do not claim a twentieth learner or full acceptance yet.
-- [ ] 2026-10-13: Reconcile predecessor #3118's GitHub state. The human reports
-      merging, but live GitHub still shows Open at bc4456a2b, an update from main,
-      with all eleven checks passing and no backend delta from verified 0a809595e.
-      Do not infer a main merge or production deployment from that branch update.
-      Prepare this independent fix on that verified baseline; retain an explicit
-      PR dependency until the actual main merge is observed. No automatic merge.
+- [x] 2026-10-13: Synchronize #3118 with main 2ff4af09b, including the merged
+      unavailable-value handling and Profile startup changes. Resolve only the
+      generated document-inventory conflict by regenerating the index from the
+      staged merged tree; no feedback runtime or acceptance standard is changed.
+      GitHub still reports this PR open; the earlier merge of main into its
+      branch was not a merge of this PR into main.
+- [x] 2026-10-13: Combined learning/evaluation regressions pass 3784 cases,
+      four subtests and one expected skip; the complete backend script suite
+      passes 191 cases, 46 subtests and two expected skips. Profile startup
+      frontend regressions pass all 90 cases. Tooling, repository harness and
+      all-file hooks pass. The two preliminary pytest commands name nonexistent
+      suite directories and run no tests; preserve those logs separately.
+- [x] 2026-10-13: Refreshed merge head 7643e045f passes all eleven checks,
+      including runtime 38359512619. CodeRabbit run
+      29b10f74-2fd0-4213-9380-9f354b2afe19 explicitly covers this head without
+      actionable findings; all nine inline roots have owner replies. The
+      previously withdrawn streaming-lifecycle finding remains withdrawn, and
+      the 48.92%/139-function docstring warning remains explicitly deferred.
+- [x] 2026-10-13: Standalone sim 8b9fea8bc / build 629 / Drone 5418 deploys
+      successfully in records 2878/2879 as sim-8b9fea8: API 2/2 and web 1/1
+      Ready. Its complete backend, frontend and i18n trees exactly match
+      candidate 7643e045f. Both APIs match 68 fingerprints and pass all 428
+      isolated SDK regressions on pinned pydantic-ai-slim 2.43.0. This sim
+      intentionally excludes unmerged #3122/#3123/#3125 runtime; prior combined
+      sim 319c66ea3 and all original failures remain recoverable.
+- [x] 2026-10-13: The thirteen feedback runtime files introduced by this PR are
+      byte-for-byte unchanged from reviewed bc4456a2b / functional 3d57d9944.
+      Retain the original first/fifth-answer actual-model evidence at its exact
+      scope; this refresh adds zero paid requests and resets no classroom. The
+      initial commit hook uses the wrong system Python and fails before commit;
+      rerun with the existing conda toolchain and all hooks pass. This final
+      receipt changes documentation only; verify its own CI separately before
+      telling the user to merge.
+      The original first/fifth-answer model evidence remains scoped evidence;
+      later generated-example failures and the fresh eleven-question natural
+      compression/statistics/billing acceptance stay open independently.
 
 - [x] 2026-10-12: Functional head 3d57d9944 passes all eleven current checks.
       CodeRabbit review 85388724 covers its runtime/tests/reference changes,
@@ -360,7 +90,7 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       sessions, progress and variables remain unchanged. Initial strict raw-output
       audit failure is preserved; complete the audit locally against the already
       fetched original traces, without another model or trace request.
-- [ ] 2026-10-12: Finish the documentation receipt, original-thread replies and
+- [x] 2026-10-12: Finish the documentation receipt, original-thread replies and
       current documentation-head CI before recommending #3118 for merge. These
       scoped passes close the earlier related checkpoint failures on the changed
       runtime; they do not change those failures' historical verdicts. No twentieth

@@ -30,6 +30,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [MarkdownFlow total input budget](./active/markdownflow-total-input-budget.md)
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)
 - [MDF 2.0 Broader Classroom Acceptance](./active/mdf2-broader-classroom-acceptance.md)
+- [Keep Knowledge Clarification Within Its Authored Phase](./active/mdf2-clarification-phase-boundary.md)
 - [Deliver classroom context to Coze follow-ups](./active/mdf2-coze-follow-up-context.md)
 - [Calculate exercise statistics from original submissions](./active/mdf2-exercise-statistics-calculation.md)
 - [MDF 2.0 Feedback Branch Schema](./active/mdf2-feedback-branch-schema.md)
