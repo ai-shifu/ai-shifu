@@ -258,12 +258,13 @@ async def test_multiple_interactions_share_one_exact_feedback_decision(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("provider", ["ark", "openai"])
+@pytest.mark.parametrize("provider", ["ark", "openai", "dashscope"])
 async def test_provider_transforms_keep_required_feedback(provider: str) -> None:
     """Retain the actual SDK requirement through pinned provider request conversion."""
     import copy
 
     from flaskr.service.learn.agent.gateway_model import map_tools
+    from litellm.llms.dashscope.chat.transformation import DashScopeChatConfig
     from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
     from litellm.llms.volcengine.chat.transformation import VolcEngineChatConfig
     from pydantic_ai.models import ModelRequestParameters
@@ -282,23 +283,35 @@ async def test_provider_transforms_keep_required_feedback(provider: str) -> None
         nonlocal calls
         calls += 1
         if calls == 2:
-            config = VolcEngineChatConfig() if provider == "ark" else OpenAIGPTConfig()
+            config, model, endpoint = {
+                "ark": (
+                    VolcEngineChatConfig(),
+                    "deepseek-v4-1-flash-260910",
+                    "https://ark.cn-beijing.volces.com/api/v3",
+                ),
+                "openai": (
+                    OpenAIGPTConfig(),
+                    "gpt-6-astra",
+                    "https://api.openai.com/v1",
+                ),
+                "dashscope": (
+                    DashScopeChatConfig(),
+                    "glm-5.3",
+                    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                ),
+            }[provider]
             tools = map_tools(
                 ModelRequestParameters(function_tools=info.function_tools)
             )
             body = config.transform_request(
-                model="deepseek-v4-1-flash-260910"
-                if provider == "ark"
-                else "gpt-6-astra",
+                model=model,
                 messages=[{"role": "user", "content": "Synthetic schema check."}],
                 optional_params={"tools": copy.deepcopy(tools)},
                 litellm_params={
                     "custom_llm_provider": "volcengine"
                     if provider == "ark"
-                    else "openai",
-                    "api_base": "https://ark.cn-beijing.volces.com/api/v3"
-                    if provider == "ark"
-                    else "https://api.openai.com/v1",
+                    else provider,
+                    "api_base": endpoint,
                 },
                 headers={},
             )
@@ -313,6 +326,14 @@ async def test_provider_transforms_keep_required_feedback(provider: str) -> None
             assert not validator.is_valid({**args, "feedback": None})
             assert validator.is_valid({**args, "feedback": review})
             assert validator.is_valid({**args, "feedback": _direction()})
+            assert not validator.is_valid({**args, "feedback": json.dumps(review)})
+            for name in ("interact", "finish"):
+                offered = next(
+                    t["function"]["parameters"]
+                    for t in body["tools"]
+                    if t["function"]["name"] == name
+                )
+                assert offered["properties"]["feedback"]["type"] == "object"
             yield "A concise explanation."
             yield _call({**args, "feedback": review}, "continued")
         else:
@@ -329,6 +350,64 @@ async def test_provider_transforms_keep_required_feedback(provider: str) -> None
     assert _text(events) == "A concise explanation."
     assert calls == 2
     assert not session.finished
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+async def test_feedback_string_is_rejected_without_rewriting_native_evidence(
+    reload: bool,
+) -> None:
+    """Require a corrected object while retaining the original invalid arguments."""
+    question = "Explain briefly."
+    args = {"type": "text", "prompt": "", "placeholder": "Explanation"}
+    review = {
+        "answer_id": "original",
+        "phase": "clarification",
+        "submission_quote": question,
+        "reason": "Answer the side question and keep the authored input pending.",
+    }
+    serialized = json.dumps(review)
+    calls = 0
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        """Run a genuine SDK validation retry, without parsing strings in the host."""
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(args, "original")
+        elif calls == 2:
+            yield "Undisplayed invalid-object explanation."
+            yield _call({**args, "feedback": serialized}, "invalid")
+        else:
+            assert "Input should be an object" in str(messages)
+            yield "Corrected object explanation."
+            yield _call({**args, "feedback": review}, "continued")
+
+    engine = Engine(
+        FunctionModel(stream_function=stream), feedback_contract=True, request_limit=2
+    )
+    session = await engine.new_session("Explain briefly.\n?[...Explanation]\n")
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=question))
+    )
+    assert calls == 3
+    assert _text(events) == "Corrected object explanation."
+    assert session.pending[0].tool_call_id == "continued"
+    assert not session.finished
+    assert not session.all_memory()
+    assert "Undisplayed invalid-object explanation." not in session.dumps()
+    invalid = [
+        part
+        for message in session.messages
+        if isinstance(message, ModelResponse)
+        for part in message.parts
+        if isinstance(part, ToolCallPart) and part.tool_call_id == "invalid"
+    ]
+    assert len(invalid) == 1
+    assert invalid[0].args_as_dict()["feedback"] == serialized
 
 
 @pytest.mark.anyio

@@ -996,6 +996,7 @@ async def prepare_feedback_tool(
     # A required property survives provider conversion; a root anyOf may not.
     properties["feedback"] = {
         **{k: v for k, v in original.items() if k not in ("anyOf", "default")},
+        "type": "object",
         "anyOf": [v for v in original["anyOf"] if v.get("type") != "null"],
     }
     description = (definition.description or "").partition(

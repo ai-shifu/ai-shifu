@@ -10,6 +10,29 @@ while preserving native validation and portable-host compatibility.
 
 ## Progress
 
+- [x] 2026-10-13: Synchronize with actual merged main 7e3a34e24, including
+  independent #3128 lifetime and #3130 logging fixes. Prepare a direct-main
+  schema-only delta: omit #3122 example policy and #3123 clarification guidance.
+  Preserve previous stacked candidates and all failed model/classroom evidence.
+- [x] 2026-10-13: The authorized separate balanced-model course fails its first
+  knowledge request after four feedback JSON strings. All provider generations
+  succeed, but native object validation rejects them and the HTTP response has no
+  visible answer. Two traces/five generations settle 45.60 credits with exact
+  output/token/actual attempt/block attribution; source/original classrooms stay
+  unchanged. Stop after 2/28 phases without another paid request or larger budget.
+- [x] 2026-10-13: Inspect the actual DashScope transformation and gateway mapping:
+  neither rewrites feedback objects as strings. The canonical union implies an
+  object but omits its explicit type. Three pinned provider regressions first
+  fail on the missing type; add explicit type=object without changing accepted
+  payloads or coercing strings. Ark, OpenAI and DashScope (the actual balanced
+  route) plus native reject/corrected-object history checks pass 142 focused
+  cases on the prior stack. Treat the model improvement as unverified.
+- [x] 2026-10-13: Final independent-main learning/script suites pass 3876 cases,
+  50 subtests and two expected skips. Required object/branch semantics, legacy
+  native calls, source evidence and original request/input limits are retained.
+- [ ] Verify repository gates, CI/reviews and deployed sim. No real-model
+  reliability or full-classroom pass is implied.
+
 - [x] 2026-10-13: Synchronize the schema branch with clarification head
       e780ac9f3 and actual merged main 7676bc0a8 without a runtime conflict.
       The existing canonical schema remains unchanged; full learning/script
@@ -86,6 +109,12 @@ while preserving native validation and portable-host compatibility.
 
 ## Surprises & Discoveries
 
+The model-visible union needs an explicit object type in addition to branch
+constraints. This is a contract clarification, not strict decoding or proof that
+a model will obey. Native strings remain rejected and their original arguments
+remain in history. A provider-level model accuracy or format guarantee is not
+established by these offline regressions.
+
 The eleventh actual original-model check still omits its declaration in the first
 interaction despite the offered required schema. Two existing native retries
 recover the protocol, but final visible prose ignores an addition when tracing
@@ -129,8 +158,9 @@ avoidable protocol mismatch but cannot establish factual teaching correctness.
   provide the schema-valid multiple-interaction path.
 
 - 2026-10-13: Keep this tool-contract issue separate from #3122 worked-example
-  consistency and #3123 clarification/correction scope. Stack on #3123 for the
-  actual combined runtime, without automatically merging any PR.
+  consistency and #3123 clarification/correction scope. Originally stack on
+  #3123 for combined testing; the current candidate targets main directly and
+  excludes both ancestors from its functional delta. No automatic merge.
 - 2026-10-13: Prepare only primary interaction/finish definitions while the
   enabled host has a supported reply and no committed review. The interaction
   retains both direction and ordinary-review choices. Native validation remains

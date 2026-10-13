@@ -17,147 +17,22 @@ This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
+## State-scoped native feedback schema
 
-## Worked example consistency
+On a supported returned answer, enabled-host interact/finish definitions require
+one non-null feedback object. Interact preserves direction and ordinary-review
+branches; finish accepts review. Explicit object type and branch constraints must
+survive pinned Ark, OpenAI and DashScope transformations. Inactive/initial or
+unsupported states retain legacy definitions. Native legacy aliases and sibling
+calls remain compatible; repeated identical reviews across simultaneous inputs
+are one decision, while conflicting declarations still fail before display.
 
-The ninth frozen original-model check on sim-086140b restores a concrete
-program and two iterations after native retries but still fails factual
-acceptance: LOAD initializes the accumulator to 5, SUB subtracts 1, the
-zero-exit test observes 4, then ADD adds 2 before the back-edge. Subsequent
-zero-exit tests observe 5, 6, and so on: cycle n tests n+3 for n >= 1 under
-ordinary integer arithmetic. No test reaches zero in that arithmetic; the
-example specifies no overflow semantics to support its claimed eventual stop.
-Four generations settle 7.82
-credits; exact outputs/tokens uniquely bind actual attempt/block, with unchanged
-source/classroom and no new learner or summary. Preserve this separate failure.
-
-
-Before claiming a worked result or termination, the default runtime instructions
-ask the model to state each example's full initial state and trace operations, including
-reinitialization and branch targets, with consistent units and non-conflicting
-data/code storage. Reapply reads and resets on each loop iteration; only
-retained state changes can accumulate. Trace requested iterations in one state
-table and derive behavior claims from it; claim termination only when that trace
-reaches a stop. Check net change over each complete cycle against its exit
-condition, not only locally correct arithmetic steps. Correct model-created errors before presenting them; preserve
-authored, learner and quoted evidence instead of silently repairing it. Respect
-the authored hint stage and state uncertainty when the result is unverified.
-This is model guidance, not a host factual grader, new tool or extra request.
-The restriction covers extra verification requests, while required runtime tools
-and calls inside the example remain allowed. Script instructions direct teaching;
-they are not text to recite to the learner.
-Existing author ownership, correction/navigation rules and request/retry limits
-remain authoritative.
-
-Native SDK regressions inspect delivery on initial and resumed clarification
-requests, with and without feedback contracts and session reload. Controlled
-FunctionModel outputs do not establish factual model compliance. Actual deployed
-model acceptance must independently check its example against its explanation;
-whole fresh-classroom acceptance remains separate. The original nineteenth
-failed classroom is preserved. Its generated loop reloads unchanged memory on
-each back-edge and cannot terminate as claimed; do not repair stored evidence or
-count a subsequent targeted success as a pass for that journey.
-
-The first scoped actual-model check on 14be21d51/sim-e640a53 passes native
-interaction delivery but fails example acceptance: no initial memory/register
-values or requested two-iteration trace. It does not claim termination; retain
-this separate under-specified-example failure. One generation settles 1.92
-credits, with exact output/token and actual attempt/block binding; original
-source and classroom state remain unchanged. No new learner or unchanged paid
-retry follows. Explicit initial-state/trace guidance requires a changed deployed
-candidate and separate acceptance; controlled-output tests alone cannot supply it.
-
-The second scoped check on 2ef1c1129/sim-0cef691 also fails: its first branch
-example specifies values, but the separate loop omits its counter initialization
-and the requested complete two-iteration trace. Reusing the earlier counter
-would exit after one iteration; do not invent a replacement value. Protocol
-delivery passes, but this is not semantic acceptance. Its one generation settles
-1.96 credits with exact output/token and actual attempt/block binding; original
-source and classroom state remain unchanged. No new learner is created. Retain
-both targeted failures and require full initial state separately for each example
-before checking a changed deployed candidate; keep original input and budgets.
-
-The third scoped check on b5e25f8db/sim-a7ff2b9 also fails: values are stated,
-but the purported real loop has no back-edge. The model correctly traces its
-one-pass fall-through into HALT and acknowledges it runs once, yet still presents
-it instead of the requested two-iteration demonstration. Do not insert a missing
-jump into stored evidence. Its one generation settles 1.99 credits with the same
-exact output/token and actual attempt/block binding; source and original classroom
-state remain unchanged, with no new learner. The next refinement requires
-verification against requested behavior and correction before presentation, not
-merely a consistent description of an example that fails the requested task.
-
-The fourth scoped check on 8012b33f2/sim-5d88b7a supplies no displayed program
-or two-iteration trace and defers requested details until the learner answers.
-This is failed acceptance, not evidence of correct examples. Three generations
-within existing native retry limits settle 5.75 credits with verbatim output/token
-and actual attempt/block binding. The policy and original request are present in
-actual generation inputs. Original source and classroom state remain unchanged;
-no new learner or summary is created. Preserve the author's brief-clarification
-rule. Investigate potentially conflicting correction-only host guidance without
-overriding that rule or spending on unchanged-runtime resampling.
-
-## Clarification and correction scope
-
-The current authored reference accompanies both attempted answers and knowledge
-questions. Its correction-only guidance must be explicitly limited to
-checking-direction feedback, where permitted questions remain unanswered and
-later reasoning is withheld. Clarification answers the actual side question
-within authored brevity and disclosure rules, then returns to the pending
-exercise. Include the actual question's requested examples or walkthroughs
-concisely, including after native branch/control repair; a generic definition
-does not replace the requested illustration. Rejected drafts remain undisplayed
-and absent from persisted teaching history. This distinction neither authorizes a full solution forbidden by the
-author nor imposes a new answer requirement. Exact source, history, memory,
-navigation and request limits remain unchanged. Native SDK instruction/reload
-tests establish delivery only; deployed teaching quality and the complete fresh
-natural-compaction journey still require independent acceptance.
-
-The phase-scoped runtime 6a3aa06d7 deploys as sim-c91e50d. Both APIs match
-67 production fingerprints and pass 422 SDK checks; source and integrated sim
-pass 3830 learning/script cases, 50 subtests, three expected skips and all gates.
-The fifth scoped actual-model check restores explanation and traces but still
-fails factual acceptance: byte addressing with two-byte instructions conflicts
-with one-byte instruction placement/PC movement, and a result write overwrites
-the next HALT while claiming instructions remain unchanged. Do not repair the
-output by changing address units, padding instructions or moving the result.
-One trace/generation settles 2.01 credits with verbatim output/token and actual
-attempt/block binding; original source and classroom state are unchanged. No
-summary or new learner is created. Retain all five scoped failures separately
-from the original failed fresh journey.
-
-A separate process-local capability diagnostic enables provider thinking only
-for the same original-model checkpoint. Product minimum-thinking policy remains
-intentional and unchanged in the serving API, course and shared configuration.
-Actual trace metadata confirms thinking enabled, but the displayed answer omits
-the program/two-iteration trace and defers details. This diagnostic fails the
-frozen semantic check and does not show that reasoning fixes factual errors.
-One trace/generation settles 2.00 credits; the existing Langfuse content field
-matches billing verbatim with unique tokens and actual attempt/block binding.
-Reasoning evidence is retained separately. Source and original classroom state
-remain unchanged. This is neither serving-runtime nor fresh-classroom acceptance.
-Do not change global reasoning policy or repeat an unchanged paid request based
-on this result. A model comparison must preserve the original source, request,
-standards and per-turn limits, and remain separate from course acceptance.
-
-The frozen two-candidate configured-model comparison preserves the original
-checkpoint/question/source, product parameter policy and per-turn limits. Model
-2 passes this isolated example check: initialization at a distinct data cell,
-two increments, a conditional back-edge and final fall-through/HALT all match its
-six displayed PC/memory rows. Three native generations settle 28.52 credits.
-Model 3 fails native delivery with no displayed answer after five generations;
-retained tool results reject a serialized JSON string in the object-valued review
-field. Do not coerce the schema or infer factual acceptance from missing output.
-Its five generations settle 77.93 credits. All eight outputs/tokens uniquely bind
-to actual attempt/block usage, all fees settle, source/classroom remain unchanged
-and no summary/new learner is created. A diagnostic route guard initially stops
-before provider usage; explicit course scope fixes only the private runner, not
-product routing. Structured-output audit recovery reads existing evidence only.
-
-This comparison changes no serving course/model or global reasoning policy and
-does not close either the original model's failure or fresh eleven-question
-natural-compaction acceptance. Model 2 is a candidate for a separately scoped
-classroom evaluation, not an automatic course migration or a pass for #3122.
+Do not parse a serialized feedback string into an object or rewrite tool-call
+history. The real balanced-model classroom currently fails on four such strings;
+its five generations settle 45.60 credits, without displayed clarification or a
+full eleven-question pass. Explicit object typing is not constrained decoding or
+proof of semantic compliance. See [the schema plan](../exec-plans/active/mdf2-feedback-branch-schema.md)
+for final standalone verification and original failure receipts.
 
 ## Cases and scoring
 
@@ -383,24 +258,6 @@ prose preceding any built-in tool; invalid finish/memory siblings cannot execute
 Read-only lookups without prose may precede the decision, and later report pages
 inherit it without a separate planning request. Portable hosts default to the
 previous optional contract. Unsupported anchors and navigation are unaffected.
-For a supported returned answer whose branch has not yet been committed, the
-model-visible primary tools require a non-null `feedback` object. Interaction
-feedback is the existing direction or ordinary-review object; finish feedback
-is an ordinary review. The union is inside this property, not at the schema root:
-provider conversion can remove root combinators. In this state, legacy direct
-`direction`/`review` fields are omitted from the offered delivery schema.
-Native callers and old saved calls keep their original direct fields; read and
-memory siblings keep their existing `review` declaration. Original tool evidence
-is not rewritten. Mixing canonical and legacy spellings or both kinds in one
-canonical object is rejected before display. Multiple interactions can repeat
-one identical parsed review; conflicting phase, answer, quote, rule or reason
-is rejected. Later calls inherit a committed decision. Initial, unsupported and
-portable states keep optional declarations; preparation copies definitions.
-This adds no grader, planning request, retry allowance or saved-session conversion.
-An offered requirement is not constrained decoding: models can emit invalid
-arguments, and native validation remains required. Required schemas alone do
-not establish factual correctness or fewer actual-model retries.
-
 The declaration makes the model decision explicit and validates its sources;
 it does not prove that the model graded the answer or chose the stage correctly.
 Native review.phase guidance repeats the branch-choice boundary where the model
