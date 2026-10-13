@@ -589,4 +589,18 @@ describe('course layout and page WeChat authorization integration', () => {
     expect(useUserStore.getState().initUser).toHaveBeenCalled();
     expectProfileStarted();
   });
+
+  test('clears a retained code before releasing Profile after synchronous navigation failure', async () => {
+    useSystemStore.setState({ wechatCode: 'retained-code' });
+    mockWechatLogin.mockImplementationOnce(() => {
+      throw new Error('navigation unavailable');
+    });
+    render(courseRoute());
+    await flush();
+    expect(mockUpdateWxcode).not.toHaveBeenCalled();
+    expect(useSystemStore.getState().wechatCode).toBe('');
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expect(useUserStore.getState().initUser).toHaveBeenCalled();
+    expectProfileStarted();
+  });
 });

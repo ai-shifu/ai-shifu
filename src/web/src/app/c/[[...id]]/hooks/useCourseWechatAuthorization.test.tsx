@@ -145,18 +145,21 @@ describe('useCourseWechatAuthorizationState', () => {
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
   });
 
-  it('releases a synchronous navigation failure without retrying that app ID', () => {
+  it('releases a synchronous navigation failure after the stored code is cleared', () => {
     mockWechatLogin.mockImplementation(() => {
       throw new Error('navigation unavailable');
     });
-    const { result, rerender, params, readiness } = renderAuthorization();
+    const { result, rerender, params, readiness } = renderAuthorization({
+      wechatCode: 'stale-code',
+    });
 
     expect(readiness[0]).toBe(false);
-    expect(result.current.ready).toBe(true);
+    expect(result.current.ready).toBe(false);
     expect(mockDebugWarn).toHaveBeenCalled();
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expect(params.updateWechatCode).toHaveBeenCalledWith('');
 
-    rerender({ ...params, wechatCode: 'stale-code' });
+    rerender({ ...params, wechatCode: '' });
     act(() => jest.advanceTimersByTime(60_000));
 
     expect(result.current.ready).toBe(true);

@@ -40,6 +40,8 @@ Inside WeChat, outside mini programs, with the WeChat code flow enabled:
   document is replaced. A timer, menu click, or child-page remount cannot cancel
   navigation or release this gate. A synchronous navigation exception can
   safely release startup because navigation did not begin.
+  When the layout's missing-code navigation throws, clear any retained store
+  code and wait for that cleared value before releasing binding preparation.
 - A persisted `pageshow` after an issued navigation proves the browser restored
   this document from its back-forward cache. Retire that navigation and abandon
   automatic authorization preparation for the restored layout: do not redirect

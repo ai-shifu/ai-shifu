@@ -98,6 +98,7 @@ export const useCourseWechatAuthorizationState = ({
         '[lesson-layout] WeChat authorization could not navigate',
         error,
       );
+      updateWechatCode('');
       setFailedAppId(appId);
     }
   }, [
@@ -116,7 +117,9 @@ export const useCourseWechatAuthorizationState = ({
     (preparationAbandoned ||
       !applicable ||
       !appId ||
-      (queryCode ? queryCode === wechatCode : failedAppId === appId));
+      (queryCode
+        ? queryCode === wechatCode
+        : failedAppId === appId && !wechatCode));
 
   return useMemo(
     () => ({ ready, preparationAbandoned, authorize }),

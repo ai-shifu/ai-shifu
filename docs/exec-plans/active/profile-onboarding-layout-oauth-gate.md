@@ -17,8 +17,8 @@ or publish any environment as part of this work.
       account initialization, code hydration, and existing Profile tests.
 - [x] 2026-10-13 CST: Created a fresh task branch from the fetched main.
 - [x] 2026-10-13 CST: Shared course OAuth navigation and synchronous readiness.
-- [x] 2026-10-13 CST: Verified 16 real layout-page-Profile regressions and 20
-      authorization unit cases; all 261 focused tests pass.
+- [x] 2026-10-13 CST: Verified 17 real layout-page-Profile regressions and 20
+      authorization unit cases; all 262 focused tests pass.
 - [x] 2026-10-13 CST: TypeScript, frontend lint, harness and architecture
       checks passed. Independent implementation review found no blockers.
 - [x] 2026-10-13 CST: Passed the full Lefthook repository gate and prepared
@@ -26,6 +26,8 @@ or publish any environment as part of this work.
 - [ ] Human acceptance of the new PR; merge and deployment are not authorized.
 - [x] 2026-10-13 CST: Addressed PR #3127 review about restored BFCache navigation
       with six unit cases and three integration cases that first failed.
+- [x] 2026-10-13 CST: Verified the separate stale-code synchronous-failure review
+      fix; its integration regression fails before the change and passes after it.
 
 ## Surprises & Discoveries
 
@@ -46,6 +48,11 @@ the layout and its navigation lock. A persisted pageshow is evidence that the
 document returned, so retire navigation and abandon automatic preparation for
 that restored layout. This must also skip binding to avoid reusing a spent code
 or immediately redirecting an unbound account again.
+
+A second review identified retained store-code exchange after a missing-code
+navigation throws. The new integration regression reproduced that exchange.
+Clear the stale code in the failure path and wait for its cleared render before
+releasing readiness; leave actual incoming URL code handling unchanged.
 
 ## Decision Log
 
