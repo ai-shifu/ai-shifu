@@ -10,6 +10,19 @@ while preserving native validation and portable-host compatibility.
 
 ## Progress
 
+- [x] 2026-10-13: Fetch actual #3123 squash merge c8d1cdc12 and merge main
+  into the existing schema branch without rewriting history. Preserve main's
+  clarification/authored-help guidance and all fourteen regressions. Resolve the
+  only conflict by retaining both reference sections and both acceptance histories.
+  Complete API, web and i18n trees match verified sim f67afe0f7 byte-for-byte;
+  held #3122 policy remains excluded. No paid replay or classroom reset is needed.
+- [x] 2026-10-13: All 1019 engine regressions, tooling, regenerated indexes,
+  repository harness and all-file hooks pass after synchronization. The previous
+  3890-case integration and actual-model evidence remain scoped to identical code.
+- [ ] Verify this synchronization head's CI, review and current sim receipts
+  before recommending manual merge of #3125. Full factual/classroom acceptance
+  remains open independently.
+
 - [x] 2026-10-13: Current documentation head b369bcf1a passes all eleven
   checks; its entire API/test tree matches functional c61022c51 and Codex-reviewed
   dd3da5a63. All three inline roots have original-thread replies, including the
