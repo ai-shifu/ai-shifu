@@ -7,7 +7,7 @@ grade an answer or prove that a free-form question has only one semantic focus.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 from pydantic_ai.messages import (
@@ -184,29 +184,12 @@ class DirectionFeedback(BaseModel):
         return "\n\n".join([*quotes, questions])
 
 
-def feedback_arguments(call: ToolCallPart) -> dict[str, Any]:
-    """Read canonical delivery feedback without rewriting original tool evidence."""
-    args = call.args_as_dict()
-    value = args.get("feedback")
-    if value is None:
-        return args
-    if (
-        call.tool_name not in ("interact", "finish")
-        or not isinstance(value, dict)
-        or ("phase" in value) == ("focuses" in value)
-        or any(args.get(name) is not None for name in ("direction", "review"))
-    ):
-        message = "feedback must declare one direction or review without legacy fields"
-        raise ValueError(message)
-    return {**args, "review" if "phase" in value else "direction": value}
-
-
 def has_direction(call: ToolCallPart) -> bool:
     """Recognize the structured interaction without interpreting its model arguments."""
     if call.tool_name != "interact":
         return False
     try:
-        return feedback_arguments(call).get("direction") is not None
+        return call.args_as_dict().get("direction") is not None
     except (TypeError, ValueError):
         return False
 
@@ -307,10 +290,7 @@ def feedback_retry_history(
                 "do not send only a replacement control assuming prior prose was shown. "
                 "Use actual tool calls, not textual interaction tags. A checking "
                 "direction still uses direction alone, without free prose. Preserve "
-                "earlier successfully displayed pages and the author's navigation boundary. "
-                "For clarification, keep the actual question's requested examples or "
-                "walkthroughs within the author's brevity and disclosure limits; do not "
-                "replace them with a generic definition."
+                "earlier successfully displayed pages and the author's navigation boundary."
             )
             result.append(
                 replace(

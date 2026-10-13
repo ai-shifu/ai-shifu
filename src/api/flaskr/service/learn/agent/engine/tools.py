@@ -18,12 +18,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from .direction import (
-    DirectionFeedback,
-    FeedbackReview,
-    feedback_arguments,
-    has_direction,
-)
+from .direction import DirectionFeedback, FeedbackReview, has_direction
 from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .session import answer_fingerprint
@@ -630,13 +625,12 @@ def feedback_response_problem(
     reviews = []
     for call in calls:
         try:
-            value = feedback_arguments(call).get("review")
+            value = call.args_as_dict().get("review")
             if value is not None:
                 reviews.append(FeedbackReview.model_validate(value))
         except (TypeError, ValueError):
             return "invalid feedback branch declaration", None
-    # Schema-required sibling declarations must represent one identical decision.
-    if reviews and any(review != reviews[0] for review in reviews[1:]):
+    if len(reviews) > 1:
         return "declare one feedback branch for this response", None
     if any(has_direction(call) for call in calls):
         if reviews or deps.feedback_review is not None:
@@ -689,8 +683,8 @@ def feedback_response_problem(
         and review is None
     ):
         return (
-            "Declare the feedback branch in interact/finish.feedback: a checking direction object "
-            "for authored correction; otherwise an ordinary review object with "
+            "Declare the feedback branch in this same tool response: use interact.direction "
+            "for an authored checking-direction correction; otherwise attach review with "
             "the actual answer_id, phase accepted/clarification/authored_help, exact "
             "submission_quote and internal reason. authored_help also requires exact "
             "current rule_quote permitting that help now. Do not skip the author's stage. "
@@ -728,7 +722,6 @@ async def interact(
     placeholder: str | None = None,
     direction: DirectionFeedback | None = None,
     review: FeedbackReview | None = None,
-    feedback: DirectionFeedback | FeedbackReview | None = None,
 ) -> str:
     """Show an interaction to the learner and wait for the answer.
 
@@ -806,14 +799,6 @@ async def interact(
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
-    if feedback is not None:
-        if direction is not None or review is not None:
-            message = "Use feedback without legacy direction/review fields"
-            raise ModelRetry(message)
-        if isinstance(feedback, DirectionFeedback):
-            direction = feedback
-        else:
-            review = feedback
     validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
     if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
@@ -968,54 +953,6 @@ async def memory_admission_error(
     return "the learner's explicit request could not be verified"
 
 
-async def prepare_feedback_tool(
-    ctx: RunContext[Deps], definition: ToolDefinition
-) -> ToolDefinition:
-    """Expose the current reply's required branch without changing native validation."""
-    schema = definition.parameters_json_schema
-    properties = dict(schema["properties"])
-    if (
-        not ctx.deps.feedback_contract
-        or not ctx.deps.direction_sections
-        or ctx.deps.feedback_review is not None
-    ):
-        properties.pop("feedback", None)
-        return replace(
-            definition,
-            parameters_json_schema={**schema, "properties": properties},
-        )
-    for name in ("direction", "review"):
-        properties.pop(name, None)
-    original = properties["feedback"]
-    # A required property survives provider conversion; a root anyOf may not.
-    properties["feedback"] = {
-        **{k: v for k, v in original.items() if k not in ("anyOf", "default")},
-        "anyOf": [v for v in original["anyOf"] if v.get("type") != "null"],
-    }
-    description = (definition.description or "").partition(
-        "When the host requires an explicit feedback branch"
-    )[0]
-    description = description.replace(
-        "send `direction` in this same tool call instead of writing free content.",
-        "send its direction object in `feedback` without free content.",
-    ).replace("omit `direction`", "choose ordinary review")
-    kind = "direction or review" if definition.name == "interact" else "review"
-    description += (
-        f"For supported returned text, put the {kind} object in `feedback`. "
-        "Read/memory calls retain `review`. Follow the offered schema and authored stage "
-        "without a planning request."
-    )
-    return replace(
-        definition,
-        description=description,
-        parameters_json_schema={
-            **schema,
-            "properties": properties,
-            "required": list(dict.fromkeys([*schema.get("required", []), "feedback"])),
-        },
-    )
-
-
 async def prepare_memory_tool(
     _ctx: RunContext[Deps], definition: ToolDefinition
 ) -> ToolDefinition:
@@ -1101,10 +1038,7 @@ async def remember(
 
 
 async def finish(
-    ctx: RunContext[Deps],
-    summary: str = "",
-    review: FeedbackReview | None = None,
-    feedback: FeedbackReview | None = None,
+    ctx: RunContext[Deps], summary: str = "", review: FeedbackReview | None = None
 ) -> str:
     """Mark the script as delivered to its end.
 
@@ -1112,11 +1046,6 @@ async def finish(
     it remains to do. `summary` is one short line about what the learner did. Do not call it
     when the script merely pauses, asks a question, or waits for the learner.
     """
-    if feedback is not None:
-        if review is not None:
-            message = "Use feedback without a legacy review field"
-            raise ModelRetry(message)
-        review = feedback
     if review is not None:
         validate_direction_call(ctx, review=review)
     current = [

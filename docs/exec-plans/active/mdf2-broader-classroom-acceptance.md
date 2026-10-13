@@ -8,6 +8,16 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Prepare an isolated sim candidate with its complete backend
+      tree exactly matching #3118 head 7643e045f and current main 2ff4af09b.
+      Temporarily exclude the unmerged #3122/#3123/#3125 runtime from this
+      deployment so it cannot mask a standalone feedback regression. Previous
+      combined sim head 319c66ea3 remains recoverable in Git; retain all its
+      original semantic-failure evidence and do not reset classroom records.
+- [ ] 2026-10-13: Build and deploy this standalone candidate, verify both API
+      fingerprints and isolated SDK regressions, then record the scoped result.
+      Full fresh eleven-question acceptance remains independently outstanding.
+
 - [x] 2026-10-13: Ninth frozen original-model check on sim-086140b / build 621 /
       Drone 5410 follows both replicas matching 68 files and passing 438 SDK
       cases each. Requested program/two iterations return, but SUB 1 followed

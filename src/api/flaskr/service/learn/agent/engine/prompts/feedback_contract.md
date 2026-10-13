@@ -3,11 +3,10 @@
 This host requires an explicit branch in the SAME tool response that first gives
 feedback on a uniquely anchored text input. It buffers undeclared prose; omitting
 the branch causes a retry before display within the existing request budget.
-Put the direction/review object in interact/finish `feedback`; reads keep `review`.
 
 - A failed answer at the author's checking-direction stage with an authored
   aspect/question count MUST use
-  `interact.feedback`, without free content or sibling calls. This is the
+  `interact.direction`, without free content or sibling calls. This is the
   correction input itself, not a planning call. Copy `answer_id` exactly from
   the host `authored_section.answer_id` reference, together with the
   original authored rule/criterion and actual submission evidence. A direction
