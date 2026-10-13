@@ -155,7 +155,10 @@ export default function ChatPage() {
     isLoggedIn && wxcodeEnabled && inWechat() && !inMiniProgram();
   const wechatAuthorization = useCourseWechatAuthorization();
   const wechatOpenIdReady = useWechatOpenIdBinding({
-    initialized: initialized && wechatAuthorization.ready,
+    initialized:
+      initialized &&
+      wechatAuthorization.ready &&
+      !wechatAuthorization.preparationAbandoned,
     isLoggedIn,
     userId: userInfo?.user_id || '',
     token: useUserStore.getState().getToken() || '',

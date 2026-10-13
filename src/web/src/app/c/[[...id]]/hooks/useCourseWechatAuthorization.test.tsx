@@ -205,6 +205,120 @@ describe('useCourseWechatAuthorizationState', () => {
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps navigation pending on an ordinary pageshow event', () => {
+    const { result } = renderAuthorization();
+
+    act(() => {
+      window.dispatchEvent(new PageTransitionEvent('pageshow'));
+      jest.advanceTimersByTime(60_000);
+    });
+
+    expect(result.current.ready).toBe(false);
+    expect(result.current.preparationAbandoned).toBe(false);
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['matching', 'fresh-code', true],
+    ['mismatching', 'stale-code', false],
+  ] as const)(
+    'does not abandon preparation on BFCache restoration with %s codes and no navigation',
+    (_name, wechatCode, expectedReady) => {
+      const { result } = renderAuthorization({
+        queryCode: 'fresh-code',
+        wechatCode,
+      });
+
+      act(() => {
+        window.dispatchEvent(
+          new PageTransitionEvent('pageshow', { persisted: true }),
+        );
+      });
+
+      expect(result.current.ready).toBe(expectedReady);
+      expect(result.current.preparationAbandoned).toBe(false);
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    },
+  );
+
+  it('retires a navigation restored from BFCache without authorizing again', () => {
+    const { result, rerender, params } = renderAuthorization();
+    expect(result.current.ready).toBe(false);
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent('pageshow', { persisted: true }),
+      );
+      // The old callback can run before React commits the restored state.
+      result.current.authorize({ appId: 'wx-app-id' });
+    });
+
+    expect(result.current.ready).toBe(true);
+    expect(result.current.preparationAbandoned).toBe(true);
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+
+    rerender({
+      ...params,
+      appId: 'different-app-id',
+      queryCode: 'spent-code',
+      wechatCode: 'stale-code',
+    });
+    expect(result.current.ready).toBe(true);
+    expect(result.current.preparationAbandoned).toBe(true);
+
+    rerender({ ...params, appId: 'another-app-id' });
+    act(() => {
+      result.current.authorize({ appId: 'another-app-id' });
+      jest.advanceTimersByTime(60_000);
+    });
+
+    expect(result.current.ready).toBe(true);
+    expect(result.current.preparationAbandoned).toBe(true);
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('retires child-initiated recovery when the document returns from BFCache', () => {
+    const { result } = renderAuthorization({
+      queryCode: 'spent-code',
+      wechatCode: 'spent-code',
+    });
+    act(() => result.current.authorize({ appId: 'wx-app-id' }));
+    expect(result.current.ready).toBe(false);
+
+    act(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent('pageshow', { persisted: true }),
+      );
+    });
+
+    expect(result.current.ready).toBe(true);
+    expect(result.current.preparationAbandoned).toBe(true);
+
+    act(() => result.current.authorize({ appId: 'wx-app-id' }));
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('still waits for runtime configuration after abandoning restored preparation', () => {
+    const { result, rerender, params } = renderAuthorization();
+    rerender({ ...params, runtimeConfigLoaded: false });
+
+    act(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent('pageshow', { persisted: true }),
+      );
+    });
+
+    expect(result.current.ready).toBe(false);
+    expect(result.current.preparationAbandoned).toBe(true);
+
+    rerender({ ...params, runtimeConfigLoaded: true });
+
+    expect(result.current.ready).toBe(true);
+    expect(result.current.preparationAbandoned).toBe(true);
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+  });
+
   it.each<
     [
       string,

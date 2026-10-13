@@ -40,6 +40,11 @@ Inside WeChat, outside mini programs, with the WeChat code flow enabled:
   document is replaced. A timer, menu click, or child-page remount cannot cancel
   navigation or release this gate. A synchronous navigation exception can
   safely release startup because navigation did not begin.
+- A persisted `pageshow` after an issued navigation proves the browser restored
+  this document from its back-forward cache. Retire that navigation and abandon
+  automatic authorization preparation for the restored layout: do not redirect
+  again or exchange its old code. Learning and Profile with a known account may
+  resume; a fresh document follows normal authorization preparation.
 - If the account profile is still unavailable at the deadline, learning may
   continue. Profile itself waits for a known account identity, avoiding a
   collection that would be replaced when that identity arrives.

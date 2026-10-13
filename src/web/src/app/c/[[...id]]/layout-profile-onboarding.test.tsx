@@ -205,6 +205,13 @@ const flush = async () => {
   });
 };
 
+const showPage = async (persisted: boolean) => {
+  await act(async () => {
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted }));
+  });
+  await flush();
+};
+
 const courseRoute = (pageKey = 'page') => (
   <ChatLayout>
     <ChatPage key={pageKey} />
@@ -449,6 +456,83 @@ describe('course layout and page WeChat authorization integration', () => {
     expect(mockWechatLogin).toHaveBeenCalledTimes(1);
     expect(mockUpdateWxcode).toHaveBeenCalledTimes(1);
     expectNoProfileStart();
+  });
+
+  test('restores Profile after BFCache return without retrying stale preparation for an unbound account', async () => {
+    useSystemStore.setState({ wechatCode: 'retained-code' });
+    useUserStore.setState({
+      userInfo: { ...useUserStore.getState().userInfo!, openid: '' },
+    });
+    render(courseRoute());
+    await flush();
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expect(mockUpdateWxcode).not.toHaveBeenCalled();
+    expectNoProfileStart();
+
+    await showPage(false);
+    await act(async () => {
+      jest.advanceTimersByTime(30_000);
+    });
+    expectNoProfileStart();
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+
+    await showPage(true);
+    expectProfileStarted();
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expect(mockUpdateWxcode).not.toHaveBeenCalled();
+    await showPage(true);
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expect(mockUpdateWxcode).not.toHaveBeenCalled();
+    expectProfileStarted();
+  });
+
+  test('restores Profile after BFCache return from recovery without exchanging a spent code twice', async () => {
+    setQuery('code=spent-code');
+    useSystemStore.setState({ wechatCode: 'spent-code' });
+    useUserStore.setState({
+      userInfo: { ...useUserStore.getState().userInfo!, openid: '' },
+    });
+    mockUpdateWxcode.mockRejectedValue(new Error('exchange failed'));
+    render(courseRoute());
+    await flush();
+    expect(mockUpdateWxcode).toHaveBeenCalledTimes(1);
+    expect(mockUpdateWxcode).toHaveBeenCalledWith({ wxcode: 'spent-code' });
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expectNoProfileStart();
+
+    await showPage(true);
+    expectProfileStarted();
+    await act(async () => {
+      jest.advanceTimersByTime(30_000);
+    });
+    expect(mockUpdateWxcode).toHaveBeenCalledTimes(1);
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expectProfileStarted();
+  });
+
+  test('keeps BFCache preparation abandoned when the child page remounts before Profile eligibility resolves', async () => {
+    const eligibility = deferred<typeof onboardingStatus>();
+    mockGetProfileOnboarding.mockReturnValue(eligibility.promise);
+    useUserStore.setState({
+      userInfo: { ...useUserStore.getState().userInfo!, openid: '' },
+    });
+    const view = render(courseRoute());
+    await flush();
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    await showPage(true);
+    view.rerender(courseRoute('restored-remounted-page'));
+    await flush();
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expect(mockUpdateWxcode).not.toHaveBeenCalled();
+    expectNoProfileStart();
+
+    await act(async () => {
+      eligibility.resolve(onboardingStatus);
+    });
+    await flush();
+    expectProfileStarted();
+    expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+    expect(mockUpdateWxcode).not.toHaveBeenCalled();
   });
 
   test.each([

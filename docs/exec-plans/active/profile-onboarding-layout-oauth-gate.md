@@ -17,13 +17,15 @@ or publish any environment as part of this work.
       account initialization, code hydration, and existing Profile tests.
 - [x] 2026-10-13 CST: Created a fresh task branch from the fetched main.
 - [x] 2026-10-13 CST: Shared course OAuth navigation and synchronous readiness.
-- [x] 2026-10-13 CST: Verified 13 real layout-page-Profile regressions and 14
-      authorization unit cases; all 252 focused tests pass.
+- [x] 2026-10-13 CST: Verified 16 real layout-page-Profile regressions and 20
+      authorization unit cases; all 261 focused tests pass.
 - [x] 2026-10-13 CST: TypeScript, frontend lint, harness and architecture
       checks passed. Independent implementation review found no blockers.
 - [x] 2026-10-13 CST: Passed the full Lefthook repository gate and prepared
       a separate review-only PR handoff.
 - [ ] Human acceptance of the new PR; merge and deployment are not authorized.
+- [x] 2026-10-13 CST: Addressed PR #3127 review about restored BFCache navigation
+      with six unit cases and three integration cases that first failed.
 
 ## Surprises & Discoveries
 
@@ -39,6 +41,12 @@ The new core integration regression fails against a static c68a64f snapshot:
 one OAuth navigation coincides with one Profile display, session and stream.
 The same regression passes after the change with all three Profile counts zero.
 
+PR #3127 review found a browser Back edge case: BFCache restoration preserves
+the layout and its navigation lock. A persisted pageshow is evidence that the
+document returned, so retire navigation and abandon automatic preparation for
+that restored layout. This must also skip binding to avoid reusing a spent code
+or immediately redirecting an unbound account again.
+
 ## Decision Log
 
 - 2026-10-13 CST: Keep course authorization state in the parent layout and
@@ -52,6 +60,11 @@ The same regression passes after the change with all three Profile counts zero.
 - 2026-10-13 CST: Extend the existing Profile analytics timing contract with
   parent OAuth waiting. Event names, payloads, eligible population, deduplication,
   and consumers remain unchanged; waiting creates no Profile journey or event.
+- 2026-10-13 CST: Use only persisted pageshow to retire a navigation on browser
+  restoration. Ordinary pageshow, focus, deadlines and child remounts do not prove
+  navigation completed. Restored layouts skip automatic binding/retry until a
+  fresh document starts. See the
+  [browser lifecycle definition](https://html.spec.whatwg.org/multipage/nav-history-apis.html#the-pagetransitionevent-interface).
 
 ## Outcomes & Retrospective
 
@@ -103,7 +116,7 @@ anything. Keep any follow-up review fixes as independent commits.
 
 ## Interfaces and Dependencies
 
-The route-local context exposes ready and authorize. The binding hook gains an
+The route-local context exposes ready, preparationAbandoned and authorize. The binding hook gains an
 optional authorize callback, preserving standalone consumers. Existing user,
 OpenID, Profile, tracking, and transport APIs remain unchanged. No dependency,
 schema, locale, or infrastructure change is needed.
