@@ -10,6 +10,20 @@ while preserving native validation and portable-host compatibility.
 
 ## Progress
 
+- [x] 2026-10-13 05:07 UTC: Offline pinned-provider conversion reproduces removal
+  of the interaction root anyOf on OpenAI; Ark preserves it without strict mode.
+  Seven canonical/provider cases first fail. Use one required non-null feedback
+  property with its direction/review union nested inside. Legacy native calls
+  remain accepted, canonical evidence remains original, and mixed/ambiguous
+  declarations are rejected. All 27 schema/compatibility cases and the combined
+  182-case schema/phase/direction suite pass. Full suite passes 3859 plus 50 subtests, three expected skips; all
+  repository gates pass. Final state-scoped descriptions preserve legacy models
+  and canonical field guidance; the complete suite passes again. An initial candidate exceeded the unchanged 64 KiB regression by
+  145 bytes; omit the new field in inactive states and retain the old schemas.
+  All 30 schema/history checks then pass. No new paid request or learner yet.
+- [ ] Push canonical provider-compatible fix, reply in original threads, redeploy
+  and verify the actual current candidate before any paid model check.
+
 - [x] 2026-10-13 04:27 UTC: Adopt Codex finding 4254687333 about simultaneous
   interactions. Three real two-interaction SDK cases first fail. Treat identical
   parsed review objects as one response-wide decision; keep differing reasons
@@ -80,6 +94,11 @@ avoidable protocol mismatch but cannot establish factual teaching correctness.
 
 ## Decision Log
 
+- 2026-10-13: Replace the initial root branch combinator with a required feedback
+  property. Pinned Ark and OpenAI transformations must both retain its requirement
+  and both legal choices. Keep optional native aliases for saved callers; never
+  rewrite the original canonical call into a synthetic historical declaration.
+
 - 2026-10-13: Keep legacy native sibling payloads accepted while advertising a
   canonical delivery declaration to new model requests. CodeRabbit 4254709240
   identifies this deliberate narrower offer; restoring optional fields would
@@ -100,7 +119,9 @@ avoidable protocol mismatch but cannot establish factual teaching correctness.
 
 ## Outcomes & Retrospective
 
-Implementation, all seven CI checks, actual new-head review, both deployed
+The canonical property candidate has local focused validation; its final checks
+and deployed acceptance are pending. The previous implementation, all seven CI
+checks, actual review and both deployed
 replicas and controlled SDK compatibility checks pass on functional head
 9749ae5c7. The frozen original-model check fails both initial schema adherence
 and factual teaching correctness; it does not establish fewer retries or broader
@@ -119,8 +140,8 @@ SDK-offered JSON schemas and executes native tools. The canonical contract is in
 ## Plan of Work
 
 Prepare copies of existing tool definitions. For a supported undeclared reply,
-require interaction direction/review or finish review, retaining original nested
-schemas and all other fields. Skip preparation for portable hosts, unsupported
+require primary feedback containing direction/review or finish review, retaining
+original nested schemas and other fields; legacy native spellings remain valid. Skip preparation for portable hosts, unsupported
 anchors, initial teaching and committed feedback branches. Keep existing runtime
 validation, history isolation, memory admission and author constraints intact.
 

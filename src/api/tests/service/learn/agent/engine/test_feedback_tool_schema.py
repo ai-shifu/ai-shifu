@@ -6,10 +6,18 @@ from collections.abc import AsyncIterator
 import pytest
 from flaskr.service.learn.agent.engine import Engine, InteractionResponseTurn, Session
 from jsonschema import Draft202012Validator
-from pydantic_ai.messages import ModelMessage
+from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
-from .test_direction_feedback import _call, _collect, _direction, _text
+from .test_direction_feedback import (
+    DISPLAY,
+    SCRIPT,
+    WRONG,
+    _call,
+    _collect,
+    _direction,
+    _text,
+)
 
 
 @pytest.mark.anyio
@@ -42,13 +50,36 @@ async def test_feedback_schema_requires_a_branch_only_for_a_supported_reply(
         assert finish.is_valid({"summary": "Done."}) is not required
         assert interact.is_valid({**args, "review": None}) is not required
         assert interact.is_valid({**args, "direction": None}) is not required
-        assert interact.is_valid({**args, "review": review})
-        assert interact.is_valid({**args, "direction": _direction()})
-        assert finish.is_valid({"summary": "Done.", "review": review})
+        assert interact.is_valid({**args, "review": review}) is not required
+        assert interact.is_valid({**args, "direction": _direction()}) is not required
+        assert finish.is_valid({"summary": "Done.", "review": review}) is not required
+        if not required:
+            assert (
+                "feedback"
+                not in definitions["interact"].parameters_json_schema["properties"]
+            )
+            assert (
+                "feedback"
+                not in definitions["finish"].parameters_json_schema["properties"]
+            )
+        if required:
+            assert (
+                "review"
+                not in definitions["interact"].parameters_json_schema["properties"]
+            )
+            assert (
+                "direction"
+                not in definitions["interact"].parameters_json_schema["properties"]
+            )
+            assert "anyOf" not in definitions["interact"].parameters_json_schema
+            assert interact.is_valid({**args, "feedback": review})
+            assert interact.is_valid({**args, "feedback": _direction()})
+            assert not interact.is_valid({**args, "feedback": None})
+            assert finish.is_valid({"summary": "Done.", "feedback": review})
         if calls == 2:
             yield "A concise knowledge explanation."
             yield _call(
-                {**args, **({"review": review} if required else {})}, "continued"
+                {**args, **({"feedback": review} if required else {})}, "continued"
             )
         else:
             yield _call(args, "original")
@@ -193,8 +224,8 @@ async def test_multiple_interactions_share_one_exact_feedback_decision(
                 "clarification" if conflict == "phase" else "A conflicting explanation."
             )
         payloads = [
-            {"type": "text", "prompt": "", "placeholder": "First", "review": review},
-            {"type": "text", "prompt": "", "placeholder": "Second", "review": second},
+            {"type": "text", "prompt": "", "placeholder": "First", "feedback": review},
+            {"type": "text", "prompt": "", "placeholder": "Second", "feedback": second},
         ]
         assert all(validator.is_valid(p) for p in payloads)
         yield (
@@ -224,3 +255,243 @@ async def test_multiple_interactions_share_one_exact_feedback_decision(
     assert session.script.script == script
     assert "Undisplayed conflicting feedback." not in session.dumps()
     assert calls == (2 if conflict is None else 3)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("provider", ["ark", "openai"])
+async def test_provider_transforms_keep_required_feedback(provider: str) -> None:
+    """Retain the actual SDK requirement through pinned provider request conversion."""
+    import copy
+
+    from flaskr.service.learn.agent.gateway_model import map_tools
+    from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+    from litellm.llms.volcengine.chat.transformation import VolcEngineChatConfig
+    from pydantic_ai.models import ModelRequestParameters
+
+    calls = 0
+    args = {"type": "text", "prompt": "", "placeholder": "Explanation"}
+    review = {
+        "answer_id": "original",
+        "phase": "clarification",
+        "submission_quote": "Explain briefly.",
+        "reason": "Answer the question and retain the authored exercise.",
+    }
+
+    async def stream(_messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        """Inspect converted offered tools without making a provider request."""
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            config = VolcEngineChatConfig() if provider == "ark" else OpenAIGPTConfig()
+            tools = map_tools(
+                ModelRequestParameters(function_tools=info.function_tools)
+            )
+            body = config.transform_request(
+                model="deepseek-v4-1-flash-260910"
+                if provider == "ark"
+                else "gpt-6-astra",
+                messages=[{"role": "user", "content": "Synthetic schema check."}],
+                optional_params={"tools": copy.deepcopy(tools)},
+                litellm_params={
+                    "custom_llm_provider": "volcengine"
+                    if provider == "ark"
+                    else "openai",
+                    "api_base": "https://ark.cn-beijing.volces.com/api/v3"
+                    if provider == "ark"
+                    else "https://api.openai.com/v1",
+                },
+                headers={},
+            )
+            schema = next(
+                t["function"]["parameters"]
+                for t in body["tools"]
+                if t["function"]["name"] == "interact"
+            )
+            assert "feedback" in schema["required"]
+            validator = Draft202012Validator(schema)
+            assert not validator.is_valid(args)
+            assert not validator.is_valid({**args, "feedback": None})
+            assert validator.is_valid({**args, "feedback": review})
+            assert validator.is_valid({**args, "feedback": _direction()})
+            yield "A concise explanation."
+            yield _call({**args, "feedback": review}, "continued")
+        else:
+            yield _call(args, "original")
+
+    engine = Engine(
+        FunctionModel(stream_function=stream), feedback_contract=True, request_limit=1
+    )
+    session = await engine.new_session("Explain briefly.\n?[...Explanation]\n")
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text="Explain briefly."))
+    )
+    assert _text(events) == "A concise explanation."
+    assert calls == 2
+    assert not session.finished
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reload", [False, True])
+@pytest.mark.parametrize("sibling_first", [None, False, True])
+async def test_canonical_direction_preserves_native_boundaries(
+    reload: bool,
+    sibling_first: bool | None,
+) -> None:
+    """Keep grounded display/history and reject sibling writes in either tool order."""
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        """Deliver one grounded direction, repairing prohibited sibling calls first."""
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+            return
+        direction = _direction()
+        payload = {
+            "type": "text",
+            "prompt": "",
+            "placeholder": "Answer",
+            "feedback": direction,
+        }
+        output = _call(payload, "corrected")
+        if calls == 2 and sibling_first is not None:
+            sibling = DeltaToolCall(
+                name="remember",
+                json_args='{"key":"unsafe","value":"must not write"}',
+                tool_call_id="unsafe",
+            )
+            output = (
+                {0: sibling, 1: output[0]}
+                if sibling_first
+                else {0: output[0], 1: sibling}
+            )
+            yield "Rejected free reasoning."
+        yield output
+
+    engine = Engine(
+        FunctionModel(stream_function=stream), feedback_contract=True, request_limit=2
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    if reload:
+        session = Session.loads(session.dumps())
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert _text(events) == DISPLAY
+    assert not session.all_memory()
+    assert not session.finished
+    assert len(session.pending) == 1
+    assert session.pending[0].spec.placeholder == "Answer"
+    assert "Rejected free reasoning." not in session.dumps()
+    assert any(
+        p.args_as_dict().get("feedback") == _direction()
+        for m in session.messages
+        if isinstance(m, ModelResponse)
+        for p in m.parts
+        if isinstance(p, ToolCallPart)
+    )
+    assert calls == (2 if sibling_first is None else 3)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "bad", ["legacy_direction", "legacy_review", "ambiguous", "non_object"]
+)
+async def test_canonical_feedback_rejects_mixed_or_ambiguous_declarations(
+    bad: str,
+) -> None:
+    """Reject conflicting spellings before display without losing original evidence."""
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        """Repair a rejected declaration using the same grounded direction."""
+        nonlocal calls
+        calls += 1
+        payload = {"type": "text", "prompt": "", "placeholder": "Answer"}
+        if calls > 1:
+            payload["feedback"] = _direction()
+        if calls == 2:
+            if bad == "legacy_direction":
+                payload["direction"] = _direction()
+            elif bad == "legacy_review":
+                payload["review"] = {
+                    "answer_id": "original",
+                    "phase": "clarification",
+                    "submission_quote": WRONG,
+                    "reason": "Conflicting interpretation.",
+                }
+            elif bad == "ambiguous":
+                payload["feedback"] = {**_direction(), "phase": "clarification"}
+            else:
+                payload["feedback"] = "not an object"
+            yield "Rejected ambiguous feedback."
+        yield _call(payload, "original" if calls == 1 else "corrected")
+
+    engine = Engine(
+        FunctionModel(stream_function=stream), feedback_contract=True, request_limit=2
+    )
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=WRONG))
+    )
+    assert calls == 3
+    assert _text(events) == DISPLAY
+    assert "Rejected ambiguous feedback." not in session.dumps()
+    assert not session.all_memory()
+    assert not session.finished
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("mixed", [False, True])
+async def test_canonical_finish_keeps_review_validation(mixed: bool) -> None:
+    """Finish with one valid canonical review, retrying mixed legacy spelling."""
+    calls = 0
+    review = {
+        "answer_id": "original",
+        "phase": "accepted",
+        "submission_quote": "Complete.",
+        "reason": "The answer meets the authored ending.",
+    }
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        """Use real SDK terminal validation and retain only accepted prose."""
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+            return
+        if calls == (4 if mixed else 3):
+            return
+        invalid = mixed and calls == 2
+        payload = {"summary": "Completed.", "feedback": review}
+        if invalid:
+            payload["review"] = review
+        yield "Rejected mixed finish." if invalid else "Authored completion."
+        yield {
+            0: DeltaToolCall(
+                name="finish", json_args=json.dumps(payload), tool_call_id="finish"
+            )
+        }
+
+    engine = Engine(
+        FunctionModel(stream_function=stream), feedback_contract=True, request_limit=3
+    )
+    session = await engine.new_session(
+        "Ask for a complete answer.\n?[...Answer]\nAccept and finish."
+    )
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text="Complete."))
+    )
+    assert _text(events) == "Authored completion."
+    assert session.finished
+    assert "Rejected mixed finish." not in session.dumps()
+    assert calls == (4 if mixed else 3)
