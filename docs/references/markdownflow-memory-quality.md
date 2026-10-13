@@ -377,8 +377,10 @@ model-visible interaction schema requires a non-null `direction` or `review`;
 the finish schema requires a non-null `review`. Omit inactive branch fields.
 These primary delivery tools advertise the canonical declaration location.
 Original response-wide validation still accepts a declaration on a valid sibling
-native call, and later calls inherit a committed branch without another
-mandatory declaration. Initial teaching, unsupported anchors, navigation and
+native call. Multiple primary interactions can repeat the same parsed review
+object: matching declarations represent one decision, while any differing phase,
+answer, quote, rule or reason is rejected before display. Later calls inherit a
+committed branch without another mandatory declaration. Initial teaching, unsupported anchors, navigation and
 hosts without this contract retain their optional schemas. Preparation copies
 definitions per request; it does not mutate the agent's reusable definitions.
 This aligns model guidance with the existing host gate without a new grader,

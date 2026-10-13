@@ -152,3 +152,75 @@ async def test_declared_branch_keeps_legacy_sibling_and_later_calls_valid(
     assert session.pending[0].tool_call_id == "continued"
     assert not session.finished
     assert calls == (2 if same_response else 3)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("conflict", [None, "reason", "phase"])
+async def test_multiple_interactions_share_one_exact_feedback_decision(
+    conflict: str | None,
+) -> None:
+    """Keep schema-valid simultaneous inputs and reject inconsistent sibling decisions."""
+    calls = 0
+    answer = "A complete answer."
+    script = "Explain.\n?[...Original]\nThen ask both fields together.\n?[...First]\n?[...Second]\n"
+    review = {
+        "answer_id": "original",
+        "phase": "accepted",
+        "submission_quote": answer,
+        "reason": "The actual submitted answer meets the authored requirement.",
+    }
+
+    async def stream(_messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        """Exercise real native parallel deferred calls under the offered schema."""
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Original"}, "original"
+            )
+            return
+        assert calls <= 3
+        schema = next(
+            t.parameters_json_schema
+            for t in info.function_tools
+            if t.name == "interact"
+        )
+        validator = Draft202012Validator(schema)
+        second = dict(review)
+        invalid = conflict is not None and calls == 2
+        if invalid:
+            second[conflict] = (
+                "clarification" if conflict == "phase" else "A conflicting explanation."
+            )
+        payloads = [
+            {"type": "text", "prompt": "", "placeholder": "First", "review": review},
+            {"type": "text", "prompt": "", "placeholder": "Second", "review": second},
+        ]
+        assert all(validator.is_valid(p) for p in payloads)
+        yield (
+            "Undisplayed conflicting feedback." if invalid else "Accepted explanation."
+        )
+        yield {
+            i: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(p),
+                tool_call_id=p["placeholder"].lower(),
+            )
+            for i, p in enumerate(payloads)
+        }
+
+    engine = Engine(
+        FunctionModel(stream_function=stream), feedback_contract=True, request_limit=2
+    )
+    session = await engine.new_session(script)
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text=answer))
+    )
+    assert _text(events) == "Accepted explanation."
+    assert [p.spec.placeholder for p in session.pending] == ["First", "Second"]
+    assert not session.finished
+    assert not session.all_memory()
+    assert session.script.script == script
+    assert "Undisplayed conflicting feedback." not in session.dumps()
+    assert calls == (2 if conflict is None else 3)

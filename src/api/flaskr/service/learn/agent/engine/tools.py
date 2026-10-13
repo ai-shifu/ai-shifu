@@ -630,7 +630,8 @@ def feedback_response_problem(
                 reviews.append(FeedbackReview.model_validate(value))
         except (TypeError, ValueError):
             return "invalid feedback branch declaration", None
-    if len(reviews) > 1:
+    # Schema-required sibling declarations must represent one identical decision.
+    if reviews and any(review != reviews[0] for review in reviews[1:]):
         return "declare one feedback branch for this response", None
     if any(has_direction(call) for call in calls):
         if reviews or deps.feedback_review is not None:

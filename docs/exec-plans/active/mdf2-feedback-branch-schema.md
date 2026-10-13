@@ -10,6 +10,15 @@ while preserving native validation and portable-host compatibility.
 
 ## Progress
 
+- [x] 2026-10-13 04:27 UTC: Adopt Codex finding 4254687333 about simultaneous
+  interactions. Three real two-interaction SDK cases first fail. Treat identical
+  parsed review objects as one response-wide decision; keep differing reasons
+  and phases rejected before display. All 13 schema/compatibility cases plus
+  101 feedback-contract cases pass; valid multi-input delivery needs one model
+  response and no extra planning call. Full learning/script suite passes 3845
+  plus 50 subtests, three expected skips; developer tools, harness and all
+  repository hooks pass.
+
 - [x] 2026-10-13 04:00 UTC: Identify optional-schema/required-runtime mismatch in
   the retained tenth original-model check. Three generations settle 5.80 credits;
   final visible explanation omits the requested program/two iterations. Original
@@ -24,12 +33,20 @@ while preserving native validation and portable-host compatibility.
   three expected skips. Final suite passes 3842 plus 50 subtests, three expected
   skips, with developer tools, harness and all repository hooks.
 - [x] 2026-10-13 04:13 UTC: Complete final broad checks and repository gates.
-- [ ] Push an Open/Ready PR.
+- [x] 2026-10-13 04:16 UTC: Push 774e1a46a and open Ready PR #3125.
+  Integrated sim ce8c44774/build 624/Drone 5413; hold paid actual verification
+  until the accepted simultaneous-interaction finding is fixed and redeployed.
 - [ ] Reply to every AI opinion in its original thread with pushed fixes/tests.
 - [ ] Integrate sim, verify both replicas and assess one frozen actual-model
   response within original source/input/model/standards/budgets.
 
 ## Surprises & Discoveries
+
+A per-tool branch requirement must have a legal multiple-interaction payload.
+Rejecting every repeated review made the initial schema incompatible with that
+supported path. Matching parsed objects now declare one logical decision;
+conflicting objects retain the existing rejection. Legacy sibling declarations
+remain valid, with no new learner criterion or additional model request.
 
 The original tenth reply has a concrete acyclic branch draft, then a control-only
 repair, then a generic final definition. Only the final definition was displayed;
@@ -38,6 +55,13 @@ not reliable evidence that the model follows it. A schema requirement reduces an
 avoidable protocol mismatch but cannot establish factual teaching correctness.
 
 ## Decision Log
+
+- 2026-10-13: Keep legacy native sibling payloads accepted while advertising a
+  canonical delivery declaration to new model requests. CodeRabbit 4254709240
+  identifies this deliberate narrower offer; restoring optional fields would
+  recreate the missing-branch retries. Existing real SDK tests cover legacy
+  payload acceptance and committed-review reuse; repeated identical reviews
+  provide the schema-valid multiple-interaction path.
 
 - 2026-10-13: Keep this tool-contract issue separate from #3122 worked-example
   consistency and #3123 clarification/correction scope. Stack on #3123 for the
