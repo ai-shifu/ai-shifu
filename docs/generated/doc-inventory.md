@@ -73,6 +73,7 @@
 | `docs/exec-plans/active/mdf2-native-usage-classification.md` | Keep native usage classification inside an application scope | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-preview-text-placeholder.md` | Restore authored text inputs in lesson previews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-teaching-usage-attempt.md` | Attribute teaching usage to the actual learning attempt | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/mdf2-unavailable-learner-values.md` | Unavailable Learner Values | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-volc-follow-up-context.md` | Volc Knowledge Follow-up Context | `exec-plan-active` | `active` | `learner` | `2026-10-09` | `true` |
 | `docs/exec-plans/active/mdf2-workflow-follow-up-context.md` | Coze Workflow Follow-up Context Binding | `exec-plan-active` | `active` | `learner` | `2026-10-09` | `true` |
 | `docs/exec-plans/active/operator-credit-deduction.md` | Operator Credit Deduction | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -281,7 +282,7 @@
 | `docs/references/markdownflow-history-compaction.md` | MarkdownFlow recall history compaction | `reference` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-10-07` | `true` |
 | `docs/references/markdownflow-memory-quality.md` | MarkdownFlow Memory Quality Evaluation | `reference` | `active` | `learner` | `2026-10-12` | `true` |
-| `docs/references/markdownflow-memory-recall.md` | MarkdownFlow Memory Recall | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
+| `docs/references/markdownflow-memory-recall.md` | MarkdownFlow Memory Recall | `reference` | `implemented` | `learner` | `2026-10-13` | `true` |
 | `docs/references/markdownflow-model-arena.md` | Local MarkdownFlow slide comparisons | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/markdownflow-runtime-selection.md` | MarkdownFlow Runtime Selection | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
 | `docs/references/markdownflow-teaching-history.md` | MarkdownFlow teaching history projection | `reference` | `active` | `learner` | `2026-10-08` | `true` |

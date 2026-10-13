@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from functools import partial
+from html import escape
 from typing import TYPE_CHECKING, Any
 
 # Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
@@ -34,6 +36,7 @@ def _closes_fence(line: str, opening: str) -> bool:
 _VAR_RE = re.compile(r"(?<!%)\{\{\s*([^{}\s]+)\s*\}\}")
 # `%{{name}}` marks a variable this script collects during the lesson, in a question or an
 # instruction to remember something.
+_LITERAL_SPAN_RE = re.compile(r"(!===.*?!===|(?<!!)===(?!=).*?===)")
 _COLLECTED_RE = re.compile(r"%\{\{\s*([^{}\s]+)\s*\}\}")
 _PRESERVED_LINE_RE = re.compile(r"^[ \t]*===(.+?)===[ \t]*$")
 
@@ -145,12 +148,17 @@ def final_preserved_line(text: str) -> str | None:
 
 
 def substitute_variables(
-    text: str, values: Mapping[str, Any], *, collected: frozenset[str] = frozenset()
+    text: str,
+    values: Mapping[str, Any],
+    *,
+    collected: frozenset[str] = frozenset(),
+    unavailable: bool = False,
 ) -> str:
     """Replace `{{name}}` with `values[name]` outside fenced code blocks.
 
     `%{{name}}` and unknown names are left untouched so the model can still see what the author
-    meant.
+    meant. Host prompt rendering opts into explicit unavailable-value metadata instead;
+    this is request guidance, never a learner fact or a memory write.
 
     A name in `collected` is left untouched as well, whatever memory holds for it. Those are the
     variables this script is about to ask the learner for, and substitution happens once, before
@@ -165,17 +173,22 @@ def substitute_variables(
     already written the variable.
     """
 
-    def repl(m: re.Match[str]) -> str:
+    def repl(m: re.Match[str], *, literal: bool = False) -> str:
         name = m.group(1)
         if name in collected:
             return m.group(0)
         if name not in values or values[name] in (None, ""):
-            return m.group(0)
+            return (
+                f'<unavailable_learner_value name="{escape(name, quote=True)}" />'
+                if unavailable and not literal
+                else m.group(0)
+            )
         v = values[name]
         return ", ".join(map(str, v)) if isinstance(v, (list, tuple)) else str(v)
 
     out: list[str] = []
     in_fence: str | None = None
+    in_verbatim = False
     for line in text.splitlines(keepends=True):
         m = _FENCE_RE.match(line)
         if m:
@@ -185,7 +198,24 @@ def substitute_variables(
                 in_fence = None
             out.append(line)
             continue
-        out.append(line if in_fence else _VAR_RE.sub(repl, line))
+        if in_fence:
+            out.append(line)
+        elif unavailable and line.strip() == "!===":
+            in_verbatim = not in_verbatim
+            out.append(line)
+        elif unavailable and in_verbatim:
+            out.append(_VAR_RE.sub(partial(repl, literal=True), line))
+        elif unavailable:
+            # Preserve missing notation inside authored literal spans, while known
+            # personalization still follows the pre-existing substitution contract.
+            out.append(
+                "".join(
+                    _VAR_RE.sub(partial(repl, literal=bool(index % 2)), part)
+                    for index, part in enumerate(_LITERAL_SPAN_RE.split(line))
+                )
+            )
+        else:
+            out.append(_VAR_RE.sub(repl, line))
     return "".join(out)
 
 
@@ -250,12 +280,12 @@ def render_first_prompt(
         render_memory_section(
             bundle, memory, limit=memory_limit, priority=memory_priority
         )[0],
-        f"<script>\n{substitute_variables(bundle.script, memory, collected=collected)}\n</script>",
+        f"<script>\n{substitute_variables(bundle.script, memory, collected=collected, unavailable=True)}\n</script>",
     ]
     if bundle.constraints:
         parts.append(
             f"<constraints>\n"
-            f"{substitute_variables(bundle.constraints, memory, collected=collected)}\n"
+            f"{substitute_variables(bundle.constraints, memory, collected=collected, unavailable=True)}\n"
             f"</constraints>"
         )
     for name, body in bundle.extras.items():

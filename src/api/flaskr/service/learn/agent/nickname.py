@@ -77,8 +77,8 @@ def _refresh_prompt(
     else:
         updated.pop(SYS_USER_NICKNAME, None)
 
-    def section(tag: str, text: str, memory: dict) -> str:
-        return f"<{tag}>\n{substitute_variables(text, memory, collected=collected)}\n</{tag}>"
+    def section(tag: str, text: str, memory: dict, *, unavailable: bool = True) -> str:
+        return f"<{tag}>\n{substitute_variables(text, memory, collected=collected, unavailable=unavailable)}\n</{tag}>"
 
     start = parsed.script_start
     # A bounded JSON block can omit a value that the initial script substituted in full.
@@ -92,14 +92,27 @@ def _refresh_prompt(
     updated_script_memory = {**script_memory, SYS_USER_NICKNAME: nickname}
     old_script = section("script", session.script.script, script_memory)
     if not content.startswith(old_script, start):
+        old_script = section(
+            "script", session.script.script, script_memory, unavailable=False
+        )
+    if not content.startswith(old_script, start):
         return content
     suffix = content[start + len(old_script) :]
     # The host re-reads the brief each turn. An older, different brief cannot be reconstructed
     # safely from today's bundle, so leave that unmatched history untouched.
     if session.script.constraints:
         old_brief = "\n\n" + section(
-            "constraints", session.script.constraints, script_memory
+            "constraints",
+            session.script.constraints,
+            script_memory,
         )
+        if not suffix.startswith(old_brief):
+            old_brief = "\n\n" + section(
+                "constraints",
+                session.script.constraints,
+                script_memory,
+                unavailable=False,
+            )
         if suffix.startswith(old_brief):
             suffix = (
                 "\n\n"
