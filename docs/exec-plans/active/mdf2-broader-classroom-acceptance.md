@@ -8,6 +8,24 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Synchronize #3118 with main 2ff4af09b, including the merged
+      unavailable-value handling and Profile startup changes. Resolve only the
+      generated document-inventory conflict by regenerating the index from the
+      staged merged tree; no feedback runtime or acceptance standard is changed.
+      GitHub still reports this PR open; the earlier merge of main into its
+      branch was not a merge of this PR into main.
+- [x] 2026-10-13: Combined learning/evaluation regressions pass 3784 cases,
+      four subtests and one expected skip; the complete backend script suite
+      passes 191 cases, 46 subtests and two expected skips. Profile startup
+      frontend regressions pass all 90 cases. Tooling, repository harness and
+      all-file hooks pass. The two preliminary pytest commands name nonexistent
+      suite directories and run no tests; preserve those logs separately.
+- [ ] 2026-10-13: Finish final-head CI, original review-thread reconciliation
+      and exact-candidate sim verification before renewing merge readiness.
+      The original first/fifth-answer model evidence remains scoped evidence;
+      later generated-example failures and the fresh eleven-question natural
+      compression/statistics/billing acceptance stay open independently.
+
 - [x] 2026-10-12: Functional head 3d57d9944 passes all eleven current checks.
       CodeRabbit review 85388724 covers its runtime/tests/reference changes,
       skipping the similar plan. Reply to its review-body nitpick in the original
@@ -44,7 +62,7 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       sessions, progress and variables remain unchanged. Initial strict raw-output
       audit failure is preserved; complete the audit locally against the already
       fetched original traces, without another model or trace request.
-- [ ] 2026-10-12: Finish the documentation receipt, original-thread replies and
+- [x] 2026-10-12: Finish the documentation receipt, original-thread replies and
       current documentation-head CI before recommending #3118 for merge. These
       scoped passes close the earlier related checkpoint failures on the changed
       runtime; they do not change those failures' historical verdicts. No twentieth

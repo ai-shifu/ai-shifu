@@ -7,6 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS } from './hooks/useCourseProfileOnboardingGate';
+import { WECHAT_OPENID_BINDING_TIMEOUT_MS } from './hooks/useWechatOpenIdBinding';
 import ChatPage from './page';
 
 const mockGetProfileOnboarding = jest.fn();
@@ -1568,16 +1569,226 @@ describe('ChatPage profile onboarding gate', () => {
       expect(mockWechatLogin).toHaveBeenCalledTimes(1);
     });
 
-    test('waits for the account profile before judging the openid', async () => {
+    test('waits for the account profile before starting Profile or judging the openid', async () => {
       mockSystemStoreState.wechatCode = '';
       mockInWechat = true;
       mockUserStoreState.userInfo = null;
 
-      render(<ChatPage />);
+      const { rerender } = render(<ChatPage />);
 
-      await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
       expect(mockWechatLogin).not.toHaveBeenCalled();
       expect(mockUpdateWxcode).not.toHaveBeenCalled();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'false',
+      );
+
+      mockUserStoreState.userInfo = {
+        ...defaultMockUserInfo,
+        openid: 'o_existing',
+      };
+      rerender(<ChatPage />);
+      await waitFor(() =>
+        expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1),
+      );
+    });
+
+    test('starts Profile only after the exchange and account refresh both finish', async () => {
+      let resolveExchange!: (value: string) => void;
+      let resolveRefresh!: () => void;
+      mockUpdateWxcode.mockReturnValue(
+        new Promise<string>(resolve => {
+          resolveExchange = resolve;
+        }),
+      );
+      mockRefreshUserInfo.mockReturnValueOnce(
+        new Promise<void>(resolve => {
+          resolveRefresh = resolve;
+        }),
+      );
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockGetProfileOnboarding.mockResolvedValue(
+        profileOnboardingStatus({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
+
+      const { rerender } = renderInWechat();
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: openLearnerProfileLabel }),
+      );
+      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'false',
+      );
+
+      await act(async () => {
+        resolveExchange('o_new');
+      });
+      expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      await act(async () => {
+        resolveRefresh();
+      });
+
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
+      expect(
+        await screen.findByTestId('learner-profile-dialog'),
+      ).toHaveAttribute('data-auto-start-collection', 'true');
+      mockUserStoreState.userInfo = { ...defaultMockUserInfo, openid: 'o_new' };
+      rerender(<ChatPage />);
+      expect(mockUpdateWxcode).toHaveBeenCalledTimes(1);
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
+
+    test('releases learning after account-info timeout and waits to start Profile until identity is known', async () => {
+      jest.useFakeTimers();
+      mockInWechat = true;
+      mockUserStoreState.userInfo = null;
+      mockGetProfileOnboarding.mockResolvedValue(
+        profileOnboardingStatus({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
+      const { rerender } = render(<ChatPage />);
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(WECHAT_OPENID_BINDING_TIMEOUT_MS);
+      });
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'true',
+      );
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole('button', { name: openLearnerProfileLabel }),
+      );
+      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+
+      mockUserStoreState.userInfo = { ...defaultMockUserInfo, openid: '' };
+      await act(async () => {
+        rerender(<ChatPage />);
+      });
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+        'data-auto-start-collection',
+        'true',
+      );
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+      expect(mockUpdateWxcode).not.toHaveBeenCalled();
+    });
+
+    test('does not start Profile before an OAuth recovery navigation', async () => {
+      mockSystemStoreState.wechatCode = '';
+      renderInWechat();
+
+      expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'false',
+      );
+    });
+
+    test('keeps teacher preview runtime ready during pending OpenID preparation', () => {
+      mockSystemStoreState.previewMode = true;
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockUpdateWxcode.mockReturnValue(new Promise(() => {}));
+
+      renderInWechat();
+
+      expect(mockUpdateWxcode).toHaveBeenCalledTimes(1);
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'true',
+      );
+    });
+
+    test.each([
+      {
+        browser: 'outside WeChat',
+        inWechat: false,
+        miniProgram: false,
+        wxcode: 'true',
+      },
+      {
+        browser: 'a mini program',
+        inWechat: true,
+        miniProgram: true,
+        wxcode: 'true',
+      },
+      {
+        browser: 'disabled WeChat code flow',
+        inWechat: true,
+        miniProgram: false,
+        wxcode: 'false',
+      },
+    ])(
+      'preserves Profile entry after account-info failure in $browser',
+      async options => {
+        mockInWechat = options.inWechat;
+        mockInMiniProgram = options.miniProgram;
+        mockEnvStoreState.enableWxcode = options.wxcode;
+        mockUserStoreState.userInfo = null;
+        render(<ChatPage />);
+
+        await waitFor(() =>
+          expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1),
+        );
+        fireEvent.click(
+          screen.getByRole('button', { name: openLearnerProfileLabel }),
+        );
+        expect(
+          screen.getByTestId('learner-profile-dialog'),
+        ).toBeInTheDocument();
+        expect(mockUpdateWxcode).not.toHaveBeenCalled();
+        expect(mockWechatLogin).not.toHaveBeenCalled();
+      },
+    );
+
+    test('releases Profile after a refresh failure without another OAuth navigation', async () => {
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockUpdateWxcode.mockResolvedValue('o_new');
+      mockRefreshUserInfo.mockRejectedValueOnce(new Error('refresh failed'));
+      renderInWechat();
+
+      await waitFor(() =>
+        expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1),
+      );
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
+
+    test('releases Profile after the deadline and ignores late OAuth fallback', async () => {
+      jest.useFakeTimers();
+      let resolveExchange!: (value: string) => void;
+      mockUpdateWxcode.mockReturnValue(
+        new Promise<string>(resolve => {
+          resolveExchange = resolve;
+        }),
+      );
+      mockSystemStoreState.wechatCode = 'code-1';
+      renderInWechat();
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(WECHAT_OPENID_BINDING_TIMEOUT_MS);
+      });
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        resolveExchange('');
+      });
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
     });
 
     test('stays out of the WeChat flow outside WeChat', async () => {
