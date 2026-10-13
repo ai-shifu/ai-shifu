@@ -8,6 +8,16 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: #3118 merges as main 7676bc0a8. Prepare independent
+      hidden-response lifetime fix #3128 / fbc06e815 on the standalone sim;
+      its complete API tree matches the candidate and excludes unmerged
+      #3122/#3123/#3125. Earlier combined 319c66ea3 stays recoverable.
+      Three lifetime/native retry regressions first fail, then all 104 focused
+      and 3845 learning/script cases plus 50 subtests pass (three expected skips).
+- [ ] 2026-10-13: Verify the built #3128 sim candidate on both actual API
+      replicas before recommending that independent fix for manual merge.
+      No fresh learner or paid model request is implied by this SDK verification.
+
 - [x] 2026-10-13: Prepare an isolated sim candidate with its complete backend
       tree exactly matching #3118 head 7643e045f and current main 2ff4af09b.
       Temporarily exclude the unmerged #3122/#3123/#3125 runtime from this

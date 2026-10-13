@@ -54,6 +54,9 @@ class Deps:
     feedback_contract: bool = False
     feedback_review: FeedbackReview | None = None
     hidden_feedback_responses: set[int] = field(default_factory=set)
+    _hidden_feedback_objects: dict[int, ModelResponse] = field(
+        default_factory=dict, init=False, repr=False
+    )
     feedback_text_pending: bool = False
     feedback_text_delivered: bool = False
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
@@ -92,6 +95,9 @@ class Deps:
 
     def hide_feedback_response(self, response: ModelResponse) -> None:
         """Track withheld prose until a successful replacement actually supplies it."""
+        # SDK history projection can release the original response. Keep its ID
+        # unique until this turn's Deps is discarded, including final projection.
+        self._hidden_feedback_objects[id(response)] = response
         self.hidden_feedback_responses.add(id(response))
         if any(isinstance(p, TextPart) and p.content.strip() for p in response.parts):
             self.feedback_text_pending = True
