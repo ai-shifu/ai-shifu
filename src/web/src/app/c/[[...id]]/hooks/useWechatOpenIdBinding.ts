@@ -28,6 +28,7 @@ type WechatOpenIdBindingParams = BindingIdentity & {
   enabled: boolean;
   appId: string;
   refreshUserInfo: () => Promise<unknown>;
+  authorize?: typeof wechatLogin;
 };
 
 const sameIdentity = (left: BindingIdentity, right: BindingIdentity) =>
@@ -51,6 +52,7 @@ export const useWechatOpenIdBinding = (
     enabled,
     appId,
     refreshUserInfo,
+    authorize = wechatLogin,
   } = params;
   const applicable =
     initialized && isLoggedIn && enabled && inWechat() && !inMiniProgram();
@@ -114,7 +116,7 @@ export const useWechatOpenIdBinding = (
       currentAttempt.phase = 'redirecting';
       setSettledAttempt({ ...currentAttempt });
       try {
-        wechatLogin({
+        authorize({
           appId,
           redirectUrl: removeParamFromUrl(window.location.href, [
             'code',
@@ -132,7 +134,7 @@ export const useWechatOpenIdBinding = (
 
     const timeout = window.setTimeout(
       () => {
-        if (!isCurrent() || currentAttempt.phase === 'ready') return;
+        if (!isPending()) return;
         // Retire the attempt before releasing Profile: a late result must not
         // navigate away from the collection that is about to start.
         debugWarn('[lesson-page] WeChat OpenID preparation timed out');
@@ -201,6 +203,7 @@ export const useWechatOpenIdBinding = (
     openId,
     appId,
     refreshUserInfo,
+    authorize,
   ]);
 
   if (!applicable || !token) return true;

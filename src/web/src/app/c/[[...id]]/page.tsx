@@ -56,6 +56,7 @@ import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { isWechatCodeFlowEnabled } from './Components/Pay/wechatJsapi';
 import { useCourseProfileOnboardingGate } from './hooks/useCourseProfileOnboardingGate';
 import { useWechatOpenIdBinding } from './hooks/useWechatOpenIdBinding';
+import { useCourseWechatAuthorization } from './hooks/useCourseWechatAuthorization';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
 
@@ -152,8 +153,9 @@ export default function ChatPage() {
   const isUserProfileLoaded = Boolean(userInfo);
   const requiresWechatAccount =
     isLoggedIn && wxcodeEnabled && inWechat() && !inMiniProgram();
+  const wechatAuthorization = useCourseWechatAuthorization();
   const wechatOpenIdReady = useWechatOpenIdBinding({
-    initialized,
+    initialized: initialized && wechatAuthorization.ready,
     isLoggedIn,
     userId: userInfo?.user_id || '',
     token: useUserStore.getState().getToken() || '',
@@ -163,6 +165,7 @@ export default function ChatPage() {
     enabled: wxcodeEnabled,
     appId: appId || '',
     refreshUserInfo,
+    authorize: wechatAuthorization.authorize,
   });
 
   // NOTE: User-related features should be organized into one module
@@ -396,7 +399,7 @@ export default function ChatPage() {
     dialogProps: learnerProfileDialogProps,
   } = useCourseProfileOnboardingGate({
     initialized,
-    startupReady: wechatOpenIdReady,
+    startupReady: wechatAuthorization.ready && wechatOpenIdReady,
     accountReady: !requiresWechatAccount || isUserProfileLoaded,
     isLoggedIn,
     previewMode,
