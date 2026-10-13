@@ -8,6 +8,27 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Eighth original-model check on sim-40fc53a / build 620 /
+      Drone 5409 follows both replicas matching 68 files and passing 436 SDK
+      cases each. Three generations settle 5.79 credits with exact output/token
+      and actual attempt/block attribution; source/classroom remain unchanged.
+      The final displayed program retains its counter and terminates consistently,
+      but omits the requested two-iteration PC/memory walkthrough. This remains
+      failed acceptance; rejected draft errors remain separate evidence. No new
+      learner or summary is created.
+- [x] 2026-10-13: Preserve permitted clarification examples/walkthroughs in the
+      authored reference and native feedback retry notice. Both still obey the
+      author's brevity/disclosure limits and return to the pending exercise.
+      Four initial/reloaded instruction cases and two actual native two-retry
+      cases first fail, then pass without extra model calls or criteria. The
+      authored notice is 20 bytes smaller; strict input/request limits and
+      correction withholding remain unchanged. Full learning/script checks pass
+      3832 plus 50 subtests, with three expected skips. Controlled model tests
+      prove retry delivery/history isolation only, not factual acceptance.
+- [ ] Deploy the clarification-detail fix, verify both sim replicas and perform
+      one frozen original-source/input/model/budget actual semantic check.
+
+
 - [x] 2026-10-13: Seventh original-model check fails on sim-1606797 / build
       619 / Drone 5408 after both Ready API replicas match 68 runtime files and
       pass 436 SDK checks each. Three generations settle 5.78 credits, uniquely
@@ -23,8 +44,9 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       any new paid check. Four SDK delivery cases first fail; final 3826 learning/
       evaluation checks plus 50 subtests pass (three expected skips), together
       with repository gates. The system prompt is 15 bytes smaller than d641.
-- [ ] 2026-10-13: Deploy and verify the state-table candidate on both sim API
-      replicas before one unchanged-source/input/model/budget semantic check.
+- [x] 2026-10-13: Deploy and verify the state-table candidate on both sim API
+      replicas before one unchanged-source/input/model/budget semantic check;
+      retain the eighth failed result above.
 
 
 - [x] 2026-10-13: Final unit/storage candidate eb84a6d17 deploys as 0ae9e4b19,
