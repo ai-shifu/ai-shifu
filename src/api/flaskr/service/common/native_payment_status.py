@@ -53,6 +53,16 @@ def resolve_native_payment_state(
     return None
 
 
+def is_native_payment_payable(provider: str, payload: dict[str, object]) -> bool:
+    """Confirm that a saved credential belongs to an unpaid, open trade."""
+    raw_status = extract_native_trade_status(provider, payload).upper()
+    if provider == "alipay":
+        return raw_status == "WAIT_BUYER_PAY"
+    if provider == "wechatpay":
+        return raw_status == "NOTPAY"
+    return False
+
+
 def native_snapshot_status(provider: str, payload: dict[str, object]) -> int:
     """Return native snapshot status."""
     state = resolve_native_payment_state(provider, payload)
