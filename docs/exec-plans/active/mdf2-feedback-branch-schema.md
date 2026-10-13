@@ -10,6 +10,20 @@ while preserving native validation and portable-host compatibility.
 
 ## Progress
 
+- [x] 2026-10-13 05:07 UTC: Offline pinned-provider conversion reproduces removal
+  of the interaction root anyOf on OpenAI; Ark preserves it without strict mode.
+  Seven canonical/provider cases first fail. Use one required non-null feedback
+  property with its direction/review union nested inside. Legacy native calls
+  remain accepted, canonical evidence remains original, and mixed/ambiguous
+  declarations are rejected. All 27 schema/compatibility cases and the combined
+  182-case schema/phase/direction suite pass. Full suite passes 3859 plus 50 subtests, three expected skips; all
+  repository gates pass. Final state-scoped descriptions preserve legacy models
+  and canonical field guidance; the complete suite passes again. An initial candidate exceeded the unchanged 64 KiB regression by
+  145 bytes; omit the new field in inactive states and retain the old schemas.
+  All 30 schema/history checks then pass. No new paid request or learner yet.
+- [ ] Push canonical provider-compatible fix, reply in original threads, redeploy
+  and verify the actual current candidate before any paid model check.
+
 - [x] 2026-10-13 04:27 UTC: Adopt Codex finding 4254687333 about simultaneous
   interactions. Three real two-interaction SDK cases first fail. Treat identical
   parsed review objects as one response-wide decision; keep differing reasons
@@ -36,11 +50,35 @@ while preserving native validation and portable-host compatibility.
 - [x] 2026-10-13 04:16 UTC: Push 774e1a46a and open Ready PR #3125.
   Integrated sim ce8c44774/build 624/Drone 5413; hold paid actual verification
   until the accepted simultaneous-interaction finding is fixed and redeployed.
-- [ ] Reply to every AI opinion in its original thread with pushed fixes/tests.
-- [ ] Integrate sim, verify both replicas and assess one frozen actual-model
-  response within original source/input/model/standards/budgets.
+- [x] 2026-10-13 04:45 UTC: Reply to every AI opinion in its original thread.
+  Codex multi-input finding adopted in pushed 9749ae5c7; CodeRabbit withdrew
+  the sibling finding after the compatibility explanation. Actual new-head
+  review reports Minimal/no new blocking issue; all seven CI checks pass.
+- [x] 2026-10-13 04:45 UTC: Integrate sim 978aca95c/build 625/Drone 5414.
+  Full integration suite passes 3865 plus 50 subtests, three expected skips,
+  and all gates. Both Ready API replicas match 68 files and pass 451 SDK cases;
+  Web runs the same tag. One frozen original-model check remains a failure:
+  three generations/5.84 settled credits, no summary or new learner.
+- [ ] Resolve model/schema-adherence and factual acceptance limitations before
+  claiming the broader original-model gate or fresh classroom passes.
 
 ## Surprises & Discoveries
+
+The eleventh actual original-model check still omits its declaration in the first
+interaction despite the offered required schema. Two existing native retries
+recover the protocol, but final visible prose ignores an addition when tracing
+successive loop tests and claims an incorrect stop iteration. Hidden first-draft
+prose also claims termination after reloading unchanged input each cycle. Neither
+is accepted as correct teaching. All outputs/token tuples match actual usage and
+attempt/block attribution; source, persisted classroom and memory are unchanged.
+
+The schema offer is not constrained decoding. `gateway_model.map_tools` passes
+the parameter schema through but does not enable provider strict mode. The
+[Ark function-calling reference](https://docs.volcengine.com/docs/ark/function-calling?lang=en)
+describes strict mode separately, with every property required and optional
+values represented as nullable. Enabling a flag on the current schemas is not a
+validated drop-in correction. No provider strictness/model/configuration change
+or repeated unchanged paid request is made here.
 
 A per-tool branch requirement must have a legal multiple-interaction payload.
 Rejecting every repeated review made the initial schema incompatible with that
@@ -55,6 +93,11 @@ not reliable evidence that the model follows it. A schema requirement reduces an
 avoidable protocol mismatch but cannot establish factual teaching correctness.
 
 ## Decision Log
+
+- 2026-10-13: Replace the initial root branch combinator with a required feedback
+  property. Pinned Ark and OpenAI transformations must both retain its requirement
+  and both legal choices. Keep optional native aliases for saved callers; never
+  rewrite the original canonical call into a synthetic historical declaration.
 
 - 2026-10-13: Keep legacy native sibling payloads accepted while advertising a
   canonical delivery declaration to new model requests. CodeRabbit 4254709240
@@ -76,9 +119,14 @@ avoidable protocol mismatch but cannot establish factual teaching correctness.
 
 ## Outcomes & Retrospective
 
-Implementation and controlled SDK compatibility checks are available. Final
-CI, review and deployed actual-model acceptance are pending. All previous factual
-and missing-example failures remain open; no full fresh-classroom pass is claimed.
+The canonical property candidate has local focused validation; its final checks
+and deployed acceptance are pending. The previous implementation, all seven CI
+checks, actual review and both deployed
+replicas and controlled SDK compatibility checks pass on functional head
+9749ae5c7. The frozen original-model check fails both initial schema adherence
+and factual teaching correctness; it does not establish fewer retries or broader
+merge readiness. All prior failures remain open; full fresh-classroom acceptance
+is pending. Later documentation-only receipts are checked separately.
 
 ## Context and Orientation
 
@@ -92,8 +140,8 @@ SDK-offered JSON schemas and executes native tools. The canonical contract is in
 ## Plan of Work
 
 Prepare copies of existing tool definitions. For a supported undeclared reply,
-require interaction direction/review or finish review, retaining original nested
-schemas and all other fields. Skip preparation for portable hosts, unsupported
+require primary feedback containing direction/review or finish review, retaining
+original nested schemas and other fields; legacy native spellings remain valid. Skip preparation for portable hosts, unsupported
 anchors, initial teaching and committed feedback branches. Keep existing runtime
 validation, history isolation, memory admission and author constraints intact.
 

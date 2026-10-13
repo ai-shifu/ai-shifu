@@ -190,12 +190,9 @@ async def test_declared_ordinary_branches_keep_authored_behavior_without_plannin
     async def stream(_messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
         nonlocal calls
         calls += 1
-        assert (
-            "review"
-            in next(
-                t for t in info.function_tools if t.name == "interact"
-            ).parameters_json_schema["properties"]
-        )
+        assert ("review" if calls == 1 else "feedback") in next(
+            t for t in info.function_tools if t.name == "interact"
+        ).parameters_json_schema["properties"]
         if calls == 1:
             yield _call(
                 {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"

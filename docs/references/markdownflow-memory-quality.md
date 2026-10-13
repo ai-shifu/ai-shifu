@@ -373,18 +373,22 @@ Read-only lookups without prose may precede the decision, and later report pages
 inherit it without a separate planning request. Portable hosts default to the
 previous optional contract. Unsupported anchors and navigation are unaffected.
 For a supported returned answer whose branch has not yet been committed, the
-model-visible interaction schema requires a non-null `direction` or `review`;
-the finish schema requires a non-null `review`. Omit inactive branch fields.
-These primary delivery tools advertise the canonical declaration location.
-Original response-wide validation still accepts a declaration on a valid sibling
-native call. Multiple primary interactions can repeat the same parsed review
-object: matching declarations represent one decision, while any differing phase,
-answer, quote, rule or reason is rejected before display. Later calls inherit a
-committed branch without another mandatory declaration. Initial teaching, unsupported anchors, navigation and
-hosts without this contract retain their optional schemas. Preparation copies
-definitions per request; it does not mutate the agent's reusable definitions.
-This aligns model guidance with the existing host gate without a new grader,
-planning request, retry allowance or change to saved native tool contracts.
+model-visible primary tools require a non-null `feedback` object. Interaction
+feedback is the existing direction or ordinary-review object; finish feedback
+is an ordinary review. The union is inside this property, not at the schema root:
+provider conversion can remove root combinators. In this state, legacy direct
+`direction`/`review` fields are omitted from the offered delivery schema.
+Native callers and old saved calls keep their original direct fields; read and
+memory siblings keep their existing `review` declaration. Original tool evidence
+is not rewritten. Mixing canonical and legacy spellings or both kinds in one
+canonical object is rejected before display. Multiple interactions can repeat
+one identical parsed review; conflicting phase, answer, quote, rule or reason
+is rejected. Later calls inherit a committed decision. Initial, unsupported and
+portable states keep optional declarations; preparation copies definitions.
+This adds no grader, planning request, retry allowance or saved-session conversion.
+An offered requirement is not constrained decoding: models can emit invalid
+arguments, and native validation remains required. Required schemas alone do
+not establish factual correctness or fewer actual-model retries.
 
 The declaration makes the model decision explicit and validates its sources;
 it does not prove that the model graded the answer or chose the stage correctly.
