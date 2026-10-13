@@ -32,6 +32,26 @@ _NATIVE_PAYMENT_BID_ATTRS = {
 }
 
 
+def register_native_snapshot_model(provider: str, model: type, bid_attr: str) -> None:
+    """Bind a direct integration's existing snapshot schema at one boundary."""
+    if not provider or not hasattr(model, bid_attr):
+        message = "Payment snapshot registration requires a provider and business key"
+        raise ValueError(message)
+    if any(
+        name != provider and existing is model
+        for name, existing in _NATIVE_PAYMENT_MODELS.items()
+    ):
+        message = "A payment snapshot schema must retain one provider identity"
+        raise ValueError(message)
+    _NATIVE_PAYMENT_MODELS[provider] = model
+    _NATIVE_PAYMENT_BID_ATTRS[provider] = bid_attr
+
+
+def registered_native_payment_providers() -> tuple[str, ...]:
+    """Keep historical snapshot access independent from active client registration."""
+    return tuple(_NATIVE_PAYMENT_MODELS)
+
+
 def legacy_stripe_snapshot_query() -> Query:
     """Return legacy stripe snapshot query."""
     return StripeOrder.query.filter(

@@ -9,6 +9,7 @@ import threading
 from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager, nullcontext, suppress
 from contextvars import ContextVar
+from functools import cached_property
 from typing import Any, Protocol
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -25,6 +26,7 @@ from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.billing.api import (
     build_provider_config_overrides,
+    resolve_creator_payment_options,
     resolve_creator_public_integrations,
     resolve_creator_wechat_oauth_app_id,
     resolve_payment_integration_for_new_order,
@@ -32,7 +34,6 @@ from flaskr.service.billing.api import (
 )
 from flaskr.service.common.models import raise_error
 from flaskr.service.common.native_payment_status import (
-    extract_native_trade_payload,
     extract_native_trade_status,
     native_snapshot_status,
 )
@@ -58,10 +59,25 @@ from flaskr.service.order.payment_channel_resolution import (
     resolve_market_payment_provider,
     resolve_payment_channel,
 )
-from flaskr.service.order.payment_providers import PaymentRequest, get_payment_provider
+from flaskr.service.order.payment_providers import (
+    PaymentRequest,
+    get_payment_provider,
+    payment_definition,
+    registered_payment_providers,
+)
 from flaskr.service.order.payment_providers.base import (
+    PaymentCreationResult,
     PaymentNotificationResult,
     PaymentRefundRequest,
+)
+from flaskr.service.order.payment_providers.contracts import (
+    PaymentAction,
+    stored_payment_action,
+)
+from flaskr.service.order.payment_providers.normalization import (
+    creation_action,
+    legacy_native_amount,
+    native_facts,
 )
 from flaskr.service.order.raw_snapshots import (
     RAW_BIZ_DOMAIN_ORDER,
@@ -69,6 +85,7 @@ from flaskr.service.order.raw_snapshots import (
     legacy_pingxx_snapshot_query,
     legacy_stripe_snapshot_query,
     native_snapshot_model,
+    registered_native_payment_providers,
     should_update_native_snapshot_status,
     upsert_native_snapshot,
 )
@@ -168,6 +185,7 @@ class AICourseBuyRecordDTO:
         discount: object,
         price_item: object,
         payment_channel: object = "",
+        creator_bid: str = "",
     ) -> None:
         """Build the AI course buy record payload."""
         self.order_id = record_id
@@ -179,6 +197,18 @@ class AICourseBuyRecordDTO:
         self.value_to_pay = str(decimal.Decimal(price) - decimal.Decimal(discount))
         self.price_item = price_item
         self.payment_channel = payment_channel
+        self._creator_bid = creator_bid
+
+    @cached_property
+    def payment_options(self) -> list[dict[str, object]]:
+        """Load checkout options only when a payable order response needs them."""
+        if self.status not in {
+            ORDER_STATUS_INIT,
+            ORDER_STATUS_TO_BE_PAID,
+            ORDER_STATUS_REPRICING,
+        }:
+            return []
+        return resolve_creator_payment_options(self._creator_bid)
 
     def __json__(self) -> dict:
         """Return the AI course buy record as JSON-compatible data."""
@@ -201,6 +231,7 @@ class AICourseBuyRecordDTO:
             "discount": format_decimal(self.discount),
             "value_to_pay": format_decimal(self.value_to_pay),
             "price_item": [item.__json__() for item in self.price_item],
+            "payment_options": self.payment_options,
         }
 
 
@@ -532,6 +563,7 @@ def init_buy_record(
             buy_record.status,
             discount_value,
             price_items,
+            creator_bid=str(buy_record.creator_bid or creator_bid or ""),
         )
 
 
@@ -554,6 +586,7 @@ class BuyRecordDTO:
         qr_url: object,
         payment_channel: str = "",
         payment_payload: dict[str, object] | None = None,
+        payment_action: PaymentAction | None = None,
     ) -> None:
         """Build the buy record payload."""
         self.order_id = record_id
@@ -563,6 +596,26 @@ class BuyRecordDTO:
         self.qr_url = qr_url
         self.payment_channel = payment_channel
         self.payment_payload = payment_payload or {}
+        action_extra = dict(self.payment_payload)
+        action_extra.setdefault("qr_url", qr_url)
+        action_extra["url"] = self.payment_payload.get("checkout_session_url") or ""
+        self.payment_action = payment_action or creation_action(
+            payment_channel,
+            str(channel),
+            PaymentCreationResult(
+                "",
+                {},
+                client_secret=self.payment_payload.get("client_secret"),
+                checkout_session_id=self.payment_payload.get("checkout_session_id"),
+                extra=action_extra,
+            ),
+        )
+        try:
+            self.poll_provider = payment_definition(
+                payment_channel
+            ).capabilities.poll_provider
+        except ValueError:
+            self.poll_provider = False
 
     def __json__(self) -> dict:
         """Return the buy record as JSON-compatible data."""
@@ -574,6 +627,9 @@ class BuyRecordDTO:
             "qr_url": self.qr_url,
             "payment_channel": self.payment_channel,
             "payment_payload": self.payment_payload,
+            "payment_action": self.payment_action.to_dict(),
+            "payment_contract_version": 1,
+            "poll_provider": self.poll_provider,
         }
 
 
@@ -856,23 +912,10 @@ def _generate_charge_locked(
                     order_no=order_no,
                 )
 
-        if payment_channel == "alipay":
+        if payment_channel in registered_native_payment_providers():
             with _order_credential_scope(app, buy_record, integration):
-                return _generate_alipay_charge(
-                    app=app,
-                    buy_record=buy_record,
-                    course=shifu_info,
-                    channel=provider_channel,
-                    client_ip=client_ip,
-                    amount=amount,
-                    subject=subject,
-                    body=body,
-                    order_no=order_no,
-                )
-
-        if payment_channel == "wechatpay":
-            with _order_credential_scope(app, buy_record, integration):
-                return _generate_wechatpay_charge(
+                return _generate_direct_charge(
+                    provider_name=payment_channel,
                     app=app,
                     buy_record=buy_record,
                     course=shifu_info,
@@ -977,23 +1020,24 @@ def _resume_pending_charge(
                 return None
             if not checkout_url and not client_secret:
                 return None
-            return BuyRecordDTO(
-                buy_record.order_bid,
-                buy_record.user_bid,
-                buy_record.paid_price,
-                _format_response_channel("stripe", mode),
-                checkout_url or client_secret,
-                payment_channel="stripe",
-                payment_payload={
-                    "mode": mode,
-                    "client_secret": client_secret,
-                    "checkout_session_url": checkout_url,
-                    "checkout_session_id": snapshot.checkout_session_id,
-                    "payment_intent_id": snapshot.payment_intent_id,
-                    "latest_charge_id": snapshot.latest_charge_id,
-                },
-            )
-    elif payment_channel in {"alipay", "wechatpay"}:
+            with _order_credential_scope(app, buy_record):
+                return BuyRecordDTO(
+                    buy_record.order_bid,
+                    buy_record.user_bid,
+                    buy_record.paid_price,
+                    _format_response_channel("stripe", mode),
+                    checkout_url or client_secret,
+                    payment_channel="stripe",
+                    payment_payload={
+                        "mode": mode,
+                        "client_secret": client_secret,
+                        "checkout_session_url": checkout_url,
+                        "checkout_session_id": snapshot.checkout_session_id,
+                        "payment_intent_id": snapshot.payment_intent_id,
+                        "latest_charge_id": snapshot.latest_charge_id,
+                    },
+                )
+    elif payment_channel in registered_native_payment_providers():
         model = native_snapshot_model(payment_channel)
         snapshot = (
             legacy_native_snapshot_query(payment_channel)
@@ -1008,8 +1052,19 @@ def _resume_pending_charge(
         if snapshot and (not provider_channel or snapshot.channel == provider_channel):
             response = _parse_stored_mapping(snapshot.raw_response)
             metadata = _parse_stored_mapping(snapshot.metadata_json)
+            raw_action = metadata.get("payment_action")
+            stored_action = stored_payment_action(raw_action)
+            if (
+                isinstance(raw_action, dict)
+                and isinstance(raw_action.get("type"), str)
+                and raw_action["type"]
+                not in {"qr", "redirect", "jsapi", "sdk_confirm", "none"}
+            ):
+                # An explicit unsupported action cannot become a legacy QR.
+                return None
             qr_url = str(
-                response.get("qr_code")
+                (stored_action.url if stored_action else None)
+                or response.get("qr_code")
                 or response.get("code_url")
                 or metadata.get("qr_url")
                 or ""
@@ -1025,7 +1080,7 @@ def _resume_pending_charge(
                 if not prepay_id:
                     return None
                 with _order_credential_scope(app, buy_record):
-                    provider = get_payment_provider("wechatpay")
+                    provider = get_payment_provider(payment_channel)
                     jsapi_params = provider.build_jsapi_params(prepay_id=prepay_id)
                 payment_payload.update(
                     {
@@ -1044,6 +1099,9 @@ def _resume_pending_charge(
                 qr_url,
                 payment_channel=payment_channel,
                 payment_payload=payment_payload,
+                payment_action=stored_action
+                if stored_action and snapshot.channel != "wx_pub"
+                else None,
             )
     app.logger.warning(
         "pending payment snapshot cannot be resumed for order:%s; creating a replacement attempt",
@@ -1098,7 +1156,7 @@ def cancel_pending_payment_for_repricing(
                 .order_by(StripeOrder.id.desc())
                 .all()
             )
-        elif payment_channel in {"alipay", "wechatpay"}:
+        elif payment_channel in registered_native_payment_providers():
             model = native_snapshot_model(payment_channel)
             snapshots = (
                 legacy_native_snapshot_query(payment_channel)
@@ -1272,7 +1330,7 @@ def _resolve_custom_payment_provider_hints(creator_bid: str) -> set[str]:
         return set()
     return {
         provider
-        for provider in ("alipay", "wechatpay")
+        for provider in registered_payment_providers()
         if provider in public_integrations
     }
 
@@ -1562,8 +1620,9 @@ def _generate_stripe_charge(
     )
 
 
-def _generate_alipay_charge(
+def _generate_direct_charge(
     *,
+    provider_name: str,
     app: Flask,
     buy_record: Order,
     course: LearnShifuInfoDTO,
@@ -1574,123 +1633,36 @@ def _generate_alipay_charge(
     body: str,
     order_no: str,
 ) -> BuyRecordDTO:
-    """Boundary-joining helper: committed by generate_charge's unit of work."""
-    provider = get_payment_provider("alipay")
+    """Create a direct attempt using registered capabilities and snapshot storage."""
+    provider = get_payment_provider(provider_name)
+    definition = payment_definition(provider_name)
     sanitized_subject = _sanitize_pingxx_text(
         subject,
-        fallback=course.title or "订单支付",
-        max_length=64,
+        fallback=course.title or "",
+        max_length=definition.subject_limit,
     )
     sanitized_body = _sanitize_pingxx_text(
         body,
         fallback=sanitized_subject,
-        max_length=128,
+        max_length=definition.body_limit,
     )
-    payment_request = PaymentRequest(
-        order_bid=order_no,
-        user_bid=buy_record.user_bid,
-        shifu_bid=buy_record.shifu_bid,
-        amount=amount,
-        channel=channel,
-        currency="CNY",
-        subject=sanitized_subject,
-        body=sanitized_body,
-        client_ip=client_ip,
-        extra={
-            "metadata": {
-                "order_bid": buy_record.order_bid,
-                "user_bid": buy_record.user_bid,
-                "shifu_bid": buy_record.shifu_bid,
-            }
-        },
-    )
-    _assert_payment_lifecycle_lock_owned()
-    result = provider.create_payment(request=payment_request, app=app)
-    credential = result.extra.get("credential", {}) or {}
-    qr_url = str(result.extra.get("qr_url") or credential.get("alipay_qr") or "")
-
-    buy_record.status = ORDER_STATUS_TO_BE_PAID
-    snapshot = upsert_native_snapshot(
-        biz_domain=RAW_BIZ_DOMAIN_ORDER,
-        payment_provider="alipay",
-        native_payment_order_bid=order_no,
-        provider_attempt_id=str(result.provider_reference or order_no),
-        order_bid=buy_record.order_bid,
-        user_bid=buy_record.user_bid,
-        shifu_bid=buy_record.shifu_bid,
-        amount=amount,
-        currency="CNY",
-        raw_status="pending",
-        raw_snapshot_status=0,
-        channel=channel,
-        raw_request=result.extra.get("raw_request") or {},
-        raw_response=result.raw_response,
-        metadata={
-            "course_bid": course.bid,
-            "subject": sanitized_subject,
-            "body": sanitized_body,
-        },
-    )
-    db.session.add(snapshot)
-    return BuyRecordDTO(
-        buy_record.order_bid,
-        buy_record.user_bid,
-        buy_record.paid_price,
-        channel,
-        qr_url,
-        payment_channel="alipay",
-        payment_payload={
-            "qr_url": qr_url,
-            "credential": credential,
-        },
-    )
-
-
-def _generate_wechatpay_charge(
-    *,
-    app: Flask,
-    buy_record: Order,
-    course: LearnShifuInfoDTO,
-    channel: str,
-    client_ip: str,
-    amount: int,
-    subject: str,
-    body: str,
-    order_no: str,
-) -> BuyRecordDTO:
-    """Boundary-joining helper: committed by generate_charge's unit of work."""
-    provider = get_payment_provider("wechatpay")
-    sanitized_subject = _sanitize_pingxx_text(
-        subject,
-        fallback=course.title or "订单支付",
-        max_length=127,
-    )
-    sanitized_body = _sanitize_pingxx_text(
-        body,
-        fallback=sanitized_subject,
-        max_length=127,
-    )
-    extra: dict[str, Any] = {
+    extra = {
         "metadata": {
             "order_bid": buy_record.order_bid,
             "user_bid": buy_record.user_bid,
             "shifu_bid": buy_record.shifu_bid,
         }
     }
-    if channel == "wx_pub":
+    route = next(
+        (route for route in definition.routes if route.channel == channel), None
+    )
+    if route and route.requires_open_id:
         user = load_user_aggregate(buy_record.user_bid)
-        wechat_app_id = _resolve_charge_wechat_app_id(
-            app, str(buy_record.creator_bid or "")
-        )
-        open_id = (
-            str(user.wechat_open_id_for_app(wechat_app_id) or "").strip()
-            if user
-            else ""
-        )
+        app_id = _resolve_charge_wechat_app_id(app, str(buy_record.creator_bid or ""))
+        open_id = str(user.wechat_open_id_for_app(app_id) or "").strip() if user else ""
         if not open_id:
             raise_error("server.pay.wechatOpenIdRequired")
         extra["open_id"] = open_id
-
     payment_request = PaymentRequest(
         order_bid=order_no,
         user_bid=buy_record.user_bid,
@@ -1705,20 +1677,19 @@ def _generate_wechatpay_charge(
     )
     _assert_payment_lifecycle_lock_owned()
     result = provider.create_payment(request=payment_request, app=app)
-    credential = result.extra.get("credential", {}) or {}
-    qr_url = str(result.extra.get("qr_url") or credential.get("wx_pub_qr") or "")
-
+    action = creation_action(provider_name, channel, result)
     buy_record.status = ORDER_STATUS_TO_BE_PAID
     metadata = {
         "course_bid": course.bid,
         "subject": sanitized_subject,
         "body": sanitized_body,
+        "payment_action": action.to_dict(),
     }
     if result.extra.get("prepay_id"):
-        metadata["prepay_id"] = result.extra.get("prepay_id")
+        metadata["prepay_id"] = result.extra["prepay_id"]
     snapshot = upsert_native_snapshot(
         biz_domain=RAW_BIZ_DOMAIN_ORDER,
-        payment_provider="wechatpay",
+        payment_provider=provider_name,
         native_payment_order_bid=order_no,
         provider_attempt_id=str(result.provider_reference or order_no),
         order_bid=buy_record.order_bid,
@@ -1734,28 +1705,27 @@ def _generate_wechatpay_charge(
         metadata=metadata,
     )
     db.session.add(snapshot)
-
-    payment_payload: dict[str, Any] = {
-        "qr_url": qr_url,
-        "credential": credential,
+    payload = {
+        "qr_url": action.url or "",
+        "credential": result.extra.get("credential") or {},
     }
-    if result.extra.get("mode") == "jsapi":
-        payment_payload.update(
+    if action.type == "jsapi":
+        payload.update(
             {
                 "mode": "jsapi",
                 "prepay_id": result.extra.get("prepay_id"),
-                "jsapi_params": result.extra.get("jsapi_params") or {},
+                "jsapi_params": action.parameters,
             }
         )
-
     return BuyRecordDTO(
         buy_record.order_bid,
         buy_record.user_bid,
         buy_record.paid_price,
         channel,
-        qr_url,
-        payment_channel="wechatpay",
-        payment_payload=payment_payload,
+        action.url or "",
+        payment_channel=provider_name,
+        payment_payload=payload,
+        payment_action=action,
     )
 
 
@@ -1865,7 +1835,7 @@ def sync_native_payment_order(
         provider_name = str(payment_channel or order.payment_channel or "").lower()
         provider_attempt_id = ""
         credential_context = None
-        if provider_name in {"alipay", "wechatpay"}:
+        if provider_name in registered_native_payment_providers():
             native_model = native_snapshot_model(provider_name)
             snapshot = (
                 legacy_native_snapshot_query(provider_name)
@@ -1896,7 +1866,7 @@ def sync_native_payment_order(
             order_id,
             expected_user=expected_user,
         )
-    if provider_name not in {"alipay", "wechatpay"}:
+    if provider_name not in registered_native_payment_providers():
         raise_error("server.pay.payChannelNotSupport")
 
     provider = get_payment_provider(provider_name)
@@ -2212,30 +2182,10 @@ def _is_native_payment_successful(
 
 
 def _extract_native_notification_amount(
-    provider: str,
-    payload: dict[str, object],
+    provider: str, payload: dict[str, object]
 ) -> int | None:
-    trade_payload = extract_native_trade_payload(payload)
-    if provider == "alipay":
-        total_amount = (
-            trade_payload.get("total_amount")
-            if isinstance(trade_payload, dict)
-            else None
-        )
-        if total_amount in (None, ""):
-            return None
-        return int((decimal.Decimal(str(total_amount)) * 100).to_integral_value())
-    if provider == "wechatpay":
-        amount = (
-            trade_payload.get("amount", {}) if isinstance(trade_payload, dict) else {}
-        )
-        if not isinstance(amount, dict):
-            return None
-        value = amount.get("payer_total", amount.get("total"))
-        if value in (None, ""):
-            return None
-        return int(value)
-    return None
+    """Preserve native amount validation through the shared adapter contract."""
+    return legacy_native_amount(native_facts(provider, payload))
 
 
 def _inject_order_query(url: str, order_id: str) -> str:
@@ -2685,7 +2635,7 @@ def get_payment_details(
                 "status": stripe_order.status,
             }
 
-        if payment_channel in {"alipay", "wechatpay"}:
+        if payment_channel in registered_native_payment_providers():
             native_model = native_snapshot_model(payment_channel)
             native_order = (
                 legacy_native_snapshot_query(payment_channel)
@@ -2729,7 +2679,7 @@ def success_buy_record_from_native(
     uow.require_transaction_owner("native payment notification", app)
     with _app_context_scope(app), unit_of_work(discard=True):
         provider = str(provider_name or "").strip().lower()
-        if provider not in {"alipay", "wechatpay"}:
+        if provider not in registered_native_payment_providers():
             raise_error("server.pay.payChannelNotSupport")
         provider_attempt_id = str(notification.order_bid or "").strip()
         transaction_id = str(notification.charge_id or "").strip()
@@ -3144,6 +3094,7 @@ def query_buy_record(
                 - decimal.Decimal(buy_record.paid_price),
                 item,
                 payment_channel=buy_record.payment_channel or "",
+                creator_bid=str(buy_record.creator_bid or ""),
             )
 
         raise_error("server.order.orderNotFound")

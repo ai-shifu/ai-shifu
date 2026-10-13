@@ -1314,6 +1314,8 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => {
       expect(window.open).toHaveBeenCalledWith(
         'https://provider.example/private-qr',
+        '_blank',
+        'noopener,noreferrer',
       );
     });
     expect(eventCalls('learner_pay_modal_view')).toEqual([
@@ -1530,6 +1532,8 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => {
       expect(window.open).toHaveBeenCalledWith(
         'https://provider.example/private-qr',
+        '_blank',
+        'noopener,noreferrer',
       );
     });
     expect(mockRefreshPayment).toHaveBeenLastCalledWith({
@@ -1653,6 +1657,8 @@ describe('learner payment modal analytics producers', () => {
     await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
     expect(window.open).toHaveBeenCalledWith(
       'https://provider.example/private-qr',
+      '_blank',
+      'noopener,noreferrer',
     );
   });
 
@@ -1792,6 +1798,173 @@ describe('learner payment modal analytics producers', () => {
     });
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'private-provider-credential',
+    );
+  });
+
+  test.each(['desktop', 'mobile'] as const)(
+    'selects a second hosted gateway with the same route name on %s',
+    async surface => {
+      const shared = {
+        channel: 'checkout_session',
+        method: 'hosted',
+        scene: 'hosted',
+        action: 'redirect',
+        billing_mode: 'provider_managed',
+        poll_provider: false,
+        requires_open_id: false,
+      };
+      mockPaymentFlowState.paymentOptions = [
+        {
+          ...shared,
+          id: 'stripe:checkout_session',
+          provider: 'stripe',
+          label_key: 'module.pay.payChannelStripeCard',
+        },
+        {
+          ...shared,
+          id: 'fixture-hosted:checkout_session',
+          provider: 'fixture-hosted',
+          label_key: 'module.pay.pay',
+        },
+      ];
+      render(
+        surface === 'desktop' ? (
+          <PayModal
+            {...requiredModalProps}
+            open
+          />
+        ) : (
+          <PayModalM
+            {...requiredModalProps}
+            open
+          />
+        ),
+      );
+      await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+      mockRefreshPayment.mockClear();
+      fireEvent.click(screen.getByText('module.pay.pay'));
+      expect(mockRefreshPayment).toHaveBeenCalledWith({
+        channel: 'fixture-hosted:checkout_session',
+        paymentChannel: 'fixture-hosted',
+      });
+      expect(
+        screen.getByText('module.pay.payChannelStripeCard'),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it('keeps a newly selected QR method on mobile instead of restoring a built-in wallet', async () => {
+    mockPaymentFlowState.paymentOptions = [
+      {
+        id: 'fixture-pay:fixture_qr',
+        provider: 'fixture-pay',
+        channel: 'fixture_qr',
+        method: 'fixture-method',
+        scene: 'qr',
+        action: 'qr',
+        billing_mode: 'platform_managed',
+        label_key: 'module.pay.payChannelAlipay',
+        poll_provider: true,
+        requires_open_id: false,
+      },
+    ];
+    render(
+      <PayModalM
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+    mockRefreshPayment.mockClear();
+    fireEvent.click(screen.getByText('module.pay.payChannelAlipay'));
+    expect(mockRefreshPayment).toHaveBeenCalledWith({
+      channel: 'fixture_qr',
+      paymentChannel: 'fixture-pay',
+    });
+    expect(mockRefreshPayment).toHaveBeenCalledTimes(1);
+  });
+  test.each(['desktop', 'mobile'] as const)(
+    'shows a provider-specific hosted method on %s',
+    async surface => {
+      mockPaymentFlowState.paymentOptions = [
+        {
+          id: 'fixture-hosted:fixture_checkout',
+          provider: 'fixture-hosted',
+          channel: 'fixture_checkout',
+          method: 'fixture-wallet',
+          scene: 'hosted',
+          action: 'redirect',
+          billing_mode: 'provider_managed',
+          label_key: 'module.pay.payChannelAlipay',
+          poll_provider: false,
+          requires_open_id: false,
+        },
+      ];
+      render(
+        surface === 'desktop' ? (
+          <PayModal
+            {...requiredModalProps}
+            open
+          />
+        ) : (
+          <PayModalM
+            {...requiredModalProps}
+            open
+          />
+        ),
+      );
+      await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+      mockRefreshPayment.mockClear();
+      fireEvent.click(screen.getByText('module.pay.payChannelAlipay'));
+      expect(mockRefreshPayment).toHaveBeenCalledWith({
+        channel: 'fixture-hosted:fixture_checkout',
+        paymentChannel: 'fixture-hosted',
+      });
+    },
+  );
+  it('uses freshly loaded options when the legacy availability flags stay unchanged', async () => {
+    const view = render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalled());
+    mockRefreshPayment.mockClear();
+    const shared = {
+      provider: 'fixture-pay',
+      scene: 'qr',
+      action: 'qr',
+      billing_mode: 'platform_managed',
+      label_key: 'module.pay.pay',
+      poll_provider: true,
+      requires_open_id: false,
+    };
+    mockPaymentFlowState.paymentOptions = [
+      {
+        ...shared,
+        id: 'fixture-pay:fixture_wechat',
+        channel: 'fixture_wechat',
+        method: 'wechat',
+      },
+      {
+        ...shared,
+        id: 'fixture-pay:fixture_alipay',
+        channel: 'fixture_alipay',
+        method: 'alipay',
+      },
+    ];
+    view.rerender(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+    await waitFor(() =>
+      expect(mockRefreshPayment).toHaveBeenCalledWith({
+        channel: 'fixture_wechat',
+        paymentChannel: 'fixture-pay',
+      }),
     );
   });
 });

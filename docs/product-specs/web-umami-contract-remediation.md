@@ -2,7 +2,7 @@
 title: Cook Web Umami Contract Remediation
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-13
 canonical: true
 ---
 
@@ -563,6 +563,43 @@ Their old pathname, user-agent, and arbitrary error dimensions must not be
 recreated in another Umami event.
 
 ## Verification and production activation
+
+### Hosted subscription management compatibility
+
+`creator_subscription_renewal_attempt` and `creator_subscription_renewal_result`
+keep their existing confirmation trigger, deduplication and fail-open behavior.
+An eligible provider-managed subscription is attributed through the shared
+provider enum; an added integration is `other`, never mislabeled as Stripe and
+never recorded as a raw provider string. The original Stripe population remains
+unchanged. Consumers extending Stripe-only reports must filter
+`payment_provider=stripe` for historical continuity and analyze added eligible
+providers separately. The full population, schema and exclusions are owned by
+section 7.5.3 of the billing design document.
+
+### Payment client incompatibility
+
+`learner_payment_action_unavailable` is an additive event for deciding whether
+a payment API/client deployment needs compatibility repair. It records a
+rendered, pending payment whose explicit action contract cannot be executed by
+the current client. It does not mean the gateway declined a payment or that the
+business order failed.
+
+- Trigger: a post-commit effect after the current accepted response produces
+  an unsupported contract/action and the payment dialog is open.
+- Population: logged-in learners with a known course and order; exclude guests,
+  previews, closed dialogs, superseded responses and completed orders.
+- Count unit: once per order, normalized channel and reason within one dialog
+  opening. A close/reopen begins a new exposure; rerenders do not.
+- Exact allowlist: `shifu_bid`, `order_id`, `channel` (`wechat_jsapi`,
+  `wechat_qr`, `alipay_qr`, `stripe`, `other`), `surface` (`desktop`, `mobile`),
+  and `reason` (`unsupported_contract`, `unsupported_action`). URLs, provider
+  payloads, credentials, SDK secrets, signatures and raw errors are excluded.
+- Consumer: Umami event reports comparing incompatible-client exposures by
+  surface/reason during payment deployments. This series begins at deployment;
+  existing payment attempt/result/status series keep their original meanings.
+- Compatibility and failure: old payloads remain handled by the legacy adapter;
+  an unknown explicit action is never interpreted as an old QR or redirect.
+  Tracking failure cannot alter display, refresh, synchronization or payment.
 
 Focused tests cover exact names and payloads, forbidden-field absence, trigger
 timing, success/failure/cancel/pending outcomes, deduplication, SPA route

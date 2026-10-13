@@ -26,6 +26,10 @@ from flaskr.service.common.models import AppError, raise_error, raise_param_erro
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
+from flaskr.service.order.payment_providers.api import (
+    configured_payment_options,
+    registered_payment_providers,
+)
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -39,6 +43,8 @@ from .entitlements import (
 from .primitives import normalize_bid
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from werkzeug.datastructures import FileStorage
 
 
@@ -56,14 +62,6 @@ BRANDING_KEY = "CUSTOMIZATION.BRANDING"
 ADMIN_DRAFT_KEY = "CUSTOMIZATION.ADMIN_DRAFT"
 INTEGRATION_ACTIVE_KEY = "CUSTOMIZATION.INTEGRATION.{provider}.ACTIVE"
 INTEGRATION_VERSION_KEY = "CUSTOMIZATION.INTEGRATION.{provider}.VERSION"
-INTEGRATION_PROVIDERS = (
-    "wechat_oauth",
-    "pingxx",
-    "stripe",
-    "alipay",
-    "wechatpay",
-)
-PAYMENT_PROVIDERS = set(INTEGRATION_PROVIDERS) - {"wechat_oauth"}
 
 _PROVIDER_CONFIG_KEYS = {
     "wechat_oauth": {
@@ -113,6 +111,9 @@ _PROVIDER_CONFIG_KEYS = {
     },
 }
 
+INTEGRATION_PROVIDERS = _PROVIDER_CONFIG_KEYS.keys()
+PAYMENT_PROVIDERS = set(INTEGRATION_PROVIDERS) - {"wechat_oauth"}
+
 _PROVIDER_FIELDS = {
     "wechat_oauth": ({"app_id"}, {"app_secret"}),
     "pingxx": (
@@ -132,6 +133,46 @@ _OPTIONAL_PUBLIC_FIELDS = {
     "alipay": {"gateway_url"},
     "wechatpay": {"base_url"},
 }
+_OPTIONAL_SECRET_FIELDS = {}
+_INTEGRATION_PROBES = {}
+
+
+def register_payment_integration_config(
+    provider: str,
+    *,
+    public_keys: dict[str, str],
+    secret_keys: dict[str, str],
+    required_public: set[str],
+    required_secret: set[str],
+    probe: Callable[[Flask, dict[str, object], dict[str, object]], None],
+) -> None:
+    """Register merchant fields during import/startup, before requests are served.
+
+    Request handlers must not mutate this registry while its live provider view
+    is being read. Credential versions remain immutable after registration.
+    """
+    if (
+        provider not in registered_payment_providers()
+        or provider in _PROVIDER_CONFIG_KEYS
+    ):
+        message = "Integration configuration requires a new registered payment provider"
+        raise ValueError(message)
+    if not required_public.issubset(public_keys) or not required_secret.issubset(
+        secret_keys
+    ):
+        message = "Required integration fields must have configuration mappings"
+        raise ValueError(message)
+    _PROVIDER_CONFIG_KEYS[provider] = {
+        "public": dict(public_keys),
+        "secret": dict(secret_keys),
+    }
+    _PROVIDER_FIELDS[provider] = (set(required_public), set(required_secret))
+    _OPTIONAL_PUBLIC_FIELDS[provider] = set(public_keys) - required_public
+    _OPTIONAL_SECRET_FIELDS[provider] = set(secret_keys) - required_secret
+    _INTEGRATION_PROBES[provider] = probe
+    PAYMENT_PROVIDERS.add(provider)
+
+
 _LOGO_CONTENT_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -615,6 +656,50 @@ def resolve_creator_public_integrations(
     return result
 
 
+def resolve_creator_payment_options(creator_bid: str) -> list[dict[str, object]]:
+    """Describe learner checkout using the same merchant scope as runtime config."""
+    public_integrations = (
+        resolve_creator_public_integrations(creator_bid)
+        if creator_bid and is_creator_customization_enabled()
+        else {}
+    )
+    custom_payment = bool(
+        creator_bid
+        and is_creator_customization_enabled()
+        and resolve_creator_entitlement_state(creator_bid).custom_payment_enabled
+    )
+    overrides = {}
+    if custom_payment:
+        providers = [
+            provider
+            for provider in registered_payment_providers()
+            if provider in public_integrations
+        ]
+        overrides = {
+            "PAYMENT_CHANNELS_ENABLED": ",".join(providers),
+            "STRIPE_ENABLED": "stripe" in providers,
+            "STRIPE_PUBLISHABLE_KEY": public_integrations.get("stripe", {}).get(
+                "publishable_key"
+            )
+            or get_config("STRIPE_PUBLISHABLE_KEY", ""),
+        }
+        # An empty custom configuration must not restore platform checkout.
+        if not providers:
+            return []
+    from flaskr.service.config import config_overrides
+
+    with config_overrides(overrides):
+        return [
+            option.to_dict()
+            for option in configured_payment_options(
+                biz_domain="order",
+                additional_enabled_providers=providers if custom_payment else None,
+            )
+            if option.provider != "stripe"
+            or bool(get_config("STRIPE_PUBLISHABLE_KEY", ""))
+        ]
+
+
 def resolve_creator_wechat_oauth_app_id(creator_bid: str) -> str:
     """Resolve the WeChat OAuth app id a creator signs their learners in with.
 
@@ -676,8 +761,8 @@ def resolve_payment_integration_for_new_order(
 ) -> ProviderCredentialContext | None:
     """Resolve an eligible active merchant config or preserve global behavior."""
     creator_bid = normalize_bid(creator_bid)
-    provider = _normalize_provider(provider)
-    if provider not in PAYMENT_PROVIDERS:
+    provider = normalize_bid(provider).lower()
+    if provider not in registered_payment_providers():
         raise_param_error("provider")
     entitlement = resolve_creator_entitlement_state(creator_bid)
     customization_enabled = is_creator_customization_enabled()
@@ -918,6 +1003,9 @@ def _probe_provider_credentials(
     secret_config: dict[str, object],
 ) -> None:
     """Validate credentials before promoting an integration to active use."""
+    if provider in _INTEGRATION_PROBES:
+        _INTEGRATION_PROBES[provider](app, public_config, secret_config)
+        return
     if provider == "stripe":
         _probe_stripe_credentials(app, public_config, secret_config)
         return
@@ -1072,7 +1160,7 @@ def _normalize_config(provider: str, value: object, secret: bool) -> dict[str, o
         raise_param_error("secret_config" if secret else "public_config")
     public_fields, secret_fields = _PROVIDER_FIELDS[provider]
     allowed = (
-        secret_fields
+        secret_fields | _OPTIONAL_SECRET_FIELDS.get(provider, set())
         if secret
         else public_fields | _OPTIONAL_PUBLIC_FIELDS.get(provider, set())
     )

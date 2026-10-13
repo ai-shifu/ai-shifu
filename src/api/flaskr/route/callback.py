@@ -18,14 +18,54 @@ from flaskr.service.order import (
     success_buy_record_from_pingxx,
 )
 from flaskr.service.order.models import Order, PingxxOrder
-from flaskr.service.order.payment_providers import get_payment_provider
-from flaskr.service.order.raw_snapshots import native_snapshot_model
+from flaskr.service.order.payment_providers import (
+    get_payment_provider,
+    registered_payment_providers,
+)
+from flaskr.service.order.raw_snapshots import (
+    native_snapshot_model,
+    registered_native_payment_providers,
+)
 
 from .common import bypass_token_validation
 
 
 def register_callback_handler(app: Flask, path_prefix: str) -> Flask:
     """Register the callback routes on the Flask application."""
+
+    @app.route(path_prefix + "/payments/<provider_name>", methods=["POST"])
+    @bypass_token_validation
+    def registered_payment_notification(provider_name: str) -> tuple[Response, int]:
+        """Verify and dispatch registered direct payment/contract notifications."""
+        if (
+            provider_name not in registered_native_payment_providers()
+            or provider_name not in registered_payment_providers()
+        ):
+            return jsonify({"code": "FAIL"}), 400
+        provider = get_payment_provider(provider_name)
+        succeeded = False
+        try:
+            notification = provider.verify_webhook(
+                headers=dict(request.headers),
+                raw_body=request.get_data(),
+                app=app,
+            )
+            billing_result = apply_billing_native_notification(
+                app, provider_name, notification
+            )
+            if not billing_result.matched:
+                success_buy_record_from_native(app, provider_name, notification)
+            succeeded = True
+        except Exception:
+            app.logger.exception(
+                "Registered payment notification failed; provider=%s", provider_name
+            )
+        acknowledgement = provider.webhook_response(succeeded=succeeded)
+        body = acknowledgement.body
+        response = (
+            jsonify(body) if isinstance(body, dict) else _plain_text_response(body)
+        )
+        return response, acknowledgement.status_code
 
     @app.route("/api/order/webhooks/<provider_name>/<callback_token>", methods=["POST"])
     @bypass_token_validation
@@ -80,12 +120,30 @@ def register_callback_handler(app: Flask, path_prefix: str) -> Flask:
                     success_buy_record_from_native(app, provider_name, notification)
                 if provider_name == "alipay":
                     return _plain_text_response("success")
-                return jsonify({"code": "SUCCESS", "message": "成功"})
+                if provider_name == "wechatpay":
+                    return jsonify({"code": "SUCCESS", "message": "成功"})
+                acknowledgement = provider.webhook_response(succeeded=True)
+                body = acknowledgement.body
+                return (
+                    jsonify(body)
+                    if isinstance(body, dict)
+                    else _plain_text_response(body),
+                    acknowledgement.status_code,
+                )
             except Exception:
                 app.logger.exception("Scoped %s webhook failed", provider_name)
                 if provider_name == "alipay":
                     return _plain_text_response("failure")
-                return jsonify({"code": "FAIL", "message": "processing error"}), 400
+                if provider_name in {"wechatpay", "pingxx"}:
+                    return jsonify({"code": "FAIL", "message": "processing error"}), 400
+                acknowledgement = provider.webhook_response(succeeded=False)
+                body = acknowledgement.body
+                return (
+                    jsonify(body)
+                    if isinstance(body, dict)
+                    else _plain_text_response(body),
+                    acknowledgement.status_code,
+                )
 
     # pingxx支付回调
     @app.route(path_prefix + "/pingxx-callback", methods=["POST"])

@@ -24,6 +24,7 @@ from flaskr.service.billing.runtime_config import (
     build_runtime_billing_context,
 )
 from flaskr.service.config.funcs import get_config
+from flaskr.service.order.payment_providers.api import registered_payment_providers
 
 from .common import bypass_token_validation, make_common_response
 
@@ -197,7 +198,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         custom_payment_channels = (
             [
                 provider
-                for provider in ("pingxx", "stripe", "alipay", "wechatpay")
+                for provider in registered_payment_providers()
                 if provider in public_integrations
             ]
             if custom_payment_enabled

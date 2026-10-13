@@ -1,3 +1,4 @@
+import type { PaymentContract, PaymentOption } from './payment';
 export type BillingCenterTab =
   | 'plans'
   | 'ledger'
@@ -17,7 +18,8 @@ export type BillingProvider =
   | 'pingxx'
   | 'alipay'
   | 'wechatpay'
-  | 'manual';
+  | 'manual'
+  | (string & Record<never, never>);
 
 export type AdminBillingProviderPriceStatus =
   | 'draft'
@@ -86,7 +88,8 @@ export type BillingCustomizationProvider =
   | 'pingxx'
   | 'stripe'
   | 'alipay'
-  | 'wechatpay';
+  | 'wechatpay'
+  | (string & {});
 
 export type BillingCustomizationCapabilities = {
   branding: boolean;
@@ -134,7 +137,10 @@ export type BillingCustomization = {
   integrations: BillingCustomizationIntegration[];
 };
 
-export type BillingPingxxChannel = 'wx_pub_qr' | 'alipay_qr';
+export type BillingPingxxChannel =
+  | 'wx_pub_qr'
+  | 'alipay_qr'
+  | (string & Record<never, never>);
 
 export type BillingCapabilityStatus =
   | 'active'
@@ -339,6 +345,8 @@ export type BillingSubscription = {
   product_name_key?: string;
   status: BillingSubscriptionStatus;
   billing_provider: BillingProvider;
+  billing_mode?: 'platform_managed' | 'provider_managed' | null;
+  management_operations?: { cancel: boolean; resume: boolean } | null;
   current_period_start_at: string | null;
   current_period_end_at: string | null;
   grace_period_end_at: string | null;
@@ -503,7 +511,7 @@ export type BillingOrderSummary = {
   paid_at: string | null;
 };
 
-export type BillingCheckoutResult = {
+export type BillingCheckoutResult = PaymentContract & {
   bill_order_bid: string;
   provider: BillingProvider;
   payment_mode: BillingPaymentMode;

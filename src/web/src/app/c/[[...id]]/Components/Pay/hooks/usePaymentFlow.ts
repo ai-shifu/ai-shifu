@@ -8,9 +8,15 @@ import {
   queryOrder,
   syncPaymentOrder,
   type PayUrlRequest,
+  type CourseOrderSnapshot as OrderSnapshot,
   type PaymentChannel,
 } from '@/api/order';
 import { ORDER_STATUS } from '../constans';
+import type { PaymentAction, PaymentOption } from '@/types/payment';
+import {
+  resolvePaymentAction,
+  resolvePaymentOption,
+} from '@/lib/paymentContracts';
 
 interface PriceItem {
   price_name: string;
@@ -40,6 +46,9 @@ export interface PaymentInfoState {
   status?: number;
   paymentChannel?: PaymentChannel;
   paymentPayload?: Record<string, any>;
+  paymentAction?: PaymentAction | null;
+  pollProvider?: boolean;
+  actionUnavailableReason?: 'unsupported_contract' | 'unsupported_action';
 }
 
 interface UsePaymentFlowOptions {
@@ -48,14 +57,6 @@ interface UsePaymentFlowOptions {
   courseId: string;
   isLoggedIn: boolean;
   onOrderPaid?: () => void;
-}
-
-interface OrderSnapshot {
-  order_id: string;
-  price: string;
-  value_to_pay: string;
-  price_item?: PriceItem[];
-  status: number;
 }
 
 export interface PaymentActionParams {
@@ -103,6 +104,10 @@ export const usePaymentFlow = ({
     setOrderIdState(value);
   }, []);
 
+  const [paymentOptions, setPaymentOptions] = useState<
+    PaymentOption[] | undefined
+  >();
+  const paymentOptionsRef = useRef<PaymentOption[] | undefined>(undefined);
   const [price, setPrice] = useState('0');
   const [originalPrice, setOriginalPrice] = useState('');
   const [priceItems, setPriceItems] = useState<PriceItem[]>([]);
@@ -125,6 +130,8 @@ export const usePaymentFlow = ({
   const updateFromOrder = useCallback(
     (snapshot?: OrderSnapshot | null) => {
       if (!snapshot) return;
+      paymentOptionsRef.current = snapshot.payment_options;
+      setPaymentOptions(snapshot.payment_options);
       setPrice(snapshot.value_to_pay);
       setOriginalPrice(snapshot.price);
       setPriceItems(
@@ -207,10 +214,12 @@ export const usePaymentFlow = ({
         if (currentSnapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
           return current;
         }
+        const option = resolvePaymentOption(paymentOptionsRef.current, channel);
         const payload = await getPayUrl({
-          channel,
+          channel: option?.channel || channel,
+          ...(option ? { paymentOption: option.id } : {}),
           orderId: orderIdRef.current,
-          paymentChannel,
+          paymentChannel: option?.provider || paymentChannel,
         } as PayUrlRequest);
         if (
           !mountedRef.current ||
@@ -219,12 +228,26 @@ export const usePaymentFlow = ({
         ) {
           return null;
         }
+        const paymentAction = resolvePaymentAction(payload);
         setPaymentInfo({
           channel: payload.channel,
-          qrUrl: typeof payload.qr_url === 'string' ? payload.qr_url : '',
+          qrUrl:
+            paymentAction?.type === 'qr' || paymentAction?.type === 'redirect'
+              ? paymentAction.url
+              : '',
           status: payload.status,
           paymentChannel: payload.payment_channel,
           paymentPayload: payload.payment_payload || {},
+          paymentAction,
+          actionUnavailableReason:
+            payload.status === ORDER_STATUS.BUY_STATUS_SUCCESS ||
+            payload.payment_contract_version === undefined ||
+            paymentAction
+              ? undefined
+              : payload.payment_contract_version === 1
+                ? 'unsupported_action'
+                : 'unsupported_contract',
+          pollProvider: payload.poll_provider,
         });
         nativeSyncLastAtRef.current = 0;
         setIsTimeout(false);
@@ -282,7 +305,10 @@ export const usePaymentFlow = ({
       }
       const currentOrderId = orderIdRef.current;
       const nativePaymentChannel = paymentInfo.paymentChannel;
-      if (shouldSyncNativePaymentChannel(nativePaymentChannel)) {
+      if (
+        paymentInfo.pollProvider ??
+        shouldSyncNativePaymentChannel(nativePaymentChannel)
+      ) {
         const now = Date.now();
         if (now - nativeSyncLastAtRef.current >= NATIVE_SYNC_INTERVAL) {
           nativeSyncLastAtRef.current = now;
@@ -334,6 +360,9 @@ export const usePaymentFlow = ({
 
   const resetState = useCallback(() => {
     updateOrderId('');
+    paymentOptionsRef.current = undefined;
+    setPaymentOptions(undefined);
+    paymentRefreshSequenceRef.current += 1;
     setPrice('0');
     setOriginalPrice('');
     setPriceItems([]);
@@ -347,6 +376,7 @@ export const usePaymentFlow = ({
   }, [updateOrderId]);
 
   return {
+    paymentOptions,
     orderId,
     price,
     originalPrice,

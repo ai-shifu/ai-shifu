@@ -30,6 +30,8 @@ from .base import (
     PaymentRequest,
     SubscriptionUpdateResult,
 )
+from .contracts import BUILTIN_DEFINITIONS
+from .normalization import normalized_creation, normalized_notification
 
 if TYPE_CHECKING:
     from importlib.machinery import ModuleSpec
@@ -154,6 +156,7 @@ class PingxxProvider(PaymentProvider):
     """Ping++ payment provider implementation."""
 
     channel = "pingxx"
+    definition = BUILTIN_DEFINITIONS["pingxx"]
 
     def _ensure_client(self, app: Flask) -> object:
         """Configure pingpp for the current owner context."""
@@ -234,7 +237,9 @@ class PingxxProvider(PaymentProvider):
             extra=self._sanitize_extra(charge_extra),
         )
 
-        return PaymentCreationResult(
+        return normalized_creation(
+            "pingxx",
+            request,
             provider_reference=charge["id"],
             raw_response=charge,
             extra={
@@ -344,7 +349,8 @@ class PingxxProvider(PaymentProvider):
             payload = json.loads(raw_body_str)
 
         charge = payload.get("data", {}).get("object", {}) or {}
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "pingxx",
             order_bid=str(charge.get("order_no") or ""),
             status=str(payload.get("type") or ""),
             provider_payload=payload,
@@ -363,7 +369,8 @@ class PingxxProvider(PaymentProvider):
             )
 
         charge = payload.get("data", {}).get("object", {}) or {}
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "pingxx",
             order_bid=str(charge.get("order_no") or ""),
             status=str(payload.get("type") or ""),
             provider_payload=payload,
@@ -379,7 +386,8 @@ class PingxxProvider(PaymentProvider):
             message = f"Unsupported Pingxx reference type: {reference_type}"
             raise RuntimeError(message)
         charge = self.retrieve_charge(charge_id=provider_reference, app=app)
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "pingxx",
             order_bid=str(charge.get("order_no") or ""),
             status="manual_sync",
             provider_payload={"charge": charge},

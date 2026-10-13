@@ -18,6 +18,8 @@ from .base import (
     PaymentRequest,
     SubscriptionUpdateResult,
 )
+from .contracts import BUILTIN_DEFINITIONS
+from .normalization import normalized_creation, normalized_notification
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -27,6 +29,7 @@ class StripeProvider(PaymentProvider):
     """Stripe payment provider implementation."""
 
     channel = "stripe"
+    definition = BUILTIN_DEFINITIONS["stripe"]
 
     def _ensure_client(self, app: Flask) -> object:
         return get_stripe_client_options(app)[0]
@@ -161,7 +164,9 @@ class StripeProvider(PaymentProvider):
                 payment_intent_object = payment_intent.to_dict()
                 latest_charge_id = payment_intent_object.get("latest_charge", "") or ""
 
-            return PaymentCreationResult(
+            return normalized_creation(
+                "stripe",
+                request,
                 provider_reference=session_dict["id"],
                 raw_response=session_dict,
                 client_secret=session_dict.get("client_secret"),
@@ -187,7 +192,9 @@ class StripeProvider(PaymentProvider):
         )
         intent_dict = intent.to_dict()
 
-        return PaymentCreationResult(
+        return normalized_creation(
+            "stripe",
+            request,
             provider_reference=intent_dict["id"],
             raw_response=intent_dict,
             client_secret=intent_dict.get("client_secret"),
@@ -218,6 +225,8 @@ class StripeProvider(PaymentProvider):
             body=request.body,
             client_ip=request.client_ip,
             extra=options,
+            biz_domain=request.biz_domain,
+            payment_mode=request.payment_mode,
         )
         return self.create_payment(request=subscription_request, app=app)
 
@@ -419,7 +428,8 @@ class StripeProvider(PaymentProvider):
             metadata = session.get("metadata", {}) or {}
             if not metadata.get("order_bid") and intent:
                 metadata = intent.get("metadata", {}) or {}
-            return PaymentNotificationResult(
+            return normalized_notification(
+                "stripe",
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
                 provider_payload=payload,
@@ -429,7 +439,8 @@ class StripeProvider(PaymentProvider):
             intent = self.retrieve_payment_intent(intent_id=provider_reference, app=app)
             metadata = intent.get("metadata", {}) or {}
             charge_id = str(intent.get("latest_charge") or "") or None
-            return PaymentNotificationResult(
+            return normalized_notification(
+                "stripe",
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
                 provider_payload={"payment_intent": intent},
@@ -441,7 +452,8 @@ class StripeProvider(PaymentProvider):
                 app=app,
             )
             metadata = subscription.get("metadata", {}) or {}
-            return PaymentNotificationResult(
+            return normalized_notification(
+                "stripe",
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
                 provider_payload={"subscription": subscription},
@@ -504,7 +516,8 @@ class StripeProvider(PaymentProvider):
             if charges:
                 charge_id = charges[0].get("id", "")
 
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "stripe",
             order_bid=order_bid,
             status=event.get("type", ""),
             provider_payload=event,

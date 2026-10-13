@@ -45,6 +45,7 @@ import {
   registerBillingTranslationUsage,
   resolveBillingBucketCategoryLabel,
 } from '@/lib/billing';
+import { normalizeCreatorBillingProvider } from '@/lib/billingAnalytics';
 import type { BillingSubscription } from '@/types/billing';
 
 type BillingCreditDetailsPanelProps = {
@@ -302,7 +303,14 @@ export function BillingCreditDetailsPanel({
   );
   const manageableSubscription =
     showSubscriptionManagement &&
-    subscription?.billing_provider === 'stripe' &&
+    (subscription?.billing_mode !== undefined &&
+    subscription?.billing_mode !== null
+      ? subscription.billing_mode === 'provider_managed' &&
+        Boolean(
+          subscription.management_operations?.cancel ||
+          subscription.management_operations?.resume,
+        )
+      : subscription?.billing_provider === 'stripe') &&
     hasActiveSubscription &&
     subscriptionPeriodEndLabel
       ? subscription
@@ -336,7 +344,9 @@ export function BillingCreditDetailsPanel({
     const analyticsPayload = {
       action,
       source_surface: 'credit_details',
-      payment_provider: 'stripe',
+      payment_provider: normalizeCreatorBillingProvider(
+        manageableSubscription.billing_provider,
+      ),
       subscription_bid: manageableSubscription.subscription_bid,
     };
     setIsSubmitting(true);

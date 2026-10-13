@@ -71,7 +71,11 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from .payment_policy import MANUAL_PAYMENT_PROVIDERS, is_manual_payment_provider
+from .payment_policy import (
+    MANUAL_PAYMENT_PROVIDERS,
+    is_manual_payment_provider,
+    is_provider_managed_payment_provider,
+)
 from .preorders import (
     PREORDER_STATE_ABSORBED_BY_UPGRADE,
     PREORDER_STATE_PENDING_EFFECTIVE,
@@ -167,7 +171,9 @@ SELF_MANAGED_BILLING_PROVIDERS = {*MANUAL_PAYMENT_PROVIDERS, "manual"}
 
 def is_self_managed_billing_provider(provider: str | None) -> bool:
     """Return whether self managed billing provider."""
-    return _normalize_bid(provider).lower() in SELF_MANAGED_BILLING_PROVIDERS
+    return _normalize_bid(provider).lower() == "manual" or is_manual_payment_provider(
+        provider
+    )
 
 
 @dataclass(slots=True, frozen=True)
@@ -512,9 +518,14 @@ def ensure_subscription_renewal_order(
         return None
 
     provider_reference_id = _normalize_bid(subscription.provider_subscription_id)
-    if provider_name != "stripe" and not is_manual_payment_provider(provider_name):
+    if not is_provider_managed_payment_provider(
+        provider_name
+    ) and not is_manual_payment_provider(provider_name):
         return None
-    if provider_name == "stripe" and not provider_reference_id:
+    if (
+        is_provider_managed_payment_provider(provider_name)
+        and not provider_reference_id
+    ):
         return None
 
     product_bid = _normalize_bid(subscription.next_product_bid) or _normalize_bid(
@@ -572,7 +583,9 @@ def ensure_subscription_renewal_order(
             {
                 "checkout_type": "subscription_renewal",
                 "provider_reference_type": (
-                    "subscription" if provider_name == "stripe" else "charge"
+                    "subscription"
+                    if is_provider_managed_payment_provider(provider_name)
+                    else "charge"
                 ),
                 "renewal_event_bid": _normalize_bid(renewal_event_bid) or None,
                 "renewal_cycle_start_at": to_utc_iso(cycle_start_at),
@@ -596,13 +609,13 @@ def ensure_subscription_renewal_order(
             payment_provider=provider_name,
             channel=(
                 "subscription"
-                if provider_name == "stripe"
+                if is_provider_managed_payment_provider(provider_name)
                 else "wx_pub_qr"
                 if provider_name == "wechatpay"
                 else "alipay_qr"
             ),
             provider_reference_id=provider_reference_id
-            if provider_name == "stripe"
+            if is_provider_managed_payment_provider(provider_name)
             else "",
             status=BILLING_ORDER_STATUS_PENDING,
             metadata_json=metadata,
@@ -619,12 +632,12 @@ def ensure_subscription_renewal_order(
         order.payment_provider = provider_name
         order.channel = order.channel or (
             "subscription"
-            if provider_name == "stripe"
+            if is_provider_managed_payment_provider(provider_name)
             else "wx_pub_qr"
             if provider_name == "wechatpay"
             else "alipay_qr"
         )
-        if provider_name == "stripe":
+        if is_provider_managed_payment_provider(provider_name):
             order.provider_reference_id = provider_reference_id
         order.metadata_json = metadata
 
@@ -843,6 +856,17 @@ def _is_stale_manual_cycle(
         and subscription.last_renewed_at == effective_from
     )
     current_start = subscription.current_period_start_at
+    order_metadata = (
+        order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    )
+    if (
+        is_provider_managed_payment_provider(order.payment_provider)
+        and order_metadata.get("provider_period_start_at")
+        and current_start is not None
+        and effective_from < current_start
+    ):
+        # Replaying a confirmed older contract window cannot rewind the active cycle.
+        return True
     if (
         not is_manual_payment_provider(order.payment_provider)
         or current_start is None
@@ -854,7 +878,7 @@ def _is_stale_manual_cycle(
     if effective_from != current_start:
         return False
     # Stripe can take over without advancing the period boundary.
-    if _normalize_bid(subscription.billing_provider).lower() == "stripe":
+    if is_provider_managed_payment_provider(subscription.billing_provider):
         return True
 
     active_order_bid = _normalize_bid(metadata.get("active_cycle_order_bid"))
@@ -965,6 +989,22 @@ def _activate_subscription_for_paid_order(
                     _expire_credit_bucket_balance_for_transition
                 ),
             )
+        order_metadata = (
+            order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        )
+        contract_status = (
+            subscription.status
+            if is_provider_managed_payment_provider(order.payment_provider)
+            and order_metadata.get("provider_period_start_at")
+            and subscription.status
+            not in {
+                BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+            }
+            and _normalize_bid(subscription.billing_provider).lower()
+            == _normalize_bid(order.payment_provider).lower()
+            else None
+        )
         _apply_paid_subscription_cycle_state(
             subscription,
             creator_bid=order.creator_bid,
@@ -973,6 +1013,9 @@ def _activate_subscription_for_paid_order(
             effective_from=effective_from,
             effective_to=effective_to,
         )
+        if contract_status is not None:
+            # A paid-order replay cannot reactivate a blocked provider contract.
+            subscription.status = contract_status
         if is_manual_payment_provider(order.payment_provider):
             subscription.billing_provider = _normalize_bid(
                 order.payment_provider

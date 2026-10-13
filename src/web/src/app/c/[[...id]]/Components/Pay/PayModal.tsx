@@ -1,3 +1,10 @@
+import { usePaymentActionUnavailableTracking } from '@/hooks/usePaymentActionUnavailableTracking';
+import {
+  hasPaymentMethod,
+  resolvePaymentOption,
+  paymentSelectionKey,
+  hostedPaymentOptions,
+} from '@/lib/paymentContracts';
 import styles from './PayModal.module.scss';
 
 import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -304,6 +311,7 @@ export const PayModal = ({
     priceItems,
     couponCode,
     paymentInfo,
+    paymentOptions,
     isLoading,
     initLoading,
     isTimeout,
@@ -388,10 +396,11 @@ export const PayModal = ({
   const wechatpayChannelEnabled =
     normalizedPaymentChannels.includes('wechatpay');
   const stripeChannelEnabled = normalizedPaymentChannels.includes('stripe');
-  const isStripeAvailable =
-    stripeChannelEnabled &&
-    stripeEnabled === 'true' &&
-    Boolean(stripePublishableKey);
+  const isStripeAvailable = paymentOptions
+    ? hostedPaymentOptions(paymentOptions).length > 0
+    : stripeChannelEnabled &&
+      stripeEnabled === 'true' &&
+      Boolean(stripePublishableKey);
   const isWechatBrowser = useMemo(
     () => typeof navigator !== 'undefined' && inWechat(),
     [],
@@ -401,10 +410,22 @@ export const PayModal = ({
     enableWxcode,
     openId: userInfo?.openid,
   });
-  const isWechatQrAvailable = pingxxChannelEnabled || wechatpayChannelEnabled;
-  const isAlipayQrAvailable = pingxxChannelEnabled || alipayChannelEnabled;
-  const qrChannelEnabled = isWechatQrAvailable || isAlipayQrAvailable;
+  const isWechatQrAvailable = paymentOptions
+    ? hasPaymentMethod(paymentOptions, 'wechat')
+    : pingxxChannelEnabled || wechatpayChannelEnabled;
+  const isAlipayQrAvailable = paymentOptions
+    ? hasPaymentMethod(paymentOptions, 'alipay')
+    : pingxxChannelEnabled || alipayChannelEnabled;
+  const qrChannelEnabled = paymentOptions
+    ? paymentOptions.some(
+        option => option.action === 'qr' || option.action === 'jsapi',
+      )
+    : isWechatQrAvailable || isAlipayQrAvailable;
   const availableQrChannels = useMemo(() => {
+    if (paymentOptions)
+      return paymentOptions
+        .filter(option => option.action === 'qr')
+        .map(option => paymentSelectionKey(option, paymentOptions));
     const channels: string[] = [];
     if (isWechatQrAvailable) {
       channels.push(PAY_CHANNEL_WECHAT);
@@ -413,25 +434,73 @@ export const PayModal = ({
       channels.push(PAY_CHANNEL_ZHIFUBAO);
     }
     return channels;
-  }, [isAlipayQrAvailable, isWechatQrAvailable]);
-  const isStripeSelected = payChannel.startsWith('stripe');
+  }, [isAlipayQrAvailable, isWechatQrAvailable, paymentOptions]);
+  const selectedOption = resolvePaymentOption(paymentOptions, payChannel);
+  const hostedOptions = hostedPaymentOptions(paymentOptions);
+  const isHostedPaymentSelected = selectedOption
+    ? ['redirect', 'sdk_confirm'].includes(selectedOption.action) &&
+      !['wechat', 'alipay'].includes(selectedOption.method)
+    : payChannel.startsWith('stripe');
   const stripePayload = (paymentInfo.paymentPayload ||
     {}) as StripePaymentPayload;
   const nativePayload = (paymentInfo.paymentPayload ||
     {}) as NativePaymentPayload;
-  const stripeCheckoutUrl =
-    stripePayload.checkout_session_url || paymentInfo.qrUrl || '';
-  const stripeMode = (stripePayload.mode || '').toLowerCase();
+  const action = paymentInfo.paymentAction;
+
+  const hostedCheckoutUrl =
+    action !== undefined
+      ? action?.type === 'redirect'
+        ? action.url
+        : ''
+      : stripePayload.checkout_session_url || paymentInfo.qrUrl || '';
+  const confirmationMode =
+    action !== undefined
+      ? action?.type === 'redirect'
+        ? 'checkout_session'
+        : action?.type === 'sdk_confirm'
+          ? 'payment_intent'
+          : ''
+      : (stripePayload.mode || '').toLowerCase();
+  const stripeClientSecret =
+    action !== undefined
+      ? action?.type === 'sdk_confirm' && action.sdk === 'stripe'
+        ? action.client_secret
+        : undefined
+      : stripePayload.client_secret;
   const isWechatJsapiMode =
-    paymentInfo.paymentChannel === 'wechatpay' &&
-    nativePayload.mode === 'jsapi' &&
-    Boolean(nativePayload.jsapi_params);
+    action !== undefined
+      ? action?.type === 'jsapi'
+      : nativePayload.mode === 'jsapi' && Boolean(nativePayload.jsapi_params);
 
   const { previewMode } = useSystemStore(
     useShallow(state => ({ previewMode: state.previewMode })),
   );
 
+  usePaymentActionUnavailableTracking({
+    open,
+    isLoggedIn,
+    previewMode,
+    shifuBid: courseId,
+    orderId,
+    channel: paymentInfo.channel,
+    surface: 'desktop',
+    reason: paymentInfo.actionUnavailableReason,
+  });
+
   const resolveDefaultChannel = useCallback(() => {
+    if (paymentOptions) {
+      const preferred = paymentOptions.find(
+        option => option.prefer_in_wechat && wechatJsapiAvailable,
+      );
+      return (
+        (preferred
+          ? paymentSelectionKey(preferred, paymentOptions)
+          : undefined) ||
+        paymentOptions.find(option => option.action === 'qr')?.channel ||
+        paymentOptions[0]?.channel ||
+        PAY_CHANNEL_WECHAT
+      );
+    }
     if (isWechatQrAvailable) {
       return PAY_CHANNEL_WECHAT;
     }
@@ -442,10 +511,27 @@ export const PayModal = ({
       return PAY_CHANNEL_STRIPE;
     }
     return PAY_CHANNEL_WECHAT;
-  }, [isAlipayQrAvailable, isStripeAvailable, isWechatQrAvailable]);
+  }, [
+    isAlipayQrAvailable,
+    isStripeAvailable,
+    isWechatQrAvailable,
+    paymentOptions,
+    wechatJsapiAvailable,
+  ]);
 
   const resolveRequestChannel = useCallback(
     (channel: string) => {
+      if (paymentOptions) {
+        const selected = resolvePaymentOption(paymentOptions, channel);
+        return (
+          paymentOptions.find(
+            option =>
+              option.method === selected?.method &&
+              option.prefer_in_wechat &&
+              wechatJsapiAvailable,
+          )?.channel || channel
+        );
+      }
       if (
         channel === PAY_CHANNEL_WECHAT &&
         wechatpayChannelEnabled &&
@@ -455,11 +541,13 @@ export const PayModal = ({
       }
       return channel;
     },
-    [wechatJsapiAvailable, wechatpayChannelEnabled],
+    [wechatJsapiAvailable, wechatpayChannelEnabled, paymentOptions],
   );
 
   const resolvePaymentChannel = useCallback(
     (channel: string): PaymentChannel | undefined => {
+      if (paymentOptions)
+        return resolvePaymentOption(paymentOptions, channel)?.provider;
       if (channel.startsWith('stripe')) {
         return 'stripe';
       }
@@ -474,13 +562,13 @@ export const PayModal = ({
       }
       return undefined;
     },
-    [alipayChannelEnabled, wechatpayChannelEnabled],
+    [alipayChannelEnabled, wechatpayChannelEnabled, paymentOptions],
   );
 
   useEffect(() => {
     const isCurrentSupported =
-      (isStripeSelected && isStripeAvailable) ||
-      (!isStripeSelected && availableQrChannels.includes(payChannel));
+      (isHostedPaymentSelected && isStripeAvailable) ||
+      (!isHostedPaymentSelected && availableQrChannels.includes(payChannel));
     if (isCurrentSupported) {
       return;
     }
@@ -496,7 +584,7 @@ export const PayModal = ({
     }
   }, [
     availableQrChannels,
-    isStripeSelected,
+    isHostedPaymentSelected,
     isStripeAvailable,
     resolveDefaultChannel,
     resolvePaymentChannel,
@@ -508,7 +596,7 @@ export const PayModal = ({
 
   const loadPayInfo = useCallback(async () => {
     let nextOrderId = orderId;
-    let nextSnapshot = null;
+    let nextSnapshot: Awaited<ReturnType<typeof initializeOrder>> = null;
     if (!nextOrderId) {
       const snapshot = await initializeOrder();
       nextSnapshot = snapshot;
@@ -516,12 +604,33 @@ export const PayModal = ({
     }
     if (!nextOrderId) return;
     let nextChannel = payChannel;
-    if (!availableQrChannels.includes(nextChannel) && isStripeAvailable) {
+    const snapshotOptions = nextSnapshot?.payment_options ?? paymentOptions;
+    if (
+      snapshotOptions &&
+      !resolvePaymentOption(snapshotOptions, nextChannel)
+    ) {
+      nextChannel =
+        snapshotOptions.find(
+          option =>
+            option.scene === 'wechat' &&
+            wechatJsapiAvailable &&
+            option.prefer_in_wechat,
+        )?.channel ||
+        snapshotOptions.find(option => option.action === 'qr')?.channel ||
+        snapshotOptions[0]?.channel ||
+        nextChannel;
+      setPayChannel(nextChannel);
+    }
+    if (
+      !snapshotOptions &&
+      !availableQrChannels.includes(nextChannel) &&
+      isStripeAvailable
+    ) {
       nextChannel = PAY_CHANNEL_STRIPE;
       if (nextChannel !== payChannel) {
         setPayChannel(nextChannel);
       }
-    } else if (!availableQrChannels.includes(nextChannel)) {
+    } else if (!snapshotOptions && !availableQrChannels.includes(nextChannel)) {
       nextChannel = resolveDefaultChannel();
       if (nextChannel !== payChannel) {
         setPayChannel(nextChannel);
@@ -538,6 +647,8 @@ export const PayModal = ({
     isStripeAvailable,
     orderId,
     payChannel,
+    paymentOptions,
+    wechatJsapiAvailable,
     refreshPayment,
     resolveDefaultChannel,
     resolvePaymentChannel,
@@ -682,8 +793,8 @@ export const PayModal = ({
     ],
   );
 
-  const handleStripeCheckout = useCallback(() => {
-    if (stripeCheckoutUrl) {
+  const handleHostedCheckout = useCallback(() => {
+    if (hostedCheckoutUrl) {
       trackPaymentAttempt(PAY_CHANNEL_STRIPE);
       if (stripePayload.checkout_session_id && orderId) {
         rememberStripeCheckoutSession(
@@ -691,12 +802,12 @@ export const PayModal = ({
           orderId,
         );
       }
-      window.location.href = stripeCheckoutUrl;
+      window.location.href = hostedCheckoutUrl;
     }
   }, [
     orderId,
     stripePayload.checkout_session_id,
-    stripeCheckoutUrl,
+    hostedCheckoutUrl,
     trackPaymentAttempt,
   ]);
 
@@ -737,7 +848,12 @@ export const PayModal = ({
   );
 
   const handleWechatJsapiPay = useCallback(async () => {
-    const jsapiParams = nativePayload.jsapi_params;
+    const jsapiParams =
+      action !== undefined
+        ? action?.type === 'jsapi'
+          ? action.parameters
+          : undefined
+        : nativePayload.jsapi_params;
     if (!jsapiParams || typeof window === 'undefined') {
       return;
     }
@@ -827,6 +943,7 @@ export const PayModal = ({
   }, [
     wechatJsapiAvailable,
     nativePayload.jsapi_params,
+    action,
     rememberProviderConfirmedChannel,
     syncOrderStatus,
     t,
@@ -908,7 +1025,7 @@ export const PayModal = ({
       !orderId ||
       !paymentInfo.qrUrl ||
       isTimeout ||
-      isStripeSelected ||
+      isHostedPaymentSelected ||
       isWechatJsapiMode ||
       normalizeLearnerPaymentChannel(paymentInfo.channel) !==
         normalizeLearnerPaymentChannel(payChannel)
@@ -918,7 +1035,7 @@ export const PayModal = ({
     trackQrPaymentAttempt(payChannel, orderId, paymentInfo.qrUrl);
   }, [
     isLoggedIn,
-    isStripeSelected,
+    isHostedPaymentSelected,
     isWechatJsapiMode,
     isTimeout,
     open,
@@ -1033,6 +1150,7 @@ export const PayModal = ({
                         {qrChannelEnabled ? (
                           <div className={styles.channelSwitchWrapper}>
                             <PayChannelSwitch
+                              options={paymentOptions}
                               channel={payChannel}
                               onChange={onPayChannelSelectChange}
                               availableChannels={availableQrChannels}
@@ -1041,39 +1159,83 @@ export const PayModal = ({
                         ) : null}
                         {isStripeAvailable ? (
                           <div className={styles.stripeSelector}>
-                            <div
-                              data-clickable='true'
-                              onClick={() =>
-                                onPayChannelSelectChange({
-                                  channel: PAY_CHANNEL_STRIPE,
-                                })
-                              }
-                            >
-                              {t('module.pay.payChannelStripeCard')}
-                            </div>
+                            {paymentOptions ? (
+                              hostedOptions.map(option => (
+                                <div
+                                  key={option.id}
+                                  data-clickable='true'
+                                  onClick={() =>
+                                    onPayChannelSelectChange({
+                                      channel: option.id,
+                                    })
+                                  }
+                                >
+                                  {t(
+                                    option.provider === 'stripe'
+                                      ? 'module.pay.payChannelStripeCard'
+                                      : option.label_key,
+                                  )}
+                                </div>
+                              ))
+                            ) : (
+                              <div
+                                data-clickable='true'
+                                onClick={() =>
+                                  onPayChannelSelectChange({
+                                    channel: PAY_CHANNEL_STRIPE,
+                                  })
+                                }
+                              >
+                                {t('module.pay.payChannelStripeCard')}
+                              </div>
+                            )}
                           </div>
                         ) : null}
                       </div>
-                      {isStripeSelected ? (
+                      {paymentInfo.actionUnavailableReason ? (
+                        <div className={styles.stripeHint}>
+                          <p>{t('module.pay.stripeError')}</p>
+                          <Button onClick={onQrcodeRefresh}>
+                            {t('module.pay.clickRefresh')}
+                          </Button>
+                        </div>
+                      ) : isHostedPaymentSelected ? (
                         <div className={styles.stripePanel}>
-                          {stripeMode === 'checkout_session' ||
-                          !stripePayload.client_secret ? (
+                          {confirmationMode === 'checkout_session' ||
+                          !stripeClientSecret ? (
                             <div className='space-y-3 text-center'>
                               <p className={styles.stripeHint}>
-                                {t('module.pay.stripeCheckoutHint')}
+                                {t(
+                                  selectedOption &&
+                                    selectedOption.provider !== 'stripe'
+                                    ? 'module.pay.title'
+                                    : 'module.pay.stripeCheckoutHint',
+                                )}
                               </p>
                               <Button
                                 className={styles.stripeCheckoutButton}
-                                onClick={handleStripeCheckout}
-                                disabled={!stripeCheckoutUrl}
+                                onClick={handleHostedCheckout}
+                                disabled={!hostedCheckoutUrl}
                               >
-                                {t('module.pay.goToStripeCheckout')}
+                                {t(
+                                  selectedOption &&
+                                    selectedOption.provider !== 'stripe'
+                                    ? 'module.pay.pay'
+                                    : 'module.pay.goToStripeCheckout',
+                                )}
                               </Button>
                             </div>
                           ) : (
                             <StripeCardForm
-                              clientSecret={stripePayload.client_secret}
-                              publishableKey={stripePublishableKey || ''}
+                              clientSecret={stripeClientSecret}
+                              publishableKey={
+                                action?.type === 'sdk_confirm' &&
+                                action.sdk === 'stripe'
+                                  ? action.publishable_key ||
+                                    stripePublishableKey ||
+                                    ''
+                                  : stripePublishableKey || ''
+                              }
                               onAttempt={() =>
                                 trackPaymentAttempt(PAY_CHANNEL_STRIPE)
                               }

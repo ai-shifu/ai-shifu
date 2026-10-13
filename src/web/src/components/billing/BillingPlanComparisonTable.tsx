@@ -1,3 +1,4 @@
+import type { PaymentOption } from '@/types/payment';
 import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -90,7 +91,9 @@ function resolveCheckoutProvider(
   pingxxAvailable: boolean,
   alipayAvailable: boolean,
   wechatpayAvailable: boolean,
+  paymentOptions?: PaymentOption[],
 ): BillingProvider | null {
+  if (paymentOptions) return paymentOptions[0]?.provider || null;
   if (stripeAvailable) return 'stripe';
   if (alipayAvailable) return 'alipay';
   if (wechatpayAvailable) return 'wechatpay';
@@ -104,7 +107,10 @@ function isProviderAvailable(
   pingxxAvailable: boolean,
   alipayAvailable: boolean,
   wechatpayAvailable: boolean,
+  paymentOptions?: PaymentOption[],
 ): provider is BillingProvider {
+  if (paymentOptions)
+    return paymentOptions.some(option => option.provider === provider);
   if (provider === 'stripe') return stripeAvailable;
   if (provider === 'pingxx') return pingxxAvailable;
   if (provider === 'alipay') return alipayAvailable;
@@ -114,7 +120,14 @@ function isProviderAvailable(
 
 function isSelfManagedPreorderProvider(
   provider: BillingProvider | null | undefined,
+  paymentOptions?: PaymentOption[],
 ): provider is BillingProvider {
+  if (paymentOptions)
+    return paymentOptions.some(
+      option =>
+        option.provider === provider &&
+        option.billing_mode === 'platform_managed',
+    );
   return (
     provider === 'pingxx' || provider === 'alipay' || provider === 'wechatpay'
   );
@@ -256,6 +269,7 @@ export type BillingPlanComparisonTableProps = {
   isTrialCurrentPlan: boolean;
   renderFreeColumn: boolean;
   checkoutLoadingKey: string;
+  paymentOptions?: PaymentOption[];
   stripeAvailable: boolean;
   pingxxAvailable: boolean;
   alipayAvailable: boolean;
@@ -268,6 +282,7 @@ export type BillingPlanComparisonTableProps = {
 };
 
 export function BillingPlanComparisonTable({
+  paymentOptions,
   trialOffer,
   paidPlans,
   orderedPlans,
@@ -293,6 +308,7 @@ export function BillingPlanComparisonTable({
     pingxxAvailable,
     alipayAvailable,
     wechatpayAvailable,
+    paymentOptions,
   );
   const currentTier = planTierIn(orderedPlans, currentPlan);
   const currentProvider = currentSubscription?.billing_provider || null;
@@ -404,6 +420,7 @@ export function BillingPlanComparisonTable({
               pingxxAvailable,
               alipayAvailable,
               wechatpayAvailable,
+              paymentOptions,
             )
           ) {
             actionProvider = immediateUpgradeProvider;
@@ -421,13 +438,14 @@ export function BillingPlanComparisonTable({
         }
       } else if (isSameOrLowerTier) {
         const canPreorder =
-          isSelfManagedPreorderProvider(currentProvider) &&
+          isSelfManagedPreorderProvider(currentProvider, paymentOptions) &&
           isProviderAvailable(
             currentProvider,
             stripeAvailable,
             pingxxAvailable,
             alipayAvailable,
             wechatpayAvailable,
+            paymentOptions,
           );
         if (samePlanRenewalLimitReached) {
           action = 'preorder';
@@ -459,6 +477,7 @@ export function BillingPlanComparisonTable({
             pingxxAvailable,
             alipayAvailable,
             wechatpayAvailable,
+            paymentOptions,
           )
         ) {
           actionProvider = immediateUpgradeProvider;

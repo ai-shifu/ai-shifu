@@ -27,7 +27,10 @@ from .base import (
     PaymentRefundRequest,
     PaymentRefundResult,
     PaymentRequest,
+    PaymentWebhookResponse,
 )
+from .contracts import BUILTIN_DEFINITIONS
+from .normalization import normalized_creation, normalized_notification
 
 if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric.rsa import (
@@ -41,6 +44,17 @@ class WechatPayProvider(PaymentProvider):
     """Direct WeChat Pay API v3 provider implementation."""
 
     channel = "wechatpay"
+    definition = BUILTIN_DEFINITIONS["wechatpay"]
+
+    def webhook_response(self, *, succeeded: bool) -> PaymentWebhookResponse:
+        """Return the existing WeChat notification acknowledgement."""
+        return PaymentWebhookResponse(
+            {
+                "code": "SUCCESS" if succeeded else "FAIL",
+                "message": "success" if succeeded else "processing error",
+            },
+            status_code=200 if succeeded else 400,
+        )
 
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
@@ -73,7 +87,8 @@ class WechatPayProvider(PaymentProvider):
         )
         event = json.loads(raw_body_text or "{}")
         resource = self._decrypt_notification_resource(event.get("resource") or {})
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "wechatpay",
             order_bid=str(resource.get("out_trade_no") or ""),
             status=str(resource.get("trade_state") or event.get("event_type") or ""),
             provider_payload={
@@ -101,7 +116,8 @@ class WechatPayProvider(PaymentProvider):
             body="",
             app=app,
         )
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "wechatpay",
             order_bid=str(response_payload.get("out_trade_no") or provider_reference),
             status="manual_sync",
             provider_payload={"trade": response_payload},
@@ -167,7 +183,9 @@ class WechatPayProvider(PaymentProvider):
         if not code_url:
             message = "WeChat Native response missing code_url"
             raise RuntimeError(message)
-        return PaymentCreationResult(
+        return normalized_creation(
+            "wechatpay",
+            request,
             provider_reference=request.order_bid,
             raw_response=response_payload,
             extra={
@@ -197,7 +215,9 @@ class WechatPayProvider(PaymentProvider):
             message = "WeChat JSAPI response missing prepay_id"
             raise RuntimeError(message)
         jsapi_params = self._build_jsapi_params(prepay_id=prepay_id)
-        return PaymentCreationResult(
+        return normalized_creation(
+            "wechatpay",
+            request,
             provider_reference=request.order_bid,
             raw_response=response_payload,
             extra={

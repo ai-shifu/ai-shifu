@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from flaskr.util.datetime import now_utc
+from flaskr.service.order.payment_providers.api import (
+    stripe_paid_amount,
+    stripe_paid_currency,
+)
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from .consts import (
     BILLING_ORDER_STATUS_CANCELED,
@@ -15,6 +19,8 @@ from .consts import (
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
@@ -31,7 +37,10 @@ from .paid_side_effects import (
 from .paid_side_effects import (
     stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
-from .payment_policy import is_manual_payment_provider
+from .payment_policy import (
+    is_manual_payment_provider,
+    is_provider_managed_payment_provider,
+)
 from .primitives import coerce_datetime as _coerce_datetime
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
@@ -54,6 +63,10 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from flask import Flask
+    from flaskr.service.order.payment_providers.api import (
+        PaymentFacts,
+        SubscriptionFacts,
+    )
 
     from .models import BillingOrder, BillingSubscription
 
@@ -132,11 +145,17 @@ def _apply_billing_order_provider_update(
     target_status: int | None,
     failure_code: str = "",
     failure_message: str = "",
+    payment_facts: PaymentFacts | None = None,
+    contract_facts: SubscriptionFacts | None = None,
 ) -> BillingOrderProviderUpdateResult:
     result = BillingOrderProviderUpdateResult(
         previous_status=int(order.status or 0),
     )
-    event_time = _extract_provider_event_time(payload)
+    event_time = (
+        _coerce_datetime(payment_facts.event_time)
+        if payment_facts is not None and payment_facts.event_time is not None
+        else _extract_provider_event_time(payload)
+    )
     if provider_reference_id:
         order.provider_reference_id = provider_reference_id
     order.metadata_json = _merge_provider_metadata(
@@ -168,6 +187,29 @@ def _apply_billing_order_provider_update(
     if target_status == BILLING_ORDER_STATUS_PAID:
         order.paid_amount = int(order.payable_amount or 0)
         order.paid_at = order.paid_at or now
+        if (
+            contract_facts is not None
+            and is_provider_managed_payment_provider(provider)
+            and order.order_type
+            in {
+                BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+            }
+        ):
+            period_start = _coerce_datetime(contract_facts.period_start)
+            period_end = _coerce_datetime(contract_facts.period_end)
+            if (
+                period_start is not None
+                and period_end is not None
+                and period_end > period_start
+            ):
+                # Freeze the confirmed contract window before credit activation.
+                order.metadata_json = {
+                    **order.metadata_json,
+                    "provider_period_start_at": to_utc_iso(period_start),
+                    "provider_period_end_at": to_utc_iso(period_end),
+                }
+
         order.failed_at = None
         order.failure_code = ""
         order.failure_message = ""
@@ -340,41 +382,14 @@ def _extract_stripe_failure_message(data_object: dict[str, object]) -> str:
     return str(error_info.get("message") or "")
 
 
-def _coerce_stripe_int(value: object) -> int | None:
-    try:
-        if value is None or value == "":
-            return None
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def extract_stripe_paid_amount(payload: dict[str, Any]) -> int | None:
-    """Resolve Stripe's actual paid amount from a checkout or intent payload."""
-    session = payload.get("checkout_session", payload)
-    intent = payload.get("payment_intent", {})
-    if not isinstance(session, dict):
-        session = {}
-    if not isinstance(intent, dict):
-        intent = {}
-    session_amount = _coerce_stripe_int(session.get("amount_total"))
-    if session_amount is not None:
-        return session_amount
-    amount_received = _coerce_stripe_int(intent.get("amount_received"))
-    if amount_received is not None:
-        return amount_received
-    return _coerce_stripe_int(intent.get("amount"))
+    """Read Stripe payment evidence through the adapter boundary."""
+    return stripe_paid_amount(payload)
 
 
 def extract_stripe_paid_currency(payload: dict[str, Any]) -> str:
-    """Resolve Stripe's paid currency from a checkout or intent payload."""
-    session = payload.get("checkout_session", payload)
-    intent = payload.get("payment_intent", {})
-    if not isinstance(session, dict):
-        session = {}
-    if not isinstance(intent, dict):
-        intent = {}
-    return str(session.get("currency") or intent.get("currency") or "").upper()
+    """Read Stripe payment currency through the adapter boundary."""
+    return stripe_paid_currency(payload)
 
 
 def _apply_billing_subscription_provider_update(
@@ -387,8 +402,14 @@ def _apply_billing_subscription_provider_update(
     data_object: dict[str, object],
     source: str = "webhook",
     allow_activation: bool = True,
+    contract_facts: SubscriptionFacts | None = None,
+    payment_facts: PaymentFacts | None = None,
 ) -> bool:
-    event_time = _extract_provider_event_time(payload)
+    event_time = (
+        _coerce_datetime(payment_facts.event_time)
+        if payment_facts is not None and payment_facts.event_time is not None
+        else _extract_provider_event_time(payload)
+    )
     if not _should_apply_subscription_event(subscription, event_time):
         return False
 
@@ -404,7 +425,9 @@ def _apply_billing_subscription_provider_update(
     subscription.metadata_json.pop("active_cycle_order_bid", None)
     subscription.billing_provider = provider
     provider_subscription_id = _normalize_bid(data_object.get("id"))
-    if provider_subscription_id.startswith("sub_"):
+    if provider_subscription_id and (
+        contract_facts is not None or provider_subscription_id.startswith("sub_")
+    ):
         subscription.provider_subscription_id = provider_subscription_id
     customer_id = _normalize_bid(data_object.get("customer"))
     if customer_id:

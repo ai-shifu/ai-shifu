@@ -316,6 +316,8 @@ v1 冻结 subscription lifecycle 规则：
 - `downgrade` 的领域规则固定为“下周期生效，不立即降级”：当前周期只记录 `next_product_bid`，并在 `current_period_end_at` 创建 `downgrade_effective` 事件；只有下一笔 `subscription_renewal` paid apply 成功后，才把 `next_product_bid` 真正切到 `product_bid`
 - `cancel` 规则固定为“周期末取消”：API cancel 只把 `cancel_at_period_end=1` 且 `status=cancel_scheduled`，当前已发放积分和当前周期有效期继续保留到 `current_period_end_at`；不会立即关停当前周期
 - `pingxx`、直连 `alipay/wechatpay` 与 `manual` grant 等不支持 provider 自动账期的链路使用平台自管套餐有效期：月套餐按 `30 * interval_count` 天且含购买当日，到第 N 天 `23:59:59` 结束；年套餐按自然年到次年同月同日 `23:59:59`，`2 月 29 日` 购买时到次年 `3 月 1 日 23:59:59`；日套餐同样按含当日的到期日 `23:59:59` 结束。Stripe 继续以 provider 返回的周期为准，避免本地有效期和 provider 账期漂移。
+- 托管订阅初购/升级在确认付款时，把标准化合同周期冻结为订单 metadata 中的 `provider_period_start_at` / `provider_period_end_at`（UTC ISO-8601，尾缀 `Z`）。权益和积分桶使用该已确认周期，不能因支付创建时间与合同开始时间不同而重新计算本地月周期。付款时间保留为独立事实；旧订单重放不能回退已推进的合同周期。同一周期收到较新的有效合同变更时，使用当前合同确认的结束时间，包括合法缩短账期；历史付款快照不得覆盖该更新。此快照不改写续费订单已有的周期身份，缺失合同事实时仍走原有兼容路径。
+- 托管订阅已确认的合同状态与付款状态分开处理：欠费、暂停、取消或其他不可用状态不能因历史付款单的积分激活重放而变回有效。通知与查单存在标准化合同事实时，以该事实更新订阅；已有合同周期快照时，较晚到达的付款事实不得替代当前合同状态。
 - `resume` 只允许从 `cancel_scheduled` 或 provider 标记的 `paused` 状态恢复；恢复时必须清空 `cancel_at_period_end`，把订阅回到 `active`，并重新启用后续 `renewal`
 - provider 把订阅推进到 `past_due` 后，v1 一律进入宽限期模式：`grace_period_end_at` 默认等于当前 `current_period_end_at`，原 `renewal/cancel_effective/downgrade_effective` 事件让位给 `retry`，直到续费成功或订阅被取消/过期
 - `paused` 属于 provider 驱动状态，当前批次不提供主动 pause API；若 provider 事件把订阅置为 `paused`，creator 只能通过已有 `resume` 接口恢复
@@ -1244,23 +1246,23 @@ Feature-owned payload 固定为 `{}`。共享 `useTracking` 仍会自动添加�
 
 #### 7.5.3 海外订阅自动续订管理埋点
 
-- Business question：海外老师是否能够成功自助取消或恢复 Stripe 自动续订，以及失败是否集中在某一种操作。
+- Business question：海外订阅管理界面的老师是否能够成功自助取消或恢复渠道托管订阅，以及失败是否集中在某一种操作或接入方。
 - Metric definition：按滚动 7 天和 30 天分别统计取消、恢复操作的尝试数、成功数和失败数；成功率为同一 action 的成功 result 数除以 attempt 数。由于浏览器关闭等原因，attempt 与 result 可能无法严格一一对应。
 - Event names：`creator_subscription_renewal_attempt`、`creator_subscription_renewal_result`。
-- Actor and surface：仅账务渠道为纯 Stripe、持有可管理有效订阅并进入“积分详情”的已登录老师；国内站、guest、无订阅、manual 订阅和失效订阅排除。
+- Actor and surface：仅已开启海外订阅管理界面、持有可管理有效订阅并进入“积分详情”的已登录老师；新契约按 `provider_managed` 模式与 cancel/resume 能力判断，旧契约保留 Stripe 兼容判断。国内站、guest、无订阅、manual 订阅和失效订阅排除。
 - Trigger：老师在二次确认框确认取消或恢复时发送 attempt；平台接口确认成功或失败时发送唯一 terminal result。打开或关闭确认框不发送。
 - Count unit：一次被接受的取消或恢复请求。
 - Deduplication：提交期间禁用重复操作；每次确认最多一个 attempt 和一个 terminal result，不跨独立请求去重。
 - Correlation：使用 `subscription_bid` 关联同一订阅的 attempt/result；不得用于识别用户，老师身份继续由共享 tracking context 提供。
 - Consumers：产品和账务团队的海外订阅自助管理成功率与失败趋势。
-- Compatibility：新增 v1 事件，不改变 checkout 事件语义。
+- Compatibility：保留既有事件名、触发时机和 Stripe 行的含义；新增符合能力契约的托管订阅人群，非内置接入方记录为 `other`。延续历史 Stripe 趋势的 consumer 必须筛选 `payment_provider=stripe`，新增人群单独分析；不改变 checkout 事件语义。
 - Verification：组件测试覆盖海外显隐、国内排除、取消/恢复请求、精确事件名和 allowlist payload、失败结果，以及埋点异常不影响订阅操作。
 
 | Field | Type | Allowed values | Cardinality | Privacy class | Why required |
 | --- | --- | --- | --- | --- | --- |
 | `action` | string | `cancel`, `resume` | low | non-personal | 区分取消与恢复 |
 | `source_surface` | string | `credit_details` | low | non-personal | 固定入口归因 |
-| `payment_provider` | string | `stripe` | low | non-personal | 明确仅海外 Stripe 流程 |
+| `payment_provider` | string | `stripe`, `pingxx`, `alipay`, `wechatpay`, `manual`, `other` | low | non-personal | 使用共享 bounded provider enum，按实际订阅归因；未知接入方归为 `other` |
 | `subscription_bid` | string | 稳定业务 ID | high | pseudonymous | 关联同次订阅的尝试与结果 |
 | `outcome` | string | `success`, `failed`；仅 result | low | non-personal | 计算终态成功率 |
 

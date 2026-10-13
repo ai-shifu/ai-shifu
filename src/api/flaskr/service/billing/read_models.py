@@ -21,6 +21,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.order.payment_providers.api import configured_payment_options
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
@@ -655,7 +656,11 @@ def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
             elif isinstance(payload, BillingTopupProductDTO):
                 topups.append(payload)
 
-        return BillingCatalogDTO(plans=plans, topups=topups)
+        return BillingCatalogDTO(
+            plans=plans,
+            topups=topups,
+            payment_options=configured_payment_options(biz_domain="billing"),
+        )
 
 
 def build_billing_overview(

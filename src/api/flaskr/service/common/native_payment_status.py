@@ -2,65 +2,37 @@
 
 from __future__ import annotations
 
+from flaskr.service.order.payment_providers.api import (
+    native_facts,
+    trade_payload,
+)
+
 NATIVE_PAYMENT_STATE_PAID = "paid"
 NATIVE_PAYMENT_STATE_CANCELED = "canceled"
 NATIVE_PAYMENT_STATE_FAILED = "failed"
 
 
 def extract_native_trade_payload(payload: dict[str, object]) -> dict[str, object]:
-    """Extract native trade payload."""
-    if not isinstance(payload, dict):
-        return {}
-    trade = payload.get("trade", {})
-    if isinstance(trade, dict) and trade:
-        return trade
-    resource = payload.get("resource", {})
-    if isinstance(resource, dict) and resource:
-        return resource
-    return payload
+    """Read native snapshots through their adapter-owned compatibility boundary."""
+    return trade_payload(payload) if isinstance(payload, dict) else {}
 
 
 def extract_native_trade_status(provider: str, payload: dict[str, object]) -> str:
-    """Extract native trade status."""
-    trade_payload = extract_native_trade_payload(payload)
-    if provider == "alipay":
-        return str(trade_payload.get("trade_status") or "")
-    if provider == "wechatpay":
-        return str(trade_payload.get("trade_state") or "")
-    return ""
+    """Read the original status without interpreting it in business code."""
+    return native_facts(provider, payload).raw_status
 
 
 def resolve_native_payment_state(
-    provider: str,
-    payload: dict[str, object],
+    provider: str, payload: dict[str, object]
 ) -> str | None:
-    """Resolve native payment state."""
-    raw_status = extract_native_trade_status(provider, payload).upper()
-    if provider == "alipay":
-        if raw_status in {"TRADE_SUCCESS", "TRADE_FINISHED"}:
-            return NATIVE_PAYMENT_STATE_PAID
-        if raw_status == "TRADE_CLOSED":
-            return NATIVE_PAYMENT_STATE_CANCELED
-        return None
-    if provider == "wechatpay":
-        if raw_status == "SUCCESS":
-            return NATIVE_PAYMENT_STATE_PAID
-        if raw_status in {"CLOSED", "REVOKED"}:
-            return NATIVE_PAYMENT_STATE_CANCELED
-        if raw_status == "PAYERROR":
-            return NATIVE_PAYMENT_STATE_FAILED
-        return None
-    return None
+    """Retain the existing terminal-state compatibility interface."""
+    state = native_facts(provider, payload).state
+    return state if state in {"paid", "failed", "canceled"} else None
 
 
 def is_native_payment_payable(provider: str, payload: dict[str, object]) -> bool:
     """Confirm that a saved credential belongs to an unpaid, open trade."""
-    raw_status = extract_native_trade_status(provider, payload).upper()
-    if provider == "alipay":
-        return raw_status == "WAIT_BUYER_PAY"
-    if provider == "wechatpay":
-        return raw_status == "NOTPAY"
-    return False
+    return native_facts(provider, payload).state == "pending"
 
 
 def native_snapshot_status(provider: str, payload: dict[str, object]) -> int:

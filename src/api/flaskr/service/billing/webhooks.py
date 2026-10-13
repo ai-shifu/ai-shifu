@@ -12,12 +12,16 @@ from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_FAILED,
     NATIVE_PAYMENT_STATE_PAID,
     extract_native_trade_payload,
-    extract_native_trade_status,
     resolve_native_payment_state,
 )
 from flaskr.service.order.payment_providers import (
     PaymentNotificationResult,
     get_payment_provider,
+)
+from flaskr.service.order.payment_providers.api import (
+    legacy_native_amount,
+    native_facts,
+    notification_facts,
 )
 
 from .checkout import (
@@ -544,7 +548,8 @@ def apply_billing_native_notification(
                 status_code=202,
             )
 
-        actual_amount = _extract_native_amount(normalized_provider, provider_payload)
+        facts = notification_facts(normalized_provider, notification)
+        actual_amount = legacy_native_amount(facts)
         if (
             actual_amount is not None
             and int(order.payable_amount or 0) != actual_amount
@@ -552,7 +557,7 @@ def apply_billing_native_notification(
             message = "Billing native payment amount mismatch"
             raise RuntimeError(message)
 
-        target_status = _native_target_status(normalized_provider, trade_payload)
+        target_status = _BILLING_STATUS_BY_NATIVE_STATE.get(facts.state)
         order_update = _apply_billing_order_provider_update(
             order,
             provider=normalized_provider,
@@ -561,13 +566,15 @@ def apply_billing_native_notification(
             payload=provider_payload,
             provider_reference_id=provider_attempt_id or order.provider_reference_id,
             target_status=target_status,
+            payment_facts=facts,
+            contract_facts=notification.subscription,
         )
         _persist_billing_native_raw_snapshot(
             order,
             create_if_missing=False,
             provider_attempt_id=provider_attempt_id or order.provider_reference_id,
             transaction_id=transaction_id,
-            raw_status=extract_native_trade_status(normalized_provider, trade_payload),
+            raw_status=facts.raw_status,
             raw_snapshot_status=_native_raw_snapshot_status(
                 target_status,
                 order.status,
@@ -575,7 +582,12 @@ def apply_billing_native_notification(
             raw_notification=provider_payload,
             metadata={"latest_source": "webhook"},
         )
-        if order.subscription_bid and target_status == BILLING_ORDER_STATUS_PAID:
+        if (
+            order.subscription_bid
+            and target_status == BILLING_ORDER_STATUS_PAID
+            and notification.subscription is None
+            and not order.metadata_json.get("provider_period_start_at")
+        ):
             from .subscriptions import load_subscription_by_bid
 
             subscription = load_subscription_by_bid(order.subscription_bid)
@@ -588,6 +600,22 @@ def apply_billing_native_notification(
                     event_type=event_type or "payment.notification",
                 )
 
+        if notification.subscription is not None and order.subscription_bid:
+            from .subscriptions import load_subscription_by_bid
+
+            subscription = load_subscription_by_bid(order.subscription_bid)
+            if subscription is not None:
+                _apply_billing_subscription_provider_update(
+                    app,
+                    subscription,
+                    provider=normalized_provider,
+                    event_type=event_type or "subscription.updated",
+                    payload=provider_payload,
+                    data_object=notification.subscription.to_state_dict(),
+                    contract_facts=notification.subscription,
+                    payment_facts=facts,
+                    allow_activation=order.status == BILLING_ORDER_STATUS_PAID,
+                )
         order_update.stage_after_state_changes(app, order)
         uow.on_commit(lambda: order_update.dispatch_after_commit(app))
         return BillingWebhookResult(
@@ -626,26 +654,5 @@ def _native_raw_snapshot_status(
 
 
 def _extract_native_amount(provider: str, payload: dict[str, object]) -> int | None:
-    trade_payload = extract_native_trade_payload(payload)
-    if provider == "alipay":
-        value = (
-            trade_payload.get("total_amount")
-            if isinstance(trade_payload, dict)
-            else None
-        )
-        if value in (None, ""):
-            return None
-        from decimal import Decimal
-
-        return int((Decimal(str(value)) * 100).to_integral_value())
-    if provider == "wechatpay":
-        amount = (
-            trade_payload.get("amount", {}) if isinstance(trade_payload, dict) else {}
-        )
-        if not isinstance(amount, dict):
-            return None
-        value = amount.get("payer_total", amount.get("total"))
-        if value in (None, ""):
-            return None
-        return int(value)
-    return None
+    """Preserve native amount validation through the shared adapter contract."""
+    return legacy_native_amount(native_facts(provider, payload))

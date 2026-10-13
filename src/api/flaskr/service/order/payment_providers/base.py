@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from .contracts import PaymentAction, PaymentDefinition, PaymentFacts, SubscriptionFacts
+
 
 @dataclass(slots=True)
 class PaymentRequest:
@@ -21,6 +23,8 @@ class PaymentRequest:
     body: str
     client_ip: str
     extra: dict[str, Any] = field(default_factory=dict)
+    biz_domain: str = "order"
+    payment_mode: str = "payment"
 
 
 @dataclass(slots=True)
@@ -32,6 +36,7 @@ class PaymentCreationResult:
     client_secret: str | None = None
     checkout_session_id: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
+    action: PaymentAction | None = None
 
 
 @dataclass(slots=True)
@@ -42,6 +47,8 @@ class PaymentNotificationResult:
     status: str
     provider_payload: dict[str, Any]
     charge_id: str | None = None
+    facts: PaymentFacts | None = None
+    subscription: SubscriptionFacts | None = None
 
 
 @dataclass(slots=True)
@@ -82,10 +89,32 @@ class PaymentCancellationResult:
     status: str
 
 
+@dataclass(frozen=True, slots=True)
+class PaymentWebhookResponse:
+    """Provider-owned protocol acknowledgement for a verified notification."""
+
+    body: dict[str, str] | str
+    status_code: int = 200
+
+
 class PaymentProvider(ABC):
     """Base abstraction for payment providers."""
 
     channel: str = ""
+    definition: PaymentDefinition = PaymentDefinition()
+
+    @classmethod
+    def read_payment_facts(cls, payload: dict[str, Any]) -> PaymentFacts:
+        """Interpret saved snapshots without constructing a network client."""
+        del payload
+        return PaymentFacts()
+
+    def webhook_response(self, *, succeeded: bool) -> PaymentWebhookResponse:
+        """Acknowledge processing using the integration's notification protocol."""
+        return PaymentWebhookResponse(
+            {"code": "SUCCESS" if succeeded else "FAIL"},
+            status_code=200 if succeeded else 400,
+        )
 
     @abstractmethod
     def create_payment(

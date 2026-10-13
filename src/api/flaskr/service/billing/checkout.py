@@ -22,7 +22,6 @@ from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_FAILED,
     NATIVE_PAYMENT_STATE_PAID,
     extract_native_trade_payload,
-    extract_native_trade_status,
     is_native_payment_payable,
     resolve_native_payment_state,
 )
@@ -34,12 +33,20 @@ from flaskr.service.order.payment_providers import (
     PaymentRefundRequest,
     PaymentRequest,
     get_payment_provider,
+    payment_definition,
+    registered_payment_providers,
+)
+from flaskr.service.order.payment_providers.api import (
+    creation_action,
+    notification_facts,
+    resolve_payment_option_hint,
 )
 from flaskr.service.order.raw_snapshots import (
     billing_native_snapshot_query,
     billing_pingxx_snapshot_query,
     billing_stripe_snapshot_query,
     native_snapshot_model,
+    registered_native_payment_providers,
     upsert_billing_pingxx_snapshot,
     upsert_billing_stripe_snapshot,
     upsert_native_snapshot,
@@ -537,7 +544,10 @@ def _load_active_pending_subscription_orders(
         for order in orders
         if _is_managed_pending_subscription_checkout_order(order)
         or (
-            is_manual_payment_provider(order.payment_provider)
+            (
+                is_manual_payment_provider(order.payment_provider)
+                or order.payment_provider in registered_native_payment_providers()
+            )
             and order.provider_reference_id
         )
     ]
@@ -938,7 +948,8 @@ def _prepare_subscription_checkout(
         db.session.flush()
 
         requires_stripe_subscription_checkout = bool(
-            payment_provider == "stripe" and campaign_provider_discount is not None
+            payment_definition(payment_provider).capabilities.subscription_create
+            and campaign_provider_discount is not None
         )
         if payable_amount == 0 and not requires_stripe_subscription_checkout:
             checkout_result, paid_order_side_effects = (
@@ -1197,14 +1208,16 @@ def _prepare_existing_billing_order_checkout(
         order, product = _load_reopen_targets(bill_order_bid, product_bid)
         if (
             is_manual_payment_provider(order.payment_provider)
-            and order.provider_reference_id
-        ):
+            or order.payment_provider in registered_native_payment_providers()
+        ) and order.provider_reference_id:
             metadata = (
                 order.metadata_json if isinstance(order.metadata_json, dict) else {}
             )
             extra = metadata.get("provider_extra") or {}
             if (not requested_channel or requested_channel == order.channel) and (
-                extra.get("credential") or extra.get("jsapi_params")
+                extra.get("credential")
+                or extra.get("jsapi_params")
+                or metadata.get("payment_action")
             ):
                 response = _build_checkout_response_payload(
                     order,
@@ -1217,6 +1230,17 @@ def _prepare_existing_billing_order_checkout(
                     order.provider_reference_id,
                     metadata.get("checkout") or {},
                     extra,
+                )
+                response["payment_action"] = metadata.get(
+                    "payment_action"
+                ) or creation_action(
+                    order.payment_provider,
+                    order.channel,
+                    PaymentCreationResult(
+                        order.provider_reference_id,
+                        metadata.get("checkout") or {},
+                        extra=extra,
+                    ),
                 )
                 saved_manual_checkout = BillingCheckoutResultDTO(**response)
             manual_attempt_needs_replacement = True
@@ -1418,8 +1442,8 @@ def _prepare_pending_order_for_replacement(app: Flask, order: BillingOrder) -> N
     """
     if (
         is_manual_payment_provider(order.payment_provider)
-        and order.provider_reference_id
-    ):
+        or order.payment_provider in registered_native_payment_providers()
+    ) and order.provider_reference_id:
         raise _ManualPaymentNeedsClosureError(order.bill_order_bid)
     if _normalize_bid(order.payment_provider) != "stripe":
         return
@@ -1774,7 +1798,7 @@ def sync_billing_order(
             order_update = _sync_stripe_order(app, order, session_id=session_id)
         elif order.payment_provider == "pingxx":
             order_update = _sync_pingxx_order(app, order)
-        elif order.payment_provider in {"alipay", "wechatpay"}:
+        elif order.payment_provider in registered_native_payment_providers():
             order_update = _sync_native_order(app, order)
         else:
             raise_error("server.pay.payChannelNotSupport")
@@ -1891,6 +1915,14 @@ def _resolve_billing_payment_channel(
     *,
     default_pingxx_channel: str,
 ) -> tuple[str, str]:
+    if payload.get("payment_option"):
+        provider, channel = resolve_payment_option_hint(payload["payment_option"])
+        return resolve_payment_channel(
+            payment_channel_hint=provider,
+            channel_hint=channel,
+            stored_channel=None,
+            default_pingxx_channel=default_pingxx_channel,
+        )
     return resolve_payment_channel(
         payment_channel_hint=_normalize_payment_provider_hint(
             payload.get("payment_provider")
@@ -2367,6 +2399,8 @@ def _build_provider_checkout_request(
         body=subject,
         client_ip="127.0.0.1",
         extra=provider_options,
+        biz_domain="billing",
+        payment_mode=payment_mode,
     )
     return _ProviderCheckoutRequest(
         bill_order_bid=order.bill_order_bid,
@@ -2394,7 +2428,12 @@ def _call_payment_provider(
     charge with no local row.
     """
     provider = get_payment_provider(request.payment_provider)
-    if request.payment_mode == "subscription" and request.payment_provider == "stripe":
+    if (
+        request.payment_mode == "subscription"
+        and payment_definition(
+            request.payment_provider
+        ).capabilities.subscription_create
+    ):
         return provider.create_subscription(
             request=request.payment_request,
             app=app,
@@ -2447,6 +2486,9 @@ def _persist_provider_checkout(
             "payment_mode": payment_mode,
             "checkout": result.raw_response,
             "provider_extra": result.extra,
+            "payment_action": creation_action(
+                payment_provider, order.channel, result
+            ).to_dict(),
         }
     ).to_metadata_json()
     db.session.add(order)
@@ -2464,8 +2506,14 @@ def _persist_provider_checkout(
         status="pending",
         reused_existing_order=reused_existing_order,
     )
-    if payment_provider == "stripe":
-        redirect_url = str(result.extra.get("url") or "")
+    response["payment_action"] = creation_action(
+        payment_provider, order.channel, result
+    )
+    if (
+        payment_definition(payment_provider).capabilities.billing_mode
+        == "provider_managed"
+    ):
+        redirect_url = response["payment_action"].url or ""
         if redirect_url:
             response["redirect_url"] = redirect_url
         if result.checkout_session_id:
@@ -2657,6 +2705,11 @@ def _build_native_provider_options(
                 raise_error("server.pay.wechatOpenIdRequired")
             return {"open_id": open_id}
         raise_error("server.pay.payChannelNotSupport")
+    if provider not in registered_payment_providers():
+        raise_error("server.pay.payChannelNotSupport")
+    definition = payment_definition(provider)
+    if any(route.channel == normalized_channel for route in definition.routes):
+        return {}
     raise_error("server.pay.payChannelNotSupport")
     return None
 
@@ -2713,7 +2766,7 @@ def _persist_billing_raw_snapshot_from_checkout(
         )
         return
 
-    if order.payment_provider in {"alipay", "wechatpay"}:
+    if order.payment_provider in registered_native_payment_providers():
         _persist_billing_native_raw_snapshot(
             order,
             create_if_missing=True,
@@ -3190,7 +3243,7 @@ def _resolve_billing_order_provider_reference_type(order: BillingOrder) -> str:
         return "checkout_session"
     if order.payment_provider == "pingxx":
         return "charge"
-    if order.payment_provider in {"alipay", "wechatpay"}:
+    if order.payment_provider in registered_native_payment_providers():
         return "payment"
     return ""
 
@@ -3347,15 +3400,14 @@ def _sync_native_order(
     provider = get_payment_provider(provider_name)
     sync_result = provider.sync_reference(
         provider_reference=order.provider_reference_id,
-        reference_type="payment",
+        reference_type=_resolve_billing_order_provider_reference_type(order)
+        or "payment",
         app=app,
     )
     trade_payload = extract_native_trade_payload(sync_result.provider_payload)
-    target_status = _resolve_native_billing_order_status(
-        provider_name,
-        trade_payload,
-    )
-    raw_status = extract_native_trade_status(provider_name, trade_payload)
+    facts = notification_facts(provider_name, sync_result)
+    target_status = _BILLING_STATUS_BY_NATIVE_STATE.get(facts.state)
+    raw_status = facts.raw_status
 
     order_update = _apply_billing_order_provider_update(
         order,
@@ -3363,23 +3415,16 @@ def _sync_native_order(
         event_type="manual_sync",
         source="sync",
         payload={"trade": trade_payload},
-        provider_reference_id=str(
-            trade_payload.get("out_trade_no") or order.provider_reference_id
-        ),
+        provider_reference_id=facts.provider_reference or order.provider_reference_id,
         target_status=target_status,
+        payment_facts=facts,
+        contract_facts=sync_result.subscription,
     )
     _persist_billing_native_raw_snapshot(
         order,
         create_if_missing=False,
-        provider_attempt_id=str(
-            trade_payload.get("out_trade_no") or order.provider_reference_id
-        ),
-        transaction_id=str(
-            trade_payload.get("trade_no")
-            or trade_payload.get("transaction_id")
-            or sync_result.charge_id
-            or ""
-        ),
+        provider_attempt_id=facts.provider_reference or order.provider_reference_id,
+        transaction_id=sync_result.charge_id or "",
         raw_status=raw_status,
         raw_snapshot_status=_RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
             target_status or order.status,
@@ -3388,7 +3433,12 @@ def _sync_native_order(
         raw_response={"trade": trade_payload},
         metadata={"latest_source": "sync"},
     )
-    if order.subscription_bid and target_status == BILLING_ORDER_STATUS_PAID:
+    if (
+        order.subscription_bid
+        and target_status == BILLING_ORDER_STATUS_PAID
+        and sync_result.subscription is None
+        and not order.metadata_json.get("provider_period_start_at")
+    ):
         subscription = _load_subscription_by_bid(order.subscription_bid)
         if subscription is not None:
             _apply_subscription_checkout_success(
@@ -3398,6 +3448,21 @@ def _sync_native_order(
                 provider=provider_name,
                 event_type="manual_sync",
                 source="sync",
+            )
+    if sync_result.subscription is not None and order.subscription_bid:
+        subscription = _load_subscription_by_bid(order.subscription_bid)
+        if subscription is not None:
+            _apply_billing_subscription_provider_update(
+                app,
+                subscription,
+                provider=provider_name,
+                source="sync",
+                event_type="subscription.sync",
+                payload=sync_result.provider_payload,
+                data_object=sync_result.subscription.to_state_dict(),
+                contract_facts=sync_result.subscription,
+                payment_facts=facts,
+                allow_activation=order.status == BILLING_ORDER_STATUS_PAID,
             )
     return order_update
 

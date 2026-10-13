@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import AppError
+from flaskr.service.config import config_overrides
 from flaskr.service.order import funs
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
@@ -106,6 +107,53 @@ def payment_side_effects(monkeypatch: pytest.MonkeyPatch) -> Mock:
     monkeypatch.setattr(funs, "set_user_state", Mock())
     monkeypatch.setattr(funs, "get_shifu_creator_bid", Mock(return_value=""))
     return notify
+
+
+@pytest.mark.parametrize("provider", ["stripe", "pingxx", "alipay", "wechatpay"])
+def test_payment_success_and_notification_do_not_resolve_new_checkout_options(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, provider: str
+) -> None:
+    resolver = Mock(side_effect=RuntimeError("checkout configuration unavailable"))
+    notification = Mock()
+    monkeypatch.setattr(funs, "resolve_creator_payment_options", resolver)
+    monkeypatch.setattr(funs, "set_user_state", Mock())
+    monkeypatch.setattr(
+        funs, "get_shifu_creator_bid", Mock(return_value="teacher-test")
+    )
+    monkeypatch.setattr(
+        funs,
+        "load_user_aggregate",
+        Mock(return_value=SimpleNamespace(mobile="", name="")),
+    )
+    monkeypatch.setattr(
+        funs, "get_shifu_info", Mock(return_value=SimpleNamespace(title=""))
+    )
+    monkeypatch.setattr(funs, "send_notify", notification)
+    with app.app_context():
+        order = _order(provider, creator_bid="teacher-test")
+        result = funs.success_buy_record(app, order.order_bid)
+        assert result is not None
+        assert result.__json__()["status"] == ORDER_STATUS_SUCCESS
+        assert result.__json__()["payment_options"] == []
+        db.session.expire_all()
+        assert order.status == ORDER_STATUS_SUCCESS
+        notification.assert_called_once()
+        resolver.assert_not_called()
+
+
+def test_pending_order_resolves_merchant_options_only_when_serialized(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = [{"provider": "fixture-pay", "option_id": "fixture-pay:fixture_qr"}]
+    resolver = Mock(return_value=options)
+    monkeypatch.setattr(funs, "resolve_creator_payment_options", resolver)
+    with app.app_context():
+        order = _order(creator_bid="teacher-test")
+        result = funs.query_buy_record(app, order.order_bid)
+        resolver.assert_not_called()
+        assert result.__json__()["payment_options"] == options
+        assert result.__json__()["payment_options"] == options
+        resolver.assert_called_once_with("teacher-test")
 
 
 @pytest.mark.parametrize("missing_lock", [True, False])
@@ -862,3 +910,90 @@ def test_wechat_charge_enforces_app_scoped_identity_and_rolls_back_partial_attem
             user.wechat_open_id_for_app.assert_called_once_with("creator-app")
         if scenario in {"no-user", "missing-open-id"}:
             provider.create_payment.assert_not_called()
+
+
+def test_resume_stripe_sdk_uses_original_integration_public_key(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with app.app_context():
+        order = _order(payment_integration_bid="original-integration")
+        _snapshot(
+            order,
+            checkout_session_id="",
+            checkout_session_object="{}",
+            payment_intent_object=json.dumps({"client_secret": "original-secret"}),
+        )
+        resolve = Mock(
+            return_value=SimpleNamespace(integration_bid="original-integration")
+        )
+        monkeypatch.setattr(funs, "resolve_provider_credential_context", resolve)
+        monkeypatch.setattr(
+            funs,
+            "build_provider_config_overrides",
+            lambda _context: {"STRIPE_PUBLISHABLE_KEY": "pk_original"},
+        )
+        with config_overrides({"STRIPE_PUBLISHABLE_KEY": "pk_current"}):
+            result = funs._resume_pending_charge(app, order, payment_channel="stripe")
+        assert result is not None
+        assert result.__json__()["payment_action"]["publishable_key"] == "pk_original"
+        assert result.__json__()["payment_action"]["client_secret"] == "original-secret"
+        assert resolve.call_args.kwargs["integration_bid"] == "original-integration"
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "invalid",
+        [],
+        {"type": []},
+        {"type": {}},
+        {"type": "qr", "url": 42},
+        {"type": "qr", "url": "weixin://pay", "future_field": True},
+    ],
+)
+def test_resume_native_tolerates_malformed_or_extended_action_metadata(
+    app: Flask, stored: object
+) -> None:
+    with app.app_context():
+        order = _order("wechatpay")
+        _snapshot(
+            order,
+            channel="wx_pub_qr",
+            metadata_json=json.dumps(
+                {
+                    "qr_url": "weixin://pay",
+                    "payment_action": stored,
+                }
+            ),
+            raw_response="{}",
+        )
+        result = funs._resume_pending_charge(
+            app, order, payment_channel="wechatpay", provider_channel="wx_pub_qr"
+        )
+        assert result is not None
+        assert result.__json__()["payment_action"]["url"] == "weixin://pay"
+        assert "future_field" not in result.__json__()["payment_action"]
+
+
+def test_resume_native_does_not_reinterpret_unknown_action_as_legacy_qr(
+    app: Flask,
+) -> None:
+    with app.app_context():
+        order = _order("wechatpay")
+        _snapshot(
+            order,
+            channel="wx_pub_qr",
+            metadata_json=json.dumps(
+                {
+                    "qr_url": "weixin://pay",
+                    "payment_action": {"type": "future"},
+                }
+            ),
+            raw_response=json.dumps({"code_url": "weixin://pay"}),
+        )
+        assert (
+            funs._resume_pending_charge(
+                app, order, payment_channel="wechatpay", provider_channel="wx_pub_qr"
+            )
+            is None
+        )
