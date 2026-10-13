@@ -110,6 +110,7 @@ from .tools import (
     finish,
     interact,
     normalize_script_text_input,
+    prepare_feedback_tool,
     prepare_memory_tool,
     recall_exclusions,
     remember,
@@ -531,6 +532,7 @@ class Engine:
                 Tool(
                     interact,
                     max_retries=3,
+                    prepare=prepare_feedback_tool,
                     description=(interact.__doc__ or "")
                     + "\n"
                     + self.memory_instructions,
@@ -543,7 +545,11 @@ class Engine:
                     + "\n"
                     + self.memory_instructions,
                 ),
-                Tool(finish, args_validator=validate_direction_call),
+                Tool(
+                    finish,
+                    args_validator=validate_direction_call,
+                    prepare=prepare_feedback_tool,
+                ),
                 *(
                     [
                         Tool(

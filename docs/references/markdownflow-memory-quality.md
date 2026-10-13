@@ -17,6 +17,27 @@ This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
+## State-scoped native feedback schema
+
+On a supported returned answer, enabled-host interact/finish definitions require
+one non-null feedback object. Interact preserves direction and ordinary-review
+branches; finish accepts review. Explicit object type and branch constraints must
+survive pinned Ark, OpenAI and DashScope transformations. Inactive/initial or
+unsupported states retain legacy definitions. Native legacy aliases and valid
+sibling declarations remain compatible. Repeated identical reviews across
+simultaneous inputs are one decision; conflicting declarations and direction
+siblings fail before display or writes.
+
+Do not parse a serialized feedback string into an object or rewrite tool-call
+history. The earlier balanced-model classroom failed on four such strings;
+its five generations settled 45.60 credits without displayed clarification. A new
+classroom on the changed runtime supplies objects from its first response, retains
+two provenance retries, and displays clarification before a separate factual
+failure stops acceptance. Its four generations settle 36.06 credits; neither run
+passes the full eleven-question journey. Explicit object typing is not constrained decoding or
+proof of semantic compliance. See [the schema plan](../exec-plans/active/mdf2-feedback-branch-schema.md)
+for final standalone verification and original failure receipts.
+
 ## Knowledge clarification phase boundary
 
 Checking-direction and authored-help feedback retain correction withholding,

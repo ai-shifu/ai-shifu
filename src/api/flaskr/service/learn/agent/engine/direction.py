@@ -7,7 +7,7 @@ grade an answer or prove that a free-form question has only one semantic focus.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field
 from pydantic_ai.messages import (
@@ -184,12 +184,29 @@ class DirectionFeedback(BaseModel):
         return "\n\n".join([*quotes, questions])
 
 
+def feedback_arguments(call: ToolCallPart) -> dict[str, Any]:
+    """Read canonical delivery feedback without rewriting original tool evidence."""
+    args = call.args_as_dict()
+    value = args.get("feedback")
+    if value is None:
+        return args
+    if (
+        call.tool_name not in ("interact", "finish")
+        or not isinstance(value, dict)
+        or ("phase" in value) == ("focuses" in value)
+        or any(args.get(name) is not None for name in ("direction", "review"))
+    ):
+        message = "feedback must declare one direction or review without legacy fields"
+        raise ValueError(message)
+    return {**args, "review" if "phase" in value else "direction": value}
+
+
 def has_direction(call: ToolCallPart) -> bool:
     """Recognize the structured interaction without interpreting its model arguments."""
     if call.tool_name != "interact":
         return False
     try:
-        return call.args_as_dict().get("direction") is not None
+        return feedback_arguments(call).get("direction") is not None
     except (TypeError, ValueError):
         return False
 
