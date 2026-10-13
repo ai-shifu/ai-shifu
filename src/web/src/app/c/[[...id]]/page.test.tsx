@@ -1714,6 +1714,48 @@ describe('ChatPage profile onboarding gate', () => {
       );
     });
 
+    test.each([
+      {
+        browser: 'outside WeChat',
+        inWechat: false,
+        miniProgram: false,
+        wxcode: 'true',
+      },
+      {
+        browser: 'a mini program',
+        inWechat: true,
+        miniProgram: true,
+        wxcode: 'true',
+      },
+      {
+        browser: 'disabled WeChat code flow',
+        inWechat: true,
+        miniProgram: false,
+        wxcode: 'false',
+      },
+    ])(
+      'preserves Profile entry after account-info failure in $browser',
+      async options => {
+        mockInWechat = options.inWechat;
+        mockInMiniProgram = options.miniProgram;
+        mockEnvStoreState.enableWxcode = options.wxcode;
+        mockUserStoreState.userInfo = null;
+        render(<ChatPage />);
+
+        await waitFor(() =>
+          expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1),
+        );
+        fireEvent.click(
+          screen.getByRole('button', { name: openLearnerProfileLabel }),
+        );
+        expect(
+          screen.getByTestId('learner-profile-dialog'),
+        ).toBeInTheDocument();
+        expect(mockUpdateWxcode).not.toHaveBeenCalled();
+        expect(mockWechatLogin).not.toHaveBeenCalled();
+      },
+    );
+
     test('releases Profile after a refresh failure without another OAuth navigation', async () => {
       mockSystemStoreState.wechatCode = 'code-1';
       mockUpdateWxcode.mockResolvedValue('o_new');
