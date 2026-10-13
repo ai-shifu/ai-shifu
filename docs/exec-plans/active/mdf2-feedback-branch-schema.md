@@ -10,6 +10,16 @@ while preserving native validation and portable-host compatibility.
 
 ## Progress
 
+- [x] 2026-10-13: Push c61022c51 and retarget the existing Open PR directly
+  to main. Its runtime/test trees are the validated independent candidate.
+  The previous push occurred while its base was still the dependent branch;
+  branch-filtered CI did not attach the full main-targeted workflow set. Push
+  this documentation-only receipt after retargeting, without a runtime change,
+  to obtain current-head main-targeted checks; do not infer green from absence.
+- [x] 2026-10-13: Tooling, regenerated inventory, repository harness and all-file
+  hooks pass. Actual-model checks stay paused while the separate clarification
+  review repair preserves authored-help correction limits in #3123.
+
 - [x] 2026-10-13: Synchronize with actual merged main 7e3a34e24, including
   independent #3128 lifetime and #3130 logging fixes. Prepare a direct-main
   schema-only delta: omit #3122 example policy and #3123 clarification guidance.
