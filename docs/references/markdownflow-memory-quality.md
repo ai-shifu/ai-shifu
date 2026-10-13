@@ -22,7 +22,8 @@ acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
 Before claiming a worked result or termination, the default runtime instructions
 ask the model to state each example's full initial state and trace operations, including
-reinitialization and branch targets. Correct model-created errors before presenting them; preserve
+reinitialization and branch targets, with consistent units and non-conflicting
+data/code storage. Correct model-created errors before presenting them; preserve
 authored, learner and quoted evidence instead of silently repairing it. Respect
 the authored hint stage and state uncertainty when the result is unverified.
 This is model guidance, not a host factual grader, new tool or extra request.

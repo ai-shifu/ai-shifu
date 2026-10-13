@@ -8,6 +8,16 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Narrow the next worked-example hypothesis to unit consistency
+      and overlapping data/code storage, exposed by the fifth actual-model
+      failure. Add both checks to generic example guidance while retaining full
+      initial state, requested behavior/termination, author ownership, hint stages,
+      required tools and unchanged request limits. Four SDK policy cases first
+      fail; final learning/script checks pass (3826 plus 50 subtests, three skips).
+      Prompt bytes decrease by two from the previous head; the unchanged strict
+      64 KiB fixture passes. Actual deployed validation remains pending; earlier
+      failures and the broader fresh-classroom gate remain open.
+
 - [x] 2026-10-13: Frozen configured-model comparison completes once per
       candidate, retaining original source/checkpoint/question/standards and
       per-turn limits. Model 2's displayed initialization/two-iteration branch
