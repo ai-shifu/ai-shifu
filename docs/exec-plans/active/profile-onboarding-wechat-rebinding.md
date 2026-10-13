@@ -51,6 +51,9 @@ cannot replace a collection started under an unknown identity.
   released, late callbacks cannot navigate or change the active account's gate.
 - Preserve immediate teacher-preview runtime readiness; previews do not start
   automatic Profile collection and need no new startup delay.
+- Limit the unknown-account restriction to authenticated WeChat recovery. Other
+  browsers, mini programs, and disabled code flows retain Profile entry after
+  an account-info error.
 
 ## Outcomes & Retrospective
 

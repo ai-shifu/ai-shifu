@@ -150,6 +150,8 @@ export default function ChatPage() {
   // The account profile arrives after the login state does, and a not-yet-loaded
   // profile must not be read as "this account has no openid".
   const isUserProfileLoaded = Boolean(userInfo);
+  const requiresWechatAccount =
+    isLoggedIn && wxcodeEnabled && inWechat() && !inMiniProgram();
   const wechatOpenIdReady = useWechatOpenIdBinding({
     initialized,
     isLoggedIn,
@@ -395,7 +397,7 @@ export default function ChatPage() {
   } = useCourseProfileOnboardingGate({
     initialized,
     startupReady: wechatOpenIdReady,
-    accountReady: isUserProfileLoaded,
+    accountReady: !requiresWechatAccount || isUserProfileLoaded,
     isLoggedIn,
     previewMode,
     courseName,
