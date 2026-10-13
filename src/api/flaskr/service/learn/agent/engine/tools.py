@@ -953,6 +953,38 @@ async def memory_admission_error(
     return "the learner's explicit request could not be verified"
 
 
+async def prepare_feedback_tool(
+    ctx: RunContext[Deps], definition: ToolDefinition
+) -> ToolDefinition:
+    """Expose the current reply's required branch without changing native validation."""
+    if (
+        not ctx.deps.feedback_contract
+        or not ctx.deps.direction_sections
+        or ctx.deps.feedback_review is not None
+    ):
+        return definition
+    schema = definition.parameters_json_schema
+    properties = dict(schema["properties"])
+    names = [name for name in ("direction", "review") if name in properties]
+    for name in names:
+        original = properties[name]
+        # These built-in fields are optional nullable Pydantic model references.
+        # Require an object when present while retaining their original definitions.
+        properties[name] = {
+            **{k: v for k, v in original.items() if k not in ("anyOf", "default")},
+            **next(v for v in original["anyOf"] if v.get("type") != "null"),
+        }
+    requirement = (
+        {"anyOf": [{"required": [name]} for name in names]}
+        if len(names) > 1
+        else {"required": list(dict.fromkeys([*schema.get("required", []), "review"]))}
+    )
+    return replace(
+        definition,
+        parameters_json_schema={**schema, "properties": properties, **requirement},
+    )
+
+
 async def prepare_memory_tool(
     _ctx: RunContext[Deps], definition: ToolDefinition
 ) -> ToolDefinition:
