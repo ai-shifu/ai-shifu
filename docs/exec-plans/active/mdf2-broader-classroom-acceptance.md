@@ -8,6 +8,16 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Adopt the review request to record the ninth diagnostic's
+      complete initial accumulator and zero-exit sequence in both receipts.
+      LOAD initializes 5, and the exit observes 4,5,6,... under the stated
+      ordinary arithmetic, not merely an unspecified positive net change.
+      No classroom/model request or historical failure verdict is changed.
+- [ ] 2026-10-13: Investigate the valid hidden-response identity lifetime concern
+      in a separate focused fix on merged main. The affected ownership code is
+      inherited from #3118, outside this PR's example-policy delta. Reply in
+      the original #3122 thread with the pushed independent fix and verification.
+
 - [x] 2026-10-13: Confirm #3118 merged as main 7676bc0a8. Synchronize #3122
       with that actual main revision; retain both historical acceptance records
       and regenerate the document inventory instead of selecting stale indexes.
@@ -30,9 +40,12 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 - [x] 2026-10-13: Ninth frozen original-model check on sim-086140b / build 621 /
       Drone 5410 follows both replicas matching 68 files and passing 438 SDK
-      cases each. Requested program/two iterations return, but SUB 1 followed
-      by ADD 2 produces a growing accumulator and never reaches the stated zero
-      exit. Factual acceptance still fails. Four generations settle 7.82 credits
+      cases each. LOAD initializes ACC=5; SUB 1 makes the first zero-exit
+      test observe 4, ADD 2 makes ACC=6, and the back-edge repeats SUB/test/ADD.
+      Later zero-exit tests observe 5, 6, and so on: cycle n tests n+3 for
+      n >= 1 under ordinary integer arithmetic. That cannot reach zero; the
+      original example gives no overflow semantics justifying its claimed stop.
+      Factual acceptance still fails. Four generations settle 7.82 credits
       with exact output/token and actual attempt/block attribution. Original
       source/classroom and prior failures remain unchanged; no new learner/summary.
 - [x] Add full-cycle net change versus exit-condition guidance to generated
