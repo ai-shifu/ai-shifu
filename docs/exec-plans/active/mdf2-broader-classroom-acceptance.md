@@ -8,6 +8,25 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Seventh original-model check fails on sim-1606797 / build
+      619 / Drone 5408 after both Ready API replicas match 68 runtime files and
+      pass 436 SDK checks each. Three generations settle 5.78 credits, uniquely
+      matched to original outputs/tokens and the isolated actual attempt/block.
+      Source and persisted classroom remain unchanged. The rejected first output
+      still reloads unchanged data but claims eventual termination; the displayed
+      retry omits the requested concrete program/two-iteration trace. Neither is
+      a semantic pass, and no fresh learner is started.
+- [x] 2026-10-13: Require requested example iterations in one state table, derive
+      behavior claims from it, and assert termination only when a stop is reached.
+      Preserve initial state, units/storage overlap, authored disclosure boundaries,
+      source evidence and original budgets; validate this changed candidate before
+      any new paid check. Four SDK delivery cases first fail; final 3826 learning/
+      evaluation checks plus 50 subtests pass (three expected skips), together
+      with repository gates. The system prompt is 15 bytes smaller than d641.
+- [ ] 2026-10-13: Deploy and verify the state-table candidate on both sim API
+      replicas before one unchanged-source/input/model/budget semantic check.
+
+
 - [x] 2026-10-13: Final unit/storage candidate eb84a6d17 deploys as 0ae9e4b19,
       build 617/Drone 5406. Both API replicas match 67 files and pass 422 SDK
       cases. Source/sim full learning/script checks pass 3830/50 subtests/three
