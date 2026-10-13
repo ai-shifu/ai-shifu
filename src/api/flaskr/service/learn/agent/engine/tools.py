@@ -18,6 +18,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from .direction import DirectionFeedback, FeedbackReview, has_direction
 from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .session import answer_fingerprint
@@ -44,6 +45,17 @@ class Deps:
     history_len: int = 0
     # Transient request guidance; never persisted as learner evidence or a grade.
     resuming_interaction: bool = False
+    authored_text: str = ""
+    authored_answer_reference: str | None = None
+    direction_answers: dict[str, str] = field(default_factory=dict)
+    direction_inputs: dict[str, InteractionSpec] = field(default_factory=dict)
+    direction_sections: dict[str, str] = field(default_factory=dict)
+    direction_rendered: dict[str, str] = field(default_factory=dict)
+    feedback_contract: bool = False
+    feedback_review: FeedbackReview | None = None
+    hidden_feedback_responses: set[int] = field(default_factory=set)
+    feedback_text_pending: bool = False
+    feedback_text_delivered: bool = False
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
@@ -77,6 +89,22 @@ class Deps:
     exercise_evidence: list[dict[str, Any]] | None = None  # Frozen within this run.
     exercise_read_offset: int | None = 0  # Next contiguous original-evidence page.
     exercise_report_totals: dict[str, int | None] | None = None
+
+    def hide_feedback_response(self, response: ModelResponse) -> None:
+        """Track withheld prose until a successful replacement actually supplies it."""
+        self.hidden_feedback_responses.add(id(response))
+        if any(isinstance(p, TextPart) and p.content.strip() for p in response.parts):
+            self.feedback_text_pending = True
+
+    def accept_feedback_response(
+        self, response: ModelResponse, review: FeedbackReview | None
+    ) -> None:
+        """Commit delivery state only after every tool succeeds or truly defers."""
+        if review is not None:
+            self.feedback_review = review
+        if any(isinstance(p, TextPart) and p.content.strip() for p in response.parts):
+            self.feedback_text_pending = False
+            self.feedback_text_delivered = True
 
 
 # The characters a backslash escapes inside `?[...]`, as MarkdownFlow's grammar has it.
@@ -548,6 +576,143 @@ def _turn_text_before(messages: list, index: int, call_id: str) -> str:
     return _visible("".join(_text_up_to(messages[begin : index + 1], call_id)))
 
 
+def current_tool_response(ctx: RunContext[Deps]) -> ModelResponse | None:
+    """Find the complete response containing this tool, including concurrent siblings."""
+    return next(
+        (
+            m
+            for m in reversed(ctx.messages)
+            if isinstance(m, ModelResponse)
+            and any(
+                isinstance(p, ToolCallPart) and p.tool_call_id == ctx.tool_call_id
+                for p in m.parts
+            )
+        ),
+        None,
+    )
+
+
+def validate_direction_call(
+    ctx: RunContext[Deps], *_args: object, **_kwargs: object
+) -> None:
+    """Reject mixed direction calls before any built-in tool can change state."""
+    response = current_tool_response(ctx)
+    if (
+        response is not None
+        and any(
+            isinstance(p, ToolCallPart) and has_direction(p) for p in response.parts
+        )
+        and sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
+    ):
+        message = "structured direction must be the sole tool call in its response"
+        raise ModelRetry(message)
+    if response is not None and ctx.deps.feedback_contract:
+        problem, _ = feedback_response_problem(ctx.deps, response)
+        if problem:
+            ctx.deps.hide_feedback_response(response)
+            raise ModelRetry(
+                problem + "; correct the whole response before any display"
+            )
+
+
+def feedback_response_problem(
+    deps: Deps, response: ModelResponse
+) -> tuple[str | None, FeedbackReview | None]:
+    """Gate visible feedback and terminal tools, without making semantic judgments."""
+    if not deps.feedback_contract or not deps.direction_sections:
+        return None, None
+    calls = [p for p in response.parts if isinstance(p, ToolCallPart)]
+    reviews = []
+    for call in calls:
+        try:
+            value = call.args_as_dict().get("review")
+            if value is not None:
+                reviews.append(FeedbackReview.model_validate(value))
+        except (TypeError, ValueError):
+            return "invalid feedback branch declaration", None
+    if len(reviews) > 1:
+        return "declare one feedback branch for this response", None
+    if any(has_direction(call) for call in calls):
+        if reviews or deps.feedback_review is not None:
+            return (
+                "checking direction cannot be mixed with an ordinary feedback branch",
+                None,
+            )
+        return (
+            None,
+            None,
+        )  # interact validates its entire structured call before display.
+    delivery_problem = None
+    if (
+        deps.feedback_text_pending
+        and any(call.tool_name in ("interact", "finish") for call in calls)
+        and not any(
+            isinstance(p, TextPart) and p.content.strip() for p in response.parts
+        )
+    ):
+        delivery_problem = (
+            "Earlier feedback prose was not displayed. Regenerate complete authored "
+            "feedback as content with its valid tool/branch before pausing or finishing; "
+            "a replacement control or internal review reason alone cannot deliver it. "
+            "Do not restore rejected prose verbatim or skip the author's stage"
+        )
+    review = None
+    if reviews:
+        review = reviews[0]
+        if problem := review.problem(
+            deps.direction_answers, deps.direction_sections, deps.authored_text
+        ):
+            if review.answer_id not in deps.direction_sections:
+                problem += "; supported answer_id values: " + json.dumps(
+                    sorted(deps.direction_sections)
+                )
+            return "; ".join(p for p in (problem, delivery_problem) if p), None
+        if deps.feedback_review is not None and review != deps.feedback_review:
+            return (
+                "do not change an already displayed feedback branch in this turn",
+                None,
+            )
+    if delivery_problem:
+        return delivery_problem, None
+    if (
+        deps.feedback_review is None
+        and (
+            any(isinstance(p, TextPart) and p.content.strip() for p in response.parts)
+            or any(call.tool_name in ("interact", "finish") for call in calls)
+        )
+        and review is None
+    ):
+        return (
+            "Declare the feedback branch in this same tool response: use interact.direction "
+            "for an authored checking-direction correction; otherwise attach review with "
+            "the actual answer_id, phase accepted/clarification/authored_help, exact "
+            "submission_quote and internal reason. authored_help also requires exact "
+            "current rule_quote permitting that help now. Do not skip the author's stage. "
+            "A read-only lookup without free content can precede the declaration",
+            None,
+        )
+    selected = review or deps.feedback_review
+    if (
+        selected is not None
+        and selected.phase == "accepted"
+        and any(call.tool_name in ("interact", "finish") for call in calls)
+        and not deps.feedback_text_delivered
+        and not any(
+            isinstance(p, TextPart) and p.content.strip() for p in response.parts
+        )
+        and not selected.rule_quote
+    ):
+        return (
+            "Accepted feedback needs the author's confirmation and explanation as content "
+            "before navigation or finish; an internal reason or control prompt is not "
+            "teaching. For explicitly authored control-only acceptance, supply its exact "
+            "rule_quote and explain that exception in reason. Otherwise deliver the "
+            "authored feedback with the valid branch and tool in this response",
+            None,
+        )
+    return None, review
+
+
 async def interact(
     ctx: RunContext[Deps],
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
@@ -555,6 +720,8 @@ async def interact(
     options: list[Option] | None = None,
     variable: str | None = None,
     placeholder: str | None = None,
+    direction: DirectionFeedback | None = None,
+    review: FeedbackReview | None = None,
 ) -> str:
     """Show an interaction to the learner and wait for the answer.
 
@@ -601,10 +768,39 @@ async def interact(
     navigation alone and wait; only its returned selection permits the following step.
     Do not include the following question in the same response as that explanation.
     When no intervening navigation is authored, follow the author's next step normally.
+
+    For an authored checking-direction correction of a uniquely anchored text input
+    with an authored aspect/question count,
+    send `direction` in this same tool call instead of writing free content. Copy
+    `answer_id` from the returned interaction, `rule_quote` from the author's stage
+    rule, and each criterion from the current authored section. Select only the
+    genuinely unmatched focus or focuses allowed now. Copy the authored aspect
+    positive limit; null is invalid. Never invent or relax it. Each focus
+    has an internal observed issue and one unanswered guiding question, without worked
+    reasoning, compound checks or a list of the other gaps. Quote actual submitted
+    evidence for a contradiction; use null for an omission, never an authored sample
+    mistake. `accepted_quotes` contains unique exact correct answer excerpts for
+    authored acknowledgement, or []. Only accepted/contradicted answer quotes and
+    unanswered questions are displayed; diagnoses/criteria stay internal. The host
+    checks provenance, not correctness or semantic focus.
+    Use type `text`, an empty `prompt`, and the same authored placeholder and eligible
+    variable as the answered input. Do not add another tool call or any free
+    content to that model response. This collects the correction directly, without
+    a planning request. For passing answers, later authored help, navigation,
+    clarification, stages without an authored count, multiple questions within one
+    aspect, or an input without an
+    exact authored anchor, omit `direction`
+    and follow the ordinary authored behavior.
+    When the host requires an explicit feedback branch for supported returned
+    text, ordinary feedback attaches `review` here or to its first existing read,
+    memory or finish call. A direction uses `direction` alone. Follow the host's
+    source/phase instructions without an additional planning request.
     """
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
+    validate_direction_call(ctx, review=review)
+    response = current_tool_response(ctx)
     if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
         message = "This variable is a read-only reference. Ask using a local variable instead."
         raise ModelRetry(message)
@@ -648,6 +844,47 @@ async def interact(
         placeholder=placeholder,
     )
     spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
+    if direction is not None:
+        problem = direction.problem(ctx.deps.authored_text, ctx.deps.direction_answers)
+        if direction.answer_id not in ctx.deps.direction_sections:
+            problem = (
+                "direction.answer_id must name an interaction returned in this turn; "
+                "supported answer_id values: "
+                + json.dumps(sorted(ctx.deps.direction_sections))
+            )
+        section = ctx.deps.direction_sections.get(direction.answer_id)
+        previous = ctx.deps.direction_inputs.get(direction.answer_id)
+        if not problem and (
+            section is None
+            or any(f.criterion_quote not in section for f in direction.focuses)
+        ):
+            problem = "direction criteria require the exact current authored section"
+        if not problem and (
+            previous is None
+            or spec.type != "text"
+            or spec.prompt != ""
+            or spec.placeholder != previous.placeholder
+            or spec.variable != previous.variable
+        ):
+            problem = (
+                "direction requires an empty prompt and the original text input binding"
+            )
+        if not problem and contains_interaction_markup(
+            direction.render(), ctx.deps.literal_interaction_markup
+        ):
+            problem = "direction must not contain unexecuted interaction markup"
+        if not problem and (
+            response is None
+            or any(
+                isinstance(p, TextPart) and p.content.strip() for p in response.parts
+            )
+            or sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
+        ):
+            problem = "direction must be the sole tool call, without free content in its response"
+        if problem:
+            raise ModelRetry(
+                problem + "; correct the whole call before anything is displayed"
+            )
     problem = ctx.deps.interaction_check(spec) if ctx.deps.interaction_check else None
     if problem:
         # Deferred, the question would wait for an answer the learner has no controls to give.
@@ -659,6 +896,8 @@ async def interact(
         )
         raise ModelRetry(msg)
     ctx.deps.interaction_markup_pending = False
+    if direction is not None:
+        ctx.deps.direction_rendered[ctx.tool_call_id] = direction.render()
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 
@@ -743,6 +982,7 @@ async def remember(
     value: str,
     scope: Literal["session", "user"] = "session",
     request: str | None = None,
+    review: FeedbackReview | None = None,
 ) -> str:
     """Store something about the learner.
 
@@ -760,6 +1000,8 @@ async def remember(
     Record required notes before `finish`; a finished lesson accepts no further model notes.
 
     """
+    if review is not None:
+        validate_direction_call(ctx, review=review)
     if ctx.deps.finished is not None:
         return LESSON_OVER
     if not key.strip() or len(key) > _MEMORY_KEY_LIMIT:
@@ -795,13 +1037,17 @@ async def remember(
     return f"remembered {key} ({scope})"
 
 
-async def finish(ctx: RunContext[Deps], summary: str = "") -> str:
+async def finish(
+    ctx: RunContext[Deps], summary: str = "", review: FeedbackReview | None = None
+) -> str:
     """Mark the script as delivered to its end.
 
     Call this once, only after the last step of the script has been completed and nothing in
     it remains to do. `summary` is one short line about what the learner did. Do not call it
     when the script merely pauses, asks a question, or waits for the learner.
     """
+    if review is not None:
+        validate_direction_call(ctx, review=review)
     current = [
         m for m in ctx.messages[ctx.deps.history_len :] if isinstance(m, ModelResponse)
     ]

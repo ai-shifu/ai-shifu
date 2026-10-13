@@ -804,8 +804,12 @@ def _without_markers(
             yield event
             continue
         text = syntax.feed(markers.feed(echoes.feed(event.text)))
-        if text:
-            yield event if text == event.text else ContentDelta(text=text)
+        if text or event.prepared_content is not None:
+            # Even fully buffered text carries the pre-display commit barrier.
+            # A later filter flush must not expose its correction before saving it.
+            yield (
+                event if text == event.text else event.model_copy(update={"text": text})
+            )
 
 
 def _say(
@@ -989,6 +993,45 @@ def _stream_turn(
         echoes,
     ):
         if isinstance(event, ContentDelta):
+            session = session_holder.get("session")
+            prepared = event.prepared_content if session is not None else None
+            if not persisted and prepared is not None:
+                # Structured feedback is complete and its correction is pending before
+                # any text is yielded. Commit that whole response on the host thread;
+                # a disconnect cannot restore the original answered question.
+                saved_echoes = EchoedMemoryFilter()
+                saved_markers = PreserveMarkerFilter()
+                saved_syntax = InteractionSyntaxFilter()
+                prepared = saved_echoes.feed(prepared) + saved_echoes.flush()
+                prepared = saved_markers.feed(prepared) + saved_markers.flush()
+                prepared = saved_syntax.feed(prepared) + saved_syntax.flush()
+                if debug_store is not None:
+                    debug_store.save(session)
+                    kept = True
+                else:
+                    kept = _persist(
+                        app,
+                        session,
+                        memory=pending_memory,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=preview_mode,
+                        progress_record_bid=progress_record_bid,
+                        generated_block_bid=generated_block_bid,
+                        taught=prepared,
+                        turn_record=session_holder.get("turn_record", ""),
+                        rewind=session_holder.get("rewind"),
+                        memory_generations=session_holder.get("memory_generations"),
+                        preview_generation=session_holder.get("preview_generation"),
+                        preview_question_ids=[p.tool_call_id for p in session.pending],
+                    )
+                if not kept:
+                    return TurnOutcome(reason=None, taught=False)
+                persisted = True
+                pending_memory = []
+            if not event.text:
+                continue
             taught.append(event.text)
             if pager is not None:
                 # A listening lesson is read page by page, and the audio for a page is bound to

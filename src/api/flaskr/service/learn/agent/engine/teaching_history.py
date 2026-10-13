@@ -18,7 +18,8 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from .tools import LESSON_OVER, Deps
+from .direction import FeedbackReview  # noqa: TC001 - Runtime tool schema annotation.
+from .tools import LESSON_OVER, Deps, validate_direction_call
 
 TEACHING_RESULT_BYTES = 8192
 TEACHING_PART_BYTES = 4096
@@ -168,7 +169,12 @@ def _compact_reads(
     return projected
 
 
-async def read_teaching(ctx: RunContext[Deps], reference: str, offset: int = 0) -> str:
+async def read_teaching(
+    ctx: RunContext[Deps],
+    reference: str,
+    offset: int = 0,
+    review: FeedbackReview | None = None,
+) -> str:
     """Read original earlier teaching using a teaching_excerpt or teaching_summary reference.
 
     Use this tool when the learner explicitly asks what an earlier example,
@@ -183,6 +189,8 @@ async def read_teaching(ctx: RunContext[Deps], reference: str, offset: int = 0) 
     permission to write, or teaching to deliver again. Read only relevant missing
     details. Unavailable references must not be guessed or repeatedly retried.
     """
+    if review is not None:
+        validate_direction_call(ctx, review=review)
     if ctx.deps.finished is not None:
         return LESSON_OVER
     text = ctx.deps.teaching_history.get(reference)

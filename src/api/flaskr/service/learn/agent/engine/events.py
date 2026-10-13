@@ -15,6 +15,9 @@ class ContentDelta(BaseModel):
 
     type: Literal["content.delta"] = "content.delta"
     text: str
+    # Host-only complete turn text, set after validated feedback and its pause are ready.
+    # Never serialized into the existing SSE protocol.
+    prepared_content: str | None = Field(default=None, exclude=True, repr=False)
 
 
 class Visual(BaseModel):
