@@ -2,7 +2,7 @@
 title: MarkdownFlow Memory Quality Evaluation
 status: active
 owner_surface: learner
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 canonical: true
 ---
 
@@ -59,6 +59,13 @@ of this learner's beliefs. Wrong-answer hints, accepted-answer explanations and
 later reviews must ground personal diagnoses in original submissions for the
 current question, distinguishing earlier attempts, corrections and omissions.
 An omitted point does not establish an opposite or unrelated misconception.
+A conditional hint applies only when its stated case matches the actual
+submission. When none matches, follow the current authored stage using a
+genuinely unmatched requirement instead of forcing an unrelated sample. Under
+an authored one-aspect limit, select the relevant exact clause from a compound
+criterion and ask about that gap alone; a paragraph is not one indivisible
+requirement. Matching and focus selection remain model judgments, not host
+semantic validation.
 Required authored distinctions may still be taught as general examples without
 claiming the learner made those mistakes. Earlier generated feedback and lossy
 teaching summaries cannot substitute for original learner input; unavailable
@@ -91,11 +98,22 @@ evidence, model call or request budget; custom prompt bundles can omit it.
 It remains model guidance rather than a semantic validator.
 
 For one resumed text interaction with a unique exact authored input hint, the
-default engine may also copy its static Markdown section near that interaction
-in the model-facing history. The whole enclosing section is bounded by heading
-ancestry and the next authored interaction, at most 8 KiB. The copy retains the
-author's acceptance alternatives and lesson-wide requirements; it never selects
-a grade or advances the script. Ambiguous hints, non-standalone/multiline controls,
+default engine may also copy its static Markdown section into the final
+current-turn feedback instructions. The reference is supplied once, after the
+feedback policies, rather than in an older learner request preceding the
+unanswered question. Only its exact instruction suffix is removed when saving
+new SDK requests, including interrupted teaching; learner parts, tool returns,
+other instructions and original history stay unchanged. The whole enclosing section is bounded by heading
+ancestry and the next authored interaction. Exact introductions from the enclosing
+Markdown ancestors are copied alongside the local section, before their first
+child heading or interaction. This keeps a later question's local hint near the
+applicable parent instructions without copying sibling exercises. It does not
+interpret precedence or infer an aspect count. The combined source remains at
+most 8 KiB; no grade is selected and the script does not advance. If ancestor
+context contains substitution syntax or the combined source exceeds this bound,
+the reference retains only its answer binding and a full-script notice, with
+null local text and no preambles. A local-only copy must not imply complete scope.
+Ambiguous hints, non-standalone/multiline controls,
 variable-containing sections and oversized sections retain the full script
 without a focused copy. Code/comment examples do not locate an interaction.
 Matching first applies the host's existing interaction normalization to a copy
@@ -160,6 +178,121 @@ input. Other authored counts remain authoritative. Worked reasoning and a transf
 method remain in the passing branch unless the author permits an earlier help
 stage. These instructions do not introduce a host semantic filter or another
 model request, and require separate actual-model acceptance.
+
+### Structured checking directions
+
+For a uniquely anchored returned text input, the existing `interact` tool accepts
+an optional `direction` object when the current stage has an authored positive
+aspect/question count. The model selects that count, phase and unmatched focuses. Each focus carries an exact current-section
+criterion, an exact submitted quote for a contradiction (null for an omission),
+an internal observed issue and one unanswered guiding question. Select one
+concrete missing or contradicted requirement per focus, not a heading or coverage
+checklist bundling several gaps. Diagnose only that requirement and ask about it;
+a broad request for everything else missing is not one aspect just because it is
+one sentence. These native-field instructions guide the model; quote provenance
+and array length cannot prove semantic focus. Required
+`accepted_quotes` contains unique exact excerpts from this actual submission that
+the model judges correct, including acknowledgements required by the author, or
+an explicit empty list. The stage rule must also quote original author text. The
+host verifies these sources and the declared cardinality before displaying
+accepted excerpts with a check mark, contradiction excerpts and unanswered
+questions. Criteria, diagnoses, internal rules and declared limits are retained in
+the original tool arguments for audit, without becoming teaching text. The host
+verifies quote provenance, not correctness. Saved pending controls lacking this
+new field, or with an old null/missing count, can still resume their original
+answer; existing history is preserved.
+
+The call defers the same normalized text input with an empty prompt and its
+original placeholder and eligible variable. Eligibility follows that normalized
+text control; both browser `values` and portable-host `text` transports, including
+saved-answer recovery, provide actual evidence without their formatting prefixes. Mixed free prose, additional
+tool calls, forged sources and unexecuted interaction markup reject the whole
+response through the existing SDK retry budget. Built-in sibling calls are
+rejected before their bodies execute, including finish and memory writes in either
+order. The host neither clips a hint
+nor adds a planning request. A valid first call works with a one-request budget.
+Explicit multiple authored counts remain supported by the structured tool. New
+structured calls cannot use null to avoid declaring a count. When no count is
+authored, ordinary review-authored feedback quotes the current stage rule and
+preserves the author's multiplicity and disclosure limits; no one-question rule
+is invented. Passing
+answers, later help, navigation, clarifications, multiple required questions within one aspect and unsupported
+anchors retain
+the ordinary interaction path and protocols.
+
+The production host enables `Engine(feedback_contract=True)`. For supported
+returned text answers, visible ordinary feedback or an interaction/finish must
+declare `review` in that same existing tool response: `accepted`, `clarification`
+or `authored_help`, bound to an actual answer ID and submitted quote with an
+internal reason. Authored help also cites exact current author text permitting
+that stage, including lesson-wide rules outside the current question heading.
+Exact source provenance does not establish that the quoted rule applies now.
+A checking-direction correction must instead use `direction`; multiple authored
+guiding questions keep separate Markdown paragraphs.
+Omitting the branch retries before display, including plain-text output and
+prose preceding any built-in tool; invalid finish/memory siblings cannot execute.
+Read-only lookups without prose may precede the decision, and later report pages
+inherit it without a separate planning request. Portable hosts default to the
+previous optional contract. Unsupported anchors and navigation are unaffected.
+The declaration makes the model decision explicit and validates its sources;
+it does not prove that the model graded the answer or chose the stage correctly.
+Native review.phase guidance repeats the branch-choice boundary where the model
+selects it: a local conditional hint is not permission to waive a lesson-wide
+checking count, and earlier knowledge help is not a failed answer attempt. These
+remain model judgments, not a new host semantic grader or planning request.
+
+When ordinary prose has been withheld during this run, a replacement interaction
+or finish cannot silently complete with only a control or internal review reason.
+It must supply new visible content with its valid branch, or a successful earlier
+page must already have supplied the replacement. Read-only lookups remain allowed
+without content but cannot clear this delivery obligation. A valid structured
+direction supplies its own rendered correction instead of ordinary prose. Calls
+that never had rejected prose retain authored control-only behavior. Accepted
+answers must deliver content before navigation or finish even when no earlier
+prose was rejected. A successful earlier content page satisfies that obligation;
+a lookup alone does not. Explicit authored control-only acceptance remains
+available by quoting its exact current rule in review.rule_quote and explaining
+the exception in reason. All supplied rule quotes are source-checked, without
+interpreting whether the model selected the applicable rule. This checks
+presence and tool success, not whether new text is a correct or complete answer;
+never restore rejected explanations verbatim or increase request budgets.
+When both a replacement's rule source and its missing content are invalid,
+report those problems together in the existing retry. Do not mask the source
+error until a later retry or spend an additional request to discover it.
+The request-local pending-delivery state also keeps the complete recovery notice
+on the latest retry after an earlier SDK projection has removed rejected prose.
+Do not infer that recovery is complete merely because that response is absent
+from the projected history. Preserve the actual validation error, require fresh
+content with a native tool and applicable branch, and append the notice only
+once. Successful earlier pages and raw stored evidence remain unchanged; this
+does not restore rejected prose or increase the existing request/retry budget.
+
+Accepted excerpts cannot also appear as the same exact contradiction quote in a
+structured direction. Reject incompatible annotations before display and let the
+existing retry select distinct correct excerpts or an empty list. This does not
+grade the answer, compare overlapping text spans or invent an acknowledgement;
+different model-selected correct and contradicted excerpts remain supported.
+
+On supported resumed answers, text waits until the first new tool identifies
+whether its model response uses this contract. Declared ordinary calls release the
+unchanged chunks; a structured response is displayed only after validation, with
+its pending correction and visible history already prepared. A host-only content
+metadata field carries the complete validated turn, including earlier ordinary
+chunks. It is excluded from SSE serialization. The production host commits that
+state and full filtered block before displaying the first direction chunk,
+including content fully held by host filters and later released during flush; a
+disconnect reloads the correction rather than the original answered input. The
+normal terminal path does not commit it twice. Buffered provider
+failures before any display retain the original answer for recovery. This adds
+response-level latency for supported ordinary answer turns but no whole-turn
+report buffer. Old evidence stays unchanged; new rejected prose is retained only
+in raw tool/retry evidence, not as displayed teaching.
+
+This is structural provenance, not a semantic grader: the model can still choose
+the wrong phase, misread an authored count, combine checks in one question or
+misdiagnose a genuine quoted answer. Real-model pacing and complete fresh
+natural-compression acceptance therefore remain separate gates. Earlier failed
+probes cannot be replaced by controlled SDK success.
 
 SDK feedback tests verify policy delivery and preservation of original attempts
 through corrections and reload. Controlled responses do not establish real-model

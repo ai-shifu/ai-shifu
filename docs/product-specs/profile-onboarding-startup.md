@@ -15,6 +15,13 @@ preparation that could navigate away from the course. Both automatic onboarding
 and the personalization menu wait for preparation. The existing guided flow,
 save, skip, and learner-profile API remain unchanged.
 
+The parent course layout owns authorization readiness and navigation for the
+whole route. Its missing-code OAuth and the page's OpenID recovery share this
+state. Readiness is closed before child effects run, including when an account
+already has an OpenID. A retained store code does not replace a missing URL
+code; an incoming URL code must first hydrate the store before binding begins.
+Runtime configuration must also finish loading before Profile can start.
+
 Inside WeChat, outside mini programs, with the WeChat code flow enabled:
 
 - Wait for the authenticated account profile before deciding whether an OpenID
@@ -26,9 +33,20 @@ Inside WeChat, outside mini programs, with the WeChat code flow enabled:
   OAuth redirect. Profile stays closed while that navigation starts.
 - Missing recovery configuration, inaccessible session storage, or an exhausted
   recovery marker allows startup to continue without another redirect.
-- Account-profile waiting, code exchange, account refresh, and navigation share
-  a ten-second preparation deadline. After the deadline, late results cannot
-  start OAuth or refresh an account on behalf of the retired attempt.
+- Account-profile waiting, code exchange, and account refresh share a ten-second
+  preparation deadline. After the deadline, late results cannot start OAuth or
+  refresh an account on behalf of the retired attempt.
+- Once either path issues OAuth navigation, Profile remains closed until the
+  document is replaced. A timer, menu click, or child-page remount cannot cancel
+  navigation or release this gate. A synchronous navigation exception can
+  safely release startup because navigation did not begin.
+  When the layout's missing-code navigation throws, clear any retained store
+  code and wait for that cleared value before releasing binding preparation.
+- A persisted `pageshow` after an issued navigation proves the browser restored
+  this document from its back-forward cache. Retire that navigation and abandon
+  automatic authorization preparation for the restored layout: do not redirect
+  again or exchange its old code. Learning and Profile with a known account may
+  resume; a fresh document follows normal authorization preparation.
 - If the account profile is still unavailable at the deadline, learning may
   continue. Profile itself waits for a known account identity, avoiding a
   collection that would be replaced when that identity arrives.
@@ -53,7 +71,7 @@ This extends the timing contract under
   their existing names and payloads. `shown` means collection started, not that
   every personalization dialog opened.
 - Triggers: the dialog controller's `beginCollection` owns `shown`; a real
-  collection error owns `runtime_failed`. OpenID waiting, recovery navigation,
+  collection error owns `runtime_failed`. Parent OAuth waiting, OpenID waiting, recovery navigation,
   and abandonment of binding emit neither event.
 - Population and count unit: existing eligible collection journeys, with the
   current guest, preview, settings, and per-journey producer guards preserved.
