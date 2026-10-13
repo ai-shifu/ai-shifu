@@ -98,7 +98,7 @@ def test_nickname_reaches_the_model_without_changing_the_profile(
         assert f"Hello {address}." in prompt
         assert f"Address {address} directly." in prompt
         assert "{{sys_user_nickname}}" not in prompt
-        assert "{{unknown}}" in prompt
+        assert '<unavailable_learner_value name="unknown" />' in prompt
         db.session.remove()
         assert get_user_entity_by_bid(user).nickname == (nickname or "")
         assert load_memory(app, user, course).as_variables() == original
