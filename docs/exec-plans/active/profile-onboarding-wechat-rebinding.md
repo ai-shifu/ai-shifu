@@ -49,6 +49,8 @@ cannot replace a collection started under an unknown identity.
   user, token, and code, never to the mutable OpenID returned by refresh.
 - Release preparation after ten seconds or when recovery cannot proceed. Once
   released, late callbacks cannot navigate or change the active account's gate.
+- Preserve immediate teacher-preview runtime readiness; previews do not start
+  automatic Profile collection and need no new startup delay.
 
 ## Outcomes & Retrospective
 

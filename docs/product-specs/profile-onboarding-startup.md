@@ -34,7 +34,9 @@ Inside WeChat, outside mini programs, with the WeChat code flow enabled:
   collection that would be replaced when that identity arrives.
 
 Other browsers, mini programs, and disabled WeChat code flows keep their existing
-behavior. Old account, token, or code work cannot affect a new identity. React
+behavior. Teacher preview runtime keeps its immediate readiness bypass because
+preview does not automatically collect Profile. Old account, token, or code work
+cannot affect a new identity. React
 effect replay reuses a pending exchange rather than spending a single-use code
 again.
 

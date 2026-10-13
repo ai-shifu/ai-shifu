@@ -58,11 +58,9 @@ export const useCourseProfileOnboardingGate = ({
 
   const runtimeReady =
     initialized &&
-    startupReady &&
-    (!isLoggedIn ||
-      previewMode ||
-      !accountReady ||
-      readyScope === learnerProfileScope);
+    (previewMode ||
+      (startupReady &&
+        (!isLoggedIn || !accountReady || readyScope === learnerProfileScope)));
 
   const release = useCallback(() => {
     eligibilityRef.current = 'complete';

@@ -1699,6 +1699,21 @@ describe('ChatPage profile onboarding gate', () => {
       );
     });
 
+    test('keeps teacher preview runtime ready during pending OpenID preparation', () => {
+      mockSystemStoreState.previewMode = true;
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockUpdateWxcode.mockReturnValue(new Promise(() => {}));
+
+      renderInWechat();
+
+      expect(mockUpdateWxcode).toHaveBeenCalledTimes(1);
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'true',
+      );
+    });
+
     test('releases Profile after a refresh failure without another OAuth navigation', async () => {
       mockSystemStoreState.wechatCode = 'code-1';
       mockUpdateWxcode.mockResolvedValue('o_new');
