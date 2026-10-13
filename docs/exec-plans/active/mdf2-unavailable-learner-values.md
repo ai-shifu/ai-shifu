@@ -13,6 +13,11 @@ learner facts in teaching prose and generated visuals.
       unavailability and preserve known, collected and fenced-code semantics.
 - [x] 2026-10-13: Nine prompt/SDK cases and six historical/current section-refresh
       compatibility cases pass; SDK doubles are not actual-model acceptance.
+- [x] 2026-10-13: Review finds missing syntax inside authored verbatim spans
+      must remain literal. Three cases first fail; preserve missing notation in
+      inline/block verbatim examples without changing known personalization.
+      Final 3645 learning/script checks plus 50 subtests pass (three skips),
+      including 14 prompt/SDK and six legacy/current compatibility cases.
 - [ ] 2026-10-13: Complete broader tests, repository gates, Ready PR, reviews,
       sim integration and actual-model missing/known-value verification.
 

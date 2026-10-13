@@ -72,8 +72,9 @@ values, expose internal names or add an unauthored interaction to obtain them.
 
 Existing complete values, including zero and false, keep exact substitution even
 when omitted from the bounded memory block. Names collected in this lesson still
-wait for its actual answer; earlier stored answers cannot prefill them. Fenced
-code/templates/CSS/JavaScript remain literal source content. This does not rewrite
+wait for its actual answer; earlier stored answers cannot prefill them. Missing notation in authored verbatim syntax examples and fenced
+code/templates/CSS/JavaScript remains literal source content; known personalization
+in verbatim text retains its existing substitution behavior. This does not rewrite
 generated code or classroom output after generation.
 
 Nickname and deletion refresh match each known host section independently in

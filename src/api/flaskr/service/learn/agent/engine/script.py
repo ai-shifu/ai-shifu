@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +36,7 @@ def _closes_fence(line: str, opening: str) -> bool:
 _VAR_RE = re.compile(r"(?<!%)\{\{\s*([^{}\s]+)\s*\}\}")
 # `%{{name}}` marks a variable this script collects during the lesson, in a question or an
 # instruction to remember something.
+_LITERAL_SPAN_RE = re.compile(r"(!===.*?!===|(?<!!)===(?!=).*?===)")
 _COLLECTED_RE = re.compile(r"%\{\{\s*([^{}\s]+)\s*\}\}")
 _PRESERVED_LINE_RE = re.compile(r"^[ \t]*===(.+?)===[ \t]*$")
 
@@ -171,14 +173,14 @@ def substitute_variables(
     already written the variable.
     """
 
-    def repl(m: re.Match[str]) -> str:
+    def repl(m: re.Match[str], *, literal: bool = False) -> str:
         name = m.group(1)
         if name in collected:
             return m.group(0)
         if name not in values or values[name] in (None, ""):
             return (
                 f'<unavailable_learner_value name="{escape(name, quote=True)}" />'
-                if unavailable
+                if unavailable and not literal
                 else m.group(0)
             )
         v = values[name]
@@ -186,6 +188,7 @@ def substitute_variables(
 
     out: list[str] = []
     in_fence: str | None = None
+    in_verbatim = False
     for line in text.splitlines(keepends=True):
         m = _FENCE_RE.match(line)
         if m:
@@ -195,7 +198,24 @@ def substitute_variables(
                 in_fence = None
             out.append(line)
             continue
-        out.append(line if in_fence else _VAR_RE.sub(repl, line))
+        if in_fence:
+            out.append(line)
+        elif unavailable and line.strip() == "!===":
+            in_verbatim = not in_verbatim
+            out.append(line)
+        elif unavailable and in_verbatim:
+            out.append(_VAR_RE.sub(partial(repl, literal=True), line))
+        elif unavailable:
+            # Preserve missing notation inside authored literal spans, while known
+            # personalization still follows the pre-existing substitution contract.
+            out.append(
+                "".join(
+                    _VAR_RE.sub(partial(repl, literal=bool(index % 2)), part)
+                    for index, part in enumerate(_LITERAL_SPAN_RE.split(line))
+                )
+            )
+        else:
+            out.append(_VAR_RE.sub(repl, line))
     return "".join(out)
 
 

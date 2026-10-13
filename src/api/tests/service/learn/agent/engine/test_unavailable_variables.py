@@ -129,3 +129,33 @@ async def test_unavailability_reaches_initial_and_resumed_sdk_requests(
     assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
     assert session.all_memory() == ({"goal": output} if known else {})
     assert calls == 2
+
+
+@pytest.mark.parametrize(
+    "verbatim",
+    [
+        "===Learn {{水平}} and {{主题}} literally.===",
+        "Before ==={{水平}}=== and !==={{主题}}!=== after.",
+        "!===Learn {{水平}} and {{主题}} literally.!===",
+        "!===\nLearn {{水平}} and {{主题}} literally.\n!===",
+    ],
+)
+def test_unavailable_metadata_does_not_replace_verbatim_syntax_examples(
+    verbatim: str,
+) -> None:
+    """Authored literal placeholder examples must survive an absent learner value."""
+    prompt = render_first_prompt(
+        ScriptBundle(script=verbatim + "\nPersonal fact: {{水平}}."), {}
+    )
+    assert verbatim in prompt
+    assert 'Personal fact: <unavailable_learner_value name="水平" />.' in prompt
+
+
+def test_known_personalization_in_verbatim_content_keeps_existing_behavior() -> None:
+    """Only unavailable metadata is excluded from authored literal spans."""
+    prompt = render_first_prompt(
+        ScriptBundle(script="===Hello {{name}}.===\n!===\n{{name}}\n!==="),
+        {"name": "Ada"},
+    )
+    assert "===Hello Ada.===" in prompt
+    assert "!===\nAda\n!===" in prompt
