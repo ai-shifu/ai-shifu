@@ -36,7 +36,10 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> CollectorRegistry:
 
 def response_with_body(body: Iterator[bytes], status: int = 200) -> Response:
     app = Flask(__name__)
-    app.add_url_rule("/stream/<item_id>", view_func=lambda item_id: item_id)
+    # Only route matching is needed here; never echo a route parameter as HTML.
+    app.add_url_rule(
+        "/stream/<item_id>", view_func=lambda **_values: Response(status=204)
+    )
     with app.test_request_context("/stream/private-id"):
         metrics.start_capacity_request(set())
         response = Response(body, status=status, mimetype="text/event-stream")

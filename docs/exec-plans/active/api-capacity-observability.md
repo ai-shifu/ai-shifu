@@ -9,7 +9,8 @@ Measure complete SSE lifetimes and aggregate all Gunicorn workers before testing
 - [x] 2026-10-13 17:02 CST: Inspected production worker configuration, metrics, lifecycle tests, and the deployment Dockerfile.
 - [x] 2026-10-13 17:05 CST: Implement isolated Gunicorn multiprocess storage and complete SSE lifecycle metrics.
 - [x] 2026-10-13 17:08 CST: Verify fork aggregation, cleanup, cancellation, and existing runtime contracts.
-- [x] 2026-10-13 17:14 CST: Prepared the ready PR change and recorded production acceptance separately.
+- [x] 2026-10-13 17:15 CST: Published ready PR #3129 and recorded production acceptance separately.
+- [x] 2026-10-13 17:19 CST: Removed route-parameter reflection from a test-only route after CodeQL review.
 - [ ] 2026-10-13 17:02 CST: After merge, verify production metrics and connect continuous collection before replica changes.
 
 ## Surprises & Discoveries
@@ -26,7 +27,7 @@ The production Dockerfile copies `flaskr/` and `gunicorn.conf.py`, but does not 
 
 ## Outcomes & Retrospective
 
-Implementation is complete; 527 common/lifecycle/fork/runtime and learner SSE cleanup/golden tests pass from `src/api`. An initial broad run from the repository root failed because existing app fixtures resolve plugin paths relative to the API working directory; rerunning from the documented API directory passed. All 20 repository pre-commit gates passed; final publication follows the prepared commit. The initial lefthook run selected macOS Python 3.9 for `python3`; explicitly prefixing the conda environment bin directory corrects the tool resolution. This source change has not been deployed and has not changed production replicas, resource requests, or worker counts. Production acceptance follows the existing reviewed release workflow.
+Implementation is complete; 527 common/lifecycle/fork/runtime and learner SSE cleanup/golden tests pass from `src/api`. An initial broad run from the repository root failed because existing app fixtures resolve plugin paths relative to the API working directory; rerunning from the documented API directory passed. All 20 repository pre-commit gates passed; [PR #3129](https://github.com/ai-shifu/ai-shifu/pull/3129) is Open/Ready; remote checks and production acceptance remain separate. The initial lefthook run selected macOS Python 3.9 for `python3`; explicitly prefixing the conda environment bin directory corrects the tool resolution. This source change has not been deployed and has not changed production replicas, resource requests, or worker counts. Production acceptance follows the existing reviewed release workflow.
 
 ## Context and Orientation
 
