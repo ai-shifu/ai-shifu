@@ -8,6 +8,22 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Ninth frozen original-model check on sim-086140b / build 621 /
+      Drone 5410 follows both replicas matching 68 files and passing 438 SDK
+      cases each. Requested program/two iterations return, but SUB 1 followed
+      by ADD 2 produces a growing accumulator and never reaches the stated zero
+      exit. Factual acceptance still fails. Four generations settle 7.82 credits
+      with exact output/token and actual attempt/block attribution. Original
+      source/classroom and prior failures remain unchanged; no new learner/summary.
+- [x] Add full-cycle net change versus exit-condition guidance to generated
+      examples. Four native SDK instruction/reload cases first fail. Keep full
+      initial state, units/storage, repeated reads/resets, requested trace and
+      author boundaries. Equivalent wording compression keeps the system prompt
+      one byte below d641 and preserves strict input/request limits. Full
+      learning/script checks pass 3826 plus 50 subtests, three expected skips,
+      and repository gates.
+- [ ] Deploy and verify both replicas before one frozen original-model semantic
+      check of this changed candidate.
 - [x] 2026-10-13: Eighth original-model check on sim-40fc53a / build 620 /
       Drone 5409 follows both replicas matching 68 files and passing 436 SDK
       cases each. Three generations settle 5.79 credits with exact output/token
@@ -25,8 +41,9 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       correction withholding remain unchanged. Full learning/script checks pass
       3832 plus 50 subtests, with three expected skips. Controlled model tests
       prove retry delivery/history isolation only, not factual acceptance.
-- [ ] Deploy the clarification-detail fix, verify both sim replicas and perform
-      one frozen original-source/input/model/budget actual semantic check.
+- [x] Deploy the clarification-detail fix, verify both sim replicas and perform
+      one frozen original-source/input/model/budget actual semantic check; retain
+      the ninth failed result above.
 
 
 - [x] 2026-10-13: Seventh original-model check fails on sim-1606797 / build
