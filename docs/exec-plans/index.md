@@ -164,6 +164,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Localize profile-onboarding assistant prompts for every supported language](./completed/profile-onboarding-multilingual-assistant-prompts.md)
 - [Explain personalization before deferring profile setup](./completed/profile-onboarding-retention.md)
 - [Profile Onboarding Structural Simplification](./completed/profile-onboarding-structural-simplification.md)
+- [Keep WeChat OpenID preparation ahead of Profile onboarding](./completed/profile-onboarding-wechat-rebinding.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
 - [Compact completed memory recall history](./completed/recall-history-compaction.md)
 - [Remove In-Product MiniMax Voice Cloning](./completed/remove-minimax-in-product-voice-cloning.md)
