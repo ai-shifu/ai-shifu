@@ -22,8 +22,12 @@ acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
 The ninth frozen original-model check on sim-086140b restores a concrete
 program and two iterations after native retries but still fails factual
-acceptance: SUB subtracts one and ADD adds two per cycle, so the accumulator
-grows and cannot reach the described zero exit. Four generations settle 7.82
+acceptance: LOAD initializes the accumulator to 5, SUB subtracts 1, the
+zero-exit test observes 4, then ADD adds 2 before the back-edge. Subsequent
+zero-exit tests observe 5, 6, and so on: cycle n tests n+3 for n >= 1 under
+ordinary integer arithmetic. No test reaches zero in that arithmetic; the
+example specifies no overflow semantics to support its claimed eventual stop.
+Four generations settle 7.82
 credits; exact outputs/tokens uniquely bind actual attempt/block, with unchanged
 source/classroom and no new learner or summary. Preserve this separate failure.
 
