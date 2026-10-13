@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 def _section(
     tag: str, text: str, values: dict, collected: set[str], *, unavailable: bool = True
 ) -> str:
+    """Render a known host section in the requested compatibility format."""
     return f"<{tag}>\n{substitute_variables(text, values, collected=collected, unavailable=unavailable)}\n</{tag}>"
 
 

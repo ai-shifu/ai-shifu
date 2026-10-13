@@ -174,6 +174,7 @@ def substitute_variables(
     """
 
     def repl(m: re.Match[str], *, literal: bool = False) -> str:
+        """Resolve a read without turning missing literal notation into metadata."""
         name = m.group(1)
         if name in collected:
             return m.group(0)
