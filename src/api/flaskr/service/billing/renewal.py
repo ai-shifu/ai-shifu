@@ -44,6 +44,7 @@ from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
 from .models import BillingOrder, BillingRenewalEvent, BillingSubscription
+from .payment_policy import is_manual_payment_provider
 from .preorders import (
     is_preorder_order as _is_preorder_order,
 )
@@ -868,7 +869,10 @@ def _execute_subscription_renewal(
                 bill_order_bid=order.bill_order_bid,
             )
 
-        if order.payment_provider == "pingxx" and not order.provider_reference_id:
+        if (
+            is_manual_payment_provider(order.payment_provider)
+            and not order.provider_reference_id
+        ):
             _complete_renewal_event(event, now=now)
             return _result_from_event(
                 "queued_for_reconcile",
@@ -1025,7 +1029,10 @@ def _sync_billing_renewal_order(
     # module's unit_of_work (the sync would join it and commit the renewal's
     # staged rows mid-flight) or under retry_on_deadlock.
     bill_order_bid = str(order.bill_order_bid or "")
-    if order.payment_provider == "pingxx" and not order.provider_reference_id:
+    if (
+        is_manual_payment_provider(order.payment_provider)
+        and not order.provider_reference_id
+    ):
         return RenewalEventResult(
             status="pending",
             bill_order_bid=bill_order_bid or None,
