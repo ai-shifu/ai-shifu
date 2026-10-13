@@ -8,6 +8,24 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-13: Final unit/storage candidate eb84a6d17 deploys as 0ae9e4b19,
+      build 617/Drone 5406. Both API replicas match 67 files and pass 422 SDK
+      cases. Source/sim full learning/script checks pass 3830/50 subtests/three
+      skips; final engine/history wording passes 969 combined cases and all gates.
+      The sixth actual-model check still fails: LOAD reads unchanged M[10]=5 on
+      every back-edge, so SUB always produces 4; the claimed 4→3→2→1→0 and HALT
+      are false. Three native generations settle 5.80 credits; exact output/tokens
+      uniquely bind actual attempt/block. Source/classroom unchanged, no summary
+      or twentieth learner. Retain local missing-checkpoint preparation failure
+      (zero usage/state change) and read-only late-result recovery; no paid retry.
+- [x] 2026-10-13: Tighten the next generic loop-state hypothesis: reapply reads
+      and resets each iteration; only retained changes accumulate. Preserve
+      per-example initial state, units/storage, requested behavior/termination,
+      authored stages, source evidence and required calls. Four SDK delivery
+      cases first fail. Compress only equivalent introductory wording to retain
+      original strict input/request/retry budgets. Verification and one
+      changed-runtime check remain pending; all prior failures stay open.
+
 - [x] 2026-10-13: Narrow the next worked-example hypothesis to unit consistency
       and overlapping data/code storage, exposed by the fifth actual-model
       failure. Add both checks to generic example guidance while retaining full
