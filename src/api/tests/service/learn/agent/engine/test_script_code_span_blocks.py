@@ -77,10 +77,11 @@ def test_comment_block_suffix_is_not_an_inline_code_example() -> None:
 
 def test_span_index_uses_original_offsets_for_each_inline_block() -> None:
     source = "`first`\r\n# `second`\r\n<div>\r\n`raw html`\r\n"
-    code_blocks, inline_blocks = build_block_indexes(source)
-    assert code_blocks == {}
-    assert inline_blocks == [(0, 9), (9, 21)]
-    assert build_code_span_index(source, inline_blocks) == {0: 7, 11: 19}
+    blocks = build_block_indexes(source)
+    assert blocks.code_blocks == {}
+    assert blocks.inline_blocks == [(0, 9), (9, 21)]
+    assert blocks.html_blocks == [(21, len(source))]
+    assert build_code_span_index(source, blocks.inline_blocks) == {0: 7, 11: 19}
 
 
 def test_comment_filter_reuses_one_block_parse(monkeypatch: pytest.MonkeyPatch) -> None:

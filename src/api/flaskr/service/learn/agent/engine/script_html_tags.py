@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+_LINEBREAKS = re.compile(r"\r\n|\r|\n")
+
 # CommonMark's open/close-tag grammar from markdown_it.common.html_re, expressed
 # as a fixed state machine. Optional whitespace and assignments must not retry
 # earlier attribute partitions on malformed author input.
@@ -93,16 +101,18 @@ def _html_character_classes(char: str) -> set[str]:
     return classes
 
 
-def html_tag_end(text: str, start: int) -> int | None:
+def html_tag_end(text: str, start: int, end: int | None = None) -> int | None:
     """Recognize a tag after ``<`` with bounded work per consumed character.
 
     Unicode whitespace can also occur inside an unquoted value. Keeping the
     fixed set of viable grammar states preserves both legal interpretations
     without backtracking or rescanning any character in this candidate tag.
+    An exclusive end bounds recognition to the caller's Markdown block.
     """
     states = {"tag_start"}
     cursor = start + 1
-    while states and cursor < len(text):
+    limit = len(text) if end is None else min(end, len(text))
+    while states and cursor < limit:
         classes = _html_character_classes(text[cursor])
         following = {
             target
@@ -115,3 +125,33 @@ def html_tag_end(text: str, start: int) -> int | None:
             return cursor
         states = following
     return None
+
+
+class HtmlTagScanner:
+    """Recognize tags within ordered Markdown blocks without repeating scans."""
+
+    def __init__(self, text: str, tag_blocks: Iterable[tuple[int, int]]) -> None:
+        """Reuse one ordered block traversal for this original source."""
+        self._text = text
+        self._blocks = iter(tag_blocks)
+        self._block = next(self._blocks, None)
+        self._line_end = 0
+
+    def end(self, start: int) -> int | None:
+        """Find a tag's end without crossing its current Markdown block.
+
+        Calls must visit source offsets in order. Inline and raw HTML blocks
+        may contain multiline attributes. Outside those ranges, only the
+        current physical line is eligible; its end is cached for repeated
+        malformed tag candidates on that line.
+        """
+        while self._block is not None and start >= self._block[1]:
+            self._block = next(self._blocks, None)
+        if self._block is not None and start >= self._block[0]:
+            limit = self._block[1]
+        else:
+            if start >= self._line_end:
+                linebreak = _LINEBREAKS.search(self._text, start)
+                self._line_end = linebreak.start() if linebreak else len(self._text)
+            limit = self._line_end
+        return html_tag_end(self._text, start, limit)

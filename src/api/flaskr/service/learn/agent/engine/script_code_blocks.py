@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from markdown_it import MarkdownIt
@@ -16,6 +17,15 @@ if TYPE_CHECKING:
 
 _LINEBREAKS = re.compile(r"\r\n|\r|\n")
 _SAFE_HTML_STARTS = tuple(sequence[0] for sequence in HTML_SEQUENCES[:6])
+
+
+@dataclass(frozen=True)
+class ScriptBlockIndexes:
+    """Keep each original-source block range available to source projections."""
+
+    code_blocks: dict[int, int]
+    inline_blocks: list[tuple[int, int]]
+    html_blocks: list[tuple[int, int]]
 
 
 def _safe_html_block(
@@ -52,8 +62,8 @@ def _safe_html_block(
     return True
 
 
-def build_block_indexes(text: str) -> tuple[dict[int, int], list[tuple[int, int]]]:
-    """Locate code examples and inline blocks with one CommonMark block parse.
+def build_block_indexes(text: str) -> ScriptBlockIndexes:
+    """Locate code, inline and HTML blocks with one CommonMark block parse.
 
     Only the block parser runs: inline delimiter handling belongs to the caller.
     A caller must enter a range at its start, rather than protect every contained
@@ -82,10 +92,14 @@ def build_block_indexes(text: str) -> tuple[dict[int, int], list[tuple[int, int]
         for token in tokens
         if token.type == "inline" and token.map is not None
     ]
-    return code_blocks, inline_blocks
+    html_blocks = [
+        (offsets[token.map[0]], offsets[token.map[1]])
+        for token in tokens
+        if token.type == "html_block" and token.map is not None
+    ]
+    return ScriptBlockIndexes(code_blocks, inline_blocks, html_blocks)
 
 
 def build_code_block_index(text: str) -> dict[int, int]:
     """Map physical code-block starts to ends, including Markdown containers."""
-    code_blocks, _inline_blocks = build_block_indexes(text)
-    return code_blocks
+    return build_block_indexes(text).code_blocks
