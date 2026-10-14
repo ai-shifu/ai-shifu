@@ -484,4 +484,148 @@ describe('chatUiModeProjection', () => {
     expect(slideItem.ask_list).toBeUndefined();
     expect(slideItem.payload?.audio).toBeUndefined();
   });
+
+  it.each([false, true])(
+    'recovers classroom visuals from plain MDF2 text with history=%s',
+    isHistory => {
+      const interaction: ChatContentItem = {
+        type: ChatContentItemType.INTERACTION,
+        element_bid: 'original-question',
+        content: '?[Continue]',
+      };
+      const source: ChatContentItem = {
+        type: ChatContentItemType.CONTENT,
+        element_bid: 'original-text',
+        generated_block_bid: 'original-block',
+        element_type: 'text',
+        sequence_number: 7,
+        is_renderable: false,
+        isHistory,
+        content: [
+          'Teacher narration before the card',
+          '<section>Saved visual</section>',
+          'Teacher narration after the card',
+          askButtonMarkup,
+        ].join('\n'),
+        audioUrl: '/original.mp3',
+        payload: { audio: { subtitle_cues: [] } },
+      };
+
+      const projected = projectListenModeItems({
+        items: [source, interaction],
+        askButtonMarkup,
+        variant: 'classroom',
+      });
+
+      expect(projected).toHaveLength(2);
+      expect(projected[0]).toEqual(
+        expect.objectContaining({
+          element_bid: 'original-text::classroom-visual::0',
+          generated_block_bid: 'original-block',
+          parent_element_bid: 'original-text',
+          element_type: 'html',
+          content: '<section>Saved visual</section>',
+          is_renderable: true,
+          is_marker: true,
+          is_speakable: false,
+        }),
+      );
+      expect(projected[0].sequence_number).toBeUndefined();
+      expect(projected[0].audioUrl).toBeUndefined();
+      expect(projected[0].payload?.audio).toBeUndefined();
+      expect(projected[1]).toBe(interaction);
+      expect(source.element_bid).toBe('original-text');
+      expect(source.content).toContain('Teacher narration');
+      expect(source.audioUrl).toBe('/original.mp3');
+      expect(
+        projectListenModeItems({ items: [source], askButtonMarkup })[0],
+      ).toEqual(expect.objectContaining({ element_bid: 'original-text' }));
+    },
+  );
+
+  it('recovers mixed classroom visuals in source order without surrounding narration', () => {
+    const projected = projectListenModeItems({
+      items: [
+        {
+          type: ChatContentItemType.CONTENT,
+          element_bid: 'mixed-text',
+          element_type: 'text',
+          content: [
+            'Before',
+            '<div>First card</div>',
+            'Between HTML and code',
+            '```js\nconst value = 1;\n```',
+            'Between code and image',
+            '![Diagram](/diagram.png)',
+            'After',
+          ].join('\n\n'),
+        },
+      ],
+      askButtonMarkup,
+      variant: 'classroom',
+    });
+
+    expect(projected.map(item => item.content)).toEqual([
+      '<div>First card</div>',
+      '```js\nconst value = 1;\n```',
+      '![Diagram](/diagram.png)',
+    ]);
+    expect(projected.map(item => item.element_bid)).toEqual([
+      'mixed-text::classroom-visual::0',
+      'mixed-text::classroom-visual::1',
+      'mixed-text::classroom-visual::2',
+    ]);
+    expect(projected.map(item => item.generated_block_bid)).toEqual([
+      'mixed-text',
+      'mixed-text',
+      'mixed-text',
+    ]);
+  });
+
+  it('keeps recovered visual identities stable while read-mode content streams', () => {
+    const source: ChatContentItem = {
+      type: ChatContentItemType.CONTENT,
+      element_bid: 'streaming-text',
+      content: 'Narration\n\n<section>First',
+    };
+    const project = (content: string) =>
+      projectListenModeItems({
+        items: [{ ...source, content }],
+        askButtonMarkup,
+        variant: 'classroom',
+      });
+    const initial = project(source.content || '');
+    const appended = project(
+      'Narration\n\n<section>First card</section>\n\nMore narration\n\n```js\n1\n```',
+    );
+
+    expect(initial).toHaveLength(1);
+    expect(appended).toHaveLength(2);
+    expect(appended[0].element_bid).toBe(initial[0].element_bid);
+    expect(appended[1].element_bid).not.toBe(appended[0].element_bid);
+    expect(appended[0].content).toBe('<section>First card</section>');
+  });
+
+  it('excludes narration around unfinished code and drops narration-only text', () => {
+    const project = (content: string) =>
+      projectListenModeItems({
+        items: [
+          {
+            type: ChatContentItemType.CONTENT,
+            element_bid: 'partial-text',
+            element_type: 'text',
+            content,
+            is_renderable: false,
+          },
+        ],
+        askButtonMarkup,
+        variant: 'classroom',
+      });
+
+    expect(
+      project('Narration\n\n```python\nprint(').map(item => item.content),
+    ).toEqual(['```python\nprint(']);
+    expect(project('Only narration with no visual')).toEqual([]);
+    expect(project('Narration with an inline `<div>` example')).toEqual([]);
+  });
 });

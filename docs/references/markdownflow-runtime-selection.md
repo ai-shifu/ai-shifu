@@ -2,7 +2,7 @@
 title: MarkdownFlow Runtime Selection
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-14
 canonical: true
 ---
 
@@ -25,7 +25,7 @@ explicitly on the sim Deployment, outside shared ConfigMaps and Secrets. Keep
 production unset or explicitly false. Each API deployment must carry its own
 choice; changing sim does not change production.
 
-The flag covers normal lessons, reading/listening, regeneration, and the
+The flag covers normal lessons, reading/listening/classroom, regeneration, and the
 existing 2.0 editor-preview dispatch. Follow-up Ask requests retain their
 existing 1.0 side path even when the lesson uses 2.0. This switch introduces no
 schema migration, memory reset, or conversation conversion; each runtime keeps
@@ -35,6 +35,20 @@ earlier answer changed through 2.0. The existing localized error directs the
 learner to explicitly Reset the lesson first; switching the flag never performs
 that reset automatically. This is the same transition boundary as the retired
 allowlist, and also applies when rolling an active lesson back to another runtime.
+
+## Visual delivery across learning modes
+
+MDF 2.0 classroom and listening turns use the existing MarkdownFlow formatter
+to emit separately typed visual and narration elements. Classroom pagination
+does not enable speech: the `listen` flag continues to gate voice generation.
+Reading turns keep their existing continuous-text delivery.
+
+Classroom projects recognized visual segments from previously saved or currently
+streaming continuous-text elements using the shared frontend MarkdownFlow
+parser. This also supports switching from reading to classroom after teaching
+has begun. Narration and audio stay excluded; canonical content, generated-block
+ownership and interaction values are preserved. Compatibility is a presentation
+view, without rewriting history, resetting sessions or generating content again.
 
 ## Rollout and rollback
 

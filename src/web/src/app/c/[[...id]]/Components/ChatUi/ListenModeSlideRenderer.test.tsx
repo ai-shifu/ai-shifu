@@ -21,6 +21,7 @@ import {
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
 import type { ChatContentItem } from '@/types/chatUi';
+import { projectListenModeItems } from './chatUiModeProjection';
 
 const mockTrackEvent = jest.fn();
 
@@ -1627,6 +1628,80 @@ describe('ListenModeSlideRenderer', () => {
       | undefined;
     expect(classroomSlideProps?.elementList).toHaveLength(1);
     expect(classroomSlideProps?.elementList?.[0]?.blockBid).toBe('first-slide');
+  });
+
+  it('gives recovered classroom visuals unique navigation slots and keeps original answer anchors', () => {
+    const onSend = jest.fn();
+    const items = projectListenModeItems({
+      items: [
+        {
+          type: 'content',
+          element_bid: 'saved-text',
+          generated_block_bid: 'saved-block',
+          element_type: 'text',
+          sequence_number: 9,
+          is_renderable: false,
+          content: [
+            'Narration before the card',
+            '<section>First card</section>',
+            'Narration before the code',
+            '```js\nconst value = 1;\n```',
+          ].join('\n\n'),
+        },
+        {
+          type: 'interaction',
+          element_bid: 'original-question',
+          content: '?[...Your answer]',
+          sequence_number: 10,
+        },
+      ],
+      askButtonMarkup: '',
+      variant: 'classroom',
+    });
+
+    render(
+      <ListenModeSlideRenderer
+        variant='classroom'
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        onSend={onSend}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls.at(-1)?.[0] as {
+      elementList: Array<Record<string, unknown>>;
+      onSend: (
+        content: Record<string, unknown>,
+        element?: Record<string, unknown>,
+      ) => void;
+    };
+    expect(slideProps.elementList.map(element => element.content)).toEqual([
+      '<section>First card</section>',
+      '```js\nconst value = 1;\n```',
+      '?[...Your answer]',
+    ]);
+    expect(slideProps.elementList.map(element => element.blockBid)).toEqual([
+      'saved-text::classroom-visual::0',
+      'saved-text::classroom-visual::1',
+      'original-question',
+    ]);
+    expect(
+      new Set(slideProps.elementList.map(element => element.sequence_number))
+        .size,
+    ).toBe(3);
+
+    act(() => {
+      slideProps.onSend(
+        { inputText: 'Submitted answer' },
+        slideProps.elementList[2],
+      );
+    });
+
+    expect(onSend).toHaveBeenCalledWith(
+      { inputText: 'Submitted answer' },
+      'original-question',
+    );
   });
 
   it('keeps listen leading text placeholder without classroom tips', () => {
