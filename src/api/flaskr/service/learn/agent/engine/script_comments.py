@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 
 from .script_code_spans import build_code_span_index
+from .script_html_tags import html_tag_end
 
 _FENCE = re.compile(r"[ ]{0,3}(`{3,}|~{3,})([^\r\n]*)")
 _BACKTICKS = re.compile(r"`+")
@@ -13,12 +14,6 @@ _LINEBREAKS = re.compile(r"\r\n|\r|\n")
 _LIST_ITEM = re.compile(r"([-+*]|\d{1,9}[.)])([ ]+)")
 _PARAGRAPH_BREAK = re.compile(
     r"(?:#{1,6}(?:[ ]|$)|(?:\*[ ]*){3,}$|(?:_[ ]*){3,}$|(?:-[ ]*){3,}$|<!--|>)"
-)
-_HTML_TAG = re.compile(
-    r"</[A-Za-z][A-Za-z0-9-]*\s*>"
-    r"|<[A-Za-z][A-Za-z0-9-]*"
-    r"(?:\s+[A-Za-z_:][A-Za-z0-9:._-]*"
-    r"(?:\s*=\s*(?:[^\"'=<>`\x00-\x20]+|'[^']*'|\"[^\"]*\"))?)*\s*/?>"
 )
 
 
@@ -136,11 +131,11 @@ def strip_comments(text: str) -> str:
             end = closing + 3 if closing >= 0 else len(text)
             result.extend(_LINEBREAKS.findall(text[cursor:end]))
             cursor = end
-        elif text[cursor] == "<" and (tag := _HTML_TAG.match(text, cursor)):
+        elif text[cursor] == "<" and (tag_end := html_tag_end(text, cursor)):
             # Quoted HTML attributes may contain backticks, but cannot open a
             # Markdown code span that protects a later author comment.
-            result.append(tag[0])
-            cursor = tag.end()
+            result.append(text[cursor:tag_end])
+            cursor = tag_end
         elif text[cursor] == "`":
             marker = _BACKTICKS.match(text, cursor)
             if marker is not None:
