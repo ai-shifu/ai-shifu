@@ -354,10 +354,7 @@ class RUNLLMProvider(LLMProvider):
             self.app,
             self.trace_args.get("user_id", ""),
             self.parent_observation,
-            messages=[
-                {**message, "content": strip_html_comments(message["content"])}
-                for message in messages
-            ],
+            messages=messages,
             model=actual_model,
             stream=False,
             generation_name=generation_name,
@@ -411,10 +408,7 @@ class RUNLLMProvider(LLMProvider):
             self.trace_args["user_id"],
             self.parent_observation,
             model=actual_model,
-            messages=[
-                {**message, "content": strip_html_comments(message["content"])}
-                for message in messages
-            ],
+            messages=messages,
             stream=True,
             generation_name=generation_name,
             temperature=actual_temperature,
@@ -461,6 +455,20 @@ class MdflowContextV2:
             interaction_prompt=interaction_prompt,
             interaction_error_prompt=interaction_error_prompt,
         )
+        # Keep native positions and public source intact. Only execution copies
+        # are filtered, before the library substitutes learner-provided values.
+        self._source_blocks = self._mdflow.get_all_blocks()
+        separator = "\n\n---\n\n"
+        source = separator.join(block.content for block in self._source_blocks)
+        filtered = strip_html_comments(source, preserve_offsets=True)
+        if filtered != source:
+            execution = []
+            offset = 0
+            for block in self._source_blocks:
+                end = offset + len(block.content)
+                execution.append(replace(block, content=filtered[offset:end]))
+                offset = end + len(separator)
+            self._mdflow._blocks = execution
         # markdown_flow>=0.2.44 removed set_visual_mode; keep backward compatibility.
         set_visual_mode = getattr(self._mdflow, "set_visual_mode", None)
         if callable(set_visual_mode):
@@ -478,11 +486,12 @@ class MdflowContextV2:
 
     def get_block(self, block_index: int) -> Block:
         """Return a MarkdownFlow block by its index."""
-        return self._mdflow.get_block(block_index)
+        self._mdflow.get_block(block_index)  # Preserve native index validation.
+        return self._source_blocks[block_index]
 
     def get_all_blocks(self) -> list[Block]:
         """Return all MarkdownFlow blocks in encounter order."""
-        return self._mdflow.get_all_blocks()
+        return self._source_blocks
 
     def process(
         self,
@@ -611,12 +620,18 @@ class MdflowContextV2:
                 # without it fall back to re-rendering the block source with
                 # the current variables (one-time cache break, then stable).
                 stored_prompt = getattr(generated_block, "generation_prompt", "") or ""
+                source_prompt = replace_variables_in_text(
+                    block.content or "", variables
+                )
+                clean_prompt = replace_variables_in_text(
+                    strip_html_comments(block.content or ""), variables
+                )
+                if stored_prompt == source_prompt:
+                    stored_prompt = clean_prompt
                 message_list.append(
                     {
                         "role": "user",
-                        "content": stored_prompt
-                        or replace_variables_in_text(block.content or "", variables)
-                        or "",
+                        "content": stored_prompt or clean_prompt or "",
                     }
                 )
                 message_list.append(

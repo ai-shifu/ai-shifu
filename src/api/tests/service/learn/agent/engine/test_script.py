@@ -1,5 +1,6 @@
 """Script bundling: variable substitution, 1.0 syntax detection, prompt assembly."""
 
+import pytest
 from flaskr.service.learn.agent.engine import (
     ScriptBundle,
     collected_names,
@@ -7,6 +8,73 @@ from flaskr.service.learn.agent.engine import (
     render_first_prompt,
     substitute_variables,
 )
+from flaskr.util.prompt_loader import strip_html_comments
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("A<!-- private -->B<!-- second -->C", "ABC"),
+        ("A<!-- private\nmore -->B", "AB"),
+        ("A<!-- unfinished", "A"),
+        ("A<!-->B<!--->C", "ABC"),
+        ("`<!-- inline -->` <!-- note -->", "`<!-- inline -->` "),
+        (
+            "```html\n<!-- literal -->\n```\n<!-- note -->",
+            "```html\n<!-- literal -->\n```\n",
+        ),
+        (
+            "> ~~~html\n> <!-- literal -->\n> ~~~\n<!-- note -->",
+            "> ~~~html\n> <!-- literal -->\n> ~~~\n",
+        ),
+        (
+            "- item\n  ```html\n  <!-- literal -->\n  ```\n<!-- note -->",
+            "- item\n  ```html\n  <!-- literal -->\n  ```\n",
+        ),
+        (
+            '<span title="<!-- literal -->">X</span><!-- note -->',
+            '<span title="<!-- literal -->">X</span>',
+        ),
+        (r"\<!-- literal --> <!-- note -->", r"\<!-- literal --> "),
+        ("    <!-- code -->\n\n<!-- note -->", "    <!-- code -->\n\n"),
+        (
+            '<span title="`">A</span><!-- note --><span title="`">B</span>',
+            '<span title="`">A</span><span title="`">B</span>',
+        ),
+        (
+            "Visible <A title='unfinished\n# next\n<!-- note -->\n'> tail",
+            "Visible <A title='unfinished\n# next\n\n'> tail",
+        ),
+        ("`unmatched\n# Heading\n<!-- note -->\n`", "`unmatched\n# Heading\n\n`"),
+        (
+            "<div title='<!-- literal -->'>\n<!-- note -->\n</div>",
+            "<div title='<!-- literal -->'>\n\n</div>",
+        ),
+    ],
+)
+def test_only_authored_comment_ranges_are_removed(source: str, expected: str) -> None:
+    assert strip_html_comments(source) == expected
+    masked = strip_html_comments(source, preserve_offsets=True)
+    assert len(masked) == len(source)
+    assert [i for i, c in enumerate(masked) if c in "\r\n"] == [
+        i for i, c in enumerate(source) if c in "\r\n"
+    ]
+
+
+def test_script_comments_are_removed_before_substituting_learner_values() -> None:
+    value = "Learner <!-- literal --> answer <!-- unfinished"
+    bundle = ScriptBundle(
+        script="Teach {{goal}}. <!-- private %{{goal}} --> `<!-- example -->`",
+        constraints="Course <!-- retained --> {{goal}}",
+        extras={"reference": "Reference <!-- retained -->"},
+    )
+    prompt = render_first_prompt(bundle, {"goal": value})
+    assert "private" not in prompt
+    assert "Teach " + value in prompt
+    assert "`<!-- example -->`" in prompt
+    assert "Course <!-- retained --> " + value in prompt
+    assert "Reference <!-- retained -->" in prompt
+    assert "private" in bundle.script
 
 
 def test_detects_each_v1_marker() -> None:

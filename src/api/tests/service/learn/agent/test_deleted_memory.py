@@ -13,7 +13,12 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
 from flaskr.service.learn.agent.engine import Engine, Session
-from flaskr.service.learn.agent.engine.script import ScriptBundle, render_first_prompt
+from flaskr.service.learn.agent.engine.script import (
+    ScriptBundle,
+    render_first_prompt,
+    render_script_section,
+)
+from flaskr.service.learn.agent.nickname import refresh_nickname
 from flaskr.service.profile.api import delete_course_memory, list_course_memory
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
@@ -31,6 +36,42 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from flask import Flask
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("operation", ["nickname", "deleted"])
+def test_profile_refresh_keeps_script_filtering_separate_from_values(
+    legacy: bool,
+    operation: str,
+) -> None:
+    key = "sys_user_nickname" if operation == "nickname" else "goal"
+    values = {key: "old"}
+    bundle = ScriptBundle(
+        script="Teach {{" + key + "}}. <!-- private note --> `<!-- example -->`"
+    )
+    prompt = (
+        "<memory>\n"
+        + json.dumps(values, indent=2)
+        + "\n</memory>\n\n"
+        + render_script_section(bundle.script, values, strip_comments=not legacy)
+    )
+    history = ModelRequest(parts=[UserPromptPart("Learner <!-- literal --> answer")])
+    session = Session(
+        script=bundle,
+        user_memory=values,
+        initial_variables=values,
+        messages=[ModelRequest(parts=[UserPromptPart(prompt)]), history],
+    )
+    current = {key: "new <!-- literal --> value <!-- unfinished"}
+    if operation == "nickname":
+        refresh_nickname(session, current)
+    else:
+        refresh_deleted_memory(session, frozenset({key}), current=current)
+    updated = session.messages[0].parts[0].content
+    assert "private note" not in updated
+    assert "Teach " + current[key] in updated
+    assert "`<!-- example -->`" in updated
+    assert session.messages[1] is history
 
 
 @pytest.mark.parametrize("size", [10, 40000])

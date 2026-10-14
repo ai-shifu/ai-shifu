@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import AsyncIterator
+from copy import deepcopy
 
 import pytest
 from flaskr.service.learn.agent.engine import (
@@ -14,14 +15,74 @@ from flaskr.service.learn.agent.engine import (
     Session,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.script import render_first_prompt
+from flaskr.service.learn.agent.engine.script import (
+    render_first_prompt,
+    render_script_section,
+)
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
+    ModelResponse,
+    TextPart,
     ToolReturnPart,
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("limit", [None, 32768])
+async def test_resumed_requests_filter_only_verified_teaching_source(
+    limit: int | None,
+) -> None:
+    seen = []
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str]:
+        seen.extend(deepcopy(messages))
+        yield "A useful example."
+
+    value = "Profile <!-- literal --> text <!-- unfinished"
+    bundle = ScriptBundle(
+        script="Teach {{goal}}. <!-- private note --> `<!-- example -->`"
+    )
+    prompt = (
+        "<memory>\n"
+        + json.dumps({"goal": value}, indent=2)
+        + "\n</memory>\n\n"
+        + render_script_section(bundle.script, {"goal": value}, strip_comments=False)
+    )
+    history = [
+        ModelRequest(parts=[UserPromptPart(prompt)]),
+        ModelResponse(parts=[TextPart("Earlier <!-- literal --> response")]),
+        ModelRequest(parts=[UserPromptPart("Earlier <!-- literal --> answer")]),
+    ]
+    original = deepcopy(history)
+    session = Session(
+        script=bundle,
+        messages=history,
+        user_memory={"goal": value},
+        initial_variables={"goal": value},
+    )
+    engine = Engine(FunctionModel(stream_function=model), memory_context_limit=limit)
+    answer = "Current <!-- literal --> answer <!-- unfinished"
+    _ = [event async for event in engine.run_turn(session, MessageTurn(text=answer))]
+    prompts = _prompts(seen)
+    assert "private note" not in prompts[0]
+    assert "Teach " + value in prompts[0]
+    assert "`<!-- example -->`" in prompts[0]
+    assert "Earlier <!-- literal --> answer" in prompts
+    assert answer in prompts
+    assert any(
+        part.content == "Earlier <!-- literal --> response"
+        for message in seen
+        if isinstance(message, ModelResponse)
+        for part in message.parts
+        if isinstance(part, TextPart)
+    )
+    assert session.messages[: len(original)] == original
+    assert session.script is bundle
 
 
 def _prompts(messages: list[ModelMessage]) -> list[str]:

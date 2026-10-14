@@ -9,9 +9,12 @@ from typing import TYPE_CHECKING
 from flaskr.service.learn.agent.engine.memory_context import parse_initial_memory_prompt
 from flaskr.service.learn.agent.engine.script import (
     collected_names,
+    match_script_section,
+    render_script_section,
     substitute_variables,
     substitution_names,
 )
+from flaskr.util.prompt_loader import strip_html_comments
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
@@ -22,6 +25,8 @@ def _section(
     tag: str, text: str, values: dict, collected: set[str], *, unavailable: bool = True
 ) -> str:
     """Render a known host section in the requested compatibility format."""
+    if tag == "script":
+        return render_script_section(text, values, unavailable=unavailable)
     return f"<{tag}>\n{substitute_variables(text, values, collected=collected, unavailable=unavailable)}\n</{tag}>"
 
 
@@ -56,19 +61,11 @@ def refresh_deleted_memory(
             original = {**saved, **(session.initial_variables or {}), **parsed.memory}
             updated = {k: v for k, v in original.items() if k not in deleted}
             updated.update(fresh)
-            collected = collected_names(session.script.script)
+            collected = collected_names(strip_html_comments(session.script.script))
 
             suffix = part.content[parsed.script_start :]
-            old = _section("script", session.script.script, original, collected)
-            if not suffix.startswith(old):
-                old = _section(
-                    "script",
-                    session.script.script,
-                    original,
-                    collected,
-                    unavailable=False,
-                )
-            if suffix.startswith(old):
+            old = match_script_section(suffix, session.script.script, original)
+            if old is not None:
                 suffix = (
                     _section("script", session.script.script, updated, collected)
                     + suffix[len(old) :]

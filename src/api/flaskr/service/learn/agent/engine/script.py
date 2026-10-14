@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
+
+from flaskr.util.prompt_loader import strip_html_comments
 
 # Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
 V1_SYNTAX_RE = re.compile(
@@ -261,6 +263,35 @@ def render_memory_section(
     return section, len(selected) < len(remembered)
 
 
+def render_script_section(
+    source: str,
+    memory: Mapping[str, Any],
+    *,
+    unavailable: bool = True,
+    strip_comments: bool = True,
+) -> str:
+    """Filter authored script before substituting learner values."""
+    text = strip_html_comments(source) if strip_comments else source
+    rendered = substitute_variables(
+        text, memory, collected=collected_names(text), unavailable=unavailable
+    )
+    return f"<script>\n{rendered}\n</script>"
+
+
+def match_script_section(
+    content: str, source: str, memory: Mapping[str, Any]
+) -> str | None:
+    """Recognize an exact authored section without guessing at arbitrary history."""
+    for strip_comments in (True, False):
+        for unavailable in (True, False):
+            candidate = render_script_section(
+                source, memory, unavailable=unavailable, strip_comments=strip_comments
+            )
+            if content.startswith(candidate):
+                return candidate
+    return None
+
+
 def render_first_prompt(
     bundle: ScriptBundle,
     memory: Mapping[str, Any],
@@ -273,6 +304,7 @@ def render_first_prompt(
     Learner memory first, then the script with its variables substituted, then optional
     constraints and extras.
     """
+    bundle = replace(bundle, script=strip_html_comments(bundle.script))
     collected = collected_names(bundle.script)
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a
@@ -281,7 +313,7 @@ def render_first_prompt(
         render_memory_section(
             bundle, memory, limit=memory_limit, priority=memory_priority
         )[0],
-        f"<script>\n{substitute_variables(bundle.script, memory, collected=collected, unavailable=True)}\n</script>",
+        render_script_section(bundle.script, memory),
     ]
     if bundle.constraints:
         parts.append(

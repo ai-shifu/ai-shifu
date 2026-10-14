@@ -32,7 +32,6 @@ from flaskr.service.learn.agent.input_budget import (
     check_input_budget,
 )
 from flaskr.util.datetime import now_utc
-from flaskr.util.prompt_loader import strip_html_comments
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -176,9 +175,6 @@ def map_messages(messages: list[ModelMessage]) -> list[dict[str, Any]]:
             out.append(entry)
     if system:
         out.insert(0, {"role": "system", "content": "\n\n".join(system)})
-    for message in out:
-        if isinstance(message.get("content"), str):
-            message["content"] = strip_html_comments(message["content"])
     return out
 
 
