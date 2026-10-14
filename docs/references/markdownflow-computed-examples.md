@@ -22,7 +22,9 @@ another tool call, or an unavailable confirm pause. The source/phase, input repr
 and memory guards still apply before any artifact is delivered. Invalid calls
 retain original arguments and retry errors. On these supported buffered turns,
 they contribute no visible artifact or rejected prose. Initial and unsupported
-turns do not offer this field or promise whole-response withholding. Canonical displayed text is saved as normal teaching alongside
+turns do not offer this field or promise whole-response withholding. If a model
+invents it on such a turn, the artifact is refused and mixed side effects stay
+blocked; already streamed prose remains in saved teaching. Canonical displayed text is saved as normal teaching alongside
 the original tool arguments and survives the usual session round trip.
 
 The optional field is explicitly an object in the offered Ark/OpenAI/DashScope

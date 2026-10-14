@@ -80,6 +80,16 @@ free prose. Keep the eleven-question factual acceptance gate independent.
   All 55 focused checks, 4,019 learning/scripts tests, 50 subtests, two expected
   skips and all-file hooks pass. No product model
   request has been made; sim-b98370c is not the final candidate for acceptance.
+- Self-review of the initial streaming boundary reproduces already-visible
+  prose disappearing from history when the model invents an unoffered artifact.
+  Refuse the artifact and mixed side effects, but mark prose hidden only on the
+  supported buffered turns. Single/mixed initial controls fail before the fix;
+  all 57 focused artifact/history/recovery checks pass afterwards. This adds no
+  initial buffering or model strategy. The preliminary sim-915f94b deployment
+  (build 649 / Drone 5438, records 2984/2985) matches 73 files on both Ready APIs
+  and passes 529 isolated SDK/logging cases each, but excludes this final fix.
+  Final local gates pass 4,021 tests, 50 subtests, two expected skips and all-file
+  hooks; the 57 focused cases include preserved initial streaming and history.
 
 ## Decision Log
 
@@ -108,8 +118,8 @@ The bounded interpreter, canonical delivery and saved history are implemented.
 Controlled SDK/provider/storage checks cover Ark/OpenAI/DashScope schemas and
 read/classroom/listen formatter parity, exact SQLite history, audio eligibility,
 rejected content, mixed-tool side effects and initial streaming timing.
-The final full learning/scripts run passed 4,019 tests, 50 subtests and two
-expected skips after the Codex/Devin/CodeRabbit fixes and interrupted-history recovery. Toolchain, repository
+The final full learning/scripts run passed 4,021 tests, 50 subtests and two
+expected skips after the review fixes, interrupted recovery and initial-history preservation. Toolchain, repository
 harness, architecture baseline (131 existing / zero new violations), and the
 all-file lefthook gate passed. Source frontend, formatter, pager and element
 adapter files are unchanged from actual main.

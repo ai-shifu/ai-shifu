@@ -627,7 +627,8 @@ def validate_computed_call(ctx: RunContext[Deps]) -> None:
         )
         and sum(isinstance(part, ToolCallPart) for part in response.parts) != 1
     ):
-        ctx.deps.hide_feedback_response(response)
+        if ctx.deps.direction_sections:
+            ctx.deps.hide_feedback_response(response)
         message = "computed_example must use the sole existing interact call; do not add a planning or memory call"
         raise ModelRetry(message)
 
@@ -876,7 +877,7 @@ async def interact(
             or direction is not None
             or (type == "confirm" and ctx.deps.no_pauses)
         ):
-            if response is not None:
+            if response is not None and ctx.deps.direction_sections:
                 ctx.deps.hide_feedback_response(response)
             message = "computed_example requires a supported returned text input and an available authored interaction; it cannot accompany a checking direction or an unavailable confirm"
             raise ModelRetry(message)
