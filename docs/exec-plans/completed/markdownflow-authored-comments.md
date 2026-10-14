@@ -23,6 +23,10 @@ Saved source remains available in the editor. See the durable behavior in
   bounded scanning; added CommonMark container code ranges, literal-variable
   handling, and older first-prompt compatibility. Verified 1,185 engine and
   151 affected host tests.
+- [x] 2026-10-14 12:40 CST: Limited inline-code delimiter pairs to one parsed
+  inline block, reusing the existing block parse. Added scanner and model-boundary
+  regressions for headings, containers, raw HTML, and physical line endings.
+  Verified 1,253 engine tests and 151 affected host tests.
 
 ## Surprises & Discoveries
 
@@ -47,7 +51,7 @@ same filtered-source contract as memory deletion.
 
 The authored-comment filter is implemented for 2.0 teaching, feedback references,
 and recognized old initial prompts, plus legacy teaching/preview construction.
-All 1,206 engine and affected host regressions pass, including source preservation,
+All 1,404 engine and affected host regressions pass, including source preservation,
 learner literals, nickname refresh, and memory deletion. The repository-wide gate
 also covers the updated documentation indexes. No deployment was performed.
 
@@ -61,7 +65,11 @@ retaining only exact reconstructed prompt projections. Historical next-interacti
 notes lack a source snapshot and remain unchanged. The new code-span index removes
 the introduced repeated-suffix scan, with a deterministic one-scan regression gate.
 The final container-aware filter processed a 4,504,522-byte unmatched-delimiter
-input in about 0.45 seconds locally. HTML tag recognition also uses bounded state
+input in about 0.28 seconds locally. Inline-code pairs stay inside one parsed
+inline block, preserving soft line breaks without joining unrelated backticks
+across headings, container boundaries, or raw HTML blocks. The filter reuses
+one block parse for code-block and inline-block ranges.
+HTML tag recognition also uses bounded state
 scanning after CodeQL identified a backtracking expression. CommonMark block
 parsing comes from explicitly pinned markdown-it-py 4.0.0, with a safe raw-HTML
 rule that bypasses the dependency's vulnerable generic-tag expression.

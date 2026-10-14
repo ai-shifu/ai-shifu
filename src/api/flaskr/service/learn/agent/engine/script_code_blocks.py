@@ -52,8 +52,8 @@ def _safe_html_block(
     return True
 
 
-def build_code_block_index(text: str) -> dict[int, int]:
-    """Map physical block starts to ends, including Markdown containers.
+def build_block_indexes(text: str) -> tuple[dict[int, int], list[tuple[int, int]]]:
+    """Locate code examples and inline blocks with one CommonMark block parse.
 
     Only the block parser runs: inline delimiter handling belongs to the caller.
     A caller must enter a range at its start, rather than protect every contained
@@ -72,8 +72,20 @@ def build_code_block_index(text: str) -> dict[int, int]:
     )
     tokens: list[Token] = []
     parser.block.parse(normalized, parser, {}, tokens)
-    return {
+    code_blocks = {
         offsets[token.map[0]]: offsets[token.map[1]]
         for token in tokens
         if token.type in {"fence", "code_block"} and token.map is not None
     }
+    inline_blocks = [
+        (offsets[token.map[0]], offsets[token.map[1]])
+        for token in tokens
+        if token.type == "inline" and token.map is not None
+    ]
+    return code_blocks, inline_blocks
+
+
+def build_code_block_index(text: str) -> dict[int, int]:
+    """Map physical code-block starts to ends, including Markdown containers."""
+    code_blocks, _inline_blocks = build_block_indexes(text)
+    return code_blocks

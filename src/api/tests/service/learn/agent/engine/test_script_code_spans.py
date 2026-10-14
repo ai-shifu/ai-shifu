@@ -46,8 +46,8 @@ def test_code_examples_can_cross_one_physical_linebreak(linebreak: str) -> None:
 
 
 def test_skipped_comment_delimiters_do_not_consume_a_later_code_opening() -> None:
-    source = "<!-- `private` --> `<!-- literal -->` <!-- private -->"
-    assert strip_comments(source) == " `<!-- literal -->` "
+    source = "Intro <!-- `private` --> `<!-- literal -->` <!-- private -->"
+    assert strip_comments(source) == "Intro  `<!-- literal -->` "
 
 
 @pytest.mark.parametrize(

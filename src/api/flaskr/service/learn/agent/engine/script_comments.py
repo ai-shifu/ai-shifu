@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from .script_code_blocks import build_code_block_index
+from .script_code_blocks import build_block_indexes
 from .script_code_spans import build_code_span_index
 from .script_html_tags import html_tag_end
 
@@ -22,8 +22,8 @@ def strip_comments(text: str) -> str:
     """
     result: list[str] = []
     cursor = 0
-    code_blocks = build_code_block_index(text)
-    code_spans = build_code_span_index(text)
+    code_blocks, inline_blocks = build_block_indexes(text)
+    code_spans = build_code_span_index(text, inline_blocks)
     while cursor < len(text):
         at_line_start = cursor == 0 or text[cursor - 1] in "\r\n"
         if at_line_start:

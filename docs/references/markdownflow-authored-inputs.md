@@ -34,6 +34,9 @@ retain their original bytes rather than guessing at learner evidence.
 
 Inline-code delimiters are indexed once per authored document. Unmatched delimiter
 lengths cannot trigger repeated scans of the remaining input before a model call.
+Delimiter pairs stay within one parsed inline block; headings, separate list
+items, quotes, and raw HTML blocks cannot join unrelated backticks to hide notes.
+Real code spans can still continue across a paragraph's soft line breaks.
 HTML attributes use a bounded state scanner; the block parser also bypasses its
 dependency's backtracking generic-tag rule when recognizing raw HTML blocks.
 
