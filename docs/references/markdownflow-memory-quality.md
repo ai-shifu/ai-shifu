@@ -18,6 +18,38 @@ and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
 
+## Existing example policy with merged protocol fixes: scoped failure
+
+On 2026-10-14, the unchanged 961cb307e example policy is restored atop actual
+main ca75a292c in sim 0b14046ba. Both APIs match 69 runtime files and pass 494
+isolated SDK/logging checks; API 2/2 and Web 1/1 are Ready. Local engine 1,023
+and repository gates pass. These establish delivery and isolation, not facts.
+
+One in-memory diagnostic uses the existing authorized balanced-course checkpoint,
+exact original source/input, model 2, temperature and request/retry limits. Both
+actual model requests contain the existing policy. An exact-submission provenance
+retry recovers protocol. The displayed program adds R0 to R1, then decrements R0.
+Its first body claims R1=2; R0 then becomes 1. Its second body must therefore
+produce 3, but the displayed table says 4. No choice of the missing initial R1
+can satisfy both displayed rows. The loop executes twice and exits correctly;
+this is arithmetic inconsistency, not a false-termination reproduction.
+
+Both original outputs/token tuples uniquely match actual attempt/block and owner
+ledger sources; two generations settle 18.59 credits. Persistent classroom state,
+original published source and prior failed classroom fingerprints are unchanged.
+No learner is created, no ordinary HTTP classroom request or summary is run,
+and no failed evidence is repaired. This is a failed scoped balanced diagnostic,
+not full fresh acceptance or a same-condition model success-rate estimate.
+
+Read-only inspection of the earlier no-policy balanced run also finds an absent
+R1 initialization and only one body execution before any protocol retry. Its
+system and author messages remain byte-identical across its three requests.
+The final add1/add2 discrepancy is already present in raw model output.
+Neither observation establishes that projection, persistence or retries caused
+the facts. Increasing prompt specificity alone has not passed factual acceptance;
+keep both model gates and broader eleven-question acceptance open. A materially
+different mechanism needs its own falsifiable plan before another paid check.
+
 ## Worked example consistency
 
 The ninth frozen original-model check on sim-086140b restores a concrete

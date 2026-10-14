@@ -8,6 +8,42 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-14: Read all #3122 review/inline/issue pages (56/56/24 entries).
+      Actual 961cb307e has eleven successful checks and completed Codex review.
+      CodeRabbit actually reviews that head and raises an outside-diff final-row
+      wording suggestion. Reply in its linked original review/walkthrough
+      conversation: the current table/exit guidance is not an executable gate,
+      so another synonymous prompt instruction is not adopted. The stale
+      141-function docstring warning is outside the current two-function test
+      delta; both functions have docstrings. Resolve only the two already
+      repaired/replied Codex threads; factual acceptance remains unresolved.
+- [x] 2026-10-14: Reverify actual main ca75a292c, both production regions and
+      six actual API replicas/five fingerprints each read-only. Restore the
+      unchanged #3122 runtime on merged main in sim 0b14046ba / build 643 /
+      Drone 5432, deployments 2954/2955. API 2/2 and Web 1/1 are Ready; both APIs
+      match 69 files and pass 494 isolated SDK/logging cases. Complete API/Web/
+      i18n trees equal 961cb307e. Local engine 1,023 and all repository gates pass.
+      Initial rollout-not-ready probe sends no model request. Retain the first
+      local hook failure caused by system Python 3.9; rerun with conda Python 3.12.
+- [x] 2026-10-14: Test the previously unaccepted combination once on an
+      in-memory copy of the existing authorized balanced-course checkpoint,
+      exact source/input/model 2/temperature/budgets, without changing prompts.
+      One exact-submission retry restores protocol. Both actual requests include
+      the worked-example policy and phase guidance. Displayed arithmetic still
+      fails: after first R1=2 and R0=1, ADD R0 must produce R1=3, not 4.
+      R1 initialization is also absent. The loop does execute twice and reaches
+      its exit, so do not relabel this as another false-termination failure.
+      Two generations uniquely bind original output/token tuples and actual
+      attempt/block/owner ledger sources; 18.59 credits settle. Persistent
+      classroom/source and prior failed classroom fingerprints remain unchanged.
+      Zero HTTP classroom requests/new learners/summaries; no paid resampling.
+- [ ] Existing example guidance plus merged protocol fixes still fails this
+      balanced-model factual gate. Do not start a new full journey, add another
+      prompt restatement, raise budgets or claim a successful model comparison.
+      Define a materially different, falsifiable mechanism before another paid
+      check. Original fast-model failures and full eleven-question natural
+      compression/statistics/summary/billing acceptance remain open; milestone 4/5.
+
 - [x] 2026-10-14: Synchronize the still-held #3122 candidate with actual main
       ca75a292c after the user merges #3123/#3125. Preserve both documentation
       histories, main phase/schema/logging/lifetime fixes and all regressions.
