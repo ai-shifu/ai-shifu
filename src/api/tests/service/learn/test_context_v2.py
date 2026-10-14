@@ -1079,6 +1079,61 @@ class StreamTtsTeardownTests(unittest.TestCase):
 class MdflowContextCompatibilityTests(unittest.TestCase):
     """Verify MarkdownFlow context compatibility behavior."""
 
+    def test_init_filters_every_authored_prompt_before_legacy_parsing(self) -> None:
+        with patch("flaskr.service.learn.context_v2.MarkdownFlow") as factory:
+            MdflowContextV2(
+                document="before <!-- note\n---\n--> after",
+                document_prompt="course <!-- note --> rules",
+                interaction_prompt="question <!-- note --> rules",
+                interaction_error_prompt="retry <!-- note --> rules",
+            )
+
+        assert factory.call_args.kwargs == {
+            "document": "before \n\n after",
+            "llm_provider": None,
+            "document_prompt": "course  rules",
+            "interaction_prompt": "question  rules",
+            "interaction_error_prompt": "retry  rules",
+        }
+
+    def test_legacy_provider_receives_visible_source_and_fenced_examples(self) -> None:
+        class CapturingProvider:
+            def __init__(self) -> None:
+                self.calls: list[list[dict[str, str]]] = []
+
+            def complete(
+                self,
+                messages: list[dict[str, str]],
+                model: str | None = None,
+                temperature: float | None = None,
+            ) -> str:
+                _ = (model, temperature)
+                self.calls.append(messages)
+                return "Rendered"
+
+        provider = CapturingProvider()
+        context = MdflowContextV2(
+            document=(
+                "before <!-- first note --> visible <!-- second note --> end\n"
+                "```html\n<!-- literal example -->\n```\n"
+                "<!-- unfinished note"
+            ),
+            document_prompt="course <!-- course note --> rules",
+            llm_provider=provider,
+        )
+        context.process(
+            block_index=0,
+            mode=context_v2_module.ProcessMode.COMPLETE,
+            variables={},
+        )
+
+        messages = provider.calls[0]
+        assert "course  rules" in messages[0]["content"]
+        assert "course note" not in messages[0]["content"]
+        assert messages[-1]["content"] == (
+            "before  visible  end\n```html\n<!-- literal example -->\n```"
+        )
+
     def test_init_ignores_visual_mode_when_api_missing(self) -> None:
         class FakeMarkdownFlow:
             def __init__(self, *args: object, **kwargs: object) -> None:

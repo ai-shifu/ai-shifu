@@ -99,6 +99,7 @@ from .script import (
     substitute_variables,
     substitution_names,
 )
+from .script_history import project_script_history
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
 from .teaching_history import project_teaching_history, read_teaching
@@ -730,15 +731,14 @@ class Engine:
             yield TurnDone(reason="finished", usage=session.usage)
             return
         turn = turn or (StartTurn() if not session.started else ContinueTurn())
-        script_text = session.script.all_text()
+        bundle = session.script.without_comments()
+        script_text = bundle.all_text()
         uses_v1_syntax = detect_v1_syntax(script_text)
-        text_inputs = (
-            script_text_inputs(session.script.script) if uses_v1_syntax else ()
-        )
+        text_inputs = script_text_inputs(bundle.script) if uses_v1_syntax else ()
         for pending in session.pending:
             pending.spec = normalize_script_text_input(pending.spec, text_inputs)
         deps = Deps(
-            authored_text=session.script.all_text(),
+            authored_text=script_text,
             memory_deleted_keys=memory_deleted_keys,
             memory_current_inputs=(turn.text,)
             if isinstance(turn, MessageTurn) and not replaying_input
@@ -756,18 +756,14 @@ class Engine:
             literal_interaction_markup=authored_interaction_markup(script_text),
             # The lesson's own script only: a brief or a reference document may show `?[继续]`
             # as an example of the notation, which is not a pause in this lesson.
-            no_pauses=(
-                self.pauses_from_notation and script_pauses(session.script.script) == 0
-            ),
+            no_pauses=(self.pauses_from_notation and script_pauses(bundle.script) == 0),
             memory_keys=(
-                collected_names(session.script.script)
-                if self.memory_admission
-                else None
+                collected_names(bundle.script) if self.memory_admission else None
             ),
             memory_reserved_keys=self.memory_reserved_keys,
             memory_readonly_prefixes=self.memory_readonly_prefixes,
             memory_request_check=self.memory_request_check,
-            memory_recall_excluded_keys=collected_names(session.script.script),
+            memory_recall_excluded_keys=collected_names(bundle.script),
             answer_hashes=session.answer_hashes,
             memory_recall_blocked_keys=memory_deleted_keys
             if replaying_input
@@ -791,11 +787,11 @@ class Engine:
             initial = session.all_memory()
             session.initial_variables = {
                 key: initial[key]
-                for key in substitution_names(session.script)
+                for key in substitution_names(bundle)
                 if key in initial
             }
             prompt = render_first_prompt(
-                session.script,
+                bundle,
                 session.all_memory(),
                 memory_limit=self.memory_context_limit,
                 memory_priority=self.memory_reserved_keys,
@@ -972,19 +968,22 @@ class Engine:
                         continue
                     deps.direction_answers[part.tool_call_id] = original[len(prefix) :]
                     deps.direction_inputs[part.tool_call_id] = spec
-                    section = authored_answer_section(session.script.script, spec)
+                    section = authored_answer_section(bundle.script, spec)
                     if section is not None:
                         deps.direction_sections[part.tool_call_id] = section
         if session.started:
+            history = project_script_history(
+                session.messages, session.script, session.initial_variables
+            )
             kwargs["message_history"] = (
                 project_memory_history(
-                    session.messages,
-                    session.script,
+                    history,
+                    bundle,
                     limit=self.memory_context_limit,
                     priority=self.memory_reserved_keys,
                 )
                 if self.memory_context_limit is not None
-                else session.messages
+                else history
             )
             if self.recall_history_compaction:
                 kwargs["message_history"] = compact_recall_history(
@@ -1004,7 +1003,7 @@ class Engine:
             if self.prompts.answer_review and resumed:
                 deps.authored_answer_reference = authored_answer_reference(
                     kwargs["message_history"],
-                    session.script.script,
+                    bundle.script,
                     resumed,
                     memory_keys=deps.memory_keys,
                 )
@@ -1059,15 +1058,15 @@ class Engine:
             if carried_on
             else ""
         )
-        final_line = final_preserved_line(session.script.script) if carried_on else None
+        final_line = final_preserved_line(bundle.script) if carried_on else None
         if final_line is not None:
             # Use the prompt's substitution rules, and keep both original and rendered
             # uniqueness checks: distinct author blocks can render to the same text.
             final_line = final_preserved_line(
                 substitute_variables(
-                    session.script.script,
+                    bundle.script,
                     session.all_memory(),
-                    collected=collected_names(session.script.script),
+                    collected=collected_names(bundle.script),
                 )
             )
         final_line_text = (

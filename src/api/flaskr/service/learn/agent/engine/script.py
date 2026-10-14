@@ -9,6 +9,8 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
+from .script_comments import strip_comments
+
 # Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
 V1_SYNTAX_RE = re.compile(
     r"(^---[ \t]*$)"  # block separator
@@ -63,6 +65,16 @@ class ScriptBundle:
         parts = [self.script, self.constraints or "", *self.extras.values()]
         return "\n".join(parts)
 
+    def without_comments(self) -> ScriptBundle:
+        """Project authored documents for execution without modifying their saved source."""
+        return ScriptBundle(
+            script=strip_comments(self.script),
+            constraints=strip_comments(self.constraints)
+            if self.constraints is not None
+            else None,
+            extras={name: strip_comments(body) for name, body in self.extras.items()},
+        )
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-ready form of the bundle."""
         return {
@@ -83,7 +95,7 @@ class ScriptBundle:
 
 def detect_v1_syntax(text: str) -> bool:
     """Report whether the text uses any MarkdownFlow 1.0 notation outside fenced code blocks."""
-    return bool(V1_SYNTAX_RE.search(_strip_fences(text)))
+    return bool(V1_SYNTAX_RE.search(_strip_fences(strip_comments(text))))
 
 
 def _strip_fences(text: str) -> str:
@@ -110,11 +122,12 @@ def collected_names(text: str) -> frozenset[str]:
     would drop a real memory value that nothing in the lesson is going to ask for again --
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
-    return frozenset(_COLLECTED_RE.findall(_strip_fences(text)))
+    return frozenset(_COLLECTED_RE.findall(_strip_fences(strip_comments(text))))
 
 
 def substitution_names(bundle: ScriptBundle) -> frozenset[str]:
     """Name values rendered into host script/constraints, excluding collected answers."""
+    bundle = bundle.without_comments()
     return frozenset(
         name
         for text in (bundle.script, bundle.constraints or "")
@@ -232,6 +245,7 @@ def render_memory_section(
     Referenced and host-priority keys come first; other keys retain input order. A value that
     does not fit is omitted, never shortened. Script substitution remains a separate exact path.
     """
+    bundle = bundle.without_comments()
     collected = collected_names(bundle.script)
     remembered = {k: v for k, v in memory.items() if k not in collected}
     selected = remembered
@@ -273,6 +287,7 @@ def render_first_prompt(
     Learner memory first, then the script with its variables substituted, then optional
     constraints and extras.
     """
+    bundle = bundle.without_comments()
     collected = collected_names(bundle.script)
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a

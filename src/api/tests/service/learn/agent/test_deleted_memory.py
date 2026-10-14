@@ -74,6 +74,38 @@ def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
     assert session.dumps() == once
 
 
+@pytest.mark.parametrize("legacy", [False, True])
+def test_refresh_removes_substitutions_from_filtered_authored_documents(
+    legacy: bool,
+) -> None:
+    bundle = ScriptBundle(
+        script="Use {{goal}}.<!-- private script note -->",
+        constraints="Consider {{goal}}.<!-- private brief note -->",
+    )
+    values = {"goal": "old goal"}
+    prompt = render_first_prompt(bundle, values)
+    if legacy:
+        prompt = prompt.replace(
+            "Use old goal.", "Use old goal.<!-- private script note -->"
+        )
+        prompt = prompt.replace(
+            "Consider old goal.", "Consider old goal.<!-- private brief note -->"
+        )
+    session = Session(
+        script=bundle,
+        user_memory=values.copy(),
+        initial_variables=values.copy(),
+        messages=[ModelRequest(parts=[UserPromptPart(prompt)])],
+    )
+    refresh_deleted_memory(session, frozenset({"goal"}))
+    prompt = session.messages[0].parts[0].content
+    assert "old goal" not in prompt
+    assert "private" not in prompt
+    assert 'Use <unavailable_learner_value name="goal" />.' in prompt
+    assert 'Consider <unavailable_learner_value name="goal" />.' in prompt
+    assert session.script == bundle
+
+
 def test_actual_host_drops_pre_delete_turn_write_and_allows_a_fresh_request(
     app: Flask,
 ) -> None:

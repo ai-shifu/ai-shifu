@@ -11,6 +11,7 @@ from flaskr.service.learn.agent.engine.script import (
     collected_names,
     substitute_variables,
 )
+from flaskr.service.learn.agent.engine.script_history import project_script_history
 from flaskr.service.profile.api import SYS_USER_NICKNAME
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
@@ -27,6 +28,9 @@ def refresh_nickname(session: Session, current: dict[str, Any]) -> None:
     """
     if SYS_USER_NICKNAME not in current:
         return
+    session.messages = project_script_history(
+        session.messages, session.script, session.initial_variables
+    )
     answered = SYS_USER_NICKNAME in session.memory
     session.memory.pop(SYS_USER_NICKNAME, None)
     pending = any(p.spec.variable == SYS_USER_NICKNAME for p in session.pending)
@@ -68,7 +72,8 @@ def _refresh_prompt(
     prefix = "<memory>\n"
     original = parsed.memory
     boundary = "\n</memory>" + parsed.notice + "\n\n"
-    collected = collected_names(session.script.script)
+    bundle = session.script.without_comments()
+    collected = collected_names(bundle.script)
     updated = dict(original)
     if SYS_USER_NICKNAME not in collected or (
         not pending and (answered or SYS_USER_NICKNAME in original)
@@ -91,35 +96,31 @@ def _refresh_prompt(
         **original,
     }
     updated_script_memory = {**script_memory, SYS_USER_NICKNAME: nickname}
-    old_script = section("script", session.script.script, script_memory)
+    old_script = section("script", bundle.script, script_memory)
     if not content.startswith(old_script, start):
-        old_script = section(
-            "script", session.script.script, script_memory, unavailable=False
-        )
+        old_script = section("script", bundle.script, script_memory, unavailable=False)
     if not content.startswith(old_script, start):
         return content
     suffix = content[start + len(old_script) :]
     # The host re-reads the brief each turn. An older, different brief cannot be reconstructed
     # safely from today's bundle, so leave that unmatched history untouched.
-    if session.script.constraints:
+    if bundle.constraints:
         old_brief = "\n\n" + section(
             "constraints",
-            session.script.constraints,
+            bundle.constraints,
             script_memory,
         )
         if not suffix.startswith(old_brief):
             old_brief = "\n\n" + section(
                 "constraints",
-                session.script.constraints,
+                bundle.constraints,
                 script_memory,
                 unavailable=False,
             )
         if suffix.startswith(old_brief):
             suffix = (
                 "\n\n"
-                + section(
-                    "constraints", session.script.constraints, updated_script_memory
-                )
+                + section("constraints", bundle.constraints, updated_script_memory)
                 + suffix[len(old_brief) :]
             )
     memory = json.dumps(updated, ensure_ascii=False, indent=2) if updated else "{}"
@@ -127,6 +128,6 @@ def _refresh_prompt(
         prefix
         + memory
         + boundary
-        + section("script", session.script.script, updated_script_memory)
+        + section("script", bundle.script, updated_script_memory)
         + suffix
     )

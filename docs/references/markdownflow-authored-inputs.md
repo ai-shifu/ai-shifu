@@ -2,11 +2,24 @@
 title: MarkdownFlow Authored Input Hints
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-14
 canonical: true
 ---
 
 # MarkdownFlow Authored Input Hints
+
+HTML comments (`<!-- ... -->`) are teacher notes. Teaching requests exclude
+them from lesson scripts, teaching constraints, and extra reference documents
+before learner-variable substitution. Inline, multiline, repeated, and unclosed
+comments are excluded; an unclosed comment ends at its document boundary.
+Visible text and line boundaries remain intact, and literal comments in Markdown
+code examples remain available to teach. Stored author documents are unchanged.
+
+Commented interactions and variable markers do not declare runtime controls,
+memory keys, or syntax requirements. Resumed 2.0 feedback references use the same
+filtered script. Recognized older first prompts are projected from their exact
+initial values before being resent; arbitrary learner messages and memory values
+are never globally stripped or regenerated from current values.
 
 In `?[%{{path}} First | Second | ...Describe your project]`, the trailing
 `...Describe your project` declares a text-input placeholder. It is not an

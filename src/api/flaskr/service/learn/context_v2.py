@@ -39,6 +39,7 @@ from flaskr.dao import cleanup_session_after, db, invalidate_session
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common import raise_error
+from flaskr.service.learn.agent.engine.script_comments import strip_comments
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.const import (
     INPUT_TYPE_ASK,
@@ -448,11 +449,17 @@ class MdflowContextV2:
         or fallback language.
         """
         self._mdflow = MarkdownFlow(
-            document=document,
+            document=strip_comments(document),
             llm_provider=llm_provider,
-            document_prompt=document_prompt,
-            interaction_prompt=interaction_prompt,
-            interaction_error_prompt=interaction_error_prompt,
+            document_prompt=strip_comments(document_prompt)
+            if document_prompt is not None
+            else None,
+            interaction_prompt=strip_comments(interaction_prompt)
+            if interaction_prompt is not None
+            else None,
+            interaction_error_prompt=strip_comments(interaction_error_prompt)
+            if interaction_error_prompt is not None
+            else None,
         )
         # markdown_flow>=0.2.44 removed set_visual_mode; keep backward compatibility.
         set_visual_mode = getattr(self._mdflow, "set_visual_mode", None)
