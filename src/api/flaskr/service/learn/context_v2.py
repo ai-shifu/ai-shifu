@@ -39,7 +39,6 @@ from flaskr.dao import cleanup_session_after, db, invalidate_session
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common import raise_error
-from flaskr.service.learn.agent.engine.script_comments import strip_comments
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.const import (
     INPUT_TYPE_ASK,
@@ -65,12 +64,6 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
     render_course_prompt_identity_variables,
-)
-from flaskr.service.learn.legacy_block_positions import project_legacy_block_positions
-from flaskr.service.learn.legacy_prompt_history import (
-    project_legacy_generation_prompt,
-    render_legacy_block_source,
-    restore_legacy_block_source,
 )
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -135,6 +128,7 @@ from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.user.exceptions import UserNotLoginError
 from flaskr.service.user.repository import UserAggregate, load_user_aggregate
 from flaskr.util import generate_id
+from flaskr.util.prompt_loader import strip_html_comments
 from markdown_flow import (
     USER_ANSWER_CONTEXT_KEY,
     BlockType,
@@ -360,7 +354,10 @@ class RUNLLMProvider(LLMProvider):
             self.app,
             self.trace_args.get("user_id", ""),
             self.parent_observation,
-            messages=messages,
+            messages=[
+                {**message, "content": strip_html_comments(message["content"])}
+                for message in messages
+            ],
             model=actual_model,
             stream=False,
             generation_name=generation_name,
@@ -414,7 +411,10 @@ class RUNLLMProvider(LLMProvider):
             self.trace_args["user_id"],
             self.parent_observation,
             model=actual_model,
-            messages=messages,
+            messages=[
+                {**message, "content": strip_html_comments(message["content"])}
+                for message in messages
+            ],
             stream=True,
             generation_name=generation_name,
             temperature=actual_temperature,
@@ -454,22 +454,12 @@ class MdflowContextV2:
         When learner-language output is enabled, resolves and applies the requested
         or fallback language.
         """
-        filtered_document = strip_comments(document)
-        self._original_document = document
-        self._positioned_blocks: list[Block] | None = None
-        self._positions_ready = filtered_document == document
         self._mdflow = MarkdownFlow(
-            document=filtered_document,
+            document=document,
             llm_provider=llm_provider,
-            document_prompt=strip_comments(document_prompt)
-            if document_prompt is not None
-            else None,
-            interaction_prompt=strip_comments(interaction_prompt)
-            if interaction_prompt is not None
-            else None,
-            interaction_error_prompt=strip_comments(interaction_error_prompt)
-            if interaction_error_prompt is not None
-            else None,
+            document_prompt=document_prompt,
+            interaction_prompt=interaction_prompt,
+            interaction_error_prompt=interaction_error_prompt,
         )
         # markdown_flow>=0.2.44 removed set_visual_mode; keep backward compatibility.
         set_visual_mode = getattr(self._mdflow, "set_visual_mode", None)
@@ -488,33 +478,11 @@ class MdflowContextV2:
 
     def get_block(self, block_index: int) -> Block:
         """Return a MarkdownFlow block by its index."""
-        blocks = self.get_all_blocks()
-        self._mdflow.get_block(block_index)
-        return blocks[block_index]
+        return self._mdflow.get_block(block_index)
 
     def get_all_blocks(self) -> list[Block]:
-        """Return native positions, including empty slots left by removed notes."""
-        if not self._positions_ready:
-            original = MarkdownFlow(self._original_document, llm_provider=None)
-            public, execution, code = project_legacy_block_positions(original)
-            self._positioned_blocks = public
-            self._mdflow._blocks = execution
-            self._mdflow._preprocessor.code_blocks.update(code)
-            next_context = self._mdflow._build_next_interaction_context_prompt
-
-            def visible_next_context(index: int, variables: dict | None) -> str:
-                following = index + 1
-                while following < len(public) and not public[following].content.strip():
-                    following += 1
-                return next_context(following - 1, variables)
-
-            self._mdflow._build_next_interaction_context_prompt = visible_next_context
-            self._positions_ready = True
-        return (
-            self._positioned_blocks
-            if self._positioned_blocks is not None
-            else self._mdflow.get_all_blocks()
-        )
+        """Return all MarkdownFlow blocks in encounter order."""
+        return self._mdflow.get_all_blocks()
 
     def process(
         self,
@@ -526,8 +494,6 @@ class MdflowContextV2:
         user_input: dict[str, list[str]] | None = None,
     ) -> LLMResult | Generator[LLMResult, None, None]:
         """Process the current MarkdownFlow content."""
-        if not self.get_block(block_index).content.strip():
-            return LLMResult(content="")
         return self._mdflow.process(
             block_index=block_index,
             mode=mode,
@@ -626,59 +592,33 @@ class MdflowContextV2:
         message_list: list[dict[str, str]] = []
         mdflow_context = MdflowContextV2(document=document)
         block_list = mdflow_context.get_all_blocks()
-        original_blocks = MarkdownFlow(document, llm_provider=None).get_all_blocks()
 
         from flask import current_app
 
         current_app.logger.info("build_context_from_blocks variables: %s", variables)
 
         for generated_block in blocks:
-            if generated_block.position < 0:
+            if generated_block.position < 0 or generated_block.position >= len(
+                block_list
+            ):
                 continue
-            stored_prompt = getattr(generated_block, "generation_prompt", "") or ""
-            source = getattr(generated_block, "block_content_conf", "") or ""
-            valid_position = 0 <= generated_block.position < len(block_list)
-            block = block_list[generated_block.position] if valid_position else None
-            original_block = (
-                original_blocks[generated_block.position]
-                if 0 <= generated_block.position < len(original_blocks)
-                else None
-            )
-            same_source_position = (
-                block is not None
-                and original_block is not None
-                and block.block_type == original_block.block_type
-                and block.content == original_block.content
-            )
+            block = block_list[generated_block.position]
             if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
                 # Prefer the persisted exact user message sent to the LLM at
-                # generation time. Only a proven legacy host-source rendering
-                # is projected to exclude authored comments; learner values and
-                # unknown saved prompts retain their original bytes. The saved
-                # source also survives comment filtering that changes indexes.
-                if stored_prompt:
-                    prompt = project_legacy_generation_prompt(
-                        stored_prompt,
-                        source,
-                        document=document,
-                        block_index=generated_block.position,
-                    )
-                elif source:
-                    source = restore_legacy_block_source(
-                        source,
-                        document=document,
-                        block_index=generated_block.position,
-                    )
-                    prompt = render_legacy_block_source(source, variables)
-                elif same_source_position and block.block_type != BlockType.INTERACTION:
-                    prompt = replace_variables_in_text(block.content or "", variables)
-                else:
-                    # The source is missing and filtering moved or removed the
-                    # indexed block. Preserve the actual teacher response without
-                    # inventing a user instruction from another current block.
-                    prompt = ""
-                if prompt and prompt.strip():
-                    message_list.append({"role": "user", "content": prompt})
+                # generation time: replaying it verbatim keeps the rebuilt
+                # history byte-identical to previously sent requests so
+                # provider-side prefix caching keeps matching. Legacy rows
+                # without it fall back to re-rendering the block source with
+                # the current variables (one-time cache break, then stable).
+                stored_prompt = getattr(generated_block, "generation_prompt", "") or ""
+                message_list.append(
+                    {
+                        "role": "user",
+                        "content": stored_prompt
+                        or replace_variables_in_text(block.content or "", variables)
+                        or "",
+                    }
+                )
                 message_list.append(
                     {
                         "role": "assistant",
@@ -686,22 +626,6 @@ class MdflowContextV2:
                     }
                 )
             elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-                if (
-                    not same_source_position
-                    or block.block_type != BlockType.INTERACTION
-                ):
-                    # A shifted/deleted interaction must not bind its answer to
-                    # another current variable. Replay only the persisted learner
-                    # answer using markdown-flow's existing expanded turn shape.
-                    answer = generated_block.generated_content or ""
-                    if answer.strip():
-                        message_list.extend(
-                            [
-                                {"role": "user", "content": answer},
-                                {"role": "assistant", "content": "ok"},
-                            ]
-                        )
-                    continue
                 interaction = InteractionParser().parse(block.content or "")
                 if interaction.get("variable"):
                     # Variable interaction (e.g. ?[%{{var}} A | B]): hand the
@@ -2266,28 +2190,6 @@ class RunScriptContextV2:
             app, run_script_info, llm_settings, system_prompt
         )
 
-        position = run_script_info.block_position
-        while (
-            position < len(state.block_list)
-            and not state.block_list[position].content.strip()
-        ):
-            position += 1
-        if position != run_script_info.block_position:
-            self._recorder.update_progress_pointer(
-                self._current_attend,
-                status=LEARN_STATUS_IN_PROGRESS,
-                block_position=position,
-            )
-            run_script_info.block_position = position
-            # An answer to a removed author-note interaction belongs to that
-            # old row; it must never become input to the next real question.
-            self._run_type = RunType.OUTPUT
-            self._input = None
-            if position == len(state.block_list):
-                self._can_continue = False
-                yield from self._phase_completion_tail()
-                return
-
         if run_script_info.block_position >= len(state.block_list):
             outline_updates = self._get_next_outline_item()
             if len(outline_updates) > 0:
@@ -2766,12 +2668,8 @@ class RunScriptContextV2:
                         yield from self._maybe_emit_feedback_after_access_gate(
                             parsed_interaction=parsed_interaction,
                             progress_record=run_script_info.attend,
-                            is_tail_gate=not any(
-                                item.content.strip()
-                                for item in block_list[
-                                    run_script_info.block_position + 1 :
-                                ]
-                            ),
+                            is_tail_gate=run_script_info.block_position
+                            >= len(block_list) - 1,
                         )
                         self._can_continue = False
                         return True
@@ -2826,12 +2724,8 @@ class RunScriptContextV2:
                         yield from self._maybe_emit_feedback_after_access_gate(
                             parsed_interaction=parsed_interaction,
                             progress_record=run_script_info.attend,
-                            is_tail_gate=not any(
-                                item.content.strip()
-                                for item in block_list[
-                                    run_script_info.block_position + 1 :
-                                ]
-                            ),
+                            is_tail_gate=run_script_info.block_position
+                            >= len(block_list) - 1,
                         )
                         self._can_continue = False
                         return True
@@ -3403,10 +3297,7 @@ class RunScriptContextV2:
         yield from self._maybe_emit_feedback_after_access_gate(
             parsed_interaction=parsed_interaction,
             progress_record=run_script_info.attend,
-            is_tail_gate=not any(
-                item.content.strip()
-                for item in block_list[run_script_info.block_position + 1 :]
-            ),
+            is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
         )
         self._can_continue = False
         self._recorder.update_progress_pointer(

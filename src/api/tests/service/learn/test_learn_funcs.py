@@ -156,7 +156,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         assert interaction_record.like_status == LikeStatus.NONE
 
     def test_mdflow_context_loads_generated_and_user_inputs(self) -> None:
-        """Replay saved source, teacher output, and actual learner answers."""
+        """Verify mdflow run uses generated content for context and real user input values."""
         progress = LearnProgressRecord(
             progress_record_bid="progress-ctx",
             shifu_bid="shifu-ctx",
@@ -303,16 +303,16 @@ class LearnRecordLoadTests(unittest.TestCase):
             list(ctx.run_inner(self.app))
 
         assert FakeMarkdownFlow.last_context == [
-            {"role": "user", "content": teacher_block.block_content_conf},
+            {"role": "user", "content": "md content"},
             {"role": "assistant", "content": teacher_block.generated_content},
-            {"role": "user", "content": student_block.generated_content},
-            {"role": "assistant", "content": "ok"},
         ]
-        assert teacher_block.block_content_conf == "teacher mdflow template"
-        assert all(
-            message["content"] != "md content"
-            and student_block.block_content_conf not in message["content"]
-            for message in FakeMarkdownFlow.last_context
+        assert (
+            teacher_block.block_content_conf
+            not in FakeMarkdownFlow.last_context[0]["content"]
+        )
+        assert (
+            student_block.block_content_conf
+            not in FakeMarkdownFlow.last_context[1]["content"]
         )
 
     def test_run_progresses_across_content_blocks_until_interaction(self) -> None:

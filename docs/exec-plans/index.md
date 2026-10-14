@@ -109,7 +109,6 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Lobster Course Entry Analytics](./completed/lobster-course-entry-analytics.md)
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)
-- [Filter MarkdownFlow author comments before model requests](./completed/markdownflow-authored-comments.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./completed/markdownflow-model-arena.md)
 - [MarkdownFlow 2.0: a lesson carries on until it waits or ends](./completed/mdf2-agent-lesson-carries-on.md)
 - [Keep grading within authored answer criteria](./completed/mdf2-authored-grading-criteria.md)

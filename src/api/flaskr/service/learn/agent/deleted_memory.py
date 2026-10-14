@@ -12,8 +12,6 @@ from flaskr.service.learn.agent.engine.script import (
     substitute_variables,
     substitution_names,
 )
-from flaskr.service.learn.agent.engine.script_comments import strip_comments
-from flaskr.service.learn.agent.engine.script_history import project_script_history
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
@@ -24,7 +22,7 @@ def _section(
     tag: str, text: str, values: dict, collected: set[str], *, unavailable: bool = True
 ) -> str:
     """Render a known host section in the requested compatibility format."""
-    return f"<{tag}>\n{substitute_variables(strip_comments(text), values, collected=collected, unavailable=unavailable)}\n</{tag}>"
+    return f"<{tag}>\n{substitute_variables(text, values, collected=collected, unavailable=unavailable)}\n</{tag}>"
 
 
 def refresh_deleted_memory(
@@ -37,10 +35,6 @@ def refresh_deleted_memory(
     """Refresh removed/recreated keys and an optional current initial teaching brief."""
     if not deleted:
         return
-    session.messages = project_script_history(
-        session.messages, session.script, session.initial_variables
-    )
-    bundle = session.script.without_comments()
     saved = session.all_memory()
     fresh = {key: value for key, value in (current or {}).items() if key in deleted}
     for key in deleted:
@@ -62,47 +56,51 @@ def refresh_deleted_memory(
             original = {**saved, **(session.initial_variables or {}), **parsed.memory}
             updated = {k: v for k, v in original.items() if k not in deleted}
             updated.update(fresh)
-            collected = collected_names(bundle.script)
+            collected = collected_names(session.script.script)
 
             suffix = part.content[parsed.script_start :]
-            old = _section("script", bundle.script, original, collected)
+            old = _section("script", session.script.script, original, collected)
             if not suffix.startswith(old):
                 old = _section(
                     "script",
-                    bundle.script,
+                    session.script.script,
                     original,
                     collected,
                     unavailable=False,
                 )
             if suffix.startswith(old):
                 suffix = (
-                    _section("script", bundle.script, updated, collected)
+                    _section("script", session.script.script, updated, collected)
                     + suffix[len(old) :]
                 )
-                if bundle.constraints or constraints is not None:
+                if session.script.constraints or constraints is not None:
                     old_brief = (
                         "\n\n"
                         + _section(
                             "constraints",
-                            bundle.constraints,
+                            session.script.constraints,
                             original,
                             collected,
                         )
-                        if bundle.constraints
+                        if session.script.constraints
                         else ""
                     )
-                    start = len(_section("script", bundle.script, updated, collected))
+                    start = len(
+                        _section("script", session.script.script, updated, collected)
+                    )
                     if old_brief and not suffix.startswith(old_brief, start):
                         old_brief = "\n\n" + _section(
                             "constraints",
-                            bundle.constraints,
+                            session.script.constraints,
                             original,
                             collected,
                             unavailable=False,
                         )
                     if suffix.startswith(old_brief, start):
                         brief = (
-                            bundle.constraints if constraints is None else constraints
+                            session.script.constraints
+                            if constraints is None
+                            else constraints
                         )
                         new_brief = (
                             "\n\n" + _section("constraints", brief, updated, collected)

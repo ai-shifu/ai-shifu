@@ -8,6 +8,7 @@ is handed, and the parts pydantic-ai gets back out of a stream.
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -92,6 +93,84 @@ async def _drain(chunks: list[FakeChunk]) -> ModelResponse:
 
 
 # -- message mapping ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("Before <!-- private --> after", "Before  after"),
+        ("Before <!-- private\nmore --> after", "Before  after"),
+        ("A<!-- first --><!-- second -->B", "AB"),
+        ("Before <!-- unfinished", "Before "),
+        ("A<!-->B", "AB"),
+        ("A<!--->B", "AB"),
+        ("```html\n<!-- example -->\n```", "```html\n\n```"),
+    ],
+)
+def test_message_mapping_removes_html_comments(source: str, expected: str) -> None:
+    messages = [ModelRequest(parts=[UserPromptPart(content=source)])]
+    assert gw.map_messages(messages) == [{"role": "user", "content": expected}]
+    assert messages[0].parts[0].content == source
+
+
+def test_gateway_filters_request_text_without_changing_history_or_tool_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_chat_llm(**kwargs: object) -> Iterator[FakeChunk]:
+        captured.update(kwargs)
+        yield FakeChunk(result="ok", finish_reason="stop")
+
+    call = ToolCallPart(
+        tool_name="interact",
+        args={"type": "confirm", "prompt": "Ready?"},
+        tool_call_id="q1",
+    )
+    messages = [
+        ModelRequest(
+            parts=[
+                SystemPromptPart(content="Base <!-- private system --> rules"),
+                UserPromptPart(
+                    content="Teach\n```html\n<!-- example -->\n```\nvisible"
+                ),
+            ],
+            instructions="Policy <!-- private instructions --> active",
+        ),
+        ModelResponse(
+            parts=[TextPart(content="Previous <!-- private assistant --> text"), call]
+        ),
+        ModelRequest(
+            parts=[
+                ToolReturnPart(
+                    tool_name="interact",
+                    content="Learner <!-- private tool --> response",
+                    tool_call_id="q1",
+                )
+            ]
+        ),
+    ]
+    original = deepcopy(messages)
+    monkeypatch.setattr(gw, "chat_llm", fake_chat_llm)
+    model = gw.GatewayModel(app=None, model="test-model", user_id="u1", span=FakeSpan())
+    list(model._stream(messages, _params()))
+
+    payload = captured["messages"]
+    assert [message["content"] for message in payload] == [
+        "Policy  active\n\nBase  rules",
+        "Teach\n```html\n\n```\nvisible",
+        "Previous  text",
+        "Learner  response",
+    ]
+    assert payload[2]["tool_calls"] == [
+        {
+            "id": "q1",
+            "type": "function",
+            "function": {"name": "interact", "arguments": call.args_as_json_str()},
+        }
+    ]
+    assert payload[3]["tool_call_id"] == "q1"
+    assert messages == original
 
 
 def test_system_parts_are_merged_into_one_leading_message() -> None:

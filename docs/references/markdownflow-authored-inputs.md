@@ -2,62 +2,11 @@
 title: MarkdownFlow Authored Input Hints
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-07
 canonical: true
 ---
 
 # MarkdownFlow Authored Input Hints
-
-HTML comments (`<!-- ... -->`) are teacher notes. Teaching requests exclude
-them from lesson scripts, teaching constraints, and extra reference documents
-before learner-variable substitution. Inline, multiline, repeated, and unclosed
-comments are excluded; an unclosed comment ends at its document boundary.
-Visible text and line boundaries remain intact, and literal comments in Markdown
-code examples remain available to teach. Stored author documents are unchanged.
-Indentation that continues a paragraph or list item does not turn an author note
-into a code example; those comments are still excluded.
-CommonMark block parsing identifies real code ranges inside lists and blockquotes.
-Markers and variable reads in those examples remain literal and do not declare
-runtime controls, memory keys, or substitution dependencies.
-
-Commented interactions and variable markers do not declare runtime controls,
-memory keys, or syntax requirements. Resumed 2.0 feedback references use the same
-filtered script. Recognized older first prompts are projected from their exact
-initial values before being resent; arbitrary learner messages and memory values
-are never globally stripped or regenerated from current values.
-
-Legacy content-block history also projects recognized generation prompts from
-their persisted source block and exact original quoted substitutions. Saved rows,
-learner literals, and assistant history remain unchanged. Missing or ambiguous
-provenance and historical next-interaction notes without their source snapshot
-retain their original bytes rather than guessing at learner evidence.
-
-Older rows without a saved generation prompt prefer their persisted authored
-block snapshot, filtered before the existing variable-substitution fallback.
-If filtering removes or shifts their current block and no source is available,
-their saved assistant output remains in history without an invented user prompt.
-Removed or shifted interactions retain their actual saved learner answer and
-the native acknowledgement rather than binding it to another current question.
-
-Legacy teaching and preview keep the native parser's original block positions
-and types. A source-position projection applies global comment ranges to those
-slots without matching duplicate text or changing persisted progress indexes.
-Removed slots are empty and skipped before provider calls or interaction-row
-lookup; an answer to a removed question is never transferred to the next one.
-Next-question hints and terminal gates skip the same empty slots. Code-example
-variables remain literal and do not become runtime declarations.
-
-Inline-code delimiters are indexed once per authored document. Unmatched delimiter
-lengths cannot trigger repeated scans of the remaining input before a model call.
-Delimiter pairs stay within one parsed inline block; headings, separate list
-items, quotes, and raw HTML blocks cannot join unrelated backticks to hide notes.
-Real code spans can still continue across a paragraph's soft line breaks.
-HTML attributes use a bounded state scanner; the block parser also bypasses its
-dependency's backtracking generic-tag rule when recognizing raw HTML blocks.
-Tag recognition stays within the containing inline or raw HTML block. An
-unfinished attribute interrupted by another block cannot protect later notes;
-valid multiline attributes in the same block keep their original bytes.
-All source projections use the same original-offset comment ranges.
 
 In `?[%{{path}} First | Second | ...Describe your project]`, the trailing
 `...Describe your project` declares a text-input placeholder. It is not an

@@ -9,9 +9,6 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
-from .script_code_blocks import build_code_block_index
-from .script_comments import strip_comments
-
 # Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
 V1_SYNTAX_RE = re.compile(
     r"(^---[ \t]*$)"  # block separator
@@ -66,16 +63,6 @@ class ScriptBundle:
         parts = [self.script, self.constraints or "", *self.extras.values()]
         return "\n".join(parts)
 
-    def without_comments(self) -> ScriptBundle:
-        """Project authored documents for execution without modifying their saved source."""
-        return ScriptBundle(
-            script=strip_comments(self.script),
-            constraints=strip_comments(self.constraints)
-            if self.constraints is not None
-            else None,
-            extras={name: strip_comments(body) for name, body in self.extras.items()},
-        )
-
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-ready form of the bundle."""
         return {
@@ -96,22 +83,10 @@ class ScriptBundle:
 
 def detect_v1_syntax(text: str) -> bool:
     """Report whether the text uses any MarkdownFlow 1.0 notation outside fenced code blocks."""
-    return bool(V1_SYNTAX_RE.search(_strip_code_blocks(strip_comments(text))))
-
-
-def _strip_code_blocks(text: str) -> str:
-    """Exclude real code examples, including Markdown list and quote containers."""
-    parts: list[str] = []
-    cursor = 0
-    for start, end in sorted(build_code_block_index(text).items()):
-        parts.extend((text[cursor:start], "\n"))
-        cursor = end
-    parts.append(text[cursor:])
-    return "\n".join("".join(parts).splitlines())
+    return bool(V1_SYNTAX_RE.search(_strip_fences(text)))
 
 
 def _strip_fences(text: str) -> str:
-    """Reproduce the historical fence mask when matching saved first prompts."""
     out: list[str] = []
     in_fence: str | None = None
     for line in text.splitlines():
@@ -135,16 +110,15 @@ def collected_names(text: str) -> frozenset[str]:
     would drop a real memory value that nothing in the lesson is going to ask for again --
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
-    return frozenset(_COLLECTED_RE.findall(_strip_code_blocks(strip_comments(text))))
+    return frozenset(_COLLECTED_RE.findall(_strip_fences(text)))
 
 
 def substitution_names(bundle: ScriptBundle) -> frozenset[str]:
     """Name values rendered into host script/constraints, excluding collected answers."""
-    bundle = bundle.without_comments()
     return frozenset(
         name
         for text in (bundle.script, bundle.constraints or "")
-        for name in _VAR_RE.findall(_strip_code_blocks(text))
+        for name in _VAR_RE.findall(_strip_fences(text))
     ) - collected_names(bundle.script)
 
 
@@ -179,7 +153,6 @@ def substitute_variables(
     *,
     collected: frozenset[str] = frozenset(),
     unavailable: bool = False,
-    preserve_code_blocks: bool = True,
 ) -> str:
     """Replace `{{name}}` with `values[name]` outside fenced code blocks.
 
@@ -217,16 +190,7 @@ def substitute_variables(
     out: list[str] = []
     in_fence: str | None = None
     in_verbatim = False
-    code_blocks = build_code_block_index(text) if preserve_code_blocks else {}
-    code_end = 0
-    offset = 0
     for line in text.splitlines(keepends=True):
-        code_end = code_blocks.get(offset, code_end)
-        in_code = offset < code_end
-        offset += len(line)
-        if in_code:
-            out.append(line)
-            continue
         m = _FENCE_RE.match(line)
         if m:
             if in_fence is None:
@@ -268,7 +232,6 @@ def render_memory_section(
     Referenced and host-priority keys come first; other keys retain input order. A value that
     does not fit is omitted, never shortened. Script substitution remains a separate exact path.
     """
-    bundle = bundle.without_comments()
     collected = collected_names(bundle.script)
     remembered = {k: v for k, v in memory.items() if k not in collected}
     selected = remembered
@@ -279,7 +242,7 @@ def render_memory_section(
         references = frozenset(
             name
             for text in (bundle.script, bundle.constraints or "")
-            for name in _VAR_RE.findall(_strip_code_blocks(text))
+            for name in _VAR_RE.findall(_strip_fences(text))
         )
         preferred = references | priority
         selected = {}
@@ -310,7 +273,6 @@ def render_first_prompt(
     Learner memory first, then the script with its variables substituted, then optional
     constraints and extras.
     """
-    bundle = bundle.without_comments()
     collected = collected_names(bundle.script)
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a

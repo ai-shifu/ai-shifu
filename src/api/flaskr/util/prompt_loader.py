@@ -3,6 +3,20 @@
 from pathlib import Path
 
 
+def strip_html_comments(text: str) -> str:
+    """Remove HTML comments, including an unfinished final comment, from model input."""
+    parts = []
+    position = 0
+    while (start := text.find("<!--", position)) != -1:
+        parts.append(text[position:start])
+        end = text.find("-->", start + 2)
+        if end == -1:
+            return "".join(parts)
+        position = end + 3
+    parts.append(text[position:])
+    return "".join(parts)
+
+
 def load_prompt_template(template_name: str) -> str:
     """Load the specified prompt template file.
 
