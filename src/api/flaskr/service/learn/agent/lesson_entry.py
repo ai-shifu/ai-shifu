@@ -379,6 +379,7 @@ def agent_lesson_events(
         teaching_history_compaction=True,
         exercise_statistics=True,
         feedback_contract=True,
+        computed_examples=True,
         teaching_summarizer=make_teaching_summarizer(
             gateway(
                 generation_name="agent_teaching_summary",

@@ -38,7 +38,9 @@ jest.mock('@/store/useCourseStore', () => ({
 
 jest.mock('./ResetChapterButton', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({ lessonId }: { lessonId: string }) => (
+    <button aria-label={`Reset ${lessonId}`} />
+  ),
 }));
 
 describe('CourseSection navigation acceptance', () => {
@@ -204,5 +206,65 @@ describe('CourseSection navigation acceptance', () => {
     });
     expect(onTrySelect).not.toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it.each([LESSON_STATUS_VALUE.PREPARE_LEARNING, LESSON_STATUS_VALUE.LOCKED])(
+    'does not offer reset for a %s lesson',
+    status => {
+      render(
+        <CourseSection
+          id='lesson-1'
+          name='Lesson title'
+          chapterId='chapter-1'
+          type={LEARNING_PERMISSION.GUEST}
+          status_value={status}
+        />,
+      );
+
+      expect(
+        screen.queryByRole('button', { name: 'Reset lesson-1' }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it('offers reset as soon as a lesson starts and keeps it after completion', () => {
+    const lessonProps = {
+      id: 'lesson-1',
+      name: 'Lesson title',
+      chapterId: 'chapter-1',
+      type: LEARNING_PERMISSION.GUEST,
+    };
+    const { rerender } = render(
+      <CourseSection
+        {...lessonProps}
+        status_value={LESSON_STATUS_VALUE.PREPARE_LEARNING}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Reset lesson-1' }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <CourseSection
+        {...lessonProps}
+        status_value={LESSON_STATUS_VALUE.LEARNING}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Reset lesson-1' }),
+    ).toBeInTheDocument();
+
+    rerender(
+      <CourseSection
+        {...lessonProps}
+        status_value={LESSON_STATUS_VALUE.COMPLETED}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Reset lesson-1' }),
+    ).toBeInTheDocument();
   });
 });

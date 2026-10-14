@@ -8,6 +8,22 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-14: Prepare a new isolated sim worktree from actual origin/sim
+      1f0b0a48a, preserving its shared-formatter fixes and all failure receipts.
+      Merge candidate 2b800a5ca (including main 33f5ba47c), explicitly remove the
+      held #3122 prompt and its four tests, and require complete API/Web/i18n
+      equality with the independent candidate before deployment. No shared sim
+      push, new paid request or real-model acceptance is claimed by preparation.
+
+- [x] 2026-10-14: Rebase new work on actual main 33f5ba47c with #3134's shared
+      formatter, #3135's 3.0.0 version and #3136's first-progress notification.
+      Start the independent [computed-example plan](mdf2-computed-examples.md):
+      an optional existing interaction payload computes and renders a bounded
+      program's own numeric states without another model request. Controlled
+      delivery/storage checks are separate from prose/request/author compliance.
+      This candidate has no #3122 prompt strategy and is not deployed or accepted
+      by a real model; #3122 and fresh eleven-question acceptance remain held.
+
 - [x] 2026-10-14: Prepare sim with actual main ca75a292c and the unchanged
       #3122 runtime/test files from 961cb307e. Preserve independent merged
       phase/schema/lifetime/logging fixes. This restores the existing example

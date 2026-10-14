@@ -18,6 +18,12 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from .computed_example import (
+    ComputedExample,
+    ExampleError,
+    has_computed_example,
+    render_example,
+)
 from .direction import (
     DirectionFeedback,
     FeedbackReview,
@@ -56,6 +62,8 @@ class Deps:
     direction_inputs: dict[str, InteractionSpec] = field(default_factory=dict)
     direction_sections: dict[str, str] = field(default_factory=dict)
     direction_rendered: dict[str, str] = field(default_factory=dict)
+    computed_examples: bool = False
+    example_rendered: dict[str, str] = field(default_factory=dict)
     feedback_contract: bool = False
     feedback_review: FeedbackReview | None = None
     hidden_feedback_responses: set[int] = field(default_factory=set)
@@ -611,6 +619,17 @@ def validate_direction_call(
     if (
         response is not None
         and any(
+            isinstance(part, ToolCallPart) and has_computed_example(part)
+            for part in response.parts
+        )
+        and sum(isinstance(part, ToolCallPart) for part in response.parts) != 1
+    ):
+        ctx.deps.hide_feedback_response(response)
+        message = "computed_example must use the sole existing interact call; do not add a planning or memory call"
+        raise ModelRetry(message)
+    if (
+        response is not None
+        and any(
             isinstance(p, ToolCallPart) and has_direction(p) for p in response.parts
         )
         and sum(isinstance(p, ToolCallPart) for p in response.parts) != 1
@@ -735,6 +754,7 @@ async def interact(
     direction: DirectionFeedback | None = None,
     review: FeedbackReview | None = None,
     feedback: DirectionFeedback | FeedbackReview | None = None,
+    computed_example: ComputedExample | None = None,
 ) -> str:
     """Show an interaction to the learner and wait for the answer.
 
@@ -822,6 +842,26 @@ async def interact(
             review = feedback
     validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
+    example_text = None
+    if computed_example is not None:
+        if (
+            not ctx.deps.computed_examples
+            or not ctx.deps.direction_sections
+            or direction is not None
+            or (type == "confirm" and ctx.deps.no_pauses)
+        ):
+            if response is not None:
+                ctx.deps.hide_feedback_response(response)
+            message = "computed_example requires a supported returned text input and an available authored interaction; it cannot accompany a checking direction or an unavailable confirm"
+            raise ModelRetry(message)
+        try:
+            example_text = "\n\n" + render_example(computed_example)
+        except ExampleError as exc:
+            if response is not None:
+                ctx.deps.hide_feedback_response(response)
+            raise ModelRetry(
+                str(exc) + "; correct the complete interaction before display"
+            ) from exc
     if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
         message = "This variable is a read-only reference. Ask using a local variable instead."
         raise ModelRetry(message)
@@ -841,7 +881,7 @@ async def interact(
             "then ask."
         )
         raise ModelRetry(msg)
-    if type == "confirm" and text_in_turn(ctx) == 0:
+    if type == "confirm" and text_in_turn(ctx) == 0 and example_text is None:
         msg = (
             "You asked the learner to continue without presenting anything in this turn. "
             "Deliver the next part of the script as content first; pause with `confirm` only "
@@ -919,6 +959,8 @@ async def interact(
     ctx.deps.interaction_markup_pending = False
     if direction is not None:
         ctx.deps.direction_rendered[ctx.tool_call_id] = direction.render()
+    if example_text is not None:
+        ctx.deps.example_rendered[ctx.tool_call_id] = example_text
     raise CallDeferred(metadata=spec.model_dump(mode="json"))
 
 
@@ -980,6 +1022,32 @@ async def prepare_feedback_tool(
     """Expose the current reply's required branch without changing native validation."""
     schema = definition.parameters_json_schema
     properties = dict(schema["properties"])
+    if not ctx.deps.computed_examples or not ctx.deps.direction_sections:
+        properties.pop("computed_example", None)
+        if "$defs" in schema:
+            schema = {
+                **schema,
+                "$defs": {
+                    key: value
+                    for key, value in schema["$defs"].items()
+                    if key not in {"ComputedExample", "Instruction", "MemoryCell"}
+                },
+            }
+    elif "computed_example" in properties:
+        original_example = properties["computed_example"]
+        properties["computed_example"] = {
+            **{
+                key: value
+                for key, value in original_example.items()
+                if key not in ("anyOf", "default")
+            },
+            "type": "object",
+            "anyOf": [
+                value
+                for value in original_example["anyOf"]
+                if value.get("type") != "null"
+            ],
+        }
     if (
         not ctx.deps.feedback_contract
         or not ctx.deps.direction_sections
