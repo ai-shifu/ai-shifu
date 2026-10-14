@@ -77,9 +77,48 @@ HTML attachments, history and audio. No frontend, DTO, SSE, session schema or
 new parser is introduced. Code and tables keep their existing visual/speech
 classification; listening still synthesizes only existing speakable text.
 
-This creates no new Cook Web action or invocation path; existing lesson/input
-analytics remain unchanged. Generated programs and teaching text must not be
-added to analytics metadata.
+### Accepted-use analytics contract
+
+- Business question: does the optional capability produce canonical artifacts
+  in real learner streams, and in which learning mode?
+- Metric: weekly raw accepted artifact-stream emissions grouped by learning mode.
+  This is not a distinct-user count, an offered-to-used conversion rate, proof of
+  browser visibility, a factual score, or a billing record. Missing best-effort
+  events do not prove zero use; actual model schemas/calls stay in Langfuse.
+- Event: `learner_computed_example_streamed`, after the accepted canonical
+  artifact fragments have been yielded, before the existing input control.
+  Invalid/retried payloads, omitted fields and initial unsupported calls do not
+  emit. Loading stored history emits nothing. A deliberate new regeneration or
+  rewind counts again only if it actually streams a new accepted artifact.
+- Population: published learner requests, including guests, members and internal
+  testing. Teacher/editor preview is excluded. Deployment/site configuration
+  separates environments; this event has no test-user classifier and must not
+  be presented as production-only adoption without a site's traffic filter.
+- Count/deduplication: one event per accepted native tool-call identity within
+  one engine turn; no persisted cross-request deduplication. The identity is used
+  in memory only and never sent. Retry responses and rerendering cannot inflate it.
+- Producer: an optional zero-content engine observer, bound by the lesson host
+  to the shared bounded asynchronous server tracking path. It never changes the
+  formatter, frontend, SSE, DTO or stored teaching. Missing configuration, full
+  queue, worker/network failure or an observer exception cannot change delivery.
+- Complete feature payload: `{surface: "learner", learning_mode: "read" | "listen"
+  | "classroom"}`. Both fields are non-personal low-cardinality enums required to
+  distinguish product surface and mode. No identity, course/lesson/call ID,
+  prompt, program, state, value, answer, generated text, URL or error is sent.
+  The transport envelope has the configured website, fixed server hostname,
+  fixed `/backend/lesson/computed-example` route and the fixed event name. No
+  identify metadata, browser context or referrer is added.
+- Consumer: weekly aggregate capability-use counts by mode in Umami. New additive
+  family, no historical rename/backfill or checked-in dashboard to migrate.
+  Compare environment-scoped event counts only; do not join these anonymous
+  counts one-to-one to learners, traces, ledger rows or correctness outcomes.
+- Verification: native SDK timing/deduplication/rejection/omission/history and
+  callback-failure controls; host preview/mode wiring; exact delivered payload,
+  asynchronous queue/config/network failure and sensitive-field exclusions.
+  Local tests do not establish deployed Umami ingestion or browser exposure.
+
+The shared [analytics contract](frontend-product-analytics.md) remains normative.
+Generated programs and teaching text must never enter event metadata.
 
 ## What remains unverified
 
@@ -95,6 +134,29 @@ Controlled tests establish numerical semantics, native one-request delivery,
 rejected-response isolation and existing formatter/storage compatibility. They
 cannot release #3122's original fast-model factual failure or the fresh ordinary
 HTTP eleven-question natural-compaction/statistics/summary/billing gate.
+
+## Independent ordinary-classroom result (2026-10-14)
+
+Code head 1d8f5ee8e passed its eleven CI checks and actual Codex/CodeRabbit reviews.
+Deployed sim-8cf56ef matches that runtime; both Ready APIs match 73 source files
+and pass 531 isolated SDK/logging cases. Controlled guarantees remain as scoped.
+
+The first fresh balanced-model knowledge follow-up fails: it calls a program a
+two-iteration loop, but its explicitly labelled ADD body executes once before
+HALT. Arithmetic and termination are correct. All four actual follow-up inputs
+offer computed_example and its guidance; all calls omit that optional field.
+No real computed artifact is exercised, so this experiment does not establish
+coverage of freely written examples or full classroom factual correctness.
+
+Stop after two ordinary HTTP requests and five generations, all 46.09 credits
+settled with raw-output/token/attempt/block/owner/source binding. Three native
+retries remain separate from factual acceptance. Six history elements match
+streamed types and content exactly across two reads; rejected responses have no
+saved TextParts. Source and prior classrooms remain unchanged. A read-only
+browser probe reaches login and is not a visual pass. Keep #3137 and #3122 held;
+eleven questions, natural compression, actual summaries and final statistics
+remain incomplete. No paid replay, resampling, course rewrite or budget increase
+follows this failure.
 
 See the [execution plan](../exec-plans/active/mdf2-computed-examples.md) for current
 implementation, review, deployment and acceptance receipts.

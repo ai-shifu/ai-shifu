@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -409,6 +410,7 @@ class Engine:
         exercise_statistics: bool = False,
         feedback_contract: bool = False,
         computed_examples: bool = False,
+        computed_example_observer: Callable[[], None] | None = None,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -459,6 +461,9 @@ class Engine:
         returned text inputs, where feedback is already held until validation.
         Initial and unsupported turns retain their original streaming/schema.
         This computes a declared illustration, never a learner grade or prose truth.
+        `computed_example_observer` receives no content or identity and runs once
+        after a newly accepted artifact streams, before its control. Observer
+        failures are isolated; portable hosts have no observer by default.
 
         `teaching_history_compaction` offers exact paginated reads of older long
         teaching replaced by excerpts in requests. It preserves two recent turns,
@@ -517,6 +522,7 @@ class Engine:
                 "\n\n" + (PROMPTS_DIR / "recall_history_compaction.md").read_text()
             )
         self.computed_examples = computed_examples
+        self.computed_example_observer = computed_example_observer
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -1109,6 +1115,7 @@ class Engine:
         shown: list[str] = []
         after_pause = False
         history_saved = False
+        observed_examples: set[str] = set()
         was_interrupted = session.interrupted
         markup = InteractionMarkupFilter(deps.literal_interaction_markup)
         markup_noticed = False
@@ -1520,6 +1527,13 @@ class Engine:
                                 )
                             else:
                                 yield event
+                        for call_id in direction_pending & deps.example_rendered.keys():
+                            if call_id not in observed_examples:
+                                observed_examples.add(call_id)
+                                if self.computed_example_observer is not None:
+                                    # Observation cannot interrupt accepted teaching.
+                                    with suppress(Exception):
+                                        self.computed_example_observer()
                         if segmenter:
                             for e in self._segment(
                                 segmenter.finish(), seg_state, session, final=True
