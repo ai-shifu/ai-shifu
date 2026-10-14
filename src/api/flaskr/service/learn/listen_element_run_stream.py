@@ -484,9 +484,16 @@ class ListenElementRunStreamMixin:
                 if active_key is not None
                 else None
             )
-            slot_was_interrupted = stream_state is not None and active_key not in (
-                None,
-                state.last_stream_element_key,
+            # The formatter returns to an earlier HTML number for style/script/link
+            # attachments, even after narration. They must update the same sandbox.
+            # Other interrupted slots still start a new element in display order.
+            slot_was_interrupted = (
+                stream_state is not None
+                and active_key not in (None, state.last_stream_element_key)
+                and not (
+                    stream_state.element_type == ElementType.HTML
+                    and normalized_stream_type == ElementType.HTML.value
+                )
             )
             same_mdflow_stream = (
                 stream_state is not None

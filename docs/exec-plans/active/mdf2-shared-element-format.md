@@ -13,6 +13,8 @@ history replay.
 - [x] 2026-10-14 12:00 CST: Route every content path through the shared streaming formatter.
 - [x] 2026-10-14 12:04 CST: Verified formatter parity, element persistence, and learning regressions (3633 passed, 93 skipped).
 - [x] 2026-10-14 12:04 CST: Passed the toolchain doctor, repository harness, architecture checks, and all-file lefthook gate.
+- [x] 2026-10-14 12:26 CST: Fixed review findings for separated HTML attachments and question prompts after unfinished visuals; preserved ordinary prose history/audio grouping.
+- [x] 2026-10-14 12:26 CST: Verified the updated learning suite (3678 passed, 93 skipped), actual element/history regressions, and all-file lefthook gate.
 - [ ] 2026-10-14 12:04 CST: Review the ready pull request and verify a real lesson after deployment.
 
 ## Surprises & Discoveries
@@ -23,6 +25,11 @@ history replay.
 - The pager drops separator-shaped lines even inside HTML or code and adjusts
   element numbers after classification. This can conflict with the formatter's
   script/style attachment to the preceding HTML element.
+- The shared adapter treated returned HTML numbers as interrupted slots and
+  isolated style/script/link attachments from their original card.
+- Formatter flush does not reset unfinished visual syntax. Questions need a
+  fresh classifier after visuals, while consecutive prose must keep its element
+  grouping to preserve classroom history and answer anchors.
 
 ## Decision Log
 
@@ -32,13 +39,20 @@ history replay.
 - 2026-10-14: Keep TTS conditional on listening, independently of classification.
   Reuse the existing element adapter, persistence, and frontend without changing
   their public contracts or adding dependencies.
+- 2026-10-14: Reuse the original HTML slot for returned HTML numbers, retaining
+  interrupted-slot behavior for other types. Restart the question formatter
+  after visuals with a unique number offset; preserve ordinary prose grouping
+  and deduplicate questions only against formatted prose.
 
 ## Outcomes & Retrospective
 
 All new lesson output now uses the pinned 1.0 streaming formatter in every
 learning mode, including rich interaction prompts. The learning suite passed
-with 3633 tests and 93 skips; 11 real-adapter storage/history cases passed after
-adding the literal HTML separator regression. Repository gates passed. Existing
+with 3678 tests and 93 skips; 52 host/adapter storage/history cases cover visual
+content, separated attachments, and questions after unfinished visuals. One
+earlier run hit a Live readiness query-count assertion; its eight tests passed
+in isolation and the final full suite passed without Live code changes.
+Repository gates passed. Existing
 saved fallback-text records are not rewritten. PR review and live deployment
 acceptance remain external follow-up; offline tests do not establish a rollout.
 
@@ -71,8 +85,13 @@ runs, including arbitrary stream chunk boundaries and saved element readback.
 - HTML, SVG, images, code, tables, and other supported formats carry the same
   type and number as the 1.0 streaming formatter in every learning mode.
 - Script/style append pieces keep the formatter's original HTML association.
+- Separated style/script/link attachments update the original HTML element in
+  the stream and stored history; non-HTML interrupted slots retain their order.
 - Separator-shaped content remains intact, including inside HTML and code.
 - Interaction prompts are classified and arrive before their controls.
+- Questions after unfinished HTML/SVG/code have independent text and audio,
+  including when the visual already contains a copy of the question. Ordinary
+  prose grouping and classroom rewind anchors remain compatible.
 - Listening synthesizes only the existing speakable text; non-listening never
   creates a TTS processor.
 - Final saved elements retain visual types and renderability on readback.
