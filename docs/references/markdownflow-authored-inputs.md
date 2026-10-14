@@ -16,6 +16,9 @@ Visible text and line boundaries remain intact, and literal comments in Markdown
 code examples remain available to teach. Stored author documents are unchanged.
 Indentation that continues a paragraph or list item does not turn an author note
 into a code example; those comments are still excluded.
+CommonMark block parsing identifies real code ranges inside lists and blockquotes.
+Markers and variable reads in those examples remain literal and do not declare
+runtime controls, memory keys, or substitution dependencies.
 
 Commented interactions and variable markers do not declare runtime controls,
 memory keys, or syntax requirements. Resumed 2.0 feedback references use the same
@@ -31,6 +34,8 @@ retain their original bytes rather than guessing at learner evidence.
 
 Inline-code delimiters are indexed once per authored document. Unmatched delimiter
 lengths cannot trigger repeated scans of the remaining input before a model call.
+HTML attributes use a bounded state scanner; the block parser also bypasses its
+dependency's backtracking generic-tag rule when recognizing raw HTML blocks.
 
 In `?[%{{path}} First | Second | ...Describe your project]`, the trailing
 `...Describe your project` declares a text-input placeholder. It is not an

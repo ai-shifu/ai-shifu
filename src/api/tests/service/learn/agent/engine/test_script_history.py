@@ -211,3 +211,19 @@ def test_comment_syntax_in_fenced_examples_is_not_removed() -> None:
     messages = [ModelRequest(parts=[UserPromptPart(render_first_prompt(bundle, {}))])]
 
     assert project_script_history(messages, bundle, None) is messages
+
+
+def test_old_container_example_substitution_does_not_block_note_projection() -> None:
+    bundle = ScriptBundle(
+        script="> ~~~text\n> {{name}}\n> ~~~\nTeach.<!-- author note -->"
+    )
+    prompt = (
+        '<memory>\n{"name":"Original"}\n</memory>\n\n'
+        "<script>\n> ~~~text\n> Original\n> ~~~\nTeach.<!-- author note -->\n</script>"
+    )
+    messages = [ModelRequest(parts=[UserPromptPart(prompt)])]
+    projected = project_script_history(messages, bundle, {"name": "Original"})
+    assert "author note" not in _content(projected)
+    assert "> {{name}}" in _content(projected)
+    assert '"name":"Original"' in _content(projected)
+    assert _content(messages) == prompt

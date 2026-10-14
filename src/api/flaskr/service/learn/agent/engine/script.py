@@ -9,6 +9,7 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
+from .script_code_blocks import build_code_block_index
 from .script_comments import strip_comments
 
 # Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
@@ -95,10 +96,22 @@ class ScriptBundle:
 
 def detect_v1_syntax(text: str) -> bool:
     """Report whether the text uses any MarkdownFlow 1.0 notation outside fenced code blocks."""
-    return bool(V1_SYNTAX_RE.search(_strip_fences(strip_comments(text))))
+    return bool(V1_SYNTAX_RE.search(_strip_code_blocks(strip_comments(text))))
+
+
+def _strip_code_blocks(text: str) -> str:
+    """Exclude real code examples, including Markdown list and quote containers."""
+    parts: list[str] = []
+    cursor = 0
+    for start, end in sorted(build_code_block_index(text).items()):
+        parts.extend((text[cursor:start], "\n"))
+        cursor = end
+    parts.append(text[cursor:])
+    return "\n".join("".join(parts).splitlines())
 
 
 def _strip_fences(text: str) -> str:
+    """Reproduce the historical fence mask when matching saved first prompts."""
     out: list[str] = []
     in_fence: str | None = None
     for line in text.splitlines():
@@ -122,7 +135,7 @@ def collected_names(text: str) -> frozenset[str]:
     would drop a real memory value that nothing in the lesson is going to ask for again --
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
-    return frozenset(_COLLECTED_RE.findall(_strip_fences(strip_comments(text))))
+    return frozenset(_COLLECTED_RE.findall(_strip_code_blocks(strip_comments(text))))
 
 
 def substitution_names(bundle: ScriptBundle) -> frozenset[str]:
@@ -131,7 +144,7 @@ def substitution_names(bundle: ScriptBundle) -> frozenset[str]:
     return frozenset(
         name
         for text in (bundle.script, bundle.constraints or "")
-        for name in _VAR_RE.findall(_strip_fences(text))
+        for name in _VAR_RE.findall(_strip_code_blocks(text))
     ) - collected_names(bundle.script)
 
 
@@ -166,6 +179,7 @@ def substitute_variables(
     *,
     collected: frozenset[str] = frozenset(),
     unavailable: bool = False,
+    preserve_code_blocks: bool = True,
 ) -> str:
     """Replace `{{name}}` with `values[name]` outside fenced code blocks.
 
@@ -203,7 +217,16 @@ def substitute_variables(
     out: list[str] = []
     in_fence: str | None = None
     in_verbatim = False
+    code_blocks = build_code_block_index(text) if preserve_code_blocks else {}
+    code_end = 0
+    offset = 0
     for line in text.splitlines(keepends=True):
+        code_end = code_blocks.get(offset, code_end)
+        in_code = offset < code_end
+        offset += len(line)
+        if in_code:
+            out.append(line)
+            continue
         m = _FENCE_RE.match(line)
         if m:
             if in_fence is None:
@@ -256,7 +279,7 @@ def render_memory_section(
         references = frozenset(
             name
             for text in (bundle.script, bundle.constraints or "")
-            for name in _VAR_RE.findall(_strip_fences(text))
+            for name in _VAR_RE.findall(_strip_code_blocks(text))
         )
         preferred = references | priority
         selected = {}

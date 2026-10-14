@@ -19,6 +19,10 @@ Saved source remains available in the editor. See the durable behavior in
   fixes: list continuation notes, HTML attribute backticks, linear code-span
   indexing, and provenance-safe legacy generation-prompt replay. Verified 1,126
   engine tests and 151 affected host tests.
+- [x] 2026-10-14 12:25 CST: Replaced the HTML-tag regex flagged by CodeQL with
+  bounded scanning; added CommonMark container code ranges, literal-variable
+  handling, and older first-prompt compatibility. Verified 1,185 engine and
+  151 affected host tests.
 
 ## Surprises & Discoveries
 
@@ -55,8 +59,12 @@ governed by the currently pinned release; fenced literals are provider-tested.
 Review follow-up extends legacy replay to saved content-block source snapshots,
 retaining only exact reconstructed prompt projections. Historical next-interaction
 notes lack a source snapshot and remain unchanged. The new code-span index removes
-the introduced repeated-suffix scan: a 4,504,522-byte unmatched-delimiter input
-filtered in 0.032 seconds locally, with a deterministic one-scan regression gate.
+the introduced repeated-suffix scan, with a deterministic one-scan regression gate.
+The final container-aware filter processed a 4,504,522-byte unmatched-delimiter
+input in about 0.45 seconds locally. HTML tag recognition also uses bounded state
+scanning after CodeQL identified a backtracking expression. CommonMark block
+parsing comes from explicitly pinned markdown-it-py 4.0.0, with a safe raw-HTML
+rule that bypasses the dependency's vulnerable generic-tag expression.
 General preview body/field size limits predate this PR and were not changed.
 
 ## Context and Orientation
@@ -99,5 +107,6 @@ restores previous request composition.
 ## Interfaces and Dependencies
 
 Use the existing ScriptBundle, session initial-variable snapshot, model-history
-projection, and MarkdownFlow constructors. No frontend protocol or analytics
+projection, and MarkdownFlow constructors. The block-only CommonMark parser is
+provided by markdown-it-py 4.0.0. No frontend protocol or analytics
 contract changes are needed.

@@ -27,12 +27,17 @@ def _render_documents(
     collected: frozenset[str],
     *,
     unavailable: bool,
+    preserve_code_blocks: bool = True,
 ) -> str:
     """Reproduce the host document layout without touching the memory section."""
     parts = [
         "<script>\n"
         + substitute_variables(
-            bundle.script, values, collected=collected, unavailable=unavailable
+            bundle.script,
+            values,
+            collected=collected,
+            unavailable=unavailable,
+            preserve_code_blocks=preserve_code_blocks,
         )
         + "\n</script>"
     ]
@@ -44,6 +49,7 @@ def _render_documents(
                 values,
                 collected=collected,
                 unavailable=unavailable,
+                preserve_code_blocks=preserve_code_blocks,
             )
             + "\n</constraints>"
         )
@@ -88,11 +94,26 @@ def project_script_history(
             values = {**parsed.memory, **(initial_variables or {})}
             for collected in collectors:
                 for unavailable in (True, False):
-                    original = _render_documents(
-                        bundle, values, collected, unavailable=unavailable
+                    originals = (
+                        _render_documents(
+                            bundle,
+                            values,
+                            collected,
+                            unavailable=unavailable,
+                            preserve_code_blocks=preserve,
+                        )
+                        for preserve in (True, False)
                     )
                     start = parsed.script_start
-                    if not part.content.startswith(original, start):
+                    original = next(
+                        (
+                            candidate
+                            for candidate in originals
+                            if part.content.startswith(candidate, start)
+                        ),
+                        None,
+                    )
+                    if original is None:
                         continue
                     suffix = part.content[start + len(original) :]
                     if suffix and not suffix.startswith("\n\n"):
