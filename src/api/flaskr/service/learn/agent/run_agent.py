@@ -86,9 +86,13 @@ from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnStatus,
+    OutlineItemUpdateDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.learn_funcs import resolve_outline_progression
+from flaskr.service.learn.learn_funcs import (
+    get_current_lesson_outline,
+    resolve_outline_progression,
+)
 from flaskr.service.learn.memory import (
     MemoryUpdate,
     VariableMemoryUpdate,
@@ -96,12 +100,18 @@ from flaskr.service.learn.memory import (
     stage_memory,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.order.consts import (
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_LOCKED,
+    LEARN_STATUS_NOT_STARTED,
+)
 from flaskr.service.profile.api import (
     SYS_USER_LANGUAGE,
     SYS_USER_NICKNAME,
     course_memory_deletion_state,
     is_course_reference,
 )
+from flaskr.service.shifu.models import PublishedOutlineItem
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
@@ -143,7 +153,7 @@ def _open_turn(
     outline_bid: str,
     generated_block_bid: str,
     position: int,
-) -> str:
+) -> tuple[str, OutlineItemUpdateDTO | None]:
     """Settle where this turn's rows belong, before any of them are written.
 
     Committed here rather than with the turn, because the element rows the stream writes reference
@@ -154,6 +164,12 @@ def _open_turn(
         record = active_progress_record(
             app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
         )
+        started = record.id is None or record.status in (
+            LEARN_STATUS_NOT_STARTED,
+            LEARN_STATUS_LOCKED,
+        )
+        if started:
+            record.status = LEARN_STATUS_IN_PROGRESS
         stage_turn_block(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
@@ -162,7 +178,30 @@ def _open_turn(
             generated_block_bid=generated_block_bid,
             position=position,
         )
-        return record.progress_record_bid
+        update = None
+        if started:
+            current = get_current_lesson_outline(
+                shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=False
+            )
+            lesson = (
+                PublishedOutlineItem.query.filter_by(
+                    id=current.id,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_bid,
+                    deleted=0,
+                    hidden=0,
+                ).first()
+                if current is not None
+                else None
+            )
+            if lesson is not None:
+                update = OutlineItemUpdateDTO(
+                    outline_bid=outline_bid,
+                    title=lesson.title or "",
+                    status=LearnStatus.IN_PROGRESS,
+                    has_children=False,
+                )
+        return record.progress_record_bid, update
 
 
 def _turn_input(session: Session, values: list[str]) -> TurnInput:
@@ -401,10 +440,11 @@ def run_agent_lesson(
     # preview, which builds a progress record and never adds it to the session. The spoken track
     # hangs each piece of audio off one, so without it an author previewing a lesson in listening
     # mode heard nothing at all.
-    progress_record_bid = (
-        generate_id(app)
-        if preview_mode
-        else _open_turn(
+    start_update = None
+    if preview_mode:
+        progress_record_bid = generate_id(app)
+    else:
+        progress_record_bid, start_update = _open_turn(
             app,
             user_bid=user_bid,
             shifu_bid=shifu_bid,
@@ -412,7 +452,6 @@ def run_agent_lesson(
             generated_block_bid=generated_block_bid,
             position=0,
         )
-    )
     session_holder: dict[str, Any] = {
         "rewind": rewind,
         "preview_generation": preview_generation,
@@ -465,6 +504,15 @@ def run_agent_lesson(
     try:
         if on_turn_opened is not None:
             on_turn_opened(progress_record_bid, generated_block_bid)
+        if start_update is not None:
+            # The opening step has committed. Tell the directory before teaching so its
+            # first-turn actions do not wait for completion or a page reload.
+            yield RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid="",
+                type=GeneratedType.OUTLINE_ITEM_UPDATE,
+                content=start_update,
+            )
         return (
             yield from _stream_turn(
                 app,

@@ -61,7 +61,7 @@ from .session import (
     SQLiteSessionStore,
 )
 
-__version__ = '3.0.0'
+__version__ = "3.0.0"
 
 __all__ = [
     "ContentDelta",
