@@ -12,6 +12,12 @@ _LIST_ITEM = re.compile(r"([-+*]|\d{1,9}[.)])([ ]+)")
 _PARAGRAPH_BREAK = re.compile(
     r"(?:#{1,6}(?:[ ]|$)|(?:\*[ ]*){3,}$|(?:_[ ]*){3,}$|(?:-[ ]*){3,}$|<!--|>)"
 )
+_HTML_TAG = re.compile(
+    r"</[A-Za-z][A-Za-z0-9-]*\s*>"
+    r"|<[A-Za-z][A-Za-z0-9-]*"
+    r"(?:\s+[A-Za-z_:][A-Za-z0-9:._-]*"
+    r"(?:\s*=\s*(?:[^\"'=<>`\x00-\x20]+|'[^']*'|\"[^\"]*\"))?)*\s*/?>"
+)
 
 
 @dataclass
@@ -138,6 +144,11 @@ def strip_comments(text: str) -> str:
             end = closing + 3 if closing >= 0 else len(text)
             result.extend(_LINEBREAKS.findall(text[cursor:end]))
             cursor = end
+        elif text[cursor] == "<" and (tag := _HTML_TAG.match(text, cursor)):
+            # Quoted HTML attributes may contain backticks, but cannot open a
+            # Markdown code span that protects a later author comment.
+            result.append(tag[0])
+            cursor = tag.end()
         elif text[cursor] == "`":
             marker = _BACKTICKS.match(text, cursor)
             if marker is not None:
