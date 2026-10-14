@@ -17,6 +17,8 @@ All learning modes use these pieces. Classification is independent of whether au
 classroom needs the visual types to select what to show, and reading needs the same elements for
 history and later mode changes. Content and numbering belong to the formatter, including literal
 separator lines and script/style pieces appended to earlier HTML.
+Question prompts start a fresh formatter after visuals so they cannot inherit unfinished syntax.
+Consecutive prose keeps its existing element identity, as it does in the 1.0 stream.
 """
 
 from __future__ import annotations
@@ -35,6 +37,9 @@ class LessonPager:
     def __init__(self) -> None:
         """Start a fresh formatter for one turn."""
         self._formatter = StreamFormatter()
+        self._block_offset = 0
+        self._next_number = 0
+        self._last_type = ""
 
     def add(self, text: str) -> list[tuple[str, str, int]]:
         """Format the next stretch of the turn's text."""
@@ -44,6 +49,29 @@ class LessonPager:
         """Format what is still buffered, because the turn is over."""
         return self._pieces(self._formatter.flush())
 
-    @staticmethod
-    def _pieces(elements: list) -> list[tuple[str, str, int]]:
-        return [(element.content, element.type, element.number) for element in elements]
+    def start_block(self) -> list[tuple[str, str, int]]:
+        """Flush preceding content and keep the question outside unfinished visual syntax.
+
+        A question is outside any unfinished HTML or code in the narration. Its formatter starts
+        fresh, as a new 1.0 block does, while the offset keeps its identity separate from the
+        visual. Consecutive prose stays in the same element to preserve history and audio
+        grouping. Use the maximum emitted number: script/style may have returned to an earlier
+        HTML number immediately before this boundary.
+        """
+        pieces = self.flush()
+        if self._last_type in {"text", "title"}:
+            # These types already leave the classifier in its ordinary text state.
+            return pieces
+        self._formatter = StreamFormatter()
+        self._block_offset = self._next_number
+        return pieces
+
+    def _pieces(self, elements: list) -> list[tuple[str, str, int]]:
+        pieces = [
+            (element.content, element.type, element.number + self._block_offset)
+            for element in elements
+        ]
+        for _, stream_type, number in pieces:
+            self._next_number = max(self._next_number, number + 1)
+            self._last_type = stream_type
+        return pieces
