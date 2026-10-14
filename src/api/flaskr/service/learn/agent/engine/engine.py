@@ -1287,7 +1287,10 @@ class Engine:
                                 deps.feedback_contract
                                 or any(
                                     isinstance(part, ToolCallPart)
-                                    and has_computed_example(part)
+                                    and has_computed_example(
+                                        part,
+                                        include_unparseable=deps.computed_examples,
+                                    )
                                     for part in response.parts
                                 )
                             ):
@@ -1400,12 +1403,14 @@ class Engine:
                         result = ev.result
                         # A resumed request may use a projected copy of an old initial prompt.
                         # Keep its original saved evidence and append only this run's messages.
+                        new_messages = list(result.new_messages())
+                        all_messages = list(result.all_messages())
                         session.messages = (
                             [
                                 *session.messages,
                                 *direction_history(
                                     without_answer_reference(
-                                        result.new_messages(),
+                                        new_messages,
                                         deps.authored_answer_reference,
                                     ),
                                     deps.direction_rendered,
@@ -1420,12 +1425,18 @@ class Engine:
                                 or self.teaching_history_compaction
                                 or deps.resuming_interaction
                             )
-                            else direction_history(
-                                list(result.all_messages()),
-                                deps.direction_rendered,
-                                deps.hidden_feedback_responses,
-                                computed=deps.example_rendered,
-                            )
+                            else [
+                                # The SDK may repair an interrupted tool's history
+                                # prefix. Retain it, but never reproject its already
+                                # displayed directions with this turn's mapping.
+                                *all_messages[: len(all_messages) - len(new_messages)],
+                                *direction_history(
+                                    new_messages,
+                                    deps.direction_rendered,
+                                    deps.hidden_feedback_responses,
+                                    computed=deps.example_rendered,
+                                ),
+                            ]
                         )
                         history_saved = True
                         direction_pending: set[str] = set()

@@ -40,6 +40,30 @@ free prose. Keep the eleven-question factual acceptance gate independent.
 - An unavailable confirm normally continues without a pause. A computed payload
   must be rejected before that path can discard its artifact; a rollback control
   reproduces the loss. Original authored input and native retry budgets remain.
+- Codex's initial actual-head review identified incompatible simultaneous bounds
+  and malformed JSON releasing prose with feedback_contract off. Adopt both:
+  reduce the new machine ceiling to 32 steps so all maximum-width columns and
+  declarations fit the unchanged 16 KiB artifact, and conservatively buffer
+  unparseable interact JSON while this capability is enabled. Four focused
+  assertions fail before the fixes; 36 kernel/SDK/element cases pass afterwards.
+  Pinned SDK 2.43 returns INVALID_JSON by default rather than raising; use its
+  strict parsing option to distinguish that case without changing original args.
+- Devin's original-head review found a portable non-resumed turn reprojecting
+  earlier directions using the new turn's empty render mapping, and a repeated
+  complete state at the execution boundary being missed. Preserve the existing
+  prefix and project only new messages; check the final state
+  before declaring exhaustion, while explicit prefixes remain incomplete.
+  A five-turn/reload portable control and a first-repeat-at-32 boundary control
+  pass in the 38 focused cases. The history rollback fails on exact saved-prefix
+  equality. An initial fixture missed TextPart's import; retain that failure and
+  use the corrected independent rollback as the behavioral reproduction.
+  The full gate then caught that blindly appending the saved portable prefix
+  loses the SDK's interrupted-tool repair. Retain its repaired prefix without
+  display projection, and project only new messages; original memory/teaching
+  compaction paths retain their existing evidence handling. All 51 focused
+  kernel/SDK/element/interrupted-recovery cases pass together. The failed full
+  run (4,014 passing / one failing) remains evidence; the final broad run passes
+  4,015 tests, 50 subtests and two expected skips, with all-file hooks green.
 
 ## Decision Log
 
@@ -68,13 +92,14 @@ The bounded interpreter, canonical delivery and saved history are implemented.
 Controlled SDK/provider/storage checks cover Ark/OpenAI/DashScope schemas and
 read/classroom/listen formatter parity, exact SQLite history, audio eligibility,
 rejected content, mixed-tool side effects and initial streaming timing.
-The final full learning/scripts run passed 4,010 tests, 50 subtests and two
-expected skips after the unavailable-pause regression. Toolchain, repository
+The final full learning/scripts run passed 4,015 tests, 50 subtests and two
+expected skips after the Codex/Devin fixes and interrupted-history recovery. Toolchain, repository
 harness, architecture baseline (131 existing / zero new violations), and the
 all-file lefthook gate passed. Source frontend, formatter, pager and element
 adapter files are unchanged from actual main.
 An offline retained-checkpoint probe used one SDK request, zero provider calls
-and 126,832 wire bytes within the unchanged 262,144-byte input limit. Test failures
+and 126,889 wire bytes within the unchanged 262,144-byte input limit after review
+(126,832 before the bounds description changed). Test failures
 from the private probe's missing limit argument and pending-input lookup were
 retained and corrected without a provider request or old-session write.
 

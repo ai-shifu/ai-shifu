@@ -619,7 +619,10 @@ def validate_direction_call(
     if (
         response is not None
         and any(
-            isinstance(part, ToolCallPart) and has_computed_example(part)
+            isinstance(part, ToolCallPart)
+            and has_computed_example(
+                part, include_unparseable=ctx.deps.computed_examples
+            )
             for part in response.parts
         )
         and sum(isinstance(part, ToolCallPart) for part in response.parts) != 1

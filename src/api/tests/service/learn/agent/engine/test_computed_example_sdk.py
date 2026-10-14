@@ -8,6 +8,7 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
     ModelResponse,
+    TextPart,
     ToolCallPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
@@ -404,3 +405,110 @@ async def test_invalid_artifact_response_never_becomes_visible_teaching(
     history = ModelMessagesTypeAdapter.dump_json(restored.messages).decode()
     assert "Withheld artifact response" not in history
     assert "| 5 | 101 | 102 | 1 | 3 |" in history
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("arguments", ['{"computed_example":[', "[]"])
+async def test_unparseable_interact_keeps_prose_held_through_native_retry(
+    arguments: str,
+) -> None:
+    """Unknown JSON cannot bypass buffering when the separate feedback flag is off."""
+    from pydantic_ai.models.function import DeltaToolCall
+
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        """Return invalid native JSON before correcting the complete interaction."""
+        nonlocal calls
+        calls += 1
+        assert info.function_tools
+        ordinary = {"type": "text", "prompt": "", "placeholder": "Answer"}
+        if calls == 1:
+            yield _call(ordinary, "original")
+        elif calls == 2:
+            yield "Rejected unparseable response."
+            yield {
+                0: DeltaToolCall(
+                    name="interact", json_args=arguments, tool_call_id="unparseable"
+                )
+            }
+        else:
+            yield "Accepted computed response."
+            yield _call({**ordinary, "computed_example": _loop()}, "accepted")
+
+    engine = Engine(
+        FunctionModel(stream_function=stream),
+        computed_examples=True,
+        feedback_contract=False,
+        request_limit=2,
+    )
+    session = await engine.new_session("Explain briefly.\n?[...Answer]\n")
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text="Show two iterations."))
+    )
+    assert calls == 3
+    assert "Rejected unparseable response" not in _text(events)
+    assert "Accepted computed response" in _text(events)
+    restored = Session.loads(session.dumps())
+    history = ModelMessagesTypeAdapter.dump_json(restored.messages).decode()
+    assert "Rejected unparseable response" not in history
+    original_calls = [
+        p
+        for m in restored.messages
+        if isinstance(m, ModelResponse)
+        for p in m.parts
+        if isinstance(p, ToolCallPart) and p.tool_call_id == "unparseable"
+    ]
+    assert len(original_calls) == 1
+    assert original_calls[0].args == arguments
+
+
+@pytest.mark.anyio
+async def test_portable_nonresumed_turn_preserves_earlier_direction_teaching() -> None:
+    """Never reproject old rendered directions using only the current-turn mapping."""
+    from flaskr.service.learn.agent.engine import MessageTurn
+
+    from .test_direction_feedback import DISPLAY, SCRIPT, WRONG, _direction
+
+    calls = 0
+
+    async def stream(messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        """Give a direction, leave no pending control, then handle separate remarks."""
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield _call(
+                {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
+            )
+        elif calls == 2:
+            yield _call(
+                {
+                    "type": "text",
+                    "prompt": "",
+                    "placeholder": "Answer",
+                    "direction": _direction(),
+                },
+                "correction",
+            )
+        else:
+            assert DISPLAY in "".join(
+                p.content for m in messages for p in m.parts if isinstance(p, TextPart)
+            )
+            yield "Accepted general continuation."
+
+    engine = Engine(FunctionModel(stream_function=stream), request_limit=1)
+    session = await engine.new_session(SCRIPT)
+    await _collect(engine.run_turn(session))
+    await _collect(engine.run_turn(session, InteractionResponseTurn(text=WRONG)))
+    await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text="Corrected answer."))
+    )
+    assert not session.pending
+    before = ModelMessagesTypeAdapter.dump_json(session.messages)
+    count = len(session.messages)
+    await _collect(engine.run_turn(session, MessageTurn(text="Please continue.")))
+    assert ModelMessagesTypeAdapter.dump_json(session.messages[:count]) == before
+    session = Session.loads(session.dumps())
+    await _collect(engine.run_turn(session, MessageTurn(text="Another remark.")))
+    assert calls == 5

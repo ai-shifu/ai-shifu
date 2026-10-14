@@ -99,7 +99,7 @@ def test_known_correct_counter_keeps_all_six_states() -> None:
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("initial_pc", True), ("initial_pc", "100"), ("steps", False), ("steps", 65)],
+    [("initial_pc", True), ("initial_pc", "100"), ("steps", False), ("steps", 33)],
 )
 def test_scalar_types_and_step_limit_are_explicit(field: str, value: object) -> None:
     """Never coerce a boolean, numeric string or unbounded prefix into a program."""
@@ -174,3 +174,61 @@ def test_invalid_machine_state_cannot_be_rendered(case: str) -> None:
         data["program"][0] = {"address": 100, "op": "LOAD", "reg": "R0", "operand": 50}
     with pytest.raises(ExampleError):
         render_example(ComputedExample.model_validate(data))
+
+
+def test_simultaneous_schema_maxima_fit_the_display_limit() -> None:
+    """Keep maximal columns, names, values and program within the 16 KiB artifact."""
+    registers = {f"R{index:015d}": -1_000_000_000 for index in range(8)}
+    names = list(registers)
+    example = ComputedExample.model_validate(
+        {
+            "initial_pc": 0,
+            "registers": registers,
+            "memory": [
+                {"address": 4000 + i, "value": -1_000_000_000} for i in range(16)
+            ],
+            "program": [
+                {"address": 0, "op": "ADD", "reg": names[0], "operand": 1},
+                {"address": 1, "op": "JMP", "target": 0},
+                *[
+                    {
+                        "address": i,
+                        "op": "JLT",
+                        "reg": names[0],
+                        "operand": names[1],
+                        "target": 4095,
+                    }
+                    for i in range(2, 31)
+                ],
+                {"address": 4095, "op": "HALT"},
+            ],
+            "steps": 32,
+        }
+    )
+    assert execute_example(example).outcome == "prefix"
+    assert len(execute_example(example).rows) == 32
+    assert len(render_example(example).encode()) < 16_384
+    assert (
+        ComputedExample.model_json_schema()["properties"]["steps"]["anyOf"][0][
+            "maximum"
+        ]
+        == 32
+    )
+
+
+def test_first_repeated_complete_state_at_execution_limit_is_a_cycle() -> None:
+    """Inspect the final state too, while an explicit prefix stays incomplete."""
+    data = {
+        "initial_pc": 0,
+        "registers": {"R0": 0},
+        "memory": [],
+        "program": [
+            {"address": i, "op": "SET", "reg": "R0", "operand": "R0"} for i in range(31)
+        ]
+        + [{"address": 31, "op": "JMP", "target": 0}],
+    }
+    result = execute_example(ComputedExample.model_validate(data))
+    assert result.outcome == "cycle"
+    assert len(result.rows) == 32
+    prefix = ComputedExample.model_validate({**data, "steps": 32})
+    assert execute_example(prefix).outcome == "prefix"
