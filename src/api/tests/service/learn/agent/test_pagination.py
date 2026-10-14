@@ -1,15 +1,16 @@
-"""Cover how a 2.0 turn is cut into the pieces a 1.0 lesson is delivered in.
-
-The formatter itself is the MarkdownFlow package's and is not re-tested here. What is asserted is
-the part this module adds: separator lines are dropped and start a new page, and nothing else is
-lost or reordered however the text happens to be chunked.
-"""
+"""Require 2.0 content to use the same typed stream parts as MarkdownFlow 1.0."""
 
 from __future__ import annotations
 
 import random
+from typing import TYPE_CHECKING
 
+import pytest
 from flaskr.service.learn.agent.pagination import LessonPager
+from markdown_flow import StreamFormatter
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 LESSON = (
     "First page of prose.\n\n"
@@ -21,115 +22,141 @@ LESSON = (
 )
 
 
-def _feed(text: str, seed: int) -> list[tuple[str, str, int]]:
-    """Push the text through in random-sized chunks, the way a model streams it."""
-    rng = random.Random(seed)  # noqa: S311 -- chunk sizes, not secrets
+def _format(chunks: Iterable[str]) -> list[tuple[str, str, int]]:
+    """Collect the exact parts produced by the 1.0 package's formatter."""
+    formatter = StreamFormatter()
+    pieces: list[tuple[str, str, int]] = []
+    for chunk in chunks:
+        pieces.extend(
+            (element.content, str(element.type), element.number)
+            for element in formatter.process(chunk)
+        )
+    pieces.extend(
+        (element.content, str(element.type), element.number)
+        for element in formatter.flush()
+    )
+    return pieces
+
+
+def _page(chunks: Iterable[str]) -> list[tuple[str, str, int]]:
     pager = LessonPager()
     pieces: list[tuple[str, str, int]] = []
-    index = 0
-    while index < len(text):
-        step = rng.randint(1, 9)
-        pieces.extend(pager.add(text[index : index + step]))
-        index += step
+    for chunk in chunks:
+        pieces.extend(pager.add(chunk))
     pieces.extend(pager.flush())
     return pieces
 
 
-def test_a_card_is_its_own_piece_with_its_own_type() -> None:
-    """A text piece is spoken and not shown; a card is shown and not spoken.
-
-    Tagged as text, the cover card inside a lesson is never rendered as a slide, which is what a
-    listener saw: the title, and nothing else, while the narration played.
-    """
-    types = {stream_type for _, stream_type, _ in _feed(LESSON, seed=1)}
-    assert "html" in types
-    assert "text" in types
-
-
-def test_separator_lines_are_neither_shown_nor_spoken() -> None:
-    """The engine reproduces the script's `---`; a 1.0 lesson never shows one."""
-    for seed in range(20):
-        for content, _, _ in _feed(LESSON, seed=seed):
-            assert content.strip() != "---", f"separator leaked with seed {seed}"
+def _random_chunks(text: str, seed: int) -> list[str]:
+    rng = random.Random(seed)  # noqa: S311 -- chunk sizes, not secrets
+    chunks: list[str] = []
+    index = 0
+    while index < len(text):
+        step = rng.randint(1, 9)
+        chunks.append(text[index : index + step])
+        index += step
+    return chunks
 
 
-def test_a_separator_starts_a_new_page() -> None:
-    """Prose on either side of `---` is the same type, so only the separator can divide it.
-
-    Without that the whole lesson before the first card is one page, and a listener hears it
-    against one unchanging slide. Asserted over random chunkings because a separator and the
-    prose after it can arrive in the same chunk, where the formatter has already numbered them.
-    """
-    for seed in range(20):
-        numbers_of_prose = [
-            number
-            for content, stream_type, number in _feed(LESSON, seed=seed)
-            if stream_type == "text" and "page" in content
-        ]
-        assert len(set(numbers_of_prose)) == 3, (
-            f"three pages of prose landed on {sorted(set(numbers_of_prose))} with seed {seed}"
+def _shape(pieces: list[tuple[str, str, int]]) -> tuple[tuple[str, int, str], ...]:
+    """Ignore where blank lines ride while preserving typed element identity."""
+    grouped: dict[tuple[str, int], list[str]] = {}
+    for content, stream_type, number in pieces:
+        grouped.setdefault((stream_type, number), []).append(content)
+    return tuple(
+        (
+            stream_type,
+            number,
+            "\n".join(line for line in "".join(parts).splitlines() if line.strip()),
         )
+        for (stream_type, number), parts in grouped.items()
+    )
 
 
-def test_nothing_but_separators_is_lost_and_nothing_is_reordered() -> None:
-    """A learner watching the lesson write itself must see exactly what was written."""
-    expected = LESSON.replace("---\n\n", "")
+def test_stream_parts_match_the_legacy_formatter_for_random_chunks() -> None:
     for seed in range(20):
-        joined = "".join(content for content, _, _ in _feed(LESSON, seed=seed))
-        assert joined.replace("\n", "") == expected.replace("\n", ""), f"seed {seed}"
+        chunks = _random_chunks(LESSON, seed)
+        assert _page(chunks) == _format(chunks), f"seed {seed}"
 
 
-def test_piece_numbers_never_go_backwards() -> None:
-    """The element adapter keys elements by number; a repeat would merge distant pieces."""
-    for seed in range(20):
-        numbers = [number for _, _, number in _feed(LESSON, seed=seed)]
-        assert numbers == sorted(numbers), f"seed {seed}: {numbers}"
+def test_a_card_keeps_its_legacy_type_and_number() -> None:
+    pieces = _page([LESSON])
+    assert pieces == _format([LESSON])
+    assert {stream_type for _, stream_type, _ in pieces} >= {"html", "text"}
+
+
+@pytest.mark.parametrize("rule", ["---", "***", "___"])
+def test_separator_lines_are_preserved_as_the_legacy_formatter_classifies_them(
+    rule: str,
+) -> None:
+    content = f"Before.\n{rule}\nAfter.\n"
+    pieces = _page([content])
+    assert pieces == _format([content])
+    assert "".join(text for text, _, _ in pieces) == content
+    assert {number for _, _, number in pieces} == {0}
+
+
+@pytest.mark.parametrize("rule", ["---", "***", "___"])
+@pytest.mark.parametrize(
+    ("opening", "closing", "stream_type"),
+    [
+        ("```text", "```", "code"),
+        ("<div>", "</div>", "html"),
+        ("<svg>", "</svg>", "svg"),
+    ],
+)
+def test_literal_rules_do_not_split_or_change_visual_content(
+    opening: str, closing: str, stream_type: str, rule: str
+) -> None:
+    content = f"Intro.\n{opening}\n{rule}\n{closing}\n"
+    chunks = list(content)
+    pieces = _page(chunks)
+    assert pieces == _format(chunks)
+    visual_pieces = [part for part in pieces if part[1] == stream_type]
+    assert "".join(text for text, _, _ in visual_pieces) == (
+        f"{opening}\n{rule}\n{closing}\n"
+    )
+    assert {number for _, _, number in visual_pieces} == {1}
+
+
+@pytest.mark.parametrize("tag", ["style", "script"])
+def test_html_append_keeps_the_legacy_number_across_a_separator(tag: str) -> None:
+    """Script/style must retain the preceding HTML identity, even when numbers go back."""
+    content = f"<div>Card</div>\n---\nText.\n<{tag}>body</{tag}>\n"
+    for chunks in ([content], content.splitlines(keepends=True), list(content)):
+        pieces = _page(chunks)
+        assert pieces == _format(chunks)
+        html_numbers = [number for _, kind, number in pieces if kind == "html"]
+        assert html_numbers == [0, 0]
+        assert [number for _, _, number in pieces] == [0, 1, 1, 0]
 
 
 def test_the_last_line_is_released_when_the_turn_ends() -> None:
-    """The formatter holds a line until it sees its end; a turn's end is that end."""
     pager = LessonPager()
     assert pager.add("No newline yet") == []
-    assert [content for content, _, _ in pager.flush()] == ["No newline yet"]
+    assert pager.flush() == [("No newline yet", "text", 0)]
 
 
-def test_the_current_number_follows_the_last_piece() -> None:
-    """Text that bypasses the formatter is put on the page the lesson is on."""
-    pager = LessonPager()
-    pager.add("Prose.\n\n---\n\nMore prose.\n")
-    assert pager.number == 1
-
-
-def test_the_pieces_are_the_same_wherever_the_stream_is_cut() -> None:
-    """A model's chunks fall wherever they fall; the lesson must not depend on that.
-
-    Asserted at every character boundary rather than at random ones: a boundary inside a marker,
-    a fence or a tag is exactly where a formatter goes wrong, and there are few enough of them to
-    check them all. Trailing whitespace is normalised away -- it carries no meaning in Markdown
-    and rides with whichever piece the buffer happened to release.
-    """
+def test_the_pieces_are_the_same_at_every_character_boundary() -> None:
+    """A model's arbitrary chunk boundaries cannot change element content or identity."""
     lesson = (
         "First page.\n\n---\n\n"
         '<div class="card">A cover</div>\n\n'
-        "```js\nif (a === b) {}\n```\n\n"
+        "```js\nif (a === b) {}\n---\n```\n\n"
         "![图](http://example.com/y.png)\n\nLast page.\n"
+        "<svg>\n---\n</svg>\n"
+        "<style>.card { color: red; }</style>\n"
+        "<script>window.card = true;</script>"
     )
-
-    def shape(cut: int) -> tuple:
-        pager = LessonPager()
-        pieces = pager.add(lesson[:cut]) + pager.add(lesson[cut:]) + pager.flush()
-        grouped: dict[tuple[str, int], list[str]] = {}
-        for content, stream_type, number in pieces:
-            grouped.setdefault((stream_type, number), []).append(content)
-        return tuple(
-            (stream_type, number, "".join(parts).strip())
-            for (stream_type, number), parts in sorted(
-                grouped.items(), key=lambda item: item[0][1]
-            )
-        )
-
-    whole = shape(len(lesson))
+    whole = _shape(_format([lesson]))
     for cut in range(len(lesson) + 1):
-        assert shape(cut) == whole, f"cut at {cut} changed the pieces"
-    # And the visuals are typed as visuals, not as text a listening lesson would speak.
-    assert {stream_type for stream_type, _, _ in whole} >= {"html", "code", "img"}
+        chunks = [lesson[:cut], lesson[cut:]]
+        pieces = _page(chunks)
+        assert pieces == _format(chunks), f"cut at {cut} changed the protocol"
+        assert _shape(pieces) == whole, f"cut at {cut} changed the elements"
+    assert {stream_type for stream_type, _, _ in whole} >= {
+        "html",
+        "code",
+        "img",
+        "svg",
+    }
