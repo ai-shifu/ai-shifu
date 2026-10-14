@@ -638,3 +638,61 @@ async def test_unavailable_initial_artifact_preserves_already_streamed_history(
     assert "Already visible initial teaching." in teaching
     assert "The corrected initial control." in teaching
     assert session.pending[0].tool_call_id == "accepted"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("observer_fails", [False, True])
+async def test_computed_use_observer_runs_after_stream_only_for_accepted_artifact(
+    observer_fails: bool,
+) -> None:
+    """Count accepted use once, excluding retries, history reload and omitted payloads."""
+    calls = 0
+    events = []
+    observations = []
+
+    def observed() -> None:
+        """Record what was already yielded; analytics failure cannot alter teaching."""
+        observations.append(_text(events))
+        if observer_fails:
+            message = "observer unavailable"
+            raise RuntimeError(message)
+
+    async def stream(_messages: list[ModelMessage], _info: AgentInfo) -> AsyncIterator:
+        """Reject one incomplete declaration before streaming the accepted table."""
+        nonlocal calls
+        calls += 1
+        payload = {"type": "text", "prompt": "", "placeholder": "Answer"}
+        if calls in (2, 3):
+            example = _loop()
+            if calls == 2:
+                del example["registers"]["R1"]
+                yield "Rejected private teaching."
+            payload["computed_example"] = example
+        yield _call(payload, f"call{calls}")
+
+    engine = Engine(
+        FunctionModel(stream_function=stream),
+        computed_examples=True,
+        computed_example_observer=observed,
+        request_limit=2,
+    )
+    session = await engine.new_session("Explain counters.\n?[...Answer]\n")
+    await _collect(engine.run_turn(session))
+    assert observations == []
+    async for event in engine.run_turn(
+        session, InteractionResponseTurn(text="Show two iterations.")
+    ):
+        # A comprehension would consume the stream before updating the timing probe.
+        events.append(event)  # noqa: PERF401 - preserve incremental observer timing
+    assert calls == 3
+    assert len(observations) == 1
+    assert "| 5 | 101 | 102 | 1 | 3 |" in observations[0]
+    assert "Rejected private teaching" not in _text(events)
+    assert session.pending[0].tool_call_id == "call3"
+    restored = Session.loads(session.dumps())
+    assert len(observations) == 1
+    await _collect(
+        engine.run_turn(restored, InteractionResponseTurn(text="A normal answer."))
+    )
+    assert calls == 4
+    assert len(observations) == 1

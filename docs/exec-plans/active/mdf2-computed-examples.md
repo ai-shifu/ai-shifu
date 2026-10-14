@@ -30,6 +30,11 @@ free prose. Keep the eleven-question factual acceptance gate independent.
 - [x] Inspect an authorized fresh ordinary-HTTP opening and first knowledge
   follow-up on deployed sim-8cf56ef. Stop on a visible loop-count factual failure.
   No preliminary paid checkpoint replay or unchanged paid resampling was run.
+- [x] Add and verify accepted-use analytics after Codex review 4271281168:
+  published modes only, anonymous bounded payload, native timing/deduplication and
+  asynchronous fail-open transport. No paid classroom rerun accompanies it.
+- [ ] Verify the analytics commit's own CI/reviews and reply in the original thread;
+  the real classroom acceptance root remains independently open.
 - [ ] Pass fresh eleven-question natural compression, per-question statistics,
   actual summaries and final cost attribution; the first-question failure holds this gate.
 
@@ -97,7 +102,33 @@ free prose. Keep the eleven-question factual acceptance gate independent.
   Final local gates pass 4,021 tests, 50 subtests, two expected skips and all-file
   hooks; the 57 focused cases include preserved initial streaming and history.
 
+- Codex's actual 0b16af4fd review identifies the missing new-capability analytics
+  contract despite unchanged learner actions. Adopt it: define the reference
+  contract first, add a content-free optional engine observer after canonical
+  stream output, and bind only published host turns to the shared asynchronous
+  server queue. Config/network work stays on bounded workers, outside the native
+  producer. Event data has exactly surface and learning_mode; no IDs or content.
+  Both observer timing controls fail against the prior runtime. An initial
+  missing-module collection failure is not behavioral evidence; retain it and
+  the separate rollback reproduction. A wrong working-directory setup attempt
+  changed no production files and was corrected before the passing run.
+  The complete learning/scripts plus shared-tracker gate passes 4,051 tests,
+  50 subtests and two expected skips; architecture stays 131 existing/zero new.
+  Queue saturation, asynchronous failure, missing config and failed HTTP are
+  isolated. Historical real-run evidence remains on 1d8f5ee8e; no new model
+  request, learner, course edit or factual pass is claimed for this observation patch.
+  CodeRabbit's minor unverified issue-reference warning is addressed by wrapping
+  that paragraph without an issue reference at the beginning of a line.
+
 ## Decision Log
+
+- 2026-10-14: Adopt Codex's 0b16af4fd analytics finding. A generated artifact is
+  a new visible capability even though the learner's action and wire contracts
+  stay unchanged. Define the accepted-use contract in the reference before code:
+  one anonymous mode-bounded event per newly streamed accepted artifact, through
+  an asynchronous shared server tracker. Preview/history/rejections/omissions
+  emit none; this does not measure model-schema offers or browser visibility.
+  Add offline native/host/transport controls, without a new paid classroom run.
 
 - 2026-10-14: Use the authorized fresh ordinary-HTTP journey itself for changed
   runtime acceptance, inspecting opening/knowledge help before continuing.
@@ -141,8 +172,8 @@ from the private probe's missing limit argument and pending-input lookup were
 retained and corrected without a provider request or old-session write.
 
 The existing #3122 prompt-only experiment remains held; its original failures
-and the 18.59-credit balanced failure are retained. This candidate contains no
-#3122 prompt guidance. Final sim integration 8cf56ef18 / build 650 / Drone 5439
+and the 18.59-credit balanced failure are retained. This candidate excludes the
+prompt guidance of PR #3122. Final sim integration 8cf56ef18 / build 650 / Drone 5439
 (records 2986/2987) deploys as sim-8cf56ef with API 2/2 and web 1/1 Ready.
 Both actual APIs match 73 source fingerprints and pass 531 isolated SDK/logging
 cases each; the complete API/web/i18n tree matches code head 1d8f5ee8e.

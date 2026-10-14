@@ -2,6 +2,7 @@
 
 from concurrent.futures import Future
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from flaskr.service.common import server_analytics
@@ -162,3 +163,171 @@ def test_delivery_swallows_network_failures(monkeypatch: object) -> None:
     monkeypatch.setattr(server_analytics.requests, "post", fail)
 
     server_analytics._deliver("https://analytics.example.test/api/send", {})
+
+
+def test_shared_event_queues_without_config_reads_and_delivers_exact_payload(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Read config and send only on the bounded worker, with no request context data."""
+    submitted = []
+    settings = {
+        "ANALYTICS_UMAMI_SCRIPT": "https://analytics.example.test/script.js",
+        "ANALYTICS_UMAMI_SITE_ID": "website-id",
+    }
+    config = Mock(side_effect=lambda key, default="": settings.get(key, default))
+    monkeypatch.setattr(server_analytics, "get_config", config)
+
+    def submit(*args: object) -> Future:
+        submitted.append(args)
+        future = Future()
+        future.set_result(None)
+        return future
+
+    monkeypatch.setattr(server_analytics._EXECUTOR, "submit", submit)
+    sent = Mock()
+    monkeypatch.setattr(server_analytics.requests, "post", sent)
+    data = {"surface": "learner", "learning_mode": "read"}
+    server_analytics.queue_server_event(
+        app,
+        event_name="learner_computed_example_streamed",
+        route="/backend/lesson/computed-example",
+        data=data,
+    )
+    config.assert_not_called()
+    sent.assert_not_called()
+    data["learning_mode"] = "private-mutated-value"
+    worker, *args = submitted[0]
+    worker(*args)
+    assert sent.call_args.kwargs["json"] == {
+        "type": "event",
+        "payload": {
+            "website": "website-id",
+            "hostname": "server.ai-shifu",
+            "url": "/backend/lesson/computed-example",
+            "name": "learner_computed_example_streamed",
+            "data": {"surface": "learner", "learning_mode": "read"},
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "failure", ["capacity", "submit", "config", "missing_config", "network"]
+)
+def test_shared_product_queue_failures_stay_fail_open(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    """Saturation, rejected work, config and network errors never interrupt callers."""
+    from threading import BoundedSemaphore
+
+    capacity = BoundedSemaphore(1)
+    monkeypatch.setattr(server_analytics, "_CAPACITY", capacity)
+    if failure == "capacity":
+        capacity.acquire()
+    queued = []
+
+    def submit(*args: object) -> Future:
+        if failure == "submit":
+            raise RuntimeError
+        queued.append(args)
+        future = Future()
+        future.set_result(None)
+        return future
+
+    monkeypatch.setattr(server_analytics._EXECUTOR, "submit", submit)
+
+    def config(key: str, default: str = "") -> str:
+        if failure == "config":
+            raise LookupError
+        if failure == "missing_config":
+            return ""
+        return {
+            "ANALYTICS_UMAMI_SCRIPT": "https://analytics.example.test/script.js",
+            "ANALYTICS_UMAMI_SITE_ID": "website-id",
+        }.get(key, default)
+
+    monkeypatch.setattr(server_analytics, "get_config", config)
+    post = Mock(side_effect=TimeoutError)
+    monkeypatch.setattr(server_analytics.requests, "post", post)
+    server_analytics.queue_server_event(
+        app,
+        event_name="learner_computed_example_streamed",
+        route="/backend/lesson/computed-example",
+        data={"surface": "learner", "learning_mode": "listen"},
+    )
+    for worker, *args in queued:
+        worker(*args)
+    assert post.call_count == (1 if failure == "network" else 0)
+    if failure == "capacity":
+        assert queued == []
+        capacity.release()
+    assert capacity.acquire(blocking=False)
+    capacity.release()
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"event_name": "private event"},
+        {"route": "https://private.test/?token=secret"},
+        {"data": {"nested": {"private": "value"}}},
+        {"data": {"value": float("nan")}},
+        {"data": {"value": "x" * 241}},
+        {"data": {"bad-key": "value"}},
+        {"data": {1: "value"}},
+        {"data": {f"field{i}": "x" for i in range(31)}},
+        {"data": {f"field{i}": "x" * 200 for i in range(6)}},
+    ],
+)
+def test_shared_queue_refuses_malformed_payload_without_transport(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    invalid: dict,
+) -> None:
+    """Reject invalid delivery shapes instead of silently altering their semantics."""
+    submit = Mock()
+    monkeypatch.setattr(server_analytics._EXECUTOR, "submit", submit)
+    arguments = {
+        "event_name": "learner_computed_example_streamed",
+        "route": "/backend/lesson/computed-example",
+        "data": {"surface": "learner", "learning_mode": "read"},
+    }
+    arguments.update(invalid)
+    server_analytics.queue_server_event(app, **arguments)
+    submit.assert_not_called()
+
+
+def test_shared_queue_releases_capacity_after_asynchronous_worker_failure(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A pending event consumes one slot; worker failure frees it for later events."""
+    from threading import BoundedSemaphore
+
+    monkeypatch.setattr(server_analytics, "_CAPACITY", BoundedSemaphore(1))
+    futures = []
+
+    def submit(*_args: object) -> Future:
+        future = Future()
+        futures.append(future)
+        return future
+
+    monkeypatch.setattr(server_analytics._EXECUTOR, "submit", submit)
+
+    def emit() -> None:
+        server_analytics.queue_server_event(
+            app,
+            event_name="learner_computed_example_streamed",
+            route="/backend/lesson/computed-example",
+            data={"surface": "learner", "learning_mode": "read"},
+        )
+
+    emit()
+    emit()
+    assert len(futures) == 1
+    futures[0].set_exception(RuntimeError())
+    emit()
+    assert len(futures) == 2
+    futures[1].set_result(None)

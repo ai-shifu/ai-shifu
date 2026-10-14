@@ -467,6 +467,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         exercise_statistics=True,
         feedback_contract=True,
         computed_examples=True,
+        computed_example_observer=engine.call_args.kwargs["computed_example_observer"],
         teaching_summarizer=summary.return_value,
         memory_reserved_keys=entry.get_global_profile_keys(),
         memory_readonly_prefixes=("course:", "share:"),
