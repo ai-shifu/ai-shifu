@@ -23,6 +23,15 @@ filtered script. Recognized older first prompts are projected from their exact
 initial values before being resent; arbitrary learner messages and memory values
 are never globally stripped or regenerated from current values.
 
+Legacy content-block history also projects recognized generation prompts from
+their persisted source block and exact original quoted substitutions. Saved rows,
+learner literals, and assistant history remain unchanged. Missing or ambiguous
+provenance and historical next-interaction notes without their source snapshot
+retain their original bytes rather than guessing at learner evidence.
+
+Inline-code delimiters are indexed once per authored document. Unmatched delimiter
+lengths cannot trigger repeated scans of the remaining input before a model call.
+
 In `?[%{{path}} First | Second | ...Describe your project]`, the trailing
 `...Describe your project` declares a text-input placeholder. It is not an
 additional selectable answer. MarkdownFlow 2.0 occasionally emits that hint

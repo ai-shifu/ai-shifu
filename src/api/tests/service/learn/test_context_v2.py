@@ -2772,7 +2772,7 @@ class BuildContextFromBlocksTests(unittest.TestCase):
 
 
 class BuildContextGenerationPromptReplayTests(unittest.TestCase):
-    """Content blocks replay the persisted generation_prompt verbatim so the rebuilt history stays byte-identical to the request previously sent to the LLM (keeping provider-side prefix caching effective); legacy rows without it fall back to re-rendering the block source with the current variables."""
+    """Replay saved prompts, projecting proven legacy source notes before substitution."""
 
     DOC = (
         "Content one {{nickname}}.\n"
@@ -2832,6 +2832,158 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
         assert len(user_messages) == 2
         assert "Alice" in user_messages[0]["content"]
         assert user_messages[1]["content"] == "Second content."
+
+    def test_legacy_host_prompt_is_projected_before_the_next_provider_request(
+        self,
+    ) -> None:
+        from markdown_flow import MarkdownFlow
+
+        source = "Hello {{nickname}}. <!-- private legacy note {{secret}}"
+        document = source + "\n---\n?[Continue]"
+        original_flow = MarkdownFlow(document, llm_provider=None)
+        original_flow.set_output_language("English")
+        stored_prompt = original_flow._build_content_messages(
+            0, {"nickname": "<!-- learner literal -->", "secret": "old secret"}
+        )[-1]["content"]
+        assert "private legacy note" in stored_prompt
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=0,
+            generated_content="Teacher output <!-- assistant literal -->",
+            generation_prompt=stored_prompt,
+            block_content_conf=original_flow.get_block(0).content,
+        )
+
+        class CapturingProvider:
+            def __init__(self) -> None:
+                self.messages: list[dict[str, str]] = []
+
+            def complete(
+                self, messages: list[dict[str, str]], **_kwargs: object
+            ) -> str:
+                self.messages = messages
+                return "Next answer"
+
+        app = Flask(__name__)
+        provider = CapturingProvider()
+        with app.app_context():
+            # The course and profile can change after this historical turn.
+            messages = MdflowContextV2.build_context_from_blocks(
+                [block], "Teach the next topic.", {"nickname": "Current name"}
+            )
+            context = MdflowContextV2(
+                document="Teach the next topic.", llm_provider=provider
+            )
+            context.process(
+                block_index=0,
+                mode=context_v2_module.ProcessMode.COMPLETE,
+                context=messages,
+                variables={"nickname": "Current name"},
+            )
+
+        history = provider.messages[1:-1]
+        assert len(history) == 2
+        assert "private legacy note" not in history[0]["content"]
+        assert "old secret" not in history[0]["content"]
+        assert 'Hello """<!-- learner literal -->""".' in history[0]["content"]
+        assert "Current name" not in history[0]["content"]
+        assert history[0]["content"].endswith(
+            stored_prompt.split("\n\n# Next Interaction Note")[1]
+        )
+        assert history[1]["content"] == block.generated_content
+        assert block.generation_prompt == stored_prompt
+
+    def test_preserved_fallback_projects_only_authored_source_comments(self) -> None:
+        source = "Hello {{nickname}}. <!-- private note -->"
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=0,
+            generated_content="Original reply",
+            generation_prompt='Hello """<!-- learner literal -->""". <!-- private note -->',
+            block_content_conf=source,
+        )
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                [block], source, {"nickname": "Current name"}
+            )
+        assert messages == [
+            {"role": "user", "content": 'Hello """<!-- learner literal -->""". '},
+            {"role": "assistant", "content": "Original reply"},
+        ]
+        assert "private note" in block.generation_prompt
+
+    def test_legacy_projection_restores_matching_fenced_source_placeholders(
+        self,
+    ) -> None:
+        from markdown_flow import MarkdownFlow
+
+        document = (
+            "Hello {{nickname}}.\n```html\n<!-- literal example -->\n```\n"
+            "<!-- unfinished author note"
+        )
+        original_flow = MarkdownFlow(document, llm_provider=None)
+        stored_prompt = original_flow._build_content_messages(0, {"nickname": "Old"})[
+            -1
+        ]["content"]
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=0,
+            generated_content="Reply",
+            generation_prompt=stored_prompt,
+            block_content_conf=original_flow.get_block(0).content,
+        )
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                [block], document, {"nickname": "New"}
+            )
+        assert "unfinished author note" not in messages[0]["content"]
+        assert "<!-- literal example -->" in messages[0]["content"]
+        assert 'Hello """Old""".' in messages[0]["content"]
+
+    def test_saved_history_survives_filtered_document_block_count_changes(self) -> None:
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=3,
+            generated_content="Historical reply",
+            generation_prompt="Teach the old topic. <!-- unfinished note",
+            block_content_conf="Teach the old topic. <!-- unfinished note",
+        )
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                [block], "Current topic.", {}
+            )
+        assert messages == [
+            {"role": "user", "content": "Teach the old topic."},
+            {"role": "assistant", "content": "Historical reply"},
+        ]
+
+    def test_unrecognized_or_ambiguous_saved_prompts_are_not_rewritten(self) -> None:
+        from flaskr.service.learn.legacy_prompt_history import (
+            project_legacy_generation_prompt,
+        )
+
+        cases = [
+            ("Host <!-- private note -->", "Learner <!-- unrelated literal -->"),
+            (
+                "Hello {{nickname}}. <!-- note",
+                'Hello """ambiguous """ value""". <!-- note',
+            ),
+            (
+                "<原样输出>{{nickname}}</原样输出> <!-- note",
+                "<原样输出><!-- learner --></原样输出> <!-- note",
+            ),
+        ]
+        for source, stored_prompt in cases:
+            with self.subTest(source=source):
+                assert (
+                    project_legacy_generation_prompt(
+                        stored_prompt, source, document=source, block_index=0
+                    )
+                    == stored_prompt
+                )
 
 
 class StreamContentBlockPromptCaptureTests(unittest.TestCase):

@@ -66,6 +66,9 @@ from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
     render_course_prompt_identity_variables,
 )
+from flaskr.service.learn.legacy_prompt_history import (
+    project_legacy_generation_prompt,
+)
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.memory import (
@@ -598,25 +601,34 @@ class MdflowContextV2:
         current_app.logger.info("build_context_from_blocks variables: %s", variables)
 
         for generated_block in blocks:
-            if generated_block.position < 0 or generated_block.position >= len(
-                block_list
+            if generated_block.position < 0:
+                continue
+            stored_prompt = getattr(generated_block, "generation_prompt", "") or ""
+            valid_position = generated_block.position < len(block_list)
+            if not valid_position and not (
+                generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE and stored_prompt
             ):
                 continue
-            block = block_list[generated_block.position]
+            block = block_list[generated_block.position] if valid_position else None
             if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
                 # Prefer the persisted exact user message sent to the LLM at
-                # generation time: replaying it verbatim keeps the rebuilt
-                # history byte-identical to previously sent requests so
-                # provider-side prefix caching keeps matching. Legacy rows
-                # without it fall back to re-rendering the block source with
-                # the current variables (one-time cache break, then stable).
-                stored_prompt = getattr(generated_block, "generation_prompt", "") or ""
+                # generation time. Only a proven legacy host-source rendering
+                # is projected to exclude authored comments; learner values and
+                # unknown saved prompts retain their original bytes. The saved
+                # source also survives comment filtering that changes indexes.
+                if stored_prompt:
+                    prompt = project_legacy_generation_prompt(
+                        stored_prompt,
+                        getattr(generated_block, "block_content_conf", "") or "",
+                        document=document,
+                        block_index=generated_block.position,
+                    )
+                else:
+                    prompt = replace_variables_in_text(block.content or "", variables)
                 message_list.append(
                     {
                         "role": "user",
-                        "content": stored_prompt
-                        or replace_variables_in_text(block.content or "", variables)
-                        or "",
+                        "content": prompt or "",
                     }
                 )
                 message_list.append(

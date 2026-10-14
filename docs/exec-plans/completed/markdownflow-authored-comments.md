@@ -15,6 +15,10 @@ Saved source remains available in the editor. See the durable behavior in
   and deleted-memory compatibility regressions.
 - [x] 2026-10-14 11:27 CST: Verified 1,206 offline tests and the repository checks;
   regenerated knowledge indexes for the completed plan before the final gate.
+- [x] 2026-10-14 11:56 CST: Addressed PR #3133 review findings in independent
+  fixes: list continuation notes, HTML attribute backticks, linear code-span
+  indexing, and provenance-safe legacy generation-prompt replay. Verified 1,126
+  engine tests and 151 affected host tests.
 
 ## Surprises & Discoveries
 
@@ -47,6 +51,13 @@ Unknown historical prompt layouts and old bounded prompts whose original
 substitutions cannot be recovered remain unchanged rather than guessing at
 learner evidence. Legacy library behavior for inline and indented code remains
 governed by the currently pinned release; fenced literals are provider-tested.
+
+Review follow-up extends legacy replay to saved content-block source snapshots,
+retaining only exact reconstructed prompt projections. Historical next-interaction
+notes lack a source snapshot and remain unchanged. The new code-span index removes
+the introduced repeated-suffix scan: a 4,504,522-byte unmatched-delimiter input
+filtered in 0.032 seconds locally, with a deterministic one-scan regression gate.
+General preview body/field size limits predate this PR and were not changed.
 
 ## Context and Orientation
 
