@@ -586,3 +586,55 @@ async def test_computed_batch_cannot_dispatch_custom_toolset_side_effects(
     )
     assert b"Rejected custom-tool batch" not in history
     assert session.pending[0].tool_call_id == "accepted"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("mixed", [False, True])
+async def test_unavailable_initial_artifact_preserves_already_streamed_history(
+    mixed: bool,
+) -> None:
+    """An unoffered field cannot erase initial prose already shown before validation."""
+    from pydantic_ai.models.function import DeltaToolCall
+
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        """Attempt an unavailable initial artifact, then use the actual text input."""
+        nonlocal calls
+        calls += 1
+        ordinary = {"type": "text", "prompt": "", "placeholder": "Answer"}
+        assert (
+            "computed_example"
+            not in info.function_tools[0].parameters_json_schema["properties"]
+        )
+        if calls == 1:
+            yield "Already visible initial teaching."
+            batch = _call({**ordinary, "computed_example": _loop()}, "unavailable")
+            if mixed:
+                batch[1] = DeltaToolCall(
+                    name="remember",
+                    json_args='{"key":"bad_note","value":"must not persist"}',
+                    tool_call_id="memory",
+                )
+            yield batch
+        else:
+            yield "The corrected initial control."
+            yield _call(ordinary, "accepted")
+
+    engine = Engine(
+        FunctionModel(stream_function=stream), computed_examples=True, request_limit=2
+    )
+    session = await engine.new_session("Explain briefly.\n?[...Answer]\n")
+    events = await _collect(engine.run_turn(session))
+    assert calls == 2
+    assert "Already visible initial teaching." in _text(events)
+    assert "The corrected initial control." in _text(events)
+    assert "| 5 | 101 | 102 | 1 | 3 |" not in _text(events)
+    assert session.memory == {}
+    restored = Session.loads(session.dumps())
+    teaching = "".join(
+        p.content for m in restored.messages for p in m.parts if isinstance(p, TextPart)
+    )
+    assert "Already visible initial teaching." in teaching
+    assert "The corrected initial control." in teaching
+    assert session.pending[0].tool_call_id == "accepted"
