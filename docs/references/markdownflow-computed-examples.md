@@ -30,6 +30,11 @@ schemas; it is omitted, along with its definitions, when unavailable. Native
 validation stays authoritative. A provider accepting a schema does not establish
 strict decoding or a first-generation model pass.
 
+With the capability enabled, the SDK's native before-tool-validation hook applies
+the sole-call check to every tool, including supplied AbstractToolsets, before
+custom argument validators or tool functions run. Normal standalone custom calls
+retain their behavior; a rejected computed batch cannot invoke their side effects.
+
 ## Explicit machine
 
 - One instruction occupies one address; ordinary fall-through advances PC by 1.

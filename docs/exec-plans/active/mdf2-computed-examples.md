@@ -72,6 +72,14 @@ free prose. Keep the eleven-question factual acceptance gate independent.
   now preserve original arguments and withhold rejected prose through reload.
   All 53 focused artifact/history/recovery cases and the final 4,017 learning/
   scripts tests, 50 subtests, two expected skips and all-file hooks pass.
+- Codex's 44954223b review identifies supplied custom toolsets bypassing the
+  built-in sole-call validators. Apply the same computation-only guard through
+  the SDK's before-tool-validation capability when enabled, before custom
+  argument validators and execution. Both sibling orders reproduce the side
+  effect before this fix; normal standalone custom calls still run afterwards.
+  All 55 focused checks, 4,019 learning/scripts tests, 50 subtests, two expected
+  skips and all-file hooks pass. No product model
+  request has been made; sim-b98370c is not the final candidate for acceptance.
 
 ## Decision Log
 
@@ -100,7 +108,7 @@ The bounded interpreter, canonical delivery and saved history are implemented.
 Controlled SDK/provider/storage checks cover Ark/OpenAI/DashScope schemas and
 read/classroom/listen formatter parity, exact SQLite history, audio eligibility,
 rejected content, mixed-tool side effects and initial streaming timing.
-The final full learning/scripts run passed 4,017 tests, 50 subtests and two
+The final full learning/scripts run passed 4,019 tests, 50 subtests and two
 expected skips after the Codex/Devin/CodeRabbit fixes and interrupted-history recovery. Toolchain, repository
 harness, architecture baseline (131 existing / zero new violations), and the
 all-file lefthook gate passed. Source frontend, formatter, pager and element

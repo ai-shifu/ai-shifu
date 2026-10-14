@@ -106,6 +106,7 @@ from .teaching_history import project_teaching_history, read_teaching
 from .teaching_summary import TeachingSummarizer, summarize_teaching_history
 from .tools import (
     NO_PAUSE,
+    ComputedExampleGuard,
     Deps,
     feedback_response_problem,
     finish,
@@ -533,7 +534,10 @@ class Engine:
             deps_type=Deps,
             output_type=[str, DeferredToolRequests],
             instructions=self._instructions,
-            capabilities=[ProcessHistory(self._feedback_retry_history)],
+            capabilities=[
+                ProcessHistory(self._feedback_retry_history),
+                *([ComputedExampleGuard()] if computed_examples else []),
+            ],
             # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
             # again, and a model rewriting options sometimes needs more than one attempt.
             tools=[
