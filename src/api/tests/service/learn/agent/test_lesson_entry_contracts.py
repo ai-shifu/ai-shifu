@@ -487,6 +487,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "outline_bid": "lesson",
         "user_input": {"choice": ["a"]},
         "listen": listen,
+        "learning_mode": learning_mode,
         "preview_mode": preview_mode,
         "content_revision": 41,
         "shifu_model": DraftShifu if preview_mode else PublishedShifu,

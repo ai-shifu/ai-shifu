@@ -1,4 +1,5 @@
 import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
+import { splitContentSegments } from 'markdown-flow-ui/renderer';
 import { syncCustomButtonAfterContent } from './chatUiUtils';
 import { normalizeReadModeDisplayItem } from './readModeItems';
 
@@ -145,7 +146,12 @@ const shouldProjectClassroomModeItem = (
   }
 
   if (item.type === ChatContentItemType.CONTENT) {
-    return isClassroomVisualContentItem(item);
+    const elementType = getItemElementType(item);
+    return (
+      isClassroomVisualContentItem(item) ||
+      elementType === 'text' ||
+      !item.element_type
+    );
   }
 
   return shouldProjectModeItem(item, hiddenContentElementBids);
@@ -188,6 +194,52 @@ const stripClassroomContentAudio = (item: ChatContentItem) => {
   }
 
   return nextItem;
+};
+
+const projectClassroomContentItems = (item: ChatContentItem) => {
+  if (isClassroomVisualContentItem(item)) {
+    return [stripClassroomContentAudio(item)];
+  }
+
+  if (!item.element_bid) {
+    return [];
+  }
+
+  const sanitizedItem = stripClassroomContentAudio(item);
+  // Older MDF2 runs stored the whole teaching turn as a text element. Recover
+  // its visuals with the shared renderer parser, keeping narration off screen.
+  // The streaming parser preserves mixed HTML/code/image source order and
+  // excludes prose even while a code fence has not finished arriving.
+  const visualSegments = splitContentSegments(
+    sanitizedItem.content ?? '',
+    false,
+    true,
+  ).filter(
+    segment =>
+      segment.type !== 'text' &&
+      !(segment.type === 'markdown' && segment.pending),
+  );
+
+  return visualSegments.map((segment, index) => {
+    const visualItem: ChatContentItem = {
+      ...sanitizedItem,
+      // These IDs exist only in this projection for page navigation. Canonical
+      // items and interaction submission anchors retain their original IDs.
+      element_bid: `${item.element_bid}::classroom-visual::${index}`,
+      generated_block_bid: item.generated_block_bid || item.element_bid,
+      parent_element_bid: item.element_bid,
+      content: segment.value,
+      element_type: segment.type === 'sandbox' ? 'html' : 'text',
+      is_renderable: true,
+      is_marker: true,
+      is_new: true,
+    };
+    // Each recovered visual needs its own sequence slot. The slide renderer
+    // assigns and retains that slot using the stable per-parent element ID.
+    delete visualItem.sequence_number;
+    delete visualItem.target_element_bid;
+    return visualItem;
+  });
 };
 
 const projectListenAnswerFeedbackItems = (
@@ -395,7 +447,7 @@ export const projectListenModeItems = ({
     }
     if (variant === 'classroom') {
       hasChanges = true;
-      return [stripClassroomContentAudio(item)];
+      return projectClassroomContentItems(item);
     }
     const sanitizedContent = syncCustomButtonAfterContent({
       content: item.content,

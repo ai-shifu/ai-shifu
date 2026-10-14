@@ -327,6 +327,7 @@ def run_agent_lesson(
     outline_bid: str,
     user_input: str | dict | None = None,
     listen: bool = False,
+    learning_mode: str | None = None,
     preview_mode: bool = False,
     shifu_model: type | None = None,
     heartbeat_interval: float = 0.5,
@@ -459,9 +460,10 @@ def run_agent_lesson(
         if listen and progress_record_bid
         else None
     )
-    # Paging is what listening needs: it is how a page's audio finds the text it belongs to. A
-    # reading lesson has no audio to bind and keeps the single-element shape it has today.
-    pager = LessonPager() if listen else None
+    # Both slide modes need typed pages so visual cards are renderable elements. Classroom
+    # mode has no voice, but leaving it unpaged hides its cards inside a narration-only element.
+    # Reading keeps the single-element shape it has today.
+    pager = LessonPager() if listen or learning_mode == "classroom" else None
     try:
         if on_turn_opened is not None:
             on_turn_opened(progress_record_bid, generated_block_bid)

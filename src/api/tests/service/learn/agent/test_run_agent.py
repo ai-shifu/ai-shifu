@@ -180,6 +180,7 @@ def _run(
     user_input: str | None = None,
     app: object = None,
     listen: bool = False,
+    learning_mode: str | None = None,
     on_turn_opened: object = None,
 ) -> list:
     return list(
@@ -192,6 +193,7 @@ def _run(
             outline_bid=OUTLINE,
             user_input=user_input,
             listen=listen,
+            learning_mode=learning_mode,
             iter_turn=_drive,
             on_turn_opened=on_turn_opened,
         )
@@ -1316,6 +1318,94 @@ def test_a_reading_lesson_is_not_paged() -> None:
         if not isinstance(e, str)
         for part in (e.get_mdflow_stream_parts() or [])
     ]
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("chunk_size", [1, 1000], ids=["streamed", "single-chunk"])
+def test_a_classroom_lesson_pages_visuals_and_questions_without_speaking(
+    app: object, monkeypatch: pytest.MonkeyPatch, chunk_size: int
+) -> None:
+    """Classroom cards need typed elements even though classroom has no audio."""
+    from flaskr.service.learn.learn_dtos import ElementType
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedElement
+
+    def unexpected_voice(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("classroom mode must not start TTS")
+
+    monkeypatch.setattr(run_agent, "LessonVoice", unexpected_voice)
+    text = (
+        "First narration.\n\n<div>First card</div>\n\n"
+        "---\n\nSecond narration.\n\n<div>Second card</div>\n\n"
+    )
+    engine = _Engine(
+        [
+            *[
+                ContentDelta(text=text[start : start + chunk_size])
+                for start in range(0, len(text), chunk_size)
+            ],
+            InteractionRequest(
+                id="i1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="Which card do you prefer?",
+                    options=[Option(display="First"), Option(display="Second")],
+                    variable="choice",
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+
+    events = _run(engine, listen=False, learning_mode="classroom")
+    content_events = [event for event in events if event.type == GeneratedType.CONTENT]
+    assert all(event.get_mdflow_stream_parts() for event in content_events)
+    parts = [
+        part for event in content_events for part in event.get_mdflow_stream_parts()
+    ]
+    html = "".join(content for content, kind, _number in parts if kind == "html")
+    assert html.replace("\n", "") == "<div>First card</div><div>Second card</div>"
+    assert len({number for _content, kind, number in parts if kind == "html"}) == 2
+    assert "Which card do you prefer?" in "".join(
+        event.content for event in content_events
+    )
+    assert "---" not in "".join(event.content for event in content_events)
+    assert events[-1].type == GeneratedType.BREAK
+    assert any(event.type == GeneratedType.INTERACTION for event in events)
+
+    with app.app_context():
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_bid=USER,
+            persist_only_final=True,
+        )
+        streamed = list(adapter.process(events))
+        visuals = [
+            event.content
+            for event in streamed
+            if event.type == "element"
+            and event.content.element_type == ElementType.HTML
+            and event.content.is_final
+        ]
+        assert len(visuals) == 2
+        assert all(visual.is_renderable for visual in visuals)
+        assert all(
+            not visual.audio_url and not visual.audio_segments for visual in visuals
+        )
+        rows = LearnGeneratedElement.query.filter_by(
+            run_session_bid=adapter.run_session_bid,
+            event_type="element",
+            element_type=ElementType.HTML.value,
+            deleted=0,
+            status=1,
+        ).all()
+        assert len(rows) == 2
+        assert {row.content_text.strip() for row in rows} == {
+            "<div>First card</div>",
+            "<div>Second card</div>",
+        }
 
 
 @pytest.mark.usefixtures("calls")

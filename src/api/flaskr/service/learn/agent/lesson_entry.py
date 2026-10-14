@@ -427,6 +427,7 @@ def agent_lesson_events(
                 outline_bid=outline_bid,
                 user_input=user_input,
                 listen=listen,
+                learning_mode=learning_mode,
                 preview_mode=preview_mode,
                 shifu_model=_models(preview_mode)[1],
                 heartbeat_interval=heartbeat_interval,
