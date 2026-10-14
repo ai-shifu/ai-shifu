@@ -34,7 +34,7 @@ from flaskr.service.learn.agent.engine.interaction import (
     normalize_answer,
 )
 from flaskr.service.learn.agent.session_store import StoredSessionUnusable
-from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.learn.learn_dtos import GeneratedType, LearnStatus
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 
 USER = "user-bid"
@@ -158,7 +158,7 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
         run_agent, "course_memory_deletion_state", lambda *_a, **_k: ({}, frozenset())
     )
     monkeypatch.setattr(run_agent, "record_turn_content", _record_content)
-    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: PROGRESS)
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: (PROGRESS, None))
     monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: _Record())
     monkeypatch.setattr(run_agent, "mark_lesson_finished", lambda _r: None)
 
@@ -197,6 +197,77 @@ def _run(
             on_turn_opened=on_turn_opened,
         )
     )
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True])
+def test_a_first_turn_updates_the_catalog_before_teaching(
+    monkeypatch: pytest.MonkeyPatch, listen: bool
+) -> None:
+    """A newly started lesson exposes its retake action before any model content arrives."""
+    update = _outline_update(OUTLINE, LearnStatus.IN_PROGRESS)
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: (PROGRESS, update))
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    bound: list[tuple[str, str]] = []
+    engine = _Engine([ContentDelta(text="Teaching."), TurnDone(reason="end")])
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        listen=listen,
+        on_turn_opened=lambda *ids: bound.append(ids),
+        iter_turn=_drive,
+    )
+
+    first = next(stream)
+    assert first.type == GeneratedType.OUTLINE_ITEM_UPDATE
+    assert first.outline_bid == OUTLINE
+    assert first.generated_block_bid == ""
+    assert first.content.model_dump(mode="json") == {
+        "outline_bid": OUTLINE,
+        "title": OUTLINE,
+        "status": "in_progress",
+        "has_children": False,
+    }
+    assert bound[0][0] == PROGRESS
+    assert engine.turns == []
+    remaining = list(stream)
+    assert any(event.type == GeneratedType.CONTENT for event in remaining)
+    assert not any(
+        event.type == GeneratedType.OUTLINE_ITEM_UPDATE for event in remaining
+    )
+
+
+@pytest.mark.usefixtures("calls")
+def test_closing_after_the_catalog_update_retires_the_unstarted_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The new first event must remain inside the runner's disconnect cleanup."""
+    update = _outline_update(OUTLINE, LearnStatus.IN_PROGRESS)
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: (PROGRESS, update))
+    retired: list[dict] = []
+    monkeypatch.setattr(
+        run_agent, "_retire_block", lambda *_a, **kw: retired.append(kw)
+    )
+    engine = _Engine([TurnDone(reason="end")])
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    assert next(stream).type == GeneratedType.OUTLINE_ITEM_UPDATE
+    stream.close()
+
+    assert len(retired) == 1
+    assert retired[0]["generated_block_bid"]
+    assert engine.turns == []
 
 
 # --- what the turn is --------------------------------------------------------------------
@@ -270,7 +341,7 @@ def test_a_finished_lesson_asked_for_a_turn_says_it_is_over_and_writes_nothing(
     monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: finished)
     opened: list = []
     monkeypatch.setattr(
-        run_agent, "_open_turn", lambda *_a, **k: opened.append(k) or PROGRESS
+        run_agent, "_open_turn", lambda *_a, **k: opened.append(k) or (PROGRESS, None)
     )
     engine = _Engine([TurnDone(reason="end")], session=finished)
 
@@ -301,7 +372,7 @@ def test_usage_binding_precedes_session_creation_and_the_producer(
     bound: list[tuple[str, str]] = []
     opened: list[dict] = []
     monkeypatch.setattr(
-        run_agent, "_open_turn", lambda *_a, **kw: opened.append(kw) or PROGRESS
+        run_agent, "_open_turn", lambda *_a, **kw: opened.append(kw) or (PROGRESS, None)
     )
     monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-attempt")
 
@@ -876,7 +947,9 @@ def test_previewing_a_lesson_writes_no_progress_for_the_learner(
     """
     resolved: list[bool] = []
     monkeypatch.setattr(
-        run_agent, "_open_turn", lambda *_a, **_k: resolved.append(True) or PROGRESS
+        run_agent,
+        "_open_turn",
+        lambda *_a, **_k: resolved.append(True) or (PROGRESS, None),
     )
 
     session = _Session()
@@ -1626,7 +1699,7 @@ def test_a_preview_s_audio_is_not_billed_as_a_lesson_taken(
         "flaskr.service.learn.agent.listen.create_tts_processor", _factory
     )
     monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-progress")
-    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: PROGRESS)
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: (PROGRESS, None))
 
     class _App:
         import logging
