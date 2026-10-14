@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import ValidationError
 from pydantic_ai import CallDeferred, ModelRetry, RunContext
+from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -37,6 +38,7 @@ from .session import answer_fingerprint
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from pydantic_ai.capabilities import RawToolArgs
     from pydantic_ai.tools import ToolDefinition
 
 
@@ -611,10 +613,8 @@ def current_tool_response(ctx: RunContext[Deps]) -> ModelResponse | None:
     )
 
 
-def validate_direction_call(
-    ctx: RunContext[Deps], *_args: object, **_kwargs: object
-) -> None:
-    """Reject mixed direction calls before any built-in tool can change state."""
+def validate_computed_call(ctx: RunContext[Deps]) -> None:
+    """Reject the complete computed batch before any tool can change state."""
     response = current_tool_response(ctx)
     if (
         response is not None
@@ -630,6 +630,29 @@ def validate_direction_call(
         ctx.deps.hide_feedback_response(response)
         message = "computed_example must use the sole existing interact call; do not add a planning or memory call"
         raise ModelRetry(message)
+
+
+class ComputedExampleGuard(AbstractCapability[Deps]):
+    """Apply computed sole-call validation to built-in and supplied toolsets."""
+
+    async def before_tool_validate(
+        self,
+        ctx: RunContext[Deps],
+        *,
+        args: RawToolArgs,
+        **_tool_metadata: object,
+    ) -> RawToolArgs:
+        """Guard before native argument validators and external tool dispatch."""
+        validate_computed_call(ctx)
+        return args
+
+
+def validate_direction_call(
+    ctx: RunContext[Deps], *_args: object, **_kwargs: object
+) -> None:
+    """Reject mixed direction calls before any built-in tool can change state."""
+    validate_computed_call(ctx)
+    response = current_tool_response(ctx)
     if (
         response is not None
         and any(

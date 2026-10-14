@@ -408,7 +408,7 @@ async def test_invalid_artifact_response_never_becomes_visible_teaching(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("arguments", ['{"computed_example":[', "[]"])
+@pytest.mark.parametrize("arguments", ['{"computed_example":[', "[]", "", "{}"])
 async def test_unparseable_interact_keeps_prose_held_through_native_retry(
     arguments: str,
 ) -> None:
@@ -512,3 +512,77 @@ async def test_portable_nonresumed_turn_preserves_earlier_direction_teaching() -
     session = Session.loads(session.dumps())
     await _collect(engine.run_turn(session, MessageTurn(text="Another remark.")))
     assert calls == 5
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("external_first", [False, True])
+async def test_computed_batch_cannot_dispatch_custom_toolset_side_effects(
+    external_first: bool,
+) -> None:
+    """Reject all mixed calls before custom validators and tools, in either order."""
+    from flaskr.service.learn.agent.engine.tools import Deps
+    from pydantic_ai import RunContext
+    from pydantic_ai.models.function import DeltaToolCall
+    from pydantic_ai.toolsets import FunctionToolset
+
+    effects = []
+    custom = FunctionToolset()
+
+    def validate_external(_ctx: RunContext[Deps]) -> None:
+        """Expose validator dispatch as well as actual external execution."""
+        effects.append("validated")
+
+    @custom.tool_plain(args_validator=validate_external)
+    async def external_update() -> str:
+        """Represent an external side effect without touching a real service."""
+        effects.append("executed")
+        return "updated"
+
+    calls = 0
+
+    async def stream(_messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator:
+        """Allow a normal custom call, then attempt a rejected computed sibling."""
+        nonlocal calls
+        calls += 1
+        assert any(t.name == "external_update" for t in info.function_tools)
+        ordinary = {"type": "text", "prompt": "", "placeholder": "Answer"}
+        external = DeltaToolCall(
+            name="external_update", json_args="{}", tool_call_id=f"external{calls}"
+        )
+        if calls == 1:
+            yield {0: external}
+        elif calls == 2:
+            assert effects == ["validated", "executed"]
+            yield _call(ordinary, "original")
+        elif calls == 3:
+            yield "Rejected custom-tool batch."
+            computed = _call({**ordinary, "computed_example": _loop()}, "mixed")[0]
+            yield (
+                {0: external, 1: computed}
+                if external_first
+                else {0: computed, 1: external}
+            )
+        else:
+            assert effects == ["validated", "executed"]
+            yield "Accepted computed response."
+            yield _call({**ordinary, "computed_example": _loop()}, "accepted")
+
+    engine = Engine(
+        FunctionModel(stream_function=stream),
+        computed_examples=True,
+        toolsets=[custom],
+        request_limit=2,
+    )
+    session = await engine.new_session("Explain briefly.\n?[...Answer]\n")
+    await _collect(engine.run_turn(session))
+    events = await _collect(
+        engine.run_turn(session, InteractionResponseTurn(text="Show two iterations."))
+    )
+    assert calls == 4
+    assert effects == ["validated", "executed"]
+    assert "Rejected custom-tool batch" not in _text(events)
+    history = ModelMessagesTypeAdapter.dump_json(
+        Session.loads(session.dumps()).messages
+    )
+    assert b"Rejected custom-tool batch" not in history
+    assert session.pending[0].tool_call_id == "accepted"
