@@ -8,6 +8,10 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-15 01:31 CST: Commit seven synthetic native SDK and eight formatter
+      counterexamples with blocked I/O and a clean-checkout command. Private
+      classroom provenance remains separate; no new model run or runtime change.
+
 - [x] 2026-10-15: Re-fetch main 33f5ba47c and retain failed #3137. Seven
       private native SDK cases and eight unchanged formatter controls falsify
       required/nullable and code/table-only coverage gates. They neither fix

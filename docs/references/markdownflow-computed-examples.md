@@ -137,6 +137,19 @@ HTTP eleven-question natural-compaction/statistics/summary/billing gate.
 
 ## Offline coverage boundary (2026-10-15)
 
+Reproduce the two policy counterexamples from a clean checkout with the pinned
+backend dependencies (expected: 15 passed):
+
+```sh
+cd src/api
+python -m pytest tests/service/learn/agent/engine/test_computed_example_coverage.py -q
+```
+
+The complete synthetic inputs and test-only capability are versioned there;
+HTTP, sockets and database connections are blocked. Each native case constructs
+its own opening and follow-up with FunctionModel. These are safe structural
+controls, not a copy or independent public attestation of the private classroom.
+
 Seven native SDK cases and eight unchanged StreamFormatter controls falsify two
 proposed fixes. A required nullable field rejects omission but accepts null
 alongside the exact retained failing response. Requiring a non-null object on

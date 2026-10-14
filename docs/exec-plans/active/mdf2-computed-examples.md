@@ -16,33 +16,39 @@ free prose. Keep the eleven-question factual acceptance gate independent.
   progress notification. Existing #3122 and shared sim remain unchanged.
 - [x] 2026-10-14: Choose a same-response optional interact payload on supported returned text inputs so local
   computation adds no model request, planning turn, learner input or budget.
-- [x] Add strict bounded integer-program validation, execution and canonical
+- [x] 2026-10-14: Add strict bounded integer-program validation, execution and canonical
   Markdown program/initial-state/table rendering, with negative and positive
   controls derived from retained failure classes.
-- [x] Bind the canonical artifact to accepted interaction delivery and saved
+- [x] 2026-10-14: Bind the canonical artifact to accepted interaction delivery and saved
   teaching; preserve native arguments, rejected-response isolation and reloads.
-- [x] Verify provider schema transformations and the real formatter, element,
+- [x] 2026-10-14: Verify provider schema transformations and the real formatter, element,
   history, audio and first-turn progress consumers on the current main.
-- [x] Complete repository gates, ready PR #3137 and all original-thread review
+- [x] 2026-10-14: Complete repository gates, ready PR #3137 and all original-thread review
   replies for code head 1d8f5ee8e. Its eleven checks pass; Codex explicitly
   reviewed that head, and CodeRabbit run 0243b99a reports no actionable comments.
   Seven code roots are resolved after replies; the classroom acceptance root stays open.
-- [x] Inspect an authorized fresh ordinary-HTTP opening and first knowledge
+- [x] 2026-10-14: Inspect an authorized fresh ordinary-HTTP opening and first knowledge
   follow-up on deployed sim-8cf56ef. Stop on a visible loop-count factual failure.
   No preliminary paid checkpoint replay or unchanged paid resampling was run.
-- [x] Add and verify accepted-use analytics after Codex review 4271281168:
+- [x] 2026-10-14: Add and verify accepted-use analytics after Codex review 4271281168:
   published modes only, anonymous bounded payload, native timing/deduplication and
   asynchronous fail-open transport. No paid classroom rerun accompanies it.
-- [x] Analytics head a027bdc0b passes its own eleven checks. CodeRabbit run
-  5e34911c reviews its ten changes without actionable comments; the analytics
+- [x] 2026-10-15 01:31 CST: Record prior analytics head a027bdc0b passing
+  its own eleven checks. CodeRabbit run 5e34911c reviews its ten changes without actionable comments; the analytics
   root is replied/resolved. Sim-f14654a matches 75 files and passes 561 isolated
   SDK/host/tracker cases per Ready API. The retained failed classroom is unchanged.
-- [ ] Obtain an actual latest-head Codex review. The a027 request returned
-  account-link notice 6169626858, not a review; do not reuse older-head coverage.
-- [x] 2026-10-15: Falsify required-field and CODE/TABLE-only coverage proposals
+- [x] 2026-10-15 01:31 CST: Codex actually reviews documentation head
+  506b5b8b8 (review 5521943692), raising reproducibility and timestamp findings.
+  The prior a027 account-link notice was not a review.
+- [x] 2026-10-15 01:31 CST: Add public synthetic reproduction cases for those
+  two proposed policies and timestamp this plan. No private classroom fixtures.
+- [ ] 2026-10-15 01:31 CST: Check the follow-up head's own CI/reviews and reply
+  with its pushed SHA and results before resolving the two documentation findings.
+- [x] 2026-10-15 01:31 CST: Record the completed audit of required-field and
+  CODE/TABLE-only coverage proposals
   with seven native SDK cases and eight unchanged formatter controls. No
   provider/HTTP/database request, learner, product change or paid retry.
-- [ ] Pass fresh eleven-question natural compression, per-question statistics,
+- [ ] 2026-10-14: Pass fresh eleven-question natural compression, per-question statistics,
   actual summaries and final cost attribution; the first-question failure holds this gate.
 
 ## Surprises & Discoveries
@@ -129,6 +135,34 @@ free prose. Keep the eleven-question factual acceptance gate independent.
 
 ## Offline Coverage Audit (2026-10-15)
 
+The durable counterexamples are checked into
+`src/api/tests/service/learn/agent/engine/test_computed_example_coverage.py`.
+From a clean checkout with the pinned backend dependencies installed, run:
+
+```sh
+cd src/api
+python -m pytest tests/service/learn/agent/engine/test_computed_example_coverage.py -q
+```
+
+Expected: 15 passed (seven native SDK cases and eight formatter cases).
+Every native case creates a synthetic opening and follows it with one local
+FunctionModel response: two native requests, zero provider requests. It asserts
+the actual offered schema, unchanged old-history prefix, original call arguments,
+accepted/saved text, rejected zero TextParts and canonical artifact count/state.
+A fixture blocks HTTP, socket and SQLAlchemy connections, recording attempted
+access even if the runtime catches the exception. Nullable prototypes accept
+both an object and null; schema validity of the object branch is also asserted.
+All literals, programs, feedback and checkpoint construction are in the test;
+there is no app, credential, private file, paid call or persisted classroom.
+
+These are synthetic counterexamples, **not** a public copy of the retained
+classroom or proof of that classroom's provenance/billing. The seven-case matrix
+below states the separate private retained-response audit. Its private input
+hashes and native outputs are not public reproducibility evidence. The committed
+cases reproduce the structural bypass/compatibility decisions with safe inputs;
+private retention remains an independent receipt. Neither set establishes real
+model behavior or a factual acceptance pass.
+
 Re-fetch main: still 33f5ba47c; candidate runtime still a027bdc0b. Use pinned
 pydantic-ai-slim 2.43.0 and markdown-flow 0.3.4 without a provider, app or database.
 Start from in-memory copies of the retained opening checkpoint and exact final
@@ -174,6 +208,11 @@ No such product policy is introduced here. The factual and eleven-question gates
 remain failed/open; no paid retry is justified by these prototypes.
 
 ## Decision Log
+
+- 2026-10-15 01:31 CST: Adopt Codex findings 4274079205 and 4274079222:
+  commit fully synthetic SDK/formatter counterexamples and a clean-checkout
+  command, distinguish them from private provenance, and timestamp progress.
+  No runtime or private classroom content is added.
 
 - 2026-10-15: Keep a027 runtime, schemas, prompts, formatter, frontend and
   deployment unchanged after the offline audit. Record falsified hypotheses
