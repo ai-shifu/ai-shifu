@@ -40,6 +40,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Continue teaching after a failed model stream](./active/mdf2-interrupted-teaching-history.md)
 - [Keep native usage classification inside an application scope](./active/mdf2-native-usage-classification.md)
 - [Restore authored text inputs in lesson previews](./active/mdf2-preview-text-placeholder.md)
+- [Reuse the 1.0 formatter for every 2.0 lesson mode](./active/mdf2-shared-element-format.md)
 - [Attribute teaching usage to the actual learning attempt](./active/mdf2-teaching-usage-attempt.md)
 - [Unavailable Learner Values](./active/mdf2-unavailable-learner-values.md)
 - [Volc Knowledge Follow-up Context](./active/mdf2-volc-follow-up-context.md)

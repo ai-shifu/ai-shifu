@@ -24,6 +24,7 @@ from flaskr.service.learn.agent.engine.events import (
     InteractionRequest,
     MemoryUpdated,
     ToolCall,
+    ToolResult,
     TurnDone,
 )
 from flaskr.service.learn.agent.engine.interaction import (
@@ -1303,19 +1304,25 @@ def test_a_listening_lesson_is_sent_as_pages(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.usefixtures("calls")
-def test_a_reading_lesson_is_not_paged() -> None:
-    """Paging exists to bind audio. A lesson nobody is listening to keeps its current shape."""
+def test_reading_and_classroom_receive_the_same_typed_pieces_as_listening(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The non-listening request must expose HTML without starting speech synthesis."""
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: pytest.fail("A non-listening lesson requested TTS"),
+    )
     engine = _Engine(
         [ContentDelta(text="a\n\n<div>b</div>\n\nc"), TurnDone(reason="end")]
     )
     events = _run(engine, listen=False)
 
-    assert not [
+    assert [
         part
         for e in events
         if not isinstance(e, str)
         for part in (e.get_mdflow_stream_parts() or [])
-    ]
+    ] == [("a\n\n", "text", 0), ("<div>b</div>\n", "html", 1), ("\nc", "text", 2)]
 
 
 @pytest.mark.usefixtures("calls")
@@ -1376,6 +1383,40 @@ def test_no_lesson_text_escapes_a_listening_turn_unpaged(
         and not e.get_mdflow_stream_parts()
     ]
     assert not unpaged, f"text left a listening turn without a page: {unpaged}"
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize(
+    "listen", [False, True], ids=["reading-classroom", "listening"]
+)
+@pytest.mark.parametrize("cut", [3, 8, 31])
+def test_tool_events_do_not_split_formatted_content(
+    monkeypatch: pytest.MonkeyPatch, listen: bool, cut: int
+) -> None:
+    """Tool events inside a tag or fence must not turn a visual into fallback text."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    lesson = '<div class="card">Card</div>\n```js\nconst x = 1;\n```'
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[:cut]),
+            ToolCall(id="t1", name="recall", args={}),
+            ToolResult(id="t1", name="recall", content={}),
+            ContentDelta(text=lesson[cut:]),
+            TurnDone(reason="end"),
+        ]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert "".join(text for text, _, _ in parts) == lesson
+    assert [(kind, number) for _, kind, number in parts] == [
+        ("html", 0),
+        ("code", 1),
+        ("code", 1),
+        ("code", 1),
+    ]
 
 
 @pytest.mark.usefixtures("calls")
@@ -1683,7 +1724,7 @@ def test_a_question_just_asked_in_other_words_is_not_asked_again() -> None:
         "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。"
     )
     prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
-    assert _asked_after(narration, prompt) == [narration]
+    assert "".join(_asked_after(narration, prompt)) == narration
 
 
 @pytest.mark.usefixtures("calls")
