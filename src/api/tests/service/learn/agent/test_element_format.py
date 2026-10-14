@@ -291,3 +291,39 @@ def test_html_in_question_prompt_uses_the_same_formatter(
     assert history[-1].element_type == ElementType.INTERACTION
     assert history[-1].content == "?[First | Second]"
     assert _shape(streamed) == _shape(history)
+
+
+@pytest.mark.parametrize("opening", ["<div>", "<svg>", "```python"])
+@pytest.mark.parametrize("listen", [False, True])
+@pytest.mark.parametrize("echo_question", [False, True])
+def test_question_after_unclosed_visual_is_independently_shown_and_spoken(
+    format_environment: Flask, opening: str, listen: bool, echo_question: bool
+) -> None:
+    prompt = "Which example do you prefer?"
+    narration = opening + "\n" + (prompt if echo_question else "Unfinished visual")
+    engine = host_fixture._Engine(
+        [
+            ContentDelta(text=narration),
+            InteractionRequest(
+                id="comparison",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt=prompt,
+                    options=[Option(display="First"), Option(display="Second")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = host_fixture._run(engine, app=format_environment, listen=listen)
+    streamed, history = _adapt_and_reload(format_environment, events)
+    for elements in (streamed, history):
+        assert len(elements) == 3
+        assert elements[0].content == narration
+        question = elements[1]
+        assert question.element_type == ElementType.TEXT
+        assert question.content == prompt
+        assert question.is_speakable is True
+        assert bool(question.audio_url) is listen
+        assert elements[2].element_type == ElementType.INTERACTION
+        assert elements[0].element_bid != question.element_bid

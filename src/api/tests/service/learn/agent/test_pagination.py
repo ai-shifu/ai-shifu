@@ -137,6 +137,28 @@ def test_the_last_line_is_released_when_the_turn_ends() -> None:
     assert pager.flush() == [("No newline yet", "text", 0)]
 
 
+@pytest.mark.parametrize("opening", ["<div>", "<svg>", "```python"])
+def test_a_question_block_does_not_inherit_unfinished_visual_syntax(
+    opening: str,
+) -> None:
+    pager = LessonPager()
+    narration = pager.add(opening + "\nUnfinished") + pager.start_block()
+    assert "".join(text for text, _, _ in narration) == opening + "\nUnfinished"
+    question = pager.add("Which example?") + pager.flush()
+    assert question == [("Which example?", "text", 1)]
+
+
+def test_block_numbering_advances_past_every_prior_element_and_html_append() -> None:
+    pager = LessonPager()
+    pieces = pager.add("<div>Card</div>\nNarration.\n<style>.card{}</style>\n")
+    assert [number for _, _, number in pieces] == [0, 1, 0]
+    assert pager.start_block() == []
+    assert pager.add("Question.\n") == [("Question.\n", "text", 2)]
+    assert pager.start_block() == []
+    # Consecutive prose keeps the existing history/audio grouping.
+    assert pager.add("Another question.\n") == [("Another question.\n", "text", 2)]
+
+
 def test_the_pieces_are_the_same_at_every_character_boundary() -> None:
     """A model's arbitrary chunk boundaries cannot change element content or identity."""
     lesson = (

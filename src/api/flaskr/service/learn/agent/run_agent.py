@@ -724,14 +724,30 @@ def _question(
         )
     # A question put again after an unusable answer is already on the learner's screen; sending
     # its text again added the same line under it each time.
+    # Only prose counts as having asked it aloud. A copy inside an unfinished visual or code
+    # block was not spoken and must not suppress the independent question prompt.
+    dedup_pager = LessonPager()
+    asked_prose = "".join(
+        text
+        for text, stream_type, _ in dedup_pager.add(taught) + dedup_pager.flush()
+        if stream_type == "text"
+    )
     prompts = [
         d
         for d in translated
         if d.type == GeneratedType.CONTENT
         and not event.asked_before
-        and not _already_asked(taught, str(d.content or ""))
+        and not _already_asked(asked_prose, str(d.content or ""))
     ]
     controls = [d for d in translated if d.type != GeneratedType.CONTENT]
+    # Flush releases a buffered line but keeps the classifier inside unfinished HTML or code.
+    # The prompt is a separate block, so it must not inherit the narration's syntax state.
+    yield from _pieces(
+        pager.start_block(),
+        voice=voice,
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+    )
     yield from _on_this_page(prompts, pager=pager, voice=voice)
     if voice is not None:
         yield from voice.finish()
