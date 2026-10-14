@@ -29,6 +29,27 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
+@pytest.mark.parametrize("intro", ["Topic", "- Topic", "1. Topic\n"])
+@pytest.mark.parametrize("indent", ["    ", "\t"])
+def test_indented_author_notes_are_not_prompts_or_collected_variables(
+    intro: str, indent: str
+) -> None:
+    source = (
+        f"{intro}\n{indent}<!-- private %{{{{goal}}}} {{{{secret}}}} -->\n"
+        f"{indent}Explain the topic"
+    )
+    bundle = ScriptBundle(script=source)
+    prompt = render_first_prompt(bundle, {})
+    assert "private" not in prompt
+    assert "goal" not in prompt
+    assert "secret" not in prompt
+    assert "Explain the topic" in prompt
+    assert collected_names(source) == frozenset()
+    assert substitution_names(bundle) == frozenset()
+    assert not detect_v1_syntax(source)
+    assert bundle.script == source
+
+
 def test_comments_are_removed_before_substitution_without_changing_source() -> None:
     bundle = ScriptBundle(
         script="Hello {{name}}<!-- private script %{{name}} {{secret}} -->.",

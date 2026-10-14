@@ -14,6 +14,8 @@ before learner-variable substitution. Inline, multiline, repeated, and unclosed
 comments are excluded; an unclosed comment ends at its document boundary.
 Visible text and line boundaries remain intact, and literal comments in Markdown
 code examples remain available to teach. Stored author documents are unchanged.
+Indentation that continues a paragraph or list item does not turn an author note
+into a code example; those comments are still excluded.
 
 Commented interactions and variable markers do not declare runtime controls,
 memory keys, or syntax requirements. Resumed 2.0 feedback references use the same
