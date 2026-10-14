@@ -3136,6 +3136,74 @@ def test_history_only_filters_a_proven_teacher_source_prompt(
         assert messages[0]["content"] == stored
 
 
+@pytest.mark.parametrize("language", [None, "简体中文"])
+def test_history_recognizes_the_complete_native_teacher_prompt(
+    language: str | None,
+) -> None:
+    document = (
+        "Teach {{profile}} <!-- native first --><!-- teacher private -->\n"
+        "```html\n<!-- code literal -->\n```\n===Exact source===\n---\n?[Ready?]\n---\n"
+        "Second {{profile}} <!-- native last --><!-- second teacher -->"
+    )
+    variables = {"profile": "<!-- variable literal -->"}
+    native = MarkdownFlow(document)
+    native.set_output_language(language)
+    first = native.get_content_messages(0, variables, context=None)[-1]["content"]
+    native.set_output_language(None)
+    second = native.get_content_messages(2, variables, context=None)[-1]["content"]
+    rows = [
+        types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=position,
+            generated_content="<!-- assistant history -->",
+            generation_prompt=prompt,
+        )
+        for position, prompt in [(0, first), (2, second)]
+    ]
+    with Flask("native-teacher-history").app_context():
+        messages = MdflowContextV2.build_context_from_blocks(rows, document, variables)
+
+    assert "teacher private" not in messages[0]["content"]
+    assert "<!-- variable literal -->" in messages[0]["content"]
+    assert "```html\n<!-- code literal -->\n```" in messages[0]["content"]
+    assert "[INSTRUCTION: Remove <原样输出> tags" in messages[0]["content"]
+    assert "# Next Interaction Note" in messages[0]["content"]
+    assert "second teacher" not in messages[2]["content"]
+    assert "<!-- variable literal -->" in messages[2]["content"]
+    assert not messages[2]["content"].startswith("<output_language_instruction>")
+    assert (
+        messages[1]["content"] == messages[3]["content"] == "<!-- assistant history -->"
+    )
+    if language is not None:
+        wrapper = first[
+            : first.index("</output_language_instruction>")
+            + len("</output_language_instruction>\n\n")
+        ]
+        assert messages[0]["content"].startswith(wrapper)
+
+
+@pytest.mark.parametrize("changed", ["variables", "suffix"])
+def test_unproven_complete_native_history_remains_byte_identical(changed: str) -> None:
+    document = "Teach {{profile}} <!-- native first --><!-- teacher private -->"
+    variables = {"profile": "Current <!-- variable literal -->"}
+    historical_variables = {"profile": "Historical <!-- old literal -->"}
+    native = MarkdownFlow(document).set_output_language("简体中文")
+    stored = native.get_content_messages(
+        0, historical_variables if changed == "variables" else variables, context=None
+    )[-1]["content"]
+    if changed == "suffix":
+        stored += "\nHistorical extra content"
+    row = types.SimpleNamespace(
+        type=BLOCK_TYPE_MDCONTENT_VALUE,
+        position=0,
+        generated_content="response",
+        generation_prompt=stored,
+    )
+    with Flask("unproven-native-history").app_context():
+        messages = MdflowContextV2.build_context_from_blocks([row], document, variables)
+    assert messages[0]["content"] == stored
+
+
 class TraceSessionBindingTests(unittest.TestCase):
     """Cover the langfuse session id binding of a runtime step."""
 

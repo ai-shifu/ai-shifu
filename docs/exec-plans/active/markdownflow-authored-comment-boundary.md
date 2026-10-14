@@ -18,7 +18,7 @@ without filtering arbitrary model messages.
 - [x] 2026-10-14 UTC: Confirm source-only filtering and preservation of code examples.
 - [x] 2026-10-14 UTC: Remove gateway filtering and reuse existing source-rendering paths.
 - [x] 2026-10-14 UTC: Pass offline engine tests, complete learn-service host tests, and repository gates.
-- [ ] 2026-10-14 UTC: Confirm current-head CI and handle live review.
+- [ ] 2026-10-14 UTC: External acceptance remains tracked in PR #3133, including CI/review and maintainer approval.
 
 ## Surprises & Discoveries
 
@@ -32,11 +32,15 @@ Use CommonMark parsing with marked copies to identify original comment ranges;
 do not rebuild Markdown or introduce separate lexer modules. Apply filtering
 before variable substitution. Reuse exact script-section matching for existing
 nickname/deletion refresh and request-only history projection.
+For legacy saved prompts, reuse the native message assembler to restore code,
+output instructions, and next-interaction context before exact source matching.
 
 ## Outcomes & Retrospective
 
 Local verification passed, including 2,671 host tests (93 skipped) and the full
-offline engine suite. Current-head CI and review remain pending on PR #3133.
+offline engine suite. Live CI/review and external maintainer acceptance are
+tracked in PR #3133; this plan remains active until that acceptance. No merge
+has been authorized.
 
 ## Context and Orientation
 

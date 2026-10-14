@@ -600,6 +600,7 @@ class MdflowContextV2:
         """Build model context from MarkdownFlow blocks."""
         message_list: list[dict[str, str]] = []
         mdflow_context = MdflowContextV2(document=document)
+        source_mdflow = MarkdownFlow(document=document)
         block_list = mdflow_context.get_all_blocks()
 
         from flask import current_app
@@ -626,8 +627,34 @@ class MdflowContextV2:
                 clean_prompt = replace_variables_in_text(
                     strip_html_comments(block.content or ""), variables
                 )
+                output_language = None
+                language_prefix = "<output_language_instruction>\n🚨 OUTPUT: 100% "
+                if stored_prompt.startswith(language_prefix):
+                    language = stored_prompt[len(language_prefix) :].partition(
+                        " - Translate ALL non-"
+                    )[0]
+                    wrapper = (
+                        f"{language_prefix}{language} - Translate ALL non-{language} "
+                        f"words/phrases to {language} 🚨\n</output_language_instruction>\n\n"
+                    )
+                    if (
+                        language
+                        and "\n" not in language
+                        and stored_prompt.startswith(wrapper)
+                    ):
+                        output_language = language
+                source_mdflow.set_output_language(output_language)
+                mdflow_context._mdflow.set_output_language(output_language)
                 if stored_prompt == source_prompt:
                     stored_prompt = clean_prompt
+                elif stored_prompt:
+                    native_prompt = source_mdflow.get_content_messages(
+                        generated_block.position, variables, context=None
+                    )[-1]["content"]
+                    if stored_prompt == native_prompt:
+                        stored_prompt = mdflow_context._mdflow.get_content_messages(
+                            generated_block.position, variables, context=None
+                        )[-1]["content"]
                 message_list.append(
                     {
                         "role": "user",
