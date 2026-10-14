@@ -27,6 +27,11 @@ Saved source remains available in the editor. See the durable behavior in
   inline block, reusing the existing block parse. Added scanner and model-boundary
   regressions for headings, containers, raw HTML, and physical line endings.
   Verified 1,253 engine tests and 151 affected host tests.
+- [x] 2026-10-14 13:00 CST: Preserved promptless legacy content and interaction
+  history when filtering removes or shifts current blocks. Added provider-level
+  coverage for source snapshots, missing provenance, original learner answers,
+  and code examples. Verified 162 affected host tests; the unchanged engine
+  remains covered by its 1,253-test run.
 
 ## Surprises & Discoveries
 
@@ -51,7 +56,7 @@ same filtered-source contract as memory deletion.
 
 The authored-comment filter is implemented for 2.0 teaching, feedback references,
 and recognized old initial prompts, plus legacy teaching/preview construction.
-All 1,404 engine and affected host regressions pass, including source preservation,
+All 1,415 engine and affected host regressions pass, including source preservation,
 learner literals, nickname refresh, and memory deletion. The repository-wide gate
 also covers the updated documentation indexes. No deployment was performed.
 
@@ -62,7 +67,11 @@ governed by the currently pinned release; fenced literals are provider-tested.
 
 Review follow-up extends legacy replay to saved content-block source snapshots,
 retaining only exact reconstructed prompt projections. Historical next-interaction
-notes lack a source snapshot and remain unchanged. The new code-span index removes
+notes lack a source snapshot and remain unchanged. Promptless content prefers its
+persisted source snapshot with code protected during substitution. When no source
+can be mapped safely, saved assistant output remains without an invented prompt;
+shifted or removed interactions retain their actual learner answer and native
+acknowledgement. The new code-span index removes
 the introduced repeated-suffix scan, with a deterministic one-scan regression gate.
 The final container-aware filter processed a 4,504,522-byte unmatched-delimiter
 input in about 0.28 seconds locally. Inline-code pairs stay inside one parsed

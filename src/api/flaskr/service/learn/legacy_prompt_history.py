@@ -9,6 +9,7 @@ from uuid import uuid4
 from markdown_flow import MarkdownFlow, replace_variables_in_text
 from markdown_flow.constants import NEXT_INTERACTION_CONTEXT_INTRO
 
+from .agent.engine.script_code_blocks import build_code_block_index
 from .agent.engine.script_comments import strip_comments
 
 if TYPE_CHECKING:
@@ -65,6 +66,48 @@ def _project_template(
     return render(strip_comments(source), values)
 
 
+def restore_legacy_block_source(
+    source: str,
+    *,
+    document: str,
+    block_index: int,
+) -> str:
+    """Restore saved parser placeholders only against an exact source match."""
+    if "__MDFLOW_" in source:
+        original = MarkdownFlow(document, llm_provider=None)
+        blocks = original.get_all_blocks()
+        if 0 <= block_index < len(blocks) and blocks[block_index].content == source:
+            return original._preprocessor.restore_code_blocks(source)
+    return source
+
+
+def render_legacy_block_source(source: str, variables: dict | None) -> str:
+    """Filter source notes, substitute outside code, then restore literal examples."""
+    source = strip_comments(source)
+    code_blocks = sorted(build_code_block_index(source).items())
+    if not code_blocks:
+        return replace_variables_in_text(source, variables)
+    namespace = f"MDFLOW_LITERAL_{uuid4().hex}_"
+    while namespace in source or any(
+        namespace in str(value) for value in (variables or {}).values()
+    ):
+        namespace = f"MDFLOW_LITERAL_{uuid4().hex}_"
+    masked: list[str] = []
+    literals: dict[str, str] = {}
+    cursor = 0
+    for index, (start, end) in enumerate(code_blocks):
+        marker = f"{namespace}{index}__"
+        masked.extend((source[cursor:start], marker))
+        literals[marker] = source[start:end]
+        cursor = end
+    masked.append(source[cursor:])
+    # One substitution pass retains preserve-tag state across protected code.
+    # Re-parsing through the legacy library here would strip literal comments.
+    rendered = replace_variables_in_text("".join(masked), variables)
+    restore_marker = re.compile(re.escape(namespace) + r"\d+__")
+    return restore_marker.sub(lambda match: literals[match[0]], rendered)
+
+
 def project_legacy_generation_prompt(
     prompt: str,
     source: str,
@@ -82,11 +125,9 @@ def project_legacy_generation_prompt(
     """
     if not source:
         return prompt
-    if "__MDFLOW_" in source:
-        original = MarkdownFlow(document, llm_provider=None)
-        blocks = original.get_all_blocks()
-        if 0 <= block_index < len(blocks) and blocks[block_index].content == source:
-            source = original._preprocessor.restore_code_blocks(source)
+    source = restore_legacy_block_source(
+        source, document=document, block_index=block_index
+    )
     if strip_comments(source) == source:
         return prompt
 

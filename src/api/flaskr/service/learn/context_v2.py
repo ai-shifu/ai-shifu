@@ -68,6 +68,8 @@ from flaskr.service.learn.learner_profile_prompt import (
 )
 from flaskr.service.learn.legacy_prompt_history import (
     project_legacy_generation_prompt,
+    render_legacy_block_source,
+    restore_legacy_block_source,
 )
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -595,6 +597,7 @@ class MdflowContextV2:
         message_list: list[dict[str, str]] = []
         mdflow_context = MdflowContextV2(document=document)
         block_list = mdflow_context.get_all_blocks()
+        original_blocks = MarkdownFlow(document, llm_provider=None).get_all_blocks()
 
         from flask import current_app
 
@@ -604,12 +607,20 @@ class MdflowContextV2:
             if generated_block.position < 0:
                 continue
             stored_prompt = getattr(generated_block, "generation_prompt", "") or ""
-            valid_position = generated_block.position < len(block_list)
-            if not valid_position and not (
-                generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE and stored_prompt
-            ):
-                continue
+            source = getattr(generated_block, "block_content_conf", "") or ""
+            valid_position = 0 <= generated_block.position < len(block_list)
             block = block_list[generated_block.position] if valid_position else None
+            original_block = (
+                original_blocks[generated_block.position]
+                if 0 <= generated_block.position < len(original_blocks)
+                else None
+            )
+            same_source_position = (
+                block is not None
+                and original_block is not None
+                and block.block_type == original_block.block_type
+                and block.content == original_block.content
+            )
             if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
                 # Prefer the persisted exact user message sent to the LLM at
                 # generation time. Only a proven legacy host-source rendering
@@ -619,18 +630,26 @@ class MdflowContextV2:
                 if stored_prompt:
                     prompt = project_legacy_generation_prompt(
                         stored_prompt,
-                        getattr(generated_block, "block_content_conf", "") or "",
+                        source,
                         document=document,
                         block_index=generated_block.position,
                     )
-                else:
+                elif source:
+                    source = restore_legacy_block_source(
+                        source,
+                        document=document,
+                        block_index=generated_block.position,
+                    )
+                    prompt = render_legacy_block_source(source, variables)
+                elif same_source_position and block.block_type != BlockType.INTERACTION:
                     prompt = replace_variables_in_text(block.content or "", variables)
-                message_list.append(
-                    {
-                        "role": "user",
-                        "content": prompt or "",
-                    }
-                )
+                else:
+                    # The source is missing and filtering moved or removed the
+                    # indexed block. Preserve the actual teacher response without
+                    # inventing a user instruction from another current block.
+                    prompt = ""
+                if prompt and prompt.strip():
+                    message_list.append({"role": "user", "content": prompt})
                 message_list.append(
                     {
                         "role": "assistant",
@@ -638,6 +657,22 @@ class MdflowContextV2:
                     }
                 )
             elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                if (
+                    not same_source_position
+                    or block.block_type != BlockType.INTERACTION
+                ):
+                    # A shifted/deleted interaction must not bind its answer to
+                    # another current variable. Replay only the persisted learner
+                    # answer using markdown-flow's existing expanded turn shape.
+                    answer = generated_block.generated_content or ""
+                    if answer.strip():
+                        message_list.extend(
+                            [
+                                {"role": "user", "content": answer},
+                                {"role": "assistant", "content": "ok"},
+                            ]
+                        )
+                    continue
                 interaction = InteractionParser().parse(block.content or "")
                 if interaction.get("variable"):
                     # Variable interaction (e.g. ?[%{{var}} A | B]): hand the

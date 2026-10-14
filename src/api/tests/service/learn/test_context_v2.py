@@ -2986,6 +2986,334 @@ class BuildContextGenerationPromptReplayTests(unittest.TestCase):
                 )
 
 
+class BuildContextPromptlessLegacyHistoryTests(unittest.TestCase):
+    """Keep durable pre-generation_prompt turns when filtering changes block indexes."""
+
+    def _provider_request(
+        self,
+        blocks: list[object],
+        document: str,
+        variables: dict,
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+        class CapturingProvider:
+            def __init__(self) -> None:
+                self.messages: list[dict[str, str]] = []
+
+            def complete(
+                self, messages: list[dict[str, str]], **_kwargs: object
+            ) -> str:
+                self.messages = messages
+                return "Next answer"
+
+        app = Flask(__name__)
+        provider = CapturingProvider()
+        with app.app_context():
+            history = MdflowContextV2.build_context_from_blocks(
+                blocks, document, variables
+            )
+            context = MdflowContextV2(
+                document="Next current topic.", llm_provider=provider
+            )
+            context.process(
+                block_index=0,
+                mode=context_v2_module.ProcessMode.COMPLETE,
+                context=history,
+                variables=variables,
+            )
+        return history, provider.messages
+
+    def test_promptless_source_and_teacher_response_reach_provider_after_shrink(
+        self,
+    ) -> None:
+        source = "Teach {{nickname}}. <!-- saved author note"
+        document = "First.\n---\n<!-- whole old tail\n---\n" + source
+        for generation_prompt in (None, ""):
+            with self.subTest(generation_prompt=generation_prompt):
+                block = types.SimpleNamespace(
+                    type=BLOCK_TYPE_MDCONTENT_VALUE,
+                    position=2,
+                    generated_content="Historical reply <!-- assistant literal -->",
+                    block_content_conf=source,
+                )
+                if generation_prompt is not None:
+                    block.generation_prompt = generation_prompt
+                history, request = self._provider_request(
+                    [block], document, {"nickname": "<!-- learner literal -->"}
+                )
+                assert history == [
+                    {
+                        "role": "user",
+                        "content": 'Teach """<!-- learner literal -->""". ',
+                    },
+                    {
+                        "role": "assistant",
+                        "content": "Historical reply <!-- assistant literal -->",
+                    },
+                ]
+                assert request[1:-1] == history
+                assert all(
+                    "author note" not in message["content"] for message in request
+                )
+                assert all(
+                    "whole old tail" not in message["content"] for message in request
+                )
+                assert block.block_content_conf == source
+
+    def test_missing_source_with_invalid_position_keeps_only_teacher_evidence(
+        self,
+    ) -> None:
+        for position in (2, 99):
+            with self.subTest(position=position):
+                block = types.SimpleNamespace(
+                    type=BLOCK_TYPE_MDCONTENT_VALUE,
+                    position=position,
+                    generated_content="Saved teacher <!-- assistant literal -->",
+                )
+                history, request = self._provider_request(
+                    [block],
+                    "Current.\n---\n<!-- unclosed note\n---\nDo not guess this instruction.",
+                    {},
+                )
+                assert history == [
+                    {"role": "assistant", "content": block.generated_content}
+                ]
+                assert request[1:-1] == history
+                assert all(message["content"].strip() for message in request)
+                assert all(
+                    "guess this" not in message["content"] for message in request
+                )
+
+    def test_missing_source_does_not_reinterpret_an_in_range_shifted_block(
+        self,
+    ) -> None:
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=2,
+            generated_content="Saved teacher response",
+        )
+        history, request = self._provider_request(
+            [block],
+            "<!--\nprivate note\n-->\n?[Continue]\nOld source.\n---\nUnrelated current instruction.",
+            {},
+        )
+        assert history == [{"role": "assistant", "content": block.generated_content}]
+        assert request[1:-1] == history
+        assert all("Unrelated" not in message["content"] for message in request)
+
+    def test_promptless_code_examples_are_restored_after_variable_substitution(
+        self,
+    ) -> None:
+        document = (
+            "Teach {{nickname}}.\n```html\n{{nickname}} <!-- literal example -->\n```\n"
+            "<!-- unfinished author note"
+        )
+        original = MarkdownFlow(document, llm_provider=None)
+        source = original.get_block(0).content
+        assert "__MDFLOW_CODE_BLOCK_" in source
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=0,
+            generated_content="Saved teacher <!-- assistant literal -->",
+            block_content_conf=source,
+        )
+        history, request = self._provider_request(
+            [block], document, {"nickname": "<!-- learner literal -->"}
+        )
+        assert history == [
+            {
+                "role": "user",
+                "content": 'Teach """<!-- learner literal -->""".\n'
+                "```html\n{{nickname}} <!-- literal example -->\n```\n",
+            },
+            {"role": "assistant", "content": block.generated_content},
+        ]
+        assert request[1:-1] == history
+        assert all("author note" not in message["content"] for message in request)
+        assert block.block_content_conf == source
+
+    def test_negative_virtual_positions_remain_excluded(self) -> None:
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=-1,
+            generated_content="Virtual row",
+            block_content_conf="Virtual source",
+            generation_prompt="Virtual prompt",
+        )
+        history, request = self._provider_request([block], "Current topic.", {})
+        assert history == []
+        assert request[1:-1] == []
+
+    def test_promptless_literal_comments_survive_without_legacy_reparsing(
+        self,
+    ) -> None:
+        cases = [
+            (
+                "Example `<!-- literal -->` <!-- private note -->\nHello {{nickname}}.",
+                "Example `<!-- literal -->` \nHello ",
+            ),
+            (
+                "    <!-- literal code -->\n\nHello {{nickname}}. <!-- private note -->",
+                "    <!-- literal code -->\n\nHello ",
+            ),
+            (
+                "> ```html\n> <!-- literal code -->\n> ```\nHello {{nickname}}. <!-- private note -->",
+                "> ```html\n> <!-- literal code -->\n> ```\nHello ",
+            ),
+        ]
+        for source, prefix in cases:
+            with self.subTest(source=source):
+                block = types.SimpleNamespace(
+                    type=BLOCK_TYPE_MDCONTENT_VALUE,
+                    position=0,
+                    generated_content="Saved teacher <!-- assistant literal -->",
+                    block_content_conf=source,
+                )
+                history, request = self._provider_request(
+                    [block], source, {"nickname": "<!-- learner literal -->"}
+                )
+                assert history[0]["content"].startswith(prefix)
+                assert 'Hello """<!-- learner literal -->""".' in history[0]["content"]
+                assert request[1:-1] == history
+                assert all(
+                    "private note" not in message["content"] for message in request
+                )
+                assert all(
+                    "MDFLOW_LITERAL_" not in message["content"] for message in request
+                )
+                assert block.block_content_conf == source
+
+    def test_actual_promptless_snapshot_restores_indented_comment_code(
+        self,
+    ) -> None:
+        document = "    <!-- literal code\n    -->\n\nVisible {{nickname}}."
+        original = MarkdownFlow(document, llm_provider=None)
+        source = original.get_block(0).content
+        assert source == "__MDFLOW_HTML_COMMENT_1__\n\nVisible {{nickname}}."
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=0,
+            generated_content="Saved teacher <!-- assistant literal -->",
+            block_content_conf=source,
+        )
+        history, request = self._provider_request(
+            [block], document, {"nickname": "<!-- learner literal -->"}
+        )
+        assert history == [
+            {
+                "role": "user",
+                "content": "    <!-- literal code\n    -->\n\n"
+                'Visible """<!-- learner literal -->""".',
+            },
+            {"role": "assistant", "content": block.generated_content},
+        ]
+        assert request[1:-1] == history
+        assert all("__MDFLOW_" not in message["content"] for message in request)
+        assert block.block_content_conf == source
+
+    def test_promptless_preserve_tags_keep_state_across_protected_code(
+        self,
+    ) -> None:
+        source = (
+            "<原样输出>\n\nBefore {{nickname}}.\n\n```html\n"
+            "{{nickname}} <!-- literal code -->\n```\n\nAfter {{nickname}}.\n\n"
+            "</原样输出>\n\nOutside {{nickname}}. <!-- private note -->"
+        )
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=0,
+            generated_content="Saved teacher <!-- assistant literal -->",
+            block_content_conf=source,
+        )
+        history, request = self._provider_request(
+            [block], source, {"nickname": "<!-- learner literal -->"}
+        )
+        assert history[0]["content"] == (
+            "<原样输出>\n\nBefore <!-- learner literal -->.\n\n```html\n"
+            "{{nickname}} <!-- literal code -->\n```\n\nAfter <!-- learner literal -->.\n\n"
+            '</原样输出>\n\nOutside """<!-- learner literal -->""". '
+        )
+        assert request[1:-1] == history
+        assert block.block_content_conf == source
+
+    def test_promptless_many_distinct_code_examples_restore_in_order(self) -> None:
+        from flaskr.service.learn.legacy_prompt_history import (
+            render_legacy_block_source,
+        )
+
+        examples = []
+        for index in range(128):
+            literal = f"Example {index}: {{{{nickname}}}} <!-- literal {index} -->"
+            if index % 3 == 0:
+                examples.append(f"```html\n{literal}\n```")
+            elif index % 3 == 1:
+                examples.append(f"> ```html\n> {literal}\n> ```")
+            else:
+                examples.append(f"    {literal}")
+        source = "Header {{nickname}}. <!-- private note -->\n\n" + "\n\n".join(
+            examples
+        )
+        value = "<!-- learner literal -->"
+        rendered = render_legacy_block_source(source, {"nickname": value})
+        assert rendered == f'Header """{value}""". \n\n' + "\n\n".join(examples)
+        assert "MDFLOW_LITERAL_" not in rendered
+
+    def test_snapshot_wins_over_in_range_shifted_content(self) -> None:
+        block = types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=2,
+            generated_content="Saved teacher response",
+            block_content_conf="Saved {{nickname}}. <!-- author note -->",
+        )
+        history, request = self._provider_request(
+            [block],
+            "<!--\nprivate note\n-->\n?[Continue]\nSaved {{nickname}}.\n---\nUnrelated current instruction.",
+            {"nickname": "<!-- learner literal -->"},
+        )
+        assert history == [
+            {"role": "user", "content": 'Saved """<!-- learner literal -->""". '},
+            {"role": "assistant", "content": block.generated_content},
+        ]
+        assert request[1:-1] == history
+        assert all("Unrelated" not in message["content"] for message in request)
+
+    def test_shifted_and_removed_interactions_replay_saved_answers(self) -> None:
+        documents = [
+            "First.\n---\n<!--\nprivate note\n-->\n"
+            "?[%{{old_variable}} ...Old question]\n---\n"
+            "?[%{{other_variable}} ...Other question]\n---\nLast.",
+            "First.\n---\n<!-- unclosed note\n---\n"
+            "?[%{{old_variable}} ...Old question]",
+        ]
+        for document in documents:
+            with self.subTest(document=document):
+                block = types.SimpleNamespace(
+                    type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                    position=2,
+                    generated_content="  Saved answer <!-- learner literal -->\n",
+                )
+                unanswered = types.SimpleNamespace(
+                    type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                    position=99,
+                    generated_content="",
+                )
+                history, request = self._provider_request(
+                    [block, unanswered],
+                    document,
+                    {"old_variable": "Changed value", "other_variable": "Wrong answer"},
+                )
+                assert history == [
+                    {"role": "user", "content": block.generated_content},
+                    {"role": "assistant", "content": "ok"},
+                ]
+                assert request[1:-1] == history
+                assert all(
+                    "Wrong answer" not in message["content"] for message in request
+                )
+                assert all(
+                    "Changed value" not in message["content"] for message in request
+                )
+
+
 class StreamContentBlockPromptCaptureTests(unittest.TestCase):
     """_phase_stream_content_block captures LLMResult.prompt (the exact user message markdown-flow sent to the LLM) and hands it to the recorder; prompt-less streams (preserved content) freeze the variables-rendered block source instead."""
 

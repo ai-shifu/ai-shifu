@@ -32,6 +32,13 @@ learner literals, and assistant history remain unchanged. Missing or ambiguous
 provenance and historical next-interaction notes without their source snapshot
 retain their original bytes rather than guessing at learner evidence.
 
+Older rows without a saved generation prompt prefer their persisted authored
+block snapshot, filtered before the existing variable-substitution fallback.
+If filtering removes or shifts their current block and no source is available,
+their saved assistant output remains in history without an invented user prompt.
+Removed or shifted interactions retain their actual saved learner answer and
+the native acknowledgement rather than binding it to another current question.
+
 Inline-code delimiters are indexed once per authored document. Unmatched delimiter
 lengths cannot trigger repeated scans of the remaining input before a model call.
 Delimiter pairs stay within one parsed inline block; headings, separate list
