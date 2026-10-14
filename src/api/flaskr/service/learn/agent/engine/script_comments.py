@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from .script_code_spans import build_code_span_index
+
 _FENCE = re.compile(r"[ ]{0,3}(`{3,}|~{3,})([^\r\n]*)")
 _BACKTICKS = re.compile(r"`+")
 _LINEBREAKS = re.compile(r"\r\n|\r|\n")
@@ -89,17 +91,6 @@ def _line_end(text: str, start: int) -> int:
     return linebreak.end() if linebreak else len(text)
 
 
-def _code_span_end(text: str, start: int, marker: str) -> int | None:
-    """Find a matching inline-code delimiter in the same Markdown paragraph."""
-    for match in _BACKTICKS.finditer(text, start + len(marker)):
-        if match[0] == marker:
-            intervening = text[start + len(marker) : match.start()]
-            if re.search(r"(?:\r\n|\r|\n)[ \t]*(?:\r\n|\r|\n)", intervening):
-                return None
-            return match.end()
-    return None
-
-
 def strip_comments(text: str) -> str:
     """Remove HTML comments outside Markdown code examples without moving lines.
 
@@ -112,6 +103,7 @@ def strip_comments(text: str) -> str:
     cursor = 0
     opening: str | None = None
     blocks = _BlockContext()
+    code_spans = build_code_span_index(text)
     while cursor < len(text):
         at_line_start = cursor == 0 or text[cursor - 1] in "\r\n"
         if at_line_start:
@@ -152,7 +144,7 @@ def strip_comments(text: str) -> str:
         elif text[cursor] == "`":
             marker = _BACKTICKS.match(text, cursor)
             if marker is not None:
-                end = _code_span_end(text, cursor, marker[0])
+                end = code_spans.get(cursor)
                 if end is not None:
                     result.append(text[cursor:end])
                     cursor = end
