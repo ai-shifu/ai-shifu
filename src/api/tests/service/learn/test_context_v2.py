@@ -6,6 +6,7 @@ import threading
 import time
 import types
 import unittest
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 from flask import Flask
@@ -3083,7 +3084,7 @@ class BuildContextPromptlessLegacyHistoryTests(unittest.TestCase):
                     "guess this" not in message["content"] for message in request
                 )
 
-    def test_missing_source_does_not_reinterpret_an_in_range_shifted_block(
+    def test_missing_source_rebuilds_the_same_original_position(
         self,
     ) -> None:
         block = types.SimpleNamespace(
@@ -3096,7 +3097,10 @@ class BuildContextPromptlessLegacyHistoryTests(unittest.TestCase):
             "<!--\nprivate note\n-->\n?[Continue]\nOld source.\n---\nUnrelated current instruction.",
             {},
         )
-        assert history == [{"role": "assistant", "content": block.generated_content}]
+        assert history == [
+            {"role": "user", "content": "Old source."},
+            {"role": "assistant", "content": block.generated_content},
+        ]
         assert request[1:-1] == history
         assert all("Unrelated" not in message["content"] for message in request)
 
@@ -3301,17 +3305,283 @@ class BuildContextPromptlessLegacyHistoryTests(unittest.TestCase):
                     document,
                     {"old_variable": "Changed value", "other_variable": "Wrong answer"},
                 )
-                assert history == [
-                    {"role": "user", "content": block.generated_content},
-                    {"role": "assistant", "content": "ok"},
-                ]
-                assert request[1:-1] == history
+                if "unclosed" in document:
+                    assert history == [
+                        {"role": "user", "content": block.generated_content},
+                        {"role": "assistant", "content": "ok"},
+                    ]
+                    assert request[1:-1] == history
+                else:
+                    assert history == [
+                        {
+                            "role": "assistant",
+                            "content": "?[%{{old_variable}} ...Old question]",
+                        }
+                    ]
+                    assert request[1:-1] == [
+                        {"role": "user", "content": "Changed value"},
+                        {"role": "assistant", "content": "ok"},
+                    ]
                 assert all(
                     "Wrong answer" not in message["content"] for message in request
                 )
-                assert all(
-                    "Changed value" not in message["content"] for message in request
+                if "unclosed" in document:
+                    assert all(
+                        "Changed value" not in message["content"] for message in request
+                    )
+                assert block.position == 2
+                assert (
+                    block.generated_content
+                    == "  Saved answer <!-- learner literal -->\n"
                 )
+
+
+class LegacyExecutionPositionTests(unittest.TestCase):
+    """Actual caller selection and native execution use the saved source positions."""
+
+    DOCUMENT = (
+        "<!--\nprivate note\n-->\n---\n?[%{{a}} ...Question A]\n---\n"
+        "?[%{{b}} ...Question B]\n---\nEnd."
+    )
+
+    def _run_context(self, document: str, position: int) -> tuple:
+        app = Flask(__name__)
+        ctx = _make_context()
+        attend = types.SimpleNamespace(
+            block_position=position, progress_record_bid="progress", status=1
+        )
+        info = context_v2_module.RunScriptInfo(attend, "lesson", position, document)
+        mdflow = MdflowContextV2(document=document)
+        state = types.SimpleNamespace(
+            run_script_info=info,
+            block_list=mdflow.get_all_blocks(),
+            mdflow_context=mdflow,
+            message_list=[],
+            user_profile={},
+        )
+        ctx.app = app
+        ctx._outline_item_info = types.SimpleNamespace(bid="lesson")
+        ctx._user_info = types.SimpleNamespace(user_id="learner")
+        ctx._current_attend = attend
+        ctx._input_type = "run"
+        ctx._input = "Saved answer"
+        ctx._run_type = context_v2_module.RunType.INPUT
+        ctx._get_current_attend = lambda _bid: attend
+        ctx._bind_trace_session = lambda: None
+
+        def proceed(*_args: object) -> Generator[None, None, bool]:
+            yield from ()
+            return True
+
+        ctx._phase_sync_outline_progress = proceed
+        ctx._get_run_script_info = lambda *_args, **_kwargs: info
+        ctx.get_llm_settings = lambda *_args: None
+        ctx.get_system_prompt = lambda *_args: None
+        ctx._prepare_step_state = lambda *_args: state
+        ctx._has_effective_input = lambda: bool(ctx._input)
+        ctx._run_recorder = MagicMock()
+
+        def update_pointer(target: object, **fields: object) -> None:
+            for key, value in fields.items():
+                setattr(target, key, value)
+
+        ctx._recorder.update_progress_pointer.side_effect = update_pointer
+        return app, ctx, state, attend
+
+    def test_real_input_caller_keeps_old_a_answer_on_a_and_preserves_row(self) -> None:
+        app, ctx, state, attend = self._run_context(self.DOCUMENT, 1)
+        pending = types.SimpleNamespace(
+            position=1,
+            block_content_conf="?[%{{a}} ...Question A]",
+            generated_content="",
+        )
+        captured = {}
+
+        def no_gate(*_args: object) -> Generator[None, None, bool]:
+            yield from ()
+            return False
+
+        def record(
+            _app: Flask, current: object, row: object, parsed: dict
+        ) -> Generator[None, None, tuple[bool, dict]]:
+            result = current.mdflow_context.process(
+                block_index=current.run_script_info.block_position,
+                mode=context_v2_module.ProcessMode.COMPLETE,
+                user_input={parsed["variable"]: [ctx._input]},
+            )
+            captured.update(result.variables)
+            assert row is pending
+            yield from ()
+            return True, {}
+
+        ctx._phase_reemit_access_gate_interaction = no_gate
+        ctx._phase_record_input_and_moderate = record
+        model = MagicMock()
+        model.query.filter.return_value.order_by.return_value.first.return_value = (
+            pending
+        )
+        with (
+            app.app_context(),
+            patch.object(context_v2_module, "LearnGeneratedBlock", model),
+        ):
+            list(ctx.run_inner(app))
+        assert captured == {"a": ["Saved answer"]}
+        assert state.block.content == pending.block_content_conf
+        assert pending.position == attend.block_position == 1
+        assert pending.generated_content == ""
+        ctx._recorder.update_progress_pointer.assert_not_called()
+
+    def test_removed_input_slot_skips_without_forwarding_the_old_answer(self) -> None:
+        document = "before <!-- first --> <!-- second ?[Hidden] --> after\n---\n?[Real]"
+        app, ctx, state, attend = self._run_context(document, 1)
+        selected = []
+
+        def render(_app: Flask, current: object) -> Generator[None, None, bool]:
+            selected.append((current.block.index, current.block.content, ctx._input))
+            yield from ()
+            return True
+
+        ctx._phase_process_input = MagicMock(
+            side_effect=AssertionError("Old input reused")
+        )
+        ctx._phase_render_output = render
+        with app.app_context():
+            list(ctx.run_inner(app))
+        assert selected == [(2, "after", None)]
+        assert attend.block_position == state.run_script_info.block_position == 2
+        assert ctx._run_type == context_v2_module.RunType.OUTPUT
+
+    def test_unclosed_tail_skips_every_removed_slot_without_model_or_rows(self) -> None:
+        document = "Visible.\n---\n<!-- unclosed\n---\nHidden.\n?[Hidden]"
+        app, ctx, _state, attend = self._run_context(document, 1)
+        completed = []
+
+        def finish() -> Generator[None, None, None]:
+            completed.append(attend.block_position)
+            yield from ()
+
+        ctx._phase_completion_tail = finish
+        ctx._phase_render_output = MagicMock(
+            side_effect=AssertionError("Hidden source executed")
+        )
+        ctx._phase_process_input = MagicMock(
+            side_effect=AssertionError("Hidden source executed")
+        )
+        with app.app_context():
+            list(ctx.run_inner(app))
+        assert completed == [4]
+        assert not ctx._can_continue
+        ctx._recorder.save_generated_block.assert_not_called()
+
+    def test_complete_and_preview_indexes_still_point_to_original_content(self) -> None:
+        calls = []
+
+        class Provider:
+            def complete(self, messages: list, **_kwargs: object) -> str:
+                calls.append(messages[-1]["content"])
+                return "Done"
+
+        context = MdflowContextV2(
+            document="<!--\nprivate\n-->\n---\nFirst visible.\n---\nSecond visible.",
+            llm_provider=Provider(),
+        )
+        assert context.get_block(0).content == ""
+        assert (
+            context.process(
+                block_index=0, mode=context_v2_module.ProcessMode.COMPLETE
+            ).content
+            == ""
+        )
+        assert calls == []
+        for index in (1, 2):
+            context.process(
+                block_index=index, mode=context_v2_module.ProcessMode.COMPLETE
+            )
+        assert calls == ["First visible.", "Second visible."]
+        assert [block.index for block in context.get_all_blocks()] == [0, 1, 2]
+
+    def test_execution_code_variables_stay_literal_and_current_values_reach_prose(
+        self,
+    ) -> None:
+        calls = []
+
+        class Provider:
+            def complete(self, messages: list, **_kwargs: object) -> str:
+                calls.append(messages[-1]["content"])
+                return "Done"
+
+        context = MdflowContextV2(
+            document="Teach {{name}}.\n```html\n{{name}} <!-- literal -->\n```\n<!-- private -->",
+            llm_provider=Provider(),
+        )
+        context.process(
+            block_index=0,
+            mode=context_v2_module.ProcessMode.COMPLETE,
+            variables={"name": "<!-- learner literal -->"},
+        )
+        assert calls == [
+            'Teach """<!-- learner literal -->""".\n```html\n{{name}} <!-- literal -->\n```'
+        ]
+        assert "MDFLOW_POSITION" not in context.get_block(0).content
+
+    def test_original_lexical_context_keeps_later_private_note_out_of_provider(
+        self,
+    ) -> None:
+        calls = []
+
+        class Provider:
+            def complete(self, messages: list, **_kwargs: object) -> str:
+                calls.append(messages[-1]["content"])
+                return "Done"
+
+        context = MdflowContextV2(
+            document="`literal <!-- first ` comment --> <!-- private --> `",
+            llm_provider=Provider(),
+        )
+        context.process(block_index=0, mode=context_v2_module.ProcessMode.COMPLETE)
+        assert calls == ["`literal <!-- first ` comment -->  `"]
+
+    def test_next_question_hint_skips_empty_note_slots(self) -> None:
+        calls = []
+
+        class Provider:
+            def complete(self, messages: list, **_kwargs: object) -> str:
+                calls.append(messages[-1]["content"])
+                return "Done"
+
+        context = MdflowContextV2(
+            document="Visible.\n---\n<!--\nprivate\n-->\n---\n?[Continue]",
+            llm_provider=Provider(),
+        )
+        context.process(block_index=0, mode=context_v2_module.ProcessMode.COMPLETE)
+        assert "Continue" in calls[0]
+        assert "private" not in calls[0]
+        assert context.get_block(2).content == "?[Continue]"
+
+    def test_trailing_note_slots_do_not_hide_the_last_access_gate(self) -> None:
+        document = "?[Pay//_sys_pay]\n---\n<!--\nprivate\n-->"
+        app, ctx, state, _attend = self._run_context(document, 0)
+        state.block = state.block_list[0]
+        state.llm_provider = MagicMock()
+        state.mdflow_context.process = MagicMock(
+            return_value=LLMResult(content=state.block.content)
+        )
+        ctx._is_paid = False
+        ctx._user_info.mobile = ctx._user_info.email = ""
+        ctx._persist_generated_block_for_events = MagicMock()
+        ctx.append_langfuse_output = MagicMock()
+        tails = []
+
+        def feedback(**kwargs: object) -> Generator[None, None, None]:
+            tails.append(kwargs["is_tail_gate"])
+            yield from ()
+
+        ctx._maybe_emit_feedback_after_access_gate = feedback
+        row = types.SimpleNamespace(generated_block_bid="gate")
+        with app.app_context():
+            list(ctx._phase_emit_output_interaction(app, state, row))
+        assert tails == [True]
+        assert state.block_list[1].content == ""
 
 
 class StreamContentBlockPromptCaptureTests(unittest.TestCase):

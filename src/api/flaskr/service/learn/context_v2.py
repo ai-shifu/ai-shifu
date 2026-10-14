@@ -66,6 +66,7 @@ from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
     render_course_prompt_identity_variables,
 )
+from flaskr.service.learn.legacy_block_positions import project_legacy_block_positions
 from flaskr.service.learn.legacy_prompt_history import (
     project_legacy_generation_prompt,
     render_legacy_block_source,
@@ -453,8 +454,12 @@ class MdflowContextV2:
         When learner-language output is enabled, resolves and applies the requested
         or fallback language.
         """
+        filtered_document = strip_comments(document)
+        self._original_document = document
+        self._positioned_blocks: list[Block] | None = None
+        self._positions_ready = filtered_document == document
         self._mdflow = MarkdownFlow(
-            document=strip_comments(document),
+            document=filtered_document,
             llm_provider=llm_provider,
             document_prompt=strip_comments(document_prompt)
             if document_prompt is not None
@@ -483,11 +488,33 @@ class MdflowContextV2:
 
     def get_block(self, block_index: int) -> Block:
         """Return a MarkdownFlow block by its index."""
-        return self._mdflow.get_block(block_index)
+        blocks = self.get_all_blocks()
+        self._mdflow.get_block(block_index)
+        return blocks[block_index]
 
     def get_all_blocks(self) -> list[Block]:
-        """Return all MarkdownFlow blocks in encounter order."""
-        return self._mdflow.get_all_blocks()
+        """Return native positions, including empty slots left by removed notes."""
+        if not self._positions_ready:
+            original = MarkdownFlow(self._original_document, llm_provider=None)
+            public, execution, code = project_legacy_block_positions(original)
+            self._positioned_blocks = public
+            self._mdflow._blocks = execution
+            self._mdflow._preprocessor.code_blocks.update(code)
+            next_context = self._mdflow._build_next_interaction_context_prompt
+
+            def visible_next_context(index: int, variables: dict | None) -> str:
+                following = index + 1
+                while following < len(public) and not public[following].content.strip():
+                    following += 1
+                return next_context(following - 1, variables)
+
+            self._mdflow._build_next_interaction_context_prompt = visible_next_context
+            self._positions_ready = True
+        return (
+            self._positioned_blocks
+            if self._positioned_blocks is not None
+            else self._mdflow.get_all_blocks()
+        )
 
     def process(
         self,
@@ -499,6 +526,8 @@ class MdflowContextV2:
         user_input: dict[str, list[str]] | None = None,
     ) -> LLMResult | Generator[LLMResult, None, None]:
         """Process the current MarkdownFlow content."""
+        if not self.get_block(block_index).content.strip():
+            return LLMResult(content="")
         return self._mdflow.process(
             block_index=block_index,
             mode=mode,
@@ -2237,6 +2266,28 @@ class RunScriptContextV2:
             app, run_script_info, llm_settings, system_prompt
         )
 
+        position = run_script_info.block_position
+        while (
+            position < len(state.block_list)
+            and not state.block_list[position].content.strip()
+        ):
+            position += 1
+        if position != run_script_info.block_position:
+            self._recorder.update_progress_pointer(
+                self._current_attend,
+                status=LEARN_STATUS_IN_PROGRESS,
+                block_position=position,
+            )
+            run_script_info.block_position = position
+            # An answer to a removed author-note interaction belongs to that
+            # old row; it must never become input to the next real question.
+            self._run_type = RunType.OUTPUT
+            self._input = None
+            if position == len(state.block_list):
+                self._can_continue = False
+                yield from self._phase_completion_tail()
+                return
+
         if run_script_info.block_position >= len(state.block_list):
             outline_updates = self._get_next_outline_item()
             if len(outline_updates) > 0:
@@ -2715,8 +2766,12 @@ class RunScriptContextV2:
                         yield from self._maybe_emit_feedback_after_access_gate(
                             parsed_interaction=parsed_interaction,
                             progress_record=run_script_info.attend,
-                            is_tail_gate=run_script_info.block_position
-                            >= len(block_list) - 1,
+                            is_tail_gate=not any(
+                                item.content.strip()
+                                for item in block_list[
+                                    run_script_info.block_position + 1 :
+                                ]
+                            ),
                         )
                         self._can_continue = False
                         return True
@@ -2771,8 +2826,12 @@ class RunScriptContextV2:
                         yield from self._maybe_emit_feedback_after_access_gate(
                             parsed_interaction=parsed_interaction,
                             progress_record=run_script_info.attend,
-                            is_tail_gate=run_script_info.block_position
-                            >= len(block_list) - 1,
+                            is_tail_gate=not any(
+                                item.content.strip()
+                                for item in block_list[
+                                    run_script_info.block_position + 1 :
+                                ]
+                            ),
                         )
                         self._can_continue = False
                         return True
@@ -3344,7 +3403,10 @@ class RunScriptContextV2:
         yield from self._maybe_emit_feedback_after_access_gate(
             parsed_interaction=parsed_interaction,
             progress_record=run_script_info.attend,
-            is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
+            is_tail_gate=not any(
+                item.content.strip()
+                for item in block_list[run_script_info.block_position + 1 :]
+            ),
         )
         self._can_continue = False
         self._recorder.update_progress_pointer(

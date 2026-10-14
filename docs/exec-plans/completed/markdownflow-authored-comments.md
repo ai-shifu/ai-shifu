@@ -32,6 +32,14 @@ Saved source remains available in the editor. See the durable behavior in
   coverage for source snapshots, missing provenance, original learner answers,
   and code examples. Verified 162 affected host tests; the unchanged engine
   remains covered by its 1,253-test run.
+- [x] 2026-10-14 13:36 CST: Preserved original legacy execution slots using
+  raw-source provenance and the native preprocessing state transitions. Verified
+  227 host, runtime-phase, and preview tests, including actual answer binding,
+  removed interactions, terminal slots, code metadata, and repeated source lines.
+- [x] 2026-10-14 13:26 CST: Bounded HTML tag recognition to its parsed inline or
+  raw HTML block, and shared original-offset comment ranges with legacy source
+  projections. Verified 1,287 complete engine tests, including interrupted tags
+  and legitimate multiline attributes.
 
 ## Surprises & Discoveries
 
@@ -56,7 +64,7 @@ same filtered-source contract as memory deletion.
 
 The authored-comment filter is implemented for 2.0 teaching, feedback references,
 and recognized old initial prompts, plus legacy teaching/preview construction.
-All 1,415 engine and affected host regressions pass, including source preservation,
+All 1,514 engine and affected host regressions pass, including source preservation,
 learner literals, nickname refresh, and memory deletion. The repository-wide gate
 also covers the updated documentation indexes. No deployment was performed.
 
@@ -84,6 +92,14 @@ parsing comes from explicitly pinned markdown-it-py 4.0.0, with a safe raw-HTML
 rule that bypasses the dependency's vulnerable generic-tag expression.
 General preview body/field size limits predate this PR and were not changed.
 
+Legacy execution now retains original block indexes and types, projecting from
+raw-source provenance rather than matching block text or reparsing a compacted
+document. Empty removed slots are skipped before pending-row lookup or model
+calls; answers cannot be rebound to a different question. Original code examples,
+safe variable metadata, next-question hints, and terminal access gates share this
+position contract. CI's historical loader assertion now expects the persisted
+source and actual saved answer instead of discarding that evidence.
+
 ## Context and Orientation
 
 `src/api/flaskr/service/learn/agent/engine/script.py` composes 2.0 prompts.
@@ -98,6 +114,13 @@ Add a fence-aware HTML comment filter, use a filtered ScriptBundle throughout
 2.0 execution, project compatible old prompts, and apply the filter at legacy
 model-bound construction. Cover visible content, authored notes, code literals,
 learner data, resume, and memory deletion with offline tests.
+
+Legacy compatibility keeps the native parser's original block slots and types.
+Project globally filtered authored content back to those slots using source
+provenance, without matching duplicate text or renumbering persisted records.
+Treat empty slots as removed authored blocks and skip them before interaction
+row lookup or provider calls. Verify INPUT, COMPLETE, preview, history replay,
+and terminal advancement against the same original index contract.
 
 ## Concrete Steps
 

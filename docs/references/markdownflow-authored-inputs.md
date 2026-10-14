@@ -39,6 +39,14 @@ their saved assistant output remains in history without an invented user prompt.
 Removed or shifted interactions retain their actual saved learner answer and
 the native acknowledgement rather than binding it to another current question.
 
+Legacy teaching and preview keep the native parser's original block positions
+and types. A source-position projection applies global comment ranges to those
+slots without matching duplicate text or changing persisted progress indexes.
+Removed slots are empty and skipped before provider calls or interaction-row
+lookup; an answer to a removed question is never transferred to the next one.
+Next-question hints and terminal gates skip the same empty slots. Code-example
+variables remain literal and do not become runtime declarations.
+
 Inline-code delimiters are indexed once per authored document. Unmatched delimiter
 lengths cannot trigger repeated scans of the remaining input before a model call.
 Delimiter pairs stay within one parsed inline block; headings, separate list
@@ -46,6 +54,10 @@ items, quotes, and raw HTML blocks cannot join unrelated backticks to hide notes
 Real code spans can still continue across a paragraph's soft line breaks.
 HTML attributes use a bounded state scanner; the block parser also bypasses its
 dependency's backtracking generic-tag rule when recognizing raw HTML blocks.
+Tag recognition stays within the containing inline or raw HTML block. An
+unfinished attribute interrupted by another block cannot protect later notes;
+valid multiline attributes in the same block keep their original bytes.
+All source projections use the same original-offset comment ranges.
 
 In `?[%{{path}} First | Second | ...Describe your project]`, the trailing
 `...Describe your project` declares a text-input placeholder. It is not an
