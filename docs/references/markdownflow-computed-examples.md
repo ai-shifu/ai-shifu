@@ -42,11 +42,19 @@ strict decoding or a first-generation model pass.
   STORE writes the named register into a declared data address.
 - JMP takes an explicit target. JZ/JNZ compare the named register with zero;
   JLT compares it with its integer/register operand. HALT stops execution.
-- At most 32 instructions, 8 registers, 16 data cells and 64 executed steps; addresses
+- At most 32 instructions, 8 registers, 16 data cells and 32 executed steps; addresses
   range 0..4095 and all values stay within plus/minus one billion. Out-of-range
   arithmetic is refused; no overflow or implicit initial value is inferred.
+  The 32-step ceiling keeps simultaneous maximum-width state columns and program
+  declarations within the existing 16 KiB artifact limit. It does not raise any
+  model request, token, input or retry budget.
 - There is no external code, eval/exec, input/output, filesystem/network access,
   float arithmetic, self-modifying code or arbitrary instruction implementation.
+
+On a supported turn with this capability enabled, unparseable or non-object
+interact JSON remains buffered through native validation even when the separate
+feedback contract is off. Original arguments and retry errors remain evidence;
+failed prose never becomes delivered teaching.
 
 The table includes initial state and states after actual instructions. HALT is
 shown only when reached. An exactly repeated complete PC/register/data state

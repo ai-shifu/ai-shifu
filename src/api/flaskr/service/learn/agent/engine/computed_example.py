@@ -15,7 +15,9 @@ if TYPE_CHECKING:
 from pydantic import BaseModel, ConfigDict, Field
 
 _VALUE_LIMIT = 1_000_000_000
-_STEP_LIMIT = 64
+# With at most 8 registers, 16 data cells and 32 instructions, 32 full rows
+# (including maximum-width negative integers/names) fit the 16 KiB artifact.
+_STEP_LIMIT = 32
 Number = Annotated[int, Field(strict=True, ge=-_VALUE_LIMIT, le=_VALUE_LIMIT)]
 Address = Annotated[int, Field(strict=True, ge=0, le=4095)]
 Register = Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,15}$")]
@@ -60,7 +62,7 @@ class ComputedExample(BaseModel):
     program: list[Instruction] = Field(min_length=1, max_length=32)
     steps: Annotated[int, Field(strict=True, ge=1, le=_STEP_LIMIT)] | None = Field(
         default=None,
-        description="Optional finite prefix; never implies termination. Otherwise reach HALT or an exact repeated state within 64 steps.",
+        description="Optional finite prefix; never implies termination. Otherwise reach HALT or an exact repeated state within 32 steps. All schema maxima together fit the 16 KiB display limit.",
     )
 
 
@@ -260,11 +262,15 @@ def render_example(example: ComputedExample) -> str:
     return text
 
 
-def has_computed_example(call: ToolCallPart) -> bool:
-    """Recognize the explicit payload, including malformed values, before execution."""
+def has_computed_example(
+    call: ToolCallPart, *, include_unparseable: bool = False
+) -> bool:
+    """Recognize the payload, conservatively holding unknown JSON when enabled."""
     if call.tool_name != "interact":
         return False
     try:
-        return call.args_as_dict().get("computed_example") is not None
-    except (TypeError, ValueError):
-        return False
+        return (
+            call.args_as_dict(raise_if_invalid=True).get("computed_example") is not None
+        )
+    except (TypeError, ValueError, AssertionError):
+        return include_unparseable

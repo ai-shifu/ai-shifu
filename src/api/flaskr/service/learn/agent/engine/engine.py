@@ -1287,7 +1287,10 @@ class Engine:
                                 deps.feedback_contract
                                 or any(
                                     isinstance(part, ToolCallPart)
-                                    and has_computed_example(part)
+                                    and has_computed_example(
+                                        part,
+                                        include_unparseable=deps.computed_examples,
+                                    )
                                     for part in response.parts
                                 )
                             ):

@@ -17,6 +17,6 @@ code. SET/ADD/SUB use the named register and integer/register operand; LOAD/STOR
 use initialized data addresses, separate from code. JZ/JNZ test their register,
 JLT compares it with the operand, JMP uses its target and HALT stops. Declare all
 registers and data explicitly. At most 32 instructions, 8 registers, 16 data cells
-and 64 steps. An explicit steps prefix is incomplete, never proof of termination;
+and 32 steps. An explicit steps prefix is incomplete, never proof of termination;
 only reached HALT or a repeated complete deterministic state supports that end.
 A retry preserves the original input and budgets; correct the whole response.
