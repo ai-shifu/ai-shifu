@@ -96,5 +96,28 @@ rejected-response isolation and existing formatter/storage compatibility. They
 cannot release #3122's original fast-model factual failure or the fresh ordinary
 HTTP eleven-question natural-compaction/statistics/summary/billing gate.
 
+## Independent ordinary-classroom result (2026-10-14)
+
+Code head 1d8f5ee8e passed its eleven CI checks and actual Codex/CodeRabbit reviews.
+Deployed sim-8cf56ef matches that runtime; both Ready APIs match 73 source files
+and pass 531 isolated SDK/logging cases. Controlled guarantees remain as scoped.
+
+The first fresh balanced-model knowledge follow-up fails: it calls a program a
+two-iteration loop, but its explicitly labelled ADD body executes once before
+HALT. Arithmetic and termination are correct. All four actual follow-up inputs
+offer computed_example and its guidance; all calls omit that optional field.
+No real computed artifact is exercised, so this experiment does not establish
+coverage of freely written examples or full classroom factual correctness.
+
+Stop after two ordinary HTTP requests and five generations, all 46.09 credits
+settled with raw-output/token/attempt/block/owner/source binding. Three native
+retries remain separate from factual acceptance. Six history elements match
+streamed types and content exactly across two reads; rejected responses have no
+saved TextParts. Source and prior classrooms remain unchanged. A read-only
+browser probe reaches login and is not a visual pass. Keep #3137 and #3122 held;
+eleven questions, natural compression, actual summaries and final statistics
+remain incomplete. No paid replay, resampling, course rewrite or budget increase
+follows this failure.
+
 See the [execution plan](../exec-plans/active/mdf2-computed-examples.md) for current
 implementation, review, deployment and acceptance receipts.

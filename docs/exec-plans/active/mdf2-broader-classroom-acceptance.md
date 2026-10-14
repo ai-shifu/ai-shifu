@@ -14,8 +14,16 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
       an optional existing interaction payload computes and renders a bounded
       program's own numeric states without another model request. Controlled
       delivery/storage checks are separate from prose/request/author compliance.
-      This candidate has no #3122 prompt strategy and is not deployed or accepted
-      by a real model; #3122 and fresh eleven-question acceptance remain held.
+      This candidate has no #3122 prompt strategy. Code head 1d8f5ee8e passes
+      eleven checks and actual Codex/CodeRabbit reviews. Sim-8cf56ef (build 650 /
+      Drone 5439) is Ready with 73 fingerprints and 531 SDK/logging checks per API.
+      A fresh balanced learner fails the first knowledge follow-up: prose claims
+      two iterations but the labelled ADD loop body executes once; arithmetic
+      and termination are correct. All four follow-up inputs offer the computed
+      object, but the model omits it. Two ordinary HTTP requests/five generations
+      settle 46.09 credits with raw evidence and exact typed history binding.
+      No questions, summary or natural compression completed. Preserve all old
+      failures and hold #3137/#3122; do not replay unchanged or expand budgets.
 
 - [x] 2026-10-13: Independently scoped #3123/#3125 run on sim-f67afe0:
       both APIs match 69 files/pass 490 SDK/logging cases, integration passes
