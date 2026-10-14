@@ -408,7 +408,7 @@ async def test_invalid_artifact_response_never_becomes_visible_teaching(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("arguments", ['{"computed_example":[', "[]"])
+@pytest.mark.parametrize("arguments", ['{"computed_example":[', "[]", "", "{}"])
 async def test_unparseable_interact_keeps_prose_held_through_native_retry(
     arguments: str,
 ) -> None:

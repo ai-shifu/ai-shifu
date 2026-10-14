@@ -267,12 +267,13 @@ def render_example(example: ComputedExample) -> str:
 def has_computed_example(
     call: ToolCallPart, *, include_unparseable: bool = False
 ) -> bool:
-    """Recognize the payload, conservatively holding unknown JSON when enabled."""
+    """Recognize the payload, holding empty or unknown JSON when enabled."""
     if call.tool_name != "interact":
         return False
     try:
-        return (
-            call.args_as_dict(raise_if_invalid=True).get("computed_example") is not None
+        arguments = call.args_as_dict(raise_if_invalid=True)
+        return (include_unparseable and not arguments) or (
+            arguments.get("computed_example") is not None
         )
     except (TypeError, ValueError, AssertionError):
         return include_unparseable

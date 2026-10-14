@@ -51,7 +51,7 @@ strict decoding or a first-generation model pass.
 - There is no external code, eval/exec, input/output, filesystem/network access,
   float arithmetic, self-modifying code or arbitrary instruction implementation.
 
-On a supported turn with this capability enabled, unparseable or non-object
+On a supported turn with this capability enabled, empty, unparseable or non-object
 interact JSON remains buffered through native validation even when the separate
 feedback contract is off. Original arguments and retry errors remain evidence;
 failed prose never becomes delivered teaching.
