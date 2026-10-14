@@ -53,6 +53,7 @@ from .answer_context import (
     authored_answer_section,
     without_answer_reference,
 )
+from .computed_example import has_computed_example
 from .direction import direction_history, feedback_retry_history, has_direction
 from .events import (
     ContentDelta,
@@ -406,6 +407,7 @@ class Engine:
         teaching_summarizer: TeachingSummarizer | None = None,
         exercise_statistics: bool = False,
         feedback_contract: bool = False,
+        computed_examples: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -451,6 +453,11 @@ class Engine:
         use interact.direction. Sources are checked before display, but the model
         still chooses the grade/stage. Unspecified counts retain ordinary feedback.
         Off preserves portable hosts' previous optional contract.
+
+        `computed_examples` offers canonical numeric artifacts on supported
+        returned text inputs, where feedback is already held until validation.
+        Initial and unsupported turns retain their original streaming/schema.
+        This computes a declared illustration, never a learner grade or prose truth.
 
         `teaching_history_compaction` offers exact paginated reads of older long
         teaching replaced by excerpts in requests. It preserves two recent turns,
@@ -508,6 +515,7 @@ class Engine:
             self.memory_instructions += (
                 "\n\n" + (PROMPTS_DIR / "recall_history_compaction.md").read_text()
             )
+        self.computed_examples = computed_examples
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -615,7 +623,7 @@ class Engine:
     async def _feedback_retry_history(
         self, ctx: RunContext[Deps], messages: list[ModelMessage]
     ) -> list[ModelMessage]:
-        if not ctx.deps.feedback_contract:
+        if not ctx.deps.feedback_contract and not ctx.deps.computed_examples:
             return messages
         return feedback_retry_history(
             messages,
@@ -668,6 +676,10 @@ class Engine:
             )
             if notice:
                 instructions += "\n\n" + notice
+        if self.computed_examples and ctx.deps.direction_sections:
+            instructions += (
+                "\n\n" + (PROMPTS_DIR / "computed_examples.md").read_text().strip()
+            )
         if self.exercise_statistics:
             instructions += "\n\n" + exercise_report_notice(ctx)
         if ctx.deps.resuming_interaction and self.prompts.answer_review:
@@ -738,6 +750,7 @@ class Engine:
         for pending in session.pending:
             pending.spec = normalize_script_text_input(pending.spec, text_inputs)
         deps = Deps(
+            computed_examples=self.computed_examples,
             authored_text=session.script.all_text(),
             memory_deleted_keys=memory_deleted_keys,
             memory_current_inputs=(turn.text,)
@@ -1270,7 +1283,14 @@ class Engine:
                                 direction_chunks.clear()
                                 if problem:
                                     deps.hide_feedback_response(response)
-                            elif deps.feedback_contract and response is not None:
+                            elif response is not None and (
+                                deps.feedback_contract
+                                or any(
+                                    isinstance(part, ToolCallPart)
+                                    and has_computed_example(part)
+                                    for part in response.parts
+                                )
+                            ):
                                 # Validation is not tool success: later interaction guards
                                 # and argument checks can still request a retry.
                                 if response is not feedback_response:
@@ -1390,6 +1410,7 @@ class Engine:
                                     ),
                                     deps.direction_rendered,
                                     deps.hidden_feedback_responses,
+                                    computed=deps.example_rendered,
                                 ),
                             ]
                             if session.started
@@ -1399,13 +1420,21 @@ class Engine:
                                 or self.teaching_history_compaction
                                 or deps.resuming_interaction
                             )
-                            else list(result.all_messages())
+                            else direction_history(
+                                list(result.all_messages()),
+                                deps.direction_rendered,
+                                deps.hidden_feedback_responses,
+                                computed=deps.example_rendered,
+                            )
                         )
                         history_saved = True
                         direction_pending: set[str] = set()
                         if isinstance(result.output, DeferredToolRequests):
                             for call in result.output.calls:
-                                if call.tool_call_id in deps.direction_rendered:
+                                if (
+                                    call.tool_call_id in deps.direction_rendered
+                                    or call.tool_call_id in deps.example_rendered
+                                ):
                                     spec = InteractionSpec.model_validate(
                                         result.output.metadata.get(
                                             call.tool_call_id, {}
@@ -1460,7 +1489,12 @@ class Engine:
                         prepared_events: list[Event] = []
                         for call_id in direction_pending:
                             prepared_events.extend(
-                                _text(deps.direction_rendered[call_id])
+                                _text(
+                                    {
+                                        **deps.direction_rendered,
+                                        **deps.example_rendered,
+                                    }[call_id]
+                                )
                             )
                         prepared_events.extend(_flush_markup())
                         prepared_content = "".join(shown)
@@ -1544,6 +1578,7 @@ class Engine:
                         ),
                         deps.direction_rendered,
                         deps.hidden_feedback_responses,
+                        computed=deps.example_rendered,
                     ),
                 ]
                 session.answers = {}

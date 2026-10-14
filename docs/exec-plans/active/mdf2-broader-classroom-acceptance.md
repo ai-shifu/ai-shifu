@@ -8,6 +8,15 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-14: Rebase new work on actual main 33f5ba47c with #3134's shared
+      formatter, #3135's 3.0.0 version and #3136's first-progress notification.
+      Start the independent [computed-example plan](mdf2-computed-examples.md):
+      an optional existing interaction payload computes and renders a bounded
+      program's own numeric states without another model request. Controlled
+      delivery/storage checks are separate from prose/request/author compliance.
+      This candidate has no #3122 prompt strategy and is not deployed or accepted
+      by a real model; #3122 and fresh eleven-question acceptance remain held.
+
 - [x] 2026-10-13: Independently scoped #3123/#3125 run on sim-f67afe0:
       both APIs match 69 files/pass 490 SDK/logging cases, integration passes
       3890 plus 50 subtests/two expected skips. New ordinary-HTTP learner stops

@@ -215,20 +215,24 @@ def direction_history(
     messages: list[ModelMessage],
     rendered: dict[str, str],
     hidden: set[int] | None = None,
+    *,
+    computed: dict[str, str] | None = None,
 ) -> list[ModelMessage]:
-    """Keep only displayed direction text in new teaching, retaining all tool/user evidence.
+    """Keep displayed structured teaching and original tool/user evidence.
 
     A rejected structured response's free prose was never displayed. Accepted
     tool arguments remain original, and their exact rendered text is also stored
     as teaching so existing history, summaries and reports see what was shown.
     """
     result = []
+    computed = computed or {}
     for message in messages:
         calls = (
             [
                 p
                 for p in message.parts
-                if isinstance(p, ToolCallPart) and has_direction(p)
+                if isinstance(p, ToolCallPart)
+                and (has_direction(p) or p.tool_call_id in computed)
             ]
             if isinstance(message, ModelResponse)
             else []
@@ -244,12 +248,32 @@ def direction_history(
             # A pure-text rejection has no tool evidence to retain. Its retry
             # remains, but an empty assistant would be invalid provider history.
             continue
+        hidden_response = hidden is not None and id(message) in hidden
+        direction_response = any(has_direction(p) for p in calls)
         parts = [p for p in message.parts if not isinstance(p, TextPart)]
-        shown = [rendered[p.tool_call_id] for p in calls if p.tool_call_id in rendered]
+        shown = (
+            []
+            if hidden_response or direction_response
+            else [p.content for p in message.parts if isinstance(p, TextPart)]
+        )
+        if not hidden_response:
+            shown.extend(
+                rendered[p.tool_call_id] for p in calls if p.tool_call_id in rendered
+            )
+            shown.extend(
+                computed[p.tool_call_id] for p in calls if p.tool_call_id in computed
+            )
         result.append(
             replace(
                 message,
-                parts=[*([TextPart("\n\n".join(shown))] if shown else []), *parts],
+                parts=[
+                    *(
+                        [TextPart(("\n\n" if direction_response else "").join(shown))]
+                        if shown
+                        else []
+                    ),
+                    *parts,
+                ],
             )
         )
     return result
