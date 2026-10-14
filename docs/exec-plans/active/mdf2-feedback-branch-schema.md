@@ -10,6 +10,53 @@ while preserving native validation and portable-host compatibility.
 
 ## Progress
 
+- [x] 2026-10-13: Fetch actual #3123 squash merge c8d1cdc12 and merge main
+  into the existing schema branch without rewriting history. Preserve main's
+  clarification/authored-help guidance and all fourteen regressions. Resolve the
+  only conflict by retaining both reference sections and both acceptance histories.
+  Complete API, web and i18n trees match verified sim f67afe0f7 byte-for-byte;
+  held #3122 policy remains excluded. No paid replay or classroom reset is needed.
+- [x] 2026-10-13: All 1019 engine regressions, tooling, regenerated indexes,
+  repository harness and all-file hooks pass after synchronization. The previous
+  3890-case integration and actual-model evidence remain scoped to identical code.
+- [ ] Verify this synchronization head's CI, review and current sim receipts
+  before recommending manual merge of #3125. Full factual/classroom acceptance
+  remains open independently.
+
+- [x] 2026-10-13: Current documentation head b369bcf1a passes all eleven
+  checks; its entire API/test tree matches functional c61022c51 and Codex-reviewed
+  dd3da5a63. All three inline roots have original-thread replies, including the
+  sibling wording adoption. Actual review coverage is distinguished from rate limits.
+- [x] 2026-10-13: Combined sim f67afe0f7/build640/Drone5429 deploys API2/2 and
+  Web1/1 successfully in records 2936/2937. Both APIs match 69 fingerprints and
+  pass 490 isolated SDK/logging cases; integration passes 3890 cases, 50 subtests
+  and two expected skips plus all gates. API equals this candidate plus #3123's
+  reference source/test; do not call it a standalone full-API schema deployment.
+- [x] 2026-10-13: New unchanged-source/model-slot2 ordinary classroom opening
+  and knowledge response use one and three generations. All three feedback
+  declarations are objects from the initial response; zero object-type failures.
+  Two native retries correctly reject an inexact submission quote and an inexact
+  authored-rule quote before display. Final clarification keeps the original
+  exercise pending. This is shape compliance and bounded protocol recovery, not
+  first-response full-protocol success or general model reliability.
+- [x] 2026-10-13: Four verbatim output/token tuples uniquely match two original
+  traces and actual attempt/block/owner/ledger sources; all 36.06 credits settle.
+  Four history records are stable on two reads; actual deserialized TextParts
+  exclude rejected prose. Original source/classrooms and the earlier failed
+  balanced classroom are unchanged. First encoded-string audit is retained and
+  replaced by a check of actual deserialized text, without another model request.
+- [x] 2026-10-13: Stop at a separate visible program/narrative factual mismatch:
+  text says add1 to2, but code loads2/adds2 and reaches4. The runtime excludes
+  held #3122, so this is not a new execution/failure of that policy candidate.
+  No source/output repair, paid replay, larger budget, summary or final statistics.
+- [ ] Finish broader factual and fresh eleven-question natural-compression/
+  statistics/billing acceptance independently; preserve both balanced failures.
+
+- [x] 2026-10-13: Adopt CodeRabbit wording finding 4257794917: qualify
+  compatibility as valid sibling declarations and explicitly retain direction
+  sibling rejection before display/writes. This documentation-only clarification
+  changes no runtime/test tree; final current-head checks remain separate.
+
 - [x] 2026-10-13: Push c61022c51 and retarget the existing Open PR directly
   to main. Its runtime/test trees are the validated independent candidate.
   The first status snapshot after the push and base change contains only two
@@ -42,8 +89,8 @@ while preserving native validation and portable-host compatibility.
 - [x] 2026-10-13: Final independent-main learning/script suites pass 3876 cases,
   50 subtests and two expected skips. Required object/branch semantics, legacy
   native calls, source evidence and original request/input limits are retained.
-- [ ] Verify repository gates, CI/reviews and deployed sim. No real-model
-  reliability or full-classroom pass is implied.
+- [x] 2026-10-13: Verify local gates, functional-equivalent current CI/review
+  and deployed sim as scoped above. No general model or full-classroom pass.
 
 - [x] 2026-10-13: Synchronize the schema branch with clarification head
       e780ac9f3 and actual merged main 7676bc0a8 without a runtime conflict.
@@ -191,11 +238,15 @@ is bounded evidence of the contract correction, not a reliability estimate.
 
 The same visible explanation still has an incorrect loop stop state and does
 not complete the requested two-iteration trace. The original-model factual gate
-and full fresh classroom acceptance remain failed/pending. All twelve prior
-checks retain their own outputs and conclusions; no new learner, source edit,
-model replacement, larger budget or claim of broader merge readiness is made.
+and full fresh classroom acceptance remain failed/pending. Those twelve original-model checks retain their own outputs and conclusions;
+none creates a new learner, edits the source, changes the model or increases
+budgets. Subsequent separate balanced-model classrooms are recorded above and
+do not replace those historical failures.
 Later documentation-only receipt checks are tracked separately from the tested
-functional head. No production write is authorized by this work.
+functional head. The scoped object contract has actual changed-runtime evidence,
+while factual teaching quality and full fresh acceptance stay open. Verify the
+final receipt head in the PR conversation before recommending manual merge.
+No production write or automatic merge is authorized by this work.
 
 ## Context and Orientation
 

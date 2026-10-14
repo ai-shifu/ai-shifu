@@ -48,6 +48,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
 - [Preserve Independent Credit Validity](./active/preserve-independent-credit-validity.md)
+- [Gate Profile on every course WeChat authorization](./active/profile-onboarding-layout-oauth-gate.md)
 - [Progressive HTML alongside typed lesson text](./active/progressive-html-typewriter.md)
 - [Publish Web images without the Cook name](./active/public-web-image-name.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)

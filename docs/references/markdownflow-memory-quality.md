@@ -17,6 +17,107 @@ This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
+
+## Worked example consistency
+
+The ninth frozen original-model check on sim-086140b restores a concrete
+program and two iterations after native retries but still fails factual
+acceptance: LOAD initializes the accumulator to 5, SUB subtracts 1, the
+zero-exit test observes 4, then ADD adds 2 before the back-edge. Subsequent
+zero-exit tests observe 5, 6, and so on: cycle n tests n+3 for n >= 1 under
+ordinary integer arithmetic. No test reaches zero in that arithmetic; the
+example specifies no overflow semantics to support its claimed eventual stop.
+Four generations settle 7.82
+credits; exact outputs/tokens uniquely bind actual attempt/block, with unchanged
+source/classroom and no new learner or summary. Preserve this separate failure.
+
+
+Before claiming a worked result or termination, the default runtime instructions
+ask the model to state each example's full initial state and trace operations, including
+reinitialization and branch targets, with consistent units and non-conflicting
+data/code storage. Reapply reads and resets on each loop iteration; only
+retained state changes can accumulate. Trace requested iterations in one state
+table and derive behavior claims from it; claim termination only when that trace
+reaches a stop. Check net change over each complete cycle against its exit
+condition, not only locally correct arithmetic steps. Correct model-created errors before presenting them; preserve
+authored, learner and quoted evidence instead of silently repairing it. Respect
+the authored hint stage and state uncertainty when the result is unverified.
+This is model guidance, not a host factual grader, new tool or extra request.
+The restriction covers extra verification requests, while required runtime tools
+and calls inside the example remain allowed. Script instructions direct teaching;
+they are not text to recite to the learner.
+Existing author ownership, correction/navigation rules and request/retry limits
+remain authoritative.
+
+Native SDK regressions inspect delivery on initial and resumed clarification
+requests, with and without feedback contracts and session reload. Controlled
+FunctionModel outputs do not establish factual model compliance. Actual deployed
+model acceptance must independently check its example against its explanation;
+whole fresh-classroom acceptance remains separate. The original nineteenth
+failed classroom is preserved. Its generated loop reloads unchanged memory on
+each back-edge and cannot terminate as claimed; do not repair stored evidence or
+count a subsequent targeted success as a pass for that journey.
+
+The first scoped actual-model check on 14be21d51/sim-e640a53 passes native
+interaction delivery but fails example acceptance: no initial memory/register
+values or requested two-iteration trace. It does not claim termination; retain
+this separate under-specified-example failure. One generation settles 1.92
+credits, with exact output/token and actual attempt/block binding; original
+source and classroom state remain unchanged. No new learner or unchanged paid
+retry follows. Explicit initial-state/trace guidance requires a changed deployed
+candidate and separate acceptance; controlled-output tests alone cannot supply it.
+
+The second scoped check on 2ef1c1129/sim-0cef691 also fails: its first branch
+example specifies values, but the separate loop omits its counter initialization
+and the requested complete two-iteration trace. Reusing the earlier counter
+would exit after one iteration; do not invent a replacement value. Protocol
+delivery passes, but this is not semantic acceptance. Its one generation settles
+1.96 credits with exact output/token and actual attempt/block binding; original
+source and classroom state remain unchanged. No new learner is created. Retain
+both targeted failures and require full initial state separately for each example
+before checking a changed deployed candidate; keep original input and budgets.
+
+The third scoped check on b5e25f8db/sim-a7ff2b9 also fails: values are stated,
+but the purported real loop has no back-edge. The model correctly traces its
+one-pass fall-through into HALT and acknowledges it runs once, yet still presents
+it instead of the requested two-iteration demonstration. Do not insert a missing
+jump into stored evidence. Its one generation settles 1.99 credits with the same
+exact output/token and actual attempt/block binding; source and original classroom
+state remain unchanged, with no new learner. The next refinement requires
+verification against requested behavior and correction before presentation, not
+merely a consistent description of an example that fails the requested task.
+
+The fourth scoped check on 8012b33f2/sim-5d88b7a supplies no displayed program
+or two-iteration trace and defers requested details until the learner answers.
+This is failed acceptance, not evidence of correct examples. Three generations
+within existing native retry limits settle 5.75 credits with verbatim output/token
+and actual attempt/block binding. The policy and original request are present in
+actual generation inputs. Original source and classroom state remain unchanged;
+no new learner or summary is created. Preserve the author's brief-clarification
+rule. Investigate potentially conflicting correction-only host guidance without
+overriding that rule or spending on unchanged-runtime resampling.
+
+## State-scoped native feedback schema
+
+On a supported returned answer, enabled-host interact/finish definitions require
+one non-null feedback object. Interact preserves direction and ordinary-review
+branches; finish accepts review. Explicit object type and branch constraints must
+survive pinned Ark, OpenAI and DashScope transformations. Inactive/initial or
+unsupported states retain legacy definitions. Native legacy aliases and valid
+sibling declarations remain compatible. Repeated identical reviews across
+simultaneous inputs are one decision; conflicting declarations and direction
+siblings fail before display or writes.
+
+Do not parse a serialized feedback string into an object or rewrite tool-call
+history. The earlier balanced-model classroom failed on four such strings;
+its five generations settled 45.60 credits without displayed clarification. A new
+classroom on the changed runtime supplies objects from its first response, retains
+two provenance retries, and displays clarification before a separate factual
+failure stops acceptance. Its four generations settle 36.06 credits; neither run
+passes the full eleven-question journey. Explicit object typing is not constrained decoding or
+proof of semantic compliance. See [the schema plan](../exec-plans/active/mdf2-feedback-branch-schema.md)
+for final standalone verification and original failure receipts.
+
 ## Knowledge clarification phase boundary
 
 Checking-direction and authored-help feedback retain correction withholding,
@@ -27,23 +128,6 @@ a worked example when the teacher prohibits one. The independent continuation
 record is [the phase-boundary plan](../exec-plans/active/mdf2-clarification-phase-boundary.md).
 Controlled SDK checks establish guidance delivery and history isolation, not
 factual model compliance or full eleven-question acceptance.
-
-## State-scoped native feedback schema
-
-On a supported returned answer, enabled-host interact/finish definitions require
-one non-null feedback object. Interact preserves direction and ordinary-review
-branches; finish accepts review. Explicit object type and branch constraints must
-survive pinned Ark, OpenAI and DashScope transformations. Inactive/initial or
-unsupported states retain legacy definitions. Native legacy aliases and sibling
-calls remain compatible; repeated identical reviews across simultaneous inputs
-are one decision, while conflicting declarations still fail before display.
-
-Do not parse a serialized feedback string into an object or rewrite tool-call
-history. The real balanced-model classroom currently fails on four such strings;
-its five generations settle 45.60 credits, without displayed clarification or a
-full eleven-question pass. Explicit object typing is not constrained decoding or
-proof of semantic compliance. See [the schema plan](../exec-plans/active/mdf2-feedback-branch-schema.md)
-for final standalone verification and original failure receipts.
 
 ## Cases and scoring
 
