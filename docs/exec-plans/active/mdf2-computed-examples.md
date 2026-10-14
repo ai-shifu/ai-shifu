@@ -33,8 +33,15 @@ free prose. Keep the eleven-question factual acceptance gate independent.
 - [x] Add and verify accepted-use analytics after Codex review 4271281168:
   published modes only, anonymous bounded payload, native timing/deduplication and
   asynchronous fail-open transport. No paid classroom rerun accompanies it.
-- [ ] Verify the analytics commit's own CI/reviews and reply in the original thread;
-  the real classroom acceptance root remains independently open.
+- [x] Analytics head a027bdc0b passes its own eleven checks. CodeRabbit run
+  5e34911c reviews its ten changes without actionable comments; the analytics
+  root is replied/resolved. Sim-f14654a matches 75 files and passes 561 isolated
+  SDK/host/tracker cases per Ready API. The retained failed classroom is unchanged.
+- [ ] Obtain an actual latest-head Codex review. The a027 request returned
+  account-link notice 6169626858, not a review; do not reuse older-head coverage.
+- [x] 2026-10-15: Falsify required-field and CODE/TABLE-only coverage proposals
+  with seven native SDK cases and eight unchanged formatter controls. No
+  provider/HTTP/database request, learner, product change or paid retry.
 - [ ] Pass fresh eleven-question natural compression, per-question statistics,
   actual summaries and final cost attribution; the first-question failure holds this gate.
 
@@ -120,7 +127,59 @@ free prose. Keep the eleven-question factual acceptance gate independent.
   CodeRabbit's minor unverified issue-reference warning is addressed by wrapping
   that paragraph without an issue reference at the beginning of a line.
 
+## Offline Coverage Audit (2026-10-15)
+
+Re-fetch main: still 33f5ba47c; candidate runtime still a027bdc0b. Use pinned
+pydantic-ai-slim 2.43.0 and markdown-flow 0.3.4 without a provider, app or database.
+Start from in-memory copies of the retained opening checkpoint and exact final
+native response. Private-only SDK capabilities modify the offered required-field
+schema and enforce it before tool validation; no repository runtime is patched.
+All cases preserve the old history prefix and original native tool-call stream
+arguments. The original private files retain their hashes.
+
+| Native case | Offered schema | Delivery | Computed artifacts | Conclusion |
+| --- | --- | --- | --- | --- |
+| Retained failing response, field omitted | Current optional field | Original prose/program delivered | 0 | Reproduces the uncovered path without a model |
+| Required nullable field, omitted | Invalid | Rejected, zero saved TextParts | 0 | Presence can be enforced |
+| Required nullable field, null | Valid | Same retained failing response delivered | 0 | An explicit opt-out preserves the bypass |
+| Required nullable field, ordinary prose/null | Valid | Ordinary prose delivered | 0 | Needed non-computational compatibility control |
+| Required non-null object, ordinary prose/omitted | Invalid | Rejected, zero saved TextParts | 0 | Applying it to every eligible response breaks ordinary help |
+| Required object with correct program and false free prose | Valid | Both prose and canonical artifact delivered | 1 | Valid computation does not certify surrounding claims |
+| Required object with correct program and neutral prose | Valid | Canonical artifact delivered | 1 | Positive execution/delivery control remains functional |
+
+The private prototype uses one native FunctionModel request per case and zero
+provider requests. It does not establish that a real model will select a mode or
+that a provider strictly enforces the experimental schema. A first probe wrongly
+expected completed-turn saved tool calls after its one-request budget was
+exhausted. Preserve that failure; the corrected proof checks original arguments
+in actual native tool-call events and separately checks rejected saved text.
+Aborted prototypes do not claim a successful history commit.
+
+The existing StreamFormatter classifies the retained fenced response as
+code/text. Removing fences from a labelled synthetic copy produces text; putting
+a synthetic program in an HTML card produces HTML. A proposed code/table-only
+block would miss both, as well as a false spelled-out arithmetic claim. It would
+also block ordinary Python, an authored-code compatibility control and a normal
+data table. A supported HTML/CSS control remains HTML. These are eight controls
+of the unchanged formatter, not a second parser or a new element classifier.
+
+Reject both proposals as coverage fixes. This falsifies these specific designs;
+it does not prove every future design impossible. A model's own choice of a
+nullable field is not an independent selector. No trusted required-computation
+selector is currently established by the unchanged published source and normal
+plain-text input. A future mandatory mode needs a general eligibility and author
+permission contract, not a test-course keyword, forced example on every question,
+new learner action, hidden semantic judge or broad rejection of supported code.
+No such product policy is introduced here. The factual and eleven-question gates
+remain failed/open; no paid retry is justified by these prototypes.
+
 ## Decision Log
+
+- 2026-10-15: Keep a027 runtime, schemas, prompts, formatter, frontend and
+  deployment unchanged after the offline audit. Record falsified hypotheses
+  rather than ship a required/nullable field or broad code/table filter that
+  the controls already disprove. Any next model experiment must be separately
+  authorized and must not be described as this PR's coverage fix.
 
 - 2026-10-14: Adopt Codex's 0b16af4fd analytics finding. A generated artifact is
   a new visible capability even though the learner's action and wire contracts

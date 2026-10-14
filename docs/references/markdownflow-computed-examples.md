@@ -135,6 +135,30 @@ rejected-response isolation and existing formatter/storage compatibility. They
 cannot release #3122's original fast-model factual failure or the fresh ordinary
 HTTP eleven-question natural-compaction/statistics/summary/billing gate.
 
+## Offline coverage boundary (2026-10-15)
+
+Seven native SDK cases and eight unchanged StreamFormatter controls falsify two
+proposed fixes. A required nullable field rejects omission but accepts null
+alongside the exact retained failing response. Requiring a non-null object on
+all supported responses instead rejects ordinary prose; even a valid computed
+program can accompany false free text. Positive canonical delivery still works.
+The prototype changes only its in-memory SDK definitions/capabilities. It uses
+zero provider, HTTP or database requests and changes no product schema or prompt.
+
+A code/table-only filter sees the original fenced program but misses a synthetic
+plain-text version and a synthetic program in HTML. It also blocks ordinary
+Python, an authored-code control and a normal data table. The real formatter's
+classification is retained; it is not a semantic assertion about correctness or
+permission. Broadening such a filter must not silently disable existing code,
+HTML/CSS, history or audio behavior.
+
+These counterexamples reject those two approaches, not all future designs.
+There is currently no independently trusted selector saying that this unchanged
+normal request must deliver a computed artifact. A self-declared null/ordinary
+mode does not create one. Do not add a required field, course-specific text
+matcher, hidden semantic grader, extra learner step or unsupported content ban
+and call the coverage gap fixed. See the execution plan's audit matrix.
+
 ## Independent ordinary-classroom result (2026-10-14)
 
 Code head 1d8f5ee8e passed its eleven CI checks and actual Codex/CodeRabbit reviews.

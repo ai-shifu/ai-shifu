@@ -8,6 +8,13 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-15: Re-fetch main 33f5ba47c and retain failed #3137. Seven
+      private native SDK cases and eight unchanged formatter controls falsify
+      required/nullable and code/table-only coverage gates. They neither fix
+      arbitrary model prose nor justify another paid run. No product/runtime,
+      course, learner or budget change; original 46.09-credit failure remains.
+      See the computed-example plan for exact positive and negative controls.
+
 - [x] 2026-10-14: Rebase new work on actual main 33f5ba47c with #3134's shared
       formatter, #3135's 3.0.0 version and #3136's first-progress notification.
       Start the independent [computed-example plan](mdf2-computed-examples.md):
