@@ -196,6 +196,8 @@ def execute_example(example: ComputedExample) -> ExampleResult:
         pc = next_pc
         if example.steps is not None and len(rows) == example.steps:
             return ExampleResult(tuple(rows), "prefix")
+    if (pc, tuple(sorted(registers.items())), tuple(sorted(memory.items()))) in seen:
+        return ExampleResult(tuple(rows), "cycle")
     message = "Step budget exhausted; termination is unknown"
     raise ExampleError(message)
 

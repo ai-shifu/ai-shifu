@@ -214,3 +214,21 @@ def test_simultaneous_schema_maxima_fit_the_display_limit() -> None:
         ]
         == 32
     )
+
+
+def test_first_repeated_complete_state_at_execution_limit_is_a_cycle() -> None:
+    """Inspect the final state too, while an explicit prefix stays incomplete."""
+    data = {
+        "initial_pc": 0,
+        "registers": {"R0": 0},
+        "memory": [],
+        "program": [
+            {"address": i, "op": "SET", "reg": "R0", "operand": "R0"} for i in range(31)
+        ]
+        + [{"address": 31, "op": "JMP", "target": 0}],
+    }
+    result = execute_example(ComputedExample.model_validate(data))
+    assert result.outcome == "cycle"
+    assert len(result.rows) == 32
+    prefix = ComputedExample.model_validate({**data, "steps": 32})
+    assert execute_example(prefix).outcome == "prefix"
