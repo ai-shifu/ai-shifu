@@ -459,9 +459,9 @@ def run_agent_lesson(
         if listen and progress_record_bid
         else None
     )
-    # Paging is what listening needs: it is how a page's audio finds the text it belongs to. A
-    # reading lesson has no audio to bind and keeps the single-element shape it has today.
-    pager = LessonPager() if listen else None
+    # Every mode consumes the same typed elements. Only speech depends on listening; classroom
+    # and reading still need the formatter to distinguish HTML and other visuals from prose.
+    pager = LessonPager()
     try:
         if on_turn_opened is not None:
             on_turn_opened(progress_record_bid, generated_block_bid)
@@ -506,36 +506,27 @@ def _retire_block(app: Flask, *, generated_block_bid: str) -> None:
 def _on_this_page(
     events: object,
     *,
-    pager: LessonPager | None,
+    pager: LessonPager,
     voice: LessonVoice | None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Put any lesson text that reached here unpaged on the page the lesson is on.
+    """Classify translated lesson text, including a question's prompt, before sending it.
 
-    Paged text and unpaged text cannot share a turn. The unpaged kind is assembled into one
-    element holding the whole lesson, which then sits beside the paged ones marked speakable,
-    never finalised, and retired at the end without telling the browser -- so the learner waits on
-    audio for it that will never come. A single unpaged line is enough to do it, and there was
-    one: the prompt beside a question.
-
-    Rather than tagging each place that can produce lesson text and relying on the next one to
-    remember, everything leaving here is checked.
+    A prompt can contain visuals too. Flush it before the following controls or block boundary
+    so the last buffered line is shown and spoken in the same order as the rest of the lesson.
     """
     for event in events:
         if (
-            pager is not None
-            and getattr(event, "type", None) == GeneratedType.CONTENT
+            getattr(event, "type", None) == GeneratedType.CONTENT
             and not event.get_mdflow_stream_parts()
         ):
             text = str(event.content or "")
             if text:
-                event.set_mdflow_stream_parts([(text, "text", pager.number)])
-                yield event
-                if voice is not None:
-                    # The question beside a set of choices is often the only place the model
-                    # asks it; a listener who does not hear it has nothing to answer.
-                    yield from voice.speak(
-                        text, stream_type="text", stream_number=pager.number
-                    )
+                yield from _pieces(
+                    pager.add(text) + pager.flush(),
+                    voice=voice,
+                    outline_bid=event.outline_bid,
+                    generated_block_bid=event.generated_block_bid,
+                )
                 continue
         yield event
 
@@ -694,7 +685,7 @@ def _only_words_added(asked: str, stretch: str) -> bool:
 def _question(
     event: InteractionRequest,
     *,
-    pager: LessonPager | None,
+    pager: LessonPager,
     voice: LessonVoice | None,
     outline_bid: str,
     generated_block_bid: str,
@@ -733,14 +724,30 @@ def _question(
         )
     # A question put again after an unusable answer is already on the learner's screen; sending
     # its text again added the same line under it each time.
+    # Only prose counts as having asked it aloud. A copy inside an unfinished visual or code
+    # block was not spoken and must not suppress the independent question prompt.
+    dedup_pager = LessonPager()
+    asked_prose = "".join(
+        text
+        for text, stream_type, _ in dedup_pager.add(taught) + dedup_pager.flush()
+        if stream_type == "text"
+    )
     prompts = [
         d
         for d in translated
         if d.type == GeneratedType.CONTENT
         and not event.asked_before
-        and not _already_asked(taught, str(d.content or ""))
+        and not _already_asked(asked_prose, str(d.content or ""))
     ]
     controls = [d for d in translated if d.type != GeneratedType.CONTENT]
+    # Flush releases a buffered line but keeps the classifier inside unfinished HTML or code.
+    # The prompt is a separate block, so it must not inherit the narration's syntax state.
+    yield from _pieces(
+        pager.start_block(),
+        voice=voice,
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+    )
     yield from _on_this_page(prompts, pager=pager, voice=voice)
     if voice is not None:
         yield from voice.finish()
@@ -815,26 +822,18 @@ def _without_markers(
 def _say(
     text: str,
     *,
-    pager: LessonPager | None,
+    pager: LessonPager,
     voice: LessonVoice | None,
     outline_bid: str,
     generated_block_bid: str,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Send lesson text the way this turn sends it: paged when listening, plain otherwise."""
-    if pager is not None:
-        yield from _paged(
-            text,
-            pager=pager,
-            voice=voice,
-            outline_bid=outline_bid,
-            generated_block_bid=generated_block_bid,
-        )
-        return
-    yield RunMarkdownFlowDTO(
+    """Send lesson text through the shared formatter in every learning mode."""
+    yield from _paged(
+        text,
+        pager=pager,
+        voice=voice,
         outline_bid=outline_bid,
         generated_block_bid=generated_block_bid,
-        type=GeneratedType.CONTENT,
-        content=text,
     )
 
 
@@ -958,7 +957,7 @@ def _stream_turn(
     *,
     run_turn_on_thread: Callable[..., Any],
     voice: LessonVoice | None,
-    pager: LessonPager | None,
+    pager: LessonPager,
     make_events: Callable[[], Any],
     session_holder: dict[str, Any],
     user_bid: str,
@@ -1033,19 +1032,14 @@ def _stream_turn(
             if not event.text:
                 continue
             taught.append(event.text)
-            if pager is not None:
-                # A listening lesson is read page by page, and the audio for a page is bound to
-                # the element that page's text is in. Sent as one undivided element, only one
-                # page's audio survives that binding and every other page is left marked speakable
-                # with nothing to play -- which the browser waits on rather than skipping.
-                yield from _paged(
-                    event.text,
-                    pager=pager,
-                    voice=voice,
-                    outline_bid=outline_bid,
-                    generated_block_bid=generated_block_bid,
-                )
-                continue
+            yield from _paged(
+                event.text,
+                pager=pager,
+                voice=voice,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+            )
+            continue
 
         if isinstance(event, ErrorEvent):
             error_code = event.code
@@ -1056,18 +1050,16 @@ def _stream_turn(
             pending_memory.append(event)
             continue
 
-        if not isinstance(event, ContentDelta):
-            # Anything that is not lesson text ends the text before it. The formatter holds the
+        if isinstance(event, (InteractionRequest, TurnDone, ErrorEvent)):
+            # A question or turn boundary ends the text before it. The formatter holds the
             # last line until it sees its end, and the marker filter a trailing fragment; released
             # only at the end of the turn, the lesson's closing sentence landed after the
             # question's controls, so the last thing in the learner's history was text rather
             # than the question -- and the browser, seeing no question to answer, asked the
             # lesson to continue with nothing.
             #
-            # Except an echoed memory block: a tool call or its result can come between its
-            # opening and its close, and released there it would be shown. It is let go only
-            # where the text really ends -- a question, or the end of the turn -- and whatever
-            # is still held when a turn dies is released below.
+            # Tool events do not end content: a tag, code fence, or echoed memory block may
+            # straddle one. Keep all filters and the formatter buffered across those events.
             echoed = (
                 echoes.flush()
                 if isinstance(event, (InteractionRequest, TurnDone))
@@ -1083,13 +1075,12 @@ def _stream_turn(
                     outline_bid=outline_bid,
                     generated_block_bid=generated_block_bid,
                 )
-            if pager is not None:
-                yield from _pieces(
-                    pager.flush(),
-                    voice=voice,
-                    outline_bid=outline_bid,
-                    generated_block_bid=generated_block_bid,
-                )
+            yield from _pieces(
+                pager.flush(),
+                voice=voice,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+            )
         if isinstance(event, InteractionRequest):
             # The question comes after the lesson text as its own block, the way a 1.0 lesson
             # delivers it: the question's own prompt joins the text, then the text's audio is
@@ -1244,7 +1235,7 @@ def _stream_turn(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
             )
-    if pager is not None and not persisted:
+    if not persisted:
         yield from _pieces(
             pager.flush(),
             voice=voice,
