@@ -118,6 +118,7 @@ export type I18nKey =
   | 'component.header.publishSuccessDone'
   | 'component.header.publishSuccessDraftHelp'
   | 'component.header.readonly'
+  | 'component.menus.navigationMenus.about'
   | 'component.menus.navigationMenus.adminConsole'
   | 'component.menus.navigationMenus.createCourse'
   | 'component.menus.navigationMenus.language'

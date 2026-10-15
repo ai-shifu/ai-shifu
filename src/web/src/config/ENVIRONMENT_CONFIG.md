@@ -47,8 +47,8 @@ comparison contract. The development proxy is described in the frontend README.
 
 ## Frontend Build Identity
 
-The shared teacher and learner user menu displays the frontend package version
-and the first seven characters of its source SHA. It describes the loaded
+The shared teacher and learner user menu's About dialog displays the frontend
+package version and the first seven characters of its source SHA. It describes the loaded
 browser bundle, including when a previous deployment is still open in a tab.
 
 Next configuration compiles `NEXT_PUBLIC_APP_VERSION` from `package.json` and

@@ -24,6 +24,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
 import PopupModal from '@/components/PopupModal';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import { shifu } from '@/lib/shifu/Shifu';
@@ -43,6 +50,7 @@ import {
   MonitorSmartphone,
   BookOpen,
   BookPlus,
+  Info,
   KeyRound,
 } from 'lucide-react';
 
@@ -57,6 +65,54 @@ type MainMenuModalProps = {
   onPersonalInfoClick: () => void;
   surface: 'learner' | 'admin';
   courseId?: string;
+};
+
+const AboutVersion = ({
+  open,
+  surface,
+  previewMode,
+}: Pick<MainMenuModalProps, 'open' | 'surface'> & { previewMode: boolean }) => {
+  const { t } = useTranslation();
+  const { trackEvent } = useTracking();
+  const aboutViewed = useRef(false);
+  const appVersion = environment.appVersion;
+  const appBuildSha = environment.appBuildSha.slice(0, 7);
+  const versionText = `v${appVersion}${appBuildSha ? ` · ${appBuildSha}` : ''}`;
+
+  // This component mounts with the portal content, after the version is visible.
+  useEffect(() => {
+    if (!open) {
+      aboutViewed.current = false;
+      return;
+    }
+    if (
+      !appVersion ||
+      (surface === 'learner' && previewMode) ||
+      aboutViewed.current
+    ) {
+      return;
+    }
+
+    aboutViewed.current = true;
+    try {
+      void Promise.resolve(
+        trackEvent(EVENT_NAMES.USER_APP_ABOUT_VIEWED, { surface }),
+      ).catch(() => {});
+    } catch {
+      // Analytics must never affect the visible version information.
+    }
+  }, [open, appVersion, previewMode, surface, trackEvent]);
+
+  return (
+    <DialogDescription className='pt-2 select-text'>
+      {appVersion ? (
+        <>
+          {t('component.menus.navigationMenus.version')}{' '}
+          <bdi dir='ltr'>{versionText}</bdi>
+        </>
+      ) : null}
+    </DialogDescription>
+  );
 };
 
 const MainMenuModal = ({
@@ -94,34 +150,7 @@ const MainMenuModal = ({
 
   const { trackEvent } = useTracking();
   const previewMode = useSystemStore(state => state.previewMode);
-  const versionRef = useRef<HTMLDivElement | null>(null);
-  const versionViewed = useRef(false);
-  const appVersion = environment.appVersion;
-  const appBuildSha = environment.appBuildSha.slice(0, 7);
-  const versionText = `v${appVersion}${appBuildSha ? ` · ${appBuildSha}` : ''}`;
-  useEffect(() => {
-    if (!open) {
-      versionViewed.current = false;
-      return;
-    }
-    if (
-      !appVersion ||
-      !versionRef.current ||
-      (surface === 'learner' && previewMode) ||
-      versionViewed.current
-    ) {
-      return;
-    }
-
-    versionViewed.current = true;
-    try {
-      void Promise.resolve(
-        trackEvent(EVENT_NAMES.USER_APP_VERSION_VIEWED, { surface }),
-      ).catch(() => {});
-    } catch {
-      // Analytics must never affect the visible version information.
-    }
-  }, [open, appVersion, previewMode, surface, trackEvent]);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const memoryContext = `${courseId || ''}:${userInfo?.user_id || ''}`;
   const [memoryOpen, setMemoryOpen] = useState<string | null>(null);
   const memoryOpening = useRef<string | null>(null);
@@ -378,6 +407,24 @@ const MainMenuModal = ({
           </div>
           {setPasswordRow}
           {sessionsRow}
+          <button
+            type='button'
+            className={cn(styles.mainMenuModalRow, 'px-2.5')}
+            onClick={event => {
+              event.preventDefault();
+              event.stopPropagation();
+              setAboutOpen(true);
+              onClose?.(event);
+            }}
+          >
+            <Info
+              className={styles.rowIcon}
+              size={16}
+            />
+            <div className={styles.rowTitle}>
+              {t('component.menus.navigationMenus.about')}
+            </div>
+          </button>
           {!isLoggedIn ? (
             <div
               className={cn(styles.mainMenuModalRow, 'px-2.5')}
@@ -407,17 +454,25 @@ const MainMenuModal = ({
               <div className={styles.rowTitle}>{t('module.user.logout')}</div>
             </div>
           )}
-          {appVersion ? (
-            <div
-              className={styles.appVersion}
-              ref={versionRef}
-            >
-              {t('component.menus.navigationMenus.version')}{' '}
-              <bdi dir='ltr'>{versionText}</bdi>
-            </div>
-          ) : null}
         </div>
       </PopupModal>
+      <Dialog
+        open={aboutOpen}
+        onOpenChange={setAboutOpen}
+      >
+        <DialogContent className='max-w-sm'>
+          <DialogHeader>
+            <DialogTitle>
+              {t('component.menus.navigationMenus.about')}
+            </DialogTitle>
+            <AboutVersion
+              open={aboutOpen}
+              surface={surface}
+              previewMode={previewMode}
+            />
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
       <SessionManagerModal
         open={sessionsModalOpen}
         onClose={() => setSessionsModalOpen(false)}

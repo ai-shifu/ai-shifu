@@ -1,6 +1,7 @@
 {
   "__namespace__": "component.menus",
   "navigationMenus": {
+    "about": "เกี่ยวกับ",
     "adminConsole": "เข้าสู่แผงผู้ดูแลระบบ",
     "createCourse": "สร้างหลักสูตร",
     "language": "ภาษา",

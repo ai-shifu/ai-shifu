@@ -1,6 +1,7 @@
 {
   "__namespace__": "component.menus",
   "navigationMenus": {
+    "about": "À propos",
     "adminConsole": "Accéder à l’administration",
     "createCourse": "Créer un cours",
     "language": "Langue",

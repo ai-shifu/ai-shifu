@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import MainMenuModal from './MainMenuModal';
 import arabicMenus from '../../../../i18n/ar-SA/components/menus.json';
 import germanMenus from '../../../../i18n/de-DE/components/menus.json';
@@ -12,12 +12,14 @@ import chineseMenus from '../../../../i18n/zh-CN/components/menus.json';
 
 const mockUpdateUserInfo = jest.fn();
 const mockTrackEvent = jest.fn();
+let mockTrackEventCallback = mockTrackEvent;
 const mockRefreshUserInfo = jest.fn();
 const mockEnvironment = {
   appVersion: '2.3.3',
   appBuildSha: 'a1b2c3d4e5f678901234567890123456789012345',
 };
 let mockVersionLabel = 'Version';
+let mockAboutLabel = 'About';
 
 const mockEnvState = {
   loginMethodsEnabled: ['password', 'phone'],
@@ -44,10 +46,15 @@ jest.mock('next/image', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) =>
-      key === 'component.menus.navigationMenus.version'
-        ? mockVersionLabel
-        : key,
+    t: (key: string) => {
+      if (key === 'component.menus.navigationMenus.version') {
+        return mockVersionLabel;
+      }
+      if (key === 'component.menus.navigationMenus.about') {
+        return mockAboutLabel;
+      }
+      return key;
+    },
   }),
 }));
 
@@ -87,12 +94,12 @@ jest.mock('@/hooks/useTracking', () => ({
     USER_MENU_BASIC_INFO: 'USER_MENU_BASIC_INFO',
     USER_MENU_PERSONALIZED: 'USER_MENU_PERSONALIZED',
     USER_MENU_SET_PASSWORD: 'USER_MENU_SET_PASSWORD',
-    USER_APP_VERSION_VIEWED:
-      jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_VERSION_VIEWED,
+    USER_APP_ABOUT_VIEWED:
+      jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_ABOUT_VIEWED,
     POP_LOGIN: 'POP_LOGIN',
   },
   useTracking: () => ({
-    trackEvent: mockTrackEvent,
+    trackEvent: mockTrackEventCallback,
   }),
 }));
 
@@ -196,6 +203,7 @@ jest.mock('@/components/ui/AlertDialog', () => ({
 describe('MainMenuModal', () => {
   beforeEach(() => {
     mockTrackEvent.mockReset();
+    mockTrackEventCallback = mockTrackEvent;
     mockRefreshUserInfo.mockReset();
     mockUpdateUserInfo.mockReset();
     mockUserStoreState.isLoggedIn = true;
@@ -209,6 +217,7 @@ describe('MainMenuModal', () => {
     mockEnvironment.appVersion = '2.3.3';
     mockEnvironment.appBuildSha = 'a1b2c3d4e5f678901234567890123456789012345';
     mockVersionLabel = 'Version';
+    mockAboutLabel = 'About';
   });
 
   test.each([
@@ -217,38 +226,67 @@ describe('MainMenuModal', () => {
     ['learner', false, true],
     ['learner', true, false],
   ] as const)(
-    'shows and tracks the committed version for surface=%s member=%s mobile=%s',
+    'opens and tracks About for surface=%s member=%s mobile=%s',
     (surface, member, mobileStyle) => {
       mockUserStoreState.isLoggedIn = member;
       let versionPresentAtEmission = false;
       mockTrackEvent.mockImplementation(() => {
-        versionPresentAtEmission = !!screen.queryByText('v2.3.3 · a1b2c3d');
+        const dialog = screen.queryByRole('dialog', { name: 'About' });
+        versionPresentAtEmission = !!(
+          dialog && within(dialog).queryByText('v2.3.3 · a1b2c3d')
+        );
       });
+      const onClose = jest.fn();
       render(
         <MainMenuModal
           open
           surface={surface}
           mobileStyle={mobileStyle}
+          onClose={onClose}
           onPersonalInfoClick={jest.fn()}
         />,
       );
 
-      const build = screen.getByText('v2.3.3 · a1b2c3d');
+      const aboutButton = screen.getByRole('button', { name: 'About' });
+      expect(aboutButton).toHaveAttribute('type', 'button');
+      expect(aboutButton.nextElementSibling).toHaveTextContent(
+        member ? 'module.user.logout' : 'module.user.login',
+      );
+      expect(screen.queryByText(/v2\.3\.3/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      fireEvent.click(aboutButton);
+
+      const dialog = screen.getByRole('dialog', { name: 'About' });
+      const build = within(dialog).getByText('v2.3.3 · a1b2c3d');
       const version = build.parentElement;
       expect(version).toHaveTextContent('Version v2.3.3 · a1b2c3d');
       expect(build).toHaveAttribute('dir', 'ltr');
-      expect(version?.tagName).toBe('DIV');
       expect(version).not.toHaveAttribute('role');
       expect(version).not.toHaveAttribute('tabindex');
-      expect(version?.previousElementSibling).toHaveTextContent(
-        member ? 'module.user.logout' : 'module.user.login',
-      );
+      expect(dialog).toHaveAccessibleDescription('Version v2.3.3 · a1b2c3d');
+      expect(onClose).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       expect(versionPresentAtEmission).toBe(true);
-      expect(mockTrackEvent).toHaveBeenCalledWith('user_app_version_viewed', {
+      expect(mockTrackEvent).toHaveBeenCalledWith('user_app_about_viewed', {
         surface,
       });
       expect(Object.keys(mockTrackEvent.mock.calls[0][1])).toEqual(['surface']);
+      for (const field of [
+        'version',
+        'sha',
+        'user_id',
+        'account_id',
+        'course_id',
+        'mobile',
+        'email',
+        'title',
+        'url',
+        'error',
+      ]) {
+        expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(field);
+      }
     },
   );
 
@@ -262,9 +300,10 @@ describe('MainMenuModal', () => {
     ['ur-PK', urduMenus],
     ['zh-CN', chineseMenus],
   ] as const)(
-    'renders the localized version label for %s',
+    'renders the localized About and version labels for %s',
     (_locale, menus) => {
       mockVersionLabel = menus.navigationMenus.version;
+      mockAboutLabel = menus.navigationMenus.about;
       render(
         <MainMenuModal
           open
@@ -272,8 +311,14 @@ describe('MainMenuModal', () => {
           onPersonalInfoClick={jest.fn()}
         />,
       );
+      fireEvent.click(
+        screen.getByRole('button', { name: menus.navigationMenus.about }),
+      );
+      const dialog = screen.getByRole('dialog', {
+        name: menus.navigationMenus.about,
+      });
       expect(
-        screen.getByText('v2.3.3 · a1b2c3d').parentElement,
+        within(dialog).getByText('v2.3.3 · a1b2c3d').parentElement,
       ).toHaveTextContent(`${menus.navigationMenus.version} v2.3.3 · a1b2c3d`);
     },
   );
@@ -287,15 +332,16 @@ describe('MainMenuModal', () => {
         onPersonalInfoClick={jest.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
     expect(screen.getByText('v2.3.3').parentElement).toHaveTextContent(
       /^Version v2\.3\.3$/,
     );
-    expect(mockTrackEvent).toHaveBeenCalledWith('user_app_version_viewed', {
+    expect(mockTrackEvent).toHaveBeenCalledWith('user_app_about_viewed', {
       surface: 'admin',
     });
   });
 
-  test('does not render or track an unavailable release version', () => {
+  test('opens About without rendering or tracking an unavailable version', () => {
     mockEnvironment.appVersion = '';
     render(
       <MainMenuModal
@@ -304,12 +350,14 @@ describe('MainMenuModal', () => {
         onPersonalInfoClick={jest.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    expect(screen.getByRole('dialog', { name: 'About' })).toBeInTheDocument();
     expect(screen.queryByText('Version')).not.toBeInTheDocument();
     expect(screen.queryByText(/a1b2c3d/)).not.toBeInTheDocument();
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
-  test('tracks once per open, never for closed or repeated renders', () => {
+  test('tracks once per About open and keeps it open when the menu closes', () => {
     const props = {
       surface: 'learner' as const,
       onPersonalInfoClick: jest.fn(),
@@ -329,6 +377,14 @@ describe('MainMenuModal', () => {
         open
       />,
     );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    mockAboutLabel = 'About this app';
+    mockVersionLabel = 'App version';
+    mockUserStoreState.isLoggedIn = false;
+    mockTrackEventCallback = jest.fn((...args: unknown[]) =>
+      mockTrackEvent(...args),
+    );
     rerender(
       <MainMenuModal
         {...props}
@@ -344,20 +400,33 @@ describe('MainMenuModal', () => {
         open={false}
       />,
     );
+    expect(
+      screen.getByRole('dialog', { name: 'About this app' }),
+    ).toHaveAccessibleDescription('App version v2.3.3 · a1b2c3d');
+    expect(
+      screen.queryByText('component.menus.navigationMenus.personalInfo'),
+    ).not.toBeInTheDocument();
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.close' }),
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     rerender(
       <MainMenuModal
         {...props}
         open
       />,
     );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'About this app' }));
     expect(mockTrackEvent.mock.calls).toEqual([
-      ['user_app_version_viewed', { surface: 'learner' }],
-      ['user_app_version_viewed', { surface: 'learner' }],
+      ['user_app_about_viewed', { surface: 'learner' }],
+      ['user_app_about_viewed', { surface: 'learner' }],
     ]);
   });
 
-  test('does not count Strict Mode effect replay as another menu open', () => {
+  test('does not count Strict Mode effect replay as another About open', () => {
     render(
       <React.StrictMode>
         <MainMenuModal
@@ -367,11 +436,28 @@ describe('MainMenuModal', () => {
         />
       </React.StrictMode>,
     );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+  });
+
+  test('closes About with Escape', () => {
+    render(
+      <MainMenuModal
+        open
+        surface='admin'
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    const dialog = screen.getByRole('dialog', { name: 'About' });
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
   });
 
   test.each(['learner', 'admin'] as const)(
-    'excludes learner preview only from version tracking on %s',
+    'excludes learner preview only from About tracking on %s',
     surface => {
       mockSystemState.previewMode = true;
       render(
@@ -381,13 +467,14 @@ describe('MainMenuModal', () => {
           onPersonalInfoClick={jest.fn()}
         />,
       );
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
       expect(screen.getByText('v2.3.3 · a1b2c3d')).toBeInTheDocument();
       expect(mockTrackEvent).toHaveBeenCalledTimes(surface === 'admin' ? 1 : 0);
     },
   );
 
   test.each(['throws', 'rejects'])(
-    'keeps the version visible when analytics %s',
+    'keeps About usable when analytics %s',
     async failure => {
       if (failure === 'throws') {
         mockTrackEvent.mockImplementationOnce(() => {
@@ -399,21 +486,23 @@ describe('MainMenuModal', () => {
         );
       }
 
+      render(
+        <MainMenuModal
+          open
+          surface='admin'
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
       await act(async () => {
-        render(
-          <MainMenuModal
-            open
-            surface='admin'
-            onPersonalInfoClick={jest.fn()}
-          />,
-        );
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
       });
       expect(screen.getByText('v2.3.3 · a1b2c3d')).toBeInTheDocument();
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       fireEvent.click(
-        screen.getByRole('button', { name: 'module.settings.setPassword' }),
+        screen.getByRole('button', { name: 'component.header.close' }),
       );
-      expect(screen.getByTestId('set-password-modal')).toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'About' })).toBeInTheDocument();
     },
   );
 
@@ -533,6 +622,7 @@ describe('MainMenuModal', () => {
         'component.menus.navigationMenus.language',
         'module.settings.setPassword',
         'module.settings.sessions',
+        'About',
         'module.user.logout',
       ];
       const positions = expectedLabels.map(label => menuText.indexOf(label));

@@ -352,29 +352,33 @@ solely because historical Umami rows or queries exist.
 - Consumers: Teacher draft-quality weekly Umami reports. New additive family; existing learner run/reset contracts and historical queries remain unchanged.
 - Verification: Hook tests cover exact anchors, initiation/confirmation timing, terminal outcomes, internal continuation chains and lifecycle cancellation. Helper tests cover payload allowlisting, exclusions, deduplication and synchronous/asynchronous tracking failures.
 
-## Running frontend version exposure
+## About dialog exposure
 
-- Business question and metric: How often is the version information exposed
-  in the user menu, grouped by teacher/admin versus learner surface? Count
-  menu exposures; this is not proof that a person read the version text.
-- Event: `user_app_version_viewed`, emitted from a post-commit effect after an
-  open shared user menu renders its version footer. Closed menus and menus
-  without a version are excluded. There is no attempt/result workflow.
+- Business question and metric: How often do users open About to inspect the
+  running frontend version, grouped by teacher/admin versus learner surface?
+  Count About exposures; this is not proof that a person read the version text.
+- Event: `user_app_about_viewed`, emitted from a post-commit effect after the
+  shared user menu's About dialog renders its version information. Opening the
+  menu alone, closed dialogs and dialogs without a version are excluded. There
+  is no attempt/result workflow.
 - Population: Teacher/admin users and learners, including guests. Learner
   course preview is excluded from analytics, while retaining the version UI.
-- Deduplication: Once per open lifecycle of the menu. Re-renders and changes
+- Deduplication: Once per open lifecycle of About. Re-renders and changes
   to translation, user state or tracking callbacks do not count again. Closing
-  and opening the menu starts a new exposure. No persistent deduplication.
+  and opening About starts a new exposure. No persistent deduplication.
 - Complete feature payload: `{ surface: 'admin' | 'learner' }`. The enum is
   low cardinality and non-personal. No version, SHA, user/account/course ID,
   authored text, URL or error is added. Shared transport continues to own
   pseudonymous identity and normalized routing context.
-- Consumer: Aggregate version-footer exposure counts by surface in Umami.
-  This additive event has no existing query/dashboard to migrate. It does not
-  measure deployment readiness or establish the running backend version.
+- Consumer: Aggregate About exposure counts by surface in Umami. This new
+  event replaces the retired `user_app_version_viewed` producer, whose history
+  counted passive menu-footer exposures. Keep these series separate; do not
+  dual-write or combine them into one trend. No repository-owned query or
+  dashboard consumes the retired event. The new event does not measure
+  deployment readiness or establish the running backend version.
 - Delivery: Use `useTracking`; synchronous throws, rejected promises, absent
   analytics configuration or blocked scripts do not affect version display.
 - Verification: Exact event name and payload, guest/member eligibility,
-  preview exclusion, post-render timing, closed/reopened/re-rendered menus,
+  preview exclusion, post-render timing, closed/reopened/re-rendered dialogs,
   sensitive-field absence, and synchronous/asynchronous tracking failures.
   Existing shared-transport regressions cover the delivered payload contract.

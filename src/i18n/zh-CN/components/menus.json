@@ -1,6 +1,7 @@
 {
   "__namespace__": "component.menus",
   "navigationMenus": {
+    "about": "关于",
     "adminConsole": "进入后台",
     "createCourse": "我要建课",
     "language": "语言",
