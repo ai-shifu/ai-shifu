@@ -106,7 +106,7 @@ const AboutVersion = ({
   }, [open, appVersion, previewMode, surface, trackEvent]);
 
   return (
-    <DialogDescription className='pt-2 select-text'>
+    <DialogDescription className={styles.aboutVersion}>
       {appVersion ? (
         <>
           {t('component.menus.navigationMenus.version')}{' '}
@@ -475,29 +475,31 @@ const MainMenuModal = ({
         open={aboutOpen}
         onOpenChange={setAboutOpen}
       >
-        <DialogContent className='max-w-sm'>
-          <DialogHeader className='items-start text-start'>
-            <DialogTitle>
+        <DialogContent className={styles.aboutDialog}>
+          <DialogHeader className={styles.aboutHeader}>
+            <DialogTitle className={styles.aboutTitle}>
               {t('component.menus.navigationMenus.about')}
             </DialogTitle>
+          </DialogHeader>
+          <div className={styles.aboutBody}>
             <Image
               src={logoSource}
               alt=''
               width={160}
               height={40}
-              className='mt-4 h-10 w-auto max-w-full object-contain'
+              className={styles.aboutLogo}
             />
             <AboutVersion
               open={aboutOpen}
               surface={surface}
               previewMode={previewMode}
             />
-          </DialogHeader>
+          </div>
           <a
             href='https://github.com/ai-shifu/ai-shifu'
             target='_blank'
             rel='noopener noreferrer'
-            className='inline-flex w-fit items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline'
+            className={styles.aboutSourceLink}
             onClick={onOpenSourceClick}
           >
             {t('component.menus.navigationMenus.openSource')}
