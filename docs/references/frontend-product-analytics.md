@@ -410,3 +410,35 @@ solely because historical Umami rows or queries exist.
 - Verification: Exact event name and allowlisted payload, activation timing,
   repeated clicks, guest/member eligibility, learner-preview exclusion,
   sensitive-field absence, and synchronous/asynchronous analytics failures.
+
+## About dismissal
+
+- Business question and metric: Which dismissal methods do users choose for
+  About on teacher/admin and learner screens? Compare accepted dismissals by
+  method and surface, using About exposures as the eligible-view denominator.
+- Event: `user_app_about_closed`, emitted only when an open About dialog
+  transitions to closed after the close button, Escape or an accepted outside
+  pointer interaction. Internal clicks, prevented outside interactions,
+  fullscreen portal migration, component unmount and navigation do not count.
+  Touch dismissal follows Radix's accepted click after the outside touch.
+- Population: Teacher/admin users and learners, including guests, with a
+  configured frontend version. Learner course preview keeps dismissal behavior
+  but is excluded from analytics, matching About exposure eligibility.
+- Deduplication: Once per actual open-to-closed transition. Re-renders and
+  repeated callbacks cannot count a closed dialog again; reopening permits
+  another dismissal. There is no persistent deduplication or attempt/result
+  workflow.
+- Complete feature payload: `{ surface: 'admin' | 'learner', method: 'close_button' | 'escape' | 'outside' }`.
+  These are low-cardinality enums.
+  Do not add version, SHA, user/account/course IDs, text, URLs, pointer details
+  or errors. Shared transport owns identity and normalized routing context.
+- Consumer and compatibility: Aggregate dismissals by method and surface in
+  Umami. This additive event has no predecessor or repository-owned consumer
+  to migrate; About exposure and source-link contracts remain unchanged.
+- Delivery: Use `useTracking` after accepting the state change, without
+  awaiting analytics. Missing configuration, blocked scripts, synchronous
+  throws and rejected promises must not affect closing or focus restoration.
+- Verification: Exact name and allowlisted payload, transition timing,
+  repeated dismissal/reopening, guest/member and preview eligibility, missing
+  version exclusion, internal and prevented outside interactions, touch timing,
+  fullscreen migration, and synchronous/asynchronous tracking failures.

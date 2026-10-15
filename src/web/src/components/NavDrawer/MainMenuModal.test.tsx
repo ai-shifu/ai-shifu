@@ -107,6 +107,8 @@ jest.mock('@/hooks/useTracking', () => ({
     USER_MENU_SET_PASSWORD: 'USER_MENU_SET_PASSWORD',
     USER_APP_ABOUT_VIEWED:
       jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_ABOUT_VIEWED,
+    USER_APP_ABOUT_CLOSED:
+      jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_ABOUT_CLOSED,
     USER_APP_OPEN_SOURCE_CLICKED:
       jest.requireActual('@/lib/tracking').EVENT_NAMES
         .USER_APP_OPEN_SOURCE_CLICKED,
@@ -242,6 +244,24 @@ const AboutFocusHarness = ({
     </div>
   );
 };
+
+const pointerDown = (
+  target: Element,
+  {
+    pointerType = 'mouse',
+    button = 0,
+    ctrlKey = false,
+  }: { pointerType?: string; button?: number; ctrlKey?: boolean } = {},
+) =>
+  fireEvent(
+    target,
+    Object.assign(
+      new MouseEvent('pointerdown', { bubbles: true, button, ctrlKey }),
+      {
+        pointerType,
+      },
+    ),
+  );
 
 describe('MainMenuModal', () => {
   beforeEach(() => {
@@ -566,6 +586,10 @@ describe('MainMenuModal', () => {
     expect(screen.getByRole('dialog', { name: 'About' })).toBeInTheDocument();
     expect(screen.queryByText('Version')).not.toBeInTheDocument();
     expect(screen.queryByText(/a1b2c3d/)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.close' }),
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
@@ -630,10 +654,11 @@ describe('MainMenuModal', () => {
         open
       />,
     );
-    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole('button', { name: 'About this app' }));
     expect(mockTrackEvent.mock.calls).toEqual([
       ['user_app_about_viewed', { surface: 'learner' }],
+      ['user_app_about_closed', { surface: 'learner', method: 'close_button' }],
       ['user_app_about_viewed', { surface: 'learner' }],
     ]);
   });
@@ -720,6 +745,10 @@ describe('MainMenuModal', () => {
         );
         expect(mockTrackEvent.mock.calls).toEqual([
           ['user_app_about_viewed', { surface: 'learner' }],
+          [
+            'user_app_about_closed',
+            { surface: 'learner', method: 'close_button' },
+          ],
           ['user_app_about_viewed', { surface: 'learner' }],
         ]);
       } finally {
@@ -786,6 +815,13 @@ describe('MainMenuModal', () => {
         expect(screen.queryByRole('button', { name: 'About' })).toBeNull();
         expect(mockTrackEvent.mock.calls).toEqual([
           ['user_app_about_viewed', { surface }],
+          [
+            'user_app_about_closed',
+            {
+              surface,
+              method: dismissal === 'Escape' ? 'escape' : 'close_button',
+            },
+          ],
         ]);
       } finally {
         unmount();
@@ -861,6 +897,10 @@ describe('MainMenuModal', () => {
         expect(onFocusRestore).toHaveBeenCalledTimes(1);
         expect(mockTrackEvent.mock.calls).toEqual([
           ['user_app_about_viewed', { surface: 'learner' }],
+          [
+            'user_app_about_closed',
+            { surface: 'learner', method: 'close_button' },
+          ],
         ]);
       } finally {
         unmount();
@@ -891,8 +931,222 @@ describe('MainMenuModal', () => {
     const dialog = screen.getByRole('dialog', { name: 'About' });
     fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['user_app_about_viewed', { surface: 'admin' }],
+      ['user_app_about_closed', { surface: 'admin', method: 'escape' }],
+    ]);
   });
+
+  test.each([
+    ['admin', true],
+    ['admin', false],
+    ['learner', true],
+    ['learner', false],
+  ] as const)(
+    'dismisses About outside and restores footer focus for surface=%s member=%s',
+    (surface, member) => {
+      jest.useFakeTimers();
+      mockUserStoreState.isLoggedIn = member;
+      const onFocusRestore = jest.fn();
+      const { unmount } = render(
+        <AboutFocusHarness
+          surface={surface}
+          onFocusRestore={onFocusRestore}
+        />,
+      );
+
+      try {
+        const footer = screen
+          .getByText(
+            member ? 'module.user.defaultUserName' : 'module.user.notLogin',
+          )
+          .closest('[data-clickable]') as HTMLDivElement;
+        fireEvent.click(footer);
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        act(() => jest.runOnlyPendingTimers());
+        const closingDialog = screen.getByRole('dialog');
+        mockTrackEvent.mockImplementationOnce(() => {
+          // A second dismiss callback can run before the accepted close commits.
+          fireEvent.keyDown(closingDialog, { key: 'Escape' });
+        });
+        pointerDown(document.body);
+        fireEvent.click(document.body);
+        pointerDown(document.body);
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        act(() => jest.runOnlyPendingTimers());
+        expect(footer).toHaveFocus();
+        expect(onFocusRestore).toHaveBeenCalledTimes(1);
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface }],
+          ['user_app_about_closed', { surface, method: 'outside' }],
+        ]);
+        const closePayload = mockTrackEvent.mock.calls[1][1];
+        expect(Object.keys(closePayload)).toEqual(['surface', 'method']);
+        for (const field of [
+          'version',
+          'sha',
+          'user_id',
+          'account_id',
+          'course_id',
+          'mobile',
+          'email',
+          'title',
+          'url',
+          'pointerType',
+          'error',
+        ]) {
+          expect(closePayload).not.toHaveProperty(field);
+        }
+
+        fireEvent.click(footer);
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+        act(() => jest.runOnlyPendingTimers());
+        expect(onFocusRestore).toHaveBeenCalledTimes(2);
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface }],
+          ['user_app_about_closed', { surface, method: 'outside' }],
+          ['user_app_about_viewed', { surface }],
+          ['user_app_about_closed', { surface, method: 'escape' }],
+        ]);
+      } finally {
+        unmount();
+        act(() => jest.runOnlyPendingTimers());
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test('ignores internal and prevented outside interactions before a close-button dismissal', () => {
+    jest.useFakeTimers();
+    const { unmount } = render(
+      <MainMenuModal
+        open
+        surface='admin'
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      act(() => jest.runOnlyPendingTimers());
+      const dialog = screen.getByRole('dialog');
+      pointerDown(dialog);
+      fireEvent.click(dialog);
+      pointerDown(document.body, { button: 2 });
+      pointerDown(document.body, { button: 0, ctrlKey: true });
+      expect(dialog).toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface: 'admin' }],
+      ]);
+      fireEvent.click(
+        screen.getByRole('button', { name: 'component.header.close' }),
+      );
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface: 'admin' }],
+        ['user_app_about_closed', { surface: 'admin', method: 'close_button' }],
+      ]);
+    } finally {
+      unmount();
+      act(() => jest.runOnlyPendingTimers());
+      jest.useRealTimers();
+    }
+  });
+
+  test('waits for the accepted click before dismissing an outside touch', () => {
+    jest.useFakeTimers();
+    const { unmount } = render(
+      <MainMenuModal
+        open
+        surface='learner'
+        mobileStyle
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      act(() => jest.runOnlyPendingTimers());
+      pointerDown(document.body, { pointerType: 'touch' });
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface: 'learner' }],
+      ]);
+      fireEvent.click(document.body);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface: 'learner' }],
+        ['user_app_about_closed', { surface: 'learner', method: 'outside' }],
+      ]);
+    } finally {
+      unmount();
+      act(() => jest.runOnlyPendingTimers());
+      jest.useRealTimers();
+    }
+  });
+
+  test('does not count unmounting an open About as a dismissal', () => {
+    const { unmount } = render(
+      <MainMenuModal
+        open
+        surface='admin'
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    unmount();
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['user_app_about_viewed', { surface: 'admin' }],
+    ]);
+  });
+
+  test.each(['throws', 'rejects'])(
+    'dismisses outside and restores focus when close analytics %s',
+    async failure => {
+      jest.useFakeTimers();
+      const onFocusRestore = jest.fn();
+      const { unmount } = render(
+        <AboutFocusHarness
+          surface='admin'
+          onFocusRestore={onFocusRestore}
+        />,
+      );
+      try {
+        const footer = screen
+          .getByText('module.user.defaultUserName')
+          .closest('[data-clickable]') as HTMLDivElement;
+        fireEvent.click(footer);
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        act(() => jest.runOnlyPendingTimers());
+        if (failure === 'throws') {
+          mockTrackEvent.mockImplementationOnce(() => {
+            throw new Error('Analytics unavailable');
+          });
+        } else {
+          mockTrackEvent.mockRejectedValueOnce(
+            new Error('Analytics unavailable'),
+          );
+        }
+        await act(async () => {
+          pointerDown(document.body);
+        });
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        act(() => jest.runOnlyPendingTimers());
+        expect(footer).toHaveFocus();
+        expect(onFocusRestore).toHaveBeenCalledTimes(1);
+        expect(mockTrackEvent).toHaveBeenLastCalledWith(
+          'user_app_about_closed',
+          {
+            surface: 'admin',
+            method: 'outside',
+          },
+        );
+      } finally {
+        unmount();
+        act(() => jest.runOnlyPendingTimers());
+        jest.useRealTimers();
+      }
+    },
+  );
 
   test.each(['learner', 'admin'] as const)(
     'excludes learner preview only from About tracking on %s',
@@ -907,7 +1161,18 @@ describe('MainMenuModal', () => {
       );
       fireEvent.click(screen.getByRole('button', { name: 'About' }));
       expect(screen.getByText('v2.3.3 (a1b2c3d)')).toBeInTheDocument();
-      expect(mockTrackEvent).toHaveBeenCalledTimes(surface === 'admin' ? 1 : 0);
+      fireEvent.click(
+        screen.getByRole('button', { name: 'component.header.close' }),
+      );
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual(
+        surface === 'admin'
+          ? [
+              ['user_app_about_viewed', { surface }],
+              ['user_app_about_closed', { surface, method: 'close_button' }],
+            ]
+          : [],
+      );
     },
   );
 

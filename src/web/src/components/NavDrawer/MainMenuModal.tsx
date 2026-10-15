@@ -161,10 +161,35 @@ const MainMenuModal = ({
   const [aboutOpen, setAboutOpen] = useState(false);
   const aboutOpenRef = useRef(false);
   const aboutFocusRestorePending = useRef(false);
+  const aboutDismissMethod = useRef<'close_button' | 'escape' | 'outside'>(
+    'close_button',
+  );
   const changeAboutOpen = (nextOpen: boolean) => {
+    const wasOpen = aboutOpenRef.current;
     aboutOpenRef.current = nextOpen;
-    if (nextOpen) aboutFocusRestorePending.current = true;
+    if (nextOpen && !wasOpen) {
+      aboutFocusRestorePending.current = true;
+      aboutDismissMethod.current = 'close_button';
+    }
     setAboutOpen(nextOpen);
+    if (
+      !wasOpen ||
+      nextOpen ||
+      !environment.appVersion ||
+      (surface === 'learner' && previewMode)
+    ) {
+      return;
+    }
+    try {
+      void Promise.resolve(
+        trackEvent(EVENT_NAMES.USER_APP_ABOUT_CLOSED, {
+          surface,
+          method: aboutDismissMethod.current,
+        }),
+      ).catch(() => {});
+    } catch {
+      // Analytics must never prevent closing About or restoring focus.
+    }
   };
   const aboutViewed = useRef(false);
   useEffect(() => {
@@ -492,6 +517,16 @@ const MainMenuModal = ({
       >
         <DialogContent
           className={styles.aboutDialog}
+          closeOnOutsideClick
+          onEscapeKeyDown={() => {
+            aboutDismissMethod.current = 'escape';
+          }}
+          onPointerDownOutside={() => {
+            aboutDismissMethod.current = 'outside';
+          }}
+          onClickCapture={() => {
+            aboutDismissMethod.current = 'close_button';
+          }}
           onCloseAutoFocus={event => {
             // Fullscreen portal migration unmounts content without closing About.
             if (aboutOpenRef.current) {
