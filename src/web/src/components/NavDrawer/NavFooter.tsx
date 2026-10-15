@@ -39,6 +39,7 @@ export const NavFooter = forwardRef<NavFooterHandle, NavFooterProps>(
     return (
       <div
         className={clsx(styles.navFooter, isCollapse ? styles.collapse : '')}
+        data-clickable='true'
         onClick={onClick}
         ref={htmlRef}
       >

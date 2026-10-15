@@ -5,6 +5,11 @@
   border-top: 1px solid #e5e5e5;
   font-size: var(--font-size-5);
   align-items: center;
+  transition: background-color 150ms ease;
+
+  &:hover {
+    background-color: var(--hover-color, rgba(0, 0, 0, 0.06));
+  }
 
   .userInfo {
     display: flex;
