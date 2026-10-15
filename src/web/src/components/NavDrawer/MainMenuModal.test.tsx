@@ -459,21 +459,11 @@ describe('MainMenuModal', () => {
       expect(screen.queryByTestId('course-memory')).not.toBeInTheDocument();
       if (excluded === 'admin') {
         expect(
-          screen.queryByText(
-            'component.menus.navigationMenus.learningAndTeaching',
-          ),
-        ).not.toBeInTheDocument();
-        expect(
           screen.queryByRole('button', {
             name: 'component.menus.navigationMenus.createCourse',
           }),
         ).not.toBeInTheDocument();
       } else {
-        expect(
-          screen.getByText(
-            'component.menus.navigationMenus.learningAndTeaching',
-          ),
-        ).toBeInTheDocument();
         expect(
           screen.getByRole('button', {
             name: 'component.menus.navigationMenus.createCourse',
@@ -538,13 +528,7 @@ describe('MainMenuModal', () => {
       });
       const menuText = personalInfoButton.parentElement?.textContent ?? '';
       const expectedLabels = [
-        ...(sceneLabel
-          ? [
-              'component.menus.navigationMenus.learningAndTeaching',
-              'module.settings.memoryTitle',
-              sceneLabel,
-            ]
-          : []),
+        ...(sceneLabel ? ['module.settings.memoryTitle', sceneLabel] : []),
         'component.menus.navigationMenus.personalInfo',
         'component.menus.navigationMenus.language',
         'module.settings.setPassword',
@@ -562,16 +546,16 @@ describe('MainMenuModal', () => {
       expect(
         screen.getByRole('button', { name: 'module.settings.setPassword' }),
       ).toBeInTheDocument();
+      expect(
+        screen.queryByText(
+          'component.menus.navigationMenus.learningAndTeaching',
+        ),
+      ).not.toBeInTheDocument();
       if (sceneLabel) {
         expect(
           screen.getByRole('button', { name: sceneLabel }),
         ).toBeInTheDocument();
       } else {
-        expect(
-          screen.queryByText(
-            'component.menus.navigationMenus.learningAndTeaching',
-          ),
-        ).not.toBeInTheDocument();
         expect(
           screen.queryByRole('button', { name: 'module.settings.memoryTitle' }),
         ).not.toBeInTheDocument();

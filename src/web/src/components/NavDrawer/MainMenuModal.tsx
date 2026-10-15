@@ -284,9 +284,6 @@ const MainMenuModal = ({
         >
           {surface === 'learner' ? (
             <div className={styles.contextGroup}>
-              <div className={styles.groupLabel}>
-                {t('component.menus.navigationMenus.learningAndTeaching')}
-              </div>
               {courseId && !previewMode ? (
                 <button
                   type='button'
