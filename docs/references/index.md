@@ -4,6 +4,7 @@
 
 Evergreen repository references and operational guides live here.
 
+- [API capacity metrics](../references/api-capacity-metrics.md)
 - [Architecture Boundaries](../references/architecture-boundaries.md)
 - [Retired explicit course references](../references/course-memory-references.md)
 - [System and course variable isolation](../references/course-variable-scopes.md)

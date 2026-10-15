@@ -193,7 +193,7 @@ def test_metrics_without_start_timestamp_use_zero_duration_and_unmatched_path(
     monkeypatch.setattr(observability, "HTTP_REQUEST_DURATION", durations)
     with Flask(__name__).test_request_context("/unknown"):
         assert observability._record_request_metrics(404) == 0
-    counts.labels.assert_called_once_with("GET", "/unknown", "404")
+    counts.labels.assert_called_once_with("GET", "<unmatched>", "404")
     durations.labels.return_value.observe.assert_called_once_with(0)
 
 
