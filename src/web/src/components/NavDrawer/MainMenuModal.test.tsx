@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import MainMenuModal from './MainMenuModal';
+import NavFooter, { type NavFooterHandle } from './NavFooter';
 import { DEFAULT_WIDE_LOGO } from '@/components/logo/logoSource';
 import arabicMenus from '../../../../i18n/ar-SA/components/menus.json';
 import germanMenus from '../../../../i18n/de-DE/components/menus.json';
@@ -212,6 +213,35 @@ jest.mock('@/components/ui/AlertDialog', () => ({
     <div>{children}</div>
   ),
 }));
+
+const AboutFocusHarness = ({
+  surface,
+  onFocusRestore,
+}: {
+  surface: 'admin' | 'learner';
+  onFocusRestore: () => void;
+}) => {
+  const footerRef = React.useRef<NavFooterHandle | null>(null);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  return (
+    <div data-testid='fullscreen-root'>
+      <NavFooter
+        ref={footerRef}
+        onClick={() => setMenuOpen(open => !open)}
+      />
+      <MainMenuModal
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        surface={surface}
+        onPersonalInfoClick={jest.fn()}
+        onAboutCloseAutoFocus={() => {
+          onFocusRestore();
+          footerRef.current?.focus();
+        }}
+      />
+    </div>
+  );
+};
 
 describe('MainMenuModal', () => {
   beforeEach(() => {
@@ -694,6 +724,148 @@ describe('MainMenuModal', () => {
         ]);
       } finally {
         unmount();
+        if (originalDescriptor) {
+          Object.defineProperty(
+            document,
+            fullscreenProperty,
+            originalDescriptor,
+          );
+        } else {
+          Reflect.deleteProperty(document, fullscreenProperty);
+        }
+      }
+    },
+  );
+
+  test.each([
+    ['admin', 'close'],
+    ['admin', 'Escape'],
+    ['learner', 'close'],
+    ['learner', 'Escape'],
+  ] as const)(
+    'restores focus to the persistent %s footer after About %s',
+    (surface, dismissal) => {
+      jest.useFakeTimers();
+      const onFocusRestore = jest.fn();
+      const { unmount } = render(
+        <AboutFocusHarness
+          surface={surface}
+          onFocusRestore={onFocusRestore}
+        />,
+      );
+
+      try {
+        const footer = screen
+          .getByText('module.user.defaultUserName')
+          .closest('[data-clickable]') as HTMLDivElement;
+        expect(footer).toHaveAttribute('tabindex', '-1');
+        fireEvent.click(footer);
+        const aboutEntry = screen.getByRole('button', { name: 'About' });
+        aboutEntry.focus();
+        fireEvent.click(aboutEntry);
+        expect(aboutEntry).not.toBeInTheDocument();
+        const dialog = screen.getByRole('dialog', { name: 'About' });
+        expect(dialog).toContainElement(document.activeElement as HTMLElement);
+        const focusFooter = jest.spyOn(footer, 'focus');
+
+        if (dismissal === 'Escape') {
+          fireEvent.keyDown(dialog, { key: 'Escape' });
+        } else {
+          fireEvent.click(
+            screen.getByRole('button', { name: 'component.header.close' }),
+          );
+        }
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(onFocusRestore).not.toHaveBeenCalled();
+        act(() => jest.runOnlyPendingTimers());
+
+        expect(footer).toHaveFocus();
+        expect(onFocusRestore).toHaveBeenCalledTimes(1);
+        expect(focusFooter).toHaveBeenCalledTimes(1);
+        expect(focusFooter).toHaveBeenCalledWith({ preventScroll: true });
+        expect(screen.queryByRole('button', { name: 'About' })).toBeNull();
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface }],
+        ]);
+      } finally {
+        unmount();
+        act(() => jest.runOnlyPendingTimers());
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test.each([
+    ['fullscreenElement', 'fullscreenchange', false],
+    ['fullscreenElement', 'fullscreenchange', true],
+    ['webkitFullscreenElement', 'webkitfullscreenchange', false],
+    ['webkitFullscreenElement', 'webkitfullscreenchange', true],
+  ] as const)(
+    'restores footer focus only on close after %s/%s migration with immediateClose=%s',
+    (fullscreenProperty, fullscreenEvent, immediateClose) => {
+      jest.useFakeTimers();
+      const originalDescriptor = Object.getOwnPropertyDescriptor(
+        document,
+        fullscreenProperty,
+      );
+      let fullscreenElement: Element | null = null;
+      Object.defineProperty(document, fullscreenProperty, {
+        configurable: true,
+        get: () => fullscreenElement,
+      });
+      const onFocusRestore = jest.fn();
+      const { unmount } = render(
+        <AboutFocusHarness
+          surface='learner'
+          onFocusRestore={onFocusRestore}
+        />,
+      );
+
+      try {
+        const fullscreenRoot = screen.getByTestId('fullscreen-root');
+        const footer = screen
+          .getByText('module.user.defaultUserName')
+          .closest('[data-clickable]') as HTMLDivElement;
+        const setFullscreen = (element: Element | null) => {
+          act(() => {
+            fullscreenElement = element;
+            document.dispatchEvent(new Event(fullscreenEvent));
+          });
+        };
+        fireEvent.click(footer);
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+
+        for (const element of [fullscreenRoot, null, fullscreenRoot]) {
+          const oldDialog = screen.getByRole('dialog', { name: 'About' });
+          setFullscreen(element);
+          const dialog = screen.getByRole('dialog', { name: 'About' });
+          expect(dialog).not.toBe(oldDialog);
+          expect(dialog).toContainElement(
+            document.activeElement as HTMLElement,
+          );
+          if (!immediateClose) {
+            act(() => jest.runOnlyPendingTimers());
+            expect(dialog).toContainElement(
+              document.activeElement as HTMLElement,
+            );
+            expect(onFocusRestore).not.toHaveBeenCalled();
+          }
+        }
+
+        fireEvent.click(
+          screen.getByRole('button', { name: 'component.header.close' }),
+        );
+        expect(onFocusRestore).not.toHaveBeenCalled();
+        act(() => jest.runOnlyPendingTimers());
+        expect(footer).toHaveFocus();
+        expect(onFocusRestore).toHaveBeenCalledTimes(1);
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface: 'learner' }],
+        ]);
+      } finally {
+        unmount();
+        act(() => jest.runOnlyPendingTimers());
+        jest.useRealTimers();
         if (originalDescriptor) {
           Object.defineProperty(
             document,

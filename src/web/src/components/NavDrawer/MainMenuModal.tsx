@@ -66,6 +66,7 @@ type MainMenuModalProps = {
   mobileStyle?: boolean;
   className?: string;
   onPersonalInfoClick: () => void;
+  onAboutCloseAutoFocus?: () => void;
   surface: 'learner' | 'admin';
   courseId?: string;
 };
@@ -125,6 +126,7 @@ const MainMenuModal = ({
   mobileStyle = false,
   className = '',
   onPersonalInfoClick,
+  onAboutCloseAutoFocus,
   surface,
   courseId,
 }: MainMenuModalProps) => {
@@ -157,6 +159,13 @@ const MainMenuModal = ({
   const logoHorizontal = useEnvStore(state => state.logoHorizontal);
   const logoSource = resolveWideLogoSource(logoWideUrl, logoHorizontal);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const aboutOpenRef = useRef(false);
+  const aboutFocusRestorePending = useRef(false);
+  const changeAboutOpen = (nextOpen: boolean) => {
+    aboutOpenRef.current = nextOpen;
+    if (nextOpen) aboutFocusRestorePending.current = true;
+    setAboutOpen(nextOpen);
+  };
   const aboutViewed = useRef(false);
   useEffect(() => {
     // Portal remounts during fullscreen changes belong to the same open.
@@ -434,7 +443,7 @@ const MainMenuModal = ({
             onClick={event => {
               event.preventDefault();
               event.stopPropagation();
-              setAboutOpen(true);
+              changeAboutOpen(true);
               onClose?.(event);
             }}
           >
@@ -479,9 +488,24 @@ const MainMenuModal = ({
       </PopupModal>
       <Dialog
         open={aboutOpen}
-        onOpenChange={setAboutOpen}
+        onOpenChange={changeAboutOpen}
       >
-        <DialogContent className={styles.aboutDialog}>
+        <DialogContent
+          className={styles.aboutDialog}
+          onCloseAutoFocus={event => {
+            // Fullscreen portal migration unmounts content without closing About.
+            if (aboutOpenRef.current) {
+              event.preventDefault();
+              return;
+            }
+            if (onAboutCloseAutoFocus) {
+              event.preventDefault();
+              if (!aboutFocusRestorePending.current) return;
+              aboutFocusRestorePending.current = false;
+              onAboutCloseAutoFocus();
+            }
+          }}
+        >
           <DialogHeader className={styles.aboutHeader}>
             <DialogTitle className={styles.aboutTitle}>
               {t('component.menus.navigationMenus.about')}
