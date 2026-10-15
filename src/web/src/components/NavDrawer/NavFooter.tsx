@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
-import { ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
+import { Ellipsis } from 'lucide-react';
 
 export type NavFooterHandle = {
   containElement: (elem: EventTarget | null) => boolean;
@@ -19,11 +19,10 @@ export type NavFooterHandle = {
 type NavFooterProps = {
   onClick?: MouseEventHandler<HTMLDivElement>;
   isCollapse?: boolean;
-  isMenuOpen?: boolean;
 };
 
 export const NavFooter = forwardRef<NavFooterHandle, NavFooterProps>(
-  ({ onClick, isCollapse = false, isMenuOpen = false }, ref) => {
+  ({ onClick, isCollapse = false }, ref) => {
     const { t } = useTranslation();
 
     const userInfo = useUserStore(state => state.userInfo);
@@ -36,8 +35,6 @@ export const NavFooter = forwardRef<NavFooterHandle, NavFooterProps>(
     useImperativeHandle(ref, () => ({
       containElement,
     }));
-
-    const ToggleIcon = isMenuOpen ? ChevronsDownUp : ChevronsUpDown;
 
     return (
       <div
@@ -53,7 +50,7 @@ export const NavFooter = forwardRef<NavFooterHandle, NavFooterProps>(
                 : t('module.user.notLogin')}
             </div>
           </div>
-          <ToggleIcon
+          <Ellipsis
             size={16}
             color='#0A0A0A'
           />

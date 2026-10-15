@@ -266,7 +266,6 @@ export const SidebarContent = ({
         <NavFooter
           ref={footerRef}
           onClick={onFooterClick}
-          isMenuOpen={userMenuOpen}
         />
         <MainMenuModal
           open={userMenuOpen}
