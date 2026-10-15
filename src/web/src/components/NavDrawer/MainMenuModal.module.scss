@@ -24,8 +24,20 @@
     white-space: nowrap;
   }
 
+  .contextGroup {
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border, #e5e5e5);
+  }
+
+  .groupLabel {
+    padding: 6px 10px 2px;
+    font-size: var(--font-size-5, 12px);
+    line-height: 1.5;
+    opacity: 0.7;
+  }
+
   .languageRow {
-    border-top: 1px solid var(--border, #e5e5e5);
     border-bottom: 1px solid var(--border, #e5e5e5);
 
     .langDownIcon {
