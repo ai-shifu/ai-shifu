@@ -363,8 +363,9 @@ solely because historical Umami rows or queries exist.
   is no attempt/result workflow.
 - Population: Teacher/admin users and learners, including guests. Learner
   course preview is excluded from analytics, while retaining the version UI.
-- Deduplication: Once per open lifecycle of About. Re-renders and changes
-  to translation, user state or tracking callbacks do not count again. Closing
+- Deduplication: Once per open lifecycle of About. Re-renders, fullscreen
+  portal remounts and changes to translation, user state or tracking callbacks
+  do not count again. Closing
   and opening About starts a new exposure. No persistent deduplication.
 - Complete feature payload: `{ surface: 'admin' | 'learner' }`. The enum is
   low cardinality and non-personal. No version, SHA, user/account/course ID,

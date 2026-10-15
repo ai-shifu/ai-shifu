@@ -623,6 +623,90 @@ describe('MainMenuModal', () => {
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
   });
 
+  test.each([
+    ['fullscreenElement', 'fullscreenchange'],
+    ['webkitFullscreenElement', 'webkitfullscreenchange'],
+  ])(
+    'tracks once per About open while migrating the %s portal',
+    (fullscreenProperty, fullscreenEvent) => {
+      const originalDescriptor = Object.getOwnPropertyDescriptor(
+        document,
+        fullscreenProperty,
+      );
+      let fullscreenElement: Element | null = null;
+      Object.defineProperty(document, fullscreenProperty, {
+        configurable: true,
+        get: () => fullscreenElement,
+      });
+      const { unmount } = render(
+        <>
+          <div data-testid='fullscreen-root' />
+          <MainMenuModal
+            open
+            surface='learner'
+            onPersonalInfoClick={jest.fn()}
+          />
+        </>,
+      );
+
+      try {
+        const fullscreenRoot = screen.getByTestId('fullscreen-root');
+        const setFullscreen = (element: Element | null) => {
+          act(() => {
+            fullscreenElement = element;
+            document.dispatchEvent(new Event(fullscreenEvent));
+          });
+        };
+        setFullscreen(fullscreenRoot);
+        expect(mockTrackEvent).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        const firstDialog = screen.getByRole('dialog', { name: 'About' });
+        expect(fullscreenRoot).toContainElement(firstDialog);
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface: 'learner' }],
+        ]);
+
+        setFullscreen(null);
+        const windowedDialog = screen.getByRole('dialog', { name: 'About' });
+        expect(windowedDialog).not.toBe(firstDialog);
+        expect(firstDialog).not.toBeInTheDocument();
+        expect(fullscreenRoot).not.toContainElement(windowedDialog);
+        expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+
+        setFullscreen(fullscreenRoot);
+        const fullscreenDialog = screen.getByRole('dialog', { name: 'About' });
+        expect(fullscreenDialog).not.toBe(windowedDialog);
+        expect(windowedDialog).not.toBeInTheDocument();
+        expect(fullscreenRoot).toContainElement(fullscreenDialog);
+        expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(
+          screen.getByRole('button', { name: 'component.header.close' }),
+        );
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        expect(fullscreenRoot).toContainElement(
+          screen.getByRole('dialog', { name: 'About' }),
+        );
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface: 'learner' }],
+          ['user_app_about_viewed', { surface: 'learner' }],
+        ]);
+      } finally {
+        unmount();
+        if (originalDescriptor) {
+          Object.defineProperty(
+            document,
+            fullscreenProperty,
+            originalDescriptor,
+          );
+        } else {
+          Reflect.deleteProperty(document, fullscreenProperty);
+        }
+      }
+    },
+  );
+
   test('closes About with Escape', () => {
     render(
       <MainMenuModal

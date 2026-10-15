@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type RefObject,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { cn } from '@/lib/utils';
@@ -73,21 +74,21 @@ const AboutVersion = ({
   open,
   surface,
   previewMode,
-}: Pick<MainMenuModalProps, 'open' | 'surface'> & { previewMode: boolean }) => {
+  aboutViewed,
+}: Pick<MainMenuModalProps, 'open' | 'surface'> & {
+  previewMode: boolean;
+  aboutViewed: RefObject<boolean>;
+}) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
-  const aboutViewed = useRef(false);
   const appVersion = environment.appVersion;
   const appBuildSha = environment.appBuildSha.slice(0, 7);
   const versionText = `v${appVersion}${appBuildSha ? ` (${appBuildSha})` : ''}`;
 
   // This component mounts with the portal content, after the version is visible.
   useEffect(() => {
-    if (!open) {
-      aboutViewed.current = false;
-      return;
-    }
     if (
+      !open ||
       !appVersion ||
       (surface === 'learner' && previewMode) ||
       aboutViewed.current
@@ -103,7 +104,7 @@ const AboutVersion = ({
     } catch {
       // Analytics must never affect the visible version information.
     }
-  }, [open, appVersion, previewMode, surface, trackEvent]);
+  }, [open, appVersion, previewMode, surface, trackEvent, aboutViewed]);
 
   return (
     <DialogDescription className={styles.aboutVersion}>
@@ -156,6 +157,11 @@ const MainMenuModal = ({
   const logoHorizontal = useEnvStore(state => state.logoHorizontal);
   const logoSource = resolveWideLogoSource(logoWideUrl, logoHorizontal);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const aboutViewed = useRef(false);
+  useEffect(() => {
+    // Portal remounts during fullscreen changes belong to the same open.
+    if (!aboutOpen) aboutViewed.current = false;
+  }, [aboutOpen]);
   const onOpenSourceClick = () => {
     if (surface === 'learner' && previewMode) return;
     try {
@@ -493,6 +499,7 @@ const MainMenuModal = ({
               open={aboutOpen}
               surface={surface}
               previewMode={previewMode}
+              aboutViewed={aboutViewed}
             />
           </div>
           <a
