@@ -48,8 +48,12 @@ comparison contract. The development proxy is described in the frontend README.
 ## Frontend Build Identity
 
 The shared teacher and learner user menu's About dialog displays the frontend
-package version and the first seven characters of its source SHA. It describes the loaded
+package version with the first seven characters of its source SHA in
+parentheses, for example `v3.0.0 (a1b2c3d)`. It describes the loaded
 browser bundle, including when a previous deployment is still open in a tab.
+About reuses the runtime branding logo (`LOGO_WIDE_URL`), with the existing
+`logoHorizontal` store value and bundled default as fallbacks, and links to
+the public AI-Shifu source repository.
 
 Next configuration compiles `NEXT_PUBLIC_APP_VERSION` from `package.json` and
 `NEXT_PUBLIC_APP_BUILD_SHA` from local Git HEAD or the `.app-build-sha` file in

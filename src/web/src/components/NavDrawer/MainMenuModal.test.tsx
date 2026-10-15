@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import MainMenuModal from './MainMenuModal';
+import { DEFAULT_WIDE_LOGO } from '@/components/logo/logoSource';
 import arabicMenus from '../../../../i18n/ar-SA/components/menus.json';
 import germanMenus from '../../../../i18n/de-DE/components/menus.json';
 import englishMenus from '../../../../i18n/en-US/components/menus.json';
@@ -20,9 +21,12 @@ const mockEnvironment = {
 };
 let mockVersionLabel = 'Version';
 let mockAboutLabel = 'About';
+let mockOpenSourceLabel = 'Open source';
 
 const mockEnvState = {
   loginMethodsEnabled: ['password', 'phone'],
+  logoWideUrl: '',
+  logoHorizontal: '',
 };
 const mockSystemState = { previewMode: false };
 
@@ -40,8 +44,11 @@ const mockUserStoreState = {
 
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: ({ alt, src }: { alt: string; src: string }) =>
-    React.createElement('img', { alt, src }),
+  default: ({ alt, src }: { alt: string; src: string | { src: string } }) =>
+    React.createElement('img', {
+      alt,
+      src: typeof src === 'string' ? src : src.src,
+    }),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -52,6 +59,9 @@ jest.mock('react-i18next', () => ({
       }
       if (key === 'component.menus.navigationMenus.about') {
         return mockAboutLabel;
+      }
+      if (key === 'component.menus.navigationMenus.openSource') {
+        return mockOpenSourceLabel;
       }
       return key;
     },
@@ -96,6 +106,9 @@ jest.mock('@/hooks/useTracking', () => ({
     USER_MENU_SET_PASSWORD: 'USER_MENU_SET_PASSWORD',
     USER_APP_ABOUT_VIEWED:
       jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_ABOUT_VIEWED,
+    USER_APP_OPEN_SOURCE_CLICKED:
+      jest.requireActual('@/lib/tracking').EVENT_NAMES
+        .USER_APP_OPEN_SOURCE_CLICKED,
     POP_LOGIN: 'POP_LOGIN',
   },
   useTracking: () => ({
@@ -213,11 +226,14 @@ describe('MainMenuModal', () => {
       is_creator: false,
     };
     mockEnvState.loginMethodsEnabled = ['password', 'phone'];
+    mockEnvState.logoWideUrl = '';
+    mockEnvState.logoHorizontal = '';
     mockSystemState.previewMode = false;
     mockEnvironment.appVersion = '2.3.3';
     mockEnvironment.appBuildSha = 'a1b2c3d4e5f678901234567890123456789012345';
     mockVersionLabel = 'Version';
     mockAboutLabel = 'About';
+    mockOpenSourceLabel = 'Open source';
   });
 
   test.each([
@@ -233,7 +249,7 @@ describe('MainMenuModal', () => {
       mockTrackEvent.mockImplementation(() => {
         const dialog = screen.queryByRole('dialog', { name: 'About' });
         versionPresentAtEmission = !!(
-          dialog && within(dialog).queryByText('v2.3.3 · a1b2c3d')
+          dialog && within(dialog).queryByText('v2.3.3 (a1b2c3d)')
         );
       });
       const onClose = jest.fn();
@@ -259,13 +275,13 @@ describe('MainMenuModal', () => {
       fireEvent.click(aboutButton);
 
       const dialog = screen.getByRole('dialog', { name: 'About' });
-      const build = within(dialog).getByText('v2.3.3 · a1b2c3d');
+      const build = within(dialog).getByText('v2.3.3 (a1b2c3d)');
       const version = build.parentElement;
-      expect(version).toHaveTextContent('Version v2.3.3 · a1b2c3d');
+      expect(version).toHaveTextContent('Version v2.3.3 (a1b2c3d)');
       expect(build).toHaveAttribute('dir', 'ltr');
       expect(version).not.toHaveAttribute('role');
       expect(version).not.toHaveAttribute('tabindex');
-      expect(dialog).toHaveAccessibleDescription('Version v2.3.3 · a1b2c3d');
+      expect(dialog).toHaveAccessibleDescription('Version v2.3.3 (a1b2c3d)');
       expect(onClose).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       expect(versionPresentAtEmission).toBe(true);
@@ -291,6 +307,166 @@ describe('MainMenuModal', () => {
   );
 
   test.each([
+    [
+      'wide URL',
+      'https://cdn.example.com/wide.png',
+      'https://cdn.example.com/legacy.png',
+    ],
+    ['legacy horizontal URL', '', 'https://cdn.example.com/legacy.png'],
+    ['bundled default', '', ''],
+  ])(
+    'shows the configured About logo with %s',
+    (_scenario, wideUrl, horizontalUrl) => {
+      mockEnvState.logoWideUrl = wideUrl;
+      mockEnvState.logoHorizontal = horizontalUrl;
+      render(
+        <MainMenuModal
+          open
+          surface='admin'
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+
+      const dialog = screen.getByRole('dialog', { name: 'About' });
+      const logo = dialog.querySelector('img');
+      expect(logo).toHaveAttribute(
+        'src',
+        wideUrl || horizontalUrl || DEFAULT_WIDE_LOGO.src,
+      );
+      expect(logo).toHaveAttribute('alt', '');
+      expect(logo?.closest('a')).toBeNull();
+    },
+  );
+
+  test.each([
+    ['admin', true],
+    ['admin', false],
+    ['learner', true],
+    ['learner', false],
+  ] as const)(
+    'tracks each open-source link activation for surface=%s member=%s',
+    (surface, member) => {
+      mockUserStoreState.isLoggedIn = member;
+      const props = {
+        open: true,
+        surface,
+        onPersonalInfoClick: jest.fn(),
+      };
+      const { rerender } = render(<MainMenuModal {...props} />);
+      expect(
+        screen.queryByRole('link', { name: 'Open source' }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      rerender(
+        <MainMenuModal
+          {...props}
+          mobileStyle
+        />,
+      );
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface }],
+      ]);
+
+      const dialog = screen.getByRole('dialog', { name: 'About' });
+      const link = within(dialog).getByRole('link', { name: 'Open source' });
+      expect(link).toHaveAttribute(
+        'href',
+        'https://github.com/ai-shifu/ai-shifu',
+      );
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+
+      expect(fireEvent.click(link)).toBe(true);
+      expect(fireEvent.click(link)).toBe(true);
+
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface }],
+        ['user_app_open_source_clicked', { surface }],
+        ['user_app_open_source_clicked', { surface }],
+      ]);
+      const clickPayload = mockTrackEvent.mock.calls[1][1];
+      expect(Object.keys(clickPayload)).toEqual(['surface']);
+      for (const field of [
+        'url',
+        'title',
+        'user_id',
+        'email',
+        'mobile',
+        'error',
+      ]) {
+        expect(clickPayload).not.toHaveProperty(field);
+      }
+      expect(dialog).toBeInTheDocument();
+    },
+  );
+
+  test.each(['learner', 'admin'] as const)(
+    'keeps the open-source link usable with preview mode on %s',
+    surface => {
+      mockSystemState.previewMode = true;
+      render(
+        <MainMenuModal
+          open
+          surface={surface}
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      mockTrackEvent.mockClear();
+      const link = screen.getByRole('link', { name: 'Open source' });
+      expect(fireEvent.click(link)).toBe(true);
+      expect(link).toHaveAttribute(
+        'href',
+        'https://github.com/ai-shifu/ai-shifu',
+      );
+      expect(mockTrackEvent.mock.calls).toEqual(
+        surface === 'admin'
+          ? [['user_app_open_source_clicked', { surface }]]
+          : [],
+      );
+    },
+  );
+
+  test.each(['throws', 'rejects'])(
+    'allows open-source link navigation when analytics %s',
+    async failure => {
+      render(
+        <MainMenuModal
+          open
+          surface='admin'
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      mockTrackEvent.mockClear();
+      if (failure === 'throws') {
+        mockTrackEvent.mockImplementationOnce(() => {
+          throw new Error('Analytics unavailable');
+        });
+      } else {
+        mockTrackEvent.mockRejectedValueOnce(
+          new Error('Analytics unavailable'),
+        );
+      }
+
+      const link = screen.getByRole('link', { name: 'Open source' });
+      await act(async () => {
+        expect(fireEvent.click(link)).toBe(true);
+      });
+      expect(link).toHaveAttribute(
+        'href',
+        'https://github.com/ai-shifu/ai-shifu',
+      );
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_open_source_clicked', { surface: 'admin' }],
+      ]);
+      expect(screen.getByRole('dialog', { name: 'About' })).toBeInTheDocument();
+    },
+  );
+
+  test.each([
     ['ar-SA', arabicMenus],
     ['de-DE', germanMenus],
     ['en-US', englishMenus],
@@ -300,10 +476,11 @@ describe('MainMenuModal', () => {
     ['ur-PK', urduMenus],
     ['zh-CN', chineseMenus],
   ] as const)(
-    'renders the localized About and version labels for %s',
+    'renders the localized About, version, and open-source labels for %s',
     (_locale, menus) => {
       mockVersionLabel = menus.navigationMenus.version;
       mockAboutLabel = menus.navigationMenus.about;
+      mockOpenSourceLabel = menus.navigationMenus.openSource;
       render(
         <MainMenuModal
           open
@@ -318,8 +495,13 @@ describe('MainMenuModal', () => {
         name: menus.navigationMenus.about,
       });
       expect(
-        within(dialog).getByText('v2.3.3 · a1b2c3d').parentElement,
-      ).toHaveTextContent(`${menus.navigationMenus.version} v2.3.3 · a1b2c3d`);
+        within(dialog).getByText('v2.3.3 (a1b2c3d)').parentElement,
+      ).toHaveTextContent(`${menus.navigationMenus.version} v2.3.3 (a1b2c3d)`);
+      expect(
+        within(dialog).getByRole('link', {
+          name: menus.navigationMenus.openSource,
+        }),
+      ).toHaveAttribute('href', 'https://github.com/ai-shifu/ai-shifu');
     },
   );
 
@@ -368,7 +550,7 @@ describe('MainMenuModal', () => {
         open={false}
       />,
     );
-    expect(screen.queryByText('v2.3.3 · a1b2c3d')).not.toBeInTheDocument();
+    expect(screen.queryByText('v2.3.3 (a1b2c3d)')).not.toBeInTheDocument();
     expect(mockTrackEvent).not.toHaveBeenCalled();
 
     rerender(
@@ -402,7 +584,7 @@ describe('MainMenuModal', () => {
     );
     expect(
       screen.getByRole('dialog', { name: 'About this app' }),
-    ).toHaveAccessibleDescription('App version v2.3.3 · a1b2c3d');
+    ).toHaveAccessibleDescription('App version v2.3.3 (a1b2c3d)');
     expect(
       screen.queryByText('component.menus.navigationMenus.personalInfo'),
     ).not.toBeInTheDocument();
@@ -468,7 +650,7 @@ describe('MainMenuModal', () => {
         />,
       );
       fireEvent.click(screen.getByRole('button', { name: 'About' }));
-      expect(screen.getByText('v2.3.3 · a1b2c3d')).toBeInTheDocument();
+      expect(screen.getByText('v2.3.3 (a1b2c3d)')).toBeInTheDocument();
       expect(mockTrackEvent).toHaveBeenCalledTimes(surface === 'admin' ? 1 : 0);
     },
   );
@@ -496,7 +678,7 @@ describe('MainMenuModal', () => {
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: 'About' }));
       });
-      expect(screen.getByText('v2.3.3 · a1b2c3d')).toBeInTheDocument();
+      expect(screen.getByText('v2.3.3 (a1b2c3d)')).toBeInTheDocument();
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       fireEvent.click(
         screen.getByRole('button', { name: 'component.header.close' }),

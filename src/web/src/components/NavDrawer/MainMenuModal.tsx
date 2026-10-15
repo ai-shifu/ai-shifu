@@ -37,6 +37,7 @@ import { shifu } from '@/lib/shifu/Shifu';
 import { useTracking, EVENT_NAMES } from '@/hooks/useTracking';
 import { useEnvStore } from '@/store/envStore';
 import { environment } from '@/config/environment';
+import { resolveWideLogoSource } from '@/components/logo/logoSource';
 import SetPasswordModal from '../Settings/SetPasswordModal';
 import SessionManagerModal from '../Settings/SessionManagerModal';
 import CourseMemoryDialog from '../Settings/CourseMemoryDialog';
@@ -52,6 +53,7 @@ import {
   BookPlus,
   Info,
   KeyRound,
+  ExternalLink,
 } from 'lucide-react';
 
 import LanguageSelect from '@/components/language-select';
@@ -77,7 +79,7 @@ const AboutVersion = ({
   const aboutViewed = useRef(false);
   const appVersion = environment.appVersion;
   const appBuildSha = environment.appBuildSha.slice(0, 7);
-  const versionText = `v${appVersion}${appBuildSha ? ` · ${appBuildSha}` : ''}`;
+  const versionText = `v${appVersion}${appBuildSha ? ` (${appBuildSha})` : ''}`;
 
   // This component mounts with the portal content, after the version is visible.
   useEffect(() => {
@@ -150,7 +152,20 @@ const MainMenuModal = ({
 
   const { trackEvent } = useTracking();
   const previewMode = useSystemStore(state => state.previewMode);
+  const logoWideUrl = useEnvStore(state => state.logoWideUrl);
+  const logoHorizontal = useEnvStore(state => state.logoHorizontal);
+  const logoSource = resolveWideLogoSource(logoWideUrl, logoHorizontal);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const onOpenSourceClick = () => {
+    if (surface === 'learner' && previewMode) return;
+    try {
+      void Promise.resolve(
+        trackEvent(EVENT_NAMES.USER_APP_OPEN_SOURCE_CLICKED, { surface }),
+      ).catch(() => {});
+    } catch {
+      // Analytics must never prevent navigation to the source repository.
+    }
+  };
   const memoryContext = `${courseId || ''}:${userInfo?.user_id || ''}`;
   const [memoryOpen, setMemoryOpen] = useState<string | null>(null);
   const memoryOpening = useRef<string | null>(null);
@@ -461,16 +476,36 @@ const MainMenuModal = ({
         onOpenChange={setAboutOpen}
       >
         <DialogContent className='max-w-sm'>
-          <DialogHeader>
+          <DialogHeader className='items-start text-start'>
             <DialogTitle>
               {t('component.menus.navigationMenus.about')}
             </DialogTitle>
+            <Image
+              src={logoSource}
+              alt=''
+              width={160}
+              height={40}
+              className='mt-4 h-10 w-auto max-w-full object-contain'
+            />
             <AboutVersion
               open={aboutOpen}
               surface={surface}
               previewMode={previewMode}
             />
           </DialogHeader>
+          <a
+            href='https://github.com/ai-shifu/ai-shifu'
+            target='_blank'
+            rel='noopener noreferrer'
+            className='inline-flex w-fit items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline'
+            onClick={onOpenSourceClick}
+          >
+            {t('component.menus.navigationMenus.openSource')}
+            <ExternalLink
+              size={14}
+              aria-hidden='true'
+            />
+          </a>
         </DialogContent>
       </Dialog>
       <SessionManagerModal

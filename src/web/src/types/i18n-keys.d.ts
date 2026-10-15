@@ -122,6 +122,7 @@ export type I18nKey =
   | 'component.menus.navigationMenus.adminConsole'
   | 'component.menus.navigationMenus.createCourse'
   | 'component.menus.navigationMenus.language'
+  | 'component.menus.navigationMenus.openSource'
   | 'component.menus.navigationMenus.personalInfo'
   | 'component.menus.navigationMenus.version'
   | 'component.navigation.contactUs'

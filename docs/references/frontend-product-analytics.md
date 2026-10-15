@@ -382,3 +382,30 @@ solely because historical Umami rows or queries exist.
   preview exclusion, post-render timing, closed/reopened/re-rendered dialogs,
   sensitive-field absence, and synchronous/asynchronous tracking failures.
   Existing shared-transport regressions cover the delivered payload contract.
+
+## About open-source navigation
+
+- Business question and metric: How often do users follow the open-source
+  repository link from About, grouped by teacher/admin versus learner surface?
+  Count deliberate link activations; this does not prove arrival at GitHub.
+- Event: `user_app_open_source_clicked`, emitted by the About link's click
+  handler. Merely opening About does not emit it. Native middle-click and
+  context-menu navigation are outside this event's eligible population.
+- Population: Teacher/admin users and learners, including guests. Learner
+  course preview keeps the link but is excluded from analytics.
+- Deduplication: Once per click-handler invocation. Separate deliberate
+  activations count separately; there is no persistent deduplication or
+  asynchronous attempt/result workflow.
+- Complete feature payload: `{ surface: 'admin' | 'learner' }`. Do not add the
+  destination URL, logo URL, version, SHA, user/account/course identifiers,
+  authored content or errors. Shared transport owns identity and routing.
+- Consumer and compatibility: Aggregate About-to-repository navigation counts
+  by surface in Umami. This additive event has no predecessor or
+  repository-owned query/dashboard to migrate. About exposure remains a
+  separate, unchanged event contract.
+- Delivery: Use `useTracking` without awaiting or preventing native link
+  navigation. Missing analytics, synchronous throws and rejected promises
+  must leave the link usable with its normal new-tab behavior.
+- Verification: Exact event name and allowlisted payload, activation timing,
+  repeated clicks, guest/member eligibility, learner-preview exclusion,
+  sensitive-field absence, and synchronous/asynchronous analytics failures.
