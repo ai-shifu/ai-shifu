@@ -14,6 +14,7 @@ import { Ellipsis } from 'lucide-react';
 
 export type NavFooterHandle = {
   containElement: (elem: EventTarget | null) => boolean;
+  focus: () => void;
 };
 
 type NavFooterProps = {
@@ -34,6 +35,7 @@ export const NavFooter = forwardRef<NavFooterHandle, NavFooterProps>(
     };
     useImperativeHandle(ref, () => ({
       containElement,
+      focus: () => htmlRef.current?.focus({ preventScroll: true }),
     }));
 
     return (
@@ -42,6 +44,7 @@ export const NavFooter = forwardRef<NavFooterHandle, NavFooterProps>(
         data-clickable='true'
         onClick={onClick}
         ref={htmlRef}
+        tabIndex={-1}
       >
         <div className={styles.userSection}>
           <div className={styles.userInfo}>

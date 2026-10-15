@@ -16,7 +16,9 @@ export const EVENT_NAMES = {
   USER_MENU_BASIC_INFO: 'user_menu_basic_info',
   USER_MENU_PERSONALIZED: 'user_menu_personalized',
   USER_MENU_SET_PASSWORD: 'user_menu_set_password',
-  USER_APP_VERSION_VIEWED: 'user_app_version_viewed',
+  USER_APP_ABOUT_VIEWED: 'user_app_about_viewed',
+  USER_APP_ABOUT_CLOSED: 'user_app_about_closed',
+  USER_APP_OPEN_SOURCE_CLICKED: 'user_app_open_source_clicked',
   LESSON_FEEDBACK_SUBMIT: 'lesson_feedback_submit',
   LESSON_FEEDBACK_SKIP: 'lesson_feedback_skip',
   // Device authorization: an asynchronous workflow, so the exposure and both

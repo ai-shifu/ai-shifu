@@ -1,6 +1,8 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import MainMenuModal from './MainMenuModal';
+import NavFooter, { type NavFooterHandle } from './NavFooter';
+import { DEFAULT_WIDE_LOGO } from '@/components/logo/logoSource';
 import arabicMenus from '../../../../i18n/ar-SA/components/menus.json';
 import germanMenus from '../../../../i18n/de-DE/components/menus.json';
 import englishMenus from '../../../../i18n/en-US/components/menus.json';
@@ -12,15 +14,20 @@ import chineseMenus from '../../../../i18n/zh-CN/components/menus.json';
 
 const mockUpdateUserInfo = jest.fn();
 const mockTrackEvent = jest.fn();
+let mockTrackEventCallback = mockTrackEvent;
 const mockRefreshUserInfo = jest.fn();
 const mockEnvironment = {
   appVersion: '2.3.3',
   appBuildSha: 'a1b2c3d4e5f678901234567890123456789012345',
 };
 let mockVersionLabel = 'Version';
+let mockAboutLabel = 'About';
+let mockOpenSourceLabel = 'Open source';
 
 const mockEnvState = {
   loginMethodsEnabled: ['password', 'phone'],
+  logoWideUrl: '',
+  logoHorizontal: '',
 };
 const mockSystemState = { previewMode: false };
 
@@ -38,16 +45,27 @@ const mockUserStoreState = {
 
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: ({ alt, src }: { alt: string; src: string }) =>
-    React.createElement('img', { alt, src }),
+  default: ({ alt, src }: { alt: string; src: string | { src: string } }) =>
+    React.createElement('img', {
+      alt,
+      src: typeof src === 'string' ? src : src.src,
+    }),
 }));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) =>
-      key === 'component.menus.navigationMenus.version'
-        ? mockVersionLabel
-        : key,
+    t: (key: string) => {
+      if (key === 'component.menus.navigationMenus.version') {
+        return mockVersionLabel;
+      }
+      if (key === 'component.menus.navigationMenus.about') {
+        return mockAboutLabel;
+      }
+      if (key === 'component.menus.navigationMenus.openSource') {
+        return mockOpenSourceLabel;
+      }
+      return key;
+    },
   }),
 }));
 
@@ -87,12 +105,17 @@ jest.mock('@/hooks/useTracking', () => ({
     USER_MENU_BASIC_INFO: 'USER_MENU_BASIC_INFO',
     USER_MENU_PERSONALIZED: 'USER_MENU_PERSONALIZED',
     USER_MENU_SET_PASSWORD: 'USER_MENU_SET_PASSWORD',
-    USER_APP_VERSION_VIEWED:
-      jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_VERSION_VIEWED,
+    USER_APP_ABOUT_VIEWED:
+      jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_ABOUT_VIEWED,
+    USER_APP_ABOUT_CLOSED:
+      jest.requireActual('@/lib/tracking').EVENT_NAMES.USER_APP_ABOUT_CLOSED,
+    USER_APP_OPEN_SOURCE_CLICKED:
+      jest.requireActual('@/lib/tracking').EVENT_NAMES
+        .USER_APP_OPEN_SOURCE_CLICKED,
     POP_LOGIN: 'POP_LOGIN',
   },
   useTracking: () => ({
-    trackEvent: mockTrackEvent,
+    trackEvent: mockTrackEventCallback,
   }),
 }));
 
@@ -193,9 +216,57 @@ jest.mock('@/components/ui/AlertDialog', () => ({
   ),
 }));
 
+const AboutFocusHarness = ({
+  surface,
+  onFocusRestore,
+}: {
+  surface: 'admin' | 'learner';
+  onFocusRestore: () => void;
+}) => {
+  const footerRef = React.useRef<NavFooterHandle | null>(null);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  return (
+    <div data-testid='fullscreen-root'>
+      <NavFooter
+        ref={footerRef}
+        onClick={() => setMenuOpen(open => !open)}
+      />
+      <MainMenuModal
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        surface={surface}
+        onPersonalInfoClick={jest.fn()}
+        onAboutCloseAutoFocus={() => {
+          onFocusRestore();
+          footerRef.current?.focus();
+        }}
+      />
+    </div>
+  );
+};
+
+const pointerDown = (
+  target: Element,
+  {
+    pointerType = 'mouse',
+    button = 0,
+    ctrlKey = false,
+  }: { pointerType?: string; button?: number; ctrlKey?: boolean } = {},
+) =>
+  fireEvent(
+    target,
+    Object.assign(
+      new MouseEvent('pointerdown', { bubbles: true, button, ctrlKey }),
+      {
+        pointerType,
+      },
+    ),
+  );
+
 describe('MainMenuModal', () => {
   beforeEach(() => {
     mockTrackEvent.mockReset();
+    mockTrackEventCallback = mockTrackEvent;
     mockRefreshUserInfo.mockReset();
     mockUpdateUserInfo.mockReset();
     mockUserStoreState.isLoggedIn = true;
@@ -205,10 +276,14 @@ describe('MainMenuModal', () => {
       is_creator: false,
     };
     mockEnvState.loginMethodsEnabled = ['password', 'phone'];
+    mockEnvState.logoWideUrl = '';
+    mockEnvState.logoHorizontal = '';
     mockSystemState.previewMode = false;
     mockEnvironment.appVersion = '2.3.3';
     mockEnvironment.appBuildSha = 'a1b2c3d4e5f678901234567890123456789012345';
     mockVersionLabel = 'Version';
+    mockAboutLabel = 'About';
+    mockOpenSourceLabel = 'Open source';
   });
 
   test.each([
@@ -217,38 +292,227 @@ describe('MainMenuModal', () => {
     ['learner', false, true],
     ['learner', true, false],
   ] as const)(
-    'shows and tracks the committed version for surface=%s member=%s mobile=%s',
+    'opens and tracks About for surface=%s member=%s mobile=%s',
     (surface, member, mobileStyle) => {
       mockUserStoreState.isLoggedIn = member;
       let versionPresentAtEmission = false;
       mockTrackEvent.mockImplementation(() => {
-        versionPresentAtEmission = !!screen.queryByText('v2.3.3 · a1b2c3d');
+        const dialog = screen.queryByRole('dialog', { name: 'About' });
+        versionPresentAtEmission = !!(
+          dialog && within(dialog).queryByText('v2.3.3 (a1b2c3d)')
+        );
       });
+      const onClose = jest.fn();
       render(
         <MainMenuModal
           open
           surface={surface}
           mobileStyle={mobileStyle}
+          onClose={onClose}
           onPersonalInfoClick={jest.fn()}
         />,
       );
 
-      const build = screen.getByText('v2.3.3 · a1b2c3d');
-      const version = build.parentElement;
-      expect(version).toHaveTextContent('Version v2.3.3 · a1b2c3d');
-      expect(build).toHaveAttribute('dir', 'ltr');
-      expect(version?.tagName).toBe('DIV');
-      expect(version).not.toHaveAttribute('role');
-      expect(version).not.toHaveAttribute('tabindex');
-      expect(version?.previousElementSibling).toHaveTextContent(
+      const aboutButton = screen.getByRole('button', { name: 'About' });
+      expect(aboutButton).toHaveAttribute('type', 'button');
+      expect(aboutButton.nextElementSibling).toHaveTextContent(
         member ? 'module.user.logout' : 'module.user.login',
       );
+      expect(screen.queryByText(/v2\.3\.3/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      fireEvent.click(aboutButton);
+
+      const dialog = screen.getByRole('dialog', { name: 'About' });
+      const build = within(dialog).getByText('v2.3.3 (a1b2c3d)');
+      const version = build.parentElement;
+      expect(version).toHaveTextContent('Version v2.3.3 (a1b2c3d)');
+      expect(build).toHaveAttribute('dir', 'ltr');
+      expect(version).not.toHaveAttribute('role');
+      expect(version).not.toHaveAttribute('tabindex');
+      expect(dialog).toHaveAccessibleDescription('Version v2.3.3 (a1b2c3d)');
+      expect(onClose).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       expect(versionPresentAtEmission).toBe(true);
-      expect(mockTrackEvent).toHaveBeenCalledWith('user_app_version_viewed', {
+      expect(mockTrackEvent).toHaveBeenCalledWith('user_app_about_viewed', {
         surface,
       });
       expect(Object.keys(mockTrackEvent.mock.calls[0][1])).toEqual(['surface']);
+      for (const field of [
+        'version',
+        'sha',
+        'user_id',
+        'account_id',
+        'course_id',
+        'mobile',
+        'email',
+        'title',
+        'url',
+        'error',
+      ]) {
+        expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty(field);
+      }
+    },
+  );
+
+  test.each([
+    [
+      'wide URL',
+      'https://cdn.example.com/wide.png',
+      'https://cdn.example.com/legacy.png',
+    ],
+    ['legacy horizontal URL', '', 'https://cdn.example.com/legacy.png'],
+    ['bundled default', '', ''],
+  ])(
+    'shows the configured About logo with %s',
+    (_scenario, wideUrl, horizontalUrl) => {
+      mockEnvState.logoWideUrl = wideUrl;
+      mockEnvState.logoHorizontal = horizontalUrl;
+      render(
+        <MainMenuModal
+          open
+          surface='admin'
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+
+      const dialog = screen.getByRole('dialog', { name: 'About' });
+      const logo = dialog.querySelector('img');
+      expect(logo).toHaveAttribute(
+        'src',
+        wideUrl || horizontalUrl || DEFAULT_WIDE_LOGO.src,
+      );
+      expect(logo).toHaveAttribute('alt', '');
+      expect(logo?.closest('a')).toBeNull();
+    },
+  );
+
+  test.each([
+    ['admin', true],
+    ['admin', false],
+    ['learner', true],
+    ['learner', false],
+  ] as const)(
+    'tracks each open-source link activation for surface=%s member=%s',
+    (surface, member) => {
+      mockUserStoreState.isLoggedIn = member;
+      const props = {
+        open: true,
+        surface,
+        onPersonalInfoClick: jest.fn(),
+      };
+      const { rerender } = render(<MainMenuModal {...props} />);
+      expect(
+        screen.queryByRole('link', { name: 'Open source' }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      rerender(
+        <MainMenuModal
+          {...props}
+          mobileStyle
+        />,
+      );
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface }],
+      ]);
+
+      const dialog = screen.getByRole('dialog', { name: 'About' });
+      const link = within(dialog).getByRole('link', { name: 'Open source' });
+      expect(link).toHaveAttribute(
+        'href',
+        'https://github.com/ai-shifu/ai-shifu',
+      );
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+
+      expect(fireEvent.click(link)).toBe(true);
+      expect(fireEvent.click(link)).toBe(true);
+
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface }],
+        ['user_app_open_source_clicked', { surface }],
+        ['user_app_open_source_clicked', { surface }],
+      ]);
+      const clickPayload = mockTrackEvent.mock.calls[1][1];
+      expect(Object.keys(clickPayload)).toEqual(['surface']);
+      for (const field of [
+        'url',
+        'title',
+        'user_id',
+        'email',
+        'mobile',
+        'error',
+      ]) {
+        expect(clickPayload).not.toHaveProperty(field);
+      }
+      expect(dialog).toBeInTheDocument();
+    },
+  );
+
+  test.each(['learner', 'admin'] as const)(
+    'keeps the open-source link usable with preview mode on %s',
+    surface => {
+      mockSystemState.previewMode = true;
+      render(
+        <MainMenuModal
+          open
+          surface={surface}
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      mockTrackEvent.mockClear();
+      const link = screen.getByRole('link', { name: 'Open source' });
+      expect(fireEvent.click(link)).toBe(true);
+      expect(link).toHaveAttribute(
+        'href',
+        'https://github.com/ai-shifu/ai-shifu',
+      );
+      expect(mockTrackEvent.mock.calls).toEqual(
+        surface === 'admin'
+          ? [['user_app_open_source_clicked', { surface }]]
+          : [],
+      );
+    },
+  );
+
+  test.each(['throws', 'rejects'])(
+    'allows open-source link navigation when analytics %s',
+    async failure => {
+      render(
+        <MainMenuModal
+          open
+          surface='admin'
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      mockTrackEvent.mockClear();
+      if (failure === 'throws') {
+        mockTrackEvent.mockImplementationOnce(() => {
+          throw new Error('Analytics unavailable');
+        });
+      } else {
+        mockTrackEvent.mockRejectedValueOnce(
+          new Error('Analytics unavailable'),
+        );
+      }
+
+      const link = screen.getByRole('link', { name: 'Open source' });
+      await act(async () => {
+        expect(fireEvent.click(link)).toBe(true);
+      });
+      expect(link).toHaveAttribute(
+        'href',
+        'https://github.com/ai-shifu/ai-shifu',
+      );
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_open_source_clicked', { surface: 'admin' }],
+      ]);
+      expect(screen.getByRole('dialog', { name: 'About' })).toBeInTheDocument();
     },
   );
 
@@ -262,9 +526,11 @@ describe('MainMenuModal', () => {
     ['ur-PK', urduMenus],
     ['zh-CN', chineseMenus],
   ] as const)(
-    'renders the localized version label for %s',
+    'renders the localized About, version, and open-source labels for %s',
     (_locale, menus) => {
       mockVersionLabel = menus.navigationMenus.version;
+      mockAboutLabel = menus.navigationMenus.about;
+      mockOpenSourceLabel = menus.navigationMenus.openSource;
       render(
         <MainMenuModal
           open
@@ -272,9 +538,20 @@ describe('MainMenuModal', () => {
           onPersonalInfoClick={jest.fn()}
         />,
       );
+      fireEvent.click(
+        screen.getByRole('button', { name: menus.navigationMenus.about }),
+      );
+      const dialog = screen.getByRole('dialog', {
+        name: menus.navigationMenus.about,
+      });
       expect(
-        screen.getByText('v2.3.3 · a1b2c3d').parentElement,
-      ).toHaveTextContent(`${menus.navigationMenus.version} v2.3.3 · a1b2c3d`);
+        within(dialog).getByText('v2.3.3 (a1b2c3d)').parentElement,
+      ).toHaveTextContent(`${menus.navigationMenus.version} v2.3.3 (a1b2c3d)`);
+      expect(
+        within(dialog).getByRole('link', {
+          name: menus.navigationMenus.openSource,
+        }),
+      ).toHaveAttribute('href', 'https://github.com/ai-shifu/ai-shifu');
     },
   );
 
@@ -287,15 +564,16 @@ describe('MainMenuModal', () => {
         onPersonalInfoClick={jest.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
     expect(screen.getByText('v2.3.3').parentElement).toHaveTextContent(
       /^Version v2\.3\.3$/,
     );
-    expect(mockTrackEvent).toHaveBeenCalledWith('user_app_version_viewed', {
+    expect(mockTrackEvent).toHaveBeenCalledWith('user_app_about_viewed', {
       surface: 'admin',
     });
   });
 
-  test('does not render or track an unavailable release version', () => {
+  test('opens About without rendering or tracking an unavailable version', () => {
     mockEnvironment.appVersion = '';
     render(
       <MainMenuModal
@@ -304,12 +582,18 @@ describe('MainMenuModal', () => {
         onPersonalInfoClick={jest.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    expect(screen.getByRole('dialog', { name: 'About' })).toBeInTheDocument();
     expect(screen.queryByText('Version')).not.toBeInTheDocument();
     expect(screen.queryByText(/a1b2c3d/)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.close' }),
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
-  test('tracks once per open, never for closed or repeated renders', () => {
+  test('tracks once per About open and keeps it open when the menu closes', () => {
     const props = {
       surface: 'learner' as const,
       onPersonalInfoClick: jest.fn(),
@@ -320,7 +604,7 @@ describe('MainMenuModal', () => {
         open={false}
       />,
     );
-    expect(screen.queryByText('v2.3.3 · a1b2c3d')).not.toBeInTheDocument();
+    expect(screen.queryByText('v2.3.3 (a1b2c3d)')).not.toBeInTheDocument();
     expect(mockTrackEvent).not.toHaveBeenCalled();
 
     rerender(
@@ -328,6 +612,14 @@ describe('MainMenuModal', () => {
         {...props}
         open
       />,
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    mockAboutLabel = 'About this app';
+    mockVersionLabel = 'App version';
+    mockUserStoreState.isLoggedIn = false;
+    mockTrackEventCallback = jest.fn((...args: unknown[]) =>
+      mockTrackEvent(...args),
     );
     rerender(
       <MainMenuModal
@@ -344,20 +636,34 @@ describe('MainMenuModal', () => {
         open={false}
       />,
     );
+    expect(
+      screen.getByRole('dialog', { name: 'About this app' }),
+    ).toHaveAccessibleDescription('App version v2.3.3 (a1b2c3d)');
+    expect(
+      screen.queryByText('component.menus.navigationMenus.personalInfo'),
+    ).not.toBeInTheDocument();
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.close' }),
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     rerender(
       <MainMenuModal
         {...props}
         open
       />,
     );
+    expect(mockTrackEvent).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole('button', { name: 'About this app' }));
     expect(mockTrackEvent.mock.calls).toEqual([
-      ['user_app_version_viewed', { surface: 'learner' }],
-      ['user_app_version_viewed', { surface: 'learner' }],
+      ['user_app_about_viewed', { surface: 'learner' }],
+      ['user_app_about_closed', { surface: 'learner', method: 'close_button' }],
+      ['user_app_about_viewed', { surface: 'learner' }],
     ]);
   });
 
-  test('does not count Strict Mode effect replay as another menu open', () => {
+  test('does not count Strict Mode effect replay as another About open', () => {
     render(
       <React.StrictMode>
         <MainMenuModal
@@ -367,11 +673,483 @@ describe('MainMenuModal', () => {
         />
       </React.StrictMode>,
     );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
   });
 
+  test.each([
+    ['fullscreenElement', 'fullscreenchange'],
+    ['webkitFullscreenElement', 'webkitfullscreenchange'],
+  ])(
+    'tracks once per About open while migrating the %s portal',
+    (fullscreenProperty, fullscreenEvent) => {
+      const originalDescriptor = Object.getOwnPropertyDescriptor(
+        document,
+        fullscreenProperty,
+      );
+      let fullscreenElement: Element | null = null;
+      Object.defineProperty(document, fullscreenProperty, {
+        configurable: true,
+        get: () => fullscreenElement,
+      });
+      const { unmount } = render(
+        <>
+          <div data-testid='fullscreen-root' />
+          <MainMenuModal
+            open
+            surface='learner'
+            onPersonalInfoClick={jest.fn()}
+          />
+        </>,
+      );
+
+      try {
+        const fullscreenRoot = screen.getByTestId('fullscreen-root');
+        const setFullscreen = (element: Element | null) => {
+          act(() => {
+            fullscreenElement = element;
+            document.dispatchEvent(new Event(fullscreenEvent));
+          });
+        };
+        setFullscreen(fullscreenRoot);
+        expect(mockTrackEvent).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        const firstDialog = screen.getByRole('dialog', { name: 'About' });
+        expect(fullscreenRoot).toContainElement(firstDialog);
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface: 'learner' }],
+        ]);
+
+        setFullscreen(null);
+        const windowedDialog = screen.getByRole('dialog', { name: 'About' });
+        expect(windowedDialog).not.toBe(firstDialog);
+        expect(firstDialog).not.toBeInTheDocument();
+        expect(fullscreenRoot).not.toContainElement(windowedDialog);
+        expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+
+        setFullscreen(fullscreenRoot);
+        const fullscreenDialog = screen.getByRole('dialog', { name: 'About' });
+        expect(fullscreenDialog).not.toBe(windowedDialog);
+        expect(windowedDialog).not.toBeInTheDocument();
+        expect(fullscreenRoot).toContainElement(fullscreenDialog);
+        expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(
+          screen.getByRole('button', { name: 'component.header.close' }),
+        );
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        expect(fullscreenRoot).toContainElement(
+          screen.getByRole('dialog', { name: 'About' }),
+        );
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface: 'learner' }],
+          [
+            'user_app_about_closed',
+            { surface: 'learner', method: 'close_button' },
+          ],
+          ['user_app_about_viewed', { surface: 'learner' }],
+        ]);
+      } finally {
+        unmount();
+        if (originalDescriptor) {
+          Object.defineProperty(
+            document,
+            fullscreenProperty,
+            originalDescriptor,
+          );
+        } else {
+          Reflect.deleteProperty(document, fullscreenProperty);
+        }
+      }
+    },
+  );
+
+  test.each([
+    ['admin', 'close'],
+    ['admin', 'Escape'],
+    ['learner', 'close'],
+    ['learner', 'Escape'],
+  ] as const)(
+    'restores focus to the persistent %s footer after About %s',
+    (surface, dismissal) => {
+      jest.useFakeTimers();
+      const onFocusRestore = jest.fn();
+      const { unmount } = render(
+        <AboutFocusHarness
+          surface={surface}
+          onFocusRestore={onFocusRestore}
+        />,
+      );
+
+      try {
+        const footer = screen
+          .getByText('module.user.defaultUserName')
+          .closest('[data-clickable]') as HTMLDivElement;
+        expect(footer).toHaveAttribute('tabindex', '-1');
+        fireEvent.click(footer);
+        const aboutEntry = screen.getByRole('button', { name: 'About' });
+        aboutEntry.focus();
+        fireEvent.click(aboutEntry);
+        expect(aboutEntry).not.toBeInTheDocument();
+        const dialog = screen.getByRole('dialog', { name: 'About' });
+        expect(dialog).toContainElement(document.activeElement as HTMLElement);
+        const focusFooter = jest.spyOn(footer, 'focus');
+
+        if (dismissal === 'Escape') {
+          fireEvent.keyDown(dialog, { key: 'Escape' });
+        } else {
+          fireEvent.click(
+            screen.getByRole('button', { name: 'component.header.close' }),
+          );
+        }
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(onFocusRestore).not.toHaveBeenCalled();
+        act(() => jest.runOnlyPendingTimers());
+
+        expect(footer).toHaveFocus();
+        expect(onFocusRestore).toHaveBeenCalledTimes(1);
+        expect(focusFooter).toHaveBeenCalledTimes(1);
+        expect(focusFooter).toHaveBeenCalledWith({ preventScroll: true });
+        expect(screen.queryByRole('button', { name: 'About' })).toBeNull();
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface }],
+          [
+            'user_app_about_closed',
+            {
+              surface,
+              method: dismissal === 'Escape' ? 'escape' : 'close_button',
+            },
+          ],
+        ]);
+      } finally {
+        unmount();
+        act(() => jest.runOnlyPendingTimers());
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test.each([
+    ['fullscreenElement', 'fullscreenchange', false],
+    ['fullscreenElement', 'fullscreenchange', true],
+    ['webkitFullscreenElement', 'webkitfullscreenchange', false],
+    ['webkitFullscreenElement', 'webkitfullscreenchange', true],
+  ] as const)(
+    'restores footer focus only on close after %s/%s migration with immediateClose=%s',
+    (fullscreenProperty, fullscreenEvent, immediateClose) => {
+      jest.useFakeTimers();
+      const originalDescriptor = Object.getOwnPropertyDescriptor(
+        document,
+        fullscreenProperty,
+      );
+      let fullscreenElement: Element | null = null;
+      Object.defineProperty(document, fullscreenProperty, {
+        configurable: true,
+        get: () => fullscreenElement,
+      });
+      const onFocusRestore = jest.fn();
+      const { unmount } = render(
+        <AboutFocusHarness
+          surface='learner'
+          onFocusRestore={onFocusRestore}
+        />,
+      );
+
+      try {
+        const fullscreenRoot = screen.getByTestId('fullscreen-root');
+        const footer = screen
+          .getByText('module.user.defaultUserName')
+          .closest('[data-clickable]') as HTMLDivElement;
+        const setFullscreen = (element: Element | null) => {
+          act(() => {
+            fullscreenElement = element;
+            document.dispatchEvent(new Event(fullscreenEvent));
+          });
+        };
+        fireEvent.click(footer);
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+
+        for (const element of [fullscreenRoot, null, fullscreenRoot]) {
+          const oldDialog = screen.getByRole('dialog', { name: 'About' });
+          setFullscreen(element);
+          const dialog = screen.getByRole('dialog', { name: 'About' });
+          expect(dialog).not.toBe(oldDialog);
+          expect(dialog).toContainElement(
+            document.activeElement as HTMLElement,
+          );
+          if (!immediateClose) {
+            act(() => jest.runOnlyPendingTimers());
+            expect(dialog).toContainElement(
+              document.activeElement as HTMLElement,
+            );
+            expect(onFocusRestore).not.toHaveBeenCalled();
+          }
+        }
+
+        fireEvent.click(
+          screen.getByRole('button', { name: 'component.header.close' }),
+        );
+        expect(onFocusRestore).not.toHaveBeenCalled();
+        act(() => jest.runOnlyPendingTimers());
+        expect(footer).toHaveFocus();
+        expect(onFocusRestore).toHaveBeenCalledTimes(1);
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface: 'learner' }],
+          [
+            'user_app_about_closed',
+            { surface: 'learner', method: 'close_button' },
+          ],
+        ]);
+      } finally {
+        unmount();
+        act(() => jest.runOnlyPendingTimers());
+        jest.useRealTimers();
+        if (originalDescriptor) {
+          Object.defineProperty(
+            document,
+            fullscreenProperty,
+            originalDescriptor,
+          );
+        } else {
+          Reflect.deleteProperty(document, fullscreenProperty);
+        }
+      }
+    },
+  );
+
+  test('closes About with Escape', () => {
+    render(
+      <MainMenuModal
+        open
+        surface='admin'
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    const dialog = screen.getByRole('dialog', { name: 'About' });
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['user_app_about_viewed', { surface: 'admin' }],
+      ['user_app_about_closed', { surface: 'admin', method: 'escape' }],
+    ]);
+  });
+
+  test.each([
+    ['admin', true],
+    ['admin', false],
+    ['learner', true],
+    ['learner', false],
+  ] as const)(
+    'dismisses About outside and restores footer focus for surface=%s member=%s',
+    (surface, member) => {
+      jest.useFakeTimers();
+      mockUserStoreState.isLoggedIn = member;
+      const onFocusRestore = jest.fn();
+      const { unmount } = render(
+        <AboutFocusHarness
+          surface={surface}
+          onFocusRestore={onFocusRestore}
+        />,
+      );
+
+      try {
+        const footer = screen
+          .getByText(
+            member ? 'module.user.defaultUserName' : 'module.user.notLogin',
+          )
+          .closest('[data-clickable]') as HTMLDivElement;
+        fireEvent.click(footer);
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        act(() => jest.runOnlyPendingTimers());
+        const closingDialog = screen.getByRole('dialog');
+        mockTrackEvent.mockImplementationOnce(() => {
+          // A second dismiss callback can run before the accepted close commits.
+          fireEvent.keyDown(closingDialog, { key: 'Escape' });
+        });
+        pointerDown(document.body);
+        fireEvent.click(document.body);
+        pointerDown(document.body);
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        act(() => jest.runOnlyPendingTimers());
+        expect(footer).toHaveFocus();
+        expect(onFocusRestore).toHaveBeenCalledTimes(1);
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface }],
+          ['user_app_about_closed', { surface, method: 'outside' }],
+        ]);
+        const closePayload = mockTrackEvent.mock.calls[1][1];
+        expect(Object.keys(closePayload)).toEqual(['surface', 'method']);
+        for (const field of [
+          'version',
+          'sha',
+          'user_id',
+          'account_id',
+          'course_id',
+          'mobile',
+          'email',
+          'title',
+          'url',
+          'pointerType',
+          'error',
+        ]) {
+          expect(closePayload).not.toHaveProperty(field);
+        }
+
+        fireEvent.click(footer);
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+        act(() => jest.runOnlyPendingTimers());
+        expect(onFocusRestore).toHaveBeenCalledTimes(2);
+        expect(mockTrackEvent.mock.calls).toEqual([
+          ['user_app_about_viewed', { surface }],
+          ['user_app_about_closed', { surface, method: 'outside' }],
+          ['user_app_about_viewed', { surface }],
+          ['user_app_about_closed', { surface, method: 'escape' }],
+        ]);
+      } finally {
+        unmount();
+        act(() => jest.runOnlyPendingTimers());
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test('ignores internal and prevented outside interactions before a close-button dismissal', () => {
+    jest.useFakeTimers();
+    const { unmount } = render(
+      <MainMenuModal
+        open
+        surface='admin'
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      act(() => jest.runOnlyPendingTimers());
+      const dialog = screen.getByRole('dialog');
+      pointerDown(dialog);
+      fireEvent.click(dialog);
+      pointerDown(document.body, { button: 2 });
+      pointerDown(document.body, { button: 0, ctrlKey: true });
+      expect(dialog).toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface: 'admin' }],
+      ]);
+      fireEvent.click(
+        screen.getByRole('button', { name: 'component.header.close' }),
+      );
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface: 'admin' }],
+        ['user_app_about_closed', { surface: 'admin', method: 'close_button' }],
+      ]);
+    } finally {
+      unmount();
+      act(() => jest.runOnlyPendingTimers());
+      jest.useRealTimers();
+    }
+  });
+
+  test('waits for the accepted click before dismissing an outside touch', () => {
+    jest.useFakeTimers();
+    const { unmount } = render(
+      <MainMenuModal
+        open
+        surface='learner'
+        mobileStyle
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      act(() => jest.runOnlyPendingTimers());
+      pointerDown(document.body, { pointerType: 'touch' });
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface: 'learner' }],
+      ]);
+      fireEvent.click(document.body);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual([
+        ['user_app_about_viewed', { surface: 'learner' }],
+        ['user_app_about_closed', { surface: 'learner', method: 'outside' }],
+      ]);
+    } finally {
+      unmount();
+      act(() => jest.runOnlyPendingTimers());
+      jest.useRealTimers();
+    }
+  });
+
+  test('does not count unmounting an open About as a dismissal', () => {
+    const { unmount } = render(
+      <MainMenuModal
+        open
+        surface='admin'
+        onPersonalInfoClick={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    unmount();
+    expect(mockTrackEvent.mock.calls).toEqual([
+      ['user_app_about_viewed', { surface: 'admin' }],
+    ]);
+  });
+
+  test.each(['throws', 'rejects'])(
+    'dismisses outside and restores focus when close analytics %s',
+    async failure => {
+      jest.useFakeTimers();
+      const onFocusRestore = jest.fn();
+      const { unmount } = render(
+        <AboutFocusHarness
+          surface='admin'
+          onFocusRestore={onFocusRestore}
+        />,
+      );
+      try {
+        const footer = screen
+          .getByText('module.user.defaultUserName')
+          .closest('[data-clickable]') as HTMLDivElement;
+        fireEvent.click(footer);
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
+        act(() => jest.runOnlyPendingTimers());
+        if (failure === 'throws') {
+          mockTrackEvent.mockImplementationOnce(() => {
+            throw new Error('Analytics unavailable');
+          });
+        } else {
+          mockTrackEvent.mockRejectedValueOnce(
+            new Error('Analytics unavailable'),
+          );
+        }
+        await act(async () => {
+          pointerDown(document.body);
+        });
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        act(() => jest.runOnlyPendingTimers());
+        expect(footer).toHaveFocus();
+        expect(onFocusRestore).toHaveBeenCalledTimes(1);
+        expect(mockTrackEvent).toHaveBeenLastCalledWith(
+          'user_app_about_closed',
+          {
+            surface: 'admin',
+            method: 'outside',
+          },
+        );
+      } finally {
+        unmount();
+        act(() => jest.runOnlyPendingTimers());
+        jest.useRealTimers();
+      }
+    },
+  );
+
   test.each(['learner', 'admin'] as const)(
-    'excludes learner preview only from version tracking on %s',
+    'excludes learner preview only from About tracking on %s',
     surface => {
       mockSystemState.previewMode = true;
       render(
@@ -381,13 +1159,25 @@ describe('MainMenuModal', () => {
           onPersonalInfoClick={jest.fn()}
         />,
       );
-      expect(screen.getByText('v2.3.3 · a1b2c3d')).toBeInTheDocument();
-      expect(mockTrackEvent).toHaveBeenCalledTimes(surface === 'admin' ? 1 : 0);
+      fireEvent.click(screen.getByRole('button', { name: 'About' }));
+      expect(screen.getByText('v2.3.3 (a1b2c3d)')).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'component.header.close' }),
+      );
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockTrackEvent.mock.calls).toEqual(
+        surface === 'admin'
+          ? [
+              ['user_app_about_viewed', { surface }],
+              ['user_app_about_closed', { surface, method: 'close_button' }],
+            ]
+          : [],
+      );
     },
   );
 
   test.each(['throws', 'rejects'])(
-    'keeps the version visible when analytics %s',
+    'keeps About usable when analytics %s',
     async failure => {
       if (failure === 'throws') {
         mockTrackEvent.mockImplementationOnce(() => {
@@ -399,21 +1189,23 @@ describe('MainMenuModal', () => {
         );
       }
 
+      render(
+        <MainMenuModal
+          open
+          surface='admin'
+          onPersonalInfoClick={jest.fn()}
+        />,
+      );
       await act(async () => {
-        render(
-          <MainMenuModal
-            open
-            surface='admin'
-            onPersonalInfoClick={jest.fn()}
-          />,
-        );
+        fireEvent.click(screen.getByRole('button', { name: 'About' }));
       });
-      expect(screen.getByText('v2.3.3 · a1b2c3d')).toBeInTheDocument();
+      expect(screen.getByText('v2.3.3 (a1b2c3d)')).toBeInTheDocument();
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       fireEvent.click(
-        screen.getByRole('button', { name: 'module.settings.setPassword' }),
+        screen.getByRole('button', { name: 'component.header.close' }),
       );
-      expect(screen.getByTestId('set-password-modal')).toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'About' })).toBeInTheDocument();
     },
   );
 
@@ -533,6 +1325,7 @@ describe('MainMenuModal', () => {
         'component.menus.navigationMenus.language',
         'module.settings.setPassword',
         'module.settings.sessions',
+        'About',
         'module.user.logout',
       ];
       const positions = expectedLabels.map(label => menuText.indexOf(label));
