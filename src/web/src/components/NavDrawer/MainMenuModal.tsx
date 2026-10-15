@@ -38,7 +38,13 @@ import Image from 'next/image';
 import imgPersonal from '@/assets/newchat/light/personal.png';
 import imgMultiLanguage from '@/assets/newchat/light/multiLanguage.png';
 import imgSignIn from '@/assets/newchat/light/signin.png';
-import { Monitor, MonitorSmartphone, BookPlus, KeyRound } from 'lucide-react';
+import {
+  Monitor,
+  MonitorSmartphone,
+  BookOpen,
+  BookPlus,
+  KeyRound,
+} from 'lucide-react';
 
 import LanguageSelect from '@/components/language-select';
 
@@ -276,6 +282,53 @@ const MainMenuModal = ({
           className={styles.mainMenuModal}
           ref={htmlRef}
         >
+          {surface === 'learner' ? (
+            <div className={styles.contextGroup}>
+              {courseId && !previewMode ? (
+                <button
+                  type='button'
+                  className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                  onClick={event => {
+                    event.stopPropagation();
+                    if (memoryOpening.current === memoryContext) return;
+                    memoryOpening.current = memoryContext;
+                    setMemoryOpen(memoryContext);
+                    onClose?.(event);
+                  }}
+                >
+                  <BookOpen
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                  <div className={styles.rowTitle}>
+                    {t('module.settings.memoryTitle')}
+                  </div>
+                </button>
+              ) : null}
+              <button
+                type='button'
+                className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                onClick={onAdminEntryClick}
+              >
+                {isCreator ? (
+                  <Monitor
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                ) : (
+                  <BookPlus
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                )}
+                <div className={styles.rowTitle}>
+                  {isCreator
+                    ? t('component.menus.navigationMenus.adminConsole')
+                    : t('component.menus.navigationMenus.createCourse')}
+                </div>
+              </button>
+            </div>
+          ) : null}
           <button
             type='button'
             className={cn(styles.mainMenuModalRow, 'px-2.5')}
@@ -292,54 +345,6 @@ const MainMenuModal = ({
               {t('component.menus.navigationMenus.personalInfo')}
             </div>
           </button>
-          {setPasswordRow}
-          {sessionsRow}
-          {surface === 'learner' && courseId && !previewMode ? (
-            <button
-              type='button'
-              className={cn(styles.mainMenuModalRow, 'px-2.5')}
-              onClick={event => {
-                event.stopPropagation();
-                if (memoryOpening.current === memoryContext) return;
-                memoryOpening.current = memoryContext;
-                setMemoryOpen(memoryContext);
-                onClose?.(event);
-              }}
-            >
-              <MonitorSmartphone
-                className={styles.rowIcon}
-                size={16}
-              />
-              <div className={styles.rowTitle}>
-                {t('module.settings.memoryTitle')}
-              </div>
-            </button>
-          ) : null}
-          {surface === 'learner' ? (
-            <button
-              type='button'
-              className={cn(styles.mainMenuModalRow, 'px-2.5')}
-              onClick={onAdminEntryClick}
-            >
-              {isCreator ? (
-                <Monitor
-                  className={styles.rowIcon}
-                  size={16}
-                />
-              ) : (
-                <BookPlus
-                  className={styles.rowIcon}
-                  size={16}
-                />
-              )}
-              <div className={styles.rowTitle}>
-                {isCreator
-                  ? t('component.menus.navigationMenus.adminConsole')
-                  : t('component.menus.navigationMenus.createCourse')}
-              </div>
-            </button>
-          ) : null}
-
           <div className={styles.languageRow}>
             <div
               className={cn(
@@ -371,6 +376,8 @@ const MainMenuModal = ({
               </div>
             </div>
           </div>
+          {setPasswordRow}
+          {sessionsRow}
           {!isLoggedIn ? (
             <div
               className={cn(styles.mainMenuModalRow, 'px-2.5')}

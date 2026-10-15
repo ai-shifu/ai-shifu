@@ -457,6 +457,19 @@ describe('MainMenuModal', () => {
         screen.queryByRole('button', { name: 'module.settings.memoryTitle' }),
       ).not.toBeInTheDocument();
       expect(screen.queryByTestId('course-memory')).not.toBeInTheDocument();
+      if (excluded === 'admin') {
+        expect(
+          screen.queryByRole('button', {
+            name: 'component.menus.navigationMenus.createCourse',
+          }),
+        ).not.toBeInTheDocument();
+      } else {
+        expect(
+          screen.getByRole('button', {
+            name: 'component.menus.navigationMenus.createCourse',
+          }),
+        ).toBeInTheDocument();
+      }
     },
   );
 
@@ -506,6 +519,7 @@ describe('MainMenuModal', () => {
           onClose={jest.fn()}
           onPersonalInfoClick={jest.fn()}
           surface={surface}
+          courseId='course-id'
         />,
       );
 
@@ -514,10 +528,11 @@ describe('MainMenuModal', () => {
       });
       const menuText = personalInfoButton.parentElement?.textContent ?? '';
       const expectedLabels = [
+        ...(sceneLabel ? ['module.settings.memoryTitle', sceneLabel] : []),
         'component.menus.navigationMenus.personalInfo',
-        'module.settings.setPassword',
-        ...(sceneLabel ? [sceneLabel] : []),
         'component.menus.navigationMenus.language',
+        'module.settings.setPassword',
+        'module.settings.sessions',
         'module.user.logout',
       ];
       const positions = expectedLabels.map(label => menuText.indexOf(label));
@@ -531,10 +546,19 @@ describe('MainMenuModal', () => {
       expect(
         screen.getByRole('button', { name: 'module.settings.setPassword' }),
       ).toBeInTheDocument();
+      expect(
+        screen.queryByText(
+          'component.menus.navigationMenus.learningAndTeaching',
+        ),
+      ).not.toBeInTheDocument();
       if (sceneLabel) {
         expect(
           screen.getByRole('button', { name: sceneLabel }),
         ).toBeInTheDocument();
+      } else {
+        expect(
+          screen.queryByRole('button', { name: 'module.settings.memoryTitle' }),
+        ).not.toBeInTheDocument();
       }
       excludedSceneLabels.forEach(excludedSceneLabel => {
         expect(screen.queryByText(excludedSceneLabel)).not.toBeInTheDocument();
