@@ -27,8 +27,20 @@
   font-weight: 400;
   line-height: 1.5;
 
+  .mainMenuModalRow,
   .appVersion {
-    padding: 4px 10px 2px;
+    display: flex;
+    width: 100%;
+    min-height: 44px;
+    flex-flow: row nowrap;
+    align-items: center;
+    padding-block: 0;
+    margin-block: 0;
+  }
+
+  .appVersion {
+    padding-inline: 10px;
+    column-gap: 0.3em;
     font-size: var(--font-size-5, 12px);
     line-height: 1.5;
     opacity: 0.7;
@@ -37,15 +49,14 @@
     white-space: nowrap;
   }
 
-  .contextGroup {
+  .contextGroup,
+  .languageRow {
     padding-bottom: 4px;
     margin-bottom: 4px;
     border-bottom: 1px solid var(--border, #e5e5e5);
   }
 
   .languageRow {
-    border-bottom: 1px solid var(--border, #e5e5e5);
-
     .langDownIcon {
       font-size: var(--font-size-5, 12px);
     }
@@ -58,21 +69,13 @@
   }
 
   .mainMenuModalRow {
-    display: flex;
-    width: 100%;
-    min-height: 44px;
-    flex-flow: row nowrap;
-    align-items: center;
     border: 0;
     background: transparent;
     color: inherit;
     font: inherit;
     text-align: left;
-    padding-top: 8px;
-    padding-bottom: 8px;
     cursor: pointer;
     border-radius: 8px;
-    margin-block: 0;
 
     &:hover {
       background-color: var(--hover-color, rgba(0, 0, 0, 0.06));
@@ -84,7 +87,12 @@
 
     .rowIcon {
       width: 1.2em;
+      flex-shrink: 0;
       margin-right: 0.8em;
+    }
+
+    .rowTitle {
+      padding-block: 8px;
     }
   }
 }
