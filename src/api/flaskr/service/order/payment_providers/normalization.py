@@ -92,12 +92,7 @@ def stripe_event(notification: PaymentNotificationResult) -> PaymentEvent:
         "charge.refund.updated",
     }:
         kind = "refund"
-        # Preserve the original refund.created payment projection for reversals
-        # without a saved operation. Managed refunds use refund_status instead.
-        if (
-            event_type == "refund.created"
-            or str(obj.get("status") or "").lower() == "succeeded"
-        ):
+        if str(obj.get("status") or "").lower() == "succeeded":
             state = "refunded"
     elif event_type == "payment_intent.canceled":
         state = "canceled"

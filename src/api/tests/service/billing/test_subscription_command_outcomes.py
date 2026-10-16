@@ -29,26 +29,19 @@ from tests.service.order.test_payment_contract_extension import (
 __all__ = ["integration_app"]
 
 
+@pytest.mark.parametrize("provider", ["stripe", "fixture-hosted"])
+@pytest.mark.parametrize("action", ["cancel", "resume"])
 @pytest.mark.parametrize(
-    ("provider", "action", "state", "flag"),
+    ("state", "flag"),
     [
-        (provider, action, state, flag)
-        for provider in ["stripe", "fixture-hosted"]
-        for action in ["cancel", "resume"]
-        for state, flag in [
-            ("pending", "correct"),
-            ("failed", "correct"),
-            ("canceled", "correct"),
-            ("unknown", "correct"),
-            ("", "correct"),
-            ("active", "opposite"),
-            ("active", "missing"),
-            ("active", "string"),
-        ]
-        # Preserve the existing Stripe SDK flag coercion in this abstraction PR.
-        # Strict decoding of absent or malformed flags belongs to the follow-up.
-        if (provider, action, flag)
-        not in {("stripe", "resume", "missing"), ("stripe", "cancel", "string")}
+        ("pending", "correct"),
+        ("failed", "correct"),
+        ("canceled", "correct"),
+        ("unknown", "correct"),
+        ("", "correct"),
+        ("active", "opposite"),
+        ("active", "missing"),
+        ("active", "string"),
     ],
 )
 def test_unconfirmed_command_cannot_change_subscription_or_credits(
@@ -62,15 +55,6 @@ def test_unconfirmed_command_cannot_change_subscription_or_credits(
     _run_command(
         integration_app, monkeypatch, provider, action, state, flag, reject=True
     )
-
-
-@pytest.mark.parametrize(
-    ("action", "flag"), [("resume", "missing"), ("cancel", "string")]
-)
-def test_stripe_legacy_flag_decoding_remains_compatible(
-    integration_app: Flask, monkeypatch: pytest.MonkeyPatch, action: str, flag: str
-) -> None:
-    _run_command(integration_app, monkeypatch, "stripe", action, "active", flag)
 
 
 @pytest.mark.parametrize("provider", ["stripe", "fixture-hosted"])

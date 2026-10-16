@@ -232,7 +232,7 @@ def test_current_refund_callback_rolls_back_all_learner_projections_on_lock_loss
         ("refund.created", "unknown"),
     ],
 )
-def test_legacy_unrequested_learner_refund_retains_snapshot_only_projection(
+def test_unrequested_learner_refund_projects_only_confirmed_success(
     app: Flask, monkeypatch: pytest.MonkeyPatch, event_type: str, state: str
 ) -> None:
     with app.app_context():
@@ -245,9 +245,13 @@ def test_legacy_unrequested_learner_refund_retains_snapshot_only_projection(
             response = _notify(
                 app, provider, snapshot, reference, event_type=event_type, state=state
             )
-            assert response["status"] == "refunded"
+            assert response["status"] == (
+                "refunded" if state == "succeeded" else "acknowledged"
+            )
             assert order.status == ORDER_STATUS_SUCCESS
-            assert funs.get_payment_details(app, order.order_bid)["status"] == 2
-            assert snapshot.status == 2
+            assert funs.get_payment_details(app, order.order_bid)["status"] == (
+                2 if state == "succeeded" else 1
+            )
+            assert snapshot.status == (2 if state == "succeeded" else 1)
             assert "refund_operation" not in json.loads(snapshot.metadata_json)
         provider.refund_payment.assert_not_called()
