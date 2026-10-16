@@ -58,7 +58,9 @@ def _deliver(url: str, payload: dict[str, object]) -> None:
         requests.post(
             url,
             json={"type": "event", "payload": payload},
-            headers={"User-Agent": "Mozilla/5.0 AIShifuServer/1.0"},
+            # Umami's bot filter matches "server" in user agents. Use a fixed
+            # application identity without forwarding the client's user agent.
+            headers={"User-Agent": "Mozilla/5.0 AIShifu/1.0"},
             timeout=(0.25, 0.5),
         )
     except Exception:
@@ -75,6 +77,63 @@ def track_external_client_event(
     """Queue one allowlisted event without exposing business or credential data."""
     if event_name not in _ALLOWED_EVENTS or attribution is None:
         return
+    _queue_event(
+        event_name,
+        {
+            "host_platform": attribution.host_platform,
+            "skill_id": attribution.skill_id,
+            "skill_version_major": _version_bucket(attribution.skill_version),
+        },
+    )
+
+
+def track_skill_request_event(
+    _app: Flask,
+    *,
+    user_id: str,
+    skill_version: str,
+    caller_agent: str,
+    operation: str,
+    outcome: str,
+    duration_ms: int,
+) -> None:
+    """Queue the bounded request contract under the authenticated account ID."""
+    from flaskr.service.common.skill_request_analytics import (
+        CALLER_AGENTS,
+        SKILL_API_OPERATIONS,
+        SKILL_ID,
+    )
+
+    if (
+        not user_id
+        or caller_agent not in CALLER_AGENTS
+        or operation not in SKILL_API_OPERATIONS.values()
+        or outcome not in {"success", "failure"}
+        or type(duration_ms) is not int
+        or duration_ms < 0
+    ):
+        return
+    _queue_event(
+        "skill_api_request_v1",
+        {
+            "skill_id": SKILL_ID,
+            "skill_version_major": _version_bucket(skill_version),
+            "caller_agent": caller_agent,
+            "operation": operation,
+            "outcome": outcome,
+            "duration_ms": duration_ms,
+        },
+        user_id=user_id,
+    )
+
+
+def _queue_event(
+    event_name: str,
+    data: dict[str, object],
+    *,
+    user_id: str | None = None,
+) -> None:
+    """Share the bounded, nonblocking delivery path across backend events."""
     try:
         collector_url = _collector_url(get_config("ANALYTICS_UMAMI_SCRIPT", ""))
         website_id = str(get_config("ANALYTICS_UMAMI_SITE_ID", "") or "").strip()
@@ -86,14 +145,13 @@ def track_external_client_event(
     payload: dict[str, object] = {
         "website": website_id,
         "hostname": "server.ai-shifu",
-        "url": "/backend/external-client",
+        "url": "/backend/skill" if user_id is not None else "/backend/external-client",
         "name": event_name,
-        "data": {
-            "host_platform": attribution.host_platform,
-            "skill_id": attribution.skill_id,
-            "skill_version_major": _version_bucket(attribution.skill_version),
-        },
+        "data": data,
     }
+    if user_id is not None:
+        # Umami's Distinct ID matches the browser's umami.identify(user_id).
+        payload["id"] = user_id
     try:
         future = _EXECUTOR.submit(_deliver, collector_url, payload)
     except Exception:

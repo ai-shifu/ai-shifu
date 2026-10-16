@@ -5,6 +5,9 @@ from flask import Flask
 
 def register_route(app: Flask) -> Flask:
     """Register every API route group on the Flask application."""
+    from flaskr.service.common.skill_request_analytics import (
+        register_skill_request_analytics,
+    )
     from flaskr.service.referral.routes import register_referral_routes
 
     from .callback import register_callback_handler
@@ -19,6 +22,7 @@ def register_route(app: Flask) -> Flask:
     from .user import register_user_handler
 
     prefix = app.config.get("PATH_PREFIX", "")
+    register_skill_request_analytics(app)
     app = register_common_handler(app)
     app = register_config_handler(app, prefix)
     app = register_storage_handler(app, prefix)

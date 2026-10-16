@@ -1,5 +1,10 @@
 # Backend External Client Journey Analytics
 
+> Compatibility note, 2026-10-16: this plan describes the legacy stage series.
+> New header-bearing Skill requests use the separate account-linked
+> [Skill request contract](../../product-specs/skill-usage-analytics.md).
+> Keep legacy counts separate from the new API-request/account metrics.
+
 ## Purpose / Big Picture
 
 Count backend-observed external-client actions by stage after host platforms
