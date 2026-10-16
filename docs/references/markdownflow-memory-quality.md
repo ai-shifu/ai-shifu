@@ -17,6 +17,118 @@ This is model behavior evidence alongside existing deterministic storage
 and host-isolation regressions; it does not replace human teaching-quality
 acceptance, persisted cross-lesson acceptance or long-term cost observation.
 
+
+## Existing example policy with merged protocol fixes: scoped failure
+
+On 2026-10-14, the unchanged 961cb307e example policy is restored atop actual
+main ca75a292c in sim 0b14046ba. Both APIs match 69 runtime files and pass 494
+isolated SDK/logging checks; API 2/2 and Web 1/1 are Ready. Local engine 1,023
+and repository gates pass. These establish delivery and isolation, not facts.
+
+One in-memory diagnostic uses the existing authorized balanced-course checkpoint,
+exact original source/input, model 2, temperature and request/retry limits. Both
+actual model requests contain the existing policy. An exact-submission provenance
+retry recovers protocol. The displayed program adds R0 to R1, then decrements R0.
+Its first body claims R1=2; R0 then becomes 1. Its second body must therefore
+produce 3, but the displayed table says 4. No choice of the missing initial R1
+can satisfy both displayed rows. The loop executes twice and exits correctly;
+this is arithmetic inconsistency, not a false-termination reproduction.
+
+Both original outputs/token tuples uniquely match actual attempt/block and owner
+ledger sources; two generations settle 18.59 credits. Persistent classroom state,
+original published source and prior failed classroom fingerprints are unchanged.
+No learner is created, no ordinary HTTP classroom request or summary is run,
+and no failed evidence is repaired. This is a failed scoped balanced diagnostic,
+not full fresh acceptance or a same-condition model success-rate estimate.
+
+Read-only inspection of the earlier no-policy balanced run also finds an absent
+R1 initialization and only one body execution before any protocol retry. Its
+system and author messages remain byte-identical across its three requests.
+The final add1/add2 discrepancy is already present in raw model output.
+Neither observation establishes that projection, persistence or retries caused
+the facts. Increasing prompt specificity alone has not passed factual acceptance;
+keep both model gates and broader eleven-question acceptance open. A materially
+different mechanism needs its own falsifiable plan before another paid check.
+
+## Worked example consistency
+
+The ninth frozen original-model check on sim-086140b restores a concrete
+program and two iterations after native retries but still fails factual
+acceptance: LOAD initializes the accumulator to 5, SUB subtracts 1, the
+zero-exit test observes 4, then ADD adds 2 before the back-edge. Subsequent
+zero-exit tests observe 5, 6, and so on: cycle n tests n+3 for n >= 1 under
+ordinary integer arithmetic. No test reaches zero in that arithmetic; the
+example specifies no overflow semantics to support its claimed eventual stop.
+Four generations settle 7.82
+credits; exact outputs/tokens uniquely bind actual attempt/block, with unchanged
+source/classroom and no new learner or summary. Preserve this separate failure.
+
+
+Before claiming a worked result or termination, the default runtime instructions
+ask the model to state each example's full initial state and trace operations, including
+reinitialization and branch targets, with consistent units and non-conflicting
+data/code storage. Reapply reads and resets on each loop iteration; only
+retained state changes can accumulate. Trace requested iterations in one state
+table and derive behavior claims from it; claim termination only when that trace
+reaches a stop. Check net change over each complete cycle against its exit
+condition, not only locally correct arithmetic steps. Correct model-created errors before presenting them; preserve
+authored, learner and quoted evidence instead of silently repairing it. Respect
+the authored hint stage and state uncertainty when the result is unverified.
+This is model guidance, not a host factual grader, new tool or extra request.
+The restriction covers extra verification requests, while required runtime tools
+and calls inside the example remain allowed. Script instructions direct teaching;
+they are not text to recite to the learner.
+Existing author ownership, correction/navigation rules and request/retry limits
+remain authoritative.
+
+Native SDK regressions inspect delivery on initial and resumed clarification
+requests, with and without feedback contracts and session reload. Controlled
+FunctionModel outputs do not establish factual model compliance. Actual deployed
+model acceptance must independently check its example against its explanation;
+whole fresh-classroom acceptance remains separate. The original nineteenth
+failed classroom is preserved. Its generated loop reloads unchanged memory on
+each back-edge and cannot terminate as claimed; do not repair stored evidence or
+count a subsequent targeted success as a pass for that journey.
+
+The first scoped actual-model check on 14be21d51/sim-e640a53 passes native
+interaction delivery but fails example acceptance: no initial memory/register
+values or requested two-iteration trace. It does not claim termination; retain
+this separate under-specified-example failure. One generation settles 1.92
+credits, with exact output/token and actual attempt/block binding; original
+source and classroom state remain unchanged. No new learner or unchanged paid
+retry follows. Explicit initial-state/trace guidance requires a changed deployed
+candidate and separate acceptance; controlled-output tests alone cannot supply it.
+
+The second scoped check on 2ef1c1129/sim-0cef691 also fails: its first branch
+example specifies values, but the separate loop omits its counter initialization
+and the requested complete two-iteration trace. Reusing the earlier counter
+would exit after one iteration; do not invent a replacement value. Protocol
+delivery passes, but this is not semantic acceptance. Its one generation settles
+1.96 credits with exact output/token and actual attempt/block binding; original
+source and classroom state remain unchanged. No new learner is created. Retain
+both targeted failures and require full initial state separately for each example
+before checking a changed deployed candidate; keep original input and budgets.
+
+The third scoped check on b5e25f8db/sim-a7ff2b9 also fails: values are stated,
+but the purported real loop has no back-edge. The model correctly traces its
+one-pass fall-through into HALT and acknowledges it runs once, yet still presents
+it instead of the requested two-iteration demonstration. Do not insert a missing
+jump into stored evidence. Its one generation settles 1.99 credits with the same
+exact output/token and actual attempt/block binding; source and original classroom
+state remain unchanged, with no new learner. The next refinement requires
+verification against requested behavior and correction before presentation, not
+merely a consistent description of an example that fails the requested task.
+
+The fourth scoped check on 8012b33f2/sim-5d88b7a supplies no displayed program
+or two-iteration trace and defers requested details until the learner answers.
+This is failed acceptance, not evidence of correct examples. Three generations
+within existing native retry limits settle 5.75 credits with verbatim output/token
+and actual attempt/block binding. The policy and original request are present in
+actual generation inputs. Original source and classroom state remain unchanged;
+no new learner or summary is created. Preserve the author's brief-clarification
+rule. Investigate potentially conflicting correction-only host guidance without
+overriding that rule or spending on unchanged-runtime resampling.
+
 ## State-scoped native feedback schema
 
 On a supported returned answer, enabled-host interact/finish definitions require
