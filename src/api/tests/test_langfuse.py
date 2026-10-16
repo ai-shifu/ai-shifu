@@ -71,7 +71,12 @@ class RequestTraceIdTests(unittest.TestCase):
     def test_uses_generated_uuid_when_request_id_is_missing(self) -> None:
         fake_uuid = types.SimpleNamespace(hex="0123456789abcdef0123456789abcdef")
 
-        with patch("flaskr.api.langfuse.uuid.uuid4", return_value=fake_uuid):
+        # Earlier payment tests configure request-aware logging, which can
+        # install a request ID between tests. Isolate the missing-ID input.
+        with (
+            patch("flaskr.api.langfuse.get_request_id", return_value=""),
+            patch("flaskr.api.langfuse.uuid.uuid4", return_value=fake_uuid),
+        ):
             assert get_request_trace_id() == fake_uuid.hex
 
 

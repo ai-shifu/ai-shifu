@@ -220,7 +220,7 @@ def test_failed_checkout_cleans_up_only_its_generated_coupon(
     [("cancel_subscription", True), ("resume_subscription", False)],
 )
 @pytest.mark.parametrize("with_provider_id", [False, True])
-def test_subscription_lifecycle_preserves_id_and_cancel_state(
+def test_subscription_lifecycle_reports_returned_id_and_cancel_state(
     method: str, cancelled: bool, with_provider_id: bool, stripe_client: SimpleNamespace
 ) -> None:
     payload = {"status": "active", "cancel_at_period_end": cancelled}
@@ -238,9 +238,7 @@ def test_subscription_lifecycle_preserves_id_and_cancel_state(
         metadata={"subscription_bid": "local-sub"},
         api_key="sk-test-scoped",
     )
-    assert result.provider_reference == (
-        "sub-provider" if with_provider_id else "sub-requested"
-    )
+    assert result.provider_reference == ("sub-provider" if with_provider_id else "")
     assert result.status == "active"
     assert result.extra == {"cancel_at_period_end": cancelled}
 

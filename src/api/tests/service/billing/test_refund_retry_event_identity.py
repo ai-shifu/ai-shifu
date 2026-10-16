@@ -304,7 +304,7 @@ def test_terminal_billing_refund_failure_survives_delayed_progress_and_can_retry
         ("refund.created", "unknown"),
     ],
 )
-def test_verified_unrequested_refund_retains_legacy_order_projection(
+def test_unrequested_billing_refund_projects_only_confirmed_success(
     integration_app: Flask, monkeypatch: pytest.MonkeyPatch, event_type: str, state: str
 ) -> None:
     app = integration_app
@@ -328,11 +328,19 @@ def test_verified_unrequested_refund_retains_legacy_order_projection(
             },
         },
     )
-    assert webhooks.apply_billing_stripe_notification(app, event).status == "refunded"
+    assert webhooks.apply_billing_stripe_notification(app, event).status == (
+        "refunded" if state == "succeeded" else "acknowledged"
+    )
     assert webhooks.apply_billing_stripe_notification(app, event).status_code == 200
     dao.db.session.expire_all()
-    assert order.status == BILLING_ORDER_STATUS_REFUNDED
-    assert StripeOrder.query.filter_by(bill_order_bid=bid).one().status == 2
+    assert order.status == (
+        BILLING_ORDER_STATUS_REFUNDED
+        if state == "succeeded"
+        else BILLING_ORDER_STATUS_PAID
+    )
+    assert StripeOrder.query.filter_by(bill_order_bid=bid).one().status == (
+        2 if state == "succeeded" else 1
+    )
     assert not order.metadata_json.get("refund_operation")
     assert (sub.status, sub.cancel_at_period_end, wallet.available_credits) == before
     refund.assert_not_called()

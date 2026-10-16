@@ -295,11 +295,11 @@ class StripeProvider(PaymentProvider):
         )
         payload = subscription.to_dict()
         return SubscriptionUpdateResult(
-            provider_reference=payload.get("id", provider_subscription_id),
+            provider_reference=payload.get("id") or "",
             raw_response=payload,
             status=subscription_facts(payload).status,
             extra={
-                "cancel_at_period_end": bool(payload.get("cancel_at_period_end")),
+                "cancel_at_period_end": payload.get("cancel_at_period_end"),
             },
         )
 
@@ -320,11 +320,11 @@ class StripeProvider(PaymentProvider):
         )
         payload = subscription.to_dict()
         return SubscriptionUpdateResult(
-            provider_reference=payload.get("id", provider_subscription_id),
+            provider_reference=payload.get("id") or "",
             raw_response=payload,
             status=subscription_facts(payload).status,
             extra={
-                "cancel_at_period_end": bool(payload.get("cancel_at_period_end")),
+                "cancel_at_period_end": payload.get("cancel_at_period_end"),
             },
         )
 

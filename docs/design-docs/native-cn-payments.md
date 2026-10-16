@@ -193,12 +193,11 @@ they do not refund the order, cancel its plan, or remove its credits. Verified
 refund notifications or queries complete the saved operation without a second RPC,
 and replayed pending events cannot downgrade success. Stripe refund-object events
 (`refund.created`, `refund.updated`, `charge.refund.updated`, `refund.failed`)
-use the object's status when reconciling a saved refund operation; creating a
-refund is not proof that the saved operation succeeded. Both learner and billing
-paths retain these asynchronous semantics. Without a saved operation or history,
-the existing Stripe `refund.created` payment projection remains compatible with
-the pre-abstraction implementation, including progress events. Tightening that
-independent legacy behavior belongs to the follow-up reliability change.
+use the object's actual status, including unrequested external reversals without
+a saved platform operation. Creating a refund is not proof that it succeeded.
+Both learner and billing paths retain these asynchronous semantics. Confirmed
+unrequested reversals retain their existing payment projection without adding
+new subscription or entitlement policy.
 Learner callbacks and queries for registered non-Stripe adapters use the same saved-operation
 reconciliation as Stripe: a verified current-attempt refund success removes paid
 order access and promotes the durable refund receipt, without repeating the RPC.
@@ -216,11 +215,10 @@ They must also report a recognized live contract status and an explicit boolean
 `cancel_at_period_end` equal to the requested renewal setting. Pending, failed,
 unknown or already-ended results, absent flags and contradictory flags cannot
 finalize the command. Adapters normalize provider-specific status names; Stripe
-maps `unpaid` to the existing delinquent state. The generic guard validates the
-adapter's declared outcome. Stripe's legacy SDK decoder still defaults a missing
-response ID to the requested contract and coerces the renewal flag with `bool`;
-strict decoding of those independent legacy behaviors belongs to the follow-up
-reliability change. Clearing cancellation does not clear delinquency or a pause,
+maps `unpaid` to the existing delinquent state. Stripe preserves missing or
+malformed renewal flags and returns only the actual response contract identity,
+so the shared outcome guard can reject unconfirmed responses. No ID is inferred
+from the request. Clearing cancellation does not clear delinquency or a pause,
 and scheduling cancellation during a trial retains access through the current
 period. Management reuses the existing local status vocabulary and preserves
 historical contract-event translation. It does not renew the paid period,
