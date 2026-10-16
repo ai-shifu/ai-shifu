@@ -128,6 +128,7 @@ from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.user.exceptions import UserNotLoginError
 from flaskr.service.user.repository import UserAggregate, load_user_aggregate
 from flaskr.util import generate_id
+from flaskr.util.prompt_loader import strip_html_comments
 from markdown_flow import (
     USER_ANSWER_CONTEXT_KEY,
     BlockType,
@@ -454,6 +455,20 @@ class MdflowContextV2:
             interaction_prompt=interaction_prompt,
             interaction_error_prompt=interaction_error_prompt,
         )
+        # Keep native positions and public source intact. Only execution copies
+        # are filtered, before the library substitutes learner-provided values.
+        self._source_blocks = self._mdflow.get_all_blocks()
+        separator = "\n\n---\n\n"
+        source = separator.join(block.content for block in self._source_blocks)
+        filtered = strip_html_comments(source, preserve_offsets=True)
+        if filtered != source:
+            execution = []
+            offset = 0
+            for block in self._source_blocks:
+                end = offset + len(block.content)
+                execution.append(replace(block, content=filtered[offset:end]))
+                offset = end + len(separator)
+            self._mdflow._blocks = execution
         # markdown_flow>=0.2.44 removed set_visual_mode; keep backward compatibility.
         set_visual_mode = getattr(self._mdflow, "set_visual_mode", None)
         if callable(set_visual_mode):
@@ -471,11 +486,12 @@ class MdflowContextV2:
 
     def get_block(self, block_index: int) -> Block:
         """Return a MarkdownFlow block by its index."""
-        return self._mdflow.get_block(block_index)
+        self._mdflow.get_block(block_index)  # Preserve native index validation.
+        return self._source_blocks[block_index]
 
     def get_all_blocks(self) -> list[Block]:
         """Return all MarkdownFlow blocks in encounter order."""
-        return self._mdflow.get_all_blocks()
+        return self._source_blocks
 
     def process(
         self,
@@ -584,6 +600,7 @@ class MdflowContextV2:
         """Build model context from MarkdownFlow blocks."""
         message_list: list[dict[str, str]] = []
         mdflow_context = MdflowContextV2(document=document)
+        source_mdflow = MarkdownFlow(document=document)
         block_list = mdflow_context.get_all_blocks()
 
         from flask import current_app
@@ -604,12 +621,44 @@ class MdflowContextV2:
                 # without it fall back to re-rendering the block source with
                 # the current variables (one-time cache break, then stable).
                 stored_prompt = getattr(generated_block, "generation_prompt", "") or ""
+                source_prompt = replace_variables_in_text(
+                    block.content or "", variables
+                )
+                clean_prompt = replace_variables_in_text(
+                    strip_html_comments(block.content or ""), variables
+                )
+                output_language = None
+                language_prefix = "<output_language_instruction>\n🚨 OUTPUT: 100% "
+                if stored_prompt.startswith(language_prefix):
+                    language = stored_prompt[len(language_prefix) :].partition(
+                        " - Translate ALL non-"
+                    )[0]
+                    wrapper = (
+                        f"{language_prefix}{language} - Translate ALL non-{language} "
+                        f"words/phrases to {language} 🚨\n</output_language_instruction>\n\n"
+                    )
+                    if (
+                        language
+                        and "\n" not in language
+                        and stored_prompt.startswith(wrapper)
+                    ):
+                        output_language = language
+                source_mdflow.set_output_language(output_language)
+                mdflow_context._mdflow.set_output_language(output_language)
+                if stored_prompt == source_prompt:
+                    stored_prompt = clean_prompt
+                elif stored_prompt:
+                    native_prompt = source_mdflow.get_content_messages(
+                        generated_block.position, variables, context=None
+                    )[-1]["content"]
+                    if stored_prompt == native_prompt:
+                        stored_prompt = mdflow_context._mdflow.get_content_messages(
+                            generated_block.position, variables, context=None
+                        )[-1]["content"]
                 message_list.append(
                     {
                         "role": "user",
-                        "content": stored_prompt
-                        or replace_variables_in_text(block.content or "", variables)
-                        or "",
+                        "content": stored_prompt or clean_prompt or "",
                     }
                 )
                 message_list.append(

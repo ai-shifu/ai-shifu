@@ -26,6 +26,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)
 - [Publish repository Docker images to GHCR](./active/ghcr-image-publication.md)
 - [Local storage response safety](./active/local-storage-response-safety.md)
+- [Filter only authored lesson comments](./active/markdownflow-authored-comment-boundary.md)
 - [Keep Authored Input Hints Out of Choice Buttons](./active/markdownflow-authored-inputs.md)
 - [MarkdownFlow total input budget](./active/markdownflow-total-input-budget.md)
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)

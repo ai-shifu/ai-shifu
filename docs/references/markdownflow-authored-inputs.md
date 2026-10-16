@@ -2,11 +2,28 @@
 title: MarkdownFlow Authored Input Hints
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-14
 canonical: true
 ---
 
 # MarkdownFlow Authored Input Hints
+
+## Authored comments
+
+Filter HTML comments only from the lesson's authored MarkdownFlow script,
+before substituting learner values or composing model messages. Preserve
+comments shown inside Markdown code examples, escaped notation, and quoted
+HTML attributes. An unfinished authored comment outside those literal contexts
+ends at the script boundary.
+
+Learner input, profile/memory values, assistant/tool history, course prompts,
+and reference documents are not subjects of this filter. Saved lesson source
+and conversation evidence remain unchanged. On resume, only an exact match to
+a known authored script section may be projected for the outgoing request;
+unrecognized historical text is preserved. Legacy execution copies retain
+native block positions and leave the library's existing preprocessing intact.
+
+## Input placeholders
 
 In `?[%{{path}} First | Second | ...Describe your project]`, the trailing
 `...Describe your project` declares a text-input placeholder. It is not an

@@ -422,7 +422,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
                 pass
 
             def get_all_blocks(self) -> object:
-                return [object(), object()]
+                return MarkdownFlow("First\n---\nSecond").get_all_blocks()
 
         outline_item = HistoryItem(
             bid="outline-1",
@@ -485,7 +485,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
                 pass
 
             def get_all_blocks(self) -> object:
-                return [object(), object()]
+                return MarkdownFlow("First\n---\nSecond").get_all_blocks()
 
         with (
             patch(
@@ -1085,6 +1085,9 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
                 self.args = args
                 self.kwargs = kwargs
 
+            def get_all_blocks(self) -> list:
+                return []
+
             def set_output_language(self, *_args: object, **_kwargs: object) -> object:
                 return self
 
@@ -1098,6 +1101,9 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
             def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.visual_mode = None
+
+            def get_all_blocks(self) -> list:
+                return []
 
             def set_visual_mode(self, visual_mode: object) -> None:
                 self.visual_mode = visual_mode
@@ -1115,6 +1121,9 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
             def __init__(self, *args: object, **kwargs: object) -> None:
                 _ = (args, kwargs)
                 self.output_language = None
+
+            def get_all_blocks(self) -> list:
+                return []
 
             def set_output_language(self, language: object) -> object:
                 self.output_language = language
@@ -1848,6 +1857,36 @@ class CoursePromptCompositionTests(unittest.TestCase):
         assert "{{sys_user_nickname}}" not in prompt
         assert "{{sys_user_background}}" not in prompt
         assert '"Database background"' in prompt
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_run_llm_preserves_message_text(stream: bool) -> None:
+    """Keep learner, profile and historical content intact at the provider boundary."""
+    provider = RUNLLMProvider(
+        app=Flask("comment-filter"),
+        llm_settings=types.SimpleNamespace(
+            model="gpt-test", temperature=0.6, usage_metadata={}
+        ),
+        trace=object(),
+        parent_observation=object(),
+        trace_args={"user_id": "user-1"},
+        usage_context=types.SimpleNamespace(),
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
+    messages = [
+        {"role": "system", "content": "Teach<!-- private\nnote --> clearly"},
+        {"role": "user", "content": "```html\n<!-- example -->\n```"},
+        {"role": "assistant", "content": "OK<!-- one --><!-- two -->"},
+    ]
+    original = [dict(message) for message in messages]
+    with patch.object(context_v2_module, "chat_llm", return_value=iter([])) as chat:
+        if stream:
+            list(provider.stream(messages))
+        else:
+            provider.complete(messages)
+    assert chat.call_args.kwargs["messages"] is messages
+    assert chat.call_args.kwargs["stream"] is stream
+    assert messages == original
 
 
 class PreviewRunLlmLoggingTests(unittest.TestCase):
@@ -2978,6 +3017,191 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
         transformed = MarkdownFlow(document)._transform_context_messages(messages, {})
         assert {"role": "user", "content": "Alice"} in transformed
         assert all("?[" not in m["content"] for m in transformed)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_native_teaching_prompt_filter_preserves_dynamic_and_historical_text(
+    stream: bool,
+) -> None:
+    calls: list[list[dict[str, str]]] = []
+
+    class CapturingProvider:
+        def complete(self, messages: list[dict[str, str]], **_kwargs: object) -> str:
+            calls.append(messages)
+            return "response"
+
+        def stream(self, messages: list[dict[str, str]], **_kwargs: object) -> object:
+            calls.append(messages)
+            return iter(["response"])
+
+    document = (
+        "Teach {{profile}} <!-- native first --><!-- teacher private -->\n"
+        "```html\n<!-- code literal -->\n```\n---\nNext"
+    )
+    original = MarkdownFlow(document)
+    source_blocks = [
+        (block.index, block.block_type, block.content)
+        for block in original.get_all_blocks()
+    ]
+    context = MdflowContextV2(
+        document=document,
+        document_prompt="Course <!-- course HTML --> rules",
+        llm_provider=CapturingProvider(),
+    )
+    history = [
+        {"role": "user", "content": "<!-- learner history -->"},
+        {"role": "assistant", "content": "<!-- assistant history -->"},
+    ]
+    profile = {"profile": "<!-- learner profile -->"}
+    result = context.process(
+        block_index=0,
+        mode=context_v2_module.ProcessMode.STREAM
+        if stream
+        else context_v2_module.ProcessMode.COMPLETE,
+        context=history,
+        variables=profile,
+    )
+    if stream:
+        list(result)
+
+    messages = calls[0]
+    assert "<!-- course HTML -->" in messages[0]["content"]
+    assert messages[1:-1] == history
+    assert "<!-- learner profile -->" in messages[-1]["content"]
+    assert "<!-- code literal -->" in messages[-1]["content"]
+    assert "teacher private" not in messages[-1]["content"]
+    assert profile == {"profile": "<!-- learner profile -->"}
+    assert context._mdflow.document == document
+    assert (
+        context._mdflow._preprocessor.code_blocks == original._preprocessor.code_blocks
+    )
+    assert [
+        (block.index, block.block_type, block.content)
+        for block in context.get_all_blocks()
+    ] == source_blocks
+
+
+def test_unclosed_teaching_comment_hides_later_native_slots_without_renumbering() -> (
+    None
+):
+    calls: list[list[dict[str, str]]] = []
+
+    class CapturingProvider:
+        def complete(self, messages: list[dict[str, str]], **_kwargs: object) -> str:
+            calls.append(messages)
+            return "response"
+
+    document = "Visible <!-- native first --><!-- unfinished\n---\nprivate later block"
+    original = MarkdownFlow(document).get_all_blocks()
+    context = MdflowContextV2(document=document, llm_provider=CapturingProvider())
+    assert [
+        (block.index, block.block_type, block.content)
+        for block in context.get_all_blocks()
+    ] == [(block.index, block.block_type, block.content) for block in original]
+    for block in original:
+        context.process(
+            block_index=block.index, mode=context_v2_module.ProcessMode.COMPLETE
+        )
+    assert len(calls) == len(original) == 2
+    assert "Visible" in calls[0][-1]["content"]
+    assert "unfinished" not in calls[0][-1]["content"]
+    assert not calls[1][-1]["content"].strip()
+
+
+@pytest.mark.parametrize("known_source", [False, True])
+def test_history_only_filters_a_proven_teacher_source_prompt(
+    known_source: bool,
+) -> None:
+    document = "Teach {{profile}} <!-- native first --><!-- teacher private -->"
+    variables = {"profile": "<!-- learner profile -->"}
+    source = MarkdownFlow(document).get_block(0).content
+    stored = (
+        context_v2_module.replace_variables_in_text(source, variables)
+        if known_source
+        else "Archived <!-- historical text --> prompt"
+    )
+    row = types.SimpleNamespace(
+        type=BLOCK_TYPE_MDCONTENT_VALUE,
+        position=0,
+        generated_content="<!-- assistant history -->",
+        generation_prompt=stored,
+    )
+    with Flask("teacher-source-history").app_context():
+        messages = MdflowContextV2.build_context_from_blocks([row], document, variables)
+    assert messages[1] == {"role": "assistant", "content": "<!-- assistant history -->"}
+    if known_source:
+        assert "teacher private" not in messages[0]["content"]
+        assert "<!-- learner profile -->" in messages[0]["content"]
+    else:
+        assert messages[0]["content"] == stored
+
+
+@pytest.mark.parametrize("language", [None, "简体中文"])
+def test_history_recognizes_the_complete_native_teacher_prompt(
+    language: str | None,
+) -> None:
+    document = (
+        "Teach {{profile}} <!-- native first --><!-- teacher private -->\n"
+        "```html\n<!-- code literal -->\n```\n===Exact source===\n---\n?[Ready?]\n---\n"
+        "Second {{profile}} <!-- native last --><!-- second teacher -->"
+    )
+    variables = {"profile": "<!-- variable literal -->"}
+    native = MarkdownFlow(document)
+    native.set_output_language(language)
+    first = native.get_content_messages(0, variables, context=None)[-1]["content"]
+    native.set_output_language(None)
+    second = native.get_content_messages(2, variables, context=None)[-1]["content"]
+    rows = [
+        types.SimpleNamespace(
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            position=position,
+            generated_content="<!-- assistant history -->",
+            generation_prompt=prompt,
+        )
+        for position, prompt in [(0, first), (2, second)]
+    ]
+    with Flask("native-teacher-history").app_context():
+        messages = MdflowContextV2.build_context_from_blocks(rows, document, variables)
+
+    assert "teacher private" not in messages[0]["content"]
+    assert "<!-- variable literal -->" in messages[0]["content"]
+    assert "```html\n<!-- code literal -->\n```" in messages[0]["content"]
+    assert "[INSTRUCTION: Remove <原样输出> tags" in messages[0]["content"]
+    assert "# Next Interaction Note" in messages[0]["content"]
+    assert "second teacher" not in messages[2]["content"]
+    assert "<!-- variable literal -->" in messages[2]["content"]
+    assert not messages[2]["content"].startswith("<output_language_instruction>")
+    assert (
+        messages[1]["content"] == messages[3]["content"] == "<!-- assistant history -->"
+    )
+    if language is not None:
+        wrapper = first[
+            : first.index("</output_language_instruction>")
+            + len("</output_language_instruction>\n\n")
+        ]
+        assert messages[0]["content"].startswith(wrapper)
+
+
+@pytest.mark.parametrize("changed", ["variables", "suffix"])
+def test_unproven_complete_native_history_remains_byte_identical(changed: str) -> None:
+    document = "Teach {{profile}} <!-- native first --><!-- teacher private -->"
+    variables = {"profile": "Current <!-- variable literal -->"}
+    historical_variables = {"profile": "Historical <!-- old literal -->"}
+    native = MarkdownFlow(document).set_output_language("简体中文")
+    stored = native.get_content_messages(
+        0, historical_variables if changed == "variables" else variables, context=None
+    )[-1]["content"]
+    if changed == "suffix":
+        stored += "\nHistorical extra content"
+    row = types.SimpleNamespace(
+        type=BLOCK_TYPE_MDCONTENT_VALUE,
+        position=0,
+        generated_content="response",
+        generation_prompt=stored,
+    )
+    with Flask("unproven-native-history").app_context():
+        messages = MdflowContextV2.build_context_from_blocks([row], document, variables)
+    assert messages[0]["content"] == stored
 
 
 class TraceSessionBindingTests(unittest.TestCase):

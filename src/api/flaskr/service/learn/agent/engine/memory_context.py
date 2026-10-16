@@ -6,9 +6,10 @@ import json
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
+from flaskr.util.prompt_loader import strip_html_comments
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
 
-from .script import render_memory_section
+from .script import match_script_section, render_memory_section, render_script_section
 
 if TYPE_CHECKING:
     from .script import ScriptBundle
@@ -52,8 +53,9 @@ def project_memory_history(
     messages: list[ModelMessage],
     bundle: ScriptBundle,
     *,
-    limit: int,
+    limit: int | None,
     priority: frozenset[str] = frozenset(),
+    variables: dict | None = None,
 ) -> list[ModelMessage]:
     """Copy only the initial engine prompt for a model request; preserve saved history.
 
@@ -71,15 +73,24 @@ def project_memory_history(
             if parsed is None:
                 return messages
             projected, omitted = render_memory_section(
-                bundle, parsed.memory, limit=limit, priority=priority
+                replace(bundle, script=strip_html_comments(bundle.script)),
+                parsed.memory,
+                limit=limit,
+                priority=priority,
             )
             # Use projection metadata, not tags that may occur inside learner JSON values.
             if parsed.notice and not omitted:
                 projected += parsed.notice
+            suffix = part.content[parsed.script_start :]
+            values = {**(variables or {}), **parsed.memory}
+            original = match_script_section(suffix, bundle.script, values)
+            if original is not None:
+                suffix = (
+                    render_script_section(bundle.script, values)
+                    + suffix[len(original) :]
+                )
             parts = list(request.parts)
-            parts[part_index] = replace(
-                part, content=projected + "\n\n" + part.content[parsed.script_start :]
-            )
+            parts[part_index] = replace(part, content=projected + "\n\n" + suffix)
             result = list(messages)
             result[index] = replace(request, parts=parts)
             return result

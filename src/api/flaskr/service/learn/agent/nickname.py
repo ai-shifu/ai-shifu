@@ -9,9 +9,12 @@ from typing import TYPE_CHECKING, Any
 from flaskr.service.learn.agent.engine.memory_context import parse_initial_memory_prompt
 from flaskr.service.learn.agent.engine.script import (
     collected_names,
+    match_script_section,
+    render_script_section,
     substitute_variables,
 )
 from flaskr.service.profile.api import SYS_USER_NICKNAME
+from flaskr.util.prompt_loader import strip_html_comments
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
@@ -68,7 +71,7 @@ def _refresh_prompt(
     prefix = "<memory>\n"
     original = parsed.memory
     boundary = "\n</memory>" + parsed.notice + "\n\n"
-    collected = collected_names(session.script.script)
+    collected = collected_names(strip_html_comments(session.script.script))
     updated = dict(original)
     if SYS_USER_NICKNAME not in collected or (
         not pending and (answered or SYS_USER_NICKNAME in original)
@@ -79,6 +82,8 @@ def _refresh_prompt(
 
     def section(tag: str, text: str, memory: dict, *, unavailable: bool = True) -> str:
         """Reconstruct an exact host section for current or historical matching."""
+        if tag == "script":
+            return render_script_section(text, memory, unavailable=unavailable)
         return f"<{tag}>\n{substitute_variables(text, memory, collected=collected, unavailable=unavailable)}\n</{tag}>"
 
     start = parsed.script_start
@@ -91,12 +96,10 @@ def _refresh_prompt(
         **original,
     }
     updated_script_memory = {**script_memory, SYS_USER_NICKNAME: nickname}
-    old_script = section("script", session.script.script, script_memory)
-    if not content.startswith(old_script, start):
-        old_script = section(
-            "script", session.script.script, script_memory, unavailable=False
-        )
-    if not content.startswith(old_script, start):
+    old_script = match_script_section(
+        content[start:], session.script.script, script_memory
+    )
+    if old_script is None:
         return content
     suffix = content[start + len(old_script) :]
     # The host re-reads the brief each turn. An older, different brief cannot be reconstructed
