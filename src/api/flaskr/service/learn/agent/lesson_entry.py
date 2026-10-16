@@ -22,6 +22,9 @@ from flaskr.api.langfuse import (
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.dao.uow import app_context_scope
 from flaskr.service.common.models import raise_error
+from flaskr.service.learn.agent.computed_example_analytics import (
+    make_computed_example_observer,
+)
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
@@ -379,6 +382,12 @@ def agent_lesson_events(
         teaching_history_compaction=True,
         exercise_statistics=True,
         feedback_contract=True,
+        computed_examples=True,
+        computed_example_observer=make_computed_example_observer(
+            app,
+            preview_mode=preview_mode,
+            learning_mode=usage_context.learning_mode,
+        ),
         teaching_summarizer=make_teaching_summarizer(
             gateway(
                 generation_name="agent_teaching_summary",

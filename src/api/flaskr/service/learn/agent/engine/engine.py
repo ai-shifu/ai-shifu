@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -53,6 +54,7 @@ from .answer_context import (
     authored_answer_section,
     without_answer_reference,
 )
+from .computed_example import has_computed_example
 from .direction import direction_history, feedback_retry_history, has_direction
 from .events import (
     ContentDelta,
@@ -105,6 +107,7 @@ from .teaching_history import project_teaching_history, read_teaching
 from .teaching_summary import TeachingSummarizer, summarize_teaching_history
 from .tools import (
     NO_PAUSE,
+    ComputedExampleGuard,
     Deps,
     feedback_response_problem,
     finish,
@@ -406,6 +409,8 @@ class Engine:
         teaching_summarizer: TeachingSummarizer | None = None,
         exercise_statistics: bool = False,
         feedback_contract: bool = False,
+        computed_examples: bool = False,
+        computed_example_observer: Callable[[], None] | None = None,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -451,6 +456,14 @@ class Engine:
         use interact.direction. Sources are checked before display, but the model
         still chooses the grade/stage. Unspecified counts retain ordinary feedback.
         Off preserves portable hosts' previous optional contract.
+
+        `computed_examples` offers canonical numeric artifacts on supported
+        returned text inputs, where feedback is already held until validation.
+        Initial and unsupported turns retain their original streaming/schema.
+        This computes a declared illustration, never a learner grade or prose truth.
+        `computed_example_observer` receives no content or identity and runs once
+        after a newly accepted artifact streams, before its control. Observer
+        failures are isolated; portable hosts have no observer by default.
 
         `teaching_history_compaction` offers exact paginated reads of older long
         teaching replaced by excerpts in requests. It preserves two recent turns,
@@ -508,6 +521,8 @@ class Engine:
             self.memory_instructions += (
                 "\n\n" + (PROMPTS_DIR / "recall_history_compaction.md").read_text()
             )
+        self.computed_examples = computed_examples
+        self.computed_example_observer = computed_example_observer
         self.extra_instructions = extra_instructions
         self.render: RenderProfile = render
         self.memory_store = memory_store
@@ -525,7 +540,10 @@ class Engine:
             deps_type=Deps,
             output_type=[str, DeferredToolRequests],
             instructions=self._instructions,
-            capabilities=[ProcessHistory(self._feedback_retry_history)],
+            capabilities=[
+                ProcessHistory(self._feedback_retry_history),
+                *([ComputedExampleGuard()] if computed_examples else []),
+            ],
             # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
             # again, and a model rewriting options sometimes needs more than one attempt.
             tools=[
@@ -615,7 +633,7 @@ class Engine:
     async def _feedback_retry_history(
         self, ctx: RunContext[Deps], messages: list[ModelMessage]
     ) -> list[ModelMessage]:
-        if not ctx.deps.feedback_contract:
+        if not ctx.deps.feedback_contract and not ctx.deps.computed_examples:
             return messages
         return feedback_retry_history(
             messages,
@@ -668,6 +686,10 @@ class Engine:
             )
             if notice:
                 instructions += "\n\n" + notice
+        if self.computed_examples and ctx.deps.direction_sections:
+            instructions += (
+                "\n\n" + (PROMPTS_DIR / "computed_examples.md").read_text().strip()
+            )
         if self.exercise_statistics:
             instructions += "\n\n" + exercise_report_notice(ctx)
         if ctx.deps.resuming_interaction and self.prompts.answer_review:
@@ -738,6 +760,7 @@ class Engine:
         for pending in session.pending:
             pending.spec = normalize_script_text_input(pending.spec, text_inputs)
         deps = Deps(
+            computed_examples=self.computed_examples,
             authored_text=session.script.all_text(),
             memory_deleted_keys=memory_deleted_keys,
             memory_current_inputs=(turn.text,)
@@ -1092,6 +1115,7 @@ class Engine:
         shown: list[str] = []
         after_pause = False
         history_saved = False
+        observed_examples: set[str] = set()
         was_interrupted = session.interrupted
         markup = InteractionMarkupFilter(deps.literal_interaction_markup)
         markup_noticed = False
@@ -1270,7 +1294,17 @@ class Engine:
                                 direction_chunks.clear()
                                 if problem:
                                     deps.hide_feedback_response(response)
-                            elif deps.feedback_contract and response is not None:
+                            elif response is not None and (
+                                deps.feedback_contract
+                                or any(
+                                    isinstance(part, ToolCallPart)
+                                    and has_computed_example(
+                                        part,
+                                        include_unparseable=deps.computed_examples,
+                                    )
+                                    for part in response.parts
+                                )
+                            ):
                                 # Validation is not tool success: later interaction guards
                                 # and argument checks can still request a retry.
                                 if response is not feedback_response:
@@ -1380,16 +1414,19 @@ class Engine:
                         result = ev.result
                         # A resumed request may use a projected copy of an old initial prompt.
                         # Keep its original saved evidence and append only this run's messages.
+                        new_messages = list(result.new_messages())
+                        all_messages = list(result.all_messages())
                         session.messages = (
                             [
                                 *session.messages,
                                 *direction_history(
                                     without_answer_reference(
-                                        result.new_messages(),
+                                        new_messages,
                                         deps.authored_answer_reference,
                                     ),
                                     deps.direction_rendered,
                                     deps.hidden_feedback_responses,
+                                    computed=deps.example_rendered,
                                 ),
                             ]
                             if session.started
@@ -1399,13 +1436,27 @@ class Engine:
                                 or self.teaching_history_compaction
                                 or deps.resuming_interaction
                             )
-                            else list(result.all_messages())
+                            else [
+                                # The SDK may repair an interrupted tool's history
+                                # prefix. Retain it, but never reproject its already
+                                # displayed directions with this turn's mapping.
+                                *all_messages[: len(all_messages) - len(new_messages)],
+                                *direction_history(
+                                    new_messages,
+                                    deps.direction_rendered,
+                                    deps.hidden_feedback_responses,
+                                    computed=deps.example_rendered,
+                                ),
+                            ]
                         )
                         history_saved = True
                         direction_pending: set[str] = set()
                         if isinstance(result.output, DeferredToolRequests):
                             for call in result.output.calls:
-                                if call.tool_call_id in deps.direction_rendered:
+                                if (
+                                    call.tool_call_id in deps.direction_rendered
+                                    or call.tool_call_id in deps.example_rendered
+                                ):
                                     spec = InteractionSpec.model_validate(
                                         result.output.metadata.get(
                                             call.tool_call_id, {}
@@ -1460,7 +1511,12 @@ class Engine:
                         prepared_events: list[Event] = []
                         for call_id in direction_pending:
                             prepared_events.extend(
-                                _text(deps.direction_rendered[call_id])
+                                _text(
+                                    {
+                                        **deps.direction_rendered,
+                                        **deps.example_rendered,
+                                    }[call_id]
+                                )
                             )
                         prepared_events.extend(_flush_markup())
                         prepared_content = "".join(shown)
@@ -1471,6 +1527,13 @@ class Engine:
                                 )
                             else:
                                 yield event
+                        for call_id in direction_pending & deps.example_rendered.keys():
+                            if call_id not in observed_examples:
+                                observed_examples.add(call_id)
+                                if self.computed_example_observer is not None:
+                                    # Observation cannot interrupt accepted teaching.
+                                    with suppress(Exception):
+                                        self.computed_example_observer()
                         if segmenter:
                             for e in self._segment(
                                 segmenter.finish(), seg_state, session, final=True
@@ -1544,6 +1607,7 @@ class Engine:
                         ),
                         deps.direction_rendered,
                         deps.hidden_feedback_responses,
+                        computed=deps.example_rendered,
                     ),
                 ]
                 session.answers = {}

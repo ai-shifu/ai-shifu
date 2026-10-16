@@ -100,3 +100,82 @@ def track_external_client_event(
         _CAPACITY.release()
         return
     future.add_done_callback(lambda _future: _CAPACITY.release())
+
+
+def _deliver_server_event(
+    app: Flask, event_name: str, route: str, data: dict[str, str | int | float | bool]
+) -> None:
+    """Read server configuration on a worker, without retaining a request context."""
+    from flaskr.dao.uow import app_context_scope
+
+    try:
+        with app_context_scope(app):
+            collector_url = _collector_url(get_config("ANALYTICS_UMAMI_SCRIPT", ""))
+            website_id = str(get_config("ANALYTICS_UMAMI_SITE_ID", "") or "").strip()
+        if collector_url and website_id:
+            _deliver(
+                collector_url,
+                {
+                    "website": website_id,
+                    "hostname": "server.ai-shifu",
+                    "url": route,
+                    "name": event_name,
+                    "data": data,
+                },
+            )
+    except Exception:
+        # Configuration, context and delivery failures remain best-effort.
+        return
+
+
+def queue_server_event(
+    app: Flask,
+    *,
+    event_name: str,
+    route: str,
+    data: dict[str, str | int | float | bool],
+) -> None:
+    """Queue a feature-owned scalar contract without config or network work inline.
+
+    Callers own privacy allowlists and stable event semantics. The transport
+    rejects malformed/oversized fields instead of truncating their meaning.
+    Routes must be fixed backend paths; never pass request URLs or business IDs.
+    """
+    import json
+    import math
+
+    if not isinstance(event_name, str) or not re.fullmatch(
+        r"[a-z][a-z0-9_]{0,49}", event_name
+    ):
+        return
+    if (
+        not isinstance(route, str)
+        or not re.fullmatch(r"/backend/[a-z/-]{1,80}", route)
+        or not isinstance(data, dict)
+        or len(data) > 30
+    ):
+        return
+    for key, value in data.items():
+        if not isinstance(key, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", key):
+            return
+        if type(value) not in {str, int, float, bool}:
+            return
+        if isinstance(value, str) and len(value) > 240:
+            return
+        if isinstance(value, float) and not math.isfinite(value):
+            return
+    try:
+        if len(json.dumps(data, ensure_ascii=False, allow_nan=False)) > 1024:
+            return
+    except (TypeError, ValueError):
+        return
+    if not _CAPACITY.acquire(blocking=False):
+        return
+    try:
+        future = _EXECUTOR.submit(
+            _deliver_server_event, app, event_name, route, dict(data)
+        )
+    except Exception:
+        _CAPACITY.release()
+        return
+    future.add_done_callback(lambda _future: _CAPACITY.release())

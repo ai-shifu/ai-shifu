@@ -8,6 +8,34 @@ reporting path, while broader memory, Ask, and classroom readiness remain open.
 
 ## Progress
 
+- [x] 2026-10-15 01:31 CST: Commit seven synthetic native SDK and eight formatter
+      counterexamples with blocked I/O and a clean-checkout command. Private
+      classroom provenance remains separate; no new model run or runtime change.
+
+- [x] 2026-10-15: Re-fetch main 33f5ba47c and retain failed #3137. Seven
+      private native SDK cases and eight unchanged formatter controls falsify
+      required/nullable and code/table-only coverage gates. They neither fix
+      arbitrary model prose nor justify another paid run. No product/runtime,
+      course, learner or budget change; original 46.09-credit failure remains.
+      See the computed-example plan for exact positive and negative controls.
+
+- [x] 2026-10-14: Rebase new work on actual main 33f5ba47c with #3134's shared
+      formatter, #3135's 3.0.0 version and #3136's first-progress notification.
+      Start the independent [computed-example plan](mdf2-computed-examples.md):
+      an optional existing interaction payload computes and renders a bounded
+      program's own numeric states without another model request. Controlled
+      delivery/storage checks are separate from prose/request/author compliance.
+      This candidate has no #3122 prompt strategy. Code head 1d8f5ee8e passes
+      eleven checks and actual Codex/CodeRabbit reviews. Sim-8cf56ef (build 650 /
+      Drone 5439) is Ready with 73 fingerprints and 531 SDK/logging checks per API.
+      A fresh balanced learner fails the first knowledge follow-up: prose claims
+      two iterations but the labelled ADD loop body executes once; arithmetic
+      and termination are correct. All four follow-up inputs offer the computed
+      object, but the model omits it. Two ordinary HTTP requests/five generations
+      settle 46.09 credits with raw evidence and exact typed history binding.
+      No questions, summary or natural compression completed. Preserve all old
+      failures and hold #3137/#3122; do not replay unchanged or expand budgets.
+
 - [x] 2026-10-13: Independently scoped #3123/#3125 run on sim-f67afe0:
       both APIs match 69 files/pass 490 SDK/logging cases, integration passes
       3890 plus 50 subtests/two expected skips. New ordinary-HTTP learner stops
