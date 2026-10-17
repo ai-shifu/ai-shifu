@@ -75,7 +75,7 @@ def _deliver(url: str, payload: dict[str, object]) -> None:
             json={"type": "event", "payload": payload},
             # Umami's bot filter matches "server" in user agents. Use a fixed
             # application identity without forwarding the client's user agent.
-            headers={"User-Agent": "Mozilla/5.0 AIShifu/1.0"},
+            headers={"User-Agent": "Mozilla/5.0 AI-Shifu-Backend/1.0"},
             timeout=(0.25, 0.5),
         )
     except Exception:

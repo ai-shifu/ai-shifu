@@ -101,6 +101,11 @@ internal session-link failure. Storage and UI readback remain necessary.
 
 ## Decision Log
 
+- 2026-10-17 user review: name the shared sender's application UA
+  `Mozilla/5.0 AI-Shifu-Backend/1.0`. Keep its payloads and triggers unchanged;
+  CLI pageviews continue using the real-release CLI UA. Verify the backend
+  identity against the same target isbot 5.2.2.
+
 - 2026-10-17 user review: replace the original eight-family presence-only
   detector with detect_agent.md 0.1.5 at 9eee13e. Implement its full 35-ID
   result contract locally and retain evidence internally; report only declared

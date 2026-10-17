@@ -181,7 +181,7 @@ def test_delivery_uses_application_identity_accepted_by_collector_bot_filter(
             ("https://analytics.example.test/api/send",),
             {
                 "json": {"type": "event", "payload": payload},
-                "headers": {"User-Agent": "Mozilla/5.0 AIShifu/1.0"},
+                "headers": {"User-Agent": "Mozilla/5.0 AI-Shifu-Backend/1.0"},
                 "timeout": (0.25, 0.5),
             },
         )

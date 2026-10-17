@@ -70,6 +70,11 @@ assert.equal(
   true,
   "Grok-Bot is an intentional negative control",
 );
+assert.equal(
+  isbot("Mozilla/5.0 AI-Shifu-Backend/1.0"),
+  false,
+  "The shared backend sender UA must pass the bot check",
+);
 console.log(
-  `CLI UAs: ${samples.length} real-version samples accepted; Grok-Bot filtered (isbot ${version}).`,
+  `CLI UAs: ${samples.length} real-version samples and the backend UA accepted; Grok-Bot filtered (isbot ${version}).`,
 );

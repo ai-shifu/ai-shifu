@@ -207,6 +207,10 @@ authorization events, and all other shared-sender callers. Valid Skill metadata
 continues suppressing the old external-course journey events. Do not sum those
 stage events with request records or infer command counts from request counts.
 
+Shared backend events use HTTP UA `Mozilla/5.0 AI-Shifu-Backend/1.0`; the
+fixed `1.0` is its reporting identity version. Their payloads and triggers remain
+unchanged. CLI pageviews retain their separate real-release CLI UA above.
+
 Queries accept historical custom v1 and v2 pageview plus fixed tag. Historical
 v1 lacks method and is not required to satisfy the new seven-field contract.
 Use successful requests for existing Skill active-account/cohort metrics, but
