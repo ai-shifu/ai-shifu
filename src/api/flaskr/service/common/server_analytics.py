@@ -122,12 +122,12 @@ def track_cli_request_pageview(
         SKILL_API_ROUTE_TEMPLATES,
         SKILL_ID,
         _is_caller_agent_metadata,
-        _is_release_version,
+        _is_cli_version,
     )
 
     if (
         not user_id
-        or not _is_release_version(skill_version)
+        or not _is_cli_version(skill_version)
         or not _is_caller_agent_metadata(caller_agent, caller_agent_name)
         or operation not in SKILL_API_OPERATIONS.values()
         or outcome not in {"success", "failure"}

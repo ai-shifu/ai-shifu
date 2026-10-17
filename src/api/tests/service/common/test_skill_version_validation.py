@@ -69,10 +69,38 @@ def test_is_release_version_rejects_malformed_or_oversized_values(version: str) 
 
 
 @pytest.mark.parametrize(
+    "version", ["0.0.0", "2.7.1", "001.02.003", "123456.000000.999999"]
+)
+def test_is_cli_version_accepts_bounded_numeric_releases(version: str) -> None:
+    assert analytics._is_cli_version(version)
+
+
+@pytest.mark.parametrize(
+    "version",
+    [
+        "2.7.1-rc.1",
+        "2.7.1+build.2",
+        "2.7.1-rc.1+private-data",
+        "1.2.3+" + "a" * 58,
+        "1234567.2.3",
+        "1.1234567.3",
+        "1.2.1234567",
+        "１.２.３",
+        "1.2.3\n",
+        "1.2",
+    ],
+)
+def test_is_cli_version_rejects_suffixes_and_unbounded_numeric_parts(
+    version: str,
+) -> None:
+    assert not analytics._is_cli_version(version)
+
+
+@pytest.mark.parametrize(
     ("version", "valid"),
     [
-        ("001.02.003-rc.1+build.2", True),
-        ("1.2.3+" + "a" * 58, True),
+        ("001.02.003", True),
+        ("123456.000000.999999", True),
         ("1.2." + "0" * 59 + "!", False),
         ("1.2.3+" + "a" * 59, False),
     ],

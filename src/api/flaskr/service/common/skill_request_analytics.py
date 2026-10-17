@@ -214,6 +214,17 @@ def _is_release_version(version: str) -> bool:
     )
 
 
+def _is_cli_version(version: str) -> bool:
+    """Allow only the bounded numeric release versions emitted by the CLI."""
+    if not _is_release_version(version):
+        return False
+    components = version.split(".")
+    return len(components) == 3 and all(
+        1 <= len(part) <= 6 and part.isascii() and part.isdecimal()
+        for part in components
+    )
+
+
 def _is_caller_agent_metadata(caller_agent: str, caller_agent_name: str) -> bool:
     """Validate the CLI's enum and display name without rendering its label."""
     if caller_agent not in CALLER_AGENTS or caller_agent_name not in CALLER_AGENT_NAMES:
@@ -238,7 +249,7 @@ def _request_metadata() -> _SkillRequest | None:
     version = request.headers.get("X-AI-Shifu-Skill-Version", "")
     caller_agent = request.headers.get("X-AI-Shifu-Caller-Agent", "")
     caller_agent_name = request.headers.get("X-AI-Shifu-Caller-Agent-Name", "")
-    if not _is_release_version(version) or not _is_caller_agent_metadata(
+    if not _is_cli_version(version) or not _is_caller_agent_metadata(
         caller_agent, caller_agent_name
     ):
         return None

@@ -72,6 +72,11 @@ preserving all Web behavior and legacy shared-sender callers.
   version 3.4.0. This task did not upgrade or mutate the collector. Actual
   backend/CLI record, UI, and identity-link readback remain open.
 
+- [x] 2026-10-17 UTC: Review privacy follow-up: restrict versions at both the
+  request and sender boundaries to the CLI's three ASCII numeric components,
+  each 1–6 digits, without prerelease/build suffixes. All 477 backend common
+  tests pass; arbitrary version-label text cannot enter collector UAs.
+
 ## Surprises & Discoveries
 
 The current CLI no longer emits the old direct events or entry-source marker.

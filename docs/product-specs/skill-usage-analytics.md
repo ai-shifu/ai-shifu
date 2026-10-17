@@ -24,7 +24,7 @@ The Skill CLI adds these headers to authenticated business requests:
 | Header | Accepted value |
 | --- | --- |
 | `X-AI-Shifu-Skill` | `ai-shifu-course-creator` |
-| `X-AI-Shifu-Skill-Version` | Bounded ASCII semantic version of the bundled CLI/Skill release; its full version appears in the HTTP UA and its major bucket appears in data |
+| `X-AI-Shifu-Skill-Version` | Installed CLI/Skill release: three ASCII numeric components, each 1–6 digits, without prerelease/build suffixes; its full version appears in the HTTP UA and its major bucket appears in data |
 | `X-AI-Shifu-Caller-Agent` | One of the 35 canonical IDs in the client table below, or `unknown` |
 | `X-AI-Shifu-Caller-Agent-Name` | Fixed CLI-generated display label from the client table below; must match the Agent enum |
 
@@ -116,7 +116,9 @@ identify, identity rules, events, pageviews, or UA.
 
 HTTP User-Agent is `Mozilla/5.0 AI-Shifu-CLI/<installed version> (<UA name>)`,
 for example `Mozilla/5.0 AI-Shifu-CLI/2.0.0 (Codex)`. The backend generates it
-from the validated version and display label; it never forwards a client UA. Do not set
+from the validated numeric release and display label; it never forwards a client UA.
+Both request metadata and the sender reject version suffixes so arbitrary text
+cannot enter the UA through a prerelease or build label. Do not set
 `payload.userAgent`, forward the client UA, send `x-umami-cache`, or share a
 collector cache across requests or Agents. Different Agent UAs separate
 sessions under Umami 3.4; `payload.os` alone does not separate sessions.
