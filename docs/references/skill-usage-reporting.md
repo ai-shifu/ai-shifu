@@ -99,7 +99,8 @@ command or human visit. Browser/OS native cards classify synthetic clients;
 their counts are not distinct account counts. The shared website's total PV
 increases even though Web tracking and production behavior remain unchanged.
 
-Request compatibility is strictly `hostname='server.ai-shifu'` and either
+Request compatibility requires `hostname='server.ai-shifu'` and
+`skill_id='ai-shifu-course-creator'` for both versions, plus either
 historical `event_type=2` with `event_name='skill_api_request_v1'`, or v2
 `event_type=1` with a null event name and `tag='skill_api_request_v2'`.
 V2 requires exactly the seven allowlisted typed properties and the current
@@ -182,7 +183,7 @@ WITH parameters AS (
          nullif(s.distinct_id, '') AS distinct_id,
          (e.created_at AT TIME ZONE 'Asia/Shanghai')::date AS day,
          e.event_name, e.event_type, e.hostname, e.tag,
-         properties.operation, properties.outcome, properties.method,
+         properties.skill_id, properties.operation, properties.outcome, properties.method,
          properties.valid_v2_properties,
          properties.caller_agent AS raw_caller_agent,
          CASE WHEN properties.caller_agent IN
@@ -194,7 +195,8 @@ WITH parameters AS (
   JOIN session s ON s.website_id = e.website_id
                 AND s.session_id = e.session_id
   LEFT JOIN LATERAL (
-    SELECT max(string_value) FILTER (WHERE data_key = 'operation') AS operation,
+    SELECT max(string_value) FILTER (WHERE data_key = 'skill_id') AS skill_id,
+           max(string_value) FILTER (WHERE data_key = 'operation') AS operation,
            max(string_value) FILTER (WHERE data_key = 'outcome') AS outcome,
            max(string_value) FILTER (WHERE data_key = 'method') AS method,
            max(string_value) FILTER (WHERE data_key = 'caller_agent') AS caller_agent,
@@ -227,6 +229,7 @@ WITH parameters AS (
   SELECT o.* FROM observed o
   JOIN operation_methods m ON m.operation = o.operation
   WHERE hostname = 'server.ai-shifu'
+    AND skill_id = 'ai-shifu-course-creator'
     AND outcome IN ('success', 'failure')
     AND ((event_name = 'skill_api_request_v1' AND event_type = 2)
       OR (event_name IS NULL AND event_type = 1 AND tag = 'skill_api_request_v2'

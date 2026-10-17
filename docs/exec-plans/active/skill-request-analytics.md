@@ -49,6 +49,8 @@ preserving all Web behavior and legacy shared-sender callers.
 - [ ] After separately approved compatible deployment/release, repeat actual
   storage/UI acceptance. Production ingestion remains unverified.
 
+- [x] 2026-10-17 UTC: Review follow-up: restrict historical v1 to the fixed Skill ID; 111 PostgreSQL fixtures pass.
+
 ## Surprises & Discoveries
 
 The current CLI no longer emits the old direct events or entry-source marker.

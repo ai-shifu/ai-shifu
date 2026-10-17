@@ -85,14 +85,10 @@ async function event(
   ]);
   if (name === "skill_api_request_v1" || v2) {
     const properties = {
-      ...(v2
-        ? {
-            skill_id: "ai-shifu-course-creator",
-            skill_version_major: "v2",
-            method,
-            duration_ms: 12,
-          }
-        : {}),
+      skill_id: "ai-shifu-course-creator",
+      skill_version_major: "v2",
+      duration_ms: 12,
+      ...(v2 ? { method } : {}),
       caller_agent: agent,
       operation,
       outcome,
@@ -184,6 +180,14 @@ await event("excluded-pageview-kind", "2026-10-02", {
   eventType: 1,
   host: "cook.test",
 });
+
+// Historical v1 carries six producer fields, including the fixed Skill ID.
+// Sharing the event name and backend hostname must not admit another Skill.
+for (const options of [
+  { propertyOverrides: { skill_id: "other-skill" } },
+  { omitProperties: ["skill_id"] },
+])
+  await event("excluded-v1-skill", "2026-10-02", options);
 
 // Malformed v2 contracts must not contribute requests, account-days, or cohorts.
 for (const options of [
