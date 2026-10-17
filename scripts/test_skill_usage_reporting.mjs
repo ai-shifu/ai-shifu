@@ -425,6 +425,110 @@ assert.deepEqual(
   },
 );
 assert.equal(activity("2026-11-01", "all", withMethods).skill_dau, 1);
+// Canonical detect_agent.md v0.1.5 IDs and historical labels stay as stored.
+const canonicalAgents = [
+  "antigravity",
+  "augment-cli",
+  "claude-code",
+  "cline",
+  "codex",
+  "cowork",
+  "crush",
+  "cue",
+  "cursor",
+  "cursor-cli",
+  "devin",
+  "doubao-work",
+  "gemini-cli",
+  "github-copilot",
+  "goose",
+  "grok-bot",
+  "grok-build",
+  "hermes-agent",
+  "hi",
+  "junie",
+  "kilo-code",
+  "kimi",
+  "kiro",
+  "manus",
+  "muse",
+  "openclaw",
+  "opencode",
+  "pi",
+  "qwenwork",
+  "replit",
+  "sandbase-harness",
+  "trae",
+  "vtcode",
+  "workbuddy",
+  "zed",
+];
+const legacyAgents = [
+  "codex",
+  "claude_code",
+  "cursor",
+  "hermes",
+  "openclaw",
+  "workbuddy",
+  "qoderwork",
+  "grok_bot",
+  "unknown",
+];
+assert.equal(canonicalAgents.length, 35);
+for (const agent of [...canonicalAgents, "unknown"])
+  await event("fixture-method-contract", "2026-11-01", { v2: true, agent });
+for (const agent of legacyAgents)
+  for (const v2 of [false, true])
+    await event("fixture-method-contract", "2026-11-01", { v2, agent });
+for (const agent of ["unlisted-agent", "codex_cli", "grok"])
+  await event("excluded-catalog-agent", "2026-11-01", { v2: true, agent });
+await event("fixture-method-contract", "2026-11-01", { web: true });
+const withCatalog = await report();
+const catalogRows = withCatalog.request_totals.filter(
+  (row) => row.day === "2026-11-01",
+);
+assert.deepEqual(
+  catalogRows.find((row) => row.caller_agent === "all"),
+  {
+    day: "2026-11-01",
+    caller_agent: "all",
+    requests: 77,
+    successful_requests: 77,
+    accounts: 1,
+    sessions: 77,
+    v2_pageviews: 68,
+  },
+);
+assert.equal(catalogRows.length, 41);
+for (const agent of [...canonicalAgents, ...legacyAgents]) {
+  const row = catalogRows.find((row) => row.caller_agent === agent);
+  assert(row, `stored Agent ID must remain queryable: ${agent}`);
+  assert.equal(row.accounts, 1);
+}
+for (const [historical, canonical] of [
+  ["qoderwork", "qwenwork"],
+  ["hermes", "hermes-agent"],
+  ["claude_code", "claude-code"],
+  ["grok_bot", "grok-bot"],
+]) {
+  assert.equal(
+    catalogRows.find((row) => row.caller_agent === historical).requests,
+    2,
+  );
+  assert.equal(
+    catalogRows.find((row) => row.caller_agent === canonical).requests,
+    1,
+  );
+}
+assert.equal(activity("2026-11-01", "all", withCatalog).skill_dau, 1);
+assert.equal(activity("2026-11-01", "all", withCatalog).combined_dau, 1);
+assert.equal(
+  catalogRows
+    .filter((row) => row.caller_agent !== "all")
+    .reduce((sum, row) => sum + row.accounts, 0),
+  40,
+  "canonical and historical Agent labels overlap; aggregate accounts by ID",
+);
 console.log(
   JSON.stringify({
     postgresql: "PGlite",
@@ -443,6 +547,10 @@ console.log(
     any_d7: 2,
     oct31_rolling30: 5,
     nov2_rolling30: 3,
+    canonical_agent_ids: 35,
+    stored_agent_labels: 40,
+    catalog_requests: 77,
+    catalog_accounts: 1,
     raw_account_ids_returned: false,
   }),
 );

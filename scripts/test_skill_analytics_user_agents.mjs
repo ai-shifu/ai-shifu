@@ -14,38 +14,62 @@ const { version } = require(
 );
 assert.equal(version, "5.2.2", "Use the target Umami 3.4 isbot dependency");
 
-// Read the producer's literal mapping without importing the Flask application
-// or executing its configuration. Backend tests separately verify exact labels.
+// Execute only the pure UA formatter and its literal exceptions, without
+// importing Flask or application configuration. Read the validated OS catalog.
 const producer = fileURLToPath(
   new URL(
     "../src/api/flaskr/service/common/server_analytics.py",
     import.meta.url,
   ),
 );
-const clients = JSON.parse(
+const requestContract = fileURLToPath(
+  new URL(
+    "../src/api/flaskr/service/common/skill_request_analytics.py",
+    import.meta.url,
+  ),
+);
+const samples = JSON.parse(
   execFileSync(
     "python3",
     [
       "-c",
       `import ast, json, pathlib, sys
 tree = ast.parse(pathlib.Path(sys.argv[1]).read_text())
-mapping = next(node.value for node in tree.body if isinstance(node, ast.Assign)
-    and any(isinstance(target, ast.Name) and target.id == '_SKILL_CLIENTS'
-        for target in node.targets))
-print(json.dumps(ast.literal_eval(mapping)))`,
+selected = [node for node in tree.body
+    if (isinstance(node, ast.Assign) and any(isinstance(target, ast.Name)
+        and target.id == '_CLI_UA_AGENT_NAMES' for target in node.targets))
+    or (isinstance(node, ast.FunctionDef) and node.name == '_cli_user_agent')]
+assert len(selected) == 2
+namespace = {}
+exec(compile(ast.Module(body=selected, type_ignores=[]), sys.argv[1], 'exec'), namespace)
+contract = ast.parse(pathlib.Path(sys.argv[2]).read_text())
+names = next(ast.literal_eval(node.value.args[0]) for node in contract.body
+    if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name)
+        and target.id == 'CALLER_AGENT_NAMES' for target in node.targets))
+versions = ['0.0.0', '2.0.0', '2.0.1', '999999.999999.999999']
+print(json.dumps([[name, version, namespace['_cli_user_agent'](version, name)]
+    for name in sorted(names) for version in versions]))`,
       producer,
+      requestContract,
     ],
     { encoding: "utf8" },
   ),
 );
-assert.equal(Object.keys(clients).length, 9);
-for (const [agent, [, uaName]] of Object.entries(clients)) {
-  const ua = `Mozilla/5.0 AI-Shifu-CLI/1.0 (${uaName})`;
-  assert.equal(isbot(ua), false, `${agent} must pass the collector bot check`);
+assert.equal(new Set(samples.map(([name]) => name)).size, 36);
+for (const [name, release, ua] of samples) {
+  assert.ok(ua.startsWith(`Mozilla/5.0 AI-Shifu-CLI/${release} (`));
 }
+const filtered = samples.filter(([, , ua]) => isbot(ua));
+assert.deepEqual(
+  filtered,
+  [],
+  "All emitted client UAs must pass the bot check",
+);
 assert.equal(
-  isbot("Mozilla/5.0 AI-Shifu-CLI/1.0 (Grok-Bot)"),
+  isbot("Mozilla/5.0 AI-Shifu-CLI/2.0.0 (Grok-Bot)"),
   true,
   "Grok-Bot is an intentional negative control",
 );
-console.log(`Skill client UAs: 9 accepted, Grok-Bot filtered (isbot ${version}).`);
+console.log(
+  `CLI UAs: ${samples.length} real-version samples accepted; Grok-Bot filtered (isbot ${version}).`,
+);

@@ -188,7 +188,7 @@ def test_delivery_uses_application_identity_accepted_by_collector_bot_filter(
     ]
 
 
-def test_skill_event_uses_authenticated_distinct_id_and_exact_private_payload(
+def test_track_cli_request_pageview_uses_authenticated_id_and_exact_private_payload(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     submitted = []
@@ -209,11 +209,12 @@ def test_skill_event_uses_authenticated_distinct_id_and_exact_private_payload(
         "get_config",
         lambda key, default="": settings.get(key, default),
     )
-    server_analytics.track_skill_request_event(
+    server_analytics.track_cli_request_pageview(
         app,
         user_id="authenticated-user",
         skill_version="2.7.1",
-        caller_agent="grok_bot",
+        caller_agent="grok-bot",
+        caller_agent_name="Grok Bot",
         operation="content_save",
         outcome="success",
         duration_ms=250,
@@ -225,7 +226,7 @@ def test_skill_event_uses_authenticated_distinct_id_and_exact_private_payload(
     delivery, collector, identity, pageview, user_agent = submitted[0]
     assert delivery is server_analytics._deliver_skill_request
     assert collector == "https://analytics.example.test/api/send"
-    assert user_agent == "Mozilla/5.0 AI-Shifu-CLI/1.0 (Grok)"
+    assert user_agent == "Mozilla/5.0 AI-Shifu-CLI/2.7.1 (Grok)"
     assert identity == {
         "website": "website-id",
         "id": "authenticated-user",
@@ -242,7 +243,7 @@ def test_skill_event_uses_authenticated_distinct_id_and_exact_private_payload(
         "data": {
             "skill_id": "ai-shifu-course-creator",
             "skill_version_major": "v2",
-            "caller_agent": "grok_bot",
+            "caller_agent": "grok-bot",
             "operation": "content_save",
             "method": "POST",
             "outcome": "success",
@@ -254,7 +255,7 @@ def test_skill_event_uses_authenticated_distinct_id_and_exact_private_payload(
 
 
 @pytest.mark.parametrize("capacity_full", [True, False])
-def test_skill_event_queue_saturation_or_submit_failure_is_fail_open(
+def test_track_cli_request_pageview_queue_saturation_or_submit_failure_is_fail_open(
     app: object, monkeypatch: pytest.MonkeyPatch, capacity_full: bool
 ) -> None:
     capacity = BoundedSemaphore(1)
@@ -278,11 +279,12 @@ def test_skill_event_queue_saturation_or_submit_failure_is_fail_open(
         raise RuntimeError(message)
 
     monkeypatch.setattr(server_analytics._EXECUTOR, "submit", fail)
-    server_analytics.track_skill_request_event(
+    server_analytics.track_cli_request_pageview(
         app,
         user_id="authenticated-user",
         skill_version="2.7.1",
         caller_agent="unknown",
+        caller_agent_name="Unknown Agent",
         operation="course_list",
         outcome="success",
         duration_ms=1,
@@ -300,23 +302,52 @@ def test_skill_event_queue_saturation_or_submit_failure_is_fail_open(
 @pytest.mark.parametrize(
     ("caller_agent", "os_name", "ua_name"),
     [
-        ("codex", "Codex", "Codex"),
-        ("claude_code", "Claude Code", "Claude-Code"),
-        ("cursor", "Cursor", "Cursor"),
-        ("hermes", "Hermes", "Hermes"),
-        ("openclaw", "OpenClaw", "OpenClaw"),
+        ("crush", "Crush", "Crush"),
+        ("hermes-agent", "Hermes Agent", "Hermes"),
+        ("kilo-code", "Kilo Code", "Kilo Code"),
+        ("trae", "TRAE", "TRAE"),
+        ("vtcode", "VT Code", "VT Code"),
         ("workbuddy", "WorkBuddy", "WorkBuddy"),
-        ("qoderwork", "QoderWork", "QoderWork"),
-        ("grok_bot", "Grok Bot", "Grok"),
+        ("grok-bot", "Grok Bot", "Grok"),
+        ("qwenwork", "QwenWork", "QwenWork"),
+        ("cue", "Cue", "Cue"),
+        ("muse", "Muse", "Muse"),
+        ("manus", "Manus", "Manus"),
+        ("doubao-work", "Doubao Work", "Doubao Work"),
+        ("kimi", "Kimi Code", "Kimi Code"),
+        ("grok-build", "Grok Build", "Grok-Build"),
+        ("gemini-cli", "Gemini CLI", "Gemini CLI"),
+        ("cline", "Cline", "Cline"),
+        ("codex", "Codex", "Codex"),
+        ("antigravity", "Antigravity", "Antigravity"),
+        ("augment-cli", "Augment CLI", "Augment CLI"),
+        ("opencode", "opencode", "opencode"),
+        ("goose", "Goose", "Goose"),
+        ("junie", "Junie", "Junie"),
+        ("pi", "Pi", "Pi"),
+        ("cowork", "Claude Cowork", "Claude Cowork"),
+        ("claude-code", "Claude Code", "Claude-Code"),
+        ("cursor-cli", "Cursor CLI", "Cursor CLI"),
+        ("kiro", "Kiro", "Kiro"),
+        ("openclaw", "OpenClaw", "OpenClaw"),
+        ("github-copilot", "GitHub Copilot", "GitHub Copilot"),
+        ("replit", "Replit", "Replit"),
+        ("devin", "Devin", "Devin"),
+        ("cursor", "Cursor", "Cursor"),
+        ("zed", "Zed", "Zed"),
+        ("hi", "hi", "hi"),
+        ("sandbase-harness", "SandBase Harness", "SandBase Harness"),
         ("unknown", "Unknown Agent", "Unknown"),
     ],
 )
-def test_skill_client_mapping_is_exact_and_each_agent_has_its_own_ua(
+@pytest.mark.parametrize("skill_version", ["2.7.1", "2.7.2"])
+def test_track_cli_request_pageview_uses_cli_display_name_and_real_version(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     caller_agent: str,
     os_name: str,
     ua_name: str,
+    skill_version: str,
 ) -> None:
     submitted = []
 
@@ -336,11 +367,12 @@ def test_skill_client_mapping_is_exact_and_each_agent_has_its_own_ua(
             else "same-web-website"
         ),
     )
-    server_analytics.track_skill_request_event(
+    server_analytics.track_cli_request_pageview(
         app,
         user_id="same-authenticated-account",
-        skill_version="2.7.1",
+        skill_version=skill_version,
         caller_agent=caller_agent,
+        caller_agent_name=os_name,
         operation="course_list",
         method="GET",
         outcome="success",
@@ -352,10 +384,9 @@ def test_skill_client_mapping_is_exact_and_each_agent_has_its_own_ua(
     _, _, identity, pageview, user_agent = submitted[0]
     assert identity["os"] == pageview["os"] == os_name
     assert identity["id"] == pageview["id"] == "same-authenticated-account"
-    assert user_agent == f"Mozilla/5.0 AI-Shifu-CLI/1.0 ({ua_name})"
+    assert user_agent == f"Mozilla/5.0 AI-Shifu-CLI/{skill_version} ({ua_name})"
     assert "name" not in pageview
     assert "data" not in identity
-    assert len({label[1] for label in server_analytics._SKILL_CLIENTS.values()}) == 9
 
 
 @pytest.mark.parametrize("identify_failure", [False, True])
@@ -384,14 +415,14 @@ def test_skill_delivery_attempts_identify_then_pageview_without_cache(
         "https://analytics.example.test/api/send",
         identity,
         pageview,
-        "Mozilla/5.0 AI-Shifu-CLI/1.0 (Codex)",
+        "Mozilla/5.0 AI-Shifu-CLI/2.7.1 (Codex)",
     )
     assert calls == [
         (
             ("https://analytics.example.test/api/send",),
             {
                 "json": {"type": kind, "payload": payload},
-                "headers": {"User-Agent": "Mozilla/5.0 AI-Shifu-CLI/1.0 (Codex)"},
+                "headers": {"User-Agent": "Mozilla/5.0 AI-Shifu-CLI/2.7.1 (Codex)"},
                 "timeout": (0.25, 0.5),
             },
         )
@@ -435,6 +466,16 @@ def test_skill_collector_acknowledgement_rejects_bot_filter_and_invalid_response
     "invalid",
     [
         {"caller_agent": "private-agent"},
+        {"caller_agent": "claude_code"},
+        {"caller_agent": "hermes"},
+        {"caller_agent": "grok_bot"},
+        {"caller_agent": "qoderwork"},
+        {"caller_agent_name": "private-agent"},
+        {"caller_agent_name": "Codex"},
+        {"caller_agent_name": "Unknown Agent (private-data)"},
+        {"skill_version": "2.7.1 (private-data)"},
+        {"skill_version": "2.7.1\r\nInjected: true"},
+        {"skill_version": "1.2.3+" + "a" * 59},
         {"operation": "private-operation"},
         {"method": "POST"},
         {"route_template": "/api/shifu/shifus/private-resource"},
@@ -458,6 +499,7 @@ def test_invalid_skill_contract_is_not_queued(
         "user_id": "authenticated-user",
         "skill_version": "2.7.1",
         "caller_agent": "unknown",
+        "caller_agent_name": "Unknown Agent",
         "operation": "course_list",
         "outcome": "success",
         "duration_ms": 1,
@@ -466,7 +508,7 @@ def test_invalid_skill_contract_is_not_queued(
         "timestamp": 1792195200,
         **invalid,
     }
-    server_analytics.track_skill_request_event(app, **arguments)
+    server_analytics.track_cli_request_pageview(app, **arguments)
 
 
 def test_skill_pair_occupies_one_queue_slot_and_keeps_captured_timestamp(
@@ -496,6 +538,7 @@ def test_skill_pair_occupies_one_queue_slot_and_keeps_captured_timestamp(
         "user_id": "authenticated-user",
         "skill_version": "2.7.1",
         "caller_agent": "codex",
+        "caller_agent_name": "Codex",
         "operation": "course_list",
         "outcome": "success",
         "duration_ms": 1,
@@ -503,8 +546,8 @@ def test_skill_pair_occupies_one_queue_slot_and_keeps_captured_timestamp(
         "method": "GET",
         "timestamp": 1792195200,
     }
-    server_analytics.track_skill_request_event(app, **arguments)
-    server_analytics.track_skill_request_event(app, **arguments)
+    server_analytics.track_cli_request_pageview(app, **arguments)
+    server_analytics.track_cli_request_pageview(app, **arguments)
     assert len(submitted) == 1
     assert not capacity.acquire(blocking=False)
 
@@ -540,11 +583,12 @@ def test_skill_missing_configuration_is_fail_open(
         "submit",
         lambda *_args: pytest.fail("missing configuration"),
     )
-    server_analytics.track_skill_request_event(
+    server_analytics.track_cli_request_pageview(
         app,
         user_id="authenticated-user",
         skill_version="2.7.1",
         caller_agent="codex",
+        caller_agent_name="Codex",
         operation="course_list",
         outcome="success",
         duration_ms=0,

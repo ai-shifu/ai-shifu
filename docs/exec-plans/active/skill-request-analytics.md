@@ -55,6 +55,18 @@ preserving all Web behavior and legacy shared-sender callers.
 
 - [x] 2026-10-17 UTC: Review follow-up: skip process-TZ testing where time.tzset is unavailable; preserve the UTC regression on supported platforms.
 
+- [x] 2026-10-17 UTC: Implement detect_agent.md 0.1.5 at 9eee13e locally;
+  pass 170 pinned conformance cases and 39 inline examples. CLI generates
+  all 35 canonical display labels and sends the fourth metadata header.
+- [x] 2026-10-17 UTC: Validate all 36 actual CLI/backend label pairs, use real
+  bundled versions in backend-generated UA, and pass 144 isbot samples.
+  Keep Hermes Agent/Grok Bot OS labels while using safe Hermes/Grok UA tokens.
+- [x] 2026-10-17 UTC: Expand historical reporting to 40 stored Agent IDs;
+  169 PostgreSQL fixture events retain cross-channel account deduplication.
+
+- [x] 2026-10-17 UTC: Pass 457 backend common tests, 309 Skill tests, 167
+  release-tool tests, full repository gates, and four-channel local packaging.
+
 ## Surprises & Discoveries
 
 The current CLI no longer emits the old direct events or entry-source marker.
@@ -77,6 +89,18 @@ can be a bot-filter response; even a normal acknowledgement can hide an
 internal session-link failure. Storage and UI readback remain necessary.
 
 ## Decision Log
+
+- 2026-10-17 user review: replace the original eight-family presence-only
+  detector with detect_agent.md 0.1.5 at 9eee13e. Implement its full 35-ID
+  result contract locally and retain evidence internally; report only declared
+  or runtime-marker IDs, never promote context hints. Update both producers
+  and historical report allowlists together. No runtime GitHub or SDK call.
+
+- 2026-10-17 user review: the CLI owns Agent detection and display-label
+  generation. Add the display-name header; the backend validates enum/name
+  correspondence and generates the UA with the actual bundled CLI release
+  version. Shared legacy senders keep their own UA. Use CLI terminology for
+  the request producer and retain Skill identifiers as source dimensions.
 
 - Detect fixed environment-name existence once before dotenv. Do not accept
   caller flags or collect values, model, Agent version, or raw environment.
@@ -105,13 +129,16 @@ internal session-link failure. Storage and UI readback remain necessary.
 
 ## Outcomes & Retrospective
 
-The original v1 implementation and its prior smoke checks remain historical
-validation. The v2 revision passes 323 backend common-service tests, 302 Skill
-tests, 167 release-tool tests, and 109 PostgreSQL fixture events. All 23 actual
-routes were independently checked against the exact template map. All nine
-producer UAs pass target isbot 5.2.2; Grok-Bot is filtered. CLI runtime and Web
-files are unchanged. Repository gates and final paired PR updates are recorded
-in Progress. No deployment or actual collector storage/UI acceptance is claimed.
+The v1 and initial eight-family v2 validations remain historical results.
+The current revision follows user review: native detect_agent 0.1.5, 35 canonical
+IDs plus unknown, CLI-generated display labels, and backend-generated real-version
+UAs. The detector's 170 pinned portable cases and 39 inline examples pass; only
+declared/runtime-marker results qualify for outbound Agent classification.
+Cross-repository checks confirm all 36 labels match backend validation, and 144
+real-version UAs pass target isbot 5.2.2. Grok-Bot remains a filtered negative
+control; Hermes Agent needs the safe Hermes UA token. Reporting passes 169
+PostgreSQL fixtures and preserves legacy IDs instead of renaming history.
+Actual storage/UI acceptance remains open; production ingestion is not claimed.
 
 ## Context and Orientation
 
@@ -126,8 +153,8 @@ context for its consumers, not the new request series.
 
 Preserve request eligibility, authentication, outcome handling, and once-only
 consumption. Add safe matched-template routing and capture UTC seconds before
-queueing one identify/pageview pair. Generate all client labels and distinct
-UA values from the backend enum. Preserve shared sender behavior. In the new
+queueing one identify/pageview pair. Generate display labels in the CLI and validate them in the backend;
+generate distinct real-version UA values only in the backend. Preserve shared sender behavior. In the new
 Skills worktree update canonical analytics and opt-out disclosure. Update
 versioned product contract, mixed-history SQL and synthetic regression fixtures.
 
@@ -170,7 +197,7 @@ unit tests or HTTP acknowledgements cannot close this external acceptance.
 
 ## Idempotence and Recovery
 
-Removing the three headers opts a request out without changing its business
+Removing the four metadata headers opts a request out without changing its business
 payload. Unavailable analytics loses events rather than blocking requests.
 Separate retried requests can produce repeated events; account-day metrics
 deduplicate. Backend rollback and Skill rollback are independently safe.
@@ -179,7 +206,7 @@ Do not persist inferred Agent identity into user/token/course records.
 ## Interfaces and Dependencies
 
 Use existing Flask lifecycle/authentication, requests-based Umami transport,
-and existing browser identity. No new external runtime dependency. The three
+and existing browser identity. No new external runtime dependency. The four metadata
 headers and pageview schema are owned by the linked spec. Aggregate consumers
 must join Umami sessions by distinct identity, not assume sessions or synthetic
 backend hostnames identify individual accounts.

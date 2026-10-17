@@ -24,49 +24,63 @@ The Skill CLI adds these headers to authenticated business requests:
 | Header | Accepted value |
 | --- | --- |
 | `X-AI-Shifu-Skill` | `ai-shifu-course-creator` |
-| `X-AI-Shifu-Skill-Version` | Bounded ASCII semantic version; only its major bucket reaches Umami |
-| `X-AI-Shifu-Caller-Agent` | `codex`, `claude_code`, `cursor`, `hermes`, `openclaw`, `workbuddy`, `qoderwork`, `grok_bot`, `unknown` |
+| `X-AI-Shifu-Skill-Version` | Bounded ASCII semantic version of the bundled CLI/Skill release; its full version appears in the HTTP UA and its major bucket appears in data |
+| `X-AI-Shifu-Caller-Agent` | One of the 35 canonical IDs in the client table below, or `unknown` |
+| `X-AI-Shifu-Caller-Agent-Name` | Fixed CLI-generated display label from the client table below; must match the Agent enum |
 
-These are outbound HTTP metadata generated inside the CLI, not CLI flags or
-identity supplied by the invoking Agent. The detector checks only the
-existence of a fixed allowlist of process environment names, once before
-loading dotenv or profile configuration. Values, process lists, configuration
-files, hooks, and Agent APIs are not used for Agent detection. The Skill's
-version comes from its own package metadata. `SHIFU_DISABLE_ANALYTICS=1`, set
-in the process or Skill dotenv configuration, omits all three headers.
+These are outbound metadata generated inside the CLI, not CLI parameters.
+The CLI is bundled with the Skill and uses the same installed release version.
+It detects the Agent and generates the display label; the backend validates
+both allowlists and their correspondence, then generates the UA. Missing or
+invalid display metadata takes the existing invalid-metadata path. Older
+clients without valid metadata keep their legacy behavior.
 
-| Agent result | Presence keys |
-| --- | --- |
-| `codex` | `CODEX_THREAD_ID`, `CODEX_SESSION_ID` |
-| `claude_code` | `CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION` |
-| `cursor` | `CURSOR_AGENT` |
-| `hermes` | `HERMES_AGENT`, `HERMES_SESSION_ID` |
-| `openclaw` | `OPENCLAW_SHELL` |
-| `workbuddy` | `WORKBUDDY_CONFIG_DIR` |
-| `qoderwork` | `QODERWORK_IS_CN`, `QODERWORK_SOURCE_CHAT_ID` |
-| `grok_bot` | `SAND_AGENT` |
+### Agent detection: pinned detect_agent.md 0.1.5
 
-Multiple keys for one Agent collapse to one match. `SAND_AGENT` suppresses
-the shared `CURSOR_AGENT` signal because Grok Bot's local executor injects
-both. Other multiple-Agent matches and no matches produce `unknown`.
-`qoderwork` identifies the QoderWork / Qwen Work product family, not a region
-or brand inferred from a variable value. Doubao Work, Muse, Manus, and Cue have
-no confirmed Skill subprocess marker in this implementation.
+Implement the [requested specification](https://github.com/ai-shifu/detect_agent/blob/9eee13ebdd8dcee22bd90b03125fa9f509a80be1/detect_agent.md)
+locally in Python, pinned to commit `9eee13ebdd8dcee22bd90b03125fa9f509a80be1`.
+There is no runtime GitHub request, SDK, vendor API, or external dependency.
+The detector returns internal `agent_id` and `evidence`, evaluates the supplied
+lookup provider when called, and preserves its name-case semantics. The CLI
+calls it before dotenv/profile loading for each invocation; it does not keep a
+process-lifetime detection cache.
 
-These markers are compatibility heuristics, not a trusted identity protocol.
-Inherited or manually set markers can misattribute a caller; nested Agents
-may be ambiguous. Shells can clear variables. Grok Bot's local Bash/Zsh
-propagation was inspected in 0.71.2, WorkBuddy in 5.8.2, and Qwen Work in 1.2.5;
-this is static package evidence, not a promise about their cloud execution or
-future versions. Report `unknown` separately rather than guessing. No model
-or Agent version is reported.
+- Explicit `AI_AGENT`, then `AGENT` declarations take precedence. Apply only
+  ASCII trim/lowercase and documented declaration aliases. An unrecognized
+  nonempty declaration blocks marker fallback and reports unknown.
+- Evaluate all 28 runtime rules in specification order, preserving AND/OR
+  groups. First match wins; simultaneous independent markers are no longer
+  automatically treated as a conflict.
+- Ordinary markers use nonempty checks: empty strings fail; `0`, `false`, and
+  whitespace pass. Only `GROK_AGENT=1` and
+  `CURSOR_EXTENSION_HOST_ROLE=agent-exec` use exact runtime comparisons.
+- Evaluate the eight context hints after runtime rules. The pure detector
+  supports supplied filesystem/TTY probes for conformance; CLI invocation
+  supplies neither and does not scan files or parent processes. Context-only
+  evidence is never promoted to Agent execution.
+- Publish a canonical ID only for `declared` or `runtime-marker` evidence;
+  null IDs, `context-hint`, and `none` produce `unknown` / `Unknown Agent`.
+  Evidence remains internal and does not add an event property.
+
+Read only listed variable names. Values are compared locally as the specification
+requires; never enumerate, log, transmit, or persist environment values, paths,
+session IDs, credentials, or models. These signals identify an associated
+process environment, not a trusted immediate caller or authenticated account.
+Inherited or manually set markers can still misattribute activity.
+
+Inline and pinned supplementary conformance cases cover declaration Unicode,
+lookup casing, nonempty/exact semantics, priority, compound rules, context hints,
+and changing providers. Vendored test data retains MIT attribution. Rule changes
+require an explicit source revision and coordinated producer/consumer tests.
+`SHIFU_DISABLE_ANALYTICS=1`, in the process or Skill dotenv configuration, omits
+all four metadata headers without changing authentication or business results.
 
 ## Pageview contract: `skill_api_request_v2`
 
 - Decision: measure authenticated Skill adoption, operation mix, failures, and
   return usage in Umami, with native Pages, Browser, OS, and account activity.
 - Actor: an account-authenticated, allowlisted endpoint/method request carrying
-  all three valid Skill headers. Exclude login, device polling, verification,
+  all four valid CLI metadata headers. Exclude login, device polling, verification,
   configuration, update checks, local commands, unauthenticated requests, and
   missing or invalid metadata. Existing endpoint/authentication scope is unchanged.
 - Trigger: response preparation completes once per HTTP request, including
@@ -100,26 +114,59 @@ identify, identity rules, events, pageviews, or UA.
 | `tag` | Pageview fixed `skill_api_request_v2` |
 | `timestamp` | Integer Unix seconds captured in UTC at response preparation, before queue submission |
 
-HTTP User-Agent is `Mozilla/5.0 AI-Shifu-CLI/1.0 (<UA name>)`. Its `1.0` is a
-fixed reporting protocol, unrelated to Skill releases. Do not set
+HTTP User-Agent is `Mozilla/5.0 AI-Shifu-CLI/<installed version> (<UA name>)`,
+for example `Mozilla/5.0 AI-Shifu-CLI/2.0.0 (Codex)`. The backend generates it
+from the validated version and display label; it never forwards a client UA. Do not set
 `payload.userAgent`, forward the client UA, send `x-umami-cache`, or share a
 collector cache across requests or Agents. Different Agent UAs separate
 sessions under Umami 3.4; `payload.os` alone does not separate sessions.
+A CLI upgrade changes the UA and may create a new session; distinct account
+identity and cross-channel account deduplication remain unchanged.
 
-| caller_agent | os | UA name |
+| caller_agent | CLI-generated os | Backend UA token |
 | --- | --- | --- |
+| `antigravity` | `Antigravity` | `Antigravity` |
+| `augment-cli` | `Augment CLI` | `Augment CLI` |
+| `claude-code` | `Claude Code` | `Claude-Code` |
+| `cline` | `Cline` | `Cline` |
 | `codex` | `Codex` | `Codex` |
-| `claude_code` | `Claude Code` | `Claude-Code` |
+| `cowork` | `Claude Cowork` | `Claude Cowork` |
+| `crush` | `Crush` | `Crush` |
+| `cue` | `Cue` | `Cue` |
 | `cursor` | `Cursor` | `Cursor` |
-| `hermes` | `Hermes` | `Hermes` |
+| `cursor-cli` | `Cursor CLI` | `Cursor CLI` |
+| `devin` | `Devin` | `Devin` |
+| `doubao-work` | `Doubao Work` | `Doubao Work` |
+| `gemini-cli` | `Gemini CLI` | `Gemini CLI` |
+| `github-copilot` | `GitHub Copilot` | `GitHub Copilot` |
+| `goose` | `Goose` | `Goose` |
+| `grok-bot` | `Grok Bot` | `Grok` |
+| `grok-build` | `Grok Build` | `Grok-Build` |
+| `hermes-agent` | `Hermes Agent` | `Hermes` |
+| `hi` | `hi` | `hi` |
+| `junie` | `Junie` | `Junie` |
+| `kilo-code` | `Kilo Code` | `Kilo Code` |
+| `kimi` | `Kimi Code` | `Kimi Code` |
+| `kiro` | `Kiro` | `Kiro` |
+| `manus` | `Manus` | `Manus` |
+| `muse` | `Muse` | `Muse` |
 | `openclaw` | `OpenClaw` | `OpenClaw` |
-| `workbuddy` | `WorkBuddy` | `WorkBuddy` |
-| `qoderwork` | `QoderWork` | `QoderWork` |
-| `grok_bot` | `Grok Bot` | `Grok` |
+| `opencode` | `opencode` | `opencode` |
+| `pi` | `Pi` | `Pi` |
+| `qwenwork` | `QwenWork` | `QwenWork` |
+| `replit` | `Replit` | `Replit` |
+| `sandbase-harness` | `SandBase Harness` | `SandBase Harness` |
+| `trae` | `TRAE` | `TRAE` |
 | `unknown` | `Unknown Agent` | `Unknown` |
+| `vtcode` | `VT Code` | `VT Code` |
+| `workbuddy` | `WorkBuddy` | `WorkBuddy` |
+| `zed` | `Zed` | `Zed` |
 
-All values are generated by backend enum mappings. `Grok-Bot` must not appear
+The CLI generates OS display labels. The backend validates the enum/name pair
+and formats only the UA token exceptions shown above; it does not render OS
+labels from an enum-to-display mapping. `Grok-Bot` must not appear
 in the UA because it matches the bot filter; `Grok Bot` remains the OS label.
+Likewise, `Hermes Agent` is retained as OS while its UA token is `Hermes`.
 Do not disable bot checks or set `DISABLE_BOT_CHECK`.
 
 ### Safe routes and event data
@@ -210,7 +257,7 @@ check cross-session native Activity and aggregate results. Sending logs or
 HTTP 200 do not satisfy acceptance. Keep test traffic separate and report
 coverage gaps rather than zero activity.
 
-Regressions cover presence-only detection and dotenv isolation, fixed UAs
+Regressions cover pinned detection conformance and dotenv isolation, real-version UAs
 against the target isbot version, all client/identity/time fields, safe routes,
 privacy, authentication/exclusions/opt-out, HTTP/business failures, download
 nonconsumption, once-only triggering, delayed queue execution, fail-open

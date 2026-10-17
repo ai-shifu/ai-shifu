@@ -32,18 +32,21 @@ _ALLOWED_EVENTS = frozenset(
 _EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="umami-backend")
 _CAPACITY = BoundedSemaphore(32)
 _VERSION_MAJOR = re.compile(r"^[vV]?([0-9]+)(?:\.|$)")
-_SKILL_CLIENTS = {
-    "codex": ("Codex", "Codex"),
-    "claude_code": ("Claude Code", "Claude-Code"),
-    "cursor": ("Cursor", "Cursor"),
-    "hermes": ("Hermes", "Hermes"),
-    "openclaw": ("OpenClaw", "OpenClaw"),
-    "workbuddy": ("WorkBuddy", "WorkBuddy"),
-    "qoderwork": ("QoderWork", "QoderWork"),
+_CLI_UA_AGENT_NAMES = {
+    "Claude Code": "Claude-Code",
+    # "Hermes Agent" matches Umami's bot filter; the OS keeps the full label.
+    "Hermes Agent": "Hermes",
     # "Grok-Bot" matches Umami's bot filter; the OS retains the full label.
-    "grok_bot": ("Grok Bot", "Grok"),
-    "unknown": ("Unknown Agent", "Unknown"),
+    "Grok Bot": "Grok",
+    "Grok Build": "Grok-Build",
+    "Unknown Agent": "Unknown",
 }
+
+
+def _cli_user_agent(skill_version: str, caller_agent_name: str) -> str:
+    """Render a validated CLI release and display name for the collector."""
+    agent_name = _CLI_UA_AGENT_NAMES.get(caller_agent_name, caller_agent_name)
+    return f"Mozilla/5.0 AI-Shifu-CLI/{skill_version} ({agent_name})"
 
 
 def _collector_url(script_url: object) -> str:
@@ -99,12 +102,13 @@ def track_external_client_event(
     )
 
 
-def track_skill_request_event(
+def track_cli_request_pageview(
     _app: Flask,
     *,
     user_id: str,
     skill_version: str,
     caller_agent: str,
+    caller_agent_name: str,
     operation: str,
     outcome: str,
     duration_ms: int,
@@ -114,15 +118,17 @@ def track_skill_request_event(
 ) -> None:
     """Queue one identify/pageview pair under the authenticated account ID."""
     from flaskr.service.common.skill_request_analytics import (
-        CALLER_AGENTS,
         SKILL_API_OPERATIONS,
         SKILL_API_ROUTE_TEMPLATES,
         SKILL_ID,
+        _is_caller_agent_metadata,
+        _is_release_version,
     )
 
     if (
         not user_id
-        or caller_agent not in CALLER_AGENTS
+        or not _is_release_version(skill_version)
+        or not _is_caller_agent_metadata(caller_agent, caller_agent_name)
         or operation not in SKILL_API_OPERATIONS.values()
         or outcome not in {"success", "failure"}
         or type(duration_ms) is not int
@@ -143,14 +149,13 @@ def track_skill_request_event(
         return
     if not collector_url or not website_id or not _CAPACITY.acquire(blocking=False):
         return
-    os_name, agent_name = _SKILL_CLIENTS[caller_agent]
-    user_agent = f"Mozilla/5.0 AI-Shifu-CLI/1.0 ({agent_name})"
+    user_agent = _cli_user_agent(skill_version, caller_agent_name)
     identity: dict[str, object] = {
         "website": website_id,
         "id": user_id,
         "timestamp": timestamp,
         "browser": "AI-Shifu CLI",
-        "os": os_name,
+        "os": caller_agent_name,
         "device": "desktop",
     }
     pageview = {

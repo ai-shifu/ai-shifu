@@ -19,6 +19,7 @@ HEADERS = {
     "X-AI-Shifu-Skill": "ai-shifu-course-creator",
     "X-AI-Shifu-Skill-Version": "2.7.1",
     "X-AI-Shifu-Caller-Agent": "codex",
+    "X-AI-Shifu-Caller-Agent-Name": "Codex",
 }
 COURSE = "/api/shifu/shifus/private-course"
 
@@ -28,7 +29,7 @@ def events(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
     recorded = []
     monkeypatch.setattr(
         analytics,
-        "track_skill_request_event",
+        "track_cli_request_pageview",
         lambda _app, **kwargs: recorded.append(kwargs),
     )
     monkeypatch.setattr(
@@ -72,6 +73,7 @@ def test_one_event_uses_authenticated_cookie_identity_and_bounded_metadata(
             "user_id": "cookie-user",
             "skill_version": "2.7.1",
             "caller_agent": "codex",
+            "caller_agent_name": "Codex",
             "operation": "course_list",
             "outcome": "success",
             "duration_ms": 250,
@@ -92,8 +94,38 @@ def test_one_event_uses_authenticated_cookie_identity_and_bounded_metadata(
         {**HEADERS, "X-AI-Shifu-Skill-Version": "２.７.１"},
         {**HEADERS, "X-AI-Shifu-Skill-Version": "1" * 65},
         {**HEADERS, "X-AI-Shifu-Caller-Agent": "private-agent-name"},
+        {
+            **HEADERS,
+            "X-AI-Shifu-Caller-Agent": "claude_code",
+            "X-AI-Shifu-Caller-Agent-Name": "Claude Code",
+        },
+        {
+            **HEADERS,
+            "X-AI-Shifu-Caller-Agent": "hermes",
+            "X-AI-Shifu-Caller-Agent-Name": "Hermes Agent",
+        },
+        {
+            **HEADERS,
+            "X-AI-Shifu-Caller-Agent": "grok_bot",
+            "X-AI-Shifu-Caller-Agent-Name": "Grok Bot",
+        },
+        {
+            **HEADERS,
+            "X-AI-Shifu-Caller-Agent": "qoderwork",
+            "X-AI-Shifu-Caller-Agent-Name": "QwenWork",
+        },
         {**HEADERS, "X-AI-Shifu-Caller-Agent": "codex, cursor"},
         {**HEADERS, "X-AI-Shifu-Caller-Agent": ""},
+        {
+            key: value
+            for key, value in HEADERS.items()
+            if key != "X-AI-Shifu-Caller-Agent-Name"
+        },
+        {**HEADERS, "X-AI-Shifu-Caller-Agent-Name": ""},
+        {**HEADERS, "X-AI-Shifu-Caller-Agent-Name": "Private Agent"},
+        {**HEADERS, "X-AI-Shifu-Caller-Agent-Name": "Codex (private-data)"},
+        {**HEADERS, "X-AI-Shifu-Caller-Agent-Name": "Hermes Agent"},
+        {**HEADERS, "X-AI-Shifu-Caller-Agent-Name": "Unknown Agent"},
     ],
 )
 def test_absent_or_malformed_metadata_preserves_business_response_without_event(
@@ -111,11 +143,16 @@ def test_explicit_unknown_agent_is_a_valid_low_cardinality_value(
 ) -> None:
     response = test_client.get(
         "/api/shifu/shifus",
-        headers={**HEADERS, "X-AI-Shifu-Caller-Agent": "unknown"},
+        headers={
+            **HEADERS,
+            "X-AI-Shifu-Caller-Agent": "unknown",
+            "X-AI-Shifu-Caller-Agent-Name": "Unknown Agent",
+        },
     )
     assert response.get_json(force=True)["code"] == 0
     assert len(events) == 1
     assert events[0]["caller_agent"] == "unknown"
+    assert events[0]["caller_agent_name"] == "Unknown Agent"
 
 
 def test_failed_authentication_does_not_report_client_claimed_identity(
@@ -225,6 +262,39 @@ def test_new_request_contract_suppresses_legacy_course_event_family(
     assert events[0]["operation"] == operation
 
 
+@pytest.mark.parametrize("agent_name", [None, "Private Agent", "Hermes Agent"])
+def test_invalid_cli_display_metadata_preserves_legacy_course_events(
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    events: list[dict[str, object]],
+    agent_name: str | None,
+) -> None:
+    legacy = Mock()
+    monkeypatch.setattr(shifu, "track_external_client_event", legacy)
+    monkeypatch.setattr(
+        shifu,
+        "get_session_skill_attribution_by_reference",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        shifu, "create_shifu_draft", lambda *_args: {"shifu_bid": "course"}
+    )
+    headers = {**HEADERS}
+    if agent_name is None:
+        headers.pop("X-AI-Shifu-Caller-Agent-Name")
+    else:
+        headers["X-AI-Shifu-Caller-Agent-Name"] = agent_name
+    response = test_client.put(
+        "/api/shifu/shifus", json={"name": "Private name"}, headers=headers
+    )
+    assert response.get_json(force=True)["code"] == 0
+    assert events == []
+    assert [call.kwargs["event_name"] for call in legacy.call_args_list] == [
+        "external_course_creation_started",
+        "external_course_creation_completed",
+    ]
+
+
 def test_upload_is_observed_without_collecting_file_names_or_contents(
     test_client: object,
     monkeypatch: pytest.MonkeyPatch,
@@ -324,7 +394,7 @@ def test_sender_failure_preserves_successful_operation(
         message = "sender unavailable"
         raise RuntimeError(message)
 
-    monkeypatch.setattr(analytics, "track_skill_request_event", fail)
+    monkeypatch.setattr(analytics, "track_cli_request_pageview", fail)
     response = test_client.get("/api/shifu/shifus", headers=HEADERS)
     assert response.get_json(force=True)["code"] == 0
     assert events == []

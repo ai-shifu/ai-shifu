@@ -96,7 +96,10 @@ The separate `request_totals` family deduplicates by Agent and an `all` row;
 `requests`, `successful_requests`, `accounts`, `sessions`, and `v2_pageviews`
 are distinct measures. Each v2 row is one HTTP request pageview, not one CLI
 command or human visit. Browser/OS native cards classify synthetic clients;
-their counts are not distinct account counts. The shared website's total PV
+their counts are not distinct account counts. The backend-generated UA includes
+the installed CLI version, so CLI upgrades may create new sessions for the same
+account. Continue deduplicating accounts by distinct ID, not by UA or session.
+The shared website's total PV
 increases even though Web tracking and production behavior remain unchanged.
 
 Request compatibility requires `hostname='server.ai-shifu'` and
@@ -105,15 +108,27 @@ historical `event_type=2` with `event_name='skill_api_request_v1'`, or v2
 `event_type=1` with a null event name and `tag='skill_api_request_v2'`.
 V2 requires exactly the seven allowlisted typed properties and the current
 operation/method pair; historical v1 does not require a method property.
-Unrecognized historical Agent values fall back to `unknown`; malformed v2
-Agent values are rejected. Do not infer cross-version duplicate requests from
-timestamps: retries are independent requests. The producer prevents dual writes.
+The CLI follows the pinned
+[detect_agent.md v0.1.5 catalog](https://github.com/ai-shifu/detect_agent/blob/9eee13e/detect_agent.md)
+and owns detection and the bounded display name. It sends the ID and display
+name through `X-AI-Shifu-Caller-Agent` and `X-AI-Shifu-Caller-Agent-Name`, alongside
+`X-AI-Shifu-Skill` and `X-AI-Shifu-Skill-Version`. The backend validates the pair
+and generates the versioned UA from the bundled CLI release; it never forwards
+the original client UA. The query accepts all 35 canonical IDs plus `unknown`,
+and preserves the nine historical IDs exactly in both v1 and v2 records.
+In particular, historical `qoderwork` means the former QoderWork / Qwen Work
+family and is not renamed to the new `qwenwork` brand. Historical `hermes`,
+`claude_code`, and `grok_bot` also remain separate from their canonical IDs.
+Agent labels can therefore split across CLI versions; do not add account counts
+across those labels. The `all` row and combined Web/CLI union still deduplicate
+by the same account ID. Unrecognized historical v1 Agent values fall back to
+`unknown`; unlisted v2 Agent values are rejected. Do not infer cross-version
+duplicate requests from timestamps: retries are independent requests. The producer prevents dual writes.
 Old creation/publish stage events are not added to these request records.
 
 Account activity requires at least one valid v1 or v2 request with
 `outcome=success` and a stored account ID on that day. Failures do not create
-active days or cohort
-entries. Combined activity is the union of successful Skill account-days and
+active days or cohort entries. Combined activity is the union of successful Skill account-days and
 identified Cook Web pageview/custom-event account-days (`event_type` 1 or 2)
 on the explicit host allowlist. It does not include arbitrary backend events,
 performance telemetry, or every HTTP request. The host allowlist must not
@@ -187,8 +202,16 @@ WITH parameters AS (
          properties.valid_v2_properties,
          properties.caller_agent AS raw_caller_agent,
          CASE WHEN properties.caller_agent IN
-           ('codex', 'claude_code', 'cursor', 'hermes', 'openclaw', 'workbuddy',
-            'qoderwork', 'grok_bot', 'unknown')
+           ('antigravity', 'augment-cli', 'claude-code', 'claude_code',
+            'cline', 'codex', 'cowork', 'crush',
+            'cue', 'cursor', 'cursor-cli', 'devin',
+            'doubao-work', 'gemini-cli', 'github-copilot', 'goose',
+            'grok-bot', 'grok-build', 'grok_bot', 'hermes',
+            'hermes-agent', 'hi', 'junie', 'kilo-code',
+            'kimi', 'kiro', 'manus', 'muse',
+            'openclaw', 'opencode', 'pi', 'qoderwork',
+            'qwenwork', 'replit', 'sandbase-harness', 'trae',
+            'unknown', 'vtcode', 'workbuddy', 'zed')
            THEN properties.caller_agent ELSE 'unknown' END AS caller_agent
   FROM bounds b
   JOIN website_event e ON e.website_id = b.website_id

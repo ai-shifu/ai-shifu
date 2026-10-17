@@ -25,7 +25,7 @@ from flaskr.service.common import skill_request_analytics as analytics
         "1.2.3+" + "a" * 58,
     ],
 )
-def test_existing_release_versions_remain_valid(version: str) -> None:
+def test_is_release_version_accepts_existing_grammar(version: str) -> None:
     assert analytics._is_release_version(version)
 
 
@@ -64,7 +64,7 @@ def test_existing_release_versions_remain_valid(version: str) -> None:
         pytest.param("0" * 100_000 + "!", id="oversized-adversarial-version"),
     ],
 )
-def test_malformed_or_oversized_versions_are_rejected(version: str) -> None:
+def test_is_release_version_rejects_malformed_or_oversized_values(version: str) -> None:
     assert not analytics._is_release_version(version)
 
 
@@ -88,6 +88,7 @@ def test_request_metadata_applies_bounded_release_validation(
             "X-AI-Shifu-Skill": analytics.SKILL_ID,
             "X-AI-Shifu-Skill-Version": version,
             "X-AI-Shifu-Caller-Agent": "codex",
+            "X-AI-Shifu-Caller-Agent-Name": "Codex",
         },
     ):
         metadata = analytics._request_metadata()

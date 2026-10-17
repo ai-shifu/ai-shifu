@@ -1,4 +1,4 @@
-"""Attribute allowlisted Skill API requests without inspecting business input."""
+"""Attribute allowlisted CLI API requests without inspecting business input."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from time import monotonic
 from typing import TYPE_CHECKING
 
 from flask import Flask, Response, g, has_request_context, request
-from flaskr.service.common.server_analytics import track_skill_request_event
+from flaskr.service.common.server_analytics import track_cli_request_pageview
 from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
@@ -19,15 +19,82 @@ if TYPE_CHECKING:
 SKILL_ID = "ai-shifu-course-creator"
 CALLER_AGENTS = frozenset(
     {
+        "antigravity",
+        "augment-cli",
+        "claude-code",
+        "cline",
         "codex",
-        "claude_code",
+        "cowork",
+        "crush",
+        "cue",
         "cursor",
-        "hermes",
+        "cursor-cli",
+        "devin",
+        "doubao-work",
+        "gemini-cli",
+        "github-copilot",
+        "goose",
+        "grok-bot",
+        "grok-build",
+        "hermes-agent",
+        "hi",
+        "junie",
+        "kilo-code",
+        "kimi",
+        "kiro",
+        "manus",
+        "muse",
         "openclaw",
-        "workbuddy",
-        "qoderwork",
-        "grok_bot",
+        "opencode",
+        "pi",
+        "qwenwork",
+        "replit",
+        "sandbase-harness",
+        "trae",
         "unknown",
+        "vtcode",
+        "workbuddy",
+        "zed",
+    }
+)
+CALLER_AGENT_NAMES = frozenset(
+    {
+        "Antigravity",
+        "Augment CLI",
+        "Claude Code",
+        "Claude Cowork",
+        "Cline",
+        "Codex",
+        "Crush",
+        "Cue",
+        "Cursor",
+        "Cursor CLI",
+        "Devin",
+        "Doubao Work",
+        "Gemini CLI",
+        "GitHub Copilot",
+        "Goose",
+        "Grok Bot",
+        "Grok Build",
+        "Hermes Agent",
+        "Junie",
+        "Kilo Code",
+        "Kimi Code",
+        "Kiro",
+        "Manus",
+        "Muse",
+        "OpenClaw",
+        "Pi",
+        "QwenWork",
+        "Replit",
+        "SandBase Harness",
+        "TRAE",
+        "Unknown Agent",
+        "VT Code",
+        "WorkBuddy",
+        "Zed",
+        "hi",
+        "opencode",
     }
 )
 _RELEASE_SUFFIX_CHARACTERS = frozenset(ascii_letters + digits + ".-")
@@ -113,6 +180,7 @@ def safe_skill_route_template(
 class _SkillRequest:
     version: str
     caller_agent: str
+    caller_agent_name: str
     operation: str
     started_at: float
     route_template: str | None
@@ -146,17 +214,38 @@ def _is_release_version(version: str) -> bool:
     )
 
 
+def _is_caller_agent_metadata(caller_agent: str, caller_agent_name: str) -> bool:
+    """Validate the CLI's enum and display name without rendering its label."""
+    if caller_agent not in CALLER_AGENTS or caller_agent_name not in CALLER_AGENT_NAMES:
+        return False
+    if caller_agent == "cowork":
+        return caller_agent_name == "Claude Cowork"
+    if caller_agent == "kimi":
+        return caller_agent_name == "Kimi Code"
+    if caller_agent == "unknown":
+        return caller_agent_name == "Unknown Agent"
+    normalized_name = (
+        caller_agent_name.lower().replace(" ", "").replace("-", "").replace("_", "")
+    )
+    normalized_id = caller_agent.replace("-", "").replace("_", "")
+    return normalized_name == normalized_id
+
+
 def _request_metadata() -> _SkillRequest | None:
     operation = SKILL_API_OPERATIONS.get((request.endpoint, request.method))
     if operation is None or request.headers.get("X-AI-Shifu-Skill") != SKILL_ID:
         return None
     version = request.headers.get("X-AI-Shifu-Skill-Version", "")
     caller_agent = request.headers.get("X-AI-Shifu-Caller-Agent", "")
-    if not _is_release_version(version) or caller_agent not in CALLER_AGENTS:
+    caller_agent_name = request.headers.get("X-AI-Shifu-Caller-Agent-Name", "")
+    if not _is_release_version(version) or not _is_caller_agent_metadata(
+        caller_agent, caller_agent_name
+    ):
         return None
     return _SkillRequest(
         version,
         caller_agent,
+        caller_agent_name,
         operation,
         monotonic(),
         safe_skill_route_template(request.url_rule, operation, request.method),
@@ -208,11 +297,12 @@ def register_skill_request_analytics(app: Flask) -> None:
                 and user_id
                 and getattr(g, "authenticated_session_attribution", None)
             ):
-                track_skill_request_event(
+                track_cli_request_pageview(
                     app,
                     user_id=str(user_id),
                     skill_version=metadata.version,
                     caller_agent=metadata.caller_agent,
+                    caller_agent_name=metadata.caller_agent_name,
                     operation=metadata.operation,
                     outcome=_request_outcome(response, metadata.operation),
                     duration_ms=max(0, int((monotonic() - metadata.started_at) * 1000)),
