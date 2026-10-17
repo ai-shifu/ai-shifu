@@ -217,19 +217,34 @@ def test_skill_event_uses_authenticated_distinct_id_and_exact_private_payload(
         operation="content_save",
         outcome="success",
         duration_ms=250,
+        route_template="/api/shifu/shifus/:shifu_bid/outlines/:outline_bid/mdflow",
+        method="POST",
+        timestamp=1792195200,
     )
     assert len(submitted) == 1
-    assert submitted[0][2] == {
+    delivery, collector, identity, pageview, user_agent = submitted[0]
+    assert delivery is server_analytics._deliver_skill_request
+    assert collector == "https://analytics.example.test/api/send"
+    assert user_agent == "Mozilla/5.0 AI-Shifu-CLI/1.0 (Grok)"
+    assert identity == {
         "website": "website-id",
-        "hostname": "server.ai-shifu",
-        "url": "/backend/skill",
-        "name": "skill_api_request_v1",
         "id": "authenticated-user",
+        "timestamp": 1792195200,
+        "browser": "AI-Shifu CLI",
+        "os": "Grok Bot",
+        "device": "desktop",
+    }
+    assert pageview == {
+        **identity,
+        "hostname": "server.ai-shifu",
+        "url": "/api/shifu/shifus/:shifu_bid/outlines/:outline_bid/mdflow",
+        "tag": "skill_api_request_v2",
         "data": {
             "skill_id": "ai-shifu-course-creator",
             "skill_version_major": "v2",
             "caller_agent": "grok_bot",
             "operation": "content_save",
+            "method": "POST",
             "outcome": "success",
             "duration_ms": 250,
         },
@@ -271,9 +286,269 @@ def test_skill_event_queue_saturation_or_submit_failure_is_fail_open(
         operation="course_list",
         outcome="success",
         duration_ms=1,
+        route_template="/api/shifu/shifus",
+        method="GET",
+        timestamp=1792195200,
     )
     assert submitted == ([] if capacity_full else [True])
     if capacity_full:
         capacity.release()
     assert capacity.acquire(blocking=False)
     capacity.release()
+
+
+@pytest.mark.parametrize(
+    ("caller_agent", "os_name", "ua_name"),
+    [
+        ("codex", "Codex", "Codex"),
+        ("claude_code", "Claude Code", "Claude-Code"),
+        ("cursor", "Cursor", "Cursor"),
+        ("hermes", "Hermes", "Hermes"),
+        ("openclaw", "OpenClaw", "OpenClaw"),
+        ("workbuddy", "WorkBuddy", "WorkBuddy"),
+        ("qoderwork", "QoderWork", "QoderWork"),
+        ("grok_bot", "Grok Bot", "Grok"),
+        ("unknown", "Unknown Agent", "Unknown"),
+    ],
+)
+def test_skill_client_mapping_is_exact_and_each_agent_has_its_own_ua(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    caller_agent: str,
+    os_name: str,
+    ua_name: str,
+) -> None:
+    submitted = []
+
+    def submit(*args: object) -> Future[None]:
+        submitted.append(args)
+        future: Future[None] = Future()
+        future.set_result(None)
+        return future
+
+    monkeypatch.setattr(server_analytics._EXECUTOR, "submit", submit)
+    monkeypatch.setattr(
+        server_analytics,
+        "get_config",
+        lambda key, _default: (
+            "https://analytics.example.test/script.js"
+            if key == "ANALYTICS_UMAMI_SCRIPT"
+            else "same-web-website"
+        ),
+    )
+    server_analytics.track_skill_request_event(
+        app,
+        user_id="same-authenticated-account",
+        skill_version="2.7.1",
+        caller_agent=caller_agent,
+        operation="course_list",
+        method="GET",
+        outcome="success",
+        duration_ms=1,
+        route_template="/api/shifu/shifus",
+        timestamp=1792195200,
+    )
+    assert len(submitted) == 1
+    _, _, identity, pageview, user_agent = submitted[0]
+    assert identity["os"] == pageview["os"] == os_name
+    assert identity["id"] == pageview["id"] == "same-authenticated-account"
+    assert user_agent == f"Mozilla/5.0 AI-Shifu-CLI/1.0 ({ua_name})"
+    assert "name" not in pageview
+    assert "data" not in identity
+    assert len({label[1] for label in server_analytics._SKILL_CLIENTS.values()}) == 9
+
+
+@pytest.mark.parametrize("identify_failure", [False, True])
+def test_skill_delivery_attempts_identify_then_pageview_without_cache(
+    monkeypatch: pytest.MonkeyPatch, identify_failure: bool
+) -> None:
+    calls = []
+
+    def post(*args: object, **kwargs: object) -> SimpleNamespace:
+        calls.append((args, kwargs))
+        if identify_failure and len(calls) == 1:
+            raise TimeoutError
+        return SimpleNamespace(status_code=200, json=lambda: {"cache": "discard-me"})
+
+    monkeypatch.setattr(server_analytics.requests, "post", post)
+    identity = {
+        "website": "site",
+        "id": "authenticated-user",
+        "browser": "AI-Shifu CLI",
+        "os": "Codex",
+        "device": "desktop",
+        "timestamp": 1792195200,
+    }
+    pageview = {**identity, "hostname": "server.ai-shifu", "url": "/api/shifu/shifus"}
+    server_analytics._deliver_skill_request(
+        "https://analytics.example.test/api/send",
+        identity,
+        pageview,
+        "Mozilla/5.0 AI-Shifu-CLI/1.0 (Codex)",
+    )
+    assert calls == [
+        (
+            ("https://analytics.example.test/api/send",),
+            {
+                "json": {"type": kind, "payload": payload},
+                "headers": {"User-Agent": "Mozilla/5.0 AI-Shifu-CLI/1.0 (Codex)"},
+                "timeout": (0.25, 0.5),
+            },
+        )
+        for kind, payload in (("identify", identity), ("event", pageview))
+    ]
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "acknowledged"),
+    [
+        (200, {"beep": "boop"}, False),
+        (200, {}, False),
+        (200, [], False),
+        (200, {"cache": ""}, False),
+        (503, {"cache": "not-accepted"}, False),
+        (200, {"cache": "accepted"}, True),
+    ],
+)
+def test_skill_collector_acknowledgement_rejects_bot_filter_and_invalid_responses(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    body: object,
+    acknowledged: bool,
+) -> None:
+    monkeypatch.setattr(
+        server_analytics.requests,
+        "post",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status_code=status, json=lambda: body
+        ),
+    )
+    assert (
+        server_analytics._send_skill_payload(
+            "https://analytics.example.test/api/send", "event", {}, "fixed-ua"
+        )
+        is acknowledged
+    )
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"caller_agent": "private-agent"},
+        {"operation": "private-operation"},
+        {"method": "POST"},
+        {"route_template": "/api/shifu/shifus/private-resource"},
+        {"route_template": "/api/shifu/shifus?token=secret"},
+        {"timestamp": True},
+        {"timestamp": -1},
+        {"duration_ms": -1},
+        {"duration_ms": True},
+        {"user_id": ""},
+    ],
+)
+def test_invalid_skill_contract_is_not_queued(
+    app: object, monkeypatch: pytest.MonkeyPatch, invalid: dict[str, object]
+) -> None:
+    monkeypatch.setattr(
+        server_analytics._EXECUTOR,
+        "submit",
+        lambda *_args: pytest.fail("invalid contract must not be queued"),
+    )
+    arguments = {
+        "user_id": "authenticated-user",
+        "skill_version": "2.7.1",
+        "caller_agent": "unknown",
+        "operation": "course_list",
+        "outcome": "success",
+        "duration_ms": 1,
+        "route_template": "/api/shifu/shifus",
+        "method": "GET",
+        "timestamp": 1792195200,
+        **invalid,
+    }
+    server_analytics.track_skill_request_event(app, **arguments)
+
+
+def test_skill_pair_occupies_one_queue_slot_and_keeps_captured_timestamp(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    capacity = BoundedSemaphore(1)
+    future: Future[None] = Future()
+    submitted = []
+    posted = []
+
+    def submit(*args: object) -> Future[None]:
+        submitted.append(args)
+        return future
+
+    monkeypatch.setattr(server_analytics, "_CAPACITY", capacity)
+    monkeypatch.setattr(server_analytics._EXECUTOR, "submit", submit)
+    settings = {
+        "ANALYTICS_UMAMI_SCRIPT": "https://analytics.example.test/script.js",
+        "ANALYTICS_UMAMI_SITE_ID": "website-id",
+    }
+    monkeypatch.setattr(
+        server_analytics,
+        "get_config",
+        lambda key, default="": settings.get(key, default),
+    )
+    arguments = {
+        "user_id": "authenticated-user",
+        "skill_version": "2.7.1",
+        "caller_agent": "codex",
+        "operation": "course_list",
+        "outcome": "success",
+        "duration_ms": 1,
+        "route_template": "/api/shifu/shifus",
+        "method": "GET",
+        "timestamp": 1792195200,
+    }
+    server_analytics.track_skill_request_event(app, **arguments)
+    server_analytics.track_skill_request_event(app, **arguments)
+    assert len(submitted) == 1
+    assert not capacity.acquire(blocking=False)
+
+    def post(_url: object, **kwargs: object) -> SimpleNamespace:
+        posted.append(kwargs)
+        return SimpleNamespace(status_code=200, json=lambda: {"cache": "discarded"})
+
+    monkeypatch.setattr(server_analytics.requests, "post", post)
+    delivery, *queued_arguments = submitted[0]
+    # Executing the delayed job must use response time, never worker time.
+    delivery(*queued_arguments)
+    assert [call["json"]["payload"]["timestamp"] for call in posted] == [
+        1792195200,
+        1792195200,
+    ]
+    future.set_result(None)
+    assert capacity.acquire(blocking=False)
+    capacity.release()
+
+
+@pytest.mark.parametrize("config_error", [False, True])
+def test_skill_missing_configuration_is_fail_open(
+    app: object, monkeypatch: pytest.MonkeyPatch, config_error: bool
+) -> None:
+    def get_config(*_args: object) -> str:
+        if config_error:
+            raise LookupError
+        return ""
+
+    monkeypatch.setattr(server_analytics, "get_config", get_config)
+    monkeypatch.setattr(
+        server_analytics._EXECUTOR,
+        "submit",
+        lambda *_args: pytest.fail("missing configuration"),
+    )
+    server_analytics.track_skill_request_event(
+        app,
+        user_id="authenticated-user",
+        skill_version="2.7.1",
+        caller_agent="codex",
+        operation="course_list",
+        outcome="success",
+        duration_ms=0,
+        route_template="/api/shifu/shifus",
+        method="GET",
+        timestamp=1792195200,
+    )

@@ -2,7 +2,7 @@
 title: Skill Usage Analytics
 status: implemented
 owner_surface: frontend-backend
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-17
 canonical: true
 ---
 
@@ -61,86 +61,160 @@ this is static package evidence, not a promise about their cloud execution or
 future versions. Report `unknown` separately rather than guessing. No model
 or Agent version is reported.
 
-## Event contract: `skill_api_request_v1`
+## Pageview contract: `skill_api_request_v2`
 
-- Business question: which accounts use the Skill, from which Agent, for
-  which operations, with what failure rate, and do they return?
-- Actor and surface: an authenticated account making an allowlisted backend
-  business request with all three valid Skill headers.
-- Trigger: response preparation completes, once per HTTP request. HTTP 200
-  with a nonzero business `code` is a failure. A successful file export means
-  the download response was prepared, not that its stream was consumed or the
-  file was saved by the client.
-- Population: account-authenticated course, outline, content, revision,
-  upload, export, and creator-analytics requests used by the Skill. Exact
-  endpoint names and HTTP methods are allowlisted in the backend. Exclude
-  login, device polling, verification, configuration, update checks, local
-  commands, unauthenticated requests, unmatched methods/endpoints, and
-  missing or malformed Skill metadata.
-- Count unit: one server-observed API request, not one CLI command. Import,
-  pull, status, and other commands may make several requests; their API
-  operations remain separate and cannot be relabeled as complete commands.
-- Deduplication: one after-request event per eligible response. Separate
-  retries remain separate requests. Delivery is best effort, with no retry
-  or replay guarantee. User metrics deduplicate accounts, not requests.
-- Correlation: top-level Umami `id` is the authenticated `request.user.user_id`,
-  identical to the string passed to browser `umami.identify`. Never derive
-  identity from telemetry headers, an unverified JWT, or an independently
-  re-read credential. Anonymous Umami visitors and sessions are not accounts.
-- Consumers: the aggregate reporting queries in
-  [Skill usage reporting](../references/skill-usage-reporting.md).
-- Compatibility: a new event series. Older clients without these headers
-  keep their behavior and any existing legacy attribution events. Valid new
-  Skill metadata suppresses the older external course journey events for the
-  same request; do not sum the old stage series with this request series.
-  Authorization events and old clients remain unaffected. No backfill.
+- Decision: measure authenticated Skill adoption, operation mix, failures, and
+  return usage in Umami, with native Pages, Browser, OS, and account activity.
+- Actor: an account-authenticated, allowlisted endpoint/method request carrying
+  all three valid Skill headers. Exclude login, device polling, verification,
+  configuration, update checks, local commands, unauthenticated requests, and
+  missing or invalid metadata. Existing endpoint/authentication scope is unchanged.
+- Trigger: response preparation completes once per HTTP request, including
+  failures. HTTP 200 with nonzero business `code` is failure. File export
+  success means response preparation, not stream consumption or client receipt.
+- Count unit: an API request, not a CLI command or human visit. Commands can
+  call several endpoints; retries are independent requests. Delivery is best
+  effort with no replay. Account and session counts are separate measures.
+- Identity: only authenticated `request.user.user_id`, serialized exactly as
+  existing Web identify, becomes top-level `payload.id`. Never infer identity
+  from metadata, environment, unverified JWTs, or independently reread tokens.
+- Consumers: [Skill usage reporting](../references/skill-usage-reporting.md)
+  and native Umami pageview/client/account activity reports.
 
-| Payload field | Type / allowed values | Privacy class | Purpose |
-| --- | --- | --- | --- |
-| `skill_id` | Fixed `ai-shifu-course-creator` | Non-personal | Skill selection |
-| `skill_version_major` | `v0` through `v9`, otherwise `unknown` | Non-personal | Release-family comparison |
-| `caller_agent` | Enum above | Non-personal | Agent adoption |
-| `operation` | Fixed backend endpoint operation enum | Non-personal | Capability mix |
-| `outcome` | `success`, `failure` | Non-personal | Success and failure trends |
-| `duration_ms` | Finite, nonnegative number | Non-personal | Backend response preparation time |
+### Delivery and client classification
 
-The transport uses fixed synthetic hostname `server.ai-shifu` and path
-`/backend/skill` rather than request URLs. Account identity is pseudonymous
-and belongs only in Umami's top-level distinct-ID field, never duplicated in
-event data. Do not forward the client's IP address, User-Agent, headers,
-cookies, referrer, request body, queries, course IDs, titles, prompts, model
-output, raw failures, environment values, or session/device identifiers.
+A single bounded background job attempts `type="identify"`, then one
+`type="event"` pageview even if identify fails. Both have identical website,
+account id, timestamp, HTTP User-Agent, and top-level browser/os/device.
+Identify has no data. Pageview entirely omits `name`; it is not a custom event.
+Use the existing Web website configuration without modifying Web producers,
+identify, identity rules, events, pageviews, or UA.
+
+| Field | Contract |
+| --- | --- |
+| `browser` | Top-level fixed `AI-Shifu CLI` |
+| `os` | Top-level Agent label from the fixed table below |
+| `device` | Top-level fixed `desktop`, a synthetic category, not observed hardware |
+| `hostname` | Pageview fixed `server.ai-shifu` |
+| `url` | Pageview matched allowlisted backend route template |
+| `tag` | Pageview fixed `skill_api_request_v2` |
+| `timestamp` | Integer Unix seconds captured in UTC at response preparation, before queue submission |
+
+HTTP User-Agent is `Mozilla/5.0 AI-Shifu-CLI/1.0 (<UA name>)`. Its `1.0` is a
+fixed reporting protocol, unrelated to Skill releases. Do not set
+`payload.userAgent`, forward the client UA, send `x-umami-cache`, or share a
+collector cache across requests or Agents. Different Agent UAs separate
+sessions under Umami 3.4; `payload.os` alone does not separate sessions.
+
+| caller_agent | os | UA name |
+| --- | --- | --- |
+| `codex` | `Codex` | `Codex` |
+| `claude_code` | `Claude Code` | `Claude-Code` |
+| `cursor` | `Cursor` | `Cursor` |
+| `hermes` | `Hermes` | `Hermes` |
+| `openclaw` | `OpenClaw` | `OpenClaw` |
+| `workbuddy` | `WorkBuddy` | `WorkBuddy` |
+| `qoderwork` | `QoderWork` | `QoderWork` |
+| `grok_bot` | `Grok Bot` | `Grok` |
+| `unknown` | `Unknown Agent` | `Unknown` |
+
+All values are generated by backend enum mappings. `Grok-Bot` must not appear
+in the UA because it matches the bot filter; `Grok Bot` remains the OS label.
+Do not disable bot checks or set `DISABLE_BOT_CHECK`.
+
+### Safe routes and event data
+
+Derive the path only from the actually matched Flask rule with an allowlisted
+endpoint/method and exact normalized template. Replace dynamic segments,
+including converter syntax, with `:parameter_name`; for example,
+`/api/shifu/shifus/:shifu_bid/detail`. Never include real IDs, query strings,
+fragments, credentials, complete URLs, local paths, or user input. No safe
+matched template means skip telemetry, without falling back to `request.path`.
+Still retain valid Skill-request state for legacy-stage suppression.
+
+Pageview data has exactly these seven fields:
+
+| Field | Type / allowed values | Purpose |
+| --- | --- | --- |
+| `skill_id` | Fixed `ai-shifu-course-creator` | Skill selection |
+| `skill_version_major` | `v0` through `v9`, otherwise `unknown` | Release family |
+| `caller_agent` | Agent enum above | Agent adoption |
+| `operation` | Endpoint/method operation enum below | Capability mix |
+| `method` | Allowlisted HTTP method for the operation | Request classification |
+| `outcome` | `success`, `failure` | Success/failure trends |
+| `duration_ms` | Nonnegative integer | Response preparation duration |
+
+No account ID belongs in data. Do not collect environment values, session or
+thread IDs, model or Agent versions, tokens, cookies, raw headers/errors,
+request/response bodies, content, titles, prompts, model output, real resource
+IDs, client IP/UA, referrer, screen, or language. These are account-linked
+pseudonymous records, not anonymous data.
+
+## Compatibility and reporting
+
+Replace `skill_api_request_v1` for each valid new Skill request; do not double
+write an equivalent custom event. Preserve historical v1 data, older clients,
+authorization events, and all other shared-sender callers. Valid Skill metadata
+continues suppressing the old external-course journey events. Do not sum those
+stage events with request records or infer command counts from request counts.
+
+Queries accept historical custom v1 and v2 pageview plus fixed tag. Historical
+v1 lacks method and is not required to satisfy the new seven-field contract.
+Use successful requests for existing Skill active-account/cohort metrics, but
+include failures in request volume. Cross-channel account counts deduplicate
+by the same distinct identity; never add Web and CLI account totals. Native
+Browser/OS cards classify sessions, not distinct accounts. The shared website's
+total PV grows; unchanged Web production behavior does not preserve total PV.
+Web-only reports retain the existing Web-hostname allowlist. Same-account
+activity can be associated across sessions; a shared session and automatic
+cross-session funnels are not promised. Do not fan out aggregate joins through
+`session_link` or guess identities for uncovered historical rows.
 
 ## Isolation and privacy operations
 
-Reuse the bounded backend sender: two workers, at most 32 queued/in-flight
-deliveries, short network timeouts, and exception isolation. Analytics failure,
-missing settings, or saturation must preserve responses and transactions.
-Streamed/download responses are not consumed to determine an outcome.
+Reuse the existing two-worker sender with at most 32 queued/in-flight jobs,
+short timeouts, and exception isolation. One identify/pageview pair occupies
+one slot. Missing configuration, queue saturation, network errors, or collector
+rejection must not change business responses or transactions. Do not consume
+streams or add automatic retries/replay.
 
-The CLI disclosure describes the account linkage and opt-out. Operators must
-apply the same analytics access controls, deployment region, retention, and
-account-deletion handling as the existing Cook Web distinct identity. Before
-production release, record the actual collector/site, authorized report
-readers, retention setting, and deletion procedure; this PR does not establish
-those deployment-specific facts or turn pseudonymous data into anonymous data.
-No SQL models, migrations, token-attribution storage, or Agent-model API calls
-are introduced.
+HTTP 200 plus `{"beep":"boop"}` is bot filtering, not successful ingestion.
+A normal acknowledgement also cannot prove identity linkage: Umami can catch
+session-link errors internally. Verify stored records and native activity.
 
-## Rollout and acceptance
+The CLI disclosure explains account linkage and opt-out. Apply existing Web
+analytics access, region, retention, and account-deletion controls. Before
+production release record the collector/site, authorized readers, retention,
+and deletion procedure. No business models, migrations, token storage, direct
+CLI collector call, or Agent/model API is introduced.
 
-Release the backend before distributing the new Skill. Existing clients and
-older backends tolerate absent or unknown headers. Do not call the rollout
-verified until a controlled Skill request is observed in the configured Umami
-site with the expected account distinct ID, allowed fields, operation and
-outcome, and the aggregate report is read back. Keep test traffic in a separate
-site or exclude explicitly designated test accounts inside the protected
-reporting environment. Historical pre-release days are uncovered, not zero.
+## Deployment and acceptance
 
-Regression coverage must verify the exact schema, authentication-selected
-identity, exclusions, HTTP-200 business failures, download nonconsumption,
-one event per response, missing/invalid headers, opt-out, environment-presence
-semantics, dotenv isolation, Agent conflicts, and fail-open delivery.
+The implementation targets official Umami 3.4.0. Read-only inspection on
+2026-10-17 confirmed the existing deployment runs 3.1.0, including its startup
+package version. Under 3.1, identified session IDs do not include UA, and the
+first Agent's OS can persist for later Agents of the same account; 3.1 also
+lacks the 3.4 identity-link behavior. Do not upgrade automatically, claim
+compatibility, or release this change to that collector as verified.
+
+Sources: [3.4 collector](https://github.com/umami-software/umami/blob/v3.4.0/src/app/api/send/route.ts),
+[3.1 collector](https://github.com/umami-software/umami/blob/v3.1.0/src/app/api/send/route.ts).
+
+Stage backend before Skill distribution only against a confirmed compatible
+collector. Until an authorized 3.4 test site is available, actual storage/UI
+acceptance remains open. In that site use one test account for Web and at least
+two Agents; read back pageview type, tag, safe route, seven-field data, Browser,
+OS, distinct identity, and `session_link`. Check identify/pageview actually
+resolve to the same session, including the collector-observed source IP, then
+check cross-session native Activity and aggregate results. Sending logs or
+HTTP 200 do not satisfy acceptance. Keep test traffic separate and report
+coverage gaps rather than zero activity.
+
+Regressions cover presence-only detection and dotenv isolation, fixed UAs
+against the target isbot version, all client/identity/time fields, safe routes,
+privacy, authentication/exclusions/opt-out, HTTP/business failures, download
+nonconsumption, once-only triggering, delayed queue execution, fail-open
+identify/pageview, unchanged legacy callers/Web, and mixed-history queries.
 
 ## Operation allowlist
 

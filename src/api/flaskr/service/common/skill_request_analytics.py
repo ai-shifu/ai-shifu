@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import UTC
 from time import monotonic
+from typing import TYPE_CHECKING
 
 from flask import Flask, Response, g, has_request_context, request
 from flaskr.service.common.server_analytics import track_skill_request_event
+from flaskr.util.datetime import now_utc
+
+if TYPE_CHECKING:
+    from werkzeug.routing import Rule
 
 SKILL_ID = "ai-shifu-course-creator"
 CALLER_AGENTS = frozenset(
@@ -54,6 +60,55 @@ SKILL_API_OPERATIONS = {
     ("creator_analytics_credit_detail", "POST"): "analytics_credit_detail",
 }
 
+# Exact templates are a second allowlist: adding another route to an existing
+# endpoint must not silently expose a new static path or resource identifier.
+_COURSE = "/api/shifu/shifus/:shifu_bid"
+_OUTLINE = f"{_COURSE}/outlines/:outline_bid"
+SKILL_API_ROUTE_TEMPLATES = {
+    "course_list": "/api/shifu/shifus",
+    "course_create": "/api/shifu/shifus",
+    "course_get": f"{_COURSE}/detail",
+    "course_update": f"{_COURSE}/detail",
+    "course_archive": "/api/shifu/shifus/:shifu_id/archive",
+    "course_unarchive": "/api/shifu/shifus/:shifu_id/unarchive",
+    "course_publish": f"{_COURSE}/publish",
+    "course_export": f"{_COURSE}/export",
+    "outline_list": f"{_COURSE}/outlines",
+    "outline_get": _OUTLINE,
+    "outline_create": f"{_COURSE}/outlines",
+    "outline_update": _OUTLINE,
+    "outline_delete": _OUTLINE,
+    "outline_reorder": f"{_COURSE}/outlines/reorder",
+    "content_get": f"{_OUTLINE}/mdflow",
+    "content_save": f"{_OUTLINE}/mdflow",
+    "content_history_list": f"{_OUTLINE}/mdflow/history",
+    "content_history_get": f"{_OUTLINE}/mdflow/history/:version_id",
+    "draft_meta_get": f"{_COURSE}/draft-meta",
+    "asset_upload": "/api/shifu/upfile",
+    "asset_url_upload": "/api/shifu/url-upfile",
+    "analytics_query": "/api/creator-analytics/query",
+    "analytics_credit_detail": "/api/creator-analytics/credit-detail",
+}
+_ROUTE_PARAMETER = re.compile(
+    r"<(?:[A-Za-z_][A-Za-z0-9_]*(?:\([^<>]*\))?:)?([A-Za-z_][A-Za-z0-9_]*)>"
+)
+
+
+def safe_skill_route_template(
+    rule: Rule | None, operation: str, method: str
+) -> str | None:
+    """Use only the matched allowlisted rule, never a concrete request path."""
+    if (
+        rule is None
+        or SKILL_API_OPERATIONS.get((rule.endpoint, method)) != operation
+        or method not in (rule.methods or ())
+    ):
+        return None
+    template = _ROUTE_PARAMETER.sub(r":\1", rule.rule)
+    if template != SKILL_API_ROUTE_TEMPLATES.get(operation):
+        return None
+    return template
+
 
 @dataclass(frozen=True, slots=True)
 class _SkillRequest:
@@ -61,6 +116,7 @@ class _SkillRequest:
     caller_agent: str
     operation: str
     started_at: float
+    route_template: str | None
 
 
 def has_skill_request_analytics() -> bool:
@@ -82,7 +138,13 @@ def _request_metadata() -> _SkillRequest | None:
         or caller_agent not in CALLER_AGENTS
     ):
         return None
-    return _SkillRequest(version, caller_agent, operation, monotonic())
+    return _SkillRequest(
+        version,
+        caller_agent,
+        operation,
+        monotonic(),
+        safe_skill_route_template(request.url_rule, operation, request.method),
+    )
 
 
 def _request_outcome(response: Response, operation: str) -> str:
@@ -126,6 +188,7 @@ def register_skill_request_analytics(app: Flask) -> None:
             user_id = getattr(user, "user_id", None)
             if (
                 isinstance(metadata, _SkillRequest)
+                and metadata.route_template is not None
                 and user_id
                 and getattr(g, "authenticated_session_attribution", None)
             ):
@@ -137,6 +200,9 @@ def register_skill_request_analytics(app: Flask) -> None:
                     operation=metadata.operation,
                     outcome=_request_outcome(response, metadata.operation),
                     duration_ms=max(0, int((monotonic() - metadata.started_at) * 1000)),
+                    route_template=metadata.route_template,
+                    method=request.method,
+                    timestamp=int(now_utc().replace(tzinfo=UTC).timestamp()),
                 )
         except Exception:
             # Includes malformed response envelopes and sender/queue failures.

@@ -1,5 +1,6 @@
 """Protect Skill request attribution, authentication, and response boundaries."""
 
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ from flaskr.route import creator_analytics, user
 from flaskr.service.common import skill_request_analytics as analytics
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu import route as shifu
+from werkzeug.routing import Rule
 
 HEADERS = {
     "Token": "header-token",
@@ -28,6 +30,11 @@ def events(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
         analytics,
         "track_skill_request_event",
         lambda _app, **kwargs: recorded.append(kwargs),
+    )
+    monkeypatch.setattr(
+        analytics,
+        "now_utc",
+        lambda: datetime(2026, 10, 17, tzinfo=UTC).replace(tzinfo=None),
     )
     teacher = SimpleNamespace(
         user_id="authenticated-user", is_creator=True, language="en-US"
@@ -68,6 +75,9 @@ def test_one_event_uses_authenticated_cookie_identity_and_bounded_metadata(
             "operation": "course_list",
             "outcome": "success",
             "duration_ms": 250,
+            "route_template": "/api/shifu/shifus",
+            "method": "GET",
+            "timestamp": 1792195200,
         }
     ]
 
@@ -172,6 +182,11 @@ def test_actual_business_conflict_is_failure_even_with_http_200(
     assert len(events) == 1
     assert events[0]["operation"] == "content_save"
     assert events[0]["outcome"] == "failure"
+    assert events[0]["route_template"] == (
+        "/api/shifu/shifus/:shifu_bid/outlines/:outline_bid/mdflow"
+    )
+    assert events[0]["method"] == "POST"
+    assert "private" not in str(events)
 
 
 @pytest.mark.parametrize(
@@ -339,9 +354,18 @@ def test_only_exact_allowlisted_methods_can_emit_request_events(
 ) -> None:
     rules = list(app.url_map.iter_rules())
     for endpoint, method in analytics.SKILL_API_OPERATIONS:
-        assert any(
-            rule.endpoint == endpoint and method in rule.methods for rule in rules
-        )
+        matching = [
+            rule
+            for rule in rules
+            if rule.endpoint == endpoint and method in rule.methods
+        ]
+        assert matching
+        operation = analytics.SKILL_API_OPERATIONS[(endpoint, method)]
+        for rule in matching:
+            assert (
+                analytics.safe_skill_route_template(rule, operation, method)
+                == (analytics.SKILL_API_ROUTE_TEMPLATES[operation])
+            )
     # Flask automatically supplies HEAD and OPTIONS, but neither is a Skill action.
     response = test_client.head("/api/shifu/shifus", headers=HEADERS)
     assert response.status_code == 200
@@ -352,3 +376,112 @@ def test_only_exact_allowlisted_methods_can_emit_request_events(
     response = test_client.get("/not-an-api", headers=HEADERS)
     assert response.status_code == 200
     assert events == []
+
+
+@pytest.mark.parametrize(
+    "rule_path",
+    [
+        "/api/shifu/shifus/<shifu_bid>/detail",
+        "/api/shifu/shifus/<uuid:shifu_bid>/detail",
+        "/api/shifu/shifus/<any(one,two):shifu_bid>/detail",
+    ],
+)
+def test_route_templates_remove_dynamic_values_and_converter_details(
+    rule_path: str,
+) -> None:
+    rule = Rule(rule_path, endpoint="get_shifu_detail_api", methods=["GET"])
+    assert analytics.safe_skill_route_template(rule, "course_get", "GET") == (
+        "/api/shifu/shifus/:shifu_bid/detail"
+    )
+
+
+@pytest.mark.parametrize(
+    ("rule", "operation", "method"),
+    [
+        (None, "course_get", "GET"),
+        (
+            Rule(
+                "/api/shifu/shifus/private-course/detail",
+                endpoint="get_shifu_detail_api",
+                methods=["GET"],
+            ),
+            "course_get",
+            "GET",
+        ),
+        (
+            Rule(
+                "/api/shifu/shifus/<shifu_bid>/detail?token=secret",
+                endpoint="get_shifu_detail_api",
+                methods=["GET"],
+            ),
+            "course_get",
+            "GET",
+        ),
+        (
+            Rule(
+                "/api/shifu/shifus/<shifu_bid>/detail",
+                endpoint="unlisted",
+                methods=["GET"],
+            ),
+            "course_get",
+            "GET",
+        ),
+        (
+            Rule(
+                "/api/shifu/shifus/<shifu_bid>/detail",
+                endpoint="get_shifu_detail_api",
+                methods=["POST"],
+            ),
+            "course_get",
+            "GET",
+        ),
+    ],
+)
+def test_missing_or_unsafe_route_never_falls_back_to_request_path(
+    rule: Rule | None, operation: str, method: str
+) -> None:
+    assert analytics.safe_skill_route_template(rule, operation, method) is None
+
+
+def test_unsafe_route_skips_telemetry_but_retains_legacy_suppression(
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    events: list[dict[str, object]],
+) -> None:
+    legacy = Mock()
+    monkeypatch.setattr(analytics, "safe_skill_route_template", lambda *_args: None)
+    monkeypatch.setattr(shifu, "track_external_client_event", legacy)
+    monkeypatch.setattr(
+        shifu, "create_shifu_draft", lambda *_args: {"shifu_bid": "course"}
+    )
+    response = test_client.put(
+        "/api/shifu/shifus?private_query=secret",
+        json={"name": "Private name"},
+        headers=HEADERS,
+    )
+    assert response.get_json(force=True)["code"] == 0
+    assert events == []
+    legacy.assert_not_called()
+
+
+def test_response_timestamp_is_utc_under_non_utc_process_timezone(
+    test_client: object,
+    monkeypatch: pytest.MonkeyPatch,
+    events: list[dict[str, object]],
+) -> None:
+    import os
+    import time
+
+    original_timezone = os.environ.get("TZ")
+    monkeypatch.setenv("TZ", "Pacific/Honolulu")
+    time.tzset()
+    try:
+        response = test_client.get("/api/shifu/shifus", headers=HEADERS)
+        assert response.get_json(force=True)["code"] == 0
+        assert events[0]["timestamp"] == 1792195200
+    finally:
+        if original_timezone is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = original_timezone
+        time.tzset()

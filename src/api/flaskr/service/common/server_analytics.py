@@ -32,6 +32,18 @@ _ALLOWED_EVENTS = frozenset(
 _EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="umami-backend")
 _CAPACITY = BoundedSemaphore(32)
 _VERSION_MAJOR = re.compile(r"^[vV]?([0-9]+)(?:\.|$)")
+_SKILL_CLIENTS = {
+    "codex": ("Codex", "Codex"),
+    "claude_code": ("Claude Code", "Claude-Code"),
+    "cursor": ("Cursor", "Cursor"),
+    "hermes": ("Hermes", "Hermes"),
+    "openclaw": ("OpenClaw", "OpenClaw"),
+    "workbuddy": ("WorkBuddy", "WorkBuddy"),
+    "qoderwork": ("QoderWork", "QoderWork"),
+    # "Grok-Bot" matches Umami's bot filter; the OS retains the full label.
+    "grok_bot": ("Grok Bot", "Grok"),
+    "unknown": ("Unknown Agent", "Unknown"),
+}
 
 
 def _collector_url(script_url: object) -> str:
@@ -96,11 +108,15 @@ def track_skill_request_event(
     operation: str,
     outcome: str,
     duration_ms: int,
+    route_template: str,
+    method: str,
+    timestamp: int,
 ) -> None:
-    """Queue the bounded request contract under the authenticated account ID."""
+    """Queue one identify/pageview pair under the authenticated account ID."""
     from flaskr.service.common.skill_request_analytics import (
         CALLER_AGENTS,
         SKILL_API_OPERATIONS,
+        SKILL_API_ROUTE_TEMPLATES,
         SKILL_ID,
     )
 
@@ -111,20 +127,95 @@ def track_skill_request_event(
         or outcome not in {"success", "failure"}
         or type(duration_ms) is not int
         or duration_ms < 0
+        or type(timestamp) is not int
+        or timestamp < 0
+        or not any(
+            operation == allowed_operation and method == allowed_method
+            for (_, allowed_method), allowed_operation in SKILL_API_OPERATIONS.items()
+        )
+        or route_template != SKILL_API_ROUTE_TEMPLATES.get(operation)
     ):
         return
-    _queue_event(
-        "skill_api_request_v1",
-        {
+    try:
+        collector_url = _collector_url(get_config("ANALYTICS_UMAMI_SCRIPT", ""))
+        website_id = str(get_config("ANALYTICS_UMAMI_SITE_ID", "") or "").strip()
+    except Exception:
+        return
+    if not collector_url or not website_id or not _CAPACITY.acquire(blocking=False):
+        return
+    os_name, agent_name = _SKILL_CLIENTS[caller_agent]
+    user_agent = f"Mozilla/5.0 AI-Shifu-CLI/1.0 ({agent_name})"
+    identity: dict[str, object] = {
+        "website": website_id,
+        "id": user_id,
+        "timestamp": timestamp,
+        "browser": "AI-Shifu CLI",
+        "os": os_name,
+        "device": "desktop",
+    }
+    pageview = {
+        **identity,
+        "hostname": "server.ai-shifu",
+        "url": route_template,
+        "tag": "skill_api_request_v2",
+        "data": {
             "skill_id": SKILL_ID,
             "skill_version_major": _version_bucket(skill_version),
             "caller_agent": caller_agent,
             "operation": operation,
+            "method": method,
             "outcome": outcome,
             "duration_ms": duration_ms,
         },
-        user_id=user_id,
-    )
+    }
+    try:
+        future = _EXECUTOR.submit(
+            _deliver_skill_request, collector_url, identity, pageview, user_agent
+        )
+    except Exception:
+        _CAPACITY.release()
+        return
+    future.add_done_callback(lambda _future: _CAPACITY.release())
+
+
+def _send_skill_payload(
+    url: str, event_type: str, payload: dict[str, object], user_agent: str
+) -> bool:
+    """Recognize collector acknowledgements without claiming stored identity."""
+    try:
+        response = requests.post(
+            url,
+            json={"type": event_type, "payload": payload},
+            headers={"User-Agent": user_agent},
+            timeout=(0.25, 0.5),
+        )
+        if not 200 <= response.status_code < 300:
+            return False
+        acknowledgement = response.json()
+        if (
+            not isinstance(acknowledgement, dict)
+            or acknowledgement.get("beep") == "boop"
+        ):
+            return False
+        # No cache is retained or sent. A collector acknowledgement alone does
+        # not prove the event or session_link can be read back from storage.
+        return isinstance(acknowledgement.get("cache"), str) and bool(
+            acknowledgement["cache"]
+        )
+    except Exception:
+        return False
+
+
+def _deliver_skill_request(
+    url: str,
+    identity: dict[str, object],
+    pageview: dict[str, object],
+    user_agent: str,
+) -> None:
+    # _send_skill_payload isolates each failure; identify never suppresses the
+    # pageview attempt. Each request has its own UA-bound identity and no cache.
+    _send_skill_payload(url, "identify", identity, user_agent)
+    _send_skill_payload(url, "event", pageview, user_agent)
 
 
 def _queue_event(
