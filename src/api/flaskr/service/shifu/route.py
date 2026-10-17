@@ -78,6 +78,7 @@ from flaskr.service.common.server_analytics import track_external_client_event
 from flaskr.service.common.session_attribution import (
     get_session_skill_attribution_by_reference,
 )
+from flaskr.service.common.skill_request_analytics import has_skill_request_analytics
 from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
@@ -162,6 +163,10 @@ from .funcs import (
 @contextlib.contextmanager
 def _external_client_course_event(app: Flask, operation: str) -> Generator[None]:
     """Report one attributed course operation without changing its outcome."""
+    if has_skill_request_analytics():
+        # The request lifecycle owns exactly one terminal event for this client.
+        yield
+        return
     attribution = get_session_skill_attribution_by_reference(
         app,
         reference=str(

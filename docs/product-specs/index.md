@@ -60,6 +60,8 @@ User-facing workflow and page behavior specifications live here.
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Profile onboarding startup](../product-specs/profile-onboarding-startup.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-13` | Canonical: `true`
+- [Skill Usage Analytics](../product-specs/skill-usage-analytics.md)
+  - Status: `implemented` | Owner: `frontend-backend` | Last reviewed: `2026-10-17` | Canonical: `true`
 - [Teacher Analytics Dashboard (v1)](../product-specs/teacher-analytics-dashboard.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-08-16` | Canonical: `true`
 - [Operator Course Creator Transfer](../product-specs/transfer-course-creator.md)

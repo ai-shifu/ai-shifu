@@ -27,3 +27,4 @@ Evergreen repository references and operational guides live here.
 - [Model Gateway CLI Integration Contract](../references/model-gateway-cli-integration.md)
 - [Scripts Overview](../references/scripts.md)
 - [Retired shared course answers](../references/shared-course-answers.md)
+- [Skill usage reporting](../references/skill-usage-reporting.md)
