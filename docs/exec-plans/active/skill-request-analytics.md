@@ -51,6 +51,8 @@ preserving all Web behavior and legacy shared-sender callers.
 
 - [x] 2026-10-17 UTC: Review follow-up: restrict historical v1 to the fixed Skill ID; 111 PostgreSQL fixtures pass.
 
+- [x] 2026-10-17 UTC: Review follow-up: replace request-controlled version regex with compatible deterministic parsing; 371 common tests pass, including 48 version cases.
+
 ## Surprises & Discoveries
 
 The current CLI no longer emits the old direct events or entry-source marker.

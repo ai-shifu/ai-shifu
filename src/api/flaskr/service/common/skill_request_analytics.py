@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import UTC
+from string import ascii_letters, digits
 from time import monotonic
 from typing import TYPE_CHECKING
 
@@ -29,9 +30,7 @@ CALLER_AGENTS = frozenset(
         "unknown",
     }
 )
-_RELEASE_VERSION = re.compile(
-    r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?"
-)
+_RELEASE_SUFFIX_CHARACTERS = frozenset(ascii_letters + digits + ".-")
 
 # Keys are Flask endpoints and HTTP methods, never request paths or payloads.
 SKILL_API_OPERATIONS = {
@@ -126,17 +125,34 @@ def has_skill_request_analytics() -> bool:
     )
 
 
+def _is_release_version(version: str) -> bool:
+    """Validate the existing release grammar without request-controlled regexes."""
+    if not version or len(version) > 64:
+        return False
+    release, build_separator, build = version.partition("+")
+    core, prerelease_separator, prerelease = release.partition("-")
+    components = core.split(".")
+    if len(components) != 3 or not all(
+        part and part.isascii() and part.isdecimal() for part in components
+    ):
+        return False
+    return all(
+        not separator
+        or (bool(suffix) and all(char in _RELEASE_SUFFIX_CHARACTERS for char in suffix))
+        for separator, suffix in (
+            (prerelease_separator, prerelease),
+            (build_separator, build),
+        )
+    )
+
+
 def _request_metadata() -> _SkillRequest | None:
     operation = SKILL_API_OPERATIONS.get((request.endpoint, request.method))
     if operation is None or request.headers.get("X-AI-Shifu-Skill") != SKILL_ID:
         return None
     version = request.headers.get("X-AI-Shifu-Skill-Version", "")
     caller_agent = request.headers.get("X-AI-Shifu-Caller-Agent", "")
-    if (
-        len(version) > 64
-        or _RELEASE_VERSION.fullmatch(version) is None
-        or caller_agent not in CALLER_AGENTS
-    ):
+    if not _is_release_version(version) or caller_agent not in CALLER_AGENTS:
         return None
     return _SkillRequest(
         version,
