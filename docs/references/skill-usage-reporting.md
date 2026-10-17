@@ -25,12 +25,12 @@ prove that its identity was stored.
 
 The v2 collector contract targets official **Umami 3.4.0** and the query uses
 its [PostgreSQL schema](https://github.com/umami-software/umami/blob/v3.4.0/prisma/schema.prisma).
-On 2026-10-17 the deployed image and startup log still identify **3.1.0**.
-That version does not include UA in the session key when an ID is supplied,
-so a single account switching Agents can retain the first session's OS.
-It does not satisfy the v2 client-classification acceptance criteria. This
-change does not upgrade Umami; use an authorized compatible 3.4 test site for
-storage and UI acceptance before enabling v2 production reporting.
+Initial inspection on 2026-10-17 found 3.1.0, whose identified session key
+omits UA and can retain the first Agent's OS. A subsequent read-only container
+package check at 03:13 UTC confirmed the running package is now **3.4.0**.
+This task did not upgrade or modify the service. Version compatibility alone
+does not prove the unreleased backend/CLI records, distinct identities, native
+UI, or reports work; authorized storage/UI acceptance remains outstanding.
 
 The common reporting columns are:
 

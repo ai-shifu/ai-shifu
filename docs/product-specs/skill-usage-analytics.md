@@ -237,19 +237,20 @@ CLI collector call, or Agent/model API is introduced.
 
 ## Deployment and acceptance
 
-The implementation targets official Umami 3.4.0. Read-only inspection on
-2026-10-17 confirmed the existing deployment runs 3.1.0, including its startup
-package version. Under 3.1, identified session IDs do not include UA, and the
-first Agent's OS can persist for later Agents of the same account; 3.1 also
-lacks the 3.4 identity-link behavior. Do not upgrade automatically, claim
-compatibility, or release this change to that collector as verified.
+The implementation targets official Umami 3.4.0. Initial inspection on
+2026-10-17 found Umami 3.1.0: identified session IDs did not include UA, the
+first Agent's OS could persist, and the 3.4 identity-link behavior was absent.
+A later read-only Pod/package check at 03:13 UTC confirmed the actual running
+package is now 3.4.0. This task performed no upgrade or service mutation.
+The version prerequisite is satisfied; it does not establish that this
+unreleased backend/CLI contract is deployed or stored correctly.
 
 Sources: [3.4 collector](https://github.com/umami-software/umami/blob/v3.4.0/src/app/api/send/route.ts),
 [3.1 collector](https://github.com/umami-software/umami/blob/v3.1.0/src/app/api/send/route.ts).
 
 Stage backend before Skill distribution only against a confirmed compatible
-collector. Until an authorized 3.4 test site is available, actual storage/UI
-acceptance remains open. In that site use one test account for Web and at least
+collector. Actual storage/UI acceptance remains open until an authorized test site and
+controlled request are available. In that site use one test account for Web and at least
 two Agents; read back pageview type, tag, safe route, seven-field data, Browser,
 OS, distinct identity, and `session_link`. Check identify/pageview actually
 resolve to the same session, including the collector-observed source IP, then

@@ -67,6 +67,11 @@ preserving all Web behavior and legacy shared-sender callers.
 - [x] 2026-10-17 UTC: Pass 457 backend common tests, 309 Skill tests, 167
   release-tool tests, full repository gates, and four-channel local packaging.
 
+- [x] 2026-10-17 03:13 UTC: Read-only verification found the replacement Pod
+  ready with the official 3.4.0 image digest and actual /app/package.json
+  version 3.4.0. This task did not upgrade or mutate the collector. Actual
+  backend/CLI record, UI, and identity-link readback remain open.
+
 ## Surprises & Discoveries
 
 The current CLI no longer emits the old direct events or entry-source marker.
@@ -81,7 +86,8 @@ Grok Bot injects both `SAND_AGENT` and `CURSOR_AGENT`; ordinary conflict
 handling needs one evidence-based exception. Manus/Cue variables observed at
 the operator process do not prove inheritance by Skill subprocesses.
 
-The existing deployment actually runs Umami 3.1.0. With an account ID its
+Initial inspection found Umami 3.1.0; this observation was later superseded
+by the read-only 3.4.0 package verification above. Under 3.1, an identified
 session key omits UA, so different Agents can retain the first session's OS.
 Umami 3.4 supports top-level client overrides and UA-separated identified
 sessions, plus native session links. Do not upgrade within this task. HTTP 200
@@ -102,7 +108,8 @@ internal session-link failure. Storage and UI readback remain necessary.
   version. Shared legacy senders keep their own UA. Use CLI terminology for
   the request producer and retain Skill identifiers as source dimensions.
 
-- Detect fixed environment-name existence once before dotenv. Do not accept
+- Initial implementation, superseded by detector 0.1.5: detect fixed
+  environment-name existence once before dotenv. Do not accept
   caller flags or collect values, model, Agent version, or raw environment.
 - Preserve unknown attribution for missing/conflicting evidence. Identify the
   QoderWork family without inferring regional branding.
@@ -124,7 +131,7 @@ internal session-link failure. Storage and UI readback remain necessary.
   A template failure skips telemetry but preserves legacy-event suppression.
 - Keep historical v1 consumers; count requests, successes, accounts, sessions,
   and pageviews separately. Never fan out aggregation through session_link.
-- Target 3.4 only; record 3.1 incompatibility and leave real deployment/readback
+- Target 3.4 only; retain the historical 3.1 incompatibility and leave contract deployment/readback
   acceptance open, without automatic upgrades or unverified production claims.
 
 ## Outcomes & Retrospective
