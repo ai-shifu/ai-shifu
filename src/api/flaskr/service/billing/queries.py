@@ -8,6 +8,10 @@ from zoneinfo import ZoneInfo
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.order.payment_providers.api import (
+    historical_billing_mode,
+    registered_payment_providers,
+)
 from flaskr.util.datetime import now_utc, parse_naive_utc
 from sqlalchemy import case
 
@@ -89,7 +93,10 @@ def normalize_payment_provider_hint(value: object) -> str:
     provider = str(value or "").strip().lower()
     if not provider:
         return ""
-    if provider not in {"stripe", "pingxx", "alipay", "wechatpay"}:
+    if (
+        provider not in registered_payment_providers()
+        and historical_billing_mode(provider) is None
+    ):
         raise_error("server.pay.payChannelNotSupport")
     return provider
 

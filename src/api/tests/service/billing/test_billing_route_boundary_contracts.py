@@ -263,6 +263,11 @@ def test_campaign_provider_routes_preserve_operator_identity_and_structured_erro
     assert service.call_args.kwargs == {
         identity_key: identity,
         "operator_user_bid": "admin-creator",
+        **(
+            {"provider_name": "stripe"}
+            if handler == "publish_admin_campaign_provider_discounts"
+            else {}
+        ),
     }
 
 

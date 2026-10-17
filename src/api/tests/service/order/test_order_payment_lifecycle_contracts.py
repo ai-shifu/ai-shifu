@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -12,7 +13,8 @@ from uuid import uuid4
 import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import AppError
-from flaskr.service.order import funs
+from flaskr.service.config import config_overrides
+from flaskr.service.order import funs, learner_pingxx
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
     ORDER_STATUS_REFUND,
@@ -27,6 +29,7 @@ from flaskr.service.order.models import (
     WechatPayOrder,
 )
 from flaskr.service.order.payment_providers.base import (
+    PaymentCancellationResult,
     PaymentNotificationResult,
     PaymentRefundResult,
 )
@@ -108,6 +111,53 @@ def payment_side_effects(monkeypatch: pytest.MonkeyPatch) -> Mock:
     return notify
 
 
+@pytest.mark.parametrize("provider", ["stripe", "pingxx", "alipay", "wechatpay"])
+def test_payment_success_and_notification_do_not_resolve_new_checkout_options(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, provider: str
+) -> None:
+    resolver = Mock(side_effect=RuntimeError("checkout configuration unavailable"))
+    notification = Mock()
+    monkeypatch.setattr(funs, "resolve_creator_payment_options", resolver)
+    monkeypatch.setattr(funs, "set_user_state", Mock())
+    monkeypatch.setattr(
+        funs, "get_shifu_creator_bid", Mock(return_value="teacher-test")
+    )
+    monkeypatch.setattr(
+        funs,
+        "load_user_aggregate",
+        Mock(return_value=SimpleNamespace(mobile="", name="")),
+    )
+    monkeypatch.setattr(
+        funs, "get_shifu_info", Mock(return_value=SimpleNamespace(title=""))
+    )
+    monkeypatch.setattr(funs, "send_notify", notification)
+    with app.app_context():
+        order = _order(provider, creator_bid="teacher-test")
+        result = funs.success_buy_record(app, order.order_bid)
+        assert result is not None
+        assert result.__json__()["status"] == ORDER_STATUS_SUCCESS
+        assert result.__json__()["payment_options"] == []
+        db.session.expire_all()
+        assert order.status == ORDER_STATUS_SUCCESS
+        notification.assert_called_once()
+        resolver.assert_not_called()
+
+
+def test_pending_order_resolves_merchant_options_only_when_serialized(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = [{"provider": "fixture-pay", "option_id": "fixture-pay:fixture_qr"}]
+    resolver = Mock(return_value=options)
+    monkeypatch.setattr(funs, "resolve_creator_payment_options", resolver)
+    with app.app_context():
+        order = _order(creator_bid="teacher-test")
+        result = funs.query_buy_record(app, order.order_bid)
+        resolver.assert_not_called()
+        assert result.__json__()["payment_options"] == options
+        assert result.__json__()["payment_options"] == options
+        resolver.assert_called_once_with("teacher-test")
+
+
 @pytest.mark.parametrize("missing_lock", [True, False])
 def test_pingxx_callback_without_lock_preserves_pending_payment(
     missing_lock: bool,
@@ -117,7 +167,7 @@ def test_pingxx_callback_without_lock_preserves_pending_payment(
 ) -> None:
     lock = Mock(acquire=Mock(return_value=False))
     monkeypatch.setattr(
-        funs.redis_cache,
+        learner_pingxx.redis_cache,
         "lock",
         Mock(return_value=None if missing_lock else lock),
     )
@@ -193,6 +243,8 @@ def test_refund_persists_provider_evidence_and_preserves_payment_state_until_suc
                 "status": status,
                 "amount": request.amount,
                 "provider_reference": "re-test",
+                "request": asdict(request),
+                "response": asdict(response),
             },
         }
         assert json.loads(snapshot.payment_intent_object) == response.raw_response
@@ -238,6 +290,7 @@ def test_refund_provider_error_preserves_paid_state_and_durable_pending_operatio
                 "idempotency_key": f"order-refund:{order.order_bid}:{snapshot.stripe_order_bid}:{snapshot.amount}",
                 "status": "pending",
                 "amount": snapshot.amount,
+                "request": asdict(provider.refund_payment.call_args.kwargs["request"]),
             }
         }
 
@@ -268,6 +321,7 @@ def test_stripe_non_success_callbacks_persist_error_and_payment_evidence(
         payload = {
             "id": "ch-latest" if event_type == "charge.refunded" else "pi_latest",
             "payment_intent": "pi_latest",
+            "status": "succeeded" if event_type == "refund.created" else "",
             "payment_method": "pm-test",
             "metadata": {
                 "order_bid": order.order_bid,
@@ -470,7 +524,11 @@ def test_native_sync_late_failure_rolls_back_snapshot_order_and_notification(
         notification = PaymentNotificationResult(
             snapshot.provider_attempt_id,
             "TRADE_SUCCESS",
-            {"trade_status": "TRADE_SUCCESS", "total_amount": "10.00"},
+            {
+                "trade_status": "TRADE_SUCCESS",
+                "total_amount": "10.00",
+                "out_trade_no": snapshot.provider_attempt_id,
+            },
             "trade-paid",
         )
         monkeypatch.setattr(
@@ -693,7 +751,7 @@ def test_repricing_cancellation_restores_claim_or_preserves_concurrent_settlemen
                 snapshot.provider_attempt_id = ""
             db.session.commit()
 
-        def cancel(**_kwargs: object) -> object:
+        def cancel(**_kwargs: object) -> PaymentCancellationResult:
             if failure == "provider-error":
                 message = "provider temporarily unavailable"
                 raise RuntimeError(message)
@@ -703,8 +761,10 @@ def test_repricing_cancellation_restores_claim_or_preserves_concurrent_settlemen
             elif failure == "attempt-settled":
                 snapshot.status = 1
                 db.session.commit()
-            return SimpleNamespace(
-                status="paid" if failure == "not-cancelled" else "cancelled"
+            return PaymentCancellationResult(
+                provider_reference=str(_kwargs["provider_reference"]),
+                raw_response={},
+                status="paid" if failure == "not-cancelled" else "cancelled",
             )
 
         provider = Mock(cancel_payment=Mock(side_effect=cancel))
@@ -814,7 +874,9 @@ def test_wechat_charge_enforces_app_scoped_identity_and_rolls_back_partial_attem
         provider.create_payment.side_effect = RuntimeError("provider unavailable")
     monkeypatch.setattr(funs, "get_payment_provider", Mock(return_value=provider))
     if scenario == "late-snapshot-error":
-        original = funs.upsert_native_snapshot
+        from flaskr.service.order import learner_payments
+
+        original = learner_payments.upsert_native_snapshot
 
         def persist_then_fail(**kwargs: object) -> object:
             snapshot = original(**kwargs)
@@ -823,7 +885,9 @@ def test_wechat_charge_enforces_app_scoped_identity_and_rolls_back_partial_attem
             message = "snapshot persistence failure"
             raise RuntimeError(message)
 
-        monkeypatch.setattr(funs, "upsert_native_snapshot", persist_then_fail)
+        monkeypatch.setattr(
+            learner_payments, "upsert_native_snapshot", persist_then_fail
+        )
     with app.app_context():
         order = _order("alipay", status=ORDER_STATUS_INIT)
         if scenario == "wechat-jsapi":
@@ -862,3 +926,207 @@ def test_wechat_charge_enforces_app_scoped_identity_and_rolls_back_partial_attem
             user.wechat_open_id_for_app.assert_called_once_with("creator-app")
         if scenario in {"no-user", "missing-open-id"}:
             provider.create_payment.assert_not_called()
+
+
+def test_resume_stripe_sdk_uses_original_integration_public_key(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with app.app_context():
+        order = _order(payment_integration_bid="original-integration")
+        _snapshot(
+            order,
+            checkout_session_id="",
+            checkout_session_object="{}",
+            payment_intent_object=json.dumps({"client_secret": "original-secret"}),
+        )
+        resolve = Mock(
+            return_value=SimpleNamespace(integration_bid="original-integration")
+        )
+        monkeypatch.setattr(funs, "resolve_provider_credential_context", resolve)
+        monkeypatch.setattr(
+            funs,
+            "build_provider_config_overrides",
+            lambda _context: {"STRIPE_PUBLISHABLE_KEY": "pk_original"},
+        )
+        with config_overrides({"STRIPE_PUBLISHABLE_KEY": "pk_current"}):
+            result = funs._resume_pending_charge(app, order, payment_channel="stripe")
+        assert result is not None
+        assert result.__json__()["payment_action"]["publishable_key"] == "pk_original"
+        assert result.__json__()["payment_action"]["client_secret"] == "original-secret"
+        assert resolve.call_args.kwargs["integration_bid"] == "original-integration"
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "invalid",
+        [],
+        {"type": []},
+        {"type": {}},
+        {"type": "qr", "url": 42},
+        {"type": "qr", "url": "weixin://pay", "future_field": True},
+    ],
+)
+def test_resume_native_tolerates_malformed_or_extended_action_metadata(
+    app: Flask, stored: object
+) -> None:
+    with app.app_context():
+        order = _order("wechatpay")
+        _snapshot(
+            order,
+            channel="wx_pub_qr",
+            metadata_json=json.dumps(
+                {
+                    "qr_url": "weixin://pay",
+                    "payment_action": stored,
+                }
+            ),
+            raw_response="{}",
+        )
+        result = funs._resume_pending_charge(
+            app, order, payment_channel="wechatpay", provider_channel="wx_pub_qr"
+        )
+        assert result is not None
+        assert result.__json__()["payment_action"]["url"] == "weixin://pay"
+        assert "future_field" not in result.__json__()["payment_action"]
+
+
+def test_resume_native_does_not_reinterpret_unknown_action_as_legacy_qr(
+    app: Flask,
+) -> None:
+    with app.app_context():
+        order = _order("wechatpay")
+        _snapshot(
+            order,
+            channel="wx_pub_qr",
+            metadata_json=json.dumps(
+                {
+                    "qr_url": "weixin://pay",
+                    "payment_action": {"type": "future"},
+                }
+            ),
+            raw_response=json.dumps({"code_url": "weixin://pay"}),
+        )
+        assert (
+            funs._resume_pending_charge(
+                app, order, payment_channel="wechatpay", provider_channel="wx_pub_qr"
+            )
+            is None
+        )
+
+
+@pytest.mark.parametrize("status", [ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID])
+def test_payable_order_read_survives_unavailable_option_metadata(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    resolver = Mock(side_effect=RuntimeError("checkout configuration unavailable"))
+    monkeypatch.setattr(funs, "resolve_creator_payment_options", resolver)
+    with app.app_context():
+        order = _order(status=status)
+        result = funs.query_buy_record(app, order.order_bid)
+        serialized = result.__json__()
+        assert serialized["order_id"] == order.order_bid
+        assert serialized["status"] == status
+        assert "payment_options" not in serialized
+        assert result.__json__() == serialized
+        resolver.assert_called_once()
+        db.session.expire_all()
+        assert order.status == status
+
+
+def test_explicitly_empty_payment_options_remain_authoritative_in_order_response(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(funs, "resolve_creator_payment_options", Mock(return_value=[]))
+    with app.app_context():
+        order = _order()
+        result = funs.query_buy_record(app, order.order_bid)
+        assert result.__json__()["payment_options"] == []
+
+
+@pytest.mark.parametrize(
+    "event_type",
+    ["refund.created", "refund.updated", "charge.refund.updated", "refund.failed"],
+)
+@pytest.mark.parametrize(
+    "state", ["pending", "requires_action", "succeeded", "failed", "canceled"]
+)
+def test_learner_stripe_async_refund_tracks_receipt_without_premature_order_transition(
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    event_type: str,
+    state: str,
+) -> None:
+    with app.app_context():
+        order = _order(status=ORDER_STATUS_SUCCESS)
+        snapshot = _snapshot(
+            order, status=1, payment_intent_id="pi_async", latest_charge_id="ch_async"
+        )
+        provider = Mock(
+            refund_payment=Mock(
+                return_value=PaymentRefundResult(
+                    "re_async", {"status": "pending"}, "pending"
+                )
+            )
+        )
+        monkeypatch.setattr(funs, "get_payment_provider", Mock(return_value=provider))
+        first = funs.refund_order_payment(app, order.order_bid)
+        assert first["status"] == "pending"
+        provider.verify_webhook.return_value = PaymentNotificationResult(
+            order.order_bid,
+            event_type,
+            {
+                "type": event_type,
+                "data": {
+                    "object": {
+                        "id": "re_async",
+                        "status": state,
+                        "payment_intent": "pi_async",
+                        "charge": "ch_async",
+                        "metadata": {
+                            "order_bid": order.order_bid,
+                            "stripe_order_bid": snapshot.stripe_order_bid,
+                        },
+                    }
+                },
+            },
+        )
+        for _ in range(2):
+            assert (
+                funs.handle_stripe_webhook(app, b"verified-refund", "signature")[1]
+                == 200
+            )
+        db.session.expire_all()
+        succeeded = state == "succeeded"
+        assert order.status == (
+            ORDER_STATUS_REFUND if succeeded else ORDER_STATUS_SUCCESS
+        )
+        assert snapshot.status == (2 if succeeded else 1)
+        again = funs.refund_order_payment(app, order.order_bid)
+        if state in {"failed", "canceled"}:
+            # An explicit retry after a definite rejection is a new operation;
+            # the stub starts that replacement in progress, retaining paid access.
+            assert again["status"] == "pending"
+            assert provider.refund_payment.call_count == 2
+            requests = [
+                call.kwargs["request"]
+                for call in provider.refund_payment.call_args_list
+            ]
+            assert (
+                requests[0].metadata["idempotency_key"]
+                != requests[1].metadata["idempotency_key"]
+            )
+            assert (
+                json.loads(snapshot.metadata_json)["refund_operation_history"][-1][
+                    "response"
+                ]["status"]
+                == state
+            )
+            assert order.status == ORDER_STATUS_SUCCESS
+            assert (
+                funs.refund_order_payment(app, order.order_bid)["status"] == "pending"
+            )
+            assert provider.refund_payment.call_count == 2
+        else:
+            assert again["status"] == state
+            assert provider.refund_payment.call_count == 1

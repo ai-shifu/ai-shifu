@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol
@@ -24,10 +25,12 @@ from .models import (
 )
 from .primitives import normalize_bid
 from .provider_catalog import (
+    CatalogReader,
     ProviderAccountSnapshot,
     ProviderPriceSnapshot,
     ProviderProductSnapshot,
     StripeCatalogReadAdapter,
+    catalog_reader,
     normalize_stripe_price_snapshot,
     normalize_stripe_product_snapshot,
 )
@@ -36,6 +39,7 @@ from .provider_price_mappings import PROVIDER_STRIPE
 
 if TYPE_CHECKING:
     from flask import Flask
+    from flaskr.service.order.payment_providers.api import PaymentNotificationResult
 
 
 class _CatalogNotification(Protocol):
@@ -58,6 +62,37 @@ _OBJECT_TYPE_PRICE = "price"
 _SOURCE_WEBHOOK = "webhook"
 _SOURCE_RECONCILE = "reconcile"
 _SOURCE_MANUAL = "manual"
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogChange:
+    """An integration-normalized catalog event; raw data is audit-only."""
+
+    account: ProviderAccountSnapshot
+    event_id: str
+    event_type: str
+    source: str
+    object_type: str
+    object_id: str
+    parent_object_id: str
+    occurred_at: datetime | None
+    raw_payload: dict[str, Any]
+
+
+def apply_catalog_change(
+    app: Flask,
+    change: CatalogChange,
+    snapshot: ProviderProductSnapshot | ProviderPriceSnapshot,
+) -> ProviderCatalogSyncResult:
+    """Apply another integration's normalized catalog through the same durable inbox."""
+    try:
+        with app_context_scope(app), unit_of_work():
+            return _process_catalog_change(app, change, lambda: snapshot)
+    except _CatalogDuplicateEventError as exc:
+        return exc.result
+    except _CatalogProcessingFailureError as exc:
+        _persist_failed_event(app, exc)
+        raise exc.original from exc
 
 
 @dataclass(slots=True, frozen=True)
@@ -107,6 +142,7 @@ class _CatalogProcessingFailureError(RuntimeError):
     event_id: str
     event_created_at: datetime | None
     processing_error: str
+    parent_object_id: str | None = None
 
 
 def is_stripe_catalog_event(event_type: object) -> bool:
@@ -143,12 +179,23 @@ def apply_stripe_catalog_notification(
 
 
 def reconcile_stripe_catalog(
+    app: Flask, *, source: str = _SOURCE_RECONCILE
+) -> dict[str, object]:
+    """Preserve the established operator entry and its patchable Stripe adapter."""
+    return reconcile_provider_catalog(
+        app, source=source, provider=PROVIDER_STRIPE, reader=StripeCatalogReadAdapter()
+    )
+
+
+def reconcile_provider_catalog(
     app: Flask,
     *,
     source: str = _SOURCE_RECONCILE,
+    provider: str,
+    reader: CatalogReader | None = None,
 ) -> dict[str, object]:
-    """Fetch Stripe catalog objects and reconcile them into local snapshots."""
-    reader = StripeCatalogReadAdapter()
+    """Fetch normalized catalog objects and reconcile them into local snapshots."""
+    reader = reader or catalog_reader(provider)
     processed = 0
     with app_context_scope(app):
         account = reader.retrieve_account_snapshot(app)
@@ -210,7 +257,7 @@ def reconcile_stripe_catalog(
             )
             processed += 1
     return {
-        "provider": PROVIDER_STRIPE,
+        "provider": account.provider,
         "provider_account_id": account.account_id,
         "livemode": bool(account.livemode),
         "products": len(products),
@@ -219,9 +266,13 @@ def reconcile_stripe_catalog(
     }
 
 
-def run_admin_provider_catalog_reconcile(app: Flask) -> dict[str, object]:
+def run_admin_provider_catalog_reconcile(
+    app: Flask, *, provider: str = PROVIDER_STRIPE
+) -> dict[str, object]:
     """Run a manual Stripe catalog reconcile for admins."""
-    return reconcile_stripe_catalog(app, source=_SOURCE_MANUAL)
+    if provider == PROVIDER_STRIPE:
+        return reconcile_stripe_catalog(app, source=_SOURCE_MANUAL)
+    return reconcile_provider_catalog(app, provider=provider, source=_SOURCE_MANUAL)
 
 
 def _process_event_payload(
@@ -240,7 +291,48 @@ def _process_event_payload(
     event_id = normalize_bid(event.get("id")) or f"{source}:{event_type}:{object_id}"
     event_created_at = _coerce_epoch_datetime(event.get("created"))
     scoped_account = _scope_account_for_event(account, data_object, object_type)
-    existing_event = _load_event(event_id)
+    change = CatalogChange(
+        account=scoped_account,
+        event_id=event_id,
+        event_type=event_type,
+        source=source,
+        object_type=object_type,
+        object_id=object_id,
+        parent_object_id=_parent_object_id(data_object, object_type),
+        occurred_at=event_created_at,
+        raw_payload=event,
+    )
+
+    def load_snapshot() -> ProviderProductSnapshot | ProviderPriceSnapshot | None:
+        if object_type == _OBJECT_TYPE_PRODUCT:
+            return normalize_stripe_product_snapshot(data_object)
+        if object_type == _OBJECT_TYPE_PRICE:
+            return normalize_stripe_price_snapshot(data_object)
+        return None
+
+    return _process_catalog_change(app, change, load_snapshot)
+
+
+def _process_catalog_change(
+    app: Flask,
+    change: CatalogChange,
+    load_snapshot: Callable[[], ProviderProductSnapshot | ProviderPriceSnapshot],
+) -> ProviderCatalogSyncResult:
+    """Apply normalized catalog facts with shared idempotency and stale-event protection."""
+    account = change.account
+    scoped_account = account
+    event, event_id, event_type, source = (
+        change.raw_payload,
+        change.event_id,
+        change.event_type,
+        change.source,
+    )
+    object_type, object_id, event_created_at = (
+        change.object_type,
+        change.object_id,
+        change.occurred_at,
+    )
+    existing_event = _load_event(event_id, provider=account.provider)
     if (
         existing_event is not None
         and int(existing_event.processing_status or 0)
@@ -267,6 +359,7 @@ def _process_event_payload(
                 object_type=object_type,
                 object_id=object_id,
                 event_created_at=event_created_at,
+                parent_object_id=change.parent_object_id,
             ),
             processing_status=BILLING_PROVIDER_CATALOG_EVENT_STATUS_RECEIVED,
             deleted=0,
@@ -291,7 +384,7 @@ def _process_event_payload(
         row.raw_payload = event
     try:
         if object_type == _OBJECT_TYPE_PRODUCT:
-            snapshot = normalize_stripe_product_snapshot(data_object)
+            snapshot = load_snapshot()
             applied = _upsert_product_snapshot(
                 app,
                 account=scoped_account,
@@ -303,7 +396,7 @@ def _process_event_payload(
                 raw_event=event,
             )
         elif object_type == _OBJECT_TYPE_PRICE:
-            snapshot = normalize_stripe_price_snapshot(data_object)
+            snapshot = load_snapshot()
             applied = _upsert_price_snapshot(
                 app,
                 account=scoped_account,
@@ -334,6 +427,7 @@ def _process_event_payload(
             event_id=event_id,
             event_created_at=event_created_at,
             processing_error=_safe_error(exc),
+            parent_object_id=change.parent_object_id,
         ) from exc
     return ProviderCatalogSyncResult(
         status="acknowledged"
@@ -358,10 +452,11 @@ def _event_row_kwargs(
     object_type: str,
     object_id: str,
     event_created_at: datetime | None,
+    parent_object_id: str | None = None,
 ) -> dict[str, object]:
     return {
         "catalog_event_bid": generate_id(app),
-        "provider": PROVIDER_STRIPE,
+        "provider": account.provider,
         "provider_event_id": event_id,
         "event_type": event_type,
         "event_source": source,
@@ -369,7 +464,9 @@ def _event_row_kwargs(
         "livemode": int(bool(account.livemode)),
         "object_type": object_type,
         "object_id": object_id,
-        "parent_object_id": _parent_object_id(
+        "parent_object_id": parent_object_id
+        if parent_object_id is not None
+        else _parent_object_id(
             event.get("data", {}).get("object", {}) or {}, object_type
         ),
         "event_created_at": event_created_at,
@@ -398,7 +495,7 @@ def _upsert_product_snapshot(
         return False
     row = existing or BillingProviderCatalogSnapshot(
         catalog_snapshot_bid=generate_id(app),
-        provider=PROVIDER_STRIPE,
+        provider=account.provider,
         provider_account_id=account.account_id,
         livemode=int(bool(account.livemode)),
         object_type=_OBJECT_TYPE_PRODUCT,
@@ -441,7 +538,7 @@ def _upsert_price_snapshot(
         return False
     row = existing or BillingProviderCatalogSnapshot(
         catalog_snapshot_bid=generate_id(app),
-        provider=PROVIDER_STRIPE,
+        provider=account.provider,
         provider_account_id=account.account_id,
         livemode=int(bool(account.livemode)),
         object_type=_OBJECT_TYPE_PRICE,
@@ -468,7 +565,7 @@ def _load_snapshot(
 ) -> BillingProviderCatalogSnapshot | None:
     return BillingProviderCatalogSnapshot.query.filter(
         BillingProviderCatalogSnapshot.deleted == 0,
-        BillingProviderCatalogSnapshot.provider == PROVIDER_STRIPE,
+        BillingProviderCatalogSnapshot.provider == account.provider,
         BillingProviderCatalogSnapshot.provider_account_id == account.account_id,
         BillingProviderCatalogSnapshot.livemode == int(bool(account.livemode)),
         BillingProviderCatalogSnapshot.object_type == object_type,
@@ -476,10 +573,12 @@ def _load_snapshot(
     ).one_or_none()
 
 
-def _load_event(provider_event_id: str) -> BillingProviderCatalogEvent | None:
+def _load_event(
+    provider_event_id: str, *, provider: str = PROVIDER_STRIPE
+) -> BillingProviderCatalogEvent | None:
     return BillingProviderCatalogEvent.query.filter(
         BillingProviderCatalogEvent.deleted == 0,
-        BillingProviderCatalogEvent.provider == PROVIDER_STRIPE,
+        BillingProviderCatalogEvent.provider == provider,
         BillingProviderCatalogEvent.provider_event_id == provider_event_id,
     ).one_or_none()
 
@@ -499,7 +598,7 @@ def _record_reconcile_event(
 ) -> None:
     event = BillingProviderCatalogEvent(
         catalog_event_bid=generate_id(app),
-        provider=PROVIDER_STRIPE,
+        provider=account.provider,
         provider_event_id=event_id,
         event_type=event_type,
         event_source=source,
@@ -558,7 +657,7 @@ def _event_livemode(data_object: dict[str, Any], object_type: str) -> bool | Non
 
 def _persist_failed_event(app: Flask, failure: _CatalogProcessingFailureError) -> None:
     with app_context_scope(app), unit_of_work():
-        row = _load_event(failure.event_id)
+        row = _load_event(failure.event_id, provider=failure.account.provider)
         if row is None:
             row = BillingProviderCatalogEvent(
                 **_event_row_kwargs(
@@ -571,6 +670,7 @@ def _persist_failed_event(app: Flask, failure: _CatalogProcessingFailureError) -
                     object_type=failure.object_type,
                     object_id=failure.object_id,
                     event_created_at=failure.event_created_at,
+                    parent_object_id=failure.parent_object_id,
                 ),
                 deleted=0,
             )
@@ -583,9 +683,13 @@ def _persist_failed_event(app: Flask, failure: _CatalogProcessingFailureError) -
         row.livemode = int(bool(failure.account.livemode))
         row.object_type = failure.object_type
         row.object_id = failure.object_id
-        row.parent_object_id = _parent_object_id(
-            failure.event.get("data", {}).get("object", {}) or {},
-            failure.object_type,
+        row.parent_object_id = (
+            failure.parent_object_id
+            if failure.parent_object_id is not None
+            else _parent_object_id(
+                failure.event.get("data", {}).get("object", {}) or {},
+                failure.object_type,
+            )
         )
 
 
@@ -623,3 +727,26 @@ def _reconcile_event_id(object_id: str) -> str:
 
 def _safe_error(exc: Exception) -> str:
     return f"{exc.__class__.__name__}: provider catalog sync failed"
+
+
+CatalogNotificationReader = Callable[
+    ["Flask", "PaymentNotificationResult"],
+    tuple[CatalogChange, ProviderProductSnapshot | ProviderPriceSnapshot] | None,
+]
+_CATALOG_NOTIFICATION_READERS: dict[str, CatalogNotificationReader] = {}
+
+
+def register_catalog_notification_reader(
+    provider: str, reader: CatalogNotificationReader
+) -> None:
+    """Register protocol normalization after the payment adapter verifies the signature."""
+    _CATALOG_NOTIFICATION_READERS[provider] = reader
+
+
+def apply_registered_catalog_notification(
+    app: Flask, provider: str, notification: PaymentNotificationResult
+) -> ProviderCatalogSyncResult | None:
+    """Apply verified catalog evidence without exposing its envelope to billing policy."""
+    reader = _CATALOG_NOTIFICATION_READERS.get(provider)
+    evidence = reader(app, notification) if reader else None
+    return apply_catalog_change(app, *evidence) if evidence is not None else None

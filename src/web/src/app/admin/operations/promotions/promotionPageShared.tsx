@@ -961,6 +961,7 @@ export const isPackageCampaignProviderDiscountSynced = (
     summary.provider_invalid,
     summary.cleanup_required,
     summary.requires_republish,
+    summary.missing_provider_count,
   ].some(value => Number(value || 0) > 0);
   return total >= expectedProducts && active >= total && !hasAttention;
 };
@@ -1042,6 +1043,9 @@ export const resolvePackageCampaignProviderDiscountLabel = (
     return tPromotion('packageCampaign.providerDiscountRequiresRepublish');
   }
   if (active === total) {
+    if (Number(summary.missing_provider_count || 0) > 0) {
+      return tPromotion('packageCampaign.providerDiscountPartial');
+    }
     return tPromotion('packageCampaign.providerDiscountActive');
   }
   return tPromotion('packageCampaign.providerDiscountPartial');
@@ -1062,6 +1066,7 @@ export const shouldShowPackageCampaignProviderRetry = (
   return (
     item.benefit_type === 'discount' &&
     (Number(summary.failed || 0) > 0 ||
+      Number(summary.missing_provider_count || 0) > 0 ||
       Number(summary.provider_invalid || 0) > 0 ||
       Number(summary.requires_republish || 0) > 0)
   );

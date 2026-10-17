@@ -176,6 +176,7 @@ export type AdminBillingCampaignItem = {
   product_names: string[];
   has_custom_product_rules: boolean;
   provider_discount_summary?: {
+    missing_provider_count?: number;
     total?: number;
     active?: number;
     failed?: number;

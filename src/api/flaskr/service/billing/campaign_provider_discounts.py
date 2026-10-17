@@ -22,6 +22,7 @@ from .campaign_discount_providers import (
     ProviderDiscountCreateRequest,
     ProviderDiscountSnapshot,
     StripeCampaignDiscountProvider,
+    discount_provider,
 )
 from .consts import (
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
@@ -55,6 +56,8 @@ from .primitives import (
 from .provider_price_mappings import (
     PROVIDER_STRIPE,
     ProviderPriceMappingError,
+    ProviderPriceRuntimeScope,
+    resolve_current_provider_price_scope,
     resolve_current_stripe_provider_price_scope,
 )
 
@@ -129,6 +132,8 @@ def serialize_campaign_provider_discount(
 
 def summarize_campaign_provider_discounts(
     campaign_bids: list[str],
+    *,
+    required_providers: list[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Return provider discount counts by campaign for list pages."""
     if not campaign_bids:
@@ -178,16 +183,52 @@ def summarize_campaign_provider_discounts(
         if row.failure_code or row.failure_message:
             summary["latest_failure_code"] = row.failure_code
             summary["latest_failure_message"] = row.failure_message
+    if required_providers:
+        products_by_campaign: dict[str, set[str]] = {}
+        bindings = (
+            db.session.query(
+                BillingCampaignProduct.campaign_bid,
+                BillingCampaignProduct.product_bid,
+            )
+            .filter(
+                BillingCampaignProduct.deleted == 0,
+                BillingCampaignProduct.campaign_bid.in_(campaign_bids),
+            )
+            .all()
+        )
+        for campaign_bid, product_bid in bindings:
+            products_by_campaign.setdefault(campaign_bid, set()).add(product_bid)
+        for campaign_bid in campaign_bids:
+            required_products = products_by_campaign.get(campaign_bid, set())
+            active_pairs = {
+                (row.provider, row.product_bid)
+                for row in rows
+                if row.campaign_bid == campaign_bid
+                and row.status == BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE
+                and row.provider_coupon_id
+            }
+            payload.setdefault(campaign_bid, {})["missing_provider_count"] = len(
+                {
+                    provider
+                    for provider in required_providers
+                    if not required_products
+                    or any(
+                        (provider, product_bid) not in active_pairs
+                        for product_bid in required_products
+                    )
+                }
+            )
     return payload
 
 
-def assert_current_stripe_campaign_provider_discounts_ready(
+def assert_campaign_provider_discounts_ready(
     app: Flask,
     *,
     campaign_bid: str,
     product_bids: list[str],
+    provider: str = PROVIDER_STRIPE,
 ) -> None:
-    """Require active Stripe coupons for every campaign product in current scope."""
+    """Require active discounts for every campaign product in the selected scope."""
     normalized_campaign_bid = normalize_bid(campaign_bid)
     normalized_product_bids = sorted(
         {
@@ -200,7 +241,7 @@ def assert_current_stripe_campaign_provider_discounts_ready(
         raise_error("server.billing.campaignProviderDiscountSyncRequired")
 
     try:
-        scope = resolve_current_stripe_provider_price_scope(app)
+        scope = _resolve_discount_scope(app, provider)
     except Exception:
         raise_error("server.billing.campaignProviderDiscountSyncRequired")
     mapping_bids_by_product: dict[str, str] = {}
@@ -210,6 +251,7 @@ def assert_current_stripe_campaign_provider_discounts_ready(
                 product_bid=product_bid,
                 provider_account_id=scope.provider_account_id,
                 livemode=scope.livemode,
+                provider_name=provider,
             )
         except ProviderPriceMappingError:
             raise_error("server.billing.campaignProviderDiscountSyncRequired")
@@ -222,7 +264,7 @@ def assert_current_stripe_campaign_provider_discounts_ready(
         BillingCampaignProviderDiscount.product_provider_price_bid.in_(
             mapping_bids_by_product.values()
         ),
-        BillingCampaignProviderDiscount.provider == PROVIDER_STRIPE,
+        BillingCampaignProviderDiscount.provider == provider,
         BillingCampaignProviderDiscount.provider_account_id
         == scope.provider_account_id,
         BillingCampaignProviderDiscount.livemode == int(bool(scope.livemode)),
@@ -239,13 +281,22 @@ def assert_current_stripe_campaign_provider_discounts_ready(
         raise_error("server.billing.campaignProviderDiscountSyncRequired")
 
 
-def load_current_stripe_campaign_provider_discount(
+def assert_current_stripe_campaign_provider_discounts_ready(
+    app: Flask, *, campaign_bid: str, product_bids: list[str]
+) -> None:
+    """Preserve the historical administrative readiness entry point."""
+    assert_campaign_provider_discounts_ready(
+        app, campaign_bid=campaign_bid, product_bids=product_bids
+    )
+
+
+def load_current_campaign_provider_discount(
     *,
     campaign_bid: str,
     product_bid: str,
     provider_price_mapping: BillingProductProviderPrice,
 ) -> BillingCampaignProviderDiscount | None:
-    """Return the active Stripe coupon row for checkout in the current price scope."""
+    """Return the active discount reference for checkout in the current price scope."""
     normalized_campaign_bid = normalize_bid(campaign_bid)
     normalized_product_bid = normalize_bid(product_bid)
     provider_price_bid = normalize_bid(provider_price_mapping.provider_price_bid)
@@ -264,7 +315,7 @@ def load_current_stripe_campaign_provider_discount(
             BillingCampaignProviderDiscount.product_bid == normalized_product_bid,
             BillingCampaignProviderDiscount.product_provider_price_bid
             == provider_price_bid,
-            BillingCampaignProviderDiscount.provider == PROVIDER_STRIPE,
+            BillingCampaignProviderDiscount.provider == provider_price_mapping.provider,
             BillingCampaignProviderDiscount.provider_account_id == provider_account_id,
             BillingCampaignProviderDiscount.livemode
             == int(bool(provider_price_mapping.livemode)),
@@ -274,6 +325,20 @@ def load_current_stripe_campaign_provider_discount(
         )
         .order_by(BillingCampaignProviderDiscount.id.desc())
         .first()
+    )
+
+
+def load_current_stripe_campaign_provider_discount(
+    *,
+    campaign_bid: str,
+    product_bid: str,
+    provider_price_mapping: BillingProductProviderPrice,
+) -> BillingCampaignProviderDiscount | None:
+    """Return the active Stripe coupon row for checkout in the current price scope."""
+    return load_current_campaign_provider_discount(
+        campaign_bid=campaign_bid,
+        product_bid=product_bid,
+        provider_price_mapping=provider_price_mapping,
     )
 
 
@@ -352,25 +417,27 @@ def publish_admin_campaign_provider_discounts(
     campaign_bid: str,
     operator_user_bid: str,
     provider: CampaignDiscountProvider | None = None,
+    provider_name: str = PROVIDER_STRIPE,
 ) -> dict[str, Any]:
     """Publish Stripe coupons for discount campaign products."""
     normalized_campaign_bid = normalize_bid(campaign_bid)
     normalized_operator_bid = normalize_bid(operator_user_bid)
     if not normalized_campaign_bid:
         raise_param_error("campaign_bid")
-    resolved_provider = provider or StripeCampaignDiscountProvider()
+    resolved_provider = provider or _resolve_discount_provider(provider_name)
 
     with app_context_scope(app), unit_of_work():
         campaign = _require_campaign(normalized_campaign_bid)
         if int(campaign.benefit_type or 0) != BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT:
             return {"items": [], "summary": _summarize_serialized_items([])}
         bindings = _load_campaign_discount_bindings(normalized_campaign_bid)
-        scope = resolve_current_stripe_provider_price_scope(app)
+        scope = _resolve_discount_scope(app, provider_name)
         stale_row_bids = _load_stale_provider_coupon_row_bids(
             campaign_bid=normalized_campaign_bid,
             bindings=bindings,
             provider_account_id=scope.provider_account_id,
             livemode=scope.livemode,
+            provider_name=provider_name,
         )
 
     for row_bid in stale_row_bids:
@@ -384,7 +451,7 @@ def publish_admin_campaign_provider_discounts(
     with app_context_scope(app), unit_of_work():
         campaign = _require_campaign(normalized_campaign_bid)
         bindings = _load_campaign_discount_bindings(normalized_campaign_bid)
-        scope = resolve_current_stripe_provider_price_scope(app)
+        scope = _resolve_discount_scope(app, provider_name)
         prepared_rows = [
             _prepare_discount_row(
                 app,
@@ -392,6 +459,7 @@ def publish_admin_campaign_provider_discounts(
                 binding=binding,
                 scope_account_id=scope.provider_account_id,
                 scope_livemode=scope.livemode,
+                provider_name=provider_name,
                 operator_user_bid=normalized_operator_bid,
             )
             for binding in bindings
@@ -426,9 +494,9 @@ def validate_admin_campaign_provider_discount(
     normalized_bid = normalize_bid(campaign_provider_discount_bid)
     if not normalized_bid:
         raise_param_error("campaign_provider_discount_bid")
-    resolved_provider = provider or StripeCampaignDiscountProvider()
     with app_context_scope(app), unit_of_work():
         row = _require_discount_row(normalized_bid)
+        resolved_provider = provider or _resolve_discount_provider(row.provider)
         if not row.provider_coupon_id:
             code = "provider_coupon_missing"
             message = "Provider coupon is missing"
@@ -452,7 +520,6 @@ def retire_admin_campaign_provider_discounts(
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
         raise_param_error("campaign_bid")
-    resolved_provider = provider or StripeCampaignDiscountProvider()
     with app_context_scope(app):
         _require_campaign(normalized_campaign_bid)
         rows = BillingCampaignProviderDiscount.query.filter(
@@ -475,7 +542,8 @@ def retire_admin_campaign_provider_discounts(
             app,
             row_bid=row_bid,
             operator_user_bid=operator_user_bid,
-            provider=resolved_provider,
+            provider=provider
+            or _resolve_discount_provider(_require_discount_row(row_bid).provider),
         )
     return list_admin_campaign_provider_discounts(
         app, campaign_bid=normalized_campaign_bid
@@ -490,12 +558,14 @@ def _prepare_discount_row(
     scope_account_id: str,
     scope_livemode: bool,
     operator_user_bid: str,
+    provider_name: str = PROVIDER_STRIPE,
 ) -> PreparedCampaignProviderDiscount:
     product = _require_product(binding.product_bid)
     mapping = _require_active_provider_price_mapping(
         product_bid=product.product_bid,
         provider_account_id=scope_account_id,
         livemode=scope_livemode,
+        provider_name=provider_name,
     )
     list_price_amount = int(mapping.unit_amount or 0)
     campaign_price_amount = int(binding.campaign_price_amount or 0)
@@ -537,7 +607,7 @@ def _prepare_discount_row(
         campaign_bid=campaign.campaign_bid,
         product_bid=product.product_bid,
         product_provider_price_bid=mapping.provider_price_bid,
-        provider=PROVIDER_STRIPE,
+        provider=provider_name,
         provider_account_id=mapping.provider_account_id,
     )
     now = now_utc()
@@ -545,7 +615,7 @@ def _prepare_discount_row(
     blocking_row = _load_blocking_provider_coupon_row(
         campaign_bid=campaign.campaign_bid,
         product_bid=product.product_bid,
-        provider=PROVIDER_STRIPE,
+        provider=provider_name,
         provider_account_id=mapping.provider_account_id,
         current_product_provider_price_bid=mapping.provider_price_bid,
     )
@@ -560,7 +630,7 @@ def _prepare_discount_row(
             campaign_bid=campaign.campaign_bid,
             product_bid=product.product_bid,
             product_provider_price_bid=mapping.provider_price_bid,
-            provider=PROVIDER_STRIPE,
+            provider=provider_name,
             created_user_bid=operator_user_bid,
             replaces_discount_bid=replaces_discount_bid,
         )
@@ -737,7 +807,7 @@ def _is_current_runtime_scope_matching_discount(
     app: Flask, row: BillingCampaignProviderDiscount
 ) -> bool:
     try:
-        scope = resolve_current_stripe_provider_price_scope(app)
+        scope = _resolve_discount_scope(app, row.provider)
     except Exception:
         return False
     return normalize_bid(row.provider_account_id) == normalize_bid(
@@ -971,12 +1041,13 @@ def _require_active_provider_price_mapping(
     product_bid: str,
     provider_account_id: str,
     livemode: bool,
+    provider_name: str = PROVIDER_STRIPE,
 ) -> BillingProductProviderPrice:
     row = (
         BillingProductProviderPrice.query.filter(
             BillingProductProviderPrice.deleted == 0,
             BillingProductProviderPrice.product_bid == normalize_bid(product_bid),
-            BillingProductProviderPrice.provider == PROVIDER_STRIPE,
+            BillingProductProviderPrice.provider == provider_name,
             BillingProductProviderPrice.provider_account_id
             == normalize_bid(provider_account_id),
             BillingProductProviderPrice.livemode == int(bool(livemode)),
@@ -1026,6 +1097,7 @@ def _load_stale_provider_coupon_row_bids(
     bindings: list[BillingCampaignProduct],
     provider_account_id: str,
     livemode: bool,
+    provider_name: str = PROVIDER_STRIPE,
 ) -> list[str]:
     row_bids: list[str] = []
     seen: set[str] = set()
@@ -1035,11 +1107,12 @@ def _load_stale_provider_coupon_row_bids(
             product_bid=product.product_bid,
             provider_account_id=provider_account_id,
             livemode=livemode,
+            provider_name=provider_name,
         )
         rows = _load_open_provider_coupon_rows(
             campaign_bid=campaign_bid,
             product_bid=product.product_bid,
-            provider=PROVIDER_STRIPE,
+            provider=provider_name,
             provider_account_id=provider_account_id,
             exclude_product_provider_price_bid=mapping.provider_price_bid,
         )
@@ -1152,3 +1225,33 @@ def _error(code: str, message: str, subject: object) -> CampaignProviderDiscount
 
 def _sanitize_error_message(exc: Exception) -> str:
     return re.sub(r"sk_(?:live|test)_[A-Za-z0-9_-]+", "sk_****", str(exc))[:500]
+
+
+# These legacy defaults preserve existing operator calls while every new path
+# selects the implementation by the persisted integration identity.
+def _legacy_discount_provider() -> CampaignDiscountProvider:
+    return StripeCampaignDiscountProvider()
+
+
+_DISCOUNT_FACTORIES = {PROVIDER_STRIPE: _legacy_discount_provider}
+
+
+def _legacy_discount_scope(app: Flask) -> ProviderPriceRuntimeScope:
+    return resolve_current_stripe_provider_price_scope(app)
+
+
+_DISCOUNT_SCOPE_RESOLVERS = {PROVIDER_STRIPE: _legacy_discount_scope}
+
+
+def _resolve_discount_provider(provider: str) -> CampaignDiscountProvider:
+    factory = _DISCOUNT_FACTORIES.get(provider)
+    return factory() if factory else discount_provider(provider)
+
+
+def _resolve_discount_scope(app: Flask, provider: str) -> ProviderPriceRuntimeScope:
+    resolver = _DISCOUNT_SCOPE_RESOLVERS.get(provider)
+    return (
+        resolver(app)
+        if resolver
+        else resolve_current_provider_price_scope(app, provider=provider)
+    )

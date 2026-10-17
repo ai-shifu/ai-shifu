@@ -7,7 +7,8 @@ import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { isGlobalBillingExperience } from '@/app/admin/billing/billingExperience';
+import { useBillingPaymentProviders } from '@/hooks/useBillingPaymentProviders';
+import { useTracking } from '@/hooks/useTracking';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
@@ -144,13 +145,16 @@ export default function AdminOperationPromotionsPage() {
   const currencySymbol = useEnvStore(
     (state: EnvStoreState) => state.currencySymbol || '',
   );
-  const paymentChannels = useEnvStore(
-    (state: EnvStoreState) => state.paymentChannels,
+  const { data: paymentProviders } = useBillingPaymentProviders(isReady);
+  const showProviderDiscounts = Boolean(
+    paymentProviders?.discount_sync_required,
   );
-  const showStripeProviderDiscounts = React.useMemo(
-    () => isGlobalBillingExperience(paymentChannels),
-    [paymentChannels],
-  );
+  const discountProviders =
+    paymentProviders?.items
+      .filter(item => item.discounts)
+      .map(item => item.provider) || [];
+  const providerActionRunning = useRef(false);
+  const { trackEvent } = useTracking();
   const clearLabel = t('common.core.close');
   const [tab, setTab] = useState<PromotionTab>('coupons');
   const [couponLoading, setCouponLoading] = useState(true);
@@ -751,9 +755,7 @@ export default function AdminOperationPromotionsPage() {
       name: payload.name.trim(),
       note: payload.note.trim(),
       benefit_type: payload.benefit_type,
-      enabled: !(
-        showStripeProviderDiscounts && payload.benefit_type === 'discount'
-      ),
+      enabled: !(showProviderDiscounts && payload.benefit_type === 'discount'),
       start_at: payload.start_at,
       end_at: payload.end_at,
       products: buildPackageCampaignProductsPayload(payload, productOptions),
@@ -844,7 +846,7 @@ export default function AdminOperationPromotionsPage() {
     item: AdminBillingCampaignItem,
   ) => {
     if (
-      showStripeProviderDiscounts &&
+      showProviderDiscounts &&
       item.computed_status === 'inactive' &&
       !isPackageCampaignProviderDiscountSynced(item)
     ) {
@@ -884,33 +886,86 @@ export default function AdminOperationPromotionsPage() {
       showDefaultToast(tPromotion(successMessageKey));
     } catch (error) {
       showErrorToast((error as Error).message || t('common.core.submitFailed'));
+      await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+    }
+  };
+
+  const publishPackageCampaignProviders = async (
+    campaignBid: string,
+    operation: 'publish' | 'retry',
+  ) => {
+    let payload: unknown;
+    let failure: unknown;
+    for (const provider of discountProviders) {
+      try {
+        const params = { campaign_bid: campaignBid, provider };
+        payload = await (operation === 'publish'
+          ? api.publishAdminBillingCampaign(params)
+          : api.retryPublishAdminBillingCampaign(params));
+      } catch (error) {
+        failure = error;
+      }
+    }
+    if (failure) throw failure;
+    return payload;
+  };
+
+  const runDiscountPublish = async (
+    item: AdminBillingCampaignItem,
+    operation: 'publish' | 'retry',
+  ) => {
+    if (providerActionRunning.current || !discountProviders.length) return;
+    providerActionRunning.current = true;
+    const track = (name: string, outcome?: 'success' | 'failed') => {
+      try {
+        void trackEvent(name, {
+          operation,
+          provider_count: discountProviders.length,
+          ...(outcome ? { outcome } : {}),
+        }).catch(() => {});
+      } catch {}
+    };
+    track('admin_payment_discount_publish_start');
+    try {
+      await runPackageCampaignProviderAction(
+        item,
+        async campaignBid => {
+          try {
+            const result = (await publishPackageCampaignProviders(
+              campaignBid,
+              operation,
+            )) as ProviderDiscountActionPayload;
+            track(
+              'admin_payment_discount_publish_result',
+              resolveProviderDiscountActionError(result).hasAttention
+                ? 'failed'
+                : 'success',
+            );
+            return result;
+          } catch (error) {
+            track('admin_payment_discount_publish_result', 'failed');
+            throw error;
+          }
+        },
+        operation === 'publish'
+          ? 'messages.packageCampaignProviderPublished'
+          : 'messages.packageCampaignProviderRetried',
+      );
+    } finally {
+      providerActionRunning.current = false;
     }
   };
 
   const handlePackageCampaignProviderPublish = async (
     item: AdminBillingCampaignItem,
   ) => {
-    await runPackageCampaignProviderAction(
-      item,
-      campaignBid =>
-        api.publishAdminBillingCampaign({
-          campaign_bid: campaignBid,
-        }),
-      'messages.packageCampaignProviderPublished',
-    );
+    await runDiscountPublish(item, 'publish');
   };
 
   const handlePackageCampaignProviderRetry = async (
     item: AdminBillingCampaignItem,
   ) => {
-    await runPackageCampaignProviderAction(
-      item,
-      campaignBid =>
-        api.retryPublishAdminBillingCampaign({
-          campaign_bid: campaignBid,
-        }),
-      'messages.packageCampaignProviderRetried',
-    );
+    await runDiscountPublish(item, 'retry');
   };
 
   const handlePackageCampaignProviderRetire = async (
@@ -1963,7 +2018,7 @@ export default function AdminOperationPromotionsPage() {
             pageCount={packageCampaignPageCount}
             filters={packageCampaignFilters}
             fetchCampaigns={fetchPackageCampaigns}
-            showProviderDiscounts={showStripeProviderDiscounts}
+            showProviderDiscounts={showProviderDiscounts}
             getColumnStyle={getPackageCampaignColumnStyle}
             renderResizeHandle={renderPackageCampaignResizeHandle}
             onOpenProductDetails={item => {

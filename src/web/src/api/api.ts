@@ -318,6 +318,7 @@ const api = {
   getAdminBillingSubscriptions: 'GET /admin/billing/subscriptions',
   getAdminBillingCampaignProductOptions: 'GET /admin/billing/products/options',
   getAdminBillingProviderPrices: 'GET /admin/billing/provider-prices',
+  getAdminBillingPaymentProviders: 'GET /admin/billing/payment-providers',
   createAdminBillingProviderPrice: 'POST /admin/billing/provider-prices',
   validateAdminBillingProviderPrice:
     'POST /admin/billing/provider-prices/{provider_price_bid}/validate',

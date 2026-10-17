@@ -70,6 +70,7 @@ from flaskr.service.billing.provider_catalog_admin import (
 from flaskr.service.billing.provider_catalog_sync import (
     run_admin_provider_catalog_reconcile,
 )
+from flaskr.service.billing.provider_management import build_admin_payment_providers
 from flaskr.service.billing.provider_price_mappings import ProviderPriceMappingError
 from flaskr.service.billing.read_models import (
     adjust_admin_billing_ledger,
@@ -218,7 +219,9 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(path_prefix + "/catalog", methods=["GET"])
     def billing_catalog_api() -> str:
         _require_billing_access(app)
-        return make_common_response(build_billing_catalog(app))
+        return make_common_response(
+            build_billing_catalog(app, creator_bid=request.user.user_id)
+        )
 
     @app.route(path_prefix + "/overview", methods=["GET"])
     def billing_overview_api() -> str:
@@ -852,6 +855,11 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
+    @app.route(admin_path_prefix + "/payment-providers", methods=["GET"])
+    def admin_billing_payment_providers_api() -> str:
+        _require_billing_operator_access(app)
+        return make_common_response(build_admin_payment_providers())
+
     @app.route(admin_path_prefix + "/provider-prices", methods=["GET"])
     def admin_billing_provider_prices_api() -> str:
         _require_billing_operator_access(app)
@@ -859,6 +867,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             build_admin_billing_provider_prices_page(
                 app,
                 product_bid=_get_optional_query_arg("product_bid"),
+                provider=_get_optional_query_arg("provider") or "stripe",
                 provider_account_id=_get_optional_query_arg(
                     "provider_account_id", max_length=255
                 ),
@@ -890,6 +899,7 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             raise_param_error("limit")
         return make_common_response(
             build_admin_provider_catalog_inbox_page(
+                provider=_get_optional_query_arg("provider") or "stripe",
                 object_type=_get_optional_query_arg("object_type", max_length=32),
                 provider_account_id=_get_optional_query_arg(
                     "provider_account_id", max_length=255
@@ -903,7 +913,14 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
     @app.route(admin_path_prefix + "/provider-catalog/reconcile", methods=["POST"])
     def admin_billing_provider_catalog_reconcile_api() -> str:
         _require_billing_operator_access(app)
-        return make_common_response(run_admin_provider_catalog_reconcile(app))
+        return make_common_response(
+            run_admin_provider_catalog_reconcile(
+                app,
+                provider=str(
+                    (request.get_json(silent=True) or {}).get("provider") or "stripe"
+                ),
+            )
+        )
 
     @app.route(
         admin_path_prefix + "/provider-prices/<provider_price_bid>/validate",
@@ -1054,6 +1071,9 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 app,
                 campaign_bid=campaign_bid,
                 operator_user_bid=_get_creator_bid(),
+                provider_name=str(
+                    (request.get_json(silent=True) or {}).get("provider") or "stripe"
+                ),
             )
         except Exception as exc:
             _raise_campaign_provider_discount_route_error(exc)
@@ -1070,6 +1090,9 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 app,
                 campaign_bid=campaign_bid,
                 operator_user_bid=_get_creator_bid(),
+                provider_name=str(
+                    (request.get_json(silent=True) or {}).get("provider") or "stripe"
+                ),
             )
         except Exception as exc:
             _raise_campaign_provider_discount_route_error(exc)

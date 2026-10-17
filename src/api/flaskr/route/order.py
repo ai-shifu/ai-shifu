@@ -25,6 +25,7 @@ from flaskr.service.order.admin import (
     parse_import_activation_entries,
 )
 from flaskr.service.order.coupon_funcs import use_coupon_code
+from flaskr.service.order.payment_providers.options import resolve_payment_option_hint
 from flaskr.service.promo.api import (
     create_creator_course_redemption_coupon,
     get_creator_course_redemption_coupon_detail,
@@ -170,6 +171,9 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         order_id = payload.get("order_id", "")
         channel = payload.get("channel", "")
         payment_channel = payload.get("payment_channel")
+        option_id = payload.get("payment_option")
+        if option_id:
+            payment_channel, channel = resolve_payment_option_hint(option_id)
         client_ip = request.client_ip
         user_id = request.user.user_id
         return make_common_response(

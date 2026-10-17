@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 from flaskr.service.common.models import AppError
 from flaskr.service.order import funs as order_funs
+from flaskr.service.order import learner_payments
 from flaskr.service.order.consts import ORDER_STATUS_INIT
 from flaskr.service.order.models import Order
 from flaskr.service.order.payment_providers.base import PaymentCreationResult
@@ -52,7 +53,9 @@ class _RecordingProvider:
 def pingxx_provider(monkeypatch: pytest.MonkeyPatch) -> _RecordingProvider:
     provider = _RecordingProvider()
     monkeypatch.setattr(order_funs, "get_payment_provider", lambda _name: provider)
-    monkeypatch.setattr(order_funs, "get_config", lambda *_args, **_kwargs: "app_test")
+    monkeypatch.setattr(
+        learner_payments, "get_config", lambda *_args, **_kwargs: "app_test"
+    )
     return provider
 
 

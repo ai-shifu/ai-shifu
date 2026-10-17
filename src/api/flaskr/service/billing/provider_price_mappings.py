@@ -25,6 +25,8 @@ from .provider_catalog import (
     ProviderCatalogReadError,
     ProviderCatalogSnapshot,
     StripeCatalogReadAdapter,
+    catalog_reader,
+    has_catalog_reader,
     validate_provider_price_mapping,
 )
 
@@ -214,6 +216,51 @@ def get_current_stripe_active_provider_price_mapping(
     )
 
 
+def get_current_active_provider_price_mapping(
+    app: Flask,
+    *,
+    product_bid: str,
+    provider: str,
+    scope: ProviderPriceRuntimeScope | None = None,
+) -> BillingProductProviderPrice | None:
+    """Resolve a price in the chosen integration's account and environment."""
+    resolved_scope = scope or resolve_current_provider_price_scope(
+        app, provider=provider
+    )
+    return get_active_provider_price_mapping(
+        product_bid=product_bid,
+        provider=provider,
+        provider_account_id=resolved_scope.provider_account_id,
+        livemode=resolved_scope.livemode,
+    )
+
+
+def resolve_current_provider_price_scope(
+    app: Flask, *, provider: str
+) -> ProviderPriceRuntimeScope:
+    """Keep the original scope resolver as a compatibility adapter for Stripe."""
+    resolver = _SCOPE_RESOLVERS.get(provider)
+    if resolver is not None:
+        return resolver(app)
+    account = catalog_reader(_normalize_provider(provider)).retrieve_account_snapshot(
+        app
+    )
+    if not normalize_bid(account.account_id) or account.livemode is None:
+        message = "Configured provider account scope is incomplete"
+        code = "provider_account_missing"
+        raise ProviderPriceMappingError(code, message, {"provider": provider})
+    return ProviderPriceRuntimeScope(
+        normalize_bid(account.account_id), bool(account.livemode)
+    )
+
+
+def _legacy_stripe_scope(app: Flask) -> ProviderPriceRuntimeScope:
+    return resolve_current_stripe_provider_price_scope(app)
+
+
+_SCOPE_RESOLVERS = {PROVIDER_STRIPE: _legacy_stripe_scope}
+
+
 def _select_single_active_mapping(
     rows: list[BillingProductProviderPrice],
     *,
@@ -322,7 +369,7 @@ def validate_provider_price_mapping_row(
 ) -> tuple[ProviderPriceMappingValidationSummary, ProviderCatalogSnapshot | None]:
     """Validate one mapping against the provider catalog and return its snapshot."""
     product = _load_product(mapping.product_bid)
-    reader = adapter or StripeCatalogReadAdapter()
+    reader = adapter or catalog_reader(mapping.provider)
     try:
         snapshot = reader.retrieve_mapping_snapshot(
             current_app,
@@ -622,11 +669,11 @@ def _serialize_validation_issues(issues: object) -> list[dict[str, str]]:
 
 def _normalize_provider(value: str) -> str:
     normalized = str(value or "").strip().lower()
-    if normalized != PROVIDER_STRIPE:
+    if not has_catalog_reader(normalized):
         error_code = "unsupported_provider"
         raise ProviderPriceMappingError(
             error_code,
-            "Only Stripe provider price mappings are supported",
+            "Provider price mappings are not supported for this integration",
             {"provider": normalized},
         )
     return normalized

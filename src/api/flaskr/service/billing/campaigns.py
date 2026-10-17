@@ -23,7 +23,7 @@ from flaskr.util.uuid import generate_id
 from sqlalchemy import func
 
 from .campaign_provider_discounts import (
-    assert_current_stripe_campaign_provider_discounts_ready,
+    assert_campaign_provider_discounts_ready,
     has_open_campaign_provider_coupons,
     summarize_campaign_provider_discounts,
 )
@@ -61,6 +61,11 @@ from .primitives import (
     normalize_bid,
     quantize_credit_amount,
     to_decimal,
+)
+from .provider_management import (
+    configured_discount_providers,
+    configured_provider_names,
+    requires_provider_discount_sync,
 )
 from .serializers import (
     serialize_admin_campaign,
@@ -247,7 +252,14 @@ def build_admin_billing_campaigns_page(
         product_type_map = _load_campaign_product_type_map(campaign_bids=campaign_bids)
         binding_map = _load_campaign_binding_map(campaign_bids=campaign_bids)
         provider_discount_summary_map = summarize_campaign_provider_discounts(
-            campaign_bids
+            campaign_bids,
+            required_providers=(
+                _enabled_discount_providers()
+                if _should_require_provider_discount_sync_for_benefit(
+                    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT
+                )
+                else []
+            ),
         )
         hit_count_map = _load_campaign_hit_count_map(campaign_bids=campaign_bids)
         return AdminBillingCampaignsPageDTO(
@@ -290,7 +302,14 @@ def build_admin_billing_campaign_detail(
             campaign_bids=[normalized_campaign_bid]
         )
         provider_discount_summary_map = summarize_campaign_provider_discounts(
-            [normalized_campaign_bid]
+            [normalized_campaign_bid],
+            required_providers=(
+                _enabled_discount_providers()
+                if _should_require_provider_discount_sync_for_benefit(
+                    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT
+                )
+                else []
+            ),
         )
         bindings = binding_map.get(normalized_campaign_bid, [])
         binding_by_product_bid = {binding.product_bid: binding for binding in bindings}
@@ -420,11 +439,13 @@ def update_admin_billing_campaign(
         if draft["enabled"] and _should_require_provider_discount_sync_for_benefit(
             draft["benefit_type_code"]
         ):
-            assert_current_stripe_campaign_provider_discounts_ready(
-                app,
-                campaign_bid=normalized_campaign_bid,
-                product_bids=[config.product_bid for config in product_configs],
-            )
+            for provider in _enabled_discount_providers():
+                assert_campaign_provider_discounts_ready(
+                    app,
+                    campaign_bid=normalized_campaign_bid,
+                    product_bids=[config.product_bid for config in product_configs],
+                    provider=provider,
+                )
 
         _validate_campaign_overlap(
             product_bids=sorted(config.product_bid for config in product_configs),
@@ -478,11 +499,13 @@ def update_admin_billing_campaign_status(
         if enabled and _should_require_provider_discount_sync_for_benefit(
             int(row.benefit_type or 0)
         ):
-            assert_current_stripe_campaign_provider_discounts_ready(
-                app,
-                campaign_bid=normalized_campaign_bid,
-                product_bids=product_bids,
-            )
+            for provider in _enabled_discount_providers():
+                assert_campaign_provider_discounts_ready(
+                    app,
+                    campaign_bid=normalized_campaign_bid,
+                    product_bids=product_bids,
+                    provider=provider,
+                )
         if not enabled and has_open_campaign_provider_coupons(normalized_campaign_bid):
             raise_error("server.billing.campaignProviderDiscountLocked")
         _validate_campaign_overlap(
@@ -502,11 +525,19 @@ def update_admin_billing_campaign_status(
 def _should_require_provider_discount_sync_for_benefit(benefit_type: int) -> bool:
     if benefit_type != BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT:
         return False
-    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe") or "")
-    enabled_channels = {
-        item.strip().lower() for item in enabled_raw.split(",") if item.strip()
-    }
-    return enabled_channels == {"stripe"}
+    return requires_provider_discount_sync(
+        configured_provider_names(
+            get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe")
+        )
+    )
+
+
+def _enabled_discount_providers() -> list[str]:
+    return configured_discount_providers(
+        configured_provider_names(
+            get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe")
+        )
+    )
 
 
 def resolve_catalog_campaign_payload(

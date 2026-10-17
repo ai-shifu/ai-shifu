@@ -30,6 +30,13 @@ from .base import (
     PaymentRequest,
     SubscriptionUpdateResult,
 )
+from .contracts import (
+    BUILTIN_DEFINITIONS,
+    CheckoutTerms,
+    PaymentEvent,
+    PaymentQueryTerms,
+)
+from .normalization import normalized_creation, normalized_notification
 
 if TYPE_CHECKING:
     from importlib.machinery import ModuleSpec
@@ -154,6 +161,57 @@ class PingxxProvider(PaymentProvider):
     """Ping++ payment provider implementation."""
 
     channel = "pingxx"
+    definition = BUILTIN_DEFINITIONS["pingxx"]
+
+    @classmethod
+    def describe_query(
+        cls, notification: PaymentNotificationResult, terms: PaymentQueryTerms
+    ) -> PaymentEvent:
+        """Preserve Ping++ query settlement and reversal semantics."""
+        from dataclasses import replace
+
+        from .normalization import notification_facts
+
+        charge = notification.provider_payload.get("charge") or {}
+        state = (
+            "paid"
+            if charge.get("paid") or charge.get("time_paid")
+            else "canceled"
+            if charge.get("reversed")
+            else "pending"
+        )
+        facts = replace(
+            notification_facts(cls.channel, notification),
+            state=state,
+            source="query",
+            event_time=charge.get("time_paid") or charge.get("created"),
+        )
+        return PaymentEvent(
+            kind="payment",
+            payment=facts,
+            updated_payment_reference=str(charge.get("id") or terms.reference),
+            validate_reported_amount=False,
+        )
+
+    @classmethod
+    def checkout_options(cls, terms: CheckoutTerms) -> dict[str, Any]:
+        """Describe the existing Ping++ scene without branching in billing."""
+        from flaskr.service.common.models import raise_error
+
+        extras: dict[str, Any] = {}
+        if terms.channel == "wx_pub_qr":
+            extras["product_id"] = terms.product_reference
+        elif terms.channel == "wx_pub":
+            if not terms.open_id:
+                raise_error("server.pay.wechatOpenIdRequired")
+            extras["open_id"] = terms.open_id
+        elif terms.channel not in {"alipay_qr", "wx_wap"}:
+            raise_error("server.pay.payChannelNotSupport")
+        return {
+            "metadata": terms.metadata,
+            "app_id": str(get_config("PINGXX_APP_ID", "") or "").strip(),
+            "charge_extra": extras,
+        }
 
     def _ensure_client(self, app: Flask) -> object:
         """Configure pingpp for the current owner context."""
@@ -234,7 +292,9 @@ class PingxxProvider(PaymentProvider):
             extra=self._sanitize_extra(charge_extra),
         )
 
-        return PaymentCreationResult(
+        return normalized_creation(
+            "pingxx",
+            request,
             provider_reference=charge["id"],
             raw_response=charge,
             extra={
@@ -344,7 +404,8 @@ class PingxxProvider(PaymentProvider):
             payload = json.loads(raw_body_str)
 
         charge = payload.get("data", {}).get("object", {}) or {}
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "pingxx",
             order_bid=str(charge.get("order_no") or ""),
             status=str(payload.get("type") or ""),
             provider_payload=payload,
@@ -363,7 +424,8 @@ class PingxxProvider(PaymentProvider):
             )
 
         charge = payload.get("data", {}).get("object", {}) or {}
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "pingxx",
             order_bid=str(charge.get("order_no") or ""),
             status=str(payload.get("type") or ""),
             provider_payload=payload,
@@ -379,7 +441,8 @@ class PingxxProvider(PaymentProvider):
             message = f"Unsupported Pingxx reference type: {reference_type}"
             raise RuntimeError(message)
         charge = self.retrieve_charge(charge_id=provider_reference, app=app)
-        return PaymentNotificationResult(
+        return normalized_notification(
+            "pingxx",
             order_bid=str(charge.get("order_no") or ""),
             status="manual_sync",
             provider_payload={"charge": charge},
