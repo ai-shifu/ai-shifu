@@ -53,6 +53,8 @@ preserving all Web behavior and legacy shared-sender callers.
 
 - [x] 2026-10-17 UTC: Review follow-up: replace request-controlled version regex with compatible deterministic parsing; 371 common tests pass, including 48 version cases.
 
+- [x] 2026-10-17 UTC: Review follow-up: skip process-TZ testing where time.tzset is unavailable; preserve the UTC regression on supported platforms.
+
 ## Surprises & Discoveries
 
 The current CLI no longer emits the old direct events or entry-source marker.

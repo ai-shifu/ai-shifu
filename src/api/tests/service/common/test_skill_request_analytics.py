@@ -472,6 +472,8 @@ def test_response_timestamp_is_utc_under_non_utc_process_timezone(
     import os
     import time
 
+    if not hasattr(time, "tzset"):
+        pytest.skip("time.tzset is unavailable on this platform")
     original_timezone = os.environ.get("TZ")
     monkeypatch.setenv("TZ", "Pacific/Honolulu")
     time.tzset()
