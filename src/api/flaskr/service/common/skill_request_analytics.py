@@ -283,7 +283,7 @@ def _request_outcome(response: Response, operation: str) -> str:
     return "failure"
 
 
-def register_skill_request_analytics(app: Flask) -> None:
+def register_skill_request_analytics(app: Flask) -> Flask:
     """Install fail-open observation before authentication and after routing."""
 
     @app.before_request
@@ -325,3 +325,5 @@ def register_skill_request_analytics(app: Flask) -> None:
             # Includes malformed response envelopes and sender/queue failures.
             return response
         return response
+
+    return app

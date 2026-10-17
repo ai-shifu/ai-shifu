@@ -22,7 +22,7 @@ def register_route(app: Flask) -> Flask:
     from .user import register_user_handler
 
     prefix = app.config.get("PATH_PREFIX", "")
-    register_skill_request_analytics(app)
+    app = register_skill_request_analytics(app)
     app = register_common_handler(app)
     app = register_config_handler(app, prefix)
     app = register_storage_handler(app, prefix)
