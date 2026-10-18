@@ -597,6 +597,13 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         if uses_agent_engine(shifu_bid) and debug_run_bid:
             from flaskr.service.learn.agent.debug_session import stream_debug_preview
 
+            # The streaming iterator runs after Flask clears request-local i18n.
+            # Explicit editor variables still select their own preview language.
+            variables = dict(preview_request.variables or {})
+            if not (variables.get("language") or variables.get("sys_user_language")):
+                variables["language"] = get_current_language()
+            preview_request.variables = variables
+
             def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
                 return stream_debug_preview(
                     app,

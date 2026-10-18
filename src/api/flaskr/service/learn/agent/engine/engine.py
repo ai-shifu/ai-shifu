@@ -89,6 +89,7 @@ from .interaction_markup import (
     contains_interaction_markup,
 )
 from .memory_context import project_memory_history
+from .output_language import language_request_history, output_language_instructions
 from .recall import recall
 from .script import (
     ScriptBundle,
@@ -386,6 +387,7 @@ class Engine:
         *,
         prompts: Prompts | None = None,
         extra_instructions: str | None = None,
+        output_language: str | None = None,
         toolsets: Sequence[AbstractToolset[Deps]] | None = None,
         memory_store: MemoryStore | None = None,
         render: RenderProfile = "sandbox",
@@ -509,6 +511,7 @@ class Engine:
                 "\n\n" + (PROMPTS_DIR / "recall_history_compaction.md").read_text()
             )
         self.extra_instructions = extra_instructions
+        self.output_language = output_language
         self.render: RenderProfile = render
         self.memory_store = memory_store
         self.limits = UsageLimits(
@@ -525,7 +528,10 @@ class Engine:
             deps_type=Deps,
             output_type=[str, DeferredToolRequests],
             instructions=self._instructions,
-            capabilities=[ProcessHistory(self._feedback_retry_history)],
+            capabilities=[
+                ProcessHistory(self._feedback_retry_history),
+                ProcessHistory(self._language_request_history),
+            ],
             # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
             # again, and a model rewriting options sometimes needs more than one attempt.
             tools=[
@@ -623,6 +629,11 @@ class Engine:
             feedback_text_pending=ctx.deps.feedback_text_pending,
         )
 
+    async def _language_request_history(
+        self, _ctx: RunContext[Deps], messages: list[ModelMessage]
+    ) -> list[ModelMessage]:
+        return language_request_history(messages, self.output_language)
+
     def compose_instructions(
         self,
         *,
@@ -652,6 +663,7 @@ class Engine:
         if self.extra_instructions:
             parts.append(self.extra_instructions)
         parts.append(self.exercise_instructions)
+        parts.append(output_language_instructions(self.output_language))
         return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
     def _instructions(self, ctx: RunContext[Deps]) -> str:
@@ -1401,6 +1413,9 @@ class Engine:
                             )
                             else list(result.all_messages())
                         )
+                        session.messages = language_request_history(
+                            session.messages, None
+                        )
                         history_saved = True
                         direction_pending: set[str] = set()
                         if isinstance(result.output, DeferredToolRequests):
@@ -1546,6 +1561,7 @@ class Engine:
                         deps.hidden_feedback_responses,
                     ),
                 ]
+                session.messages = language_request_history(session.messages, None)
                 session.answers = {}
                 session.usage = accumulate_usage(session.usage, events.usage)
                 session.interrupted = True

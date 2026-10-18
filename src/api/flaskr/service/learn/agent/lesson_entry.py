@@ -93,7 +93,7 @@ def _resolve(
     outline_bid: str,
     preview_mode: bool,
     require_script: bool = True,
-) -> tuple[str, str, LLMSettings, int | None]:
+) -> tuple[str, str, LLMSettings, int | None, bool]:
     """Read the script, the author's teaching brief, and the model settings for this lesson.
 
     Model resolution follows 1.0: use the course selection with runtime fallback.
@@ -132,6 +132,7 @@ def _resolve(
             usage_metadata=selection_metadata(shifu),
         ),
         content_revision,
+        bool(getattr(shifu, "use_learner_language", 0)),
     )
 
 
@@ -295,7 +296,7 @@ def agent_lesson_events(
                     )
         except RewindUnavailableError:
             raise_error("server.learn.agentRewindUnavailable")
-    script, brief, settings, content_revision = _resolve(
+    script, brief, settings, content_revision, use_learner_language = _resolve(
         app,
         user_bid=user_bid,
         shifu_bid=shifu_bid,
@@ -422,6 +423,7 @@ def agent_lesson_events(
                 script=script,
                 teaching_brief=brief,
                 content_revision=content_revision,
+                use_learner_language=use_learner_language,
                 user_bid=user_bid,
                 shifu_bid=shifu_bid,
                 outline_bid=outline_bid,

@@ -66,6 +66,7 @@ from flaskr.service.learn.agent.lesson_record import (
 )
 from flaskr.service.learn.agent.listen import LessonVoice
 from flaskr.service.learn.agent.nickname import refresh_nickname
+from flaskr.service.learn.agent.output_language import configure_output_language
 from flaskr.service.learn.agent.pagination import LessonPager
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 from flaskr.service.learn.agent.rewind import (
@@ -242,6 +243,7 @@ def _load_or_start(
     preview_variables: dict[str, Any] | None = None,
     memory_generations: dict[str, int] | None = None,
     memory_deleted_keys: set[str] | None = None,
+    use_learner_language: bool | None = None,
 ) -> tuple[Callable[[], Any], bool]:
     """Build the coroutine factory the bridge runs on its producer thread.
 
@@ -296,6 +298,13 @@ def _load_or_start(
         ).as_variables()
     )
     user_memory = {k: v for k, v in user_memory.items() if not is_course_reference(k)}
+    if use_learner_language is not None:
+        user_memory = configure_output_language(
+            engine,
+            user_memory,
+            enabled=use_learner_language,
+            editor_debug=debug_store is not None,
+        )
     # A blank canonical nickname is unknown to variable substitution and would leave its
     # literal placeholder in the lesson. This address is presentation data, not a profile edit.
     if (
@@ -375,6 +384,7 @@ def run_agent_lesson(
     preview_variables: dict[str, Any] | None = None,
     on_turn_opened: Callable[[str, str], None] | None = None,
     preview_generation: str | None = None,
+    use_learner_language: bool | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
 
@@ -408,6 +418,7 @@ def run_agent_lesson(
         preview_variables=preview_variables,
         memory_generations=memory_generations,
         memory_deleted_keys=memory_deleted_keys,
+        use_learner_language=use_learner_language,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.

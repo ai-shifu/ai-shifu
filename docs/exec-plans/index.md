@@ -44,6 +44,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Unavailable Learner Values](./active/mdf2-unavailable-learner-values.md)
 - [Volc Knowledge Follow-up Context](./active/mdf2-volc-follow-up-context.md)
 - [Coze Workflow Follow-up Context Binding](./active/mdf2-workflow-follow-up-context.md)
+- [Respect the course output language in agent lessons](./active/multilingual-agent-lessons.md)
 - [Operator Credit Deduction](./active/operator-credit-deduction.md)
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
