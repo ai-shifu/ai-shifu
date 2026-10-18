@@ -589,8 +589,14 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     preview.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "variables", [None, {"language": "en-US"}, {"sys_user_language": "en-US"}]
+)
 def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks(
-    monkeypatch: object, test_client: object, feedback_course: object
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    variables: dict | None,
 ) -> None:
     from flaskr.service.learn.agent import debug_session
 
@@ -608,13 +614,17 @@ def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks
             "content": "Current editor draft",
             "block_index": 0,
             "debug_session_id": "editor-run-1",
+            "variables": variables,
         },
-        headers={"Token": "test-token"},
+        headers={"Token": "test-token", "Accept-Language": "fr-FR"},
     )
 
     assert '"preview_engine"' in response.get_data(as_text=True)
     assert agent.call_args.kwargs["preview_request"].content == "Current editor draft"
     assert agent.call_args.kwargs["run_bid"] == "editor-run-1"
+    assert agent.call_args.kwargs["preview_request"].variables == (
+        variables or {"language": "fr-FR"}
+    )
     legacy.assert_not_called()
 
 

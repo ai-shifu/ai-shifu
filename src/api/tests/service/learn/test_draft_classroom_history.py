@@ -145,6 +145,7 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
             "",
             LLMSettings(model="test-model", temperature=0.0),
             revision,
+            False,
         )
 
     monkeypatch.setattr(lesson_entry, "_resolve", resolve)

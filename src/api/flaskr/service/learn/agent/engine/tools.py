@@ -331,10 +331,10 @@ def normalize_script_text_input(
 ) -> InteractionSpec:
     """Restore a missing text hint or remove its duplicate generated choice.
 
-    The remaining display/value pairs must be the author's exact ordered choices. A hint that
-    the author also wrote as a real choice, another question, or a model-created option is kept.
+    The remaining stored values must be the author's exact ordered choices; display text
+    may be translated. A hint stored as a real choice or a model-created value is kept.
     Text-only questions must match the copied prompt and the same variable.
-    Ambiguous questions and explicitly supplied placeholders are left unchanged.
+    Ambiguous questions and unrelated explicit placeholders are left unchanged.
     """
     if spec.type == "text" and not spec.options and not spec.placeholder:
         hints = {
@@ -347,7 +347,7 @@ def normalize_script_text_input(
         if len(hints) == 1 and (hint := next(iter(hints))):
             return spec.model_copy(update={"placeholder": hint})
     candidates: dict[str, InteractionSpec] = {}
-    submitted = [(o.display, o.stored) for o in spec.options]
+    submitted = [o.stored for o in spec.options]
     for question in questions:
         if question.variable != spec.variable:
             continue
@@ -356,45 +356,52 @@ def normalize_script_text_input(
             if question.multi
             else ("single", "single_or_text", "text")
         )
-        if spec.type not in kinds or spec.placeholder not in (
-            None,
-            "",
-            question.placeholder,
-            question.written_placeholder,
-        ):
+        if spec.type not in kinds:
             continue
-        authored: list[tuple[str, str]] = []
+        authored: list[str] = []
         for choice in question.choices:
             if not choice.strip():
                 continue
             halves = [
                 _unescape(half.strip()) for half in _split_unescaped(choice, "//")[:2]
             ]
-            authored.append((halves[0], halves[1] if len(halves) > 1 else halves[0]))
+            authored.append(halves[1] if len(halves) > 1 else halves[0])
         hint = question.placeholder or ""
         forms = {hint, question.written_placeholder or hint}
         extras = {
-            (marker + display, marker + value)
+            marker + value
             for marker in ("", "...")
-            if (marker + hint, marker + hint) not in authored
-            for display in forms
             for value in forms
-            if (marker + display, marker + value) not in authored
+            if marker + value not in authored
         }
-        remaining = [pair for pair in submitted if pair not in extras]
+        duplicate_hints = [o for o in spec.options if o.stored in extras]
+        display_hints = {
+            hint
+            if o.display in forms or o.display.removeprefix("...") in forms
+            else o.display.removeprefix("...")
+            for o in duplicate_hints
+        }
+        if spec.placeholder not in (None, "", *forms, *display_hints):
+            continue
+        remaining = [value for value in submitted if value not in extras]
         if submitted == authored:
             candidate = spec
         elif remaining == authored and len(remaining) < len(submitted):
+            # A stable hint value identifies its translated display. Do not restore
+            # an authored-language placeholder over it or guess between translations.
+            if len(display_hints) != 1:
+                continue
+            restored_hint = next(iter(display_hints))
+            if not restored_hint.strip():
+                continue
             kind: InteractionType = (
                 "multi_or_text" if question.multi else "single_or_text"
             )
             candidate = spec.model_copy(
                 update={
                     "type": kind if authored else "text",
-                    "options": [
-                        o for o in spec.options if (o.display, o.stored) not in extras
-                    ],
-                    "placeholder": hint,
+                    "options": [o for o in spec.options if o.stored not in extras],
+                    "placeholder": restored_hint,
                 }
             )
         else:

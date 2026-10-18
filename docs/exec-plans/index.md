@@ -138,6 +138,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Semantic summaries for older MarkdownFlow teaching](./completed/mdf2-teaching-semantic-summary.md)
 - [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
 - [Centralize model option display normalization](./completed/model-option-display-normalization.md)
+- [Respect the course output language in agent lessons](./completed/multilingual-agent-lessons.md)
 - [Multilingual Subtitle Segmentation](./completed/multilingual-subtitle-segmentation.md)
 - [Notification Channel Foundation](./completed/notification-channel-foundation.md)
 - [Numbered course models](./completed/numbered-course-models.md)

@@ -70,6 +70,7 @@ def agent_classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Callable:
             "",
             LLMSettings(model="test-model", temperature=0.0),
             11,
+            False,
         ),
     )
     monkeypatch.setattr(lesson_entry, "get_langfuse_client", lambda: None)

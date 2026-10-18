@@ -471,6 +471,7 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
             "",
             SimpleNamespace(model="selected", usage_metadata={}),
             None,
+            False,
         )
     )
     monkeypatch.setattr(lesson_entry, "_resolve", resolve)
