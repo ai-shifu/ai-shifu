@@ -15,7 +15,7 @@ unchanged.
 - [x] Wire the draft/published setting into each host turn and add regression tests.
 - [x] Verify Chinese, English and French starts, persisted continuation and retakes
   against the real course content and model in an isolated local database.
-- [ ] Run repository gates and create an open pull request.
+- [x] Run repository gates and create open [PR #3145](https://github.com/ai-shifu/ai-shifu/pull/3145).
 
 ## Surprises & Discoveries
 
@@ -53,8 +53,9 @@ and profile language remained intact. These checks cover the first lesson and it
 initial interactions, not every lesson or deployed browser behavior.
 
 Offline learning, engine, evaluation-script and LLM tests: 4,149 passed, 1 skipped,
-4 subtests passed. The frontend study request tests also passed (7 tests). No
-production deployment or data write occurred. Private course material and raw model
+4 subtests passed. The frontend study request tests also passed (7 tests). Developer tooling and all repository pre-commit gates passed. PR #3145 is open
+for review; remote CI was running when this plan was completed. No production
+deployment or data write occurred. Private course material and raw model
 inputs remain outside the repository; failed experiments are retained separately.
 
 ## Context and Orientation
