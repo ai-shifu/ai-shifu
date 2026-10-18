@@ -100,3 +100,32 @@ The private lesson resolver gains the multilingual setting. Its destructuring
 consumers and test doubles must change together. `Engine.output_language` accepts a target language, an empty string for authored
 language, or `None` for existing portable defaults. No external package, frontend
 payload, SSE event or formatter contract changes are needed.
+
+
+## Review Follow-up (2026-10-18)
+
+CodeRabbit identified a valid interaction regression: translated display labels
+prevented authored hint matching, so a duplicated hint could leave a question as
+single choice and hide its free-text input. Nine new SDK/session tests reproduced
+this before the fix. Matching now uses ordered stable submission values, preserves
+translated displays and hints, and retains guards for reordered, ambiguous and
+real authored choices.
+
+The host-default-language suggestion is not adopted: fallback Continue/input
+controls are application UI, while explicit labels and teaching are course content.
+A focused disabled-course test preserves that boundary without guessing the source
+locale. The language-injection finding is not reproduced: only canonical names
+from the fixed language map enter engine instructions. Editor payload tests cover
+malicious free text and locale suffixes, including base-locale normalization.
+
+The docstring warning does not justify generating boilerplate across existing test
+fixtures touched only by tuple updates. The new history callback and review tests
+have explanatory docstrings; production behavior and regression coverage remain
+the acceptance criteria.
+
+After the interaction fix, real-model acceptance repeated all nine Chinese, English
+and French starts, saved continuations and retakes successfully (nine provider
+requests). Raw evidence remains private and outside the source repository.
+
+Final review regression: 4,171 passed, 1 skipped, 4 subtests passed across learning,
+engine, evaluation-script and LLM suites.

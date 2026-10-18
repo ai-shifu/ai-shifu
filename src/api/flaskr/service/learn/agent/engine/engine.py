@@ -632,6 +632,7 @@ class Engine:
     async def _language_request_history(
         self, _ctx: RunContext[Deps], messages: list[ModelMessage]
     ) -> list[ModelMessage]:
+        """Apply current language after the latest tool results without saving it."""
         return language_request_history(messages, self.output_language)
 
     def compose_instructions(

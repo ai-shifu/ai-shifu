@@ -427,3 +427,145 @@ async def test_real_question_after_indented_example_still_repairs() -> None:
     spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
     assert [o.display for o in spec.options] == _CHOICES
     assert spec.placeholder == _HINT
+
+
+@pytest.mark.parametrize("multi", [False, True])
+@pytest.mark.parametrize("explicit_values", [False, True])
+@pytest.mark.parametrize("placeholder", [None, "Decrire mon projet"])
+async def test_translated_hint_preserves_typed_answers_and_stable_choices(
+    multi: bool, explicit_values: bool, placeholder: str | None
+) -> None:
+    """Translated displays cannot hide the authored free-text input or change answers."""
+    displays = ["Nouveau projet", "Assistant existant", "Documents du cours"]
+    hint = "Decrire mon projet"
+    values = ["new", "existing", "materials"] if explicit_values else _CHOICES
+    separator = " || " if multi else " | "
+    choices = [
+        f"{display}//{value}" for display, value in zip(_CHOICES, values, strict=True)
+    ]
+    script = "?[%{{project_path}} " + separator.join([*choices, "..." + _HINT]) + "]"
+    engine = _engine(
+        _arguments(
+            type="multi" if multi else "single",
+            placeholder=placeholder,
+            options=[
+                *[
+                    {"display": display, "value": value}
+                    for display, value in zip(displays, values, strict=True)
+                ],
+                {"display": hint, "value": _HINT},
+            ],
+        )
+    )
+    session = await engine.new_session(script)
+    events = [event async for event in engine.run_turn(session)]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.type == ("multi_or_text" if multi else "single_or_text")
+    assert [(option.display, option.stored) for option in spec.options] == list(
+        zip(displays, values, strict=True)
+    )
+    assert spec.placeholder == hint
+    parsed = InteractionParser().parse(render_interaction(spec))
+    assert parsed["question"] == hint
+    assert [option["display"] for option in parsed["buttons"]] == displays
+    restored = Session.loads(session.dumps())
+    answer = "My actual project description"
+    _ = [
+        event
+        async for event in engine.run_turn(
+            restored, InteractionResponseTurn(text=answer)
+        )
+    ]
+    assert restored.memory["project_path"] == answer
+
+
+async def test_translated_pending_hint_repairs_without_rewriting_history() -> None:
+    """An old translated pending question gets its input back on reload."""
+    engine = _engine(
+        _arguments(
+            type="single",
+            placeholder=None,
+            options=[
+                *[
+                    {"display": f"Translated {index}", "value": value}
+                    for index, value in enumerate(_CHOICES)
+                ],
+                {"display": "Translated hint", "value": _HINT},
+            ],
+        )
+    )
+    session = await engine.new_session("Teach a dynamic question.")
+    _ = [event async for event in engine.run_turn(session)]
+    session.script = ScriptBundle(script=_SCRIPT)
+    session = Session.loads(session.dumps())
+    history = session.messages.copy()
+    events = [
+        event async for event in engine.run_turn(session, InteractionResponseTurn())
+    ]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.type == "single_or_text"
+    assert spec.placeholder == "Translated hint"
+    assert [option.stored for option in spec.options] == _CHOICES
+    assert session.messages == history
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "reordered",
+        "different_value",
+        "real_choice",
+        "ambiguous_translation",
+        "different_placeholder",
+    ],
+)
+async def test_translated_hint_repair_preserves_unmatched_choices(reason: str) -> None:
+    """Stored-value matching still requires an unambiguous authored input boundary."""
+    script = _SCRIPT
+    options = [
+        *[
+            {"display": f"Translated {index}", "value": value}
+            for index, value in enumerate(_CHOICES)
+        ],
+        {"display": "Translated hint", "value": _HINT},
+    ]
+    placeholder = None
+    if reason == "reordered":
+        options[:2] = reversed(options[:2])
+    elif reason == "different_value":
+        options[-1]["value"] = "real_answer"
+    elif reason == "real_choice":
+        script = script.replace(" | ...", " | Authored choice//" + _HINT + " | ...")
+    elif reason == "ambiguous_translation":
+        options.append({"display": "Another translation", "value": _HINT})
+    else:
+        placeholder = "A different question"
+    engine = _engine(
+        _arguments(type="single", options=options, placeholder=placeholder)
+    )
+    session = await engine.new_session(script)
+    events = [event async for event in engine.run_turn(session)]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.type == "single"
+    assert [(option.display, option.stored) for option in spec.options] == [
+        (option["display"], option["value"]) for option in options
+    ]
+    assert spec.placeholder == placeholder
+
+
+async def test_literal_leading_ellipsis_in_authored_hint_is_preserved() -> None:
+    """A literal leading ellipsis is authored text, not the input marker."""
+    hint = "...Describe my project"
+    engine = _engine(
+        _arguments(
+            placeholder=None,
+            options=[{"display": value} for value in [*_CHOICES, hint]],
+        )
+    )
+    session = await engine.new_session(
+        _SCRIPT.replace(_HINT, r"\.\.\.Describe my project")
+    )
+    events = [event async for event in engine.run_turn(session)]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.placeholder == hint
+    assert [option.stored for option in spec.options] == _CHOICES
