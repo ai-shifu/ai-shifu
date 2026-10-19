@@ -530,19 +530,19 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/order/charge_providers.py|flaskr.service.learn.learn_dtos",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/order/charge_providers.py",
+      "target": "flaskr.service.learn.learn_dtos",
+      "message": "flaskr/service/order/charge_providers.py imports cross-service module flaskr.service.learn.learn_dtos outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/order/coupon_funcs.py|flaskr.service.user.repository",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/order/coupon_funcs.py",
       "target": "flaskr.service.user.repository",
       "message": "flaskr/service/order/coupon_funcs.py imports cross-service module flaskr.service.user.repository outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/order/funs.py|flaskr.service.billing.webhooks",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/order/funs.py",
-      "target": "flaskr.service.billing.webhooks",
-      "message": "flaskr/service/order/funs.py imports cross-service module flaskr.service.billing.webhooks outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
@@ -599,6 +599,14 @@
       "source": "flaskr/service/order/open_api.py",
       "target": "flaskr.service.user.repository",
       "message": "flaskr/service/order/open_api.py imports cross-service module flaskr.service.user.repository outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/order/payment_sync.py|flaskr.service.billing.webhooks",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/order/payment_sync.py",
+      "target": "flaskr.service.billing.webhooks",
+      "message": "flaskr/service/order/payment_sync.py imports cross-service module flaskr.service.billing.webhooks outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
