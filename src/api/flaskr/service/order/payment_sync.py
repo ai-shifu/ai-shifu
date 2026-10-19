@@ -7,14 +7,7 @@ from typing import Any
 from flask import Flask
 from flaskr.dao import db, uow
 from flaskr.dao.uow import app_context_scope
-from flaskr.service.billing.api import (
-    build_provider_config_overrides,
-    resolve_provider_credential_context,
-)
 from flaskr.service.common.models import raise_error
-from flaskr.service.config import (
-    config_overrides,
-)
 from flaskr.service.order.consts import (
     ORDER_STATUS_REFUND,
     ORDER_STATUS_SUCCESS,
@@ -48,12 +41,6 @@ from flaskr.service.order.payment_providers.base import (
     PaymentRefundRequest,
     PaymentRefundResult,
 )
-from flaskr.service.order.raw_snapshots import (
-    legacy_native_snapshot_query,
-    legacy_pingxx_snapshot_query,
-    legacy_stripe_snapshot_query,
-    native_snapshot_model,
-)
 
 # Shared session-scope guard; see flaskr/dao/uow.py for the rationale.
 _app_context_scope = app_context_scope
@@ -74,9 +61,9 @@ def sync_native_payment_order(
         provider_attempt_id = ""
         credential_context = None
         if provider_name in {"alipay", "wechatpay"}:
-            native_model = native_snapshot_model(provider_name)
+            native_model = order_funs.native_snapshot_model(provider_name)
             snapshot = (
-                legacy_native_snapshot_query(provider_name)
+                order_funs.legacy_native_snapshot_query(provider_name)
                 .filter(native_model.order_bid == order.order_bid)
                 .order_by(native_model.id.desc())
                 .first()
@@ -86,7 +73,7 @@ def sync_native_payment_order(
             provider_attempt_id = str(snapshot.provider_attempt_id)
             integration_bid = str(order.payment_integration_bid or "")
             if integration_bid:
-                credential_context = resolve_provider_credential_context(
+                credential_context = order_funs.resolve_provider_credential_context(
                     app,
                     creator_bid=str(order.creator_bid or ""),
                     provider=provider_name,
@@ -109,7 +96,9 @@ def sync_native_payment_order(
 
     provider = order_funs.get_payment_provider(provider_name)
     credential_scope = (
-        config_overrides(build_provider_config_overrides(credential_context))
+        order_funs.config_overrides(
+            order_funs.build_provider_config_overrides(credential_context)
+        )
         if credential_context is not None
         else nullcontext()
     )
@@ -134,9 +123,9 @@ def sync_native_payment_order(
         if current_provider != provider_name:
             raise_error("server.pay.payChannelNotSupport")
 
-        native_model = native_snapshot_model(provider_name)
+        native_model = order_funs.native_snapshot_model(provider_name)
         snapshot = (
-            legacy_native_snapshot_query(provider_name)
+            order_funs.legacy_native_snapshot_query(provider_name)
             .filter(
                 native_model.order_bid == order.order_bid,
             )
@@ -261,7 +250,7 @@ def handle_stripe_webhook(
             .first()
         )
         stripe_attempt_bid = str(metadata.get("stripe_order_bid") or "")
-        stripe_query = legacy_stripe_snapshot_query().filter(
+        stripe_query = order_funs.legacy_stripe_snapshot_query().filter(
             StripeOrder.order_bid == order_bid
         )
         if stripe_attempt_bid:
@@ -459,7 +448,7 @@ def refund_order_payment(
             raise_error("server.pay.payChannelNotSupport")
 
         stripe_order = (
-            legacy_stripe_snapshot_query()
+            order_funs.legacy_stripe_snapshot_query()
             .filter(StripeOrder.order_bid == order_bid)
             .order_by(StripeOrder.id.desc())
             .with_for_update()
@@ -511,7 +500,7 @@ def refund_order_payment(
         credential_context = None
         integration_bid = str(order.payment_integration_bid or "")
         if integration_bid:
-            credential_context = resolve_provider_credential_context(
+            credential_context = order_funs.resolve_provider_credential_context(
                 app,
                 creator_bid=str(order.creator_bid or ""),
                 provider="stripe",
@@ -525,7 +514,9 @@ def refund_order_payment(
         _assert_payment_lifecycle_lock_owned()
 
     credential_scope = (
-        config_overrides(build_provider_config_overrides(credential_context))
+        order_funs.config_overrides(
+            order_funs.build_provider_config_overrides(credential_context)
+        )
         if credential_context is not None
         else nullcontext()
     )
@@ -566,7 +557,7 @@ def _record_stripe_refund_result(
             Order.query.filter(Order.order_bid == order_bid).with_for_update().first()
         )
         stripe_order = (
-            legacy_stripe_snapshot_query()
+            order_funs.legacy_stripe_snapshot_query()
             .filter(
                 StripeOrder.order_bid == order_bid,
                 StripeOrder.stripe_order_bid == stripe_attempt_bid,
@@ -622,7 +613,7 @@ def get_payment_details(
         payment_channel = order.payment_channel or "pingxx"
         if payment_channel == "stripe":
             stripe_order = (
-                legacy_stripe_snapshot_query()
+                order_funs.legacy_stripe_snapshot_query()
                 .filter(StripeOrder.order_bid == order_bid)
                 .order_by(StripeOrder.id.desc())
                 .first()
@@ -637,9 +628,9 @@ def get_payment_details(
             }
 
         if payment_channel in {"alipay", "wechatpay"}:
-            native_model = native_snapshot_model(payment_channel)
+            native_model = order_funs.native_snapshot_model(payment_channel)
             native_order = (
-                legacy_native_snapshot_query(payment_channel)
+                order_funs.legacy_native_snapshot_query(payment_channel)
                 .filter(
                     native_model.order_bid == order.order_bid,
                 )
@@ -656,7 +647,7 @@ def get_payment_details(
             }
 
         pingxx_order = (
-            legacy_pingxx_snapshot_query()
+            order_funs.legacy_pingxx_snapshot_query()
             .filter(PingxxOrder.order_bid == order.order_bid)
             .order_by(PingxxOrder.id.desc())
             .first()

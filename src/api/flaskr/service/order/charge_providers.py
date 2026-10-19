@@ -4,14 +4,8 @@ from contextlib import AbstractContextManager, nullcontext
 from typing import Any
 
 from flask import Flask
-from flaskr.common.public_urls import build_stripe_learner_result_url
 from flaskr.dao import db
-from flaskr.service.billing.api import (
-    build_provider_config_overrides,
-    resolve_provider_credential_context,
-)
 from flaskr.service.common.models import raise_error
-from flaskr.service.config import config_overrides
 from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
@@ -38,7 +32,6 @@ from flaskr.service.order.payment_payloads import (
     _sanitize_pingxx_text,
     _stringify_payload,
 )
-from flaskr.service.order.payment_providers import PaymentRequest
 from flaskr.service.order.raw_snapshots import (
     RAW_BIZ_DOMAIN_ORDER,
 )
@@ -51,7 +44,7 @@ def _order_credential_scope(
     integration_bid = str(order.payment_integration_bid or "")
     if not integration_bid:
         return nullcontext()
-    context = context or resolve_provider_credential_context(
+    context = context or order_funs.resolve_provider_credential_context(
         app,
         creator_bid=str(order.creator_bid or ""),
         provider=str(order.payment_channel or ""),
@@ -59,7 +52,9 @@ def _order_credential_scope(
     )
     if context is None or context.integration_bid != integration_bid:
         raise_error("server.pay.payChannelNotSupport")
-    return config_overrides(build_provider_config_overrides(context))
+    return order_funs.config_overrides(
+        order_funs.build_provider_config_overrides(context)
+    )
 
 
 def _resolve_payment_channel(
@@ -199,7 +194,7 @@ def _generate_pingxx_charge(
             sanitized_subject != (subject or ""),
             sanitized_body != (body or ""),
         )
-    payment_request = PaymentRequest(
+    payment_request = order_funs.PaymentRequest(
         order_bid=order_no,
         user_bid=buy_record.user_bid,
         shifu_bid=buy_record.shifu_bid,
@@ -287,10 +282,11 @@ def _generate_stripe_charge(
 
     if resolved_mode == "checkout_session":
         provider_options["success_url"] = _inject_order_query(
-            build_stripe_learner_result_url(), buy_record.order_bid
+            order_funs.build_stripe_learner_result_url(), buy_record.order_bid
         )
         provider_options["cancel_url"] = _inject_order_query(
-            build_stripe_learner_result_url(canceled=True), buy_record.order_bid
+            order_funs.build_stripe_learner_result_url(canceled=True),
+            buy_record.order_bid,
         )
         provider_options["line_items"] = [
             {
@@ -303,7 +299,7 @@ def _generate_stripe_charge(
             }
         ]
 
-    payment_request = PaymentRequest(
+    payment_request = order_funs.PaymentRequest(
         order_bid=order_no,
         user_bid=buy_record.user_bid,
         shifu_bid=buy_record.shifu_bid,
@@ -402,7 +398,7 @@ def _generate_alipay_charge(
         fallback=sanitized_subject,
         max_length=128,
     )
-    payment_request = PaymentRequest(
+    payment_request = order_funs.PaymentRequest(
         order_bid=order_no,
         user_bid=buy_record.user_bid,
         shifu_bid=buy_record.shifu_bid,
@@ -507,7 +503,7 @@ def _generate_wechatpay_charge(
             raise_error("server.pay.wechatOpenIdRequired")
         extra["open_id"] = open_id
 
-    payment_request = PaymentRequest(
+    payment_request = order_funs.PaymentRequest(
         order_bid=order_no,
         user_bid=buy_record.user_bid,
         shifu_bid=buy_record.shifu_bid,

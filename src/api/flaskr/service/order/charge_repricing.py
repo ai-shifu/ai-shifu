@@ -32,13 +32,6 @@ from flaskr.service.order.payment_payloads import (
     _parse_stored_mapping,
     _payment_payload_has_expired,
 )
-from flaskr.service.order.raw_snapshots import (
-    legacy_native_snapshot_query,
-    legacy_pingxx_snapshot_query,
-    legacy_stripe_snapshot_query,
-    native_snapshot_model,
-)
-from flaskr.util.datetime import now_utc
 
 # Shared session-scope guard; see flaskr/dao/uow.py for the rationale.
 _app_context_scope = app_context_scope
@@ -58,7 +51,7 @@ def _resume_pending_charge(
     expected_amount = int(decimal.Decimal(buy_record.paid_price or 0) * 100)
     if payment_channel == "pingxx":
         snapshot = (
-            legacy_pingxx_snapshot_query()
+            order_funs.legacy_pingxx_snapshot_query()
             .filter(
                 PingxxOrder.order_bid == buy_record.order_bid,
                 PingxxOrder.status == 0,
@@ -86,7 +79,7 @@ def _resume_pending_charge(
             )
     elif payment_channel == "stripe":
         snapshot = (
-            legacy_stripe_snapshot_query()
+            order_funs.legacy_stripe_snapshot_query()
             .filter(
                 StripeOrder.order_bid == buy_record.order_bid,
                 StripeOrder.status.in_([0, 4]),
@@ -126,9 +119,9 @@ def _resume_pending_charge(
                 },
             )
     elif payment_channel in {"alipay", "wechatpay"}:
-        model = native_snapshot_model(payment_channel)
+        model = order_funs.native_snapshot_model(payment_channel)
         snapshot = (
-            legacy_native_snapshot_query(payment_channel)
+            order_funs.legacy_native_snapshot_query(payment_channel)
             .filter(
                 model.order_bid == buy_record.order_bid,
                 model.status == 0,
@@ -209,20 +202,20 @@ def cancel_pending_payment_for_repricing(
         if order.status not in {ORDER_STATUS_TO_BE_PAID, ORDER_STATUS_REPRICING}:
             raise_error("server.order.orderStatusError")
         order.status = ORDER_STATUS_REPRICING
-        order.updated_at = now_utc()
+        order.updated_at = order_funs.now_utc()
         db.session.add(order)
         payment_channel = str(order.payment_channel or "pingxx").strip().lower()
         snapshots: list[PingxxOrder | StripeOrder | Any]
         if payment_channel == "pingxx":
             snapshots = (
-                legacy_pingxx_snapshot_query()
+                order_funs.legacy_pingxx_snapshot_query()
                 .filter(PingxxOrder.order_bid == order_bid, PingxxOrder.status == 0)
                 .order_by(PingxxOrder.id.desc())
                 .all()
             )
         elif payment_channel == "stripe":
             snapshots = (
-                legacy_stripe_snapshot_query()
+                order_funs.legacy_stripe_snapshot_query()
                 .filter(
                     StripeOrder.order_bid == order_bid,
                     StripeOrder.status.in_([0, 4]),
@@ -231,9 +224,9 @@ def cancel_pending_payment_for_repricing(
                 .all()
             )
         elif payment_channel in {"alipay", "wechatpay"}:
-            model = native_snapshot_model(payment_channel)
+            model = order_funs.native_snapshot_model(payment_channel)
             snapshots = (
-                legacy_native_snapshot_query(payment_channel)
+                order_funs.legacy_native_snapshot_query(payment_channel)
                 .filter(model.order_bid == order_bid, model.status == 0)
                 .order_by(model.id.desc())
                 .all()
@@ -310,11 +303,11 @@ def cancel_pending_payment_for_repricing(
                 raise_error("server.order.orderStatusError")
             for locked_snapshot in locked_snapshots:
                 locked_snapshot.status = 3
-                locked_snapshot.updated_at = now_utc()
+                locked_snapshot.updated_at = order_funs.now_utc()
                 db.session.add(locked_snapshot)
             if not keep_repricing_claim:
                 locked_order.status = ORDER_STATUS_INIT
-                locked_order.updated_at = now_utc()
+                locked_order.updated_at = order_funs.now_utc()
                 db.session.add(locked_order)
         return True
 
@@ -339,5 +332,5 @@ def restore_repricing_order(
         )
         if order and order.status == ORDER_STATUS_REPRICING:
             order.status = target_status
-            order.updated_at = now_utc()
+            order.updated_at = order_funs.now_utc()
             db.session.add(order)

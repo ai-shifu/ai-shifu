@@ -31,15 +31,9 @@ from flaskr.service.order.payment_lifecycle import (
 from flaskr.service.order.payment_providers.base import (
     PaymentNotificationResult,
 )
-from flaskr.service.order.raw_snapshots import (
-    legacy_native_snapshot_query,
-    legacy_pingxx_snapshot_query,
-    native_snapshot_model,
-)
 from flaskr.service.user.consts import (
     USER_STATE_PAID,
 )
-from flaskr.util.datetime import now_utc
 
 # Shared session-scope guard; see flaskr/dao/uow.py for the rationale.
 _app_context_scope = app_context_scope
@@ -58,8 +52,8 @@ def success_buy_record_from_native(
             raise_error("server.pay.payChannelNotSupport")
         provider_attempt_id = str(notification.order_bid or "").strip()
         transaction_id = str(notification.charge_id or "").strip()
-        native_model = native_snapshot_model(provider)
-        query = legacy_native_snapshot_query(provider)
+        native_model = order_funs.native_snapshot_model(provider)
+        query = order_funs.legacy_native_snapshot_query(provider)
         if provider_attempt_id:
             native_order = (
                 query.filter(native_model.provider_attempt_id == provider_attempt_id)
@@ -127,7 +121,7 @@ def success_buy_record_from_native(
             and was_pending_attempt
             and native_order.id
             == (
-                legacy_native_snapshot_query(provider)
+                order_funs.legacy_native_snapshot_query(provider)
                 .filter(native_model.order_bid == native_order.order_bid)
                 .order_by(native_model.id.desc())
                 .with_entities(native_model.id)
@@ -153,7 +147,7 @@ def success_buy_record_from_pingxx(
     """Success buy record from pingxx."""
     with _app_context_scope(app):
         pingxx_order = (
-            legacy_pingxx_snapshot_query()
+            order_funs.legacy_pingxx_snapshot_query()
             .filter(PingxxOrder.charge_id == charge_id)
             .first()
         )
@@ -176,7 +170,7 @@ def success_buy_record_from_pingxx(
                 app.logger.info('success buy record from pingxx charge:"%s"', charge_id)
                 with order_funs.unit_of_work():
                     pingxx_order = (
-                        legacy_pingxx_snapshot_query()
+                        order_funs.legacy_pingxx_snapshot_query()
                         .filter(PingxxOrder.charge_id == charge_id)
                         .first()
                     )
@@ -196,7 +190,7 @@ def success_buy_record_from_pingxx(
                         and pingxx_order.status == 0
                         and pingxx_order.id
                         == (
-                            legacy_pingxx_snapshot_query()
+                            order_funs.legacy_pingxx_snapshot_query()
                             .filter(PingxxOrder.order_bid == pingxx_order.order_bid)
                             .order_by(PingxxOrder.id.desc())
                             .with_entities(PingxxOrder.id)
@@ -215,7 +209,7 @@ def success_buy_record_from_pingxx(
                         # committed on this path, so do not mutate it at all.
                         app.logger.error("record:%s not found", pingxx_order.order_bid)
                         return None
-                    pingxx_order.update = now_utc()
+                    pingxx_order.update = order_funs.now_utc()
                     pingxx_order.status = 1
                     pingxx_order.charge_object = json.dumps(body)
                     try:
