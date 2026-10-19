@@ -371,6 +371,99 @@ def _load_or_start(
     return make_session, bool(stored is not None and stored.finished)
 
 
+def _progress_record_for_turn(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    generated_block_bid: str,
+    preview_mode: bool,
+) -> tuple[str, OutlineItemUpdateDTO | None]:
+    """Open the turn's progress record, or mint an unwritten one for a preview."""
+    start_update = None
+    if preview_mode:
+        progress_record_bid = generate_id(app)
+    else:
+        progress_record_bid, start_update = _open_turn(
+            app,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+            position=0,
+        )
+    return progress_record_bid, start_update
+
+
+def _lesson_voice(
+    app: Flask,
+    *,
+    listen: bool,
+    shifu_model: type | None,
+    shifu_bid: str,
+    outline_bid: str,
+    progress_record_bid: str,
+    user_bid: str,
+    generated_block_bid: str,
+    preview_mode: bool,
+) -> LessonVoice | None:
+    """Return the turn's spoken track when the learner is listening."""
+    return (
+        LessonVoice(
+            app,
+            shifu_model=shifu_model,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else None,
+        )
+        if listen and progress_record_bid
+        else None
+    )
+
+
+def _turn_events_factory(
+    engine: Engine,
+    *,
+    make_session: Callable[[], Any],
+    session_holder: dict[str, Any],
+    values: list[str],
+    memory_deleted_keys: set[str],
+    rewind: RewindPlan | None,
+) -> Callable[[], AsyncIterator[Event]]:
+    """Build the factory the bridge calls to run this turn on its own loop."""
+
+    def make_events() -> AsyncIterator[Event]:
+        async def events() -> AsyncIterator[Event]:
+            session = await make_session()
+            session_holder["session"] = session
+            # The state this turn starts from, kept on its block so the lesson can be taken back
+            # to it later.
+            session_holder["turn_record"] = turn_record(checkpoint_of(session), values)
+            deleted_policy = (
+                {"memory_deleted_keys": frozenset(memory_deleted_keys)}
+                if memory_deleted_keys
+                else {}
+            )
+            if (
+                deleted_policy
+                and rewind is not None
+                and rewind.replay_values is not None
+            ):
+                deleted_policy["replaying_input"] = True
+            async for event in engine.run_turn(
+                session, _turn_input(session, values), **deleted_policy
+            ):
+                yield event
+
+        return events()
+
+    return make_events
+
+
 def run_agent_lesson(
     app: Flask,
     *,
@@ -459,18 +552,14 @@ def run_agent_lesson(
     # preview, which builds a progress record and never adds it to the session. The spoken track
     # hangs each piece of audio off one, so without it an author previewing a lesson in listening
     # mode heard nothing at all.
-    start_update = None
-    if preview_mode:
-        progress_record_bid = generate_id(app)
-    else:
-        progress_record_bid, start_update = _open_turn(
-            app,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            generated_block_bid=generated_block_bid,
-            position=0,
-        )
+    progress_record_bid, start_update = _progress_record_for_turn(
+        app,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        preview_mode=preview_mode,
+    )
     session_holder: dict[str, Any] = {
         "rewind": rewind,
         "preview_generation": preview_generation,
@@ -478,44 +567,25 @@ def run_agent_lesson(
         "memory_generations": memory_generations,
     }
 
-    def make_events() -> AsyncIterator[Event]:
-        async def events() -> AsyncIterator[Event]:
-            session = await make_session()
-            session_holder["session"] = session
-            # The state this turn starts from, kept on its block so the lesson can be taken back
-            # to it later.
-            session_holder["turn_record"] = turn_record(checkpoint_of(session), values)
-            deleted_policy = (
-                {"memory_deleted_keys": frozenset(memory_deleted_keys)}
-                if memory_deleted_keys
-                else {}
-            )
-            if (
-                deleted_policy
-                and rewind is not None
-                and rewind.replay_values is not None
-            ):
-                deleted_policy["replaying_input"] = True
-            async for event in engine.run_turn(
-                session, _turn_input(session, values), **deleted_policy
-            ):
-                yield event
+    make_events = _turn_events_factory(
+        engine,
+        make_session=make_session,
+        session_holder=session_holder,
+        values=values,
+        memory_deleted_keys=memory_deleted_keys,
+        rewind=rewind,
+    )
 
-        return events()
-
-    voice = (
-        LessonVoice(
-            app,
-            shifu_model=shifu_model,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            progress_record_bid=progress_record_bid,
-            user_bid=user_bid,
-            generated_block_bid=generated_block_bid,
-            usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else None,
-        )
-        if listen and progress_record_bid
-        else None
+    voice = _lesson_voice(
+        app,
+        listen=listen,
+        shifu_model=shifu_model,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        progress_record_bid=progress_record_bid,
+        user_bid=user_bid,
+        generated_block_bid=generated_block_bid,
+        preview_mode=preview_mode,
     )
     # Every mode consumes the same typed elements. Only speech depends on listening; classroom
     # and reading still need the formatter to distinguish HTML and other visuals from prose.
@@ -1080,6 +1150,151 @@ class _TurnDiscardedError(Exception):
     """The lesson was reset while this turn ran, so nothing it produced may be written."""
 
 
+def _durable_memory_updates(
+    session: Session,
+    memory: list[MemoryUpdated],
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    memory_generations: dict[str, int] | None,
+    rewind: RewindPlan | None,
+) -> list[MemoryUpdated]:
+    """Return the turn's memory updates that belong in the learner profile."""
+    durable = [
+        update
+        for update in memory
+        if update.scope == "user" or update.source == "interaction"
+    ]
+    for update in durable:
+        if is_course_reference(update.key):
+            session.memory.pop(update.key, None)
+            session.user_memory.pop(update.key, None)
+    durable = [update for update in durable if not is_course_reference(update.key)]
+    if durable and memory_generations is not None:
+        current, deleted = course_memory_deletion_state(user_bid, shifu_bid, lock=True)
+        durable = [
+            update
+            for update in durable
+            if current.get(update.key, 0) == memory_generations.get(update.key, 0)
+            and not (
+                update.key in deleted
+                and rewind is not None
+                and rewind.replay_values is not None
+            )
+        ]
+    return durable
+
+
+def _stage_turn_writes(
+    app: Flask,
+    session: Session,
+    *,
+    memory: list[MemoryUpdated],
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    preview_mode: bool,
+    progress_record_bid: str,
+    generated_block_bid: str,
+    taught: str,
+    turn_record: str,
+    rewind: RewindPlan | None,
+    memory_generations: dict[str, int] | None,
+    preview_generation: str | None,
+    preview_question_ids: list[str] | None,
+) -> None:
+    """Everything this turn writes, inside the session's own transaction.
+
+    The claim comes first and holds a lock until the transaction commits, so a reset either
+    happens before it -- and this turn writes nothing -- or after, when it can see the session
+    and clear it. Staging anything ahead of that check would leave it in the session for
+    whoever commits next, a write from a turn that was meant to be discarded.
+    """
+    record = None
+    if preview_generation is not None:
+        from flaskr.service.learn.agent.preview_history import stage_preview_turn
+        from flaskr.service.learn.agent.preview_rewind import (
+            PreviewRewindPlan,
+            stage_preview_retirement,
+        )
+
+        if isinstance(rewind, PreviewRewindPlan):
+            stage_preview_retirement(
+                rewind,
+                generation=preview_generation,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+            )
+        stage_preview_turn(
+            generation=preview_generation,
+            session=session,
+            generated_block_bid=generated_block_bid,
+            turn_record=turn_record,
+            question_ids=preview_question_ids,
+        )
+    if not preview_mode:
+        record = claim_for_writing(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+        )
+        if record is None:
+            raise _TurnDiscardedError
+
+    # Session-scoped facts stay in the session, which `save_agent_session` serializes. Writing
+    # them to the profile would leak a turn's working notes into preview, Ask and follow-up
+    # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
+    # session scope, so this is the common case, not the rare one.
+    #
+    # An answer to one of the script's questions is not a working note: it is what the author
+    # asked the learner, stored under the name the script gave it, and 1.0 writes every such
+    # answer to the profile. Later lessons read it from there -- a script that asks for
+    # `%{{purpose}}` in one lesson uses `{{purpose}}` in the next -- and a lesson whose
+    # answer stayed in its own session showed the next one's learner the placeholder itself.
+    durable = _durable_memory_updates(
+        session,
+        memory,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        memory_generations=memory_generations,
+        rewind=rewind,
+    )
+    if durable:
+        stage_memory(
+            app,
+            user_bid,
+            shifu_bid,
+            MemoryUpdate(
+                variables=[
+                    VariableMemoryUpdate(
+                        key=update.key,
+                        value="" if update.value is None else str(update.value),
+                    )
+                    for update in durable
+                ]
+            ),
+        )
+    if record is not None:
+        if rewind is not None:
+            # With the session it restored, or not at all: rows retired by a turn that was
+            # then discarded would leave history ending where the session does not.
+            stage_retirement(rewind, user_bid=user_bid, outline_bid=outline_bid)
+        record_turn_content(
+            generated_block_bid=generated_block_bid,
+            content=taught,
+            turn_record=turn_record,
+        )
+        if session.finished:
+            mark_lesson_finished(record)
+        # A rewind does not reopen a lesson already completed. Going back to answer
+        # differently is revisiting it, and the completion was earned: reopening only this
+        # record would also leave its chapter completed and the next lesson started, ahead of
+        # a lesson that says it is unfinished -- which is why the outline never reopens a
+        # finished lesson either (see `apply_outline_progression`).
+
+
 def _persist(
     app: Flask,
     session: Session,
@@ -1112,112 +1327,24 @@ def _persist(
     """
 
     def stage_everything() -> None:
-        """Everything this turn writes, inside the session's own transaction.
-
-        The claim comes first and holds a lock until the transaction commits, so a reset either
-        happens before it -- and this turn writes nothing -- or after, when it can see the session
-        and clear it. Staging anything ahead of that check would leave it in the session for
-        whoever commits next, a write from a turn that was meant to be discarded.
-        """
-        record = None
-        if preview_generation is not None:
-            from flaskr.service.learn.agent.preview_history import stage_preview_turn
-            from flaskr.service.learn.agent.preview_rewind import (
-                PreviewRewindPlan,
-                stage_preview_retirement,
-            )
-
-            if isinstance(rewind, PreviewRewindPlan):
-                stage_preview_retirement(
-                    rewind,
-                    generation=preview_generation,
-                    user_bid=user_bid,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                )
-            stage_preview_turn(
-                generation=preview_generation,
-                session=session,
-                generated_block_bid=generated_block_bid,
-                turn_record=turn_record,
-                question_ids=preview_question_ids,
-            )
-        if not preview_mode:
-            record = claim_for_writing(
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                progress_record_bid=progress_record_bid,
-            )
-            if record is None:
-                raise _TurnDiscardedError
-
-        # Session-scoped facts stay in the session, which `save_agent_session` serializes. Writing
-        # them to the profile would leak a turn's working notes into preview, Ask and follow-up
-        # prompts, and outlive the session that made sense of them. The `remember` tool defaults to
-        # session scope, so this is the common case, not the rare one.
-        #
-        # An answer to one of the script's questions is not a working note: it is what the author
-        # asked the learner, stored under the name the script gave it, and 1.0 writes every such
-        # answer to the profile. Later lessons read it from there -- a script that asks for
-        # `%{{purpose}}` in one lesson uses `{{purpose}}` in the next -- and a lesson whose
-        # answer stayed in its own session showed the next one's learner the placeholder itself.
-        durable = [
-            update
-            for update in memory
-            if update.scope == "user" or update.source == "interaction"
-        ]
-        for update in durable:
-            if is_course_reference(update.key):
-                session.memory.pop(update.key, None)
-                session.user_memory.pop(update.key, None)
-        durable = [update for update in durable if not is_course_reference(update.key)]
-        if durable and memory_generations is not None:
-            current, deleted = course_memory_deletion_state(
-                user_bid, shifu_bid, lock=True
-            )
-            durable = [
-                update
-                for update in durable
-                if current.get(update.key, 0) == memory_generations.get(update.key, 0)
-                and not (
-                    update.key in deleted
-                    and rewind is not None
-                    and rewind.replay_values is not None
-                )
-            ]
-        if durable:
-            stage_memory(
-                app,
-                user_bid,
-                shifu_bid,
-                MemoryUpdate(
-                    variables=[
-                        VariableMemoryUpdate(
-                            key=update.key,
-                            value="" if update.value is None else str(update.value),
-                        )
-                        for update in durable
-                    ]
-                ),
-            )
-        if record is not None:
-            if rewind is not None:
-                # With the session it restored, or not at all: rows retired by a turn that was
-                # then discarded would leave history ending where the session does not.
-                stage_retirement(rewind, user_bid=user_bid, outline_bid=outline_bid)
-            record_turn_content(
-                generated_block_bid=generated_block_bid,
-                content=taught,
-                turn_record=turn_record,
-            )
-            if session.finished:
-                mark_lesson_finished(record)
-            # A rewind does not reopen a lesson already completed. Going back to answer
-            # differently is revisiting it, and the completion was earned: reopening only this
-            # record would also leave its chapter completed and the next lesson started, ahead of
-            # a lesson that says it is unfinished -- which is why the outline never reopens a
-            # finished lesson either (see `apply_outline_progression`).
+        """Everything this turn writes, inside the session's own transaction."""
+        _stage_turn_writes(
+            app,
+            session,
+            memory=memory,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=preview_mode,
+            progress_record_bid=progress_record_bid,
+            generated_block_bid=generated_block_bid,
+            taught=taught,
+            turn_record=turn_record,
+            rewind=rewind,
+            memory_generations=memory_generations,
+            preview_generation=preview_generation,
+            preview_question_ids=preview_question_ids,
+        )
 
     try:
         save_agent_session(
