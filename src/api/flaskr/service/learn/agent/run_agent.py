@@ -24,7 +24,7 @@ Nothing calls this yet: routing a lesson to it is the next change.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
@@ -664,6 +664,322 @@ def _outline_progression(
         )
 
 
+@dataclass
+class _TurnStream:
+    """Collaborators and running state of one streamed turn."""
+
+    app: Flask
+    voice: LessonVoice | None
+    pager: LessonPager
+    session_holder: dict[str, Any]
+    user_bid: str
+    shifu_bid: str
+    outline_bid: str
+    preview_mode: bool
+    progress_record_bid: str
+    generated_block_bid: str
+    debug_store: DebugSessionStore | None
+    pending_memory: list[MemoryUpdated] = field(default_factory=list)
+    preview_question_ids: list[str] = field(default_factory=list)
+    taught: list[str] = field(default_factory=list)
+    persisted: bool = False
+    # The script's verbatim markers come back in the engine's text; they are syntax, not lesson.
+    markers: PreserveMarkerFilter = field(default_factory=PreserveMarkerFilter)
+    # A question the model typed into its narration instead of asking for one. Held aside while
+    # the turn runs: what becomes of it depends on whether the model also called the tool.
+    syntax: InteractionSyntaxFilter = field(default_factory=InteractionSyntaxFilter)
+    # The model's copy of the `<memory>` section it was given, written out instead of a
+    # `remember` call. Input to the model, never lesson text.
+    echoes: EchoedMemoryFilter = field(default_factory=EchoedMemoryFilter)
+    asked: bool = False
+    error_code: str | None = None
+
+
+def _save_turn(
+    turn: _TurnStream,
+    session: Session,
+    *,
+    taught: str,
+    preview_question_ids: list[str],
+    with_content_revision: bool,
+) -> bool:
+    """Write the turn (or hand it to the debug store); return whether it was kept."""
+    if turn.debug_store is not None:
+        turn.debug_store.save(session)
+        return True
+    holder = turn.session_holder
+    revision = (
+        {"content_revision": holder.get("content_revision")}
+        if with_content_revision
+        else {}
+    )
+    return _persist(
+        turn.app,
+        session,
+        memory=turn.pending_memory,
+        user_bid=turn.user_bid,
+        shifu_bid=turn.shifu_bid,
+        outline_bid=turn.outline_bid,
+        preview_mode=turn.preview_mode,
+        progress_record_bid=turn.progress_record_bid,
+        generated_block_bid=turn.generated_block_bid,
+        taught=taught,
+        turn_record=holder.get("turn_record", ""),
+        rewind=holder.get("rewind"),
+        memory_generations=holder.get("memory_generations"),
+        preview_generation=holder.get("preview_generation"),
+        **revision,
+        preview_question_ids=preview_question_ids,
+    )
+
+
+def _save_prepared_content(turn: _TurnStream, event: ContentDelta) -> bool | None:
+    """Commit a prepared response before its text is shown.
+
+    Returns ``None`` when nothing was prepared, otherwise whether the turn was kept.
+    """
+    session = turn.session_holder.get("session")
+    prepared = event.prepared_content if session is not None else None
+    if turn.persisted or prepared is None:
+        return None
+    # Structured feedback is complete and its correction is pending before
+    # any text is yielded. Commit that whole response on the host thread;
+    # a disconnect cannot restore the original answered question.
+    saved_echoes = EchoedMemoryFilter()
+    saved_markers = PreserveMarkerFilter()
+    saved_syntax = InteractionSyntaxFilter()
+    prepared = saved_echoes.feed(prepared) + saved_echoes.flush()
+    prepared = saved_markers.feed(prepared) + saved_markers.flush()
+    prepared = saved_syntax.feed(prepared) + saved_syntax.flush()
+    kept = _save_turn(
+        turn,
+        session,
+        taught=prepared,
+        preview_question_ids=[p.tool_call_id for p in session.pending],
+        with_content_revision=False,
+    )
+    if not kept:
+        return False
+    turn.persisted = True
+    turn.pending_memory = []
+    return True
+
+
+def _flush_before_boundary(
+    turn: _TurnStream, event: object
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Release buffered text ahead of a question or turn boundary."""
+    # A question or turn boundary ends the text before it. The formatter holds the
+    # last line until it sees its end, and the marker filter a trailing fragment; released
+    # only at the end of the turn, the lesson's closing sentence landed after the
+    # question's controls, so the last thing in the learner's history was text rather
+    # than the question -- and the browser, seeing no question to answer, asked the
+    # lesson to continue with nothing.
+    #
+    # Tool events do not end content: a tag, code fence, or echoed memory block may
+    # straddle one. Keep all filters and the formatter buffered across those events.
+    echoed = (
+        turn.echoes.flush() if isinstance(event, (InteractionRequest, TurnDone)) else ""
+    )
+    tail = (
+        turn.syntax.feed(turn.markers.feed(echoed) + turn.markers.flush())
+        + turn.syntax.flush()
+    )
+    if tail:
+        turn.taught.append(tail)
+        yield from _say(
+            tail,
+            pager=turn.pager,
+            voice=turn.voice,
+            outline_bid=turn.outline_bid,
+            generated_block_bid=turn.generated_block_bid,
+        )
+    yield from _pieces(
+        turn.pager.flush(),
+        voice=turn.voice,
+        outline_bid=turn.outline_bid,
+        generated_block_bid=turn.generated_block_bid,
+    )
+
+
+def _deliver_question(
+    turn: _TurnStream, event: InteractionRequest
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    # The question comes after the lesson text as its own block, the way a 1.0 lesson
+    # delivers it: the question's own prompt joins the text, then the text's audio is
+    # finished and its block finalised, so every row of it is written before the
+    # question's controls. History is ordered by the moment of writing, and a history
+    # whose last row was not the question read to the browser as a lesson to continue --
+    # which it did, with nothing, on every reload.
+    turn.asked = True
+    for question_payload in _question(
+        event,
+        pager=turn.pager,
+        voice=turn.voice,
+        outline_bid=turn.outline_bid,
+        generated_block_bid=turn.generated_block_bid,
+        app=turn.app,
+        taught="".join(turn.taught),
+        user_bid=turn.user_bid,
+    ):
+        if question_payload.type == GeneratedType.INTERACTION:
+            turn.preview_question_ids.append(event.id)
+        yield question_payload
+
+
+def _finish_turn(
+    turn: _TurnStream, event: TurnDone
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Close the turn on `TurnDone`: finish speech, save, and settle the outline."""
+    # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
+    # question emits one and then re-asks the question and ends the turn properly, so treating
+    # it as terminal would write the turn twice and stage its block twice.
+    turn.session_holder["reason"] = event.reason
+    if turn.voice is not None:
+        # Whatever is still mid-synthesis when the text runs out, which is usually the last
+        # sentence of the turn.
+        yield from turn.voice.finish()
+
+    if not turn.persisted:
+        session = turn.session_holder.get("session")
+        if session is not None:
+            turn.persisted = True
+            kept = _save_turn(
+                turn,
+                session,
+                taught="".join(turn.taught),
+                preview_question_ids=turn.preview_question_ids,
+                with_content_revision=True,
+            )
+            turn.pending_memory = []
+            if session.finished and kept:  # not for a turn a reset discarded
+                # Before the terminal event, because the browser stops reading the stream on
+                # it. These are the only thing that ticks the lesson off in the outline, ends
+                # the chapter it belonged to, and hands the learner on to what is next -- and
+                # the only thing that tells the page the lesson is over, without which it
+                # goes on asking for a continuation that does not exist.
+                yield from _outline_progression(
+                    turn.app,
+                    user_bid=turn.user_bid,
+                    shifu_bid=turn.shifu_bid,
+                    outline_bid=turn.outline_bid,
+                    progress_record_bid=turn.progress_record_bid,
+                    preview_mode=turn.preview_mode,
+                )
+
+    finished = bool(getattr(turn.session_holder.get("session"), "finished", False))
+    if not turn.asked and not finished and turn.syntax.spans:
+        # The model typed a question rather than asking for one. Sent before the event that
+        # ends the turn, so it is the last thing written: a turn ending on text is the host's
+        # signal to carry on, and carrying on would run the lesson past the question the
+        # learner is still reading.
+        #
+        # Not on a lesson the model has just finished. The engine refuses a turn on a
+        # finished session, so the question could never be answered, and the lesson is over
+        # in any case -- a question typed on the way out is not one to put to the learner.
+        # Only the last span is asked: a turn holds one question, and it is the one the
+        # narration ends on.
+        yield from _narrated_question(
+            turn.syntax.spans[-1],
+            voice=turn.voice,
+            outline_bid=turn.outline_bid,
+            generated_block_bid=turn.generated_block_bid,
+        )
+        # The engine ended the turn out of content, but the learner has a question in front
+        # of them all the same, and a caller carrying the lesson on from an "end" would run it
+        # past that question before they could answer.
+        turn.session_holder["reason"] = "interaction"
+
+
+def _deliver_translated(
+    turn: _TurnStream, event: object
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Send the 1.0 events an engine event translates to."""
+    try:
+        yield from _on_this_page(
+            translate(
+                event,
+                outline_bid=turn.outline_bid,
+                generated_block_bid=turn.generated_block_bid,
+            ),
+            pager=turn.pager,
+            voice=turn.voice,
+        )
+    except UnrepresentableInteractionError:
+        # The controls would ask something other than the model did, so they are not sent. The
+        # question still is: `translate` builds it first and loses it with the raise, and a
+        # learner shown neither has nothing to answer while the session keeps waiting for one.
+        turn.app.logger.warning(
+            "interaction cannot be rendered as MarkdownFlow: user_bid=%s outline_bid=%s",
+            turn.user_bid,
+            turn.outline_bid,
+            exc_info=True,
+        )
+        prompt = getattr(event, "spec", None) and event.spec.prompt
+        if prompt and prompt.strip():
+            yield from _on_this_page(
+                [
+                    RunMarkdownFlowDTO(
+                        outline_bid=turn.outline_bid,
+                        generated_block_bid=turn.generated_block_bid,
+                        type=GeneratedType.CONTENT,
+                        content=prompt,
+                    )
+                ],
+                pager=turn.pager,
+                voice=turn.voice,
+            )
+
+
+def _close_unpersisted_turn(
+    turn: _TurnStream,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Write and flush a turn that ended without a `TurnDone`."""
+    # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
+    # the failures it cannot continue past. What the turn produced still has to be written, or the
+    # learner replays an exchange that already happened.
+    if not turn.persisted:
+        # A turn that died has no `TurnDone`, so nothing above will have asked what the model
+        # typed. Putting it back as text loses nothing: it is what the model wrote, and the
+        # learner is being shown a failure rather than a question either way.
+        tail = (
+            turn.syntax.feed(
+                turn.markers.feed(turn.echoes.flush()) + turn.markers.flush()
+            )
+            + turn.syntax.flush()
+            + "".join(turn.syntax.spans)
+        )
+        if tail:
+            turn.taught.append(tail)
+            yield from _say(
+                tail,
+                pager=turn.pager,
+                voice=turn.voice,
+                outline_bid=turn.outline_bid,
+                generated_block_bid=turn.generated_block_bid,
+            )
+    if not turn.persisted:
+        yield from _pieces(
+            turn.pager.flush(),
+            voice=turn.voice,
+            outline_bid=turn.outline_bid,
+            generated_block_bid=turn.generated_block_bid,
+        )
+    if turn.voice is not None and not turn.persisted:
+        # Speech buffered when the turn died would otherwise never reach the learner, while the
+        # synthesis already submitted carries on with nowhere to go.
+        yield from turn.voice.finish()
+    session = turn.session_holder.get("session")
+    if not turn.persisted and session is not None:
+        _save_turn(
+            turn,
+            session,
+            taught="".join(turn.taught),
+            preview_question_ids=turn.preview_question_ids,
+            with_content_revision=True,
+        )
+
+
 def _stream_turn(
     app: Flask,
     *,
@@ -682,68 +998,32 @@ def _stream_turn(
     debug_store: DebugSessionStore | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
-    pending_memory: list[MemoryUpdated] = []
-    preview_question_ids: list[str] = []
-    taught: list[str] = []
-    persisted = False
-    # The script's verbatim markers come back in the engine's text; they are syntax, not lesson.
-    markers = PreserveMarkerFilter()
-    # A question the model typed into its narration instead of asking for one. Held aside while
-    # the turn runs: what becomes of it depends on whether the model also called the tool.
-    syntax = InteractionSyntaxFilter()
-    # The model's copy of the `<memory>` section it was given, written out instead of a
-    # `remember` call. Input to the model, never lesson text.
-    echoes = EchoedMemoryFilter()
-    asked = False
-    error_code = None
+    turn = _TurnStream(
+        app=app,
+        voice=voice,
+        pager=pager,
+        session_holder=session_holder,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        preview_mode=preview_mode,
+        progress_record_bid=progress_record_bid,
+        generated_block_bid=generated_block_bid,
+        debug_store=debug_store,
+    )
 
     for event in _without_markers(
         run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval),
-        markers,
-        syntax,
-        echoes,
+        turn.markers,
+        turn.syntax,
+        turn.echoes,
     ):
         if isinstance(event, ContentDelta):
-            session = session_holder.get("session")
-            prepared = event.prepared_content if session is not None else None
-            if not persisted and prepared is not None:
-                # Structured feedback is complete and its correction is pending before
-                # any text is yielded. Commit that whole response on the host thread;
-                # a disconnect cannot restore the original answered question.
-                saved_echoes = EchoedMemoryFilter()
-                saved_markers = PreserveMarkerFilter()
-                saved_syntax = InteractionSyntaxFilter()
-                prepared = saved_echoes.feed(prepared) + saved_echoes.flush()
-                prepared = saved_markers.feed(prepared) + saved_markers.flush()
-                prepared = saved_syntax.feed(prepared) + saved_syntax.flush()
-                if debug_store is not None:
-                    debug_store.save(session)
-                    kept = True
-                else:
-                    kept = _persist(
-                        app,
-                        session,
-                        memory=pending_memory,
-                        user_bid=user_bid,
-                        shifu_bid=shifu_bid,
-                        outline_bid=outline_bid,
-                        preview_mode=preview_mode,
-                        progress_record_bid=progress_record_bid,
-                        generated_block_bid=generated_block_bid,
-                        taught=prepared,
-                        turn_record=session_holder.get("turn_record", ""),
-                        rewind=session_holder.get("rewind"),
-                        memory_generations=session_holder.get("memory_generations"),
-                        preview_generation=session_holder.get("preview_generation"),
-                        preview_question_ids=[p.tool_call_id for p in session.pending],
-                    )
-                if not kept:
-                    return TurnOutcome(reason=None, taught=False)
-                persisted = True
-                pending_memory = []
+            if _save_prepared_content(turn, event) is False:
+                return TurnOutcome(reason=None, taught=False)
             if not event.text:
                 continue
-            taught.append(event.text)
+            turn.taught.append(event.text)
             yield from _paged(
                 event.text,
                 pager=pager,
@@ -754,238 +1034,31 @@ def _stream_turn(
             continue
 
         if isinstance(event, ErrorEvent):
-            error_code = event.code
+            turn.error_code = event.code
 
         if isinstance(event, MemoryUpdated):
             # Held rather than written now: the turn may still fail, and a memory write that
             # outlived a failed session save would describe a learner who never said it.
-            pending_memory.append(event)
+            turn.pending_memory.append(event)
             continue
 
         if isinstance(event, (InteractionRequest, TurnDone, ErrorEvent)):
-            # A question or turn boundary ends the text before it. The formatter holds the
-            # last line until it sees its end, and the marker filter a trailing fragment; released
-            # only at the end of the turn, the lesson's closing sentence landed after the
-            # question's controls, so the last thing in the learner's history was text rather
-            # than the question -- and the browser, seeing no question to answer, asked the
-            # lesson to continue with nothing.
-            #
-            # Tool events do not end content: a tag, code fence, or echoed memory block may
-            # straddle one. Keep all filters and the formatter buffered across those events.
-            echoed = (
-                echoes.flush()
-                if isinstance(event, (InteractionRequest, TurnDone))
-                else ""
-            )
-            tail = syntax.feed(markers.feed(echoed) + markers.flush()) + syntax.flush()
-            if tail:
-                taught.append(tail)
-                yield from _say(
-                    tail,
-                    pager=pager,
-                    voice=voice,
-                    outline_bid=outline_bid,
-                    generated_block_bid=generated_block_bid,
-                )
-            yield from _pieces(
-                pager.flush(),
-                voice=voice,
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
-            )
+            yield from _flush_before_boundary(turn, event)
         if isinstance(event, InteractionRequest):
-            # The question comes after the lesson text as its own block, the way a 1.0 lesson
-            # delivers it: the question's own prompt joins the text, then the text's audio is
-            # finished and its block finalised, so every row of it is written before the
-            # question's controls. History is ordered by the moment of writing, and a history
-            # whose last row was not the question read to the browser as a lesson to continue --
-            # which it did, with nothing, on every reload.
-            asked = True
-            for question_payload in _question(
-                event,
-                pager=pager,
-                voice=voice,
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
-                app=app,
-                taught="".join(taught),
-                user_bid=user_bid,
-            ):
-                if question_payload.type == GeneratedType.INTERACTION:
-                    preview_question_ids.append(event.id)
-                yield question_payload
+            yield from _deliver_question(turn, event)
             continue
 
-        # Only a `TurnDone` ends a turn. An `ErrorEvent` may not: a blank answer to a pending
-        # question emits one and then re-asks the question and ends the turn properly, so treating
-        # it as terminal would write the turn twice and stage its block twice.
         if isinstance(event, TurnDone):
-            session_holder["reason"] = event.reason
-        if isinstance(event, TurnDone) and voice is not None:
-            # Whatever is still mid-synthesis when the text runs out, which is usually the last
-            # sentence of the turn.
-            yield from voice.finish()
+            yield from _finish_turn(turn, event)
 
-        if isinstance(event, TurnDone) and not persisted:
-            session = session_holder.get("session")
-            if session is not None:
-                persisted = True
-                if debug_store is not None:
-                    debug_store.save(session)
-                    kept = True
-                else:
-                    kept = _persist(
-                        app,
-                        session,
-                        memory=pending_memory,
-                        user_bid=user_bid,
-                        shifu_bid=shifu_bid,
-                        outline_bid=outline_bid,
-                        preview_mode=preview_mode,
-                        progress_record_bid=progress_record_bid,
-                        generated_block_bid=generated_block_bid,
-                        taught="".join(taught),
-                        turn_record=session_holder.get("turn_record", ""),
-                        rewind=session_holder.get("rewind"),
-                        memory_generations=session_holder.get("memory_generations"),
-                        preview_generation=session_holder.get("preview_generation"),
-                        content_revision=session_holder.get("content_revision"),
-                        preview_question_ids=preview_question_ids,
-                    )
-                pending_memory = []
-                if session.finished and kept:  # not for a turn a reset discarded
-                    # Before the terminal event, because the browser stops reading the stream on
-                    # it. These are the only thing that ticks the lesson off in the outline, ends
-                    # the chapter it belonged to, and hands the learner on to what is next -- and
-                    # the only thing that tells the page the lesson is over, without which it
-                    # goes on asking for a continuation that does not exist.
-                    yield from _outline_progression(
-                        app,
-                        user_bid=user_bid,
-                        shifu_bid=shifu_bid,
-                        outline_bid=outline_bid,
-                        progress_record_bid=progress_record_bid,
-                        preview_mode=preview_mode,
-                    )
+        yield from _deliver_translated(turn, event)
 
-        finished = bool(getattr(session_holder.get("session"), "finished", False))
-        if isinstance(event, TurnDone) and not asked and not finished and syntax.spans:
-            # The model typed a question rather than asking for one. Sent before the event that
-            # ends the turn, so it is the last thing written: a turn ending on text is the host's
-            # signal to carry on, and carrying on would run the lesson past the question the
-            # learner is still reading.
-            #
-            # Not on a lesson the model has just finished. The engine refuses a turn on a
-            # finished session, so the question could never be answered, and the lesson is over
-            # in any case -- a question typed on the way out is not one to put to the learner.
-            # Only the last span is asked: a turn holds one question, and it is the one the
-            # narration ends on.
-            yield from _narrated_question(
-                syntax.spans[-1],
-                voice=voice,
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
-            )
-            # The engine ended the turn out of content, but the learner has a question in front
-            # of them all the same, and a caller carrying the lesson on from an "end" would run it
-            # past that question before they could answer.
-            session_holder["reason"] = "interaction"
-
-        try:
-            yield from _on_this_page(
-                translate(
-                    event,
-                    outline_bid=outline_bid,
-                    generated_block_bid=generated_block_bid,
-                ),
-                pager=pager,
-                voice=voice,
-            )
-        except UnrepresentableInteractionError:
-            # The controls would ask something other than the model did, so they are not sent. The
-            # question still is: `translate` builds it first and loses it with the raise, and a
-            # learner shown neither has nothing to answer while the session keeps waiting for one.
-            app.logger.warning(
-                "interaction cannot be rendered as MarkdownFlow: user_bid=%s outline_bid=%s",
-                user_bid,
-                outline_bid,
-                exc_info=True,
-            )
-            prompt = getattr(event, "spec", None) and event.spec.prompt
-            if prompt and prompt.strip():
-                yield from _on_this_page(
-                    [
-                        RunMarkdownFlowDTO(
-                            outline_bid=outline_bid,
-                            generated_block_bid=generated_block_bid,
-                            type=GeneratedType.CONTENT,
-                            content=prompt,
-                        )
-                    ],
-                    pager=pager,
-                    voice=voice,
-                )
-
-    # A turn can end without a `TurnDone`: the engine emits a bare `ErrorEvent` and returns for
-    # the failures it cannot continue past. What the turn produced still has to be written, or the
-    # learner replays an exchange that already happened.
-    if not persisted:
-        # A turn that died has no `TurnDone`, so nothing above will have asked what the model
-        # typed. Putting it back as text loses nothing: it is what the model wrote, and the
-        # learner is being shown a failure rather than a question either way.
-        tail = (
-            syntax.feed(markers.feed(echoes.flush()) + markers.flush())
-            + syntax.flush()
-            + "".join(syntax.spans)
-        )
-        if tail:
-            taught.append(tail)
-            yield from _say(
-                tail,
-                pager=pager,
-                voice=voice,
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
-            )
-    if not persisted:
-        yield from _pieces(
-            pager.flush(),
-            voice=voice,
-            outline_bid=outline_bid,
-            generated_block_bid=generated_block_bid,
-        )
-    if voice is not None and not persisted:
-        # Speech buffered when the turn died would otherwise never reach the learner, while the
-        # synthesis already submitted carries on with nowhere to go.
-        yield from voice.finish()
-    session = session_holder.get("session")
-    if not persisted and session is not None:
-        if debug_store is not None:
-            debug_store.save(session)
-        else:
-            _persist(
-                app,
-                session,
-                memory=pending_memory,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                preview_mode=preview_mode,
-                progress_record_bid=progress_record_bid,
-                generated_block_bid=generated_block_bid,
-                taught="".join(taught),
-                turn_record=session_holder.get("turn_record", ""),
-                rewind=session_holder.get("rewind"),
-                memory_generations=session_holder.get("memory_generations"),
-                preview_generation=session_holder.get("preview_generation"),
-                content_revision=session_holder.get("content_revision"),
-                preview_question_ids=preview_question_ids,
-            )
+    yield from _close_unpersisted_turn(turn)
 
     return TurnOutcome(
         reason=session_holder.get("reason"),
-        taught=bool("".join(taught).strip()),
-        error_code=error_code,
+        taught=bool("".join(turn.taught).strip()),
+        error_code=turn.error_code,
     )
 
 
