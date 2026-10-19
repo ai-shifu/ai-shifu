@@ -334,89 +334,111 @@ def _consume_verification_code_locked(
     """Consume a code while the normalized identifier lock is held."""
     is_email = kind == "email"
     if is_email:
-        email_key = identifier
-        email_lower = email_key.lower()
-        mail_code_prefix, _expire_seconds = _verification_code_settings(app, "email")
-
-        cache_keys = [mail_code_prefix + email_key]
-        if email_lower != email_key:
-            cache_keys.append(mail_code_prefix + email_lower)
-
-        cached = None
-        for cache_key in cache_keys:
-            cached = cache.get(cache_key)
-            if cached is not None:
-                break
-
-        if _verification_attempts_exhausted(
-            app,
-            kind="email",
-            identifier=email_lower,
-            cache=cache,
-        ):
-            cache.delete(*cache_keys)
-            raise_error("server.user.mailSendExpired")
-
-        if cached is not None:
-            if code != _decode_cache_value(cached):
-                _record_invalid_attempt(
-                    app,
-                    kind="email",
-                    identifier=email_lower,
-                    cache=cache,
-                    code_keys=cache_keys,
-                )
-                raise_error("server.user.mailCheckError")
-            status = _consume_latest_code_from_db(
-                app,
-                kind="email",
-                identifier=email_key,
-                code=code,
-            )
-            if status != "ok" and email_lower != email_key:
-                status = _consume_latest_code_from_db(
-                    app,
-                    kind="email",
-                    identifier=email_lower,
-                    code=code,
-                )
-            if status != "ok":
-                raise_error("server.user.mailSendExpired")
-        else:
-            status = _consume_latest_code_from_db(
-                app,
-                kind="email",
-                identifier=email_key,
-                code=code,
-            )
-            if status != "ok" and email_lower != email_key:
-                status = _consume_latest_code_from_db(
-                    app,
-                    kind="email",
-                    identifier=email_lower,
-                    code=code,
-                )
-            if status == "invalid":
-                _record_invalid_attempt(
-                    app,
-                    kind="email",
-                    identifier=email_lower,
-                    cache=cache,
-                    code_keys=cache_keys,
-                )
-                raise_error("server.user.mailCheckError")
-            if status != "ok":
-                raise_error("server.user.mailSendExpired")
-
-        _mark_verification_code_consumed(
-            app,
-            kind="email",
-            identifier=email_lower,
-            cache=cache,
-        )
-        cache.delete(*cache_keys)
+        _consume_email_code_locked(app, identifier=identifier, code=code, cache=cache)
         return
 
+    _consume_sms_code_locked(app, identifier=identifier, code=code, cache=cache)
+
+
+def _consume_email_code_locked(
+    app: Flask,
+    *,
+    identifier: str,
+    code: str,
+    cache: CacheProvider,
+) -> None:
+    """Consume an email code; the caller holds the identifier lock."""
+    email_key = identifier
+    email_lower = email_key.lower()
+    mail_code_prefix, _expire_seconds = _verification_code_settings(app, "email")
+
+    cache_keys = [mail_code_prefix + email_key]
+    if email_lower != email_key:
+        cache_keys.append(mail_code_prefix + email_lower)
+
+    cached = None
+    for cache_key in cache_keys:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            break
+
+    if _verification_attempts_exhausted(
+        app,
+        kind="email",
+        identifier=email_lower,
+        cache=cache,
+    ):
+        cache.delete(*cache_keys)
+        raise_error("server.user.mailSendExpired")
+
+    if cached is not None:
+        if code != _decode_cache_value(cached):
+            _record_invalid_attempt(
+                app,
+                kind="email",
+                identifier=email_lower,
+                cache=cache,
+                code_keys=cache_keys,
+            )
+            raise_error("server.user.mailCheckError")
+        status = _consume_latest_code_from_db(
+            app,
+            kind="email",
+            identifier=email_key,
+            code=code,
+        )
+        if status != "ok" and email_lower != email_key:
+            status = _consume_latest_code_from_db(
+                app,
+                kind="email",
+                identifier=email_lower,
+                code=code,
+            )
+        if status != "ok":
+            raise_error("server.user.mailSendExpired")
+    else:
+        status = _consume_latest_code_from_db(
+            app,
+            kind="email",
+            identifier=email_key,
+            code=code,
+        )
+        if status != "ok" and email_lower != email_key:
+            status = _consume_latest_code_from_db(
+                app,
+                kind="email",
+                identifier=email_lower,
+                code=code,
+            )
+        if status == "invalid":
+            _record_invalid_attempt(
+                app,
+                kind="email",
+                identifier=email_lower,
+                cache=cache,
+                code_keys=cache_keys,
+            )
+            raise_error("server.user.mailCheckError")
+        if status != "ok":
+            raise_error("server.user.mailSendExpired")
+
+    _mark_verification_code_consumed(
+        app,
+        kind="email",
+        identifier=email_lower,
+        cache=cache,
+    )
+    cache.delete(*cache_keys)
+
+
+def _consume_sms_code_locked(
+    app: Flask,
+    *,
+    identifier: str,
+    code: str,
+    cache: CacheProvider,
+) -> None:
+    """Consume an SMS code; the caller holds the identifier lock."""
     raw_identifier = identifier
     identifier = normalize_phone_identifier(raw_identifier)
     if not identifier:
