@@ -1,14 +1,12 @@
 """Execute learning sessions and stream their results."""
 
 import contextlib
-import json
 import queue
 import sys
 import threading
 import time
 import uuid
 from collections.abc import Generator
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flask import Flask
@@ -25,28 +23,44 @@ from flaskr.dao import (
     is_protocol_interrupt_error,
 )
 from flaskr.dao.uow import unit_of_work
-from flaskr.i18n import _, get_current_language, set_language
-from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
+from flaskr.i18n import (
+    _,  # noqa: F401  # kept patchable on the pre-split module path
+    get_current_language,
+    set_language,
+)
+from flaskr.service.common.models import (
+    ERROR_CODE,  # noqa: F401  # re-exported public API
+    AppError,  # noqa: F401  # re-exported public API
+    raise_error,
+)
 from flaskr.service.learn.agent.routing import uses_agent_engine
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.exceptions import BreakError
 from flaskr.service.learn.learn_dtos import (
     AudioBackfillReadyDTO,  # noqa: F401  # re-exported public API
-    GeneratedType,
+    GeneratedType,  # noqa: F401  # re-exported public API
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
     RunStatusDTO,
 )
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.learn.runscript_v2_agent import _stream_agent_lesson
 from flaskr.service.learn.runscript_v2_events import (
     _extract_audio_backfill_ready_element_bid,
-    _is_retryable_llm_stream_connection_error,
-    _log_run_script_stream_error,
+    _is_retryable_llm_stream_connection_error,  # noqa: F401  # re-exported public API
+    _log_run_script_stream_error,  # noqa: F401  # re-exported public API
     _make_audio_backfill_ready_event,
-    _make_terminal_event,
-    _to_sse_chunk,
-    fmt,
+    _make_terminal_event,  # noqa: F401  # re-exported public API
+    _to_sse_chunk,  # noqa: F401  # re-exported public API
+    fmt,  # noqa: F401  # re-exported public API
+)
+from flaskr.service.learn.runscript_v2_stream import (
+    _drain_output_queue,
+    _refresh_run_script_status,
+    _RunStreamState,
+    _stream_busy_events,
+    _stream_closing_events,
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
@@ -644,211 +658,6 @@ def run_script_inner(
     yield from _run()
 
 
-def _prepare_agent_preview(
-    app: Flask,
-    *,
-    user_bid: str,
-    shifu_bid: str,
-    outline_bid: str,
-    user_input: str | dict | None,
-    reload_generated_block_bid: str | None,
-    reload_element_bid: str | None,
-    element_adapter: ListenElementRunAdapter,
-) -> Generator[RunElementSSEMessageDTO, None, dict[str, object] | None]:
-    """Open a 2.0 preview run, or replay a pending one.
-
-    Returns the extra ``agent_lesson_events`` options, or ``None`` when a
-    pending preview record was replayed and the request is already complete.
-    """
-    from flaskr.service.learn.agent.lesson_entry import require_teachable_preview
-
-    preview_options: dict[str, object] = {}
-    require_teachable_preview(
-        app,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-    )
-    from flaskr.service.learn.agent.preview_history import (
-        begin_preview_run,
-        pending_preview_record,
-        preview_status_event,
-    )
-    from flaskr.service.learn.agent.run_agent import learner_values
-
-    if reload_element_bid or reload_generated_block_bid:
-        from flaskr.service.learn.agent.preview_rewind import (
-            plan_preview_rewind,
-        )
-        from flaskr.service.learn.agent.rewind import RewindUnavailableError
-
-        try:
-            plan_preview_rewind(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                anchor=reload_element_bid or reload_generated_block_bid,
-                answering=bool(learner_values(user_input)),
-            )
-        except RewindUnavailableError:
-            raise_error("server.learn.agentRewindUnavailable")
-    if not learner_values(user_input) and not (
-        reload_generated_block_bid or reload_element_bid
-    ):
-        restored = pending_preview_record(
-            app,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-        )
-        if restored is not None:
-            update = preview_status_event(
-                app,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-            )
-            if update is not None:
-                yield update
-            for element in restored.elements:
-                yield RunElementSSEMessageDTO(
-                    type="element",
-                    event_type="element",
-                    content=element,
-                    generated_block_bid=element.generated_block_bid,
-                )
-            yield RunElementSSEMessageDTO(
-                type="done", event_type="done", content="", is_terminal=True
-            )
-            return None
-    preview_options["preview_generation"] = begin_preview_run(
-        app,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-        run_bid=element_adapter.run_session_bid,
-    )
-    update = preview_status_event(
-        app,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-        generation=preview_options["preview_generation"],
-    )
-    if update is not None:
-        yield update
-    return preview_options
-
-
-def _stream_agent_lesson(
-    app: Flask,
-    *,
-    user_bid: str,
-    shifu_bid: str,
-    outline_bid: str,
-    user_input: str | dict | None,
-    reload_generated_block_bid: str | None,
-    reload_element_bid: str | None,
-    listen: bool,
-    learning_mode: str,
-    preview_mode: bool,
-    element_adapter: ListenElementRunAdapter,
-    heartbeat_interval: float,
-) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
-    """Teach one 2.0 turn and commit its staged elements before terminal DONE."""
-    from flaskr.service.learn.agent.lesson_entry import agent_lesson_events
-
-    preview_options = {}
-    if preview_mode:
-        preview_options = yield from _prepare_agent_preview(
-            app,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            user_input=user_input,
-            reload_generated_block_bid=reload_generated_block_bid,
-            reload_element_bid=reload_element_bid,
-            element_adapter=element_adapter,
-        )
-        if preview_options is None:
-            return
-    agent_events = agent_lesson_events(
-        app,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-        user_input=user_input,
-        listen=listen,
-        learning_mode=learning_mode,
-        preview_mode=preview_mode,
-        heartbeat_interval=heartbeat_interval,
-        reload_generated_block_bid=reload_generated_block_bid,
-        reload_element_bid=reload_element_bid,
-        **preview_options,
-    )
-    # Final snapshots are staged by the adapter on DONE. Adapt here so the commit and
-    # readiness notification precede terminal DONE, on which the browser closes SSE.
-    adapted_events = (
-        element_adapter.process(agent_events)
-        if element_adapter is not None
-        else agent_events
-    )
-    ready_by_block: dict[str, list[str]] = {}
-    terminal_done = None
-    try:
-        for payload in adapted_events:
-            if (
-                isinstance(payload, RunElementSSEMessageDTO)
-                and payload.type == GeneratedType.DONE.value
-                and payload.is_terminal
-            ):
-                terminal_done = payload
-            else:
-                yield payload
-    except AppError as exc:
-        if (
-            exc.code == ERROR_CODE["server.learn.agentInputBudgetExceeded"]
-            and element_adapter is not None
-        ):
-            # A later tool request can be refused after text was shown. Persist its
-            # buffered elements before surfacing the error, without sending DONE.
-            yield from element_adapter.finalize_pending_blocks()
-            _commit_pending_step()
-        raise
-    finally:
-        # A disconnect must also close the engine bridge and its turn slot.
-        with contextlib.suppress(Exception):
-            adapted_events.close()
-        with contextlib.suppress(Exception):
-            agent_events.close()
-    if element_adapter is not None:
-        # Fallback narration is finalized in storage without a live patch. Include it
-        # from the adapter's snapshots instead of relying only on emitted elements.
-        for (
-            block_bid,
-            element_bid,
-        ) in element_adapter.finalized_element_identities():
-            ready_by_block.setdefault(block_bid, []).append(element_bid)
-    _commit_pending_step()
-    if preview_mode:
-        from flaskr.service.learn.agent.preview_history import preview_status_event
-
-        update = preview_status_event(
-            app,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            generation=preview_options["preview_generation"],
-        )
-        if update is not None:
-            yield update
-    for block_bid, element_bids in ready_by_block.items():
-        yield _make_audio_backfill_ready_event(block_bid, element_bids)
-    if terminal_done is not None:
-        yield terminal_done
-
-
 def _lesson_events(
     *,
     app: Flask,
@@ -984,19 +793,6 @@ def _teaches_with_agent(
     return input_type != INPUT_TYPE_ASK
 
 
-@dataclass
-class _RunStreamState:
-    """Mutable bookkeeping shared by the SSE consumer loop and its tail."""
-
-    run_started_at: int
-    status_last_refreshed_at: float = 0.0
-    stream_error: Exception | None = None
-    client_disconnected: bool = False
-    done_received: bool = False
-    last_stream_type: str | None = None
-    last_stream_done_is_terminal: bool | None = None
-
-
 def _acquire_run_slot(
     app: Flask,
     *,
@@ -1115,266 +911,6 @@ def _run_producer(
                 _discard_session_connection(source="run_script producer abort")
             _remove_db_session_safely(app, source="run_script producer")
             output_queue.put(("done", None))
-
-
-def _refresh_run_script_status(
-    app: Flask,
-    state: _RunStreamState,
-    *,
-    is_ask: bool,
-    user_bid: str,
-    outline_bid: str,
-    force: bool = False,
-) -> None:
-    # Ask requests do not own the run-script status slot; skip tracking.
-    if is_ask:
-        return
-    now = time.time()
-    if (
-        not force
-        and now - state.status_last_refreshed_at < RUN_SCRIPT_STATUS_REFRESH_SECONDS
-    ):
-        return
-    _set_run_script_status(app, user_bid, outline_bid, state.run_started_at)
-    state.status_last_refreshed_at = now
-
-
-def _should_suppress_live_payload(
-    payload_obj: object, *, use_element_protocol: bool
-) -> bool:
-    payload_type = getattr(payload_obj, "type", None)
-    if hasattr(payload_type, "value"):
-        payload_type = payload_type.value
-    return bool(
-        use_element_protocol
-        and payload_type == GeneratedType.DONE.value
-        and not bool(getattr(payload_obj, "is_terminal", False))
-    )
-
-
-def _drain_output_queue(
-    app: Flask,
-    state: _RunStreamState,
-    output_queue: queue.SimpleQueue,
-    *,
-    stop_event: threading.Event,
-    heartbeat_interval: float,
-    stream_element_adapter: ListenElementRunAdapter | None,
-    use_element_protocol: bool,
-    is_ask: bool,
-    user_bid: str,
-    outline_bid: str,
-) -> Generator[str, None, None]:
-    """Relay producer output as SSE chunks, with heartbeats while idle.
-
-    Returns when the producer is done, reports an error, or the client goes
-    away. A close (``GeneratorExit``) at a yield marks the client as
-    disconnected and stops the producer before the close continues outward.
-    """
-
-    def _refresh_status() -> None:
-        _refresh_run_script_status(
-            app, state, is_ask=is_ask, user_bid=user_bid, outline_bid=outline_bid
-        )
-
-    while True:
-        kind: str
-        payload: object
-        try:
-            kind, payload = output_queue.get_nowait()
-        except queue.Empty:
-            if state.done_received or state.client_disconnected:
-                break
-            _refresh_status()
-            if heartbeat_interval > 0:
-                # Keep waiting cooperative under gevent while polling a thread-safe queue.
-                time.sleep(heartbeat_interval)
-            else:
-                time.sleep(0.01)
-            try:
-                kind, payload = output_queue.get_nowait()
-            except queue.Empty:
-                if heartbeat_interval <= 0:
-                    continue
-                try:
-                    heartbeat_payload = (
-                        stream_element_adapter.make_ephemeral_message(
-                            event_type="heartbeat",
-                            content="",
-                        )
-                        if stream_element_adapter is not None
-                        else {"type": "heartbeat"}
-                    )
-                    yield _to_sse_chunk(heartbeat_payload)
-                except GeneratorExit:
-                    state.client_disconnected = True
-                    stop_event.set()
-                    app.logger.info(
-                        "Client disconnected from SSE stream during heartbeat"
-                    )
-                    return
-                except (ConnectionError, BrokenPipeError, OSError) as exc:
-                    state.client_disconnected = True
-                    stop_event.set()
-                    app.logger.info(
-                        "Client disconnected from SSE stream during heartbeat: %s",
-                        repr(exc),
-                    )
-                    break
-                continue
-
-        if kind == "data":
-            try:
-                _refresh_status()
-                if _should_suppress_live_payload(
-                    payload, use_element_protocol=use_element_protocol
-                ):
-                    continue
-                payload_type = getattr(payload, "type", None)
-                if hasattr(payload_type, "value"):
-                    payload_type = payload_type.value
-                yield (
-                    "data: "
-                    + json.dumps(payload, default=fmt, ensure_ascii=False)
-                    + b"\n\n".decode("utf-8")
-                )
-                if isinstance(payload_type, str):
-                    state.last_stream_type = payload_type
-                    if payload_type == GeneratedType.DONE.value:
-                        state.last_stream_done_is_terminal = bool(
-                            getattr(payload, "is_terminal", False)
-                        )
-                    else:
-                        state.last_stream_done_is_terminal = None
-            except GeneratorExit:
-                state.client_disconnected = True
-                stop_event.set()
-                app.logger.info("Client disconnected from SSE stream (GeneratorExit)")
-                return
-            except (ConnectionError, BrokenPipeError, OSError) as exc:
-                state.client_disconnected = True
-                stop_event.set()
-                app.logger.info("Client disconnected from SSE stream: %s", repr(exc))
-                break
-        elif kind == "error":
-            if isinstance(payload, Exception):
-                state.stream_error = payload
-            else:
-                state.stream_error = Exception(str(payload))
-            break
-        elif kind == "done":
-            state.done_received = True
-            break
-
-
-def _stream_closing_events(
-    app: Flask,
-    state: _RunStreamState,
-    *,
-    outline_bid: str,
-    stream_element_adapter: ListenElementRunAdapter | None,
-    use_element_protocol: bool,
-    runtime_listen: bool,
-) -> Generator[str, None, None]:
-    """Emit the error/block-end events for a failed run and the terminal DONE."""
-    stream_error = state.stream_error
-    if (
-        stream_error
-        and not state.client_disconnected
-        and isinstance(stream_error, Exception)
-    ):
-        _log_run_script_stream_error(app, stream_error)
-        if isinstance(stream_error, AppError):
-            error_content = str(stream_error)
-        elif _is_retryable_llm_stream_connection_error(stream_error):
-            error_content = str(_("server.learn.llmStreamInterrupted"))
-        else:
-            error_content = str(_("server.common.unknownError"))
-        yield _to_sse_chunk(
-            _make_terminal_event(
-                outline_bid=outline_bid,
-                event_type="error",
-                content=error_content,
-                element_adapter=stream_element_adapter,
-            )
-        )
-        state.last_stream_type = "error"
-        block_end_event = _make_terminal_event(
-            outline_bid=outline_bid,
-            event_type=GeneratedType.BREAK.value,
-            content="",
-            element_adapter=stream_element_adapter,
-            is_terminal=False if runtime_listen else None,
-        )
-        if not _should_suppress_live_payload(
-            block_end_event, use_element_protocol=use_element_protocol
-        ):
-            yield _to_sse_chunk(block_end_event)
-            state.last_stream_type = (
-                GeneratedType.DONE.value
-                if use_element_protocol
-                else GeneratedType.BREAK.value
-            )
-            state.last_stream_done_is_terminal = False if use_element_protocol else None
-
-    if not state.client_disconnected and not (
-        use_element_protocol
-        and state.last_stream_type == GeneratedType.DONE.value
-        and state.last_stream_done_is_terminal is True
-    ):
-        yield _to_sse_chunk(
-            _make_terminal_event(
-                outline_bid=outline_bid,
-                event_type=GeneratedType.DONE.value,
-                content="",
-                element_adapter=stream_element_adapter,
-                is_terminal=True if use_element_protocol else None,
-            )
-        )
-        state.last_stream_type = GeneratedType.DONE.value
-        state.last_stream_done_is_terminal = True if use_element_protocol else None
-
-
-def _stream_busy_events(
-    app: Flask,
-    *,
-    is_ask: bool,
-    user_bid: str,
-    outline_bid: str,
-    stream_element_adapter: ListenElementRunAdapter | None,
-    use_element_protocol: bool,
-) -> Generator[str, None, None]:
-    """Tell the client another run already owns this lesson."""
-    app.logger.warning(
-        "run_script acquisition failed (is_ask=%s): user_bid=%s outline_bid=%s",
-        is_ask,
-        user_bid,
-        outline_bid,
-    )
-    busy_content = str(_("server.learn.outputInProgress"))
-    terminal_events = (
-        [("error", busy_content), (GeneratedType.DONE.value, "")]
-        if use_element_protocol
-        else [
-            ("error", busy_content),
-            (GeneratedType.BREAK.value, ""),
-            (GeneratedType.DONE.value, ""),
-        ]
-    )
-    for event_type, content in terminal_events:
-        yield _to_sse_chunk(
-            _make_terminal_event(
-                outline_bid=outline_bid,
-                event_type=event_type,
-                content=content,
-                element_adapter=stream_element_adapter,
-                is_terminal=(
-                    True
-                    if use_element_protocol and event_type == GeneratedType.DONE.value
-                    else None
-                ),
-            )
-        )
 
 
 def run_script(
@@ -1538,7 +1074,7 @@ def get_run_status(
     user_bid: str,
 ) -> RunStatusDTO:
     """Return run status."""
-    _ = shifu_bid
+    _ = shifu_bid  # noqa: F811 - discards the unused argument locally
     started_at = _get_run_script_started_at(app, user_bid, outline_bid)
     if started_at is None:
         return RunStatusDTO(is_running=False, running_time=0)
