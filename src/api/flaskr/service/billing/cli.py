@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import asdict
-from datetime import datetime, timedelta
-from decimal import Decimal
-from typing import Any
 
 import click
 from flask import current_app
 from flask.cli import with_appcontext
-from flaskr.dao import db
+from flaskr.dao import db  # noqa: F401 - re-exported for import compatibility
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.config.models import Config
-from flaskr.service.shifu.models import AiCourseAuth
-from flaskr.service.user.consts import USER_STATE_REGISTERED
-from flaskr.service.user.repository import (
+from flaskr.service.shifu.models import (
+    AiCourseAuth,  # noqa: F401 - re-exported for import compatibility
+)
+from flaskr.service.user.consts import (
+    USER_STATE_REGISTERED,  # noqa: F401 - re-exported for import compatibility
+)
+from flaskr.service.user.repository import (  # noqa: F401 - re-exported for import compatibility
     create_user_entity,
     get_user_entity_by_bid,
     load_user_aggregate,
@@ -26,11 +25,44 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.util.datetime import now_utc
-from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import (
+    now_utc,  # noqa: F401 - re-exported for import compatibility
+)
+from flaskr.util.uuid import (
+    generate_id,  # noqa: F401 - re-exported for import compatibility
+)
 
 from .checkout import reconcile_billing_provider_reference
-from .consts import (
+from .cli_backfills import backfill_authoring_permission_creators
+from .cli_catalog import (
+    activate_cli_provider_price_mapping,
+    bind_provider_price_mapping,
+    inspect_cli_provider_price_mapping,
+    list_cli_provider_price_mappings,
+    retire_cli_provider_price_mapping,
+    upsert_billing_product,
+    validate_cli_provider_price_mapping,
+)
+from .cli_grants import (
+    _enforce_manual_subscription_expire_event,  # noqa: F401 - patch point used by cli_grants
+    grant_billing_plan_by_identify,
+    grant_operator_credits_by_cli,
+)
+from .cli_sample_data import (
+    seed_sample_exception_orders,
+    seed_sample_focus_teachers,
+)
+from .cli_support import (
+    _ALLOCATION_INTERVAL_LABELS,
+    _BILLING_INTERVAL_LABELS,
+    _BILLING_MODE_LABELS,
+    _PRODUCT_STATUS_LABELS,
+    _PRODUCT_TYPE_LABELS,
+    _PROVIDER_PRICE_STATUS_LABELS,
+    _echo_payload,
+    _upsert_bootstrap_rows,
+)
+from .consts import (  # noqa: F401 - re-exported for import compatibility
     ALLOCATION_INTERVAL_MANUAL,
     ALLOCATION_INTERVAL_ONE_TIME,
     ALLOCATION_INTERVAL_PER_CYCLE,
@@ -86,9 +118,9 @@ from .daily_aggregates import (
 )
 from .manual_credit_grants import (
     MANUAL_CREDIT_GRANT_SOURCES,
-    grant_manual_credits_to_user,
+    grant_manual_credits_to_user,  # noqa: F401 - re-exported for import compatibility
 )
-from .models import (
+from .models import (  # noqa: F401 - re-exported for import compatibility
     BillingDailyUsageMetric,
     BillingOrder,
     BillingProduct,
@@ -96,13 +128,15 @@ from .models import (
     BillingSubscription,
     CreditUsageRate,
 )
-from .notifications import (
+from .notifications import (  # noqa: F401 - re-exported for import compatibility
     enqueue_subscription_purchase_sms,
     requeue_subscription_purchase_sms,
     stage_subscription_purchase_sms_for_paid_order,
 )
-from .primitives import coerce_datetime
-from .provider_price_mappings import (
+from .primitives import (
+    coerce_datetime,  # noqa: F401 - re-exported for import compatibility
+)
+from .provider_price_mappings import (  # noqa: F401 - re-exported for import compatibility
     ProviderPriceMappingError,
     activate_provider_price_mapping,
     get_active_provider_price_mapping,
@@ -113,13 +147,13 @@ from .provider_price_mappings import (
     upsert_provider_price_mapping,
     validate_provider_price_mapping_by_bid,
 )
-from .queries import (
+from .queries import (  # noqa: F401 - re-exported for import compatibility
     calculate_self_managed_billing_cycle_end,
     load_primary_active_subscription,
 )
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import backfill_bill_usage_settlement
-from .subscriptions import (
+from .subscriptions import (  # noqa: F401 - re-exported for import compatibility
     grant_paid_order_credits,
     is_self_managed_billing_provider,
     repair_subscription_cycle_mismatches,
@@ -134,235 +168,6 @@ from .wallets import (
     restore_wrongly_expired_credit_pack_buckets,
 )
 
-_PRODUCT_TYPE_LABELS = {
-    "custom": BILLING_PRODUCT_TYPE_CUSTOM,
-    "grant": BILLING_PRODUCT_TYPE_GRANT,
-    "plan": BILLING_PRODUCT_TYPE_PLAN,
-    "topup": BILLING_PRODUCT_TYPE_TOPUP,
-}
-
-_BILLING_MODE_LABELS = {
-    "manual": BILLING_MODE_MANUAL,
-    "one_time": BILLING_MODE_ONE_TIME,
-    "recurring": BILLING_MODE_RECURRING,
-}
-
-_BILLING_INTERVAL_LABELS = {
-    "day": BILLING_INTERVAL_DAY,
-    "month": BILLING_INTERVAL_MONTH,
-    "none": BILLING_INTERVAL_NONE,
-    "year": BILLING_INTERVAL_YEAR,
-}
-
-_ALLOCATION_INTERVAL_LABELS = {
-    "manual": ALLOCATION_INTERVAL_MANUAL,
-    "one_time": ALLOCATION_INTERVAL_ONE_TIME,
-    "per_cycle": ALLOCATION_INTERVAL_PER_CYCLE,
-}
-
-_PRODUCT_STATUS_LABELS = {
-    "active": BILLING_PRODUCT_STATUS_ACTIVE,
-    "inactive": BILLING_PRODUCT_STATUS_INACTIVE,
-}
-
-_PROVIDER_PRICE_STATUS_LABELS = {
-    "active": BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
-    "draft": BILLING_PROVIDER_PRICE_STATUS_DRAFT,
-    "invalid": BILLING_PROVIDER_PRICE_STATUS_INVALID,
-    "retired": BILLING_PROVIDER_PRICE_STATUS_RETIRED,
-}
-
-_DEFAULT_CLI_OPERATOR_USER_BID = "billing-cli"
-
-
-def _normalize_cli_bid(value: object) -> str:
-    return str(value or "").strip()
-
-
-def _auth_type_values(raw_auth_type: object) -> set[str]:
-    if raw_auth_type is None:
-        return set()
-    if isinstance(raw_auth_type, (list, tuple, set)):
-        return {
-            str(item).strip().lower() for item in raw_auth_type if str(item).strip()
-        }
-
-    text = str(raw_auth_type or "").strip()
-    if not text or text in {"[]", "null"}:
-        return set()
-    try:
-        parsed = json.loads(text)
-    except (TypeError, json.JSONDecodeError):
-        return {item.strip().lower() for item in text.split(",") if item.strip()}
-
-    if isinstance(parsed, list):
-        return {str(item).strip().lower() for item in parsed if str(item).strip()}
-    if isinstance(parsed, str):
-        return {parsed.strip().lower()} if parsed.strip() else set()
-    return set()
-
-
-def _has_authoring_permission(raw_auth_type: object) -> bool:
-    return bool(_auth_type_values(raw_auth_type).intersection({"edit", "publish"}))
-
-
-def backfill_authoring_permission_creators(
-    app: object,
-    *,
-    course_bid: str = "",
-    user_bid: str = "",
-    limit: int | None = None,
-    dry_run: bool = False,
-) -> dict[str, object]:
-    """Backfill authoring permission creators."""
-    normalized_course_bid = _normalize_cli_bid(course_bid)
-    normalized_user_bid = _normalize_cli_bid(user_bid)
-    normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
-
-    with app.app_context():
-        auth_query = AiCourseAuth.query.filter(AiCourseAuth.status == 1)
-        if normalized_course_bid:
-            auth_query = auth_query.filter(
-                AiCourseAuth.course_id == normalized_course_bid
-            )
-        if normalized_user_bid:
-            auth_query = auth_query.filter(AiCourseAuth.user_id == normalized_user_bid)
-        auth_query = auth_query.order_by(AiCourseAuth.id.asc())
-        if normalized_limit is not None:
-            auth_query = auth_query.limit(normalized_limit)
-
-        auth_rows = auth_query.all()
-        candidates: dict[str, dict[str, Any]] = {}
-        for auth in auth_rows:
-            current_user_bid = _normalize_cli_bid(auth.user_id)
-            if not current_user_bid:
-                continue
-            candidate = candidates.setdefault(
-                current_user_bid,
-                {
-                    "course_bids": set(),
-                    "has_authoring_permission": False,
-                },
-            )
-            current_course_bid = _normalize_cli_bid(auth.course_id)
-            if current_course_bid:
-                candidate["course_bids"].add(current_course_bid)
-            if _has_authoring_permission(auth.auth_type):
-                candidate["has_authoring_permission"] = True
-
-        records: list[dict[str, Any]] = []
-        role_granted_count = 0
-        role_would_grant_count = 0
-        role_skipped_count = 0
-        trial_granted_count = 0
-        trial_skipped_count = 0
-
-        for current_user_bid, candidate in sorted(candidates.items()):
-            record: dict[str, Any] = {
-                "creator_bid": current_user_bid,
-                "course_bids": sorted(candidate["course_bids"]),
-            }
-            if not bool(candidate["has_authoring_permission"]):
-                record.update(
-                    {
-                        "role_status": "skipped",
-                        "role_reason": "non_authoring_permission",
-                        "trial_status": "skipped",
-                        "trial_reason": "non_authoring_permission",
-                    }
-                )
-                role_skipped_count += 1
-                trial_skipped_count += 1
-                records.append(record)
-                continue
-
-            aggregate = load_user_aggregate(current_user_bid, with_credentials=False)
-            if aggregate is None:
-                record.update(
-                    {
-                        "role_status": "skipped",
-                        "role_reason": "user_not_found",
-                        "trial_status": "skipped",
-                        "trial_reason": "user_not_found",
-                    }
-                )
-                role_skipped_count += 1
-                trial_skipped_count += 1
-                records.append(record)
-                continue
-
-            if aggregate.is_creator:
-                record.update(
-                    {
-                        "role_status": "skipped",
-                        "role_reason": "already_creator",
-                    }
-                )
-                role_skipped_count += 1
-            elif dry_run:
-                record.update(
-                    {
-                        "role_status": "would_grant",
-                        "role_reason": None,
-                    }
-                )
-                role_would_grant_count += 1
-            else:
-                with unit_of_work():
-                    mark_user_roles(current_user_bid, is_creator=True)
-                record.update(
-                    {
-                        "role_status": "granted",
-                        "role_reason": None,
-                    }
-                )
-                role_granted_count += 1
-
-            if dry_run:
-                record.update(
-                    {
-                        "trial_status": "dry_run",
-                        "trial_reason": "dry_run",
-                    }
-                )
-                records.append(record)
-                continue
-
-            trial_payload = backfill_missing_creator_trial_credits(
-                app,
-                creator_bid=current_user_bid,
-            )
-            trial_record = (trial_payload.get("records") or [{}])[0] or {}
-            trial_status = trial_record.get("status") or trial_payload.get("status")
-            trial_reason = trial_record.get("reason") or trial_payload.get("reason")
-            record.update(
-                {
-                    "trial_status": trial_status,
-                    "trial_reason": trial_reason,
-                }
-            )
-            if int(trial_payload.get("granted_count") or 0) > 0:
-                trial_granted_count += 1
-            else:
-                trial_skipped_count += 1
-            records.append(record)
-
-        return {
-            "status": "completed",
-            "dry_run": dry_run,
-            "course_bid": normalized_course_bid or None,
-            "user_bid": normalized_user_bid or None,
-            "limit": normalized_limit,
-            "auth_count": len(auth_rows),
-            "creator_count": len(candidates),
-            "role_granted_count": role_granted_count,
-            "role_would_grant_count": role_would_grant_count,
-            "role_skipped_count": role_skipped_count,
-            "trial_granted_count": trial_granted_count,
-            "trial_skipped_count": trial_skipped_count,
-            "records": records,
-        }
-
 
 def register_billing_commands(console: object) -> None:
     """Register offline billing maintenance commands under ``flask console``."""
@@ -370,6 +175,21 @@ def register_billing_commands(console: object) -> None:
     @console.group(name="billing")
     def billing_group() -> None:
         """Billing maintenance commands for offline repair and replay."""
+
+    _register_seed_commands(billing_group)
+    _register_product_commands(billing_group)
+    _register_provider_price_commands(billing_group)
+    _register_grant_commands(billing_group)
+    _register_backfill_commands(billing_group)
+    _register_wallet_commands(billing_group)
+    _register_drift_repair_commands(billing_group)
+    _register_bucket_repair_commands(billing_group)
+    _register_aggregate_and_order_commands(billing_group)
+    _register_renewal_commands(billing_group)
+
+
+def _register_seed_commands(billing_group: click.Group) -> None:
+    """Register sample and bootstrap seeding commands."""
 
     @billing_group.command(name="seed-bootstrap-data")
     @with_appcontext
@@ -388,6 +208,10 @@ def register_billing_commands(console: object) -> None:
     def seed_sample_focus_teachers_command() -> None:
         """Upsert sample focus-teacher usage metrics for local admin billing."""
         _echo_payload(seed_sample_focus_teachers())
+
+
+def _register_product_commands(billing_group: click.Group) -> None:
+    """Register the billing product catalog upsert command."""
 
     @billing_group.command(name="upsert-product")
     @click.option("--product-bid", required=True, help="Bill product bid.")
@@ -518,9 +342,20 @@ def register_billing_commands(console: object) -> None:
         )
         _echo_payload(payload)
 
+
+def _register_provider_price_commands(billing_group: click.Group) -> None:
+    """Register the ``provider-price`` mapping subgroup."""
+
     @billing_group.group(name="provider-price")
     def provider_price_group() -> None:
         """Manage billing product provider price mappings."""
+
+    _register_provider_price_write_commands(provider_price_group)
+    _register_provider_price_read_commands(provider_price_group)
+
+
+def _register_provider_price_write_commands(provider_price_group: click.Group) -> None:
+    """Register provider price bind, activate and retire commands."""
 
     @provider_price_group.command(name="bind")
     @click.option("--product-bid", required=True, help="Bill product bid.")
@@ -595,6 +430,10 @@ def register_billing_commands(console: object) -> None:
         """Retire a Stripe price mapping."""
         _echo_payload(retire_cli_provider_price_mapping(provider_price_bid))
 
+
+def _register_provider_price_read_commands(provider_price_group: click.Group) -> None:
+    """Register provider price validate, list and inspect commands."""
+
     @provider_price_group.command(name="validate")
     @click.option(
         "--provider-price-bid",
@@ -667,6 +506,10 @@ def register_billing_commands(console: object) -> None:
     def provider_price_inspect_command(provider_price_bid: str) -> None:
         """Inspect one Stripe price mapping."""
         _echo_payload(inspect_cli_provider_price_mapping(provider_price_bid))
+
+
+def _register_grant_commands(billing_group: click.Group) -> None:
+    """Register operator plan and credit grant commands."""
 
     @billing_group.command(name="grant-plan")
     @click.option(
@@ -769,6 +612,10 @@ def register_billing_commands(console: object) -> None:
             operator_user_bid=operator_user_bid,
         )
         _echo_payload(payload)
+
+
+def _register_backfill_commands(billing_group: click.Group) -> None:
+    """Register trial, creator-role and settlement backfills."""
 
     @billing_group.command(name="backfill-trial-plans")
     @click.option("--creator-bid", default="", help="Grant one creator only.")
@@ -900,6 +747,10 @@ def register_billing_commands(console: object) -> None:
         )
         _echo_payload(payload)
 
+
+def _register_wallet_commands(billing_group: click.Group) -> None:
+    """Register wallet snapshot rebuild and credit-state audit commands."""
+
     @billing_group.command(name="rebuild-wallets")
     @click.option("--creator-bid", default="", help="Limit to one creator.")
     @click.option("--wallet-bid", default="", help="Rebuild one wallet snapshot.")
@@ -980,6 +831,10 @@ def register_billing_commands(console: object) -> None:
         except ValueError as exc:
             raise click.ClickException(str(exc)) from exc
         _echo_payload(report.to_payload())
+
+
+def _register_drift_repair_commands(billing_group: click.Group) -> None:
+    """Register expire-ledger and renewal-state drift repair commands."""
 
     @billing_group.command(name="repair-expire-ledger-bucket-drift")
     @click.option("--creator-bid", default="", help="Repair one creator.")
@@ -1074,6 +929,10 @@ def register_billing_commands(console: object) -> None:
             dry_run=not apply_changes,
         )
         _echo_payload(payload)
+
+
+def _register_bucket_repair_commands(billing_group: click.Group) -> None:
+    """Register topup, subscription-cycle and bucket repairs."""
 
     @billing_group.command(name="repair-topup-expiry")
     @click.option("--creator-bid", default="", help="Repair one creator.")
@@ -1174,6 +1033,10 @@ def register_billing_commands(console: object) -> None:
         )
         _echo_payload(payload)
 
+
+def _register_aggregate_and_order_commands(billing_group: click.Group) -> None:
+    """Register daily aggregate rebuild and order reconcile."""
+
     @billing_group.command(name="rebuild-daily-aggregates")
     @click.option("--creator-bid", default="", help="Limit to one creator.")
     @click.option("--shifu-bid", default="", help="Limit usage aggregate to one shifu.")
@@ -1267,6 +1130,10 @@ def register_billing_commands(console: object) -> None:
             session_id=session_id,
         )
         _echo_payload(payload)
+
+
+def _register_renewal_commands(billing_group: click.Group) -> None:
+    """Register renewal replay and purchase SMS requeue commands."""
 
     @billing_group.command(name="run-renewal-event")
     @click.option("--renewal-event-bid", default="", help="Renewal event bid.")
@@ -1369,1373 +1236,3 @@ def seed_billing_bootstrap_data() -> dict[str, object]:
         "rates": rate_result,
         "configs": config_result,
     }
-
-
-def seed_sample_exception_orders() -> dict[str, object]:
-    """Seed sample exception orders."""
-    current_time = now_utc().replace(microsecond=0)
-    plan_product_bid = _load_first_active_product_bid(BILLING_PRODUCT_TYPE_PLAN)
-    topup_product_bid = _load_first_active_product_bid(BILLING_PRODUCT_TYPE_TOPUP)
-
-    if not plan_product_bid or not topup_product_bid:
-        message = (
-            "Active billing plan/topup products are required before seeding "
-            "sample exception orders."
-        )
-        raise click.ClickException(message)
-
-    creator_specs = [
-        {
-            "user_bid": "billing-debug-creator-failed",
-            "identify": "13900001001",
-            "mobile": "13900001001",
-            "nickname": "Teacher Failed",
-        },
-        {
-            "user_bid": "billing-debug-creator-pending",
-            "identify": "13900001002",
-            "mobile": "13900001002",
-            "nickname": "Teacher Pending",
-        },
-        {
-            "user_bid": "billing-debug-creator-timeout",
-            "identify": "13900001003",
-            "mobile": "13900001003",
-            "nickname": "",
-        },
-    ]
-
-    creator_inserted = 0
-    creator_updated = 0
-    for creator_spec in creator_specs:
-        if _upsert_sample_exception_creator(
-            user_bid=creator_spec["user_bid"],
-            identify=creator_spec["identify"],
-            mobile=creator_spec["mobile"],
-            nickname=creator_spec["nickname"],
-        ):
-            creator_inserted += 1
-        else:
-            creator_updated += 1
-
-    subscription_result = _upsert_bootstrap_rows(
-        model=BillingSubscription,
-        key_field="subscription_bid",
-        rows=[
-            {
-                "subscription_bid": "billing-debug-subscription-failed",
-                "creator_bid": "billing-debug-creator-failed",
-                "product_bid": plan_product_bid,
-                "status": BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-                "billing_provider": "stripe",
-                "provider_subscription_id": "billing-debug-subscription-failed-ref",
-                "provider_customer_id": "billing-debug-customer-failed",
-                "billing_anchor_at": current_time,
-                "current_period_start_at": current_time,
-                "current_period_end_at": current_time,
-                "grace_period_end_at": current_time,
-                "cancel_at_period_end": 0,
-                "next_product_bid": "",
-                "last_renewed_at": current_time,
-                "last_failed_at": current_time,
-                "metadata_json": {"seed_source": "sample_exception_orders"},
-                "deleted": 0,
-                "created_at": current_time,
-                "updated_at": current_time,
-            },
-            {
-                "subscription_bid": "billing-debug-subscription-pending",
-                "creator_bid": "billing-debug-creator-pending",
-                "product_bid": plan_product_bid,
-                "status": BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-                "billing_provider": "pingxx",
-                "provider_subscription_id": "billing-debug-subscription-pending-ref",
-                "provider_customer_id": "billing-debug-customer-pending",
-                "billing_anchor_at": current_time,
-                "current_period_start_at": current_time,
-                "current_period_end_at": current_time,
-                "grace_period_end_at": None,
-                "cancel_at_period_end": 1,
-                "next_product_bid": "",
-                "last_renewed_at": current_time,
-                "last_failed_at": None,
-                "metadata_json": {"seed_source": "sample_exception_orders"},
-                "deleted": 0,
-                "created_at": current_time,
-                "updated_at": current_time,
-            },
-            {
-                "subscription_bid": "billing-debug-subscription-paused",
-                "creator_bid": "billing-debug-creator-timeout",
-                "product_bid": plan_product_bid,
-                "status": BILLING_SUBSCRIPTION_STATUS_PAUSED,
-                "billing_provider": "manual",
-                "provider_subscription_id": "billing-debug-subscription-paused-ref",
-                "provider_customer_id": "billing-debug-customer-timeout",
-                "billing_anchor_at": current_time,
-                "current_period_start_at": current_time,
-                "current_period_end_at": current_time,
-                "grace_period_end_at": None,
-                "cancel_at_period_end": 0,
-                "next_product_bid": "",
-                "last_renewed_at": current_time,
-                "last_failed_at": None,
-                "metadata_json": {"seed_source": "sample_exception_orders"},
-                "deleted": 0,
-                "created_at": current_time,
-                "updated_at": current_time,
-            },
-        ],
-    )
-    renewal_result = _upsert_bootstrap_rows(
-        model=BillingRenewalEvent,
-        key_field="renewal_event_bid",
-        rows=[
-            {
-                "renewal_event_bid": "billing-debug-renewal-failed",
-                "subscription_bid": "billing-debug-subscription-failed",
-                "creator_bid": "billing-debug-creator-failed",
-                "event_type": BILLING_RENEWAL_EVENT_TYPE_RETRY,
-                "scheduled_at": current_time,
-                "status": BILLING_RENEWAL_EVENT_STATUS_FAILED,
-                "attempt_count": 2,
-                "last_error": "card_declined",
-                "payload_json": {"bill_order_bid": "billing-debug-order-failed"},
-                "processed_at": current_time,
-                "deleted": 0,
-                "created_at": current_time,
-                "updated_at": current_time,
-            },
-            {
-                "renewal_event_bid": "billing-debug-renewal-pending",
-                "subscription_bid": "billing-debug-subscription-pending",
-                "creator_bid": "billing-debug-creator-pending",
-                "event_type": BILLING_RENEWAL_EVENT_TYPE_RETRY,
-                "scheduled_at": current_time,
-                "status": BILLING_RENEWAL_EVENT_STATUS_PENDING,
-                "attempt_count": 1,
-                "last_error": "",
-                "payload_json": {"bill_order_bid": "billing-debug-order-pending"},
-                "processed_at": None,
-                "deleted": 0,
-                "created_at": current_time,
-                "updated_at": current_time,
-            },
-        ],
-    )
-
-    order_result = _upsert_bootstrap_rows(
-        model=BillingOrder,
-        key_field="bill_order_bid",
-        rows=[
-            {
-                "bill_order_bid": "billing-debug-order-failed",
-                "creator_bid": "billing-debug-creator-failed",
-                "order_type": BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-                "product_bid": plan_product_bid,
-                "subscription_bid": "billing-debug-subscription-failed",
-                "currency": "CNY",
-                "payable_amount": 29900,
-                "paid_amount": 0,
-                "payment_provider": "stripe",
-                "channel": "checkout_session",
-                "provider_reference_id": "billing-debug-order-failed-ref",
-                "status": BILLING_ORDER_STATUS_FAILED,
-                "paid_at": None,
-                "failed_at": current_time,
-                "refunded_at": None,
-                "expires_at": None,
-                "failure_code": "card_declined",
-                "failure_message": "Card was declined",
-                "metadata_json": {"seed_source": "sample_exception_orders"},
-                "campaign_bid": "",
-                "campaign_benefit_type": 0,
-                "campaign_discount_amount": 0,
-                "campaign_bonus_credit_amount": Decimal(0),
-                "deleted": 0,
-                "created_at": current_time,
-                "updated_at": current_time,
-            },
-            {
-                "bill_order_bid": "billing-debug-order-pending",
-                "creator_bid": "billing-debug-creator-pending",
-                "order_type": BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-                "product_bid": plan_product_bid,
-                "subscription_bid": "",
-                "currency": "CNY",
-                "payable_amount": 9900,
-                "paid_amount": 0,
-                "payment_provider": "pingxx",
-                "channel": "alipay_qr",
-                "provider_reference_id": "billing-debug-order-pending-ref",
-                "status": BILLING_ORDER_STATUS_PENDING,
-                "paid_at": None,
-                "failed_at": None,
-                "refunded_at": None,
-                "expires_at": current_time,
-                "failure_code": "",
-                "failure_message": "",
-                "metadata_json": {"seed_source": "sample_exception_orders"},
-                "campaign_bid": "",
-                "campaign_benefit_type": 0,
-                "campaign_discount_amount": 0,
-                "campaign_bonus_credit_amount": Decimal(0),
-                "deleted": 0,
-                "created_at": current_time,
-                "updated_at": current_time,
-            },
-            {
-                "bill_order_bid": "billing-debug-order-timeout",
-                "creator_bid": "billing-debug-creator-timeout",
-                "order_type": BILLING_ORDER_TYPE_TOPUP,
-                "product_bid": topup_product_bid,
-                "subscription_bid": "",
-                "currency": "CNY",
-                "payable_amount": 19900,
-                "paid_amount": 0,
-                "payment_provider": "pingxx",
-                "channel": "wx_pub",
-                "provider_reference_id": "billing-debug-order-timeout-ref",
-                "status": BILLING_ORDER_STATUS_TIMEOUT,
-                "paid_at": None,
-                "failed_at": None,
-                "refunded_at": None,
-                "expires_at": current_time,
-                "failure_code": "checkout_timeout",
-                "failure_message": "Checkout expired",
-                "metadata_json": {"seed_source": "sample_exception_orders"},
-                "campaign_bid": "",
-                "campaign_benefit_type": 0,
-                "campaign_discount_amount": 0,
-                "campaign_bonus_credit_amount": Decimal(0),
-                "deleted": 0,
-                "created_at": current_time,
-                "updated_at": current_time,
-            },
-        ],
-    )
-    with unit_of_work():
-        pass
-    return {
-        "status": "seeded",
-        "creators": {
-            "count": len(creator_specs),
-            "inserted": creator_inserted,
-            "updated": creator_updated,
-        },
-        "subscriptions": subscription_result,
-        "renewal_events": renewal_result,
-        "orders": order_result,
-        "order_bids": [
-            "billing-debug-order-failed",
-            "billing-debug-order-pending",
-            "billing-debug-order-timeout",
-        ],
-    }
-
-
-def seed_sample_focus_teachers() -> dict[str, object]:
-    """Seed sample focus teachers."""
-    current_time = now_utc().replace(microsecond=0)
-    today = current_time.date()
-
-    creator_specs = [
-        {
-            "user_bid": "billing-focus-creator-growth",
-            "identify": "13900002001",
-            "mobile": "13900002001",
-            "nickname": "增长很快老师",
-        },
-        {
-            "user_bid": "billing-focus-creator-debug",
-            "identify": "13900002002",
-            "mobile": "13900002002",
-            "nickname": "调试偏高老师",
-        },
-        {
-            "user_bid": "billing-focus-creator-steady",
-            "identify": "13900002003",
-            "mobile": "13900002003",
-            "nickname": "稳定使用老师",
-        },
-        {
-            "user_bid": "billing-focus-creator-recent",
-            "identify": "13900002004",
-            "mobile": "13900002004",
-            "nickname": "近期活跃老师",
-        },
-    ]
-
-    creator_inserted = 0
-    creator_updated = 0
-    for creator_spec in creator_specs:
-        if _upsert_debug_creator(
-            user_bid=creator_spec["user_bid"],
-            identify=creator_spec["identify"],
-            mobile=creator_spec["mobile"],
-            nickname=creator_spec["nickname"],
-            seed_source="sample_focus_teachers",
-        ):
-            creator_inserted += 1
-        else:
-            creator_updated += 1
-
-    rows: list[dict[str, Any]] = []
-
-    def add_metric(
-        *,
-        bid: str,
-        stat_days_ago: int,
-        creator_bid: str,
-        shifu_bid: str,
-        usage_scene: int,
-        metric: int,
-        credit_amount: str,
-        record_count: int,
-        raw_amount: int,
-    ) -> None:
-        stat_day = today - timedelta(days=stat_days_ago)
-        window_started_at = current_time.replace(
-            hour=0,
-            minute=0,
-            second=0,
-            microsecond=0,
-        ) - timedelta(days=stat_days_ago)
-        window_ended_at = window_started_at + timedelta(days=1)
-        rows.append(
-            {
-                "daily_usage_metric_bid": bid,
-                "stat_date": stat_day.isoformat(),
-                "creator_bid": creator_bid,
-                "shifu_bid": shifu_bid,
-                "usage_scene": usage_scene,
-                "usage_type": BILL_USAGE_TYPE_LLM,
-                "provider": "openai",
-                "model": "gpt-4o-mini",
-                "billing_metric": metric,
-                "raw_amount": raw_amount,
-                "record_count": record_count,
-                "consumed_credits": Decimal(credit_amount),
-                "window_started_at": window_started_at,
-                "window_ended_at": window_ended_at,
-                "created_at": current_time,
-                "updated_at": current_time,
-                "deleted": 0,
-            }
-        )
-
-    add_metric(
-        bid="billing-focus-growth-current-1",
-        stat_days_ago=1,
-        creator_bid="billing-focus-creator-growth",
-        shifu_bid="billing-focus-shifu-growth",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="4.2",
-        record_count=3,
-        raw_amount=3200,
-    )
-    add_metric(
-        bid="billing-focus-growth-current-2",
-        stat_days_ago=3,
-        creator_bid="billing-focus-creator-growth",
-        shifu_bid="billing-focus-shifu-growth",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credit_amount="5.4",
-        record_count=2,
-        raw_amount=4100,
-    )
-    add_metric(
-        bid="billing-focus-growth-current-3",
-        stat_days_ago=5,
-        creator_bid="billing-focus-creator-growth",
-        shifu_bid="billing-focus-shifu-growth",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="3.8",
-        record_count=2,
-        raw_amount=2800,
-    )
-    add_metric(
-        bid="billing-focus-growth-prev-1",
-        stat_days_ago=10,
-        creator_bid="billing-focus-creator-growth",
-        shifu_bid="billing-focus-shifu-growth",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="1.4",
-        record_count=1,
-        raw_amount=1000,
-    )
-
-    add_metric(
-        bid="billing-focus-debug-current-1",
-        stat_days_ago=0,
-        creator_bid="billing-focus-creator-debug",
-        shifu_bid="billing-focus-shifu-debug",
-        usage_scene=BILL_USAGE_SCENE_DEBUG,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="3.6",
-        record_count=2,
-        raw_amount=2600,
-    )
-    add_metric(
-        bid="billing-focus-debug-current-2",
-        stat_days_ago=2,
-        creator_bid="billing-focus-creator-debug",
-        shifu_bid="billing-focus-shifu-debug",
-        usage_scene=BILL_USAGE_SCENE_PREVIEW,
-        metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credit_amount="3.1",
-        record_count=2,
-        raw_amount=2200,
-    )
-    add_metric(
-        bid="billing-focus-debug-current-3",
-        stat_days_ago=6,
-        creator_bid="billing-focus-creator-debug",
-        shifu_bid="billing-focus-shifu-debug",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="1.6",
-        record_count=2,
-        raw_amount=1400,
-    )
-    add_metric(
-        bid="billing-focus-debug-30d-1",
-        stat_days_ago=12,
-        creator_bid="billing-focus-creator-debug",
-        shifu_bid="billing-focus-shifu-debug",
-        usage_scene=BILL_USAGE_SCENE_DEBUG,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="2.4",
-        record_count=1,
-        raw_amount=1800,
-    )
-
-    add_metric(
-        bid="billing-focus-steady-current-1",
-        stat_days_ago=1,
-        creator_bid="billing-focus-creator-steady",
-        shifu_bid="billing-focus-shifu-steady",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="2.8",
-        record_count=1,
-        raw_amount=1900,
-    )
-    add_metric(
-        bid="billing-focus-steady-current-2",
-        stat_days_ago=3,
-        creator_bid="billing-focus-creator-steady",
-        shifu_bid="billing-focus-shifu-steady",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credit_amount="2.7",
-        record_count=2,
-        raw_amount=2000,
-    )
-    add_metric(
-        bid="billing-focus-steady-current-3",
-        stat_days_ago=6,
-        creator_bid="billing-focus-creator-steady",
-        shifu_bid="billing-focus-shifu-steady",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="3.4",
-        record_count=2,
-        raw_amount=2500,
-    )
-
-    add_metric(
-        bid="billing-focus-recent-current-1",
-        stat_days_ago=0,
-        creator_bid="billing-focus-creator-recent",
-        shifu_bid="billing-focus-shifu-recent",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="4.6",
-        record_count=2,
-        raw_amount=3300,
-    )
-    add_metric(
-        bid="billing-focus-recent-current-2",
-        stat_days_ago=4,
-        creator_bid="billing-focus-creator-recent",
-        shifu_bid="billing-focus-shifu-recent",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_INPUT_TOKENS,
-        credit_amount="3.7",
-        record_count=2,
-        raw_amount=2600,
-    )
-    add_metric(
-        bid="billing-focus-recent-prev-1",
-        stat_days_ago=9,
-        creator_bid="billing-focus-creator-recent",
-        shifu_bid="billing-focus-shifu-recent",
-        usage_scene=BILL_USAGE_SCENE_PROD,
-        metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-        credit_amount="0.8",
-        record_count=1,
-        raw_amount=700,
-    )
-
-    usage_metric_result = _upsert_bootstrap_rows(
-        model=BillingDailyUsageMetric, key_field="daily_usage_metric_bid", rows=rows
-    )
-
-    with unit_of_work():
-        pass
-    return {
-        "status": "seeded",
-        "creators": {
-            "count": len(creator_specs),
-            "inserted": creator_inserted,
-            "updated": creator_updated,
-        },
-        "usage_metrics": usage_metric_result,
-    }
-
-
-def upsert_billing_product(
-    *,
-    product_bid: str,
-    product_code: str,
-    product_type_label: str,
-    billing_mode_label: str,
-    billing_interval_label: str,
-    billing_interval_count: int,
-    display_name_i18n_key: str,
-    description_i18n_key: str,
-    currency: str,
-    price_amount: int,
-    credit_amount: str,
-    allocation_interval_label: str,
-    auto_renew_enabled: int,
-    status_label: str,
-    sort_order: int,
-    entitlement_json: str,
-    metadata_json: str,
-) -> dict[str, object]:
-    """Create or update billing product."""
-    payload = {
-        "product_bid": str(product_bid or "").strip(),
-        "product_code": str(product_code or "").strip(),
-        "product_type": _PRODUCT_TYPE_LABELS[str(product_type_label or "").lower()],
-        "billing_mode": _BILLING_MODE_LABELS[str(billing_mode_label or "").lower()],
-        "billing_interval": _BILLING_INTERVAL_LABELS[
-            str(billing_interval_label or "").lower()
-        ],
-        "billing_interval_count": int(billing_interval_count or 0),
-        "display_name_i18n_key": str(display_name_i18n_key or "").strip(),
-        "description_i18n_key": str(description_i18n_key or "").strip(),
-        "currency": str(currency or "").strip().upper() or "CNY",
-        "price_amount": int(price_amount),
-        "credit_amount": Decimal(str(credit_amount or "0").strip()),
-        "allocation_interval": _ALLOCATION_INTERVAL_LABELS[
-            str(allocation_interval_label or "").lower()
-        ],
-        "auto_renew_enabled": int(auto_renew_enabled),
-        "entitlement_payload": _parse_optional_json_object(
-            entitlement_json,
-            option_name="entitlement-json",
-        ),
-        "metadata_json": _parse_optional_json_object(
-            metadata_json,
-            option_name="metadata-json",
-        ),
-        "status": _PRODUCT_STATUS_LABELS[str(status_label or "").lower()],
-        "sort_order": int(sort_order),
-        "deleted": 0,
-    }
-
-    if not payload["product_bid"]:
-        message = "--product-bid is required."
-        raise click.ClickException(message)
-    if not payload["product_code"]:
-        message = "--product-code is required."
-        raise click.ClickException(message)
-    if not payload["display_name_i18n_key"]:
-        message = "--display-name-i18n-key is required."
-        raise click.ClickException(message)
-    if not payload["description_i18n_key"]:
-        message = "--description-i18n-key is required."
-        raise click.ClickException(message)
-
-    with unit_of_work():
-        created = _upsert_bootstrap_row(
-            model=BillingProduct,
-            key_field="product_bid",
-            payload=payload,
-        )
-    return {
-        "status": "upserted",
-        "created": created,
-        "product_bid": payload["product_bid"],
-        "product_code": payload["product_code"],
-    }
-
-
-def bind_provider_price_mapping(
-    *,
-    product_bid: str,
-    provider_account_id: str,
-    provider_product_id: str,
-    provider_price_id: str,
-    livemode: bool,
-    metadata_json: str,
-) -> dict[str, object]:
-    """Bind a provider price to a billing product and return its payload."""
-    try:
-        with unit_of_work():
-            mapping, created = upsert_provider_price_mapping(
-                product_bid=product_bid,
-                provider_account_id=provider_account_id,
-                provider_product_id=provider_product_id,
-                provider_price_id=provider_price_id,
-                livemode=livemode,
-                metadata=_parse_optional_json_object(
-                    metadata_json,
-                    option_name="metadata-json",
-                ),
-            )
-            payload = {
-                "status": "bound",
-                "created": created,
-                "mapping": serialize_provider_price_mapping(mapping),
-            }
-    except ProviderPriceMappingError as exc:
-        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
-    return payload
-
-
-def activate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
-    """Activate a provider-price mapping and return its validation result."""
-    try:
-        with unit_of_work():
-            summary = activate_provider_price_mapping(provider_price_bid)
-            payload = {
-                "status": "activated" if summary.valid else "invalid",
-                "validation": _provider_price_validation_payload(summary),
-            }
-    except ProviderPriceMappingError as exc:
-        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
-    return payload
-
-
-def retire_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
-    """Retire a provider-price mapping and return its serialized payload."""
-    try:
-        with unit_of_work():
-            mapping = retire_provider_price_mapping(provider_price_bid)
-            payload = {
-                "status": "retired",
-                "mapping": serialize_provider_price_mapping(mapping),
-            }
-    except ProviderPriceMappingError as exc:
-        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
-    return payload
-
-
-def validate_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
-    """Validate a provider-price mapping and return its validation result."""
-    try:
-        with unit_of_work():
-            summary = validate_provider_price_mapping_by_bid(provider_price_bid)
-            payload = {
-                "status": "valid" if summary.valid else "invalid",
-                "validation": _provider_price_validation_payload(summary),
-            }
-    except ProviderPriceMappingError as exc:
-        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
-    return payload
-
-
-def list_cli_provider_price_mappings(
-    *,
-    product_bid: str,
-    provider_account_id: str,
-    status_label: str,
-    livemode: bool | None,
-) -> dict[str, object]:
-    """List provider-price mappings matching the requested CLI filters."""
-    normalized_status = str(status_label or "").strip().lower()
-    rows = list_provider_price_mappings(
-        product_bid=product_bid,
-        provider_account_id=provider_account_id,
-        livemode=livemode,
-        status=(
-            _PROVIDER_PRICE_STATUS_LABELS[normalized_status]
-            if normalized_status
-            else None
-        ),
-    )
-    return {
-        "status": "listed",
-        "count": len(rows),
-        "items": [serialize_provider_price_mapping(row) for row in rows],
-    }
-
-
-def inspect_cli_provider_price_mapping(provider_price_bid: str) -> dict[str, object]:
-    """Return a provider-price mapping and its active mapping in the same scope."""
-    try:
-        mapping = get_provider_price_mapping(provider_price_bid)
-        active_mapping = get_active_provider_price_mapping(
-            product_bid=mapping.product_bid,
-            provider=mapping.provider,
-            provider_account_id=mapping.provider_account_id,
-            livemode=bool(mapping.livemode),
-        )
-    except ProviderPriceMappingError as exc:
-        raise click.ClickException(_format_provider_price_mapping_error(exc)) from exc
-    return {
-        "status": "inspected",
-        "mapping": serialize_provider_price_mapping(mapping),
-        "active_mapping": serialize_provider_price_mapping(active_mapping),
-    }
-
-
-def _provider_price_validation_payload(summary: object) -> dict[str, object]:
-    return {
-        "valid": summary.valid,
-        "errors": summary.errors,
-        "warnings": summary.warnings,
-        "mapping": summary.mapping,
-    }
-
-
-def _format_provider_price_mapping_error(exc: ProviderPriceMappingError) -> str:
-    return json.dumps(
-        {"code": exc.code, "message": exc.message},
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
-
-
-def grant_billing_plan_by_identify(
-    *,
-    identify: str,
-    product_bid: str = "",
-    product_code: str = "",
-    effective_to: str = "",
-    note: str = "",
-) -> dict[str, object]:
-    """Grant billing plan by identify."""
-    normalized_identify = str(identify or "").strip()
-    if not normalized_identify:
-        error_message = "--identify is required."
-        raise click.ClickException(error_message)
-
-    normalized_note = str(note or "").strip()
-    if len(normalized_note) > 255:
-        error_message = "--note must be 255 characters or fewer."
-        raise click.ClickException(error_message)
-
-    normalized_product_bid = str(product_bid or "").strip()
-    normalized_product_code = str(product_code or "").strip()
-    if bool(normalized_product_bid) == bool(normalized_product_code):
-        error_message = "Pass exactly one of --product-bid or --product-code."
-        raise click.ClickException(error_message)
-    normalized_effective_to = str(effective_to or "").strip()
-
-    with unit_of_work():
-        aggregate = load_user_aggregate_by_identifier(normalized_identify)
-        if aggregate is None:
-            message = f"No user found for identify: {normalized_identify}"
-            raise click.ClickException(message)
-
-        product = _load_active_plan_product(
-            product_bid=normalized_product_bid,
-            product_code=normalized_product_code,
-        )
-        if product is None:
-            error_message = "Active billing plan not found."
-            raise click.ClickException(error_message)
-
-        creator_role_granted = False
-        if not bool(getattr(aggregate, "is_creator", False)):
-            mark_user_roles(aggregate.user_bid, is_creator=True)
-            creator_role_granted = True
-            aggregate = load_user_aggregate(aggregate.user_bid) or aggregate
-
-        existing_subscription = load_primary_active_subscription(
-            aggregate.user_bid,
-            as_of=now_utc(),
-        )
-        order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_START
-        if existing_subscription is not None:
-            if (
-                str(existing_subscription.product_bid or "").strip()
-                == product.product_bid
-            ):
-                return {
-                    "status": "noop_active",
-                    "identify": normalized_identify,
-                    "creator_bid": aggregate.user_bid,
-                    "creator_role_granted": creator_role_granted,
-                    "product_bid": product.product_bid,
-                    "product_code": product.product_code,
-                    "subscription_bid": existing_subscription.subscription_bid,
-                    "bill_order_bid": None,
-                    "billing_provider": existing_subscription.billing_provider,
-                    "current_period_start_at": (
-                        existing_subscription.current_period_start_at
-                    ),
-                    "current_period_end_at": existing_subscription.current_period_end_at,
-                    "email": aggregate.email,
-                    "mobile": aggregate.mobile,
-                }
-            current_product = _load_plan_product_by_bid(
-                existing_subscription.product_bid
-            )
-            if not is_self_managed_billing_provider(
-                existing_subscription.billing_provider
-            ):
-                error_message = (
-                    "User already has an active provider-managed subscription. "
-                    "Use the normal checkout upgrade flow or wait for the current cycle to expire."
-                )
-                raise click.ClickException(error_message)
-            if current_product is None:
-                error_message = (
-                    "Active billing plan not found for the current subscription."
-                )
-                raise click.ClickException(error_message)
-            if int(product.sort_order or 0) <= int(current_product.sort_order or 0):
-                error_message = (
-                    "The current subscription is still active. "
-                    "Operator grant only supports upgrades to a higher-tier plan."
-                )
-                raise click.ClickException(error_message)
-            order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
-
-        granted_at = now_utc()
-        cycle_end_at = (
-            _parse_effective_to_option(normalized_effective_to)
-            if normalized_effective_to
-            else calculate_self_managed_billing_cycle_end(
-                product,
-                cycle_start_at=granted_at,
-            )
-        )
-        if cycle_end_at is None:
-            error_message = (
-                "Target product does not support one-cycle manual activation."
-            )
-            raise click.ClickException(error_message)
-        if cycle_end_at <= granted_at:
-            error_message = "--effective-to must be later than now."
-            raise click.ClickException(error_message)
-
-        subscription_metadata = {
-            "manual_grant": True,
-            "manual_grant_source": "cli",
-        }
-        if normalized_effective_to:
-            subscription_metadata["manual_grant_effective_to"] = (
-                cycle_end_at.isoformat()
-            )
-        if normalized_note:
-            subscription_metadata["manual_grant_note"] = normalized_note
-
-        order_metadata = {
-            "checkout_type": "manual_grant",
-            "manual_grant": True,
-            "manual_grant_source": "cli",
-        }
-        if normalized_effective_to:
-            order_metadata["effective_to"] = cycle_end_at.isoformat()
-            order_metadata["applied_cycle_end_at"] = cycle_end_at.isoformat()
-        if normalized_note:
-            order_metadata["note"] = normalized_note
-
-        if existing_subscription is None:
-            subscription = BillingSubscription(
-                subscription_bid=generate_id(current_app),
-                creator_bid=aggregate.user_bid,
-                product_bid=product.product_bid,
-                status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
-                billing_provider="manual",
-                provider_subscription_id="",
-                provider_customer_id="",
-                billing_anchor_at=granted_at,
-                current_period_start_at=granted_at,
-                current_period_end_at=cycle_end_at,
-                grace_period_end_at=None,
-                cancel_at_period_end=0,
-                next_product_bid="",
-                last_renewed_at=None,
-                last_failed_at=None,
-                metadata_json=subscription_metadata,
-            )
-        else:
-            subscription = existing_subscription
-            subscription.metadata_json = {
-                **(
-                    subscription.metadata_json
-                    if isinstance(subscription.metadata_json, dict)
-                    else {}
-                ),
-                **subscription_metadata,
-            }
-            subscription.updated_at = granted_at
-        db.session.add(subscription)
-        db.session.flush()
-
-        order = BillingOrder(
-            bill_order_bid=generate_id(current_app),
-            creator_bid=aggregate.user_bid,
-            order_type=order_type,
-            product_bid=product.product_bid,
-            subscription_bid=subscription.subscription_bid,
-            currency=product.currency,
-            payable_amount=0,
-            paid_amount=0,
-            payment_provider="manual",
-            channel="manual",
-            provider_reference_id="",
-            status=BILLING_ORDER_STATUS_PAID,
-            paid_at=granted_at,
-            metadata_json=order_metadata,
-        )
-        db.session.add(order)
-        db.session.flush()
-
-        granted = grant_paid_order_credits(current_app, order)
-        if not granted:
-            error_message = "Manual plan grant did not create a new credit grant."
-            raise click.ClickException(error_message)
-
-        should_enqueue_subscription_purchase_sms = (
-            stage_subscription_purchase_sms_for_paid_order(
-                order,
-                previous_status=None,
-            )
-        )
-        _enforce_manual_subscription_expire_event(subscription)
-
-    payload = {
-        "status": "granted",
-        "identify": normalized_identify,
-        "creator_bid": aggregate.user_bid,
-        "creator_role_granted": creator_role_granted,
-        "product_bid": product.product_bid,
-        "product_code": product.product_code,
-        "subscription_bid": subscription.subscription_bid,
-        "bill_order_bid": order.bill_order_bid,
-        "billing_provider": subscription.billing_provider,
-        "current_period_start_at": subscription.current_period_start_at,
-        "current_period_end_at": subscription.current_period_end_at,
-        "email": aggregate.email,
-        "mobile": aggregate.mobile,
-    }
-    if should_enqueue_subscription_purchase_sms:
-        sms_payload = enqueue_subscription_purchase_sms(
-            current_app,
-            bill_order_bid=order.bill_order_bid,
-        )
-        payload["sms_enqueue_status"] = str(sms_payload.get("status") or "")
-        payload["sms_enqueued"] = bool(sms_payload.get("enqueued"))
-    return payload
-
-
-def grant_operator_credits_by_cli(
-    *,
-    identify: str = "",
-    user_bid: str = "",
-    amount: str,
-    request_id: str,
-    grant_source: str = "compensation",
-    validity_value: int,
-    validity_unit: str,
-    display_name: str = "",
-    note: str = "",
-    operator_user_bid: str = "",
-) -> dict[str, object]:
-    """Grant operator credits by CLI."""
-    normalized_identify = str(identify or "").strip()
-    normalized_user_bid = str(user_bid or "").strip()
-    if bool(normalized_identify) == bool(normalized_user_bid):
-        error_message = "Pass exactly one of --identify or --user-bid."
-        raise click.ClickException(error_message)
-
-    normalized_request_id = str(request_id or "").strip()
-    if len(normalized_request_id) > 100:
-        error_message = "--request-id must be 100 characters or fewer."
-        raise click.ClickException(error_message)
-
-    normalized_display_name = str(display_name or "").strip()
-    if len(normalized_display_name) > 128:
-        error_message = "--name must be 128 characters or fewer."
-        raise click.ClickException(error_message)
-
-    normalized_note = str(note or "").strip()
-    if len(normalized_note) > 255:
-        error_message = "--note must be 255 characters or fewer."
-        raise click.ClickException(error_message)
-
-    normalized_operator_user_bid = (
-        str(operator_user_bid or "").strip() or _DEFAULT_CLI_OPERATOR_USER_BID
-    )
-
-    # The manual grant owns its own idempotent unit of work; no outer block.
-    aggregate = (
-        load_user_aggregate(normalized_user_bid)
-        if normalized_user_bid
-        else load_user_aggregate_by_identifier(normalized_identify)
-    )
-    if aggregate is None:
-        target = normalized_user_bid or normalized_identify
-        message = f"No user found for target: {target}"
-        raise click.ClickException(message)
-    if not normalized_request_id:
-        normalized_request_id = _build_cli_credit_grant_request_id(
-            user_bid=aggregate.user_bid,
-            amount=amount,
-            grant_source=grant_source,
-            validity_value=validity_value,
-            validity_unit=validity_unit,
-            display_name=normalized_display_name,
-            note=normalized_note,
-        )
-
-    grant_result = grant_manual_credits_to_user(
-        current_app,
-        user_bid=aggregate.user_bid,
-        operator_user_bid=normalized_operator_user_bid,
-        request_id=normalized_request_id,
-        amount=str(amount or "").strip(),
-        grant_source=str(grant_source or "").strip(),
-        validity_value=validity_value,
-        validity_unit=validity_unit,
-        display_name=normalized_display_name,
-        note=normalized_note,
-        grant_channel="operator_cli",
-    )
-    payload = dict(_serialize_cli_payload(grant_result))
-    payload.update(
-        {
-            "identify": normalized_identify,
-            "creator_bid": aggregate.user_bid,
-            "operator_user_bid": normalized_operator_user_bid,
-            "request_id": normalized_request_id,
-            "email": getattr(aggregate, "email", ""),
-            "mobile": getattr(aggregate, "mobile", ""),
-        }
-    )
-    return payload
-
-
-def _build_cli_credit_grant_request_id(
-    *,
-    user_bid: str,
-    amount: str,
-    grant_source: str,
-    validity_value: int,
-    validity_unit: str,
-    display_name: str,
-    note: str,
-) -> str:
-    fingerprint_payload = "|".join(
-        [
-            str(user_bid or "").strip(),
-            str(amount or "").strip(),
-            str(grant_source or "").strip().lower(),
-            # Preserve existing duration-based IDs across the preset removal.
-            "custom",
-            str(validity_value),
-            validity_unit,
-            str(display_name or "").strip(),
-            str(note or "").strip(),
-        ]
-    )
-    fingerprint = hashlib.sha256(fingerprint_payload.encode("utf-8")).hexdigest()[:16]
-    return f"cli:{now_utc():%Y%m%d}:{fingerprint}"
-
-
-def _upsert_bootstrap_rows(
-    *,
-    model: object,
-    key_field: str,
-    rows: list[dict[str, object]],
-) -> dict[str, int]:
-    inserted = 0
-    updated = 0
-    for payload in rows:
-        if _upsert_bootstrap_row(model=model, key_field=key_field, payload=payload):
-            inserted += 1
-        else:
-            updated += 1
-    return {
-        "count": len(rows),
-        "inserted": inserted,
-        "updated": updated,
-    }
-
-
-def _upsert_bootstrap_row(
-    *,
-    model: object,
-    key_field: str,
-    payload: dict[str, object],
-) -> bool:
-    key_value = payload[key_field]
-    instance = (
-        model.query.filter(getattr(model, key_field) == key_value)
-        .order_by(model.id.desc())
-        .first()
-    )
-    if instance is None:
-        db.session.add(model(**payload))
-        return True
-
-    for field_name, field_value in payload.items():
-        setattr(instance, field_name, field_value)
-    return False
-
-
-def _parse_optional_json_object(
-    raw_value: str, *, option_name: str
-) -> dict[str, object] | None:
-    normalized_value = str(raw_value or "").strip()
-    if not normalized_value:
-        return None
-
-    try:
-        parsed = json.loads(normalized_value)
-    except json.JSONDecodeError as exc:
-        message = f"--{option_name} must be valid JSON."
-        raise click.ClickException(message) from exc
-    if parsed is None:
-        return None
-    if not isinstance(parsed, dict):
-        message = f"--{option_name} must decode to a JSON object."
-        raise click.ClickException(message)
-    return parsed
-
-
-def _load_first_active_product_bid(product_type: int) -> str:
-    row = (
-        BillingProduct.query.filter(
-            BillingProduct.product_type == product_type,
-            BillingProduct.status == BILLING_PRODUCT_STATUS_ACTIVE,
-            BillingProduct.deleted == 0,
-        )
-        .order_by(BillingProduct.sort_order.asc(), BillingProduct.id.asc())
-        .first()
-    )
-    return str(row.product_bid or "").strip() if row is not None else ""
-
-
-def _upsert_debug_creator(
-    *,
-    user_bid: str,
-    identify: str,
-    mobile: str,
-    nickname: str,
-    seed_source: str,
-) -> bool:
-    entity = get_user_entity_by_bid(user_bid, include_deleted=True)
-    created = entity is None
-
-    if entity is None:
-        create_user_entity(
-            user_bid=user_bid,
-            identify=identify,
-            nickname=nickname,
-            language="zh-CN",
-            state=USER_STATE_REGISTERED,
-        )
-    else:
-        update_user_entity_fields(
-            entity,
-            identify=identify,
-            nickname=nickname,
-            language="zh-CN",
-            state=USER_STATE_REGISTERED,
-            deleted=False,
-        )
-
-    mark_user_roles(user_bid, is_creator=True)
-    upsert_credential(
-        current_app,
-        user_bid=user_bid,
-        provider_name="phone",
-        subject_id=mobile,
-        subject_format="phone",
-        identifier=mobile,
-        metadata={"seed_source": seed_source},
-        verified=True,
-    )
-    return created
-
-
-def _upsert_sample_exception_creator(
-    *,
-    user_bid: str,
-    identify: str,
-    mobile: str,
-    nickname: str,
-) -> bool:
-    return _upsert_debug_creator(
-        user_bid=user_bid,
-        identify=identify,
-        mobile=mobile,
-        nickname=nickname,
-        seed_source="sample_exception_orders",
-    )
-
-
-def _load_active_plan_product(
-    *,
-    product_bid: str = "",
-    product_code: str = "",
-) -> BillingProduct | None:
-    normalized_product_bid = str(product_bid or "").strip()
-    normalized_product_code = str(product_code or "").strip()
-
-    query = BillingProduct.query.filter(
-        BillingProduct.deleted == 0,
-        BillingProduct.status == BILLING_PRODUCT_STATUS_ACTIVE,
-        BillingProduct.product_type == BILLING_PRODUCT_TYPE_PLAN,
-    )
-    if normalized_product_bid:
-        query = query.filter(BillingProduct.product_bid == normalized_product_bid)
-    elif normalized_product_code:
-        query = query.filter(BillingProduct.product_code == normalized_product_code)
-    else:
-        return None
-
-    return query.order_by(BillingProduct.id.desc()).first()
-
-
-def _load_plan_product_by_bid(product_bid: str) -> BillingProduct | None:
-    normalized_product_bid = str(product_bid or "").strip()
-    if not normalized_product_bid:
-        return None
-
-    return (
-        BillingProduct.query.filter(
-            BillingProduct.deleted == 0,
-            BillingProduct.product_bid == normalized_product_bid,
-            BillingProduct.product_type == BILLING_PRODUCT_TYPE_PLAN,
-        )
-        .order_by(BillingProduct.id.desc())
-        .first()
-    )
-
-
-def _parse_effective_to_option(raw_value: str) -> datetime:
-    parsed = coerce_datetime(raw_value)
-    if parsed is None:
-        message = "--effective-to must be a valid ISO-8601 datetime or YYYY-MM-DD."
-        raise click.ClickException(message)
-    return parsed
-
-
-def _enforce_manual_subscription_expire_event(
-    subscription: BillingSubscription,
-) -> None:
-    scheduled_at = subscription.current_period_end_at
-    if scheduled_at is None:
-        return
-
-    pending_statuses = (
-        BILLING_RENEWAL_EVENT_STATUS_PENDING,
-        BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
-        BILLING_RENEWAL_EVENT_STATUS_FAILED,
-    )
-    payload = {
-        "subscription_bid": subscription.subscription_bid,
-        "creator_bid": subscription.creator_bid,
-        "product_bid": subscription.product_bid,
-        "next_product_bid": str(subscription.next_product_bid or "").strip() or None,
-        "status": BILLING_SUBSCRIPTION_STATUS_LABELS.get(
-            int(subscription.status or 0),
-            "active",
-        ),
-        "cancel_at_period_end": bool(subscription.cancel_at_period_end),
-        "manual_grant": True,
-    }
-    now = now_utc()
-    expire_event: BillingRenewalEvent | None = None
-    rows = (
-        BillingRenewalEvent.query.filter(
-            BillingRenewalEvent.deleted == 0,
-            BillingRenewalEvent.subscription_bid == subscription.subscription_bid,
-            BillingRenewalEvent.status.in_(pending_statuses),
-        )
-        .order_by(BillingRenewalEvent.id.desc())
-        .all()
-    )
-
-    for row in rows:
-        if (
-            row.event_type == BILLING_RENEWAL_EVENT_TYPE_EXPIRE
-            and row.scheduled_at == scheduled_at
-        ):
-            expire_event = row
-            continue
-        row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
-        row.processed_at = now
-        row.updated_at = now
-        db.session.add(row)
-
-    if expire_event is None:
-        expire_event = BillingRenewalEvent(
-            renewal_event_bid=generate_id(current_app),
-            subscription_bid=subscription.subscription_bid,
-            creator_bid=subscription.creator_bid,
-            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
-            scheduled_at=scheduled_at,
-            status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
-            attempt_count=0,
-            last_error="",
-            payload_json=payload,
-            processed_at=None,
-        )
-    else:
-        expire_event.creator_bid = subscription.creator_bid
-        expire_event.status = BILLING_RENEWAL_EVENT_STATUS_PENDING
-        expire_event.last_error = ""
-        expire_event.payload_json = payload
-        expire_event.processed_at = None
-        expire_event.updated_at = now
-
-    db.session.add(expire_event)
-
-
-def _serialize_cli_payload(payload: object) -> object:
-    if hasattr(payload, "to_task_payload"):
-        return payload.to_task_payload()
-    if hasattr(payload, "to_payload"):
-        return payload.to_payload()
-    if hasattr(payload, "to_response_dict"):
-        return payload.to_response_dict()
-    if hasattr(payload, "__json__"):
-        return payload.__json__()
-    return payload
-
-
-def _echo_payload(payload: object) -> None:
-    click.echo(
-        json.dumps(
-            _serialize_cli_payload(payload),
-            sort_keys=True,
-            ensure_ascii=False,
-            default=_serialize_json_value,
-        )
-    )
-
-
-def _serialize_json_value(value: object) -> object:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, Decimal):
-        if value == value.to_integral_value():
-            return int(value)
-        return float(value)
-    return str(value)
