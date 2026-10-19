@@ -834,19 +834,27 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/shifu/ask_routes.py|flaskr.service.learn.ask_provider_adapters",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/ask_routes.py",
+      "target": "flaskr.service.learn.ask_provider_adapters",
+      "message": "flaskr/service/shifu/ask_routes.py imports cross-service module flaskr.service.learn.ask_provider_adapters outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/shifu/ask_routes.py|flaskr.service.metering",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/ask_routes.py",
+      "target": "flaskr.service.metering",
+      "message": "flaskr/service/shifu/ask_routes.py imports cross-service module flaskr.service.metering outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/shifu/route.py|flaskr.service.billing.admission",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/shifu/route.py",
       "target": "flaskr.service.billing.admission",
       "message": "flaskr/service/shifu/route.py imports cross-service module flaskr.service.billing.admission outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/shifu/route.py|flaskr.service.learn.ask_provider_adapters",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/shifu/route.py",
-      "target": "flaskr.service.learn.ask_provider_adapters",
-      "message": "flaskr/service/shifu/route.py imports cross-service module flaskr.service.learn.ask_provider_adapters outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
@@ -863,14 +871,6 @@
       "source": "flaskr/service/shifu/route.py",
       "target": "flaskr.service.learn.langfuse_naming",
       "message": "flaskr/service/shifu/route.py imports cross-service module flaskr.service.learn.langfuse_naming outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/shifu/route.py|flaskr.service.metering",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/shifu/route.py",
-      "target": "flaskr.service.metering",
-      "message": "flaskr/service/shifu/route.py imports cross-service module flaskr.service.metering outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {

@@ -25,10 +25,23 @@ from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
 from flaskr.util.datetime import now_utc
 
 _API_ROOT = Path(__file__).resolve().parents[3]
+# register_shifu_routes delegates its views to these sibling route modules.
+_SHIFU_ROUTE_SOURCES = (
+    "flaskr/service/shifu/route.py",
+    "flaskr/service/shifu/course_routes.py",
+    "flaskr/service/shifu/ask_routes.py",
+    "flaskr/service/shifu/tts_routes.py",
+)
+
+
+def _shifu_route_source() -> str:
+    return "\n".join(
+        (_API_ROOT / path).read_text(encoding="utf-8") for path in _SHIFU_ROUTE_SOURCES
+    )
 
 
 def test_shifu_preview_routes_gate_creator_debug_usage_with_billing_admission() -> None:
-    source = (_API_ROOT / "flaskr/service/shifu/route.py").read_text(encoding="utf-8")
+    source = _shifu_route_source()
     billing_source = (_API_ROOT / "flaskr/service/billing/api.py").read_text(
         encoding="utf-8"
     )
@@ -194,7 +207,7 @@ def test_external_previews_require_an_authenticated_payer(
 
 
 def test_shifu_ask_preview_routes_pass_debug_usage_context_into_chat_llm() -> None:
-    source = (_API_ROOT / "flaskr/service/shifu/route.py").read_text(encoding="utf-8")
+    source = _shifu_route_source()
 
     assert "from flaskr.service.metering import UsageContext" in source
     assert 'generation_name="ask_provider_preview"' in source
