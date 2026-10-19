@@ -4,7 +4,7 @@ import json
 import re
 import sys
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 from flask import Flask, Response, request, stream_with_context
 from flaskr.common.shifu_context import get_shifu_context_snapshot, with_shifu_context
@@ -195,67 +195,49 @@ def _normalize_learning_mode(value: object, *, listen: bool = False) -> str:
     return "listen" if listen else "read"
 
 
-@inject
-def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
-    """Register learn routes."""
-    app.logger.info("register learn routes %s", path_prefix)
-    from flaskr.service.learn.live_follow_up_routes import (
-        register_live_follow_up_routes,
+def _require_shifu_owner(app: Flask, shifu_bid: str) -> str:
+    """Ensure current user is the owner of the specified shifu."""
+    user_bid = request.user.user_id
+    if not getattr(request.user, "is_creator", False):
+        raise_error("server.shifu.noPermission")
+    context_snapshot = get_shifu_context_snapshot()
+    creator_bid = (context_snapshot or {}).get("shifu_creator_bid") or ""
+    if not creator_bid:
+        creator_bid = get_shifu_creator_bid(app, shifu_bid) or ""
+    if not creator_bid:
+        raise_error("server.shifu.shifuNotFound")
+    if creator_bid != user_bid:
+        raise_error("server.shifu.noPermission")
+    return user_bid
+
+
+def _ensure_outline_belongs_to_shifu(
+    shifu_bid: str,
+    outline_bid: str,
+    *,
+    preview_mode: bool | None = None,
+) -> None:
+    """Validate that the requested lesson version belongs to the course."""
+    models = (
+        (DraftOutlineItem, PublishedOutlineItem)
+        if preview_mode is None
+        else (DraftOutlineItem if preview_mode else PublishedOutlineItem,)
     )
-
-    register_live_follow_up_routes(app, path_prefix)
-    preview_service = RunScriptPreviewContextV2(app)
-
-    def _require_shifu_owner(shifu_bid: str) -> str:
-        """Ensure current user is the owner of the specified shifu."""
-        user_bid = request.user.user_id
-        if not getattr(request.user, "is_creator", False):
-            raise_error("server.shifu.noPermission")
-        context_snapshot = get_shifu_context_snapshot()
-        creator_bid = (context_snapshot or {}).get("shifu_creator_bid") or ""
-        if not creator_bid:
-            creator_bid = get_shifu_creator_bid(app, shifu_bid) or ""
-        if not creator_bid:
-            raise_error("server.shifu.shifuNotFound")
-        if creator_bid != user_bid:
-            raise_error("server.shifu.noPermission")
-        return user_bid
-
-    def _ensure_outline_belongs_to_shifu(
-        shifu_bid: str,
-        outline_bid: str,
-        *,
-        preview_mode: bool | None = None,
-    ) -> None:
-        """Validate that the requested lesson version belongs to the course."""
-        models = (
-            (DraftOutlineItem, PublishedOutlineItem)
-            if preview_mode is None
-            else (DraftOutlineItem if preview_mode else PublishedOutlineItem,)
-        )
-        for model in models:
-            found = db.session.execute(
-                select(model.id).where(
-                    model.shifu_bid == shifu_bid,
-                    model.outline_item_bid == outline_bid,
-                    model.deleted == 0,
-                )
-            ).first()
-            if found:
-                return
-        raise_error("server.shifu.lessonNotFoundInCourse")
-
-    def _admit_creator_usage_for_shifu(shifu_bid: str, usage_scene: int) -> None:
-        if is_builtin_demo_shifu(app, shifu_bid):
+    for model in models:
+        found = db.session.execute(
+            select(model.id).where(
+                model.shifu_bid == shifu_bid,
+                model.outline_item_bid == outline_bid,
+                model.deleted == 0,
+            )
+        ).first()
+        if found:
             return
-        if usage_scene == BILL_USAGE_SCENE_PREVIEW:
-            admit_creator_preview_usage(app, shifu_bid=shifu_bid)
-            return
-        admit_creator_usage(
-            app,
-            shifu_bid=shifu_bid,
-            usage_scene=usage_scene,
-        )
+    raise_error("server.shifu.lessonNotFoundInCourse")
+
+
+def _register_course_info_routes(app: Flask, path_prefix: str) -> None:
+    """Register the course info and outline tree routes."""
 
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
@@ -355,119 +337,101 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             get_outline_item_tree(app, shifu_bid, user_bid, preview_mode)
         )
 
-    @app.route(path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>", methods=["PUT"])
-    @with_shifu_context()
-    def run_outline_item_api(shifu_bid: str, outline_bid: str) -> Response:
-        """Run the MarkdownFlow of the outline.
 
-        ---
-        tags:
-            - learn
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - name: outline_bid
-              type: string
-              required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    input:
-                        type: object
-                        required: true
-                    input_type:
-                        type: string
-                        required: false
-                    language:
-                        type: string
-                        required: false
-                        description: Current learner interface language for this generation
-                    listen:
-                        type: boolean
-                        required: false
-                        description: Whether to enable segmented listen-mode TTS during learning (default: false)
-                    reload_generated_block_bid:
-                        type: string
-                        required: false
-            - in: query
-              name: preview_mode
-              type: string
-              required: false
-        responses:
-            200:
-                description: run the MarkdownFlow of the outline success
-                content:
-                    text/event-stream:
-                        schema:
-                            $ref: "#/components/schemas/RunElementSSEMessageDTO"
-        """
-        user_bid = request.user.user_id
-        payload = request.get_json() or {}
-        user_input = payload.get("input", None)
-        input_type = payload.get("input_type", None)
-        reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
-        reload_element_bid = payload.get("reload_element_bid", None)
-        listen_raw = payload.get("listen", False)
-        if isinstance(listen_raw, str):
-            listen = listen_raw.strip().lower() == "true"
-        elif listen_raw is None:
-            listen = False
-        else:
-            listen = bool(listen_raw)
-        learning_mode = _normalize_learning_mode(
-            payload.get("learning_mode"),
-            listen=listen,
-        )
-        preview_mode = request.args.get("preview_mode", "False")
-        app.logger.info(
-            "run outline item, shifu_bid: %s, outline_bid: %s, preview_mode: %s, listen: %s",
-            shifu_bid,
-            outline_bid,
-            preview_mode,
-            listen,
-        )
-        preview_mode = preview_mode.lower() == "true"
-        if preview_mode:
-            require_shifu_preview_permission(app, user_bid, shifu_bid)
-        _ensure_outline_belongs_to_shifu(
-            shifu_bid,
-            outline_bid,
-            preview_mode=preview_mode,
-        )
-        _admit_creator_usage_for_shifu(
-            shifu_bid,
-            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
-        )
-        shifu_context_snapshot = get_shifu_context_snapshot()
-        # Capture the request language now: the streaming generator below runs
-        # after request teardown on Flask >= 3.1, when the request-scoped
-        # language has already been cleared (same reason the shifu context is
-        # snapshotted above).
-        request_language = get_current_language()
-        return _stream_passthrough_response(
-            app,
-            message_iter_factory=lambda: run_script(
-                app=app,
+def _parse_preview_request(
+    payload: dict,
+) -> tuple[PlaygroundPreviewRequest, bool]:
+    """Build the preview request from the raw body, accepting legacy aliases."""
+    normalized_user_input = payload.get("user_input")
+    if normalized_user_input is None and "input" in payload:
+        normalized_user_input = _normalize_user_input(payload.get("input"))
+    visual_mode_raw = payload.get("visual_mode", False)
+    if isinstance(visual_mode_raw, str):
+        visual_mode = visual_mode_raw.strip().lower() == "true"
+    elif visual_mode_raw is None:
+        visual_mode = False
+    else:
+        visual_mode = bool(visual_mode_raw)
+    block_index = payload.get("block_index")
+    if block_index is None:
+        block_index = payload.get("blockIndex")
+    preview_payload = {
+        "content": payload.get("content") or payload.get("prompt"),
+        "block_index": block_index,
+        "context": payload.get("context"),
+        "variables": payload.get("variables"),
+        "user_input": normalized_user_input,
+        "document_prompt": payload.get("document_prompt"),
+        "interaction_prompt": payload.get("interaction_prompt"),
+        "interaction_error_prompt": payload.get("interaction_error_prompt"),
+        "visual_mode": visual_mode,
+    }
+    try:
+        preview_request = PlaygroundPreviewRequest(**preview_payload)
+    except ValidationError as exc:
+        raise_param_error(str(exc))
+    return preview_request, visual_mode
+
+
+def _build_preview_message_iter_factory(
+    app: Flask,
+    preview_service: RunScriptPreviewContextV2,
+    *,
+    preview_request: PlaygroundPreviewRequest,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    session_id: str,
+    debug_run_bid: object,
+) -> Callable[[], Iterator[RunElementSSEMessageDTO]]:
+    """Pick the 2.0 debug-session preview or the legacy block preview stream."""
+    if uses_agent_engine(shifu_bid) and debug_run_bid:
+        from flaskr.service.learn.agent.debug_session import stream_debug_preview
+
+        # The streaming iterator runs after Flask clears request-local i18n.
+        # Explicit editor variables still select their own preview language.
+        variables = dict(preview_request.variables or {})
+        if not (variables.get("language") or variables.get("sys_user_language")):
+            variables["language"] = get_current_language()
+        preview_request.variables = variables
+
+        def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
+            return stream_debug_preview(
+                app,
+                preview_request=preview_request,
                 shifu_bid=shifu_bid,
                 outline_bid=outline_bid,
                 user_bid=user_bid,
-                user_input=user_input,
-                input_type=input_type,
-                reload_generated_block_bid=reload_generated_block_bid,
-                reload_element_bid=reload_element_bid,
-                listen=listen,
-                learning_mode=learning_mode,
-                preview_mode=preview_mode,
-                shifu_context_snapshot=shifu_context_snapshot,
-                language=request_language,
-            ),
-            close_log="client closed learn runtime stream early",
-            error_log="run outline item failed",
-        )
+                run_bid=debug_run_bid,
+            )
+    else:
+        # Older editor bundles do not send a debug session identifier. Keep their
+        # block-oriented preview until they refresh to the 2.0-aware client.
+        def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
+            yield RunElementSSEMessageDTO(
+                type="preview_engine",
+                event_type="preview_engine",
+                content="1.0",
+                is_terminal=False,
+            )
+            yield from preview_service.stream_preview(
+                preview_request=preview_request,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                session_id=session_id,
+            )
+
+    return message_iter_factory
+
+
+def _register_preview_routes(
+    app: Flask,
+    path_prefix: str,
+    preview_service: RunScriptPreviewContextV2,
+    _admit_creator_usage_for_shifu: Callable[[str, int], None],
+) -> None:
+    """Register the editor block-preview streaming route."""
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/preview/<outline_bid>",
@@ -541,34 +505,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                             example: 'data: {"type":"element","event_type":"element","content":{"element_type":"text","content":"..."}}'
         """
         payload = request.get_json(silent=True) or {}
-        normalized_user_input = payload.get("user_input")
-        if normalized_user_input is None and "input" in payload:
-            normalized_user_input = _normalize_user_input(payload.get("input"))
-        visual_mode_raw = payload.get("visual_mode", False)
-        if isinstance(visual_mode_raw, str):
-            visual_mode = visual_mode_raw.strip().lower() == "true"
-        elif visual_mode_raw is None:
-            visual_mode = False
-        else:
-            visual_mode = bool(visual_mode_raw)
-        block_index = payload.get("block_index")
-        if block_index is None:
-            block_index = payload.get("blockIndex")
-        preview_payload = {
-            "content": payload.get("content") or payload.get("prompt"),
-            "block_index": block_index,
-            "context": payload.get("context"),
-            "variables": payload.get("variables"),
-            "user_input": normalized_user_input,
-            "document_prompt": payload.get("document_prompt"),
-            "interaction_prompt": payload.get("interaction_prompt"),
-            "interaction_error_prompt": payload.get("interaction_error_prompt"),
-            "visual_mode": visual_mode,
-        }
-        try:
-            preview_request = PlaygroundPreviewRequest(**preview_payload)
-        except ValidationError as exc:
-            raise_param_error(str(exc))
+        preview_request, visual_mode = _parse_preview_request(payload)
 
         user_bid = request.user.user_id
         session_id = (
@@ -594,42 +531,16 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", debug_run_bid)
         ):
             raise_param_error("Invalid debug session identifier")
-        if uses_agent_engine(shifu_bid) and debug_run_bid:
-            from flaskr.service.learn.agent.debug_session import stream_debug_preview
-
-            # The streaming iterator runs after Flask clears request-local i18n.
-            # Explicit editor variables still select their own preview language.
-            variables = dict(preview_request.variables or {})
-            if not (variables.get("language") or variables.get("sys_user_language")):
-                variables["language"] = get_current_language()
-            preview_request.variables = variables
-
-            def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
-                return stream_debug_preview(
-                    app,
-                    preview_request=preview_request,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    user_bid=user_bid,
-                    run_bid=debug_run_bid,
-                )
-        else:
-            # Older editor bundles do not send a debug session identifier. Keep their
-            # block-oriented preview until they refresh to the 2.0-aware client.
-            def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
-                yield RunElementSSEMessageDTO(
-                    type="preview_engine",
-                    event_type="preview_engine",
-                    content="1.0",
-                    is_terminal=False,
-                )
-                yield from preview_service.stream_preview(
-                    preview_request=preview_request,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    user_bid=user_bid,
-                    session_id=session_id,
-                )
+        message_iter_factory = _build_preview_message_iter_factory(
+            app,
+            preview_service,
+            preview_request=preview_request,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            session_id=session_id,
+            debug_run_bid=debug_run_bid,
+        )
 
         return _stream_sse_response(
             app,
@@ -651,6 +562,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 content="",
             ),
         )
+
+
+def _register_record_routes(app: Flask, path_prefix: str) -> None:
+    """Register run status and learn record routes."""
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>",
@@ -797,6 +712,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             )
         )
 
+
+def _register_lesson_feedback_routes(app: Flask, path_prefix: str) -> None:
+    """Register lesson feedback submission and listing routes."""
+
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/lesson-feedback/<outline_bid>",
         methods=["POST"],
@@ -887,7 +806,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
               type: integer
               required: false
         """
-        _require_shifu_owner(shifu_bid)
+        _require_shifu_owner(app, shifu_bid)
         page_index_raw = request.args.get("page_index", "1")
         page_size_raw = request.args.get("page_size", "20")
         try:
@@ -911,6 +830,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 page_size=page_size,
             )
         )
+
+
+def _register_generated_content_routes(app: Flask, path_prefix: str) -> None:
+    """Register generated content reaction and lookup routes."""
 
     @app.route(
         path_prefix
@@ -1010,6 +933,153 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 app, shifu_bid, generated_block_bid, user_bid, preview_mode
             )
         )
+
+
+@inject
+def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
+    """Register learn routes."""
+    app.logger.info("register learn routes %s", path_prefix)
+    from flaskr.service.learn.live_follow_up_routes import (
+        register_live_follow_up_routes,
+    )
+
+    register_live_follow_up_routes(app, path_prefix)
+    preview_service = RunScriptPreviewContextV2(app)
+
+    def _admit_creator_usage_for_shifu(shifu_bid: str, usage_scene: int) -> None:
+        if is_builtin_demo_shifu(app, shifu_bid):
+            return
+        if usage_scene == BILL_USAGE_SCENE_PREVIEW:
+            admit_creator_preview_usage(app, shifu_bid=shifu_bid)
+            return
+        admit_creator_usage(
+            app,
+            shifu_bid=shifu_bid,
+            usage_scene=usage_scene,
+        )
+
+    _register_course_info_routes(app, path_prefix)
+
+    @app.route(path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>", methods=["PUT"])
+    @with_shifu_context()
+    def run_outline_item_api(shifu_bid: str, outline_bid: str) -> Response:
+        """Run the MarkdownFlow of the outline.
+
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    input:
+                        type: object
+                        required: true
+                    input_type:
+                        type: string
+                        required: false
+                    language:
+                        type: string
+                        required: false
+                        description: Current learner interface language for this generation
+                    listen:
+                        type: boolean
+                        required: false
+                        description: Whether to enable segmented listen-mode TTS during learning (default: false)
+                    reload_generated_block_bid:
+                        type: string
+                        required: false
+            - in: query
+              name: preview_mode
+              type: string
+              required: false
+        responses:
+            200:
+                description: run the MarkdownFlow of the outline success
+                content:
+                    text/event-stream:
+                        schema:
+                            $ref: "#/components/schemas/RunElementSSEMessageDTO"
+        """
+        user_bid = request.user.user_id
+        payload = request.get_json() or {}
+        user_input = payload.get("input", None)
+        input_type = payload.get("input_type", None)
+        reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
+        reload_element_bid = payload.get("reload_element_bid", None)
+        listen_raw = payload.get("listen", False)
+        if isinstance(listen_raw, str):
+            listen = listen_raw.strip().lower() == "true"
+        elif listen_raw is None:
+            listen = False
+        else:
+            listen = bool(listen_raw)
+        learning_mode = _normalize_learning_mode(
+            payload.get("learning_mode"),
+            listen=listen,
+        )
+        preview_mode = request.args.get("preview_mode", "False")
+        app.logger.info(
+            "run outline item, shifu_bid: %s, outline_bid: %s, preview_mode: %s, listen: %s",
+            shifu_bid,
+            outline_bid,
+            preview_mode,
+            listen,
+        )
+        preview_mode = preview_mode.lower() == "true"
+        if preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
+        _ensure_outline_belongs_to_shifu(
+            shifu_bid,
+            outline_bid,
+            preview_mode=preview_mode,
+        )
+        _admit_creator_usage_for_shifu(
+            shifu_bid,
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
+        )
+        shifu_context_snapshot = get_shifu_context_snapshot()
+        # Capture the request language now: the streaming generator below runs
+        # after request teardown on Flask >= 3.1, when the request-scoped
+        # language has already been cleared (same reason the shifu context is
+        # snapshotted above).
+        request_language = get_current_language()
+        return _stream_passthrough_response(
+            app,
+            message_iter_factory=lambda: run_script(
+                app=app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                user_input=user_input,
+                input_type=input_type,
+                reload_generated_block_bid=reload_generated_block_bid,
+                reload_element_bid=reload_element_bid,
+                listen=listen,
+                learning_mode=learning_mode,
+                preview_mode=preview_mode,
+                shifu_context_snapshot=shifu_context_snapshot,
+                language=request_language,
+            ),
+            close_log="client closed learn runtime stream early",
+            error_log="run outline item failed",
+        )
+
+    _register_preview_routes(
+        app, path_prefix, preview_service, _admit_creator_usage_for_shifu
+    )
+    _register_record_routes(app, path_prefix)
+    _register_lesson_feedback_routes(app, path_prefix)
+    _register_generated_content_routes(app, path_prefix)
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/generated-blocks/<generated_block_bid>/tts",
