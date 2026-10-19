@@ -203,7 +203,6 @@ class RunOutputPhasesMixin:
         run_script_info = state.run_script_info
         block_list = state.block_list
         user_profile = state.user_profile
-        message_list = state.message_list
         generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
         # Stage only (no unit_of_work): the LLM stream for this block
         # is about to run and the row must not become durable until
@@ -216,222 +215,43 @@ class RunOutputPhasesMixin:
         state.llm_provider.set_usage_generated_block_bid(
             generated_block.generated_block_bid
         )
-        generated_content = ""
-        # Exact user message markdown-flow sent to the LLM for this block
-        # (LLMResult.prompt); persisted so context rebuilds replay the sent
-        # bytes verbatim and provider-side prefix caching keeps matching.
-        sent_prompt = ""
-        tts_processor = None
-        tts_enabled = bool(self._should_stream_tts())
-        current_tts_stream_key: tuple[str, int] | None = None
-        next_tts_position = 0
-        tts_finalize_drainer = StreamTTSFinalizeDrainer(
+        stream = _ContentBlockStream(
             self,
-            log_prefix="Finalize streaming TTS failed",
+            app,
+            run_script_info=run_script_info,
+            generated_block=generated_block,
+            tts_enabled=bool(self._should_stream_tts()),
+            tts_finalize_drainer=StreamTTSFinalizeDrainer(
+                self,
+                log_prefix="Finalize streaming TTS failed",
+            ),
         )
 
         # Direct synchronous stream processing (markdown-flow 0.2.27+)
         app.logger.info("process_stream: %s", run_script_info.block_position)
         app.logger.info("variables: %s", user_profile)
 
-        def _build_content_event(
-            chunk_text: str,
-            stream_element_type: str | None = None,
-            stream_element_number: int | None = None,
-        ) -> RunMarkdownFlowDTO:
-            event = RunMarkdownFlowDTO(
-                outline_bid=run_script_info.outline_bid,
-                generated_block_bid=generated_block.generated_block_bid,
-                type=GeneratedType.CONTENT,
-                content=chunk_text,
-            )
-            if stream_element_type and stream_element_number is not None:
-                event.set_mdflow_stream_parts(
-                    [(chunk_text, stream_element_type, stream_element_number)]
-                )
-            return event
-
-        def _normalize_tts_stream_key(
-            stream_element_type: str | None = None,
-            stream_element_number: int | None = None,
-        ) -> tuple[str, int] | None:
-            normalized_type = (stream_element_type or "").strip().lower()
-            if normalized_type != "text" or stream_element_number is None:
-                return None
-            return normalized_type, int(stream_element_number)
-
-        def _switch_tts_processor(
-            stream_element_type: str | None = None,
-            stream_element_number: int | None = None,
-        ) -> None:
-            nonlocal \
-                tts_processor, \
-                tts_enabled, \
-                current_tts_stream_key, \
-                next_tts_position
-            next_key = _normalize_tts_stream_key(
-                stream_element_type=stream_element_type,
-                stream_element_number=stream_element_number,
-            )
-            if current_tts_stream_key == next_key:
-                return
-            if tts_processor:
-                tts_finalize_drainer.submit(tts_processor)
-                tts_processor = None
-                current_tts_stream_key = None
-            if not tts_enabled or next_key is None:
-                return
-            tts_processor = self._try_create_tts_processor(
-                generated_block.generated_block_bid,
-                shifu_bid=run_script_info.attend.shifu_bid,
-                position=next_tts_position,
-                stream_element_number=stream_element_number,
-                stream_element_type=stream_element_type,
-            )
-            if not tts_processor:
-                return
-            current_tts_stream_key = next_key
-            next_tts_position += 1
-
-        def _process_stream_chunk(
-            chunk_content: str,
-            stream_element_type: str | None = None,
-            stream_element_number: int | None = None,
-        ) -> Iterator[RunMarkdownFlowDTO]:
-            nonlocal \
-                generated_content, \
-                tts_processor, \
-                tts_enabled, \
-                current_tts_stream_key
-            if not chunk_content:
-                return
-            generated_content += chunk_content
-            self.append_langfuse_output(chunk_content)
-            yield _build_content_event(
-                chunk_content,
-                stream_element_type=stream_element_type,
-                stream_element_number=stream_element_number,
-            )
-            _switch_tts_processor(
-                stream_element_type=stream_element_type,
-                stream_element_number=stream_element_number,
-            )
-            if not tts_processor or current_tts_stream_key is None:
-                yield from _drain_tts_ready_events()
-                return
-            try:
-                yield from tts_processor.process_chunk(chunk_content)
-                yield from _drain_tts_ready_events()
-            except Exception as exc:
-                app.logger.warning(
-                    "Streaming TTS failed; disable for this block: %s",
-                    exc,
-                    exc_info=True,
-                )
-                tts_processor = None
-                current_tts_stream_key = None
-                tts_enabled = False
-
-        def _disable_current_tts_processor() -> None:
-            nonlocal tts_processor, current_tts_stream_key
-            tts_processor = None
-            current_tts_stream_key = None
-
-        def _disable_all_tts() -> None:
-            nonlocal tts_enabled
-            _disable_current_tts_processor()
-            tts_enabled = False
-
-        def _handle_current_tts_drain_error(exc: Exception) -> None:
-            app.logger.warning(
-                "Idle streaming TTS drain failed; disable for this block: %s",
-                exc,
-                exc_info=exc,
-            )
-            _disable_all_tts()
-
-        def _drain_current_tts_ready_events() -> Iterator[RunMarkdownFlowDTO]:
-            if not tts_processor:
-                return
-            if not hasattr(tts_processor, "drain_ready_segments"):
-                return
-            try:
-                yield from tts_processor.drain_ready_segments()
-            except Exception as exc:
-                _handle_current_tts_drain_error(exc)
-
-        def _drain_tts_ready_events() -> Iterator[RunMarkdownFlowDTO]:
-            yield from tts_finalize_drainer.drain()
-            yield from _drain_current_tts_ready_events()
-            yield from tts_finalize_drainer.drain()
-
         stream_exc: BaseException | None = None
         try:
-            stream_result = state.mdflow_context.process(
-                block_index=run_script_info.block_position,
-                mode=ProcessMode.STREAM,
-                variables=user_profile,
-                context=message_list,
-            )
-
-            # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
-            # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
-            if inspect.isgenerator(stream_result):
-                idle_poll_interval = float(
-                    app.config.get("STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.05)
-                )
-                for (
-                    source,
-                    payload,
-                ) in self._iter_stream_result_with_idle_callback(
-                    stream_result,
-                    idle_callback=(_drain_tts_ready_events if tts_enabled else None),
-                    idle_poll_interval=idle_poll_interval,
-                ):
-                    if source == "idle":
-                        yield payload
-                        continue
-                    sent_prompt = getattr(payload, "prompt", None) or sent_prompt
-                    for (
-                        chunk_content,
-                        stream_element_type,
-                        normalized_number,
-                    ) in _iter_llm_result_content_parts(payload):
-                        yield from _process_stream_chunk(
-                            chunk_content,
-                            stream_element_type=stream_element_type or None,
-                            stream_element_number=normalized_number,
-                        )
-            else:
-                # markdown-flow still returns a single LLMResult for some
-                # STREAM edge cases, such as preserved content.
-                sent_prompt = getattr(stream_result, "prompt", None) or sent_prompt
-                for (
-                    chunk_content,
-                    stream_element_type,
-                    normalized_number,
-                ) in _iter_llm_result_content_parts(stream_result):
-                    yield from _process_stream_chunk(
-                        chunk_content,
-                        stream_element_type=stream_element_type or None,
-                        stream_element_number=normalized_number,
-                    )
+            yield from self._iter_content_block_stream(app, state, stream)
         except BaseException as exc:
             stream_exc = exc
             raise
         finally:
             if not isinstance(stream_exc, GeneratorExit):
-                yield from tts_finalize_drainer.drain(wait=True)
+                yield from stream.tts_finalize_drainer.drain(wait=True)
             else:
-                tts_finalize_drainer.close()
+                stream.tts_finalize_drainer.close()
             yield from self._teardown_stream_tts_state(
-                tts_processor=tts_processor,
-                flush_content_cache=_drain_current_tts_ready_events,
+                tts_processor=stream.tts_processor,
+                flush_content_cache=stream.drain_current_tts_ready_events,
                 log_prefix="Finalize streaming TTS failed",
                 skip_emit=isinstance(stream_exc, GeneratorExit),
             )
-            tts_processor = None
-            current_tts_stream_key = None
+            stream.tts_processor = None
+            stream.current_tts_stream_key = None
+        generated_content = stream.generated_content
+        sent_prompt = stream.sent_prompt
 
         yield RunMarkdownFlowDTO(
             outline_bid=run_script_info.outline_bid,
@@ -462,3 +282,223 @@ class RunOutputPhasesMixin:
             block_position=next_block_position,
             generation_prompt=sent_prompt,
         )
+
+    def _iter_content_block_stream(
+        self,
+        app: Flask,
+        state: _RunStepState,
+        stream: "_ContentBlockStream",
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Run the MDF STREAM call and route every chunk through ``stream``."""
+        run_script_info = state.run_script_info
+        stream_result = state.mdflow_context.process(
+            block_index=run_script_info.block_position,
+            mode=ProcessMode.STREAM,
+            variables=state.user_profile,
+            context=state.message_list,
+        )
+
+        # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
+        # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
+        if inspect.isgenerator(stream_result):
+            idle_poll_interval = float(
+                app.config.get("STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.05)
+            )
+            for (
+                source,
+                payload,
+            ) in self._iter_stream_result_with_idle_callback(
+                stream_result,
+                idle_callback=(
+                    stream.drain_tts_ready_events if stream.tts_enabled else None
+                ),
+                idle_poll_interval=idle_poll_interval,
+            ):
+                if source == "idle":
+                    yield payload
+                    continue
+                stream.sent_prompt = (
+                    getattr(payload, "prompt", None) or stream.sent_prompt
+                )
+                for (
+                    chunk_content,
+                    stream_element_type,
+                    normalized_number,
+                ) in _iter_llm_result_content_parts(payload):
+                    yield from stream.process_stream_chunk(
+                        chunk_content,
+                        stream_element_type=stream_element_type or None,
+                        stream_element_number=normalized_number,
+                    )
+        else:
+            # markdown-flow still returns a single LLMResult for some
+            # STREAM edge cases, such as preserved content.
+            stream.sent_prompt = (
+                getattr(stream_result, "prompt", None) or stream.sent_prompt
+            )
+            for (
+                chunk_content,
+                stream_element_type,
+                normalized_number,
+            ) in _iter_llm_result_content_parts(stream_result):
+                yield from stream.process_stream_chunk(
+                    chunk_content,
+                    stream_element_type=stream_element_type or None,
+                    stream_element_number=normalized_number,
+                )
+
+
+class _ContentBlockStream:
+    """Per-block streaming state: accumulated content and the live TTS processor.
+
+    Holds what used to be the ``nonlocal`` closure state of
+    ``_phase_stream_content_block`` so each step is a named method.
+    """
+
+    def __init__(
+        self,
+        run_context: object,
+        app: Flask,
+        *,
+        run_script_info: object,
+        generated_block: LearnGeneratedBlock,
+        tts_enabled: bool,
+        tts_finalize_drainer: StreamTTSFinalizeDrainer,
+    ) -> None:
+        self.run_context = run_context
+        self.app = app
+        self.run_script_info = run_script_info
+        self.generated_block = generated_block
+        self.generated_content = ""
+        # Exact user message markdown-flow sent to the LLM for this block
+        # (LLMResult.prompt); persisted so context rebuilds replay the sent
+        # bytes verbatim and provider-side prefix caching keeps matching.
+        self.sent_prompt = ""
+        self.tts_processor = None
+        self.tts_enabled = tts_enabled
+        self.current_tts_stream_key: tuple[str, int] | None = None
+        self.next_tts_position = 0
+        self.tts_finalize_drainer = tts_finalize_drainer
+
+    def build_content_event(
+        self,
+        chunk_text: str,
+        stream_element_type: str | None = None,
+        stream_element_number: int | None = None,
+    ) -> RunMarkdownFlowDTO:
+        event = RunMarkdownFlowDTO(
+            outline_bid=self.run_script_info.outline_bid,
+            generated_block_bid=self.generated_block.generated_block_bid,
+            type=GeneratedType.CONTENT,
+            content=chunk_text,
+        )
+        if stream_element_type and stream_element_number is not None:
+            event.set_mdflow_stream_parts(
+                [(chunk_text, stream_element_type, stream_element_number)]
+            )
+        return event
+
+    @staticmethod
+    def normalize_tts_stream_key(
+        stream_element_type: str | None = None,
+        stream_element_number: int | None = None,
+    ) -> tuple[str, int] | None:
+        normalized_type = (stream_element_type or "").strip().lower()
+        if normalized_type != "text" or stream_element_number is None:
+            return None
+        return normalized_type, int(stream_element_number)
+
+    def switch_tts_processor(
+        self,
+        stream_element_type: str | None = None,
+        stream_element_number: int | None = None,
+    ) -> None:
+        next_key = self.normalize_tts_stream_key(
+            stream_element_type=stream_element_type,
+            stream_element_number=stream_element_number,
+        )
+        if self.current_tts_stream_key == next_key:
+            return
+        if self.tts_processor:
+            self.tts_finalize_drainer.submit(self.tts_processor)
+            self.tts_processor = None
+            self.current_tts_stream_key = None
+        if not self.tts_enabled or next_key is None:
+            return
+        self.tts_processor = self.run_context._try_create_tts_processor(
+            self.generated_block.generated_block_bid,
+            shifu_bid=self.run_script_info.attend.shifu_bid,
+            position=self.next_tts_position,
+            stream_element_number=stream_element_number,
+            stream_element_type=stream_element_type,
+        )
+        if not self.tts_processor:
+            return
+        self.current_tts_stream_key = next_key
+        self.next_tts_position += 1
+
+    def process_stream_chunk(
+        self,
+        chunk_content: str,
+        stream_element_type: str | None = None,
+        stream_element_number: int | None = None,
+    ) -> Iterator[RunMarkdownFlowDTO]:
+        if not chunk_content:
+            return
+        self.generated_content += chunk_content
+        self.run_context.append_langfuse_output(chunk_content)
+        yield self.build_content_event(
+            chunk_content,
+            stream_element_type=stream_element_type,
+            stream_element_number=stream_element_number,
+        )
+        self.switch_tts_processor(
+            stream_element_type=stream_element_type,
+            stream_element_number=stream_element_number,
+        )
+        if not self.tts_processor or self.current_tts_stream_key is None:
+            yield from self.drain_tts_ready_events()
+            return
+        try:
+            yield from self.tts_processor.process_chunk(chunk_content)
+            yield from self.drain_tts_ready_events()
+        except Exception as exc:
+            self.app.logger.warning(
+                "Streaming TTS failed; disable for this block: %s",
+                exc,
+                exc_info=True,
+            )
+            self.tts_processor = None
+            self.current_tts_stream_key = None
+            self.tts_enabled = False
+
+    def disable_current_tts_processor(self) -> None:
+        self.tts_processor = None
+        self.current_tts_stream_key = None
+
+    def disable_all_tts(self) -> None:
+        self.disable_current_tts_processor()
+        self.tts_enabled = False
+
+    def handle_current_tts_drain_error(self, exc: Exception) -> None:
+        self.app.logger.warning(
+            "Idle streaming TTS drain failed; disable for this block: %s",
+            exc,
+            exc_info=exc,
+        )
+        self.disable_all_tts()
+
+    def drain_current_tts_ready_events(self) -> Iterator[RunMarkdownFlowDTO]:
+        if not self.tts_processor:
+            return
+        if not hasattr(self.tts_processor, "drain_ready_segments"):
+            return
+        try:
+            yield from self.tts_processor.drain_ready_segments()
+        except Exception as exc:
+            self.handle_current_tts_drain_error(exc)
+
+    def drain_tts_ready_events(self) -> Iterator[RunMarkdownFlowDTO]:
+        yield from self.tts_finalize_drainer.drain()
+        yield from self.drain_current_tts_ready_events()
+        yield from self.tts_finalize_drainer.drain()

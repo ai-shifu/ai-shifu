@@ -321,25 +321,10 @@ class RunInputPhasesMixin:
         )
         self._can_continue = False
 
-    def _phase_record_input_and_moderate(
-        self,
-        app: Flask,
-        state: _RunStepState,
-        generated_block: LearnGeneratedBlock,
-        parsed_interaction: dict,
-    ) -> Generator[RunMarkdownFlowDTO, None, tuple[bool, dict]]:
-        """Record the student input on the interaction block and moderate it.
-
-        Returns ``(handled, user_input_param)``: handled is True when the
-        moderation result consumed the step (error content replayed and the
-        interaction re-emitted), so run_inner must stop.
-        """
-        run_script_info = state.run_script_info
-        block = state.block
-        expected_variable = (parsed_interaction.get("variable") or "input").strip()
-        if not expected_variable:
-            expected_variable = "input"
-
+    def _normalize_interaction_input(
+        self, app: Flask, expected_variable: str
+    ) -> dict[str, list[str]]:
+        """Normalize the run input and remap legacy keys to the expected variable."""
         user_input_param = MdflowContextV2.normalize_user_input_map(
             self._input, expected_variable
         )
@@ -366,6 +351,28 @@ class RunInputPhasesMixin:
                     )
                     user_input_param = {expected_variable: only_values}
 
+        return user_input_param
+
+    def _phase_record_input_and_moderate(
+        self,
+        app: Flask,
+        state: _RunStepState,
+        generated_block: LearnGeneratedBlock,
+        parsed_interaction: dict,
+    ) -> Generator[RunMarkdownFlowDTO, None, tuple[bool, dict]]:
+        """Record the student input on the interaction block and moderate it.
+
+        Returns ``(handled, user_input_param)``: handled is True when the
+        moderation result consumed the step (error content replayed and the
+        interaction re-emitted), so run_inner must stop.
+        """
+        run_script_info = state.run_script_info
+        block = state.block
+        expected_variable = (parsed_interaction.get("variable") or "input").strip()
+        if not expected_variable:
+            expected_variable = "input"
+
+        user_input_param = self._normalize_interaction_input(app, expected_variable)
         generated_block.generated_content = MdflowContextV2.flatten_user_input_map(
             user_input_param
         )

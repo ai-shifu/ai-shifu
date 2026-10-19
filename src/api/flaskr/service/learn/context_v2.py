@@ -994,6 +994,78 @@ class RunScriptContextV2(RunStreamingMixin, RunInputPhasesMixin, RunOutputPhases
             usage_metadata=selection_metadata(shifu_info_db),
         )
 
+    def _deactivate_superseded_generated_rows(
+        self,
+        generated_block: LearnGeneratedBlock,
+        *,
+        include_current_block: bool,
+    ) -> None:
+        """Deactivate generated blocks and elements superseded by a reload anchor."""
+        affected_blocks = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid
+                == generated_block.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid
+                == generated_block.outline_item_bid,
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.type.notin_(
+                    [
+                        BLOCK_TYPE_MDASK_VALUE,
+                        BLOCK_TYPE_MDANSWER_VALUE,
+                    ]
+                ),
+                LearnGeneratedBlock.id
+                >= (
+                    generated_block.id
+                    if include_current_block
+                    else generated_block.id + 1
+                ),
+                LearnGeneratedBlock.position
+                >= (
+                    generated_block.position
+                    if include_current_block
+                    else generated_block.position + 1
+                ),
+            )
+            .order_by(LearnGeneratedBlock.id.asc())
+            .all()
+        )
+        affected_block_bids = [
+            block.generated_block_bid
+            for block in affected_blocks
+            if block.generated_block_bid
+        ]
+        if not affected_block_bids:
+            return
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.generated_block_bid.in_(affected_block_bids),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.type.notin_(
+                [
+                    BLOCK_TYPE_MDASK_VALUE,
+                    BLOCK_TYPE_MDANSWER_VALUE,
+                ]
+            ),
+        ).update(
+            {LearnGeneratedBlock.status: 0},
+            synchronize_session=False,
+        )
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.progress_record_bid
+            == generated_block.progress_record_bid,
+            LearnGeneratedElement.outline_item_bid == generated_block.outline_item_bid,
+            LearnGeneratedElement.user_bid == self._user_info.user_id,
+            LearnGeneratedElement.generated_block_bid.in_(affected_block_bids),
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.status == 1,
+        ).update(
+            {LearnGeneratedElement.status: 0},
+            synchronize_session=False,
+        )
+
     def reload(
         self,
         app: Flask,
@@ -1048,88 +1120,14 @@ class RunScriptContextV2(RunStreamingMixin, RunInputPhasesMixin, RunOutputPhases
                         generated_block.position,
                     )
 
-                    def _deactivate_superseded_generated_rows(
-                        *,
-                        include_current_block: bool,
-                    ) -> None:
-                        affected_blocks = (
-                            LearnGeneratedBlock.query.filter(
-                                LearnGeneratedBlock.progress_record_bid
-                                == generated_block.progress_record_bid,
-                                LearnGeneratedBlock.outline_item_bid
-                                == generated_block.outline_item_bid,
-                                LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                                LearnGeneratedBlock.deleted == 0,
-                                LearnGeneratedBlock.status == 1,
-                                LearnGeneratedBlock.type.notin_(
-                                    [
-                                        BLOCK_TYPE_MDASK_VALUE,
-                                        BLOCK_TYPE_MDANSWER_VALUE,
-                                    ]
-                                ),
-                                LearnGeneratedBlock.id
-                                >= (
-                                    generated_block.id
-                                    if include_current_block
-                                    else generated_block.id + 1
-                                ),
-                                LearnGeneratedBlock.position
-                                >= (
-                                    generated_block.position
-                                    if include_current_block
-                                    else generated_block.position + 1
-                                ),
-                            )
-                            .order_by(LearnGeneratedBlock.id.asc())
-                            .all()
-                        )
-                        affected_block_bids = [
-                            block.generated_block_bid
-                            for block in affected_blocks
-                            if block.generated_block_bid
-                        ]
-                        if not affected_block_bids:
-                            return
-                        LearnGeneratedBlock.query.filter(
-                            LearnGeneratedBlock.generated_block_bid.in_(
-                                affected_block_bids
-                            ),
-                            LearnGeneratedBlock.deleted == 0,
-                            LearnGeneratedBlock.status == 1,
-                            LearnGeneratedBlock.type.notin_(
-                                [
-                                    BLOCK_TYPE_MDASK_VALUE,
-                                    BLOCK_TYPE_MDANSWER_VALUE,
-                                ]
-                            ),
-                        ).update(
-                            {LearnGeneratedBlock.status: 0},
-                            synchronize_session=False,
-                        )
-                        LearnGeneratedElement.query.filter(
-                            LearnGeneratedElement.progress_record_bid
-                            == generated_block.progress_record_bid,
-                            LearnGeneratedElement.outline_item_bid
-                            == generated_block.outline_item_bid,
-                            LearnGeneratedElement.user_bid == self._user_info.user_id,
-                            LearnGeneratedElement.generated_block_bid.in_(
-                                affected_block_bids
-                            ),
-                            LearnGeneratedElement.deleted == 0,
-                            LearnGeneratedElement.status == 1,
-                        ).update(
-                            {LearnGeneratedElement.status: 0},
-                            synchronize_session=False,
-                        )
-
                     with unit_of_work():
                         if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
-                            _deactivate_superseded_generated_rows(
-                                include_current_block=True
+                            self._deactivate_superseded_generated_rows(
+                                generated_block, include_current_block=True
                             )
                         if generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-                            _deactivate_superseded_generated_rows(
-                                include_current_block=False
+                            self._deactivate_superseded_generated_rows(
+                                generated_block, include_current_block=False
                             )
                         current_attend.block_position = generated_block.position
                         current_attend.status = LEARN_STATUS_IN_PROGRESS
