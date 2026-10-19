@@ -28,7 +28,8 @@ same result; the structural metrics below shrink.
   `dashboard-promo-llm`). The `billing-notifications` and `engine-tts`
   dispatches were blocked by the session's permission policy; those files
   stay untouched pending an owner decision.
-- [ ] Decide whether and how to run `billing-notifications` and `engine-tts`.
+- [x] 2026-10-19 CST: Owner decided to leave `billing-notifications` and
+  `engine-tts` out of this round; they become follow-up work.
 - [x] 2026-10-19 CST: Workers stopped on API rate limits after nine verified
   commits. Merged all six branches without conflicts. Integrated gates:
   interface snapshot OK (523 modules, routes and CLI identical); full suite
@@ -36,15 +37,28 @@ same result; the structural metrics below shrink.
   passed; uow ratchet OK. Counts of `try`, `except`, `suppress(`,
   `unit_of_work(`, `on_commit`, and `db.session.commit` are unchanged, and
   the multiset of `yield` lines is identical.
-- [ ] Boundary check fails on 8 relocated imports from the `context_v2.py`
-  split (every target is already a baseline entry for `context_v2.py`).
-  Needs an owner decision on recording relocated imports in the baseline.
-- [ ] Uncommitted splits remain in worker worktrees: `checkout.py`
-  (blocked on the same boundary decision), `dashboard/funcs.py` (same),
-  `shifu/route.py`, `order/funs.py`, and further `context_v2*` edits.
-- [ ] Review the integrated diff for removed public names and changed
-  exception handling (the two regression classes the source write-up says the
-  test suite missed).
+- [x] 2026-10-19 CST: Owner approved recording relocated imports in the
+  architecture baseline. Resumed workers committed the remaining splits
+  (`checkout.py`, `dashboard/funcs.py`, `shifu/route.py`, `order/funs.py`,
+  more `context_v2*`, learn routes, learner TTS audio, CLI/profile/callback
+  routes, account cancellation) through all hooks. The first learn commit
+  had skipped only the boundary hook; its follow-up commit records the
+  relocated keys and every later commit ran all hooks.
+- [x] 2026-10-19 CST: Second integration (19 non-merge commits, no
+  conflicts). Interface snapshot OK (552 modules; routes and CLI identical);
+  full suite 12,318 passed with exactly the baseline failure set; engine
+  tests 1,039 passed; uow ratchet OK; boundary check passes with
+  `--fail-on-stale-baseline`; `lefthook run pre-commit --all-files` passes
+  all 20 checks.
+- [x] 2026-10-19 CST: Reviewed the two regression classes the source write-up
+  says tests missed. Removed public names: the snapshot compare reports none.
+  Changed exception handling: counts of `try`, `except`, `finally`,
+  `suppress(`, `raise`, `unit_of_work(`, `on_commit`, and
+  `db.session.commit` are identical to baseline, as is the multiset of
+  `yield` lines. Baseline audit: 29 keys added, each targeting a module the
+  same package already had in the baseline; 4 stale keys removed.
+- [ ] Follow-up groups: `billing-notifications`, `engine-tts`, and the
+  unfinished items listed under Outcomes.
 
 ## Surprises & Discoveries
 
@@ -54,7 +68,19 @@ same result; the structural metrics below shrink.
   may edit, and only to follow moved code.
 - Tests monkeypatch by module path (`flaskr.route.user`,
   `flaskr.service.order.funs`, ...), so moved code must keep resolving patched
-  names through the original module.
+  names through the original module. Workers used three mechanisms: lazy
+  facade lookups (`checkout`, `subscriptions`, shifu routes, `api/llm`), a
+  call-time proxy (`service/order/funs_lookup.py`), and module-class
+  attribute forwarding (`service/learn/split_module_patching.py`, mirroring
+  the existing `shifu/admin.py` pattern). New code in the split modules must
+  call patched collaborators through these paths.
+- Splitting a file moves its cross-service imports into new files, which the
+  boundary check reports as new violations even when the dependency already
+  exists. The owner chose to record those relocated keys in the baseline.
+- The boundary checker treats only files named exactly `routes.py` /
+  `route.py` as route adapters, so learn routes stayed in one `routes.py`.
+- API rate limits stopped all workers mid-run; commits survived and workers
+  were resumed with their context, as the source write-up describes.
 
 ## Decision Log
 
@@ -70,7 +96,36 @@ same result; the structural metrics below shrink.
 
 ## Outcomes & Retrospective
 
-Pending.
+| Metric (`flaskr/`, excluding migrations) | Baseline | After |
+| --- | --- | --- |
+| Python lines | 193,386 in 491 files | 198,057 in 552 files |
+| Files over 1,500 lines | 22 | 13 |
+| Functions over 150 lines | 115 | 88 |
+| Functions over 300 lines | 24 | 17 |
+| `register_admin_operations_routes` | 2,774 lines | ~30 |
+| `register_shifu_routes` | 2,196 lines | ~120 |
+| `register_user_handler` | 1,144 lines | under 150 |
+| `register_billing_commands` | 984 lines | split per domain |
+| `checkout.py` / `order/funs.py` / `context_v2.py` | 3,560 / 3,150 / 3,819 | 644 / 955 / ~1,160 |
+
+Total lines grew about 2% because facades re-export every old name and new
+modules repeat imports; the source write-up reports the same trade-off.
+
+Not done in this round (candidates for follow-up groups):
+`credit_notifications.py` and the engine/TTS code (out of scope by owner
+decision); `learn/live_follow_up_routes.py`, `handle_input_ask`,
+`runscript_v2.run_script`, `agent/run_agent.py`, `get_outline_item_tree`;
+`shifu/admin_user_credits.py`, `courses_listing.py`, `save_shifu_draft_info`,
+`import_shifu`, `ask_preview_api`; `route/user.py` (1,517 lines, kept whole
+because most groups call names tests patch there); `api/llm/__init__.py`
+(1,472 lines; `chat_llm` 171 lines); `_build_dashboard_course_learners`
+(187 lines); `learn_tts_audio.py` (1,468 lines); and several 150-190 line
+lock- and verification-sensitive functions in `service/user`.
+
+Review hot spots: the three patch-compatibility mechanisms above; late
+bottom-of-module imports in `api/llm/__init__.py`; the edited source-layout
+test `tests/service/shifu/test_billing_debug_admission_contracts.py` (reads
+the moved route files, assertions unchanged).
 
 ## Context and Orientation
 
