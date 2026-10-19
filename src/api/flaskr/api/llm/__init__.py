@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import os
 import secrets
 import time
-from dataclasses import dataclass, field, replace
-from decimal import ROUND_CEILING, Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any
+from dataclasses import replace
+from typing import TYPE_CHECKING
 
 import requests
 
@@ -33,35 +31,88 @@ from flaskr.api.langfuse import (
     LangfuseObservationHandle,
     build_langfuse_observation_link,
     get_request_id,
-    normalize_langfuse_output_value,
+    normalize_langfuse_output_value,  # noqa: F401  # re-exported public API
     resolve_langfuse_trace_id,
 )
 from flaskr.api.llm.model_selection import resolve_selection
+from flaskr.api.llm.payloads import (
+    LLMStreamaUsage,  # noqa: F401  # re-exported public API
+    LLMStreamResponse,
+    _attach_usage_output_text,
+    _build_langfuse_llm_output,
+    _extract_input_cache,
+    _extract_reasoning_delta,
+    _extract_tool_call_deltas,
+    _extract_usage_value,
+    _reported_input_cache,
+)
+from flaskr.api.llm.providers import (
+    DEEPSEEK_FALLBACK_MODELS,
+    ERNIE_V2_PREFIX,
+    GEMINI_PREFIX,
+    GLM_PREFIX,
+    QWEN_PREFIX,
+    SILICON_PREFIX,
+    ProviderConfig,
+    ProviderState,
+    _build_models_url,
+)
+from flaskr.api.llm.request_params import (
+    _LITELLM_1102_COMPATIBILITY_PATCHES,
+    _drop_path_overlaps_primary,
+    _find_thinking_control,
+    _keep_primary_thinking_control,
+    _litellm_minimum_thinking_params,
+    _merge_litellm_param_patch,
+    _should_inject_default_temperature,
+    _thinking_conflict_drop_params,
+)
+from flaskr.api.llm.stream_retry import (
+    _STREAM_PRECONTENT_RETRY_ATTEMPTS,
+    _check_stream_cancelled,
+    _is_litellm_repeated_stream_chunk_error,
+    _is_rate_limit_error,
+    _retryable_stream_error_types,
+    _wait_before_retry,
+)
 from flaskr.common.config import (
     parse_llm_model_max_output_tokens,
 )
 from flaskr.service.billing.consts import (
-    BILLING_METRIC_LLM_OUTPUT_TOKENS,
-    CREDIT_USAGE_RATE_STATUS_ACTIVE,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,  # noqa: F401  # re-exported public API
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,  # noqa: F401  # re-exported public API
 )
-from flaskr.service.billing.models import CreditUsageRate
-from flaskr.service.billing.rate_references import format_credit_multiplier
-from flaskr.service.common.credit_rate_references import load_llm_credit_1x_unit_cost
-from flaskr.service.common.models import ERROR_CODE, AppError, raise_error_with_args
+from flaskr.service.billing.models import (
+    CreditUsageRate,  # noqa: F401  # re-exported public API
+)
+from flaskr.service.billing.rate_references import (
+    format_credit_multiplier,  # noqa: F401  # re-exported public API
+)
+from flaskr.service.common.credit_rate_references import (
+    load_llm_credit_1x_unit_cost,  # noqa: F401  # re-exported public API
+)
+from flaskr.service.common.models import (
+    ERROR_CODE,  # noqa: F401  # re-exported public API
+    AppError,  # noqa: F401  # re-exported public API
+    raise_error_with_args,
+)
 from flaskr.service.config import get_config
 from flaskr.service.metering import UsageContext, record_llm_usage
 from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_SCENE_PROD,  # noqa: F401  # re-exported public API
+    BILL_USAGE_TYPE_LLM,  # noqa: F401  # re-exported public API
     normalize_usage_scene,
 )
-from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
+from flaskr.util.datetime import (
+    NAIVE_DATETIME_MIN,  # noqa: F401  # re-exported public API
+    now_utc,
+)
 
 from .live_catalog import (
-    GEMINI_LIVE_MODEL_ALLOWLIST,
-    get_gemini_live_voice_options,
-    is_gemini_live_enabled,
-    is_live_follow_up_model,
+    GEMINI_LIVE_MODEL_ALLOWLIST,  # noqa: F401  # re-exported public API
+    get_gemini_live_voice_options,  # noqa: F401  # re-exported public API
+    is_gemini_live_enabled,  # noqa: F401  # re-exported public API
+    is_live_follow_up_model,  # noqa: F401  # re-exported public API
 )
 
 logger = logging.getLogger(__name__)
@@ -97,47 +148,11 @@ def _safe_asyncio_run(coro: object, *args: object, **kwargs: object) -> object |
 asyncio.run = _safe_asyncio_run
 
 
-@dataclass
-class ProviderConfig:
-    """Describe configuration for one LLM provider."""
-
-    key: str
-    api_key_env: str
-    base_url_env: str | None = None
-    default_base_url: str | None = None
-    prefix: str = ""
-    fetch_models: bool = True
-    filter_fn: Callable[[str], bool] | None = None
-    static_models: list[str] = field(default_factory=list)
-    extra_models: list[str] = field(default_factory=list)
-    wildcard_prefixes: tuple[str, ...] = ()
-    config_hint: str = ""
-    custom_llm_provider: str | None = None
-    model_loader: (
-        Callable[
-            [ProviderConfig, dict[str, str], str | None], list[str | tuple[str, str]]
-        ]
-        | None
-    ) = None
-
-
-@dataclass
-class ProviderState:
-    """Track availability and retry state for one LLM provider."""
-
-    enabled: bool
-    params: dict[str, str] | None
-    models: list[str]
-    prefix: str = ""
-    wildcard_prefixes: tuple[str, ...] = ()
-
-
 MODEL_ALIAS_MAP: dict[str, tuple[str, str]] = {}
 PROVIDER_STATES: dict[str, ProviderState] = {}
 MODEL_MAX_OUTPUT_TOKENS: dict[str, int] = {}
 MODEL_SUPPORTED_GENERATION_METHODS: dict[str, frozenset[str]] = {}
 _GEMINI_CAPABILITY_DISCOVERED_MODELS: set[str] = set()
-_USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
 _INCOMPLETE_FINISH_REASONS = frozenset({"content_filter", "length"})
 
 
@@ -154,115 +169,6 @@ def _log_info(message: str) -> None:
 
 def _log_warning(message: str) -> None:
     _log("warning", message)
-
-
-def _extract_usage_value(usage: object, key: str) -> int:
-    if usage is None:
-        return 0
-    if isinstance(usage, dict):
-        return int(usage.get(key) or 0)
-    return int(getattr(usage, key, 0) or 0)
-
-
-def _reported_input_cache(usage: object) -> object:
-    """Return explicit raw cache metadata; missing fields remain unknown."""
-    if usage is None:
-        return None
-    if isinstance(usage, dict):
-        if "input_cache" in usage:
-            return usage.get("input_cache")
-        details = usage.get("input_tokens_details") or usage.get(
-            "prompt_tokens_details"
-        )
-        return details.get("cached_tokens") if isinstance(details, dict) else None
-    value = getattr(usage, "input_cache", None)
-    if value is not None:
-        return value
-    details = getattr(usage, "input_tokens_details", None) or getattr(
-        usage, "prompt_tokens_details", None
-    )
-    if isinstance(details, dict):
-        return details.get("cached_tokens")
-    return getattr(details, "cached_tokens", None)
-
-
-def _extract_input_cache(usage: object) -> int:
-    """Keep the shared billing conversion while preserving raw reporting separately."""
-    return int(_reported_input_cache(usage) or 0)
-
-
-def _attach_usage_output_text(
-    metadata: dict[str, object],
-    response_text: str,
-) -> dict[str, object]:
-    """Store a bounded response excerpt for operator usage detail summaries."""
-    normalized_response_text = str(response_text or "").strip()
-    if not normalized_response_text or "output_text" in metadata:
-        return metadata
-    next_metadata = dict(metadata)
-    next_metadata["output_text"] = normalized_response_text[
-        :_USAGE_OUTPUT_TEXT_MAX_LENGTH
-    ]
-    return next_metadata
-
-
-def _extract_reasoning_delta(delta: object) -> str:
-    """Return provider reasoning from a normalized LiteLLM stream delta."""
-
-    def _get(value: object, key: str) -> object:
-        if isinstance(value, dict):
-            return value.get(key)
-        return getattr(value, key, None)
-
-    def _normalize(value: object) -> str | None:
-        if isinstance(value, str) and value.strip():
-            return value
-        return normalize_langfuse_output_value(value)
-
-    candidates: list[Any] = [
-        _get(delta, "reasoning_content"),
-        _get(delta, "reasoning"),
-    ]
-    thinking_blocks = _get(delta, "thinking_blocks")
-    if isinstance(thinking_blocks, list):
-        block_reasoning = []
-        for block in thinking_blocks:
-            # Anthropic emits the full accumulated thinking again alongside
-            # the signature. Incremental reasoning was already delivered in
-            # earlier chunks, so recording the signed snapshot duplicates it.
-            if _normalize(_get(block, "signature")):
-                continue
-            normalized = _normalize(_get(block, "thinking"))
-            if normalized:
-                block_reasoning.append(normalized)
-        if block_reasoning:
-            candidates.append("\n".join(block_reasoning))
-    provider_fields = _get(delta, "provider_specific_fields")
-    if provider_fields:
-        candidates.extend(
-            [
-                _get(provider_fields, "reasoning_content"),
-                _get(provider_fields, "reasoning"),
-            ]
-        )
-
-    for candidate in candidates:
-        normalized = _normalize(candidate)
-        if normalized:
-            return normalized
-    return ""
-
-
-def _build_langfuse_llm_output(
-    response_text: str,
-    reasoning_text: str,
-) -> str | dict[str, str]:
-    if not reasoning_text:
-        return response_text
-    return {
-        "content": response_text,
-        "reasoning_content": reasoning_text,
-    }
 
 
 def _load_and_register_model_max_output_tokens() -> dict[str, int]:
@@ -378,11 +284,6 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     )
 
 
-def _build_models_url(base_url: str | None) -> str:
-    base = base_url or "https://api.openai.com/v1"
-    return f"{base.rstrip('/')}/models"
-
-
 def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     if not api_key:
         return []
@@ -395,14 +296,6 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     response.raise_for_status()
     data = response.json()
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
-
-
-def _is_litellm_repeated_stream_chunk_error(exc: Exception) -> bool:
-    message = str(exc)
-    return (
-        "repeating the same chunk" in message
-        and exc.__class__.__module__.startswith("litellm")
-    )
 
 
 def _get_llm_max_output_tokens(requested_model: str, invoke_model: str) -> int | None:
@@ -455,20 +348,7 @@ def _stream_litellm_completion(
         )
 
 
-# How many times to re-issue a streaming request whose connection died before
-# the first content token arrived. Rate limits have a separate, longer budget.
-_STREAM_PRECONTENT_RETRY_ATTEMPTS = 1
 _STREAM_RATE_LIMIT_RETRY_DELAYS = (15.0, 45.0)
-
-
-def _is_rate_limit_error(exc: Exception) -> bool:
-    """Recognize provider throttling without matching provider-specific message text."""
-    rate_limit_type = getattr(
-        getattr(litellm, "exceptions", None), "RateLimitError", None
-    )
-    return (isinstance(rate_limit_type, type) and isinstance(exc, rate_limit_type)) or (
-        getattr(exc, "status_code", None) == 429
-    )
 
 
 def _rate_limit_retry_delay(exc: Exception, attempt: int) -> float:
@@ -485,46 +365,6 @@ def _rate_limit_retry_delay(exc: Exception, attempt: int) -> float:
             if 0 < delay <= 60:
                 return delay
     return _STREAM_RATE_LIMIT_RETRY_DELAYS[attempt - 1] + secrets.randbelow(6)
-
-
-def _wait_before_retry(delay: float, cancelled: Callable[[], bool] | None) -> None:
-    """Wake promptly when an agent turn disconnects during a provider limit wait."""
-    if cancelled is None:
-        time.sleep(delay)
-        return
-    deadline = time.monotonic() + delay
-    while True:
-        if cancelled():
-            raise asyncio.CancelledError
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            return
-        time.sleep(min(remaining, 0.1))
-
-
-def _retryable_stream_error_types() -> tuple:
-    """Connection-level litellm stream errors that are safe to retry.
-
-    Resolved lazily via getattr because tests stub the litellm module without
-    an ``exceptions`` submodule. APIConnectionError covers connections that
-    die before the response starts; MidStreamFallbackError is litellm's
-    wrapper for an established stream dying mid-read (observed in production
-    as TLS record corruption on the provider path: DECRYPTION_FAILED_OR_
-    BAD_RECORD_MAC).
-    """
-    exceptions_mod = getattr(litellm, "exceptions", None)
-    resolved = []
-    for name in ("APIConnectionError", "MidStreamFallbackError"):
-        exc_type = getattr(exceptions_mod, name, None)
-        if isinstance(exc_type, type):
-            resolved.append(exc_type)
-    return tuple(resolved)
-
-
-def _check_stream_cancelled(cancelled: Callable[[], bool] | None) -> None:
-    """Stop before another provider read; deadline exceptions propagate unchanged."""
-    if cancelled is not None and cancelled():
-        raise asyncio.CancelledError
 
 
 def _iter_stream_with_precontent_retry(
@@ -740,138 +580,6 @@ def _load_deepseek_models(
         return list(DEEPSEEK_FALLBACK_MODELS)
 
 
-QWEN_PREFIX = "qwen/"
-ERNIE_V2_PREFIX = "ernie/"
-GLM_PREFIX = "glm/"
-SILICON_PREFIX = "silicon/"
-GEMINI_PREFIX = ""
-DEEPSEEK_FALLBACK_MODELS = [
-    "deepseek-v4-flash",
-    "deepseek-v4-pro",
-    "deepseek-chat",
-    "deepseek-reasoner",
-]
-
-
-_REASONING_EFFORT_CAPABILITIES = (
-    ("none", "supports_none_reasoning_effort"),
-    ("minimal", "supports_minimal_reasoning_effort"),
-    ("low", "supports_low_reasoning_effort"),
-)
-_THINKING_CONTROL_KEYS = ("reasoning_effort", "thinking", "enable_thinking")
-_LIST_PATCH_KEYS = frozenset({"allowed_openai_params", "additional_drop_params"})
-_THINKING_CONFLICT_PATHS = (
-    "reasoning_effort",
-    "reasoning",
-    "thinking",
-    "enable_thinking",
-    "thinkingConfig",
-    "thinking_config",
-    "extra_body.reasoning_effort",
-    "extra_body.reasoning",
-    "extra_body.thinking",
-    "extra_body.enable_thinking",
-    "extra_body.thinkingConfig",
-    "extra_body.thinking_config",
-    "generationConfig.thinkingConfig",
-    "generationConfig.thinking_config",
-    "generation_config.thinkingConfig",
-    "generation_config.thinking_config",
-    "extra_body.generationConfig.thinkingConfig",
-    "extra_body.generationConfig.thinking_config",
-    "extra_body.generation_config.thinkingConfig",
-    "extra_body.generation_config.thinking_config",
-)
-
-# These entries cover confirmed gaps in LiteLLM 1.102.0. The normal path is
-# capability-driven; upgrading LiteLLM should make individual rows removable
-# when their contract tests start passing without the row.
-_ZAI_DISABLED_THINKING_PATCH: dict[str, object] = {
-    # LiteLLM 1.102 sends top-level thinking to the OpenAI SDK for ZAI, where it
-    # is rejected. extra_body reaches the provider wire format.
-    "extra_body": {"thinking": {"type": "disabled"}},
-}
-_LITELLM_1102_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
-    ("qwen", None): {"extra_body": {"enable_thinking": False}},
-    ("silicon", None): {"extra_body": {"enable_thinking": False}},
-    ("ark", None): {"allowed_openai_params": ["response_format"]},
-    ("glm", None): {"allowed_openai_params": ["response_format"]},
-    ("glm", "glm-4.5"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5v"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5-air"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5-x"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5-airx"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.5-flash"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.6"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.7"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-4.7-flash"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-5"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-5.1"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-5-code"): _ZAI_DISABLED_THINKING_PATCH,
-    ("glm", "glm-5.2"): _ZAI_DISABLED_THINKING_PATCH,
-    ("qwen", "glm-5.3"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
-    ("qwen", "glm-5.3-flash"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
-    ("qwen", "zhipu/glm-5.3"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
-    ("qwen", "zhipu/glm-5.3-flash"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
-    ("gemini", "gemini-3.7-flash"): {"reasoning_effort": "low"},
-    ("gemini", "gemini-3.8-flash"): {"reasoning_effort": "low"},
-    ("gemini", "gemini-2.5-pro"): {"reasoning_effort": "minimal"},
-    ("openai", "gpt-5-pro"): {"reasoning_effort": "high"},
-    ("openai", "gpt-5-pro-2025-10-06"): {"reasoning_effort": "high"},
-    ("openai", "gpt-5.2-pro"): {"reasoning_effort": "medium"},
-    ("openai", "gpt-5.2-pro-2025-12-11"): {"reasoning_effort": "medium"},
-    ("openai", "gpt-5.4-pro"): {"reasoning_effort": "medium"},
-    ("openai", "gpt-5.4-pro-2026-03-05"): {"reasoning_effort": "medium"},
-    ("openai", "gpt-6-astra"): {"reasoning_effort": "low"},
-}
-
-
-def _ordered_param_union(*values: object) -> list[object]:
-    merged: list[object] = []
-    for value in values:
-        if not isinstance(value, (list, tuple)):
-            continue
-        for item in value:
-            if item not in merged:
-                merged.append(item)
-    return merged
-
-
-def _merge_litellm_param_patch(
-    base: dict[str, object], patch: dict[str, object]
-) -> dict[str, object]:
-    """Shallow-merge one request patch without inventing a policy language."""
-    merged = dict(base)
-    for key, value in patch.items():
-        if key in _LIST_PATCH_KEYS:
-            merged[key] = _ordered_param_union(merged.get(key), value)
-        elif key == "extra_body" and isinstance(value, dict):
-            current = merged.get(key)
-            merged[key] = {
-                **(current if isinstance(current, dict) else {}),
-                **value,
-            }
-        elif isinstance(value, dict):
-            merged[key] = dict(value)
-        elif isinstance(value, list):
-            merged[key] = list(value)
-        else:
-            merged[key] = value
-    return merged
-
-
 def _litellm_provider_name(provider_key: str, provider_params: dict[str, str]) -> str:
     configured_provider = provider_params.get("custom_llm_provider")
     if configured_provider:
@@ -880,139 +588,6 @@ def _litellm_provider_name(provider_key: str, provider_params: dict[str, str]) -
         if config.key == provider_key and config.custom_llm_provider:
             return config.custom_llm_provider
     return provider_key
-
-
-def _litellm_minimum_thinking_params(
-    model_id: str, custom_llm_provider: str
-) -> dict[str, object]:
-    """Use LiteLLM's declared adapter capabilities for the product minimum."""
-    try:
-        supported_params = litellm.get_supported_openai_params(
-            model=model_id,
-            custom_llm_provider=custom_llm_provider,
-        )
-    except Exception as exc:
-        logger.debug(
-            "LiteLLM supported params unavailable for %s/%s: %s",
-            custom_llm_provider,
-            model_id,
-            exc,
-        )
-        supported_params = None
-
-    if supported_params and "reasoning_effort" in supported_params:
-        try:
-            model_info = litellm.get_model_info(
-                model=model_id,
-                custom_llm_provider=custom_llm_provider,
-            )
-        except Exception as exc:
-            logger.debug(
-                "LiteLLM model info unavailable for %s/%s: %s",
-                custom_llm_provider,
-                model_id,
-                exc,
-            )
-            model_info = {}
-
-        for effort, capability in _REASONING_EFFORT_CAPABILITIES:
-            if model_info.get(capability) is True:
-                return {"reasoning_effort": effort}
-        if all(
-            model_info.get(capability) is False
-            for _effort, capability in _REASONING_EFFORT_CAPABILITIES
-        ):
-            return {"reasoning_effort": "medium"}
-        # The adapter supports the standard parameter but the model metadata is
-        # incomplete. LiteLLM maps none to each provider's native minimum.
-        return {"reasoning_effort": "none"}
-
-    if supported_params and "thinking" in supported_params:
-        return {"thinking": {"type": "disabled"}}
-    return {}
-
-
-def _find_thinking_control(
-    params: dict[str, object],
-) -> tuple[str, str] | None:
-    for key in _THINKING_CONTROL_KEYS:
-        if key in params:
-            return "root", key
-    extra_body = params.get("extra_body")
-    if isinstance(extra_body, dict):
-        for key in _THINKING_CONTROL_KEYS:
-            if key in extra_body:
-                return "extra_body", key
-    return None
-
-
-def _keep_primary_thinking_control(
-    params: dict[str, object], primary: tuple[str, str] | None
-) -> dict[str, object]:
-    if primary is None:
-        return params
-    kept = dict(params)
-    for key in _THINKING_CONTROL_KEYS:
-        if primary != ("root", key):
-            kept.pop(key, None)
-    extra_body = kept.get("extra_body")
-    if isinstance(extra_body, dict):
-        kept_extra_body = dict(extra_body)
-        for key in _THINKING_CONTROL_KEYS:
-            if primary != ("extra_body", key):
-                kept_extra_body.pop(key, None)
-        if kept_extra_body:
-            kept["extra_body"] = kept_extra_body
-        else:
-            kept.pop("extra_body", None)
-    return kept
-
-
-def _thinking_conflict_drop_params(primary: tuple[str, str]) -> list[object]:
-    if primary[0] == "root":
-        protected_paths = {primary[1]}
-        if primary[1] == "thinking":
-            # OpenAI-compatible adapters can map standard thinking into
-            # extra_body, so dropping that path would remove the policy value.
-            protected_paths.add("extra_body.thinking")
-    else:
-        # A flat drop also removes an extra_body field with the same name.
-        protected_paths = {primary[1], f"extra_body.{primary[1]}"}
-    return [path for path in _THINKING_CONFLICT_PATHS if path not in protected_paths]
-
-
-def _drop_path_overlaps_primary(path: object, primary: tuple[str, str]) -> bool:
-    if not isinstance(path, str):
-        return False
-    target_path = primary[1] if primary[0] == "root" else f"extra_body.{primary[1]}"
-    protected_paths = {target_path}
-    if primary == ("root", "thinking"):
-        protected_paths.add("extra_body.thinking")
-    if primary[0] == "extra_body":
-        # LiteLLM also treats the flat field name as an extra_body filter.
-        protected_paths.add(primary[1])
-    return any(
-        path == protected
-        or path.startswith(f"{protected}.")
-        or protected.startswith(f"{path}.")
-        for protected in protected_paths
-    )
-
-
-def _should_inject_default_temperature(
-    provider_key: str,
-    model_id: str,
-    primary: tuple[str, str] | None,
-    policy_params: dict[str, object],
-) -> bool:
-    normalized_model = model_id.casefold()
-    if provider_key == "gemini" and normalized_model.startswith("gemini-3"):
-        return False
-    return not (
-        provider_key == "openai"
-        and primary == ("root", "reasoning_effort")
-        and policy_params.get("reasoning_effort") != "none"
-    )
 
 
 def _prepare_litellm_request_kwargs(
@@ -1172,79 +747,6 @@ if not any_litellm_enabled:
     _log_warning("No LLM Configured")
 
 
-class LLMStreamaUsage:
-    """Track token usage reported by a streaming LLM response."""
-
-    def __init__(
-        self,
-        prompt_tokens: object,
-        completion_tokens: object,
-        total_tokens: object,
-        input_cache: object = None,
-    ) -> None:
-        """Record stream token counts with optional explicit provider cache metadata."""
-        self.prompt_tokens = prompt_tokens
-        self.completion_tokens = completion_tokens
-        self.total_tokens = total_tokens
-        self.input_cache = input_cache
-
-
-class LLMStreamResponse:
-    """Wrap an LLM stream together with response metadata."""
-
-    def __init__(
-        self,
-        response_id: object,
-        is_end: object,
-        is_truncated: object,
-        result: object,
-        finish_reason: object,
-        usage: object,
-        tool_call_deltas: list[dict] | None = None,
-    ) -> None:
-        """Build an LLM stream-chunk response."""
-        self.id = response_id
-
-        self.is_end = is_end
-        self.is_truncated = is_truncated
-        self.result = result
-        self.finish_reason = finish_reason
-        self.usage = LLMStreamaUsage(**usage) if usage else None
-        # Tool-call fragments for this chunk, each {"index", "id", "name", "arguments"}.
-        # Always empty unless the caller passes emit_tool_calls=True.
-        self.tool_call_deltas = list(tool_call_deltas or [])
-
-
-def _get_attr(obj: object, name: str) -> object:
-    if isinstance(obj, dict):
-        return obj.get(name)
-    return getattr(obj, name, None)
-
-
-def _extract_tool_call_deltas(delta: object) -> list[dict]:
-    """Normalize a streaming delta's tool_calls into plain dicts.
-
-    Providers hand these back either as objects or as dicts, and a single call's arguments arrive
-    split across chunks, so the index is what stitches them back together.
-    """
-    calls = _get_attr(delta, "tool_calls")
-    if not calls:
-        return []
-    out: list[dict] = []
-    for position, call in enumerate(calls):
-        function = _get_attr(call, "function") or {}
-        index = _get_attr(call, "index")
-        out.append(
-            {
-                "index": position if index is None else index,
-                "id": _get_attr(call, "id"),
-                "name": _get_attr(function, "name"),
-                "arguments": _get_attr(function, "arguments"),
-            }
-        )
-    return out
-
-
 def get_litellm_params_and_model(
     model: str,
 ) -> tuple[
@@ -1268,6 +770,196 @@ def get_litellm_params_and_model(
             )
         return params, invoke_model, provider_key
     return None, model, None
+
+
+def _start_llm_generation(
+    app: Flask,
+    span: LangfuseObservationHandle,
+    *,
+    model: str,
+    generation_input: list,
+    generation_name: str,
+    usage_metadata: dict[str, object],
+    request_id: str | None,
+    trace_id: str | None,
+) -> object:
+    """Open the Langfuse generation for one LLM call and log its trace link."""
+    generation_link = build_langfuse_observation_link(span, trace_id)
+    generation = span.generation(
+        model=model,
+        input=generation_input,
+        name=generation_name,
+        metadata={
+            key: value
+            for key, value in usage_metadata.items()
+            if key.startswith("model_") or key == "resolved_model"
+        },
+        **generation_link,
+    )
+    app.logger.info(
+        "langfuse llm generation linked | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | model=%s",
+        request_id or "",
+        generation_link.get("trace_id", ""),
+        generation_link.get("parent_observation_id", ""),
+        generation_name,
+        model,
+    )
+    return generation
+
+
+def _resolve_llm_usage_context(
+    usage_context: UsageContext | None,
+    *,
+    user_id: str,
+    request_id: str | None,
+    trace_id: str | None,
+    usage_scene: str | int | None,
+    billable: int | None,
+) -> UsageContext:
+    """Build or refresh the metering context for one LLM call."""
+    resolved_usage_scene = normalize_usage_scene(usage_scene)
+    if usage_context is None:
+        usage_context = UsageContext(
+            user_bid=user_id or "",
+            request_id=request_id or "",
+            trace_id=trace_id or "",
+            usage_scene=resolved_usage_scene,
+            billable=billable,
+        )
+    else:
+        usage_context = replace(
+            usage_context,
+            request_id=request_id or usage_context.request_id,
+            trace_id=trace_id or usage_context.trace_id,
+            usage_scene=resolved_usage_scene,
+            billable=billable if billable is not None else usage_context.billable,
+        )
+    return usage_context
+
+
+def _record_llm_call_usage(
+    app: Flask,
+    usage_context: UsageContext,
+    usage_metadata: dict[str, object],
+    *,
+    usage: dict[str, object] | None,
+    provider_name: str,
+    model: str,
+    stream_flag: bool,
+    input_cache_tokens: int,
+    latency_ms: int,
+    status: int,
+    error_message: str,
+) -> None:
+    """Persist LLM usage, marking whether token counts came from LiteLLM."""
+    if usage is None:
+        usage_metadata.setdefault("usage_source", "missing")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=0,
+            input_cache=input_cache_tokens,
+            output=0,
+            total=0,
+            latency_ms=latency_ms,
+            status=status,
+            error_message=error_message,
+            extra=usage_metadata,
+        )
+    else:
+        usage_metadata.setdefault("usage_source", "litellm")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=_extract_usage_value(usage, "input"),
+            input_cache=input_cache_tokens,
+            output=_extract_usage_value(usage, "output"),
+            total=_extract_usage_value(usage, "total"),
+            latency_ms=latency_ms,
+            status=status,
+            error_message=error_message,
+            extra=usage_metadata,
+        )
+
+
+def _finalize_invoke_llm(
+    app: Flask,
+    span: LangfuseObservationHandle,
+    generation: object,
+    *,
+    generation_input: list,
+    generation_name: str,
+    usage_context: UsageContext | None,
+    usage_metadata: dict[str, object],
+    kwargs: dict[str, object],
+    user_id: str,
+    request_id: str | None,
+    trace_id: str | None,
+    usage_scene: str | int | None,
+    billable: int | None,
+    model: str,
+    provider_name: str,
+    stream_flag: bool,
+    response_text: str,
+    reasoning_text: str,
+    usage: dict[str, object] | None,
+    input_cache_tokens: int,
+    start_time: float,
+    start_completion_time: datetime | None,
+) -> None:
+    """Record usage and close the Langfuse generation after a completed stream."""
+    app.logger.info("invoke_llm response_chars=%s", len(response_text))
+    if usage is None:
+        app.logger.info("invoke_llm usage: None")
+    else:
+        app.logger.info("invoke_llm usage: %s", usage.__str__())
+    latency_ms = int((time.monotonic() - start_time) * 1000)
+    usage_context = _resolve_llm_usage_context(
+        usage_context,
+        user_id=user_id,
+        request_id=request_id,
+        trace_id=trace_id,
+        usage_scene=usage_scene,
+        billable=billable,
+    )
+    usage_metadata.setdefault("generation_name", generation_name)
+    if "temperature" in kwargs:
+        usage_metadata.setdefault("temperature", kwargs.get("temperature"))
+    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
+    _record_llm_call_usage(
+        app,
+        usage_context,
+        usage_metadata,
+        usage=usage,
+        provider_name=provider_name,
+        model=model,
+        stream_flag=stream_flag,
+        input_cache_tokens=input_cache_tokens,
+        latency_ms=latency_ms,
+        status=0,
+        error_message="",
+    )
+    generation.end(
+        input=generation_input,
+        output=_build_langfuse_llm_output(response_text, reasoning_text),
+        usage=usage,
+        metadata={
+            **kwargs,
+            **{
+                key: value
+                for key, value in usage_metadata.items()
+                if key.startswith("model_") or key == "resolved_model"
+            },
+        },
+        completion_start_time=start_completion_time,
+    )
+    span.update(output=response_text)
 
 
 def invoke_llm(
@@ -1302,25 +994,15 @@ def invoke_llm(
     if system:
         generation_input.append({"role": "system", "content": system})
     generation_input.append({"role": "user", "content": message})
-    generation_link = build_langfuse_observation_link(span, trace_id)
-    generation = span.generation(
+    generation = _start_llm_generation(
+        app,
+        span,
         model=model,
-        input=generation_input,
-        name=generation_name,
-        metadata={
-            key: value
-            for key, value in usage_metadata.items()
-            if key.startswith("model_") or key == "resolved_model"
-        },
-        **generation_link,
-    )
-    app.logger.info(
-        "langfuse llm generation linked | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | model=%s",
-        request_id or "",
-        generation_link.get("trace_id", ""),
-        generation_link.get("parent_observation_id", ""),
-        generation_name,
-        model,
+        generation_input=generation_input,
+        generation_name=generation_name,
+        usage_metadata=usage_metadata,
+        request_id=request_id,
+        trace_id=trace_id,
     )
     response_text = ""
     reasoning_text = ""
@@ -1387,82 +1069,153 @@ def invoke_llm(
             model=model,
         )
 
-    app.logger.info("invoke_llm response_chars=%s", len(response_text))
+    _finalize_invoke_llm(
+        app,
+        span,
+        generation,
+        generation_input=generation_input,
+        generation_name=generation_name,
+        usage_context=usage_context,
+        usage_metadata=usage_metadata,
+        kwargs=kwargs,
+        user_id=user_id,
+        request_id=request_id,
+        trace_id=trace_id,
+        usage_scene=usage_scene,
+        billable=billable,
+        model=model,
+        provider_name=provider_name,
+        stream_flag=stream_flag,
+        response_text=response_text,
+        reasoning_text=reasoning_text,
+        usage=usage,
+        input_cache_tokens=input_cache_tokens,
+        start_time=start_time,
+        start_completion_time=start_completion_time,
+    )
+
+
+def _chat_llm_chunk_responses(
+    res: ModelResponseStream,
+    *,
+    content: str | None,
+    tool_deltas: list[dict],
+    finish_reason: str | None,
+    res_usage: object,
+    emit_tool_calls: bool,
+) -> Generator[LLMStreamResponse, None, None]:
+    """Yield the caller-visible responses for one chat stream chunk."""
+    # Without emit_tool_calls this is exactly the old condition: text chunks only.
+    if content or tool_deltas or (emit_tool_calls and finish_reason):
+        yield LLMStreamResponse(
+            res.id,
+            bool(finish_reason),
+            is_truncated=False,
+            result=content or "",
+            finish_reason=finish_reason,
+            usage=None,
+            tool_call_deltas=tool_deltas,
+        )
+    if res_usage and emit_tool_calls:
+        # Token counts only arrive on the final frame, which carries no text and
+        # would otherwise be dropped. It trails the chunk that reported the finish
+        # reason, so it must not claim to be the end as well: a caller that stops
+        # at the first `is_end` would then never see the usage it is waiting for.
+        yield LLMStreamResponse(
+            res.id,
+            is_end=False,
+            is_truncated=False,
+            result="",
+            finish_reason=finish_reason,
+            usage={
+                "prompt_tokens": res_usage.prompt_tokens,
+                "completion_tokens": res_usage.completion_tokens,
+                "total_tokens": res_usage.total_tokens,
+                "input_cache": _reported_input_cache(res_usage),
+            },
+        )
+
+
+def _finalize_chat_llm(
+    app: Flask,
+    generation: object,
+    *,
+    generation_input: list,
+    generation_name: str,
+    usage_context: UsageContext | None,
+    usage_metadata: dict[str, object],
+    kwargs: dict[str, object],
+    user_id: str,
+    request_id: str | None,
+    trace_id: str | None,
+    usage_scene: str | int | None,
+    billable: int | None,
+    model: str,
+    provider_name: str,
+    stream_flag: bool,
+    response_text: str,
+    reasoning_text: str,
+    tool_call_text: str,
+    usage: dict[str, object] | None,
+    input_cache_tokens: int,
+    start_time: float,
+    start_completion_time: datetime | None,
+    status: int,
+    error_message: str,
+) -> None:
+    """Record chat usage and close the Langfuse generation, even after failures."""
+    app.logger.info("chat_llm response_chars=%s", len(response_text))
     if usage is None:
-        app.logger.info("invoke_llm usage: None")
+        app.logger.info("chat_llm usage: None")
     else:
-        app.logger.info("invoke_llm usage: %s", usage.__str__())
+        app.logger.info("chat_llm usage: %s", usage.__str__())
     latency_ms = int((time.monotonic() - start_time) * 1000)
-    resolved_usage_scene = normalize_usage_scene(usage_scene)
-    if usage_context is None:
-        usage_context = UsageContext(
-            user_bid=user_id or "",
-            request_id=request_id or "",
-            trace_id=trace_id or "",
-            usage_scene=resolved_usage_scene,
-            billable=billable,
-        )
-    else:
-        usage_context = replace(
-            usage_context,
-            request_id=request_id or usage_context.request_id,
-            trace_id=trace_id or usage_context.trace_id,
-            usage_scene=resolved_usage_scene,
-            billable=billable if billable is not None else usage_context.billable,
-        )
+    usage_context = _resolve_llm_usage_context(
+        usage_context,
+        user_id=user_id,
+        request_id=request_id,
+        trace_id=trace_id,
+        usage_scene=usage_scene,
+        billable=billable,
+    )
     usage_metadata.setdefault("generation_name", generation_name)
     if "temperature" in kwargs:
         usage_metadata.setdefault("temperature", kwargs.get("temperature"))
-    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
-    if usage is None:
-        usage_metadata.setdefault("usage_source", "missing")
-        record_llm_usage(
-            app,
-            usage_context,
-            provider=provider_name or "",
-            model=model,
-            is_stream=stream_flag,
-            input=0,
-            input_cache=input_cache_tokens,
-            output=0,
-            total=0,
-            latency_ms=latency_ms,
-            status=0,
-            error_message="",
-            extra=usage_metadata,
-        )
-    else:
-        usage_metadata.setdefault("usage_source", "litellm")
-        record_llm_usage(
-            app,
-            usage_context,
-            provider=provider_name or "",
-            model=model,
-            is_stream=stream_flag,
-            input=_extract_usage_value(usage, "input"),
-            input_cache=input_cache_tokens,
-            output=_extract_usage_value(usage, "output"),
-            total=_extract_usage_value(usage, "total"),
-            latency_ms=latency_ms,
-            status=0,
-            error_message="",
-            extra=usage_metadata,
-        )
-    generation.end(
-        input=generation_input,
-        output=_build_langfuse_llm_output(response_text, reasoning_text),
-        usage=usage,
-        metadata={
-            **kwargs,
-            **{
-                key: value
-                for key, value in usage_metadata.items()
-                if key.startswith("model_") or key == "resolved_model"
-            },
-        },
-        completion_start_time=start_completion_time,
+    usage_metadata = _attach_usage_output_text(
+        usage_metadata, response_text + tool_call_text
     )
-    span.update(output=response_text)
+    try:
+        _record_llm_call_usage(
+            app,
+            usage_context,
+            usage_metadata,
+            usage=usage,
+            provider_name=provider_name,
+            model=model,
+            stream_flag=stream_flag,
+            input_cache_tokens=input_cache_tokens,
+            latency_ms=latency_ms,
+            status=status,
+            error_message=error_message,
+        )
+    finally:
+        generation.end(
+            input=generation_input,
+            output=_build_langfuse_llm_output(
+                response_text + tool_call_text, reasoning_text
+            ),
+            usage=usage,
+            metadata={
+                **kwargs,
+                **({"status": status, "error_type": error_message} if status else {}),
+                **{
+                    key: value
+                    for key, value in usage_metadata.items()
+                    if key.startswith("model_") or key == "resolved_model"
+                },
+            },
+            completion_start_time=start_completion_time,
+        )
 
 
 def chat_llm(
@@ -1502,25 +1255,15 @@ def chat_llm(
     usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
     model, usage_metadata = resolve_selection(model, usage_metadata)
     generation_input = messages
-    generation_link = build_langfuse_observation_link(span, trace_id)
-    generation = span.generation(
+    generation = _start_llm_generation(
+        app,
+        span,
         model=model,
-        input=generation_input,
-        name=generation_name,
-        metadata={
-            key: value
-            for key, value in usage_metadata.items()
-            if key.startswith("model_") or key == "resolved_model"
-        },
-        **generation_link,
-    )
-    app.logger.info(
-        "langfuse llm generation linked | request_id=%s | trace_id=%s | parent_observation_id=%s | generation_name=%s | model=%s",
-        request_id or "",
-        generation_link.get("trace_id", ""),
-        generation_link.get("parent_observation_id", ""),
-        generation_name,
-        model,
+        generation_input=generation_input,
+        generation_name=generation_name,
+        usage_metadata=usage_metadata,
+        request_id=request_id,
+        trace_id=trace_id,
     )
     response_text = ""
     reasoning_text = ""
@@ -1583,35 +1326,14 @@ def chat_llm(
                             "output": res_usage.completion_tokens,
                             "total": res_usage.total_tokens,
                         }
-                    # Without emit_tool_calls this is exactly the old condition: text chunks only.
-                    if content or tool_deltas or (emit_tool_calls and finish_reason):
-                        yield LLMStreamResponse(
-                            res.id,
-                            bool(finish_reason),
-                            is_truncated=False,
-                            result=content or "",
-                            finish_reason=finish_reason,
-                            usage=None,
-                            tool_call_deltas=tool_deltas,
-                        )
-                    if res_usage and emit_tool_calls:
-                        # Token counts only arrive on the final frame, which carries no text and
-                        # would otherwise be dropped. It trails the chunk that reported the finish
-                        # reason, so it must not claim to be the end as well: a caller that stops
-                        # at the first `is_end` would then never see the usage it is waiting for.
-                        yield LLMStreamResponse(
-                            res.id,
-                            is_end=False,
-                            is_truncated=False,
-                            result="",
-                            finish_reason=finish_reason,
-                            usage={
-                                "prompt_tokens": res_usage.prompt_tokens,
-                                "completion_tokens": res_usage.completion_tokens,
-                                "total_tokens": res_usage.total_tokens,
-                                "input_cache": _reported_input_cache(res_usage),
-                            },
-                        )
+                    yield from _chat_llm_chunk_responses(
+                        res,
+                        content=content,
+                        tool_deltas=tool_deltas,
+                        finish_reason=finish_reason,
+                        res_usage=res_usage,
+                        emit_tool_calls=emit_tool_calls,
+                    )
                 _check_stream_cancelled(retry_cancelled)
             except Exception as exc:
                 # A tool-calling turn can be entirely tool calls, so text alone is the wrong test for
@@ -1641,92 +1363,32 @@ def chat_llm(
         close = getattr(response, "close", None)
         if close is not None:
             close()
-        app.logger.info("chat_llm response_chars=%s", len(response_text))
-        if usage is None:
-            app.logger.info("chat_llm usage: None")
-        else:
-            app.logger.info("chat_llm usage: %s", usage.__str__())
-        latency_ms = int((time.monotonic() - start_time) * 1000)
-        resolved_usage_scene = normalize_usage_scene(usage_scene)
-        if usage_context is None:
-            usage_context = UsageContext(
-                user_bid=user_id or "",
-                request_id=request_id or "",
-                trace_id=trace_id or "",
-                usage_scene=resolved_usage_scene,
-                billable=billable,
-            )
-        else:
-            usage_context = replace(
-                usage_context,
-                request_id=request_id or usage_context.request_id,
-                trace_id=trace_id or usage_context.trace_id,
-                usage_scene=resolved_usage_scene,
-                billable=billable if billable is not None else usage_context.billable,
-            )
-        usage_metadata.setdefault("generation_name", generation_name)
-        if "temperature" in kwargs:
-            usage_metadata.setdefault("temperature", kwargs.get("temperature"))
-        usage_metadata = _attach_usage_output_text(
-            usage_metadata, response_text + tool_call_text
+        _finalize_chat_llm(
+            app,
+            generation,
+            generation_input=generation_input,
+            generation_name=generation_name,
+            usage_context=usage_context,
+            usage_metadata=usage_metadata,
+            kwargs=kwargs,
+            user_id=user_id,
+            request_id=request_id,
+            trace_id=trace_id,
+            usage_scene=usage_scene,
+            billable=billable,
+            model=model,
+            provider_name=provider_name,
+            stream_flag=stream_flag,
+            response_text=response_text,
+            reasoning_text=reasoning_text,
+            tool_call_text=tool_call_text,
+            usage=usage,
+            input_cache_tokens=input_cache_tokens,
+            start_time=start_time,
+            start_completion_time=start_completion_time,
+            status=status,
+            error_message=error_message,
         )
-        try:
-            if usage is None:
-                usage_metadata.setdefault("usage_source", "missing")
-                record_llm_usage(
-                    app,
-                    usage_context,
-                    provider=provider_name or "",
-                    model=model,
-                    is_stream=stream_flag,
-                    input=0,
-                    input_cache=input_cache_tokens,
-                    output=0,
-                    total=0,
-                    latency_ms=latency_ms,
-                    status=status,
-                    error_message=error_message,
-                    extra=usage_metadata,
-                )
-            else:
-                usage_metadata.setdefault("usage_source", "litellm")
-                record_llm_usage(
-                    app,
-                    usage_context,
-                    provider=provider_name or "",
-                    model=model,
-                    is_stream=stream_flag,
-                    input=_extract_usage_value(usage, "input"),
-                    input_cache=input_cache_tokens,
-                    output=_extract_usage_value(usage, "output"),
-                    total=_extract_usage_value(usage, "total"),
-                    latency_ms=latency_ms,
-                    status=status,
-                    error_message=error_message,
-                    extra=usage_metadata,
-                )
-        finally:
-            generation.end(
-                input=generation_input,
-                output=_build_langfuse_llm_output(
-                    response_text + tool_call_text, reasoning_text
-                ),
-                usage=usage,
-                metadata={
-                    **kwargs,
-                    **(
-                        {"status": status, "error_type": error_message}
-                        if status
-                        else {}
-                    ),
-                    **{
-                        key: value
-                        for key, value in usage_metadata.items()
-                        if key.startswith("model_") or key == "resolved_model"
-                    },
-                },
-                completion_start_time=start_completion_time,
-            )
 
 
 def count_llm_chat_input_tokens(
@@ -1789,584 +1451,22 @@ def _apply_llm_max_output_tokens(
         kwargs["max_tokens"] = resolved
 
 
-def _gateway_output_token_count(invoke_model: str, output: str) -> int:
-    if not output:
-        return 0
-    try:
-        return max(int(litellm.token_counter(model=invoke_model, text=output) or 0), 0)
-    except Exception:
-        return 0
-
-
-def _gateway_output_text(payload: dict[str, object]) -> str:
-    """Extract generated text and tool arguments without counting protocol JSON."""
-    parts: list[str] = []
-    for choice in payload.get("choices") or []:
-        message = dict(choice.get("message") or choice.get("delta") or {})
-        for output_field in ("content", "reasoning_content", "reasoning"):
-            content = message.get(output_field)
-            if isinstance(content, list):
-                message[output_field] = "".join(
-                    part["text"]
-                    for part in content
-                    if isinstance(part, dict) and isinstance(part.get("text"), str)
-                )
-        content = message.get("content")
-        if isinstance(content, str):
-            parts.append(content)
-        parts.append(_extract_reasoning_delta(message))
-        for call in message.get("tool_calls") or []:
-            function = call.get("function") or {}
-            for output_field in ("name", "arguments"):
-                value = function.get(output_field)
-                if isinstance(value, str):
-                    parts.append(value)
-    return "".join(parts)
-
-
-def _gateway_usage_values(
-    usage: object,
-    *,
-    invoke_model: str,
-    fallback_input_tokens: int,
-    output_capture: str,
-) -> tuple[dict[str, int], int, str]:
-    if usage is not None:
-        values = {
-            "input": _extract_usage_value(usage, "prompt_tokens"),
-            "output": _extract_usage_value(usage, "completion_tokens"),
-            "total": _extract_usage_value(usage, "total_tokens"),
-        }
-        return values, _extract_input_cache(usage), "litellm"
-
-    output_tokens = _gateway_output_token_count(invoke_model, output_capture)
-    return (
-        {
-            "input": max(int(fallback_input_tokens or 0), 0),
-            "output": output_tokens,
-            "total": max(int(fallback_input_tokens or 0), 0) + output_tokens,
-        },
-        0,
-        "estimated",
-    )
-
-
-def _record_gateway_llm_usage(
-    app: Flask,
-    *,
-    user_id: str,
-    request_id: str,
-    trace_id: str,
-    provider: str,
-    model: str,
-    is_stream: bool,
-    usage: object,
-    invoke_model: str,
-    fallback_input_tokens: int,
-    output_capture: str,
-    latency_ms: int,
-    status: int,
-    error_message: str,
-    usage_metadata: dict[str, object] | None,
-) -> None:
-    values, input_cache, usage_source = _gateway_usage_values(
-        usage,
-        invoke_model=invoke_model,
-        fallback_input_tokens=fallback_input_tokens,
-        output_capture=output_capture,
-    )
-    metadata = _attach_usage_output_text(
-        {
-            **dict(usage_metadata or {}),
-            "usage_source": usage_source,
-            "billing_source": "model_gateway",
-        },
-        output_capture,
-    )
-    record_llm_usage(
-        app,
-        UsageContext(
-            user_bid=user_id,
-            request_id=request_id,
-            trace_id=trace_id,
-            usage_scene=BILL_USAGE_SCENE_PROD,
-            billable=int(status == 0),
-        ),
-        provider=provider,
-        model=model,
-        is_stream=is_stream,
-        input=values["input"],
-        input_cache=input_cache,
-        output=values["output"],
-        total=values["total"],
-        latency_ms=latency_ms,
-        status=status,
-        error_message=error_message,
-        extra=metadata,
-    )
-
-
-def complete_openai_chat_completion(
-    app: Flask,
-    *,
-    user_id: str,
-    span: LangfuseObservationHandle,
-    model: str,
-    messages: list[dict[str, object]],
-    request_id: str,
-    fallback_input_tokens: int,
-    usage_metadata: dict[str, object] | None = None,
-    **kwargs: object,
-) -> dict[str, object]:
-    """Return one raw OpenAI-compatible completion and persist its usage."""
-    requested_model = str(model or "").strip()
-    params, invoke_model, provider_key = get_litellm_params_and_model(requested_model)
-    if not params:
-        raise_error_with_args("server.llm.modelNotSupported", model=requested_model)
-
-    completion_kwargs = dict(kwargs)
-    completion_kwargs.pop("stream", None)
-    _apply_llm_max_output_tokens(requested_model, invoke_model, completion_kwargs)
-    completion_kwargs = _prepare_litellm_request_kwargs(
-        provider_key or "",
-        invoke_model,
-        params,
-        completion_kwargs,
-    )
-    trace_id = resolve_langfuse_trace_id(span)
-    generation = span.generation(
-        model=requested_model,
-        input=messages,
-        name="model_gateway_chat_completion",
-        **build_langfuse_observation_link(span, trace_id),
-    )
-    started_at = time.monotonic()
-    response = None
-    payload: dict[str, object] = {}
-    output_capture = ""
-    status = 0
-    error_message = ""
-    try:
-        response = litellm.completion(
-            model=invoke_model,
-            messages=messages,
-            stream=False,
-            **params,
-            **completion_kwargs,
-        )
-        if hasattr(response, "model_dump"):
-            payload = response.model_dump(exclude_none=True)
-        else:
-            payload = dict(response)
-        output_capture = _gateway_output_text(payload)
-    except Exception as exc:
-        status = 1
-        error_message = str(exc)
-        raise
-    finally:
-        usage = (
-            (getattr(response, "usage", None) or payload.get("usage"))
-            if response is not None
-            else None
-        )
-        latency_ms = int((time.monotonic() - started_at) * 1000)
-        _record_gateway_llm_usage(
-            app,
-            user_id=user_id,
-            request_id=request_id,
-            trace_id=trace_id,
-            provider=provider_key or "",
-            model=requested_model,
-            is_stream=False,
-            usage=usage,
-            invoke_model=invoke_model,
-            fallback_input_tokens=fallback_input_tokens,
-            output_capture=output_capture,
-            latency_ms=latency_ms,
-            status=status,
-            error_message=error_message,
-            usage_metadata=usage_metadata,
-        )
-        with contextlib.suppress(Exception):
-            generation.end(
-                input=messages,
-                output=output_capture,
-                usage=usage,
-                metadata=completion_kwargs,
-            )
-    return payload
-
-
-def stream_openai_chat_completion(
-    app: Flask,
-    *,
-    user_id: str,
-    span: LangfuseObservationHandle,
-    model: str,
-    messages: list[dict[str, object]],
-    request_id: str,
-    fallback_input_tokens: int,
-    usage_metadata: dict[str, object] | None = None,
-    **kwargs: object,
-) -> Generator[dict[str, object], None, None]:
-    """Yield raw OpenAI-compatible chunks and persist final stream usage."""
-    requested_model = str(model or "").strip()
-    params, invoke_model, provider_key = get_litellm_params_and_model(requested_model)
-    if not params:
-        raise_error_with_args("server.llm.modelNotSupported", model=requested_model)
-
-    stream_kwargs = dict(kwargs)
-    stream_kwargs.pop("stream", None)
-    stream_kwargs["stream_options"] = {"include_usage": True}
-    stream_kwargs = _prepare_litellm_request_kwargs(
-        provider_key or "",
-        invoke_model,
-        params,
-        stream_kwargs,
-    )
-    trace_id = resolve_langfuse_trace_id(span)
-    generation = span.generation(
-        model=requested_model,
-        input=messages,
-        name="model_gateway_chat_completion",
-        **build_langfuse_observation_link(span, trace_id),
-    )
-    started_at = time.monotonic()
-    usage = None
-    output_parts: list[str] = []
-    completed = False
-    status = 0
-    error_message = ""
-    try:
-        response = _iter_stream_with_precontent_retry(
-            app,
-            requested_model,
-            invoke_model,
-            messages,
-            params,
-            stream_kwargs,
-            tool_calls_are_output=True,
-        )
-        for chunk in response:
-            chunk_usage = getattr(chunk, "usage", None)
-            if chunk_usage is not None:
-                usage = chunk_usage
-            if hasattr(chunk, "model_dump"):
-                payload = chunk.model_dump(exclude_none=True)
-            else:
-                payload = dict(chunk)
-            if payload.get("usage") is not None:
-                usage = payload["usage"]
-            output_parts.append(_gateway_output_text(payload))
-            yield payload
-        completed = True
-    except Exception as exc:
-        status = 1
-        error_message = str(exc)
-        raise
-    finally:
-        output_capture = "".join(output_parts)
-        if not completed:
-            status = 1
-        latency_ms = int((time.monotonic() - started_at) * 1000)
-        _record_gateway_llm_usage(
-            app,
-            user_id=user_id,
-            request_id=request_id,
-            trace_id=trace_id,
-            provider=provider_key or "",
-            model=requested_model,
-            is_stream=True,
-            usage=usage,
-            invoke_model=invoke_model,
-            fallback_input_tokens=fallback_input_tokens,
-            output_capture=output_capture,
-            latency_ms=latency_ms,
-            status=status,
-            error_message=error_message,
-            usage_metadata=usage_metadata,
-        )
-        with contextlib.suppress(Exception):
-            generation.end(
-                input=messages,
-                output=output_capture,
-                usage=usage,
-                metadata=stream_kwargs,
-            )
-
-
-def _build_model_options(
-    app: Flask, available_models: list[str]
-) -> list[dict[str, object]]:
-    """Build a physical catalog from configured slots, never provider discovery alone."""
-    from flaskr.api.llm.model_selection import get_configured_model_slots
-
-    available_set = set(available_models)
-    seen = set()
-    options = []
-    for slot in get_configured_model_slots():
-        model = slot["model"]
-        if model not in available_set or model in seen:
-            continue
-        seen.add(model)
-        options.append({"model": model, "display_name": slot["display_name"]})
-    return _attach_credit_multipliers(app, options)
-
-
-def _resolve_billing_rate_identity(model: str) -> tuple[str, list[str]]:
-    provider, actual_model = _resolve_provider_for_model(model)
-    candidates: list[str] = []
-    for candidate in (actual_model, model):
-        normalized = str(candidate or "").strip()
-        if normalized and normalized not in candidates:
-            candidates.append(normalized)
-    return provider or "", candidates
-
-
-def _rate_per_token(rate: CreditUsageRate | None) -> Decimal | None:
-    if rate is None:
-        return None
-    try:
-        unit_size = max(int(rate.unit_size or 1), 1)
-        return Decimal(str(rate.credits_per_unit or 0)) / Decimal(str(unit_size))
-    except (InvalidOperation, ValueError, TypeError, ZeroDivisionError):
-        return None
-
-
-def _select_credit_usage_rate(
-    rows: list[CreditUsageRate],
-    *,
-    provider: str,
-    model_candidates: list[str],
-    now: datetime,
-) -> CreditUsageRate | None:
-    normalized_provider = str(provider or "").strip()
-    normalized_models = [
-        str(model or "").strip() for model in model_candidates if model
-    ]
-    if not normalized_models:
-        return None
-    candidate_set = set(normalized_models)
-    model_priority = {
-        model: len(normalized_models) - index
-        for index, model in enumerate(normalized_models)
-    }
-    candidates = [
-        row
-        for row in rows
-        if row.effective_from <= now
-        and (row.effective_to is None or row.effective_to > now)
-        and row.provider in {normalized_provider, "*"}
-        and row.model in candidate_set.union({"*"})
-    ]
-    if not candidates:
-        return None
-    candidates.sort(
-        key=lambda row: (
-            row.provider == normalized_provider,
-            row.model in candidate_set,
-            model_priority.get(row.model, 0),
-            row.effective_from or NAIVE_DATETIME_MIN,
-            int(row.id or 0),
-        ),
-        reverse=True,
-    )
-    return candidates[0]
-
-
-def _load_llm_output_rate_rows(app: Flask) -> list[CreditUsageRate]:
-    with app.app_context():
-        return (
-            CreditUsageRate.query.filter(
-                CreditUsageRate.deleted == 0,
-                CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
-                CreditUsageRate.usage_type == BILL_USAGE_TYPE_LLM,
-                CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
-                CreditUsageRate.billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS,
-            )
-            .order_by(CreditUsageRate.effective_from.desc(), CreditUsageRate.id.desc())
-            .all()
-        )
-
-
-def _attach_credit_multipliers(
-    app: Flask, options: list[dict[str, object]]
-) -> list[dict[str, object]]:
-    from flaskr.api.llm.model_selection import get_default_llm_model
-
-    default_model = get_default_llm_model()
-    if not options:
-        return [{**option, "credit_multiplier": None} for option in options]
-
-    try:
-        rows = _load_llm_output_rate_rows(app)
-        now = now_utc()
-        default_rate = load_llm_credit_1x_unit_cost()
-        if default_rate is None or default_rate <= 0:
-            return [{**option, "credit_multiplier": None} for option in options]
-
-        enriched: list[dict[str, Any]] = []
-        for option in options:
-            model = str(option.get("model") or "").strip()
-            provider, model_candidates = _resolve_billing_rate_identity(model)
-            model_rate = _rate_per_token(
-                _select_credit_usage_rate(
-                    rows,
-                    provider=provider,
-                    model_candidates=model_candidates,
-                    now=now,
-                )
-            )
-            multiplier = None
-            multiplier_label = None
-            if model_rate is not None and model_rate > 0:
-                multiplier_value = model_rate / default_rate
-                multiplier = int(
-                    multiplier_value.to_integral_value(rounding=ROUND_CEILING)
-                )
-                multiplier_label = format_credit_multiplier(multiplier_value)
-            enriched.append(
-                {
-                    **option,
-                    "credit_multiplier": multiplier,
-                    "credit_multiplier_label": multiplier_label,
-                    "is_default": model == default_model,
-                }
-            )
-    except Exception as exc:
-        _log_warning(f"load LLM credit multipliers error: {exc}")
-        return [{**option, "credit_multiplier": None} for option in options]
-    else:
-        return enriched
-
-
-def get_current_models(app: Flask) -> list[dict[str, object]]:
-    """Return configured physical text models for internal and gateway consumers."""
-    from flaskr.api.llm.model_selection import (
-        get_configured_model_slots,
-        resolve_model_slot,
-    )
-
-    litellm_models: list[str] = []
-    for slot in get_configured_model_slots():
-        try:
-            litellm_models.append(resolve_model_slot(slot["index"]))
-        except AppError as exc:
-            if exc.code not in {
-                ERROR_CODE["server.llm.modelUnavailable"],
-                ERROR_CODE["server.llm.modelSelectionNotConfigured"],
-            }:
-                raise
-    available_models = [
-        model
-        for model in dict.fromkeys(litellm_models)
-        if not is_live_follow_up_model(model)
-        and (
-            not MODEL_SUPPORTED_GENERATION_METHODS.get(model)
-            or "generateContent" in MODEL_SUPPORTED_GENERATION_METHODS[model]
-        )
-    ]
-    return _build_model_options(app, available_models)
-
-
-def is_live_follow_up_model_available(model: object) -> bool:
-    """Return whether an allowlisted Live model was capability-discovered."""
-    normalized_model = str(model or "").strip()
-    if (
-        not is_gemini_live_enabled()
-        or normalized_model not in GEMINI_LIVE_MODEL_ALLOWLIST
-    ):
-        return False
-    gemini_state = PROVIDER_STATES.get("gemini")
-    if not gemini_state or not gemini_state.enabled:
-        return False
-    if normalized_model not in gemini_state.models:
-        return False
-    return "bidiGenerateContent" in MODEL_SUPPORTED_GENERATION_METHODS.get(
-        normalized_model, frozenset()
-    )
-
-
-def get_follow_up_models(app: Flask) -> list[dict[str, object]]:
-    """Return model options with stable follow-up interaction capabilities."""
-    options = [
-        {
-            **option,
-            "interaction_mode": "text",
-            "allowed_roles": ["main", "follow_up"],
-            "billing_mode": "billable",
-            "voices": [],
-        }
-        for option in get_legacy_course_model_options(app)
-    ]
-    for model in GEMINI_LIVE_MODEL_ALLOWLIST:
-        if not is_live_follow_up_model_available(model):
-            continue
-        options.append(
-            {
-                "model": model,
-                "display_name": "Gemini Live",
-                "credit_multiplier": None,
-                "credit_multiplier_label": None,
-                "is_default": False,
-                "interaction_mode": "live_voice",
-                "allowed_roles": ["follow_up"],
-                "billing_mode": "free_preview",
-                "voices": get_gemini_live_voice_options(),
-            }
-        )
-    return options
-
-
-def get_course_model_options(app: Flask) -> list[dict[str, object]]:
-    """Return numbered course choices with labels, availability, and credit rates."""
-    from flaskr.api.llm.model_selection import (
-        get_configured_model_slots,
-        resolve_model_slot,
-    )
-
-    options = []
-    available_options = []
-    for slot in get_configured_model_slots():
-        option = {
-            "index": slot["index"],
-            "display_name": slot["display_name"],
-            "available": False,
-            "is_default": slot["index"] == "1",
-            "credit_multiplier": None,
-            "credit_multiplier_label": None,
-        }
-        try:
-            model = resolve_model_slot(slot["index"])
-        except AppError as exc:
-            if exc.code not in {
-                ERROR_CODE["server.llm.modelUnavailable"],
-                ERROR_CODE["server.llm.modelSelectionNotConfigured"],
-            }:
-                raise
-        else:
-            option["available"] = True
-            available_options.append((option, model))
-        options.append(option)
-    if available_options:
-        models = dict.fromkeys(model for _, model in available_options)
-        rates_by_model = {
-            rates["model"]: rates
-            for rates in _attach_credit_multipliers(
-                app, [{"model": model} for model in models]
-            )
-        }
-        for option, model in available_options:
-            rates = rates_by_model[model]
-            option.update(
-                credit_multiplier=rates.get("credit_multiplier"),
-                credit_multiplier_label=rates.get("credit_multiplier_label"),
-            )
-    return options
-
-
-def get_legacy_course_model_options(app: Flask) -> list[dict[str, object]]:
-    """Adapt course options to catalogs that expect an index in the model field."""
-    return [
-        {**option, "model": option["index"]} for option in get_course_model_options(app)
-    ]
+# Gateway and catalog code lives in sibling modules and looks package-level
+# names up through this module at call time. Import them after every name above
+# is bound so `flaskr.api.llm.<name>` stays the single patchable surface.
+from flaskr.api.llm.catalog import (  # noqa: E402, F401  # re-exported after package globals exist
+    _attach_credit_multipliers,
+    _build_model_options,
+    _load_llm_output_rate_rows,
+    _resolve_billing_rate_identity,
+    get_course_model_options,
+    get_current_models,
+    get_follow_up_models,
+    get_legacy_course_model_options,
+    is_live_follow_up_model_available,
+)
+from flaskr.api.llm.gateway import (  # noqa: E402, F401  # re-exported after package globals exist
+    _record_gateway_llm_usage,
+    complete_openai_chat_completion,
+    stream_openai_chat_completion,
+)
