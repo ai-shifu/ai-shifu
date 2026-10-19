@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from flask import Flask
+    from sqlalchemy.orm import Query
     from sqlalchemy.sql.elements import ColumnElement
     from sqlalchemy.sql.selectable import Subquery
 
@@ -306,6 +307,91 @@ def _build_learner_activity_subqueries(
     )
 
 
+def _build_learner_row_query(
+    *,
+    learner_source: Subquery,
+    last_learning_subquery: Subquery,
+    joined_at_subquery: Subquery,
+    follow_up_count_subquery: Subquery,
+    learned_lesson_count_subquery: Subquery,
+    learned_lesson_count_expression: ColumnElement[int],
+    learning_status_expression: ColumnElement[str],
+    joined_at_expression: ColumnElement[datetime],
+) -> Query:
+    """Select one row per learner joined with its activity aggregates."""
+    return (
+        db.session.query(
+            learner_source.c.user_bid.label("user_bid"),
+            UserEntity.nickname.label("nickname"),
+            last_learning_subquery.c.last_learning_at.label("last_learning_at"),
+            joined_at_expression.label("joined_at"),
+            learned_lesson_count_expression.label("learned_lesson_count"),
+            db.func.coalesce(
+                follow_up_count_subquery.c.follow_up_count,
+                0,
+            ).label("follow_up_count"),
+            learning_status_expression.label("learning_status"),
+        )
+        .select_from(learner_source)
+        .outerjoin(
+            UserEntity,
+            and_(
+                UserEntity.user_bid == learner_source.c.user_bid,
+                UserEntity.deleted == 0,
+            ),
+        )
+        .outerjoin(
+            last_learning_subquery,
+            last_learning_subquery.c.user_bid == learner_source.c.user_bid,
+        )
+        .outerjoin(
+            joined_at_subquery,
+            joined_at_subquery.c.user_bid == learner_source.c.user_bid,
+        )
+        .outerjoin(
+            follow_up_count_subquery,
+            follow_up_count_subquery.c.user_bid == learner_source.c.user_bid,
+        )
+        .outerjoin(
+            learned_lesson_count_subquery,
+            learned_lesson_count_subquery.c.user_bid == learner_source.c.user_bid,
+        )
+    )
+
+
+def _apply_learner_row_filters(
+    filtered_query: Query,
+    *,
+    learner_source: Subquery,
+    last_learning_subquery: Subquery,
+    learning_status_expression: ColumnElement[str],
+    keyword: str | None,
+    normalized_learning_status: str,
+    last_learning_start_dt: datetime | None,
+    last_learning_end_dt_exclusive: datetime | None,
+) -> Query:
+    """Apply keyword, learning-status, and last-learning date filters."""
+    keyword_filter = _build_dashboard_learner_keyword_filter(
+        learner_source.c.user_bid,
+        str(keyword or ""),
+    )
+    if keyword_filter is not None:
+        filtered_query = filtered_query.filter(keyword_filter)
+    if normalized_learning_status:
+        filtered_query = filtered_query.filter(
+            learning_status_expression == normalized_learning_status
+        )
+    if last_learning_start_dt is not None:
+        filtered_query = filtered_query.filter(
+            last_learning_subquery.c.last_learning_at >= last_learning_start_dt
+        )
+    if last_learning_end_dt_exclusive is not None:
+        filtered_query = filtered_query.filter(
+            last_learning_subquery.c.last_learning_at < last_learning_end_dt_exclusive
+        )
+    return filtered_query
+
+
 def _build_dashboard_course_learners(
     app: Flask,
     *,
@@ -392,62 +478,26 @@ def _build_dashboard_course_learners(
         learned_lesson_count_expression, total_lesson_count
     )
     joined_at_expression = _build_learner_joined_at_expression(joined_at_subquery)
-    filtered_query = (
-        db.session.query(
-            learner_source.c.user_bid.label("user_bid"),
-            UserEntity.nickname.label("nickname"),
-            last_learning_subquery.c.last_learning_at.label("last_learning_at"),
-            joined_at_expression.label("joined_at"),
-            learned_lesson_count_expression.label("learned_lesson_count"),
-            db.func.coalesce(
-                follow_up_count_subquery.c.follow_up_count,
-                0,
-            ).label("follow_up_count"),
-            learning_status_expression.label("learning_status"),
-        )
-        .select_from(learner_source)
-        .outerjoin(
-            UserEntity,
-            and_(
-                UserEntity.user_bid == learner_source.c.user_bid,
-                UserEntity.deleted == 0,
-            ),
-        )
-        .outerjoin(
-            last_learning_subquery,
-            last_learning_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-        .outerjoin(
-            joined_at_subquery,
-            joined_at_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-        .outerjoin(
-            follow_up_count_subquery,
-            follow_up_count_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-        .outerjoin(
-            learned_lesson_count_subquery,
-            learned_lesson_count_subquery.c.user_bid == learner_source.c.user_bid,
-        )
+    filtered_query = _build_learner_row_query(
+        learner_source=learner_source,
+        last_learning_subquery=last_learning_subquery,
+        joined_at_subquery=joined_at_subquery,
+        follow_up_count_subquery=follow_up_count_subquery,
+        learned_lesson_count_subquery=learned_lesson_count_subquery,
+        learned_lesson_count_expression=learned_lesson_count_expression,
+        learning_status_expression=learning_status_expression,
+        joined_at_expression=joined_at_expression,
     )
-    keyword_filter = _build_dashboard_learner_keyword_filter(
-        learner_source.c.user_bid,
-        str(keyword or ""),
+    filtered_query = _apply_learner_row_filters(
+        filtered_query,
+        learner_source=learner_source,
+        last_learning_subquery=last_learning_subquery,
+        learning_status_expression=learning_status_expression,
+        keyword=keyword,
+        normalized_learning_status=normalized_learning_status,
+        last_learning_start_dt=last_learning_start_dt,
+        last_learning_end_dt_exclusive=last_learning_end_dt_exclusive,
     )
-    if keyword_filter is not None:
-        filtered_query = filtered_query.filter(keyword_filter)
-    if normalized_learning_status:
-        filtered_query = filtered_query.filter(
-            learning_status_expression == normalized_learning_status
-        )
-    if last_learning_start_dt is not None:
-        filtered_query = filtered_query.filter(
-            last_learning_subquery.c.last_learning_at >= last_learning_start_dt
-        )
-    if last_learning_end_dt_exclusive is not None:
-        filtered_query = filtered_query.filter(
-            last_learning_subquery.c.last_learning_at < last_learning_end_dt_exclusive
-        )
 
     total = (
         db.session.query(db.func.count())
