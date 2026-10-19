@@ -53,6 +53,15 @@ def enable_commands(app: Flask) -> None:
         """Import user and enable course."""
         import_user(app, mobile, course_id, discount_code, user_nick_name)
 
+    _register_migrate_command(console, app)
+    _register_migration_check_commands(console)
+    _register_shifu_transfer_commands(console, app)
+    _register_agent_and_demo_commands(console, app)
+
+
+def _register_migrate_command(console: click.Group, app: Flask) -> None:
+    """Register the legacy data migration command."""
+
     @console.command(name="migrate")
     @click.option("--batch-size", default=1000, help="Batch size for processing")
     @click.option("--max-workers", default=3, help="Maximum worker threads")
@@ -188,6 +197,10 @@ def enable_commands(app: Flask) -> None:
         if migration_failed:
             error_message = "Migration failed"
             raise click.ClickException(error_message)
+
+
+def _register_migration_check_commands(console: click.Group) -> None:
+    """Register the migration verify and status commands."""
 
     @console.command(name="verify")
     def verify_command() -> None:
@@ -330,6 +343,10 @@ def enable_commands(app: Flask) -> None:
             if "migration_task" in locals():
                 migration_task.close()
 
+
+def _register_shifu_transfer_commands(console: click.Group, app: Flask) -> None:
+    """Register the shifu export and import commands."""
+
     @console.command(name="export_shifu")
     @click.argument("shifu_id")
     @click.argument("file_path")
@@ -425,6 +442,10 @@ def enable_commands(app: Flask) -> None:
             click.echo(click.style(f"❌ Import failed: {e}", fg="red"))
             message = f"Import failed: {e}"
             raise click.ClickException(message) from e
+
+
+def _register_agent_and_demo_commands(console: click.Group, app: Flask) -> None:
+    """Register the lesson engine and demo shifu commands."""
 
     @console.group(name="agent")
     def agent() -> None:

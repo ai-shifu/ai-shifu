@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -127,12 +127,10 @@ def _latest_active_course_bids(model: object, user_bid: str) -> set[str]:
     return {str(row[0] or "").strip() for row in rows if str(row[0] or "").strip()}
 
 
-def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[str, Any]:
-    user_bid = str(user.user_bid or "").strip()
-    draft_bids = _latest_active_course_bids(DraftShifu, user_bid)
-    published_bids = _latest_active_course_bids(PublishedShifu, user_bid)
-    draft_only_bids = draft_bids - published_bids
-
+def _load_published_course_summaries(
+    published_bids: set[str],
+) -> list[dict[str, str]]:
+    """List the latest title of each published course, newest first."""
     published_rows = (
         PublishedShifu.query.filter(
             PublishedShifu.shifu_bid.in_(published_bids),
@@ -153,43 +151,63 @@ def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[st
         published_courses.append(
             {"shifu_bid": shifu_bid, "course_name": str(row.title or "")}
         )
+    return published_courses
 
-    active_subscriptions = BillingSubscription.query.filter(
-        BillingSubscription.creator_bid == user_bid,
-        BillingSubscription.status.in_(ACTIVE_RENEWAL_STATUSES),
-        BillingSubscription.cancel_at_period_end == 0,
-        BillingSubscription.deleted == 0,
-    ).all()
-    renewal_count = len(active_subscriptions)
-    paid_preorders = [
-        order
-        for order in BillingOrder.query.filter(
-            BillingOrder.creator_bid == user_bid,
-            BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-            BillingOrder.deleted == 0,
-        ).all()
-        if is_active_preorder_order(order)
-    ]
-    paid_preorder_count = len(paid_preorders)
-    paid_subscription_bids = {
-        str(order.subscription_bid or "").strip()
-        for order in BillingOrder.query.filter(
-            BillingOrder.creator_bid == user_bid,
-            BillingOrder.order_type.in_(
-                [
-                    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-                    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-                    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
-                ]
-            ),
-            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-            BillingOrder.paid_amount > 0,
-            BillingOrder.deleted == 0,
-        ).all()
-        if str(order.subscription_bid or "").strip()
-        and not is_active_preorder_order(order)
-    }
+
+def _build_cancellation_issues(
+    user: UserInfo,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    published_courses: list[dict[str, str]],
+    renewal_count: int,
+    unsettled_order_count: int,
+    paid_preorder_count: int,
+    draft_only_bids: set[str],
+    available_credits: Decimal,
+    reserved_credits: Decimal,
+    active_session_count: int,
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """Collect the blockers and warnings shown before an account cancellation."""
+    blockers: list[dict[str, object]] = []
+    if user_bid == str(operator_user_bid or "").strip():
+        blockers.append({"code": "self", "count": 1})
+    if bool(user.is_operator):
+        blockers.append({"code": "operator", "count": 1})
+    if published_courses:
+        blockers.append(
+            {
+                "code": "published_course_transfer_required",
+                "count": len(published_courses),
+            }
+        )
+    if renewal_count:
+        blockers.append(
+            {"code": "subscription_cancellation_required", "count": renewal_count}
+        )
+    if unsettled_order_count:
+        blockers.append({"code": "unsettled_payment", "count": unsettled_order_count})
+
+    warnings: list[dict[str, object]] = []
+    if paid_preorder_count:
+        warnings.append(
+            {"code": "paid_preorder_refund_required", "count": paid_preorder_count}
+        )
+    if draft_only_bids:
+        warnings.append({"code": "draft_courses_frozen", "count": len(draft_only_bids)})
+    if available_credits > 0 or reserved_credits > 0:
+        warnings.append({"code": "credits_forfeited", "count": 1})
+    if active_session_count:
+        warnings.append({"code": "sessions_revoked", "count": active_session_count})
+    return blockers, warnings
+
+
+def _build_cancellation_package_payloads(
+    active_subscriptions: list[BillingSubscription],
+    paid_preorders: list[BillingOrder],
+    paid_subscription_bids: set[str],
+) -> tuple[list[dict[str, str]], list[dict[str, str]], list[dict[str, str]]]:
+    """Describe the paid, preordered and renewing packages of the user."""
     product_bids = {
         str(row.product_bid or "").strip()
         for row in [*active_subscriptions, *paid_preorders]
@@ -243,6 +261,58 @@ def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[st
             if str(subscription.billing_provider or "").strip().lower() != "manual"
         ]
     )
+    return paid_packages, preorder_packages, renewing_packages
+
+
+def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[str, Any]:
+    user_bid = str(user.user_bid or "").strip()
+    draft_bids = _latest_active_course_bids(DraftShifu, user_bid)
+    published_bids = _latest_active_course_bids(PublishedShifu, user_bid)
+    draft_only_bids = draft_bids - published_bids
+
+    published_courses = _load_published_course_summaries(published_bids)
+
+    active_subscriptions = BillingSubscription.query.filter(
+        BillingSubscription.creator_bid == user_bid,
+        BillingSubscription.status.in_(ACTIVE_RENEWAL_STATUSES),
+        BillingSubscription.cancel_at_period_end == 0,
+        BillingSubscription.deleted == 0,
+    ).all()
+    renewal_count = len(active_subscriptions)
+    paid_preorders = [
+        order
+        for order in BillingOrder.query.filter(
+            BillingOrder.creator_bid == user_bid,
+            BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            BillingOrder.deleted == 0,
+        ).all()
+        if is_active_preorder_order(order)
+    ]
+    paid_preorder_count = len(paid_preorders)
+    paid_subscription_bids = {
+        str(order.subscription_bid or "").strip()
+        for order in BillingOrder.query.filter(
+            BillingOrder.creator_bid == user_bid,
+            BillingOrder.order_type.in_(
+                [
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                ]
+            ),
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            BillingOrder.paid_amount > 0,
+            BillingOrder.deleted == 0,
+        ).all()
+        if str(order.subscription_bid or "").strip()
+        and not is_active_preorder_order(order)
+    }
+    paid_packages, preorder_packages, renewing_packages = (
+        _build_cancellation_package_payloads(
+            active_subscriptions, paid_preorders, paid_subscription_bids
+        )
+    )
     unsettled_billing_orders = BillingOrder.query.filter(
         BillingOrder.creator_bid == user_bid,
         BillingOrder.status.in_(
@@ -263,37 +333,20 @@ def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[st
     reserved_credits = Decimal(str(getattr(wallet, "reserved_credits", 0) or 0))
     active_session_count = UserToken.query.filter(UserToken.user_id == user_bid).count()
 
-    blockers: list[dict[str, object]] = []
-    if user_bid == str(operator_user_bid or "").strip():
-        blockers.append({"code": "self", "count": 1})
-    if bool(user.is_operator):
-        blockers.append({"code": "operator", "count": 1})
-    if published_courses:
-        blockers.append(
-            {
-                "code": "published_course_transfer_required",
-                "count": len(published_courses),
-            }
-        )
-    if renewal_count:
-        blockers.append(
-            {"code": "subscription_cancellation_required", "count": renewal_count}
-        )
     unsettled_order_count = unsettled_billing_orders + unsettled_legacy_orders
-    if unsettled_order_count:
-        blockers.append({"code": "unsettled_payment", "count": unsettled_order_count})
-
-    warnings: list[dict[str, object]] = []
-    if paid_preorder_count:
-        warnings.append(
-            {"code": "paid_preorder_refund_required", "count": paid_preorder_count}
-        )
-    if draft_only_bids:
-        warnings.append({"code": "draft_courses_frozen", "count": len(draft_only_bids)})
-    if available_credits > 0 or reserved_credits > 0:
-        warnings.append({"code": "credits_forfeited", "count": 1})
-    if active_session_count:
-        warnings.append({"code": "sessions_revoked", "count": active_session_count})
+    blockers, warnings = _build_cancellation_issues(
+        user,
+        user_bid=user_bid,
+        operator_user_bid=operator_user_bid,
+        published_courses=published_courses,
+        renewal_count=renewal_count,
+        unsettled_order_count=unsettled_order_count,
+        paid_preorder_count=paid_preorder_count,
+        draft_only_bids=draft_only_bids,
+        available_credits=available_credits,
+        reserved_credits=reserved_credits,
+        active_session_count=active_session_count,
+    )
 
     version_payload = {
         "user_bid": user_bid,
@@ -507,6 +560,101 @@ def _forfeit_open_credit_reservations(
     return forfeited_total
 
 
+def _tombstone_user_credentials(user: UserInfo, user_bid: str) -> None:
+    """Delete verification codes and tombstone every credential of the user."""
+    credentials = AuthCredential.query.filter(AuthCredential.user_bid == user_bid).all()
+    verification_identifiers = {
+        value
+        for credential in credentials
+        for value in (
+            str(credential.identifier or "").strip(),
+            str(credential.subject_id or "").strip(),
+        )
+        if value
+    }
+    original_identify = str(user.user_identify or "").strip()
+    if original_identify:
+        verification_identifiers.add(original_identify)
+    if verification_identifiers:
+        UserVerifyCode.query.filter(
+            db.or_(
+                UserVerifyCode.phone.in_(verification_identifiers),
+                UserVerifyCode.mail.in_(verification_identifiers),
+            )
+        ).delete(synchronize_session=False)
+    for credential in credentials:
+        credential.subject_id = _tombstone("subject", credential.credential_bid)
+        credential.identifier = _tombstone("identifier", credential.credential_bid)
+        credential.raw_profile = "{}"
+        credential.deleted = 1
+
+
+def _forfeit_cancelled_user_credits(
+    app: Flask,
+    *,
+    user_bid: str,
+    cancellation_bid: str,
+    operator_user_bid: str,
+    completed_at: datetime,
+) -> None:
+    """Forfeit the cancelled user's open reservations and remaining credits."""
+    wallet = CreditWallet.query.filter(
+        CreditWallet.creator_bid == user_bid,
+        CreditWallet.deleted == 0,
+    ).first()
+    if wallet is not None:
+        _forfeit_open_credit_reservations(
+            app,
+            wallet=wallet,
+            user_bid=user_bid,
+            cancellation_bid=cancellation_bid,
+            operator_user_bid=operator_user_bid,
+        )
+        running_balance = Decimal(str(wallet.available_credits or 0))
+        for bucket in CreditWalletBucket.query.filter(
+            CreditWalletBucket.creator_bid == user_bid,
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.available_credits > 0,
+        ).all():
+            forfeited = Decimal(str(bucket.available_credits or 0))
+            bucket.available_credits = Decimal(0)
+            bucket.consumed_credits = (
+                Decimal(str(bucket.consumed_credits or 0)) + forfeited
+            )
+            running_balance -= forfeited
+            sync_credit_bucket_status(bucket)
+            db.session.add(
+                CreditLedgerEntry(
+                    ledger_bid=generate_id(app),
+                    creator_bid=user_bid,
+                    wallet_bid=wallet.wallet_bid,
+                    wallet_bucket_bid=bucket.wallet_bucket_bid,
+                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                    source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                    source_bid=cancellation_bid,
+                    idempotency_key=(
+                        "account_cancellation:"
+                        f"{cancellation_bid}:{bucket.wallet_bucket_bid}"
+                    ),
+                    amount=-forfeited,
+                    balance_after=max(running_balance, Decimal(0)),
+                    expires_at=bucket.effective_to,
+                    consumable_from=bucket.effective_from,
+                    metadata_json={
+                        "reason": "account_cancellation",
+                        "operator_user_bid": operator_user_bid,
+                    },
+                )
+            )
+        refresh_credit_wallet_snapshot(wallet)
+        persist_credit_wallet_snapshot(
+            wallet,
+            available_credits=wallet.available_credits,
+            reserved_credits=wallet.reserved_credits,
+            updated_at=completed_at,
+        )
+
+
 def cancel_user_account(
     app: Flask,
     *,
@@ -584,35 +732,7 @@ def cancel_user_account(
             for row in token_rows:
                 db.session.delete(row)
 
-            credentials = AuthCredential.query.filter(
-                AuthCredential.user_bid == normalized_user_bid
-            ).all()
-            verification_identifiers = {
-                value
-                for credential in credentials
-                for value in (
-                    str(credential.identifier or "").strip(),
-                    str(credential.subject_id or "").strip(),
-                )
-                if value
-            }
-            original_identify = str(user.user_identify or "").strip()
-            if original_identify:
-                verification_identifiers.add(original_identify)
-            if verification_identifiers:
-                UserVerifyCode.query.filter(
-                    db.or_(
-                        UserVerifyCode.phone.in_(verification_identifiers),
-                        UserVerifyCode.mail.in_(verification_identifiers),
-                    )
-                ).delete(synchronize_session=False)
-            for credential in credentials:
-                credential.subject_id = _tombstone("subject", credential.credential_bid)
-                credential.identifier = _tombstone(
-                    "identifier", credential.credential_bid
-                )
-                credential.raw_profile = "{}"
-                credential.deleted = 1
+            _tombstone_user_credentials(user, normalized_user_bid)
 
             VariableValue.query.filter(
                 VariableValue.user_bid == normalized_user_bid,
@@ -622,61 +742,13 @@ def cancel_user_account(
                 synchronize_session=False,
             )
 
-            wallet = CreditWallet.query.filter(
-                CreditWallet.creator_bid == normalized_user_bid,
-                CreditWallet.deleted == 0,
-            ).first()
-            if wallet is not None:
-                _forfeit_open_credit_reservations(
-                    app,
-                    wallet=wallet,
-                    user_bid=normalized_user_bid,
-                    cancellation_bid=normalized_cancellation_bid,
-                    operator_user_bid=normalized_operator_bid,
-                )
-                running_balance = Decimal(str(wallet.available_credits or 0))
-                for bucket in CreditWalletBucket.query.filter(
-                    CreditWalletBucket.creator_bid == normalized_user_bid,
-                    CreditWalletBucket.deleted == 0,
-                    CreditWalletBucket.available_credits > 0,
-                ).all():
-                    forfeited = Decimal(str(bucket.available_credits or 0))
-                    bucket.available_credits = Decimal(0)
-                    bucket.consumed_credits = (
-                        Decimal(str(bucket.consumed_credits or 0)) + forfeited
-                    )
-                    running_balance -= forfeited
-                    sync_credit_bucket_status(bucket)
-                    db.session.add(
-                        CreditLedgerEntry(
-                            ledger_bid=generate_id(app),
-                            creator_bid=normalized_user_bid,
-                            wallet_bid=wallet.wallet_bid,
-                            wallet_bucket_bid=bucket.wallet_bucket_bid,
-                            entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-                            source_type=CREDIT_SOURCE_TYPE_MANUAL,
-                            source_bid=normalized_cancellation_bid,
-                            idempotency_key=(
-                                "account_cancellation:"
-                                f"{normalized_cancellation_bid}:{bucket.wallet_bucket_bid}"
-                            ),
-                            amount=-forfeited,
-                            balance_after=max(running_balance, Decimal(0)),
-                            expires_at=bucket.effective_to,
-                            consumable_from=bucket.effective_from,
-                            metadata_json={
-                                "reason": "account_cancellation",
-                                "operator_user_bid": normalized_operator_bid,
-                            },
-                        )
-                    )
-                refresh_credit_wallet_snapshot(wallet)
-                persist_credit_wallet_snapshot(
-                    wallet,
-                    available_credits=wallet.available_credits,
-                    reserved_credits=wallet.reserved_credits,
-                    updated_at=completed_at,
-                )
+            _forfeit_cancelled_user_credits(
+                app,
+                user_bid=normalized_user_bid,
+                cancellation_bid=normalized_cancellation_bid,
+                operator_user_bid=normalized_operator_bid,
+                completed_at=completed_at,
+            )
 
             audit = existing or UserAccountCancellation(
                 cancellation_bid=normalized_cancellation_bid,

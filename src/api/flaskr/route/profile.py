@@ -116,6 +116,19 @@ def register_profile_routes(
     resolve_onboarding_language: Callable[[UserInfo, str | None], str],
 ) -> None:
     """Register canonical learner-profile and onboarding routes."""
+    _register_profile_onboarding_session_routes(
+        app, path_prefix, resolve_onboarding_language
+    )
+    _register_profile_onboarding_outcome_routes(app, path_prefix)
+    _register_learner_profile_routes(app, path_prefix)
+
+
+def _register_profile_onboarding_session_routes(
+    app: Flask,
+    path_prefix: str,
+    resolve_onboarding_language: Callable[[UserInfo, str | None], str],
+) -> None:
+    """Register profile onboarding status and research session routes."""
     _resolve_profile_onboarding_runtime_language = resolve_onboarding_language
 
     @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
@@ -263,6 +276,10 @@ def register_profile_routes(
             log_context="learner profile assistant answers",
         )
 
+
+def _register_profile_onboarding_outcome_routes(app: Flask, path_prefix: str) -> None:
+    """Register profile onboarding completion and skip routes."""
+
     @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
     @sensitive_body()
     def complete_profile_onboarding_api() -> str:
@@ -320,6 +337,10 @@ def register_profile_routes(
             app, user_bid=request.user.user_id, session_id=session_id
         )
         return make_common_response(result)
+
+
+def _register_learner_profile_routes(app: Flask, path_prefix: str) -> None:
+    """Register learner profile read, update, clear and optimize routes."""
 
     @app.route(path_prefix + "/learner-profile", methods=["GET"])
     @sensitive_body()

@@ -18,6 +18,14 @@ from flaskr.service.profile.profile_manage import (
 @inject
 def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> Flask:
     """Register learner-profile routes on the Flask application."""
+    _register_profile_definition_routes(app, path_prefix)
+    _register_profile_item_edit_routes(app, path_prefix)
+    _register_profile_item_lookup_routes(app, path_prefix)
+    return app
+
+
+def _register_profile_definition_routes(app: Flask, path_prefix: str) -> None:
+    """Register profile definition listing, usage and visibility routes."""
 
     @app.route(f"{path_prefix}/get-profile-item-definitions", methods=["GET"])
     def get_profile_item_defination_api() -> str:
@@ -164,6 +172,10 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
             )
         )
 
+
+def _register_profile_item_edit_routes(app: Flask, path_prefix: str) -> None:
+    """Register profile item quick-add and save routes."""
+
     @app.route(f"{path_prefix}/add-profile-item-quick", methods=["POST"])
     def add_profile_item_quick_api() -> str:
         """Add profile item.
@@ -279,6 +291,10 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
             )
         )
 
+
+def _register_profile_item_lookup_routes(app: Flask, path_prefix: str) -> None:
+    """Register profile item delete and read routes."""
+
     @app.route(f"{path_prefix}/delete-profile-item", methods=["POST"])
     def delete_profile_item_api() -> str:
         """Delete profile item.
@@ -325,5 +341,3 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
     @app.route(f"{path_prefix}/get-profile-item", methods=["POST"])
     def get_profile_item_api() -> None:
         """Get profile item."""
-
-    return app
