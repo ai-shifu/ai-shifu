@@ -37,6 +37,8 @@ from flaskr.util.datetime import NAIVE_DATETIME_MIN
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from sqlalchemy.engine import Row
+
 
 def _build_operator_user_course_summary(
     course: object,
@@ -222,25 +224,11 @@ def _load_learning_progress_counts_by_user_and_course(
     return progress_counts
 
 
-def _load_operator_user_course_maps(
-    user_bids: Sequence[str],
-) -> tuple[
-    dict[str, list[AdminOperationUserCourseSummaryDTO]],
-    dict[str, list[AdminOperationUserCourseSummaryDTO]],
-]:
-    normalized_user_bids = [
-        str(user_bid or "").strip() for user_bid in user_bids if user_bid
-    ]
-    if not normalized_user_bids:
-        return {}, {}
-
-    created_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]] = {
-        user_bid: [] for user_bid in normalized_user_bids
-    }
-    learning_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]] = {
-        user_bid: [] for user_bid in normalized_user_bids
-    }
-
+def _append_operator_user_created_courses(
+    normalized_user_bids: list[str],
+    created_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]],
+) -> None:
+    """Append each user's created courses (draft merged with published)."""
     creator_bids = set(normalized_user_bids)
     created_drafts = _load_latest_shifus(
         DraftShifu,
@@ -276,6 +264,11 @@ def _load_operator_user_course_maps(
             _build_operator_user_course_summary(course, created_published_bids)
         )
 
+
+def _load_operator_user_learned_activity_rows(
+    normalized_user_bids: list[str],
+) -> list[Row]:
+    """Return (user_bid, shifu_bid, last_activity_at) rows across learn sources."""
     learned_activity_subquery = (
         db.session.query(
             Order.user_bid.label("user_bid"),
@@ -314,7 +307,7 @@ def _load_operator_user_course_maps(
         )
         .subquery()
     )
-    learned_rows = (
+    return (
         db.session.query(
             learned_activity_subquery.c.user_bid.label("user_bid"),
             learned_activity_subquery.c.shifu_bid.label("shifu_bid"),
@@ -328,6 +321,29 @@ def _load_operator_user_course_maps(
         )
         .all()
     )
+
+
+def _load_operator_user_course_maps(
+    user_bids: Sequence[str],
+) -> tuple[
+    dict[str, list[AdminOperationUserCourseSummaryDTO]],
+    dict[str, list[AdminOperationUserCourseSummaryDTO]],
+]:
+    normalized_user_bids = [
+        str(user_bid or "").strip() for user_bid in user_bids if user_bid
+    ]
+    if not normalized_user_bids:
+        return {}, {}
+
+    created_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]] = {
+        user_bid: [] for user_bid in normalized_user_bids
+    }
+    learning_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]] = {
+        user_bid: [] for user_bid in normalized_user_bids
+    }
+
+    _append_operator_user_created_courses(normalized_user_bids, created_courses_map)
+    learned_rows = _load_operator_user_learned_activity_rows(normalized_user_bids)
     learned_shifu_bids = sorted(
         {
             str(row.shifu_bid or "").strip()

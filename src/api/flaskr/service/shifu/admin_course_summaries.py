@@ -238,76 +238,27 @@ def _build_latest_operator_course_rows_subquery(
     return base_query.cte(alias_name)
 
 
-def _build_operator_course_candidate_query(
-    *,
-    shifu_bid: str,
-    course_name: str,
-    creator_bids: set[str] | None,
-    start_time: datetime | None,
-    end_time: datetime | None,
-    include_activity: bool = False,
-) -> Query | None:
-    draft_rows_subquery = _build_latest_operator_course_rows_subquery(
-        DraftShifu,
-        shifu_bid=shifu_bid,
-        course_name=course_name,
-        creator_bids=creator_bids,
-        start_time=start_time,
-        end_time=end_time,
-        alias_name="operator_course_draft_rows",
-    )
-    published_rows_subquery = _build_latest_operator_course_rows_subquery(
-        PublishedShifu,
-        shifu_bid=shifu_bid,
-        course_name=course_name,
-        creator_bids=creator_bids,
-        start_time=start_time,
-        end_time=end_time,
-        alias_name="operator_course_published_rows",
-    )
-    if draft_rows_subquery is None or published_rows_subquery is None:
-        return None
-
-    draft_visible_subquery = (
-        db.session.query(draft_rows_subquery)
+def _build_operator_course_visible_cte(rows_subquery: CTE, cte_name: str) -> CTE:
+    """Keep only operator-visible rows of a latest-course rows CTE."""
+    return (
+        db.session.query(rows_subquery)
         .filter(
             _build_operator_visible_course_filter(
-                draft_rows_subquery.c.shifu_bid,
-                draft_rows_subquery.c.title,
-                draft_rows_subquery.c.created_user_bid,
+                rows_subquery.c.shifu_bid,
+                rows_subquery.c.title,
+                rows_subquery.c.created_user_bid,
             )
         )
-        .cte("operator_course_draft_visible")
-    )
-    published_visible_subquery = (
-        db.session.query(published_rows_subquery)
-        .filter(
-            _build_operator_visible_course_filter(
-                published_rows_subquery.c.shifu_bid,
-                published_rows_subquery.c.title,
-                published_rows_subquery.c.created_user_bid,
-            )
-        )
-        .cte("operator_course_published_visible")
+        .cte(cte_name)
     )
 
-    candidate_bids_subquery = (
-        db.session.query(draft_visible_subquery.c.shifu_bid.label("shifu_bid"))
-        .union(
-            db.session.query(published_visible_subquery.c.shifu_bid.label("shifu_bid"))
-        )
-        .cte("operator_course_candidate_bids")
-    )
-    latest_activity_subquery = (
-        _build_operator_course_latest_activity_subquery(
-            candidate_bids_subquery,
-            draft_visible_subquery,
-            published_visible_subquery,
-        )
-        if include_activity
-        else None
-    )
 
+def _build_operator_course_candidate_columns(
+    candidate_bids_subquery: CTE,
+    draft_visible_subquery: CTE,
+    published_visible_subquery: CTE,
+) -> list[ColumnElement]:
+    """Select each course column from the draft row, else the published row."""
     selected_source_expr = case(
         (draft_visible_subquery.c.id.isnot(None), literal("draft")),
         else_=literal("published"),
@@ -316,7 +267,7 @@ def _build_operator_course_candidate_query(
         (published_visible_subquery.c.id.isnot(None), literal(COURSE_STATUS_PUBLISHED)),
         else_=literal(COURSE_STATUS_UNPUBLISHED),
     )
-    selected_columns = [
+    return [
         case(
             (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.id),
             else_=published_visible_subquery.c.id,
@@ -371,6 +322,67 @@ def _build_operator_course_candidate_query(
         selected_source_expr.label("selected_source"),
         course_status_expr.label("course_status"),
     ]
+
+
+def _build_operator_course_candidate_query(
+    *,
+    shifu_bid: str,
+    course_name: str,
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    include_activity: bool = False,
+) -> Query | None:
+    draft_rows_subquery = _build_latest_operator_course_rows_subquery(
+        DraftShifu,
+        shifu_bid=shifu_bid,
+        course_name=course_name,
+        creator_bids=creator_bids,
+        start_time=start_time,
+        end_time=end_time,
+        alias_name="operator_course_draft_rows",
+    )
+    published_rows_subquery = _build_latest_operator_course_rows_subquery(
+        PublishedShifu,
+        shifu_bid=shifu_bid,
+        course_name=course_name,
+        creator_bids=creator_bids,
+        start_time=start_time,
+        end_time=end_time,
+        alias_name="operator_course_published_rows",
+    )
+    if draft_rows_subquery is None or published_rows_subquery is None:
+        return None
+
+    draft_visible_subquery = _build_operator_course_visible_cte(
+        draft_rows_subquery, "operator_course_draft_visible"
+    )
+    published_visible_subquery = _build_operator_course_visible_cte(
+        published_rows_subquery, "operator_course_published_visible"
+    )
+
+    candidate_bids_subquery = (
+        db.session.query(draft_visible_subquery.c.shifu_bid.label("shifu_bid"))
+        .union(
+            db.session.query(published_visible_subquery.c.shifu_bid.label("shifu_bid"))
+        )
+        .cte("operator_course_candidate_bids")
+    )
+    latest_activity_subquery = (
+        _build_operator_course_latest_activity_subquery(
+            candidate_bids_subquery,
+            draft_visible_subquery,
+            published_visible_subquery,
+        )
+        if include_activity
+        else None
+    )
+
+    selected_columns = _build_operator_course_candidate_columns(
+        candidate_bids_subquery,
+        draft_visible_subquery,
+        published_visible_subquery,
+    )
     if latest_activity_subquery is not None:
         selected_columns.extend(
             [

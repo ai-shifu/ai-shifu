@@ -84,6 +84,9 @@ from flaskr.service.metering.consts import (
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
+from flaskr.service.shifu import (
+    admin_course_credit_usage as _split_admin_course_credit_usage,
+)
 from flaskr.service.shifu import admin_course_summaries as _split_admin_course_summaries
 from flaskr.service.shifu import admin_shared as _split_admin_shared
 from flaskr.service.shifu import admin_user_courses as _split_admin_user_courses
@@ -631,6 +634,7 @@ _OPERATOR_COURSE_FORWARDABLE_NAMES = (
 _ADMIN_SPLIT_SUBMODULES = (
     _split_admin_shared,
     _split_admin_user_credits,
+    _split_admin_course_credit_usage,
     _split_admin_user_profiles,
     _split_admin_course_summaries,
     _split_admin_user_courses,
