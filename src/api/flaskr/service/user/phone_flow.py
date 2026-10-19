@@ -216,6 +216,125 @@ def init_first_course(app: Flask, user_id: str) -> bool:
             _release_bootstrap_lock()
 
 
+def _merge_origin_into_target(
+    app: Flask,
+    *,
+    user_id: str,
+    origin_aggregate: object,
+    target_aggregate: object,
+    normalized_course_id: str | None,
+) -> None:
+    """Carry profile, study progress, and WeChat ids into the signed-in account."""
+    # Local import avoids circular dependency during module initialization.
+    from flaskr.service.profile.funcs import (
+        get_user_profile_labels,
+        update_user_profile_with_lable,
+    )
+
+    app.logger.info(
+        "verify_phone_code merge_candidate origin_user_id=%s target_user_id=%s course_id=%s",
+        user_id,
+        target_aggregate.user_bid,
+        normalized_course_id,
+    )
+    include_legacy_nickname = merge_learner_profile_for_sign_in(
+        source_user_id=user_id,
+        target_user_id=target_aggregate.user_bid,
+    )
+    if normalized_course_id is None:
+        app.logger.warning(
+            "verify_phone_code skip_study_migration missing_course_id origin_user_id=%s target_user_id=%s",
+            user_id,
+            target_aggregate.user_bid,
+        )
+    else:
+        new_profiles = get_user_profile_labels(
+            app,
+            user_id,
+            normalized_course_id,
+            include_nickname=include_legacy_nickname,
+            include_background=False,
+        )
+        update_user_profile_with_lable(
+            app,
+            target_aggregate.user_bid,
+            new_profiles,
+            update_all=False,
+            course_id=normalized_course_id,
+        )
+        migrate_user_study_record(
+            app,
+            origin_aggregate.user_bid if origin_aggregate else user_id,
+            target_aggregate.user_bid,
+            normalized_course_id,
+        )
+    if origin_aggregate:
+        missing_open_id = (
+            origin_aggregate.wechat_open_id and not target_aggregate.wechat_open_id
+        )
+        missing_union_id = (
+            origin_aggregate.wechat_union_id and not target_aggregate.wechat_union_id
+        )
+        if missing_open_id or missing_union_id:
+            upsert_wechat_credentials(
+                app,
+                user_bid=target_aggregate.user_bid,
+                open_id=(origin_aggregate.wechat_open_id if missing_open_id else None),
+                union_id=(
+                    origin_aggregate.wechat_union_id if missing_union_id else None
+                ),
+                verified=True,
+            )
+
+
+def _ensure_verified_phone_user(
+    app: Flask,
+    *,
+    user_id: str | None,
+    target_aggregate: object,
+    normalized_phone: str,
+    language: str | None,
+    created_new_user: bool,
+    creator_granted_now: bool,
+) -> tuple[object, bool, bool]:
+    """Create the verified user or promote the existing one to registered."""
+    if target_aggregate is None:
+        defaults = {
+            "user_bid": user_id or uuid.uuid4().hex,
+            "nickname": "",
+            "language": language,
+            "state": USER_STATE_REGISTERED,
+        }
+        target_aggregate, created_new_user = ensure_user_for_identifier(
+            app,
+            provider="phone",
+            identifier=normalized_phone,
+            defaults=defaults,
+        )
+        creator_granted_now = (
+            init_first_course(app, target_aggregate.user_bid) or creator_granted_now
+        )
+    else:
+        entity = get_user_entity_by_bid(target_aggregate.user_bid, include_deleted=True)
+        if entity:
+            updates: dict[str, Any] = {"identify": normalized_phone}
+            promote_state = target_aggregate.state in (
+                USER_STATE_UNREGISTERED,
+                0,
+            )
+            if promote_state:
+                updates["state"] = USER_STATE_REGISTERED
+            if language:
+                updates["language"] = language
+            entity = update_user_entity_fields(entity, **updates)
+            if promote_state:
+                created_new_user = True
+                creator_granted_now = (
+                    init_first_course(app, entity.user_bid) or creator_granted_now
+                )
+    return target_aggregate, created_new_user, creator_granted_now
+
+
 def verify_phone_code(
     app: Flask,
     user_id: str | None,
@@ -225,13 +344,7 @@ def verify_phone_code(
     language: str | None = None,
     login_context: str | None = None,
 ) -> tuple[UserToken, bool, dict[str, str | None]]:
-    # Local import avoids circular dependency during module initialization.
     """Verify phone code."""
-    from flaskr.service.profile.funcs import (
-        get_user_profile_labels,
-        update_user_profile_with_lable,
-    )
-
     raw_phone = (phone or "").strip()
     normalized_phone = normalize_phone_identifier(raw_phone)
     if not normalized_phone:
@@ -257,103 +370,25 @@ def verify_phone_code(
             target_aggregate = origin_aggregate
 
         if target_aggregate and user_id and target_aggregate.user_bid != user_id:
-            app.logger.info(
-                "verify_phone_code merge_candidate origin_user_id=%s target_user_id=%s course_id=%s",
-                user_id,
-                target_aggregate.user_bid,
-                normalized_course_id,
-            )
-            include_legacy_nickname = merge_learner_profile_for_sign_in(
-                source_user_id=user_id,
-                target_user_id=target_aggregate.user_bid,
-            )
-            if normalized_course_id is None:
-                app.logger.warning(
-                    "verify_phone_code skip_study_migration missing_course_id origin_user_id=%s target_user_id=%s",
-                    user_id,
-                    target_aggregate.user_bid,
-                )
-            else:
-                new_profiles = get_user_profile_labels(
-                    app,
-                    user_id,
-                    normalized_course_id,
-                    include_nickname=include_legacy_nickname,
-                    include_background=False,
-                )
-                update_user_profile_with_lable(
-                    app,
-                    target_aggregate.user_bid,
-                    new_profiles,
-                    update_all=False,
-                    course_id=normalized_course_id,
-                )
-                migrate_user_study_record(
-                    app,
-                    origin_aggregate.user_bid if origin_aggregate else user_id,
-                    target_aggregate.user_bid,
-                    normalized_course_id,
-                )
-            if origin_aggregate:
-                missing_open_id = (
-                    origin_aggregate.wechat_open_id
-                    and not target_aggregate.wechat_open_id
-                )
-                missing_union_id = (
-                    origin_aggregate.wechat_union_id
-                    and not target_aggregate.wechat_union_id
-                )
-                if missing_open_id or missing_union_id:
-                    upsert_wechat_credentials(
-                        app,
-                        user_bid=target_aggregate.user_bid,
-                        open_id=(
-                            origin_aggregate.wechat_open_id if missing_open_id else None
-                        ),
-                        union_id=(
-                            origin_aggregate.wechat_union_id
-                            if missing_union_id
-                            else None
-                        ),
-                        verified=True,
-                    )
-
-        if target_aggregate is None:
-            defaults = {
-                "user_bid": user_id or uuid.uuid4().hex,
-                "nickname": "",
-                "language": language,
-                "state": USER_STATE_REGISTERED,
-            }
-            target_aggregate, created_new_user = ensure_user_for_identifier(
+            _merge_origin_into_target(
                 app,
-                provider="phone",
-                identifier=normalized_phone,
-                defaults=defaults,
+                user_id=user_id,
+                origin_aggregate=origin_aggregate,
+                target_aggregate=target_aggregate,
+                normalized_course_id=normalized_course_id,
             )
-            creator_granted_now = (
-                init_first_course(app, target_aggregate.user_bid) or creator_granted_now
+
+        target_aggregate, created_new_user, creator_granted_now = (
+            _ensure_verified_phone_user(
+                app,
+                user_id=user_id,
+                target_aggregate=target_aggregate,
+                normalized_phone=normalized_phone,
+                language=language,
+                created_new_user=created_new_user,
+                creator_granted_now=creator_granted_now,
             )
-        else:
-            entity = get_user_entity_by_bid(
-                target_aggregate.user_bid, include_deleted=True
-            )
-            if entity:
-                updates: dict[str, Any] = {"identify": normalized_phone}
-                promote_state = target_aggregate.state in (
-                    USER_STATE_UNREGISTERED,
-                    0,
-                )
-                if promote_state:
-                    updates["state"] = USER_STATE_REGISTERED
-                if language:
-                    updates["language"] = language
-                entity = update_user_entity_fields(entity, **updates)
-                if promote_state:
-                    created_new_user = True
-                    creator_granted_now = (
-                        init_first_course(app, entity.user_bid) or creator_granted_now
-                    )
+        )
 
         upsert_credential(
             app,

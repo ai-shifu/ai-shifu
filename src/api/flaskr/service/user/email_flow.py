@@ -32,6 +32,105 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
+def _merge_origin_into_target(
+    app: Flask,
+    *,
+    user_id: str,
+    origin_aggregate: object,
+    target_aggregate: object,
+    course_id: str | None,
+) -> None:
+    """Carry profile, study progress, and WeChat ids into the signed-in account."""
+    # Local import avoids circular dependency during module initialization.
+    from flaskr.service.profile.funcs import (
+        get_user_profile_labels,
+        update_user_profile_with_lable,
+    )
+
+    include_legacy_nickname = merge_learner_profile_for_sign_in(
+        source_user_id=user_id,
+        target_user_id=target_aggregate.user_bid,
+    )
+    if course_id is not None:
+        new_profiles = get_user_profile_labels(
+            app,
+            user_id,
+            course_id,
+            include_nickname=include_legacy_nickname,
+            include_background=False,
+        )
+        update_user_profile_with_lable(
+            app,
+            target_aggregate.user_bid,
+            new_profiles,
+            update_all=False,
+            course_id=course_id,
+        )
+    if origin_aggregate and course_id is not None:
+        migrate_user_study_record(
+            app,
+            origin_aggregate.user_bid,
+            target_aggregate.user_bid,
+            course_id,
+        )
+        if origin_aggregate.wechat_open_id and not target_aggregate.wechat_open_id:
+            upsert_wechat_credentials(
+                app,
+                user_bid=target_aggregate.user_bid,
+                open_id=origin_aggregate.wechat_open_id,
+                union_id=origin_aggregate.wechat_union_id,
+                verified=True,
+            )
+
+
+def _ensure_verified_email_user(
+    app: Flask,
+    *,
+    user_id: str | None,
+    target_aggregate: object,
+    normalized_email: str,
+    language: str | None,
+    created_new_user: bool,
+    creator_granted_now: bool,
+) -> tuple[object, bool, bool]:
+    """Create the verified user or promote the existing one to registered."""
+    if target_aggregate is None:
+        defaults = {
+            "user_bid": user_id or uuid.uuid4().hex,
+            "nickname": "",
+            "language": language,
+            "state": USER_STATE_REGISTERED,
+        }
+        target_aggregate, created_new_user = ensure_user_for_identifier(
+            app,
+            provider="email",
+            identifier=normalized_email,
+            defaults=defaults,
+        )
+        creator_granted_now = (
+            init_first_course(app, target_aggregate.user_bid) or creator_granted_now
+        )
+    else:
+        entity = get_user_entity_by_bid(target_aggregate.user_bid, include_deleted=True)
+        if entity:
+            updates: dict[str, Any] = {"identify": normalized_email}
+            promote_state = target_aggregate.state in (
+                USER_STATE_UNREGISTERED,
+                0,
+            )
+            if promote_state:
+                updates["state"] = USER_STATE_REGISTERED
+            if language:
+                updates["language"] = language
+            entity = update_user_entity_fields(entity, **updates)
+            if promote_state:
+                created_new_user = True
+                creator_granted_now = (
+                    init_first_course(app, entity.user_bid) or creator_granted_now
+                )
+    return target_aggregate, created_new_user, creator_granted_now
+
+
 def verify_email_code(
     app: Flask,
     user_id: str | None,
@@ -41,13 +140,7 @@ def verify_email_code(
     language: str | None = None,
     login_context: str | None = None,
 ) -> tuple[UserToken, bool, dict[str, str | None]]:
-    # Local import avoids circular dependency during module initialization.
     """Verify email code."""
-    from flaskr.service.profile.funcs import (
-        get_user_profile_labels,
-        update_user_profile_with_lable,
-    )
-
     email_key = (email or "").strip()
     consume_verification_code(
         app,
@@ -71,80 +164,25 @@ def verify_email_code(
             target_aggregate = origin_aggregate
 
         if target_aggregate and user_id and target_aggregate.user_bid != user_id:
-            include_legacy_nickname = merge_learner_profile_for_sign_in(
-                source_user_id=user_id,
-                target_user_id=target_aggregate.user_bid,
-            )
-            if course_id is not None:
-                new_profiles = get_user_profile_labels(
-                    app,
-                    user_id,
-                    course_id,
-                    include_nickname=include_legacy_nickname,
-                    include_background=False,
-                )
-                update_user_profile_with_lable(
-                    app,
-                    target_aggregate.user_bid,
-                    new_profiles,
-                    update_all=False,
-                    course_id=course_id,
-                )
-            if origin_aggregate and course_id is not None:
-                migrate_user_study_record(
-                    app,
-                    origin_aggregate.user_bid,
-                    target_aggregate.user_bid,
-                    course_id,
-                )
-                if (
-                    origin_aggregate.wechat_open_id
-                    and not target_aggregate.wechat_open_id
-                ):
-                    upsert_wechat_credentials(
-                        app,
-                        user_bid=target_aggregate.user_bid,
-                        open_id=origin_aggregate.wechat_open_id,
-                        union_id=origin_aggregate.wechat_union_id,
-                        verified=True,
-                    )
-
-        if target_aggregate is None:
-            defaults = {
-                "user_bid": user_id or uuid.uuid4().hex,
-                "nickname": "",
-                "language": language,
-                "state": USER_STATE_REGISTERED,
-            }
-            target_aggregate, created_new_user = ensure_user_for_identifier(
+            _merge_origin_into_target(
                 app,
-                provider="email",
-                identifier=normalized_email,
-                defaults=defaults,
+                user_id=user_id,
+                origin_aggregate=origin_aggregate,
+                target_aggregate=target_aggregate,
+                course_id=course_id,
             )
-            creator_granted_now = (
-                init_first_course(app, target_aggregate.user_bid) or creator_granted_now
+
+        target_aggregate, created_new_user, creator_granted_now = (
+            _ensure_verified_email_user(
+                app,
+                user_id=user_id,
+                target_aggregate=target_aggregate,
+                normalized_email=normalized_email,
+                language=language,
+                created_new_user=created_new_user,
+                creator_granted_now=creator_granted_now,
             )
-        else:
-            entity = get_user_entity_by_bid(
-                target_aggregate.user_bid, include_deleted=True
-            )
-            if entity:
-                updates: dict[str, Any] = {"identify": normalized_email}
-                promote_state = target_aggregate.state in (
-                    USER_STATE_UNREGISTERED,
-                    0,
-                )
-                if promote_state:
-                    updates["state"] = USER_STATE_REGISTERED
-                if language:
-                    updates["language"] = language
-                entity = update_user_entity_fields(entity, **updates)
-                if promote_state:
-                    created_new_user = True
-                    creator_granted_now = (
-                        init_first_course(app, entity.user_bid) or creator_granted_now
-                    )
+        )
 
         upsert_credential(
             app,

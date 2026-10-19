@@ -137,6 +137,119 @@ def _iter_results(
     return result
 
 
+def _record_llm_result_metadata(outcome: _StepOutcome, llm_result: LLMResult) -> None:
+    """Fold extracted variables, answers, and the first prompt into the outcome."""
+    variables = getattr(llm_result, "variables", None)
+    if variables is not None:
+        outcome.input_accepted = True
+        outcome.variable_updates.update(_normalize_variables(variables))
+    metadata = getattr(llm_result, "metadata", None)
+    if isinstance(metadata, Mapping):
+        raw_answer = metadata.get("answer")
+        if isinstance(raw_answer, list):
+            outcome.answer_values = [str(value) for value in raw_answer]
+    prompt = str(getattr(llm_result, "prompt", "") or "")
+    if prompt and not outcome.prompt:
+        outcome.prompt = prompt
+
+
+def _resolve_element_type(llm_result: LLMResult, *, rendering_interaction: bool) -> str:
+    raw_element_type = getattr(llm_result, "type", "")
+    element_type = str(getattr(raw_element_type, "value", raw_element_type) or "")
+    if rendering_interaction:
+        element_type = "interaction"
+    elif not element_type:
+        element_type = "text"
+    return element_type
+
+
+def _resolve_element_number(llm_result: LLMResult) -> int:
+    raw_element_number = getattr(llm_result, "number", 0)
+    return (
+        raw_element_number
+        if isinstance(raw_element_number, int)
+        and not isinstance(raw_element_number, bool)
+        and raw_element_number >= 0
+        else 0
+    )
+
+
+def _resolve_element_bid(
+    event_bid: str,
+    *,
+    rendering_interaction: bool,
+    element_number: int,
+    element_segment: int,
+) -> str:
+    element_bid = event_bid
+    if not rendering_interaction:
+        if element_segment > 0:
+            element_bid = f"{event_bid}:{element_number}:{element_segment}"
+        elif element_number > 0:
+            element_bid = f"{event_bid}:{element_number}"
+    return element_bid
+
+
+@dataclass
+class _ElementSegmentTracker:
+    """Accumulate streamed element content per (element number, segment)."""
+
+    content_by_segment: dict[tuple[int, int], str] = field(default_factory=dict)
+    segment_count_by_number: dict[int, int] = field(default_factory=dict)
+    html_segment_by_number: dict[int, int] = field(default_factory=dict)
+    active_identity: tuple[int, str] | None = None
+    active_segment: int = 0
+
+    def append(
+        self,
+        *,
+        element_number: int,
+        element_type: str,
+        content: str,
+    ) -> tuple[int, str]:
+        """Append content and return the active segment and its full content."""
+        element_identity = (element_number, element_type)
+        if element_identity != self.active_identity:
+            self.active_identity = element_identity
+            previous_html_segment = self.html_segment_by_number.get(element_number)
+            if element_type == "html" and previous_html_segment is not None:
+                self.active_segment = previous_html_segment
+            else:
+                self.active_segment = self.segment_count_by_number.get(
+                    element_number, 0
+                )
+                self.segment_count_by_number[element_number] = self.active_segment + 1
+                if element_type == "html":
+                    self.html_segment_by_number[element_number] = self.active_segment
+        segment_key = (element_number, self.active_segment)
+        element_content = self.content_by_segment.get(segment_key, "") + content
+        self.content_by_segment[segment_key] = element_content
+        return self.active_segment, element_content
+
+
+def _rerender_interaction(
+    flow: object,
+    *,
+    session: _ProfileResearchSession,
+    processed_block_index: int,
+) -> str:
+    """Render the interaction again after an answer MarkdownFlow did not accept."""
+    rerendered = flow.process(
+        block_index=processed_block_index,
+        mode=ProcessMode.COMPLETE,
+        context=session.context or None,
+        variables=session.variables,
+        user_input=None,
+    )
+    rerendered_interaction = "".join(
+        str(getattr(item, "content", "") or "") for item in _iter_results(rerendered)
+    )
+    if not rerendered_interaction:
+        msg = "MarkdownFlow returned an empty interaction"
+        raise ProfileResearchError(msg)
+    return rerendered_interaction
+
+
 def _collected_nickname(session: _ProfileResearchSession) -> str | None:
     raw_nickname = session.variables.get(_NICKNAME_VARIABLE_KEY)
     if isinstance(raw_nickname, str):
@@ -559,11 +672,7 @@ class ProfileResearchRuntime:
         provider = self._provider_factory(self.app, session, root_span)
         events: list[dict[str, Any]] = []
         outcome = _StepOutcome()
-        element_content_by_segment: dict[tuple[int, int], str] = {}
-        element_segment_count_by_number: dict[int, int] = {}
-        html_segment_by_number: dict[int, int] = {}
-        active_element_identity: tuple[int, str] | None = None
-        active_element_segment = 0
+        segments = _ElementSegmentTracker()
         rerendered_interaction = ""
         try:
             flow = self._build_flow(session, provider)
@@ -606,18 +715,7 @@ class ProfileResearchRuntime:
                 else generated_block_bid
             )
             for llm_result in _iter_results(result):
-                variables = getattr(llm_result, "variables", None)
-                if variables is not None:
-                    outcome.input_accepted = True
-                    outcome.variable_updates.update(_normalize_variables(variables))
-                metadata = getattr(llm_result, "metadata", None)
-                if isinstance(metadata, Mapping):
-                    raw_answer = metadata.get("answer")
-                    if isinstance(raw_answer, list):
-                        outcome.answer_values = [str(value) for value in raw_answer]
-                prompt = str(getattr(llm_result, "prompt", "") or "")
-                if prompt and not outcome.prompt:
-                    outcome.prompt = prompt
+                _record_llm_result_metadata(outcome, llm_result)
                 content = str(getattr(llm_result, "content", "") or "")
                 if not content:
                     continue
@@ -626,52 +724,21 @@ class ProfileResearchRuntime:
                     # The generated profile is a structured terminal result,
                     # not part of the learner-visible MarkdownFlow transcript.
                     continue
-                raw_element_type = getattr(llm_result, "type", "")
-                element_type = str(
-                    getattr(raw_element_type, "value", raw_element_type) or ""
+                element_type = _resolve_element_type(
+                    llm_result, rendering_interaction=rendering_interaction
                 )
-                if rendering_interaction:
-                    element_type = "interaction"
-                elif not element_type:
-                    element_type = "text"
-                raw_element_number = getattr(llm_result, "number", 0)
-                element_number = (
-                    raw_element_number
-                    if isinstance(raw_element_number, int)
-                    and not isinstance(raw_element_number, bool)
-                    and raw_element_number >= 0
-                    else 0
+                element_number = _resolve_element_number(llm_result)
+                active_element_segment, element_content = segments.append(
+                    element_number=element_number,
+                    element_type=element_type,
+                    content=content,
                 )
-                element_identity = (element_number, element_type)
-                if element_identity != active_element_identity:
-                    active_element_identity = element_identity
-                    previous_html_segment = html_segment_by_number.get(element_number)
-                    if element_type == "html" and previous_html_segment is not None:
-                        active_element_segment = previous_html_segment
-                    else:
-                        active_element_segment = element_segment_count_by_number.get(
-                            element_number, 0
-                        )
-                        element_segment_count_by_number[element_number] = (
-                            active_element_segment + 1
-                        )
-                        if element_type == "html":
-                            html_segment_by_number[element_number] = (
-                                active_element_segment
-                            )
-                segment_key = (element_number, active_element_segment)
-                element_content = (
-                    element_content_by_segment.get(segment_key, "") + content
+                element_bid = _resolve_element_bid(
+                    event_bid,
+                    rendering_interaction=rendering_interaction,
+                    element_number=element_number,
+                    element_segment=active_element_segment,
                 )
-                element_content_by_segment[segment_key] = element_content
-                element_bid = event_bid
-                if not rendering_interaction:
-                    if active_element_segment > 0:
-                        element_bid = (
-                            f"{event_bid}:{element_number}:{active_element_segment}"
-                        )
-                    elif element_number > 0:
-                        element_bid = f"{event_bid}:{element_number}"
                 next_event = _event(
                     "interaction" if rendering_interaction else "content",
                     element_content,
@@ -690,20 +757,11 @@ class ProfileResearchRuntime:
                 and has_user_input
                 and not outcome.input_accepted
             ):
-                rerendered = flow.process(
-                    block_index=processed_block_index,
-                    mode=ProcessMode.COMPLETE,
-                    context=session.context or None,
-                    variables=session.variables,
-                    user_input=None,
+                rerendered_interaction = _rerender_interaction(
+                    flow,
+                    session=session,
+                    processed_block_index=processed_block_index,
                 )
-                rerendered_interaction = "".join(
-                    str(getattr(item, "content", "") or "")
-                    for item in _iter_results(rerendered)
-                )
-                if not rerendered_interaction:
-                    msg = "MarkdownFlow returned an empty interaction"
-                    raise ProfileResearchError(msg)
         finally:
             finalize_langfuse_trace(
                 trace=trace,

@@ -470,6 +470,108 @@ def _resolve_profile_language_label(
     return locale_labels.get(default, "")
 
 
+def _aggregate_profile_label_item(
+    aggregate: object,
+    *,
+    key: str,
+    meta: dict,
+    user_values: list[VariableValue],
+) -> UserProfileLabelItemDTO:
+    """Build a label item for a profile key backed by the user aggregate."""
+    mapping = meta["mapping"]
+    raw_value = _current_core_value(aggregate, mapping)
+    if raw_value is None:
+        value_entry = (
+            _get_latest_variable_value(
+                user_values,
+                variable_key=key,
+                shifu_bid="",
+            )
+            if user_values
+            else None
+        )
+        if value_entry:
+            raw_value = value_entry.value
+    display_value = raw_value
+    if mapping == "user_language":
+        display_value = _resolve_profile_language_label(
+            raw_value, meta["items_mapping"], meta["default"]
+        )
+    elif meta.get("items_mapping"):
+        mapping_items = meta.get("items", [])
+        default_value = mapping_items[0] if mapping_items else ""
+        display_value = meta["items_mapping"].get(raw_value, default_value)
+    return UserProfileLabelItemDTO(
+        key=key,
+        label=meta["label"],
+        type=meta.get("type", "select" if "items" in meta else "text"),
+        value=display_value,
+        items=meta.get("items"),
+    )
+
+
+def _stored_profile_label_item(
+    app: Flask,
+    *,
+    profile_key: str,
+    profile_labels: dict,
+    profiles_items: list,
+    user_values: list[VariableValue],
+) -> UserProfileLabelItemDTO:
+    """Build a label item for a profile key stored as a variable value."""
+    item = {
+        "key": profile_key,
+        "label": profile_labels[profile_key]["label"],
+        "type": profile_labels[profile_key].get(
+            "type",
+            ("select" if "items" in profile_labels[profile_key] else "text"),
+        ),
+        "value": "",
+        "items": profile_labels[profile_key].get("items"),
+    }
+    if profile_key == "sex":
+        item["value"] = next(iter(profile_labels[profile_key]["items"]), "")
+    user_value = None
+    profile_item = next(
+        (item for item in profiles_items if item.profile_key == profile_key), None
+    )
+    if profile_item:
+        if user_values:
+            user_value = _get_latest_variable_value(
+                user_values,
+                variable_key=profile_key,
+                shifu_bid="",
+            )
+    else:
+        app.logger.info("profile_item not found:%s", profile_key)
+    if user_value is None and user_values:
+        user_value = _get_latest_variable_value(
+            user_values,
+            variable_key=profile_key,
+            shifu_bid="",
+        )
+    if user_value:
+        if profile_key == "sex":
+            meta = profile_labels[profile_key]
+            items_mapping = meta.get("items_mapping", {})
+            mapping_items = meta.get("items", [])
+            default_value = mapping_items[0] if mapping_items else ""
+            try:
+                normalized_value = int(user_value.value)
+            except (TypeError, ValueError):
+                normalized_value = None
+            item["value"] = items_mapping.get(normalized_value, default_value)
+        else:
+            item["value"] = user_value.value
+    return UserProfileLabelItemDTO(
+        key=item["key"],
+        label=item["label"],
+        type=item["type"],
+        value=item["value"],
+        items=item["items"],
+    )
+
+
 def get_user_profile_labels(
     app: Flask,
     user_id: str,
@@ -521,94 +623,24 @@ def get_user_profile_labels(
     ]
     if aggregate:
         for key in aggregate_mapping_keys:
-            meta = profile_labels[key]
-            mapping = meta["mapping"]
-            raw_value = _current_core_value(aggregate, mapping)
-            if raw_value is None:
-                value_entry = (
-                    _get_latest_variable_value(
-                        user_values,
-                        variable_key=key,
-                        shifu_bid="",
-                    )
-                    if user_values
-                    else None
-                )
-                if value_entry:
-                    raw_value = value_entry.value
-            display_value = raw_value
-            if mapping == "user_language":
-                display_value = _resolve_profile_language_label(
-                    raw_value, meta["items_mapping"], meta["default"]
-                )
-            elif meta.get("items_mapping"):
-                mapping_items = meta.get("items", [])
-                default_value = mapping_items[0] if mapping_items else ""
-                display_value = meta["items_mapping"].get(raw_value, default_value)
             result.profiles.append(
-                UserProfileLabelItemDTO(
+                _aggregate_profile_label_item(
+                    aggregate,
                     key=key,
-                    label=meta["label"],
-                    type=meta.get("type", "select" if "items" in meta else "text"),
-                    value=display_value,
-                    items=meta.get("items"),
+                    meta=profile_labels[key],
+                    user_values=user_values,
                 )
             )
     for key in profile_labels:
         if key in aggregate_mapping_keys:
             continue
-        profile_key = key
-        item = {
-            "key": profile_key,
-            "label": profile_labels[profile_key]["label"],
-            "type": profile_labels[profile_key].get(
-                "type",
-                ("select" if "items" in profile_labels[profile_key] else "text"),
-            ),
-            "value": "",
-            "items": profile_labels[profile_key].get("items"),
-        }
-        if profile_key == "sex":
-            item["value"] = next(iter(profile_labels[profile_key]["items"]), "")
-        user_value = None
-        profile_item = next(
-            (item for item in profiles_items if item.profile_key == profile_key), None
-        )
-        if profile_item:
-            if user_values:
-                user_value = _get_latest_variable_value(
-                    user_values,
-                    variable_key=profile_key,
-                    shifu_bid="",
-                )
-        else:
-            app.logger.info("profile_item not found:%s", profile_key)
-        if user_value is None and user_values:
-            user_value = _get_latest_variable_value(
-                user_values,
-                variable_key=profile_key,
-                shifu_bid="",
-            )
-        if user_value:
-            if profile_key == "sex":
-                meta = profile_labels[profile_key]
-                items_mapping = meta.get("items_mapping", {})
-                mapping_items = meta.get("items", [])
-                default_value = mapping_items[0] if mapping_items else ""
-                try:
-                    normalized_value = int(user_value.value)
-                except (TypeError, ValueError):
-                    normalized_value = None
-                item["value"] = items_mapping.get(normalized_value, default_value)
-            else:
-                item["value"] = user_value.value
         result.profiles.append(
-            UserProfileLabelItemDTO(
-                key=item["key"],
-                label=item["label"],
-                type=item["type"],
-                value=item["value"],
-                items=item["items"],
+            _stored_profile_label_item(
+                app,
+                profile_key=key,
+                profile_labels=profile_labels,
+                profiles_items=profiles_items,
+                user_values=user_values,
             )
         )
 

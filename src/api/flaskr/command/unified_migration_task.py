@@ -377,56 +377,12 @@ class UnifiedMigrationTask:
                 session, f"{source_table}_sync"
             )
 
-            # Determine migration mode
-            should_do_full_migration = self.force_full_migration
-
-            if not should_do_full_migration:
-                # Check if this is a fresh migration by looking at target table count
-                target_table_name = self.table_mappings[source_table]["target"]
-                target_count = self._get_table_count_with_session(
-                    session, target_table_name, "deleted = 0"
-                )
-                should_do_full_migration = (
-                    target_count < 100
-                )  # If less than 100 records, consider it fresh
-
-            # Fetch batch of records using ID-based pagination
-            if not should_do_full_migration and last_synced_id > 0:
-                # Incremental migration - get records with ID greater than last synced ID
-                query = text(
-                    f"""
-                    SELECT * FROM {_quote_identifier(source_table)}
-                    WHERE id > :last_synced_id
-                    ORDER BY id ASC
-                    LIMIT :batch_size
-                """  # noqa: S608 - identifier validated by _quote_identifier
-                )
-                params = {
-                    "last_synced_id": last_synced_id,
-                    "batch_size": self.config.batch_size,
-                }
-                logger.info(
-                    "Running incremental migration for %s starting from ID %s",
-                    source_table,
-                    last_synced_id + 1,
-                )
-            else:
-                # Full migration - use OFFSET-based pagination
-                query = text(
-                    f"""
-                    SELECT * FROM {_quote_identifier(source_table)}
-                    ORDER BY id ASC
-                    LIMIT :batch_size OFFSET :offset
-                """  # noqa: S608 - identifier validated by _quote_identifier
-                )
-                params = {"batch_size": self.config.batch_size, "offset": offset}
-                logger.info(
-                    "Running full migration for %s batch at offset %s",
-                    source_table,
-                    offset,
-                )
-
-            records = session.execute(query, params).fetchall()
+            records = self._fetch_batch_records(
+                session,
+                source_table=source_table,
+                last_synced_id=last_synced_id,
+                offset=offset,
+            )
 
             synced_count = 0
             error_count = 0
@@ -434,60 +390,14 @@ class UnifiedMigrationTask:
 
             for record in records:
                 try:
-                    # Check if record already exists in target table
-                    existing_query = text(
-                        f"""
-                        SELECT COUNT(*) FROM {_quote_identifier(target_table)}
-                        WHERE {_quote_identifier(target_key)} = :key_value
-                        AND deleted = 0
-                    """  # noqa: S608 - identifiers validated by _quote_identifier
+                    self._sync_record(
+                        session,
+                        record,
+                        target_table=target_table,
+                        mapping_func=mapping_func,
+                        key_field=key_field,
+                        target_key=target_key,
                     )
-
-                    existing_count = session.execute(
-                        existing_query, {"key_value": getattr(record, key_field)}
-                    ).scalar()
-
-                    # Map the record
-                    mapped_data = mapping_func(record)
-
-                    if existing_count > 0:
-                        # Update existing record
-                        update_fields = []
-                        update_params = {"key_value": getattr(record, key_field)}
-
-                        for field, value in mapped_data.items():
-                            if field != target_key:  # Don't update the key field
-                                update_fields.append(
-                                    f"{_quote_identifier(field)} = :{field}"
-                                )
-                                update_params[field] = value
-
-                        if update_fields:
-                            update_query = text(
-                                f"""
-                                UPDATE {_quote_identifier(target_table)}
-                                SET {", ".join(update_fields)}
-                                WHERE {_quote_identifier(target_key)} = :key_value
-                            """  # noqa: S608 - identifiers validated by _quote_identifier
-                            )
-                            session.execute(update_query, update_params)
-                    else:
-                        # Insert new record
-                        field_names = list(mapped_data.keys())
-                        quoted_field_names = [
-                            _quote_identifier(field) for field in field_names
-                        ]
-                        field_placeholders = [f":{field}" for field in field_names]
-
-                        insert_query = text(
-                            f"""
-                            INSERT INTO {_quote_identifier(target_table)}
-                            ({", ".join(quoted_field_names)})
-                            VALUES ({", ".join(field_placeholders)})
-                        """  # noqa: S608 - identifiers validated by _quote_identifier
-                        )
-                        session.execute(insert_query, mapped_data)
-
                     synced_count += 1
 
                 except Exception as e:
@@ -526,6 +436,127 @@ class UnifiedMigrationTask:
             }
         finally:
             session.close()
+
+    def _fetch_batch_records(
+        self,
+        session: object,
+        *,
+        source_table: str,
+        last_synced_id: int,
+        offset: int,
+    ) -> list:
+        """Fetch one source batch in incremental (ID) or full (OFFSET) mode."""
+        # Determine migration mode
+        should_do_full_migration = self.force_full_migration
+
+        if not should_do_full_migration:
+            # Check if this is a fresh migration by looking at target table count
+            target_table_name = self.table_mappings[source_table]["target"]
+            target_count = self._get_table_count_with_session(
+                session, target_table_name, "deleted = 0"
+            )
+            should_do_full_migration = (
+                target_count < 100
+            )  # If less than 100 records, consider it fresh
+
+        # Fetch batch of records using ID-based pagination
+        if not should_do_full_migration and last_synced_id > 0:
+            # Incremental migration - get records with ID greater than last synced ID
+            query = text(
+                f"""
+                SELECT * FROM {_quote_identifier(source_table)}
+                WHERE id > :last_synced_id
+                ORDER BY id ASC
+                LIMIT :batch_size
+            """  # noqa: S608 - identifier validated by _quote_identifier
+            )
+            params = {
+                "last_synced_id": last_synced_id,
+                "batch_size": self.config.batch_size,
+            }
+            logger.info(
+                "Running incremental migration for %s starting from ID %s",
+                source_table,
+                last_synced_id + 1,
+            )
+        else:
+            # Full migration - use OFFSET-based pagination
+            query = text(
+                f"""
+                SELECT * FROM {_quote_identifier(source_table)}
+                ORDER BY id ASC
+                LIMIT :batch_size OFFSET :offset
+            """  # noqa: S608 - identifier validated by _quote_identifier
+            )
+            params = {"batch_size": self.config.batch_size, "offset": offset}
+            logger.info(
+                "Running full migration for %s batch at offset %s",
+                source_table,
+                offset,
+            )
+
+        return session.execute(query, params).fetchall()
+
+    def _sync_record(
+        self,
+        session: object,
+        record: object,
+        *,
+        target_table: str,
+        mapping_func: object,
+        key_field: str,
+        target_key: str,
+    ) -> None:
+        """Insert or update one mapped record in the target table."""
+        # Check if record already exists in target table
+        existing_query = text(
+            f"""
+            SELECT COUNT(*) FROM {_quote_identifier(target_table)}
+            WHERE {_quote_identifier(target_key)} = :key_value
+            AND deleted = 0
+        """  # noqa: S608 - identifiers validated by _quote_identifier
+        )
+
+        existing_count = session.execute(
+            existing_query, {"key_value": getattr(record, key_field)}
+        ).scalar()
+
+        # Map the record
+        mapped_data = mapping_func(record)
+
+        if existing_count > 0:
+            # Update existing record
+            update_fields = []
+            update_params = {"key_value": getattr(record, key_field)}
+
+            for field, value in mapped_data.items():
+                if field != target_key:  # Don't update the key field
+                    update_fields.append(f"{_quote_identifier(field)} = :{field}")
+                    update_params[field] = value
+
+            if update_fields:
+                update_query = text(
+                    f"""
+                    UPDATE {_quote_identifier(target_table)}
+                    SET {", ".join(update_fields)}
+                    WHERE {_quote_identifier(target_key)} = :key_value
+                """  # noqa: S608 - identifiers validated by _quote_identifier
+                )
+                session.execute(update_query, update_params)
+        else:
+            # Insert new record
+            field_names = list(mapped_data.keys())
+            quoted_field_names = [_quote_identifier(field) for field in field_names]
+            field_placeholders = [f":{field}" for field in field_names]
+
+            insert_query = text(
+                f"""
+                INSERT INTO {_quote_identifier(target_table)}
+                ({", ".join(quoted_field_names)})
+                VALUES ({", ".join(field_placeholders)})
+            """  # noqa: S608 - identifiers validated by _quote_identifier
+            )
+            session.execute(insert_query, mapped_data)
 
     async def verify_data_consistency(
         self,

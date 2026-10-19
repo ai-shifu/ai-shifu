@@ -147,6 +147,91 @@ def resolve_state_return_origin(app: object, state: str | None) -> str:
     return resolve_oauth_return_origin(app, payload.get("origin"))
 
 
+def _resolve_sign_in_aggregate(
+    credential: object,
+    *,
+    email: str,
+    origin_aggregate: object,
+) -> object:
+    """Pick the account by Google credential, then email, then current session."""
+    aggregate = None
+    if credential:
+        aggregate = load_user_aggregate(credential.user_bid)
+
+    if not aggregate:
+        aggregate = load_user_aggregate_by_identifier(email, providers=["email"])
+
+    if not aggregate and origin_aggregate:
+        aggregate = origin_aggregate
+    return aggregate
+
+
+def _refresh_signed_in_user(
+    app: object,
+    aggregate: object,
+    *,
+    email: str,
+    email_verified: bool,
+    profile: dict[str, Any],
+    language: str | None,
+) -> None:
+    """Sync Google profile fields onto an existing user and its email credential."""
+    entity = get_user_entity_by_bid(aggregate.user_bid, include_deleted=True)
+    if entity:
+        updates: dict[str, Any] = {"identify": email}
+        if email_verified and aggregate.state in (
+            USER_STATE_UNREGISTERED,
+            0,
+        ):
+            updates["state"] = USER_STATE_REGISTERED
+        display_name = profile.get("name")
+        if display_name:
+            updates["nickname"] = display_name
+        picture = profile.get("picture")
+        if picture and not aggregate.avatar:
+            updates["avatar"] = picture
+        if language:
+            updates["language"] = language
+        update_user_entity_fields(entity, **updates)
+
+        # Ensure an email credential exists for the resolved user
+        upsert_credential(
+            app,
+            user_bid=aggregate.user_bid,
+            provider_name="email",
+            subject_id=email,
+            subject_format="email",
+            identifier=email,
+            metadata={},
+            verified=profile.get("email_verified", False),
+        )
+
+
+def _create_signed_in_user(
+    app: object,
+    *,
+    origin_user_id: str | None,
+    email: str,
+    email_verified: bool,
+    profile: dict[str, Any],
+    language: str | None,
+) -> tuple[object, bool]:
+    """Create (or claim) the email user for a first Google sign-in."""
+    defaults = {
+        "user_bid": origin_user_id or secrets.token_hex(16),
+        "nickname": profile.get("name") or "",
+        "avatar": profile.get("picture"),
+        "language": language,
+        "state": (USER_STATE_REGISTERED if email_verified else USER_STATE_UNREGISTERED),
+    }
+    return ensure_user_for_identifier(
+        app,
+        provider="email",
+        identifier=email,
+        defaults=defaults,
+    )
+
+
 class GoogleAuthProvider(AuthProvider):
     """Authenticate users through Google OAuth."""
 
@@ -227,6 +312,23 @@ class GoogleAuthProvider(AuthProvider):
         current_app.logger.info("auth_event=google_oauth_started")
         return {"authorization_url": authorization_url, "state": state}
 
+    def _fetch_token_and_profile(
+        self, app: object, *, code: str, redirect_uri: object
+    ) -> tuple[Any, dict[str, Any]]:
+        """Exchange the authorization code and fetch the Google userinfo profile."""
+        redirect_uri = _resolve_redirect_uri(app, redirect_uri)
+        session = self._create_session(app, redirect_uri)
+
+        token = session.fetch_token(
+            self._resolve_token_endpoint(app),
+            code=code,
+        )
+
+        resp = session.get(self._resolve_userinfo_endpoint(app))
+        resp.raise_for_status()
+        profile = resp.json()
+        return token, profile
+
     def handle_oauth_callback(
         self, app: object, request: OAuthCallbackRequest
     ) -> AuthResult:
@@ -256,17 +358,9 @@ class GoogleAuthProvider(AuthProvider):
 
         _require_matching_initiator(state_payload, request.current_user_id)
 
-        redirect_uri = _resolve_redirect_uri(app, redirect_uri)
-        session = self._create_session(app, redirect_uri)
-
-        token = session.fetch_token(
-            self._resolve_token_endpoint(app),
-            code=request.code,
+        token, profile = self._fetch_token_and_profile(
+            app, code=request.code, redirect_uri=redirect_uri
         )
-
-        resp = session.get(self._resolve_userinfo_endpoint(app))
-        resp.raise_for_status()
-        profile = resp.json()
 
         # If Google returns a locale and we do not yet have a language
         # from the stored state, fall back to the profile locale.
@@ -295,16 +389,9 @@ class GoogleAuthProvider(AuthProvider):
         credential_record = None
 
         with unit_of_work():
-            if credential:
-                aggregate = load_user_aggregate(credential.user_bid)
-
-            if not aggregate:
-                aggregate = load_user_aggregate_by_identifier(
-                    email, providers=["email"]
-                )
-
-            if not aggregate and origin_aggregate:
-                aggregate = origin_aggregate
+            aggregate = _resolve_sign_in_aggregate(
+                credential, email=email, origin_aggregate=origin_aggregate
+            )
 
             if aggregate and origin_user_id and aggregate.user_bid != origin_user_id:
                 merge_learner_profile_for_sign_in(
@@ -313,54 +400,22 @@ class GoogleAuthProvider(AuthProvider):
                 )
 
             if aggregate:
-                entity = get_user_entity_by_bid(
-                    aggregate.user_bid, include_deleted=True
-                )
-                if entity:
-                    updates: dict[str, Any] = {"identify": email}
-                    if email_verified and aggregate.state in (
-                        USER_STATE_UNREGISTERED,
-                        0,
-                    ):
-                        updates["state"] = USER_STATE_REGISTERED
-                    display_name = profile.get("name")
-                    if display_name:
-                        updates["nickname"] = display_name
-                    picture = profile.get("picture")
-                    if picture and not aggregate.avatar:
-                        updates["avatar"] = picture
-                    if language:
-                        updates["language"] = language
-                    update_user_entity_fields(entity, **updates)
-
-                    # Ensure an email credential exists for the resolved user
-                    upsert_credential(
-                        app,
-                        user_bid=aggregate.user_bid,
-                        provider_name="email",
-                        subject_id=email,
-                        subject_format="email",
-                        identifier=email,
-                        metadata={},
-                        verified=profile.get("email_verified", False),
-                    )
-            else:
-                defaults = {
-                    "user_bid": origin_user_id or secrets.token_hex(16),
-                    "nickname": profile.get("name") or "",
-                    "avatar": profile.get("picture"),
-                    "language": language,
-                    "state": (
-                        USER_STATE_REGISTERED
-                        if email_verified
-                        else USER_STATE_UNREGISTERED
-                    ),
-                }
-                aggregate, created_user = ensure_user_for_identifier(
+                _refresh_signed_in_user(
                     app,
-                    provider="email",
-                    identifier=email,
-                    defaults=defaults,
+                    aggregate,
+                    email=email,
+                    email_verified=email_verified,
+                    profile=profile,
+                    language=language,
+                )
+            else:
+                aggregate, created_user = _create_signed_in_user(
+                    app,
+                    origin_user_id=origin_user_id,
+                    email=email,
+                    email_verified=email_verified,
+                    profile=profile,
+                    language=language,
                 )
 
             credential_record = upsert_credential(
