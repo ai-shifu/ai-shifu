@@ -79,6 +79,7 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
+from flaskr.service.learn.preview_language import resolve_preview_language
 from flaskr.service.learn.run.emitter import RunEventEmitter
 from flaskr.service.learn.run.recorder import RunRecorder
 from flaskr.service.learn.run.state import RunStateResolver
@@ -1133,23 +1134,11 @@ class RunScriptPreviewContextV2:
         variables = load_memory(self.app, user_bid, shifu_bid).as_variables()
         variables.update(request_variables)
 
-        request_language = str(
-            request_variables.get("language")
-            or request_variables.get(SYS_USER_LANGUAGE)
-            or ""
-        ).strip()
-        if request_language:
-            variables[SYS_USER_LANGUAGE] = request_language
-            variables["language"] = request_language
-
-        # The editor preview may submit an empty sys_user_language placeholder.
-        # Runtime language should follow the current request, not an empty variable.
-        if not str(variables.get(SYS_USER_LANGUAGE) or "").strip():
-            variables[SYS_USER_LANGUAGE] = get_current_language()
-        if not str(variables.get("language") or "").strip():
-            variables["language"] = variables[SYS_USER_LANGUAGE]
-        elif variables.get("language") != variables.get(SYS_USER_LANGUAGE):
-            variables[SYS_USER_LANGUAGE] = variables["language"]
+        language = resolve_preview_language(
+            request_variables, request_language=get_current_language()
+        )
+        variables[SYS_USER_LANGUAGE] = language
+        variables["language"] = language
         return variables
 
     def _iter_preview_generated_events(

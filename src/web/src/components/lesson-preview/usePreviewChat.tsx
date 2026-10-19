@@ -44,7 +44,10 @@ import {
   isCreditInsufficientBusinessCode,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
-import { attachSseBusinessResponseFallback } from '@/lib/request';
+import {
+  attachSseBusinessResponseFallback,
+  getCurrentLanguageHeaders,
+} from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { useTranslation } from 'react-i18next';
@@ -616,10 +619,24 @@ export function usePreviewChat({
     if (!name) {
       return;
     }
+    const isLanguage = name === 'sys_user_language' || name === 'language';
+    const otherLanguageKey =
+      name === 'language' ? 'sys_user_language' : 'language';
+    const update = { [name]: value };
+    if (isLanguage && otherLanguageKey in (sseParams.current.variables || {})) {
+      update[otherLanguageKey] = value;
+    }
+    if (initialVariablesRef.current && isLanguage) {
+      // Language is a preview setting, not an answer to discard on restart.
+      initialVariablesRef.current = {
+        ...initialVariablesRef.current,
+        ...update,
+      };
+    }
     setVariablesSnapshot(prev => {
       const mergedVariables = {
         ...((sseParams.current.variables as PreviewVariablesMap) || prev),
-        [name]: value,
+        ...update,
       };
       sseParams.current.variables = mergedVariables;
       return mergedVariables;
@@ -1593,6 +1610,7 @@ export function usePreviewChat({
         const tokenValue = useUserStore.getState().getToken();
         const traceHeaders = buildTraceHeaders({
           'Content-Type': 'application/json',
+          ...getCurrentLanguageHeaders(),
           ...(tokenValue
             ? {
                 Authorization: `Bearer ${tokenValue}`,
@@ -2207,6 +2225,7 @@ export function usePreviewChat({
       const tokenValue = useUserStore.getState().getToken();
       const traceHeaders = buildTraceHeaders({
         'Content-Type': 'application/json',
+        ...getCurrentLanguageHeaders(),
         ...(tokenValue
           ? {
               Authorization: `Bearer ${tokenValue}`,
@@ -2223,6 +2242,36 @@ export function usePreviewChat({
           method: 'POST',
         });
         ttsSseRef.current[blockId] = source;
+        let settled = false;
+        const fail = (error: Error) => {
+          if (
+            settled ||
+            !isCurrentPreviewRun(previewRunId) ||
+            ttsSseRef.current[blockId] !== source
+          ) {
+            return;
+          }
+          settled = true;
+          setTrackedContentList(prevState =>
+            ensureAudioItem(
+              prevState.map(item =>
+                matchPreviewItemBid(item, blockId)
+                  ? {
+                      ...item,
+                      isAudioStreaming: false,
+                      audioTracks: (item.audioTracks ?? []).map(track => ({
+                        ...track,
+                        isAudioStreaming: false,
+                      })),
+                    }
+                  : item,
+              ),
+              blockId,
+            ),
+          );
+          closeTtsStream(blockId);
+          reject(error);
+        };
         attachSseBusinessResponseFallback(source, {
           requestToken: tokenValue || '',
           meta: {
@@ -2233,30 +2282,7 @@ export function usePreviewChat({
             harnessRunId: traceHeaders.harnessRunId,
             creditInsufficientAudience,
           },
-          onHandled: error => {
-            if (
-              !isCurrentPreviewRun(previewRunId) ||
-              ttsSseRef.current[blockId] !== source
-            ) {
-              return;
-            }
-            setTrackedContentList(prevState =>
-              ensureAudioItem(
-                prevState.map(item => {
-                  if (!matchPreviewItemBid(item, blockId)) {
-                    return item;
-                  }
-                  return {
-                    ...item,
-                    isAudioStreaming: false,
-                  };
-                }),
-                blockId,
-              ),
-            );
-            closeTtsStream(blockId);
-            reject(error);
-          },
+          onHandled: fail,
         });
 
         source.addEventListener('message', event => {
@@ -2274,6 +2300,17 @@ export function usePreviewChat({
 
           try {
             const response = JSON.parse(payload);
+            if (response?.type === 'error' || response?.type === 'done') {
+              fail(
+                new Error(
+                  typeof response.content === 'string' &&
+                    response.content.trim()
+                    ? response.content
+                    : 'Preview audio stream ended without audio',
+                ),
+              );
+              return;
+            }
             if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
               const audioSegment = normalizeAudioSegmentPayload(audioPayload);
@@ -2305,6 +2342,7 @@ export function usePreviewChat({
                   ensureAudioItem,
                 ),
               );
+              settled = true;
               closeTtsStream(blockId);
               resolve(audioComplete ?? null);
             }
@@ -2313,30 +2351,15 @@ export function usePreviewChat({
           }
         });
 
-        source.addEventListener('error', err => {
-          if (
-            !isCurrentPreviewRun(previewRunId) ||
-            ttsSseRef.current[blockId] !== source
-          ) {
-            return;
+        source.addEventListener('error', () => {
+          fail(new Error('Preview audio stream failed'));
+        });
+        source.addEventListener('readystatechange', event => {
+          const readyState = (event as Event & { readyState?: number })
+            .readyState;
+          if ((readyState ?? source.readyState) === 2) {
+            fail(new Error('Preview audio stream ended without audio'));
           }
-          debugError('[preview-chat] preview audio SSE error', err);
-          setTrackedContentList(prevState =>
-            ensureAudioItem(
-              prevState.map(item => {
-                if (!matchPreviewItemBid(item, blockId)) {
-                  return item;
-                }
-                return {
-                  ...item,
-                  isAudioStreaming: false,
-                };
-              }),
-              blockId,
-            ),
-          );
-          closeTtsStream(blockId);
-          reject(new Error('Preview audio stream failed'));
         });
 
         source.stream();

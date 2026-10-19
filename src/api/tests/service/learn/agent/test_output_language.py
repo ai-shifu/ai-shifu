@@ -63,8 +63,8 @@ def test_editor_language_and_disabled_courses(enabled: bool) -> None:
     finally:
         clear_language()
     if enabled:
-        assert current["sys_user_language"] == "fr-FR"
-        assert "Français" in output_language_instructions(engine.output_language)
+        assert current["sys_user_language"] == "zh-CN"
+        assert "简体中文" in output_language_instructions(engine.output_language)
     else:
         assert current is variables
         assert "Multilingual teaching is disabled" in output_language_instructions(
