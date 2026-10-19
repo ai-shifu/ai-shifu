@@ -230,11 +230,16 @@ def import_shifu(
             )
             _persist_imported_shifu(app, shifu_bid, user_id, new_shifu)
 
+        # Create a map of old_bid -> outline_item_data before any outline row
+        # is created, so a malformed item fails before risk checks run.
+        outline_items_by_old_bid: dict[str, dict] = {
+            item["outline_item_bid"]: item for item in outline_items_data
+        }
         old_to_new_bid_map, created_items = _create_imported_outline_items(
             app, shifu_bid, user_id, outline_items_data, now_time
         )
         _link_imported_outline_items(
-            outline_items_data, old_to_new_bid_map, created_items
+            outline_items_by_old_bid, old_to_new_bid_map, created_items
         )
 
         # Rebuild structure
@@ -415,16 +420,11 @@ def _create_imported_outline_items(
 
 
 def _link_imported_outline_items(
-    outline_items_data: list[dict],
+    outline_items_by_old_bid: dict[str, dict],
     old_to_new_bid_map: dict[str, str],
     created_items: dict[str, DraftOutlineItem],
 ) -> None:
     """Point parent and prerequisite bids of imported items at the new bids."""
-    # Create a map of old_bid -> outline_item_data
-    outline_items_by_old_bid: dict[str, dict] = {
-        item["outline_item_bid"]: item for item in outline_items_data
-    }
-
     # Update parent_bid and prerequisite_item_bids for all created items
     for old_bid, new_outline in created_items.items():
         item_data = outline_items_by_old_bid[old_bid]

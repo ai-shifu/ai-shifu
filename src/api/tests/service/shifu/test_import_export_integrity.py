@@ -224,6 +224,23 @@ def test_risk_rejection_rolls_back_new_revision_outline_deletions_and_history(
         assert LogDraftStruct.query.filter_by(shifu_bid=bid).count() == history_count
 
 
+def test_import_rejects_outline_without_bid_before_outline_risk_checks(
+    app: object,
+    import_owner: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    risk_check = Mock()
+    monkeypatch.setattr(transfers, "check_text_with_risk_control", risk_check)
+    payload = _payload()
+    del payload["outline_items"][1]["outline_item_bid"]
+    with pytest.raises(KeyError, match="outline_item_bid"):
+        transfers.import_shifu(app, None, _file(payload), import_owner)
+    # Only the course-level check ran; no outline item reached risk control.
+    assert risk_check.call_count == 1
+    with app.app_context():
+        assert DraftShifu.query.filter_by(created_user_bid=import_owner).count() == 0
+
+
 @pytest.mark.parametrize(
     "payload",
     [
