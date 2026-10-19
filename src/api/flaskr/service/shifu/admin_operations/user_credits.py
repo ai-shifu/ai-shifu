@@ -104,6 +104,7 @@ from sqlalchemy.orm import aliased
 
 if TYPE_CHECKING:
     from flask import Flask
+    from sqlalchemy.orm import Query
 
 
 def grant_operator_user_credits(
@@ -434,34 +435,7 @@ def get_operator_user_credits(
         if end_time:
             query = query.filter(CreditLedgerEntry.created_at <= end_time)
 
-        if credit_type == OPERATOR_USER_CREDIT_TYPE_CONSUME:
-            query = query.filter(
-                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
-                CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
-            )
-        elif credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT:
-            query = query.filter(
-                or_(
-                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-                    and_(
-                        CreditLedgerEntry.entry_type
-                        == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-                        CreditLedgerEntry.amount > 0,
-                    ),
-                )
-            )
-        elif credit_type == OPERATOR_USER_CREDIT_TYPE_OTHER:
-            query = query.filter(
-                or_(
-                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND,
-                    and_(
-                        CreditLedgerEntry.entry_type
-                        == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-                        CreditLedgerEntry.amount < 0,
-                    ),
-                )
-            )
+        query = _apply_operator_user_credit_type_filter(query, credit_type)
 
         has_grant_source_filter = (
             credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT
@@ -486,86 +460,17 @@ def get_operator_user_credits(
             ]
 
         if has_grant_source_filter:
-            if grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP:
-                query = query.filter(
-                    CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_TOPUP
-                )
-            elif grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL:
-                query = query.filter(
-                    CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL
-                )
-            else:
-                latest_order_subquery = _build_latest_billing_order_subquery(
-                    creator_bid=normalized_user_bid
-                )
-                latest_order = aliased(BillingOrder)
-                checkout_type_expr = db.func.lower(
-                    db.func.coalesce(
-                        CreditLedgerEntry.metadata_json["checkout_type"].as_string(),
-                        latest_order.metadata_json["checkout_type"].as_string(),
-                        "",
-                    )
-                )
-                query = (
-                    query.outerjoin(
-                        latest_order_subquery,
-                        latest_order_subquery.c.bill_order_bid
-                        == CreditLedgerEntry.source_bid,
-                    )
-                    .outerjoin(
-                        latest_order,
-                        latest_order.id == latest_order_subquery.c.max_id,
-                    )
-                    .filter(
-                        CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
-                    )
-                )
-                if (
-                    grant_source
-                    == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION
-                ):
-                    query = query.filter(checkout_type_expr == "trial_bootstrap")
-                else:
-                    query = query.filter(checkout_type_expr != "trial_bootstrap")
+            query = _apply_operator_user_grant_source_filter(
+                query, grant_source, normalized_user_bid
+            )
         elif has_consume_sub_filter:
-            latest_usage_subquery = _build_latest_bill_usage_record_subquery(
-                usage_bids=consume_source_bids
+            query = _apply_operator_user_consume_sub_filter(
+                query,
+                consume_source_bids,
+                resolved_course_query=resolved_course_query,
+                usage_scene=usage_scene,
+                usage_mode=usage_mode,
             )
-            usage_row = aliased(BillUsageRecord)
-            query = query.join(
-                latest_usage_subquery,
-                latest_usage_subquery.c.usage_bid == CreditLedgerEntry.source_bid,
-            ).join(usage_row, usage_row.id == latest_usage_subquery.c.max_id)
-            if resolved_course_query:
-                course_query_filter = _build_operator_course_query_filter(
-                    usage_row.shifu_bid,
-                    resolved_course_query,
-                )
-                if course_query_filter is not None:
-                    query = query.filter(course_query_filter)
-
-            if usage_scene == COURSE_CREDIT_USAGE_SCENE_LEARNING:
-                query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_PROD)
-            elif usage_scene == COURSE_CREDIT_USAGE_SCENE_PREVIEW:
-                query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_PREVIEW)
-            elif usage_scene == COURSE_CREDIT_USAGE_SCENE_DEBUG:
-                query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_DEBUG)
-
-            generation_name_expr = db.func.lower(
-                usage_row.extra["generation_name"].as_string()
-            )
-            if usage_mode == COURSE_CREDIT_USAGE_MODE_LISTEN:
-                query = query.filter(usage_row.usage_type == BILL_USAGE_TYPE_TTS)
-            elif usage_mode == COURSE_CREDIT_USAGE_MODE_ASK:
-                query = query.filter(
-                    usage_row.usage_type != BILL_USAGE_TYPE_TTS,
-                    _build_course_credit_usage_ask_filter(generation_name_expr),
-                )
-            elif usage_mode == COURSE_CREDIT_USAGE_MODE_LEARN:
-                query = query.filter(
-                    usage_row.usage_type != BILL_USAGE_TYPE_TTS,
-                    _build_course_credit_usage_learn_filter(generation_name_expr),
-                )
 
         order_by_query = query.order_by(
             CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
@@ -595,6 +500,123 @@ def get_operator_user_credits(
             total=total,
             page_count=((total + safe_page_size - 1) // safe_page_size) if total else 0,
         )
+
+
+def _apply_operator_user_credit_type_filter(query: Query, credit_type: str) -> Query:
+    """Narrow ledger entries by the resolved credit type filter."""
+    if credit_type == OPERATOR_USER_CREDIT_TYPE_CONSUME:
+        query = query.filter(
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+        )
+    elif credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT:
+        query = query.filter(
+            or_(
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                and_(
+                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                    CreditLedgerEntry.amount > 0,
+                ),
+            )
+        )
+    elif credit_type == OPERATOR_USER_CREDIT_TYPE_OTHER:
+        query = query.filter(
+            or_(
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+                and_(
+                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                    CreditLedgerEntry.amount < 0,
+                ),
+            )
+        )
+    return query
+
+
+def _apply_operator_user_grant_source_filter(
+    query: Query, grant_source: str, normalized_user_bid: str
+) -> Query:
+    """Narrow grant ledger entries by their grant source."""
+    if grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP:
+        query = query.filter(CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_TOPUP)
+    elif grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL:
+        query = query.filter(CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL)
+    else:
+        latest_order_subquery = _build_latest_billing_order_subquery(
+            creator_bid=normalized_user_bid
+        )
+        latest_order = aliased(BillingOrder)
+        checkout_type_expr = db.func.lower(
+            db.func.coalesce(
+                CreditLedgerEntry.metadata_json["checkout_type"].as_string(),
+                latest_order.metadata_json["checkout_type"].as_string(),
+                "",
+            )
+        )
+        query = (
+            query.outerjoin(
+                latest_order_subquery,
+                latest_order_subquery.c.bill_order_bid == CreditLedgerEntry.source_bid,
+            )
+            .outerjoin(
+                latest_order,
+                latest_order.id == latest_order_subquery.c.max_id,
+            )
+            .filter(CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION)
+        )
+        if grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION:
+            query = query.filter(checkout_type_expr == "trial_bootstrap")
+        else:
+            query = query.filter(checkout_type_expr != "trial_bootstrap")
+    return query
+
+
+def _apply_operator_user_consume_sub_filter(
+    query: Query,
+    consume_source_bids: list[str],
+    *,
+    resolved_course_query: str,
+    usage_scene: str,
+    usage_mode: str,
+) -> Query:
+    """Narrow consume ledger entries by course, usage scene, and usage mode."""
+    latest_usage_subquery = _build_latest_bill_usage_record_subquery(
+        usage_bids=consume_source_bids
+    )
+    usage_row = aliased(BillUsageRecord)
+    query = query.join(
+        latest_usage_subquery,
+        latest_usage_subquery.c.usage_bid == CreditLedgerEntry.source_bid,
+    ).join(usage_row, usage_row.id == latest_usage_subquery.c.max_id)
+    if resolved_course_query:
+        course_query_filter = _build_operator_course_query_filter(
+            usage_row.shifu_bid,
+            resolved_course_query,
+        )
+        if course_query_filter is not None:
+            query = query.filter(course_query_filter)
+
+    if usage_scene == COURSE_CREDIT_USAGE_SCENE_LEARNING:
+        query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_PROD)
+    elif usage_scene == COURSE_CREDIT_USAGE_SCENE_PREVIEW:
+        query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_PREVIEW)
+    elif usage_scene == COURSE_CREDIT_USAGE_SCENE_DEBUG:
+        query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_DEBUG)
+
+    generation_name_expr = db.func.lower(usage_row.extra["generation_name"].as_string())
+    if usage_mode == COURSE_CREDIT_USAGE_MODE_LISTEN:
+        query = query.filter(usage_row.usage_type == BILL_USAGE_TYPE_TTS)
+    elif usage_mode == COURSE_CREDIT_USAGE_MODE_ASK:
+        query = query.filter(
+            usage_row.usage_type != BILL_USAGE_TYPE_TTS,
+            _build_course_credit_usage_ask_filter(generation_name_expr),
+        )
+    elif usage_mode == COURSE_CREDIT_USAGE_MODE_LEARN:
+        query = query.filter(
+            usage_row.usage_type != BILL_USAGE_TYPE_TTS,
+            _build_course_credit_usage_learn_filter(generation_name_expr),
+        )
+    return query
 
 
 def get_operator_user_credit_usage_detail(
