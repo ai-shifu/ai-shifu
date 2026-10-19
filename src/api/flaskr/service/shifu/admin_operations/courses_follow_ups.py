@@ -619,99 +619,32 @@ def get_operator_course_follow_ups(
                 page_count=0,
             )
 
-        filtered_query = db.session.query(follow_up_base)
-        if user_keyword_filter is not None:
-            filtered_query = filtered_query.filter(user_keyword_filter)
-        if matching_outline_item_bids is not None:
-            filtered_query = filtered_query.filter(
-                follow_up_base.c.outline_item_bid.in_(
-                    sorted(matching_outline_item_bids)
-                )
-            )
-        if start_time:
-            filtered_query = filtered_query.filter(
-                follow_up_base.c.created_at >= start_time
-            )
-        if end_time:
-            filtered_query = filtered_query.filter(
-                follow_up_base.c.created_at <= end_time
-            )
+        filtered_query = _apply_follow_up_list_filters(
+            db.session.query(follow_up_base),
+            follow_up_base,
+            user_keyword_filter=user_keyword_filter,
+            matching_outline_item_bids=matching_outline_item_bids,
+            start_time=start_time,
+            end_time=end_time,
+        )
 
         summary_row = None
         filtered_source_status_map: dict[str, bool] | None = None
         if source_status:
-            filtered_rows = filtered_query.order_by(
-                follow_up_base.c.created_at.desc(),
-                follow_up_base.c.id.desc(),
-            ).all()
-            filtered_source_status_map = _build_follow_up_source_status_map(
-                shifu_bid=normalized_shifu_bid,
-                generated_block_bids=[
-                    str(getattr(row, "generated_block_bid", "") or "")
-                    for row in filtered_rows
-                ],
+            filtered_rows, filtered_source_status_map, total, summary = (
+                _filter_follow_up_rows_by_source_status(
+                    filtered_query,
+                    follow_up_base,
+                    shifu_bid=normalized_shifu_bid,
+                    source_status=source_status,
+                    include_summary=include_summary,
+                )
             )
-            filtered_rows = [
-                row
-                for row in filtered_rows
-                if filtered_source_status_map.get(
-                    str(getattr(row, "generated_block_bid", "") or "").strip(), False
-                )
-                == (source_status == "resolved")
-            ]
-            total = len(filtered_rows)
-            if include_summary:
-                unique_user_bids = {
-                    str(getattr(row, "user_bid", "") or "").strip()
-                    for row in filtered_rows
-                    if str(getattr(row, "user_bid", "") or "").strip()
-                }
-                unique_outline_item_bids = {
-                    str(getattr(row, "outline_item_bid", "") or "").strip()
-                    for row in filtered_rows
-                    if str(getattr(row, "outline_item_bid", "") or "").strip()
-                }
-                latest_follow_up_at = max(
-                    (
-                        getattr(row, "created_at", None)
-                        for row in filtered_rows
-                        if getattr(row, "created_at", None) is not None
-                    ),
-                    default=None,
-                )
-                summary = AdminOperationCourseFollowUpSummaryDTO(
-                    follow_up_count=total,
-                    user_count=len(unique_user_bids),
-                    lesson_count=len(unique_outline_item_bids),
-                    latest_follow_up_at=latest_follow_up_at,
-                )
-            else:
-                summary = AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
         else:
             filtered_follow_ups = filtered_query.subquery()
-            if include_summary:
-                summary_row = db.session.query(
-                    db.func.count(filtered_follow_ups.c.id).label("follow_up_count"),
-                    db.func.count(
-                        db.func.distinct(
-                            db.func.nullif(filtered_follow_ups.c.user_bid, "")
-                        )
-                    ).label("user_count"),
-                    db.func.count(
-                        db.func.distinct(
-                            db.func.nullif(filtered_follow_ups.c.outline_item_bid, "")
-                        )
-                    ).label("lesson_count"),
-                    db.func.max(filtered_follow_ups.c.created_at).label(
-                        "latest_follow_up_at"
-                    ),
-                ).one()
-                total = int(getattr(summary_row, "follow_up_count", 0) or 0)
-            else:
-                total = int(
-                    db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar()
-                    or 0
-                )
+            summary_row, total = _count_filtered_follow_ups(
+                filtered_follow_ups, include_summary=include_summary
+            )
 
         if total == 0:
             return AdminOperationCourseFollowUpListDTO(
@@ -757,50 +690,15 @@ def get_operator_course_follow_ups(
                 ],
             )
 
-        items: list[AdminOperationCourseFollowUpItemDTO] = []
-        for row in paged_rows:
-            generated_block_bid = str(
-                getattr(row, "generated_block_bid", "") or ""
-            ).strip()
-            outline_item_bid = str(getattr(row, "outline_item_bid", "") or "").strip()
-            user_bid = str(getattr(row, "user_bid", "") or "").strip()
-            created_at = getattr(row, "created_at", None)
-            context = outline_context_map.get(
-                outline_item_bid,
-                {
-                    "chapter_outline_item_bid": "",
-                    "chapter_title": "",
-                    "lesson_outline_item_bid": outline_item_bid,
-                    "lesson_title": "",
-                },
+        items: list[AdminOperationCourseFollowUpItemDTO] = [
+            _build_course_follow_up_item(
+                row,
+                outline_context_map=outline_context_map,
+                user_map=user_map,
+                source_status_map=source_status_map,
             )
-            user = user_map.get(user_bid, {})
-            items.append(
-                AdminOperationCourseFollowUpItemDTO(
-                    generated_block_bid=generated_block_bid,
-                    progress_record_bid=str(
-                        getattr(row, "progress_record_bid", "") or ""
-                    ),
-                    user_bid=user_bid,
-                    mobile=str(user.get("mobile", "") or ""),
-                    email=str(user.get("email", "") or ""),
-                    nickname=str(user.get("nickname", "") or ""),
-                    chapter_outline_item_bid=str(
-                        context.get("chapter_outline_item_bid", "") or ""
-                    ),
-                    chapter_title=str(context.get("chapter_title", "") or ""),
-                    lesson_outline_item_bid=str(
-                        context.get("lesson_outline_item_bid", "") or ""
-                    ),
-                    lesson_title=str(context.get("lesson_title", "") or ""),
-                    follow_up_content=str(getattr(row, "follow_up_content", "") or ""),
-                    has_source_output=bool(
-                        source_status_map.get(generated_block_bid, False)
-                    ),
-                    turn_index=int(getattr(row, "turn_index", 0) or 0),
-                    created_at=created_at,
-                )
-            )
+            for row in paged_rows
+        ]
         if not source_status and include_summary:
             summary = AdminOperationCourseFollowUpSummaryDTO(
                 follow_up_count=total,
@@ -818,6 +716,153 @@ def get_operator_course_follow_ups(
             total=total,
             page_count=math.ceil(total / safe_page_size) if safe_page_size else 0,
         )
+
+
+def _apply_follow_up_list_filters(
+    filtered_query: object,
+    follow_up_base: object,
+    *,
+    user_keyword_filter: object | None,
+    matching_outline_item_bids: set[str] | None,
+    start_time: object,
+    end_time: object,
+) -> object:
+    if user_keyword_filter is not None:
+        filtered_query = filtered_query.filter(user_keyword_filter)
+    if matching_outline_item_bids is not None:
+        filtered_query = filtered_query.filter(
+            follow_up_base.c.outline_item_bid.in_(sorted(matching_outline_item_bids))
+        )
+    if start_time:
+        filtered_query = filtered_query.filter(
+            follow_up_base.c.created_at >= start_time
+        )
+    if end_time:
+        filtered_query = filtered_query.filter(follow_up_base.c.created_at <= end_time)
+    return filtered_query
+
+
+def _filter_follow_up_rows_by_source_status(
+    filtered_query: object,
+    follow_up_base: object,
+    *,
+    shifu_bid: str,
+    source_status: str,
+    include_summary: bool,
+) -> tuple[list, dict[str, bool], int, AdminOperationCourseFollowUpSummaryDTO]:
+    """Load all filtered rows, keep those matching the source status, summarize."""
+    filtered_rows = filtered_query.order_by(
+        follow_up_base.c.created_at.desc(),
+        follow_up_base.c.id.desc(),
+    ).all()
+    filtered_source_status_map = _build_follow_up_source_status_map(
+        shifu_bid=shifu_bid,
+        generated_block_bids=[
+            str(getattr(row, "generated_block_bid", "") or "") for row in filtered_rows
+        ],
+    )
+    filtered_rows = [
+        row
+        for row in filtered_rows
+        if filtered_source_status_map.get(
+            str(getattr(row, "generated_block_bid", "") or "").strip(), False
+        )
+        == (source_status == "resolved")
+    ]
+    total = len(filtered_rows)
+    if include_summary:
+        unique_user_bids = {
+            str(getattr(row, "user_bid", "") or "").strip()
+            for row in filtered_rows
+            if str(getattr(row, "user_bid", "") or "").strip()
+        }
+        unique_outline_item_bids = {
+            str(getattr(row, "outline_item_bid", "") or "").strip()
+            for row in filtered_rows
+            if str(getattr(row, "outline_item_bid", "") or "").strip()
+        }
+        latest_follow_up_at = max(
+            (
+                getattr(row, "created_at", None)
+                for row in filtered_rows
+                if getattr(row, "created_at", None) is not None
+            ),
+            default=None,
+        )
+        summary = AdminOperationCourseFollowUpSummaryDTO(
+            follow_up_count=total,
+            user_count=len(unique_user_bids),
+            lesson_count=len(unique_outline_item_bids),
+            latest_follow_up_at=latest_follow_up_at,
+        )
+    else:
+        summary = AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
+    return filtered_rows, filtered_source_status_map, total, summary
+
+
+def _count_filtered_follow_ups(
+    filtered_follow_ups: object, *, include_summary: bool
+) -> tuple[object | None, int]:
+    """Return the SQL summary row (when requested) and the total count."""
+    summary_row = None
+    if include_summary:
+        summary_row = db.session.query(
+            db.func.count(filtered_follow_ups.c.id).label("follow_up_count"),
+            db.func.count(
+                db.func.distinct(db.func.nullif(filtered_follow_ups.c.user_bid, ""))
+            ).label("user_count"),
+            db.func.count(
+                db.func.distinct(
+                    db.func.nullif(filtered_follow_ups.c.outline_item_bid, "")
+                )
+            ).label("lesson_count"),
+            db.func.max(filtered_follow_ups.c.created_at).label("latest_follow_up_at"),
+        ).one()
+        total = int(getattr(summary_row, "follow_up_count", 0) or 0)
+    else:
+        total = int(
+            db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar() or 0
+        )
+    return summary_row, total
+
+
+def _build_course_follow_up_item(
+    row: object,
+    *,
+    outline_context_map: dict,
+    user_map: dict,
+    source_status_map: dict[str, bool],
+) -> AdminOperationCourseFollowUpItemDTO:
+    generated_block_bid = str(getattr(row, "generated_block_bid", "") or "").strip()
+    outline_item_bid = str(getattr(row, "outline_item_bid", "") or "").strip()
+    user_bid = str(getattr(row, "user_bid", "") or "").strip()
+    created_at = getattr(row, "created_at", None)
+    context = outline_context_map.get(
+        outline_item_bid,
+        {
+            "chapter_outline_item_bid": "",
+            "chapter_title": "",
+            "lesson_outline_item_bid": outline_item_bid,
+            "lesson_title": "",
+        },
+    )
+    user = user_map.get(user_bid, {})
+    return AdminOperationCourseFollowUpItemDTO(
+        generated_block_bid=generated_block_bid,
+        progress_record_bid=str(getattr(row, "progress_record_bid", "") or ""),
+        user_bid=user_bid,
+        mobile=str(user.get("mobile", "") or ""),
+        email=str(user.get("email", "") or ""),
+        nickname=str(user.get("nickname", "") or ""),
+        chapter_outline_item_bid=str(context.get("chapter_outline_item_bid", "") or ""),
+        chapter_title=str(context.get("chapter_title", "") or ""),
+        lesson_outline_item_bid=str(context.get("lesson_outline_item_bid", "") or ""),
+        lesson_title=str(context.get("lesson_title", "") or ""),
+        follow_up_content=str(getattr(row, "follow_up_content", "") or ""),
+        has_source_output=bool(source_status_map.get(generated_block_bid, False)),
+        turn_index=int(getattr(row, "turn_index", 0) or 0),
+        created_at=created_at,
+    )
 
 
 def get_operator_course_follow_up_detail(

@@ -1032,197 +1032,18 @@ def get_operator_course_credit_usages(
         model_label_resolver = _CourseCreditUsageModelLabelResolver(app)
 
         if view == COURSE_CREDIT_USAGE_VIEW_RAW:
-            total = query.count()
-            rows = (
-                query.order_by(
-                    BillUsageRecord.created_at.desc(), BillUsageRecord.id.desc()
-                )
-                .offset((safe_page_index - 1) * safe_page_size)
-                .limit(safe_page_size)
-                .all()
-            )
-            user_map = _load_user_map(
-                sorted(
-                    {
-                        str(getattr(usage_row, "user_bid", "") or "").strip()
-                        for usage_row, _ledger_amount in rows
-                        if str(getattr(usage_row, "user_bid", "") or "").strip()
-                    }
-                )
-            )
-            raw_items: list[AdminOperationCourseCreditUsageItemDTO] = []
-            for usage_row, ledger_amount in rows:
-                model_display = _build_course_credit_usage_model_display(
-                    str(getattr(usage_row, "provider", "") or ""),
-                    str(getattr(usage_row, "model", "") or ""),
-                )
-                raw_items.append(
-                    _build_operator_course_credit_usage_item(
-                        usage_row=usage_row,
-                        ledger_amount=ledger_amount,
-                        user_map=user_map,
-                        outline_context_map=outline_context_map,
-                        group_key=str(getattr(usage_row, "usage_bid", "") or ""),
-                        usage_count=1,
-                        usage_mode=_resolve_course_credit_usage_mode(usage_row),
-                        model_label=model_label_resolver.resolve(
-                            usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
-                            provider=str(getattr(usage_row, "provider", "") or ""),
-                            model=str(getattr(usage_row, "model", "") or ""),
-                        ),
-                        model_variant_count=1 if model_display else 0,
-                    )
-                )
-            return AdminOperationCourseCreditUsageListDTO(
-                view=COURSE_CREDIT_USAGE_VIEW_RAW,
-                items=raw_items,
-                page=safe_page_index,
-                page_size=safe_page_size,
-                total=total,
-                page_count=math.ceil(total / safe_page_size) if safe_page_size else 0,
+            return _list_raw_course_credit_usages(
+                query,
+                safe_page_index=safe_page_index,
+                safe_page_size=safe_page_size,
+                outline_context_map=outline_context_map,
+                model_label_resolver=model_label_resolver,
             )
 
-        usage_rows = query.subquery("operator_course_credit_usage_filtered")
-        generation_name_expr = db.func.lower(
-            usage_rows.c.extra["generation_name"].as_string()
-        )
-        usage_mode_expr = case(
-            (
-                usage_rows.c.usage_type == BILL_USAGE_TYPE_TTS,
-                COURSE_CREDIT_USAGE_MODE_LISTEN,
-            ),
-            (
-                and_(
-                    usage_rows.c.usage_type != BILL_USAGE_TYPE_TTS,
-                    or_(
-                        generation_name_expr.contains("/user_follow_ask/"),
-                        generation_name_expr.startswith("lesson_ask/"),
-                        generation_name_expr.startswith("lesson_preview_ask/"),
-                    ),
-                ),
-                COURSE_CREDIT_USAGE_MODE_ASK,
-            ),
-            else_=COURSE_CREDIT_USAGE_MODE_LEARN,
-        ).label("usage_mode")
-        usage_scene_expr = case(
-            (
-                usage_rows.c.usage_scene == BILL_USAGE_SCENE_DEBUG,
-                COURSE_CREDIT_USAGE_SCENE_DEBUG,
-            ),
-            (
-                usage_rows.c.usage_scene == BILL_USAGE_SCENE_PREVIEW,
-                COURSE_CREDIT_USAGE_SCENE_PREVIEW,
-            ),
-            (
-                usage_rows.c.usage_scene == BILL_USAGE_SCENE_PROD,
-                COURSE_CREDIT_USAGE_SCENE_LEARNING,
-            ),
-            else_="",
-        ).label("usage_scene")
-        group_key_expr = db.func.concat(
-            usage_rows.c.user_bid,
-            literal(":"),
-            usage_rows.c.outline_item_bid,
-            literal(":"),
-            usage_scene_expr,
-            literal(":"),
-            usage_mode_expr,
-        ).label("group_key")
-
-        grouped_query = (
-            db.session.query(
-                group_key_expr,
-                usage_rows.c.user_bid.label("user_bid"),
-                usage_rows.c.outline_item_bid.label("outline_item_bid"),
-                usage_scene_expr,
-                usage_mode_expr,
-                db.func.count(db.func.distinct(usage_rows.c.usage_bid)).label(
-                    "usage_count"
-                ),
-                db.func.count(
-                    db.func.distinct(
-                        db.func.nullif(
-                            db.func.concat(
-                                db.func.coalesce(usage_rows.c.provider, ""),
-                                literal("/"),
-                                db.func.coalesce(usage_rows.c.model, ""),
-                            ),
-                            "/",
-                        )
-                    )
-                ).label("model_variant_count"),
-                db.func.coalesce(
-                    db.func.sum(db.func.abs(usage_rows.c.ledger_amount)), 0
-                ).label("consumed_credits"),
-                db.func.max(usage_rows.c.created_at).label("created_at"),
-            )
-            .select_from(usage_rows)
-            .group_by(
-                group_key_expr,
-                usage_rows.c.user_bid,
-                usage_rows.c.outline_item_bid,
-                usage_scene_expr,
-                usage_mode_expr,
-            )
-        )
-        latest_usage_query = db.session.query(
-            group_key_expr,
-            usage_rows.c.usage_bid.label("usage_bid"),
-            usage_rows.c.progress_record_bid.label("progress_record_bid"),
-            usage_rows.c.generated_block_bid.label("generated_block_bid"),
-            usage_rows.c.provider.label("provider"),
-            usage_rows.c.model.label("model"),
-            db.func.row_number()
-            .over(
-                partition_by=[
-                    usage_rows.c.user_bid,
-                    usage_rows.c.outline_item_bid,
-                    usage_scene_expr,
-                    usage_mode_expr,
-                ],
-                order_by=[usage_rows.c.created_at.desc(), usage_rows.c.id.desc()],
-            )
-            .label("row_number"),
-        ).select_from(usage_rows)
-
-        grouped_subquery = grouped_query.subquery("operator_course_credit_usage_groups")
-        latest_usage_subquery = latest_usage_query.subquery(
-            "operator_course_credit_usage_latest_rows"
-        )
-        total = (
-            db.session.query(db.func.count()).select_from(grouped_subquery).scalar()
-            or 0
-        )
-        grouped_rows = (
-            db.session.query(
-                grouped_subquery.c.group_key,
-                latest_usage_subquery.c.usage_bid,
-                latest_usage_subquery.c.progress_record_bid,
-                latest_usage_subquery.c.generated_block_bid,
-                grouped_subquery.c.user_bid,
-                grouped_subquery.c.outline_item_bid,
-                grouped_subquery.c.usage_scene,
-                grouped_subquery.c.usage_mode,
-                latest_usage_subquery.c.provider,
-                latest_usage_subquery.c.model,
-                grouped_subquery.c.usage_count,
-                grouped_subquery.c.model_variant_count,
-                grouped_subquery.c.consumed_credits,
-                grouped_subquery.c.created_at,
-            )
-            .join(
-                latest_usage_subquery,
-                and_(
-                    latest_usage_subquery.c.group_key == grouped_subquery.c.group_key,
-                    latest_usage_subquery.c.row_number == 1,
-                ),
-            )
-            .order_by(
-                grouped_subquery.c.created_at.desc(), grouped_subquery.c.group_key.asc()
-            )
-            .offset((safe_page_index - 1) * safe_page_size)
-            .limit(safe_page_size)
-            .all()
+        total, grouped_rows = _load_grouped_course_credit_usage_rows(
+            query,
+            safe_page_index=safe_page_index,
+            safe_page_size=safe_page_size,
         )
         user_map = _load_user_map(
             sorted(
@@ -1234,67 +1055,15 @@ def get_operator_course_credit_usages(
             )
         )
 
-        grouped_items: list[AdminOperationCourseCreditUsageItemDTO] = []
-        for row in grouped_rows:
-            context = outline_context_map.get(
-                str(getattr(row, "outline_item_bid", "") or "").strip(),
-                {
-                    "chapter_outline_item_bid": "",
-                    "chapter_title": "",
-                    "lesson_outline_item_bid": str(
-                        getattr(row, "outline_item_bid", "") or ""
-                    ),
-                    "lesson_title": "",
-                },
+        grouped_items: list[AdminOperationCourseCreditUsageItemDTO] = [
+            _build_grouped_course_credit_usage_item(
+                row,
+                user_map=user_map,
+                outline_context_map=outline_context_map,
+                model_label_resolver=model_label_resolver,
             )
-            user_bid = str(getattr(row, "user_bid", "") or "").strip()
-            user = user_map.get(user_bid, {})
-            grouped_items.append(
-                AdminOperationCourseCreditUsageItemDTO(
-                    group_key=str(getattr(row, "group_key", "") or ""),
-                    usage_bid=str(getattr(row, "usage_bid", "") or ""),
-                    progress_record_bid=str(
-                        getattr(row, "progress_record_bid", "") or ""
-                    ),
-                    generated_block_bid=str(
-                        getattr(row, "generated_block_bid", "") or ""
-                    ),
-                    user_bid=user_bid,
-                    mobile=str(user.get("mobile", "") or ""),
-                    email=str(user.get("email", "") or ""),
-                    nickname=str(user.get("nickname", "") or ""),
-                    chapter_outline_item_bid=str(
-                        context.get("chapter_outline_item_bid", "") or ""
-                    ),
-                    chapter_title=str(context.get("chapter_title", "") or ""),
-                    lesson_outline_item_bid=str(
-                        context.get("lesson_outline_item_bid", "") or ""
-                    ),
-                    lesson_title=str(context.get("lesson_title", "") or ""),
-                    usage_scene=str(getattr(row, "usage_scene", "") or ""),
-                    usage_mode=str(getattr(row, "usage_mode", "") or ""),
-                    provider=str(getattr(row, "provider", "") or ""),
-                    model=str(getattr(row, "model", "") or ""),
-                    model_label=model_label_resolver.resolve(
-                        usage_type=(
-                            BILL_USAGE_TYPE_TTS
-                            if str(getattr(row, "usage_mode", "") or "")
-                            == COURSE_CREDIT_USAGE_MODE_LISTEN
-                            else 0
-                        ),
-                        provider=str(getattr(row, "provider", "") or ""),
-                        model=str(getattr(row, "model", "") or ""),
-                    ),
-                    usage_count=int(getattr(row, "usage_count", 0) or 0),
-                    model_variant_count=int(
-                        getattr(row, "model_variant_count", 0) or 0
-                    ),
-                    consumed_credits=credit_decimal_to_number(
-                        Decimal(str(getattr(row, "consumed_credits", 0) or 0))
-                    ),
-                    created_at=getattr(row, "created_at", None),
-                )
-            )
+            for row in grouped_rows
+        ]
 
         return AdminOperationCourseCreditUsageListDTO(
             view=COURSE_CREDIT_USAGE_VIEW_GROUPED,
@@ -1306,6 +1075,277 @@ def get_operator_course_credit_usages(
             if safe_page_size
             else 0,
         )
+
+
+def _list_raw_course_credit_usages(
+    query: object,
+    *,
+    safe_page_index: int,
+    safe_page_size: int,
+    outline_context_map: dict,
+    model_label_resolver: _CourseCreditUsageModelLabelResolver,
+) -> AdminOperationCourseCreditUsageListDTO:
+    """Return one page of ungrouped usage records."""
+    total = query.count()
+    rows = (
+        query.order_by(BillUsageRecord.created_at.desc(), BillUsageRecord.id.desc())
+        .offset((safe_page_index - 1) * safe_page_size)
+        .limit(safe_page_size)
+        .all()
+    )
+    user_map = _load_user_map(
+        sorted(
+            {
+                str(getattr(usage_row, "user_bid", "") or "").strip()
+                for usage_row, _ledger_amount in rows
+                if str(getattr(usage_row, "user_bid", "") or "").strip()
+            }
+        )
+    )
+    raw_items: list[AdminOperationCourseCreditUsageItemDTO] = []
+    for usage_row, ledger_amount in rows:
+        model_display = _build_course_credit_usage_model_display(
+            str(getattr(usage_row, "provider", "") or ""),
+            str(getattr(usage_row, "model", "") or ""),
+        )
+        raw_items.append(
+            _build_operator_course_credit_usage_item(
+                usage_row=usage_row,
+                ledger_amount=ledger_amount,
+                user_map=user_map,
+                outline_context_map=outline_context_map,
+                group_key=str(getattr(usage_row, "usage_bid", "") or ""),
+                usage_count=1,
+                usage_mode=_resolve_course_credit_usage_mode(usage_row),
+                model_label=model_label_resolver.resolve(
+                    usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
+                    provider=str(getattr(usage_row, "provider", "") or ""),
+                    model=str(getattr(usage_row, "model", "") or ""),
+                ),
+                model_variant_count=1 if model_display else 0,
+            )
+        )
+    return AdminOperationCourseCreditUsageListDTO(
+        view=COURSE_CREDIT_USAGE_VIEW_RAW,
+        items=raw_items,
+        page=safe_page_index,
+        page_size=safe_page_size,
+        total=total,
+        page_count=math.ceil(total / safe_page_size) if safe_page_size else 0,
+    )
+
+
+def _build_course_credit_usage_group_queries(
+    usage_rows: object,
+) -> tuple[object, object]:
+    """Build the per-group aggregate query and the latest-row-per-group query."""
+    generation_name_expr = db.func.lower(
+        usage_rows.c.extra["generation_name"].as_string()
+    )
+    usage_mode_expr = case(
+        (
+            usage_rows.c.usage_type == BILL_USAGE_TYPE_TTS,
+            COURSE_CREDIT_USAGE_MODE_LISTEN,
+        ),
+        (
+            and_(
+                usage_rows.c.usage_type != BILL_USAGE_TYPE_TTS,
+                or_(
+                    generation_name_expr.contains("/user_follow_ask/"),
+                    generation_name_expr.startswith("lesson_ask/"),
+                    generation_name_expr.startswith("lesson_preview_ask/"),
+                ),
+            ),
+            COURSE_CREDIT_USAGE_MODE_ASK,
+        ),
+        else_=COURSE_CREDIT_USAGE_MODE_LEARN,
+    ).label("usage_mode")
+    usage_scene_expr = case(
+        (
+            usage_rows.c.usage_scene == BILL_USAGE_SCENE_DEBUG,
+            COURSE_CREDIT_USAGE_SCENE_DEBUG,
+        ),
+        (
+            usage_rows.c.usage_scene == BILL_USAGE_SCENE_PREVIEW,
+            COURSE_CREDIT_USAGE_SCENE_PREVIEW,
+        ),
+        (
+            usage_rows.c.usage_scene == BILL_USAGE_SCENE_PROD,
+            COURSE_CREDIT_USAGE_SCENE_LEARNING,
+        ),
+        else_="",
+    ).label("usage_scene")
+    group_key_expr = db.func.concat(
+        usage_rows.c.user_bid,
+        literal(":"),
+        usage_rows.c.outline_item_bid,
+        literal(":"),
+        usage_scene_expr,
+        literal(":"),
+        usage_mode_expr,
+    ).label("group_key")
+
+    grouped_query = (
+        db.session.query(
+            group_key_expr,
+            usage_rows.c.user_bid.label("user_bid"),
+            usage_rows.c.outline_item_bid.label("outline_item_bid"),
+            usage_scene_expr,
+            usage_mode_expr,
+            db.func.count(db.func.distinct(usage_rows.c.usage_bid)).label(
+                "usage_count"
+            ),
+            db.func.count(
+                db.func.distinct(
+                    db.func.nullif(
+                        db.func.concat(
+                            db.func.coalesce(usage_rows.c.provider, ""),
+                            literal("/"),
+                            db.func.coalesce(usage_rows.c.model, ""),
+                        ),
+                        "/",
+                    )
+                )
+            ).label("model_variant_count"),
+            db.func.coalesce(
+                db.func.sum(db.func.abs(usage_rows.c.ledger_amount)), 0
+            ).label("consumed_credits"),
+            db.func.max(usage_rows.c.created_at).label("created_at"),
+        )
+        .select_from(usage_rows)
+        .group_by(
+            group_key_expr,
+            usage_rows.c.user_bid,
+            usage_rows.c.outline_item_bid,
+            usage_scene_expr,
+            usage_mode_expr,
+        )
+    )
+    latest_usage_query = db.session.query(
+        group_key_expr,
+        usage_rows.c.usage_bid.label("usage_bid"),
+        usage_rows.c.progress_record_bid.label("progress_record_bid"),
+        usage_rows.c.generated_block_bid.label("generated_block_bid"),
+        usage_rows.c.provider.label("provider"),
+        usage_rows.c.model.label("model"),
+        db.func.row_number()
+        .over(
+            partition_by=[
+                usage_rows.c.user_bid,
+                usage_rows.c.outline_item_bid,
+                usage_scene_expr,
+                usage_mode_expr,
+            ],
+            order_by=[usage_rows.c.created_at.desc(), usage_rows.c.id.desc()],
+        )
+        .label("row_number"),
+    ).select_from(usage_rows)
+    return grouped_query, latest_usage_query
+
+
+def _load_grouped_course_credit_usage_rows(
+    query: object, *, safe_page_index: int, safe_page_size: int
+) -> tuple[object, list]:
+    """Return the group total and one page of grouped usage rows."""
+    usage_rows = query.subquery("operator_course_credit_usage_filtered")
+    grouped_query, latest_usage_query = _build_course_credit_usage_group_queries(
+        usage_rows
+    )
+
+    grouped_subquery = grouped_query.subquery("operator_course_credit_usage_groups")
+    latest_usage_subquery = latest_usage_query.subquery(
+        "operator_course_credit_usage_latest_rows"
+    )
+    total = (
+        db.session.query(db.func.count()).select_from(grouped_subquery).scalar() or 0
+    )
+    grouped_rows = (
+        db.session.query(
+            grouped_subquery.c.group_key,
+            latest_usage_subquery.c.usage_bid,
+            latest_usage_subquery.c.progress_record_bid,
+            latest_usage_subquery.c.generated_block_bid,
+            grouped_subquery.c.user_bid,
+            grouped_subquery.c.outline_item_bid,
+            grouped_subquery.c.usage_scene,
+            grouped_subquery.c.usage_mode,
+            latest_usage_subquery.c.provider,
+            latest_usage_subquery.c.model,
+            grouped_subquery.c.usage_count,
+            grouped_subquery.c.model_variant_count,
+            grouped_subquery.c.consumed_credits,
+            grouped_subquery.c.created_at,
+        )
+        .join(
+            latest_usage_subquery,
+            and_(
+                latest_usage_subquery.c.group_key == grouped_subquery.c.group_key,
+                latest_usage_subquery.c.row_number == 1,
+            ),
+        )
+        .order_by(
+            grouped_subquery.c.created_at.desc(), grouped_subquery.c.group_key.asc()
+        )
+        .offset((safe_page_index - 1) * safe_page_size)
+        .limit(safe_page_size)
+        .all()
+    )
+    return total, grouped_rows
+
+
+def _build_grouped_course_credit_usage_item(
+    row: object,
+    *,
+    user_map: dict,
+    outline_context_map: dict,
+    model_label_resolver: _CourseCreditUsageModelLabelResolver,
+) -> AdminOperationCourseCreditUsageItemDTO:
+    """Build one grouped usage item DTO."""
+    context = outline_context_map.get(
+        str(getattr(row, "outline_item_bid", "") or "").strip(),
+        {
+            "chapter_outline_item_bid": "",
+            "chapter_title": "",
+            "lesson_outline_item_bid": str(getattr(row, "outline_item_bid", "") or ""),
+            "lesson_title": "",
+        },
+    )
+    user_bid = str(getattr(row, "user_bid", "") or "").strip()
+    user = user_map.get(user_bid, {})
+    return AdminOperationCourseCreditUsageItemDTO(
+        group_key=str(getattr(row, "group_key", "") or ""),
+        usage_bid=str(getattr(row, "usage_bid", "") or ""),
+        progress_record_bid=str(getattr(row, "progress_record_bid", "") or ""),
+        generated_block_bid=str(getattr(row, "generated_block_bid", "") or ""),
+        user_bid=user_bid,
+        mobile=str(user.get("mobile", "") or ""),
+        email=str(user.get("email", "") or ""),
+        nickname=str(user.get("nickname", "") or ""),
+        chapter_outline_item_bid=str(context.get("chapter_outline_item_bid", "") or ""),
+        chapter_title=str(context.get("chapter_title", "") or ""),
+        lesson_outline_item_bid=str(context.get("lesson_outline_item_bid", "") or ""),
+        lesson_title=str(context.get("lesson_title", "") or ""),
+        usage_scene=str(getattr(row, "usage_scene", "") or ""),
+        usage_mode=str(getattr(row, "usage_mode", "") or ""),
+        provider=str(getattr(row, "provider", "") or ""),
+        model=str(getattr(row, "model", "") or ""),
+        model_label=model_label_resolver.resolve(
+            usage_type=(
+                BILL_USAGE_TYPE_TTS
+                if str(getattr(row, "usage_mode", "") or "")
+                == COURSE_CREDIT_USAGE_MODE_LISTEN
+                else 0
+            ),
+            provider=str(getattr(row, "provider", "") or ""),
+            model=str(getattr(row, "model", "") or ""),
+        ),
+        usage_count=int(getattr(row, "usage_count", 0) or 0),
+        model_variant_count=int(getattr(row, "model_variant_count", 0) or 0),
+        consumed_credits=credit_decimal_to_number(
+            Decimal(str(getattr(row, "consumed_credits", 0) or 0))
+        ),
+        created_at=getattr(row, "created_at", None),
+    )
 
 
 def get_operator_course_credit_usage_details(

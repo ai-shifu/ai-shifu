@@ -363,91 +363,18 @@ def get_operator_course_users(
             visible_leaf_outline_bids,
         )
 
-        keyword = str(filters.get("keyword", "") or "").strip().lower()
-        user_role_filter = str(filters.get("user_role", "") or "").strip().lower()
-        learning_status_filter = (
-            str(filters.get("learning_status", "") or "").strip().lower()
+        items_with_sort_keys = _collect_course_user_items(
+            users,
+            learner_user_bids=learner_user_bids,
+            total_lesson_count=total_lesson_count,
+            contact_map=contact_map,
+            learned_lesson_count_map=learned_lesson_count_map,
+            paid_amount_map=paid_amount_map,
+            last_learning_map=last_learning_map,
+            joined_at_map=joined_at_map,
+            last_login_map=last_login_map,
+            filters=filters,
         )
-        payment_status_filter = (
-            str(filters.get("payment_status", "") or "").strip().lower()
-        )
-
-        items_with_sort_keys: list[
-            tuple[
-                tuple[datetime, datetime, datetime, datetime, str],
-                AdminOperationCourseUserDTO,
-            ]
-        ] = []
-        for user in users:
-            user_bid = str(user.user_bid or "").strip()
-            if not user_bid:
-                continue
-            contact = contact_map.get(user_bid, {})
-            learned_lesson_count = int(learned_lesson_count_map.get(user_bid, 0) or 0)
-            learning_status = _resolve_course_user_learning_status(
-                learned_lesson_count=learned_lesson_count,
-                total_lesson_count=total_lesson_count,
-            )
-            total_paid_amount = paid_amount_map.get(user_bid)
-            is_paid = bool(total_paid_amount and total_paid_amount > 0)
-            user_role = _resolve_course_user_role(
-                is_creator=bool(user.is_creator),
-                is_operator=bool(user.is_operator),
-                is_student=user_bid in learner_user_bids,
-            )
-
-            if keyword:
-                haystack = [
-                    user_bid.lower(),
-                    str(contact.get("mobile", "") or "").lower(),
-                    str(contact.get("email", "") or "").lower(),
-                    str(user.nickname or "").lower(),
-                ]
-                if not any(keyword in value for value in haystack if value):
-                    continue
-
-            if user_role_filter and user_role_filter not in ("all", user_role):
-                continue
-            if learning_status_filter and learning_status_filter not in (
-                "all",
-                learning_status,
-            ):
-                continue
-            if payment_status_filter == "paid" and not is_paid:
-                continue
-            if payment_status_filter == "unpaid" and is_paid:
-                continue
-
-            last_learning_at = last_learning_map.get(user_bid)
-            joined_at = joined_at_map.get(user_bid)
-            last_login_at = last_login_map.get(user_bid)
-            dto = AdminOperationCourseUserDTO(
-                user_bid=user_bid,
-                mobile=str(contact.get("mobile", "") or ""),
-                email=str(contact.get("email", "") or ""),
-                nickname=user.nickname or "",
-                user_role=user_role,
-                learned_lesson_count=learned_lesson_count,
-                total_lesson_count=total_lesson_count,
-                learning_status=learning_status,
-                is_paid=is_paid,
-                total_paid_amount=_format_decimal(total_paid_amount),
-                last_learning_at=last_learning_at,
-                joined_at=joined_at,
-                last_login_at=last_login_at,
-            )
-            items_with_sort_keys.append(
-                (
-                    (
-                        last_learning_at or NAIVE_DATETIME_MIN,
-                        joined_at or NAIVE_DATETIME_MIN,
-                        last_login_at or NAIVE_DATETIME_MIN,
-                        getattr(user, "created_at", None) or NAIVE_DATETIME_MIN,
-                        user_bid,
-                    ),
-                    dto,
-                )
-            )
 
         items_with_sort_keys.sort(key=lambda item: item[0], reverse=True)
         items = [item for _, item in items_with_sort_keys]
@@ -456,3 +383,107 @@ def get_operator_course_users(
         end = start + safe_page_size
         paged_items = items[start:end]
         return PageNationDTO(safe_page_index, safe_page_size, total, paged_items)
+
+
+def _collect_course_user_items(
+    users: list,
+    *,
+    learner_user_bids: set[str],
+    total_lesson_count: int,
+    contact_map: dict,
+    learned_lesson_count_map: dict,
+    paid_amount_map: dict,
+    last_learning_map: dict,
+    joined_at_map: dict,
+    last_login_map: dict,
+    filters: dict,
+) -> list[
+    tuple[
+        tuple[datetime, datetime, datetime, datetime, str], AdminOperationCourseUserDTO
+    ]
+]:
+    """Build filtered course user DTOs paired with their sort keys."""
+    keyword = str(filters.get("keyword", "") or "").strip().lower()
+    user_role_filter = str(filters.get("user_role", "") or "").strip().lower()
+    learning_status_filter = (
+        str(filters.get("learning_status", "") or "").strip().lower()
+    )
+    payment_status_filter = str(filters.get("payment_status", "") or "").strip().lower()
+
+    items_with_sort_keys: list[
+        tuple[
+            tuple[datetime, datetime, datetime, datetime, str],
+            AdminOperationCourseUserDTO,
+        ]
+    ] = []
+    for user in users:
+        user_bid = str(user.user_bid or "").strip()
+        if not user_bid:
+            continue
+        contact = contact_map.get(user_bid, {})
+        learned_lesson_count = int(learned_lesson_count_map.get(user_bid, 0) or 0)
+        learning_status = _resolve_course_user_learning_status(
+            learned_lesson_count=learned_lesson_count,
+            total_lesson_count=total_lesson_count,
+        )
+        total_paid_amount = paid_amount_map.get(user_bid)
+        is_paid = bool(total_paid_amount and total_paid_amount > 0)
+        user_role = _resolve_course_user_role(
+            is_creator=bool(user.is_creator),
+            is_operator=bool(user.is_operator),
+            is_student=user_bid in learner_user_bids,
+        )
+
+        if keyword:
+            haystack = [
+                user_bid.lower(),
+                str(contact.get("mobile", "") or "").lower(),
+                str(contact.get("email", "") or "").lower(),
+                str(user.nickname or "").lower(),
+            ]
+            if not any(keyword in value for value in haystack if value):
+                continue
+
+        if user_role_filter and user_role_filter not in ("all", user_role):
+            continue
+        if learning_status_filter and learning_status_filter not in (
+            "all",
+            learning_status,
+        ):
+            continue
+        if payment_status_filter == "paid" and not is_paid:
+            continue
+        if payment_status_filter == "unpaid" and is_paid:
+            continue
+
+        last_learning_at = last_learning_map.get(user_bid)
+        joined_at = joined_at_map.get(user_bid)
+        last_login_at = last_login_map.get(user_bid)
+        dto = AdminOperationCourseUserDTO(
+            user_bid=user_bid,
+            mobile=str(contact.get("mobile", "") or ""),
+            email=str(contact.get("email", "") or ""),
+            nickname=user.nickname or "",
+            user_role=user_role,
+            learned_lesson_count=learned_lesson_count,
+            total_lesson_count=total_lesson_count,
+            learning_status=learning_status,
+            is_paid=is_paid,
+            total_paid_amount=_format_decimal(total_paid_amount),
+            last_learning_at=last_learning_at,
+            joined_at=joined_at,
+            last_login_at=last_login_at,
+        )
+        items_with_sort_keys.append(
+            (
+                (
+                    last_learning_at or NAIVE_DATETIME_MIN,
+                    joined_at or NAIVE_DATETIME_MIN,
+                    last_login_at or NAIVE_DATETIME_MIN,
+                    getattr(user, "created_at", None) or NAIVE_DATETIME_MIN,
+                    user_bid,
+                ),
+                dto,
+            )
+        )
+    return items_with_sort_keys
