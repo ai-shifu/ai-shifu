@@ -33,6 +33,11 @@ from flaskr.service.common.models import (
     AppError,  # noqa: F401  # re-exported public API
     raise_error,
 )
+from flaskr.service.learn import (
+    runscript_v2_agent,
+    runscript_v2_events,
+    runscript_v2_stream,
+)
 from flaskr.service.learn.agent.routing import uses_agent_engine
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.context_v2 import RunScriptContextV2
@@ -62,6 +67,7 @@ from flaskr.service.learn.runscript_v2_stream import (
     _stream_busy_events,
     _stream_closing_events,
 )
+from flaskr.service.learn.split_module_patching import forward_attribute_writes
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -1082,3 +1088,16 @@ def get_run_status(
         is_running=True,
         running_time=max(0, int(time.time()) - started_at),
     )
+
+
+# SSE helpers, the SSE relay, and the 2.0 turn stream live in sibling modules;
+# forward patches applied here (tests and plugins patch names on
+# ``flaskr.service.learn.runscript_v2``) so the moved code sees them.
+forward_attribute_writes(
+    __name__,
+    (
+        runscript_v2_events,
+        runscript_v2_stream,
+        runscript_v2_agent,
+    ),
+)

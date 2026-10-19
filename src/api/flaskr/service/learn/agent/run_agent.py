@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, translate_for_language
+from flaskr.service.learn.agent import run_agent_delivery
 from flaskr.service.learn.agent.course_references import discard_course_references
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
 from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
@@ -108,6 +109,7 @@ from flaskr.service.learn.memory import (
     load_memory,
     stage_memory,
 )
+from flaskr.service.learn.split_module_patching import forward_attribute_writes
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.order.consts import (
     LEARN_STATUS_IN_PROGRESS,
@@ -1369,3 +1371,9 @@ def _persist(
         )
         return False
     return True
+
+
+# Text and question delivery lives in run_agent_delivery; forward patches
+# applied here (tests and plugins patch names on
+# ``flaskr.service.learn.agent.run_agent``) so the moved code sees them.
+forward_attribute_writes(__name__, (run_agent_delivery,))
