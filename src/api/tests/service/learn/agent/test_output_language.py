@@ -53,6 +53,7 @@ def test_request_language_overrides_old_profile_only_in_runtime(language: str) -
 
 @pytest.mark.parametrize("enabled", [True, False])
 def test_editor_language_and_disabled_courses(enabled: bool) -> None:
+    """Prefer the visible editor language only when multilingual teaching is enabled."""
     engine = SimpleNamespace(output_language=None)
     variables = {"sys_user_language": "zh-CN", "language": "fr-FR"}
     set_language("en-US")

@@ -1,4 +1,13 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { createElement, StrictMode } from 'react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import AudioPlayer from '@/components/audio/AudioPlayer';
 import { SSE } from 'sse.js';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
@@ -1287,7 +1296,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
       expect(
         result.current.items.find(item => item.generated_block_bid === 'audio')
           ?.audioTracks,
-      ).toEqual([expect.objectContaining({ isAudioStreaming: false })]);
+      ).toEqual([]);
     }
     expect(failedSource.close).toHaveBeenCalledTimes(1);
     expect(await failed!).toBeInstanceOf(Error);
@@ -1317,6 +1326,220 @@ describe('usePreviewChat helpers and business error rendering', () => {
       result.current.items.find(item => item.generated_block_bid === 'audio')
         ?.isAudioStreaming,
     ).toBe(false);
+  });
+
+  test('a real player requests fresh synthesis after a partial stream fails', async () => {
+    const sources: MockSseSource[] = [];
+    (SSE as jest.Mock).mockImplementation(() => {
+      const source = buildMockSseSource();
+      sources.push(source);
+      return source;
+    });
+    let preview!: ReturnType<typeof usePreviewChat>;
+    function Harness() {
+      preview = usePreviewChat({ creditInsufficientAudience: 'teacher' });
+      const track = preview.items.find(
+        item => item.generated_block_bid === 'audio',
+      )?.audioTracks?.[0];
+      return createElement(AudioPlayer, {
+        alwaysVisible: true,
+        audioUrl: track?.audioUrl,
+        streamingSegments: track?.audioSegments,
+        isStreaming: track?.isAudioStreaming,
+        onRequestAudio: () =>
+          preview.requestAudioForBlock({
+            shifuBid: 'course',
+            blockId: 'audio',
+            text: 'Speak this.',
+          }),
+      });
+    }
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    try {
+      render(createElement(Harness));
+      await act(async () =>
+        preview.startPreview({
+          shifuBid: 'course',
+          outlineBid: 'lesson',
+          mdflow: 'Draft',
+        }),
+      );
+      act(() =>
+        sources[0].listeners.message?.({
+          data: JSON.stringify({
+            type: 'content',
+            generated_block_bid: 'audio',
+            content: 'Speak this.',
+          }),
+        }),
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.chat.playAudio' }),
+      );
+      await waitFor(() => expect(sources).toHaveLength(2));
+      await act(async () =>
+        sources[1].listeners.message?.({
+          data: JSON.stringify({
+            type: 'audio_segment',
+            content: { segment_index: 0, audio_data: 'YQ==', duration_ms: 10 },
+          }),
+        }),
+      );
+      expect(
+        preview.items.find(item => item.generated_block_bid === 'audio')
+          ?.audioTracks?.[0].audioSegments,
+      ).toHaveLength(1);
+      await act(async () =>
+        sources[1].listeners.message?.({
+          data: JSON.stringify({
+            type: 'error',
+            content: 'Provider unavailable',
+          }),
+        }),
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.chat.playAudio' }),
+      );
+      await waitFor(() => expect(sources).toHaveLength(3));
+      expect(JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload)).toEqual({
+        text: 'Speak this.',
+      });
+      await act(async () => sources[2].listeners.error?.({}));
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  test.each(['stop', 'reset', 'unmount'])(
+    'settles pending audio when the preview is stopped by %s',
+    async action => {
+      const sources: MockSseSource[] = [];
+      (SSE as jest.Mock).mockImplementation(() => {
+        const source = buildMockSseSource();
+        sources.push(source);
+        return source;
+      });
+      const { result, unmount } = renderHook(() =>
+        usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      );
+      await act(async () =>
+        result.current.startPreview({
+          shifuBid: 'course',
+          outlineBid: 'lesson',
+          mdflow: 'Draft',
+        }),
+      );
+      act(() =>
+        sources[0].listeners.message?.({
+          data: JSON.stringify({
+            type: 'content',
+            generated_block_bid: 'audio',
+            content: 'Speak this.',
+          }),
+        }),
+      );
+      let failure: Error | undefined;
+      act(() => {
+        void result.current
+          .requestAudioForBlock({
+            shifuBid: 'course',
+            blockId: 'audio',
+            text: 'Speak this.',
+          })
+          .catch(error => {
+            failure = error;
+          });
+      });
+      await waitFor(() => expect(sources).toHaveLength(2));
+      await act(async () => {
+        if (action === 'unmount') unmount();
+        else if (action === 'reset') result.current.resetPreview();
+        else result.current.stopPreview();
+      });
+      expect(failure?.name).toBe('AbortError');
+      expect(sources[1].close).toHaveBeenCalledTimes(1);
+      if (action === 'reset') expect(result.current.items).toEqual([]);
+      if (action !== 'stop') return;
+      expect(
+        result.current.items.find(item => item.generated_block_bid === 'audio')
+          ?.isAudioStreaming,
+      ).toBe(false);
+      act(() => {
+        void result.current
+          .requestAudioForBlock({
+            shifuBid: 'course',
+            blockId: 'audio',
+            text: 'Speak this.',
+          })
+          .catch(() => undefined);
+      });
+      await waitFor(() => expect(sources).toHaveLength(3));
+      act(() => {
+        sources[1].listeners.message?.({
+          data: JSON.stringify({
+            type: 'audio_complete',
+            content: {
+              audio_url: 'https://example.com/stale.mp3',
+              duration_ms: 1000,
+            },
+          }),
+        });
+        sources[1].listeners.error?.({});
+      });
+      expect(
+        result.current.items.find(item => item.generated_block_bid === 'audio')
+          ?.isAudioStreaming,
+      ).toBe(true);
+      expect(sources[2].close).not.toHaveBeenCalled();
+      await act(async () => sources[2].listeners.error?.({}));
+    },
+  );
+
+  test('keeps batched variable edits consistent with the next request in StrictMode', async () => {
+    const source = buildMockSseSource();
+    (SSE as jest.Mock).mockReturnValue(source);
+    const { result } = renderHook(
+      () => usePreviewChat({ creditInsufficientAudience: 'teacher' }),
+      { wrapper: StrictMode },
+    );
+    await act(async () =>
+      result.current.startPreview({
+        shifuBid: 'course',
+        outlineBid: 'lesson',
+        mdflow: 'Draft',
+        variables: { sys_user_language: 'en-US', nickname: 'Ada' },
+      }),
+    );
+    act(() => {
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({
+          type: 'content',
+          generated_block_bid: 'question',
+          content: 'Continue?',
+        }),
+      });
+      source.listeners.message?.({
+        data: JSON.stringify({ type: 'done', is_terminal: true }),
+      });
+      result.current.onVariableChange('sys_user_language', 'fr-FR');
+      result.current.onVariableChange('nickname', 'Alex');
+    });
+    expect(result.current.variables).toEqual({
+      sys_user_language: 'fr-FR',
+      nickname: 'Alex',
+    });
+    await act(async () =>
+      result.current.onSend({ inputText: 'Continue' }, 'question'),
+    );
+    expect(SSE).toHaveBeenCalledTimes(2);
+    expect(
+      JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload).variables,
+    ).toEqual({ sys_user_language: 'fr-FR', nickname: 'Alex' });
   });
 
   test('ignores stale preview audio callbacks after preview reset', async () => {
@@ -1351,11 +1574,13 @@ describe('usePreviewChat helpers and business error rendering', () => {
     });
 
     act(() => {
-      void result.current.requestAudioForBlock({
-        shifuBid: 'shifu-1',
-        blockId: 'audio-block',
-        text: 'Audio text.',
-      });
+      void result.current
+        .requestAudioForBlock({
+          shifuBid: 'shifu-1',
+          blockId: 'audio-block',
+          text: 'Audio text.',
+        })
+        .catch(() => undefined);
     });
 
     await waitFor(() => {

@@ -112,3 +112,27 @@ local runtime data stay outside version control. Stop only task-owned servers.
 
 No new dependency, protocol, variable key, analytics event or course setting.
 The visible `sys_user_language` field is authoritative over legacy `language`.
+
+## PR Review Follow-up (2026-10-19)
+
+Accepted all five inline findings (four distinct issues):
+
+- An explicitly blank canonical language now skips stale legacy language and
+  falls back to the request. Legacy-only clients remain supported; resolver and
+  both-runtime route regressions cover the clear operation.
+- Failed or cancelled audio discards incomplete item and track caches. A test
+  renders the real AudioPlayer with the preview hook, delivers a segment followed
+  by an error, then clicks play and verifies a fresh synthesis request.
+- Stopping, resetting or unmounting preview explicitly rejects in-flight audio
+  with AbortError and clears streaming state. Cancellation does not depend on
+  callbacks from an invalidated run. Old-source callbacks remain ignored after
+  a replacement request starts for the same block.
+- Variable edits update the request ref outside React state updaters. StrictMode
+  coverage checks batched edits against both visible variables and continuation.
+
+Added descriptive docstrings to the touched Python resolver, context helper and
+regression functions. Follow-up validation: 3,865 backend learning tests passed,
+one skipped and four subtests passed; 75 frontend component suites / 1,264 tests
+passed (42 focused preview/player tests); type checking and lint passed. The
+repository-wide pre-commit gate passed.
+No new production or live-provider actions were performed for review follow-up.

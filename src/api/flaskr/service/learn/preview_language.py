@@ -26,12 +26,18 @@ def resolve_preview_language(
 ) -> str:
     """Prefer the visible teaching-language field over its legacy alias.
 
+    A present, blank canonical field explicitly clears the override, including
+    a stale legacy alias. An absent canonical field still accepts legacy clients.
     Unknown text is never used as a model instruction. Call at the HTTP boundary
     to capture the request fallback before streaming clears its i18n context.
     """
+    canonical = variables.get(SYS_USER_LANGUAGE)
+    explicitly_cleared = (
+        SYS_USER_LANGUAGE in variables and not str(canonical or "").strip()
+    )
     for candidate in (
-        variables.get(SYS_USER_LANGUAGE),
-        variables.get("language"),
+        canonical,
+        None if explicitly_cleared else variables.get("language"),
         request_language or get_current_language(),
         "en-US",
     ):

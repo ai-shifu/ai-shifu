@@ -604,6 +604,7 @@ def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks
     feedback_course: object,
     variables: dict | None,
 ) -> None:
+    """Route editor sessions to the agent with synchronized language aliases."""
     from flaskr.service.learn.agent import debug_session
 
     marker = {"type": "preview_engine", "content": "2.0"}
@@ -642,6 +643,7 @@ def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks
     [
         ({}, "fr-FR"),
         ({"sys_user_language": "", "language": ""}, "fr-FR"),
+        ({"sys_user_language": "", "language": "zh-CN"}, "fr-FR"),
         ({"sys_user_language": "unknown"}, "fr-FR"),
         ({"sys_user_language": "en-US", "language": "zh-CN"}, "en-US"),
     ],
@@ -654,6 +656,7 @@ def test_preview_captures_language_before_streaming_for_both_runtimes(
     variables: dict,
     expected: str,
 ) -> None:
+    """Keep resolved language valid after streaming loses request-local i18n."""
     from flaskr.i18n import clear_language
     from flaskr.service.learn.agent import debug_session
     from flaskr.service.learn.preview_language import resolve_preview_language
@@ -661,6 +664,7 @@ def test_preview_captures_language_before_streaming_for_both_runtimes(
     seen = []
 
     def stream(*_args: object, **kwargs: object) -> object:
+        """Observe captured variables after clearing the request language context."""
         clear_language()
         captured = kwargs["preview_request"].variables
         seen.append(resolve_preview_language(captured))

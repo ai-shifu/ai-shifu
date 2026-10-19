@@ -1126,6 +1126,7 @@ class RunScriptPreviewContextV2:
         user_bid: str,
         shifu_bid: str,
     ) -> dict | None:
+        """Merge preview inputs while keeping request language ahead of profile memory."""
         request_variables = (
             dict(preview_request.variables)
             if isinstance(preview_request.variables, dict)

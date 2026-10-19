@@ -1438,6 +1438,7 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         assert variables.get("language") == "zh-CN"
 
     def test_request_language_overrides_stale_profile_language(self) -> None:
+        """Keep the canonical preview language ahead of stored and legacy values."""
         app = Flask("preview-variables-request-language")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
