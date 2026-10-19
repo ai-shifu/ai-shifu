@@ -3,6 +3,8 @@
 import json
 import logging
 import queue
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from flask import Flask, has_request_context, request
 from flaskr.api.llm import is_live_follow_up_model_available
@@ -359,16 +361,337 @@ def get_current_lesson_outline_id(
     return item.id if item else None
 
 
+_OUTLINE_TYPE_MAP = {
+    UNIT_TYPE_VALUE_TRIAL: OutlineType.TRIAL,
+    UNIT_TYPE_VALUE_NORMAL: OutlineType.NORMAL,
+    UNIT_TYPE_VALUE_GUEST: OutlineType.GUEST,
+}
+
+
+@dataclass
+class _OutlineTreeContext:
+    """Everything the recursive outline builder reads for one learner."""
+
+    outline_items_db_map: dict
+    progress_records_map: dict
+    content_states: dict
+    scoped_empty_previews: set
+    agent_preview: bool
+    is_paid: bool
+    resolve_follow_up_mode: Callable[[HistoryItem], str]
+
+
+def _load_outline_tree_shifu(
+    shifu_model: type, *, shifu_bid: str, user_bid: str, is_paid: bool
+) -> tuple[object, bool]:
+    """Return the latest course row and whether the learner may read paid lessons."""
+    shifu = (
+        shifu_model.query.filter(
+            shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
+        )
+        .order_by(shifu_model.id.desc())
+        .first()
+    )
+    if not is_paid:
+        if not shifu:
+            raise_error("server.shifu.shifuNotFound")
+        buy_record = (
+            Order.query.filter(
+                Order.user_bid == user_bid,
+                Order.shifu_bid == shifu_bid,
+                Order.status == ORDER_STATUS_SUCCESS,
+            )
+            .order_by(Order.id.desc())
+            .first()
+        )
+        is_paid = bool(buy_record)
+    return shifu, is_paid
+
+
+def _load_outline_tree_struct(struct_model: type, shifu_bid: str) -> HistoryItem:
+    struct = (
+        struct_model.query.filter(
+            struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0
+        )
+        .order_by(struct_model.id.desc())
+        .first()
+    )
+    if not struct:
+        raise_error("server.shifu.shifuStructNotFound")
+    return HistoryItem.from_json(struct.struct)
+
+
+def _collect_outline_nodes(struct: HistoryItem) -> list[HistoryItem]:
+    """Return every outline node in breadth-first order."""
+    outline_items: list[HistoryItem] = []
+    q = queue.Queue()
+    q.put(struct)
+    while not q.empty():
+        item: HistoryItem = q.get()
+        if item.type == "outline":
+            outline_items.append(item)
+        if item.children:
+            for child in item.children:
+                q.put(child)
+    return outline_items
+
+
+def _follow_up_mode_resolver(
+    struct: HistoryItem, outline_items_db_map: dict, shifu: object
+) -> Callable[[HistoryItem], str]:
+    """Build the per-node follow-up mode lookup, nearest configured outline first."""
+    course_follow_up_model = selection_model(shifu, follow_up=True) if shifu else ""
+    course_ask_mode = getattr(shifu, "ask_enabled_status", ASK_MODE_DEFAULT)
+
+    def resolve_follow_up_mode(item: HistoryItem) -> str:
+        effective_model = course_follow_up_model
+        effective_ask_mode = course_ask_mode
+        path = find_node_with_parents(struct, item.bid) or []
+        for path_item in reversed(path):
+            if path_item.type != "outline":
+                continue
+            configured_item = outline_items_db_map.get(path_item.id)
+            if not configured_item:
+                continue
+            if configured_item.ask_enabled_status != ASK_MODE_DEFAULT:
+                effective_ask_mode = configured_item.ask_enabled_status
+                break
+        if effective_ask_mode == ASK_MODE_DISABLE:
+            return "disabled"
+        interaction_mode = get_follow_up_interaction_mode(effective_model)
+        if interaction_mode == "live_voice" and not is_live_follow_up_model_available(
+            effective_model
+        ):
+            return "disabled"
+        return interaction_mode
+
+    return resolve_follow_up_mode
+
+
+def _latest_progress_records(
+    *, user_bid: str, shifu_bid: str, progress_outline_bids: list[str]
+) -> dict[str, LearnProgressRecord]:
+    """Return the newest non-reset progress record per outline item."""
+    progress_records = (
+        LearnProgressRecord.query.filter(
+            LearnProgressRecord.user_bid == user_bid,
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.outline_item_bid.in_(progress_outline_bids),
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+            LearnProgressRecord.deleted == 0,
+        ).all()
+        if progress_outline_bids
+        else []
+    )
+    progress_records_map: dict[str, LearnProgressRecord] = {}
+    for progress_record in progress_records:
+        current_status_record = progress_records_map.get(
+            progress_record.outline_item_bid
+        )
+        if (
+            current_status_record is None
+            or progress_record.id > current_status_record.id
+        ):
+            progress_records_map[progress_record.outline_item_bid] = progress_record
+    return progress_records_map
+
+
+def _outline_tree_context(
+    *,
+    shifu_bid: str,
+    user_bid: str,
+    preview_mode: bool,
+    is_paid: bool,
+    shifu: object,
+    struct: HistoryItem,
+    outline_items: list[HistoryItem],
+    outline_items_db_map: dict,
+) -> _OutlineTreeContext:
+    """Resolve progress, 2.0 preview isolation, and content states for the tree."""
+    outline_items_bids = [i.bid for i in outline_items]
+    resolve_follow_up_mode = _follow_up_mode_resolver(
+        struct, outline_items_db_map, shifu
+    )
+
+    from flaskr.service.learn.agent.preview_history import (
+        outlines_with_agent_history,
+    )
+    from flaskr.service.learn.agent.routing import uses_agent_engine
+
+    agent_enabled = uses_agent_engine(shifu_bid)
+    agent_preview = preview_mode and agent_enabled
+    candidate_outline_ids = {
+        item.bid: item.id
+        for item in outline_items
+        if _is_lesson_outline(item)
+        and item.id in outline_items_db_map
+        and outline_items_db_map[item.id].shifu_bid == shifu_bid
+        and outline_items_db_map[item.id].outline_item_bid == item.bid
+        and not outline_items_db_map[item.id].hidden
+    }
+    # A cleared 2.0 draft must stay isolated even after its session is reset.
+    # Truly scriptless 1.0 lessons retain their existing history behavior.
+    scoped_empty_previews = (
+        outlines_with_agent_history(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bids=[
+                bid
+                for bid, row_id in candidate_outline_ids.items()
+                if not (outline_items_db_map[row_id].content or "").strip()
+            ],
+        )
+        if agent_preview
+        else set()
+    )
+    progress_outline_bids = (
+        [
+            item.bid
+            for item in outline_items
+            if item.id in outline_items_db_map
+            and not (outline_items_db_map[item.id].content or "").strip()
+            and item.bid not in scoped_empty_previews
+        ]
+        if agent_preview
+        else outline_items_bids
+    )
+    progress_records_map = _latest_progress_records(
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        progress_outline_bids=progress_outline_bids,
+    )
+
+    eligible_outline_ids = {
+        bid: row_id
+        for bid, row_id in candidate_outline_ids.items()
+        if agent_preview
+        or (
+            bid in progress_records_map
+            and progress_records_map[bid].status
+            in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
+        )
+    }
+    content_states = (
+        load_lesson_content_states(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            preview_mode=preview_mode,
+            outline_revisions={
+                item.bid: item.content_revision
+                for item in outline_items
+                if item.bid in eligible_outline_ids
+            },
+        )
+        if agent_enabled
+        else {}
+    )
+    return _OutlineTreeContext(
+        outline_items_db_map=outline_items_db_map,
+        progress_records_map=progress_records_map,
+        content_states=content_states,
+        scoped_empty_previews=scoped_empty_previews,
+        agent_preview=agent_preview,
+        is_paid=is_paid,
+        resolve_follow_up_mode=resolve_follow_up_mode,
+    )
+
+
+def _build_outline_item_tree(
+    item: HistoryItem, ctx: _OutlineTreeContext
+) -> LearnOutlineItemInfoDTO | None:
+    if item.type != "outline":
+        return None
+    outline_item: DraftOutlineItem | PublishedOutlineItem = (
+        ctx.outline_items_db_map.get(item.id)
+    )
+    if not outline_item or outline_item.hidden == 1:
+        return None
+    progress_record = ctx.progress_records_map.get(outline_item.outline_item_bid)
+    if not progress_record:
+        status = LEARN_STATUS_NOT_STARTED
+    else:
+        status = progress_record.status
+        if status == LEARN_STATUS_LOCKED:
+            status = LEARN_STATUS_NOT_STARTED
+    content_state = ctx.content_states.get(outline_item.outline_item_bid)
+    if ctx.agent_preview and (
+        (outline_item.content or "").strip()
+        or outline_item.outline_item_bid in ctx.scoped_empty_previews
+    ):
+        status = LEARN_STATUS_NOT_STARTED
+        if content_state is not None and content_state.started:
+            status = (
+                LEARN_STATUS_COMPLETED
+                if content_state.finished
+                else LEARN_STATUS_IN_PROGRESS
+            )
+    is_lesson_node = _is_lesson_outline(item)
+    has_content_update_for_current_user = bool(
+        is_lesson_node and content_state and content_state.has_content_update
+    )
+    outline_item_info = LearnOutlineItemInfoDTO(
+        bid=outline_item.outline_item_bid,
+        position=outline_item.position,
+        title=outline_item.title,
+        status=STATUS_MAP.get(status, LearnStatus.NOT_STARTED),
+        type=_OUTLINE_TYPE_MAP.get(outline_item.type, OutlineType.NORMAL),
+        is_paid=ctx.is_paid,
+        has_content_update_for_current_user=has_content_update_for_current_user,
+        follow_up_mode=ctx.resolve_follow_up_mode(item),
+        children=[],
+    )
+    if item.children:
+        for child in item.children:
+            child_info = _build_outline_item_tree(child, ctx)
+            if child_info:
+                outline_item_info.children.append(child_info)
+    return outline_item_info
+
+
+def _outline_tree_response(
+    *,
+    shifu_bid: str,
+    is_paid: bool,
+    outline_items: list[LearnOutlineItemInfoDTO],
+) -> LearnOutlineItemsWithBannerInfoDTO:
+    """Wrap the outline tree with the course's banner, when one applies."""
+    banner_info_dto = None
+
+    banner_info = BannerInfo.query.filter(
+        BannerInfo.course_id == shifu_bid,
+        BannerInfo.deleted == 0,
+    ).first()
+    add_banner = banner_info and banner_info.show_banner == 1
+    add_lesson_banner = banner_info and banner_info.show_lesson_banner == 1
+
+    if not add_banner and not add_lesson_banner:
+        return LearnOutlineItemsWithBannerInfoDTO(
+            banner_info=banner_info_dto,
+            outline_items=outline_items,
+            title_language=get_demo_course_title_language(shifu_bid),
+            content_language=get_demo_course_content_language(shifu_bid),
+        )
+    if not is_paid and add_banner:
+        banner_info_dto = LearnBannerInfoDTO(
+            title=_("server.banner.bannerTitle"),
+            pop_up_title=_("server.banner.bannerPopUpTitle"),
+            pop_up_content=_("server.banner.bannerPopUpContent"),
+            pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
+            pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
+        )
+    return LearnOutlineItemsWithBannerInfoDTO(
+        banner_info=banner_info_dto,
+        outline_items=outline_items,
+        title_language=get_demo_course_title_language(shifu_bid),
+        content_language=get_demo_course_content_language(shifu_bid),
+    )
+
+
 def get_outline_item_tree(
     app: Flask, shifu_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnOutlineItemsWithBannerInfoDTO:
     """Return outline item tree."""
     with app.app_context():
-        outline_type_map = {
-            UNIT_TYPE_VALUE_TRIAL: OutlineType.TRIAL,
-            UNIT_TYPE_VALUE_NORMAL: OutlineType.NORMAL,
-            UNIT_TYPE_VALUE_GUEST: OutlineType.GUEST,
-        }
         is_paid = preview_mode
         if preview_mode:
             outline_item_model = DraftOutlineItem
@@ -378,253 +701,35 @@ def get_outline_item_tree(
             outline_item_model = PublishedOutlineItem
             struct_model = LogPublishedStruct
             shifu_model = PublishedShifu
-        shifu = (
-            shifu_model.query.filter(
-                shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
-            )
-            .order_by(shifu_model.id.desc())
-            .first()
+        shifu, is_paid = _load_outline_tree_shifu(
+            shifu_model, shifu_bid=shifu_bid, user_bid=user_bid, is_paid=is_paid
         )
-        if not is_paid:
-            if not shifu:
-                raise_error("server.shifu.shifuNotFound")
-            buy_record = (
-                Order.query.filter(
-                    Order.user_bid == user_bid,
-                    Order.shifu_bid == shifu_bid,
-                    Order.status == ORDER_STATUS_SUCCESS,
-                )
-                .order_by(Order.id.desc())
-                .first()
-            )
-            is_paid = bool(buy_record)
-        struct = (
-            struct_model.query.filter(
-                struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0
-            )
-            .order_by(struct_model.id.desc())
-            .first()
-        )
-        if not struct:
-            raise_error("server.shifu.shifuStructNotFound")
-        struct = HistoryItem.from_json(struct.struct)
-        outline_items: list[HistoryItem] = []
-        q = queue.Queue()
-        q.put(struct)
-        while not q.empty():
-            item: HistoryItem = q.get()
-            if item.type == "outline":
-                outline_items.append(item)
-            if item.children:
-                for child in item.children:
-                    q.put(child)
+        struct = _load_outline_tree_struct(struct_model, shifu_bid)
+        outline_items = _collect_outline_nodes(struct)
         outline_items_ids = [i.id for i in outline_items]
-        outline_items_bids = [i.bid for i in outline_items]
         outline_items_dbs = outline_item_model.query.filter(
             outline_item_model.id.in_(outline_items_ids),
             outline_item_model.deleted == 0,
         ).all()
         outline_items_db_map = {item.id: item for item in outline_items_dbs}
-        course_follow_up_model = selection_model(shifu, follow_up=True) if shifu else ""
-        course_ask_mode = getattr(shifu, "ask_enabled_status", ASK_MODE_DEFAULT)
-
-        def resolve_follow_up_mode(item: HistoryItem) -> str:
-            effective_model = course_follow_up_model
-            effective_ask_mode = course_ask_mode
-            path = find_node_with_parents(struct, item.bid) or []
-            for path_item in reversed(path):
-                if path_item.type != "outline":
-                    continue
-                configured_item = outline_items_db_map.get(path_item.id)
-                if not configured_item:
-                    continue
-                if configured_item.ask_enabled_status != ASK_MODE_DEFAULT:
-                    effective_ask_mode = configured_item.ask_enabled_status
-                    break
-            if effective_ask_mode == ASK_MODE_DISABLE:
-                return "disabled"
-            interaction_mode = get_follow_up_interaction_mode(effective_model)
-            if (
-                interaction_mode == "live_voice"
-                and not is_live_follow_up_model_available(effective_model)
-            ):
-                return "disabled"
-            return interaction_mode
-
-        from flaskr.service.learn.agent.preview_history import (
-            outlines_with_agent_history,
-        )
-        from flaskr.service.learn.agent.routing import uses_agent_engine
-
-        agent_enabled = uses_agent_engine(shifu_bid)
-        agent_preview = preview_mode and agent_enabled
-        candidate_outline_ids = {
-            item.bid: item.id
-            for item in outline_items
-            if _is_lesson_outline(item)
-            and item.id in outline_items_db_map
-            and outline_items_db_map[item.id].shifu_bid == shifu_bid
-            and outline_items_db_map[item.id].outline_item_bid == item.bid
-            and not outline_items_db_map[item.id].hidden
-        }
-        # A cleared 2.0 draft must stay isolated even after its session is reset.
-        # Truly scriptless 1.0 lessons retain their existing history behavior.
-        scoped_empty_previews = (
-            outlines_with_agent_history(
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bids=[
-                    bid
-                    for bid, row_id in candidate_outline_ids.items()
-                    if not (outline_items_db_map[row_id].content or "").strip()
-                ],
-            )
-            if agent_preview
-            else set()
-        )
-        progress_outline_bids = (
-            [
-                item.bid
-                for item in outline_items
-                if item.id in outline_items_db_map
-                and not (outline_items_db_map[item.id].content or "").strip()
-                and item.bid not in scoped_empty_previews
-            ]
-            if agent_preview
-            else outline_items_bids
-        )
-        progress_records = (
-            LearnProgressRecord.query.filter(
-                LearnProgressRecord.user_bid == user_bid,
-                LearnProgressRecord.shifu_bid == shifu_bid,
-                LearnProgressRecord.outline_item_bid.in_(progress_outline_bids),
-                LearnProgressRecord.status != LEARN_STATUS_RESET,
-                LearnProgressRecord.deleted == 0,
-            ).all()
-            if progress_outline_bids
-            else []
-        )
-        progress_records_map: dict[str, LearnProgressRecord] = {}
-        for progress_record in progress_records:
-            current_status_record = progress_records_map.get(
-                progress_record.outline_item_bid
-            )
-            if (
-                current_status_record is None
-                or progress_record.id > current_status_record.id
-            ):
-                progress_records_map[progress_record.outline_item_bid] = progress_record
-
-        eligible_outline_ids = {
-            bid: row_id
-            for bid, row_id in candidate_outline_ids.items()
-            if agent_preview
-            or (
-                bid in progress_records_map
-                and progress_records_map[bid].status
-                in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
-            )
-        }
-        content_states = (
-            load_lesson_content_states(
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                preview_mode=preview_mode,
-                outline_revisions={
-                    item.bid: item.content_revision
-                    for item in outline_items
-                    if item.bid in eligible_outline_ids
-                },
-            )
-            if agent_enabled
-            else {}
-        )
-
-        def build_outline_item_tree(
-            item: HistoryItem,
-        ) -> LearnOutlineItemInfoDTO | None:
-            if item.type != "outline":
-                return None
-            outline_item: DraftOutlineItem | PublishedOutlineItem = (
-                outline_items_db_map.get(item.id)
-            )
-            if not outline_item or outline_item.hidden == 1:
-                return None
-            progress_record = progress_records_map.get(outline_item.outline_item_bid)
-            if not progress_record:
-                status = LEARN_STATUS_NOT_STARTED
-            else:
-                status = progress_record.status
-                if status == LEARN_STATUS_LOCKED:
-                    status = LEARN_STATUS_NOT_STARTED
-            content_state = content_states.get(outline_item.outline_item_bid)
-            if agent_preview and (
-                (outline_item.content or "").strip()
-                or outline_item.outline_item_bid in scoped_empty_previews
-            ):
-                status = LEARN_STATUS_NOT_STARTED
-                if content_state is not None and content_state.started:
-                    status = (
-                        LEARN_STATUS_COMPLETED
-                        if content_state.finished
-                        else LEARN_STATUS_IN_PROGRESS
-                    )
-            is_lesson_node = _is_lesson_outline(item)
-            has_content_update_for_current_user = bool(
-                is_lesson_node and content_state and content_state.has_content_update
-            )
-            outline_item_info = LearnOutlineItemInfoDTO(
-                bid=outline_item.outline_item_bid,
-                position=outline_item.position,
-                title=outline_item.title,
-                status=STATUS_MAP.get(status, LearnStatus.NOT_STARTED),
-                type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
-                is_paid=is_paid,
-                has_content_update_for_current_user=has_content_update_for_current_user,
-                follow_up_mode=resolve_follow_up_mode(item),
-                children=[],
-            )
-            if item.children:
-                for child in item.children:
-                    child_info = build_outline_item_tree(child)
-                    if child_info:
-                        outline_item_info.children.append(child_info)
-            return outline_item_info
-
-        outline_items = []
-        for i in struct.children:
-            outline_item_info = build_outline_item_tree(i)
-            if outline_item_info:
-                outline_items.append(outline_item_info)
-        banner_info_dto = None
-
-        banner_info = BannerInfo.query.filter(
-            BannerInfo.course_id == shifu_bid,
-            BannerInfo.deleted == 0,
-        ).first()
-        add_banner = banner_info and banner_info.show_banner == 1
-        add_lesson_banner = banner_info and banner_info.show_lesson_banner == 1
-
-        if not add_banner and not add_lesson_banner:
-            return LearnOutlineItemsWithBannerInfoDTO(
-                banner_info=banner_info_dto,
-                outline_items=outline_items,
-                title_language=get_demo_course_title_language(shifu_bid),
-                content_language=get_demo_course_content_language(shifu_bid),
-            )
-        if not is_paid and add_banner:
-            banner_info_dto = LearnBannerInfoDTO(
-                title=_("server.banner.bannerTitle"),
-                pop_up_title=_("server.banner.bannerPopUpTitle"),
-                pop_up_content=_("server.banner.bannerPopUpContent"),
-                pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
-                pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
-            )
-        return LearnOutlineItemsWithBannerInfoDTO(
-            banner_info=banner_info_dto,
+        ctx = _outline_tree_context(
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            preview_mode=preview_mode,
+            is_paid=is_paid,
+            shifu=shifu,
+            struct=struct,
             outline_items=outline_items,
-            title_language=get_demo_course_title_language(shifu_bid),
-            content_language=get_demo_course_content_language(shifu_bid),
+            outline_items_db_map=outline_items_db_map,
+        )
+
+        tree_items = []
+        for i in struct.children:
+            outline_item_info = _build_outline_item_tree(i, ctx)
+            if outline_item_info:
+                tree_items.append(outline_item_info)
+        return _outline_tree_response(
+            shifu_bid=shifu_bid, is_paid=is_paid, outline_items=tree_items
         )
 
 
