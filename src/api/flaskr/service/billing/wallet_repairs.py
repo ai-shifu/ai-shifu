@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.util.datetime import to_utc_iso
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -83,7 +83,7 @@ def repair_renewal_state_drift(
     """Repair creators whose subscription or bucket state stayed past cycle end."""
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
-    repaired_at = repair_before or now_utc()
+    repaired_at = repair_before or _wallet_core().now_utc()
 
     with app.app_context():
         stale_subscriptions, stale_buckets, creator_bids = (
@@ -459,7 +459,7 @@ def repair_credit_bucket_runtime_statuses(
     """Repair buckets whose runtime status no longer matches their live balance."""
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
-    repaired_at = now_utc()
+    repaired_at = _wallet_core().now_utc()
     with app_context_scope(app), unit_of_work():
         query = CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
@@ -549,7 +549,7 @@ def repair_expire_ledger_bucket_drift(
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
-    repaired_at = repair_before or now_utc()
+    repaired_at = repair_before or _wallet_core().now_utc()
 
     with app.app_context():
         candidate_buckets = _load_expire_ledger_drift_candidate_buckets(
@@ -787,7 +787,7 @@ def restore_wrongly_expired_credit_pack_buckets(
             dry_run=dry_run,
         )
 
-    repaired_at = now_utc()
+    repaired_at = _wallet_core().now_utc()
     with app.app_context():
         if dry_run:
             records = _build_expired_credit_pack_restore_records(
