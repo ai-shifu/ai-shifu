@@ -94,6 +94,9 @@ from flaskr.service.shifu.admin_operations import (
     courses_credit_usage as _split_courses_credit_usage,
 )
 from flaskr.service.shifu.admin_operations import (
+    courses_credit_usage_lookups as _split_courses_credit_usage_lookups,
+)
+from flaskr.service.shifu.admin_operations import (
     courses_detail as _split_courses_detail,
 )
 from flaskr.service.shifu.admin_operations import (
@@ -402,6 +405,7 @@ from sqlalchemy.orm import defer
 _COURSES_SPLIT_SUBMODULES = (
     _split_courses_shared,
     _split_courses_credit_usage,
+    _split_courses_credit_usage_lookups,
     _split_courses_listing,
     _split_courses_transfer_copy,
     _split_courses_detail,
