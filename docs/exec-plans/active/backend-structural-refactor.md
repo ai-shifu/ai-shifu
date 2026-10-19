@@ -57,6 +57,20 @@ same result; the structural metrics below shrink.
   `db.session.commit` are identical to baseline, as is the multiset of
   `yield` lines. Baseline audit: 29 keys added, each targeting a module the
   same package already had in the baseline; 4 stale keys removed.
+- [x] 2026-10-19 CST: Round 2 dispatched four workers (`r2-learn`,
+  `r2-shifu`, `r2-billing`, `r2-misc`) and a read-only reviewer. All five
+  stopped on an HTTP 402 account-credit limit; 12 verified commits survived
+  and were merged without conflicts. The reviewer produced no findings
+  before stopping. Gates on the merged branch: interface snapshot OK
+  (559 modules); full suite 12,318 passed with exactly the baseline failure
+  set; engine tests 1,039 passed; uow ratchet and boundary check pass;
+  construct counts and `yield` lines identical; lefthook all 20 checks pass.
+- [x] 2026-10-19 CST: Found that the interface snapshot only covered the
+  `flask db` commands because `enable_commands` runs only when the app
+  auto-creates. Compared `--help` for every command (42 `flask console`
+  commands included) on base and HEAD: byte-identical. The snapshot now
+  calls `enable_commands`.
+- [ ] Independent review of the full diff (the reviewer did not finish).
 - [ ] Follow-up groups: `billing-notifications`, `engine-tts`, and the
   unfinished items listed under Outcomes.
 
@@ -96,12 +110,23 @@ same result; the structural metrics below shrink.
 
 ## Outcomes & Retrospective
 
-| Metric (`flaskr/`, excluding migrations) | Baseline | After |
+| Metric (`flaskr/`, excluding migrations) | Baseline | Round 1 | Round 2 |
+| --- | --- | --- | --- |
+| Python lines | 193,386 in 491 files | 198,057 in 552 files | 199,788 in 559 files |
+| Files over 1,500 lines | 22 | 13 | 12 |
+| Functions over 150 lines | 115 | 88 | 68 |
+| Functions over 300 lines | 24 | 17 | 11 |
+
+The rest of this table and the unfinished list below describe round 1;
+round 2 additionally split the billing CLI, `save_shifu_draft_info`,
+`import_shifu`, `publish_shifu_draft`, `ask_preview_api`,
+`save_shifu_detail_api`, the live follow-up routes and follow-up streaming,
+the dashboard learner query, the Google, phone and email sign-in flows,
+contact change, profile labels, profile research block streaming, and the
+legacy migration batch.
+
+| Function | Baseline | After |
 | --- | --- | --- |
-| Python lines | 193,386 in 491 files | 198,057 in 552 files |
-| Files over 1,500 lines | 22 | 13 |
-| Functions over 150 lines | 115 | 88 |
-| Functions over 300 lines | 24 | 17 |
 | `register_admin_operations_routes` | 2,774 lines | ~30 |
 | `register_shifu_routes` | 2,196 lines | ~120 |
 | `register_user_handler` | 1,144 lines | under 150 |
