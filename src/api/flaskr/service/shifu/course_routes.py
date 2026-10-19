@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from flask import Response, after_this_request, current_app, request, send_file
 from flaskr.common.http import make_common_response
@@ -320,44 +320,8 @@ def register_shifu_course_detail_routes(app: Flask, path_prefix: str) -> None:
         shifu_model = (json_data.get("model") or "") if "model" in json_data else None
         shifu_price = json_data.get("price")
         shifu_system_prompt = json_data.get("system_prompt", None)
-        # Ask configuration
-        ask_enabled_status = json_data.get("ask_enabled_status")
-        if ask_enabled_status is not None:
-            try:
-                ask_enabled_status = int(ask_enabled_status)
-            except (TypeError, ValueError):
-                raise_param_error("ask_enabled_status")
-            if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
-                raise_param_error("ask_enabled_status")
-        ask_model = (
-            (json_data.get("ask_model") or "") if "ask_model" in json_data else None
-        )
-        ask_system_prompt = json_data.get("ask_system_prompt")
-        if ask_system_prompt is not None:
-            ask_system_prompt = str(ask_system_prompt)
-        ask_provider_config = shifu_route._parse_ask_provider_config(
-            json_data.get("ask_provider_config")
-        )
-        # TTS Configuration — read without defaults so an omitted field stays
-        # None and is preserved (PATCH semantics), not reset to a default.
-        tts_enabled = json_data.get("tts_enabled")
-        tts_provider = json_data.get("tts_provider")
-        if isinstance(tts_provider, str):
-            tts_provider = tts_provider.strip().lower()
-        tts_model = json_data.get("tts_model")
-        tts_voice_id = json_data.get("tts_voice_id")
-        tts_speed = json_data.get("tts_speed")
-        tts_pitch = 0 if "tts_pitch" in json_data else None
-        tts_emotion = "" if "tts_emotion" in json_data else None
-        default_listen_mode_enabled = json_data.get("default_listen_mode_enabled")
-        if isinstance(default_listen_mode_enabled, str):
-            if default_listen_mode_enabled not in {"true", "false"}:
-                raise_param_error("default_listen_mode_enabled")
-            default_listen_mode_enabled = default_listen_mode_enabled == "true"
-        elif default_listen_mode_enabled is not None and not isinstance(
-            default_listen_mode_enabled, bool
-        ):
-            raise_param_error("default_listen_mode_enabled")
+        ask_settings = _parse_save_shifu_ask_settings(json_data)
+        tts_settings = _parse_save_shifu_tts_settings(json_data)
         # Language Output Configuration
         use_learner_language = json_data.get("use_learner_language")
         if isinstance(use_learner_language, str):
@@ -378,20 +342,20 @@ def register_shifu_course_detail_routes(app: Flask, path_prefix: str) -> None:
                 shifu_price,
                 shifu_system_prompt,
                 base_url,
-                tts_enabled=tts_enabled,
-                tts_provider=tts_provider,
-                tts_model=tts_model,
-                tts_voice_id=tts_voice_id,
-                tts_speed=tts_speed,
-                tts_pitch=tts_pitch,
-                tts_emotion=tts_emotion,
-                default_listen_mode_enabled=default_listen_mode_enabled,
+                tts_enabled=tts_settings["tts_enabled"],
+                tts_provider=tts_settings["tts_provider"],
+                tts_model=tts_settings["tts_model"],
+                tts_voice_id=tts_settings["tts_voice_id"],
+                tts_speed=tts_settings["tts_speed"],
+                tts_pitch=tts_settings["tts_pitch"],
+                tts_emotion=tts_settings["tts_emotion"],
+                default_listen_mode_enabled=tts_settings["default_listen_mode_enabled"],
                 use_learner_language=use_learner_language,
-                ask_enabled_status=ask_enabled_status,
-                ask_model=ask_model,
+                ask_enabled_status=ask_settings["ask_enabled_status"],
+                ask_model=ask_settings["ask_model"],
                 ask_temperature=None,
-                ask_system_prompt=ask_system_prompt,
-                ask_provider_config=ask_provider_config,
+                ask_system_prompt=ask_settings["ask_system_prompt"],
+                ask_provider_config=ask_settings["ask_provider_config"],
             )
         )
 
@@ -590,3 +554,64 @@ def register_shifu_course_export_routes(app: Flask, path_prefix: str) -> None:
             as_attachment=True,
             download_name=f"{shifu_bid}.json",
         )
+
+
+def _parse_save_shifu_ask_settings(json_data: dict[str, Any]) -> dict[str, Any]:
+    """Parse and validate the ask fields of a save-detail request."""
+    from flaskr.service.shifu import route as shifu_route
+
+    ask_enabled_status = json_data.get("ask_enabled_status")
+    if ask_enabled_status is not None:
+        try:
+            ask_enabled_status = int(ask_enabled_status)
+        except (TypeError, ValueError):
+            raise_param_error("ask_enabled_status")
+        if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
+            raise_param_error("ask_enabled_status")
+    ask_model = (json_data.get("ask_model") or "") if "ask_model" in json_data else None
+    ask_system_prompt = json_data.get("ask_system_prompt")
+    if ask_system_prompt is not None:
+        ask_system_prompt = str(ask_system_prompt)
+    ask_provider_config = shifu_route._parse_ask_provider_config(
+        json_data.get("ask_provider_config")
+    )
+    return {
+        "ask_enabled_status": ask_enabled_status,
+        "ask_model": ask_model,
+        "ask_system_prompt": ask_system_prompt,
+        "ask_provider_config": ask_provider_config,
+    }
+
+
+def _parse_save_shifu_tts_settings(json_data: dict[str, Any]) -> dict[str, Any]:
+    """Parse the TTS and default listen-mode fields of a save-detail request."""
+    # TTS Configuration — read without defaults so an omitted field stays
+    # None and is preserved (PATCH semantics), not reset to a default.
+    tts_enabled = json_data.get("tts_enabled")
+    tts_provider = json_data.get("tts_provider")
+    if isinstance(tts_provider, str):
+        tts_provider = tts_provider.strip().lower()
+    tts_model = json_data.get("tts_model")
+    tts_voice_id = json_data.get("tts_voice_id")
+    tts_speed = json_data.get("tts_speed")
+    tts_pitch = 0 if "tts_pitch" in json_data else None
+    tts_emotion = "" if "tts_emotion" in json_data else None
+    default_listen_mode_enabled = json_data.get("default_listen_mode_enabled")
+    if isinstance(default_listen_mode_enabled, str):
+        if default_listen_mode_enabled not in {"true", "false"}:
+            raise_param_error("default_listen_mode_enabled")
+        default_listen_mode_enabled = default_listen_mode_enabled == "true"
+    elif default_listen_mode_enabled is not None and not isinstance(
+        default_listen_mode_enabled, bool
+    ):
+        raise_param_error("default_listen_mode_enabled")
+    return {
+        "tts_enabled": tts_enabled,
+        "tts_provider": tts_provider,
+        "tts_model": tts_model,
+        "tts_voice_id": tts_voice_id,
+        "tts_speed": tts_speed,
+        "tts_pitch": tts_pitch,
+        "tts_emotion": tts_emotion,
+        "default_listen_mode_enabled": default_listen_mode_enabled,
+    }
