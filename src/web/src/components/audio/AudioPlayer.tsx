@@ -799,9 +799,10 @@ function AudioPlayerBase(
         playFromSegments();
       } else if (onRequestAudio) {
         pendingStreamRef.current = true;
-        const requestSessionId = playSessionRef.current;
         setIsWaitingForSegment(false);
         playFromSegments(true);
+        // Starting playback advances the session even while waiting for audio.
+        const requestSessionId = playSessionRef.current;
         onRequestAudio()
           .then(result => {
             if (playSessionRef.current !== requestSessionId) return;

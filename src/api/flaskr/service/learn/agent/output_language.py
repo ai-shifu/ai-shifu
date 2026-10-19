@@ -9,6 +9,7 @@ from flaskr.common.i18n_utils import (
     resolve_markdownflow_output_language,
 )
 from flaskr.i18n import get_current_language
+from flaskr.service.learn.preview_language import resolve_preview_language
 from flaskr.service.profile.api import SYS_USER_LANGUAGE
 
 if TYPE_CHECKING:
@@ -31,11 +32,7 @@ def configure_output_language(
         engine.output_language = ""
         return variables
 
-    preferred = (
-        variables.get("language") or variables.get(SYS_USER_LANGUAGE)
-        if editor_debug
-        else None
-    )
+    preferred = resolve_preview_language(variables) if editor_debug else None
     candidates = (
         preferred,
         get_current_language(),

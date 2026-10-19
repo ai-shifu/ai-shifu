@@ -87,6 +87,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Dashboard Ratings SQL Optimization](./completed/creator-dashboard-ratings-sql-optimization.md)
 - [Creator Dashboard Request Splitting](./completed/creator-dashboard-request-splitting.md)
 - [Device Authorization Skill Analytics](./completed/device-auth-skill-analytics.md)
+- [Keep editor previews in the selected language](./completed/editor-preview-language.md)
 - [ElevenLabs TTS Provider](./completed/elevenlabs-tts.md)
 - [Preserve the classroom context of anchored follow-ups](./completed/follow-up-classroom-history.md)
 - [Explicit course memory in follow-up prompts](./completed/follow-up-course-memory.md)
