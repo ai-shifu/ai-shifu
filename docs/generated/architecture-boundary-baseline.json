@@ -146,6 +146,14 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/dashboard/follow_up_sources.py|flaskr.service.learn.const",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/dashboard/follow_up_sources.py",
+      "target": "flaskr.service.learn.const",
+      "message": "flaskr/service/dashboard/follow_up_sources.py imports cross-service module flaskr.service.learn.const outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/dashboard/funcs.py|flaskr.service.learn.const",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/dashboard/funcs.py",
@@ -159,6 +167,30 @@
       "source": "flaskr/service/dashboard/funcs.py",
       "target": "flaskr.service.shifu.demo_courses",
       "message": "flaskr/service/dashboard/funcs.py imports cross-service module flaskr.service.shifu.demo_courses outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/dashboard/learners.py|flaskr.service.learn.const",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/dashboard/learners.py",
+      "target": "flaskr.service.learn.const",
+      "message": "flaskr/service/dashboard/learners.py imports cross-service module flaskr.service.learn.const outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/dashboard/loaders.py|flaskr.service.learn.const",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/dashboard/loaders.py",
+      "target": "flaskr.service.learn.const",
+      "message": "flaskr/service/dashboard/loaders.py imports cross-service module flaskr.service.learn.const outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/dashboard/loaders.py|flaskr.service.shifu.demo_courses",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/dashboard/loaders.py",
+      "target": "flaskr.service.shifu.demo_courses",
+      "message": "flaskr/service/dashboard/loaders.py imports cross-service module flaskr.service.shifu.demo_courses outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
