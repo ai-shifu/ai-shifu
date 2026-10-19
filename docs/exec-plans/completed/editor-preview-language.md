@@ -16,7 +16,8 @@ course settings, and the existing element protocol.
   generations, continuation, restart, and the reported audio loading behavior.
 - [x] Run developer-tool verification, frontend type checking and repository-wide
   pre-commit checks.
-- [ ] Open a ready-for-review PR after final browser acceptance.
+- [x] Open ready-for-review [PR #3146](https://github.com/ai-shifu/ai-shifu/pull/3146)
+  after final browser acceptance. Deployment remains outside this change.
 
 ## Surprises & Discoveries
 
