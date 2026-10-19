@@ -296,6 +296,90 @@ class RunScriptPreviewContextV2:
             message = "Markdown-Flow content is empty"
             raise ValueError(message)
 
+        trace, root_span, trace_args = self._create_preview_trace(
+            outline=outline,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            session_id=session_id,
+        )
+        provider = self._build_preview_provider(
+            model=model,
+            temperature=temperature,
+            trace=trace,
+            root_span=root_span,
+            trace_args=trace_args,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        preview_language = resolved_variables.get("language") or resolved_variables.get(
+            SYS_USER_LANGUAGE
+        )
+        original_language = get_current_language()
+        restore_language = (
+            bool(preview_language) and preview_language != original_language
+        )
+        if restore_language:
+            set_language(preview_language)
+
+        content_chunks: list[str] = []
+        langfuse_output_chunks: list[str] = []
+        # Holder for the exact user message markdown-flow sent to the LLM
+        # (LLMResult.prompt); the preview context stores it verbatim so the
+        # rebuilt history stays byte-identical to the sent request.
+        sent_prompt_chunks: list[str] = []
+        # The trace input resolves mid-run; the holder keeps it visible to the
+        # finally below even when the run raises after resolving it.
+        trace_input_holder: list[str | None] = [None]
+        try:
+            yield from self._run_preview_block(
+                preview_request=preview_request,
+                shifu=shifu,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                session_id=session_id,
+                document=document,
+                document_prompt=document_prompt,
+                model=model,
+                temperature=temperature,
+                resolved_variables=resolved_variables,
+                provider=provider,
+                content_chunks=content_chunks,
+                langfuse_output_chunks=langfuse_output_chunks,
+                sent_prompt_chunks=sent_prompt_chunks,
+                trace_input_holder=trace_input_holder,
+            )
+        finally:
+            preview_trace_input = trace_input_holder[0]
+            finalize_langfuse_trace(
+                trace=trace,
+                root_span=root_span,
+                trace_payload={
+                    **trace_args,
+                    "input": preview_trace_input,
+                    "output": "".join(langfuse_output_chunks).strip() or None,
+                },
+                root_span_payload={
+                    "input": preview_trace_input,
+                    "output": "".join(langfuse_output_chunks).strip() or None,
+                },
+            )
+            if restore_language:
+                set_language(original_language)
+
+    def _create_preview_trace(
+        self,
+        *,
+        outline: DraftOutlineItem | PublishedOutlineItem | None,
+        shifu_bid: str,
+        outline_bid: str,
+        user_bid: str,
+        session_id: str,
+    ) -> tuple[object, object, dict]:
+        """Create the Langfuse trace and root span for one preview request."""
         chapter_title = getattr(outline, "title", "") or outline_bid
         trace_scene = "lesson_preview"
         request_trace_id = get_request_trace_id()
@@ -332,13 +416,28 @@ class RunScriptPreviewContextV2:
             outline_bid,
             session_id,
         )
+        return trace, root_span, trace_args
+
+    def _build_preview_provider(
+        self,
+        *,
+        model: str,
+        temperature: float,
+        trace: object,
+        root_span: object,
+        trace_args: dict,
+        shifu_bid: str,
+        outline_bid: str,
+        user_bid: str,
+    ) -> RUNLLMProvider:
+        """Build the preview-scene LLM provider bound to the preview trace."""
         usage_context = UsageContext(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
-        provider = RUNLLMProvider(
+        return RUNLLMProvider(
             self.app,
             LLMSettings(
                 model=model,
@@ -352,157 +451,150 @@ class RunScriptPreviewContextV2:
             BILL_USAGE_SCENE_PREVIEW,
         )
 
-        preview_language = resolved_variables.get("language") or resolved_variables.get(
-            SYS_USER_LANGUAGE
+    def _run_preview_block(
+        self,
+        *,
+        preview_request: PlaygroundPreviewRequest,
+        shifu: DraftShifu | PublishedShifu | None,
+        shifu_bid: str,
+        outline_bid: str,
+        user_bid: str,
+        session_id: str,
+        document: str,
+        document_prompt: str | None,
+        model: str,
+        temperature: float,
+        resolved_variables: dict,
+        provider: RUNLLMProvider,
+        content_chunks: list[str],
+        langfuse_output_chunks: list[str],
+        sent_prompt_chunks: list[str],
+        trace_input_holder: list[str | None],
+    ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        """Process the requested block and stream its preview elements.
+
+        Publishes the Langfuse trace input through ``trace_input_holder`` as
+        soon as it resolves so the caller's ``finally`` sees it on failure
+        paths too.
+        """
+        final_payload = preview_request.model_dump()
+        final_payload["content"] = document
+        final_payload["document_prompt"] = document_prompt
+        final_payload["model"] = model
+        final_payload["temperature"] = temperature
+        final_payload["variables"] = resolved_variables
+        self.app.logger.info(
+            "preview final payload | shifu_bid=%s | outline_bid=%s | user_bid=%s | payload=%s",
+            shifu_bid,
+            outline_bid,
+            user_bid,
+            json.dumps(final_payload, ensure_ascii=False),
         )
-        original_language = get_current_language()
-        restore_language = (
-            bool(preview_language) and preview_language != original_language
-        )
-        if restore_language:
-            set_language(preview_language)
 
-        content_chunks: list[str] = []
-        langfuse_output_chunks: list[str] = []
-        # Holder for the exact user message markdown-flow sent to the LLM
-        # (LLMResult.prompt); the preview context stores it verbatim so the
-        # rebuilt history stays byte-identical to the sent request.
-        sent_prompt_chunks: list[str] = []
-        preview_trace_input: str | None = None
-        try:
-            final_payload = preview_request.model_dump()
-            final_payload["content"] = document
-            final_payload["document_prompt"] = document_prompt
-            final_payload["model"] = model
-            final_payload["temperature"] = temperature
-            final_payload["variables"] = resolved_variables
-            self.app.logger.info(
-                "preview final payload | shifu_bid=%s | outline_bid=%s | user_bid=%s | payload=%s",
-                shifu_bid,
-                outline_bid,
-                user_bid,
-                json.dumps(final_payload, ensure_ascii=False),
-            )
-
-            context_store = _PreviewContextStore(
-                self.app,
-                user_bid,
-                shifu_bid,
-                outline_bid,
-                language=str(
-                    resolved_variables.get("language")
-                    or resolved_variables.get(SYS_USER_LANGUAGE)
-                    or ""
-                ),
-            )
-            request_context = MdflowContextV2.normalize_context_messages(
-                preview_request.context
-            )
-            if request_context is None:
-                context_messages = context_store.get_context(
-                    document, preview_request.block_index
-                )
-            else:
-                context_messages = request_context
-                context_store.replace_context(document, request_context)
-
-            preview_output_language = str(
+        context_store = _PreviewContextStore(
+            self.app,
+            user_bid,
+            shifu_bid,
+            outline_bid,
+            language=str(
                 resolved_variables.get("language")
                 or resolved_variables.get(SYS_USER_LANGUAGE)
                 or ""
+            ),
+        )
+        request_context = MdflowContextV2.normalize_context_messages(
+            preview_request.context
+        )
+        if request_context is None:
+            context_messages = context_store.get_context(
+                document, preview_request.block_index
             )
-            context_messages = MdflowContextV2.filter_context_by_output_language(
-                context_messages,
-                preview_output_language,
-            )
+        else:
+            context_messages = request_context
+            context_store.replace_context(document, request_context)
 
-            mdflow_context = MdflowContextV2(
-                document=document,
-                llm_provider=provider,
-                document_prompt=document_prompt,
-                interaction_prompt=preview_request.interaction_prompt,
-                interaction_error_prompt=preview_request.interaction_error_prompt,
-                use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
-                visual_mode=bool(preview_request.visual_mode),
-                output_language=preview_output_language,
-            )
+        preview_output_language = str(
+            resolved_variables.get("language")
+            or resolved_variables.get(SYS_USER_LANGUAGE)
+            or ""
+        )
+        context_messages = MdflowContextV2.filter_context_by_output_language(
+            context_messages,
+            preview_output_language,
+        )
 
-            block_index = preview_request.block_index
-            current_block = mdflow_context.get_block(block_index)
-            current_block_content = ""
-            if current_block:
-                current_block_content = (
-                    replace_variables_in_text(
-                        current_block.content or "", resolved_variables
-                    )
-                    or ""
+        mdflow_context = MdflowContextV2(
+            document=document,
+            llm_provider=provider,
+            document_prompt=document_prompt,
+            interaction_prompt=preview_request.interaction_prompt,
+            interaction_error_prompt=preview_request.interaction_error_prompt,
+            use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
+            visual_mode=bool(preview_request.visual_mode),
+            output_language=preview_output_language,
+        )
+
+        block_index = preview_request.block_index
+        current_block = mdflow_context.get_block(block_index)
+        current_block_content = ""
+        if current_block:
+            current_block_content = (
+                replace_variables_in_text(
+                    current_block.content or "", resolved_variables
                 )
-            preview_trace_input = normalize_langfuse_input_value(
-                preview_request.user_input
-            ) or normalize_langfuse_input_value(current_block_content)
-            is_user_input_validation = bool(preview_request.user_input)
-
-            mode = ProcessMode.STREAM
-            user_input = preview_request.user_input
-            if (
-                current_block
-                and current_block.block_type == BlockType.INTERACTION
-                and not is_user_input_validation
-            ):
-                mode = ProcessMode.COMPLETE
-                user_input = None
-
-            result = mdflow_context.process(
-                block_index=block_index,
-                mode=mode,
-                context=context_messages or None,
-                variables=resolved_variables,
-                user_input=user_input,
+                or ""
             )
+        preview_trace_input = normalize_langfuse_input_value(
+            preview_request.user_input
+        ) or normalize_langfuse_input_value(current_block_content)
+        trace_input_holder[0] = preview_trace_input
+        is_user_input_validation = bool(preview_request.user_input)
 
-            preview_adapter = PreviewElementRunAdapter(
-                self.app,
-                shifu_bid=shifu_bid,
+        mode = ProcessMode.STREAM
+        user_input = preview_request.user_input
+        if (
+            current_block
+            and current_block.block_type == BlockType.INTERACTION
+            and not is_user_input_validation
+        ):
+            mode = ProcessMode.COMPLETE
+            user_input = None
+
+        result = mdflow_context.process(
+            block_index=block_index,
+            mode=mode,
+            context=context_messages or None,
+            variables=resolved_variables,
+            user_input=user_input,
+        )
+
+        preview_adapter = PreviewElementRunAdapter(
+            self.app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            run_session_bid=session_id,
+        )
+        yield from preview_adapter.process(
+            self._iter_preview_generated_events(
+                result=result,
                 outline_bid=outline_bid,
-                user_bid=user_bid,
-                run_session_bid=session_id,
+                block_index=block_index,
+                current_block=current_block,
+                is_user_input_validation=is_user_input_validation,
+                content_chunks=content_chunks,
+                langfuse_output_chunks=langfuse_output_chunks,
+                sent_prompt_chunks=sent_prompt_chunks,
             )
-            yield from preview_adapter.process(
-                self._iter_preview_generated_events(
-                    result=result,
-                    outline_bid=outline_bid,
-                    block_index=block_index,
-                    current_block=current_block,
-                    is_user_input_validation=is_user_input_validation,
-                    content_chunks=content_chunks,
-                    langfuse_output_chunks=langfuse_output_chunks,
-                    sent_prompt_chunks=sent_prompt_chunks,
-                )
-            )
-            self._update_preview_context(
-                context_store,
-                document,
-                preview_request,
-                content_chunks,
-                current_block_content,
-                sent_prompt=(sent_prompt_chunks[0] if sent_prompt_chunks else ""),
-            )
-        finally:
-            finalize_langfuse_trace(
-                trace=trace,
-                root_span=root_span,
-                trace_payload={
-                    **trace_args,
-                    "input": preview_trace_input,
-                    "output": "".join(langfuse_output_chunks).strip() or None,
-                },
-                root_span_payload={
-                    "input": preview_trace_input,
-                    "output": "".join(langfuse_output_chunks).strip() or None,
-                },
-            )
-            if restore_language:
-                set_language(original_language)
+        )
+        self._update_preview_context(
+            context_store,
+            document,
+            preview_request,
+            content_chunks,
+            current_block_content,
+            sent_prompt=(sent_prompt_chunks[0] if sent_prompt_chunks else ""),
+        )
 
     def _update_preview_context(
         self,
