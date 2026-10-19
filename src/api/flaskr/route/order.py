@@ -42,90 +42,109 @@ from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.util.datetime import parse_naive_utc
 
 
+def _require_creator() -> None:
+    if not request.user.is_creator:
+        raise_error("server.shifu.noPermission")
+
+
+def _require_shifu_owner(app: Flask, shifu_bid: str) -> str:
+    _require_creator()
+    user_id = request.user.user_id
+    creator_bid = get_shifu_creator_bid(app, shifu_bid)
+    if not creator_bid:
+        raise_error("server.shifu.shifuNotFound")
+    if creator_bid != user_id:
+        raise_error("server.shifu.noPermission")
+    return user_id
+
+
+def _parse_datetime_filter(
+    value: str, field_name: str, *, is_end: bool = False
+) -> datetime | None:
+    if not value:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    for datetime_format in (
+        "%Y-%m-%d",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%dT%H:%M:%S",
+    ):
+        try:
+            parsed = parse_naive_utc(normalized, datetime_format)
+            if datetime_format == "%Y-%m-%d":
+                if is_end:
+                    parsed = parsed.replace(hour=23, minute=59, second=59)
+                else:
+                    parsed = parsed.replace(hour=0, minute=0, second=0)
+        except ValueError:
+            continue
+        else:
+            return parsed
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        raise_param_error(field_name)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+    return parsed
+
+
+def _parse_admin_pagination() -> tuple[int, int]:
+    page_index = request.args.get("page_index", 1)
+    page_size = request.args.get("page_size", 20)
+    try:
+        page_index = int(page_index)
+    except (TypeError, ValueError):
+        raise_param_error("page_index")
+    try:
+        page_size = int(page_size)
+    except (TypeError, ValueError):
+        raise_param_error("page_size")
+    if page_index < 1:
+        raise_param_error("page_index")
+    if page_size < 1:
+        raise_param_error("page_size")
+    return page_index, page_size
+
+
+def _parse_required_json_payload() -> dict:
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        raise_param_error("payload")
+    return payload
+
+
+def _parse_bool_payload_field(payload: dict, field_name: str) -> bool:
+    value = payload.get(field_name)
+    if isinstance(value, bool):
+        return value
+    normalized = str(value or "").strip().lower()
+    if normalized in {"true", "1"}:
+        return True
+    if normalized in {"false", "0"}:
+        return False
+    raise_param_error(field_name)
+    return None
+
+
 def register_order_handler(app: Flask, path_prefix: str) -> Flask:
     """Register the order routes on the Flask application."""
+    _register_learner_order_routes(app, path_prefix)
+    _register_order_query_routes(app, path_prefix)
+    _register_payment_sync_routes(app, path_prefix)
+    _register_admin_order_routes(app, path_prefix)
+    _register_admin_order_shifu_routes(app, path_prefix)
+    _register_admin_import_activation_routes(app, path_prefix)
+    _register_admin_redemption_code_routes(app, path_prefix)
+    _register_admin_order_detail_routes(app, path_prefix)
+    return app
 
-    def _require_creator() -> None:
-        if not request.user.is_creator:
-            raise_error("server.shifu.noPermission")
 
-    def _require_shifu_owner(shifu_bid: str) -> str:
-        _require_creator()
-        user_id = request.user.user_id
-        creator_bid = get_shifu_creator_bid(app, shifu_bid)
-        if not creator_bid:
-            raise_error("server.shifu.shifuNotFound")
-        if creator_bid != user_id:
-            raise_error("server.shifu.noPermission")
-        return user_id
-
-    def _parse_datetime_filter(
-        value: str, field_name: str, *, is_end: bool = False
-    ) -> datetime | None:
-        if not value:
-            return None
-        normalized = str(value).strip()
-        if not normalized:
-            return None
-        for datetime_format in (
-            "%Y-%m-%d",
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M",
-            "%Y-%m-%dT%H:%M:%S",
-        ):
-            try:
-                parsed = parse_naive_utc(normalized, datetime_format)
-                if datetime_format == "%Y-%m-%d":
-                    if is_end:
-                        parsed = parsed.replace(hour=23, minute=59, second=59)
-                    else:
-                        parsed = parsed.replace(hour=0, minute=0, second=0)
-            except ValueError:
-                continue
-            else:
-                return parsed
-        try:
-            parsed = datetime.fromisoformat(normalized)
-        except ValueError:
-            raise_param_error(field_name)
-        if parsed.tzinfo is not None:
-            parsed = parsed.astimezone(UTC).replace(tzinfo=None)
-        return parsed
-
-    def _parse_admin_pagination() -> tuple[int, int]:
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-        except (TypeError, ValueError):
-            raise_param_error("page_index")
-        try:
-            page_size = int(page_size)
-        except (TypeError, ValueError):
-            raise_param_error("page_size")
-        if page_index < 1:
-            raise_param_error("page_index")
-        if page_size < 1:
-            raise_param_error("page_size")
-        return page_index, page_size
-
-    def _parse_required_json_payload() -> dict:
-        payload = request.get_json(silent=True)
-        if not isinstance(payload, dict):
-            raise_param_error("payload")
-        return payload
-
-    def _parse_bool_payload_field(payload: dict, field_name: str) -> bool:
-        value = payload.get(field_name)
-        if isinstance(value, bool):
-            return value
-        normalized = str(value or "").strip().lower()
-        if normalized in {"true", "1"}:
-            return True
-        if normalized in {"false", "0"}:
-            return False
-        raise_param_error(field_name)
-        return None
+def _register_learner_order_routes(app: Flask, path_prefix: str) -> None:
+    """Register learner pay-intent and order creation routes."""
 
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay() -> str:
@@ -222,6 +241,10 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         course_id = request.get_json().get("course_id", "")
         return make_common_response(init_buy_record(app, user_id, course_id))
 
+
+def _register_order_query_routes(app: Flask, path_prefix: str) -> None:
+    """Register learner order query and discount routes."""
+
     @app.route(path_prefix + "/query-order", methods=["POST"])
     def query_order() -> str:
         """Query an order.
@@ -308,6 +331,10 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(
             use_coupon_code(app, user_id, discount_code, order_id)
         )
+
+
+def _register_payment_sync_routes(app: Flask, path_prefix: str) -> None:
+    """Register payment detail, sync and Stripe webhook routes."""
 
     @app.route(path_prefix + "/payment-detail", methods=["POST"])
     def payment_detail() -> str:
@@ -442,6 +469,10 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         body = make_common_response(payload)
         return app.response_class(body, status=status_code, mimetype="application/json")
 
+
+def _register_admin_order_routes(app: Flask, path_prefix: str) -> None:
+    """Register the admin order list route."""
+
     @app.route(path_prefix + "/admin/orders", methods=["GET"])
     def admin_order_list() -> str:
         """Admin order list.
@@ -519,6 +550,10 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(
             list_orders(app, user_id, page_index, page_size, filters)
         )
+
+
+def _register_admin_order_shifu_routes(app: Flask, path_prefix: str) -> None:
+    """Register the admin order course filter route."""
 
     @app.route(path_prefix + "/admin/orders/shifus", methods=["GET"])
     def admin_order_shifu_list() -> str:
@@ -600,6 +635,10 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
             )
         )
 
+
+def _register_admin_import_activation_routes(app: Flask, path_prefix: str) -> None:
+    """Register the admin activation order import route."""
+
     @app.route(path_prefix + "/admin/orders/import-activation", methods=["POST"])
     def admin_import_activation() -> Response:
         """Admin import activation order.
@@ -658,7 +697,7 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("course_id")
         if contact_type not in {"phone", "email"}:
             raise_param_error("contact_type")
-        _require_shifu_owner(course_id)
+        _require_shifu_owner(app, course_id)
 
         contact_label = "email" if contact_type == "email" else "mobile"
 
@@ -723,6 +762,10 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
             ),
             mimetype="application/json",
         )
+
+
+def _register_admin_redemption_code_routes(app: Flask, path_prefix: str) -> None:
+    """Register admin course redemption code routes."""
 
     @app.route(path_prefix + "/admin/orders/redemption-codes", methods=["GET"])
     def admin_creator_redemption_code_list() -> str:
@@ -845,6 +888,10 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
         )
         return make_common_response({"enabled": bool(result.get("enabled"))})
 
+
+def _register_admin_order_detail_routes(app: Flask, path_prefix: str) -> None:
+    """Register the admin order detail route."""
+
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])
     def admin_order_detail(order_bid: str) -> str:
         """Admin order detail.
@@ -875,5 +922,3 @@ def register_order_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("order_bid")
         user_id = request.user.user_id
         return make_common_response(get_order_detail(app, user_id, order_bid))
-
-    return app
