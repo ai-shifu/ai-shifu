@@ -31,39 +31,39 @@ Date: 2025-08-07
 import contextlib
 import json
 import re
-import tempfile
 from collections.abc import Callable, Generator
 from enum import Enum
 from functools import wraps
-from pathlib import Path
-from typing import Any
 
 from flask import (
     Flask,
-    Response,
-    after_this_request,
     current_app,
     g,
     has_request_context,
     request,
-    send_file,
 )
-from flaskr.api.langfuse import (
+from flaskr.api.langfuse import (  # noqa: F401 -- re-exported names and patch targets
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
 )
-from flaskr.api.llm.model_selection import (
+from flaskr.api.llm.model_selection import (  # noqa: F401 -- re-exported names and patch targets
     resolve_course_selection,
     selection_metadata,
     selection_model,
 )
 from flaskr.common.config import get_config
 from flaskr.common.public_urls import resolve_public_origin
-from flaskr.common.shifu_context import with_shifu_context
+from flaskr.common.shifu_context import (
+    with_shifu_context,  # noqa: F401 -- re-exported names and patch targets
+)
 from flaskr.framework.plugin.inject import inject
-from flaskr.i18n import _, get_current_language, set_language
-from flaskr.route.common import (
+from flaskr.i18n import (  # noqa: F401 -- re-exported names and patch targets
+    _,
+    get_current_language,
+    set_language,
+)
+from flaskr.route.common import (  # noqa: F401 -- re-exported names and patch targets
     bypass_token_validation,
     fmt,
     make_common_response,
@@ -73,14 +73,20 @@ from flaskr.service.billing.api import (
     admit_creator_preview_usage,
     assert_creator_debug_allowed,
 )
-from flaskr.service.common.models import ERROR_CODE, raise_error, raise_param_error
+from flaskr.service.common.models import (  # noqa: F401 -- re-exported names and patch targets
+    ERROR_CODE,
+    raise_error,
+    raise_param_error,
+)
 from flaskr.service.common.server_analytics import track_external_client_event
 from flaskr.service.common.session_attribution import (
     get_session_skill_attribution_by_reference,
 )
 from flaskr.service.common.skill_request_analytics import has_skill_request_analytics
-from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
-from flaskr.service.learn.langfuse_naming import (
+from flaskr.service.learn.ask_provider_langfuse import (
+    stream_provider_with_langfuse,  # noqa: F401 -- re-exported names and patch targets
+)
+from flaskr.service.learn.langfuse_naming import (  # noqa: F401 -- re-exported names and patch targets
     build_langfuse_generation_name,
     build_langfuse_span_name,
     build_langfuse_trace_name,
@@ -91,17 +97,42 @@ from flaskr.service.metering.consts import (
 from flaskr.service.shifu.admin_operations.route import (
     register_admin_operations_routes,
 )
-from flaskr.service.shifu.ask_provider_registry import (
+from flaskr.service.shifu.ask_provider_registry import (  # noqa: F401 -- re-exported names and patch targets
     get_ask_provider_metadata,
     validate_ask_provider_specific_config,
 )
+from flaskr.service.shifu.ask_routes import (
+    register_shifu_ask_routes,
+)
+from flaskr.service.shifu.course_routes import (
+    register_shifu_course_archive_routes,
+    register_shifu_course_detail_routes,
+    register_shifu_course_export_routes,
+    register_shifu_course_list_routes,
+    register_shifu_course_preview_routes,
+)
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
-from flaskr.service.shifu.models import AiCourseAuth
-from flaskr.service.shifu.permissions import (
+from flaskr.service.shifu.mdflow_routes import (
+    register_shifu_mdflow_routes,
+)
+from flaskr.service.shifu.models import (
+    AiCourseAuth,  # noqa: F401 -- re-exported names and patch targets
+)
+from flaskr.service.shifu.outline_routes import (
+    register_shifu_outline_routes,
+    register_shifu_outline_tree_routes,
+)
+from flaskr.service.shifu.permission_routes import (
+    register_shifu_permission_routes,
+)
+from flaskr.service.shifu.permissions import (  # noqa: F401 -- re-exported names and patch targets
     _auth_types_to_permissions,
     _normalize_auth_types,
 )
-from flaskr.service.shifu.shifu_draft_funcs import (
+from flaskr.service.shifu.resource_routes import (
+    register_shifu_resource_routes,
+)
+from flaskr.service.shifu.shifu_draft_funcs import (  # noqa: F401 -- re-exported names and patch targets
     SUPPORTED_ASK_ENABLED_STATUSES,
     SUPPORTED_ASK_PROVIDER_MODES,
     SUPPORTED_ASK_PROVIDERS,
@@ -114,9 +145,13 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     save_shifu_draft_info,
     unarchive_shifu,
 )
-from flaskr.service.shifu.shifu_history_manager import get_shifu_draft_meta
-from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
-from flaskr.service.shifu.shifu_mdflow_funcs import (
+from flaskr.service.shifu.shifu_history_manager import (
+    get_shifu_draft_meta,  # noqa: F401 -- re-exported names and patch targets
+)
+from flaskr.service.shifu.shifu_import_export_funcs import (
+    export_shifu,  # noqa: F401 -- re-exported names and patch targets
+)
+from flaskr.service.shifu.shifu_mdflow_funcs import (  # noqa: F401 -- re-exported names and patch targets
     get_shifu_mdflow,
     get_shifu_mdflow_history,
     get_shifu_mdflow_history_version_detail,
@@ -124,7 +159,7 @@ from flaskr.service.shifu.shifu_mdflow_funcs import (
     restore_shifu_mdflow_history_version,
     save_shifu_mdflow,
 )
-from flaskr.service.shifu.shifu_outline_funcs import (
+from flaskr.service.shifu.shifu_outline_funcs import (  # noqa: F401 -- re-exported names and patch targets
     create_outline,
     create_outlines_batch,
     delete_unit,
@@ -134,24 +169,29 @@ from flaskr.service.shifu.shifu_outline_funcs import (
     reorder_outline_siblings,
     reorder_outline_tree,
 )
-from flaskr.service.shifu.shifu_permission_funcs import (
+from flaskr.service.shifu.shifu_permission_funcs import (  # noqa: F401 -- re-exported names and patch targets
     grant_shifu_permissions,
     remove_shifu_permission,
 )
-from flaskr.service.shifu.shifu_publish_funcs import (
+from flaskr.service.shifu.shifu_publish_funcs import (  # noqa: F401 -- re-exported names and patch targets
     preview_shifu_draft,
     publish_shifu_draft,
 )
+from flaskr.service.shifu.tts_routes import (
+    register_shifu_tts_routes,
+)
 from flaskr.service.shifu.utils import get_shifu_creator_bid
-from flaskr.service.user.common import validate_user
-from flaskr.service.user.repository import (
+from flaskr.service.user.common import (
+    validate_user,  # noqa: F401 -- re-exported names and patch targets
+)
+from flaskr.service.user.repository import (  # noqa: F401 -- re-exported names and patch targets
     load_user_aggregate,
 )
-from flaskr.service.user.utils import (
+from flaskr.service.user.utils import (  # noqa: F401 -- re-exported names and patch targets
     get_user_language,
 )
 
-from .funcs import (
+from .funcs import (  # noqa: F401 -- re-exported names and patch targets
     get_video_info,
     mark_or_unmark_favorite_shifu,
     shifu_permission_verification,
@@ -329,40 +369,108 @@ def _resolve_publish_base_url(app: Flask) -> str:
     return _get_request_base_url()
 
 
+def _get_login_methods_enabled() -> set[str]:
+    """Resolve enabled login methods from configuration."""
+    raw = get_config("LOGIN_METHODS_ENABLED", "phone")
+    items = raw if isinstance(raw, (list, tuple, set)) else str(raw).split(",")
+    methods = {str(item).strip().lower() for item in items if str(item).strip()}
+    if "google" in methods:
+        methods.add("email")
+    return methods
+
+
+def _normalize_contact_type(raw_type: str) -> str:
+    """Normalize the incoming contact type value."""
+    return (raw_type or "").strip().lower()
+
+
+def _normalize_contacts(raw_contacts: object) -> list[str]:
+    """Split and normalize contact identifiers from request payloads."""
+    if isinstance(raw_contacts, str):
+        items = re.split(r"[,\uFF0C\n]", raw_contacts)
+    elif isinstance(raw_contacts, (list, tuple, set)):
+        items = list(raw_contacts)
+    else:
+        items = []
+    normalized = []
+    for item in items:
+        if item is None:
+            continue
+        trimmed = str(item).strip()
+        if trimmed:
+            normalized.append(trimmed)
+    return normalized
+
+
+def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
+    """Validate and deduplicate contact identifiers."""
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for contact in contacts:
+        if not contact or len(contact) > MAX_CONTACT_LENGTH:
+            raise_param_error("contact")
+        candidate = contact.lower() if contact_type == "email" else contact
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if contact_type == "phone":
+            if not PHONE_PATTERN.match(contact):
+                raise_param_error("mobile")
+        elif contact_type == "email" and not EMAIL_PATTERN.match(candidate):
+            raise_param_error("email")
+        normalized.append(candidate)
+    return normalized
+
+
+def _parse_ask_provider_config(raw_value: object) -> dict | None:
+    """Parse and validate ask_provider_config from request payload."""
+    if raw_value is None:
+        return None
+
+    parsed = raw_value
+    if isinstance(raw_value, str):
+        trimmed = raw_value.strip()
+        if not trimmed:
+            parsed = {}
+        else:
+            try:
+                parsed = json.loads(trimmed)
+            except json.JSONDecodeError:
+                raise_param_error("ask_provider_config")
+
+    if not isinstance(parsed, dict):
+        raise_param_error("ask_provider_config")
+
+    provider = parsed.get("provider")
+    if provider is not None:
+        provider = str(provider).strip().lower()
+        if provider and provider not in SUPPORTED_ASK_PROVIDERS:
+            raise_param_error("ask_provider_config.provider")
+
+    mode = parsed.get("mode")
+    if mode is not None:
+        mode = str(mode).strip().lower()
+        if mode and mode not in SUPPORTED_ASK_PROVIDER_MODES:
+            raise_param_error("ask_provider_config.mode")
+
+    if "config" in parsed and not isinstance(parsed.get("config"), dict):
+        raise_param_error("ask_provider_config.config")
+
+    normalized = normalize_ask_provider_config(parsed)
+    is_valid, field = validate_ask_provider_specific_config(
+        normalized.get("provider", ""),
+        normalized.get("config", {}),
+    )
+    if not is_valid:
+        raise_param_error(f"ask_provider_config.config.{field or 'invalid'}")
+
+    return normalized
+
+
 @inject
 def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     """Register shifu routes."""
     app.logger.info("register shifu routes %s", path_prefix)
-
-    def _get_login_methods_enabled() -> set[str]:
-        """Resolve enabled login methods from configuration."""
-        raw = get_config("LOGIN_METHODS_ENABLED", "phone")
-        items = raw if isinstance(raw, (list, tuple, set)) else str(raw).split(",")
-        methods = {str(item).strip().lower() for item in items if str(item).strip()}
-        if "google" in methods:
-            methods.add("email")
-        return methods
-
-    def _normalize_contact_type(raw_type: str) -> str:
-        """Normalize the incoming contact type value."""
-        return (raw_type or "").strip().lower()
-
-    def _normalize_contacts(raw_contacts: object) -> list[str]:
-        """Split and normalize contact identifiers from request payloads."""
-        if isinstance(raw_contacts, str):
-            items = re.split(r"[,\uFF0C\n]", raw_contacts)
-        elif isinstance(raw_contacts, (list, tuple, set)):
-            items = list(raw_contacts)
-        else:
-            items = []
-        normalized = []
-        for item in items:
-            if item is None:
-                continue
-            trimmed = str(item).strip()
-            if trimmed:
-                normalized.append(trimmed)
-        return normalized
 
     def _admit_creator_debug_usage(raw_shifu_bid: object) -> str:
         request_user = getattr(request, "user", None)
@@ -395,25 +503,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             return
         admit_creator_preview_usage(app, shifu_bid=shifu_bid)
 
-    def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
-        """Validate and deduplicate contact identifiers."""
-        normalized: list[str] = []
-        seen: set[str] = set()
-        for contact in contacts:
-            if not contact or len(contact) > MAX_CONTACT_LENGTH:
-                raise_param_error("contact")
-            candidate = contact.lower() if contact_type == "email" else contact
-            if candidate in seen:
-                continue
-            seen.add(candidate)
-            if contact_type == "phone":
-                if not PHONE_PATTERN.match(contact):
-                    raise_param_error("mobile")
-            elif contact_type == "email" and not EMAIL_PATTERN.match(candidate):
-                raise_param_error("email")
-            normalized.append(candidate)
-        return normalized
-
     def _require_shifu_owner(shifu_bid: str) -> str:
         """Ensure the current user is the shifu owner and a creator."""
         user_id = request.user.user_id
@@ -426,2103 +515,30 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             raise_error("server.shifu.noPermission")
         return user_id
 
-    def _parse_ask_provider_config(raw_value: object) -> dict | None:
-        """Parse and validate ask_provider_config from request payload."""
-        if raw_value is None:
-            return None
-
-        parsed = raw_value
-        if isinstance(raw_value, str):
-            trimmed = raw_value.strip()
-            if not trimmed:
-                parsed = {}
-            else:
-                try:
-                    parsed = json.loads(trimmed)
-                except json.JSONDecodeError:
-                    raise_param_error("ask_provider_config")
-
-        if not isinstance(parsed, dict):
-            raise_param_error("ask_provider_config")
-
-        provider = parsed.get("provider")
-        if provider is not None:
-            provider = str(provider).strip().lower()
-            if provider and provider not in SUPPORTED_ASK_PROVIDERS:
-                raise_param_error("ask_provider_config.provider")
-
-        mode = parsed.get("mode")
-        if mode is not None:
-            mode = str(mode).strip().lower()
-            if mode and mode not in SUPPORTED_ASK_PROVIDER_MODES:
-                raise_param_error("ask_provider_config.mode")
-
-        if "config" in parsed and not isinstance(parsed.get("config"), dict):
-            raise_param_error("ask_provider_config.config")
-
-        normalized = normalize_ask_provider_config(parsed)
-        is_valid, field = validate_ask_provider_specific_config(
-            normalized.get("provider", ""),
-            normalized.get("config", {}),
-        )
-        if not is_valid:
-            raise_param_error(f"ask_provider_config.config.{field or 'invalid'}")
-
-        return normalized
-
-    @app.route(path_prefix + "/shifus", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def get_shifu_list_api() -> str:
-        """Get shifu list.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: page_index
-              type: integer
-              required: false
-              description: Page index, defaults to 1 when omitted
-            - name: page_size
-              type: integer
-              required: false
-              description: Page size, defaults to 10 when omitted
-            - name: is_favorite
-              type: boolean
-              required: true
-        responses:
-            200:
-                description: get shifu list success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: array
-                                    items:
-                                        $ref: "#/components/schemas/PageNationDTO"
-        """
-        user_id = request.user.user_id
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 10)
-        is_favorite = request.args.get("is_favorite", "False")
-        is_favorite = is_favorite.lower() == "true"
-        archived_param = request.args.get("archived")
-        archived = False
-        if archived_param is not None:
-            archived = archived_param.lower() == "true"
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-
-        if page_index < 0 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 0")
-        app.logger.info(
-            "get shifu list, user_id: %s, page_index: %s, page_size: %s, is_favorite: %s",
-            user_id,
-            page_index,
-            page_size,
-            is_favorite,
-        )
-        return make_common_response(
-            get_shifu_draft_list(
-                app, user_id, page_index, page_size, is_favorite, archived
-            )
-        )
+    register_shifu_course_list_routes(app, path_prefix)
 
     register_admin_operations_routes(app, path_prefix=path_prefix)
 
-    @app.route(path_prefix + "/shifus/<shifu_id>/archive", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def archive_shifu_api(shifu_id: str) -> str:
-        user_id = request.user.user_id
-        archive_shifu(app, user_id, shifu_id)
-        return make_common_response({"archived": True})
-
-    @app.route(path_prefix + "/shifus/<shifu_id>/unarchive", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def unarchive_shifu_api(shifu_id: str) -> str:
-        user_id = request.user.user_id
-        unarchive_shifu(app, user_id, shifu_id)
-        return make_common_response({"archived": False})
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/permissions", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def list_shifu_permissions_api(shifu_bid: str) -> str:
-        """List shared permissions for a shifu."""
-        owner_id = _require_shifu_owner(shifu_bid)
-        contact_type = _normalize_contact_type(request.args.get("contact_type", ""))
-        allowed_methods = _get_login_methods_enabled()
-        if contact_type and contact_type not in {"phone", "email"}:
-            raise_param_error("contact_type")
-        if contact_type and allowed_methods and contact_type not in allowed_methods:
-            raise_param_error("contact_type")
-        if not contact_type:
-            contact_type = "email" if "email" in allowed_methods else "phone"
-
-        items = []
-        auths = AiCourseAuth.query.filter(
-            AiCourseAuth.course_id == shifu_bid,
-            AiCourseAuth.status == 1,
-        ).all()
-        for auth in auths:
-            if not auth.user_id or auth.user_id == owner_id:
-                continue
-            aggregate = load_user_aggregate(auth.user_id)
-            if not aggregate:
-                continue
-            auth_types = _normalize_auth_types(auth.auth_type)
-            permissions = _auth_types_to_permissions(auth_types) or auth_types
-            if "publish" in permissions:
-                permission = "publish"
-            elif "edit" in permissions:
-                permission = "edit"
-            elif "view" in permissions:
-                permission = "view"
-            else:
-                continue
-
-            if contact_type == "email":
-                identifier = aggregate.email or ""
-            elif contact_type == "phone":
-                identifier = aggregate.mobile or ""
-            else:
-                identifier = aggregate.email or aggregate.mobile or ""
-            if not identifier:
-                continue
-
-            items.append(
-                {
-                    "user_id": aggregate.user_bid,
-                    "identifier": identifier or "",
-                    "nickname": aggregate.nickname or "",
-                    "permission": permission,
-                }
-            )
-        return make_common_response({"items": items})
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/permissions/grant",
-        methods=["POST"],
+    register_shifu_course_archive_routes(app, path_prefix)
+    register_shifu_permission_routes(
+        app, path_prefix, _require_shifu_owner=_require_shifu_owner
     )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def grant_shifu_permissions_api(shifu_bid: str) -> str:
-        """Grant shared permissions for a shifu."""
-        owner_id = _require_shifu_owner(shifu_bid)
-        payload = request.get_json() or {}
-        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
-        raw_contacts = payload.get("contacts", [])
-        permission = _normalize_contact_type(payload.get("permission", ""))
-
-        allowed_methods = _get_login_methods_enabled()
-        if contact_type not in {"phone", "email"}:
-            raise_param_error("contact_type")
-        if allowed_methods and contact_type not in allowed_methods:
-            raise_param_error("contact_type")
-        if permission not in {"view", "edit", "publish"}:
-            raise_param_error("permission")
-
-        contacts = _normalize_contacts(raw_contacts)
-        if not contacts:
-            raise_param_error("contact")
-
-        contacts = _validate_contacts(contact_type, contacts)
-        if not contacts:
-            raise_param_error("contact")
-
-        count = grant_shifu_permissions(
-            app,
-            shifu_bid=shifu_bid,
-            owner_id=owner_id,
-            contact_type=contact_type,
-            contacts=contacts,
-            permission=permission,
-        )
-        return make_common_response({"count": count})
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/permissions/remove",
-        methods=["POST"],
+    register_shifu_course_detail_routes(app, path_prefix)
+    register_shifu_course_preview_routes(
+        app,
+        path_prefix,
+        _admit_creator_preview_usage_for_shifu=_admit_creator_preview_usage_for_shifu,
     )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def remove_shifu_permissions_api(shifu_bid: str) -> str:
-        """Remove a shared permission from a shifu."""
-        owner_id = _require_shifu_owner(shifu_bid)
-        payload = request.get_json() or {}
-        user_id = str(payload.get("user_id", "")).strip()
-        if not user_id:
-            raise_param_error("user_id")
-        if user_id == owner_id:
-            raise_error("server.shifu.noPermission")
-
-        remove_shifu_permission(app, shifu_bid=shifu_bid, user_id=user_id)
-        return make_common_response({"removed": True})
-
-    @app.route(path_prefix + "/shifus", methods=["PUT"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def create_shifu_api() -> str:
-        """Create shifu.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    name:
-                        type: string
-                        description: shifu name
-                    description:
-                        type: string
-                        description: shifu description
-                    avatar:
-                        type: string
-                        description: shifu avatar
-        responses:
-            200:
-                description: create shifu success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/ShifuDto"
-        """
-        with _external_client_course_event(app, "creation"):
-            user_id = request.user.user_id
-            shifu_name = request.get_json().get("name")
-            if not shifu_name:
-                raise_param_error("name is required")
-            shifu_description = request.get_json().get("description")
-            shifu_avatar = request.get_json().get("avatar", "")
-            result = create_shifu_draft(
-                app,
-                user_id,
-                shifu_name,
-                shifu_description,
-                shifu_avatar,
-                [],
-            )
-        return make_common_response(result)
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    @with_shifu_context()
-    def get_shifu_detail_api(shifu_bid: str) -> str:
-        """Get shifu detail.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-        responses:
-            200:
-                description: get shifu detail success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/ShifuDetailDto"
-        """
-        user_id = request.user.user_id
-        base_url = _resolve_publish_base_url(app)
-        app.logger.info(
-            "get shifu detail, user_id: %s, shifu_bid: %s", user_id, shifu_bid
-        )
-        return make_common_response(
-            get_shifu_draft_info(app, user_id, shifu_bid, base_url)
-        )
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    @with_shifu_context()
-    def save_shifu_detail_api(shifu_bid: str) -> str:
-        """Save shifu detail.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - name: body
-              in: body
-              type: object
-              required: true
-              schema:
-                type: object
-                properties:
-                    name:
-                        type: string
-                        description: shifu name
-                    description:
-                        type: string
-                        description: shifu description
-                    avatar:
-                        type: string
-                        description: shifu avatar
-                    keywords:
-                        type: array
-                        items:
-                            type: string
-                        description: shifu keywords
-                    model:
-                        type: string
-                        description: shifu model
-                    price:
-                        type: number
-                        description: shifu price
-                    ask_enabled_status:
-                        type: integer
-                        description: Ask status (5101=default, 5102=disabled, 5103=enabled)
-                    ask_model:
-                        type: string
-                        description: Ask model name
-                    ask_system_prompt:
-                        type: string
-                        description: Ask model system prompt
-                    ask_provider_config:
-                        type: object
-                        description: Ask provider config ({provider, mode, config})
-                    tts_enabled:
-                        type: boolean
-                        description: TTS enabled
-                    tts_provider:
-                        type: string
-                        description: TTS provider (minimax, volcengine, volcengine_http, baidu, aliyun)
-                    tts_model:
-                        type: string
-                        description: TTS model/resource ID
-                    tts_voice_id:
-                        type: string
-                        description: TTS voice ID
-                    tts_speed:
-                        type: number
-                        description: TTS speech speed (provider-specific range)
-                    tts_pitch:
-                        type: integer
-                        description: TTS pitch adjustment (provider-specific range)
-                    tts_emotion:
-                        type: string
-                        description: TTS emotion setting
-                    default_listen_mode_enabled:
-                        type: boolean
-                        description: Default learner mode to listen when TTS is enabled
-        responses:
-            200:
-                description: save shifu detail success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/ShifuDetailDto"
-        """
-        user_id = request.user.user_id
-        json_data = request.get_json() or {}
-        shifu_name = json_data.get("name")
-        shifu_description = json_data.get("description")
-        shifu_avatar = json_data.get("avatar")
-        shifu_keywords = json_data.get("keywords")
-        shifu_model = (json_data.get("model") or "") if "model" in json_data else None
-        shifu_price = json_data.get("price")
-        shifu_system_prompt = json_data.get("system_prompt", None)
-        # Ask configuration
-        ask_enabled_status = json_data.get("ask_enabled_status")
-        if ask_enabled_status is not None:
-            try:
-                ask_enabled_status = int(ask_enabled_status)
-            except (TypeError, ValueError):
-                raise_param_error("ask_enabled_status")
-            if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
-                raise_param_error("ask_enabled_status")
-        ask_model = (
-            (json_data.get("ask_model") or "") if "ask_model" in json_data else None
-        )
-        ask_system_prompt = json_data.get("ask_system_prompt")
-        if ask_system_prompt is not None:
-            ask_system_prompt = str(ask_system_prompt)
-        ask_provider_config = _parse_ask_provider_config(
-            json_data.get("ask_provider_config")
-        )
-        # TTS Configuration — read without defaults so an omitted field stays
-        # None and is preserved (PATCH semantics), not reset to a default.
-        tts_enabled = json_data.get("tts_enabled")
-        tts_provider = json_data.get("tts_provider")
-        if isinstance(tts_provider, str):
-            tts_provider = tts_provider.strip().lower()
-        tts_model = json_data.get("tts_model")
-        tts_voice_id = json_data.get("tts_voice_id")
-        tts_speed = json_data.get("tts_speed")
-        tts_pitch = 0 if "tts_pitch" in json_data else None
-        tts_emotion = "" if "tts_emotion" in json_data else None
-        default_listen_mode_enabled = json_data.get("default_listen_mode_enabled")
-        if isinstance(default_listen_mode_enabled, str):
-            if default_listen_mode_enabled not in {"true", "false"}:
-                raise_param_error("default_listen_mode_enabled")
-            default_listen_mode_enabled = default_listen_mode_enabled == "true"
-        elif default_listen_mode_enabled is not None and not isinstance(
-            default_listen_mode_enabled, bool
-        ):
-            raise_param_error("default_listen_mode_enabled")
-        # Language Output Configuration
-        use_learner_language = json_data.get("use_learner_language")
-        if isinstance(use_learner_language, str):
-            use_learner_language = use_learner_language.lower() == "true"
-        base_url = _resolve_publish_base_url(app)
-        # Keep stored temperatures and defaults internal to course generation.
-        return make_common_response(
-            save_shifu_draft_info(
-                app,
-                user_id,
-                shifu_bid,
-                shifu_name,
-                shifu_description,
-                shifu_avatar,
-                shifu_keywords,
-                shifu_model,
-                None,
-                shifu_price,
-                shifu_system_prompt,
-                base_url,
-                tts_enabled=tts_enabled,
-                tts_provider=tts_provider,
-                tts_model=tts_model,
-                tts_voice_id=tts_voice_id,
-                tts_speed=tts_speed,
-                tts_pitch=tts_pitch,
-                tts_emotion=tts_emotion,
-                default_listen_mode_enabled=default_listen_mode_enabled,
-                use_learner_language=use_learner_language,
-                ask_enabled_status=ask_enabled_status,
-                ask_model=ask_model,
-                ask_temperature=None,
-                ask_system_prompt=ask_system_prompt,
-                ask_provider_config=ask_provider_config,
-            )
-        )
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/favorite", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    @with_shifu_context()
-    def mark_favorite_shifu_api(shifu_bid: str) -> str:
-        """Mark favorite shifu.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    is_favorite:
-                        type: boolean
-                        description: is favorite
-        responses:
-            200:
-                description: mark favorite shifu success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: boolean
-                                    description: is favorite
-        """
-        user_id = request.user.user_id
-        is_favorite = request.get_json().get("is_favorite")
-        if isinstance(is_favorite, str):
-            is_favorite = is_favorite.lower() == "true"
-        elif not isinstance(is_favorite, bool):
-            raise_param_error("is_favorite is not a boolean")
-        return make_common_response(
-            mark_or_unmark_favorite_shifu(app, user_id, shifu_bid, is_favorite)
-        )
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/publish", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.PUBLISH)
-    @with_shifu_context()
-    def publish_shifu_api(shifu_bid: str) -> str:
-        """Publish shifu.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-        responses:
-            200:
-                description: publish shifu success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: string
-                                    description: publish url
-        """
-        with _external_client_course_event(app, "publish"):
-            user_id = request.user.user_id
-            base_url = _resolve_publish_base_url(app)
-            result = publish_shifu_draft(app, user_id, shifu_bid, base_url)
-        return make_common_response(result)
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/preview", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    @with_shifu_context()
-    def preview_shifu_api(shifu_bid: str) -> str:
-        """Preview shifu.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    variables:
-                        type: object
-                        description: variables
-        responses:
-            200:
-                description: preview shifu success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: string
-                                    description: preview url
-        """
-        user_id = request.user.user_id
-        variables = request.get_json().get("variables")
-        base_url = _resolve_publish_base_url(app)
-        _admit_creator_preview_usage_for_shifu(shifu_bid)
-        return make_common_response(
-            preview_shifu_draft(app, user_id, shifu_bid, variables, base_url)
-        )
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/reorder", methods=["PATCH"])
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    @with_shifu_context()
-    def update_chapter_order_api(shifu_bid: str) -> str:
-        """Update chapter order.
-
-        Reorder one complete sibling group, or submit the legacy full tree.
-        Supply exactly one of order and outlines.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                oneOf:
-                    - $ref: "#/components/schemas/ReorderOutlineDto"
-                    - $ref: "#/components/schemas/ReorderOutlineSiblingsDto"
-
-
-        responses:
-            200:
-                description: update chapter order success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: boolean
-        """
-        user_id = request.user.user_id
-        request_json = request.get_json(silent=True)
-        if not isinstance(request_json, dict):
-            raise_param_error("outlines")
-        if "order" in request_json:
-            if "outlines" in request_json:
-                raise_param_error("order")
-            return make_common_response(
-                reorder_outline_siblings(app, user_id, shifu_bid, request_json["order"])
-            )
-        outlines = request_json.get("outlines")
-        app.logger.info(type(outlines))
-        app.logger.info(
-            "reorder outline tree, user_id: %s, shifu_bid: %s, outlines: %s",
-            user_id,
-            shifu_bid,
-            outlines,
-        )
-        return make_common_response(
-            reorder_outline_tree(app, user_id, shifu_bid, outlines)
-        )
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["PUT"])
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    @with_shifu_context()
-    def create_outline_api(shifu_bid: str) -> str:
-        """Create unit.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    parent_bid:
-                        type: string
-                        description: parent id
-                    name:
-                        type: string
-                        description: outline name
-                    description:
-                        type: string
-                        description: outline description
-                    type:
-                        type: string
-                        description: outline type (normal,trial,guest)
-                    system_prompt:
-                        type: string
-                        description: outline system prompt
-                    is_hidden:
-                        type: boolean
-                        description: outline is hidden
-                    index:
-                        type: integer
-                        description: outline index
-        responses:
-            200:
-                description: create outline success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/SimpleOutlineDto"
-        """
-        user_id = request.user.user_id
-        json_data = request.get_json(silent=True) or {}
-        if not isinstance(json_data, dict):
-            raise_param_error("json body")
-        parent_bid = json_data.get("parent_bid")
-        name = json_data.get("name")
-        # No defaults: None is passed through to create_outline, which applies its
-        # own fallback (a new outline still needs a concrete type/visibility).
-        outline_type = json_data.get("type")
-        system_prompt = json_data.get("system_prompt", None)
-        is_hidden = json_data.get("is_hidden")
-        if isinstance(is_hidden, str):
-            is_hidden = is_hidden.lower() == "true"
-        return make_common_response(
-            create_outline(
-                app,
-                user_id,
-                shifu_bid,
-                parent_bid,
-                name,
-                outline_type,
-                system_prompt,
-                is_hidden,
-            )
-        )
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/batch", methods=["PUT"])
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    @with_shifu_context()
-    def create_outlines_batch_api(shifu_bid: str) -> str:
-        """Create multiple outlines atomically.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    parent_bid:
-                        type: string
-                        description: parent outline bid the batch nests under
-                    outlines:
-                        type: array
-                        description: nested outline nodes to create in order
-                        items:
-                            type: object
-                            properties:
-                                name:
-                                    type: string
-                                type:
-                                    type: string
-                                system_prompt:
-                                    type: string
-                                is_hidden:
-                                    type: boolean
-                                children:
-                                    type: array
-                                    items:
-                                        type: object
-        responses:
-            200:
-                description: create outlines success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                message:
-                                    type: string
-                                data:
-                                    type: array
-                                    items:
-                                        $ref: "#/components/schemas/SimpleOutlineDto"
-        """
-        user_id = request.user.user_id
-        json_data = request.get_json(silent=True) or {}
-        if not isinstance(json_data, dict):
-            raise_param_error("json body")
-        parent_bid = json_data.get("parent_bid") or ""
-        outlines = json_data.get("outlines")
-        return make_common_response(
-            create_outlines_batch(app, user_id, shifu_bid, outlines, parent_bid)
-        )
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>", methods=["POST"]
+    register_shifu_outline_routes(app, path_prefix)
+    register_shifu_mdflow_routes(app, path_prefix)
+    register_shifu_outline_tree_routes(app, path_prefix)
+    register_shifu_resource_routes(app, path_prefix)
+    register_shifu_course_export_routes(app, path_prefix)
+    register_shifu_ask_routes(
+        app, path_prefix, _admit_creator_debug_usage=_admit_creator_debug_usage
     )
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    def modify_outline_api(shifu_bid: str, outline_bid: str) -> str:
-        """Modify outline.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    name:
-                        type: string
-                        description: outline name
-                    description:
-                        type: string
-                        description: outline description
-                    index:
-                        type: integer
-                        description: outline index
-                    system_prompt:
-                        type: string
-                        description: outline system prompt
-                    is_hidden:
-                        type: boolean
-                        description: outline is hidden
-                    type:
-                        type: string
-                        description: unit type (normal,trial,guest)
-        responses:
-            200:
-                description: modify outline success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/OutlineDto"
-        """
-        user_id = request.user.user_id
-        name = request.get_json().get("name")
-        description = request.get_json().get("description")
-        system_prompt = request.get_json().get("system_prompt", None)
-        # No defaults: an omitted type/is_hidden stays None and is preserved by
-        # modify_unit (PATCH semantics), instead of resetting to guest/visible.
-        is_hidden = request.get_json().get("is_hidden")
-        if isinstance(is_hidden, str):
-            is_hidden = is_hidden.lower() == "true"
-        outline_type = request.get_json().get("type")
-        return make_common_response(
-            modify_unit(
-                app,
-                user_id,
-                shifu_bid,
-                outline_bid,
-                name,
-                description,
-                system_prompt,
-                is_hidden,
-                outline_type,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>", methods=["GET"]
+    register_shifu_tts_routes(
+        app, path_prefix, _admit_creator_debug_usage=_admit_creator_debug_usage
     )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    @with_shifu_context()
-    def get_unit_info_api(shifu_bid: str, outline_bid: str) -> str:
-        """Get unit info.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: outline_bid
-              type: string
-              required: true
-        responses:
-            200:
-                description: get unit info success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/OutlineDto"
-        """
-        user_id = request.user.user_id
-        return make_common_response(
-            get_unit_by_id(app, user_id, shifu_bid, outline_bid)
-        )
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>",
-        methods=["DELETE"],
-    )
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    @with_shifu_context()
-    def delete_unit_api(shifu_bid: str, outline_bid: str) -> str:
-        """Delete unit.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - name: outline_bid
-              type: string
-              required: true
-        responses:
-            200:
-                description: delete unit success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: boolean
-                                    description: delete unit success
-        """
-        user_id = request.user.user_id
-        return make_common_response(delete_unit(app, user_id, shifu_bid, outline_bid))
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
-        methods=["GET"],
-    )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    @with_shifu_context()
-    def get_mdflow_api(shifu_bid: str, outline_bid: str) -> str:
-        """Get mdflow.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: outline_bid
-              type: string
-              required: true
-            - name: shifu_bid
-              type: string
-              required: true
-        responses:
-            200:
-                description: get mdflow success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: string
-                                    description: mdflow
-        """
-        return make_common_response(get_shifu_mdflow(app, shifu_bid, outline_bid))
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/draft-meta",
-        methods=["GET"],
-    )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_draft_meta_api(shifu_bid: str) -> str:
-        """Get draft meta.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - name: outline_bid
-              in: query
-              type: string
-              required: false
-        responses:
-            200:
-                description: get draft meta success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    properties:
-                                        revision:
-                                            type: integer
-                                            description: latest draft revision (course-level or outline content-level when outline_bid is provided)
-                                        updated_at:
-                                            type: string
-                                            description: last update timestamp as UTC ISO 8601 with Z suffix
-                                        updated_user:
-                                            type: object
-                                            properties:
-                                                user_bid:
-                                                    type: string
-                                                    description: updater user bid
-                                                phone:
-                                                    type: string
-                                                    description: masked phone or email
-        """
-        outline_bid = request.args.get("outline_bid")
-        return make_common_response(get_shifu_draft_meta(app, shifu_bid, outline_bid))
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
-        methods=["POST"],
-    )
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    @with_shifu_context()
-    def save_mdflow_api(shifu_bid: str, outline_bid: str) -> str | Response:
-        """Save mdflow.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: outline_bid
-              type: string
-              required: true
-            - name: shifu_bid
-              type: string
-              required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    data:
-                        type: string
-                        description: mdflow
-                    base_revision:
-                        type: integer
-                        description: current outline content draft revision
-        responses:
-            200:
-                description: save mdflow success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    properties:
-                                        new_revision:
-                                            type: integer
-                                            description: latest outline content draft revision
-        """
-        user_id = request.user.user_id
-        json_data = request.get_json(silent=True) or {}
-        if not isinstance(json_data, dict):
-            raise_param_error("json body")
-        content = json_data.get("data") or ""
-        base_revision = json_data.get("base_revision")
-        if base_revision is not None:
-            try:
-                base_revision = int(base_revision)
-            except (TypeError, ValueError):
-                raise_param_error("base_revision")
-        result = save_shifu_mdflow(
-            app, user_id, shifu_bid, outline_bid, content, base_revision
-        )
-        if result.get("conflict"):
-            body = json.dumps(
-                {
-                    "code": ERROR_CODE["server.shifu.draftConflict"],
-                    "message": _("server.shifu.draftConflict"),
-                    "data": {"meta": result.get("meta")},
-                },
-                default=fmt,
-                ensure_ascii=False,
-            )
-            return Response(body, status=200, mimetype="application/json")
-        return make_common_response({"new_revision": result.get("new_revision")})
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/parse",
-        methods=["POST"],
-    )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    @with_shifu_context()
-    def parse_mdflow_api(shifu_bid: str, outline_bid: str) -> str:
-        """Parse mdflow.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: outline_bid
-              type: string
-              required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    data:
-                        type: string
-                        description: mdflow
-        responses:
-            200:
-                description: parse mdflow success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/MdflowDTOParseResult"
-        """
-        data = request.get_json().get("data", None)
-        return make_common_response(
-            parse_shifu_mdflow(app, shifu_bid, outline_bid, data)
-        )
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/history",
-        methods=["GET"],
-    )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    @with_shifu_context()
-    def get_mdflow_history_api(shifu_bid: str, outline_bid: str) -> str:
-        """Get mdflow history.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - name: outline_bid
-              type: string
-              required: true
-            - name: limit
-              in: query
-              type: integer
-              required: false
-              description: max number of history items, default 100, range 1-200
-            - name: timezone
-              in: query
-              type: string
-              required: false
-              description: IANA timezone, e.g. Asia/Shanghai
-        responses:
-            200:
-                description: get mdflow history success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    properties:
-                                        items:
-                                            type: array
-                                            items:
-                                                type: object
-                                                properties:
-                                                    version_id:
-                                                        type: integer
-                                                        description: outline history version id
-                                                    updated_at:
-                                                        type: string
-                                                        description: UTC update timestamp (ISO 8601)
-                                                    updated_user_bid:
-                                                        type: string
-                                                        description: updater user bid
-                                                    updated_user_name:
-                                                        type: string
-                                                        description: updater display name
-        """
-        limit_raw = request.args.get("limit", 100)
-        try:
-            limit = int(limit_raw)
-        except (TypeError, ValueError):
-            raise_param_error("limit")
-        if limit < 1 or limit > 200:
-            raise_param_error("limit")
-        return make_common_response(
-            get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit)
-        )
-
-    @app.route(
-        path_prefix
-        + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/history/<version_id>",
-        methods=["GET"],
-    )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    @with_shifu_context()
-    def get_mdflow_history_version_detail_api(
-        shifu_bid: str, outline_bid: str, version_id: str
-    ) -> str:
-        """Get mdflow history version detail.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - name: outline_bid
-              type: string
-              required: true
-            - name: version_id
-              type: integer
-              required: true
-            - name: timezone
-              in: query
-              type: string
-              required: false
-              description: IANA timezone, e.g. Asia/Shanghai
-        responses:
-            200:
-                description: get mdflow history version detail success
-        """
-        try:
-            version_id_int = int(version_id)
-        except (TypeError, ValueError):
-            raise_param_error("version_id")
-        if version_id_int <= 0:
-            raise_param_error("version_id")
-
-        return make_common_response(
-            get_shifu_mdflow_history_version_detail(
-                app,
-                shifu_bid,
-                outline_bid,
-                version_id_int,
-            )
-        )
-
-    @app.route(
-        path_prefix
-        + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/history/restore",
-        methods=["POST"],
-    )
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    @with_shifu_context()
-    def restore_mdflow_history_api(shifu_bid: str, outline_bid: str) -> str | Response:
-        """Restore mdflow history version.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-            - name: outline_bid
-              type: string
-              required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    version_id:
-                        type: integer
-                        description: target history version id
-                    base_revision:
-                        type: integer
-                        description: current draft revision from client
-        responses:
-            200:
-                description: restore mdflow history success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    properties:
-                                        restored:
-                                            type: boolean
-                                            description: whether restore changed current content
-                                        new_revision:
-                                            type: integer
-                                            description: latest draft revision
-                                        lesson_deleted:
-                                            type: boolean
-                                            description: whether the outline has already been deleted
-        """
-        user_id = request.user.user_id
-        json_data = request.get_json() or {}
-        version_id = json_data.get("version_id")
-        base_revision = json_data.get("base_revision")
-        try:
-            version_id = int(version_id)
-        except (TypeError, ValueError):
-            raise_param_error("version_id")
-        if version_id <= 0:
-            raise_param_error("version_id")
-        if base_revision is not None:
-            try:
-                base_revision = int(base_revision)
-            except (TypeError, ValueError):
-                raise_param_error("base_revision")
-        result = restore_shifu_mdflow_history_version(
-            app, user_id, shifu_bid, outline_bid, version_id, base_revision
-        )
-        if result.get("conflict"):
-            body = json.dumps(
-                {
-                    "code": ERROR_CODE["server.shifu.draftConflict"],
-                    "message": _("server.shifu.draftConflict"),
-                    "data": {"meta": result.get("meta")},
-                },
-                default=fmt,
-                ensure_ascii=False,
-            )
-            return Response(body, status=200, mimetype="application/json")
-        return make_common_response(result)
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/run",
-        methods=["POST"],
-    )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def run_mdflow_api(shifu_bid: str, outline_bid: str) -> None:
-        """Run mdflow.
-
-        Raises:
-            NotImplementedError: This API endpoint is not yet implemented
-
-        """
-        message = "MDFlow run API is not yet implemented"
-        raise NotImplementedError(message)
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    @with_shifu_context()
-    def get_outline_tree_api(shifu_bid: str) -> str:
-        """Get outline tree.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-        responses:
-            200:
-                description: get outline tree success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: array
-                                    items:
-                                        $ref: "#/components/schemas/SimpleOutlineDto"
-        """
-        user_id = request.user.user_id
-        return make_common_response(get_outline_tree(app, user_id, shifu_bid))
-
-    @app.route(path_prefix + "/upfile", methods=["POST"])
-    def upfile_api() -> str:
-        """Upfile to oss.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: formData
-              name: file
-              type: file
-              required: true
-              description: documents
-        responses:
-            200:
-                description: upload success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: return msg
-                                data:
-                                    type: string
-                                    description: shifu file url
-        """
-        file = request.files.get("file", None)
-        resource_id = request.values.get("resource_id", None)
-        if resource_id is None:
-            resource_id = ""
-        user_id = request.user.user_id
-        if not file:
-            raise_param_error("file")
-        return make_common_response(upload_file(app, user_id, resource_id, file))
-
-    @app.route(path_prefix + "/url-upfile", methods=["POST"])
-    def upload_url_api() -> str:
-        """Upload url to oss.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    url:
-                        type: string
-                        description: url
-        responses:
-            200:
-                description: upload success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: string
-                                    description: uploaded file url
-        """
-        user_id = request.user.user_id
-        payload = request.get_json(silent=True)
-        url = payload.get("url") if isinstance(payload, dict) else None
-        if not isinstance(url, str) or not url.strip():
-            raise_param_error("url is required")
-        return make_common_response(upload_url(app, user_id, url))
-
-    @app.route(path_prefix + "/get-video-info", methods=["POST"])
-    def get_video_info_api() -> str:
-        """Get video info.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    url:
-                        type: string
-                        description: url
-        responses:
-            200:
-                description: get video info success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    description: video metadata
-        """
-        user_id = request.user.user_id
-        url = request.get_json().get("url")
-        if not url:
-            raise_param_error("url is required")
-        return make_common_response(get_video_info(app, user_id, url))
-
-    @app.route(path_prefix + "/shifus/<shifu_bid>/export", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def export_shifu_api(shifu_bid: str) -> Response:
-        """Export shifu.
-
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_bid
-              type: string
-              required: true
-        responses:
-            200:
-                description: export shifu success
-                content:
-                    application/octet-stream:
-                        schema:
-                            type: string
-                            format: binary
-        """
-        temp_dir = tempfile.mkdtemp(prefix="shifu_export_")
-        file_path = Path(temp_dir) / f"{shifu_bid}.json"
-        export_shifu(app, shifu_bid, str(file_path))
-
-        @after_this_request
-        def cleanup(response: Response) -> Response:
-            try:
-                file_path.unlink()
-                Path(temp_dir).rmdir()
-            except OSError:
-                current_app.logger.warning(
-                    "Failed to cleanup shifu export temp files", exc_info=True
-                )
-            return response
-
-        return send_file(
-            file_path,
-            mimetype="application/json",
-            as_attachment=True,
-            download_name=f"{shifu_bid}.json",
-        )
-
-    @app.route(path_prefix + "/ask/config", methods=["GET"])
-    @bypass_token_validation
-    def ask_config_api() -> str:
-        """Get ask provider configuration metadata.
-
-        ---
-        tags:
-            - ask
-        responses:
-            200:
-                description: Ask provider configuration metadata
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                            properties:
-                                feature_enabled:
-                                    type: boolean
-                                default:
-                                    type: object
-                                modes:
-                                    type: array
-                                providers:
-                                    type: array
-        """
-        original_language = get_current_language()
-        token = request.cookies.get("token", None)
-        if not token:
-            token = request.args.get("token", None)
-        if not token:
-            token = request.headers.get("Token", None)
-
-        if token:
-            # An unusable token just means the default language is kept.
-            with contextlib.suppress(Exception):
-                user = validate_user(app, str(token))
-                set_language(get_user_language(user))
-
-        try:
-            return make_common_response(get_ask_provider_metadata())
-        finally:
-            set_language(original_language)
-
-    @app.route(path_prefix + "/ask/preview", methods=["POST"])
-    def ask_preview_api() -> str:
-        """Preview ask provider output with current settings.
-
-        ---
-        tags:
-            - ask
-        requestBody:
-            required: true
-            content:
-                application/json:
-                    schema:
-                        type: object
-                        required: [shifu_bid]
-                        properties:
-                            shifu_bid:
-                                type: string
-                                description: Course to preview; requires edit permission
-                            query:
-                                type: string
-                                description: Test question content
-                            ask_model:
-                                type: string
-                                description: Ask model used for llm/fallback
-                            ask_system_prompt:
-                                type: string
-                                description: Optional ask system prompt
-                            ask_provider_config:
-                                type: object
-                                description: Ask provider config ({provider, mode, config})
-        responses:
-            200:
-                description: Ask provider preview result
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                            properties:
-                                answer:
-                                    type: string
-                                    description: Preview output text
-                                provider:
-                                    type: string
-                                    description: Actual provider used
-                                requested_provider:
-                                    type: string
-                                    description: Requested provider in input config
-                                mode:
-                                    type: string
-                                    description: Provider mode
-                                fallback_used:
-                                    type: boolean
-                                    description: Whether fallback to llm happened
-                                provider_error:
-                                    type: string
-                                    description: Provider error before fallback
-        """
-        from flaskr.api.llm import chat_llm
-        from flaskr.service.learn.ask_provider_adapters import (
-            AskProviderError,
-            AskProviderRuntime,
-            AskProviderTimeoutError,
-            apply_knowledge_to_messages,
-            stream_ask_provider_response,
-        )
-        from flaskr.service.learn.ask_provider_adapters.consts import (
-            ASK_PROVIDERS_WITH_LLM_SYNTHESIS,
-        )
-        from flaskr.service.metering import UsageContext
-        from flaskr.service.shifu.shifu_draft_funcs import (
-            ASK_PROVIDER_LLM,
-            ASK_PROVIDER_MODE_PROVIDER_ONLY,
-            ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
-        )
-
-        json_data = request.get_json() or {}
-
-        query = str(json_data.get("query") or "").strip()
-        if not query or len(query) > 1000:
-            raise_param_error("query")
-
-        raw_ask_provider_config = json_data.get("ask_provider_config")
-        if raw_ask_provider_config is None and any(
-            key in json_data for key in ("provider", "mode", "config")
-        ):
-            raw_ask_provider_config = {
-                "provider": json_data.get("provider"),
-                "mode": json_data.get("mode"),
-                "config": json_data.get("config"),
-            }
-        ask_provider_config = _parse_ask_provider_config(raw_ask_provider_config or {})
-        if ask_provider_config is None:
-            ask_provider_config = normalize_ask_provider_config({})
-
-        requested_provider = ask_provider_config.get("provider", ASK_PROVIDER_LLM)
-        mode = ask_provider_config.get("mode", ASK_PROVIDER_MODE_PROVIDER_ONLY)
-        require_llm_model = (
-            requested_provider == ASK_PROVIDER_LLM
-            or mode == ASK_PROVIDER_MODE_PROVIDER_THEN_LLM
-            or requested_provider in ASK_PROVIDERS_WITH_LLM_SYNTHESIS
-        )
-
-        preview_shifu_bid = _admit_creator_debug_usage(json_data.get("shifu_bid"))
-        preview_course = get_latest_shifu_draft(preview_shifu_bid)
-        if preview_course is None:
-            raise_error("server.shifu.shifuNotFound")
-        ask_model = (
-            json_data["ask_model"]
-            if "ask_model" in json_data
-            else selection_model(preview_course, follow_up=True)
-        )
-        from flaskr.service.learn.api import is_live_follow_up_model
-
-        if is_live_follow_up_model(ask_model):
-            # Live preview is handled by its separate voice session controller.
-            raise_param_error("ask_model")
-        ask_usage_metadata = selection_metadata(preview_course, follow_up=True)
-        if require_llm_model:
-            ask_model, ask_usage_metadata = resolve_course_selection(
-                ask_model, ask_usage_metadata
-            )
-
-        # Preview shares the saved follow-up generation settings.
-        stored_ask_temperature = preview_course.ask_llm_temperature
-        ask_temperature = (
-            float(stored_ask_temperature) if stored_ask_temperature is not None else 0.0
-        )
-
-        ask_system_prompt = str(json_data.get("ask_system_prompt") or "").strip()
-
-        messages: list[dict[str, str]] = []
-        if ask_system_prompt:
-            messages.append({"role": "system", "content": ask_system_prompt})
-        messages.append({"role": "user", "content": query})
-
-        preview_user_id = str(request.user.user_id).strip()
-        preview_scene = "ask_provider_preview"
-        preview_title = "ask_provider_preview"
-        preview_trace, preview_span = create_trace_with_root_span(
-            client=get_langfuse_client(),
-            trace_payload={
-                "user_id": preview_user_id,
-                "input": query,
-                "name": build_langfuse_trace_name(preview_title, preview_scene),
-                "metadata": {
-                    "scene": preview_scene,
-                    "requested_provider": requested_provider,
-                    "mode": mode,
-                },
-            },
-            root_span_payload={
-                "name": build_langfuse_span_name(
-                    preview_title,
-                    preview_scene,
-                    "ask_provider_preview",
-                ),
-                "input": query,
-            },
-        )
-
-        def _build_llm_runtime() -> AskProviderRuntime:
-            def _chat_llm_stream(
-                stream_messages: list[dict[str, str]],
-            ) -> Generator[Any, None, None]:
-                return chat_llm(
-                    app,
-                    preview_user_id,
-                    preview_span,
-                    model=ask_model,
-                    usage_metadata=ask_usage_metadata,
-                    messages=stream_messages,
-                    generation_name="ask_provider_preview",
-                    temperature=ask_temperature,
-                    usage_context=UsageContext(
-                        user_bid=preview_user_id,
-                        shifu_bid=preview_shifu_bid,
-                        usage_scene=BILL_USAGE_SCENE_DEBUG,
-                        billable=1,
-                    ),
-                    usage_scene=BILL_USAGE_SCENE_DEBUG,
-                    billable=1,
-                    stream=True,
-                )
-
-            return AskProviderRuntime(
-                llm_stream_factory=lambda: _chat_llm_stream(
-                    apply_knowledge_to_messages(messages, "")
-                ),
-                llm_context_stream_factory=lambda knowledge_context: _chat_llm_stream(
-                    apply_knowledge_to_messages(messages, knowledge_context)
-                ),
-            )
-
-        def _invoke_provider(
-            provider_name: str,
-            runtime: AskProviderRuntime | None = None,
-        ) -> str:
-            chunks: list[str] = []
-            provider_resp = stream_ask_provider_response(
-                app=app,
-                provider=provider_name,
-                user_id=preview_user_id,
-                user_query=query,
-                messages=messages,
-                provider_config=ask_provider_config,
-                runtime=runtime,
-            )
-            if provider_name != ASK_PROVIDER_LLM:
-                provider_resp = stream_provider_with_langfuse(
-                    provider_stream=provider_resp,
-                    span=preview_span,
-                    app=app,
-                    provider_name=provider_name,
-                    generation_name=build_langfuse_generation_name(
-                        preview_title,
-                        preview_scene,
-                        f"ask_provider_preview_{provider_name}",
-                    ),
-                    user_query=query,
-                    messages=messages,
-                    provider_config=ask_provider_config,
-                )
-            for chunk in provider_resp:
-                text = getattr(chunk, "content", "")
-                if isinstance(text, str) and text:
-                    chunks.append(text)
-            return "".join(chunks).strip()
-
-        used_provider = requested_provider
-        fallback_used = False
-        provider_error = ""
-        answer = ""
-
-        try:
-            try:
-                llm_runtime = (
-                    _build_llm_runtime()
-                    if (
-                        requested_provider == ASK_PROVIDER_LLM
-                        or requested_provider in ASK_PROVIDERS_WITH_LLM_SYNTHESIS
-                    )
-                    else None
-                )
-                answer = _invoke_provider(requested_provider, runtime=llm_runtime)
-            except (AskProviderError, AskProviderTimeoutError) as error:
-                # Surface a localized, human-readable message; keep the raw
-                # error (URL, response body) in the logs only.
-                app.logger.warning("ask preview provider error: %s", error)
-                if isinstance(error, AskProviderTimeoutError):
-                    provider_error = str(_("server.learn.askProviderTimeout"))
-                else:
-                    provider_error = getattr(error, "user_message", None) or str(
-                        _("server.learn.askProviderUnavailable")
-                    )
-                if (
-                    mode != ASK_PROVIDER_MODE_PROVIDER_THEN_LLM
-                    or requested_provider == ASK_PROVIDER_LLM
-                ):
-                    raise_param_error(provider_error)
-                used_provider = ASK_PROVIDER_LLM
-                fallback_used = True
-                answer = _invoke_provider(
-                    ASK_PROVIDER_LLM, runtime=_build_llm_runtime()
-                )
-
-            if not answer:
-                raise_param_error("ask preview returned empty response")
-
-            return make_common_response(
-                {
-                    "answer": answer,
-                    "provider": used_provider,
-                    "requested_provider": requested_provider,
-                    "mode": mode,
-                    "fallback_used": fallback_used,
-                    "provider_error": provider_error,
-                }
-            )
-        finally:
-            preview_output = answer or provider_error
-            finalize_langfuse_trace(
-                trace=preview_trace,
-                root_span=preview_span,
-                trace_payload={"output": preview_output},
-                root_span_payload={"output": preview_output},
-            )
-
-    @app.route(path_prefix + "/tts/minimax/voices", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def list_minimax_tts_voices_api() -> str:
-        from flaskr.service.tts.api import list_minimax_cloned_voices
-
-        user_id = request.user.user_id
-        shifu_bid = (request.args.get("shifu_bid") or "").strip()
-        # Historical route name notwithstanding, the table now holds cloned
-        # voices of multiple providers; an empty provider returns all of them
-        # so older clients keep working.
-        provider = (request.args.get("provider") or "").strip()
-        return make_common_response(
-            {
-                "voices": list_minimax_cloned_voices(
-                    app,
-                    owner_user_bid=user_id,
-                    shifu_bid=shifu_bid,
-                    provider=provider,
-                )
-            }
-        )
-
-    @app.route(path_prefix + "/tts/minimax/voices/validate-id", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def validate_minimax_tts_voice_id_api() -> str:
-        from flaskr.service.tts.api import (
-            is_valid_minimax_custom_voice_id,
-        )
-
-        payload = request.get_json(silent=True) or {}
-        voice_id = (payload.get("voice_id") or "").strip()
-        return make_common_response(
-            {
-                "voice_id": voice_id,
-                "valid": is_valid_minimax_custom_voice_id(voice_id),
-            }
-        )
-
-    @app.route(path_prefix + "/tts/config", methods=["GET"])
-    @bypass_token_validation
-    def tts_config_api() -> str:
-        """Get TTS provider configuration.
-
-        ---
-        tags:
-            - tts
-        responses:
-            200:
-                description: TTS provider configuration
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                            properties:
-                                providers:
-                                    type: array
-                                    description: List of available providers with configs
-        """
-        from flaskr.api.tts import get_all_provider_configs
-
-        config = get_all_provider_configs()
-        return make_common_response(config)
-
-    @app.route(path_prefix + "/tts/preview", methods=["POST"])
-    def tts_preview_api() -> Response:
-        """Preview TTS with specified settings.
-
-        ---
-        tags:
-            - tts
-        requestBody:
-            required: true
-            content:
-                application/json:
-                    schema:
-                        type: object
-                        required: [shifu_bid]
-                        properties:
-                            shifu_bid:
-                                type: string
-                                description: Course to preview; requires edit permission
-                            voice_id:
-                                type: string
-                                description: Voice ID for synthesis
-                            speed:
-                                type: number
-                                description: Speech speed (provider-specific range)
-                            pitch:
-                                type: integer
-                                description: Pitch adjustment (provider-specific range)
-                            emotion:
-                                type: string
-                                description: Emotion setting
-                            text:
-                                type: string
-                                description: Optional custom text to preview
-        responses:
-            200:
-                description: stream TTS preview audio
-                content:
-                    text/event-stream:
-                        schema:
-                            type: string
-                            example: 'data: {"type":"audio_segment","content":{"segment_index":0,"audio_data":"...","duration_ms":123,"is_final":false}}'
-        """
-        from flaskr.service.shifu.tts_preview import build_tts_preview_response
-
-        json_data = request.get_json() or {}
-        preview_shifu_bid = _admit_creator_debug_usage(json_data.get("shifu_bid"))
-        request_user = getattr(request, "user", None)
-        return build_tts_preview_response(
-            json_data,
-            shifu_bid=preview_shifu_bid,
-            request_user_id=str(getattr(request_user, "user_id", "") or "").strip(),
-        )
 
     return app
