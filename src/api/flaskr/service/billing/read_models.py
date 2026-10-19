@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
@@ -1578,9 +1578,6 @@ def build_admin_billing_focus_teachers_page(
     """Return operator-focused teachers that match billing attention rules."""
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     today = now_utc().date()
-    current_7d_start = today - timedelta(days=6)
-    previous_7d_start = current_7d_start - timedelta(days=7)
-    previous_7d_end = current_7d_start - timedelta(days=1)
     current_30d_start = today - timedelta(days=29)
 
     with app.app_context():
@@ -1602,128 +1599,17 @@ def build_admin_billing_focus_teachers_page(
             [str(row.creator_bid or "").strip() for row in rows]
         )
 
-        aggregated: dict[str, dict[str, Any]] = {}
-        for row in rows:
-            creator_bid = str(row.creator_bid or "").strip()
-            if not creator_bid:
-                continue
-            stat_date = _parse_stat_date(row.stat_date)
-            if stat_date is None:
-                continue
-
-            item = aggregated.setdefault(
-                creator_bid,
-                {
-                    "creator_bid": creator_bid,
-                    "credits_7d": Decimal(0),
-                    "credits_prev_7d": Decimal(0),
-                    "credits_30d": Decimal(0),
-                    "record_count_7d": 0,
-                    "active_days_7d": set(),
-                    "production_credits_30d": Decimal(0),
-                    "debug_preview_credits_30d": Decimal(0),
-                    "total_credits_30d": Decimal(0),
-                    "latest_usage_at": None,
-                },
-            )
-
-            credit_amount = Decimal(
-                str(credit_decimal_to_number(row.consumed_credits) or 0)
-            )
-            record_count = int(row.record_count or 0)
-            # Use the start of the UTC stat window as the visible "latest
-            # active" day. `window_ended_at` points at the next UTC day
-            # boundary and can render as a future local date in the admin UI.
-            latest_usage_at = row.window_started_at or row.window_ended_at
-
-            item["credits_30d"] += credit_amount
-            item["total_credits_30d"] += credit_amount
-            if row.usage_scene == BILL_USAGE_SCENE_PROD:
-                item["production_credits_30d"] += credit_amount
-            elif row.usage_scene in (BILL_USAGE_SCENE_DEBUG, BILL_USAGE_SCENE_PREVIEW):
-                item["debug_preview_credits_30d"] += credit_amount
-
-            if latest_usage_at is not None and (
-                item["latest_usage_at"] is None
-                or latest_usage_at > item["latest_usage_at"]
-            ):
-                item["latest_usage_at"] = latest_usage_at
-
-            if current_7d_start <= stat_date <= today:
-                item["credits_7d"] += credit_amount
-                item["record_count_7d"] += record_count
-                if credit_amount > 0:
-                    item["active_days_7d"].add(stat_date.isoformat())
-            elif previous_7d_start <= stat_date <= previous_7d_end:
-                item["credits_prev_7d"] += credit_amount
+        aggregated = _aggregate_focus_teacher_usage(rows, today=today)
 
         focus_items: list[AdminBillingFocusTeacherDTO] = []
         for creator_bid, stats in aggregated.items():
-            credits_7d = stats["credits_7d"]
-            credits_prev_7d = stats["credits_prev_7d"]
-            credits_30d = stats["credits_30d"]
-            total_credits_30d = stats["total_credits_30d"]
-            production_credits_30d = stats["production_credits_30d"]
-            debug_preview_credits_30d = stats["debug_preview_credits_30d"]
-            record_count_7d = int(stats["record_count_7d"] or 0)
-            active_days_7d = len(stats["active_days_7d"])
-
-            reasons: set[str] = set()
-            if credits_30d >= Decimal(8):
-                reasons.add("high_consumption")
-            if record_count_7d >= 5:
-                reasons.add("high_frequency")
-            if production_credits_30d >= Decimal(8):
-                reasons.add("active_production")
-            if (
-                total_credits_30d >= Decimal(8)
-                and total_credits_30d > 0
-                and (debug_preview_credits_30d / total_credits_30d) >= Decimal("0.7")
-            ):
-                reasons.add("debug_preview_heavy")
-            if active_days_7d >= 3:
-                reasons.add("sustained_activity")
-
-            growth_delta = credits_7d - credits_prev_7d
-            if credits_prev_7d > 0:
-                growth_ratio = growth_delta / credits_prev_7d
-                if growth_ratio >= Decimal(1) and growth_delta >= Decimal(8):
-                    reasons.add("rapid_growth")
-            elif credits_7d >= Decimal(8):
-                reasons.add("rapid_growth")
-
-            if not reasons:
-                continue
-
-            production_ratio_30d = Decimal(0)
-            if total_credits_30d > 0:
-                production_ratio_30d = production_credits_30d / total_credits_30d
-
-            creator = creator_map.get(creator_bid, {})
-            focus_items.append(
-                AdminBillingFocusTeacherDTO(
-                    creator_bid=creator_bid,
-                    creator_mobile=str(creator.get("mobile") or ""),
-                    creator_email=str(creator.get("email") or ""),
-                    creator_nickname=str(creator.get("nickname") or ""),
-                    credits_7d=credit_decimal_to_number(credits_7d),
-                    credits_30d=credit_decimal_to_number(credits_30d),
-                    record_count_7d=record_count_7d,
-                    active_days_7d=active_days_7d,
-                    production_credits_30d=credit_decimal_to_number(
-                        production_credits_30d
-                    ),
-                    debug_preview_credits_30d=credit_decimal_to_number(
-                        debug_preview_credits_30d
-                    ),
-                    total_credits_30d=credit_decimal_to_number(total_credits_30d),
-                    production_ratio_30d=round(float(production_ratio_30d), 4),
-                    latest_usage_at=stats["latest_usage_at"],
-                    attention_reasons=_sort_admin_billing_focus_attention_reasons(
-                        reasons
-                    ),
-                )
+            focus_item = _build_focus_teacher_item(
+                creator_bid,
+                stats,
+                creator=creator_map.get(creator_bid, {}),
             )
+            if focus_item is not None:
+                focus_items.append(focus_item)
 
         focus_items.sort(
             key=lambda item: (
@@ -1745,6 +1631,137 @@ def build_admin_billing_focus_teachers_page(
             page_size=safe_page_size,
         )
         return AdminBillingFocusTeachersPageDTO(**payload.to_dto_kwargs())
+
+
+def _aggregate_focus_teacher_usage(
+    rows: list[BillingDailyUsageMetric],
+    *,
+    today: date,
+) -> dict[str, dict[str, Any]]:
+    """Sum 30-day, current-7-day and previous-7-day usage per creator."""
+    current_7d_start = today - timedelta(days=6)
+    previous_7d_start = current_7d_start - timedelta(days=7)
+    previous_7d_end = current_7d_start - timedelta(days=1)
+
+    aggregated: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        creator_bid = str(row.creator_bid or "").strip()
+        if not creator_bid:
+            continue
+        stat_date = _parse_stat_date(row.stat_date)
+        if stat_date is None:
+            continue
+
+        item = aggregated.setdefault(
+            creator_bid,
+            {
+                "creator_bid": creator_bid,
+                "credits_7d": Decimal(0),
+                "credits_prev_7d": Decimal(0),
+                "credits_30d": Decimal(0),
+                "record_count_7d": 0,
+                "active_days_7d": set(),
+                "production_credits_30d": Decimal(0),
+                "debug_preview_credits_30d": Decimal(0),
+                "total_credits_30d": Decimal(0),
+                "latest_usage_at": None,
+            },
+        )
+
+        credit_amount = Decimal(
+            str(credit_decimal_to_number(row.consumed_credits) or 0)
+        )
+        record_count = int(row.record_count or 0)
+        # Use the start of the UTC stat window as the visible "latest
+        # active" day. `window_ended_at` points at the next UTC day
+        # boundary and can render as a future local date in the admin UI.
+        latest_usage_at = row.window_started_at or row.window_ended_at
+
+        item["credits_30d"] += credit_amount
+        item["total_credits_30d"] += credit_amount
+        if row.usage_scene == BILL_USAGE_SCENE_PROD:
+            item["production_credits_30d"] += credit_amount
+        elif row.usage_scene in (BILL_USAGE_SCENE_DEBUG, BILL_USAGE_SCENE_PREVIEW):
+            item["debug_preview_credits_30d"] += credit_amount
+
+        if latest_usage_at is not None and (
+            item["latest_usage_at"] is None or latest_usage_at > item["latest_usage_at"]
+        ):
+            item["latest_usage_at"] = latest_usage_at
+
+        if current_7d_start <= stat_date <= today:
+            item["credits_7d"] += credit_amount
+            item["record_count_7d"] += record_count
+            if credit_amount > 0:
+                item["active_days_7d"].add(stat_date.isoformat())
+        elif previous_7d_start <= stat_date <= previous_7d_end:
+            item["credits_prev_7d"] += credit_amount
+    return aggregated
+
+
+def _build_focus_teacher_item(
+    creator_bid: str,
+    stats: dict[str, Any],
+    *,
+    creator: dict[str, Any],
+) -> AdminBillingFocusTeacherDTO | None:
+    """Apply the attention rules; return ``None`` when no rule matches."""
+    credits_7d = stats["credits_7d"]
+    credits_prev_7d = stats["credits_prev_7d"]
+    credits_30d = stats["credits_30d"]
+    total_credits_30d = stats["total_credits_30d"]
+    production_credits_30d = stats["production_credits_30d"]
+    debug_preview_credits_30d = stats["debug_preview_credits_30d"]
+    record_count_7d = int(stats["record_count_7d"] or 0)
+    active_days_7d = len(stats["active_days_7d"])
+
+    reasons: set[str] = set()
+    if credits_30d >= Decimal(8):
+        reasons.add("high_consumption")
+    if record_count_7d >= 5:
+        reasons.add("high_frequency")
+    if production_credits_30d >= Decimal(8):
+        reasons.add("active_production")
+    if (
+        total_credits_30d >= Decimal(8)
+        and total_credits_30d > 0
+        and (debug_preview_credits_30d / total_credits_30d) >= Decimal("0.7")
+    ):
+        reasons.add("debug_preview_heavy")
+    if active_days_7d >= 3:
+        reasons.add("sustained_activity")
+
+    growth_delta = credits_7d - credits_prev_7d
+    if credits_prev_7d > 0:
+        growth_ratio = growth_delta / credits_prev_7d
+        if growth_ratio >= Decimal(1) and growth_delta >= Decimal(8):
+            reasons.add("rapid_growth")
+    elif credits_7d >= Decimal(8):
+        reasons.add("rapid_growth")
+
+    if not reasons:
+        return None
+
+    production_ratio_30d = Decimal(0)
+    if total_credits_30d > 0:
+        production_ratio_30d = production_credits_30d / total_credits_30d
+
+    return AdminBillingFocusTeacherDTO(
+        creator_bid=creator_bid,
+        creator_mobile=str(creator.get("mobile") or ""),
+        creator_email=str(creator.get("email") or ""),
+        creator_nickname=str(creator.get("nickname") or ""),
+        credits_7d=credit_decimal_to_number(credits_7d),
+        credits_30d=credit_decimal_to_number(credits_30d),
+        record_count_7d=record_count_7d,
+        active_days_7d=active_days_7d,
+        production_credits_30d=credit_decimal_to_number(production_credits_30d),
+        debug_preview_credits_30d=credit_decimal_to_number(debug_preview_credits_30d),
+        total_credits_30d=credit_decimal_to_number(total_credits_30d),
+        production_ratio_30d=round(float(production_ratio_30d), 4),
+        latest_usage_at=stats["latest_usage_at"],
+        attention_reasons=_sort_admin_billing_focus_attention_reasons(reasons),
+    )
 
 
 def build_admin_bill_daily_ledger_summary_page(
