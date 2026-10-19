@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
@@ -15,10 +13,33 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import CreditLedgerEntry
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.dashboard.common import (
+    COURSE_STATUS_PUBLISHED,  # noqa: F401  # re-exported public API
+    COURSE_STATUS_UNPUBLISHED,  # noqa: F401  # re-exported public API
+    DASHBOARD_COURSE_FOLLOW_UP_PAGE_SIZE_MAX,
+    DASHBOARD_COURSE_LEARNER_PAGE_SIZE_MAX,  # noqa: F401  # re-exported public API
+    DASHBOARD_COURSE_RATING_PAGE_SIZE_MAX,
+    DASHBOARD_LEARNING_MODE_ORDER,
+    FOLLOW_UP_ELEMENT_TYPE_ANSWER,  # noqa: F401  # re-exported public API
+    FOLLOW_UP_ELEMENT_TYPE_ASK,  # noqa: F401  # re-exported public API
+    LEARNING_MODE_CLASSROOM,  # noqa: F401  # re-exported public API
+    LEARNING_MODE_LISTEN,
+    LEARNING_MODE_READ,
+    _build_course_outline_context_map,
+    _build_dashboard_learner_keyword_filter,
+    _dashboard_learner_keyword_matches,  # noqa: F401  # imported by tests from this module
+    _format_average_score,
+    _format_credit_value,
+    _format_money,
+    _format_percentage,
+    _parse_dashboard_date_boundary,
+    _resolve_dashboard_outline_keyword_match_bids,
+    _validate_dashboard_date_range,
+)
 from flaskr.service.dashboard.dtos import (
     DashboardCourseDetailBasicInfoDTO,
     DashboardCourseDetailDTO,
-    DashboardCourseDetailLearnerItemDTO,
+    DashboardCourseDetailLearnerItemDTO,  # noqa: F401  # re-exported public API
     DashboardCourseDetailLearnersDTO,
     DashboardCourseDetailMetricsDTO,
     DashboardCourseFollowUpCurrentRecordDTO,
@@ -36,12 +57,44 @@ from flaskr.service.dashboard.dtos import (
     DashboardEntryDTO,
     DashboardEntrySummaryDTO,
 )
-from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
+from flaskr.service.dashboard.follow_up_sources import (
+    _build_course_follow_up_base_subquery,
+    _build_follow_up_source_status_map,
+    _build_follow_up_user_keyword_filter,
+    _load_follow_up_groups_for_progress_record,
+    _resolve_follow_up_answer_content,
+    _resolve_follow_up_matching_outline_bids,
+    _resolve_follow_up_source_from_blocks,  # noqa: F401  # imported by tests from this module
+    _resolve_follow_up_source_from_element,  # noqa: F401  # imported by tests from this module
+)
+from flaskr.service.dashboard.learners import (
+    _build_dashboard_course_learners,
+)
+from flaskr.service.dashboard.loaders import (
+    _collect_dashboard_entry_metrics,
+    _load_course_leaf_outline_bids,
+    _load_course_learner_bids,
+    _load_dashboard_course_completed_learner_bids,
+    _load_dashboard_course_created_at,
+    _load_dashboard_course_follow_up_count_map,  # noqa: F401  # imported by tests from this module
+    _load_dashboard_course_last_learning_map,  # noqa: F401  # imported by tests from this module
+    _load_dashboard_course_learned_lesson_count_map,
+    _load_dashboard_course_meta,
+    _load_dashboard_course_outline_items,
+    _load_dashboard_course_user_contact_map,
+    _load_dashboard_course_user_map,
+    _load_dashboard_entry_courses,
+    _resolve_dashboard_course_status,
+)
+from flaskr.service.learn.const import (  # noqa: F401  # re-exported public API
+    ROLE_STUDENT,
+    ROLE_TEACHER,
+)
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
-    LearnGeneratedElement,
+    LearnGeneratedElement,  # noqa: F401  # re-exported public API
     LearnLessonFeedback,
-    LearnProgressRecord,
+    LearnProgressRecord,  # noqa: F401  # re-exported public API
 )
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
@@ -50,1397 +103,42 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.consts import (
-    LEARN_STATUS_COMPLETED,
-    LEARN_STATUS_RESET,
+    LEARN_STATUS_COMPLETED,  # noqa: F401  # re-exported public API
+    LEARN_STATUS_RESET,  # noqa: F401  # re-exported public API
     ORDER_STATUS_SUCCESS,
 )
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDANSWER_VALUE,  # noqa: F401  # re-exported public API
     BLOCK_TYPE_MDASK_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,  # noqa: F401  # re-exported public API
+    BLOCK_TYPE_MDINTERACTION_VALUE,  # noqa: F401  # re-exported public API
 )
-from flaskr.service.shifu.demo_courses import is_builtin_demo_course
+from flaskr.service.shifu.demo_courses import (
+    is_builtin_demo_course,  # noqa: F401  # re-exported public API
+)
 from flaskr.service.shifu.models import (
-    AiCourseAuth,
-    DraftShifu,
-    PublishedOutlineItem,
-    PublishedShifu,
+    AiCourseAuth,  # noqa: F401  # re-exported public API
+    DraftShifu,  # noqa: F401  # re-exported public API
+    PublishedOutlineItem,  # noqa: F401  # re-exported public API
+    PublishedShifu,  # noqa: F401  # re-exported public API
 )
-from flaskr.service.user.models import AuthCredential
-from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.models import (
+    AuthCredential,  # noqa: F401  # re-exported public API
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,  # noqa: TC002  # re-exported public API
+)
 from flaskr.util.datetime import now_utc
-from flaskr.util.timezone import _coerce_datetime
-from sqlalchemy import and_, case, false, or_
-from sqlalchemy.orm import aliased
+from sqlalchemy import case, false
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from flask import Flask
+    from sqlalchemy.orm import Query
     from sqlalchemy.sql.elements import ColumnElement
     from sqlalchemy.sql.selectable import Subquery
-
-
-@dataclass(frozen=True)
-class _DashboardCourseMeta:
-    shifu_bid: str
-    shifu_name: str
-
-
-@dataclass
-class _DashboardEntryMetrics:
-    learner_total: int = 0
-    learner_count_map: dict[str, int] = field(default_factory=dict)
-    order_count_map: dict[str, int] = field(default_factory=dict)
-    order_amount_map: dict[str, Decimal] = field(default_factory=dict)
-    last_active_map: dict[str, datetime] = field(default_factory=dict)
-    active_course_bids: set[str] = field(default_factory=set)
-
-
-DASHBOARD_COURSE_LEARNER_PAGE_SIZE_MAX = 100
-DASHBOARD_COURSE_FOLLOW_UP_PAGE_SIZE_MAX = 100
-DASHBOARD_COURSE_RATING_PAGE_SIZE_MAX = 100
-COURSE_STATUS_PUBLISHED = "published"
-COURSE_STATUS_UNPUBLISHED = "unpublished"
-FOLLOW_UP_ELEMENT_TYPE_ASK = "ask"
-FOLLOW_UP_ELEMENT_TYPE_ANSWER = "answer"
-LEARNING_MODE_READ = "read"
-LEARNING_MODE_LISTEN = "listen"
-LEARNING_MODE_CLASSROOM = "classroom"
-DASHBOARD_LEARNING_MODE_ORDER = (
-    LEARNING_MODE_READ,
-    LEARNING_MODE_LISTEN,
-    LEARNING_MODE_CLASSROOM,
-)
-
-
-def _format_money(value: Decimal) -> str:
-    quantized = value.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
-    return format(quantized, "f")
-
-
-def _format_percentage(numerator: int, denominator: int) -> str:
-    if denominator <= 0:
-        return "0.00"
-    return _format_money((Decimal(numerator) * Decimal(100)) / Decimal(denominator))
-
-
-def _format_average_score(value: Decimal | None) -> str:
-    if value is None:
-        return ""
-    return f"{value:.1f}"
-
-
-def _format_credit_value(value: Decimal) -> str:
-    return _format_money(Decimal(str(value or 0)))
-
-
-def _normalize_dashboard_identifier(value: str) -> str:
-    normalized = str(value or "").strip()
-    if "@" in normalized:
-        return normalized.lower()
-    return normalized
-
-
-def _dashboard_learner_keyword_matches(
-    *,
-    keyword: str,
-    nickname: str,
-    mobile: str,
-    email: str,
-) -> bool:
-    normalized_keyword = _normalize_dashboard_identifier(keyword).lower()
-    if not normalized_keyword:
-        return True
-
-    normalized_nickname = str(nickname or "").strip().lower()
-    normalized_mobile = str(mobile or "").strip()
-    normalized_email = str(email or "").strip().lower()
-
-    if normalized_nickname and normalized_keyword in normalized_nickname:
-        return True
-    if "@" in normalized_keyword:
-        return bool(normalized_email) and normalized_keyword == normalized_email
-    if normalized_keyword.isdigit():
-        return bool(normalized_mobile) and normalized_keyword == normalized_mobile
-    return False
-
-
-def _build_dashboard_learner_keyword_filter(
-    user_bid_column: object,
-    keyword: str,
-) -> ColumnElement[bool] | None:
-    normalized_keyword = _normalize_dashboard_identifier(keyword).strip()
-    if not normalized_keyword:
-        return None
-
-    normalized_keyword_lower = normalized_keyword.lower()
-    user_alias = aliased(UserEntity)
-    credential_alias = aliased(AuthCredential)
-    nickname_match_exists = (
-        db.session.query(user_alias.id)
-        .filter(
-            user_alias.user_bid == user_bid_column,
-            user_alias.deleted == 0,
-            user_alias.nickname.ilike(f"%{normalized_keyword_lower}%"),
-        )
-        .exists()
-    )
-    if "@" in normalized_keyword_lower:
-        credential_match_exists = (
-            db.session.query(credential_alias.id)
-            .filter(
-                credential_alias.user_bid == user_bid_column,
-                credential_alias.deleted == 0,
-                credential_alias.provider_name.in_(["email", "google"]),
-                db.func.lower(credential_alias.identifier) == normalized_keyword_lower,
-            )
-            .exists()
-        )
-        identify_match_exists = (
-            db.session.query(user_alias.id)
-            .filter(
-                user_alias.user_bid == user_bid_column,
-                user_alias.deleted == 0,
-                db.func.lower(user_alias.user_identify) == normalized_keyword_lower,
-            )
-            .exists()
-        )
-        return or_(
-            nickname_match_exists,
-            credential_match_exists,
-            identify_match_exists,
-        )
-
-    if normalized_keyword.isdigit():
-        credential_match_exists = (
-            db.session.query(credential_alias.id)
-            .filter(
-                credential_alias.user_bid == user_bid_column,
-                credential_alias.deleted == 0,
-                credential_alias.provider_name == "phone",
-                credential_alias.identifier == normalized_keyword,
-            )
-            .exists()
-        )
-        identify_match_exists = (
-            db.session.query(user_alias.id)
-            .filter(
-                user_alias.user_bid == user_bid_column,
-                user_alias.deleted == 0,
-                user_alias.user_identify == normalized_keyword,
-            )
-            .exists()
-        )
-        return or_(
-            nickname_match_exists,
-            credential_match_exists,
-            identify_match_exists,
-        )
-
-    return nickname_match_exists
-
-
-def _resolve_dashboard_outline_keyword_match_bids(
-    outline_context_map: dict[str, dict[str, str]],
-    keyword: str,
-) -> set[str]:
-    normalized_keyword = str(keyword or "").strip().lower()
-    if not normalized_keyword:
-        return set()
-
-    matched_outline_item_bids: set[str] = set()
-    for outline_item_bid, context in outline_context_map.items():
-        chapter_title = str(context.get("chapter_title", "") or "").lower()
-        lesson_title = str(context.get("lesson_title", "") or "").lower()
-        if any(
-            normalized_keyword in value
-            for value in [chapter_title, lesson_title]
-            if value
-        ):
-            matched_outline_item_bids.add(str(outline_item_bid or "").strip())
-    return matched_outline_item_bids
-
-
-def _build_course_outline_context_map(
-    outline_items: Sequence[PublishedOutlineItem],
-) -> dict[str, dict[str, str]]:
-    outline_item_map = {
-        str(getattr(item, "outline_item_bid", "") or "").strip(): item
-        for item in outline_items
-        if str(getattr(item, "outline_item_bid", "") or "").strip()
-    }
-    context_map: dict[str, dict[str, str]] = {}
-
-    for outline_item_bid, item in outline_item_map.items():
-        lesson_title = str(getattr(item, "title", "") or "").strip()
-        lesson_outline_item_bid = outline_item_bid
-        chapter_title = lesson_title
-        chapter_outline_item_bid = outline_item_bid
-        current_item = item
-        visited_bids = {outline_item_bid}
-
-        while current_item is not None:
-            parent_bid = str(getattr(current_item, "parent_bid", "") or "").strip()
-            if not parent_bid or parent_bid in visited_bids:
-                break
-            visited_bids.add(parent_bid)
-            parent_item = outline_item_map.get(parent_bid)
-            if parent_item is None:
-                break
-            chapter_title = str(getattr(parent_item, "title", "") or "").strip()
-            chapter_outline_item_bid = parent_bid
-            current_item = parent_item
-
-        context_map[outline_item_bid] = {
-            "chapter_outline_item_bid": chapter_outline_item_bid,
-            "chapter_title": chapter_title,
-            "lesson_outline_item_bid": lesson_outline_item_bid,
-            "lesson_title": lesson_title,
-        }
-
-    return context_map
-
-
-def _build_course_follow_up_base_subquery(shifu_bid: str) -> Subquery:
-    return (
-        db.session.query(
-            LearnGeneratedBlock.id.label("id"),
-            LearnGeneratedBlock.generated_block_bid.label("generated_block_bid"),
-            LearnGeneratedBlock.progress_record_bid.label("progress_record_bid"),
-            LearnGeneratedBlock.user_bid.label("user_bid"),
-            LearnGeneratedBlock.outline_item_bid.label("outline_item_bid"),
-            LearnGeneratedBlock.generated_content.label("follow_up_content"),
-            LearnGeneratedBlock.created_at.label("created_at"),
-            db.func.row_number()
-            .over(
-                partition_by=LearnGeneratedBlock.progress_record_bid,
-                order_by=(
-                    LearnGeneratedBlock.created_at.asc(),
-                    LearnGeneratedBlock.id.asc(),
-                ),
-            )
-            .label("turn_index"),
-        )
-        .filter(
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            LearnGeneratedBlock.role == ROLE_STUDENT,
-        )
-        .subquery()
-    )
-
-
-def _build_follow_up_user_keyword_filter(
-    user_bid_column: object,
-    keyword: str,
-) -> ColumnElement[bool] | None:
-    normalized = _normalize_dashboard_identifier(keyword)
-    if not normalized:
-        return None
-
-    credential_match_exists = (
-        db.session.query(AuthCredential.id)
-        .filter(
-            AuthCredential.user_bid == user_bid_column,
-            AuthCredential.deleted == 0,
-            AuthCredential.provider_name.in_(["phone", "email", "google"]),
-            AuthCredential.identifier.ilike(f"%{normalized}%"),
-        )
-        .exists()
-    )
-
-    user_filters = [UserEntity.nickname.ilike(f"%{normalized}%")]
-    if "@" in normalized or normalized.isdigit():
-        user_filters.append(UserEntity.user_identify.ilike(f"%{normalized}%"))
-
-    user_match_exists = (
-        db.session.query(UserEntity.id)
-        .filter(
-            UserEntity.user_bid == user_bid_column,
-            UserEntity.deleted == 0,
-            or_(*user_filters),
-        )
-        .exists()
-    )
-
-    return or_(credential_match_exists, user_match_exists)
-
-
-def _resolve_follow_up_matching_outline_bids(
-    outline_context_map: dict[str, dict[str, str]],
-    chapter_keyword: str,
-) -> set[str] | None:
-    normalized_keyword = str(chapter_keyword or "").strip().lower()
-    if not normalized_keyword:
-        return None
-
-    return {
-        outline_item_bid
-        for outline_item_bid, context in outline_context_map.items()
-        if normalized_keyword
-        in str(context.get("chapter_title", "") or "").strip().lower()
-        or normalized_keyword
-        in str(context.get("lesson_title", "") or "").strip().lower()
-    }
-
-
-def _resolve_follow_up_answer_block(
-    blocks: Sequence[LearnGeneratedBlock],
-    index: int,
-) -> LearnGeneratedBlock | None:
-    ask_position = int(blocks[index].position or 0)
-    for next_block in blocks[index + 1 :]:
-        next_block_type = int(next_block.type or 0)
-        next_block_role = int(next_block.role or 0)
-        if (
-            next_block_type == BLOCK_TYPE_MDASK_VALUE
-            and next_block_role == ROLE_STUDENT
-        ):
-            return None
-        if next_block_type == BLOCK_TYPE_MDANSWER_VALUE:
-            return next_block
-        if (
-            next_block_type == BLOCK_TYPE_MDCONTENT_VALUE
-            and next_block_role == ROLE_TEACHER
-            and int(next_block.position or 0) == ask_position
-        ):
-            return next_block
-    return None
-
-
-def _resolve_follow_up_answer_content(block: LearnGeneratedBlock | None) -> str:
-    if block is None:
-        return ""
-
-    generated_content = str(getattr(block, "generated_content", "") or "").strip()
-    if generated_content:
-        return generated_content
-
-    return str(getattr(block, "block_content_conf", "") or "").strip()
-
-
-def _load_follow_up_groups_for_progress_record(
-    progress_record_bid: str,
-) -> list[dict[str, LearnGeneratedBlock | None]]:
-    normalized_progress_record_bid = str(progress_record_bid or "").strip()
-    if not normalized_progress_record_bid:
-        return []
-
-    blocks = (
-        LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.progress_record_bid == normalized_progress_record_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-            or_(
-                and_(
-                    LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-                    LearnGeneratedBlock.role == ROLE_STUDENT,
-                ),
-                LearnGeneratedBlock.type == BLOCK_TYPE_MDANSWER_VALUE,
-                and_(
-                    LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
-                    LearnGeneratedBlock.role == ROLE_TEACHER,
-                ),
-            ),
-        )
-        .order_by(LearnGeneratedBlock.created_at.asc(), LearnGeneratedBlock.id.asc())
-        .all()
-    )
-    groups: list[dict[str, LearnGeneratedBlock | None]] = []
-    for index, block in enumerate(blocks):
-        if (
-            int(block.type or 0) != BLOCK_TYPE_MDASK_VALUE
-            or int(block.role or 0) != ROLE_STUDENT
-        ):
-            continue
-        groups.append(
-            {
-                "ask_block": block,
-                "answer_block": _resolve_follow_up_answer_block(blocks, index),
-            }
-        )
-    return groups
-
-
-def _load_follow_up_groups_for_progress_records(
-    progress_record_bids: Sequence[str],
-) -> dict[str, list[dict[str, LearnGeneratedBlock | None]]]:
-    normalized_progress_record_bids = sorted(
-        {
-            str(progress_record_bid or "").strip()
-            for progress_record_bid in progress_record_bids
-            if str(progress_record_bid or "").strip()
-        }
-    )
-    if not normalized_progress_record_bids:
-        return {}
-
-    blocks = (
-        LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.progress_record_bid.in_(
-                normalized_progress_record_bids
-            ),
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-            or_(
-                and_(
-                    LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-                    LearnGeneratedBlock.role == ROLE_STUDENT,
-                ),
-                LearnGeneratedBlock.type == BLOCK_TYPE_MDANSWER_VALUE,
-                and_(
-                    LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
-                    LearnGeneratedBlock.role == ROLE_TEACHER,
-                ),
-            ),
-        )
-        .order_by(
-            LearnGeneratedBlock.progress_record_bid.asc(),
-            LearnGeneratedBlock.created_at.asc(),
-            LearnGeneratedBlock.id.asc(),
-        )
-        .all()
-    )
-    blocks_by_progress_record: dict[str, list[LearnGeneratedBlock]] = {}
-    for block in blocks:
-        progress_record_bid = str(
-            getattr(block, "progress_record_bid", "") or ""
-        ).strip()
-        if not progress_record_bid:
-            continue
-        blocks_by_progress_record.setdefault(progress_record_bid, []).append(block)
-
-    groups_by_progress_record: dict[
-        str, list[dict[str, LearnGeneratedBlock | None]]
-    ] = {}
-    for progress_record_bid, progress_blocks in blocks_by_progress_record.items():
-        groups: list[dict[str, LearnGeneratedBlock | None]] = []
-        for index, block in enumerate(progress_blocks):
-            if (
-                int(block.type or 0) != BLOCK_TYPE_MDASK_VALUE
-                or int(block.role or 0) != ROLE_STUDENT
-            ):
-                continue
-            groups.append(
-                {
-                    "ask_block": block,
-                    "answer_block": _resolve_follow_up_answer_block(
-                        progress_blocks, index
-                    ),
-                }
-            )
-        groups_by_progress_record[progress_record_bid] = groups
-    return groups_by_progress_record
-
-
-def _resolve_follow_up_source_from_element(
-    *,
-    shifu_bid: str,
-    user_bid: str,
-    progress_record_bid: str,
-    answer_generated_block_bid: str,
-    fallback_position: int,
-    ask_created_at: datetime | None,
-) -> dict[str, object]:
-    normalized_answer_generated_block_bid = str(
-        answer_generated_block_bid or ""
-    ).strip()
-    normalized_user_bid = str(user_bid or "").strip()
-    normalized_shifu_bid = str(shifu_bid or "").strip()
-    normalized_progress_record_bid = str(progress_record_bid or "").strip()
-    if (
-        not normalized_answer_generated_block_bid
-        or not normalized_user_bid
-        or not normalized_shifu_bid
-        or not normalized_progress_record_bid
-    ):
-        return {}
-
-    follow_up_elements = (
-        LearnGeneratedElement.query.filter(
-            LearnGeneratedElement.generated_block_bid
-            == normalized_answer_generated_block_bid,
-            LearnGeneratedElement.user_bid == normalized_user_bid,
-            LearnGeneratedElement.shifu_bid == normalized_shifu_bid,
-            LearnGeneratedElement.progress_record_bid == normalized_progress_record_bid,
-            LearnGeneratedElement.event_type == "element",
-            LearnGeneratedElement.element_type.in_(
-                [FOLLOW_UP_ELEMENT_TYPE_ASK, FOLLOW_UP_ELEMENT_TYPE_ANSWER]
-            ),
-            LearnGeneratedElement.deleted == 0,
-            LearnGeneratedElement.status == 1,
-        )
-        .order_by(
-            LearnGeneratedElement.sequence_number.asc(),
-            LearnGeneratedElement.run_event_seq.asc(),
-            LearnGeneratedElement.id.asc(),
-        )
-        .all()
-    )
-    if not follow_up_elements:
-        return {}
-
-    anchor_element_bid = ""
-    for row in follow_up_elements:
-        anchor_element_bid = _extract_anchor_element_bid(
-            str(getattr(row, "payload", "") or "")
-        )
-        if anchor_element_bid:
-            break
-    if not anchor_element_bid:
-        return {}
-
-    anchor_query = LearnGeneratedElement.query.filter(
-        LearnGeneratedElement.shifu_bid == normalized_shifu_bid,
-        LearnGeneratedElement.user_bid == normalized_user_bid,
-        LearnGeneratedElement.progress_record_bid == normalized_progress_record_bid,
-        LearnGeneratedElement.event_type == "element",
-        or_(
-            LearnGeneratedElement.element_bid == anchor_element_bid,
-            LearnGeneratedElement.target_element_bid == anchor_element_bid,
-        ),
-        LearnGeneratedElement.deleted == 0,
-    )
-    if ask_created_at is not None:
-        anchor_query = anchor_query.filter(
-            LearnGeneratedElement.created_at <= ask_created_at
-        )
-    anchor_element = anchor_query.order_by(
-        LearnGeneratedElement.created_at.desc(),
-        LearnGeneratedElement.sequence_number.desc(),
-        LearnGeneratedElement.run_event_seq.desc(),
-        LearnGeneratedElement.id.desc(),
-    ).first()
-    if anchor_element is None:
-        return {
-            "source_output_content": "",
-            "source_output_type": "element",
-            "source_position": int(fallback_position or 0),
-            "source_element_bid": anchor_element_bid,
-            "source_element_type": "",
-        }
-
-    return {
-        "source_output_content": str(getattr(anchor_element, "content_text", "") or ""),
-        "source_output_type": "element",
-        "source_position": int(fallback_position or 0),
-        "source_element_bid": anchor_element_bid,
-        "source_element_type": str(getattr(anchor_element, "element_type", "") or ""),
-    }
-
-
-def _resolve_follow_up_source_from_blocks(
-    ask_block: LearnGeneratedBlock,
-) -> dict[str, object]:
-    progress_record_bid = str(
-        getattr(ask_block, "progress_record_bid", "") or ""
-    ).strip()
-    if not progress_record_bid:
-        return {}
-
-    position = int(getattr(ask_block, "position", 0) or 0)
-    query = LearnGeneratedBlock.query.filter(
-        LearnGeneratedBlock.progress_record_bid == progress_record_bid,
-        LearnGeneratedBlock.deleted == 0,
-        LearnGeneratedBlock.role == ROLE_TEACHER,
-        LearnGeneratedBlock.position == position,
-        LearnGeneratedBlock.type.in_(
-            [BLOCK_TYPE_MDINTERACTION_VALUE, BLOCK_TYPE_MDCONTENT_VALUE]
-        ),
-    )
-    ask_created_at = getattr(ask_block, "created_at", None)
-    ask_block_id = int(getattr(ask_block, "id", 0) or 0)
-    if ask_created_at is not None and ask_block_id > 0:
-        query = query.filter(
-            or_(
-                LearnGeneratedBlock.created_at < ask_created_at,
-                and_(
-                    LearnGeneratedBlock.created_at == ask_created_at,
-                    LearnGeneratedBlock.id < ask_block_id,
-                ),
-            )
-        )
-    elif ask_block_id > 0:
-        query = query.filter(LearnGeneratedBlock.id < ask_block_id)
-
-    source_block = query.order_by(
-        LearnGeneratedBlock.created_at.desc(),
-        LearnGeneratedBlock.id.desc(),
-    ).first()
-    if source_block is None:
-        return {}
-
-    source_type = (
-        "interaction"
-        if int(getattr(source_block, "type", 0) or 0) == BLOCK_TYPE_MDINTERACTION_VALUE
-        else "content"
-    )
-    if source_type == "interaction":
-        source_content = str(
-            getattr(source_block, "block_content_conf", "") or ""
-        ).strip()
-        if not source_content:
-            source_content = str(getattr(source_block, "generated_content", "") or "")
-    else:
-        source_content = str(
-            getattr(source_block, "generated_content", "") or ""
-        ).strip()
-        if not source_content:
-            source_content = str(getattr(source_block, "block_content_conf", "") or "")
-
-    return {
-        "source_output_content": source_content,
-        "source_output_type": source_type,
-        "source_position": int(getattr(source_block, "position", 0) or 0),
-        "source_element_bid": "",
-        "source_element_type": "",
-    }
-
-
-def _resolve_follow_up_source(
-    *,
-    ask_block: LearnGeneratedBlock,
-    answer_block: LearnGeneratedBlock | None,
-) -> dict[str, object]:
-    fallback_position = int(getattr(ask_block, "position", 0) or 0)
-    if answer_block is not None:
-        source = _resolve_follow_up_source_from_element(
-            shifu_bid=str(getattr(ask_block, "shifu_bid", "") or ""),
-            user_bid=str(getattr(ask_block, "user_bid", "") or ""),
-            progress_record_bid=str(
-                getattr(ask_block, "progress_record_bid", "") or ""
-            ),
-            answer_generated_block_bid=str(
-                getattr(answer_block, "generated_block_bid", "") or ""
-            ),
-            fallback_position=fallback_position,
-            ask_created_at=getattr(ask_block, "created_at", None),
-        )
-        if source:
-            return source
-
-    source = _resolve_follow_up_source_from_blocks(ask_block)
-    if source:
-        return source
-
-    return {
-        "source_output_content": "",
-        "source_output_type": "",
-        "source_position": fallback_position,
-        "source_element_bid": "",
-        "source_element_type": "",
-    }
-
-
-def _extract_anchor_element_bid(raw_payload: str) -> str:
-    if not raw_payload:
-        return ""
-    try:
-        payload = json.loads(raw_payload)
-    except json.JSONDecodeError:
-        return ""
-    if not isinstance(payload, dict):
-        return ""
-    return str(payload.get("anchor_element_bid", "") or "").strip()
-
-
-def _build_follow_up_source_status_map(
-    *,
-    shifu_bid: str,
-    generated_block_bids: list[str],
-) -> dict[str, bool]:
-    normalized_generated_block_bids = sorted(
-        {
-            str(generated_block_bid or "").strip()
-            for generated_block_bid in generated_block_bids
-            if str(generated_block_bid or "").strip()
-        }
-    )
-    if not normalized_generated_block_bids:
-        return {}
-
-    ask_blocks = (
-        LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.generated_block_bid.in_(
-                normalized_generated_block_bids
-            ),
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            LearnGeneratedBlock.role == ROLE_STUDENT,
-        )
-        .order_by(LearnGeneratedBlock.id.asc())
-        .all()
-    )
-    if not ask_blocks:
-        return {}
-
-    groups_cache = _load_follow_up_groups_for_progress_records(
-        [
-            str(getattr(ask_block, "progress_record_bid", "") or "")
-            for ask_block in ask_blocks
-        ]
-    )
-    answer_block_map: dict[str, LearnGeneratedBlock | None] = {}
-    for groups in groups_cache.values():
-        for group in groups:
-            group_ask_block = group.get("ask_block")
-            group_generated_block_bid = str(
-                getattr(group_ask_block, "generated_block_bid", "") or ""
-            ).strip()
-            if not group_generated_block_bid:
-                continue
-            answer_block_map[group_generated_block_bid] = group.get("answer_block")
-    source_status_map: dict[str, bool] = {}
-
-    for ask_block in ask_blocks:
-        generated_block_bid = str(
-            getattr(ask_block, "generated_block_bid", "") or ""
-        ).strip()
-        if not generated_block_bid:
-            continue
-
-        source_info = _resolve_follow_up_source(
-            ask_block=ask_block,
-            answer_block=answer_block_map.get(generated_block_bid),
-        )
-        source_status_map[generated_block_bid] = bool(
-            str(source_info.get("source_output_content", "") or "").strip()
-        )
-
-    return source_status_map
-
-
-def _load_dashboard_course_user_contact_map(
-    user_bids: Sequence[str],
-) -> dict[str, dict[str, str]]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    credential_rows = (
-        AuthCredential.query.filter(
-            AuthCredential.user_bid.in_(normalized_user_bids),
-            AuthCredential.deleted == 0,
-            AuthCredential.provider_name.in_(["phone", "email", "google"]),
-        )
-        .order_by(AuthCredential.id.desc())
-        .all()
-    )
-    contact_map: dict[str, dict[str, str]] = {
-        user_bid: {"mobile": "", "email": ""} for user_bid in normalized_user_bids
-    }
-    for credential in credential_rows:
-        user_bid = str(credential.user_bid or "").strip()
-        if not user_bid:
-            continue
-        resolved = contact_map.setdefault(user_bid, {"mobile": "", "email": ""})
-        identifier = str(credential.identifier or "").strip()
-        if (
-            credential.provider_name == "phone"
-            and not resolved["mobile"]
-            and identifier
-        ):
-            resolved["mobile"] = identifier
-        if (
-            credential.provider_name in {"email", "google"}
-            and not resolved["email"]
-            and identifier
-        ):
-            resolved["email"] = identifier
-
-    users = (
-        UserEntity.query.filter(
-            UserEntity.user_bid.in_(normalized_user_bids),
-            UserEntity.deleted == 0,
-        )
-        .order_by(UserEntity.id.asc())
-        .all()
-    )
-    for user in users:
-        user_bid = str(user.user_bid or "").strip()
-        if not user_bid:
-            continue
-        resolved = contact_map.setdefault(user_bid, {"mobile": "", "email": ""})
-        identify = str(user.user_identify or "").strip()
-        if len(identify) == 11 and identify.isdigit() and not resolved["mobile"]:
-            resolved["mobile"] = identify
-        elif "@" in identify and not resolved["email"]:
-            resolved["email"] = identify
-    return contact_map
-
-
-def _load_dashboard_course_meta_map(user_id: str) -> dict[str, _DashboardCourseMeta]:
-    owned_rows = (
-        db.session.query(PublishedShifu.shifu_bid)
-        .filter(
-            PublishedShifu.created_user_bid == user_id,
-            PublishedShifu.deleted == 0,
-        )
-        .distinct()
-        .all()
-    )
-    owned_bids = {str(row[0]).strip() for row in owned_rows if str(row[0]).strip()}
-    all_bids = {
-        bid
-        for bid in owned_bids
-        if not is_builtin_demo_course(
-            shifu_bid=bid,
-            title="",
-            created_user_bid="",
-        )
-    }
-    if not all_bids:
-        return {}
-
-    latest_subquery = (
-        db.session.query(db.func.max(PublishedShifu.id).label("max_id"))
-        .filter(
-            PublishedShifu.shifu_bid.in_(list(all_bids)),
-            PublishedShifu.deleted == 0,
-        )
-        .group_by(PublishedShifu.shifu_bid)
-    ).subquery()
-
-    published_rows: list[PublishedShifu] = (
-        db.session.query(PublishedShifu)
-        .filter(PublishedShifu.id.in_(db.session.query(latest_subquery.c.max_id)))
-        .all()
-    )
-    course_map: dict[str, _DashboardCourseMeta] = {}
-    for row in published_rows:
-        shifu_bid = str(row.shifu_bid or "").strip()
-        if not shifu_bid:
-            continue
-        title = str(row.title or "").strip()
-        created_user_bid = str(row.created_user_bid or "").strip()
-        if is_builtin_demo_course(
-            shifu_bid=shifu_bid,
-            title=title,
-            created_user_bid=created_user_bid,
-        ):
-            continue
-        course_map[shifu_bid] = _DashboardCourseMeta(
-            shifu_bid=shifu_bid,
-            shifu_name=title,
-        )
-    return course_map
-
-
-def _load_dashboard_course_meta(
-    user_id: str,
-    shifu_bid: str,
-) -> _DashboardCourseMeta | None:
-    normalized_user_id = str(user_id or "").strip()
-    normalized_shifu_bid = str(shifu_bid or "").strip()
-    if not normalized_user_id or not normalized_shifu_bid:
-        return None
-
-    latest_row: PublishedShifu | None = (
-        PublishedShifu.query.filter(
-            PublishedShifu.shifu_bid == normalized_shifu_bid,
-            PublishedShifu.created_user_bid == normalized_user_id,
-            PublishedShifu.deleted == 0,
-        )
-        .order_by(PublishedShifu.id.desc())
-        .first()
-    )
-    if latest_row is None:
-        return None
-
-    title = str(latest_row.title or "").strip()
-    created_user_bid = str(latest_row.created_user_bid or "").strip()
-    if is_builtin_demo_course(
-        shifu_bid=normalized_shifu_bid,
-        title=title,
-        created_user_bid=created_user_bid,
-    ):
-        return None
-
-    return _DashboardCourseMeta(
-        shifu_bid=normalized_shifu_bid,
-        shifu_name=title,
-    )
-
-
-def _load_dashboard_entry_courses(
-    user_id: str,
-    *,
-    keyword: str | None = None,
-) -> list[_DashboardCourseMeta]:
-    courses = list(_load_dashboard_course_meta_map(user_id).values())
-    normalized_keyword = str(keyword or "").strip().lower()
-    if normalized_keyword:
-        courses = [
-            course
-            for course in courses
-            if normalized_keyword in course.shifu_bid.lower()
-            or normalized_keyword in course.shifu_name.lower()
-        ]
-    courses.sort(key=lambda item: (item.shifu_name.lower(), item.shifu_bid))
-    return courses
-
-
-def _load_dashboard_course_created_at(shifu_bid: str) -> datetime | None:
-    latest_draft: DraftShifu | None = (
-        DraftShifu.query.filter(
-            DraftShifu.shifu_bid == shifu_bid,
-            DraftShifu.deleted == 0,
-        )
-        .order_by(DraftShifu.id.desc())
-        .first()
-    )
-    if latest_draft and latest_draft.created_at:
-        return latest_draft.created_at
-
-    return (
-        db.session.query(db.func.min(PublishedShifu.created_at))
-        .filter(PublishedShifu.shifu_bid == shifu_bid)
-        .scalar()
-    )
-
-
-def _resolve_dashboard_course_status(shifu_bid: str) -> str:
-    published_exists = (
-        db.session.query(PublishedShifu.id)
-        .filter(
-            PublishedShifu.shifu_bid == shifu_bid,
-            PublishedShifu.deleted == 0,
-        )
-        .first()
-        is not None
-    )
-    if published_exists:
-        return COURSE_STATUS_PUBLISHED
-    return COURSE_STATUS_UNPUBLISHED
-
-
-def _load_dashboard_course_outline_items(
-    shifu_bid: str,
-) -> list[PublishedOutlineItem]:
-    return (
-        PublishedOutlineItem.query.filter(
-            PublishedOutlineItem.shifu_bid == shifu_bid,
-            PublishedOutlineItem.deleted == 0,
-            PublishedOutlineItem.hidden == 0,
-        )
-        .order_by(
-            PublishedOutlineItem.created_at.asc(),
-            PublishedOutlineItem.id.asc(),
-        )
-        .all()
-    )
-
-
-def _load_course_leaf_outline_bids(shifu_bid: str) -> list[str]:
-    outline_rows = (
-        db.session.query(
-            PublishedOutlineItem.outline_item_bid,
-            PublishedOutlineItem.parent_bid,
-        )
-        .filter(
-            PublishedOutlineItem.shifu_bid == shifu_bid,
-            PublishedOutlineItem.deleted == 0,
-            PublishedOutlineItem.hidden == 0,
-        )
-        .all()
-    )
-    if not outline_rows:
-        return []
-
-    visible_bids: set[str] = set()
-    visible_parent_bids: set[str] = set()
-    for outline_item_bid, parent_bid in outline_rows:
-        normalized_outline_item_bid = str(outline_item_bid or "").strip()
-        normalized_parent_bid = str(parent_bid or "").strip()
-        if not normalized_outline_item_bid:
-            continue
-        visible_bids.add(normalized_outline_item_bid)
-        if normalized_parent_bid:
-            visible_parent_bids.add(normalized_parent_bid)
-    return sorted(
-        outline_item_bid
-        for outline_item_bid in visible_bids
-        if outline_item_bid not in visible_parent_bids
-    )
-
-
-def _load_course_learner_bids(shifu_bid: str) -> set[str]:
-    learner_bids: set[str] = set()
-
-    progress_rows = (
-        db.session.query(LearnProgressRecord.user_bid)
-        .filter(
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .distinct()
-        .all()
-    )
-    learner_bids.update(
-        str(row[0]).strip() for row in progress_rows if str(row[0]).strip()
-    )
-
-    manual_order_rows = (
-        db.session.query(Order.user_bid)
-        .filter(
-            Order.shifu_bid == shifu_bid,
-            Order.deleted == 0,
-            Order.payment_channel == "manual",
-            Order.status == ORDER_STATUS_SUCCESS,
-        )
-        .distinct()
-        .all()
-    )
-    learner_bids.update(
-        str(row[0]).strip() for row in manual_order_rows if str(row[0]).strip()
-    )
-    return learner_bids
-
-
-def _load_dashboard_course_user_map(
-    user_bids: Sequence[str],
-) -> dict[str, UserEntity]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    users = (
-        UserEntity.query.filter(
-            UserEntity.user_bid.in_(normalized_user_bids),
-            UserEntity.deleted == 0,
-        )
-        .order_by(UserEntity.id.desc())
-        .all()
-    )
-    return {
-        str(user.user_bid or "").strip(): user
-        for user in users
-        if str(user.user_bid or "").strip()
-    }
-
-
-def _load_dashboard_course_last_learning_map(
-    shifu_bid: str,
-    user_bids: Sequence[str],
-) -> dict[str, datetime]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    rows = (
-        db.session.query(
-            LearnProgressRecord.user_bid,
-            db.func.max(LearnProgressRecord.updated_at).label("last_learning_at"),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.user_bid.in_(normalized_user_bids),
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .group_by(LearnProgressRecord.user_bid)
-        .all()
-    )
-    return {
-        str(user_bid or "").strip(): last_learning_at
-        for user_bid, last_learning_at in rows
-        if str(user_bid or "").strip() and last_learning_at
-    }
-
-
-def _load_dashboard_course_learned_lesson_count_map(
-    shifu_bid: str,
-    user_bids: Sequence[str],
-    leaf_outline_bids: Sequence[str],
-) -> dict[str, int]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    normalized_leaf_outline_bids = [
-        str(outline_item_bid or "").strip()
-        for outline_item_bid in leaf_outline_bids
-        if str(outline_item_bid or "").strip()
-    ]
-    if not normalized_user_bids or not normalized_leaf_outline_bids:
-        return {}
-
-    rows = (
-        db.session.query(
-            LearnProgressRecord.user_bid,
-            db.func.count(db.func.distinct(LearnProgressRecord.outline_item_bid)).label(
-                "learned_lesson_count"
-            ),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.user_bid.in_(normalized_user_bids),
-            LearnProgressRecord.outline_item_bid.in_(normalized_leaf_outline_bids),
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .group_by(LearnProgressRecord.user_bid)
-        .all()
-    )
-    return {
-        str(user_bid or "").strip(): int(learned_lesson_count or 0)
-        for user_bid, learned_lesson_count in rows
-        if str(user_bid or "").strip()
-    }
-
-
-def _load_dashboard_course_follow_up_count_map(
-    shifu_bid: str,
-    user_bids: Sequence[str],
-) -> dict[str, int]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    rows = (
-        db.session.query(
-            LearnGeneratedBlock.user_bid,
-            db.func.count(LearnGeneratedBlock.id).label("follow_up_count"),
-        )
-        .filter(
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.user_bid.in_(normalized_user_bids),
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            LearnGeneratedBlock.role == ROLE_STUDENT,
-        )
-        .group_by(LearnGeneratedBlock.user_bid)
-        .all()
-    )
-    return {
-        str(user_bid or "").strip(): int(follow_up_count or 0)
-        for user_bid, follow_up_count in rows
-        if str(user_bid or "").strip()
-    }
-
-
-def _load_dashboard_course_completed_learner_bids(
-    shifu_bid: str,
-    leaf_outline_bids: list[str],
-) -> set[str]:
-    if not leaf_outline_bids:
-        return set()
-
-    progress_rows = (
-        db.session.query(
-            LearnProgressRecord.user_bid,
-            LearnProgressRecord.outline_item_bid,
-            LearnProgressRecord.status,
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.outline_item_bid.in_(leaf_outline_bids),
-            LearnProgressRecord.deleted == 0,
-        )
-        .order_by(
-            LearnProgressRecord.user_bid.asc(),
-            LearnProgressRecord.outline_item_bid.asc(),
-            LearnProgressRecord.created_at.asc(),
-            LearnProgressRecord.id.asc(),
-        )
-        .all()
-    )
-
-    completed_leaf_bids_by_user: dict[str, set[str]] = {}
-    records_by_user_and_outline: dict[tuple[str, str], list[int]] = {}
-
-    for user_bid, outline_item_bid, status in progress_rows:
-        normalized_user_bid = str(user_bid or "").strip()
-        normalized_outline_item_bid = str(outline_item_bid or "").strip()
-        if not normalized_user_bid or not normalized_outline_item_bid:
-            continue
-
-        record_statuses = records_by_user_and_outline.setdefault(
-            (normalized_user_bid, normalized_outline_item_bid),
-            [],
-        )
-        record_statuses.append(int(status or 0))
-
-    for (
-        user_bid,
-        outline_item_bid,
-    ), record_statuses in records_by_user_and_outline.items():
-        has_completed_record = any(
-            record_status == LEARN_STATUS_COMPLETED for record_status in record_statuses
-        )
-        has_reset_with_follow_up_record = any(
-            record_status == LEARN_STATUS_RESET
-            for record_status in record_statuses[:-1]
-        )
-        if not has_completed_record and not has_reset_with_follow_up_record:
-            continue
-
-        completed_outline_bids = completed_leaf_bids_by_user.setdefault(
-            user_bid,
-            set(),
-        )
-        completed_outline_bids.add(outline_item_bid)
-
-    leaf_count = len(leaf_outline_bids)
-    return {
-        user_bid
-        for user_bid, completed_outline_bids in completed_leaf_bids_by_user.items()
-        if len(completed_outline_bids) >= leaf_count
-    }
-
-
-def _collect_dashboard_entry_metrics(
-    shifu_bids: list[str],
-    *,
-    start_dt: datetime | None,
-    end_dt_exclusive: datetime | None,
-) -> _DashboardEntryMetrics:
-    if not shifu_bids:
-        return _DashboardEntryMetrics()
-
-    learner_users_by_course: dict[str, set[str]] = {}
-
-    def _collect_learner(shifu_bid: object, user_bid: object) -> None:
-        normalized_shifu_bid = str(shifu_bid or "").strip()
-        normalized_user_bid = str(user_bid or "").strip()
-        if not normalized_shifu_bid or not normalized_user_bid:
-            return
-        learners = learner_users_by_course.setdefault(normalized_shifu_bid, set())
-        learners.add(normalized_user_bid)
-
-    progress_learner_query = db.session.query(
-        LearnProgressRecord.shifu_bid.label("shifu_bid"),
-        LearnProgressRecord.user_bid.label("user_bid"),
-    ).filter(
-        LearnProgressRecord.shifu_bid.in_(shifu_bids),
-        LearnProgressRecord.deleted == 0,
-        LearnProgressRecord.status != LEARN_STATUS_RESET,
-    )
-    if start_dt is not None:
-        progress_learner_query = progress_learner_query.filter(
-            LearnProgressRecord.created_at >= start_dt
-        )
-    if end_dt_exclusive is not None:
-        progress_learner_query = progress_learner_query.filter(
-            LearnProgressRecord.created_at < end_dt_exclusive
-        )
-    progress_learner_rows = progress_learner_query.distinct().all()
-    for shifu_bid, user_bid in progress_learner_rows:
-        _collect_learner(shifu_bid, user_bid)
-
-    manual_import_learner_query = db.session.query(
-        Order.shifu_bid.label("shifu_bid"),
-        Order.user_bid.label("user_bid"),
-    ).filter(
-        Order.shifu_bid.in_(shifu_bids),
-        Order.deleted == 0,
-        Order.payment_channel == "manual",
-        Order.status == ORDER_STATUS_SUCCESS,
-    )
-    if start_dt is not None:
-        manual_import_learner_query = manual_import_learner_query.filter(
-            Order.created_at >= start_dt
-        )
-    if end_dt_exclusive is not None:
-        manual_import_learner_query = manual_import_learner_query.filter(
-            Order.created_at < end_dt_exclusive
-        )
-    manual_import_rows = manual_import_learner_query.distinct().all()
-    for shifu_bid, user_bid in manual_import_rows:
-        _collect_learner(shifu_bid, user_bid)
-
-    learner_count_map: dict[str, int] = {}
-    learner_total_users: set[str] = set()
-    for shifu_bid, learner_bids in learner_users_by_course.items():
-        learner_count_map[shifu_bid] = len(learner_bids)
-        learner_total_users.update(learner_bids)
-    learner_total = len(learner_total_users)
-
-    order_query = db.session.query(
-        Order.shifu_bid.label("shifu_bid"),
-        db.func.count(Order.id).label("order_count"),
-        db.func.coalesce(db.func.sum(Order.paid_price), 0).label("order_amount"),
-    ).filter(
-        Order.shifu_bid.in_(shifu_bids),
-        Order.deleted == 0,
-        Order.status == ORDER_STATUS_SUCCESS,
-    )
-    if start_dt is not None:
-        order_query = order_query.filter(Order.created_at >= start_dt)
-    if end_dt_exclusive is not None:
-        order_query = order_query.filter(Order.created_at < end_dt_exclusive)
-    order_rows = order_query.group_by(Order.shifu_bid).all()
-    order_count_map: dict[str, int] = {}
-    order_amount_map: dict[str, Decimal] = {}
-    for shifu_bid, order_count, order_amount in order_rows:
-        if not shifu_bid:
-            continue
-        normalized_shifu_bid = str(shifu_bid)
-        order_count_map[normalized_shifu_bid] = int(order_count or 0)
-        order_amount_map[normalized_shifu_bid] = Decimal(str(order_amount or 0))
-
-    last_active_query = db.session.query(
-        LearnProgressRecord.shifu_bid.label("shifu_bid"),
-        db.func.max(LearnProgressRecord.updated_at).label("last_active"),
-    ).filter(
-        LearnProgressRecord.shifu_bid.in_(shifu_bids),
-        LearnProgressRecord.deleted == 0,
-    )
-    if start_dt is not None:
-        last_active_query = last_active_query.filter(
-            LearnProgressRecord.updated_at >= start_dt
-        )
-    if end_dt_exclusive is not None:
-        last_active_query = last_active_query.filter(
-            LearnProgressRecord.updated_at < end_dt_exclusive
-        )
-
-    last_active_rows = last_active_query.group_by(LearnProgressRecord.shifu_bid).all()
-    last_active_map: dict[str, datetime] = {}
-    for shifu_bid, last_active in last_active_rows:
-        if not shifu_bid or not last_active:
-            continue
-        last_active_map[str(shifu_bid)] = last_active
-
-    active_course_bids = (
-        set(learner_count_map.keys())
-        .union(order_count_map.keys())
-        .union(order_amount_map.keys())
-    )
-    return _DashboardEntryMetrics(
-        learner_total=learner_total,
-        learner_count_map=learner_count_map,
-        order_count_map=order_count_map,
-        order_amount_map=order_amount_map,
-        last_active_map=last_active_map,
-        active_course_bids=active_course_bids,
-    )
 
 
 def build_dashboard_entry(
@@ -1575,415 +273,166 @@ def build_dashboard_entry(
         )
 
 
-def _build_dashboard_course_learners(
-    app: Flask,
+def _summarize_course_follow_ups(
+    follow_up_base: Subquery,
+) -> DashboardCourseFollowUpSummaryDTO:
+    """Summarize every follow-up of the course before list filters apply."""
+    full_summary_row = db.session.query(
+        db.func.count(follow_up_base.c.id).label("follow_up_count"),
+        db.func.count(
+            db.func.distinct(db.func.nullif(follow_up_base.c.user_bid, ""))
+        ).label("user_count"),
+        db.func.count(
+            db.func.distinct(db.func.nullif(follow_up_base.c.outline_item_bid, ""))
+        ).label("lesson_count"),
+        db.func.max(follow_up_base.c.created_at).label("latest_follow_up_at"),
+    ).one()
+    return DashboardCourseFollowUpSummaryDTO(
+        follow_up_count=int(getattr(full_summary_row, "follow_up_count", 0) or 0),
+        user_count=int(getattr(full_summary_row, "user_count", 0) or 0),
+        lesson_count=int(getattr(full_summary_row, "lesson_count", 0) or 0),
+        latest_follow_up_at=getattr(full_summary_row, "latest_follow_up_at", None),
+    )
+
+
+def _filter_course_follow_ups(
+    follow_up_base: Subquery,
     *,
-    shifu_bid: str,
-    learner_bids: Sequence[str],
-    leaf_outline_bids: Sequence[str],
-    page_index: int,
-    page_size: int,
-    keyword: str | None,
-    learning_status: str | None,
-    last_learning_start_time: str | None,
-    last_learning_end_time: str | None,
-    timezone_name: str | None,
-) -> DashboardCourseDetailLearnersDTO:
-    _ = timezone_name
-    safe_page_size = min(
-        max(int(page_size or 20), 1),
-        DASHBOARD_COURSE_LEARNER_PAGE_SIZE_MAX,
-    )
-    normalized_page_index = max(int(page_index or 1), 1)
-    last_learning_start_dt = _parse_dashboard_date_boundary(
-        last_learning_start_time,
-        param_name="last_learning_start_time",
-    )
-    last_learning_end_dt_exclusive = _parse_dashboard_date_boundary(
-        last_learning_end_time,
-        param_name="last_learning_end_time",
-        end_of_day=True,
-    )
-    _validate_dashboard_date_range(
-        start_dt=last_learning_start_dt,
-        end_dt_exclusive=last_learning_end_dt_exclusive,
-        start_param_name="last_learning_start_time",
-        end_param_name="last_learning_end_time",
-    )
-    normalized_shifu_bid = str(shifu_bid or "").strip()
-    normalized_learner_bids = sorted(
-        {
-            str(user_bid or "").strip()
-            for user_bid in learner_bids
-            if str(user_bid or "").strip()
-        }
-    )
-    normalized_leaf_outline_bids = sorted(
-        {
-            str(outline_item_bid or "").strip()
-            for outline_item_bid in leaf_outline_bids
-            if str(outline_item_bid or "").strip()
-        }
-    )
-    if not normalized_shifu_bid or not normalized_learner_bids:
-        return DashboardCourseDetailLearnersDTO(
-            page=1,
-            page_size=safe_page_size,
-            page_count=0,
-            total=0,
-            items=[],
-        )
-
-    total_lesson_count = len(normalized_leaf_outline_bids)
-    normalized_learning_status = str(learning_status or "").strip().lower()
-    if normalized_learning_status not in {"", "not_started", "learning", "completed"}:
-        normalized_learning_status = ""
-
-    learner_source = (
-        db.session.query(
-            LearnProgressRecord.user_bid.label("user_bid"),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == normalized_shifu_bid,
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-            LearnProgressRecord.user_bid.in_(normalized_learner_bids),
-        )
-        .distinct()
-        .union(
-            db.session.query(
-                Order.user_bid.label("user_bid"),
-            )
-            .filter(
-                Order.shifu_bid == normalized_shifu_bid,
-                Order.deleted == 0,
-                Order.payment_channel == "manual",
-                Order.status == ORDER_STATUS_SUCCESS,
-                Order.user_bid.in_(normalized_learner_bids),
-            )
-            .distinct()
-        )
-        .subquery()
-    )
-    last_learning_subquery = (
-        db.session.query(
-            LearnProgressRecord.user_bid.label("user_bid"),
-            db.func.max(LearnProgressRecord.updated_at).label("last_learning_at"),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == normalized_shifu_bid,
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-            LearnProgressRecord.user_bid.in_(normalized_learner_bids),
-        )
-        .group_by(LearnProgressRecord.user_bid)
-        .subquery()
-    )
-    order_joined_at_subquery = (
-        db.session.query(
-            Order.user_bid.label("user_bid"),
-            db.func.min(Order.created_at).label("joined_at"),
-        )
-        .filter(
-            Order.shifu_bid == normalized_shifu_bid,
-            Order.deleted == 0,
-            Order.status == ORDER_STATUS_SUCCESS,
-            Order.user_bid.in_(normalized_learner_bids),
-        )
-        .group_by(Order.user_bid)
-        .subquery()
-    )
-    auth_joined_at_subquery = (
-        db.session.query(
-            AiCourseAuth.user_id.label("user_bid"),
-            db.func.min(
-                db.func.coalesce(AiCourseAuth.updated_at, AiCourseAuth.created_at)
-            ).label("joined_at"),
-        )
-        .filter(
-            AiCourseAuth.course_id == normalized_shifu_bid,
-            AiCourseAuth.user_id.in_(normalized_learner_bids),
-            AiCourseAuth.status == 1,
-        )
-        .group_by(AiCourseAuth.user_id)
-        .subquery()
-    )
-    progress_joined_at_subquery = (
-        db.session.query(
-            LearnProgressRecord.user_bid.label("user_bid"),
-            db.func.min(LearnProgressRecord.created_at).label("joined_at"),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == normalized_shifu_bid,
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-            LearnProgressRecord.user_bid.in_(normalized_learner_bids),
-        )
-        .group_by(LearnProgressRecord.user_bid)
-        .subquery()
-    )
-    joined_at_subquery = (
-        db.session.query(
-            learner_source.c.user_bid.label("user_bid"),
-            order_joined_at_subquery.c.joined_at.label("order_joined_at"),
-            auth_joined_at_subquery.c.joined_at.label("auth_joined_at"),
-            progress_joined_at_subquery.c.joined_at.label("progress_joined_at"),
-        )
-        .select_from(learner_source)
-        .outerjoin(
-            order_joined_at_subquery,
-            order_joined_at_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-        .outerjoin(
-            auth_joined_at_subquery,
-            auth_joined_at_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-        .outerjoin(
-            progress_joined_at_subquery,
-            progress_joined_at_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-        .subquery()
-    )
-    learned_lesson_count_subquery = (
-        db.session.query(
-            LearnProgressRecord.user_bid.label("user_bid"),
-            db.func.count(db.func.distinct(LearnProgressRecord.outline_item_bid)).label(
-                "learned_lesson_count"
-            ),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == normalized_shifu_bid,
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-            LearnProgressRecord.user_bid.in_(normalized_learner_bids),
-            LearnProgressRecord.outline_item_bid.in_(normalized_leaf_outline_bids)
-            if normalized_leaf_outline_bids
-            else False,
-        )
-        .group_by(LearnProgressRecord.user_bid)
-        .subquery()
-    )
-    follow_up_count_subquery = (
-        db.session.query(
-            LearnGeneratedBlock.user_bid.label("user_bid"),
-            db.func.count(LearnGeneratedBlock.id).label("follow_up_count"),
-        )
-        .filter(
-            LearnGeneratedBlock.shifu_bid == normalized_shifu_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            LearnGeneratedBlock.role == ROLE_STUDENT,
-            LearnGeneratedBlock.user_bid.in_(normalized_learner_bids),
-        )
-        .group_by(LearnGeneratedBlock.user_bid)
-        .subquery()
-    )
-
-    learned_lesson_count_expression = db.func.coalesce(
-        learned_lesson_count_subquery.c.learned_lesson_count,
-        0,
-    )
-    if total_lesson_count > 0:
-        learning_status_expression = case(
-            (learned_lesson_count_expression >= total_lesson_count, "completed"),
-            (learned_lesson_count_expression > 0, "learning"),
-            else_="not_started",
-        )
-    else:
-        learning_status_expression = case(
-            (learned_lesson_count_expression > 0, "learning"),
-            else_="not_started",
-        )
-
-    joined_at_missing_filter = and_(
-        joined_at_subquery.c.order_joined_at.is_(None),
-        joined_at_subquery.c.auth_joined_at.is_(None),
-        joined_at_subquery.c.progress_joined_at.is_(None),
-    )
-    joined_at_sentinel = datetime(9999, 12, 31, 23, 59, 59)
-    order_joined_at_expression = db.func.coalesce(
-        joined_at_subquery.c.order_joined_at,
-        joined_at_sentinel,
-    )
-    auth_joined_at_expression = db.func.coalesce(
-        joined_at_subquery.c.auth_joined_at,
-        joined_at_sentinel,
-    )
-    progress_joined_at_expression = db.func.coalesce(
-        joined_at_subquery.c.progress_joined_at,
-        joined_at_sentinel,
-    )
-    earliest_order_or_auth_expression = case(
-        (
-            order_joined_at_expression <= auth_joined_at_expression,
-            order_joined_at_expression,
-        ),
-        else_=auth_joined_at_expression,
-    )
-    joined_at_expression = case(
-        (joined_at_missing_filter, None),
-        (
-            earliest_order_or_auth_expression <= progress_joined_at_expression,
-            earliest_order_or_auth_expression,
-        ),
-        else_=progress_joined_at_expression,
-    )
-    filtered_query = (
-        db.session.query(
-            learner_source.c.user_bid.label("user_bid"),
-            UserEntity.nickname.label("nickname"),
-            last_learning_subquery.c.last_learning_at.label("last_learning_at"),
-            joined_at_expression.label("joined_at"),
-            learned_lesson_count_expression.label("learned_lesson_count"),
-            db.func.coalesce(
-                follow_up_count_subquery.c.follow_up_count,
-                0,
-            ).label("follow_up_count"),
-            learning_status_expression.label("learning_status"),
-        )
-        .select_from(learner_source)
-        .outerjoin(
-            UserEntity,
-            and_(
-                UserEntity.user_bid == learner_source.c.user_bid,
-                UserEntity.deleted == 0,
-            ),
-        )
-        .outerjoin(
-            last_learning_subquery,
-            last_learning_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-        .outerjoin(
-            joined_at_subquery,
-            joined_at_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-        .outerjoin(
-            follow_up_count_subquery,
-            follow_up_count_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-        .outerjoin(
-            learned_lesson_count_subquery,
-            learned_lesson_count_subquery.c.user_bid == learner_source.c.user_bid,
-        )
-    )
-    keyword_filter = _build_dashboard_learner_keyword_filter(
-        learner_source.c.user_bid,
-        str(keyword or ""),
-    )
-    if keyword_filter is not None:
-        filtered_query = filtered_query.filter(keyword_filter)
-    if normalized_learning_status:
-        filtered_query = filtered_query.filter(
-            learning_status_expression == normalized_learning_status
-        )
-    if last_learning_start_dt is not None:
-        filtered_query = filtered_query.filter(
-            last_learning_subquery.c.last_learning_at >= last_learning_start_dt
-        )
-    if last_learning_end_dt_exclusive is not None:
-        filtered_query = filtered_query.filter(
-            last_learning_subquery.c.last_learning_at < last_learning_end_dt_exclusive
-        )
-
-    total = (
-        db.session.query(db.func.count())
-        .select_from(filtered_query.subquery())
-        .scalar()
-        or 0
-    )
-    if total == 0:
-        return DashboardCourseDetailLearnersDTO(
-            page=1,
-            page_size=safe_page_size,
-            page_count=0,
-            total=0,
-            items=[],
-        )
-
-    page_count = (total + safe_page_size - 1) // safe_page_size
-    resolved_page = min(normalized_page_index, max(page_count, 1))
-    offset = (resolved_page - 1) * safe_page_size
-    page_rows = (
-        filtered_query.order_by(
-            last_learning_subquery.c.last_learning_at.is_(None),
-            last_learning_subquery.c.last_learning_at.desc(),
-            joined_at_expression.is_(None),
-            joined_at_expression.desc(),
-            learner_source.c.user_bid.desc(),
-        )
-        .offset(offset)
-        .limit(safe_page_size)
-        .all()
-    )
-    page_user_bids = [
-        str(getattr(row, "user_bid", "") or "").strip()
-        for row in page_rows
-        if str(getattr(row, "user_bid", "") or "").strip()
-    ]
-    contact_map = _load_dashboard_course_user_contact_map(page_user_bids)
-    paged_items = []
-    for row in page_rows:
-        user_bid = str(getattr(row, "user_bid", "") or "").strip()
-        contact = contact_map.get(user_bid, {"mobile": "", "email": ""})
-        last_learning_at = _coerce_datetime(
-            app,
-            getattr(row, "last_learning_at", None),
-        )
-        joined_at = _coerce_datetime(app, getattr(row, "joined_at", None))
-        paged_items.append(
-            DashboardCourseDetailLearnerItemDTO(
-                user_bid=user_bid,
-                mobile=str(contact.get("mobile", "") or "").strip(),
-                email=str(contact.get("email", "") or "").strip(),
-                nickname=str(getattr(row, "nickname", "") or "").strip(),
-                learned_lesson_count=int(getattr(row, "learned_lesson_count", 0) or 0),
-                total_lesson_count=total_lesson_count,
-                learning_status=str(getattr(row, "learning_status", "") or ""),
-                follow_up_count=int(getattr(row, "follow_up_count", 0) or 0),
-                last_learning_at=last_learning_at,
-                joined_at=joined_at,
-            )
-        )
-    return DashboardCourseDetailLearnersDTO(
-        page=resolved_page,
-        page_size=safe_page_size,
-        page_count=page_count,
-        total=total,
-        items=paged_items,
-    )
-
-
-def _parse_dashboard_date_boundary(
-    value: str | None,
-    *,
-    param_name: str,
-    end_of_day: bool = False,
-) -> datetime | None:
-    normalized = str(value or "").strip()
-    if not normalized:
-        return None
-    try:
-        parsed_date = date.fromisoformat(normalized)
-    except ValueError:
-        raise_param_error(param_name)
-    boundary = datetime.combine(parsed_date, datetime.min.time())
-    if end_of_day:
-        return boundary + timedelta(days=1)
-    return boundary
-
-
-def _validate_dashboard_date_range(
-    *,
+    user_bid: str | None,
+    user_keyword_filter: ColumnElement[bool] | None,
+    matching_outline_item_bids: set[str] | None,
     start_dt: datetime | None,
     end_dt_exclusive: datetime | None,
-    start_param_name: str,
-    end_param_name: str,
-) -> None:
-    if start_dt is None or end_dt_exclusive is None:
-        return
-    if start_dt >= end_dt_exclusive:
-        raise_param_error(f"{start_param_name}/{end_param_name}")
+) -> Query:
+    """Apply learner, keyword, chapter, and date filters to course follow-ups."""
+    filtered_query = db.session.query(follow_up_base)
+    normalized_user_bid = str(user_bid or "").strip()
+    if normalized_user_bid:
+        filtered_query = filtered_query.filter(
+            follow_up_base.c.user_bid == normalized_user_bid
+        )
+    if user_keyword_filter is not None:
+        filtered_query = filtered_query.filter(user_keyword_filter)
+    if matching_outline_item_bids is not None:
+        filtered_query = filtered_query.filter(
+            follow_up_base.c.outline_item_bid.in_(sorted(matching_outline_item_bids))
+        )
+    if start_dt is not None:
+        filtered_query = filtered_query.filter(follow_up_base.c.created_at >= start_dt)
+    if end_dt_exclusive is not None:
+        filtered_query = filtered_query.filter(
+            follow_up_base.c.created_at < end_dt_exclusive
+        )
+    return filtered_query
+
+
+def _build_course_follow_up_items(
+    paged_rows: Sequence[object],
+    *,
+    outline_context_map: dict[str, dict[str, str]],
+    user_map: dict[str, UserEntity],
+    contact_map: dict[str, dict[str, str]],
+    source_status_map: dict[str, bool],
+) -> list[DashboardCourseFollowUpItemDTO]:
+    items: list[DashboardCourseFollowUpItemDTO] = []
+    for row in paged_rows:
+        generated_block_bid = str(getattr(row, "generated_block_bid", "") or "").strip()
+        outline_item_bid = str(getattr(row, "outline_item_bid", "") or "").strip()
+        user_bid = str(getattr(row, "user_bid", "") or "").strip()
+        context = outline_context_map.get(
+            outline_item_bid,
+            {
+                "chapter_title": "",
+                "lesson_title": "",
+            },
+        )
+        user = user_map.get(user_bid)
+        contact = contact_map.get(user_bid, {})
+        items.append(
+            DashboardCourseFollowUpItemDTO(
+                generated_block_bid=generated_block_bid,
+                progress_record_bid=str(getattr(row, "progress_record_bid", "") or ""),
+                user_bid=user_bid,
+                mobile=str(contact.get("mobile", "") or ""),
+                email=str(contact.get("email", "") or ""),
+                nickname=str(getattr(user, "nickname", "") or ""),
+                chapter_title=str(context.get("chapter_title", "") or ""),
+                lesson_title=str(context.get("lesson_title", "") or ""),
+                follow_up_content=str(getattr(row, "follow_up_content", "") or ""),
+                has_source_output=bool(
+                    source_status_map.get(generated_block_bid, False)
+                ),
+                turn_index=int(getattr(row, "turn_index", 0) or 0),
+                created_at=getattr(row, "created_at", None),
+            )
+        )
+    return items
+
+
+def _filter_follow_up_rows_by_source_status(
+    filtered_query: Query,
+    follow_up_base: Subquery,
+    *,
+    shifu_bid: str,
+    source_status: str,
+) -> tuple[list[object], dict[str, bool]]:
+    """Keep follow-ups whose source output matches the requested status."""
+    filtered_rows = filtered_query.order_by(
+        follow_up_base.c.created_at.desc(),
+        follow_up_base.c.id.desc(),
+    ).all()
+    filtered_source_status_map = _build_follow_up_source_status_map(
+        shifu_bid=shifu_bid,
+        generated_block_bids=[
+            str(getattr(row, "generated_block_bid", "") or "") for row in filtered_rows
+        ],
+    )
+    filtered_rows = [
+        row
+        for row in filtered_rows
+        if filtered_source_status_map.get(
+            str(getattr(row, "generated_block_bid", "") or "").strip(), False
+        )
+        == (source_status == "resolved")
+    ]
+    return filtered_rows, filtered_source_status_map
+
+
+def _build_paged_follow_up_items(
+    paged_rows: Sequence[object],
+    *,
+    shifu_bid: str,
+    outline_context_map: dict[str, dict[str, str]],
+    source_status: str,
+    filtered_source_status_map: dict[str, bool] | None,
+) -> list[DashboardCourseFollowUpItemDTO]:
+    """Load learner contacts and source status, then build page items."""
+    user_bids = sorted(
+        {
+            str(getattr(row, "user_bid", "") or "").strip()
+            for row in paged_rows
+            if str(getattr(row, "user_bid", "") or "").strip()
+        }
+    )
+    user_map = _load_dashboard_course_user_map(user_bids)
+    contact_map = _load_dashboard_course_user_contact_map(user_bids)
+    if source_status and filtered_source_status_map is not None:
+        source_status_map = filtered_source_status_map
+    else:
+        source_status_map = _build_follow_up_source_status_map(
+            shifu_bid=shifu_bid,
+            generated_block_bids=[
+                str(getattr(row, "generated_block_bid", "") or "") for row in paged_rows
+            ],
+        )
+
+    return _build_course_follow_up_items(
+        paged_rows,
+        outline_context_map=outline_context_map,
+        user_map=user_map,
+        contact_map=contact_map,
+        source_status_map=source_status_map,
+    )
 
 
 def build_dashboard_course_follow_ups(
@@ -2020,22 +469,7 @@ def build_dashboard_course_follow_ups(
         outline_context_map = _build_course_outline_context_map(outline_items)
 
         follow_up_base = _build_course_follow_up_base_subquery(normalized_shifu_bid)
-        full_summary_row = db.session.query(
-            db.func.count(follow_up_base.c.id).label("follow_up_count"),
-            db.func.count(
-                db.func.distinct(db.func.nullif(follow_up_base.c.user_bid, ""))
-            ).label("user_count"),
-            db.func.count(
-                db.func.distinct(db.func.nullif(follow_up_base.c.outline_item_bid, ""))
-            ).label("lesson_count"),
-            db.func.max(follow_up_base.c.created_at).label("latest_follow_up_at"),
-        ).one()
-        full_summary = DashboardCourseFollowUpSummaryDTO(
-            follow_up_count=int(getattr(full_summary_row, "follow_up_count", 0) or 0),
-            user_count=int(getattr(full_summary_row, "user_count", 0) or 0),
-            lesson_count=int(getattr(full_summary_row, "lesson_count", 0) or 0),
-            latest_follow_up_at=getattr(full_summary_row, "latest_follow_up_at", None),
-        )
+        full_summary = _summarize_course_follow_ups(follow_up_base)
         user_keyword_filter = _build_follow_up_user_keyword_filter(
             follow_up_base.c.user_bid,
             str(keyword or "").strip(),
@@ -2074,50 +508,25 @@ def build_dashboard_course_follow_ups(
             end_param_name="end_time",
         )
 
-        filtered_query = db.session.query(follow_up_base)
-        normalized_user_bid = str(user_bid or "").strip()
-        if normalized_user_bid:
-            filtered_query = filtered_query.filter(
-                follow_up_base.c.user_bid == normalized_user_bid
-            )
-        if user_keyword_filter is not None:
-            filtered_query = filtered_query.filter(user_keyword_filter)
-        if matching_outline_item_bids is not None:
-            filtered_query = filtered_query.filter(
-                follow_up_base.c.outline_item_bid.in_(
-                    sorted(matching_outline_item_bids)
-                )
-            )
-        if start_dt is not None:
-            filtered_query = filtered_query.filter(
-                follow_up_base.c.created_at >= start_dt
-            )
-        if end_dt_exclusive is not None:
-            filtered_query = filtered_query.filter(
-                follow_up_base.c.created_at < end_dt_exclusive
-            )
+        filtered_query = _filter_course_follow_ups(
+            follow_up_base,
+            user_bid=user_bid,
+            user_keyword_filter=user_keyword_filter,
+            matching_outline_item_bids=matching_outline_item_bids,
+            start_dt=start_dt,
+            end_dt_exclusive=end_dt_exclusive,
+        )
 
         filtered_source_status_map: dict[str, bool] | None = None
         if normalized_source_status:
-            filtered_rows = filtered_query.order_by(
-                follow_up_base.c.created_at.desc(),
-                follow_up_base.c.id.desc(),
-            ).all()
-            filtered_source_status_map = _build_follow_up_source_status_map(
-                shifu_bid=normalized_shifu_bid,
-                generated_block_bids=[
-                    str(getattr(row, "generated_block_bid", "") or "")
-                    for row in filtered_rows
-                ],
-            )
-            filtered_rows = [
-                row
-                for row in filtered_rows
-                if filtered_source_status_map.get(
-                    str(getattr(row, "generated_block_bid", "") or "").strip(), False
+            filtered_rows, filtered_source_status_map = (
+                _filter_follow_up_rows_by_source_status(
+                    filtered_query,
+                    follow_up_base,
+                    shifu_bid=normalized_shifu_bid,
+                    source_status=normalized_source_status,
                 )
-                == (normalized_source_status == "resolved")
-            ]
+            )
             total = len(filtered_rows)
         else:
             filtered_follow_ups = filtered_query.subquery()
@@ -2152,62 +561,13 @@ def build_dashboard_course_follow_ups(
                 .limit(safe_page_size)
                 .all()
             )
-        user_bids = sorted(
-            {
-                str(getattr(row, "user_bid", "") or "").strip()
-                for row in paged_rows
-                if str(getattr(row, "user_bid", "") or "").strip()
-            }
+        items = _build_paged_follow_up_items(
+            paged_rows,
+            shifu_bid=normalized_shifu_bid,
+            outline_context_map=outline_context_map,
+            source_status=normalized_source_status,
+            filtered_source_status_map=filtered_source_status_map,
         )
-        user_map = _load_dashboard_course_user_map(user_bids)
-        contact_map = _load_dashboard_course_user_contact_map(user_bids)
-        if normalized_source_status and filtered_source_status_map is not None:
-            source_status_map = filtered_source_status_map
-        else:
-            source_status_map = _build_follow_up_source_status_map(
-                shifu_bid=normalized_shifu_bid,
-                generated_block_bids=[
-                    str(getattr(row, "generated_block_bid", "") or "")
-                    for row in paged_rows
-                ],
-            )
-
-        items: list[DashboardCourseFollowUpItemDTO] = []
-        for row in paged_rows:
-            generated_block_bid = str(
-                getattr(row, "generated_block_bid", "") or ""
-            ).strip()
-            outline_item_bid = str(getattr(row, "outline_item_bid", "") or "").strip()
-            user_bid = str(getattr(row, "user_bid", "") or "").strip()
-            context = outline_context_map.get(
-                outline_item_bid,
-                {
-                    "chapter_title": "",
-                    "lesson_title": "",
-                },
-            )
-            user = user_map.get(user_bid)
-            contact = contact_map.get(user_bid, {})
-            items.append(
-                DashboardCourseFollowUpItemDTO(
-                    generated_block_bid=generated_block_bid,
-                    progress_record_bid=str(
-                        getattr(row, "progress_record_bid", "") or ""
-                    ),
-                    user_bid=user_bid,
-                    mobile=str(contact.get("mobile", "") or ""),
-                    email=str(contact.get("email", "") or ""),
-                    nickname=str(getattr(user, "nickname", "") or ""),
-                    chapter_title=str(context.get("chapter_title", "") or ""),
-                    lesson_title=str(context.get("lesson_title", "") or ""),
-                    follow_up_content=str(getattr(row, "follow_up_content", "") or ""),
-                    has_source_output=bool(
-                        source_status_map.get(generated_block_bid, False)
-                    ),
-                    turn_index=int(getattr(row, "turn_index", 0) or 0),
-                    created_at=getattr(row, "created_at", None),
-                )
-            )
 
         return DashboardCourseFollowUpListDTO(
             summary=full_summary,
@@ -2335,6 +695,124 @@ def build_dashboard_course_follow_up_detail(
         )
 
 
+def _summarize_course_ratings(
+    normalized_shifu_bid: str,
+    rated_at_expression: ColumnElement[datetime],
+) -> DashboardCourseRatingSummaryDTO:
+    """Summarize every rating of the course before list filters apply."""
+    summary_row = (
+        db.session.query(
+            db.func.avg(LearnLessonFeedback.score).label("average_score"),
+            db.func.count(LearnLessonFeedback.id).label("rating_count"),
+            db.func.count(db.func.distinct(LearnLessonFeedback.user_bid)).label(
+                "user_count"
+            ),
+            db.func.max(rated_at_expression).label("latest_rated_at"),
+        )
+        .filter(
+            LearnLessonFeedback.shifu_bid == normalized_shifu_bid,
+            LearnLessonFeedback.deleted == 0,
+        )
+        .first()
+    )
+    return DashboardCourseRatingSummaryDTO(
+        average_score=_format_average_score(
+            getattr(summary_row, "average_score", None)
+        ),
+        rating_count=int(getattr(summary_row, "rating_count", 0) or 0),
+        user_count=int(getattr(summary_row, "user_count", 0) or 0),
+        latest_rated_at=getattr(summary_row, "latest_rated_at", None),
+    )
+
+
+def _filter_course_ratings(
+    filtered_query: Query,
+    *,
+    outline_context_map: dict[str, dict[str, str]],
+    rated_at_expression: ColumnElement[datetime],
+    keyword: str | None,
+    normalized_chapter_keyword: str,
+    normalized_score: str,
+    normalized_has_comment: str,
+    start_dt: datetime | None,
+    end_dt_exclusive: datetime | None,
+) -> Query:
+    """Apply learner, chapter, score, comment, and date filters to ratings."""
+    keyword_filter = _build_dashboard_learner_keyword_filter(
+        LearnLessonFeedback.user_bid,
+        str(keyword or ""),
+    )
+    if keyword_filter is not None:
+        filtered_query = filtered_query.filter(keyword_filter)
+
+    if normalized_chapter_keyword:
+        matched_outline_item_bids = sorted(
+            _resolve_dashboard_outline_keyword_match_bids(
+                outline_context_map,
+                normalized_chapter_keyword,
+            )
+        )
+        if matched_outline_item_bids:
+            filtered_query = filtered_query.filter(
+                LearnLessonFeedback.outline_item_bid.in_(matched_outline_item_bids)
+            )
+        else:
+            filtered_query = filtered_query.filter(false())
+
+    if normalized_score:
+        filtered_query = filtered_query.filter(
+            LearnLessonFeedback.score == int(normalized_score)
+        )
+    if normalized_has_comment == "true":
+        filtered_query = filtered_query.filter(
+            db.func.trim(db.func.coalesce(LearnLessonFeedback.comment, "")) != ""
+        )
+    if start_dt is not None:
+        filtered_query = filtered_query.filter(rated_at_expression >= start_dt)
+    if end_dt_exclusive is not None:
+        filtered_query = filtered_query.filter(rated_at_expression < end_dt_exclusive)
+    return filtered_query
+
+
+def _build_course_rating_items(
+    page_rows: Sequence[object],
+    *,
+    outline_context_map: dict[str, dict[str, str]],
+    user_map: dict[str, UserEntity],
+    contact_map: dict[str, dict[str, str]],
+) -> list[DashboardCourseRatingItemDTO]:
+    items: list[DashboardCourseRatingItemDTO] = []
+    for row in page_rows:
+        user_bid = str(getattr(row, "user_bid", "") or "").strip()
+        outline_item_bid = str(getattr(row, "outline_item_bid", "") or "").strip()
+        rated_at = getattr(row, "rated_at", None)
+        user = user_map.get(user_bid)
+        contact = contact_map.get(user_bid, {"mobile": "", "email": ""})
+        context = outline_context_map.get(
+            outline_item_bid,
+            {
+                "chapter_title": "",
+                "lesson_title": "",
+            },
+        )
+        items.append(
+            DashboardCourseRatingItemDTO(
+                lesson_feedback_bid=str(getattr(row, "lesson_feedback_bid", "") or ""),
+                progress_record_bid=str(getattr(row, "progress_record_bid", "") or ""),
+                user_bid=user_bid,
+                mobile=str(contact.get("mobile", "") or ""),
+                email=str(contact.get("email", "") or ""),
+                nickname=str(getattr(user, "nickname", "") or ""),
+                chapter_title=str(context.get("chapter_title", "") or ""),
+                lesson_title=str(context.get("lesson_title", "") or ""),
+                score=int(getattr(row, "score", 0) or 0),
+                comment=str(getattr(row, "comment", "") or ""),
+                rated_at=rated_at,
+            )
+        )
+    return items
+
+
 def build_dashboard_course_ratings(
     app: Flask,
     user_id: str,
@@ -2408,65 +886,20 @@ def build_dashboard_course_ratings(
             LearnLessonFeedback.shifu_bid == normalized_shifu_bid,
             LearnLessonFeedback.deleted == 0,
         )
-        summary_row = (
-            db.session.query(
-                db.func.avg(LearnLessonFeedback.score).label("average_score"),
-                db.func.count(LearnLessonFeedback.id).label("rating_count"),
-                db.func.count(db.func.distinct(LearnLessonFeedback.user_bid)).label(
-                    "user_count"
-                ),
-                db.func.max(rated_at_expression).label("latest_rated_at"),
-            )
-            .filter(
-                LearnLessonFeedback.shifu_bid == normalized_shifu_bid,
-                LearnLessonFeedback.deleted == 0,
-            )
-            .first()
+        full_summary = _summarize_course_ratings(
+            normalized_shifu_bid, rated_at_expression
         )
-        full_summary = DashboardCourseRatingSummaryDTO(
-            average_score=_format_average_score(
-                getattr(summary_row, "average_score", None)
-            ),
-            rating_count=int(getattr(summary_row, "rating_count", 0) or 0),
-            user_count=int(getattr(summary_row, "user_count", 0) or 0),
-            latest_rated_at=getattr(summary_row, "latest_rated_at", None),
+        filtered_query = _filter_course_ratings(
+            rating_base_query,
+            outline_context_map=outline_context_map,
+            rated_at_expression=rated_at_expression,
+            keyword=keyword,
+            normalized_chapter_keyword=normalized_chapter_keyword,
+            normalized_score=normalized_score,
+            normalized_has_comment=normalized_has_comment,
+            start_dt=start_dt,
+            end_dt_exclusive=end_dt_exclusive,
         )
-        filtered_query = rating_base_query
-        keyword_filter = _build_dashboard_learner_keyword_filter(
-            LearnLessonFeedback.user_bid,
-            str(keyword or ""),
-        )
-        if keyword_filter is not None:
-            filtered_query = filtered_query.filter(keyword_filter)
-
-        if normalized_chapter_keyword:
-            matched_outline_item_bids = sorted(
-                _resolve_dashboard_outline_keyword_match_bids(
-                    outline_context_map,
-                    normalized_chapter_keyword,
-                )
-            )
-            if matched_outline_item_bids:
-                filtered_query = filtered_query.filter(
-                    LearnLessonFeedback.outline_item_bid.in_(matched_outline_item_bids)
-                )
-            else:
-                filtered_query = filtered_query.filter(false())
-
-        if normalized_score:
-            filtered_query = filtered_query.filter(
-                LearnLessonFeedback.score == int(normalized_score)
-            )
-        if normalized_has_comment == "true":
-            filtered_query = filtered_query.filter(
-                db.func.trim(db.func.coalesce(LearnLessonFeedback.comment, "")) != ""
-            )
-        if start_dt is not None:
-            filtered_query = filtered_query.filter(rated_at_expression >= start_dt)
-        if end_dt_exclusive is not None:
-            filtered_query = filtered_query.filter(
-                rated_at_expression < end_dt_exclusive
-            )
 
         total = (
             db.session.query(db.func.count())
@@ -2507,39 +940,12 @@ def build_dashboard_course_ratings(
         )
         user_map = _load_dashboard_course_user_map(page_user_bids)
         contact_map = _load_dashboard_course_user_contact_map(page_user_bids)
-        items: list[DashboardCourseRatingItemDTO] = []
-        for row in page_rows:
-            user_bid = str(getattr(row, "user_bid", "") or "").strip()
-            outline_item_bid = str(getattr(row, "outline_item_bid", "") or "").strip()
-            rated_at = getattr(row, "rated_at", None)
-            user = user_map.get(user_bid)
-            contact = contact_map.get(user_bid, {"mobile": "", "email": ""})
-            context = outline_context_map.get(
-                outline_item_bid,
-                {
-                    "chapter_title": "",
-                    "lesson_title": "",
-                },
-            )
-            items.append(
-                DashboardCourseRatingItemDTO(
-                    lesson_feedback_bid=str(
-                        getattr(row, "lesson_feedback_bid", "") or ""
-                    ),
-                    progress_record_bid=str(
-                        getattr(row, "progress_record_bid", "") or ""
-                    ),
-                    user_bid=user_bid,
-                    mobile=str(contact.get("mobile", "") or ""),
-                    email=str(contact.get("email", "") or ""),
-                    nickname=str(getattr(user, "nickname", "") or ""),
-                    chapter_title=str(context.get("chapter_title", "") or ""),
-                    lesson_title=str(context.get("lesson_title", "") or ""),
-                    score=int(getattr(row, "score", 0) or 0),
-                    comment=str(getattr(row, "comment", "") or ""),
-                    rated_at=rated_at,
-                )
-            )
+        items = _build_course_rating_items(
+            page_rows,
+            outline_context_map=outline_context_map,
+            user_map=user_map,
+            contact_map=contact_map,
+        )
         return DashboardCourseRatingListDTO(
             summary=full_summary,
             items=items,
