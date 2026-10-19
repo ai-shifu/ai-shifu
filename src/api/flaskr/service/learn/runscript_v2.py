@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 from collections.abc import Generator
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flask import Flask
@@ -983,51 +984,32 @@ def _teaches_with_agent(
     return input_type != INPUT_TYPE_ASK
 
 
-def run_script(
+@dataclass
+class _RunStreamState:
+    """Mutable bookkeeping shared by the SSE consumer loop and its tail."""
+
+    run_started_at: int
+    status_last_refreshed_at: float = 0.0
+    stream_error: Exception | None = None
+    client_disconnected: bool = False
+    done_received: bool = False
+    last_stream_type: str | None = None
+    last_stream_done_is_terminal: bool | None = None
+
+
+def _acquire_run_slot(
     app: Flask,
-    shifu_bid: str,
-    outline_bid: str,
+    *,
+    is_ask: bool,
+    lock_key: str,
     user_bid: str,
-    user_input: str | dict | None = None,
-    input_type: str | None = None,
-    reload_generated_block_bid: str | None = None,
-    reload_element_bid: str | None = None,
-    listen: bool = False,
-    learning_mode: str = "read",
-    preview_mode: bool = False,
-    shifu_context_snapshot: dict[str, object] | None = None,
-    language: str | None = None,
-) -> Generator[str, None, None]:
-    """Run script."""
+    outline_bid: str,
+) -> tuple[object | None, bool]:
+    """Take the ask semaphore or the lesson mutex; return ``(lock, acquired)``."""
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1
     lock_retry_count = 5
     lock_retry_sleep_seconds = 0.2
-    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
-    lock_key = _get_run_script_lock_key(app, user_bid, outline_bid)
-    is_ask = input_type == INPUT_TYPE_ASK
-    runtime_listen = bool(listen) and not is_ask
-    # Learner run SSE now always speaks the element protocol. The listen flag
-    # still controls run-time behaviors such as segmented TTS generation.
-    use_element_protocol = True
-    # Decided here as well as in `_lesson_events`, because the adapter is built before the
-    # producer starts and needs to know which engine it is serving. The predicate reads the
-    # deployment's flag and this request's own arguments, so asking twice costs nothing and
-    # cannot disagree.
-    teaches_with_agent = _teaches_with_agent(
-        shifu_bid=shifu_bid,
-        input_type=input_type,
-        reload_generated_block_bid=reload_generated_block_bid,
-        reload_element_bid=reload_element_bid,
-    )
-    element_adapter = ListenElementRunAdapter(
-        app,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-        user_bid=user_bid,
-        persist_only_final=teaches_with_agent,
-    )
-    stream_element_adapter = element_adapter
     if is_ask:
         # Ask (follow-up) requests use a counting semaphore instead of the main mutex
         # so they can run in parallel with the main lesson stream (up to
@@ -1059,332 +1041,494 @@ def run_script(
                     lock_retry_count + 1,
                 )
                 time.sleep(lock_retry_sleep_seconds)
+    return lock, acquired
 
-    if acquired:
-        stop_event = threading.Event()
-        # Use SimpleQueue to avoid gevent-patched Queue lock contention in background threads.
-        output_queue: queue.SimpleQueue = queue.SimpleQueue()
-        # Capture logging context from the request thread so logs in the producer thread keep the same identifiers
-        parent_request_id = getattr(log_thread_local, "request_id", None)
-        parent_url = getattr(log_thread_local, "url", None)
-        parent_client_ip = getattr(log_thread_local, "client_ip", None)
-        # Language must be handed in by the route handler: this generator body
-        # first runs during WSGI response iteration, and on Flask >= 3.1 the
-        # request teardown (which clears the request-scoped language) has
-        # already executed by then, so get_current_language() here would only
-        # ever see the default. The fallback keeps direct callers working.
-        parent_language = language or get_current_language()
-        # Capture shifu context so background thread can reuse it (may be provided by caller)
-        parent_shifu_context = shifu_context_snapshot or get_shifu_context_snapshot()
-        producer_thread: threading.Thread | None = None
 
-        def producer() -> None:
-            # Propagate logging thread-local context into this background thread
-            if parent_request_id:
-                log_thread_local.request_id = parent_request_id
-            if parent_url:
-                log_thread_local.url = parent_url
-            if parent_client_ip:
-                log_thread_local.client_ip = parent_client_ip
-            # Propagate language context into this background thread
-            set_language(parent_language)
-            # Propagate shifu context into this background thread
-            apply_shifu_context_snapshot(parent_shifu_context)
-            # Keep the producer thread as the sole owner of the app context for
-            # the streaming generator to avoid cross-thread context teardown.
-            with app.app_context():
-                res = _lesson_events(
-                    app=app,
-                    user_bid=user_bid,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    user_input=user_input,
-                    input_type=input_type,
-                    reload_generated_block_bid=reload_generated_block_bid,
-                    reload_element_bid=reload_element_bid,
-                    listen=runtime_listen,
-                    learning_mode=learning_mode,
-                    preview_mode=preview_mode,
-                    stop_event=stop_event,
-                    element_adapter=element_adapter,
-                    heartbeat_interval=heartbeat_interval,
-                )
-                producer_exc: BaseException | None = None
-                exhausted = False
-                try:
-                    for item in res:
-                        if stop_event.is_set():
-                            break
-                        if isinstance(item, RunMarkdownFlowDTO):
-                            for converted_item in element_adapter.process([item]):
-                                output_queue.put(("data", converted_item))
-                            continue
-                        output_queue.put(("data", item))
-                    else:
-                        # for/else: only a fully exhausted generator reaches
-                        # here - every break (stop_event) leaves it False.
-                        exhausted = True
-                except Exception as exc:
-                    producer_exc = exc
-                    if stop_event.is_set():
-                        app.logger.info(
-                            "run_script producer stopped due to client disconnect: %s",
-                            type(exc).__name__,
-                        )
-                    else:
-                        output_queue.put(("error", exc))
-                except BaseException as exc:
-                    producer_exc = exc
-                    raise
-                finally:
-                    with contextlib.suppress(Exception):
-                        res.close()
-                    if not exhausted or producer_exc is not None:
-                        # Anything short of natural exhaustion may have
-                        # interrupted a DB exchange (the close above injects
-                        # GeneratorExit into the generator's yield point, and
-                        # element_adapter.process runs outside the generator's
-                        # own cleanup). Discard the connection; when
-                        # run_script_inner already invalidated and removed the
-                        # session this resolves a fresh registry Session and
-                        # invalidating it is a harmless no-op.
-                        _discard_session_connection(source="run_script producer abort")
-                    _remove_db_session_safely(app, source="run_script producer")
-                    output_queue.put(("done", None))
-
+def _run_producer(
+    app: Flask,
+    *,
+    parent_request_id: object,
+    parent_url: object,
+    parent_client_ip: object,
+    parent_language: str,
+    parent_shifu_context: dict[str, object] | None,
+    lesson_kwargs: dict[str, object],
+    stop_event: threading.Event,
+    output_queue: queue.SimpleQueue,
+    element_adapter: ListenElementRunAdapter,
+) -> None:
+    """Background thread body: run the lesson and feed the SSE output queue."""
+    # Propagate logging thread-local context into this background thread
+    if parent_request_id:
+        log_thread_local.request_id = parent_request_id
+    if parent_url:
+        log_thread_local.url = parent_url
+    if parent_client_ip:
+        log_thread_local.client_ip = parent_client_ip
+    # Propagate language context into this background thread
+    set_language(parent_language)
+    # Propagate shifu context into this background thread
+    apply_shifu_context_snapshot(parent_shifu_context)
+    # Keep the producer thread as the sole owner of the app context for
+    # the streaming generator to avoid cross-thread context teardown.
+    with app.app_context():
+        res = _lesson_events(**lesson_kwargs)
+        producer_exc: BaseException | None = None
+        exhausted = False
         try:
-            producer_thread = threading.Thread(
-                target=producer, name="run_script_stream_producer", daemon=True
-            )
-            producer_thread.start()
+            for item in res:
+                if stop_event.is_set():
+                    break
+                if isinstance(item, RunMarkdownFlowDTO):
+                    for converted_item in element_adapter.process([item]):
+                        output_queue.put(("data", converted_item))
+                    continue
+                output_queue.put(("data", item))
+            else:
+                # for/else: only a fully exhausted generator reaches
+                # here - every break (stop_event) leaves it False.
+                exhausted = True
+        except Exception as exc:
+            producer_exc = exc
+            if stop_event.is_set():
+                app.logger.info(
+                    "run_script producer stopped due to client disconnect: %s",
+                    type(exc).__name__,
+                )
+            else:
+                output_queue.put(("error", exc))
+        except BaseException as exc:
+            producer_exc = exc
+            raise
+        finally:
+            with contextlib.suppress(Exception):
+                res.close()
+            if not exhausted or producer_exc is not None:
+                # Anything short of natural exhaustion may have
+                # interrupted a DB exchange (the close above injects
+                # GeneratorExit into the generator's yield point, and
+                # element_adapter.process runs outside the generator's
+                # own cleanup). Discard the connection; when
+                # run_script_inner already invalidated and removed the
+                # session this resolves a fresh registry Session and
+                # invalidating it is a harmless no-op.
+                _discard_session_connection(source="run_script producer abort")
+            _remove_db_session_safely(app, source="run_script producer")
+            output_queue.put(("done", None))
 
-            run_started_at = int(time.time())
-            status_last_refreshed_at = 0.0
 
-            def _refresh_run_script_status(force: bool = False) -> None:
-                # Ask requests do not own the run-script status slot; skip tracking.
-                if is_ask:
+def _refresh_run_script_status(
+    app: Flask,
+    state: _RunStreamState,
+    *,
+    is_ask: bool,
+    user_bid: str,
+    outline_bid: str,
+    force: bool = False,
+) -> None:
+    # Ask requests do not own the run-script status slot; skip tracking.
+    if is_ask:
+        return
+    now = time.time()
+    if (
+        not force
+        and now - state.status_last_refreshed_at < RUN_SCRIPT_STATUS_REFRESH_SECONDS
+    ):
+        return
+    _set_run_script_status(app, user_bid, outline_bid, state.run_started_at)
+    state.status_last_refreshed_at = now
+
+
+def _should_suppress_live_payload(
+    payload_obj: object, *, use_element_protocol: bool
+) -> bool:
+    payload_type = getattr(payload_obj, "type", None)
+    if hasattr(payload_type, "value"):
+        payload_type = payload_type.value
+    return bool(
+        use_element_protocol
+        and payload_type == GeneratedType.DONE.value
+        and not bool(getattr(payload_obj, "is_terminal", False))
+    )
+
+
+def _drain_output_queue(
+    app: Flask,
+    state: _RunStreamState,
+    output_queue: queue.SimpleQueue,
+    *,
+    stop_event: threading.Event,
+    heartbeat_interval: float,
+    stream_element_adapter: ListenElementRunAdapter | None,
+    use_element_protocol: bool,
+    is_ask: bool,
+    user_bid: str,
+    outline_bid: str,
+) -> Generator[str, None, None]:
+    """Relay producer output as SSE chunks, with heartbeats while idle.
+
+    Returns when the producer is done, reports an error, or the client goes
+    away. A close (``GeneratorExit``) at a yield marks the client as
+    disconnected and stops the producer before the close continues outward.
+    """
+
+    def _refresh_status() -> None:
+        _refresh_run_script_status(
+            app, state, is_ask=is_ask, user_bid=user_bid, outline_bid=outline_bid
+        )
+
+    while True:
+        kind: str
+        payload: object
+        try:
+            kind, payload = output_queue.get_nowait()
+        except queue.Empty:
+            if state.done_received or state.client_disconnected:
+                break
+            _refresh_status()
+            if heartbeat_interval > 0:
+                # Keep waiting cooperative under gevent while polling a thread-safe queue.
+                time.sleep(heartbeat_interval)
+            else:
+                time.sleep(0.01)
+            try:
+                kind, payload = output_queue.get_nowait()
+            except queue.Empty:
+                if heartbeat_interval <= 0:
+                    continue
+                try:
+                    heartbeat_payload = (
+                        stream_element_adapter.make_ephemeral_message(
+                            event_type="heartbeat",
+                            content="",
+                        )
+                        if stream_element_adapter is not None
+                        else {"type": "heartbeat"}
+                    )
+                    yield _to_sse_chunk(heartbeat_payload)
+                except GeneratorExit:
+                    state.client_disconnected = True
+                    stop_event.set()
+                    app.logger.info(
+                        "Client disconnected from SSE stream during heartbeat"
+                    )
                     return
-                nonlocal status_last_refreshed_at
-                now = time.time()
-                if (
-                    not force
-                    and now - status_last_refreshed_at
-                    < RUN_SCRIPT_STATUS_REFRESH_SECONDS
+                except (ConnectionError, BrokenPipeError, OSError) as exc:
+                    state.client_disconnected = True
+                    stop_event.set()
+                    app.logger.info(
+                        "Client disconnected from SSE stream during heartbeat: %s",
+                        repr(exc),
+                    )
+                    break
+                continue
+
+        if kind == "data":
+            try:
+                _refresh_status()
+                if _should_suppress_live_payload(
+                    payload, use_element_protocol=use_element_protocol
                 ):
-                    return
-                _set_run_script_status(app, user_bid, outline_bid, run_started_at)
-                status_last_refreshed_at = now
-
-            _refresh_run_script_status(force=True)
-
-            stream_error: Exception | None = None
-            client_disconnected = False
-            done_received = False
-            last_stream_type: str | None = None
-            last_stream_done_is_terminal: bool | None = None
-
-            def _should_suppress_live_payload(payload_obj: object) -> bool:
-                payload_type = getattr(payload_obj, "type", None)
+                    continue
+                payload_type = getattr(payload, "type", None)
                 if hasattr(payload_type, "value"):
                     payload_type = payload_type.value
-                return bool(
-                    use_element_protocol
-                    and payload_type == GeneratedType.DONE.value
-                    and not bool(getattr(payload_obj, "is_terminal", False))
+                yield (
+                    "data: "
+                    + json.dumps(payload, default=fmt, ensure_ascii=False)
+                    + b"\n\n".decode("utf-8")
                 )
-
-            while True:
-                kind: str
-                payload: object
-                try:
-                    kind, payload = output_queue.get_nowait()
-                except queue.Empty:
-                    if done_received or client_disconnected:
-                        break
-                    _refresh_run_script_status()
-                    if heartbeat_interval > 0:
-                        # Keep waiting cooperative under gevent while polling a thread-safe queue.
-                        time.sleep(heartbeat_interval)
+                if isinstance(payload_type, str):
+                    state.last_stream_type = payload_type
+                    if payload_type == GeneratedType.DONE.value:
+                        state.last_stream_done_is_terminal = bool(
+                            getattr(payload, "is_terminal", False)
+                        )
                     else:
-                        time.sleep(0.01)
-                    try:
-                        kind, payload = output_queue.get_nowait()
-                    except queue.Empty:
-                        if heartbeat_interval <= 0:
-                            continue
-                        try:
-                            heartbeat_payload = (
-                                stream_element_adapter.make_ephemeral_message(
-                                    event_type="heartbeat",
-                                    content="",
-                                )
-                                if stream_element_adapter is not None
-                                else {"type": "heartbeat"}
-                            )
-                            yield _to_sse_chunk(heartbeat_payload)
-                        except GeneratorExit:
-                            client_disconnected = True
-                            stop_event.set()
-                            app.logger.info(
-                                "Client disconnected from SSE stream during heartbeat"
-                            )
-                            return
-                        except (ConnectionError, BrokenPipeError, OSError) as exc:
-                            client_disconnected = True
-                            stop_event.set()
-                            app.logger.info(
-                                "Client disconnected from SSE stream during heartbeat: %s",
-                                repr(exc),
-                            )
-                            break
-                        continue
-
-                if kind == "data":
-                    try:
-                        _refresh_run_script_status()
-                        if _should_suppress_live_payload(payload):
-                            continue
-                        payload_type = getattr(payload, "type", None)
-                        if hasattr(payload_type, "value"):
-                            payload_type = payload_type.value
-                        yield (
-                            "data: "
-                            + json.dumps(payload, default=fmt, ensure_ascii=False)
-                            + b"\n\n".decode("utf-8")
-                        )
-                        if isinstance(payload_type, str):
-                            last_stream_type = payload_type
-                            if payload_type == GeneratedType.DONE.value:
-                                last_stream_done_is_terminal = bool(
-                                    getattr(payload, "is_terminal", False)
-                                )
-                            else:
-                                last_stream_done_is_terminal = None
-                    except GeneratorExit:
-                        client_disconnected = True
-                        stop_event.set()
-                        app.logger.info(
-                            "Client disconnected from SSE stream (GeneratorExit)"
-                        )
-                        return
-                    except (ConnectionError, BrokenPipeError, OSError) as exc:
-                        client_disconnected = True
-                        stop_event.set()
-                        app.logger.info(
-                            "Client disconnected from SSE stream: %s", repr(exc)
-                        )
-                        break
-                elif kind == "error":
-                    if isinstance(payload, Exception):
-                        stream_error = payload
-                    else:
-                        stream_error = Exception(str(payload))
-                    break
-                elif kind == "done":
-                    done_received = True
-                    break
-
-            if (
-                stream_error
-                and not client_disconnected
-                and isinstance(stream_error, Exception)
-            ):
-                _log_run_script_stream_error(app, stream_error)
-                if isinstance(stream_error, AppError):
-                    error_content = str(stream_error)
-                elif _is_retryable_llm_stream_connection_error(stream_error):
-                    error_content = str(_("server.learn.llmStreamInterrupted"))
-                else:
-                    error_content = str(_("server.common.unknownError"))
-                yield _to_sse_chunk(
-                    _make_terminal_event(
-                        outline_bid=outline_bid,
-                        event_type="error",
-                        content=error_content,
-                        element_adapter=stream_element_adapter,
-                    )
-                )
-                last_stream_type = "error"
-                block_end_event = _make_terminal_event(
-                    outline_bid=outline_bid,
-                    event_type=GeneratedType.BREAK.value,
-                    content="",
-                    element_adapter=stream_element_adapter,
-                    is_terminal=False if runtime_listen else None,
-                )
-                if not _should_suppress_live_payload(block_end_event):
-                    yield _to_sse_chunk(block_end_event)
-                    last_stream_type = (
-                        GeneratedType.DONE.value
-                        if use_element_protocol
-                        else GeneratedType.BREAK.value
-                    )
-                    last_stream_done_is_terminal = (
-                        False if use_element_protocol else None
-                    )
-
-            if not client_disconnected and not (
-                use_element_protocol
-                and last_stream_type == GeneratedType.DONE.value
-                and last_stream_done_is_terminal is True
-            ):
-                yield _to_sse_chunk(
-                    _make_terminal_event(
-                        outline_bid=outline_bid,
-                        event_type=GeneratedType.DONE.value,
-                        content="",
-                        element_adapter=stream_element_adapter,
-                        is_terminal=True if use_element_protocol else None,
-                    )
-                )
-                last_stream_type = GeneratedType.DONE.value
-                last_stream_done_is_terminal = True if use_element_protocol else None
-        finally:
-            stop_event.set()
-            if producer_thread is not None:
-                producer_thread.join(timeout=0.1)
-            if producer_thread is not None and producer_thread.is_alive():
-                app.logger.warning("run_script producer thread did not stop in time")
-
-            if is_ask:
-                _ask_sem_release(app, user_bid, outline_bid)
+                        state.last_stream_done_is_terminal = None
+            except GeneratorExit:
+                state.client_disconnected = True
+                stop_event.set()
+                app.logger.info("Client disconnected from SSE stream (GeneratorExit)")
+                return
+            except (ConnectionError, BrokenPipeError, OSError) as exc:
+                state.client_disconnected = True
+                stop_event.set()
+                app.logger.info("Client disconnected from SSE stream: %s", repr(exc))
+                break
+        elif kind == "error":
+            if isinstance(payload, Exception):
+                state.stream_error = payload
             else:
-                with contextlib.suppress(Exception):
-                    lock.release()
-                _clear_run_script_status(app, user_bid, outline_bid)
-    else:
-        app.logger.warning(
-            "run_script acquisition failed (is_ask=%s): user_bid=%s outline_bid=%s",
-            is_ask,
-            user_bid,
-            outline_bid,
-        )
-        busy_content = str(_("server.learn.outputInProgress"))
-        terminal_events = (
-            [("error", busy_content), (GeneratedType.DONE.value, "")]
-            if use_element_protocol
-            else [
-                ("error", busy_content),
-                (GeneratedType.BREAK.value, ""),
-                (GeneratedType.DONE.value, ""),
-            ]
-        )
-        for event_type, content in terminal_events:
-            yield _to_sse_chunk(
-                _make_terminal_event(
-                    outline_bid=outline_bid,
-                    event_type=event_type,
-                    content=content,
-                    element_adapter=stream_element_adapter,
-                    is_terminal=(
-                        True
-                        if use_element_protocol
-                        and event_type == GeneratedType.DONE.value
-                        else None
-                    ),
-                )
+                state.stream_error = Exception(str(payload))
+            break
+        elif kind == "done":
+            state.done_received = True
+            break
+
+
+def _stream_closing_events(
+    app: Flask,
+    state: _RunStreamState,
+    *,
+    outline_bid: str,
+    stream_element_adapter: ListenElementRunAdapter | None,
+    use_element_protocol: bool,
+    runtime_listen: bool,
+) -> Generator[str, None, None]:
+    """Emit the error/block-end events for a failed run and the terminal DONE."""
+    stream_error = state.stream_error
+    if (
+        stream_error
+        and not state.client_disconnected
+        and isinstance(stream_error, Exception)
+    ):
+        _log_run_script_stream_error(app, stream_error)
+        if isinstance(stream_error, AppError):
+            error_content = str(stream_error)
+        elif _is_retryable_llm_stream_connection_error(stream_error):
+            error_content = str(_("server.learn.llmStreamInterrupted"))
+        else:
+            error_content = str(_("server.common.unknownError"))
+        yield _to_sse_chunk(
+            _make_terminal_event(
+                outline_bid=outline_bid,
+                event_type="error",
+                content=error_content,
+                element_adapter=stream_element_adapter,
             )
+        )
+        state.last_stream_type = "error"
+        block_end_event = _make_terminal_event(
+            outline_bid=outline_bid,
+            event_type=GeneratedType.BREAK.value,
+            content="",
+            element_adapter=stream_element_adapter,
+            is_terminal=False if runtime_listen else None,
+        )
+        if not _should_suppress_live_payload(
+            block_end_event, use_element_protocol=use_element_protocol
+        ):
+            yield _to_sse_chunk(block_end_event)
+            state.last_stream_type = (
+                GeneratedType.DONE.value
+                if use_element_protocol
+                else GeneratedType.BREAK.value
+            )
+            state.last_stream_done_is_terminal = False if use_element_protocol else None
+
+    if not state.client_disconnected and not (
+        use_element_protocol
+        and state.last_stream_type == GeneratedType.DONE.value
+        and state.last_stream_done_is_terminal is True
+    ):
+        yield _to_sse_chunk(
+            _make_terminal_event(
+                outline_bid=outline_bid,
+                event_type=GeneratedType.DONE.value,
+                content="",
+                element_adapter=stream_element_adapter,
+                is_terminal=True if use_element_protocol else None,
+            )
+        )
+        state.last_stream_type = GeneratedType.DONE.value
+        state.last_stream_done_is_terminal = True if use_element_protocol else None
+
+
+def _stream_busy_events(
+    app: Flask,
+    *,
+    is_ask: bool,
+    user_bid: str,
+    outline_bid: str,
+    stream_element_adapter: ListenElementRunAdapter | None,
+    use_element_protocol: bool,
+) -> Generator[str, None, None]:
+    """Tell the client another run already owns this lesson."""
+    app.logger.warning(
+        "run_script acquisition failed (is_ask=%s): user_bid=%s outline_bid=%s",
+        is_ask,
+        user_bid,
+        outline_bid,
+    )
+    busy_content = str(_("server.learn.outputInProgress"))
+    terminal_events = (
+        [("error", busy_content), (GeneratedType.DONE.value, "")]
+        if use_element_protocol
+        else [
+            ("error", busy_content),
+            (GeneratedType.BREAK.value, ""),
+            (GeneratedType.DONE.value, ""),
+        ]
+    )
+    for event_type, content in terminal_events:
+        yield _to_sse_chunk(
+            _make_terminal_event(
+                outline_bid=outline_bid,
+                event_type=event_type,
+                content=content,
+                element_adapter=stream_element_adapter,
+                is_terminal=(
+                    True
+                    if use_element_protocol and event_type == GeneratedType.DONE.value
+                    else None
+                ),
+            )
+        )
+
+
+def run_script(
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    user_input: str | dict | None = None,
+    input_type: str | None = None,
+    reload_generated_block_bid: str | None = None,
+    reload_element_bid: str | None = None,
+    listen: bool = False,
+    learning_mode: str = "read",
+    preview_mode: bool = False,
+    shifu_context_snapshot: dict[str, object] | None = None,
+    language: str | None = None,
+) -> Generator[str, None, None]:
+    """Run script."""
+    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
+    lock_key = _get_run_script_lock_key(app, user_bid, outline_bid)
+    is_ask = input_type == INPUT_TYPE_ASK
+    runtime_listen = bool(listen) and not is_ask
+    # Learner run SSE now always speaks the element protocol. The listen flag
+    # still controls run-time behaviors such as segmented TTS generation.
+    use_element_protocol = True
+    # Decided here as well as in `_lesson_events`, because the adapter is built before the
+    # producer starts and needs to know which engine it is serving. The predicate reads the
+    # deployment's flag and this request's own arguments, so asking twice costs nothing and
+    # cannot disagree.
+    teaches_with_agent = _teaches_with_agent(
+        shifu_bid=shifu_bid,
+        input_type=input_type,
+        reload_generated_block_bid=reload_generated_block_bid,
+        reload_element_bid=reload_element_bid,
+    )
+    element_adapter = ListenElementRunAdapter(
+        app,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        user_bid=user_bid,
+        persist_only_final=teaches_with_agent,
+    )
+    stream_element_adapter = element_adapter
+    lock, acquired = _acquire_run_slot(
+        app,
+        is_ask=is_ask,
+        lock_key=lock_key,
+        user_bid=user_bid,
+        outline_bid=outline_bid,
+    )
+
+    if not acquired:
+        yield from _stream_busy_events(
+            app,
+            is_ask=is_ask,
+            user_bid=user_bid,
+            outline_bid=outline_bid,
+            stream_element_adapter=stream_element_adapter,
+            use_element_protocol=use_element_protocol,
+        )
+        return
+
+    stop_event = threading.Event()
+    # Use SimpleQueue to avoid gevent-patched Queue lock contention in background threads.
+    output_queue: queue.SimpleQueue = queue.SimpleQueue()
+    # Language must be handed in by the route handler: this generator body
+    # first runs during WSGI response iteration, and on Flask >= 3.1 the
+    # request teardown (which clears the request-scoped language) has
+    # already executed by then, so get_current_language() here would only
+    # ever see the default. The fallback keeps direct callers working.
+    producer_kwargs = {
+        # Capture logging context from the request thread so logs in the producer
+        # thread keep the same identifiers
+        "parent_request_id": getattr(log_thread_local, "request_id", None),
+        "parent_url": getattr(log_thread_local, "url", None),
+        "parent_client_ip": getattr(log_thread_local, "client_ip", None),
+        "parent_language": language or get_current_language(),
+        # Capture shifu context so background thread can reuse it (may be provided by caller)
+        "parent_shifu_context": (
+            shifu_context_snapshot or get_shifu_context_snapshot()
+        ),
+        "lesson_kwargs": {
+            "app": app,
+            "user_bid": user_bid,
+            "shifu_bid": shifu_bid,
+            "outline_bid": outline_bid,
+            "user_input": user_input,
+            "input_type": input_type,
+            "reload_generated_block_bid": reload_generated_block_bid,
+            "reload_element_bid": reload_element_bid,
+            "listen": runtime_listen,
+            "learning_mode": learning_mode,
+            "preview_mode": preview_mode,
+            "stop_event": stop_event,
+            "element_adapter": element_adapter,
+            "heartbeat_interval": heartbeat_interval,
+        },
+        "stop_event": stop_event,
+        "output_queue": output_queue,
+        "element_adapter": element_adapter,
+    }
+    producer_thread: threading.Thread | None = None
+    try:
+        producer_thread = threading.Thread(
+            target=_run_producer,
+            args=(app,),
+            kwargs=producer_kwargs,
+            name="run_script_stream_producer",
+            daemon=True,
+        )
+        producer_thread.start()
+
+        state = _RunStreamState(run_started_at=int(time.time()))
+        _refresh_run_script_status(
+            app,
+            state,
+            is_ask=is_ask,
+            user_bid=user_bid,
+            outline_bid=outline_bid,
+            force=True,
+        )
+        yield from _drain_output_queue(
+            app,
+            state,
+            output_queue,
+            stop_event=stop_event,
+            heartbeat_interval=heartbeat_interval,
+            stream_element_adapter=stream_element_adapter,
+            use_element_protocol=use_element_protocol,
+            is_ask=is_ask,
+            user_bid=user_bid,
+            outline_bid=outline_bid,
+        )
+        yield from _stream_closing_events(
+            app,
+            state,
+            outline_bid=outline_bid,
+            stream_element_adapter=stream_element_adapter,
+            use_element_protocol=use_element_protocol,
+            runtime_listen=runtime_listen,
+        )
+    finally:
+        stop_event.set()
+        if producer_thread is not None:
+            producer_thread.join(timeout=0.1)
+        if producer_thread is not None and producer_thread.is_alive():
+            app.logger.warning("run_script producer thread did not stop in time")
+
+        if is_ask:
+            _ask_sem_release(app, user_bid, outline_bid)
+        else:
+            with contextlib.suppress(Exception):
+                lock.release()
+            _clear_run_script_status(app, user_bid, outline_bid)
 
 
 def get_run_status(
