@@ -23,8 +23,25 @@ same result; the structural metrics below shrink.
   `tests/test_langfuse_v4_semantics.py`.
 - [x] 2026-10-19 09:15 CST: Recorded baseline metrics and the interface
   snapshot (491 modules, 306 routes, 16 CLI command entries).
-- [ ] Dispatch the eight group workers.
-- [ ] Integrate worker branches, rerun every gate on the integrated branch.
+- [x] 2026-10-19 09:40 CST: Dispatched six group workers (`billing-checkout`,
+  `billing-wallets-cli`, `shifu`, `learn`, `user-order`,
+  `dashboard-promo-llm`). The `billing-notifications` and `engine-tts`
+  dispatches were blocked by the session's permission policy; those files
+  stay untouched pending an owner decision.
+- [ ] Decide whether and how to run `billing-notifications` and `engine-tts`.
+- [x] 2026-10-19 CST: Workers stopped on API rate limits after nine verified
+  commits. Merged all six branches without conflicts. Integrated gates:
+  interface snapshot OK (523 modules, routes and CLI identical); full suite
+  12,318 passed with exactly the baseline failure set; engine tests 1,039
+  passed; uow ratchet OK. Counts of `try`, `except`, `suppress(`,
+  `unit_of_work(`, `on_commit`, and `db.session.commit` are unchanged, and
+  the multiset of `yield` lines is identical.
+- [ ] Boundary check fails on 8 relocated imports from the `context_v2.py`
+  split (every target is already a baseline entry for `context_v2.py`).
+  Needs an owner decision on recording relocated imports in the baseline.
+- [ ] Uncommitted splits remain in worker worktrees: `checkout.py`
+  (blocked on the same boundary decision), `dashboard/funcs.py` (same),
+  `shifu/route.py`, `order/funs.py`, and further `context_v2*` edits.
 - [ ] Review the integrated diff for removed public names and changed
   exception handling (the two regression classes the source write-up says the
   test suite missed).
