@@ -224,6 +224,132 @@ def add_profile_item_quick(
         return add_profile_item_quick_internal(app, parent_id, key, user_id)
 
 
+def _add_legacy_profile_item_quick(
+    app: Flask, parent_id: str, key: str, user_id: str
+) -> ProfileItemDefinition:
+    """Find or insert the item in the legacy profile_item table."""
+    legacy_scope = (
+        CONST_PROFILE_SCOPE_SYSTEM if not parent_id else CONST_PROFILE_SCOPE_USER
+    )
+    legacy_item = (
+        db.session.execute(
+            text(
+                """
+            SELECT profile_id
+            FROM profile_item
+            WHERE parent_id = :parent_id
+              AND profile_key = :profile_key
+              AND status = 1
+            ORDER BY id ASC
+            LIMIT 1
+            """
+            ),
+            {
+                "parent_id": parent_id or "",
+                "profile_key": key,
+            },
+        )
+        .mappings()
+        .first()
+    )
+    if legacy_item:
+        return ProfileItemDefinition(
+            key,
+            DEFAULT_COLOR_SETTINGS[0],
+            CONST_PROFILE_TYPE_TEXT,
+            _("PROFILE.PROFILE_TYPE_TEXT"),
+            "",
+            legacy_scope,
+            _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
+            legacy_item["profile_id"],
+            is_hidden=False,
+        )
+
+    profile_id = generate_id(app)
+    next_index = db.session.execute(
+        text("SELECT COALESCE(MAX(profile_index), 0) + 1 FROM profile_item")
+    ).scalar_one()
+    db.session.execute(
+        text(
+            """
+            INSERT INTO profile_item (
+                profile_id,
+                parent_id,
+                profile_index,
+                profile_key,
+                profile_type,
+                profile_value_type,
+                profile_show_type,
+                profile_remark,
+                profile_prompt_type,
+                profile_raw_prompt,
+                profile_prompt,
+                profile_prompt_model,
+                profile_prompt_model_args,
+                profile_color_setting,
+                profile_script_id,
+                created,
+                updated,
+                status,
+                created_by,
+                updated_by
+            ) VALUES (
+                :profile_id,
+                :parent_id,
+                :profile_index,
+                :profile_key,
+                :profile_type,
+                :profile_value_type,
+                :profile_show_type,
+                :profile_remark,
+                :profile_prompt_type,
+                :profile_raw_prompt,
+                :profile_prompt,
+                :profile_prompt_model,
+                :profile_prompt_model_args,
+                :profile_color_setting,
+                :profile_script_id,
+                NOW(),
+                NOW(),
+                1,
+                :created_by,
+                :updated_by
+            )
+            """
+        ),
+        {
+            "profile_id": profile_id,
+            "parent_id": parent_id or "",
+            "profile_index": int(next_index or 1),
+            "profile_key": key,
+            "profile_type": PROFILE_TYPE_INPUT_TEXT,
+            "profile_value_type": PROFILE_SHOW_TYPE_ALL,
+            "profile_show_type": PROFILE_SHOW_TYPE_ALL,
+            "profile_remark": "",
+            "profile_prompt_type": PROFILE_CONF_TYPE_PROFILE,
+            "profile_raw_prompt": "",
+            "profile_prompt": "",
+            "profile_prompt_model": "",
+            "profile_prompt_model_args": "",
+            "profile_color_setting": str(DEFAULT_COLOR_SETTINGS[0]),
+            "profile_script_id": "",
+            "created_by": user_id or "",
+            "updated_by": user_id or "",
+        },
+    )
+    return ProfileItemDefinition(
+        key,
+        DEFAULT_COLOR_SETTINGS[0],
+        CONST_PROFILE_TYPE_TEXT,
+        _("PROFILE.PROFILE_TYPE_TEXT"),
+        "",
+        legacy_scope,
+        _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
+        profile_id,
+        is_hidden=False,
+    )
+
+
 def add_profile_item_quick_internal(
     app: Flask, parent_id: str, key: str, user_id: str
 ) -> ProfileItemDefinition:
@@ -233,126 +359,7 @@ def add_profile_item_quick_internal(
     tables = set(inspector.get_table_names())
 
     if "var_variables" not in tables and "profile_item" in tables:
-        legacy_scope = (
-            CONST_PROFILE_SCOPE_SYSTEM if not parent_id else CONST_PROFILE_SCOPE_USER
-        )
-        legacy_item = (
-            db.session.execute(
-                text(
-                    """
-                SELECT profile_id
-                FROM profile_item
-                WHERE parent_id = :parent_id
-                  AND profile_key = :profile_key
-                  AND status = 1
-                ORDER BY id ASC
-                LIMIT 1
-                """
-                ),
-                {
-                    "parent_id": parent_id or "",
-                    "profile_key": key,
-                },
-            )
-            .mappings()
-            .first()
-        )
-        if legacy_item:
-            return ProfileItemDefinition(
-                key,
-                DEFAULT_COLOR_SETTINGS[0],
-                CONST_PROFILE_TYPE_TEXT,
-                _("PROFILE.PROFILE_TYPE_TEXT"),
-                "",
-                legacy_scope,
-                _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
-                legacy_item["profile_id"],
-                is_hidden=False,
-            )
-
-        profile_id = generate_id(app)
-        next_index = db.session.execute(
-            text("SELECT COALESCE(MAX(profile_index), 0) + 1 FROM profile_item")
-        ).scalar_one()
-        db.session.execute(
-            text(
-                """
-                INSERT INTO profile_item (
-                    profile_id,
-                    parent_id,
-                    profile_index,
-                    profile_key,
-                    profile_type,
-                    profile_value_type,
-                    profile_show_type,
-                    profile_remark,
-                    profile_prompt_type,
-                    profile_raw_prompt,
-                    profile_prompt,
-                    profile_prompt_model,
-                    profile_prompt_model_args,
-                    profile_color_setting,
-                    profile_script_id,
-                    created,
-                    updated,
-                    status,
-                    created_by,
-                    updated_by
-                ) VALUES (
-                    :profile_id,
-                    :parent_id,
-                    :profile_index,
-                    :profile_key,
-                    :profile_type,
-                    :profile_value_type,
-                    :profile_show_type,
-                    :profile_remark,
-                    :profile_prompt_type,
-                    :profile_raw_prompt,
-                    :profile_prompt,
-                    :profile_prompt_model,
-                    :profile_prompt_model_args,
-                    :profile_color_setting,
-                    :profile_script_id,
-                    NOW(),
-                    NOW(),
-                    1,
-                    :created_by,
-                    :updated_by
-                )
-                """
-            ),
-            {
-                "profile_id": profile_id,
-                "parent_id": parent_id or "",
-                "profile_index": int(next_index or 1),
-                "profile_key": key,
-                "profile_type": PROFILE_TYPE_INPUT_TEXT,
-                "profile_value_type": PROFILE_SHOW_TYPE_ALL,
-                "profile_show_type": PROFILE_SHOW_TYPE_ALL,
-                "profile_remark": "",
-                "profile_prompt_type": PROFILE_CONF_TYPE_PROFILE,
-                "profile_raw_prompt": "",
-                "profile_prompt": "",
-                "profile_prompt_model": "",
-                "profile_prompt_model_args": "",
-                "profile_color_setting": str(DEFAULT_COLOR_SETTINGS[0]),
-                "profile_script_id": "",
-                "created_by": user_id or "",
-                "updated_by": user_id or "",
-            },
-        )
-        return ProfileItemDefinition(
-            key,
-            DEFAULT_COLOR_SETTINGS[0],
-            CONST_PROFILE_TYPE_TEXT,
-            _("PROFILE.PROFILE_TYPE_TEXT"),
-            "",
-            legacy_scope,
-            _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
-            profile_id,
-            is_hidden=False,
-        )
+        return _add_legacy_profile_item_quick(app, parent_id, key, user_id)
 
     existing = (
         Variable.query.filter(

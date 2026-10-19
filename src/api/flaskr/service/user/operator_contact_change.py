@@ -52,6 +52,82 @@ def _active_contact_credentials(
     )
 
 
+def _lock_user_and_reject_contact_conflicts(
+    *, user_bid: str, contact_type: str, identifier: str
+) -> UserInfo:
+    """Lock the target user and refuse a contact already owned by anyone."""
+    user = (
+        UserInfo.query.filter(
+            UserInfo.user_bid == user_bid,
+            UserInfo.deleted == 0,
+        )
+        .with_for_update()
+        .first()
+    )
+    if user is None:
+        raise_error("server.user.userNotFound")
+
+    owner_by_identity = (
+        UserInfo.query.filter(
+            UserInfo.user_identify == identifier,
+            UserInfo.deleted == 0,
+        )
+        .with_for_update()
+        .first()
+    )
+    if owner_by_identity is not None:
+        if owner_by_identity.user_bid == user_bid:
+            raise_error(f"server.user.{contact_type}Unchanged")
+        raise_error(f"server.user.{contact_type}AlreadyRegistered")
+
+    providers = (
+        [CONTACT_TYPE_EMAIL, "google"]
+        if contact_type == CONTACT_TYPE_EMAIL
+        else [contact_type]
+    )
+    existing_owner = (
+        AuthCredential.query.filter(
+            AuthCredential.provider_name.in_(providers),
+            AuthCredential.identifier == identifier,
+            AuthCredential.deleted == 0,
+        )
+        .with_for_update()
+        .first()
+    )
+    if existing_owner is not None:
+        if existing_owner.user_bid == user_bid:
+            raise_error(f"server.user.{contact_type}Unchanged")
+        raise_error(f"server.user.{contact_type}AlreadyRegistered")
+    return user
+
+
+def _retarget_password_credentials(
+    *,
+    user_bid: str,
+    contact_type: str,
+    identifier: str,
+    old_identifiers: list[str],
+) -> None:
+    """Point password credentials tied to the old contact at the new one."""
+    password_credentials = (
+        AuthCredential.query.filter(
+            AuthCredential.user_bid == user_bid,
+            AuthCredential.provider_name == "password",
+            AuthCredential.deleted == 0,
+        )
+        .with_for_update()
+        .all()
+    )
+    for credential in password_credentials:
+        if (
+            credential.subject_format == contact_type
+            or credential.identifier in old_identifiers
+        ):
+            credential.subject_id = identifier
+            credential.subject_format = contact_type
+            credential.identifier = identifier
+
+
 def change_operator_user_contact(
     app: Flask,
     *,
@@ -90,48 +166,11 @@ def change_operator_user_contact(
     revoked_sessions = 0
 
     with app_context_scope(app), unit_of_work():
-        user = (
-            UserInfo.query.filter(
-                UserInfo.user_bid == normalized_user_bid,
-                UserInfo.deleted == 0,
-            )
-            .with_for_update()
-            .first()
+        user = _lock_user_and_reject_contact_conflicts(
+            user_bid=normalized_user_bid,
+            contact_type=normalized_contact_type,
+            identifier=normalized_identifier,
         )
-        if user is None:
-            raise_error("server.user.userNotFound")
-
-        owner_by_identity = (
-            UserInfo.query.filter(
-                UserInfo.user_identify == normalized_identifier,
-                UserInfo.deleted == 0,
-            )
-            .with_for_update()
-            .first()
-        )
-        if owner_by_identity is not None:
-            if owner_by_identity.user_bid == normalized_user_bid:
-                raise_error(f"server.user.{normalized_contact_type}Unchanged")
-            raise_error(f"server.user.{normalized_contact_type}AlreadyRegistered")
-
-        providers = (
-            [CONTACT_TYPE_EMAIL, "google"]
-            if normalized_contact_type == CONTACT_TYPE_EMAIL
-            else [normalized_contact_type]
-        )
-        existing_owner = (
-            AuthCredential.query.filter(
-                AuthCredential.provider_name.in_(providers),
-                AuthCredential.identifier == normalized_identifier,
-                AuthCredential.deleted == 0,
-            )
-            .with_for_update()
-            .first()
-        )
-        if existing_owner is not None:
-            if existing_owner.user_bid == normalized_user_bid:
-                raise_error(f"server.user.{normalized_contact_type}Unchanged")
-            raise_error(f"server.user.{normalized_contact_type}AlreadyRegistered")
 
         old_credentials = _active_contact_credentials(
             user_bid=normalized_user_bid,
@@ -161,23 +200,12 @@ def change_operator_user_contact(
         )
         db.session.add(new_credential)
 
-        password_credentials = (
-            AuthCredential.query.filter(
-                AuthCredential.user_bid == normalized_user_bid,
-                AuthCredential.provider_name == "password",
-                AuthCredential.deleted == 0,
-            )
-            .with_for_update()
-            .all()
+        _retarget_password_credentials(
+            user_bid=normalized_user_bid,
+            contact_type=normalized_contact_type,
+            identifier=normalized_identifier,
+            old_identifiers=old_identifiers,
         )
-        for credential in password_credentials:
-            if (
-                credential.subject_format == normalized_contact_type
-                or credential.identifier in old_identifiers
-            ):
-                credential.subject_id = normalized_identifier
-                credential.subject_format = normalized_contact_type
-                credential.identifier = normalized_identifier
 
         user.user_identify = normalized_identifier
         db.session.flush()
