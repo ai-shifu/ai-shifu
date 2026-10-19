@@ -1,6 +1,7 @@
 """Import and export course structures."""
 
 import json
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -190,31 +191,7 @@ def import_shifu(
 
     """
     with app_context_scope(app), unit_of_work():
-        # Read JSON file
-        try:
-            file_content = file.read()
-            if isinstance(file_content, bytes):
-                file_content = file_content.decode("utf-8")
-            import_data = json.loads(file_content)
-        except Exception:
-            app.logger.exception("Failed to parse JSON file")
-            raise_error("server.shifu.importFileInvalid")
-
-        # Validate import data
-        if (
-            not isinstance(import_data, dict)
-            or "shifu" not in import_data
-            or "outline_items" not in import_data
-        ):
-            raise_error("server.shifu.importFileInvalid")
-
-        shifu_data = import_data["shifu"]
-        outline_items_data = import_data["outline_items"]
-        if not isinstance(shifu_data, dict) or not isinstance(outline_items_data, list):
-            raise_error("server.shifu.importFileInvalid")
-        if any(not isinstance(item, dict) for item in outline_items_data):
-            raise_error("server.shifu.importFileInvalid")
-        structure_data = import_data.get("structure")
+        shifu_data, outline_items_data, structure_data = _read_import_payload(app, file)
         _import_model_selection(shifu_data, "llm")
         _import_model_selection(shifu_data, "ask_llm")
         ask_provider_config = _extract_import_ask_provider_config(shifu_data)
@@ -229,44 +206,10 @@ def import_shifu(
             if existing_shifu:
                 # Update existing shifu
                 new_shifu = existing_shifu.clone()
-                new_shifu.title = shifu_data["title"]
-                new_shifu.keywords = shifu_data.get("keywords", "")
-                new_shifu.description = shifu_data.get("description", "")
-                new_shifu.avatar_res_bid = shifu_data.get("avatar_res_bid", "")
-                new_shifu.llm = _import_model_selection(shifu_data, "llm")
-                new_shifu.llm_temperature = Decimal(
-                    str(shifu_data.get("llm_temperature", 0))
+                _apply_import_shifu_fields(
+                    new_shifu, shifu_data, ask_provider_config, user_id, now_time
                 )
-                new_shifu.llm_system_prompt = shifu_data.get("llm_system_prompt", "")
-                new_shifu.ask_enabled_status = shifu_data.get(
-                    "ask_enabled_status", 5101
-                )
-                # Files exported before the runtime setting existed have no key; they describe
-                # courses that ran on 1.0, which is what the default says.
-                new_shifu.flow_engine = shifu_data.get(
-                    "flow_engine", FLOW_ENGINE_DEFAULT
-                )
-                new_shifu.ask_llm = _import_model_selection(shifu_data, "ask_llm")
-                new_shifu.ask_llm_temperature = Decimal(
-                    str(shifu_data.get("ask_llm_temperature", 0.0))
-                )
-                new_shifu.ask_llm_system_prompt = shifu_data.get(
-                    "ask_llm_system_prompt", ""
-                )
-                new_shifu.ask_provider_config = ask_provider_config
-                new_shifu.price = Decimal(str(shifu_data.get("price", 0.0)))
-                new_shifu.updated_user_bid = user_id
-                new_shifu.updated_at = now_time
-
-                # Risk check
-                check_content = (
-                    f"{new_shifu.title} {new_shifu.keywords} {new_shifu.description}"
-                )
-                check_text_with_risk_control(app, shifu_bid, user_id, check_content)
-
-                db.session.add(new_shifu)
-                db.session.flush()
-                save_shifu_history(app, user_id, shifu_bid, new_shifu.id)
+                _persist_imported_shifu(app, shifu_bid, user_id, new_shifu)
 
                 # Delete old outline items
                 DraftOutlineItem.query.filter(
@@ -275,194 +218,30 @@ def import_shifu(
                 ).update({"deleted": 1})
             else:
                 # Create new shifu with provided bid
-                new_shifu = DraftShifu(
-                    shifu_bid=shifu_bid,
-                    title=shifu_data["title"],
-                    keywords=shifu_data.get("keywords", ""),
-                    description=shifu_data.get("description", ""),
-                    avatar_res_bid=shifu_data.get("avatar_res_bid", ""),
-                    llm=_import_model_selection(shifu_data, "llm"),
-                    llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
-                    llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
-                    ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
-                    flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
-                    ask_llm=_import_model_selection(shifu_data, "ask_llm"),
-                    ask_llm_temperature=Decimal(
-                        str(shifu_data.get("ask_llm_temperature", 0.0))
-                    ),
-                    ask_llm_system_prompt=shifu_data.get("ask_llm_system_prompt", ""),
-                    ask_provider_config=ask_provider_config,
-                    price=Decimal(str(shifu_data.get("price", 0.0))),
-                    deleted=0,
-                    created_user_bid=user_id,
-                    created_at=now_time,
-                    updated_user_bid=user_id,
-                    updated_at=now_time,
+                new_shifu = _new_imported_shifu(
+                    shifu_bid, shifu_data, ask_provider_config, user_id, now_time
                 )
-
-                # Risk check
-                check_content = (
-                    f"{new_shifu.title} {new_shifu.keywords} {new_shifu.description}"
-                )
-                check_text_with_risk_control(app, shifu_bid, user_id, check_content)
-
-                db.session.add(new_shifu)
-                db.session.flush()
-                save_shifu_history(app, user_id, shifu_bid, new_shifu.id)
+                _persist_imported_shifu(app, shifu_bid, user_id, new_shifu)
         else:
             # Create new shifu with generated bid
             shifu_bid = generate_id(app)
-            new_shifu = DraftShifu(
-                shifu_bid=shifu_bid,
-                title=shifu_data["title"],
-                keywords=shifu_data.get("keywords", ""),
-                description=shifu_data.get("description", ""),
-                avatar_res_bid=shifu_data.get("avatar_res_bid", ""),
-                llm=_import_model_selection(shifu_data, "llm"),
-                llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
-                llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
-                ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
-                flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
-                ask_llm=_import_model_selection(shifu_data, "ask_llm"),
-                ask_llm_temperature=Decimal(
-                    str(shifu_data.get("ask_llm_temperature", 0.0))
-                ),
-                ask_llm_system_prompt=shifu_data.get("ask_llm_system_prompt", ""),
-                ask_provider_config=ask_provider_config,
-                price=Decimal(str(shifu_data.get("price", 0.0))),
-                deleted=0,
-                created_user_bid=user_id,
-                created_at=now_time,
-                updated_user_bid=user_id,
-                updated_at=now_time,
+            new_shifu = _new_imported_shifu(
+                shifu_bid, shifu_data, ask_provider_config, user_id, now_time
             )
+            _persist_imported_shifu(app, shifu_bid, user_id, new_shifu)
 
-            # Risk check
-            check_content = (
-                f"{new_shifu.title} {new_shifu.keywords} {new_shifu.description}"
-            )
-            check_text_with_risk_control(app, shifu_bid, user_id, check_content)
-
-            db.session.add(new_shifu)
-            db.session.flush()
-            save_shifu_history(app, user_id, shifu_bid, new_shifu.id)
-
-        # Create mapping from old outline_item_bid to new outline_item_bid
-        old_to_new_bid_map: dict[str, str] = {}
-
-        # Create a map of old_bid -> outline_item_data
-        outline_items_by_old_bid: dict[str, dict] = {
-            item["outline_item_bid"]: item for item in outline_items_data
-        }
-
-        # Create all outline items first (without parent_bid, will update later)
-        created_items: dict[str, DraftOutlineItem] = {}
-
-        for item_data in outline_items_data:
-            old_bid = item_data["outline_item_bid"]
-            new_bid = generate_id(app)
-            old_to_new_bid_map[old_bid] = new_bid
-
-            new_outline = DraftOutlineItem(
-                outline_item_bid=new_bid,
-                shifu_bid=shifu_bid,
-                title=item_data.get("title", ""),
-                type=item_data.get("type", 401),
-                hidden=item_data.get("hidden", 0),
-                parent_bid="",  # Will update after all items are created
-                position=item_data.get("position", ""),
-                prerequisite_item_bids="",  # Will update after all items are created
-                llm_system_prompt=item_data.get("llm_system_prompt", ""),
-                ask_llm_system_prompt=item_data.get("ask_llm_system_prompt", ""),
-                ask_enabled_status=item_data.get("ask_enabled_status", 5101),
-                content=item_data.get("content", ""),
-                deleted=0,
-                created_at=now_time,
-                updated_at=now_time,
-                created_user_bid=user_id,
-                updated_user_bid=user_id,
-            )
-
-            # Risk check
-            check_text_with_risk_control(
-                app,
-                new_bid,
-                user_id,
-                f"{new_outline.title} {new_outline.llm_system_prompt}",
-            )
-
-            db.session.add(new_outline)
-            db.session.flush()
-            created_items[old_bid] = new_outline
-
-        # Update parent_bid and prerequisite_item_bids for all created items
-        for old_bid, new_outline in created_items.items():
-            item_data = outline_items_by_old_bid[old_bid]
-
-            # Update parent_bid
-            parent_old_bid = item_data.get("parent_bid", "")
-            if parent_old_bid:
-                parent_new_bid = old_to_new_bid_map.get(parent_old_bid, "")
-                if parent_new_bid:
-                    new_outline.parent_bid = parent_new_bid
-
-            # Update prerequisite_item_bids
-            old_prerequisite_bids = item_data.get("prerequisite_item_bids", "")
-            if old_prerequisite_bids:
-                old_prerequisite_list = [
-                    bid.strip()
-                    for bid in old_prerequisite_bids.split(",")
-                    if bid.strip()
-                ]
-                new_prerequisite_list = [
-                    old_to_new_bid_map.get(old_bid, "")
-                    for old_bid in old_prerequisite_list
-                    if old_bid in old_to_new_bid_map
-                ]
-                new_outline.prerequisite_item_bids = ",".join(new_prerequisite_list)
+        old_to_new_bid_map, created_items = _create_imported_outline_items(
+            app, shifu_bid, user_id, outline_items_data, now_time
+        )
+        _link_imported_outline_items(
+            outline_items_data, old_to_new_bid_map, created_items
+        )
 
         # Rebuild structure
         if structure_data:
-
-            def rebuild_structure(struct_item: dict) -> HistoryItem:
-                old_bid = struct_item.get("bid", "")
-                new_bid = old_to_new_bid_map.get(old_bid, old_bid)
-                item_type = struct_item.get("type", "")
-
-                child_count = 0
-                # For shifu, use the new shifu_bid
-                if item_type == "shifu":
-                    new_bid = shifu_bid
-                    item_id = new_shifu.id
-                elif item_type == "outline":
-                    if old_bid in created_items:
-                        item_id = created_items[old_bid].id
-                        mdflow = MarkdownFlow(
-                            created_items[old_bid].content
-                        ).set_output_language(get_markdownflow_output_language())
-                        block_list = mdflow.get_all_blocks()
-                        child_count = len(block_list)
-                    else:
-                        return None
-                else:
-                    # For blocks, keep the structure but we don't recreate them here
-                    item_id = struct_item.get("id", 0)
-
-                children = []
-                for child_struct in struct_item.get("children", []):
-                    child_item = rebuild_structure(child_struct)
-                    if child_item:
-                        children.append(child_item)
-
-                return HistoryItem(
-                    bid=new_bid,
-                    id=item_id,
-                    type=item_type,
-                    children=children,
-                    child_count=child_count,
-                )
-
-            new_structure = rebuild_structure(structure_data)
+            new_structure = _rebuild_import_structure(
+                structure_data, shifu_bid, new_shifu, old_to_new_bid_map, created_items
+            )
             if new_structure:
                 # Save outline tree history
                 outline_tree = new_structure.children or []
@@ -473,3 +252,247 @@ def import_shifu(
         db.session.flush()
 
         return shifu_bid
+
+
+def _read_import_payload(
+    app: Flask, file: FileStorage
+) -> tuple[dict, list[dict], object]:
+    """Parse and validate the uploaded JSON; return shifu, outlines, structure."""
+    # Read JSON file
+    try:
+        file_content = file.read()
+        if isinstance(file_content, bytes):
+            file_content = file_content.decode("utf-8")
+        import_data = json.loads(file_content)
+    except Exception:
+        app.logger.exception("Failed to parse JSON file")
+        raise_error("server.shifu.importFileInvalid")
+
+    # Validate import data
+    if (
+        not isinstance(import_data, dict)
+        or "shifu" not in import_data
+        or "outline_items" not in import_data
+    ):
+        raise_error("server.shifu.importFileInvalid")
+
+    shifu_data = import_data["shifu"]
+    outline_items_data = import_data["outline_items"]
+    if not isinstance(shifu_data, dict) or not isinstance(outline_items_data, list):
+        raise_error("server.shifu.importFileInvalid")
+    if any(not isinstance(item, dict) for item in outline_items_data):
+        raise_error("server.shifu.importFileInvalid")
+    structure_data = import_data.get("structure")
+    return shifu_data, outline_items_data, structure_data
+
+
+def _apply_import_shifu_fields(
+    new_shifu: DraftShifu,
+    shifu_data: dict,
+    ask_provider_config: str,
+    user_id: str,
+    now_time: datetime,
+) -> None:
+    """Overwrite a cloned draft with the imported course settings."""
+    new_shifu.title = shifu_data["title"]
+    new_shifu.keywords = shifu_data.get("keywords", "")
+    new_shifu.description = shifu_data.get("description", "")
+    new_shifu.avatar_res_bid = shifu_data.get("avatar_res_bid", "")
+    new_shifu.llm = _import_model_selection(shifu_data, "llm")
+    new_shifu.llm_temperature = Decimal(str(shifu_data.get("llm_temperature", 0)))
+    new_shifu.llm_system_prompt = shifu_data.get("llm_system_prompt", "")
+    new_shifu.ask_enabled_status = shifu_data.get("ask_enabled_status", 5101)
+    # Files exported before the runtime setting existed have no key; they describe
+    # courses that ran on 1.0, which is what the default says.
+    new_shifu.flow_engine = shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT)
+    new_shifu.ask_llm = _import_model_selection(shifu_data, "ask_llm")
+    new_shifu.ask_llm_temperature = Decimal(
+        str(shifu_data.get("ask_llm_temperature", 0.0))
+    )
+    new_shifu.ask_llm_system_prompt = shifu_data.get("ask_llm_system_prompt", "")
+    new_shifu.ask_provider_config = ask_provider_config
+    new_shifu.price = Decimal(str(shifu_data.get("price", 0.0)))
+    new_shifu.updated_user_bid = user_id
+    new_shifu.updated_at = now_time
+
+
+def _new_imported_shifu(
+    shifu_bid: str,
+    shifu_data: dict,
+    ask_provider_config: str,
+    user_id: str,
+    now_time: datetime,
+) -> DraftShifu:
+    """Build a new draft row from the imported course settings."""
+    return DraftShifu(
+        shifu_bid=shifu_bid,
+        title=shifu_data["title"],
+        keywords=shifu_data.get("keywords", ""),
+        description=shifu_data.get("description", ""),
+        avatar_res_bid=shifu_data.get("avatar_res_bid", ""),
+        llm=_import_model_selection(shifu_data, "llm"),
+        llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
+        llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
+        ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
+        flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
+        ask_llm=_import_model_selection(shifu_data, "ask_llm"),
+        ask_llm_temperature=Decimal(str(shifu_data.get("ask_llm_temperature", 0.0))),
+        ask_llm_system_prompt=shifu_data.get("ask_llm_system_prompt", ""),
+        ask_provider_config=ask_provider_config,
+        price=Decimal(str(shifu_data.get("price", 0.0))),
+        deleted=0,
+        created_user_bid=user_id,
+        created_at=now_time,
+        updated_user_bid=user_id,
+        updated_at=now_time,
+    )
+
+
+def _persist_imported_shifu(
+    app: Flask, shifu_bid: str, user_id: str, new_shifu: DraftShifu
+) -> None:
+    """Risk-check the imported draft, store it, and record history."""
+    # Risk check
+    check_content = f"{new_shifu.title} {new_shifu.keywords} {new_shifu.description}"
+    check_text_with_risk_control(app, shifu_bid, user_id, check_content)
+
+    db.session.add(new_shifu)
+    db.session.flush()
+    save_shifu_history(app, user_id, shifu_bid, new_shifu.id)
+
+
+def _create_imported_outline_items(
+    app: Flask,
+    shifu_bid: str,
+    user_id: str,
+    outline_items_data: list[dict],
+    now_time: datetime,
+) -> tuple[dict[str, str], dict[str, DraftOutlineItem]]:
+    """Insert imported outline items with fresh bids; links are set later."""
+    # Create mapping from old outline_item_bid to new outline_item_bid
+    old_to_new_bid_map: dict[str, str] = {}
+
+    # Create all outline items first (without parent_bid, will update later)
+    created_items: dict[str, DraftOutlineItem] = {}
+
+    for item_data in outline_items_data:
+        old_bid = item_data["outline_item_bid"]
+        new_bid = generate_id(app)
+        old_to_new_bid_map[old_bid] = new_bid
+
+        new_outline = DraftOutlineItem(
+            outline_item_bid=new_bid,
+            shifu_bid=shifu_bid,
+            title=item_data.get("title", ""),
+            type=item_data.get("type", 401),
+            hidden=item_data.get("hidden", 0),
+            parent_bid="",  # Will update after all items are created
+            position=item_data.get("position", ""),
+            prerequisite_item_bids="",  # Will update after all items are created
+            llm_system_prompt=item_data.get("llm_system_prompt", ""),
+            ask_llm_system_prompt=item_data.get("ask_llm_system_prompt", ""),
+            ask_enabled_status=item_data.get("ask_enabled_status", 5101),
+            content=item_data.get("content", ""),
+            deleted=0,
+            created_at=now_time,
+            updated_at=now_time,
+            created_user_bid=user_id,
+            updated_user_bid=user_id,
+        )
+
+        # Risk check
+        check_text_with_risk_control(
+            app,
+            new_bid,
+            user_id,
+            f"{new_outline.title} {new_outline.llm_system_prompt}",
+        )
+
+        db.session.add(new_outline)
+        db.session.flush()
+        created_items[old_bid] = new_outline
+    return old_to_new_bid_map, created_items
+
+
+def _link_imported_outline_items(
+    outline_items_data: list[dict],
+    old_to_new_bid_map: dict[str, str],
+    created_items: dict[str, DraftOutlineItem],
+) -> None:
+    """Point parent and prerequisite bids of imported items at the new bids."""
+    # Create a map of old_bid -> outline_item_data
+    outline_items_by_old_bid: dict[str, dict] = {
+        item["outline_item_bid"]: item for item in outline_items_data
+    }
+
+    # Update parent_bid and prerequisite_item_bids for all created items
+    for old_bid, new_outline in created_items.items():
+        item_data = outline_items_by_old_bid[old_bid]
+
+        # Update parent_bid
+        parent_old_bid = item_data.get("parent_bid", "")
+        if parent_old_bid:
+            parent_new_bid = old_to_new_bid_map.get(parent_old_bid, "")
+            if parent_new_bid:
+                new_outline.parent_bid = parent_new_bid
+
+        # Update prerequisite_item_bids
+        old_prerequisite_bids = item_data.get("prerequisite_item_bids", "")
+        if old_prerequisite_bids:
+            old_prerequisite_list = [
+                bid.strip() for bid in old_prerequisite_bids.split(",") if bid.strip()
+            ]
+            new_prerequisite_list = [
+                old_to_new_bid_map.get(old_bid, "")
+                for old_bid in old_prerequisite_list
+                if old_bid in old_to_new_bid_map
+            ]
+            new_outline.prerequisite_item_bids = ",".join(new_prerequisite_list)
+
+
+def _rebuild_import_structure(
+    struct_item: dict,
+    shifu_bid: str,
+    new_shifu: DraftShifu,
+    old_to_new_bid_map: dict[str, str],
+    created_items: dict[str, DraftOutlineItem],
+) -> HistoryItem | None:
+    """Map an exported structure tree onto the newly created bids and ids."""
+    old_bid = struct_item.get("bid", "")
+    new_bid = old_to_new_bid_map.get(old_bid, old_bid)
+    item_type = struct_item.get("type", "")
+
+    child_count = 0
+    # For shifu, use the new shifu_bid
+    if item_type == "shifu":
+        new_bid = shifu_bid
+        item_id = new_shifu.id
+    elif item_type == "outline":
+        if old_bid in created_items:
+            item_id = created_items[old_bid].id
+            mdflow = MarkdownFlow(created_items[old_bid].content).set_output_language(
+                get_markdownflow_output_language()
+            )
+            block_list = mdflow.get_all_blocks()
+            child_count = len(block_list)
+        else:
+            return None
+    else:
+        # For blocks, keep the structure but we don't recreate them here
+        item_id = struct_item.get("id", 0)
+
+    children = []
+    for child_struct in struct_item.get("children", []):
+        child_item = _rebuild_import_structure(
+            child_struct, shifu_bid, new_shifu, old_to_new_bid_map, created_items
+        )
+        if child_item:
+            children.append(child_item)
+
+    return HistoryItem(
+        bid=new_bid,
+        id=item_id,
+        type=item_type,
+        children=children,
+        child_count=child_count,
+    )
