@@ -70,6 +70,11 @@ from .dtos import ShifuDetailDto, ShifuDto
 from .funcs import shifu_permission_verification
 from .models import DraftShifu, FavoriteScenario, PublishedShifu, ShifuUserArchive
 from .permissions import get_user_shifu_permissions
+from .shifu_draft_save_fields import (
+    _SaveAskSettings,
+    _SaveTtsSettings,
+    _ShifuDraftUpdate,
+)
 from .shifu_history_manager import save_shifu_history
 from .shifu_outline_funcs import create_default_outlines_for_new_shifu
 from .utils import (
@@ -527,71 +532,17 @@ def save_shifu_draft_info(
         if shifu_model is not None and is_live_follow_up_model(shifu_model):
             raise_param_error("model")
 
-        # Resolve the effective TTS enabled flag: caller-provided value wins,
-        # otherwise keep what the draft already has.
-        current_tts_enabled = bool(shifu_draft.tts_enabled) if shifu_draft else False
-        merged_tts_enabled = (
-            tts_enabled if tts_enabled is not None else current_tts_enabled
+        tts = _merge_save_tts_settings(
+            shifu_draft,
+            tts_enabled=tts_enabled,
+            tts_provider=tts_provider,
+            tts_model=tts_model,
+            tts_voice_id=tts_voice_id,
+            tts_speed=tts_speed,
+            tts_pitch=tts_pitch,
+            tts_emotion=tts_emotion,
+            default_listen_mode_enabled=default_listen_mode_enabled,
         )
-
-        # PATCH merge guards — whether each TTS sub-field was sent by the
-        # caller. Defaulting to False so that when TTS is disabled / omitted
-        # the merge does not clobber the draft's TTS config.
-        tts_provided = tts_provider is not None
-        tts_model_provided = tts_model is not None
-        tts_voice_provided = tts_voice_id is not None
-        tts_speed_provided = tts_speed is not None
-        tts_pitch_provided = tts_pitch is not None
-        tts_emotion_provided = tts_emotion is not None
-
-        if merged_tts_enabled:
-            merged_provider = (
-                tts_provider
-                if tts_provider is not None
-                else (shifu_draft.tts_provider if shifu_draft else "")
-            )
-            merged_model = (
-                tts_model
-                if tts_model is not None
-                else (shifu_draft.tts_model if shifu_draft else "")
-            )
-            merged_voice_id = (
-                tts_voice_id
-                if tts_voice_id is not None
-                else (shifu_draft.tts_voice_id if shifu_draft else "")
-            )
-            merged_speed = (
-                tts_speed
-                if tts_speed is not None
-                else (
-                    float(shifu_draft.tts_speed)
-                    if shifu_draft and shifu_draft.tts_speed is not None
-                    else 1.0
-                )
-            )
-            merged_pitch = 0
-            merged_emotion = ""
-            # Legacy pitch/emotion are always normalized to their defaults when
-            # TTS is enabled, so force them to persist even when the caller
-            # omitted them; otherwise stale legacy rows never converge to 0/"".
-            tts_pitch_provided = True
-            tts_emotion_provided = True
-            validated = validate_tts_settings_strict(
-                provider=merged_provider,
-                model=merged_model,
-                voice_id=merged_voice_id,
-                speed=merged_speed,
-                pitch=merged_pitch,
-                emotion=merged_emotion,
-            )
-            tts_provider = validated.provider
-            tts_model = validated.model
-            tts_voice_id = validated.voice_id
-            tts_speed = validated.speed
-            tts_pitch = validated.pitch
-            tts_emotion = validated.emotion
-        if not merged_tts_enabled:
-            default_listen_mode_enabled = False
 
         # Validate input lengths (only when provided — PATCH callers may omit
         # name/description entirely, which must mean "leave unchanged").
@@ -602,171 +553,42 @@ def save_shifu_draft_info(
         if shifu_description is not None and len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")
 
-        if ask_enabled_status is None:
-            ask_enabled_status = (
-                int(shifu_draft.ask_enabled_status) if shifu_draft else ASK_MODE_DEFAULT
-            )
-        if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
-            ask_enabled_status = ASK_MODE_DEFAULT
-
-        ask_model_provided = ask_model is not None
-        if not ask_model_provided:
-            ask_model = shifu_draft.ask_llm if shifu_draft else "1"
-        elif not is_live_follow_up_model(ask_model):
-            ask_model = normalize_course_model(ask_model, "ask_model")
-
-        if ask_temperature is None:
-            ask_temperature = (
-                float(shifu_draft.ask_llm_temperature)
-                if shifu_draft and shifu_draft.ask_llm_temperature is not None
-                else 0.0
-            )
-
-        if ask_system_prompt is None:
-            ask_system_prompt = shifu_draft.ask_llm_system_prompt if shifu_draft else ""
-        ask_system_prompt = ask_system_prompt or ""
-
-        if ask_provider_config is None and not is_live_follow_up_model(ask_model):
-            serialized_ask_provider_config = (
-                getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
-                if shifu_draft
-                else "{}"
-            )
-        else:
-            raw_ask_provider_config = ask_provider_config
-            if raw_ask_provider_config is None:
-                raw_ask_provider_config = (
-                    getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
-                    if shifu_draft
-                    else "{}"
-                )
-            normalized_ask_provider_config = normalize_ask_provider_config(
-                raw_ask_provider_config
-            )
-            normalized_ask_provider_config, live_config_error = (
-                normalize_live_follow_up_provider_config(
-                    ask_model,
-                    normalized_ask_provider_config,
-                )
-            )
-            if live_config_error:
-                raise_param_error(
-                    f"ask_provider_config.{live_config_error}"
-                    if live_config_error in {"provider", "mode"}
-                    else f"ask_provider_config.config.{live_config_error}"
-                )
-            serialized_ask_provider_config = serialize_ask_provider_config(
-                normalized_ask_provider_config
-            )
+        ask = _resolve_save_ask_settings(
+            shifu_draft,
+            ask_enabled_status=ask_enabled_status,
+            ask_model=ask_model,
+            ask_temperature=ask_temperature,
+            ask_system_prompt=ask_system_prompt,
+            ask_provider_config=ask_provider_config,
+        )
 
         if shifu_price is None and shifu_draft:
             shifu_price = float(shifu_draft.price)
         shifu_price = _resolve_shifu_price(shifu_price)
+        update = _ShifuDraftUpdate(
+            name=shifu_name,
+            description=shifu_description,
+            avatar=shifu_avatar,
+            keywords=shifu_keywords,
+            model=shifu_model,
+            temperature=shifu_temperature,
+            price=shifu_price,
+            system_prompt=shifu_system_prompt,
+            tts_enabled=tts_enabled,
+            use_learner_language=use_learner_language,
+            tts=tts,
+            ask=ask,
+        )
         if not shifu_draft:
-            # First-time draft: there is no current value to preserve, so fill
-            # sensible defaults for any field the caller omitted (None).
-            shifu_draft: DraftShifu = DraftShifu(
-                shifu_bid=shifu_id,
-                title=shifu_name or "",
-                description=shifu_description or "",
-                avatar_res_bid=shifu_avatar or "",
-                keywords=",".join(shifu_keywords) if shifu_keywords else "",
-                llm=normalize_course_model(shifu_model),
-                llm_temperature=(
-                    shifu_temperature if shifu_temperature is not None else 0.3
-                ),
-                price=shifu_price,
-                llm_system_prompt=shifu_system_prompt or "",
-                ask_enabled_status=ask_enabled_status,
-                ask_llm=ask_model,
-                ask_llm_temperature=ask_temperature,
-                ask_llm_system_prompt=ask_system_prompt,
-                ask_provider_config=serialized_ask_provider_config,
-                tts_enabled=1 if tts_enabled else 0,
-                tts_provider=tts_provider or "",
-                tts_model=tts_model or "",
-                tts_voice_id=tts_voice_id or "",
-                tts_speed=tts_speed if tts_speed is not None else 1.0,
-                tts_pitch=tts_pitch if tts_pitch is not None else 0,
-                tts_emotion=tts_emotion or "",
-                default_listen_mode_enabled=(1 if default_listen_mode_enabled else 0),
-                use_learner_language=1 if use_learner_language else 0,
-                deleted=0,
-                created_user_bid=user_id,
-                updated_user_bid=user_id,
-            )
-            db.session.add(shifu_draft)
-            db.session.flush()
-            save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
+            shifu_draft = _create_first_shifu_draft(app, user_id, shifu_id, update)
         else:
             new_shifu_draft: DraftShifu = shifu_draft.clone()
-            # PATCH semantics: only overwrite a field the caller actually provided
-            # (non-None); otherwise keep the cloned current value. price/ask_* were
-            # already resolved above to the kept value when omitted, so assigning
-            # them here is preserve-safe.
-            if shifu_name is not None:
-                new_shifu_draft.title = shifu_name
-            if shifu_description is not None:
-                new_shifu_draft.description = shifu_description
-            if shifu_avatar is not None:
-                new_shifu_draft.avatar_res_bid = parse_shifu_res_bid(shifu_avatar)
-            if shifu_keywords is not None:
-                new_shifu_draft.keywords = (
-                    ",".join(shifu_keywords) if shifu_keywords else ""
-                )
-            if shifu_model is not None:
-                new_shifu_draft.llm = normalize_course_model(shifu_model)
-            if shifu_temperature is not None:
-                new_shifu_draft.llm_temperature = shifu_temperature
-            new_shifu_draft.price = shifu_price
-            new_shifu_draft.ask_enabled_status = ask_enabled_status
-            if ask_model_provided:
-                new_shifu_draft.ask_llm = ask_model
-            new_shifu_draft.ask_llm_temperature = ask_temperature
-            new_shifu_draft.ask_llm_system_prompt = ask_system_prompt
-            new_shifu_draft.ask_provider_config = serialized_ask_provider_config
-            if tts_enabled is not None:
-                new_shifu_draft.tts_enabled = 1 if tts_enabled else 0
-            # PATCH guard: use the pre-validation provided flags (not the
-            # now-overwritten local variables) so we only overwrite TTS
-            # sub-fields the caller actually sent.
-            if tts_provided:
-                new_shifu_draft.tts_provider = tts_provider or ""
-            if tts_model_provided:
-                new_shifu_draft.tts_model = tts_model or ""
-            if tts_voice_provided:
-                new_shifu_draft.tts_voice_id = tts_voice_id or ""
-            if tts_speed_provided:
-                new_shifu_draft.tts_speed = tts_speed
-            if tts_pitch_provided:
-                new_shifu_draft.tts_pitch = tts_pitch
-            if tts_emotion_provided:
-                new_shifu_draft.tts_emotion = tts_emotion or ""
-            if default_listen_mode_enabled is not None:
-                new_shifu_draft.default_listen_mode_enabled = (
-                    1 if default_listen_mode_enabled else 0
-                )
-            if use_learner_language is not None:
-                new_shifu_draft.use_learner_language = 1 if use_learner_language else 0
-            new_shifu_draft.updated_user_bid = user_id
-            new_shifu_draft.updated_at = now_utc()
-            if shifu_system_prompt is not None:
-                new_shifu_draft.llm_system_prompt = shifu_system_prompt
+            _apply_shifu_draft_update(new_shifu_draft, update, user_id)
             if not new_shifu_draft.eq(shifu_draft):
-                risk_started_at = perf_counter()
-                check_text_with_risk_control(
-                    app, shifu_id, user_id, new_shifu_draft.get_str_to_check()
-                )
-                risk_check_elapsed_ms = round(
-                    (perf_counter() - risk_started_at) * 1000, 2
-                )
-                persist_started_at = perf_counter()
-                # mark the old version as deleted
-                db.session.add(new_shifu_draft)
-                db.session.flush()
-                save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
-                persist_elapsed_ms = round(
-                    (perf_counter() - persist_started_at) * 1000, 2
+                risk_check_elapsed_ms, persist_elapsed_ms = (
+                    _persist_changed_shifu_draft(
+                        app, user_id, shifu_id, new_shifu_draft
+                    )
                 )
                 shifu_draft = new_shifu_draft
         has_edit_permission = shifu_permission_verification(
@@ -799,6 +621,293 @@ def save_shifu_draft_info(
             can_manage_archive=has_view_permission,
             can_publish=has_publish_permission,
         )
+
+
+def _merge_save_tts_settings(
+    shifu_draft: DraftShifu | None,
+    *,
+    tts_enabled: bool | None,
+    tts_provider: str | None,
+    tts_model: str | None,
+    tts_voice_id: str | None,
+    tts_speed: float | None,
+    tts_pitch: int | None,
+    tts_emotion: str | None,
+    default_listen_mode_enabled: bool | None,
+) -> _SaveTtsSettings:
+    """Merge caller TTS fields with the draft and validate enabled settings."""
+    # Resolve the effective TTS enabled flag: caller-provided value wins,
+    # otherwise keep what the draft already has.
+    current_tts_enabled = bool(shifu_draft.tts_enabled) if shifu_draft else False
+    merged_tts_enabled = tts_enabled if tts_enabled is not None else current_tts_enabled
+
+    # PATCH merge guards — whether each TTS sub-field was sent by the
+    # caller. Defaulting to False so that when TTS is disabled / omitted
+    # the merge does not clobber the draft's TTS config.
+    tts_provided = tts_provider is not None
+    tts_model_provided = tts_model is not None
+    tts_voice_provided = tts_voice_id is not None
+    tts_speed_provided = tts_speed is not None
+    tts_pitch_provided = tts_pitch is not None
+    tts_emotion_provided = tts_emotion is not None
+
+    if merged_tts_enabled:
+        merged_provider = (
+            tts_provider
+            if tts_provider is not None
+            else (shifu_draft.tts_provider if shifu_draft else "")
+        )
+        merged_model = (
+            tts_model
+            if tts_model is not None
+            else (shifu_draft.tts_model if shifu_draft else "")
+        )
+        merged_voice_id = (
+            tts_voice_id
+            if tts_voice_id is not None
+            else (shifu_draft.tts_voice_id if shifu_draft else "")
+        )
+        merged_speed = (
+            tts_speed
+            if tts_speed is not None
+            else (
+                float(shifu_draft.tts_speed)
+                if shifu_draft and shifu_draft.tts_speed is not None
+                else 1.0
+            )
+        )
+        merged_pitch = 0
+        merged_emotion = ""
+        # Legacy pitch/emotion are always normalized to their defaults when
+        # TTS is enabled, so force them to persist even when the caller
+        # omitted them; otherwise stale legacy rows never converge to 0/"".
+        tts_pitch_provided = True
+        tts_emotion_provided = True
+        validated = validate_tts_settings_strict(
+            provider=merged_provider,
+            model=merged_model,
+            voice_id=merged_voice_id,
+            speed=merged_speed,
+            pitch=merged_pitch,
+            emotion=merged_emotion,
+        )
+        tts_provider = validated.provider
+        tts_model = validated.model
+        tts_voice_id = validated.voice_id
+        tts_speed = validated.speed
+        tts_pitch = validated.pitch
+        tts_emotion = validated.emotion
+    if not merged_tts_enabled:
+        default_listen_mode_enabled = False
+    return _SaveTtsSettings(
+        provider=tts_provider,
+        model=tts_model,
+        voice_id=tts_voice_id,
+        speed=tts_speed,
+        pitch=tts_pitch,
+        emotion=tts_emotion,
+        default_listen_mode_enabled=default_listen_mode_enabled,
+        provider_provided=tts_provided,
+        model_provided=tts_model_provided,
+        voice_provided=tts_voice_provided,
+        speed_provided=tts_speed_provided,
+        pitch_provided=tts_pitch_provided,
+        emotion_provided=tts_emotion_provided,
+    )
+
+
+def _resolve_save_ask_settings(
+    shifu_draft: DraftShifu | None,
+    *,
+    ask_enabled_status: int | None,
+    ask_model: str | None,
+    ask_temperature: float | None,
+    ask_system_prompt: str | None,
+    ask_provider_config: object,
+) -> _SaveAskSettings:
+    """Resolve ask fields against the draft, keeping omitted values."""
+    if ask_enabled_status is None:
+        ask_enabled_status = (
+            int(shifu_draft.ask_enabled_status) if shifu_draft else ASK_MODE_DEFAULT
+        )
+    if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
+        ask_enabled_status = ASK_MODE_DEFAULT
+
+    ask_model_provided = ask_model is not None
+    if not ask_model_provided:
+        ask_model = shifu_draft.ask_llm if shifu_draft else "1"
+    elif not is_live_follow_up_model(ask_model):
+        ask_model = normalize_course_model(ask_model, "ask_model")
+
+    if ask_temperature is None:
+        ask_temperature = (
+            float(shifu_draft.ask_llm_temperature)
+            if shifu_draft and shifu_draft.ask_llm_temperature is not None
+            else 0.0
+        )
+
+    if ask_system_prompt is None:
+        ask_system_prompt = shifu_draft.ask_llm_system_prompt if shifu_draft else ""
+    ask_system_prompt = ask_system_prompt or ""
+
+    if ask_provider_config is None and not is_live_follow_up_model(ask_model):
+        serialized_ask_provider_config = (
+            getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+            if shifu_draft
+            else "{}"
+        )
+    else:
+        raw_ask_provider_config = ask_provider_config
+        if raw_ask_provider_config is None:
+            raw_ask_provider_config = (
+                getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+                if shifu_draft
+                else "{}"
+            )
+        normalized_ask_provider_config = normalize_ask_provider_config(
+            raw_ask_provider_config
+        )
+        normalized_ask_provider_config, live_config_error = (
+            normalize_live_follow_up_provider_config(
+                ask_model,
+                normalized_ask_provider_config,
+            )
+        )
+        if live_config_error:
+            raise_param_error(
+                f"ask_provider_config.{live_config_error}"
+                if live_config_error in {"provider", "mode"}
+                else f"ask_provider_config.config.{live_config_error}"
+            )
+        serialized_ask_provider_config = serialize_ask_provider_config(
+            normalized_ask_provider_config
+        )
+    return _SaveAskSettings(
+        enabled_status=ask_enabled_status,
+        model=ask_model,
+        model_provided=ask_model_provided,
+        temperature=ask_temperature,
+        system_prompt=ask_system_prompt,
+        serialized_provider_config=serialized_ask_provider_config,
+    )
+
+
+def _create_first_shifu_draft(
+    app: object, user_id: str, shifu_id: str, update: _ShifuDraftUpdate
+) -> DraftShifu:
+    """Insert the first draft row, filling defaults for omitted fields."""
+    tts = update.tts
+    ask = update.ask
+    # First-time draft: there is no current value to preserve, so fill
+    # sensible defaults for any field the caller omitted (None).
+    shifu_draft: DraftShifu = DraftShifu(
+        shifu_bid=shifu_id,
+        title=update.name or "",
+        description=update.description or "",
+        avatar_res_bid=update.avatar or "",
+        keywords=",".join(update.keywords) if update.keywords else "",
+        llm=normalize_course_model(update.model),
+        llm_temperature=(update.temperature if update.temperature is not None else 0.3),
+        price=update.price,
+        llm_system_prompt=update.system_prompt or "",
+        ask_enabled_status=ask.enabled_status,
+        ask_llm=ask.model,
+        ask_llm_temperature=ask.temperature,
+        ask_llm_system_prompt=ask.system_prompt,
+        ask_provider_config=ask.serialized_provider_config,
+        tts_enabled=1 if update.tts_enabled else 0,
+        tts_provider=tts.provider or "",
+        tts_model=tts.model or "",
+        tts_voice_id=tts.voice_id or "",
+        tts_speed=tts.speed if tts.speed is not None else 1.0,
+        tts_pitch=tts.pitch if tts.pitch is not None else 0,
+        tts_emotion=tts.emotion or "",
+        default_listen_mode_enabled=(1 if tts.default_listen_mode_enabled else 0),
+        use_learner_language=1 if update.use_learner_language else 0,
+        deleted=0,
+        created_user_bid=user_id,
+        updated_user_bid=user_id,
+    )
+    db.session.add(shifu_draft)
+    db.session.flush()
+    save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
+    return shifu_draft
+
+
+def _persist_changed_shifu_draft(
+    app: object, user_id: str, shifu_id: str, new_shifu_draft: DraftShifu
+) -> tuple[float, float]:
+    """Risk-check and store a changed draft; return both step timings in ms."""
+    risk_started_at = perf_counter()
+    check_text_with_risk_control(
+        app, shifu_id, user_id, new_shifu_draft.get_str_to_check()
+    )
+    risk_check_elapsed_ms = round((perf_counter() - risk_started_at) * 1000, 2)
+    persist_started_at = perf_counter()
+    # mark the old version as deleted
+    db.session.add(new_shifu_draft)
+    db.session.flush()
+    save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
+    persist_elapsed_ms = round((perf_counter() - persist_started_at) * 1000, 2)
+    return risk_check_elapsed_ms, persist_elapsed_ms
+
+
+def _apply_shifu_draft_update(
+    new_shifu_draft: DraftShifu, update: _ShifuDraftUpdate, user_id: str
+) -> None:
+    """Apply PATCH-style field changes to a cloned draft."""
+    tts = update.tts
+    ask = update.ask
+    # PATCH semantics: only overwrite a field the caller actually provided
+    # (non-None); otherwise keep the cloned current value. price/ask_* were
+    # already resolved above to the kept value when omitted, so assigning
+    # them here is preserve-safe.
+    if update.name is not None:
+        new_shifu_draft.title = update.name
+    if update.description is not None:
+        new_shifu_draft.description = update.description
+    if update.avatar is not None:
+        new_shifu_draft.avatar_res_bid = parse_shifu_res_bid(update.avatar)
+    if update.keywords is not None:
+        new_shifu_draft.keywords = ",".join(update.keywords) if update.keywords else ""
+    if update.model is not None:
+        new_shifu_draft.llm = normalize_course_model(update.model)
+    if update.temperature is not None:
+        new_shifu_draft.llm_temperature = update.temperature
+    new_shifu_draft.price = update.price
+    new_shifu_draft.ask_enabled_status = ask.enabled_status
+    if ask.model_provided:
+        new_shifu_draft.ask_llm = ask.model
+    new_shifu_draft.ask_llm_temperature = ask.temperature
+    new_shifu_draft.ask_llm_system_prompt = ask.system_prompt
+    new_shifu_draft.ask_provider_config = ask.serialized_provider_config
+    if update.tts_enabled is not None:
+        new_shifu_draft.tts_enabled = 1 if update.tts_enabled else 0
+    # PATCH guard: use the pre-validation provided flags (not the
+    # now-overwritten local variables) so we only overwrite TTS
+    # sub-fields the caller actually sent.
+    if tts.provider_provided:
+        new_shifu_draft.tts_provider = tts.provider or ""
+    if tts.model_provided:
+        new_shifu_draft.tts_model = tts.model or ""
+    if tts.voice_provided:
+        new_shifu_draft.tts_voice_id = tts.voice_id or ""
+    if tts.speed_provided:
+        new_shifu_draft.tts_speed = tts.speed
+    if tts.pitch_provided:
+        new_shifu_draft.tts_pitch = tts.pitch
+    if tts.emotion_provided:
+        new_shifu_draft.tts_emotion = tts.emotion or ""
+    if tts.default_listen_mode_enabled is not None:
+        new_shifu_draft.default_listen_mode_enabled = (
+            1 if tts.default_listen_mode_enabled else 0
+        )
+    if update.use_learner_language is not None:
+        new_shifu_draft.use_learner_language = 1 if update.use_learner_language else 0
+    new_shifu_draft.updated_user_bid = user_id
+    new_shifu_draft.updated_at = now_utc()
+    if update.system_prompt is not None:
+        new_shifu_draft.llm_system_prompt = update.system_prompt
 
 
 def get_shifu_draft_list(
