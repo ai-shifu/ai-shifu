@@ -11,6 +11,13 @@ from flaskr.service.creator_analytics.funcs import run_dsl
 
 def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
     """Register the creator analytics routes on the Flask application."""
+    _register_creator_analytics_query_route(app, path_prefix)
+    _register_creator_credit_detail_route(app, path_prefix)
+    return app
+
+
+def _register_creator_analytics_query_route(app: Flask, path_prefix: str) -> None:
+    """Register the creator analytics query route."""
 
     @app.route(path_prefix + "/query", methods=["POST"])
     def creator_analytics_query() -> str:
@@ -88,6 +95,10 @@ def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
         result = run_dsl(app, user_id, payload)
         return make_common_response(result)
 
+
+def _register_creator_credit_detail_route(app: Flask, path_prefix: str) -> None:
+    """Register the creator analytics credit detail route."""
+
     @app.route(path_prefix + "/credit-detail", methods=["POST"])
     def creator_analytics_credit_detail() -> str:
         """Fetch joined credit consumption detail for one shifu.
@@ -163,5 +174,3 @@ def register_creator_analytics_handler(app: Flask, path_prefix: str) -> Flask:
         payload = request.get_json(silent=True) or {}
         result = run_credit_detail(app, user_id, payload)
         return make_common_response(result)
-
-    return app

@@ -26,6 +26,13 @@ from .common import bypass_token_validation
 
 def register_callback_handler(app: Flask, path_prefix: str) -> Flask:
     """Register the callback routes on the Flask application."""
+    _register_scoped_payment_webhook_route(app)
+    _register_legacy_payment_callback_routes(app, path_prefix)
+    return app
+
+
+def _register_scoped_payment_webhook_route(app: Flask) -> None:
+    """Register the integration-scoped payment webhook route."""
 
     @app.route("/api/order/webhooks/<provider_name>/<callback_token>", methods=["POST"])
     @bypass_token_validation
@@ -88,6 +95,11 @@ def register_callback_handler(app: Flask, path_prefix: str) -> Flask:
                 return jsonify({"code": "FAIL", "message": "processing error"}), 400
 
     # pingxx支付回调
+
+
+def _register_legacy_payment_callback_routes(app: Flask, path_prefix: str) -> None:
+    """Register the Pingxx, Alipay and WeChat Pay notification routes."""
+
     @app.route(path_prefix + "/pingxx-callback", methods=["POST"])
     @bypass_token_validation
     def pingxx_callback() -> Response | tuple[Response, int]:
@@ -186,8 +198,6 @@ def register_callback_handler(app: Flask, path_prefix: str) -> Flask:
             app.logger.exception("wechatpay-notify failed")
             return jsonify({"code": "FAIL", "message": "processing error"}), 400
         return jsonify({"code": "SUCCESS", "message": "成功"})
-
-    return app
 
 
 def _plain_text_response(value: str) -> Response:
