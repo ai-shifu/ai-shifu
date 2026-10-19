@@ -11,6 +11,7 @@ from flaskr.service.billing.customization import (
     resolve_creator_public_integrations,
 )
 from flaskr.service.billing.dtos import (
+    RuntimeBillingContextDTO,
     RuntimeConfigDTO,
     RuntimeLegalUrlsDTO,
     RuntimeLocalizedUrlDTO,
@@ -69,6 +70,118 @@ def _extract_request_host() -> str:
     return str(request.host or "").strip()
 
 
+def _build_runtime_legal_urls() -> RuntimeLegalUrlsDTO:
+    """Collect the configured localized agreement and privacy URLs."""
+    return RuntimeLegalUrlsDTO(
+        agreement=RuntimeLocalizedUrlDTO(
+            **{
+                "zh-CN": get_config("LEGAL_AGREEMENT_URL_ZH_CN", "") or "",
+                "en-US": get_config("LEGAL_AGREEMENT_URL_EN_US", "") or "",
+                "de-DE": get_config("LEGAL_AGREEMENT_URL_DE_DE", "") or "",
+                "es-ES": get_config("LEGAL_AGREEMENT_URL_ES_ES", "") or "",
+                "fr-FR": get_config("LEGAL_AGREEMENT_URL_FR_FR", "") or "",
+                "ar-SA": get_config("LEGAL_AGREEMENT_URL_AR_SA", "") or "",
+                "th-TH": get_config("LEGAL_AGREEMENT_URL_TH_TH", "") or "",
+                "ur-PK": get_config("LEGAL_AGREEMENT_URL_UR_PK", "") or "",
+            }
+        ),
+        privacy=RuntimeLocalizedUrlDTO(
+            **{
+                "zh-CN": get_config("LEGAL_PRIVACY_URL_ZH_CN", "") or "",
+                "en-US": get_config("LEGAL_PRIVACY_URL_EN_US", "") or "",
+                "de-DE": get_config("LEGAL_PRIVACY_URL_DE_DE", "") or "",
+                "es-ES": get_config("LEGAL_PRIVACY_URL_ES_ES", "") or "",
+                "fr-FR": get_config("LEGAL_PRIVACY_URL_FR_FR", "") or "",
+                "ar-SA": get_config("LEGAL_PRIVACY_URL_AR_SA", "") or "",
+                "th-TH": get_config("LEGAL_PRIVACY_URL_TH_TH", "") or "",
+                "ur-PK": get_config("LEGAL_PRIVACY_URL_UR_PK", "") or "",
+            }
+        ),
+    )
+
+
+def _build_initial_runtime_billing(
+    app: Flask, *, creator_bid: str, request_host: str, billing_enabled: bool
+) -> RuntimeBillingContextDTO:
+    """Build the request billing context, falling back to a default payload."""
+    runtime_billing = None
+    if billing_enabled:
+        try:
+            runtime_billing = build_runtime_billing_context(
+                app,
+                creator_bid=creator_bid,
+                request_host=request_host,
+            )
+        except Exception:
+            # Runtime config is a shared bootstrap dependency. Fall back
+            # to a stable empty billing payload instead of failing the
+            # whole endpoint when billing data is unavailable.
+            app.logger.exception(
+                "Failed to build billing runtime config; using default payload "
+                "creator_bid=%s request_host=%s",
+                creator_bid or "-",
+                request_host or "-",
+            )
+
+    if runtime_billing is None:
+        runtime_billing = build_default_runtime_billing_context(
+            creator_bid=creator_bid,
+            request_host=request_host,
+        )
+    return runtime_billing
+
+
+def _resolve_domain_owner_runtime_billing(
+    app: Flask,
+    runtime_billing: RuntimeBillingContextDTO,
+    *,
+    creator_bid: str,
+    request_host: str,
+) -> tuple[RuntimeBillingContextDTO, str, bool]:
+    """Re-resolve billing for a custom domain owned by a different creator."""
+    domain_owner_bid = str(
+        getattr(runtime_billing.domain, "creator_bid", None) or ""
+    ).strip()
+    # Capture before the owner re-resolve below: its exception fallback
+    # rebuilds a default context that would drop the custom-domain flag.
+    is_custom_domain = bool(getattr(runtime_billing.domain, "is_custom_domain", False))
+    if domain_owner_bid and is_custom_domain and domain_owner_bid != creator_bid:
+        try:
+            runtime_billing = build_runtime_billing_context(
+                app,
+                creator_bid=domain_owner_bid,
+                request_host=request_host,
+            )
+        except Exception:
+            app.logger.exception(
+                "Failed to re-resolve billing runtime config for domain "
+                "owner; domain_owner_bid=%s request_host=%s",
+                domain_owner_bid,
+                request_host or "-",
+            )
+            runtime_billing = build_default_runtime_billing_context(
+                creator_bid=domain_owner_bid,
+                request_host=request_host,
+            )
+    return runtime_billing, domain_owner_bid, is_custom_domain
+
+
+def _resolve_runtime_public_integrations(app: Flask, resolved_creator_bid: str) -> dict:
+    """Load creator public integrations when customization is enabled."""
+    public_integrations = {}
+    if resolved_creator_bid and is_creator_customization_enabled():
+        try:
+            public_integrations = resolve_creator_public_integrations(
+                resolved_creator_bid
+            )
+        except Exception:
+            app.logger.exception(
+                "Failed to resolve creator public integrations; creator_bid=%s",
+                resolved_creator_bid,
+            )
+    return public_integrations
+
+
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     """Register the config routes on the Flask application."""
 
@@ -84,84 +197,20 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         explicit_creator_bid = str(request.args.get("creator_bid", "") or "").strip()
         creator_bid = explicit_creator_bid or str(get_shifu_creator_bid() or "").strip()
         request_host = _extract_request_host()
-        legal_urls = RuntimeLegalUrlsDTO(
-            agreement=RuntimeLocalizedUrlDTO(
-                **{
-                    "zh-CN": get_config("LEGAL_AGREEMENT_URL_ZH_CN", "") or "",
-                    "en-US": get_config("LEGAL_AGREEMENT_URL_EN_US", "") or "",
-                    "de-DE": get_config("LEGAL_AGREEMENT_URL_DE_DE", "") or "",
-                    "es-ES": get_config("LEGAL_AGREEMENT_URL_ES_ES", "") or "",
-                    "fr-FR": get_config("LEGAL_AGREEMENT_URL_FR_FR", "") or "",
-                    "ar-SA": get_config("LEGAL_AGREEMENT_URL_AR_SA", "") or "",
-                    "th-TH": get_config("LEGAL_AGREEMENT_URL_TH_TH", "") or "",
-                    "ur-PK": get_config("LEGAL_AGREEMENT_URL_UR_PK", "") or "",
-                }
-            ),
-            privacy=RuntimeLocalizedUrlDTO(
-                **{
-                    "zh-CN": get_config("LEGAL_PRIVACY_URL_ZH_CN", "") or "",
-                    "en-US": get_config("LEGAL_PRIVACY_URL_EN_US", "") or "",
-                    "de-DE": get_config("LEGAL_PRIVACY_URL_DE_DE", "") or "",
-                    "es-ES": get_config("LEGAL_PRIVACY_URL_ES_ES", "") or "",
-                    "fr-FR": get_config("LEGAL_PRIVACY_URL_FR_FR", "") or "",
-                    "ar-SA": get_config("LEGAL_PRIVACY_URL_AR_SA", "") or "",
-                    "th-TH": get_config("LEGAL_PRIVACY_URL_TH_TH", "") or "",
-                    "ur-PK": get_config("LEGAL_PRIVACY_URL_UR_PK", "") or "",
-                }
-            ),
-        )
-        runtime_billing = None
+        legal_urls = _build_runtime_legal_urls()
         billing_enabled = is_billing_enabled()
-        if billing_enabled:
-            try:
-                runtime_billing = build_runtime_billing_context(
-                    app,
-                    creator_bid=creator_bid,
-                    request_host=request_host,
-                )
-            except Exception:
-                # Runtime config is a shared bootstrap dependency. Fall back
-                # to a stable empty billing payload instead of failing the
-                # whole endpoint when billing data is unavailable.
-                app.logger.exception(
-                    "Failed to build billing runtime config; using default payload "
-                    "creator_bid=%s request_host=%s",
-                    creator_bid or "-",
-                    request_host or "-",
-                )
-
-        if runtime_billing is None:
-            runtime_billing = build_default_runtime_billing_context(
-                creator_bid=creator_bid,
-                request_host=request_host,
-            )
-
-        domain_owner_bid = str(
-            getattr(runtime_billing.domain, "creator_bid", None) or ""
-        ).strip()
-        # Capture before the owner re-resolve below: its exception fallback
-        # rebuilds a default context that would drop the custom-domain flag.
-        is_custom_domain = bool(
-            getattr(runtime_billing.domain, "is_custom_domain", False)
+        runtime_billing = _build_initial_runtime_billing(
+            app,
+            creator_bid=creator_bid,
+            request_host=request_host,
+            billing_enabled=billing_enabled,
         )
-        if domain_owner_bid and is_custom_domain and domain_owner_bid != creator_bid:
-            try:
-                runtime_billing = build_runtime_billing_context(
-                    app,
-                    creator_bid=domain_owner_bid,
-                    request_host=request_host,
-                )
-            except Exception:
-                app.logger.exception(
-                    "Failed to re-resolve billing runtime config for domain "
-                    "owner; domain_owner_bid=%s request_host=%s",
-                    domain_owner_bid,
-                    request_host or "-",
-                )
-                runtime_billing = build_default_runtime_billing_context(
-                    creator_bid=domain_owner_bid,
-                    request_host=request_host,
-                )
+
+        runtime_billing, domain_owner_bid, is_custom_domain = (
+            _resolve_domain_owner_runtime_billing(
+                app, runtime_billing, creator_bid=creator_bid, request_host=request_host
+            )
+        )
 
         branding = runtime_billing.branding
         logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")
@@ -177,17 +226,9 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         customization_capabilities = build_customization_capabilities(
             runtime_billing.entitlements
         )
-        public_integrations = {}
-        if resolved_creator_bid and is_creator_customization_enabled():
-            try:
-                public_integrations = resolve_creator_public_integrations(
-                    resolved_creator_bid
-                )
-            except Exception:
-                app.logger.exception(
-                    "Failed to resolve creator public integrations; creator_bid=%s",
-                    resolved_creator_bid,
-                )
+        public_integrations = _resolve_runtime_public_integrations(
+            app, resolved_creator_bid
+        )
 
         custom_wechat_enabled = customization_capabilities.get("custom_wechat", False)
         custom_payment_enabled = customization_capabilities.get("custom_payment", False)

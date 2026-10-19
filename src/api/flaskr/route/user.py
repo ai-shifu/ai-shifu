@@ -353,6 +353,31 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         resolve_onboarding_language=_resolve_profile_onboarding_runtime_language,
     )
 
+    _register_account_routes(app, path_prefix)
+    _register_account_update_routes(app, path_prefix)
+    _register_captcha_and_sms_routes(app, path_prefix)
+    _register_verification_login_routes(app, path_prefix)
+    _register_device_auth_routes(app, path_prefix)
+    _register_session_routes(app, path_prefix)
+    _register_profile_and_avatar_routes(app, path_prefix)
+    _register_openid_and_feedback_routes(app, path_prefix)
+    _register_google_oauth_routes(app, path_prefix)
+    _register_password_login_routes(app, path_prefix)
+    _register_password_management_routes(app, path_prefix)
+
+    # health check
+    @app.route("/health", methods=["GET"])
+    @bypass_token_validation
+    def health() -> str:
+        app.logger.info("health")
+        return make_common_response("ok")
+
+    return app
+
+
+def _register_account_routes(app: Flask, path_prefix: str) -> None:
+    """Register current-user info, admin-creator and onboarding routes."""
+
     @app.route(path_prefix + "/info", methods=["GET"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def info() -> str:
@@ -436,6 +461,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 status=payload.get("status"),
             )
         )
+
+
+def _register_account_update_routes(app: Flask, path_prefix: str) -> None:
+    """Register user-info update and temporary-user routes."""
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
@@ -554,6 +583,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         user_token = generate_temp_user(app, tmp_id, source, wx_code, language)
         return make_response(make_common_response(user_token))
 
+
+def _register_captcha_and_sms_routes(app: Flask, path_prefix: str) -> None:
+    """Register image-captcha and web SMS-code routes."""
+
     @app.route(path_prefix + "/captcha", methods=["GET"])
     @bypass_token_validation
     @sensitive_body()
@@ -662,6 +695,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             ),
         )
         return make_common_response({"expire_in": challenge.expire_in})
+
+
+def _register_verification_login_routes(app: Flask, path_prefix: str) -> None:
+    """Register console SMS, email-code and verification-login routes."""
 
     @app.route(path_prefix + "/console_send_sms_code", methods=["POST"])
     @bypass_token_validation
@@ -804,6 +841,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         """
         return _handle_verification_login(_EMAIL_LOGIN_CONFIG)
 
+
+def _register_device_auth_routes(app: Flask, path_prefix: str) -> None:
+    """Register command-line device authorization routes."""
+
     @app.route(path_prefix + "/device/authorize", methods=["POST"])
     @bypass_token_validation
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
@@ -906,6 +947,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             )
         )
 
+
+def _register_session_routes(app: Flask, path_prefix: str) -> None:
+    """Register sign-in session listing and revocation routes."""
+
     def _current_request_token() -> str:
         """Identify the session making this request, so it can be marked.
 
@@ -970,6 +1015,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 current_token=_current_request_token(),
             )
         )
+
+
+def _register_profile_and_avatar_routes(app: Flask, path_prefix: str) -> None:
+    """Register user profile and avatar routes."""
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
@@ -1109,6 +1158,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             upload_user_avatar(app, request.user.user_id, avatar)
         )
 
+
+def _register_openid_and_feedback_routes(app: Flask, path_prefix: str) -> None:
+    """Register WeChat OpenID binding and feedback routes."""
+
     @app.route(path_prefix + "/update_openid", methods=["POST"])
     @with_shifu_context()
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
@@ -1205,6 +1258,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("feedback")
         return make_common_response(submit_feedback(app, user_id, feedback, mail))
 
+
+def _register_google_oauth_routes(app: Flask, path_prefix: str) -> None:
+    """Register Google OAuth routes."""
+
     @app.route(path_prefix + "/oauth/google", methods=["GET"])
     @bypass_token_validation
     @optional_token_validation
@@ -1290,6 +1347,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
         return make_common_response(auth_result.token)
 
+
+def _register_password_login_routes(app: Flask, path_prefix: str) -> None:
+    """Register password login routes."""
     # -------- Password login routes --------
 
     @app.route(path_prefix + "/login_password", methods=["POST"])
@@ -1372,6 +1432,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
         return make_common_response(auth_result.token)
 
+
+def _register_password_management_routes(app: Flask, path_prefix: str) -> None:
+    """Register password set, change and reset routes."""
+
     @app.route(path_prefix + "/set_password", methods=["POST"])
     @sensitive_body(max_bytes=_AUTH_SENSITIVE_BODY_MAX_BYTES)
     def set_password() -> str:
@@ -1451,12 +1515,3 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             app, identifier=identifier, code=code, new_password=new_password
         )
         return make_common_response({"success": True})
-
-    # health check
-    @app.route("/health", methods=["GET"])
-    @bypass_token_validation
-    def health() -> str:
-        app.logger.info("health")
-        return make_common_response("ok")
-
-    return app
