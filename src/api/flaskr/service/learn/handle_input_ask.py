@@ -1,6 +1,7 @@
 """Handle learner follow-up questions and streamed answers."""
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+from dataclasses import dataclass
 from typing import Any
 
 from flask import Flask
@@ -242,27 +243,60 @@ def _finalize_ask_trace(
     )
 
 
-@extensible_generic
-def handle_input_ask(
+_ASK_FORMAT_CONSTRAINT = (
+    "IMPORTANT — Reply ONLY in plain text or standard Markdown. "
+    "Do NOT emit HTML tags (<button>, <input>, <select>, <form>, <div>, etc.). "
+    "Do NOT emit MarkdownFlow interactive syntax such as `?[%... | ...]`, "
+    "`?[%... || ...]`, `===...===` or `!===...!===` fences. "
+    "Do NOT emit double-brace template placeholders. "
+    "Earlier lesson content in this conversation may contain such syntax — "
+    "DO NOT mimic its format.\n\n"
+    "User question:\n"
+)
+
+
+@dataclass
+class _AskPrompt:
+    """Messages and question text prepared for one follow-up answer."""
+
+    escaped_input: str
+    conversation_context: Any
+    llm_messages: list[dict[str, Any]]
+    provider_messages: list[dict[str, Any]]
+    user_content: str
+
+
+@dataclass
+class _AskAnswer:
+    """Accumulated visible answer text, kept across provider failures."""
+
+    text: str = ""
+
+
+@dataclass
+class _AskProviderStream:
+    """Collaborators shared by every provider attempt for one answer."""
+
+    app: Flask
+    user_info: UserAggregate
+    outline_item_info: ShifuOutlineItemDto
+    answer_block: Any
+    span: Any
+    chapter_title: str
+    ask_scene: str
+    prompt: _AskPrompt
+    ask_provider_config: dict
+    llm_runtime: Any
+    stream_provider_response_func: Any
+
+
+def _load_follow_up_info_for_ask(
     app: Flask,
     context: object,
-    user_info: UserAggregate,
-    attend_id: str,
-    user_input: str,
     outline_item_info: ShifuOutlineItemDto,
-    trace_args: dict,
-    trace: LangfuseTraceHandle,
-    is_preview: bool = False,
-    last_position: int = -1,
-    anchor_element_bid: str = "",
-    parent_observation: object | None = None,
-    runtime_profiles: dict | None = None,
-    memory_patch: FollowUpMemoryPatch | None = None,
-) -> Generator[str, None, None]:
-    """Handle user Q&A input.
-
-    Process user questions in the shifu and return AI tutor responses.
-    """
+    attend_id: str,
+    is_preview: bool,
+) -> object:
     # Get follow-up information (including Q&A prompts and model configuration)
     retained_struct = getattr(context, "_struct", None)
     struct_options = (
@@ -281,22 +315,39 @@ def handle_input_ask(
         # legacy text/SSE path must never invoke it through LiteLLM or create a
         # text fallback history turn.
         raise_param_error("follow_up_model")
+    return follow_up_info
 
-    usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD
+
+def _resolve_ask_learning_mode(context: object) -> str:
     learning_mode = getattr(context, "_learning_mode", None)
     if learning_mode not in {"read", "listen", "classroom"}:
         learning_mode = "listen" if getattr(context, "_listen", False) else "read"
-    app.logger.info("follow_up_info:%s", follow_up_info.__json__())
-    chapter_title = outline_item_info.title
-    ask_scene = "lesson_preview_ask" if is_preview else "lesson_ask"
+    return learning_mode
 
+
+def _resolve_ask_max_history_len(app: Flask) -> int:
     raw_ask_max_history_len = app.config.get("ASK_MAX_HISTORY_LEN", 10)
     try:
         ask_max_history_len = int(raw_ask_max_history_len)
     except ValueError:
         ask_max_history_len = 10
+    return ask_max_history_len
 
-    raw_input = user_input
+
+def _prepare_ask_prompt(
+    app: Flask,
+    *,
+    context: object,
+    user_info: UserAggregate,
+    attend_id: str,
+    raw_input: str,
+    outline_item_info: ShifuOutlineItemDto,
+    trace_args: dict,
+    follow_up_info: object,
+    runtime_profiles: dict | None,
+    anchor_element_bid: str,
+    ask_max_history_len: int,
+) -> _AskPrompt:
     normalized_trace_input = normalize_langfuse_input_value(raw_input)
     if normalized_trace_input and not trace_args.get("input"):
         trace_args["input"] = normalized_trace_input
@@ -334,18 +385,8 @@ def handle_input_ask(
     # Prepend a format constraint so the model replies in plain text / Markdown
     # and does not mimic HTML or MarkdownFlow interactive syntax that appears
     # in earlier lesson content / conversation history.
-    format_constraint = (
-        "IMPORTANT — Reply ONLY in plain text or standard Markdown. "
-        "Do NOT emit HTML tags (<button>, <input>, <select>, <form>, <div>, etc.). "
-        "Do NOT emit MarkdownFlow interactive syntax such as `?[%... | ...]`, "
-        "`?[%... || ...]`, `===...===` or `!===...!===` fences. "
-        "Do NOT emit double-brace template placeholders. "
-        "Earlier lesson content in this conversation may contain such syntax — "
-        "DO NOT mimic its format.\n\n"
-        "User question:\n"
-    )
     # Append language instruction to user input if use_learner_language is enabled
-    user_content = format_constraint + escaped_input
+    user_content = _ASK_FORMAT_CONSTRAINT + escaped_input
     if use_learner_language:
         output_language = conversation_context.output_language
         user_content += f"\n\n(IMPORTANT: You MUST respond in {output_language}.)"
@@ -360,13 +401,22 @@ def handle_input_ask(
         len(llm_messages),
         len(provider_messages),
     )
+    return _AskPrompt(
+        escaped_input=escaped_input,
+        conversation_context=conversation_context,
+        llm_messages=llm_messages,
+        provider_messages=provider_messages,
+        user_content=user_content,
+    )
 
-    # Get model for follow-up Q&A
-    follow_up_model = follow_up_info.ask_model
-    from flaskr.api.llm.model_selection import resolve_selection
 
-    follow_up_usage_metadata = dict(getattr(follow_up_info, "usage_metadata", {}))
-
+def _load_ask_memory_policy(
+    context: object,
+    user_info: UserAggregate,
+    outline_item_info: ShifuOutlineItemDto,
+    is_preview: bool,
+    memory_patch: FollowUpMemoryPatch | None,
+) -> object:
     memory_policy = None
     if memory_patch is not None:
         row_loader = getattr(context, "_get_outline_row_id", None)
@@ -379,7 +429,340 @@ def handle_input_ask(
             else None,
             preview=is_preview,
         )
+    return memory_policy
 
+
+def _stream_guardrail_answer(
+    *,
+    context: object,
+    trace: LangfuseTraceHandle,
+    parent_observation: object | None,
+    span: object,
+    trace_args: dict,
+    outline_item_info: ShifuOutlineItemDto,
+    answer_block: object,
+    raw_input: str,
+    guardrail_chunks: list[str],
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    guardrail_text = "".join(guardrail_chunks)
+    for chunk in guardrail_chunks:
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_item_info.bid,
+            generated_block_bid=answer_block.generated_block_bid,
+            type=GeneratedType.CONTENT,
+            content=chunk,
+        )
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_item_info.bid,
+        generated_block_bid=answer_block.generated_block_bid,
+        type=GeneratedType.BREAK,
+        content="",
+    )
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_item_info.bid,
+        generated_block_bid=answer_block.generated_block_bid,
+        type=GeneratedType.INTERACTION,
+        content=raw_input,
+    )
+    answer_block.generated_content = guardrail_text
+    _finalize_ask_trace(
+        context=context,
+        trace=trace,
+        parent_observation=parent_observation,
+        span=span,
+        trace_args=trace_args,
+        response_text=guardrail_text,
+    )
+    db.session.flush()
+
+
+def _resolve_ask_provider_routing(
+    app: Flask, follow_up_info: object
+) -> tuple[dict, str, str]:
+    ask_provider_config = get_effective_ask_provider_config(
+        getattr(follow_up_info, "ask_provider_config", {})
+    )
+    ask_provider = ask_provider_config.get("provider", ASK_PROVIDER_LLM)
+    ask_provider_mode = ask_provider_config.get(
+        "mode",
+        ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
+    )
+    app.logger.info(
+        "ask provider routing: provider=%s mode=%s",
+        ask_provider,
+        ask_provider_mode,
+    )
+    return ask_provider_config, ask_provider, ask_provider_mode
+
+
+def _resolve_ask_provider_bindings() -> tuple[Any, Any, Any, Any]:
+    """Return provider stream, runtime, error, and timeout-error bindings."""
+    stream_provider_response_func = globals().get("stream_ask_provider_response")
+    ask_provider_runtime_cls = globals().get("AskProviderRuntime")
+    ask_provider_error_cls = globals().get("AskProviderError")
+    ask_provider_timeout_error_cls = globals().get("AskProviderTimeoutError")
+    if (
+        stream_provider_response_func is None
+        or ask_provider_runtime_cls is None
+        or ask_provider_error_cls is None
+        or ask_provider_timeout_error_cls is None
+    ):
+        # Lowercase aliases keep the lazily imported names consistent with the
+        # module-level lookups above.
+        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
+            AskProviderError as ask_provider_error_cls,
+        )
+        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
+            AskProviderRuntime as ask_provider_runtime_cls,
+        )
+        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
+            AskProviderTimeoutError as ask_provider_timeout_error_cls,
+        )
+        from flaskr.service.learn.ask_provider_adapters import (
+            stream_ask_provider_response as stream_provider_response_func,
+        )
+    return (
+        stream_provider_response_func,
+        ask_provider_runtime_cls,
+        ask_provider_error_cls,
+        ask_provider_timeout_error_cls,
+    )
+
+
+def _resolve_chat_llm_func() -> object:
+    chat_llm_func = globals().get("chat_llm")
+    if chat_llm_func is None:
+        chat_llm_func = __import__(
+            "flaskr.api.llm",
+            fromlist=["chat_llm"],
+        ).chat_llm
+    return chat_llm_func
+
+
+def _build_chat_llm_stream(
+    app: Flask,
+    *,
+    context: object,
+    user_info: UserAggregate,
+    span: object,
+    resolve_selection: object,
+    chat_llm_func: object,
+    follow_up_info: object,
+    follow_up_model: object,
+    follow_up_usage_metadata: dict,
+    memory_policy: object,
+    memory_patch: FollowUpMemoryPatch | None,
+    usage_context: UsageContext,
+    usage_scene: object,
+    generation_name: str,
+    raw_input: str,
+    prompt: _AskPrompt,
+    runtime_profiles: dict | None,
+    is_preview: bool,
+) -> Callable[[list[dict[str, Any]]], object]:
+    def _chat_llm_stream(
+        stream_messages: list[dict[str, Any]],
+    ) -> Generator[Any, None, None]:
+        """Resolve the contextual model only when a provider invokes its factory."""
+        # External provider-only answers do not depend on LLM configuration.
+        # Guardrail rejections resolve through invoke_llm in check_text instead.
+        model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
+        if memory_policy is not None and memory_patch is not None:
+            from flaskr.service.learn.agent.gateway_model import GatewayModel
+            from flaskr.service.learn.agent.memory_admission import make_request_check
+
+            shared = {
+                "user_id": user_info.user_id,
+                "span": span,
+                "usage_context": usage_context,
+                "usage_scene": usage_scene,
+                "usage_metadata": metadata,
+            }
+            answer_model = GatewayModel(
+                app,
+                model,
+                generation_name=generation_name,
+                **shared,
+            )
+            admission_model = GatewayModel(
+                app,
+                model,
+                generation_name="follow_up_memory_admission",
+                retry_deadline_seconds=8,
+                timeout=8,
+                num_retries=0,
+                **shared,
+            )
+            run = FollowUpMemoryRun(
+                answer_model,
+                patch=memory_patch,
+                current_input=raw_input,
+                quotation_messages=prompt.conversation_context.quotation_messages,
+                declared_keys=memory_policy.declared_keys,
+                snapshot=dict(runtime_profiles or {}),
+                deleted_keys=memory_policy.deleted_keys,
+                generations=memory_policy.generations,
+                value_versions=memory_policy.value_versions,
+                reserved_keys=memory_policy.reserved_keys,
+                request_check=make_request_check(admission_model),
+                preview=is_preview,
+                temperature=float(follow_up_info.model_args["temperature"]),
+                cancelled=(
+                    context._stop_event.is_set
+                    if getattr(context, "_stop_event", None) is not None
+                    else None
+                ),
+            )
+            return run.stream(stream_messages)
+        return chat_llm_func(
+            app,
+            user_info.user_id,
+            span,
+            model=model,
+            usage_metadata=metadata,
+            json=True,
+            stream=True,  # Enable streaming output
+            temperature=follow_up_info.model_args[
+                "temperature"
+            ],  # Use configured temperature parameter
+            generation_name=generation_name,
+            messages=stream_messages,
+            usage_context=usage_context,
+            usage_scene=usage_scene,
+        )
+
+    return _chat_llm_stream
+
+
+def _emit_provider_stream(
+    stream: _AskProviderStream,
+    provider_name: str,
+    answer: _AskAnswer,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Normalize visible provider text into the existing answer SSE stream."""
+    app = stream.app
+    prompt = stream.prompt
+    provider_input_messages = (
+        prompt.llm_messages
+        if provider_name == ASK_PROVIDER_LLM
+        else prompt.provider_messages
+    )
+    provider_resp = stream.stream_provider_response_func(
+        app=app,
+        provider=provider_name,
+        user_id=stream.user_info.user_id,
+        user_query=prompt.user_content,
+        messages=provider_input_messages,
+        provider_config=stream.ask_provider_config,
+        runtime=stream.llm_runtime,
+    )
+    if provider_name != ASK_PROVIDER_LLM:
+        provider_resp = stream_provider_with_langfuse(
+            provider_stream=provider_resp,
+            span=stream.span,
+            app=app,
+            provider_name=provider_name,
+            generation_name=build_langfuse_generation_name(
+                stream.chapter_title,
+                stream.ask_scene,
+                f"user_follow_ask_{provider_name}",
+            ),
+            user_query=prompt.user_content,
+            messages=provider_input_messages,
+            provider_config=stream.ask_provider_config,
+        )
+    for chunk in provider_resp:
+        current_content = chunk.content
+        if isinstance(current_content, str) and current_content:
+            answer.text += current_content
+            yield RunMarkdownFlowDTO(
+                outline_bid=stream.outline_item_info.bid,
+                generated_block_bid=stream.answer_block.generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content=current_content,
+            )
+
+
+def _stream_routed_answer(
+    stream: _AskProviderStream,
+    answer: _AskAnswer,
+    *,
+    ask_provider: str,
+    ask_provider_mode: str,
+    ask_provider_error_cls: object,
+    ask_provider_timeout_error_cls: object,
+    memory_patch: FollowUpMemoryPatch | None,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Stream the configured provider, then apply provider-only or LLM fallback."""
+    app = stream.app
+    outline_item_info = stream.outline_item_info
+    provider_error: Exception | None = None
+    if ask_provider == ASK_PROVIDER_LLM:
+        yield from _emit_provider_stream(stream, ASK_PROVIDER_LLM, answer)
+    else:
+        try:
+            yield from _emit_provider_stream(stream, ask_provider, answer)
+        except ask_provider_timeout_error_cls as exc:
+            provider_error = exc
+            app.logger.warning(
+                "ask provider timeout, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
+                ask_provider,
+                ask_provider_mode,
+                outline_item_info.shifu_bid,
+                outline_item_info.bid,
+            )
+        except ask_provider_error_cls as exc:
+            provider_error = exc
+            app.logger.warning(
+                "ask provider failed, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s, error=%s",
+                ask_provider,
+                ask_provider_mode,
+                outline_item_info.shifu_bid,
+                outline_item_info.bid,
+                exc,
+            )
+
+    use_llm_fallback = False
+    if ask_provider != ASK_PROVIDER_LLM and not answer.text:
+        if ask_provider_mode == ASK_PROVIDER_MODE_PROVIDER_ONLY:
+            if isinstance(provider_error, ask_provider_timeout_error_cls):
+                answer.text = str(_("server.learn.askProviderTimeout"))
+            else:
+                answer.text = str(_("server.learn.askProviderUnavailable"))
+            yield RunMarkdownFlowDTO(
+                outline_bid=outline_item_info.bid,
+                generated_block_bid=stream.answer_block.generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content=answer.text,
+            )
+        else:
+            use_llm_fallback = True
+            app.logger.info(
+                "ask provider fallback to llm, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
+                ask_provider,
+                ask_provider_mode,
+                outline_item_info.shifu_bid,
+                outline_item_info.bid,
+            )
+
+    if use_llm_fallback:
+        yield from _emit_provider_stream(stream, ASK_PROVIDER_LLM, answer)
+
+    if provider_error is not None and not use_llm_fallback and memory_patch is not None:
+        memory_patch.variables.clear()
+
+
+def _create_ask_answer_blocks(
+    app: Flask,
+    *,
+    outline_item_info: ShifuOutlineItemDto,
+    attend_id: str,
+    user_info: UserAggregate,
+    raw_input: str,
+    last_position: int,
+    usage_scene: object,
+    learning_mode: str,
+) -> tuple[LearnGeneratedBlock, LearnGeneratedBlock, UsageContext]:
     # Create ask block
     ask_block = _create_ask_block(
         app,
@@ -405,6 +788,174 @@ def handle_input_ask(
         outline_item_bid=outline_item_info.bid,
         progress_record_bid=attend_id,
         generated_block_bid=answer_block.generated_block_bid,
+        usage_scene=usage_scene,
+        learning_mode=learning_mode,
+    )
+    return ask_block, answer_block, usage_context
+
+
+def _prepare_ask_provider_stream(
+    app: Flask,
+    *,
+    context: object,
+    user_info: UserAggregate,
+    outline_item_info: ShifuOutlineItemDto,
+    answer_block: LearnGeneratedBlock,
+    span: object,
+    chapter_title: str,
+    ask_scene: str,
+    prompt: _AskPrompt,
+    follow_up_info: object,
+    resolve_selection: object,
+    memory_policy: object,
+    memory_patch: FollowUpMemoryPatch | None,
+    usage_context: UsageContext,
+    usage_scene: object,
+    raw_input: str,
+    runtime_profiles: dict | None,
+    is_preview: bool,
+) -> tuple[_AskProviderStream, str, str, Any, Any]:
+    """Resolve provider routing and the lazily resolved LLM stream factory."""
+    follow_up_model = follow_up_info.ask_model
+    follow_up_usage_metadata = dict(getattr(follow_up_info, "usage_metadata", {}))
+    # Call LLM to generate response
+    generation_name = build_langfuse_generation_name(
+        chapter_title,
+        ask_scene,
+        "user_follow_ask",
+    )
+    ask_provider_config, ask_provider, ask_provider_mode = (
+        _resolve_ask_provider_routing(app, follow_up_info)
+    )
+    (
+        stream_provider_response_func,
+        ask_provider_runtime_cls,
+        ask_provider_error_cls,
+        ask_provider_timeout_error_cls,
+    ) = _resolve_ask_provider_bindings()
+    chat_llm_func = _resolve_chat_llm_func()
+
+    from flaskr.service.learn.ask_provider_adapters.common import (
+        apply_knowledge_to_messages,
+    )
+
+    chat_llm_stream = _build_chat_llm_stream(
+        app,
+        context=context,
+        user_info=user_info,
+        span=span,
+        resolve_selection=resolve_selection,
+        chat_llm_func=chat_llm_func,
+        follow_up_info=follow_up_info,
+        follow_up_model=follow_up_model,
+        follow_up_usage_metadata=follow_up_usage_metadata,
+        memory_policy=memory_policy,
+        memory_patch=memory_patch,
+        usage_context=usage_context,
+        usage_scene=usage_scene,
+        generation_name=generation_name,
+        raw_input=raw_input,
+        prompt=prompt,
+        runtime_profiles=runtime_profiles,
+        is_preview=is_preview,
+    )
+    llm_messages = prompt.llm_messages
+    llm_runtime = ask_provider_runtime_cls(
+        # Pass complete conversation history; an empty knowledge context
+        # clears the ask-template {knowledge} placeholder.
+        llm_stream_factory=lambda: chat_llm_stream(
+            apply_knowledge_to_messages(llm_messages, "")
+        ),
+        # Fill the ask-template knowledge section with retrieval output.
+        llm_context_stream_factory=lambda knowledge_context: chat_llm_stream(
+            apply_knowledge_to_messages(llm_messages, knowledge_context)
+        ),
+    )
+
+    stream = _AskProviderStream(
+        app=app,
+        user_info=user_info,
+        outline_item_info=outline_item_info,
+        answer_block=answer_block,
+        span=span,
+        chapter_title=chapter_title,
+        ask_scene=ask_scene,
+        prompt=prompt,
+        ask_provider_config=ask_provider_config,
+        llm_runtime=llm_runtime,
+        stream_provider_response_func=stream_provider_response_func,
+    )
+    return (
+        stream,
+        ask_provider,
+        ask_provider_mode,
+        ask_provider_error_cls,
+        ask_provider_timeout_error_cls,
+    )
+
+
+@extensible_generic
+def handle_input_ask(
+    app: Flask,
+    context: object,
+    user_info: UserAggregate,
+    attend_id: str,
+    user_input: str,
+    outline_item_info: ShifuOutlineItemDto,
+    trace_args: dict,
+    trace: LangfuseTraceHandle,
+    is_preview: bool = False,
+    last_position: int = -1,
+    anchor_element_bid: str = "",
+    parent_observation: object | None = None,
+    runtime_profiles: dict | None = None,
+    memory_patch: FollowUpMemoryPatch | None = None,
+) -> Generator[str, None, None]:
+    """Handle user Q&A input.
+
+    Process user questions in the shifu and return AI tutor responses.
+    """
+    follow_up_info = _load_follow_up_info_for_ask(
+        app, context, outline_item_info, attend_id, is_preview
+    )
+    usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD
+    learning_mode = _resolve_ask_learning_mode(context)
+    app.logger.info("follow_up_info:%s", follow_up_info.__json__())
+    chapter_title = outline_item_info.title
+    ask_scene = "lesson_preview_ask" if is_preview else "lesson_ask"
+    ask_max_history_len = _resolve_ask_max_history_len(app)
+
+    raw_input = user_input
+    prompt = _prepare_ask_prompt(
+        app,
+        context=context,
+        user_info=user_info,
+        attend_id=attend_id,
+        raw_input=raw_input,
+        outline_item_info=outline_item_info,
+        trace_args=trace_args,
+        follow_up_info=follow_up_info,
+        runtime_profiles=runtime_profiles,
+        anchor_element_bid=anchor_element_bid,
+        ask_max_history_len=ask_max_history_len,
+    )
+    escaped_input = prompt.escaped_input
+
+    # Get model for follow-up Q&A
+    follow_up_model = follow_up_info.ask_model
+    from flaskr.api.llm.model_selection import resolve_selection
+
+    memory_policy = _load_ask_memory_policy(
+        context, user_info, outline_item_info, is_preview, memory_patch
+    )
+
+    ask_block, answer_block, usage_context = _create_ask_answer_blocks(
+        app,
+        outline_item_info=outline_item_info,
+        attend_id=attend_id,
+        user_info=user_info,
+        raw_input=raw_input,
+        last_position=last_position,
         usage_scene=usage_scene,
         learning_mode=learning_mode,
     )
@@ -443,275 +994,56 @@ def handle_input_ask(
     )
 
     if guardrail_chunks:
-        guardrail_text = "".join(guardrail_chunks)
-        for chunk in guardrail_chunks:
-            yield RunMarkdownFlowDTO(
-                outline_bid=outline_item_info.bid,
-                generated_block_bid=answer_block.generated_block_bid,
-                type=GeneratedType.CONTENT,
-                content=chunk,
-            )
-        yield RunMarkdownFlowDTO(
-            outline_bid=outline_item_info.bid,
-            generated_block_bid=answer_block.generated_block_bid,
-            type=GeneratedType.BREAK,
-            content="",
-        )
-        yield RunMarkdownFlowDTO(
-            outline_bid=outline_item_info.bid,
-            generated_block_bid=answer_block.generated_block_bid,
-            type=GeneratedType.INTERACTION,
-            content=raw_input,
-        )
-        answer_block.generated_content = guardrail_text
-        _finalize_ask_trace(
+        yield from _stream_guardrail_answer(
             context=context,
             trace=trace,
             parent_observation=parent_observation,
             span=span,
             trace_args=trace_args,
-            response_text=guardrail_text,
+            outline_item_info=outline_item_info,
+            answer_block=answer_block,
+            raw_input=raw_input,
+            guardrail_chunks=guardrail_chunks,
         )
-        db.session.flush()
         return
 
-    # Call LLM to generate response
-    generation_name = build_langfuse_generation_name(
-        chapter_title,
-        ask_scene,
-        "user_follow_ask",
-    )
-    ask_provider_config = get_effective_ask_provider_config(
-        getattr(follow_up_info, "ask_provider_config", {})
-    )
-    ask_provider = ask_provider_config.get("provider", ASK_PROVIDER_LLM)
-    ask_provider_mode = ask_provider_config.get(
-        "mode",
-        ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
-    )
-    app.logger.info(
-        "ask provider routing: provider=%s mode=%s",
+    (
+        provider_stream,
         ask_provider,
         ask_provider_mode,
+        ask_provider_error_cls,
+        ask_provider_timeout_error_cls,
+    ) = _prepare_ask_provider_stream(
+        app,
+        context=context,
+        user_info=user_info,
+        outline_item_info=outline_item_info,
+        answer_block=answer_block,
+        span=span,
+        chapter_title=chapter_title,
+        ask_scene=ask_scene,
+        prompt=prompt,
+        follow_up_info=follow_up_info,
+        resolve_selection=resolve_selection,
+        memory_policy=memory_policy,
+        memory_patch=memory_patch,
+        usage_context=usage_context,
+        usage_scene=usage_scene,
+        raw_input=raw_input,
+        runtime_profiles=runtime_profiles,
+        is_preview=is_preview,
     )
-
-    response_text = ""  # Store complete response text
-    provider_error: Exception | None = None
-    stream_provider_response_func = globals().get("stream_ask_provider_response")
-    ask_provider_runtime_cls = globals().get("AskProviderRuntime")
-    ask_provider_error_cls = globals().get("AskProviderError")
-    ask_provider_timeout_error_cls = globals().get("AskProviderTimeoutError")
-    if (
-        stream_provider_response_func is None
-        or ask_provider_runtime_cls is None
-        or ask_provider_error_cls is None
-        or ask_provider_timeout_error_cls is None
-    ):
-        # Lowercase aliases keep the lazily imported names consistent with the
-        # module-level lookups above.
-        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
-            AskProviderError as ask_provider_error_cls,
-        )
-        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
-            AskProviderRuntime as ask_provider_runtime_cls,
-        )
-        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
-            AskProviderTimeoutError as ask_provider_timeout_error_cls,
-        )
-        from flaskr.service.learn.ask_provider_adapters import (
-            stream_ask_provider_response as stream_provider_response_func,
-        )
-
-    chat_llm_func = globals().get("chat_llm")
-    if chat_llm_func is None:
-        chat_llm_func = __import__(
-            "flaskr.api.llm",
-            fromlist=["chat_llm"],
-        ).chat_llm
-
-    from flaskr.service.learn.ask_provider_adapters.common import (
-        apply_knowledge_to_messages,
+    answer = _AskAnswer()  # Store complete response text
+    yield from _stream_routed_answer(
+        provider_stream,
+        answer,
+        ask_provider=ask_provider,
+        ask_provider_mode=ask_provider_mode,
+        ask_provider_error_cls=ask_provider_error_cls,
+        ask_provider_timeout_error_cls=ask_provider_timeout_error_cls,
+        memory_patch=memory_patch,
     )
-
-    def _chat_llm_stream(
-        stream_messages: list[dict[str, Any]],
-    ) -> Generator[Any, None, None]:
-        """Resolve the contextual model only when a provider invokes its factory."""
-        # External provider-only answers do not depend on LLM configuration.
-        # Guardrail rejections resolve through invoke_llm in check_text instead.
-        model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
-        if memory_policy is not None and memory_patch is not None:
-            from flaskr.service.learn.agent.gateway_model import GatewayModel
-            from flaskr.service.learn.agent.memory_admission import make_request_check
-
-            shared = {
-                "user_id": user_info.user_id,
-                "span": span,
-                "usage_context": usage_context,
-                "usage_scene": usage_scene,
-                "usage_metadata": metadata,
-            }
-            answer_model = GatewayModel(
-                app,
-                model,
-                generation_name=generation_name,
-                **shared,
-            )
-            admission_model = GatewayModel(
-                app,
-                model,
-                generation_name="follow_up_memory_admission",
-                retry_deadline_seconds=8,
-                timeout=8,
-                num_retries=0,
-                **shared,
-            )
-            run = FollowUpMemoryRun(
-                answer_model,
-                patch=memory_patch,
-                current_input=raw_input,
-                quotation_messages=conversation_context.quotation_messages,
-                declared_keys=memory_policy.declared_keys,
-                snapshot=dict(runtime_profiles or {}),
-                deleted_keys=memory_policy.deleted_keys,
-                generations=memory_policy.generations,
-                value_versions=memory_policy.value_versions,
-                reserved_keys=memory_policy.reserved_keys,
-                request_check=make_request_check(admission_model),
-                preview=is_preview,
-                temperature=float(follow_up_info.model_args["temperature"]),
-                cancelled=(
-                    context._stop_event.is_set
-                    if getattr(context, "_stop_event", None) is not None
-                    else None
-                ),
-            )
-            return run.stream(stream_messages)
-        return chat_llm_func(
-            app,
-            user_info.user_id,
-            span,
-            model=model,
-            usage_metadata=metadata,
-            json=True,
-            stream=True,  # Enable streaming output
-            temperature=follow_up_info.model_args[
-                "temperature"
-            ],  # Use configured temperature parameter
-            generation_name=generation_name,
-            messages=stream_messages,
-            usage_context=usage_context,
-            usage_scene=usage_scene,
-        )
-
-    llm_runtime = ask_provider_runtime_cls(
-        # Pass complete conversation history; an empty knowledge context
-        # clears the ask-template {knowledge} placeholder.
-        llm_stream_factory=lambda: _chat_llm_stream(
-            apply_knowledge_to_messages(llm_messages, "")
-        ),
-        # Fill the ask-template knowledge section with retrieval output.
-        llm_context_stream_factory=lambda knowledge_context: _chat_llm_stream(
-            apply_knowledge_to_messages(llm_messages, knowledge_context)
-        ),
-    )
-
-    def _emit_provider_stream(
-        provider_name: str,
-    ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """Normalize visible provider text into the existing answer SSE stream."""
-        nonlocal response_text
-        provider_input_messages = (
-            llm_messages if provider_name == ASK_PROVIDER_LLM else provider_messages
-        )
-        provider_resp = stream_provider_response_func(
-            app=app,
-            provider=provider_name,
-            user_id=user_info.user_id,
-            user_query=user_content,
-            messages=provider_input_messages,
-            provider_config=ask_provider_config,
-            runtime=llm_runtime,
-        )
-        if provider_name != ASK_PROVIDER_LLM:
-            provider_resp = stream_provider_with_langfuse(
-                provider_stream=provider_resp,
-                span=span,
-                app=app,
-                provider_name=provider_name,
-                generation_name=build_langfuse_generation_name(
-                    chapter_title,
-                    ask_scene,
-                    f"user_follow_ask_{provider_name}",
-                ),
-                user_query=user_content,
-                messages=provider_input_messages,
-                provider_config=ask_provider_config,
-            )
-        for chunk in provider_resp:
-            current_content = chunk.content
-            if isinstance(current_content, str) and current_content:
-                response_text += current_content
-                yield RunMarkdownFlowDTO(
-                    outline_bid=outline_item_info.bid,
-                    generated_block_bid=answer_block.generated_block_bid,
-                    type=GeneratedType.CONTENT,
-                    content=current_content,
-                )
-
-    if ask_provider == ASK_PROVIDER_LLM:
-        yield from _emit_provider_stream(ASK_PROVIDER_LLM)
-    else:
-        try:
-            yield from _emit_provider_stream(ask_provider)
-        except ask_provider_timeout_error_cls as exc:
-            provider_error = exc
-            app.logger.warning(
-                "ask provider timeout, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
-                ask_provider,
-                ask_provider_mode,
-                outline_item_info.shifu_bid,
-                outline_item_info.bid,
-            )
-        except ask_provider_error_cls as exc:
-            provider_error = exc
-            app.logger.warning(
-                "ask provider failed, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s, error=%s",
-                ask_provider,
-                ask_provider_mode,
-                outline_item_info.shifu_bid,
-                outline_item_info.bid,
-                exc,
-            )
-
-    use_llm_fallback = False
-    if ask_provider != ASK_PROVIDER_LLM and not response_text:
-        if ask_provider_mode == ASK_PROVIDER_MODE_PROVIDER_ONLY:
-            if isinstance(provider_error, ask_provider_timeout_error_cls):
-                response_text = str(_("server.learn.askProviderTimeout"))
-            else:
-                response_text = str(_("server.learn.askProviderUnavailable"))
-            yield RunMarkdownFlowDTO(
-                outline_bid=outline_item_info.bid,
-                generated_block_bid=answer_block.generated_block_bid,
-                type=GeneratedType.CONTENT,
-                content=response_text,
-            )
-        else:
-            use_llm_fallback = True
-            app.logger.info(
-                "ask provider fallback to llm, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
-                ask_provider,
-                ask_provider_mode,
-                outline_item_info.shifu_bid,
-                outline_item_info.bid,
-            )
-
-    if use_llm_fallback:
-        yield from _emit_provider_stream(ASK_PROVIDER_LLM)
-
-    if provider_error is not None and not use_llm_fallback and memory_patch is not None:
-        memory_patch.variables.clear()
+    response_text = answer.text
 
     # Backfill answer block content
     answer_block.generated_content = response_text
