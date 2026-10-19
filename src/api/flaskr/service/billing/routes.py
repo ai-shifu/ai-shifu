@@ -204,11 +204,8 @@ def _raise_campaign_provider_discount_route_error(exc: Exception) -> None:
     _raise_provider_price_mapping_route_error(exc)
 
 
-@inject
-def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> None:
-    """Register creator billing routes."""
-    app.logger.info("register billing routes %s", path_prefix)
-    admin_path_prefix = "/api/admin/billing"
+def _register_creator_billing_routes(app: Flask, path_prefix: str) -> None:
+    """Register creator wallet, ledger, checkout, and subscription routes."""
 
     @app.route(path_prefix, methods=["GET"])
     def billing_bootstrap_api() -> str:
@@ -331,6 +328,10 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
+
+def _register_creator_customization_routes(app: Flask, path_prefix: str) -> None:
+    """Register creator branding, domain, and integration routes."""
+
     @app.route(path_prefix + "/customization", methods=["GET"])
     def billing_customization_api() -> str:
         _require_billing_access(app)
@@ -433,6 +434,10 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
         return make_common_response(
             disable_creator_integration(app, _get_creator_bid(), provider)
         )
+
+
+def _register_admin_entitlement_routes(app: Flask, admin_path_prefix: str) -> None:
+    """Register operator subscription, entitlement, and ops-state routes."""
 
     @app.route(admin_path_prefix + "/subscriptions", methods=["GET"])
     def admin_bill_subscriptions_api() -> str:
@@ -561,6 +566,12 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
+
+def _register_admin_customization_draft_routes(
+    app: Flask, admin_path_prefix: str
+) -> None:
+    """Register operator customization read, draft, and branding routes."""
+
     @app.route(admin_path_prefix + "/customization/<creator_bid>", methods=["GET"])
     def admin_billing_customization_api(creator_bid: str) -> str:
         _require_billing_customization_operator_access(app)
@@ -671,6 +682,12 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 allow_when_customization_disabled=True,
             )
         )
+
+
+def _register_admin_customization_domain_routes(
+    app: Flask, admin_path_prefix: str
+) -> None:
+    """Register operator customization domain and integration routes."""
 
     @app.route(
         admin_path_prefix + "/customization/<creator_bid>/domains",
@@ -794,6 +811,10 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
+
+def _register_admin_report_routes(app: Flask, admin_path_prefix: str) -> None:
+    """Register operator report and ledger adjustment routes."""
+
     @app.route(admin_path_prefix + "/reports/usage-daily", methods=["GET"])
     def admin_billing_daily_usage_reports_api() -> str:
         _require_billing_operator_access(app)
@@ -851,6 +872,10 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 payload={**payload, "creator_bid": target_creator_bid},
             )
         )
+
+
+def _register_admin_provider_price_routes(app: Flask, admin_path_prefix: str) -> None:
+    """Register operator provider price and provider catalog routes."""
 
     @app.route(admin_path_prefix + "/provider-prices", methods=["GET"])
     def admin_billing_provider_prices_api() -> str:
@@ -964,6 +989,10 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
         except Exception as exc:
             _raise_provider_price_mapping_route_error(exc)
         return make_common_response(result)
+
+
+def _register_admin_campaign_routes(app: Flask, admin_path_prefix: str) -> None:
+    """Register operator campaign and provider discount routes."""
 
     @app.route(admin_path_prefix + "/products/options", methods=["GET"])
     def admin_billing_campaign_product_options_api() -> str:
@@ -1109,3 +1138,19 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
         except Exception as exc:
             _raise_campaign_provider_discount_route_error(exc)
         return make_common_response(result)
+
+
+@inject
+def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> None:
+    """Register creator billing routes."""
+    app.logger.info("register billing routes %s", path_prefix)
+    admin_path_prefix = "/api/admin/billing"
+
+    _register_creator_billing_routes(app, path_prefix)
+    _register_creator_customization_routes(app, path_prefix)
+    _register_admin_entitlement_routes(app, admin_path_prefix)
+    _register_admin_customization_draft_routes(app, admin_path_prefix)
+    _register_admin_customization_domain_routes(app, admin_path_prefix)
+    _register_admin_report_routes(app, admin_path_prefix)
+    _register_admin_provider_price_routes(app, admin_path_prefix)
+    _register_admin_campaign_routes(app, admin_path_prefix)
