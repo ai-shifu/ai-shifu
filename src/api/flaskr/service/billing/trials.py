@@ -556,75 +556,35 @@ def _backfill_missing_creator_trial_credits(
 
     with app_context_scope(app):
         if not _is_billing_enabled():
-            return {
-                "status": "noop",
-                "reason": "billing_disabled",
-                "creator_bid": normalized_creator_bid or None,
-                "limit": normalized_limit,
-                "creator_count": 0,
-                "granted_count": 0,
-                "skipped_count": 0,
-                "records": [],
-            }
+            return _build_trial_backfill_noop_payload(
+                reason="billing_disabled",
+                creator_bid=normalized_creator_bid,
+                limit=normalized_limit,
+            )
 
         product_ref = _resolve_trial_product_reference()
         if product_ref is None:
-            return {
-                "status": "noop",
-                "reason": "trial_product_missing",
-                "creator_bid": normalized_creator_bid or None,
-                "limit": normalized_limit,
-                "creator_count": 0,
-                "granted_count": 0,
-                "skipped_count": 0,
-                "records": [],
-            }
+            return _build_trial_backfill_noop_payload(
+                reason="trial_product_missing",
+                creator_bid=normalized_creator_bid,
+                limit=normalized_limit,
+            )
         if not _trial_product_public_enabled(product_ref):
-            return {
-                "status": "noop",
-                "reason": "trial_product_not_public",
-                "creator_bid": normalized_creator_bid or None,
-                "limit": normalized_limit,
-                "creator_count": 0,
-                "granted_count": 0,
-                "skipped_count": 0,
-                "records": [],
-            }
+            return _build_trial_backfill_noop_payload(
+                reason="trial_product_not_public",
+                creator_bid=normalized_creator_bid,
+                limit=normalized_limit,
+            )
 
         creators: list[UserEntity] = []
         if normalized_creator_bid:
             creator = get_user_entity_by_bid(normalized_creator_bid)
             if creator is None:
-                return {
-                    "status": "completed",
-                    "reason": None,
-                    "creator_bid": normalized_creator_bid,
-                    "limit": normalized_limit,
-                    "trial_product_bid": str(
-                        _trial_product_field(
-                            product_ref,
-                            "product_bid",
-                            BILLING_TRIAL_PRODUCT_BID,
-                        )
-                    ),
-                    "trial_product_code": str(
-                        _trial_product_field(
-                            product_ref,
-                            "product_code",
-                            BILLING_TRIAL_PRODUCT_CODE,
-                        )
-                    ),
-                    "creator_count": 1,
-                    "granted_count": 0,
-                    "skipped_count": 1,
-                    "records": [
-                        {
-                            "creator_bid": normalized_creator_bid,
-                            "status": "skipped",
-                            "reason": "creator_not_found",
-                        }
-                    ],
-                }
+                return _build_trial_backfill_creator_not_found_payload(
+                    creator_bid=normalized_creator_bid,
+                    limit=normalized_limit,
+                    product_ref=product_ref,
+                )
             creators = [creator]
         else:
             creator_query = UserEntity.query.filter(
@@ -650,55 +610,16 @@ def _backfill_missing_creator_trial_credits(
         )
 
         for creator in creators:
-            current_creator_bid = _normalize_bid(getattr(creator, "user_bid", ""))
-            status, resolved_product_ref = _resolve_trial_bootstrap_status(
-                current_creator_bid,
+            record = _backfill_trial_for_creator(
+                app,
                 creator=creator,
                 product_ref=product_ref,
             )
-            if status != "grantable" or resolved_product_ref is None:
-                records.append(
-                    {
-                        "creator_bid": current_creator_bid or None,
-                        "status": "skipped",
-                        "reason": status,
-                    }
-                )
+            records.append(record)
+            if record["status"] == "granted":
+                granted_count += 1
+            else:
                 skipped_count += 1
-                continue
-
-            try:
-                with unit_of_work():
-                    _bootstrap_trial_subscription(
-                        app,
-                        creator_bid=current_creator_bid,
-                        product_ref=resolved_product_ref,
-                        trigger="cli_backfill_missing_creator_trial",
-                    )
-                    uow.on_commit(
-                        lambda creator=current_creator_bid: (
-                            _enqueue_trial_credit_notification(app, creator)
-                        )
-                    )
-            except IntegrityError:
-                records.append(
-                    {
-                        "creator_bid": current_creator_bid,
-                        "status": "skipped",
-                        "reason": "integrity_conflict",
-                    }
-                )
-                skipped_count += 1
-                continue
-
-            records.append(
-                {
-                    "creator_bid": current_creator_bid,
-                    "status": "granted",
-                    "reason": None,
-                }
-            )
-            granted_count += 1
 
         return {
             "status": "completed",
@@ -712,6 +633,106 @@ def _backfill_missing_creator_trial_credits(
             "skipped_count": skipped_count,
             "records": records,
         }
+
+
+def _build_trial_backfill_noop_payload(
+    *, reason: str, creator_bid: str, limit: int | None
+) -> dict[str, object]:
+    return {
+        "status": "noop",
+        "reason": reason,
+        "creator_bid": creator_bid or None,
+        "limit": limit,
+        "creator_count": 0,
+        "granted_count": 0,
+        "skipped_count": 0,
+        "records": [],
+    }
+
+
+def _build_trial_backfill_creator_not_found_payload(
+    *, creator_bid: str, limit: int | None, product_ref: object
+) -> dict[str, object]:
+    return {
+        "status": "completed",
+        "reason": None,
+        "creator_bid": creator_bid,
+        "limit": limit,
+        "trial_product_bid": str(
+            _trial_product_field(
+                product_ref,
+                "product_bid",
+                BILLING_TRIAL_PRODUCT_BID,
+            )
+        ),
+        "trial_product_code": str(
+            _trial_product_field(
+                product_ref,
+                "product_code",
+                BILLING_TRIAL_PRODUCT_CODE,
+            )
+        ),
+        "creator_count": 1,
+        "granted_count": 0,
+        "skipped_count": 1,
+        "records": [
+            {
+                "creator_bid": creator_bid,
+                "status": "skipped",
+                "reason": "creator_not_found",
+            }
+        ],
+    }
+
+
+def _backfill_trial_for_creator(
+    app: Flask,
+    *,
+    creator: UserEntity,
+    product_ref: object,
+) -> dict[str, Any]:
+    """Grant one creator's missing trial in its own unit of work.
+
+    Returns the backfill record; its ``status`` is ``granted`` or ``skipped``.
+    """
+    current_creator_bid = _normalize_bid(getattr(creator, "user_bid", ""))
+    status, resolved_product_ref = _resolve_trial_bootstrap_status(
+        current_creator_bid,
+        creator=creator,
+        product_ref=product_ref,
+    )
+    if status != "grantable" or resolved_product_ref is None:
+        return {
+            "creator_bid": current_creator_bid or None,
+            "status": "skipped",
+            "reason": status,
+        }
+
+    try:
+        with unit_of_work():
+            _bootstrap_trial_subscription(
+                app,
+                creator_bid=current_creator_bid,
+                product_ref=resolved_product_ref,
+                trigger="cli_backfill_missing_creator_trial",
+            )
+            uow.on_commit(
+                lambda creator=current_creator_bid: _enqueue_trial_credit_notification(
+                    app, creator
+                )
+            )
+    except IntegrityError:
+        return {
+            "creator_bid": current_creator_bid,
+            "status": "skipped",
+            "reason": "integrity_conflict",
+        }
+
+    return {
+        "creator_bid": current_creator_bid,
+        "status": "granted",
+        "reason": None,
+    }
 
 
 def _resolve_new_creator_trial_offer(
