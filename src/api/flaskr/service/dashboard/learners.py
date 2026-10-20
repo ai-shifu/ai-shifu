@@ -392,6 +392,11 @@ def _apply_learner_row_filters(
     return filtered_query
 
 
+def _normalize_bid_set(bids: Sequence[str]) -> list[str]:
+    """Strip, drop blanks, de-duplicate, and sort business ids."""
+    return sorted({str(bid or "").strip() for bid in bids if str(bid or "").strip()})
+
+
 def _build_dashboard_course_learners(
     app: Flask,
     *,
@@ -428,20 +433,8 @@ def _build_dashboard_course_learners(
         end_param_name="last_learning_end_time",
     )
     normalized_shifu_bid = str(shifu_bid or "").strip()
-    normalized_learner_bids = sorted(
-        {
-            str(user_bid or "").strip()
-            for user_bid in learner_bids
-            if str(user_bid or "").strip()
-        }
-    )
-    normalized_leaf_outline_bids = sorted(
-        {
-            str(outline_item_bid or "").strip()
-            for outline_item_bid in leaf_outline_bids
-            if str(outline_item_bid or "").strip()
-        }
-    )
+    normalized_learner_bids = _normalize_bid_set(learner_bids)
+    normalized_leaf_outline_bids = _normalize_bid_set(leaf_outline_bids)
     if not normalized_shifu_bid or not normalized_learner_bids:
         return DashboardCourseDetailLearnersDTO(
             page=1,

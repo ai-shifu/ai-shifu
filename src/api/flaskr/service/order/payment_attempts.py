@@ -12,6 +12,7 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_REPRICING,
     ORDER_STATUS_TO_BE_PAID,
 )
+from flaskr.service.order.funs_lookup import order_funs
 from flaskr.service.order.models import (
     Order,
     StripeOrder,
@@ -24,7 +25,6 @@ from flaskr.service.order.payment_providers.base import (
     PaymentNotificationResult,
 )
 from flaskr.service.order.raw_snapshots import (
-    legacy_stripe_snapshot_query,
     should_update_native_snapshot_status,
 )
 
@@ -149,7 +149,7 @@ def _stripe_provider_objects_match_attempt(
 def _stripe_attempt_matches_order(order: Order, stripe_order: StripeOrder) -> bool:
     """Check that an attempt is the current snapshot for the order amount."""
     latest_attempt = (
-        legacy_stripe_snapshot_query()
+        order_funs.legacy_stripe_snapshot_query()
         .filter(StripeOrder.order_bid == order.order_bid)
         .order_by(StripeOrder.id.desc())
         .with_entities(StripeOrder.id)

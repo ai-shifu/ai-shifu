@@ -123,6 +123,26 @@ def register_profile_routes(
     _register_learner_profile_routes(app, path_prefix)
 
 
+def _require_profile_onboarding_session_allowed(
+    app: Flask, *, user_id: str, intent: str
+) -> tuple[dict, str]:
+    """Return the live config and document when this intent may start a session."""
+    config = get_profile_onboarding_config()
+    document = str(config.get("markdownflow") or "").strip()
+    if not bool(config.get("enabled")) or not document:
+        raise_param_error("profile_onboarding")
+    status = get_profile_onboarding_status(app, user_id=user_id)
+    if not status["guided_available"]:
+        raise_param_error("profile_onboarding")
+    if intent == "onboarding" and not status["should_show"]:
+        raise_param_error("intent")
+    if intent == "settings" and not (
+        status["handled"] or status["has_learner_profile"]
+    ):
+        raise_param_error("intent")
+    return config, document
+
+
 def _register_profile_onboarding_session_routes(
     app: Flask,
     path_prefix: str,
@@ -161,19 +181,9 @@ def _register_profile_onboarding_session_routes(
         intent = _optional_nonempty_string(payload, "intent") or "onboarding"
         if intent not in {"onboarding", "settings"}:
             raise_param_error("intent")
-        config = get_profile_onboarding_config()
-        document = str(config.get("markdownflow") or "").strip()
-        if not bool(config.get("enabled")) or not document:
-            raise_param_error("profile_onboarding")
-        status = get_profile_onboarding_status(app, user_id=request.user.user_id)
-        if not status["guided_available"]:
-            raise_param_error("profile_onboarding")
-        if intent == "onboarding" and not status["should_show"]:
-            raise_param_error("intent")
-        if intent == "settings" and not (
-            status["handled"] or status["has_learner_profile"]
-        ):
-            raise_param_error("intent")
+        config, document = _require_profile_onboarding_session_allowed(
+            app, user_id=request.user.user_id, intent=intent
+        )
         output_language = _resolve_profile_onboarding_runtime_language(
             request.user,
             language,

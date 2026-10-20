@@ -276,6 +276,83 @@ def use_coupon_code(
             raise
 
 
+def _lock_order_for_coupon(order_id: object, user_id: object) -> Order:
+    """Lock the user's order and require it to be open for a new coupon."""
+    buy_record: Order = (
+        Order.query.filter(
+            Order.order_bid == order_id,
+            Order.user_bid == user_id,
+            Order.deleted == 0,
+        )
+        .with_for_update()
+        .first()
+    )
+    if not buy_record:
+        raise_error("server.order.orderNotFound")
+    if buy_record.status not in {ORDER_STATUS_INIT, ORDER_STATUS_REPRICING}:
+        raise_error("server.order.orderStatusError")
+    order_coupon_useage: CouponUsageModel = CouponUsageModel.query.filter(
+        CouponUsageModel.order_bid == order_id,
+        CouponUsageModel.status == COUPON_STATUS_USED,
+    ).first()
+    if order_coupon_useage:
+        raise_error("server.discount.orderDiscountAlreadyUsed")
+    return buy_record
+
+
+def _load_coupon_candidates(
+    coupon_code: object,
+) -> tuple[list[CouponUsageModel], dict[str, Coupon], list[Coupon]]:
+    """Load active usages and enabled coupons that may match this code."""
+    active_usages: list[CouponUsageModel] = (
+        CouponUsageModel.query.filter(
+            CouponUsageModel.code == coupon_code,
+            CouponUsageModel.status == COUPON_STATUS_ACTIVE,
+            CouponUsageModel.deleted == 0,
+        )
+        .order_by(CouponUsageModel.id.desc())
+        .all()
+    )
+    coupon_bids = {usage.coupon_bid for usage in active_usages if usage.coupon_bid}
+    coupons_by_bid = {}
+    if coupon_bids:
+        coupons = Coupon.query.filter(
+            Coupon.coupon_bid.in_(coupon_bids),
+            Coupon.deleted == 0,
+        ).all()
+        coupons_by_bid = {coupon.coupon_bid: coupon for coupon in coupons}
+    coupons_by_code: list[Coupon] = (
+        Coupon.query.filter(
+            Coupon.code == coupon_code,
+            Coupon.deleted == 0,
+            build_coupon_enabled_expression(Coupon),
+            Coupon.usage_type != COUPON_APPLY_TYPE_SPECIFIC,
+        )
+        .order_by(Coupon.id.desc())
+        .all()
+    )
+    return active_usages, coupons_by_bid, coupons_by_code
+
+
+def _apply_coupon_discount(
+    buy_record: Order, coupon: Coupon, coupon_usage: CouponUsageModel
+) -> None:
+    """Subtract the coupon discount from the order's paid price."""
+    if coupon.discount_type == COUPON_TYPE_FIXED:
+        buy_record.paid_price = decimal.Decimal(
+            buy_record.paid_price
+        ) - decimal.Decimal(coupon_usage.value)
+    elif coupon.discount_type == COUPON_TYPE_PERCENT:
+        buy_record.paid_price = decimal.Decimal(
+            buy_record.paid_price
+        ) - calculate_percentage_amount(
+            decimal.Decimal(buy_record.payable_price),
+            decimal.Decimal(coupon_usage.value),
+        )
+    if decimal.Decimal(buy_record.paid_price) < 0:
+        buy_record.paid_price = decimal.Decimal(0)
+
+
 def _use_coupon_code_locked(
     app: Flask,
     user_id: object,
@@ -295,52 +372,10 @@ def _use_coupon_code_locked(
     )
     with app_context_scope(app), unit_of_work():
         now = now_utc()
-        buy_record: Order = (
-            Order.query.filter(
-                Order.order_bid == order_id,
-                Order.user_bid == user_id,
-                Order.deleted == 0,
-            )
-            .with_for_update()
-            .first()
-        )
-        if not buy_record:
-            raise_error("server.order.orderNotFound")
-        if buy_record.status not in {ORDER_STATUS_INIT, ORDER_STATUS_REPRICING}:
-            raise_error("server.order.orderStatusError")
-        order_coupon_useage: CouponUsageModel = CouponUsageModel.query.filter(
-            CouponUsageModel.order_bid == order_id,
-            CouponUsageModel.status == COUPON_STATUS_USED,
-        ).first()
-        if order_coupon_useage:
-            raise_error("server.discount.orderDiscountAlreadyUsed")
+        buy_record = _lock_order_for_coupon(order_id, user_id)
 
-        active_usages: list[CouponUsageModel] = (
-            CouponUsageModel.query.filter(
-                CouponUsageModel.code == coupon_code,
-                CouponUsageModel.status == COUPON_STATUS_ACTIVE,
-                CouponUsageModel.deleted == 0,
-            )
-            .order_by(CouponUsageModel.id.desc())
-            .all()
-        )
-        coupon_bids = {usage.coupon_bid for usage in active_usages if usage.coupon_bid}
-        coupons_by_bid = {}
-        if coupon_bids:
-            coupons = Coupon.query.filter(
-                Coupon.coupon_bid.in_(coupon_bids),
-                Coupon.deleted == 0,
-            ).all()
-            coupons_by_bid = {coupon.coupon_bid: coupon for coupon in coupons}
-        coupons_by_code: list[Coupon] = (
-            Coupon.query.filter(
-                Coupon.code == coupon_code,
-                Coupon.deleted == 0,
-                build_coupon_enabled_expression(Coupon),
-                Coupon.usage_type != COUPON_APPLY_TYPE_SPECIFIC,
-            )
-            .order_by(Coupon.id.desc())
-            .all()
+        active_usages, coupons_by_bid, coupons_by_code = _load_coupon_candidates(
+            coupon_code
         )
 
         coupon_usage, coupon, has_same_code_candidate = _pick_coupon_candidate(
@@ -395,19 +430,7 @@ def _use_coupon_code_locked(
         coupon_usage.order_bid = order_id
         if buy_record.shifu_bid and _should_bind_usage_course(coupon, coupon_usage):
             coupon_usage.shifu_bid = buy_record.shifu_bid
-        if coupon.discount_type == COUPON_TYPE_FIXED:
-            buy_record.paid_price = decimal.Decimal(
-                buy_record.paid_price
-            ) - decimal.Decimal(coupon_usage.value)
-        elif coupon.discount_type == COUPON_TYPE_PERCENT:
-            buy_record.paid_price = decimal.Decimal(
-                buy_record.paid_price
-            ) - calculate_percentage_amount(
-                decimal.Decimal(buy_record.payable_price),
-                decimal.Decimal(coupon_usage.value),
-            )
-        if decimal.Decimal(buy_record.paid_price) < 0:
-            buy_record.paid_price = decimal.Decimal(0)
+        _apply_coupon_discount(buy_record, coupon, coupon_usage)
         if buy_record.paid_price == 0:
             assign_free_order_payment_channel(buy_record)
         buy_record.updated_at = now

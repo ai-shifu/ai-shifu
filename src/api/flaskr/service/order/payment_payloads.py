@@ -6,7 +6,7 @@ import re
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from flaskr.util.datetime import now_utc
+from flaskr.service.order.funs_lookup import order_funs
 
 
 def _parse_stored_mapping(value: object) -> dict[str, Any]:
@@ -27,7 +27,7 @@ def _payment_payload_has_expired(payload: dict[str, Any], field: str) -> bool:
     if raw_expiry in (None, ""):
         return False
     try:
-        return float(raw_expiry) <= now_utc().timestamp()
+        return float(raw_expiry) <= order_funs.now_utc().timestamp()
     except (TypeError, ValueError):
         return True
 

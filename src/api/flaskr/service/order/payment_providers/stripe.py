@@ -23,6 +23,53 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
+def _merge_checkout_metadata(
+    params: dict[str, Any], options: dict[str, Any], metadata: dict[str, Any]
+) -> dict[str, Any]:
+    """Copy order evidence onto the session and its subscription or intent."""
+    if params.get("mode") == "subscription":
+        subscription_data = dict(params.get("subscription_data") or {})
+        subscription_metadata = subscription_data.get("metadata") or {}
+        if hasattr(subscription_metadata, "to_dict"):
+            subscription_metadata = subscription_metadata.to_dict()
+        subscription_data["metadata"] = {
+            **metadata,
+            **dict(subscription_metadata),
+        }
+        params["subscription_data"] = subscription_data
+    else:
+        payment_intent_data = options.get("payment_intent_data", {})
+        existing_metadata = payment_intent_data.get("metadata")
+        if existing_metadata:
+            if hasattr(existing_metadata, "to_dict"):
+                existing_metadata = existing_metadata.to_dict()
+            # Caller keys are kept, but the order evidence wins: it is
+            # what a later sync matches the order against.
+            metadata = {**dict(existing_metadata), **metadata}
+        payment_intent_data["metadata"] = metadata
+        params["payment_intent_data"] = payment_intent_data
+    # The session itself has to carry the evidence as well. A
+    # payment-mode session has no PaymentIntent until the buyer starts
+    # paying, so a sync that runs before that can only read metadata
+    # from the session.
+    session_metadata = params.get("metadata")
+    if hasattr(session_metadata, "to_dict"):
+        session_metadata = session_metadata.to_dict()
+    params["metadata"] = {**dict(session_metadata or {}), **metadata}
+    return metadata
+
+
+def _apply_checkout_payment_method_types(params: dict[str, Any]) -> None:
+    """Enable card plus configured wallets for one-time checkout sessions."""
+    is_subscription_mode = params.get("mode") == "subscription"
+    params["payment_method_types"] = ["card"]
+    if not is_subscription_mode and get_config("STRIPE_ALIPAY_ENABLED"):
+        params["payment_method_types"].append("alipay")
+    if not is_subscription_mode and get_config("STRIPE_WECHAT_PAY_ENABLED"):
+        params["payment_method_types"].append("wechat_pay")
+        params["payment_method_options"] = {"wechat_pay": {"client": "web"}}
+
+
 class StripeProvider(PaymentProvider):
     """Stripe payment provider implementation."""
 
@@ -49,131 +96,13 @@ class StripeProvider(PaymentProvider):
         metadata.setdefault("shifu_bid", request.shifu_bid)
 
         if mode == "checkout_session":
-            success_url = options.get("success_url")
-            cancel_url = options.get("cancel_url")
-            if not success_url or not cancel_url:
-                message = "Stripe checkout session requires success and cancel URLs"
-                raise RuntimeError(message)
-
-            session_params = options.get("session_params", {})
-            params: dict[str, Any] = {
-                "mode": "payment",
-                "success_url": success_url,
-                "cancel_url": cancel_url,
-                **session_params,
-            }
-
-            line_items = options.get("line_items")
-            if not line_items:
-                message = "Stripe checkout session requires line items"
-                raise RuntimeError(message)
-            params["line_items"] = line_items
-            discounts = options.get("discounts")
-            if discounts:
-                params["discounts"] = discounts
-            subscription_discount_amount = int(
-                options.get("subscription_one_time_discount_amount") or 0
-            )
-            coupon_id = ""
-            if (
-                params.get("mode") == "subscription"
-                and subscription_discount_amount > 0
-                and not discounts
-            ):
-                coupon = stripe.Coupon.create(
-                    amount_off=subscription_discount_amount,
-                    currency=(request.currency or "cny").lower(),
-                    duration="once",
-                    metadata=metadata,
-                    idempotency_key=(
-                        f"{request.order_bid}:subscription-first-invoice-discount"
-                    ),
-                    **request_options,
-                )
-                coupon_payload = (
-                    coupon.to_dict() if hasattr(coupon, "to_dict") else coupon
-                )
-                coupon_id = coupon_payload["id"]
-                params["discounts"] = [{"coupon": coupon_id}]
-
-            customer_email = options.get("customer_email")
-            if customer_email:
-                params["customer_email"] = customer_email
-
-            if params.get("mode") == "subscription":
-                subscription_data = dict(params.get("subscription_data") or {})
-                subscription_metadata = subscription_data.get("metadata") or {}
-                if hasattr(subscription_metadata, "to_dict"):
-                    subscription_metadata = subscription_metadata.to_dict()
-                subscription_data["metadata"] = {
-                    **metadata,
-                    **dict(subscription_metadata),
-                }
-                params["subscription_data"] = subscription_data
-            else:
-                payment_intent_data = options.get("payment_intent_data", {})
-                existing_metadata = payment_intent_data.get("metadata")
-                if existing_metadata:
-                    if hasattr(existing_metadata, "to_dict"):
-                        existing_metadata = existing_metadata.to_dict()
-                    # Caller keys are kept, but the order evidence wins: it is
-                    # what a later sync matches the order against.
-                    metadata = {**dict(existing_metadata), **metadata}
-                payment_intent_data["metadata"] = metadata
-                params["payment_intent_data"] = payment_intent_data
-            # The session itself has to carry the evidence as well. A
-            # payment-mode session has no PaymentIntent until the buyer starts
-            # paying, so a sync that runs before that can only read metadata
-            # from the session.
-            session_metadata = params.get("metadata")
-            if hasattr(session_metadata, "to_dict"):
-                session_metadata = session_metadata.to_dict()
-            params["metadata"] = {**dict(session_metadata or {}), **metadata}
-            is_subscription_mode = params.get("mode") == "subscription"
-            params["payment_method_types"] = ["card"]
-            if not is_subscription_mode and get_config("STRIPE_ALIPAY_ENABLED"):
-                params["payment_method_types"].append("alipay")
-            if not is_subscription_mode and get_config("STRIPE_WECHAT_PAY_ENABLED"):
-                params["payment_method_types"].append("wechat_pay")
-                params["payment_method_options"] = {"wechat_pay": {"client": "web"}}
-
-            try:
-                session = stripe.checkout.Session.create(**params, **request_options)
-            except Exception:
-                if coupon_id:
-                    try:
-                        stripe.Coupon.delete(coupon_id, **request_options)
-                    except Exception as cleanup_error:  # pragma: no cover
-                        app.logger.warning(
-                            "Failed to clean up Stripe coupon %s: %s",
-                            coupon_id,
-                            cleanup_error,
-                        )
-                raise
-            session_dict = session.to_dict()
-            payment_intent_id = session_dict.get("payment_intent")
-            latest_charge_id = ""
-            payment_intent_object: dict[str, Any] = {}
-            if payment_intent_id:
-                payment_intent = stripe.PaymentIntent.retrieve(
-                    payment_intent_id, **request_options
-                )
-                payment_intent_object = payment_intent.to_dict()
-                latest_charge_id = payment_intent_object.get("latest_charge", "") or ""
-
-            return PaymentCreationResult(
-                provider_reference=session_dict["id"],
-                raw_response=session_dict,
-                client_secret=session_dict.get("client_secret"),
-                checkout_session_id=session_dict["id"],
-                extra={
-                    "payment_intent_id": payment_intent_id or "",
-                    "latest_charge_id": latest_charge_id,
-                    "payment_intent_object": payment_intent_object,
-                    "metadata": metadata,
-                    "discounts": params.get("discounts") or [],
-                    "url": session_dict.get("url", ""),
-                },
+            return self._create_checkout_session(
+                app=app,
+                request=request,
+                stripe=stripe,
+                request_options=request_options,
+                options=options,
+                metadata=metadata,
             )
 
         # Default to payment intent flow
@@ -195,6 +124,108 @@ class StripeProvider(PaymentProvider):
                 "latest_charge_id": intent_dict.get("latest_charge", "") or "",
                 "payment_intent_object": intent_dict,
                 "metadata": metadata,
+            },
+        )
+
+    def _create_checkout_session(
+        self,
+        *,
+        app: Flask,
+        request: PaymentRequest,
+        stripe: object,
+        request_options: dict[str, Any],
+        options: dict[str, Any],
+        metadata: dict[str, Any],
+    ) -> PaymentCreationResult:
+        """Create a Stripe Checkout Session (one-time or subscription)."""
+        success_url = options.get("success_url")
+        cancel_url = options.get("cancel_url")
+        if not success_url or not cancel_url:
+            message = "Stripe checkout session requires success and cancel URLs"
+            raise RuntimeError(message)
+
+        session_params = options.get("session_params", {})
+        params: dict[str, Any] = {
+            "mode": "payment",
+            "success_url": success_url,
+            "cancel_url": cancel_url,
+            **session_params,
+        }
+
+        line_items = options.get("line_items")
+        if not line_items:
+            message = "Stripe checkout session requires line items"
+            raise RuntimeError(message)
+        params["line_items"] = line_items
+        discounts = options.get("discounts")
+        if discounts:
+            params["discounts"] = discounts
+        subscription_discount_amount = int(
+            options.get("subscription_one_time_discount_amount") or 0
+        )
+        coupon_id = ""
+        if (
+            params.get("mode") == "subscription"
+            and subscription_discount_amount > 0
+            and not discounts
+        ):
+            coupon = stripe.Coupon.create(
+                amount_off=subscription_discount_amount,
+                currency=(request.currency or "cny").lower(),
+                duration="once",
+                metadata=metadata,
+                idempotency_key=(
+                    f"{request.order_bid}:subscription-first-invoice-discount"
+                ),
+                **request_options,
+            )
+            coupon_payload = coupon.to_dict() if hasattr(coupon, "to_dict") else coupon
+            coupon_id = coupon_payload["id"]
+            params["discounts"] = [{"coupon": coupon_id}]
+
+        customer_email = options.get("customer_email")
+        if customer_email:
+            params["customer_email"] = customer_email
+
+        metadata = _merge_checkout_metadata(params, options, metadata)
+        _apply_checkout_payment_method_types(params)
+
+        try:
+            session = stripe.checkout.Session.create(**params, **request_options)
+        except Exception:
+            if coupon_id:
+                try:
+                    stripe.Coupon.delete(coupon_id, **request_options)
+                except Exception as cleanup_error:  # pragma: no cover
+                    app.logger.warning(
+                        "Failed to clean up Stripe coupon %s: %s",
+                        coupon_id,
+                        cleanup_error,
+                    )
+            raise
+        session_dict = session.to_dict()
+        payment_intent_id = session_dict.get("payment_intent")
+        latest_charge_id = ""
+        payment_intent_object: dict[str, Any] = {}
+        if payment_intent_id:
+            payment_intent = stripe.PaymentIntent.retrieve(
+                payment_intent_id, **request_options
+            )
+            payment_intent_object = payment_intent.to_dict()
+            latest_charge_id = payment_intent_object.get("latest_charge", "") or ""
+
+        return PaymentCreationResult(
+            provider_reference=session_dict["id"],
+            raw_response=session_dict,
+            client_secret=session_dict.get("client_secret"),
+            checkout_session_id=session_dict["id"],
+            extra={
+                "payment_intent_id": payment_intent_id or "",
+                "latest_charge_id": latest_charge_id,
+                "payment_intent_object": payment_intent_object,
+                "metadata": metadata,
+                "discounts": params.get("discounts") or [],
+                "url": session_dict.get("url", ""),
             },
         )
 
