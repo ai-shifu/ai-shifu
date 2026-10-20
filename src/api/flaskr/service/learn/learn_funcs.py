@@ -733,6 +733,102 @@ def get_outline_item_tree(
         )
 
 
+def _drop_tail_login_interaction_for_logged_in_user(
+    records: list[LegacyGeneratedBlockRecord],
+) -> None:
+    """Remove a trailing login interaction once the learner has a mobile."""
+    if len(records) > 0:
+        last_record = records[-1]
+        if last_record.block_type == BlockType.INTERACTION:
+            interaction_parser = InteractionParser()
+            parsed_interaction = interaction_parser.parse(last_record.content)
+            if (
+                parsed_interaction.get("buttons")
+                and len(parsed_interaction.get("buttons")) > 0
+            ):
+                for button in parsed_interaction.get("buttons"):
+                    if button.get("value") == "_sys_pay":
+                        pass
+                    if button.get("value") == "_sys_login" and bool(
+                        request.user.mobile
+                    ):
+                        records.remove(last_record)
+
+
+def _learn_record_has_next_outline(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    outline_bid: str,
+    preview_mode: bool,
+) -> bool:
+    """Return whether a visible outline item follows ``outline_bid``."""
+    struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
+    outline_item_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
+    has_next_outline = False
+    struct_info = (
+        struct_model.query.filter(
+            struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0
+        )
+        .order_by(struct_model.id.desc())
+        .first()
+    )
+    if struct_info:
+        struct = HistoryItem.from_json(struct_info.struct)
+        outline_bids = _collect_outline_bids(struct)
+        if outline_bids:
+            outline_items = outline_item_model.query.filter(
+                outline_item_model.outline_item_bid.in_(outline_bids),
+                outline_item_model.deleted == 0,
+            ).all()
+            outline_hidden_map = {
+                item.outline_item_bid: bool(item.hidden) for item in outline_items
+            }
+            has_next_outline = _has_next_outline_item(
+                struct, outline_bid, outline_hidden_map
+            )
+    else:
+        app.logger.warning("learn record missing shifu struct: shifu_bid=%s", shifu_bid)
+    return has_next_outline
+
+
+def _lesson_feedback_record(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+) -> LegacyGeneratedBlockRecord:
+    """Build the lesson feedback interaction, prefilled with saved feedback."""
+    saved_feedback = (
+        LearnLessonFeedback.query.filter(
+            LearnLessonFeedback.user_bid == user_bid,
+            LearnLessonFeedback.shifu_bid == shifu_bid,
+            LearnLessonFeedback.outline_item_bid == outline_bid,
+            LearnLessonFeedback.deleted == 0,
+        )
+        .order_by(LearnLessonFeedback.id.desc())
+        .first()
+    )
+    feedback_generated_content = ""
+    if saved_feedback and 1 <= int(saved_feedback.score or 0) <= 5:
+        feedback_generated_content = json.dumps(
+            {
+                "score": int(saved_feedback.score),
+                "comment": saved_feedback.comment or "",
+            },
+            ensure_ascii=False,
+        )
+    feedback_content = build_lesson_feedback_interaction_md()
+    return LegacyGeneratedBlockRecord(
+        generated_block_bid=generate_id(app),
+        content=feedback_content,
+        like_status=LikeStatus.NONE,
+        block_type=BlockType.INTERACTION,
+        user_input=feedback_generated_content,
+    )
+
+
 def get_learn_record(
     app: Flask,
     shifu_bid: str,
@@ -784,50 +880,13 @@ def get_learn_record(
             dedupe_audio_by_block_position=False,
             skip_empty_content=False,
         ).records
-        if len(records) > 0:
-            last_record = records[-1]
-            if last_record.block_type == BlockType.INTERACTION:
-                interaction_parser = InteractionParser()
-                parsed_interaction = interaction_parser.parse(last_record.content)
-                if (
-                    parsed_interaction.get("buttons")
-                    and len(parsed_interaction.get("buttons")) > 0
-                ):
-                    for button in parsed_interaction.get("buttons"):
-                        if button.get("value") == "_sys_pay":
-                            pass
-                        if button.get("value") == "_sys_login" and bool(
-                            request.user.mobile
-                        ):
-                            records.remove(last_record)
-        struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
-        outline_item_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
-        has_next_outline = False
-        struct_info = (
-            struct_model.query.filter(
-                struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0
-            )
-            .order_by(struct_model.id.desc())
-            .first()
+        _drop_tail_login_interaction_for_logged_in_user(records)
+        has_next_outline = _learn_record_has_next_outline(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            preview_mode=preview_mode,
         )
-        if struct_info:
-            struct = HistoryItem.from_json(struct_info.struct)
-            outline_bids = _collect_outline_bids(struct)
-            if outline_bids:
-                outline_items = outline_item_model.query.filter(
-                    outline_item_model.outline_item_bid.in_(outline_bids),
-                    outline_item_model.deleted == 0,
-                ).all()
-                outline_hidden_map = {
-                    item.outline_item_bid: bool(item.hidden) for item in outline_items
-                }
-                has_next_outline = _has_next_outline_item(
-                    struct, outline_bid, outline_hidden_map
-                )
-        else:
-            app.logger.warning(
-                "learn record missing shifu struct: shifu_bid=%s", shifu_bid
-            )
         if not has_next_outline:
             records = [
                 record
@@ -883,32 +942,11 @@ def get_learn_record(
         if (
             progress_record.status == LEARN_STATUS_COMPLETED or has_tail_access_gate
         ) and not has_feedback_interaction:
-            saved_feedback = (
-                LearnLessonFeedback.query.filter(
-                    LearnLessonFeedback.user_bid == user_bid,
-                    LearnLessonFeedback.shifu_bid == shifu_bid,
-                    LearnLessonFeedback.outline_item_bid == outline_bid,
-                    LearnLessonFeedback.deleted == 0,
-                )
-                .order_by(LearnLessonFeedback.id.desc())
-                .first()
-            )
-            feedback_generated_content = ""
-            if saved_feedback and 1 <= int(saved_feedback.score or 0) <= 5:
-                feedback_generated_content = json.dumps(
-                    {
-                        "score": int(saved_feedback.score),
-                        "comment": saved_feedback.comment or "",
-                    },
-                    ensure_ascii=False,
-                )
-            feedback_content = build_lesson_feedback_interaction_md()
-            feedback_record = LegacyGeneratedBlockRecord(
-                generated_block_bid=generate_id(app),
-                content=feedback_content,
-                like_status=LikeStatus.NONE,
-                block_type=BlockType.INTERACTION,
-                user_input=feedback_generated_content,
+            feedback_record = _lesson_feedback_record(
+                app,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
             )
             records.append(feedback_record)
         _move_feedback_interaction_to_tail(records)
