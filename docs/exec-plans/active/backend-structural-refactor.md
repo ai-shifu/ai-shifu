@@ -140,6 +140,15 @@ same result; the structural metrics below shrink.
   docstrings, the declarative `get_ask_provider_schema_registry`,
   `register_learn_routes` (contract tests inspect it), and `chat_llm`
   (stream state shared across yields).
+- [x] 2026-10-20 CST: Independent read-only review of round 3
+  (`7e531ee9f..fdd8704e5`): no findings. Verified equivalent: the five
+  generator changes (yield order, try/except/finally scopes, close and
+  `GeneratorExit`, values returned through `yield from`), the billing
+  expiry savepoint, referral grant add/flush and daily aggregate order, the
+  shifu draft, follow-up and rating extractions, the backfill
+  deduplication, `enable_plugins` (config and migrations still read at
+  command time), the live follow-up route split (same rules, endpoints and
+  order), and every test patch target on the touched modules.
 - [ ] Follow-up groups: `billing-notifications`, `engine-tts`, and the
   unfinished items listed under Outcomes.
 
