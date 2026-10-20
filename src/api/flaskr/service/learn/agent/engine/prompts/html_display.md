@@ -6,6 +6,7 @@ Whenever you output a visual (a slide, a card, a chart, a diagram), write it as 
 
 - One screen = one root `<div>`; everything for that screen is inside it. The root is the canvas itself: put the screen's main background, gradient or background illustration on it. Inner cards may group information, but must not be the only painted area inside an otherwise empty full-height shell. An intentionally white canvas is fine; do not impose a color or visual style. Several screens in one turn are fine: each root `<div>` is its own screen, followed by its own narration.
 - Every screen, including one in a later turn, must repeat its complete canvas root; an inner layout fragment is not a new screen. Respect the author's requested screen count. Narrating an existing screen does not require another screen, an alternative layout or repeated markup.
+- In listening lessons, a concise title or key-point visual is still a complete low-density screen using this full-canvas contract. Do not make a short content-height card inside a blank full-height shell.
 - The root fills the stage and scales its type with it. Start from this container and keep its size rules:
 
 ```text

@@ -42,6 +42,14 @@ reran all eight candidate cases. The final runs each produced one complete visua
 One provider request failed without reported usage; a subsequent retry succeeded,
 and the failed record remains available.
 
+PR review identified that listening instructions also reach portable `generic`
+and `none` render profiles. Moved the complete-canvas listening guidance into the
+sandbox-only visual fragment; shared listening guidance now defers to the host.
+The request tests explicitly reject leaked viewport/full-canvas requirements in
+both portable profiles. The real generation/browser comparison above covers the
+canvas revision before this wording relocation; the scoping follow-up is covered
+by the repeated offline suite.
+
 ## Decision Log
 
 - 2026-10-20: User selected new generation only. Do not rewrite stored HTML,

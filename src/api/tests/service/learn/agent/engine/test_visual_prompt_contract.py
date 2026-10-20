@@ -41,7 +41,8 @@ async def test_sandbox_request_preserves_cross_mode_canvas_contract(
     assert "min-height:100vh" in instructions
     assert "Do not give the root a fixed `height:100vh`" in instructions
     assert "non-negative offsets" in instructions
-    assert ("complete low-density screen" in instructions) is listen_mode
+    assert "complete low-density screen" in instructions
+    assert ("Listen mode (visual + narration)" in instructions) is listen_mode
     assert "at least a simple title or key-point card" not in instructions
 
 
@@ -62,4 +63,9 @@ async def test_non_sandbox_requests_do_not_receive_host_sizing_contract(
     assert not any(event.type == "error" for event in events)
     assert len(seen) == 1
     assert "Reading mode relaxes the root" not in seen[0]
+    assert "full-canvas" not in seen[0]
+    assert "full-height shell" not in seen[0]
+    assert "fills the stage" not in seen[0]
+    assert "min-height:100vh" not in seen[0]
+    assert "Follow the host's visual rules when provided" in seen[0]
     assert ("plain renderer" in seen[0]) is (render == "generic")
