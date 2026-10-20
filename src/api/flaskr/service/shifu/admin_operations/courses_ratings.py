@@ -185,17 +185,9 @@ def get_operator_course_ratings(
             for row in page_rows
         ]
 
-        if include_summary:
-            summary = AdminOperationCourseRatingSummaryDTO(
-                average_score=_format_average_score(
-                    getattr(summary_row, "average_score", None)
-                ),
-                rating_count=total,
-                user_count=int(getattr(summary_row, "user_count", 0) or 0),
-                latest_rated_at=getattr(summary_row, "latest_rated_at", None),
-            )
-        else:
-            summary = AdminOperationCourseRatingSummaryDTO()
+        summary = _build_course_rating_summary(
+            summary_row, total, include_summary=include_summary
+        )
         return AdminOperationCourseRatingListDTO(
             summary=summary,
             items=items,
@@ -204,6 +196,23 @@ def get_operator_course_ratings(
             total=total,
             page_count=math.ceil(total / safe_page_size) if safe_page_size else 0,
         )
+
+
+def _build_course_rating_summary(
+    summary_row: object | None, total: int, *, include_summary: bool
+) -> AdminOperationCourseRatingSummaryDTO:
+    if include_summary:
+        summary = AdminOperationCourseRatingSummaryDTO(
+            average_score=_format_average_score(
+                getattr(summary_row, "average_score", None)
+            ),
+            rating_count=total,
+            user_count=int(getattr(summary_row, "user_count", 0) or 0),
+            latest_rated_at=getattr(summary_row, "latest_rated_at", None),
+        )
+    else:
+        summary = AdminOperationCourseRatingSummaryDTO()
+    return summary
 
 
 def _append_course_rating_value_filters(

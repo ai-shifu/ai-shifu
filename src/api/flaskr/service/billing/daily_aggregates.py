@@ -234,38 +234,18 @@ def aggregate_daily_usage_metrics(
                 )
                 metric_count += 1
 
-        scope_query = BillingDailyUsageMetric.query.filter(
-            BillingDailyUsageMetric.stat_date == normalized_stat_date
+        deleted_count = _delete_daily_usage_metric_scope(
+            stat_date=normalized_stat_date,
+            creator_bid=normalized_creator_bid,
+            shifu_bid=normalized_shifu_bid,
         )
-        if normalized_creator_bid:
-            scope_query = scope_query.filter(
-                BillingDailyUsageMetric.creator_bid == normalized_creator_bid
-            )
-        if normalized_shifu_bid:
-            scope_query = scope_query.filter(
-                BillingDailyUsageMetric.shifu_bid == normalized_shifu_bid
-            )
-        deleted_count = int(scope_query.delete(synchronize_session=False) or 0)
-
-        for payload in aggregates.values():
-            db.session.add(
-                BillingDailyUsageMetric(
-                    daily_usage_metric_bid=generate_id(app),
-                    stat_date=normalized_stat_date,
-                    creator_bid=payload["creator_bid"],
-                    shifu_bid=payload["shifu_bid"],
-                    usage_scene=payload["usage_scene"],
-                    usage_type=payload["usage_type"],
-                    provider=payload["provider"],
-                    model=payload["model"],
-                    billing_metric=payload["billing_metric"],
-                    raw_amount=int(payload["raw_amount"]),
-                    record_count=int(payload["record_count"]),
-                    consumed_credits=_quantize_decimal(payload["consumed_credits"]),
-                    window_started_at=window_started_at,
-                    window_ended_at=window_ended_at,
-                )
-            )
+        _add_daily_usage_metric_rows(
+            app,
+            aggregates,
+            stat_date=normalized_stat_date,
+            window_started_at=window_started_at,
+            window_ended_at=window_ended_at,
+        )
 
         return DailyAggregateJobResult(
             status="finalized" if finalize else "aggregated",
@@ -280,6 +260,52 @@ def aggregate_daily_usage_metrics(
             skipped_usage_count=skipped_usage_count,
             row_count=len(aggregates),
             deleted_count=deleted_count,
+        )
+
+
+def _delete_daily_usage_metric_scope(
+    *, stat_date: str, creator_bid: str, shifu_bid: str
+) -> int:
+    """Delete the existing usage metric rows in scope and return the count."""
+    scope_query = BillingDailyUsageMetric.query.filter(
+        BillingDailyUsageMetric.stat_date == stat_date
+    )
+    if creator_bid:
+        scope_query = scope_query.filter(
+            BillingDailyUsageMetric.creator_bid == creator_bid
+        )
+    if shifu_bid:
+        scope_query = scope_query.filter(BillingDailyUsageMetric.shifu_bid == shifu_bid)
+    return int(scope_query.delete(synchronize_session=False) or 0)
+
+
+def _add_daily_usage_metric_rows(
+    app: Flask,
+    aggregates: dict[tuple[str, str, int, int, str, str, int], dict[str, Any]],
+    *,
+    stat_date: str,
+    window_started_at: datetime,
+    window_ended_at: datetime,
+) -> None:
+    """Stage one usage metric row per aggregate payload."""
+    for payload in aggregates.values():
+        db.session.add(
+            BillingDailyUsageMetric(
+                daily_usage_metric_bid=generate_id(app),
+                stat_date=stat_date,
+                creator_bid=payload["creator_bid"],
+                shifu_bid=payload["shifu_bid"],
+                usage_scene=payload["usage_scene"],
+                usage_type=payload["usage_type"],
+                provider=payload["provider"],
+                model=payload["model"],
+                billing_metric=payload["billing_metric"],
+                raw_amount=int(payload["raw_amount"]),
+                record_count=int(payload["record_count"]),
+                consumed_credits=_quantize_decimal(payload["consumed_credits"]),
+                window_started_at=window_started_at,
+                window_ended_at=window_ended_at,
+            )
         )
 
 
