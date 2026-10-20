@@ -98,9 +98,26 @@ same result; the structural metrics below shrink.
   expected when generators and closures are extracted into helpers and
   state objects. The first review checked generator extractions by hand up
   to `5d7947f64`.
-- [ ] Second review round over `5d7947f64..HEAD`, focused on generator
-  extractions, state objects that replaced `nonlocal`, and lock or unit of
-  work boundaries.
+- [x] 2026-10-20 CST: Second review round over `5d7947f64..50d1eb1b2`
+  (read-only, AST comparison against `75551925b` plus full diff reads).
+  Verified as equivalent: every generator extraction in the `runscript_v2`
+  family (`run_script`, `run_script_inner`, `_lesson_events`, the SSE relay
+  and `_RunStreamState`, including `GeneratorExit` and close semantics),
+  the `run_agent` family (`_stream_turn`, `_persist`, delivery helpers),
+  `lesson_entry`, `tts_preview`, and the billing wallet, adjustment,
+  webhook, trial, read-model and customization extractions (lock,
+  `unit_of_work`, savepoint and flush sites unchanged). Findings: (1) commit
+  `408b4c60e` changes behavior relative to the intermediate round-2 state
+  but restores the base order exactly (`75551925b` builds the outline map
+  at line 354, before the creation loop and its risk checks), so relative
+  to `main` it is behavior-preserving; its `fix:` title should be explained
+  in the PR description. (2) `repair_renewal_state_drift` imports
+  `grant_paid_order_credits` only on the non-dry-run path; no data effect,
+  accepted. Only skimmed, not read line by line: `list_operator_users`,
+  `get_operator_user_credits`, `courses_follow_ups`, `courses_ratings`,
+  `courses_users`, `admin_user_courses` (read-only query builders whose
+  try, with and `unit_of_work` counts match base).
+- [ ] Push the branch and open a PR (awaiting owner approval).
 - [ ] Follow-up groups: `billing-notifications`, `engine-tts`, and the
   unfinished items listed under Outcomes.
 
