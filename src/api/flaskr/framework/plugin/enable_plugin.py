@@ -26,7 +26,14 @@ def enable_plugins(app: Flask) -> None:
     def plugin() -> None:
         """Plugin management commands."""
 
-    @plugin.command(name="add")
+    _register_plugin_repository_commands(plugin)
+    _register_plugin_db_commands(app, plugin, plugin_manager)
+
+
+def _register_plugin_repository_commands(plugin_group: click.Group) -> None:
+    """Register the add, delete and list commands on the plugin group."""
+
+    @plugin_group.command(name="add")
     @click.argument("repo_url")
     def add(repo_url: str) -> None:
         """Add a plugin by cloning the repository."""
@@ -41,7 +48,7 @@ def enable_plugins(app: Flask) -> None:
         # The repository URL is supplied by the operator running this CLI command.
         subprocess.run([git_executable, "clone", repo_url, dest_dir], check=False)  # noqa: S603
 
-    @plugin.command(name="delete")
+    @plugin_group.command(name="delete")
     @click.argument("repo_name")
     def delete(repo_name: str) -> None:
         """Delete a plugin by its repository name."""
@@ -50,7 +57,7 @@ def enable_plugins(app: Flask) -> None:
             return
         shutil.rmtree(dest_dir)
 
-    @plugin.command(name="list")
+    @plugin_group.command(name="list")
     def list_plugins() -> None:
         """List all plugins."""
         plugins_dir = str(Path("flaskr") / "plugins")
@@ -59,68 +66,76 @@ def enable_plugins(app: Flask) -> None:
             if plugin == "__pycache__":
                 continue
 
-    def get_plugin_migrations() -> list[BasePlugin]:
-        """Get plugin migrations."""
-        plugins = []
-        app.logger.info(
-            "plugin_manager.plugins: %s", len(plugin_manager.plugins.values())
-        )
-        for plugin in plugin_manager.plugins.values():
-            app.logger.info(
-                "plugin: %s, migration_dir: %s", plugin.name, plugin.migration_dir
-            )
-            if plugin.migration_dir and Path(plugin.migration_dir).exists():
-                plugins.append(plugin)
-        return plugins
 
-    @plugin.group(name="db")
+def _get_plugin_migrations(app: Flask, plugin_manager: object) -> list[BasePlugin]:
+    """Get plugin migrations."""
+    plugins = []
+    app.logger.info("plugin_manager.plugins: %s", len(plugin_manager.plugins.values()))
+    for plugin in plugin_manager.plugins.values():
+        app.logger.info(
+            "plugin: %s, migration_dir: %s", plugin.name, plugin.migration_dir
+        )
+        if plugin.migration_dir and Path(plugin.migration_dir).exists():
+            plugins.append(plugin)
+    return plugins
+
+
+def _get_version_table_name(plugin_name: str) -> str:
+    """Get version table name."""
+    return f"alembic_version_plugin_{plugin_name.replace('-', '_')}"
+
+
+def _get_alembic_config(
+    app: Flask, plugin: object, version_table: str | None = None
+) -> Config:
+    """Get alembic config."""
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option("script_location", plugin.migration_dir)
+    alembic_cfg.set_main_option("version_locations", plugin.migration_dir + "/versions")
+
+    # set plugin version table
+    if version_table:
+        app.logger.info("set version_table: %s", version_table)
+        alembic_cfg.set_main_option("version_table", version_table)
+
+    return alembic_cfg
+
+
+def _get_plugin_include_object(
+    plugin_name: str,
+) -> Callable[[object, object, object, object, object], bool]:
+    """Generate plugin model filter function."""
+
+    def include_object(
+        db_object: object,
+        name: object,
+        type_: object,
+        reflected: object,
+        compare_to: object,
+    ) -> bool:
+        _ = (name, reflected, compare_to)
+        if type_ == "table":
+            return db_object.__module__.startswith(f"flaskr.plugins.{plugin_name}")
+        return True
+
+    return include_object
+
+
+def _register_plugin_db_commands(
+    app: Flask, plugin_group: click.Group, plugin_manager: object
+) -> None:
+    """Register the plugin db group with its upgrade, history and migrate commands."""
+
+    @plugin_group.group(name="db")
     def plugin_db() -> None:
         """Manage the plugin database."""
-
-    def get_version_table_name(plugin_name: str) -> str:
-        """Get version table name."""
-        return f"alembic_version_plugin_{plugin_name.replace('-', '_')}"
-
-    def get_alembic_config(plugin: object, version_table: str | None = None) -> Config:
-        """Get alembic config."""
-        alembic_cfg = Config()
-        alembic_cfg.set_main_option("script_location", plugin.migration_dir)
-        alembic_cfg.set_main_option(
-            "version_locations", plugin.migration_dir + "/versions"
-        )
-
-        # set plugin version table
-        if version_table:
-            app.logger.info("set version_table: %s", version_table)
-            alembic_cfg.set_main_option("version_table", version_table)
-
-        return alembic_cfg
-
-    def get_plugin_include_object(
-        plugin_name: str,
-    ) -> Callable[[object, object, object, object, object], bool]:
-        """Generate plugin model filter function."""
-
-        def include_object(
-            db_object: object,
-            name: object,
-            type_: object,
-            reflected: object,
-            compare_to: object,
-        ) -> bool:
-            _ = (name, reflected, compare_to)
-            if type_ == "table":
-                return db_object.__module__.startswith(f"flaskr.plugins.{plugin_name}")
-            return True
-
-        return include_object
 
     @plugin_db.command(name="upgrade")
     @click.argument("plugin_name", required=False)
     @with_appcontext
     def upgrade(plugin_name: object) -> None:
         """Upgrade the plugin database to the latest version."""
-        plugins = get_plugin_migrations()
+        plugins = _get_plugin_migrations(app, plugin_manager)
 
         for plugin in plugins:
             if plugin_name and plugin.name != plugin_name:
@@ -128,8 +143,8 @@ def enable_plugins(app: Flask) -> None:
 
             click.echo(f"upgrading the plugin: {plugin.name}")
 
-            version_table = get_version_table_name(plugin.name)
-            alembic_cfg = get_alembic_config(plugin, version_table)
+            version_table = _get_version_table_name(plugin.name)
+            alembic_cfg = _get_alembic_config(app, plugin, version_table)
             command.upgrade(alembic_cfg, "head")
 
     @plugin_db.command(name="history")
@@ -137,12 +152,12 @@ def enable_plugins(app: Flask) -> None:
     @with_appcontext
     def history(plugin_name: object) -> None:
         """View the migration history of the plugin."""
-        plugins = get_plugin_migrations()
+        plugins = _get_plugin_migrations(app, plugin_manager)
         for plugin in plugins:
             if plugin.name == plugin_name:
                 click.echo(f"the migration history of the plugin: {plugin.name}")
-                version_table = get_version_table_name(plugin.name)
-                alembic_cfg = get_alembic_config(plugin, version_table)
+                version_table = _get_version_table_name(plugin.name)
+                alembic_cfg = _get_alembic_config(app, plugin, version_table)
                 command.history(alembic_cfg)
                 return
 
@@ -153,13 +168,13 @@ def enable_plugins(app: Flask) -> None:
     @with_appcontext
     def migrate(plugin_name: object) -> None:
         """Migrate the plugin database to the latest version."""
-        plugins = get_plugin_migrations()
+        plugins = _get_plugin_migrations(app, plugin_manager)
         for plugin in plugins:
             app.logger.info("plugin: %s", plugin.name)
             if plugin.name == plugin_name:
                 click.echo(f"migrating the plugin: {plugin.name}")
-                version_table = get_version_table_name(plugin.name)
-                alembic_cfg = get_alembic_config(plugin, version_table)
+                version_table = _get_version_table_name(plugin.name)
+                alembic_cfg = _get_alembic_config(app, plugin, version_table)
                 command.revision(
                     alembic_cfg,
                     autogenerate=True,
