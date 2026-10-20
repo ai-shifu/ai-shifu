@@ -18,6 +18,7 @@ from flaskr.service.learn.learn_dtos import (
     LearnElementRecordDTO,
 )
 from flaskr.service.learn.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
     LegacyLearnRecord,
     build_legacy_record_for_progress,
 )
@@ -92,6 +93,98 @@ def _build_legacy_record_for_progress(
     )
 
 
+def _follow_up_element(
+    app: Flask,
+    record: LegacyGeneratedBlockRecord,
+    *,
+    element_type: ElementType,
+    role: str,
+    element_index: int,
+    anchor_element_bid: str,
+) -> ElementDTO:
+    """Build the drawer element for a legacy ask/answer follow-up block."""
+    return ElementDTO(
+        event_type="element",
+        element_bid=_new_element_bid(app),
+        generated_block_bid=record.generated_block_bid,
+        element_index=element_index,
+        role=role,
+        element_type=element_type,
+        element_type_code=_element_type_code(element_type),
+        change_type=ElementChangeType.RENDER,
+        is_renderable=False,
+        is_navigable=0,
+        is_final=True,
+        is_speakable=False,
+        audio_url="",
+        audio_segments=[],
+        content_text=record.content or "",
+        payload=ElementPayloadDTO(
+            anchor_element_bid=anchor_element_bid,
+            previous_visuals=[],
+        ),
+    )
+
+
+def _bind_audio_to_persisted_elements(
+    persisted_final_elements: list[ElementDTO],
+    audio_by_position: dict[int, ElementAudioDTO],
+) -> bool:
+    """Attach legacy audio to persisted text elements; False if any misses."""
+    text_elements = get_speakable_text_elements(persisted_final_elements)
+    can_bind_audio_to_persisted = True
+    for position, audio_payload in audio_by_position.items():
+        if position < 0 or position >= len(text_elements):
+            can_bind_audio_to_persisted = False
+            break
+        target = text_elements[position]
+        target.audio_url = audio_payload.audio_url or ""
+        target.audio_segments = []
+        target.is_speakable = _default_is_speakable(
+            ElementType.TEXT,
+            target.content_text or "",
+        )
+        payload = target.payload or ElementPayloadDTO(previous_visuals=[])
+        payload.audio = audio_payload
+        target.payload = payload
+    return can_bind_audio_to_persisted
+
+
+def _fallback_text_element(
+    app: Flask,
+    record: LegacyGeneratedBlockRecord,
+    *,
+    role: str,
+    element_index: int,
+    audio_by_position: dict[int, ElementAudioDTO],
+) -> ElementDTO:
+    """Build the single text element used when no visual segments exist."""
+    return ElementDTO(
+        event_type="element",
+        element_bid=_new_element_bid(app),
+        generated_block_bid=record.generated_block_bid,
+        element_index=element_index,
+        role=role,
+        element_type=ElementType.TEXT,
+        element_type_code=_element_type_code(ElementType.TEXT),
+        change_type=ElementChangeType.RENDER,
+        is_renderable=False,
+        is_navigable=1,
+        is_final=True,
+        is_speakable=_default_is_speakable(
+            ElementType.TEXT,
+            record.content or "",
+        ),
+        audio_url=(audio_by_position[0].audio_url if audio_by_position.get(0) else ""),
+        audio_segments=[],
+        content_text=record.content or "",
+        payload=ElementPayloadDTO(
+            audio=audio_by_position.get(0),
+            previous_visuals=[],
+        ),
+    )
+
+
 def build_listen_elements_from_legacy_record(
     app: Flask,
     legacy_record: LegacyLearnRecord,
@@ -137,29 +230,15 @@ def build_listen_elements_from_legacy_record(
         role = "student" if block_type == BlockType.ASK else "teacher"
 
         if is_follow_up:
-            follow_up_element_type = _element_type_for_block(block_type)
             max_index += 1
             elements.append(
-                ElementDTO(
-                    event_type="element",
-                    element_bid=_new_element_bid(app),
-                    generated_block_bid=record.generated_block_bid,
-                    element_index=max_index,
+                _follow_up_element(
+                    app,
+                    record,
+                    element_type=_element_type_for_block(block_type),
                     role=role,
-                    element_type=follow_up_element_type,
-                    element_type_code=_element_type_code(follow_up_element_type),
-                    change_type=ElementChangeType.RENDER,
-                    is_renderable=False,
-                    is_navigable=0,
-                    is_final=True,
-                    is_speakable=False,
-                    audio_url="",
-                    audio_segments=[],
-                    content_text=record.content or "",
-                    payload=ElementPayloadDTO(
-                        anchor_element_bid=last_anchor_element_bid,
-                        previous_visuals=[],
-                    ),
+                    element_index=max_index,
+                    anchor_element_bid=last_anchor_element_bid,
                 )
             )
             continue
@@ -178,22 +257,10 @@ def build_listen_elements_from_legacy_record(
                     generated_block_bid=record.generated_block_bid,
                 )
         if persisted_final_elements:
-            text_elements = get_speakable_text_elements(persisted_final_elements)
-            can_bind_audio_to_persisted = True
-            for position, audio_payload in audio_by_position.items():
-                if position < 0 or position >= len(text_elements):
-                    can_bind_audio_to_persisted = False
-                    break
-                target = text_elements[position]
-                target.audio_url = audio_payload.audio_url or ""
-                target.audio_segments = []
-                target.is_speakable = _default_is_speakable(
-                    ElementType.TEXT,
-                    target.content_text or "",
-                )
-                payload = target.payload or ElementPayloadDTO(previous_visuals=[])
-                payload.audio = audio_payload
-                target.payload = payload
+            can_bind_audio_to_persisted = _bind_audio_to_persisted_elements(
+                persisted_final_elements,
+                audio_by_position,
+            )
 
             if can_bind_audio_to_persisted:
                 next_index = max_index + 1
@@ -248,31 +315,12 @@ def build_listen_elements_from_legacy_record(
             continue
 
         max_index += 1
-        fallback_element = ElementDTO(
-            event_type="element",
-            element_bid=_new_element_bid(app),
-            generated_block_bid=record.generated_block_bid,
-            element_index=max_index,
+        fallback_element = _fallback_text_element(
+            app,
+            record,
             role=role,
-            element_type=ElementType.TEXT,
-            element_type_code=_element_type_code(ElementType.TEXT),
-            change_type=ElementChangeType.RENDER,
-            is_renderable=False,
-            is_navigable=1,
-            is_final=True,
-            is_speakable=_default_is_speakable(
-                ElementType.TEXT,
-                record.content or "",
-            ),
-            audio_url=(
-                audio_by_position[0].audio_url if audio_by_position.get(0) else ""
-            ),
-            audio_segments=[],
-            content_text=record.content or "",
-            payload=ElementPayloadDTO(
-                audio=audio_by_position.get(0),
-                previous_visuals=[],
-            ),
+            element_index=max_index,
+            audio_by_position=audio_by_position,
         )
         elements.append(fallback_element)
         last_anchor_element_bid = (

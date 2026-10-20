@@ -14,6 +14,8 @@ from flaskr.common.safe_outbound import (
     OutboundDeadlineExceededError,
     OutboundRedirectError,
     OutboundResponseTooLargeError,
+    SafeOutboundClient,
+    SafeOutboundResponse,
     UnsafeOutboundUrlError,
 )
 from urllib3.exceptions import HTTPError, NewConnectionError
@@ -237,6 +239,101 @@ def _collect_text_chunks(payload: object) -> list[str]:
     return chunks
 
 
+def _build_search_payload(
+    config: dict[str, object],
+    *,
+    project: str,
+    collection_name: str,
+    path: str,
+    user_query: str,
+    messages: list[dict[str, object]],
+) -> dict[str, Any]:
+    """Build the search_knowledge request body from the provider config."""
+    payload: dict[str, Any] = {
+        "project": project,
+        "name": collection_name,
+        "query": user_query,
+        "limit": _to_positive_int(config.get("limit"), 20),
+    }
+    dense_weight = config.get("dense_weight")
+    if isinstance(dense_weight, (int, float)):
+        payload["dense_weight"] = float(dense_weight)
+
+    image_query = str(config.get("image_query") or "").strip()
+    if image_query:
+        payload["image_query"] = image_query
+
+    pre_processing = _normalize_pre_processing(config.get("pre_processing"), user_query)
+    pre_processing = _with_follow_up_context(
+        pre_processing,
+        config_value=config.get("pre_processing"),
+        path=path,
+        user_query=user_query,
+        messages=messages,
+    )
+    if pre_processing is not None:
+        payload["pre_processing"] = pre_processing
+    for field in ("post_processing", "query_param"):
+        value = config.get(field)
+        if isinstance(value, dict):
+            payload[field] = copy.deepcopy(value)
+    return payload
+
+
+def _send_search_request(
+    client: SafeOutboundClient,
+    url: str,
+    *,
+    request_headers: dict[str, str],
+    request_body: str,
+    deadline: float,
+) -> SafeOutboundResponse:
+    """POST the signed search request, mapping transport errors."""
+    try:
+        response = client.request(
+            "POST",
+            url,
+            headers=request_headers,
+            body=request_body.encode("utf-8"),
+            deadline=deadline,
+        )
+    except NewConnectionError as exc:
+        error_message = "volc_knowledge request was rejected or failed"
+        raise AskProviderError(error_message) from exc
+    except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+        exception_message = "volc_knowledge request timeout"
+        raise AskProviderTimeoutError(exception_message) from exc
+    except (
+        HTTPError,
+        OutboundRedirectError,
+        OutboundResponseTooLargeError,
+        UnsafeOutboundUrlError,
+    ) as exc:
+        error_message = "volc_knowledge request was rejected or failed"
+        raise AskProviderError(error_message) from exc
+    return response
+
+
+def _read_search_response(response: SafeOutboundResponse) -> object:
+    """Decode the JSON body of a successful search response."""
+    try:
+        with response:
+            if not 200 <= response.status < 300:
+                message = f"volc_knowledge request failed with status {response.status}"
+                raise AskProviderError(message)
+            payload_data = json.loads(response.content)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        exception_message = "volc_knowledge response is not valid json"
+        raise AskProviderError(exception_message) from exc
+    except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+        exception_message = "volc_knowledge request timeout"
+        raise AskProviderTimeoutError(exception_message) from exc
+    except (HTTPError, OutboundResponseTooLargeError) as exc:
+        message = "volc_knowledge response was rejected or failed"
+        raise AskProviderError(message) from exc
+    return payload_data
+
+
 class VolcKnowledgeAskProviderAdapter:
     """Adapt Volcengine knowledge responses to the common ask stream."""
 
@@ -279,36 +376,14 @@ class VolcKnowledgeAskProviderAdapter:
         service = str(config.get("service") or "air").strip() or "air"
         region = str(config.get("region") or "cn-north-1").strip() or "cn-north-1"
 
-        payload: dict[str, Any] = {
-            "project": project,
-            "name": collection_name,
-            "query": user_query,
-            "limit": _to_positive_int(config.get("limit"), 20),
-        }
-        dense_weight = config.get("dense_weight")
-        if isinstance(dense_weight, (int, float)):
-            payload["dense_weight"] = float(dense_weight)
-
-        image_query = str(config.get("image_query") or "").strip()
-        if image_query:
-            payload["image_query"] = image_query
-
-        pre_processing = _normalize_pre_processing(
-            config.get("pre_processing"), user_query
-        )
-        pre_processing = _with_follow_up_context(
-            pre_processing,
-            config_value=config.get("pre_processing"),
+        payload = _build_search_payload(
+            config,
+            project=project,
+            collection_name=collection_name,
             path=path,
             user_query=user_query,
             messages=messages,
         )
-        if pre_processing is not None:
-            payload["pre_processing"] = pre_processing
-        for field in ("post_processing", "query_param"):
-            value = config.get(field)
-            if isinstance(value, dict):
-                payload[field] = copy.deepcopy(value)
 
         raw_url = f"{scheme}://{domain}{path}"
         try:
@@ -349,46 +424,14 @@ class VolcKnowledgeAskProviderAdapter:
         )
         request_headers = {**unsigned_headers, **signed_headers}
 
-        try:
-            response = client.request(
-                "POST",
-                validated_target.url,
-                headers=request_headers,
-                body=request_body.encode("utf-8"),
-                deadline=deadline,
-            )
-        except NewConnectionError as exc:
-            error_message = "volc_knowledge request was rejected or failed"
-            raise AskProviderError(error_message) from exc
-        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
-            exception_message = "volc_knowledge request timeout"
-            raise AskProviderTimeoutError(exception_message) from exc
-        except (
-            HTTPError,
-            OutboundRedirectError,
-            OutboundResponseTooLargeError,
-            UnsafeOutboundUrlError,
-        ) as exc:
-            error_message = "volc_knowledge request was rejected or failed"
-            raise AskProviderError(error_message) from exc
-
-        try:
-            with response:
-                if not 200 <= response.status < 300:
-                    message = (
-                        f"volc_knowledge request failed with status {response.status}"
-                    )
-                    raise AskProviderError(message)
-                payload_data = json.loads(response.content)
-        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-            exception_message = "volc_knowledge response is not valid json"
-            raise AskProviderError(exception_message) from exc
-        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
-            exception_message = "volc_knowledge request timeout"
-            raise AskProviderTimeoutError(exception_message) from exc
-        except (HTTPError, OutboundResponseTooLargeError) as exc:
-            message = "volc_knowledge response was rejected or failed"
-            raise AskProviderError(message) from exc
+        response = _send_search_request(
+            client,
+            validated_target.url,
+            request_headers=request_headers,
+            request_body=request_body,
+            deadline=deadline,
+        )
+        payload_data = _read_search_response(response)
 
         if isinstance(payload_data, dict):
             code = payload_data.get("code")

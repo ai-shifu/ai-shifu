@@ -466,6 +466,89 @@ def _turn_events_factory(
     return make_events
 
 
+def _prepare_turn(
+    app: Flask,
+    engine: Engine,
+    *,
+    make_session: Callable[[], Any],
+    memory_generations: dict[str, int],
+    memory_deleted_keys: set[str],
+    rewind: RewindPlan | None,
+    user_input: str | dict | None,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    generated_block_bid: str,
+    preview_mode: bool,
+    preview_generation: str | None,
+    content_revision: int | None,
+    listen: bool,
+    shifu_model: type | None,
+) -> tuple[
+    str,
+    OutlineItemUpdateDTO | None,
+    dict[str, Any],
+    Callable[[], AsyncIterator[Event]],
+    LessonVoice | None,
+]:
+    """Open the turn's progress record and build its event factory and voice."""
+    # Regenerating content runs the turn again with the input it had; everything else, including
+    # a question answered differently, runs with what the learner just sent.
+    values = (
+        rewind.replay_values
+        if rewind is not None and rewind.replay_values is not None
+        else learner_values(user_input)
+    )
+    # Resolved before the turn runs, and remembered: what it identifies is both where this turn's
+    # elements will hang and the thing a reset marks, so a turn can tell afterwards whether the
+    # lesson it started in is still the one it is finishing.
+    # A preview writes no learner progress. The author is the same person as the learner and the
+    # lesson identifier is the same, so a progress record, a block or a completion written here
+    # would land in that learner's own history -- their preview turns showing up as lessons they
+    # took. Their session is still stored, under its own key, so the preview resumes.
+    #
+    # It still gets an identifier, just an unwritten one -- the same shape the 1.0 run gives a
+    # preview, which builds a progress record and never adds it to the session. The spoken track
+    # hangs each piece of audio off one, so without it an author previewing a lesson in listening
+    # mode heard nothing at all.
+    progress_record_bid, start_update = _progress_record_for_turn(
+        app,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        generated_block_bid=generated_block_bid,
+        preview_mode=preview_mode,
+    )
+    session_holder: dict[str, Any] = {
+        "rewind": rewind,
+        "preview_generation": preview_generation,
+        "content_revision": content_revision,
+        "memory_generations": memory_generations,
+    }
+
+    make_events = _turn_events_factory(
+        engine,
+        make_session=make_session,
+        session_holder=session_holder,
+        values=values,
+        memory_deleted_keys=memory_deleted_keys,
+        rewind=rewind,
+    )
+
+    voice = _lesson_voice(
+        app,
+        listen=listen,
+        shifu_model=shifu_model,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        progress_record_bid=progress_record_bid,
+        user_bid=user_bid,
+        generated_block_bid=generated_block_bid,
+        preview_mode=preview_mode,
+    )
+    return progress_record_bid, start_update, session_holder, make_events, voice
+
+
 def run_agent_lesson(
     app: Flask,
     *,
@@ -535,59 +618,29 @@ def run_agent_lesson(
         # yielded here is written down as an element of no block, while the stream's own closing
         # event, which it sends whenever a lesson's events end without one, is not.
         return TurnOutcome(reason="finished", taught=False)
-    # Regenerating content runs the turn again with the input it had; everything else, including
-    # a question answered differently, runs with what the learner just sent.
-    values = (
-        rewind.replay_values
-        if rewind is not None and rewind.replay_values is not None
-        else learner_values(user_input)
-    )
-    # Resolved before the turn runs, and remembered: what it identifies is both where this turn's
-    # elements will hang and the thing a reset marks, so a turn can tell afterwards whether the
-    # lesson it started in is still the one it is finishing.
-    # A preview writes no learner progress. The author is the same person as the learner and the
-    # lesson identifier is the same, so a progress record, a block or a completion written here
-    # would land in that learner's own history -- their preview turns showing up as lessons they
-    # took. Their session is still stored, under its own key, so the preview resumes.
-    #
-    # It still gets an identifier, just an unwritten one -- the same shape the 1.0 run gives a
-    # preview, which builds a progress record and never adds it to the session. The spoken track
-    # hangs each piece of audio off one, so without it an author previewing a lesson in listening
-    # mode heard nothing at all.
-    progress_record_bid, start_update = _progress_record_for_turn(
+    (
+        progress_record_bid,
+        start_update,
+        session_holder,
+        make_events,
+        voice,
+    ) = _prepare_turn(
         app,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-        generated_block_bid=generated_block_bid,
-        preview_mode=preview_mode,
-    )
-    session_holder: dict[str, Any] = {
-        "rewind": rewind,
-        "preview_generation": preview_generation,
-        "content_revision": content_revision,
-        "memory_generations": memory_generations,
-    }
-
-    make_events = _turn_events_factory(
         engine,
         make_session=make_session,
-        session_holder=session_holder,
-        values=values,
+        memory_generations=memory_generations,
         memory_deleted_keys=memory_deleted_keys,
         rewind=rewind,
-    )
-
-    voice = _lesson_voice(
-        app,
-        listen=listen,
-        shifu_model=shifu_model,
+        user_input=user_input,
+        user_bid=user_bid,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
-        progress_record_bid=progress_record_bid,
-        user_bid=user_bid,
         generated_block_bid=generated_block_bid,
         preview_mode=preview_mode,
+        preview_generation=preview_generation,
+        content_revision=content_revision,
+        listen=listen,
+        shifu_model=shifu_model,
     )
     # Every mode consumes the same typed elements. Only speech depends on listening; classroom
     # and reading still need the formatter to distinguish HTML and other visuals from prose.

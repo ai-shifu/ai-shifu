@@ -919,6 +919,65 @@ def _run_producer(
             output_queue.put(("done", None))
 
 
+def _build_producer_kwargs(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    user_input: str | dict | None,
+    input_type: str | None,
+    reload_generated_block_bid: str | None,
+    reload_element_bid: str | None,
+    runtime_listen: bool,
+    learning_mode: str,
+    preview_mode: bool,
+    shifu_context_snapshot: dict[str, object] | None,
+    language: str | None,
+    stop_event: threading.Event,
+    output_queue: queue.SimpleQueue,
+    element_adapter: ListenElementRunAdapter,
+    heartbeat_interval: float,
+) -> dict[str, object]:
+    """Capture request-thread context and lesson arguments for the producer."""
+    # Language must be handed in by the route handler: run_script's generator
+    # body first runs during WSGI response iteration, and on Flask >= 3.1 the
+    # request teardown (which clears the request-scoped language) has
+    # already executed by then, so get_current_language() here would only
+    # ever see the default. The fallback keeps direct callers working.
+    return {
+        # Capture logging context from the request thread so logs in the producer
+        # thread keep the same identifiers
+        "parent_request_id": getattr(log_thread_local, "request_id", None),
+        "parent_url": getattr(log_thread_local, "url", None),
+        "parent_client_ip": getattr(log_thread_local, "client_ip", None),
+        "parent_language": language or get_current_language(),
+        # Capture shifu context so background thread can reuse it (may be provided by caller)
+        "parent_shifu_context": (
+            shifu_context_snapshot or get_shifu_context_snapshot()
+        ),
+        "lesson_kwargs": {
+            "app": app,
+            "user_bid": user_bid,
+            "shifu_bid": shifu_bid,
+            "outline_bid": outline_bid,
+            "user_input": user_input,
+            "input_type": input_type,
+            "reload_generated_block_bid": reload_generated_block_bid,
+            "reload_element_bid": reload_element_bid,
+            "listen": runtime_listen,
+            "learning_mode": learning_mode,
+            "preview_mode": preview_mode,
+            "stop_event": stop_event,
+            "element_adapter": element_adapter,
+            "heartbeat_interval": heartbeat_interval,
+        },
+        "stop_event": stop_event,
+        "output_queue": output_queue,
+        "element_adapter": element_adapter,
+    }
+
+
 def run_script(
     app: Flask,
     shifu_bid: str,
@@ -982,42 +1041,25 @@ def run_script(
     stop_event = threading.Event()
     # Use SimpleQueue to avoid gevent-patched Queue lock contention in background threads.
     output_queue: queue.SimpleQueue = queue.SimpleQueue()
-    # Language must be handed in by the route handler: this generator body
-    # first runs during WSGI response iteration, and on Flask >= 3.1 the
-    # request teardown (which clears the request-scoped language) has
-    # already executed by then, so get_current_language() here would only
-    # ever see the default. The fallback keeps direct callers working.
-    producer_kwargs = {
-        # Capture logging context from the request thread so logs in the producer
-        # thread keep the same identifiers
-        "parent_request_id": getattr(log_thread_local, "request_id", None),
-        "parent_url": getattr(log_thread_local, "url", None),
-        "parent_client_ip": getattr(log_thread_local, "client_ip", None),
-        "parent_language": language or get_current_language(),
-        # Capture shifu context so background thread can reuse it (may be provided by caller)
-        "parent_shifu_context": (
-            shifu_context_snapshot or get_shifu_context_snapshot()
-        ),
-        "lesson_kwargs": {
-            "app": app,
-            "user_bid": user_bid,
-            "shifu_bid": shifu_bid,
-            "outline_bid": outline_bid,
-            "user_input": user_input,
-            "input_type": input_type,
-            "reload_generated_block_bid": reload_generated_block_bid,
-            "reload_element_bid": reload_element_bid,
-            "listen": runtime_listen,
-            "learning_mode": learning_mode,
-            "preview_mode": preview_mode,
-            "stop_event": stop_event,
-            "element_adapter": element_adapter,
-            "heartbeat_interval": heartbeat_interval,
-        },
-        "stop_event": stop_event,
-        "output_queue": output_queue,
-        "element_adapter": element_adapter,
-    }
+    producer_kwargs = _build_producer_kwargs(
+        app,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        user_bid=user_bid,
+        user_input=user_input,
+        input_type=input_type,
+        reload_generated_block_bid=reload_generated_block_bid,
+        reload_element_bid=reload_element_bid,
+        runtime_listen=runtime_listen,
+        learning_mode=learning_mode,
+        preview_mode=preview_mode,
+        shifu_context_snapshot=shifu_context_snapshot,
+        language=language,
+        stop_event=stop_event,
+        output_queue=output_queue,
+        element_adapter=element_adapter,
+        heartbeat_interval=heartbeat_interval,
+    )
     producer_thread: threading.Thread | None = None
     try:
         producer_thread = threading.Thread(

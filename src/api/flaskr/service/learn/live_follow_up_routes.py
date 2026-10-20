@@ -982,6 +982,13 @@ def _register_live_admission_routes(app: Flask, path_prefix: str) -> None:
 
 def _register_live_direct_session_routes(app: Flask, path_prefix: str) -> None:
     """Register the browser-direct session heartbeat, turn, finalize, and end."""
+    _register_live_direct_heartbeat_route(app, path_prefix)
+    _register_live_direct_turn_routes(app, path_prefix)
+    _register_live_direct_end_route(app, path_prefix)
+
+
+def _register_live_direct_heartbeat_route(app: Flask, path_prefix: str) -> None:
+    """Register the browser-direct session heartbeat."""
 
     @app.route(
         path_prefix + "/live-follow-up/session/<session_bid>/heartbeat",
@@ -1022,6 +1029,10 @@ def _register_live_direct_session_routes(app: Flask, path_prefix: str) -> None:
         return _make_live_response(
             {"session_bid": session_bid, "expires_at": to_utc_iso(expires_at)}
         )
+
+
+def _register_live_direct_turn_routes(app: Flask, path_prefix: str) -> None:
+    """Register the browser-direct single-turn commit and batch finalize."""
 
     @app.route(
         path_prefix + "/live-follow-up/session/<session_bid>/turn",
@@ -1123,6 +1134,10 @@ def _register_live_direct_session_routes(app: Flask, path_prefix: str) -> None:
                 "turn_indices": [turn.turn_index for turn in turns],
             }
         )
+
+
+def _register_live_direct_end_route(app: Flask, path_prefix: str) -> None:
+    """Register the browser-direct session end."""
 
     @app.route(
         path_prefix + "/live-follow-up/session/<session_bid>/end",
