@@ -75,6 +75,114 @@ def _inc_stat(stats: object | None, field_name: str, delta: int = 1) -> None:
         setattr(stats, field_name, current + int(delta))
 
 
+def _latest_blocks_by_bid(
+    generated_blocks: list[LearnGeneratedBlock],
+    stats: object | None,
+) -> list[LearnGeneratedBlock]:
+    """Keep the latest row per generated block bid, ordered by position."""
+    latest_blocks_by_bid: dict[str, LearnGeneratedBlock] = {}
+    for generated_block in generated_blocks:
+        if generated_block.generated_block_bid in latest_blocks_by_bid:
+            _inc_stat(stats, "duplicate_blocks_skipped")
+        latest_blocks_by_bid[generated_block.generated_block_bid] = generated_block
+    return sorted(
+        latest_blocks_by_bid.values(),
+        key=lambda item: (int(item.position or 0), int(item.id or 0)),
+    )
+
+
+def _deduped_progress_audios_by_block(
+    progress_record: LearnProgressRecord,
+    generated_block_bids: list[str],
+    stats: object | None,
+) -> dict[str, list[AudioCompleteDTO]]:
+    """Load progress audios, keeping the latest per block and position."""
+    block_audios_map: dict[str, list[AudioCompleteDTO]] = {}
+    audio_records = (
+        LearnGeneratedAudio.query.filter(
+            LearnGeneratedAudio.progress_record_bid
+            == progress_record.progress_record_bid,
+            LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+            LearnGeneratedAudio.deleted == 0,
+        )
+        .order_by(
+            LearnGeneratedAudio.generated_block_bid.asc(),
+            LearnGeneratedAudio.position.asc(),
+            LearnGeneratedAudio.id.asc(),
+        )
+        .all()
+    )
+    _set_stat(stats, "audio_records_total", len(audio_records))
+
+    active_block_bids = set(generated_block_bids)
+    latest_audio_by_block_position: dict[tuple[str, int], LearnGeneratedAudio] = {}
+    for audio_record in audio_records:
+        block_bid = audio_record.generated_block_bid or ""
+        position = int(getattr(audio_record, "position", 0) or 0)
+        if block_bid not in active_block_bids:
+            _inc_stat(stats, "orphan_audios_skipped")
+            continue
+        dedupe_key = (block_bid, position)
+        if dedupe_key in latest_audio_by_block_position:
+            _inc_stat(stats, "duplicate_audios_skipped")
+        latest_audio_by_block_position[dedupe_key] = audio_record
+
+    for (block_bid, _position), audio_record in sorted(
+        latest_audio_by_block_position.items(),
+        key=lambda item: (
+            item[0][0],
+            item[0][1],
+            int(item[1].id or 0),
+        ),
+    ):
+        block_audios_map.setdefault(block_bid, []).append(
+            AudioCompleteDTO(
+                audio_url=audio_record.oss_url or "",
+                audio_bid=audio_record.audio_bid or "",
+                duration_ms=int(audio_record.duration_ms or 0),
+                position=int(getattr(audio_record, "position", 0) or 0),
+                subtitle_cues=normalize_subtitle_cues(
+                    getattr(audio_record, "subtitle_cues", None)
+                ),
+            )
+        )
+    return block_audios_map
+
+
+def _completed_audios_by_block(
+    generated_block_bids: list[str],
+) -> dict[str, list[AudioCompleteDTO]]:
+    """Load completed audios for the given generated blocks."""
+    block_audios_map: dict[str, list[AudioCompleteDTO]] = {}
+    audio_records = (
+        LearnGeneratedAudio.query.filter(
+            LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
+            LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+            LearnGeneratedAudio.deleted == 0,
+        )
+        .order_by(
+            LearnGeneratedAudio.generated_block_bid.asc(),
+            LearnGeneratedAudio.position.asc(),
+            LearnGeneratedAudio.id.asc(),
+        )
+        .all()
+    )
+    for audio in audio_records:
+        position = int(getattr(audio, "position", 0) or 0)
+        block_audios_map.setdefault(audio.generated_block_bid, []).append(
+            AudioCompleteDTO(
+                audio_url=audio.oss_url or "",
+                audio_bid=audio.audio_bid or "",
+                duration_ms=int(audio.duration_ms or 0),
+                position=position,
+                subtitle_cues=normalize_subtitle_cues(
+                    getattr(audio, "subtitle_cues", None)
+                ),
+            )
+        )
+    return block_audios_map
+
+
 def build_legacy_record_for_progress(
     progress_record: LearnProgressRecord,
     *,
@@ -109,15 +217,7 @@ def build_legacy_record_for_progress(
 
     blocks_for_build = generated_blocks
     if dedupe_blocks_by_bid:
-        latest_blocks_by_bid: dict[str, LearnGeneratedBlock] = {}
-        for generated_block in generated_blocks:
-            if generated_block.generated_block_bid in latest_blocks_by_bid:
-                _inc_stat(stats, "duplicate_blocks_skipped")
-            latest_blocks_by_bid[generated_block.generated_block_bid] = generated_block
-        blocks_for_build = sorted(
-            latest_blocks_by_bid.values(),
-            key=lambda item: (int(item.position or 0), int(item.id or 0)),
-        )
+        blocks_for_build = _latest_blocks_by_bid(generated_blocks, stats)
 
     generated_block_bids = [
         block.generated_block_bid
@@ -127,81 +227,11 @@ def build_legacy_record_for_progress(
 
     block_audios_map: dict[str, list[AudioCompleteDTO]] = {}
     if dedupe_audio_by_block_position:
-        audio_records = (
-            LearnGeneratedAudio.query.filter(
-                LearnGeneratedAudio.progress_record_bid
-                == progress_record.progress_record_bid,
-                LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
-                LearnGeneratedAudio.deleted == 0,
-            )
-            .order_by(
-                LearnGeneratedAudio.generated_block_bid.asc(),
-                LearnGeneratedAudio.position.asc(),
-                LearnGeneratedAudio.id.asc(),
-            )
-            .all()
+        block_audios_map = _deduped_progress_audios_by_block(
+            progress_record, generated_block_bids, stats
         )
-        _set_stat(stats, "audio_records_total", len(audio_records))
-
-        active_block_bids = set(generated_block_bids)
-        latest_audio_by_block_position: dict[tuple[str, int], LearnGeneratedAudio] = {}
-        for audio_record in audio_records:
-            block_bid = audio_record.generated_block_bid or ""
-            position = int(getattr(audio_record, "position", 0) or 0)
-            if block_bid not in active_block_bids:
-                _inc_stat(stats, "orphan_audios_skipped")
-                continue
-            dedupe_key = (block_bid, position)
-            if dedupe_key in latest_audio_by_block_position:
-                _inc_stat(stats, "duplicate_audios_skipped")
-            latest_audio_by_block_position[dedupe_key] = audio_record
-
-        for (block_bid, _position), audio_record in sorted(
-            latest_audio_by_block_position.items(),
-            key=lambda item: (
-                item[0][0],
-                item[0][1],
-                int(item[1].id or 0),
-            ),
-        ):
-            block_audios_map.setdefault(block_bid, []).append(
-                AudioCompleteDTO(
-                    audio_url=audio_record.oss_url or "",
-                    audio_bid=audio_record.audio_bid or "",
-                    duration_ms=int(audio_record.duration_ms or 0),
-                    position=int(getattr(audio_record, "position", 0) or 0),
-                    subtitle_cues=normalize_subtitle_cues(
-                        getattr(audio_record, "subtitle_cues", None)
-                    ),
-                )
-            )
     elif generated_block_bids:
-        audio_records = (
-            LearnGeneratedAudio.query.filter(
-                LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
-                LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
-                LearnGeneratedAudio.deleted == 0,
-            )
-            .order_by(
-                LearnGeneratedAudio.generated_block_bid.asc(),
-                LearnGeneratedAudio.position.asc(),
-                LearnGeneratedAudio.id.asc(),
-            )
-            .all()
-        )
-        for audio in audio_records:
-            position = int(getattr(audio, "position", 0) or 0)
-            block_audios_map.setdefault(audio.generated_block_bid, []).append(
-                AudioCompleteDTO(
-                    audio_url=audio.oss_url or "",
-                    audio_bid=audio.audio_bid or "",
-                    duration_ms=int(audio.duration_ms or 0),
-                    position=position,
-                    subtitle_cues=normalize_subtitle_cues(
-                        getattr(audio, "subtitle_cues", None)
-                    ),
-                )
-            )
+        block_audios_map = _completed_audios_by_block(generated_block_bids)
 
     records: list[LegacyGeneratedBlockRecord] = []
     for generated_block in blocks_for_build:
