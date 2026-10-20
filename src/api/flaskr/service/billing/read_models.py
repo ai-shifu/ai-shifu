@@ -2,35 +2,50 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any
+from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flaskr.dao import db
-from flaskr.i18n import _ as translate
-from flaskr.i18n import get_current_language, set_language
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.dao import db  # noqa: F401 - re-exported for import compatibility
+from flaskr.i18n import (
+    _ as translate,  # noqa: F401 - re-exported for import compatibility
+)
+from flaskr.i18n import (  # noqa: F401 - re-exported for import compatibility
+    get_current_language,
+    set_language,
+)
+from flaskr.service.common.models import (  # noqa: F401 - re-exported for import compatibility
+    raise_error,
+    raise_param_error,
+)
 from flaskr.service.common.pagination import (
     DEFAULT_PAGE_INDEX,
     DEFAULT_PAGE_SIZE,
     normalize_pagination,
 )
 from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_SCENE_DEBUG,  # noqa: F401 - re-exported for import compatibility
+    BILL_USAGE_SCENE_PREVIEW,  # noqa: F401 - re-exported for import compatibility
+    BILL_USAGE_SCENE_PROD,  # noqa: F401 - re-exported for import compatibility
 )
-from flaskr.service.metering.models import BillUsageRecord
-from flaskr.service.shifu.models import DraftShifu, PublishedShifu
-from flaskr.service.user.models import AuthCredential
-from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.metering.models import (
+    BillUsageRecord,  # noqa: F401 - re-exported for import compatibility
+)
+from flaskr.service.shifu.models import (  # noqa: F401 - re-exported for import compatibility
+    DraftShifu,
+    PublishedShifu,
+)
+from flaskr.service.user.models import (
+    AuthCredential,  # noqa: F401 - re-exported for import compatibility
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,  # noqa: F401 - re-exported for import compatibility
+)
 from flaskr.util.datetime import (
     NAIVE_DATETIME_MAX,
     NAIVE_DATETIME_MIN,
     now_utc,
-    parse_naive_utc,
+    parse_naive_utc,  # noqa: F401 - re-exported for import compatibility
 )
-from sqlalchemy import case, or_, select
 
 from .bucket_categories import (
     OrderTypeLoader,
@@ -38,22 +53,22 @@ from .bucket_categories import (
 )
 from .campaigns import resolve_catalog_campaign_payload
 from .consts import (
-    BILLING_ORDER_STATUS_CANCELED,
-    BILLING_ORDER_STATUS_PAID,
-    BILLING_ORDER_STATUS_PENDING,
-    BILLING_ORDER_STATUS_REFUNDED,
-    BILLING_ORDER_STATUS_TIMEOUT,
+    BILLING_ORDER_STATUS_CANCELED,  # noqa: F401 - re-exported for import compatibility
+    BILLING_ORDER_STATUS_PAID,  # noqa: F401 - re-exported for import compatibility
+    BILLING_ORDER_STATUS_PENDING,  # noqa: F401 - re-exported for import compatibility
+    BILLING_ORDER_STATUS_REFUNDED,  # noqa: F401 - re-exported for import compatibility
+    BILLING_ORDER_STATUS_TIMEOUT,  # noqa: F401 - re-exported for import compatibility
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_PRODUCT_TYPE_TOPUP,
-    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
-    BILLING_TRIAL_PRODUCT_CODE,
-    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,
-    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-    CREDIT_SOURCE_TYPE_LABELS,
-    CREDIT_SOURCE_TYPE_MANUAL,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,  # noqa: F401 - re-exported for import compatibility
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,  # noqa: F401 - re-exported for import compatibility
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,  # noqa: F401 - re-exported for import compatibility
+    BILLING_TRIAL_PRODUCT_CODE,  # noqa: F401 - re-exported for import compatibility
+    BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG,  # noqa: F401 - re-exported for import compatibility
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,  # noqa: F401 - re-exported for import compatibility
+    CREDIT_SOURCE_TYPE_LABELS,  # noqa: F401 - re-exported for import compatibility
+    CREDIT_SOURCE_TYPE_MANUAL,  # noqa: F401 - re-exported for import compatibility
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from .credit_grant_allocation_views import (
@@ -63,34 +78,34 @@ from .credit_grant_allocation_views import (
 )
 from .credit_notifications import build_creator_limit_state_for_available_credits
 from .dtos import (
-    AdminBillingDailyLedgerSummaryPageDTO,
-    AdminBillingDailyUsageMetricsPageDTO,
-    AdminBillingFocusTeacherDTO,
-    AdminBillingFocusTeachersPageDTO,
+    AdminBillingDailyLedgerSummaryPageDTO,  # noqa: F401 - re-exported for import compatibility
+    AdminBillingDailyUsageMetricsPageDTO,  # noqa: F401 - re-exported for import compatibility
+    AdminBillingFocusTeacherDTO,  # noqa: F401 - re-exported for import compatibility
+    AdminBillingFocusTeachersPageDTO,  # noqa: F401 - re-exported for import compatibility
     BillingCatalogDTO,
-    BillingEntitlementsPageDTO,
-    BillingLedgerAdjustResultDTO,
+    BillingEntitlementsPageDTO,  # noqa: F401 - re-exported for import compatibility
+    BillingLedgerAdjustResultDTO,  # noqa: F401 - re-exported for import compatibility
     BillingLedgerPageDTO,
     BillingOverviewDTO,
     BillingPlanDTO,
-    BillingSubscriptionsPageDTO,
+    BillingSubscriptionsPageDTO,  # noqa: F401 - re-exported for import compatibility
     BillingTopupProductDTO,
     BillingWalletBucketListDTO,
-    OperatorCreditOrderDetailDTO,
-    OperatorCreditOrderGrantDTO,
-    OperatorCreditOrderOverviewDTO,
-    OperatorCreditOrdersPageDTO,
+    OperatorCreditOrderDetailDTO,  # noqa: F401 - re-exported for import compatibility
+    OperatorCreditOrderGrantDTO,  # noqa: F401 - re-exported for import compatibility
+    OperatorCreditOrderOverviewDTO,  # noqa: F401 - re-exported for import compatibility
+    OperatorCreditOrdersPageDTO,  # noqa: F401 - re-exported for import compatibility
 )
 from .entitlements import (
-    resolve_creator_entitlement_state,
+    resolve_creator_entitlement_state,  # noqa: F401 - re-exported for import compatibility
 )
 from .models import (
-    BillingDailyLedgerSummary,
-    BillingDailyUsageMetric,
-    BillingEntitlement,
+    BillingDailyLedgerSummary,  # noqa: F401 - re-exported for import compatibility
+    BillingDailyUsageMetric,  # noqa: F401 - re-exported for import compatibility
+    BillingEntitlement,  # noqa: F401 - re-exported for import compatibility
     BillingOrder,
     BillingProduct,
-    BillingSubscription,
+    BillingSubscription,  # noqa: F401 - re-exported for import compatibility
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
@@ -98,64 +113,19 @@ from .models import (
 from .primitives import credit_decimal_to_number, is_billing_enabled
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
-from .primitives import quantize_credit_amount as _quantize_credit_amount
-from .primitives import to_decimal as _to_decimal
-from .queries import (
-    build_list_page_payload as _build_list_page_payload,
-)
-from .queries import (
-    build_page_payload as _build_page_payload,
-)
-from .queries import (
-    load_admin_creator_bids as _load_admin_creator_bids,
-)
 from .queries import (
     load_current_subscription as _load_current_subscription,
 )
-from .queries import (
-    load_latest_renewal_event_map as _load_latest_renewal_event_map,
-)
-from .queries import (
-    load_product_code_map as _load_product_code_map,
-)
-from .queries import (
-    load_wallet_map as _load_wallet_map,
-)
-from .queries import (
-    normalize_stat_date_filter as _normalize_stat_date_filter,
-)
-from .queries import (
-    resolve_order_status_filter as _resolve_order_status_filter,
-)
-from .queries import (
-    resolve_subscription_status_filter as _resolve_subscription_status_filter,
-)
-from .queries import (
-    subscription_has_attention as _subscription_has_attention,
+from .read_model_lookups import (
+    _build_usage_metadata_map,
+    _filter_out_reserved_credit_grant_ledgers,
+    _is_public_trial_catalog_product,
 )
 from .serializers import (
     build_billing_alerts as _build_billing_alerts,
 )
 from .serializers import (
-    serialize_admin_daily_ledger_summary as _serialize_admin_daily_ledger_summary,
-)
-from .serializers import (
-    serialize_admin_daily_usage_metric as _serialize_admin_daily_usage_metric,
-)
-from .serializers import (
-    serialize_admin_entitlement_state as _serialize_admin_entitlement_state,
-)
-from .serializers import (
-    serialize_admin_subscription as _serialize_admin_subscription,
-)
-from .serializers import (
     serialize_ledger_entry as _serialize_ledger_entry,
-)
-from .serializers import (
-    serialize_operator_credit_order as _serialize_operator_credit_order,
-)
-from .serializers import (
-    serialize_operator_credit_order_grant as _serialize_operator_credit_order_grant,
 )
 from .serializers import (
     serialize_product as _serialize_product,
@@ -171,459 +141,31 @@ from .serializers import (
 )
 from .trials import resolve_new_creator_trial_offer as _resolve_new_creator_trial_offer
 from .wallets import (
-    adjust_credit_wallet_balance,
+    adjust_credit_wallet_balance,  # noqa: F401 - re-exported for import compatibility
     calculate_credit_wallet_snapshot_values,
 )
 
+# Re-exported public API: admin and operator read models live in sibling
+# modules; these imports keep every historical ``read_models`` path working.
+# isort: split
+from .admin_read_models import (
+    adjust_admin_billing_ledger,  # noqa: F401 - re-exported for import compatibility
+    build_admin_bill_daily_ledger_summary_page,  # noqa: F401 - re-exported for import compatibility
+    build_admin_bill_daily_usage_metrics_page,  # noqa: F401 - re-exported for import compatibility
+    build_admin_bill_entitlements_page,  # noqa: F401 - re-exported for import compatibility
+    build_admin_bill_subscriptions_page,  # noqa: F401 - re-exported for import compatibility
+    build_admin_billing_focus_teachers_page,  # noqa: F401 - re-exported for import compatibility
+)
+from .operator_credit_order_read_models import (
+    build_operator_credit_orders_overview,  # noqa: F401 - re-exported for import compatibility
+    build_operator_credit_orders_page,  # noqa: F401 - re-exported for import compatibility
+    get_operator_credit_order_detail,  # noqa: F401 - re-exported for import compatibility
+)
+
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from flask import Flask
-    from flask_sqlalchemy.query import Query
-
-_OPERATOR_PRODUCT_FILTER_LANGUAGES = (
-    "zh-CN",
-    "en-US",
-    "de-DE",
-    "es-ES",
-    "fr-FR",
-    "ar-SA",
-    "th-TH",
-    "ur-PK",
-)
-_ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER = (
-    "rapid_growth",
-    "high_consumption",
-    "high_frequency",
-    "active_production",
-    "debug_preview_heavy",
-    "sustained_activity",
-)
-
-
-def _filter_out_reserved_credit_grant_ledgers(query: Query) -> Query:
-    bucket_credit_state_expr = db.func.lower(
-        db.func.trim(
-            db.func.coalesce(
-                CreditLedgerEntry.metadata_json["bucket_credit_state"].as_string(),
-                "",
-            )
-        )
-    )
-    return query.filter(bucket_credit_state_expr.notin_(("reserved", "absorbed")))
-
-
-def _parse_stat_date(value: str) -> datetime.date | None:
-    normalized_value = str(value or "").strip()
-    if not normalized_value:
-        return None
-    try:
-        return parse_naive_utc(normalized_value, "%Y-%m-%d").date()
-    except ValueError:
-        return None
-
-
-def _sort_admin_billing_focus_attention_reasons(
-    reasons: set[str],
-) -> list[str]:
-    return [
-        reason
-        for reason in _ADMIN_BILLING_FOCUS_ATTENTION_REASON_ORDER
-        if reason in reasons
-    ]
-
-
-def _is_public_trial_catalog_product(row: BillingProduct) -> bool:
-    if str(row.product_code or "").strip() == BILLING_TRIAL_PRODUCT_CODE:
-        return True
-    metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
-    return bool(metadata.get(BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG))
-
-
-def _load_translated_product_name_map(
-    products: list[BillingProduct],
-) -> dict[str, list[str]]:
-    display_name_keys = {
-        str(product.display_name_i18n_key or "").strip()
-        for product in products
-        if str(product.display_name_i18n_key or "").strip()
-    }
-    if not display_name_keys:
-        return {}
-
-    translated_name_map: dict[str, list[str]] = {
-        display_name_key: [] for display_name_key in display_name_keys
-    }
-    original_language = get_current_language()
-    try:
-        for language in _OPERATOR_PRODUCT_FILTER_LANGUAGES:
-            set_language(language)
-            for display_name_key in display_name_keys:
-                translated_name = str(translate(display_name_key) or "").strip()
-                if (
-                    translated_name
-                    and translated_name != display_name_key
-                    and translated_name not in translated_name_map[display_name_key]
-                ):
-                    translated_name_map[display_name_key].append(translated_name)
-    finally:
-        set_language(original_language)
-
-    return translated_name_map
-
-
-def _load_matching_credit_order_product_bids(keyword: str) -> list[str]:
-    normalized_keyword = str(keyword or "").strip().lower()
-    if not normalized_keyword:
-        return []
-
-    structural_match_pattern = f"%{normalized_keyword}%"
-    structurally_matched_products = (
-        BillingProduct.query.filter(
-            or_(
-                BillingProduct.product_bid.ilike(structural_match_pattern),
-                BillingProduct.product_code.ilike(structural_match_pattern),
-                BillingProduct.display_name_i18n_key.ilike(structural_match_pattern),
-            )
-        )
-        .order_by(BillingProduct.id.desc())
-        .all()
-    )
-    matched_product_bids = [
-        normalized_product_bid
-        for product in structurally_matched_products
-        if (normalized_product_bid := str(product.product_bid or "").strip())
-    ]
-    if matched_product_bids:
-        return matched_product_bids
-
-    numeric_match_bids = _load_numeric_credit_order_product_bids(normalized_keyword)
-    if numeric_match_bids:
-        return numeric_match_bids
-
-    translated_name_candidates = (
-        BillingProduct.query.filter(BillingProduct.display_name_i18n_key != "")
-        .order_by(BillingProduct.id.desc())
-        .all()
-    )
-    translated_name_map = _load_translated_product_name_map(translated_name_candidates)
-    translated_match_bids: list[str] = []
-    for product in translated_name_candidates:
-        display_name_key = str(product.display_name_i18n_key or "").strip()
-        translated_names = translated_name_map.get(display_name_key, [])
-        if any(normalized_keyword in term.lower() for term in translated_names):
-            normalized_product_bid = str(product.product_bid or "").strip()
-            if normalized_product_bid:
-                translated_match_bids.append(normalized_product_bid)
-    return translated_match_bids
-
-
-def _load_numeric_credit_order_product_bids(keyword: str) -> list[str]:
-    normalized_keyword = str(keyword or "").strip().replace(",", "")
-    if not normalized_keyword:
-        return []
-
-    try:
-        numeric_value = Decimal(normalized_keyword)
-    except (InvalidOperation, ValueError):
-        return []
-    if not numeric_value.is_finite():
-        return []
-
-    filters = [BillingProduct.credit_amount == numeric_value]
-    price_amount_candidates: set[int] = set()
-    if numeric_value >= 0:
-        if numeric_value == numeric_value.to_integral_value():
-            price_amount_candidates.add(int(numeric_value))
-        price_amount_minor = numeric_value * Decimal(100)
-        if price_amount_minor == price_amount_minor.to_integral_value():
-            price_amount_candidates.add(int(price_amount_minor))
-    if price_amount_candidates:
-        filters.append(BillingProduct.price_amount.in_(sorted(price_amount_candidates)))
-
-    rows = (
-        BillingProduct.query.filter(or_(*filters))
-        .order_by(BillingProduct.id.desc())
-        .all()
-    )
-    return [
-        normalized_product_bid
-        for product in rows
-        if (normalized_product_bid := str(product.product_bid or "").strip())
-    ]
-
-
-def _load_usage_record_map(usage_bids: list[str]) -> dict[str, BillUsageRecord]:
-    normalized_usage_bids = [_normalize_bid(bid) for bid in usage_bids if bid]
-    if not normalized_usage_bids:
-        return {}
-
-    rows = (
-        BillUsageRecord.query.filter(
-            BillUsageRecord.usage_bid.in_(normalized_usage_bids)
-        )
-        .order_by(BillUsageRecord.usage_bid.asc(), BillUsageRecord.id.desc())
-        .all()
-    )
-    payload: dict[str, BillUsageRecord] = {}
-    for row in rows:
-        payload.setdefault(str(row.usage_bid or "").strip(), row)
-    return payload
-
-
-def _load_shifu_title_maps(
-    shifu_bids: list[str],
-) -> tuple[dict[str, str], dict[str, str]]:
-    normalized_shifu_bids = [_normalize_bid(bid) for bid in shifu_bids if bid]
-    if not normalized_shifu_bids:
-        return {}, {}
-
-    published_titles: dict[str, str] = {}
-    published_rows = (
-        PublishedShifu.query.filter(
-            PublishedShifu.deleted == 0,
-            PublishedShifu.shifu_bid.in_(normalized_shifu_bids),
-        )
-        .order_by(PublishedShifu.shifu_bid.asc(), PublishedShifu.id.desc())
-        .all()
-    )
-    for row in published_rows:
-        published_titles.setdefault(
-            str(row.shifu_bid or "").strip(), str(row.title or "")
-        )
-
-    draft_titles: dict[str, str] = {}
-    draft_rows = (
-        DraftShifu.query.filter(
-            DraftShifu.deleted == 0,
-            DraftShifu.shifu_bid.in_(normalized_shifu_bids),
-        )
-        .order_by(DraftShifu.shifu_bid.asc(), DraftShifu.id.desc())
-        .all()
-    )
-    for row in draft_rows:
-        draft_titles.setdefault(str(row.shifu_bid or "").strip(), str(row.title or ""))
-
-    return published_titles, draft_titles
-
-
-def _load_user_identify_map(user_bids: list[str]) -> dict[str, str]:
-    normalized_user_bids = [_normalize_bid(bid) for bid in user_bids if bid]
-    if not normalized_user_bids:
-        return {}
-
-    rows = UserEntity.query.filter(
-        UserEntity.deleted == 0,
-        UserEntity.user_bid.in_(normalized_user_bids),
-    ).all()
-    return {
-        str(row.user_bid or "").strip(): str(row.user_identify or "") for row in rows
-    }
-
-
-def _load_operator_creator_map(user_bids: list[str]) -> dict[str, dict[str, str]]:
-    normalized_user_bids = [_normalize_bid(bid) for bid in user_bids if bid]
-    if not normalized_user_bids:
-        return {}
-
-    users = (
-        UserEntity.query.filter(
-            UserEntity.deleted == 0,
-            UserEntity.user_bid.in_(normalized_user_bids),
-        )
-        .order_by(UserEntity.id.desc())
-        .all()
-    )
-    credentials = (
-        AuthCredential.query.filter(
-            AuthCredential.deleted == 0,
-            AuthCredential.user_bid.in_(normalized_user_bids),
-            AuthCredential.provider_name.in_(["phone", "email"]),
-        )
-        .order_by(AuthCredential.id.desc())
-        .all()
-    )
-
-    credential_map: dict[str, dict[str, str]] = {}
-    for credential in credentials:
-        user_bid = str(credential.user_bid or "").strip()
-        if not user_bid:
-            continue
-        payload = credential_map.setdefault(user_bid, {})
-        identifier = str(credential.identifier or "").strip()
-        if (
-            credential.provider_name == "phone"
-            and identifier
-            and not payload.get("mobile")
-        ):
-            payload["mobile"] = identifier
-        if (
-            credential.provider_name == "email"
-            and identifier
-            and not payload.get("email")
-        ):
-            payload["email"] = identifier
-
-    payload: dict[str, dict[str, str]] = {}
-    for user in users:
-        user_bid = str(user.user_bid or "").strip()
-        identify = str(user.user_identify or "").strip()
-        mobile = str(credential_map.get(user_bid, {}).get("mobile") or "").strip()
-        email = str(credential_map.get(user_bid, {}).get("email") or "").strip()
-        if not mobile and identify.isdigit():
-            mobile = identify
-        if not email and "@" in identify:
-            email = identify
-        payload[user_bid] = {
-            "identify": identify,
-            "mobile": mobile,
-            "email": email,
-            "nickname": str(user.nickname or "").strip(),
-        }
-    return payload
-
-
-def _load_credit_order_product_map(
-    product_bids: list[str],
-) -> dict[str, BillingProduct]:
-    normalized_product_bids = [_normalize_bid(bid) for bid in product_bids if bid]
-    if not normalized_product_bids:
-        return {}
-
-    rows = (
-        BillingProduct.query.filter(
-            BillingProduct.product_bid.in_(normalized_product_bids),
-        )
-        .order_by(BillingProduct.id.desc())
-        .all()
-    )
-    payload: dict[str, BillingProduct] = {}
-    for row in rows:
-        payload.setdefault(str(row.product_bid or "").strip(), row)
-    return payload
-
-
-def _load_credit_order_grant_map(
-    app: Flask,
-    order_bids: list[str],
-) -> dict[str, OperatorCreditOrderGrantDTO]:
-    normalized_order_bids = [_normalize_bid(bid) for bid in order_bids if bid]
-    if not normalized_order_bids:
-        return {}
-
-    rows = (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.source_bid.in_(normalized_order_bids),
-            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-        )
-        .order_by(
-            CreditLedgerEntry.source_bid.asc(),
-            CreditLedgerEntry.id.desc(),
-        )
-        .all()
-    )
-    payload: dict[str, OperatorCreditOrderGrantDTO] = {}
-    for row in rows:
-        source_bid = str(row.source_bid or "").strip()
-        if not source_bid or source_bid in payload:
-            continue
-        source_type_label = CREDIT_SOURCE_TYPE_LABELS.get(int(row.source_type or 0), "")
-        payload[source_bid] = _serialize_operator_credit_order_grant(
-            app,
-            source_type=source_type_label,
-            source_bid=source_bid,
-            granted_credits=credit_decimal_to_number(row.amount),
-            valid_from=row.consumable_from,
-            valid_to=row.expires_at,
-        )
-    return payload
-
-
-def _load_matching_creator_bids_for_keyword(keyword: str) -> list[str]:
-    normalized = str(keyword or "").strip()
-    if not normalized:
-        return []
-
-    matched_bids: set[str] = set()
-
-    users = UserEntity.query.filter(
-        UserEntity.deleted == 0,
-        UserEntity.user_identify == normalized,
-    ).yield_per(200)
-    for user in users:
-        user_bid = str(user.user_bid or "").strip()
-        if user_bid:
-            matched_bids.add(user_bid)
-
-    credentials = AuthCredential.query.filter(
-        AuthCredential.deleted == 0,
-        AuthCredential.provider_name.in_(["phone", "email"]),
-        AuthCredential.identifier == normalized,
-    ).yield_per(200)
-    for credential in credentials:
-        user_bid = str(credential.user_bid or "").strip()
-        if user_bid:
-            matched_bids.add(user_bid)
-
-    return [user_bid for user_bid in matched_bids if user_bid]
-
-
-def _resolve_usage_course_name(
-    usage: BillUsageRecord,
-    *,
-    published_titles: dict[str, str],
-    draft_titles: dict[str, str],
-) -> str:
-    shifu_bid = str(usage.shifu_bid or "").strip()
-    if not shifu_bid:
-        return ""
-
-    published_title = str(published_titles.get(shifu_bid) or "").strip()
-    draft_title = str(draft_titles.get(shifu_bid) or "").strip()
-    if int(usage.usage_scene or 0) == BILL_USAGE_SCENE_PROD:
-        return published_title or draft_title
-    return draft_title or published_title
-
-
-def _build_usage_metadata_map(
-    rows: list[CreditLedgerEntry],
-) -> dict[str, dict[str, object]]:
-    usage_bids: list[str] = []
-    for row in rows:
-        if int(row.source_type or 0) != CREDIT_SOURCE_TYPE_USAGE:
-            continue
-        metadata = _normalize_json_object(row.metadata_json)
-        usage_bid = _normalize_bid(metadata.get("usage_bid")) or _normalize_bid(
-            row.source_bid
-        )
-        if usage_bid:
-            usage_bids.append(usage_bid)
-
-    usage_map = _load_usage_record_map(usage_bids)
-    published_titles, draft_titles = _load_shifu_title_maps(
-        [str(item.shifu_bid or "").strip() for item in usage_map.values()]
-    )
-    user_identify_map = _load_user_identify_map(
-        [str(item.user_bid or "").strip() for item in usage_map.values()]
-    )
-
-    payload: dict[str, dict[str, Any]] = {}
-    for usage_bid, usage in usage_map.items():
-        course_name = _resolve_usage_course_name(
-            usage,
-            published_titles=published_titles,
-            draft_titles=draft_titles,
-        )
-        user_identify = user_identify_map.get(str(usage.user_bid or "").strip(), "")
-
-        metadata: dict[str, Any] = {}
-        if course_name:
-            metadata["course_name"] = course_name
-        if user_identify:
-            metadata["user_identify"] = user_identify
-        if metadata:
-            payload[usage_bid] = metadata
-
-    return payload
 
 
 def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
@@ -939,899 +481,3 @@ def build_billing_ledger_page(
             page_size=safe_page_size,
             total=total,
         )
-
-
-def build_admin_bill_subscriptions_page(
-    app: Flask,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    creator_bid: str = "",
-    creator_keyword: str = "",
-    status: str = "",
-    attention_only: bool = False,
-) -> BillingSubscriptionsPageDTO:
-    """Return paginated billing subscriptions for the admin billing surface."""
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_creator_keyword = str(creator_keyword or "").strip()
-    status_code = _resolve_subscription_status_filter(status)
-
-    with app.app_context():
-        query = BillingSubscription.query.filter(BillingSubscription.deleted == 0)
-        if normalized_creator_bid:
-            query = query.filter(
-                BillingSubscription.creator_bid == normalized_creator_bid
-            )
-        elif normalized_creator_keyword:
-            matched_creator_bids = _load_matching_creator_bids_for_keyword(
-                normalized_creator_keyword
-            )
-            if matched_creator_bids:
-                query = query.filter(
-                    BillingSubscription.creator_bid.in_(matched_creator_bids)
-                )
-            else:
-                query = query.filter(BillingSubscription.id == 0)
-        if status_code is not None:
-            query = query.filter(BillingSubscription.status == status_code)
-
-        query = query.order_by(
-            case(
-                (
-                    BillingSubscription.status == BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-                    1,
-                ),
-                (
-                    BillingSubscription.status == BILLING_SUBSCRIPTION_STATUS_PAUSED,
-                    2,
-                ),
-                (
-                    BillingSubscription.status
-                    == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
-                    3,
-                ),
-                else_=9,
-            ),
-            BillingSubscription.updated_at.desc(),
-            BillingSubscription.id.desc(),
-        )
-        if attention_only:
-            ordered_rows = query.all()
-            renewal_events = _load_latest_renewal_event_map(
-                [row.subscription_bid for row in ordered_rows]
-            )
-            attention_rows = [
-                row
-                for row in ordered_rows
-                if _subscription_has_attention(
-                    row,
-                    renewal_event=renewal_events.get(row.subscription_bid),
-                )
-            ]
-            total = len(attention_rows)
-            if total == 0:
-                return BillingSubscriptionsPageDTO(
-                    items=[],
-                    page=safe_page_index,
-                    page_count=0,
-                    page_size=safe_page_size,
-                    total=0,
-                )
-
-            page_count = (total + safe_page_size - 1) // safe_page_size
-            resolved_page = min(safe_page_index, max(page_count, 1))
-            offset = (resolved_page - 1) * safe_page_size
-            rows = attention_rows[offset : offset + safe_page_size]
-            page_renewal_events = {
-                row.subscription_bid: renewal_events.get(row.subscription_bid)
-                for row in rows
-            }
-        else:
-            total = query.order_by(None).count()
-            if total == 0:
-                return BillingSubscriptionsPageDTO(
-                    items=[],
-                    page=safe_page_index,
-                    page_count=0,
-                    page_size=safe_page_size,
-                    total=0,
-                )
-
-            page_count = (total + safe_page_size - 1) // safe_page_size
-            resolved_page = min(safe_page_index, max(page_count, 1))
-            offset = (resolved_page - 1) * safe_page_size
-            rows = query.offset(offset).limit(safe_page_size).all()
-            page_renewal_events = _load_latest_renewal_event_map(
-                [row.subscription_bid for row in rows]
-            )
-
-        creator_map = _load_operator_creator_map(
-            [str(row.creator_bid or "").strip() for row in rows]
-        )
-        product_map = _load_credit_order_product_map(
-            [
-                *[str(row.product_bid or "").strip() for row in rows],
-                *[
-                    str(row.next_product_bid or "").strip()
-                    for row in rows
-                    if _normalize_bid(row.next_product_bid)
-                ],
-            ]
-        )
-        product_codes = _load_product_code_map(
-            [
-                *[row.product_bid for row in rows],
-                *[
-                    row.next_product_bid
-                    for row in rows
-                    if _normalize_bid(row.next_product_bid)
-                ],
-            ]
-        )
-        wallets = _load_wallet_map([row.creator_bid for row in rows])
-        return BillingSubscriptionsPageDTO(
-            items=[
-                _serialize_admin_subscription(
-                    app,
-                    row,
-                    creator=creator_map.get(str(row.creator_bid or "").strip(), {}),
-                    product=product_map.get(str(row.product_bid or "").strip()),
-                    next_product=product_map.get(
-                        str(_normalize_bid(row.next_product_bid) or "")
-                    ),
-                    product_codes=product_codes,
-                    wallet=wallets.get(row.creator_bid),
-                    renewal_event=page_renewal_events.get(row.subscription_bid),
-                )
-                for row in rows
-            ],
-            page=resolved_page,
-            page_count=page_count,
-            page_size=safe_page_size,
-            total=total,
-        )
-
-
-def build_admin_bill_entitlements_page(
-    app: Flask,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    creator_bid: str = "",
-    independent_only: bool = False,
-) -> BillingEntitlementsPageDTO:
-    """Return paginated effective entitlement snapshots for admin billing."""
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    normalized_creator_bid = _normalize_bid(creator_bid)
-
-    with app.app_context():
-        creator_bids = (
-            _load_independent_entitlement_creator_bids(
-                creator_bid=normalized_creator_bid
-            )
-            if independent_only
-            else _load_admin_creator_bids(creator_bid=normalized_creator_bid)
-        )
-        creator_map = _load_operator_creator_map(creator_bids)
-        states = {
-            candidate_creator_bid: resolve_creator_entitlement_state(
-                candidate_creator_bid
-            )
-            for candidate_creator_bid in creator_bids
-        }
-        product_map = _load_credit_order_product_map(
-            [
-                str(state.product_bid or "").strip()
-                for state in states.values()
-                if state.product_bid
-            ]
-        )
-        items = [
-            _serialize_admin_entitlement_state(
-                app,
-                states[candidate_creator_bid],
-                creator=creator_map.get(candidate_creator_bid, {}),
-                product=product_map.get(
-                    str(states[candidate_creator_bid].product_bid or "").strip()
-                ),
-            )
-            for candidate_creator_bid in creator_bids
-        ]
-        if independent_only:
-            items = [
-                item
-                for item in items
-                if item.branding_enabled
-                or item.custom_domain_enabled
-                or item.custom_wechat_enabled
-                or item.custom_payment_enabled
-            ]
-        payload = _build_list_page_payload(
-            items,
-            page_index=safe_page_index,
-            page_size=safe_page_size,
-        )
-        return BillingEntitlementsPageDTO(**payload.to_dto_kwargs())
-
-
-def _load_independent_entitlement_creator_bids(*, creator_bid: str = "") -> list[str]:
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    now = now_utc()
-    query = db.session.query(
-        BillingEntitlement.creator_bid,
-        BillingEntitlement.branding_enabled,
-        BillingEntitlement.custom_domain_enabled,
-        BillingEntitlement.feature_payload,
-    ).filter(
-        BillingEntitlement.deleted == 0,
-        BillingEntitlement.creator_bid != "",
-        BillingEntitlement.source_type == CREDIT_SOURCE_TYPE_MANUAL,
-        BillingEntitlement.effective_from <= now,
-        (
-            (BillingEntitlement.effective_to.is_(None))
-            | (BillingEntitlement.effective_to > now)
-        ),
-    )
-    if normalized_creator_bid:
-        query = query.filter(BillingEntitlement.creator_bid == normalized_creator_bid)
-    rows = query.all()
-    return sorted(
-        {
-            normalized
-            for row in rows
-            for normalized in [_normalize_bid(row[0])]
-            if normalized and _is_independent_entitlement_row(row)
-        }
-    )
-
-
-def _is_independent_entitlement_row(row: object) -> bool:
-    if bool(row[1]) or bool(row[2]):
-        return True
-    payload = row[3] if isinstance(row[3], dict) else {}
-    return _payload_bool(payload.get("custom_wechat_enabled")) or _payload_bool(
-        payload.get("custom_payment_enabled")
-    )
-
-
-def _payload_bool(value: object) -> bool:
-    if isinstance(value, bool):
-        return value
-    normalized = str(value or "").strip().lower()
-    return normalized in {"1", "true", "yes", "y", "on"}
-
-
-def _resolve_credit_order_kind_filter(kind: str) -> int | None:
-    normalized_kind = str(kind or "").strip().lower()
-    if not normalized_kind:
-        return None
-    if normalized_kind == "plan":
-        return BILLING_PRODUCT_TYPE_PLAN
-    if normalized_kind == "topup":
-        return BILLING_PRODUCT_TYPE_TOPUP
-    raise_param_error("credit_order_kind")
-    return None
-
-
-def build_operator_credit_orders_page(
-    app: Flask,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    creator_keyword: str = "",
-    product_keyword: str = "",
-    bill_order_bid: str = "",
-    credit_order_kind: str = "",
-    status: str = "",
-    has_available_credits: bool = False,
-    payment_provider: str = "",
-    start_time: object = "",
-    end_time: object = "",
-) -> OperatorCreditOrdersPageDTO:
-    """Return paginated operator-facing creator credit orders."""
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    normalized_bill_order_bid = _normalize_bid(bill_order_bid)
-    normalized_payment_provider = str(payment_provider or "").strip()
-    status_code = _resolve_order_status_filter(status)
-    product_type_filter = _resolve_credit_order_kind_filter(credit_order_kind)
-
-    with app.app_context():
-        query = BillingOrder.query.outerjoin(
-            BillingProduct,
-            BillingProduct.product_bid == BillingOrder.product_bid,
-        ).filter(
-            BillingOrder.deleted == 0,
-        )
-
-        if normalized_bill_order_bid:
-            query = query.filter(
-                BillingOrder.bill_order_bid == normalized_bill_order_bid
-            )
-
-        normalized_creator_keyword = str(creator_keyword or "").strip()
-        if normalized_creator_keyword:
-            matched_creator_bids = _load_matching_creator_bids_for_keyword(
-                normalized_creator_keyword
-            )
-            if matched_creator_bids:
-                query = query.filter(BillingOrder.creator_bid.in_(matched_creator_bids))
-            else:
-                query = query.filter(
-                    BillingOrder.creator_bid == normalized_creator_keyword
-                )
-
-        normalized_product_keyword = str(product_keyword or "").strip()
-        if normalized_product_keyword:
-            matched_product_bids = _load_matching_credit_order_product_bids(
-                normalized_product_keyword
-            )
-            if matched_product_bids:
-                query = query.filter(BillingOrder.product_bid.in_(matched_product_bids))
-            else:
-                query = query.filter(BillingOrder.id == -1)
-
-        if product_type_filter is not None:
-            query = query.filter(BillingProduct.product_type == product_type_filter)
-
-        if status_code is not None:
-            query = query.filter(BillingOrder.status == status_code)
-
-        if has_available_credits:
-            query = query.filter(
-                select(CreditWalletBucket.id)
-                .where(
-                    CreditWalletBucket.deleted == 0,
-                    CreditWalletBucket.source_bid == BillingOrder.bill_order_bid,
-                    CreditWalletBucket.available_credits > 0,
-                )
-                .exists()
-            )
-
-        if normalized_payment_provider:
-            query = query.filter(
-                BillingOrder.payment_provider == normalized_payment_provider
-            )
-
-        if start_time:
-            query = query.filter(BillingOrder.created_at >= start_time)
-        if end_time:
-            query = query.filter(BillingOrder.created_at <= end_time)
-
-        query = query.order_by(
-            BillingOrder.created_at.desc(),
-            BillingOrder.id.desc(),
-        )
-
-        payload = _build_page_payload(
-            query,
-            page_index=safe_page_index,
-            page_size=safe_page_size,
-            serializer=lambda row: row,
-        )
-        rows = list(payload.items)
-        creator_map = _load_operator_creator_map(
-            [str(row.creator_bid or "").strip() for row in rows]
-        )
-        product_map = _load_credit_order_product_map(
-            [str(row.product_bid or "").strip() for row in rows]
-        )
-        grant_map = _load_credit_order_grant_map(
-            app,
-            [str(row.bill_order_bid or "").strip() for row in rows],
-        )
-
-        items = [
-            _serialize_operator_credit_order(
-                app,
-                row,
-                product=product_map.get(str(row.product_bid or "").strip()),
-                creator=creator_map.get(str(row.creator_bid or "").strip(), {}),
-                grant=grant_map.get(str(row.bill_order_bid or "").strip()),
-            )
-            for row in rows
-        ]
-        return OperatorCreditOrdersPageDTO(
-            items=items,
-            page=payload.page,
-            page_count=payload.page_count,
-            page_size=payload.page_size,
-            total=payload.total,
-        )
-
-
-def build_operator_credit_orders_overview(
-    app: Flask,
-) -> OperatorCreditOrderOverviewDTO:
-    """Return aggregate metrics for operator creator credit orders."""
-    with app.app_context():
-        summary = (
-            BillingOrder.query.with_entities(
-                db.func.count(BillingOrder.id).label("total_order_count"),
-                db.func.coalesce(
-                    db.func.sum(
-                        case(
-                            (BillingOrder.status == BILLING_ORDER_STATUS_PAID, 1),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("paid_order_count"),
-                db.func.coalesce(
-                    db.func.sum(
-                        case(
-                            (BillingOrder.status == BILLING_ORDER_STATUS_PENDING, 1),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("pending_order_count"),
-                db.func.coalesce(
-                    db.func.sum(
-                        case(
-                            (BillingOrder.status == BILLING_ORDER_STATUS_REFUNDED, 1),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("refunded_order_count"),
-                db.func.coalesce(
-                    db.func.sum(
-                        case(
-                            (BillingOrder.status == BILLING_ORDER_STATUS_TIMEOUT, 1),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("closed_order_count"),
-                db.func.coalesce(
-                    db.func.sum(
-                        case(
-                            (BillingOrder.status == BILLING_ORDER_STATUS_CANCELED, 1),
-                            else_=0,
-                        )
-                    ),
-                    0,
-                ).label("canceled_order_count"),
-            )
-            .filter(BillingOrder.deleted == 0)
-            .one()
-        )
-        available_credit_total = db.session.execute(
-            select(
-                db.func.coalesce(
-                    db.func.sum(CreditWallet.available_credits),
-                    0,
-                )
-            ).where(CreditWallet.deleted == 0)
-        ).scalar()
-        paid_amount_rows = db.session.execute(
-            select(
-                BillingOrder.currency.label("currency"),
-                db.func.coalesce(
-                    db.func.sum(BillingOrder.paid_amount),
-                    0,
-                ).label("paid_amount_total"),
-            )
-            .where(
-                BillingOrder.deleted == 0,
-                BillingOrder.status == BILLING_ORDER_STATUS_PAID,
-            )
-            .group_by(BillingOrder.currency)
-        ).all()
-        paid_amount_totals_by_currency = {
-            str(row.currency or "CNY"): int(row.paid_amount_total or 0)
-            for row in paid_amount_rows
-        }
-        if len(paid_amount_totals_by_currency) == 1:
-            currency, paid_amount_total = next(
-                iter(paid_amount_totals_by_currency.items())
-            )
-        elif len(paid_amount_totals_by_currency) == 0:
-            currency, paid_amount_total = "CNY", 0
-        else:
-            currency, paid_amount_total = "", 0
-
-        return OperatorCreditOrderOverviewDTO(
-            total_order_count=int(summary.total_order_count or 0),
-            paid_order_count=int(summary.paid_order_count or 0),
-            pending_order_count=int(summary.pending_order_count or 0),
-            refunded_order_count=int(summary.refunded_order_count or 0),
-            closed_order_count=int(summary.closed_order_count or 0),
-            canceled_order_count=int(summary.canceled_order_count or 0),
-            available_credit_total=credit_decimal_to_number(available_credit_total),
-            paid_amount_total=paid_amount_total,
-            currency=str(currency or ""),
-            paid_amount_totals_by_currency=paid_amount_totals_by_currency,
-        )
-
-
-def get_operator_credit_order_detail(
-    app: Flask,
-    *,
-    bill_order_bid: str,
-) -> OperatorCreditOrderDetailDTO:
-    """Return operator-facing creator credit order detail."""
-    normalized_bill_order_bid = _normalize_bid(bill_order_bid)
-    if not normalized_bill_order_bid:
-        raise_param_error("bill_order_bid")
-
-    with app.app_context():
-        row = (
-            BillingOrder.query.filter(
-                BillingOrder.deleted == 0,
-                BillingOrder.bill_order_bid == normalized_bill_order_bid,
-            )
-            .order_by(BillingOrder.id.desc())
-            .first()
-        )
-        if row is None:
-            raise_error("server.order.orderNotFound")
-
-        creator_map = _load_operator_creator_map([str(row.creator_bid or "").strip()])
-        product_map = _load_credit_order_product_map(
-            [str(row.product_bid or "").strip()]
-        )
-        grant_map = _load_credit_order_grant_map(
-            app,
-            [normalized_bill_order_bid],
-        )
-        order = _serialize_operator_credit_order(
-            app,
-            row,
-            product=product_map.get(str(row.product_bid or "").strip()),
-            creator=creator_map.get(str(row.creator_bid or "").strip(), {}),
-            grant=grant_map.get(normalized_bill_order_bid),
-        )
-        metadata = row.metadata_json if isinstance(row.metadata_json, dict) else None
-        return OperatorCreditOrderDetailDTO(
-            order=order,
-            metadata=metadata,
-            grant=grant_map.get(normalized_bill_order_bid),
-        )
-
-
-def build_admin_bill_daily_usage_metrics_page(
-    app: Flask,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    creator_bid: str = "",
-    stat_date_from: str = "",
-    stat_date_to: str = "",
-) -> AdminBillingDailyUsageMetricsPageDTO:
-    """Return paginated cross-creator daily usage rows for admin reporting."""
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_stat_date_from = _normalize_stat_date_filter(
-        stat_date_from,
-        parameter_name="date_from",
-    )
-    normalized_stat_date_to = _normalize_stat_date_filter(
-        stat_date_to,
-        parameter_name="date_to",
-    )
-
-    with app.app_context():
-        query = BillingDailyUsageMetric.query.filter(
-            BillingDailyUsageMetric.deleted == 0
-        )
-        if normalized_creator_bid:
-            query = query.filter(
-                BillingDailyUsageMetric.creator_bid == normalized_creator_bid,
-            )
-        if normalized_stat_date_from:
-            query = query.filter(
-                BillingDailyUsageMetric.stat_date >= normalized_stat_date_from
-            )
-        if normalized_stat_date_to:
-            query = query.filter(
-                BillingDailyUsageMetric.stat_date <= normalized_stat_date_to
-            )
-
-        query = query.order_by(
-            BillingDailyUsageMetric.stat_date.desc(),
-            BillingDailyUsageMetric.creator_bid.asc(),
-            BillingDailyUsageMetric.consumed_credits.desc(),
-            BillingDailyUsageMetric.raw_amount.desc(),
-            BillingDailyUsageMetric.id.desc(),
-        )
-        total = query.order_by(None).count()
-        if total == 0:
-            return AdminBillingDailyUsageMetricsPageDTO(
-                items=[],
-                page=safe_page_index,
-                page_count=0,
-                page_size=safe_page_size,
-                total=0,
-            )
-
-        page_count = (total + safe_page_size - 1) // safe_page_size
-        resolved_page = min(safe_page_index, max(page_count, 1))
-        offset = (resolved_page - 1) * safe_page_size
-        rows = query.offset(offset).limit(safe_page_size).all()
-        creator_map = _load_operator_creator_map(
-            [str(row.creator_bid or "").strip() for row in rows]
-        )
-        return AdminBillingDailyUsageMetricsPageDTO(
-            items=[
-                _serialize_admin_daily_usage_metric(
-                    app,
-                    row,
-                    creator=creator_map.get(str(row.creator_bid or "").strip(), {}),
-                )
-                for row in rows
-            ],
-            page=resolved_page,
-            page_count=page_count,
-            page_size=safe_page_size,
-            total=total,
-        )
-
-
-def build_admin_billing_focus_teachers_page(
-    app: Flask,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-) -> AdminBillingFocusTeachersPageDTO:
-    """Return operator-focused teachers that match billing attention rules."""
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    today = now_utc().date()
-    current_7d_start = today - timedelta(days=6)
-    previous_7d_start = current_7d_start - timedelta(days=7)
-    previous_7d_end = current_7d_start - timedelta(days=1)
-    current_30d_start = today - timedelta(days=29)
-
-    with app.app_context():
-        rows = (
-            BillingDailyUsageMetric.query.filter(
-                BillingDailyUsageMetric.deleted == 0,
-                BillingDailyUsageMetric.stat_date >= current_30d_start.isoformat(),
-                BillingDailyUsageMetric.stat_date <= today.isoformat(),
-            )
-            .order_by(
-                BillingDailyUsageMetric.stat_date.desc(),
-                BillingDailyUsageMetric.creator_bid.asc(),
-                BillingDailyUsageMetric.id.desc(),
-            )
-            .all()
-        )
-
-        creator_map = _load_operator_creator_map(
-            [str(row.creator_bid or "").strip() for row in rows]
-        )
-
-        aggregated: dict[str, dict[str, Any]] = {}
-        for row in rows:
-            creator_bid = str(row.creator_bid or "").strip()
-            if not creator_bid:
-                continue
-            stat_date = _parse_stat_date(row.stat_date)
-            if stat_date is None:
-                continue
-
-            item = aggregated.setdefault(
-                creator_bid,
-                {
-                    "creator_bid": creator_bid,
-                    "credits_7d": Decimal(0),
-                    "credits_prev_7d": Decimal(0),
-                    "credits_30d": Decimal(0),
-                    "record_count_7d": 0,
-                    "active_days_7d": set(),
-                    "production_credits_30d": Decimal(0),
-                    "debug_preview_credits_30d": Decimal(0),
-                    "total_credits_30d": Decimal(0),
-                    "latest_usage_at": None,
-                },
-            )
-
-            credit_amount = Decimal(
-                str(credit_decimal_to_number(row.consumed_credits) or 0)
-            )
-            record_count = int(row.record_count or 0)
-            # Use the start of the UTC stat window as the visible "latest
-            # active" day. `window_ended_at` points at the next UTC day
-            # boundary and can render as a future local date in the admin UI.
-            latest_usage_at = row.window_started_at or row.window_ended_at
-
-            item["credits_30d"] += credit_amount
-            item["total_credits_30d"] += credit_amount
-            if row.usage_scene == BILL_USAGE_SCENE_PROD:
-                item["production_credits_30d"] += credit_amount
-            elif row.usage_scene in (BILL_USAGE_SCENE_DEBUG, BILL_USAGE_SCENE_PREVIEW):
-                item["debug_preview_credits_30d"] += credit_amount
-
-            if latest_usage_at is not None and (
-                item["latest_usage_at"] is None
-                or latest_usage_at > item["latest_usage_at"]
-            ):
-                item["latest_usage_at"] = latest_usage_at
-
-            if current_7d_start <= stat_date <= today:
-                item["credits_7d"] += credit_amount
-                item["record_count_7d"] += record_count
-                if credit_amount > 0:
-                    item["active_days_7d"].add(stat_date.isoformat())
-            elif previous_7d_start <= stat_date <= previous_7d_end:
-                item["credits_prev_7d"] += credit_amount
-
-        focus_items: list[AdminBillingFocusTeacherDTO] = []
-        for creator_bid, stats in aggregated.items():
-            credits_7d = stats["credits_7d"]
-            credits_prev_7d = stats["credits_prev_7d"]
-            credits_30d = stats["credits_30d"]
-            total_credits_30d = stats["total_credits_30d"]
-            production_credits_30d = stats["production_credits_30d"]
-            debug_preview_credits_30d = stats["debug_preview_credits_30d"]
-            record_count_7d = int(stats["record_count_7d"] or 0)
-            active_days_7d = len(stats["active_days_7d"])
-
-            reasons: set[str] = set()
-            if credits_30d >= Decimal(8):
-                reasons.add("high_consumption")
-            if record_count_7d >= 5:
-                reasons.add("high_frequency")
-            if production_credits_30d >= Decimal(8):
-                reasons.add("active_production")
-            if (
-                total_credits_30d >= Decimal(8)
-                and total_credits_30d > 0
-                and (debug_preview_credits_30d / total_credits_30d) >= Decimal("0.7")
-            ):
-                reasons.add("debug_preview_heavy")
-            if active_days_7d >= 3:
-                reasons.add("sustained_activity")
-
-            growth_delta = credits_7d - credits_prev_7d
-            if credits_prev_7d > 0:
-                growth_ratio = growth_delta / credits_prev_7d
-                if growth_ratio >= Decimal(1) and growth_delta >= Decimal(8):
-                    reasons.add("rapid_growth")
-            elif credits_7d >= Decimal(8):
-                reasons.add("rapid_growth")
-
-            if not reasons:
-                continue
-
-            production_ratio_30d = Decimal(0)
-            if total_credits_30d > 0:
-                production_ratio_30d = production_credits_30d / total_credits_30d
-
-            creator = creator_map.get(creator_bid, {})
-            focus_items.append(
-                AdminBillingFocusTeacherDTO(
-                    creator_bid=creator_bid,
-                    creator_mobile=str(creator.get("mobile") or ""),
-                    creator_email=str(creator.get("email") or ""),
-                    creator_nickname=str(creator.get("nickname") or ""),
-                    credits_7d=credit_decimal_to_number(credits_7d),
-                    credits_30d=credit_decimal_to_number(credits_30d),
-                    record_count_7d=record_count_7d,
-                    active_days_7d=active_days_7d,
-                    production_credits_30d=credit_decimal_to_number(
-                        production_credits_30d
-                    ),
-                    debug_preview_credits_30d=credit_decimal_to_number(
-                        debug_preview_credits_30d
-                    ),
-                    total_credits_30d=credit_decimal_to_number(total_credits_30d),
-                    production_ratio_30d=round(float(production_ratio_30d), 4),
-                    latest_usage_at=stats["latest_usage_at"],
-                    attention_reasons=_sort_admin_billing_focus_attention_reasons(
-                        reasons
-                    ),
-                )
-            )
-
-        focus_items.sort(
-            key=lambda item: (
-                "rapid_growth" not in item.attention_reasons,
-                -len(item.attention_reasons),
-                -float(item.credits_30d or 0),
-                -(
-                    int(item.latest_usage_at.timestamp())
-                    if item.latest_usage_at is not None
-                    else 0
-                ),
-                str(item.creator_bid or ""),
-            )
-        )
-
-        payload = _build_list_page_payload(
-            focus_items,
-            page_index=safe_page_index,
-            page_size=safe_page_size,
-        )
-        return AdminBillingFocusTeachersPageDTO(**payload.to_dto_kwargs())
-
-
-def build_admin_bill_daily_ledger_summary_page(
-    app: Flask,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    creator_bid: str = "",
-    stat_date_from: str = "",
-    stat_date_to: str = "",
-) -> AdminBillingDailyLedgerSummaryPageDTO:
-    """Return paginated cross-creator daily ledger rows for admin reporting."""
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_stat_date_from = _normalize_stat_date_filter(
-        stat_date_from,
-        parameter_name="date_from",
-    )
-    normalized_stat_date_to = _normalize_stat_date_filter(
-        stat_date_to,
-        parameter_name="date_to",
-    )
-
-    with app.app_context():
-        query = BillingDailyLedgerSummary.query.filter(
-            BillingDailyLedgerSummary.deleted == 0,
-        )
-        if normalized_creator_bid:
-            query = query.filter(
-                BillingDailyLedgerSummary.creator_bid == normalized_creator_bid,
-            )
-        if normalized_stat_date_from:
-            query = query.filter(
-                BillingDailyLedgerSummary.stat_date >= normalized_stat_date_from
-            )
-        if normalized_stat_date_to:
-            query = query.filter(
-                BillingDailyLedgerSummary.stat_date <= normalized_stat_date_to
-            )
-
-        query = query.order_by(
-            BillingDailyLedgerSummary.stat_date.desc(),
-            BillingDailyLedgerSummary.creator_bid.asc(),
-            BillingDailyLedgerSummary.entry_count.desc(),
-            BillingDailyLedgerSummary.id.desc(),
-        )
-        payload = _build_page_payload(
-            query,
-            page_index=safe_page_index,
-            page_size=safe_page_size,
-            serializer=lambda row: _serialize_admin_daily_ledger_summary(
-                app,
-                row,
-            ),
-        )
-        return AdminBillingDailyLedgerSummaryPageDTO(**payload.to_dto_kwargs())
-
-
-def adjust_admin_billing_ledger(
-    app: Flask,
-    *,
-    operator_user_bid: str,
-    payload: dict[str, object],
-) -> BillingLedgerAdjustResultDTO:
-    """Apply a manual admin ledger adjustment through wallet buckets."""
-    normalized_creator_bid = _normalize_bid(payload.get("creator_bid"))
-    if not normalized_creator_bid:
-        raise_param_error("creator_bid")
-
-    amount = payload.get("amount")
-    try:
-        normalized_amount = _to_decimal(amount)
-    except Exception:
-        raise_param_error("amount")
-    if normalized_amount == 0:
-        raise_param_error("amount")
-    if _quantize_credit_amount(normalized_amount, precision=2) != normalized_amount:
-        raise_param_error("amount")
-
-    note = str(payload.get("note") or payload.get("reason") or "").strip()
-    if len(note) > 255:
-        raise_param_error("note")
-
-    return adjust_credit_wallet_balance(
-        app,
-        creator_bid=normalized_creator_bid,
-        amount=normalized_amount,
-        note=note,
-        operator_user_bid=_normalize_bid(operator_user_bid),
-    )

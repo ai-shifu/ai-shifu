@@ -104,6 +104,8 @@ if TYPE_CHECKING:
 
     from flask import Flask
 
+    from .models import BillingOrder, BillingSubscription
+
 _STRIPE_SUBSCRIPTION_EVENT_TYPES = {
     "customer.subscription.created",
     "customer.subscription.updated",
@@ -246,143 +248,28 @@ def apply_billing_stripe_notification(
         order_update = BillingOrderProviderUpdateResult()
         target_status = _map_stripe_order_status(event_type, data_object)
         if order is not None:
-            if target_status is None and event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
-                target_status = _resolve_stripe_subscription_order_status(
+            target_status, order_update, response_status = (
+                _apply_stripe_order_notification(
                     order,
-                    data_object,
-                )
-            failure_code = _extract_stripe_failure_code(data_object)
-            failure_message = _extract_stripe_failure_message(data_object)
-            stripe_object_id = str(data_object.get("id") or "")
-            is_payment_object_event = stripe_object_id.startswith(("cs_", "pi_"))
-            if target_status == BILLING_ORDER_STATUS_PAID and is_payment_object_event:
-                amount_payload = (
-                    {"checkout_session": data_object}
-                    if stripe_object_id.startswith("cs_")
-                    else {"payment_intent": data_object}
-                )
-                paid_amount = _resolve_stripe_paid_amount(amount_payload)
-                paid_currency = _resolve_stripe_paid_currency(amount_payload)
-                expected_currency = str(order.currency or "").strip().upper()
-                if paid_amount is None:
-                    target_status = BILLING_ORDER_STATUS_FAILED
-                    failure_code = "provider_amount_missing"
-                    failure_message = "Stripe checkout paid amount is missing"
-                elif not paid_currency:
-                    target_status = BILLING_ORDER_STATUS_FAILED
-                    failure_code = "provider_currency_missing"
-                    failure_message = "Stripe checkout currency is missing"
-                elif paid_amount != int(order.payable_amount or 0):
-                    target_status = BILLING_ORDER_STATUS_FAILED
-                    failure_code = "provider_amount_mismatch"
-                    failure_message = (
-                        "Stripe checkout paid amount does not match billing order"
-                    )
-                elif (
-                    paid_currency
-                    and expected_currency
-                    and paid_currency != expected_currency
-                ):
-                    target_status = BILLING_ORDER_STATUS_FAILED
-                    failure_code = "provider_currency_mismatch"
-                    failure_message = (
-                        "Stripe checkout currency does not match billing order"
-                    )
-            order_update = _apply_billing_order_provider_update(
-                order,
-                provider="stripe",
-                event_type=event_type,
-                source="webhook",
-                payload=event,
-                provider_reference_id=_extract_stripe_provider_reference(
-                    order=order,
+                    notification=notification,
+                    event=event,
                     event_type=event_type,
                     data_object=data_object,
-                ),
-                target_status=target_status,
-                failure_code=failure_code,
-                failure_message=failure_message,
+                    metadata=metadata,
+                    target_status=target_status,
+                )
             )
-            stripe_object_id = str(data_object.get("id") or "")
-            refund_metadata: dict[str, Any] = {}
-            if stripe_object_id.startswith("re_"):
-                refund_metadata["last_refund_id"] = stripe_object_id
-            checkout_object = (
-                data_object if stripe_object_id.startswith("cs_") else None
-            )
-            payment_object = data_object if stripe_object_id.startswith("pi_") else None
-            receipt_url = ""
-            charges = data_object.get("charges", {}).get("data", []) or []
-            if charges:
-                receipt_url = str(charges[0].get("receipt_url") or "")
-            _persist_billing_stripe_raw_snapshot(
-                order,
-                create_if_missing=False,
-                metadata=(metadata or refund_metadata) or None,
-                checkout_session_id=(
-                    stripe_object_id if stripe_object_id.startswith("cs_") else ""
-                ),
-                checkout_object=checkout_object,
-                payment_intent_id=(
-                    str(data_object.get("payment_intent") or "")
-                    if checkout_object is not None
-                    else ""
-                ),
-                payment_object=payment_object,
-                latest_charge_id=_normalize_bid(
-                    notification.charge_id or data_object.get("latest_charge")
-                ),
-                receipt_url=receipt_url,
-                payment_method=str(data_object.get("payment_method") or ""),
-            )
-            if target_status == BILLING_ORDER_STATUS_PAID:
-                response_status = "paid"
-            elif target_status == BILLING_ORDER_STATUS_FAILED:
-                response_status = "failed" if order_update else "acknowledged"
-            elif target_status == BILLING_ORDER_STATUS_REFUNDED:
-                response_status = "refunded" if order_update else "acknowledged"
-            elif target_status == BILLING_ORDER_STATUS_CANCELED:
-                response_status = "canceled" if order_update else "acknowledged"
 
         if subscription is not None:
-            if event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
-                allow_activation = not (
-                    order is not None
-                    and order.order_type
-                    in {
-                        BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-                        BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-                    }
-                    and int(order.status or 0) != BILLING_ORDER_STATUS_PAID
-                )
-                _apply_billing_subscription_provider_update(
-                    app,
-                    subscription,
-                    provider="stripe",
-                    event_type=event_type,
-                    payload=event,
-                    data_object=data_object,
-                    allow_activation=allow_activation,
-                )
-            elif target_status == BILLING_ORDER_STATUS_PAID:
-                _apply_subscription_checkout_success(
-                    app,
-                    subscription,
-                    payload={
-                        **data_object,
-                        "created": event.get("created"),
-                    },
-                    provider="stripe",
-                    event_type=event_type,
-                )
-            elif target_status == BILLING_ORDER_STATUS_FAILED:
-                _apply_subscription_checkout_failure(
-                    app,
-                    subscription,
-                    provider="stripe",
-                    event_type=event_type,
-                    payload=event,
-                )
+            _apply_stripe_subscription_notification(
+                app,
+                subscription,
+                order=order,
+                event=event,
+                event_type=event_type,
+                data_object=data_object,
+                target_status=target_status,
+            )
 
         order_update.stage_after_state_changes(app, order)
 
@@ -393,6 +280,201 @@ def apply_billing_stripe_notification(
             bill_order_bid=order.bill_order_bid if order else None,
             subscription_bid=subscription.subscription_bid if subscription else None,
             status_code=200,
+        )
+
+
+def _apply_stripe_order_notification(
+    order: BillingOrder,
+    *,
+    notification: PaymentNotificationResult,
+    event: dict[str, Any],
+    event_type: str,
+    data_object: dict[str, Any],
+    metadata: dict[str, Any],
+    target_status: int | None,
+) -> tuple[int | None, BillingOrderProviderUpdateResult, str]:
+    """Apply the order side of a Stripe event inside the caller's unit of work.
+
+    Returns the effective target status, the provider update result and the
+    webhook response status.
+    """
+    if target_status is None and event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
+        target_status = _resolve_stripe_subscription_order_status(
+            order,
+            data_object,
+        )
+    failure_code = _extract_stripe_failure_code(data_object)
+    failure_message = _extract_stripe_failure_message(data_object)
+    stripe_object_id = str(data_object.get("id") or "")
+    is_payment_object_event = stripe_object_id.startswith(("cs_", "pi_"))
+    if target_status == BILLING_ORDER_STATUS_PAID and is_payment_object_event:
+        target_status, failure_code, failure_message = (
+            _verify_stripe_paid_amount_and_currency(
+                order,
+                data_object=data_object,
+                stripe_object_id=stripe_object_id,
+                target_status=target_status,
+                failure_code=failure_code,
+                failure_message=failure_message,
+            )
+        )
+    order_update = _apply_billing_order_provider_update(
+        order,
+        provider="stripe",
+        event_type=event_type,
+        source="webhook",
+        payload=event,
+        provider_reference_id=_extract_stripe_provider_reference(
+            order=order,
+            event_type=event_type,
+            data_object=data_object,
+        ),
+        target_status=target_status,
+        failure_code=failure_code,
+        failure_message=failure_message,
+    )
+    _persist_stripe_webhook_raw_snapshot(
+        order,
+        notification=notification,
+        data_object=data_object,
+        metadata=metadata,
+    )
+    response_status = "acknowledged"
+    if target_status == BILLING_ORDER_STATUS_PAID:
+        response_status = "paid"
+    elif target_status == BILLING_ORDER_STATUS_FAILED:
+        response_status = "failed" if order_update else "acknowledged"
+    elif target_status == BILLING_ORDER_STATUS_REFUNDED:
+        response_status = "refunded" if order_update else "acknowledged"
+    elif target_status == BILLING_ORDER_STATUS_CANCELED:
+        response_status = "canceled" if order_update else "acknowledged"
+    return target_status, order_update, response_status
+
+
+def _verify_stripe_paid_amount_and_currency(
+    order: BillingOrder,
+    *,
+    data_object: dict[str, Any],
+    stripe_object_id: str,
+    target_status: int | None,
+    failure_code: str,
+    failure_message: str,
+) -> tuple[int | None, str, str]:
+    """Downgrade a paid Stripe event to failed when amount or currency mismatch."""
+    amount_payload = (
+        {"checkout_session": data_object}
+        if stripe_object_id.startswith("cs_")
+        else {"payment_intent": data_object}
+    )
+    paid_amount = _resolve_stripe_paid_amount(amount_payload)
+    paid_currency = _resolve_stripe_paid_currency(amount_payload)
+    expected_currency = str(order.currency or "").strip().upper()
+    if paid_amount is None:
+        target_status = BILLING_ORDER_STATUS_FAILED
+        failure_code = "provider_amount_missing"
+        failure_message = "Stripe checkout paid amount is missing"
+    elif not paid_currency:
+        target_status = BILLING_ORDER_STATUS_FAILED
+        failure_code = "provider_currency_missing"
+        failure_message = "Stripe checkout currency is missing"
+    elif paid_amount != int(order.payable_amount or 0):
+        target_status = BILLING_ORDER_STATUS_FAILED
+        failure_code = "provider_amount_mismatch"
+        failure_message = "Stripe checkout paid amount does not match billing order"
+    elif paid_currency and expected_currency and paid_currency != expected_currency:
+        target_status = BILLING_ORDER_STATUS_FAILED
+        failure_code = "provider_currency_mismatch"
+        failure_message = "Stripe checkout currency does not match billing order"
+    return target_status, failure_code, failure_message
+
+
+def _persist_stripe_webhook_raw_snapshot(
+    order: BillingOrder,
+    *,
+    notification: PaymentNotificationResult,
+    data_object: dict[str, Any],
+    metadata: dict[str, Any],
+) -> None:
+    stripe_object_id = str(data_object.get("id") or "")
+    refund_metadata: dict[str, Any] = {}
+    if stripe_object_id.startswith("re_"):
+        refund_metadata["last_refund_id"] = stripe_object_id
+    checkout_object = data_object if stripe_object_id.startswith("cs_") else None
+    payment_object = data_object if stripe_object_id.startswith("pi_") else None
+    receipt_url = ""
+    charges = data_object.get("charges", {}).get("data", []) or []
+    if charges:
+        receipt_url = str(charges[0].get("receipt_url") or "")
+    _persist_billing_stripe_raw_snapshot(
+        order,
+        create_if_missing=False,
+        metadata=(metadata or refund_metadata) or None,
+        checkout_session_id=(
+            stripe_object_id if stripe_object_id.startswith("cs_") else ""
+        ),
+        checkout_object=checkout_object,
+        payment_intent_id=(
+            str(data_object.get("payment_intent") or "")
+            if checkout_object is not None
+            else ""
+        ),
+        payment_object=payment_object,
+        latest_charge_id=_normalize_bid(
+            notification.charge_id or data_object.get("latest_charge")
+        ),
+        receipt_url=receipt_url,
+        payment_method=str(data_object.get("payment_method") or ""),
+    )
+
+
+def _apply_stripe_subscription_notification(
+    app: Flask,
+    subscription: BillingSubscription,
+    *,
+    order: BillingOrder | None,
+    event: dict[str, Any],
+    event_type: str,
+    data_object: dict[str, Any],
+    target_status: int | None,
+) -> None:
+    """Apply the subscription side of a Stripe event in the caller's UoW."""
+    if event_type in _STRIPE_SUBSCRIPTION_EVENT_TYPES:
+        allow_activation = not (
+            order is not None
+            and order.order_type
+            in {
+                BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+            }
+            and int(order.status or 0) != BILLING_ORDER_STATUS_PAID
+        )
+        _apply_billing_subscription_provider_update(
+            app,
+            subscription,
+            provider="stripe",
+            event_type=event_type,
+            payload=event,
+            data_object=data_object,
+            allow_activation=allow_activation,
+        )
+    elif target_status == BILLING_ORDER_STATUS_PAID:
+        _apply_subscription_checkout_success(
+            app,
+            subscription,
+            payload={
+                **data_object,
+                "created": event.get("created"),
+            },
+            provider="stripe",
+            event_type=event_type,
+        )
+    elif target_status == BILLING_ORDER_STATUS_FAILED:
+        _apply_subscription_checkout_failure(
+            app,
+            subscription,
+            provider="stripe",
+            event_type=event_type,
+            payload=event,
         )
 
 
