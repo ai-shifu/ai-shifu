@@ -117,7 +117,12 @@ same result; the structural metrics below shrink.
   `get_operator_user_credits`, `courses_follow_ups`, `courses_ratings`,
   `courses_users`, `admin_user_courses` (read-only query builders whose
   try, with and `unit_of_work` counts match base).
-- [ ] Push the branch and open a PR (awaiting owner approval).
+- [x] 2026-10-20 CST: Merged two new `main` commits (#3146, #3147); applied
+  the preview-language change in `context_v2_preview.py` and the preview
+  route helper. Full suite 12,355 passed; the only new failure,
+  `test_history_compaction.py::test_real_gateway_recovers_from_old_recall_growth_and_still_enforces_total_budget`,
+  also fails on `origin/main`. Owner approved; pushed and opened
+  https://github.com/ai-shifu/ai-shifu/pull/3148.
 - [ ] Follow-up groups: `billing-notifications`, `engine-tts`, and the
   unfinished items listed under Outcomes.
 
