@@ -34,6 +34,14 @@ from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseSummaryDTO,
 )
+from flaskr.service.shifu.admin_operations.courses_listing_legacy import (
+    _apply_latest_nonempty_model_fields,  # noqa: F401 -- re-exported names and patch targets
+    _build_latest_shifus_query,  # noqa: F401 -- re-exported names and patch targets
+    _build_operator_course_overview_legacy,
+    _list_operator_courses_legacy,
+    _load_latest_shifu_seeds,  # noqa: F401 -- re-exported names and patch targets
+    _load_latest_shifus,  # noqa: F401 -- re-exported names and patch targets
+)
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_QUICK_FILTER_CREATED_LAST_7D,
     COURSE_QUICK_FILTER_DRAFT,
@@ -44,7 +52,7 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_STATUS_UNPUBLISHED,
     _find_matching_creator_bids,
     _load_user_map,
-    _merge_courses,
+    _merge_courses,  # noqa: F401 -- re-exported names and patch targets
 )
 from flaskr.service.shifu.course_activity import load_course_activity_map
 from flaskr.service.shifu.demo_courses import (
@@ -57,9 +65,11 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
+from flaskr.util.datetime import (  # noqa: F401 -- re-exported names and patch targets
+    NAIVE_DATETIME_MIN,
+    now_utc,
+)
 from sqlalchemy import and_, case, literal, not_, or_
-from sqlalchemy.orm import defer
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -269,82 +279,27 @@ def _build_latest_operator_course_rows_subquery(
     return base_query.cte(alias_name)
 
 
-def _build_operator_course_candidate_query(
-    *,
-    shifu_bid: str,
-    course_name: str,
-    course_query: str = "",
-    matching_course_bids: set[str] | None = None,
-    creator_bids: set[str] | None,
-    start_time: datetime | None,
-    end_time: datetime | None,
-    include_activity: bool = False,
-) -> Query | None:
-    draft_rows_subquery = _build_latest_operator_course_rows_subquery(
-        DraftShifu,
-        shifu_bid=shifu_bid,
-        course_name=course_name,
-        course_query=course_query,
-        matching_course_bids=matching_course_bids,
-        creator_bids=creator_bids,
-        start_time=start_time,
-        end_time=end_time,
-        alias_name="operator_course_draft_rows",
-    )
-    published_rows_subquery = _build_latest_operator_course_rows_subquery(
-        PublishedShifu,
-        shifu_bid=shifu_bid,
-        course_name=course_name,
-        course_query=course_query,
-        matching_course_bids=matching_course_bids,
-        creator_bids=creator_bids,
-        start_time=start_time,
-        end_time=end_time,
-        alias_name="operator_course_published_rows",
-    )
-    if draft_rows_subquery is None or published_rows_subquery is None:
-        return None
-
-    draft_visible_subquery = (
-        db.session.query(draft_rows_subquery)
+def _build_operator_visible_course_cte(rows_subquery: CTE, cte_name: str) -> CTE:
+    """Keep only operator-visible courses of one latest-rows CTE."""
+    return (
+        db.session.query(rows_subquery)
         .filter(
             _build_operator_visible_course_filter(
-                draft_rows_subquery.c.shifu_bid,
-                draft_rows_subquery.c.title,
-                draft_rows_subquery.c.created_user_bid,
+                rows_subquery.c.shifu_bid,
+                rows_subquery.c.title,
+                rows_subquery.c.created_user_bid,
             )
         )
-        .cte("operator_course_draft_visible")
-    )
-    published_visible_subquery = (
-        db.session.query(published_rows_subquery)
-        .filter(
-            _build_operator_visible_course_filter(
-                published_rows_subquery.c.shifu_bid,
-                published_rows_subquery.c.title,
-                published_rows_subquery.c.created_user_bid,
-            )
-        )
-        .cte("operator_course_published_visible")
+        .cte(cte_name)
     )
 
-    candidate_bids_subquery = (
-        db.session.query(draft_visible_subquery.c.shifu_bid.label("shifu_bid"))
-        .union(
-            db.session.query(published_visible_subquery.c.shifu_bid.label("shifu_bid"))
-        )
-        .cte("operator_course_candidate_bids")
-    )
-    latest_activity_subquery = (
-        _build_operator_course_latest_activity_subquery(
-            candidate_bids_subquery,
-            draft_visible_subquery,
-            published_visible_subquery,
-        )
-        if include_activity
-        else None
-    )
 
+def _build_operator_course_candidate_columns(
+    draft_visible_subquery: CTE,
+    published_visible_subquery: CTE,
+    candidate_bids_subquery: CTE,
+) -> list[Any]:
+    """Pick each candidate column from the draft row, else the published row."""
     selected_source_expr = case(
         (draft_visible_subquery.c.id.isnot(None), literal("draft")),
         else_=literal("published"),
@@ -353,7 +308,7 @@ def _build_operator_course_candidate_query(
         (published_visible_subquery.c.id.isnot(None), literal(COURSE_STATUS_PUBLISHED)),
         else_=literal(COURSE_STATUS_UNPUBLISHED),
     )
-    selected_columns = [
+    return [
         case(
             (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.id),
             else_=published_visible_subquery.c.id,
@@ -422,6 +377,73 @@ def _build_operator_course_candidate_query(
         selected_source_expr.label("selected_source"),
         course_status_expr.label("course_status"),
     ]
+
+
+def _build_operator_course_candidate_query(
+    *,
+    shifu_bid: str,
+    course_name: str,
+    course_query: str = "",
+    matching_course_bids: set[str] | None = None,
+    creator_bids: set[str] | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+    include_activity: bool = False,
+) -> Query | None:
+    draft_rows_subquery = _build_latest_operator_course_rows_subquery(
+        DraftShifu,
+        shifu_bid=shifu_bid,
+        course_name=course_name,
+        course_query=course_query,
+        matching_course_bids=matching_course_bids,
+        creator_bids=creator_bids,
+        start_time=start_time,
+        end_time=end_time,
+        alias_name="operator_course_draft_rows",
+    )
+    published_rows_subquery = _build_latest_operator_course_rows_subquery(
+        PublishedShifu,
+        shifu_bid=shifu_bid,
+        course_name=course_name,
+        course_query=course_query,
+        matching_course_bids=matching_course_bids,
+        creator_bids=creator_bids,
+        start_time=start_time,
+        end_time=end_time,
+        alias_name="operator_course_published_rows",
+    )
+    if draft_rows_subquery is None or published_rows_subquery is None:
+        return None
+
+    draft_visible_subquery = _build_operator_visible_course_cte(
+        draft_rows_subquery, "operator_course_draft_visible"
+    )
+    published_visible_subquery = _build_operator_visible_course_cte(
+        published_rows_subquery, "operator_course_published_visible"
+    )
+
+    candidate_bids_subquery = (
+        db.session.query(draft_visible_subquery.c.shifu_bid.label("shifu_bid"))
+        .union(
+            db.session.query(published_visible_subquery.c.shifu_bid.label("shifu_bid"))
+        )
+        .cte("operator_course_candidate_bids")
+    )
+    latest_activity_subquery = (
+        _build_operator_course_latest_activity_subquery(
+            candidate_bids_subquery,
+            draft_visible_subquery,
+            published_visible_subquery,
+        )
+        if include_activity
+        else None
+    )
+
+    selected_columns = _build_operator_course_candidate_columns(
+        draft_visible_subquery,
+        published_visible_subquery,
+        candidate_bids_subquery,
+    )
     if latest_activity_subquery is not None:
         selected_columns.extend(
             [
@@ -584,209 +606,6 @@ def _build_operator_course_latest_activity_subquery(
         .filter(ranked_activity_subquery.c.row_num == 1)
         .cte("operator_course_latest_activity")
     )
-
-
-def _build_latest_shifus_query(
-    model: object,
-    *,
-    shifu_bid: str,
-    course_name: str,
-    course_query: str = "",
-    matching_course_bids: set[str] | None = None,
-    creator_bids: set[str] | None,
-    start_time: datetime | None,
-    end_time: datetime | None,
-    updated_start_time: datetime | None,
-    updated_end_time: datetime | None,
-    lightweight: bool = False,
-) -> Query | list[DraftShifu | PublishedShifu]:
-    is_mapped_model = hasattr(model, "__mapper__")
-    latest_subquery = db.session.query(db.func.max(model.id).label("max_id")).filter(
-        model.deleted == 0
-    )
-    if shifu_bid:
-        latest_subquery = latest_subquery.filter(model.shifu_bid == shifu_bid)
-    latest_subquery = latest_subquery.group_by(model.shifu_bid).subquery()
-    latest_rows = db.session.query(model).filter(
-        model.id.in_(db.session.query(latest_subquery.c.max_id))
-    )
-    if is_mapped_model and not lightweight:
-        latest_rows = latest_rows.options(defer(model.llm_system_prompt))
-    if course_name:
-        latest_rows = latest_rows.filter(model.title.ilike(f"%{course_name}%"))
-    course_query_filter = _build_operator_course_query_filter(
-        model.shifu_bid,
-        course_query,
-        matching_course_bids=matching_course_bids,
-    )
-    if course_query_filter is not None:
-        latest_rows = latest_rows.filter(course_query_filter)
-    if creator_bids is not None:
-        if not creator_bids:
-            return []
-        latest_rows = latest_rows.filter(model.created_user_bid.in_(creator_bids))
-    if start_time:
-        latest_rows = latest_rows.filter(model.created_at >= start_time)
-    if end_time:
-        latest_rows = latest_rows.filter(model.created_at <= end_time)
-    if updated_start_time:
-        latest_rows = latest_rows.filter(model.updated_at >= updated_start_time)
-    if updated_end_time:
-        latest_rows = latest_rows.filter(model.updated_at <= updated_end_time)
-    return latest_rows.order_by(model.updated_at.desc(), model.id.desc())
-
-
-def _apply_latest_nonempty_model_fields(model: object, rows: object) -> None:
-    if not rows:
-        return
-
-    shifu_bids = sorted(
-        {
-            str(getattr(row, "shifu_bid", "") or "").strip()
-            for row in rows
-            if str(getattr(row, "shifu_bid", "") or "").strip()
-        }
-    )
-    if not shifu_bids:
-        return
-
-    latest_nonempty_rows = (
-        db.session.query(
-            model.shifu_bid.label("shifu_bid"),
-            model.tts_model.label("tts_model"),
-            db.func.row_number()
-            .over(partition_by=model.shifu_bid, order_by=model.id.desc())
-            .label("row_num"),
-        )
-        .filter(
-            model.deleted == 0,
-            model.shifu_bid.in_(shifu_bids),
-            db.func.coalesce(model.tts_model, "") != "",
-        )
-        .subquery()
-    )
-    fallback_rows = (
-        db.session.query(
-            latest_nonempty_rows.c.shifu_bid,
-            latest_nonempty_rows.c.tts_model,
-        )
-        .filter(latest_nonempty_rows.c.row_num == 1)
-        .all()
-    )
-    fallback_map = {
-        str(row.shifu_bid or ""): {
-            "tts_model": str(getattr(row, "tts_model", "") or ""),
-        }
-        for row in fallback_rows
-    }
-    for row in rows:
-        fallback = fallback_map.get(str(getattr(row, "shifu_bid", "") or ""))
-        if not fallback:
-            continue
-        if not str(getattr(row, "tts_model", "") or "").strip():
-            row.tts_model = fallback["tts_model"]
-
-
-def _load_latest_shifus(
-    model: object,
-    *,
-    shifu_bid: str,
-    course_name: str,
-    course_query: str = "",
-    matching_course_bids: set[str] | None = None,
-    creator_bids: set[str] | None,
-    start_time: datetime | None,
-    end_time: datetime | None,
-    updated_start_time: datetime | None,
-    updated_end_time: datetime | None,
-    attach_prompt_flags: bool = False,
-    lightweight: bool = False,
-) -> list[DraftShifu | PublishedShifu | OperatorCourseListSeed]:
-    ordered_query = _build_latest_shifus_query(
-        model,
-        shifu_bid=shifu_bid,
-        course_name=course_name,
-        course_query=course_query,
-        matching_course_bids=matching_course_bids,
-        creator_bids=creator_bids,
-        start_time=start_time,
-        end_time=end_time,
-        updated_start_time=updated_start_time,
-        updated_end_time=updated_end_time,
-        lightweight=lightweight,
-    )
-    if isinstance(ordered_query, list):
-        return []
-
-    if lightweight and hasattr(model, "__mapper__"):
-        rows = ordered_query.with_entities(
-            model.id.label("id"),
-            model.shifu_bid.label("shifu_bid"),
-            model.title.label("title"),
-            model.price.label("price"),
-            model.llm.label("llm"),
-            model.tts_model.label("tts_model"),
-            model.created_user_bid.label("created_user_bid"),
-            model.updated_user_bid.label("updated_user_bid"),
-            model.created_at.label("created_at"),
-            model.updated_at.label("updated_at"),
-        ).all()
-        seeds = [_build_operator_course_list_seed(row) for row in rows]
-        _apply_latest_nonempty_model_fields(model, seeds)
-        return seeds
-
-    rows = ordered_query.all()
-    if hasattr(model, "__mapper__"):
-        _apply_latest_nonempty_model_fields(model, rows)
-    if hasattr(model, "__mapper__") and attach_prompt_flags:
-        _attach_course_prompt_flags(model, rows)
-    return rows
-
-
-def _load_latest_shifu_seeds(
-    model: object,
-    *,
-    shifu_bid: str,
-    course_name: str,
-    course_query: str = "",
-    matching_course_bids: set[str] | None = None,
-    creator_bids: set[str] | None,
-    start_time: datetime | None,
-    end_time: datetime | None,
-    updated_start_time: datetime | None,
-    updated_end_time: datetime | None,
-) -> list[OperatorCourseListSeed]:
-    ordered_query = _build_latest_shifus_query(
-        model,
-        shifu_bid=shifu_bid,
-        course_name=course_name,
-        course_query=course_query,
-        matching_course_bids=matching_course_bids,
-        creator_bids=creator_bids,
-        start_time=start_time,
-        end_time=end_time,
-        updated_start_time=updated_start_time,
-        updated_end_time=updated_end_time,
-        lightweight=True,
-    )
-    if isinstance(ordered_query, list):
-        return []
-
-    rows = ordered_query.with_entities(
-        model.id.label("id"),
-        model.shifu_bid.label("shifu_bid"),
-        model.title.label("title"),
-        model.price.label("price"),
-        model.llm.label("llm"),
-        model.tts_model.label("tts_model"),
-        model.created_user_bid.label("created_user_bid"),
-        model.updated_user_bid.label("updated_user_bid"),
-        model.created_at.label("created_at"),
-        model.updated_at.label("updated_at"),
-    ).all()
-    seeds = [_build_operator_course_list_seed(row) for row in rows]
-    _apply_latest_nonempty_model_fields(model, seeds)
-    return seeds
 
 
 def _attach_course_prompt_flags(model: object, rows: object) -> None:
@@ -1149,264 +968,6 @@ def _can_use_operator_course_sql_optimization(app: Flask) -> bool:
         return current_app._get_current_object() is app and db.engine is not None
     except (RuntimeError, KeyError):
         return False
-
-
-def _build_operator_course_overview_legacy(
-    app: Flask,
-) -> AdminOperationCourseOverviewDTO:
-    _ = app
-    draft_rows = _load_latest_shifus(
-        DraftShifu,
-        shifu_bid="",
-        course_name="",
-        course_query="",
-        creator_bids=None,
-        start_time=None,
-        end_time=None,
-        updated_start_time=None,
-        updated_end_time=None,
-    )
-    published_rows = _load_latest_shifus(
-        PublishedShifu,
-        shifu_bid="",
-        course_name="",
-        course_query="",
-        creator_bids=None,
-        start_time=None,
-        end_time=None,
-        updated_start_time=None,
-        updated_end_time=None,
-    )
-    merged_courses, published_bids, _ = _merge_courses(draft_rows, published_rows)
-    total_course_count = len(merged_courses)
-    if total_course_count == 0:
-        return AdminOperationCourseOverviewDTO()
-
-    now = now_utc()
-    created_window_start, created_window_end = _resolve_created_last_7d_window(now)
-    recent_activity_window_start = now - timedelta(days=30)
-    visible_shifu_bids = [
-        str(course.shifu_bid or "").strip()
-        for course in merged_courses
-        if str(course.shifu_bid or "").strip()
-    ]
-    learning_active_30d_course_count = len(
-        _load_recent_learning_active_course_bids(
-            since=recent_activity_window_start,
-            shifu_bids=visible_shifu_bids,
-        )
-    )
-    paid_order_30d_course_count = len(
-        _load_recent_paid_order_course_bids(
-            since=recent_activity_window_start,
-            shifu_bids=visible_shifu_bids,
-        )
-    )
-
-    return AdminOperationCourseOverviewDTO(
-        total_course_count=total_course_count,
-        draft_course_count=sum(
-            1
-            for course in merged_courses
-            if _resolve_course_status(course.shifu_bid or "", published_bids)
-            == COURSE_STATUS_UNPUBLISHED
-        ),
-        published_course_count=sum(
-            1
-            for course in merged_courses
-            if _resolve_course_status(course.shifu_bid or "", published_bids)
-            == COURSE_STATUS_PUBLISHED
-        ),
-        created_last_7d_course_count=sum(
-            1
-            for course in merged_courses
-            if course.created_at
-            and created_window_start <= course.created_at <= created_window_end
-        ),
-        learning_active_30d_course_count=learning_active_30d_course_count,
-        paid_order_30d_course_count=paid_order_30d_course_count,
-    )
-
-
-def _list_operator_courses_legacy(
-    app: Flask,
-    page_index: int,
-    page_size: int,
-    filters: dict | None = None,
-) -> AdminOperationCourseListDTO:
-    _ = app
-    safe_page_index = max(int(page_index or 1), 1)
-    safe_page_size = min(max(int(page_size or 20), 1), MAX_PAGE_SIZE)
-    filters = filters or {}
-
-    shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
-    course_name = str(filters.get("course_name", "") or "").strip()
-    course_query = str(filters.get("course_query", "") or "").strip()
-    matching_course_bids = (
-        _find_operator_course_bids_by_name(course_query) if course_query else None
-    )
-    course_status = str(filters.get("course_status", "") or "").strip().lower()
-    quick_filter = _resolve_course_quick_filter(filters.get("quick_filter", ""))
-    creator_keyword = str(filters.get("creator_keyword", "") or "").strip()
-    start_time = filters.get("start_time")
-    end_time = filters.get("end_time")
-    updated_start_time = filters.get("updated_start_time")
-    updated_end_time = filters.get("updated_end_time")
-
-    creator_bids = _find_matching_creator_bids(creator_keyword)
-    draft_rows = _load_latest_shifu_seeds(
-        DraftShifu,
-        shifu_bid=shifu_bid,
-        course_name=course_name,
-        course_query=course_query,
-        matching_course_bids=matching_course_bids,
-        creator_bids=creator_bids,
-        start_time=start_time,
-        end_time=end_time,
-        updated_start_time=None,
-        updated_end_time=None,
-    )
-    published_rows = _load_latest_shifu_seeds(
-        PublishedShifu,
-        shifu_bid=shifu_bid,
-        course_name=course_name,
-        course_query=course_query,
-        matching_course_bids=matching_course_bids,
-        creator_bids=creator_bids,
-        start_time=start_time,
-        end_time=end_time,
-        updated_start_time=None,
-        updated_end_time=None,
-    )
-
-    merged_courses, published_bids, selected_sources = _merge_courses(
-        draft_rows, published_rows
-    )
-    activity_map = _load_course_activity_map(draft_rows, published_rows)
-
-    def resolve_activity(course: object) -> dict[str, object]:
-        return activity_map.get(str(course.shifu_bid or "").strip(), {})
-
-    def resolve_updated_at(course: object) -> datetime | None:
-        activity = resolve_activity(course)
-        return activity.get("updated_at") or course.updated_at
-
-    if course_status in {COURSE_STATUS_PUBLISHED, COURSE_STATUS_UNPUBLISHED}:
-        merged_courses = [
-            course
-            for course in merged_courses
-            if _resolve_course_status(course.shifu_bid or "", published_bids)
-            == course_status
-        ]
-    if updated_start_time:
-        merged_courses = [
-            course
-            for course in merged_courses
-            if (resolve_updated_at(course) or NAIVE_DATETIME_MIN) >= updated_start_time
-        ]
-    if updated_end_time:
-        merged_courses = [
-            course
-            for course in merged_courses
-            if (resolve_updated_at(course) or NAIVE_DATETIME_MIN) <= updated_end_time
-        ]
-    if quick_filter:
-        if quick_filter == COURSE_QUICK_FILTER_DRAFT:
-            merged_courses = [
-                course
-                for course in merged_courses
-                if _resolve_course_status(course.shifu_bid or "", published_bids)
-                == COURSE_STATUS_UNPUBLISHED
-            ]
-        elif quick_filter == COURSE_QUICK_FILTER_PUBLISHED:
-            merged_courses = [
-                course
-                for course in merged_courses
-                if _resolve_course_status(course.shifu_bid or "", published_bids)
-                == COURSE_STATUS_PUBLISHED
-            ]
-        elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
-            created_window_start, created_window_end = _resolve_created_last_7d_window(
-                now_utc()
-            )
-            merged_courses = [
-                course
-                for course in merged_courses
-                if course.created_at
-                and created_window_start <= course.created_at <= created_window_end
-            ]
-        else:
-            visible_shifu_bids = [
-                str(course.shifu_bid or "").strip()
-                for course in merged_courses
-                if str(course.shifu_bid or "").strip()
-            ]
-            if quick_filter == COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D:
-                matched_shifu_bids = _load_recent_learning_active_course_bids(
-                    since=now_utc() - timedelta(days=30),
-                    shifu_bids=visible_shifu_bids,
-                )
-            else:
-                matched_shifu_bids = _load_recent_paid_order_course_bids(
-                    since=now_utc() - timedelta(days=30),
-                    shifu_bids=visible_shifu_bids,
-                )
-            merged_courses = [
-                course
-                for course in merged_courses
-                if str(course.shifu_bid or "").strip() in matched_shifu_bids
-            ]
-    merged_courses = sorted(
-        merged_courses,
-        key=lambda item: (
-            resolve_updated_at(item) or NAIVE_DATETIME_MIN,
-            item.created_at or NAIVE_DATETIME_MIN,
-            item.shifu_bid or "",
-        ),
-        reverse=True,
-    )
-    total = len(merged_courses)
-    page_offset = (safe_page_index - 1) * safe_page_size
-    page_items = merged_courses[page_offset : page_offset + safe_page_size]
-    draft_page_items = [
-        course
-        for course in page_items
-        if selected_sources.get(str(course.shifu_bid or "").strip()) == "draft"
-    ]
-    published_page_items = [
-        course
-        for course in page_items
-        if selected_sources.get(str(course.shifu_bid or "").strip()) == "published"
-    ]
-    _attach_course_prompt_flags(DraftShifu, draft_page_items)
-    _attach_course_prompt_flags(PublishedShifu, published_page_items)
-
-    user_bids = {
-        user_bid
-        for course in page_items
-        for user_bid in [
-            course.created_user_bid,
-            resolve_activity(course).get("updated_user_bid") or course.updated_user_bid,
-        ]
-        if user_bid and user_bid != "system"
-    }
-    user_map = _load_user_map(list(user_bids))
-    items = [
-        _build_course_summary(
-            course,
-            user_map,
-            _resolve_course_status(course.shifu_bid or "", published_bids),
-            resolve_activity(course),
-        )
-        for course in page_items
-    ]
-    return AdminOperationCourseListDTO(
-        items=items,
-        page=safe_page_index,
-        page_size=safe_page_size,
-        total=total,
-        page_count=((total + safe_page_size - 1) // safe_page_size) if total else 0,
-    )
 
 
 def list_operator_courses(

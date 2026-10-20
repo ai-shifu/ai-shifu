@@ -650,44 +650,23 @@ def copy_operator_course(
             new_course_name,
         )
         source_outlines = _load_latest_active_draft_outlines(normalized_shifu_bid)
-        normalized_provider_config, live_contract_error = (
-            normalize_live_follow_up_course_config(
-                course_model=course_model_selection(selection_model(source_draft))[
-                    "index"
-                ],
-                course_follow_up_model=selection_model(source_draft, follow_up=True),
-                provider_config=getattr(source_draft, "ask_provider_config", "{}"),
-            )
+        normalized_provider_config = _normalize_course_copy_provider_config(
+            source_draft
         )
-        if live_contract_error is not None:
-            field = (
-                live_contract_error
-                if live_contract_error == "model"
-                else f"ask_provider_config.{live_contract_error}"
-                if live_contract_error in {"provider", "mode"}
-                else f"ask_provider_config.config.{live_contract_error}"
-            )
-            raise_param_error(field)
         outline_bid_map: dict[str, str] = {
             str(item.outline_item_bid or "").strip(): generate_id(app)
             for item in source_outlines
         }
 
-        _run_course_copy_draft_risk_check(
+        _run_course_copy_risk_checks(
             app,
             source_draft=source_draft,
-            target_shifu_bid=new_shifu_bid,
-            operator_user_bid=action_user_bid,
+            source_outlines=source_outlines,
+            outline_bid_map=outline_bid_map,
+            new_shifu_bid=new_shifu_bid,
+            action_user_bid=action_user_bid,
             new_course_name=resolved_new_course_name,
         )
-        for source_outline in source_outlines:
-            old_outline_bid = str(source_outline.outline_item_bid or "").strip()
-            _run_course_copy_outline_risk_check(
-                app,
-                source_outline=source_outline,
-                target_outline_bid=outline_bid_map[old_outline_bid],
-                operator_user_bid=action_user_bid,
-            )
 
         target_creator_result = _prepare_operator_target_creator(
             app,
@@ -716,45 +695,14 @@ def copy_operator_course(
         db.session.add(new_draft)
         db.session.flush()
 
-        source_outline_map = {
-            str(item.outline_item_bid or "").strip(): item for item in source_outlines
-        }
-        copied_outlines: dict[str, DraftOutlineItem] = {}
-
-        for source_outline in source_outlines:
-            old_outline_bid = str(source_outline.outline_item_bid or "").strip()
-            new_outline_bid = outline_bid_map[old_outline_bid]
-
-            new_outline = source_outline.clone()
-            new_outline.shifu_bid = new_shifu_bid
-            new_outline.outline_item_bid = new_outline_bid
-            new_outline.parent_bid = ""
-            new_outline.prerequisite_item_bids = ""
-            new_outline.created_at = now
-            new_outline.updated_at = now
-            new_outline.created_user_bid = target_user_bid
-            new_outline.updated_user_bid = action_user_bid
-            new_outline.deleted = 0
-            db.session.add(new_outline)
-            db.session.flush()
-            copied_outlines[old_outline_bid] = new_outline
-
-        for old_outline_bid, copied_outline in copied_outlines.items():
-            source_outline = source_outline_map[old_outline_bid]
-            parent_old_bid = str(source_outline.parent_bid or "").strip()
-            if parent_old_bid:
-                copied_outline.parent_bid = outline_bid_map.get(parent_old_bid, "")
-
-            prerequisite_old_bids = [
-                bid.strip()
-                for bid in str(source_outline.prerequisite_item_bids or "").split(",")
-                if bid.strip()
-            ]
-            copied_outline.prerequisite_item_bids = ",".join(
-                outline_bid_map[bid]
-                for bid in prerequisite_old_bids
-                if bid in outline_bid_map
-            )
+        copied_outlines = _copy_course_outlines(
+            source_outlines,
+            outline_bid_map=outline_bid_map,
+            new_shifu_bid=new_shifu_bid,
+            target_user_bid=target_user_bid,
+            action_user_bid=action_user_bid,
+            now=now,
+        )
 
         save_shifu_history(app, action_user_bid, new_shifu_bid, new_draft.id)
         outline_tree = _build_outline_history_tree(list(copied_outlines.values()))
@@ -797,3 +745,103 @@ def copy_operator_course(
             "created_new_user": created_new_user,
             "granted_demo_permissions": granted_demo_permissions,
         }
+
+
+def _normalize_course_copy_provider_config(source_draft: object) -> object:
+    """Validate the live follow-up contract and return the provider config."""
+    normalized_provider_config, live_contract_error = (
+        normalize_live_follow_up_course_config(
+            course_model=course_model_selection(selection_model(source_draft))["index"],
+            course_follow_up_model=selection_model(source_draft, follow_up=True),
+            provider_config=getattr(source_draft, "ask_provider_config", "{}"),
+        )
+    )
+    if live_contract_error is not None:
+        field = (
+            live_contract_error
+            if live_contract_error == "model"
+            else f"ask_provider_config.{live_contract_error}"
+            if live_contract_error in {"provider", "mode"}
+            else f"ask_provider_config.config.{live_contract_error}"
+        )
+        raise_param_error(field)
+    return normalized_provider_config
+
+
+def _run_course_copy_risk_checks(
+    app: Flask,
+    *,
+    source_draft: object,
+    source_outlines: list,
+    outline_bid_map: dict[str, str],
+    new_shifu_bid: str,
+    action_user_bid: str,
+    new_course_name: str,
+) -> None:
+    _run_course_copy_draft_risk_check(
+        app,
+        source_draft=source_draft,
+        target_shifu_bid=new_shifu_bid,
+        operator_user_bid=action_user_bid,
+        new_course_name=new_course_name,
+    )
+    for source_outline in source_outlines:
+        old_outline_bid = str(source_outline.outline_item_bid or "").strip()
+        _run_course_copy_outline_risk_check(
+            app,
+            source_outline=source_outline,
+            target_outline_bid=outline_bid_map[old_outline_bid],
+            operator_user_bid=action_user_bid,
+        )
+
+
+def _copy_course_outlines(
+    source_outlines: list,
+    *,
+    outline_bid_map: dict[str, str],
+    new_shifu_bid: str,
+    target_user_bid: str,
+    action_user_bid: str,
+    now: datetime,
+) -> dict[str, DraftOutlineItem]:
+    """Clone outline rows under the new course, then relink parents and prerequisites."""
+    source_outline_map = {
+        str(item.outline_item_bid or "").strip(): item for item in source_outlines
+    }
+    copied_outlines: dict[str, DraftOutlineItem] = {}
+
+    for source_outline in source_outlines:
+        old_outline_bid = str(source_outline.outline_item_bid or "").strip()
+        new_outline_bid = outline_bid_map[old_outline_bid]
+
+        new_outline = source_outline.clone()
+        new_outline.shifu_bid = new_shifu_bid
+        new_outline.outline_item_bid = new_outline_bid
+        new_outline.parent_bid = ""
+        new_outline.prerequisite_item_bids = ""
+        new_outline.created_at = now
+        new_outline.updated_at = now
+        new_outline.created_user_bid = target_user_bid
+        new_outline.updated_user_bid = action_user_bid
+        new_outline.deleted = 0
+        db.session.add(new_outline)
+        db.session.flush()
+        copied_outlines[old_outline_bid] = new_outline
+
+    for old_outline_bid, copied_outline in copied_outlines.items():
+        source_outline = source_outline_map[old_outline_bid]
+        parent_old_bid = str(source_outline.parent_bid or "").strip()
+        if parent_old_bid:
+            copied_outline.parent_bid = outline_bid_map.get(parent_old_bid, "")
+
+        prerequisite_old_bids = [
+            bid.strip()
+            for bid in str(source_outline.prerequisite_item_bids or "").split(",")
+            if bid.strip()
+        ]
+        copied_outline.prerequisite_item_bids = ",".join(
+            outline_bid_map[bid]
+            for bid in prerequisite_old_bids
+            if bid in outline_bid_map
+        )
+    return copied_outlines

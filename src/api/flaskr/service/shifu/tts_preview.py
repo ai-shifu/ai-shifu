@@ -32,7 +32,9 @@ from flaskr.util.uuid import generate_id
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from flask import Flask
     from flaskr.api.tts.base import AudioSettings, VoiceSettings
+    from flaskr.service.tts.validation import StrictTTSSettings
 
 
 def _build_tts_preview_usage_metadata(
@@ -50,15 +52,10 @@ def _build_tts_preview_usage_metadata(
     }
 
 
-def build_tts_preview_response(
-    json_data: dict | None,
-    *,
-    shifu_bid: str,
-    request_user_id: str = "",
-) -> Response:
-    """Build billable TTS preview response after the caller passes admission."""
-    app = current_app._get_current_object()
-    payload = json_data or {}
+def _validate_tts_preview_request(
+    app: Flask, payload: dict, *, request_user_id: str
+) -> tuple[StrictTTSSettings, str]:
+    """Validate preview settings and voice availability; return them and text."""
     provider_name = (payload.get("provider") or "").strip().lower()
     model = (payload.get("model") or "").strip()
     voice_id = payload.get("voice_id") or ""
@@ -98,11 +95,144 @@ def build_tts_preview_response(
     if len(text) > 200:
         text = text[:200]
 
+    return validated, text
+
+
+def _build_tts_preview_voice_settings(
+    validated: StrictTTSSettings,
+) -> VoiceSettings:
     voice_settings = get_default_voice_settings(validated.provider)
     voice_settings.voice_id = validated.voice_id
     voice_settings.speed = validated.speed
     voice_settings.pitch = validated.pitch
     voice_settings.emotion = validated.emotion
+
+    return voice_settings
+
+
+def _stream_tts_preview_events(
+    app: Flask,
+    *,
+    validated: StrictTTSSettings,
+    text: str,
+    cleaned_text: str,
+    segments: list[str],
+    voice_settings: VoiceSettings,
+    safe_audio_settings: AudioSettings,
+    audio_bid: str,
+    usage_context: UsageContext,
+    parent_usage_bid: str,
+    usage_metadata: dict[str, object],
+) -> Iterator[str]:
+    """Synthesize each segment as SSE events and record per-segment usage."""
+    total_duration_ms = 0
+    total_word_count = 0
+    total_output_chars = 0
+    try:
+        for index, segment_text in enumerate(segments):
+            result = synthesize_text(
+                text=segment_text,
+                voice_settings=voice_settings,
+                audio_settings=safe_audio_settings,
+                model=validated.model or None,
+                provider_name=validated.provider,
+            )
+            total_duration_ms += int(result.duration_ms or 0)
+            word_count = int(getattr(result, "word_count", 0) or 0)
+            segment_output_chars = resolve_tts_billable_chars(
+                segment_text,
+                int(getattr(result, "usage_characters", 0) or 0),
+            )
+            total_word_count += word_count
+            total_output_chars += segment_output_chars
+            record_tts_usage(
+                app,
+                usage_context,
+                provider=validated.provider,
+                model=validated.model or "",
+                is_stream=True,
+                input=len(segment_text or ""),
+                output=segment_output_chars,
+                total=segment_output_chars,
+                word_count=word_count,
+                duration_ms=int(result.duration_ms or 0),
+                latency_ms=0,
+                record_level=1,
+                parent_usage_bid=parent_usage_bid,
+                segment_index=index,
+                segment_count=0,
+                extra=usage_metadata,
+            )
+            audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")
+            payload = {
+                "outline_bid": "",
+                "generated_block_bid": "",
+                "type": "audio_segment",
+                "content": {
+                    "segment_index": index,
+                    "audio_data": audio_base64,
+                    "duration_ms": int(result.duration_ms or 0),
+                    "is_final": False,
+                },
+            }
+            yield "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+
+        record_tts_usage(
+            app,
+            usage_context,
+            usage_bid=parent_usage_bid,
+            provider=validated.provider,
+            model=validated.model or "",
+            is_stream=True,
+            input=len(text or ""),
+            output=total_output_chars or len(cleaned_text or ""),
+            total=total_output_chars or len(cleaned_text or ""),
+            word_count=total_word_count,
+            duration_ms=total_duration_ms,
+            latency_ms=0,
+            record_level=0,
+            parent_usage_bid="",
+            segment_index=0,
+            segment_count=len(segments),
+            extra=usage_metadata,
+        )
+        payload = {
+            "outline_bid": "",
+            "generated_block_bid": "",
+            "type": "audio_complete",
+            "content": {
+                "audio_url": "",
+                "audio_bid": audio_bid,
+                "duration_ms": total_duration_ms,
+            },
+        }
+        yield "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+    except GeneratorExit:
+        current_app.logger.info("client closed tts preview stream early")
+        # The close may have interrupted a DB write (usage metering runs
+        # on this stream); discard the connection so the request teardown
+        # does not roll back on a possibly desynced stream.
+        invalidate_session(source="tts preview stream close")
+        raise
+    except Exception as exc:
+        current_app.logger.exception("TTS preview stream failed")
+        cleanup_session_after(exc, source="tts preview stream error")
+        raise
+
+
+def build_tts_preview_response(
+    json_data: dict | None,
+    *,
+    shifu_bid: str,
+    request_user_id: str = "",
+) -> Response:
+    """Build billable TTS preview response after the caller passes admission."""
+    app = current_app._get_current_object()
+    payload = json_data or {}
+    validated, text = _validate_tts_preview_request(
+        app, payload, request_user_id=request_user_id
+    )
+    voice_settings = _build_tts_preview_voice_settings(validated)
 
     segments = split_text_for_tts(text, provider_name=validated.provider)
     if not segments:
@@ -125,103 +255,22 @@ def build_tts_preview_response(
         audio_settings=safe_audio_settings,
     )
 
-    def event_stream() -> Iterator[str]:
-        total_duration_ms = 0
-        total_word_count = 0
-        total_output_chars = 0
-        try:
-            for index, segment_text in enumerate(segments):
-                result = synthesize_text(
-                    text=segment_text,
-                    voice_settings=voice_settings,
-                    audio_settings=safe_audio_settings,
-                    model=validated.model or None,
-                    provider_name=validated.provider,
-                )
-                total_duration_ms += int(result.duration_ms or 0)
-                word_count = int(getattr(result, "word_count", 0) or 0)
-                segment_output_chars = resolve_tts_billable_chars(
-                    segment_text,
-                    int(getattr(result, "usage_characters", 0) or 0),
-                )
-                total_word_count += word_count
-                total_output_chars += segment_output_chars
-                record_tts_usage(
-                    app,
-                    usage_context,
-                    provider=validated.provider,
-                    model=validated.model or "",
-                    is_stream=True,
-                    input=len(segment_text or ""),
-                    output=segment_output_chars,
-                    total=segment_output_chars,
-                    word_count=word_count,
-                    duration_ms=int(result.duration_ms or 0),
-                    latency_ms=0,
-                    record_level=1,
-                    parent_usage_bid=parent_usage_bid,
-                    segment_index=index,
-                    segment_count=0,
-                    extra=usage_metadata,
-                )
-                audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")
-                payload = {
-                    "outline_bid": "",
-                    "generated_block_bid": "",
-                    "type": "audio_segment",
-                    "content": {
-                        "segment_index": index,
-                        "audio_data": audio_base64,
-                        "duration_ms": int(result.duration_ms or 0),
-                        "is_final": False,
-                    },
-                }
-                yield "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
-
-            record_tts_usage(
-                app,
-                usage_context,
-                usage_bid=parent_usage_bid,
-                provider=validated.provider,
-                model=validated.model or "",
-                is_stream=True,
-                input=len(text or ""),
-                output=total_output_chars or len(cleaned_text or ""),
-                total=total_output_chars or len(cleaned_text or ""),
-                word_count=total_word_count,
-                duration_ms=total_duration_ms,
-                latency_ms=0,
-                record_level=0,
-                parent_usage_bid="",
-                segment_index=0,
-                segment_count=len(segments),
-                extra=usage_metadata,
-            )
-            payload = {
-                "outline_bid": "",
-                "generated_block_bid": "",
-                "type": "audio_complete",
-                "content": {
-                    "audio_url": "",
-                    "audio_bid": audio_bid,
-                    "duration_ms": total_duration_ms,
-                },
-            }
-            yield "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
-        except GeneratorExit:
-            current_app.logger.info("client closed tts preview stream early")
-            # The close may have interrupted a DB write (usage metering runs
-            # on this stream); discard the connection so the request teardown
-            # does not roll back on a possibly desynced stream.
-            invalidate_session(source="tts preview stream close")
-            raise
-        except Exception as exc:
-            current_app.logger.exception("TTS preview stream failed")
-            cleanup_session_after(exc, source="tts preview stream error")
-            raise
+    event_stream = _stream_tts_preview_events(
+        app,
+        validated=validated,
+        text=text,
+        cleaned_text=cleaned_text,
+        segments=segments,
+        voice_settings=voice_settings,
+        safe_audio_settings=safe_audio_settings,
+        audio_bid=audio_bid,
+        usage_context=usage_context,
+        parent_usage_bid=parent_usage_bid,
+        usage_metadata=usage_metadata,
+    )
 
     return Response(
-        stream_with_context(event_stream()),
+        stream_with_context(event_stream),
         headers={"Cache-Control": "no-cache"},
         mimetype="text/event-stream",
     )
