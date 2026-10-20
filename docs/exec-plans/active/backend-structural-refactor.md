@@ -149,8 +149,14 @@ same result; the structural metrics below shrink.
   deduplication, `enable_plugins` (config and migrations still read at
   command time), the live follow-up route split (same rules, endpoints and
   order), and every test patch target on the touched modules.
-- [ ] Follow-up groups: `billing-notifications`, `engine-tts`, and the
-  unfinished items listed under Outcomes.
+- [x] 2026-10-20 CST: Owner decisions recorded. `credit_notifications.py`
+  and the engine/TTS code stay out of this PR (follow-up refactor later).
+  The `test_history_compaction` real-gateway failure, which also fails on
+  `origin/main`, is accepted for this PR and will be fixed separately.
+  PR #3148 is left for the team to review and merge.
+- [ ] Follow-up (separate work): refactor `billing-notifications` and
+  `engine-tts` with the same method; fix the `test_history_compaction`
+  failure from `main`; move this plan to `completed/` once #3148 merges.
 
 ## Surprises & Discoveries
 
