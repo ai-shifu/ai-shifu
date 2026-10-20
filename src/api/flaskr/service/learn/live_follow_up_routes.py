@@ -33,6 +33,7 @@ from flaskr.service.config import (
     get_config,
     has_config_override,
 )
+from flaskr.service.learn import live_follow_up_payloads
 from flaskr.service.learn.follow_up_context import (
     build_follow_up_conversation_context,
 )
@@ -122,6 +123,7 @@ from flaskr.service.learn.live_follow_up_session_store import (
 from flaskr.service.learn.live_follow_up_trace import LiveFollowUpTrace
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.learn.preview_permissions import require_shifu_preview_permission
+from flaskr.service.learn.split_module_patching import forward_attribute_writes
 from flaskr.service.learn.utils_v2 import get_follow_up_info_v2
 from flaskr.service.shifu.api import get_effective_ask_provider_config
 from flaskr.service.shifu.consts import ASK_MODE_DISABLE
@@ -1186,3 +1188,9 @@ def _register_live_direct_session_routes(app: Flask, path_prefix: str) -> None:
         if session.admission_revision:
             data["admission_revision"] = session.admission_revision
         return _make_live_response(data)
+
+
+# Request validation and response shaping live in live_follow_up_payloads;
+# forward patches applied here (tests and plugins patch names on
+# ``flaskr.service.learn.live_follow_up_routes``) so the moved code sees them.
+forward_attribute_writes(__name__, (live_follow_up_payloads,))

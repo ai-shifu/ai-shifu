@@ -52,7 +52,7 @@ from flaskr.service.shifu.models import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
 
     from flask import Flask
     from flaskr.service.learn.agent.debug_session import DebugSessionStore
@@ -233,40 +233,66 @@ def _require_access(
         raise PaidError
 
 
-def agent_lesson_events(
+def _open_lesson_trace(
+    *, user_bid: str, shifu_bid: str, outline_bid: str
+) -> tuple[object, object]:
+    """Open the Langfuse trace and root span the gateway requires."""
+    return create_trace_with_root_span(
+        client=get_langfuse_client(),
+        trace_payload={
+            "name": "agent_lesson",
+            "user_id": user_bid,
+            "metadata": {
+                "shifu_bid": shifu_bid,
+                "outline_item_bid": outline_bid,
+                "flow_engine": "2.0",
+            },
+        },
+        root_span_payload={"name": "agent_lesson_turn"},
+    )
+
+
+def _lesson_usage_context(
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    usage_scene: object,
+    learning_mode: str | None,
+    listen: bool,
+) -> UsageContext:
+    """Return the usage context shared by every model call in this lesson."""
+    # Auxiliary requests belong to the same lesson as teaching. Without the course identity,
+    # the shared settlement path cannot find the course owner or report its lesson costs.
+    return UsageContext(
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_bid,
+        usage_scene=usage_scene,
+        learning_mode=(
+            learning_mode
+            if learning_mode in {"read", "listen", "classroom"}
+            else "listen"
+            if listen
+            else "read"
+        ),
+    )
+
+
+def _plan_lesson_rewind(
     app: Flask,
     *,
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    user_input: str | dict | None = None,
-    listen: bool = False,
-    learning_mode: str | None = None,
-    preview_mode: bool = False,
-    heartbeat_interval: float = 0.5,
-    reload_generated_block_bid: str | None = None,
-    reload_element_bid: str | None = None,
-    script_override: str | None = None,
-    debug_store: DebugSessionStore | None = None,
-    preview_variables: dict[str, object] | None = None,
-    preview_generation: str | None = None,
-) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Teach a lesson selected for 2.0 until it waits or ends, yielding the events 1.0 produces.
-
-    One request, as many turns as it takes: a turn that ends with content still to come is
-    followed by the next in the same stream, the way a 1.0 request runs block after block until a
-    question or the end of the lesson. A lesson that will not end is stopped by the engine's own
-    limit on turns per lesson, which ends it as finished; a cap here would instead close the
-    stream mid-lesson, which the browser cannot tell from a finished request.
-
-    `listen` reaches the spoken track, not the engine: the engine's own listen mode stays off, and
-    what it teaches is spoken by the pipeline that speaks a 1.0 lesson. See `agent/listen.py`.
-
-    The reload identifiers take the lesson back to an earlier turn first, as a 1.0 reload does
-    (see `agent.rewind`). A lesson that cannot be taken back says so rather than going to 1.0.
-    """
+    user_input: str | dict | None,
+    preview_mode: bool,
+    anchor: str | None,
+    debug_store: DebugSessionStore | None,
+    preview_generation: str | None,
+) -> object | None:
+    """Plan taking the lesson back to the turn at `anchor`, if a reload asked for one."""
     rewind = None
-    anchor = reload_element_bid or reload_generated_block_bid
     if anchor:
         try:
             with app_context_scope(app):
@@ -296,49 +322,19 @@ def agent_lesson_events(
                     )
         except RewindUnavailableError:
             raise_error("server.learn.agentRewindUnavailable")
-    script, brief, settings, content_revision, use_learner_language = _resolve(
-        app,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-        preview_mode=preview_mode,
-        require_script=debug_store is None,
-    )
-    if debug_store is not None:
-        if not preview_mode or script_override is None:
-            msg = "editor debug requires a draft script and preview mode"
-            raise ValueError(msg)
-        script = script_override
+    return rewind
 
-    trace, span = create_trace_with_root_span(
-        client=get_langfuse_client(),
-        trace_payload={
-            "name": "agent_lesson",
-            "user_id": user_bid,
-            "metadata": {
-                "shifu_bid": shifu_bid,
-                "outline_item_bid": outline_bid,
-                "flow_engine": "2.0",
-            },
-        },
-        root_span_payload={"name": "agent_lesson_turn"},
-    )
-    usage_scene = BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
-    # Auxiliary requests belong to the same lesson as teaching. Without the course identity,
-    # the shared settlement path cannot find the course owner or report its lesson costs.
-    usage_context = UsageContext(
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_item_bid=outline_bid,
-        usage_scene=usage_scene,
-        learning_mode=(
-            learning_mode
-            if learning_mode in {"read", "listen", "classroom"}
-            else "listen"
-            if listen
-            else "read"
-        ),
-    )
+
+def _build_engine(
+    app: Flask,
+    *,
+    settings: LLMSettings,
+    user_bid: str,
+    span: object,
+    usage_context: UsageContext,
+    usage_scene: object,
+) -> tuple[Engine, Callable[[str, str], None]]:
+    """Build the lesson's engine and the hook that binds a turn's usage to its block."""
     models: list[GatewayModel] = []
 
     def gateway(**kwargs: object) -> GatewayModel:
@@ -406,6 +402,86 @@ def agent_lesson_events(
         # 17 "继续" buttons over 4 lessons of the general-education course (2026-09-24), 6 of
         # them in a lesson whose script has no question at all.
         pauses_from_notation=True,
+    )
+    return engine, bind_turn_usage
+
+
+def agent_lesson_events(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    user_input: str | dict | None = None,
+    listen: bool = False,
+    learning_mode: str | None = None,
+    preview_mode: bool = False,
+    heartbeat_interval: float = 0.5,
+    reload_generated_block_bid: str | None = None,
+    reload_element_bid: str | None = None,
+    script_override: str | None = None,
+    debug_store: DebugSessionStore | None = None,
+    preview_variables: dict[str, object] | None = None,
+    preview_generation: str | None = None,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Teach a lesson selected for 2.0 until it waits or ends, yielding the events 1.0 produces.
+
+    One request, as many turns as it takes: a turn that ends with content still to come is
+    followed by the next in the same stream, the way a 1.0 request runs block after block until a
+    question or the end of the lesson. A lesson that will not end is stopped by the engine's own
+    limit on turns per lesson, which ends it as finished; a cap here would instead close the
+    stream mid-lesson, which the browser cannot tell from a finished request.
+
+    `listen` reaches the spoken track, not the engine: the engine's own listen mode stays off, and
+    what it teaches is spoken by the pipeline that speaks a 1.0 lesson. See `agent/listen.py`.
+
+    The reload identifiers take the lesson back to an earlier turn first, as a 1.0 reload does
+    (see `agent.rewind`). A lesson that cannot be taken back says so rather than going to 1.0.
+    """
+    rewind = _plan_lesson_rewind(
+        app,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        user_input=user_input,
+        preview_mode=preview_mode,
+        anchor=reload_element_bid or reload_generated_block_bid,
+        debug_store=debug_store,
+        preview_generation=preview_generation,
+    )
+    script, brief, settings, content_revision, use_learner_language = _resolve(
+        app,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        preview_mode=preview_mode,
+        require_script=debug_store is None,
+    )
+    if debug_store is not None:
+        if not preview_mode or script_override is None:
+            msg = "editor debug requires a draft script and preview mode"
+            raise ValueError(msg)
+        script = script_override
+
+    trace, span = _open_lesson_trace(
+        user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+    )
+    usage_scene = BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+    usage_context = _lesson_usage_context(
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        usage_scene=usage_scene,
+        learning_mode=learning_mode,
+        listen=listen,
+    )
+    engine, bind_turn_usage = _build_engine(
+        app,
+        settings=settings,
+        user_bid=user_bid,
+        span=span,
+        usage_context=usage_context,
+        usage_scene=usage_scene,
     )
     end_reason = "error"
     try:
