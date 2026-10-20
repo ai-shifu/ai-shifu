@@ -154,9 +154,17 @@ same result; the structural metrics below shrink.
   The `test_history_compaction` real-gateway failure, which also fails on
   `origin/main`, is accepted for this PR and will be fixed separately.
   PR #3148 is left for the team to review and merge.
+- [x] 2026-10-20 CST: Owner asked to fix the `test_history_compaction`
+  failure inside #3148 so its CI turns green. Cause: the test capped the
+  whole compacted request at 64 KB, which also counted the 25 KB system
+  prompt and 23 KB tool schemas; #3147 lengthened `html_display.md` and the
+  request reached 67,622 bytes while compacted history stayed about 19 KB
+  (real budget `INPUT_BUDGET_BYTES` is 262,144). Commit `5d5621dda` (test
+  only) bounds the full request by the real budget and the non-system
+  history by 32 KB; the exact-limit and one-byte-over checks are unchanged.
 - [ ] Follow-up (separate work): refactor `billing-notifications` and
-  `engine-tts` with the same method; fix the `test_history_compaction`
-  failure from `main`; move this plan to `completed/` once #3148 merges.
+  `engine-tts` with the same method; move this plan to `completed/` once
+  #3148 merges.
 
 ## Surprises & Discoveries
 
