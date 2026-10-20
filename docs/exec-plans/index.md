@@ -136,6 +136,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Keep current memory distinct from old follow-up answers](./completed/mdf2-natural-memory-follow-up.md)
 - [Keep natural-language text questions answerable](./completed/mdf2-natural-text-controls.md)
 - [Attribute synthetic quality evaluation usage to its selected course](./completed/mdf2-quality-usage-attribution.md)
+- [Responsive canvases for newly generated MarkdownFlow 2.0 visuals](./completed/mdf2-responsive-canvas.md)
 - [Semantic summaries for older MarkdownFlow teaching](./completed/mdf2-teaching-semantic-summary.md)
 - [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
 - [Centralize model option display normalization](./completed/model-option-display-normalization.md)
