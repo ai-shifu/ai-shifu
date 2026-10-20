@@ -41,6 +41,7 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
 )
 from flaskr.service.learn.listen_elements import get_listen_element_record
+from flaskr.service.learn.preview_language import resolve_preview_language
 from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,
     resolve_preview_request_user,
@@ -385,15 +386,17 @@ def _build_preview_message_iter_factory(
     debug_run_bid: object,
 ) -> Callable[[], Iterator[RunElementSSEMessageDTO]]:
     """Pick the 2.0 debug-session preview or the legacy block preview stream."""
+    # Capture the request fallback before streaming clears request-local i18n.
+    # Both runtimes receive the same authoritative editor language.
+    variables = dict(preview_request.variables or {})
+    preview_language = resolve_preview_language(variables)
+    preview_request.variables = {
+        **variables,
+        "sys_user_language": preview_language,
+        "language": preview_language,
+    }
     if uses_agent_engine(shifu_bid) and debug_run_bid:
         from flaskr.service.learn.agent.debug_session import stream_debug_preview
-
-        # The streaming iterator runs after Flask clears request-local i18n.
-        # Explicit editor variables still select their own preview language.
-        variables = dict(preview_request.variables or {})
-        if not (variables.get("language") or variables.get("sys_user_language")):
-            variables["language"] = get_current_language()
-        preview_request.variables = variables
 
         def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
             return stream_debug_preview(
