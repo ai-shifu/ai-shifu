@@ -894,6 +894,111 @@ def _prepare_ask_provider_stream(
     )
 
 
+def _stream_ask_provider_answer(
+    app: Flask,
+    *,
+    memory_patch: FollowUpMemoryPatch | None,
+    **provider_kwargs: object,
+) -> Generator[RunMarkdownFlowDTO, None, str]:
+    """Stream the routed provider answer and return its complete text.
+
+    ``provider_kwargs`` are forwarded unchanged to
+    ``_prepare_ask_provider_stream``.
+    """
+    (
+        provider_stream,
+        ask_provider,
+        ask_provider_mode,
+        ask_provider_error_cls,
+        ask_provider_timeout_error_cls,
+    ) = _prepare_ask_provider_stream(
+        app,
+        memory_patch=memory_patch,
+        **provider_kwargs,
+    )
+    answer = _AskAnswer()  # Store complete response text
+    yield from _stream_routed_answer(
+        provider_stream,
+        answer,
+        ask_provider=ask_provider,
+        ask_provider_mode=ask_provider_mode,
+        ask_provider_error_cls=ask_provider_error_cls,
+        ask_provider_timeout_error_cls=ask_provider_timeout_error_cls,
+        memory_patch=memory_patch,
+    )
+    return answer.text
+
+
+def _open_ask_span_and_run_guardrail(
+    app: Flask,
+    *,
+    trace: LangfuseTraceHandle,
+    parent_observation: object | None,
+    user_info: UserAggregate,
+    ask_block: LearnGeneratedBlock,
+    escaped_input: str,
+    outline_item_info: ShifuOutlineItemDto,
+    last_position: int,
+    follow_up_model: object,
+    follow_up_info: object,
+    attend_id: str,
+    usage_context: UsageContext,
+    chapter_title: str,
+    ask_scene: str,
+) -> tuple[Any, Any]:
+    """Open the follow-up trace span and run the guardrail check inside it."""
+    # Create trace span
+    span_parent = parent_observation or trace
+    span = span_parent.span(
+        name=build_langfuse_span_name(chapter_title, ask_scene, "user_follow_up"),
+        input=escaped_input,
+    )
+
+    # Run guardrail check
+    guardrail_chunks = _run_guardrail(
+        app,
+        user_info,
+        ask_block,
+        escaped_input,
+        span,
+        outline_item_info,
+        last_position,
+        follow_up_model,
+        follow_up_info,
+        attend_id,
+        usage_context,
+        chapter_title,
+        ask_scene,
+    )
+    return span, guardrail_chunks
+
+
+def _complete_ask_answer(
+    *,
+    context: object,
+    trace: LangfuseTraceHandle,
+    parent_observation: object | None,
+    span: object,
+    trace_args: dict,
+    answer_block: LearnGeneratedBlock,
+    response_text: str,
+) -> None:
+    """Backfill the answer block, close the trace span, and flush."""
+    # Backfill answer block content
+    answer_block.generated_content = response_text
+
+    # End trace span
+    _finalize_ask_trace(
+        context=context,
+        trace=trace,
+        parent_observation=parent_observation,
+        span=span,
+        trace_args=trace_args,
+        response_text=response_text,
+    )
+    db.session.flush()
+
+
 @extensible_generic
 def handle_input_ask(
     app: Flask,
@@ -969,28 +1074,21 @@ def handle_input_ask(
         anchor_element_bid=anchor_element_bid,
     )
 
-    # Create trace span
-    span_parent = parent_observation or trace
-    span = span_parent.span(
-        name=build_langfuse_span_name(chapter_title, ask_scene, "user_follow_up"),
-        input=escaped_input,
-    )
-
-    # Run guardrail check
-    guardrail_chunks = _run_guardrail(
+    span, guardrail_chunks = _open_ask_span_and_run_guardrail(
         app,
-        user_info,
-        ask_block,
-        escaped_input,
-        span,
-        outline_item_info,
-        last_position,
-        follow_up_model,
-        follow_up_info,
-        attend_id,
-        usage_context,
-        chapter_title,
-        ask_scene,
+        trace=trace,
+        parent_observation=parent_observation,
+        user_info=user_info,
+        ask_block=ask_block,
+        escaped_input=escaped_input,
+        outline_item_info=outline_item_info,
+        last_position=last_position,
+        follow_up_model=follow_up_model,
+        follow_up_info=follow_up_info,
+        attend_id=attend_id,
+        usage_context=usage_context,
+        chapter_title=chapter_title,
+        ask_scene=ask_scene,
     )
 
     if guardrail_chunks:
@@ -1007,13 +1105,7 @@ def handle_input_ask(
         )
         return
 
-    (
-        provider_stream,
-        ask_provider,
-        ask_provider_mode,
-        ask_provider_error_cls,
-        ask_provider_timeout_error_cls,
-    ) = _prepare_ask_provider_stream(
+    response_text = yield from _stream_ask_provider_answer(
         app,
         context=context,
         user_info=user_info,
@@ -1033,31 +1125,15 @@ def handle_input_ask(
         runtime_profiles=runtime_profiles,
         is_preview=is_preview,
     )
-    answer = _AskAnswer()  # Store complete response text
-    yield from _stream_routed_answer(
-        provider_stream,
-        answer,
-        ask_provider=ask_provider,
-        ask_provider_mode=ask_provider_mode,
-        ask_provider_error_cls=ask_provider_error_cls,
-        ask_provider_timeout_error_cls=ask_provider_timeout_error_cls,
-        memory_patch=memory_patch,
-    )
-    response_text = answer.text
-
-    # Backfill answer block content
-    answer_block.generated_content = response_text
-
-    # End trace span
-    _finalize_ask_trace(
+    _complete_ask_answer(
         context=context,
         trace=trace,
         parent_observation=parent_observation,
         span=span,
         trace_args=trace_args,
+        answer_block=answer_block,
         response_text=response_text,
     )
-    db.session.flush()
 
     # Return end marker
     yield RunMarkdownFlowDTO(
