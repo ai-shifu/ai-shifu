@@ -123,6 +123,23 @@ same result; the structural metrics below shrink.
   `test_history_compaction.py::test_real_gateway_recovers_from_old_recall_growth_and_still_enforces_total_budget`,
   also fails on `origin/main`. Owner approved; pushed and opened
   https://github.com/ai-shifu/ai-shifu/pull/3148.
+- [x] 2026-10-20 CST: Round 3 (`r3-learn`, `r3-misc`) split the 17
+  remaining in-scope functions of 151-189 lines into same-module helpers
+  (13 commits, no new modules, no test edits). Generator changes in
+  `handle_input_ask`, `stream_answer`, `run_agent_lesson`,
+  `FollowUpMemoryRun._events` and `run_script` keep every try/except/finally
+  around the same yields; the coordinator re-read the billing expiry and
+  referral grant extractions and the backfill deduplication. Gates after
+  merge: interface snapshot OK; full suite 12,355 passed with only the
+  known failures (Langfuse plus the `test_history_compaction` test that
+  also fails on `main`); engine tests 1,043 passed; boundary, uow and
+  lefthook checks pass; AST counts of try, except, finally, raise and with
+  unchanged. Of the 21 functions still over 150 lines, 15 are in the
+  out-of-scope notification, engine and TTS code, and 6 are kept on
+  purpose: three registrars long only because of verbatim Swagger
+  docstrings, the declarative `get_ask_provider_schema_registry`,
+  `register_learn_routes` (contract tests inspect it), and `chat_llm`
+  (stream state shared across yields).
 - [ ] Follow-up groups: `billing-notifications`, `engine-tts`, and the
   unfinished items listed under Outcomes.
 
@@ -162,12 +179,12 @@ same result; the structural metrics below shrink.
 
 ## Outcomes & Retrospective
 
-| Metric (`flaskr/`, excluding migrations) | Baseline | Round 1 | Round 2 (partial) | Round 2 (final) |
-| --- | --- | --- | --- | --- |
-| Python lines | 193,386 in 491 files | 198,057 in 552 files | 199,788 in 559 files | 202,147 in 572 files |
-| Files over 1,500 lines | 22 | 13 | 12 | 6 |
-| Functions over 150 lines | 115 | 88 | 68 | 38 |
-| Functions over 300 lines | 24 | 17 | 11 | 8 |
+| Metric (`flaskr/`, excluding migrations) | Baseline | Round 1 | Round 2 (partial) | Round 2 (final) | Round 3 |
+| --- | --- | --- | --- | --- | --- |
+| Python lines | 193,386 in 491 files | 198,057 in 552 files | 199,788 in 559 files | 202,147 in 572 files | 202,672 in 573 files |
+| Files over 1,500 lines | 22 | 13 | 12 | 6 | 6 |
+| Functions over 150 lines | 115 | 88 | 68 | 38 | 21 |
+| Functions over 300 lines | 24 | 17 | 11 | 8 | 8 |
 
 The rest of this table and the unfinished list below describe round 1;
 round 2 additionally split the billing CLI, `save_shifu_draft_info`,
