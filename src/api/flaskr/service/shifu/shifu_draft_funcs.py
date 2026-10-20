@@ -544,14 +544,7 @@ def save_shifu_draft_info(
             default_listen_mode_enabled=default_listen_mode_enabled,
         )
 
-        # Validate input lengths (only when provided — PATCH callers may omit
-        # name/description entirely, which must mean "leave unchanged").
-        if shifu_name is not None and len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
-            raise_error_with_args(
-                "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
-            )
-        if shifu_description is not None and len(shifu_description) > 500:
-            raise_error("server.shifu.shifuDescriptionTooLong")
+        _validate_save_shifu_text_lengths(shifu_name, shifu_description)
 
         ask = _resolve_save_ask_settings(
             shifu_draft,
@@ -591,18 +584,9 @@ def save_shifu_draft_info(
                     )
                 )
                 shifu_draft = new_shifu_draft
-        has_edit_permission = shifu_permission_verification(
-            app, user_id, shifu_id, "edit"
+        readonly, has_view_permission, has_publish_permission, archived_override = (
+            _resolve_saved_draft_access(app, user_id, shifu_id)
         )
-        has_view_permission = shifu_permission_verification(
-            app, user_id, shifu_id, "view"
-        )
-        has_publish_permission = shifu_permission_verification(
-            app, user_id, shifu_id, "publish"
-        )
-        readonly = not (has_edit_permission or has_publish_permission)
-        archive_map = _get_user_archive_map(app, user_id, [shifu_id])
-        archived_override = archive_map.get(shifu_id)
         total_elapsed_ms = round((perf_counter() - total_started_at) * 1000, 2)
         app.logger.info(
             "save_shifu_draft_info finished | shifu_id=%s user_id=%s risk_check_ms=%s persist_ms=%s total_ms=%s changed=%s",
@@ -621,6 +605,34 @@ def save_shifu_draft_info(
             can_manage_archive=has_view_permission,
             can_publish=has_publish_permission,
         )
+
+
+def _validate_save_shifu_text_lengths(
+    shifu_name: str | None, shifu_description: str | None
+) -> None:
+    # Validate input lengths (only when provided — PATCH callers may omit
+    # name/description entirely, which must mean "leave unchanged").
+    if shifu_name is not None and len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
+        raise_error_with_args(
+            "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
+        )
+    if shifu_description is not None and len(shifu_description) > 500:
+        raise_error("server.shifu.shifuDescriptionTooLong")
+
+
+def _resolve_saved_draft_access(
+    app: object, user_id: str, shifu_id: str
+) -> tuple[bool, bool, bool, object]:
+    """Return readonly, view, publish permission flags and the archive override."""
+    has_edit_permission = shifu_permission_verification(app, user_id, shifu_id, "edit")
+    has_view_permission = shifu_permission_verification(app, user_id, shifu_id, "view")
+    has_publish_permission = shifu_permission_verification(
+        app, user_id, shifu_id, "publish"
+    )
+    readonly = not (has_edit_permission or has_publish_permission)
+    archive_map = _get_user_archive_map(app, user_id, [shifu_id])
+    archived_override = archive_map.get(shifu_id)
+    return readonly, has_view_permission, has_publish_permission, archived_override
 
 
 def _merge_save_tts_settings(

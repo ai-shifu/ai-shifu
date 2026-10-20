@@ -660,15 +660,8 @@ def get_operator_course_follow_ups(
         if source_status:
             paged_rows = filtered_rows[start : start + safe_page_size]
         else:
-            paged_rows = (
-                db.session.query(filtered_follow_ups)
-                .order_by(
-                    filtered_follow_ups.c.created_at.desc(),
-                    filtered_follow_ups.c.id.desc(),
-                )
-                .offset(start)
-                .limit(safe_page_size)
-                .all()
+            paged_rows = _load_follow_up_page_rows(
+                filtered_follow_ups, start=start, page_size=safe_page_size
             )
         user_map = _load_user_map(
             sorted(
@@ -699,15 +692,10 @@ def get_operator_course_follow_ups(
             )
             for row in paged_rows
         ]
-        if not source_status and include_summary:
-            summary = AdminOperationCourseFollowUpSummaryDTO(
-                follow_up_count=total,
-                user_count=int(getattr(summary_row, "user_count", 0) or 0),
-                lesson_count=int(getattr(summary_row, "lesson_count", 0) or 0),
-                latest_follow_up_at=getattr(summary_row, "latest_follow_up_at", None),
+        if not source_status:
+            summary = _build_unfiltered_follow_up_summary(
+                summary_row, total, include_summary=include_summary
             )
-        elif not source_status:
-            summary = AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
         return AdminOperationCourseFollowUpListDTO(
             summary=summary,
             items=items,
@@ -716,6 +704,34 @@ def get_operator_course_follow_ups(
             total=total,
             page_count=math.ceil(total / safe_page_size) if safe_page_size else 0,
         )
+
+
+def _load_follow_up_page_rows(
+    filtered_follow_ups: object, *, start: int, page_size: int
+) -> list:
+    return (
+        db.session.query(filtered_follow_ups)
+        .order_by(
+            filtered_follow_ups.c.created_at.desc(),
+            filtered_follow_ups.c.id.desc(),
+        )
+        .offset(start)
+        .limit(page_size)
+        .all()
+    )
+
+
+def _build_unfiltered_follow_up_summary(
+    summary_row: object | None, total: int, *, include_summary: bool
+) -> AdminOperationCourseFollowUpSummaryDTO:
+    if include_summary:
+        return AdminOperationCourseFollowUpSummaryDTO(
+            follow_up_count=total,
+            user_count=int(getattr(summary_row, "user_count", 0) or 0),
+            lesson_count=int(getattr(summary_row, "lesson_count", 0) or 0),
+            latest_follow_up_at=getattr(summary_row, "latest_follow_up_at", None),
+        )
+    return AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
 
 
 def _apply_follow_up_list_filters(
