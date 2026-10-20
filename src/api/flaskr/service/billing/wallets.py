@@ -813,19 +813,9 @@ def _expire_credit_wallet_buckets_in_session(
     """Expire eligible buckets inside the current transaction without committing."""
     normalized_creator_bid = str(creator_bid or "").strip()
     cutoff = expire_before or now_utc()
-    query = CreditWalletBucket.query.filter(
-        CreditWalletBucket.deleted == 0,
-        CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
-        CreditWalletBucket.effective_to.isnot(None),
-        CreditWalletBucket.effective_to <= cutoff,
+    buckets = _load_expirable_credit_wallet_buckets(
+        cutoff=cutoff, creator_bid=normalized_creator_bid
     )
-    if normalized_creator_bid:
-        query = query.filter(CreditWalletBucket.creator_bid == normalized_creator_bid)
-    buckets = query.order_by(
-        CreditWalletBucket.effective_to.asc(),
-        CreditWalletBucket.created_at.asc(),
-        CreditWalletBucket.id.asc(),
-    ).all()
     if not buckets:
         return WalletExpirationResult(
             status="noop",
@@ -893,26 +883,8 @@ def _expire_credit_wallet_buckets_in_session(
                     wallet,
                     snapshot_at=cutoff - timedelta(microseconds=1),
                 )
-                ledger_entry = CreditLedgerEntry(
-                    ledger_bid=generate_id(app),
-                    creator_bid=bucket.creator_bid,
-                    wallet_bid=wallet.wallet_bid,
-                    wallet_bucket_bid=bucket.wallet_bucket_bid,
-                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-                    source_type=bucket.source_type,
-                    source_bid=bucket.source_bid,
-                    idempotency_key=_build_expire_ledger_idempotency_key(
-                        bucket.wallet_bucket_bid,
-                        effective_to=bucket.effective_to,
-                    ),
-                    amount=-available,
-                    balance_after=_quantize_credit_amount(wallet.available_credits),
-                    expires_at=bucket.effective_to,
-                    consumable_from=bucket.effective_from,
-                    metadata_json={
-                        "expired_bucket_bid": bucket.wallet_bucket_bid,
-                        "expired_at": cutoff.isoformat(),
-                    },
+                ledger_entry = _build_bucket_expire_ledger_entry(
+                    app, bucket, wallet, available=available, cutoff=cutoff
                 )
                 persist_credit_wallet_snapshot(
                     wallet,
@@ -954,6 +926,57 @@ def _expire_credit_wallet_buckets_in_session(
         creator_bid=normalized_creator_bid or None,
         bucket_count=expired_count,
         expired_credits=_credit_decimal_to_number(expired_total),
+    )
+
+
+def _load_expirable_credit_wallet_buckets(
+    *, cutoff: datetime, creator_bid: str
+) -> list[CreditWalletBucket]:
+    """Load active buckets whose effective window ended at or before cutoff."""
+    query = CreditWalletBucket.query.filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+        CreditWalletBucket.effective_to.isnot(None),
+        CreditWalletBucket.effective_to <= cutoff,
+    )
+    if creator_bid:
+        query = query.filter(CreditWalletBucket.creator_bid == creator_bid)
+    return query.order_by(
+        CreditWalletBucket.effective_to.asc(),
+        CreditWalletBucket.created_at.asc(),
+        CreditWalletBucket.id.asc(),
+    ).all()
+
+
+def _build_bucket_expire_ledger_entry(
+    app: Flask,
+    bucket: CreditWalletBucket,
+    wallet: CreditWallet,
+    *,
+    available: Decimal,
+    cutoff: datetime,
+) -> CreditLedgerEntry:
+    """Build (without staging) the cycle-scoped expire ledger row for a bucket."""
+    return CreditLedgerEntry(
+        ledger_bid=generate_id(app),
+        creator_bid=bucket.creator_bid,
+        wallet_bid=wallet.wallet_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+        source_type=bucket.source_type,
+        source_bid=bucket.source_bid,
+        idempotency_key=_build_expire_ledger_idempotency_key(
+            bucket.wallet_bucket_bid,
+            effective_to=bucket.effective_to,
+        ),
+        amount=-available,
+        balance_after=_quantize_credit_amount(wallet.available_credits),
+        expires_at=bucket.effective_to,
+        consumable_from=bucket.effective_from,
+        metadata_json={
+            "expired_bucket_bid": bucket.wallet_bucket_bid,
+            "expired_at": cutoff.isoformat(),
+        },
     )
 
 

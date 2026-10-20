@@ -297,59 +297,23 @@ def _grant_referral_reward_credits_once(
 
         base_metadata = _base_referral_reward_metadata()
         if bucket is None:
-            bucket = CreditWalletBucket(
-                wallet_bucket_bid=generate_id(app),
-                wallet_bid=wallet.wallet_bid,
-                creator_bid=normalized_user_bid,
-                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
-                source_type=CREDIT_SOURCE_TYPE_MANUAL,
-                source_bid=REFERRAL_REWARD_PROGRAM,
-                priority=resolve_credit_bucket_priority(
-                    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
-                ),
-                original_credits=granted_amount,
-                available_credits=granted_amount,
-                reserved_credits=Decimal(0),
-                consumed_credits=Decimal(0),
-                expired_credits=Decimal(0),
-                effective_from=granted_at,
-                effective_to=new_effective_to,
-                status=CREDIT_BUCKET_STATUS_ACTIVE,
-                metadata_json=base_metadata,
-            )
-            db.session.add(bucket)
-            db.session.flush()
-        else:
-            bucket.original_credits = _quantize_credit_amount(
-                _to_decimal(bucket.original_credits) + granted_amount
-            )
-            bucket.available_credits = _quantize_credit_amount(
-                _to_decimal(bucket.available_credits) + granted_amount
-            )
-            bucket.effective_to = new_effective_to
-            bucket.metadata_json = {
-                **(
-                    bucket.metadata_json
-                    if isinstance(bucket.metadata_json, dict)
-                    else {}
-                ),
-                **base_metadata,
-            }
-            bucket.updated_at = granted_at
-            sync_credit_bucket_status(bucket)
-            suppress_pending_expiring_notifications_for_bucket(
+            bucket = _create_referral_reward_bucket(
                 app,
-                wallet_bucket_bid=bucket.wallet_bucket_bid,
-                effective_to=new_effective_to,
+                wallet,
+                creator_bid=normalized_user_bid,
+                granted_amount=granted_amount,
+                granted_at=granted_at,
+                new_effective_to=new_effective_to,
+                base_metadata=base_metadata,
             )
-            CreditLedgerEntry.query.filter(
-                CreditLedgerEntry.deleted == 0,
-                CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
-                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-                CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL,
-            ).update(
-                {"expires_at": new_effective_to},
-                synchronize_session=False,
+        else:
+            _extend_referral_reward_bucket(
+                app,
+                bucket,
+                granted_amount=granted_amount,
+                granted_at=granted_at,
+                new_effective_to=new_effective_to,
+                base_metadata=base_metadata,
             )
 
         refresh_credit_wallet_snapshot(wallet, snapshot_at=granted_at)
@@ -412,3 +376,76 @@ def _grant_referral_reward_credits_once(
             note=normalized_note,
             metadata_json=ledger_metadata,
         )
+
+
+def _create_referral_reward_bucket(
+    app: Flask,
+    wallet: object,
+    *,
+    creator_bid: str,
+    granted_amount: Decimal,
+    granted_at: datetime,
+    new_effective_to: datetime,
+    base_metadata: dict[str, str],
+) -> CreditWalletBucket:
+    """Stage and flush a new referral reward bucket for the wallet."""
+    bucket = CreditWalletBucket(
+        wallet_bucket_bid=generate_id(app),
+        wallet_bid=wallet.wallet_bid,
+        creator_bid=creator_bid,
+        bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+        source_type=CREDIT_SOURCE_TYPE_MANUAL,
+        source_bid=REFERRAL_REWARD_PROGRAM,
+        priority=resolve_credit_bucket_priority(CREDIT_BUCKET_CATEGORY_SUBSCRIPTION),
+        original_credits=granted_amount,
+        available_credits=granted_amount,
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
+        effective_from=granted_at,
+        effective_to=new_effective_to,
+        status=CREDIT_BUCKET_STATUS_ACTIVE,
+        metadata_json=base_metadata,
+    )
+    db.session.add(bucket)
+    db.session.flush()
+    return bucket
+
+
+def _extend_referral_reward_bucket(
+    app: Flask,
+    bucket: CreditWalletBucket,
+    *,
+    granted_amount: Decimal,
+    granted_at: datetime,
+    new_effective_to: datetime,
+    base_metadata: dict[str, str],
+) -> None:
+    """Add credits to the active referral bucket and push its expiry out."""
+    bucket.original_credits = _quantize_credit_amount(
+        _to_decimal(bucket.original_credits) + granted_amount
+    )
+    bucket.available_credits = _quantize_credit_amount(
+        _to_decimal(bucket.available_credits) + granted_amount
+    )
+    bucket.effective_to = new_effective_to
+    bucket.metadata_json = {
+        **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
+        **base_metadata,
+    }
+    bucket.updated_at = granted_at
+    sync_credit_bucket_status(bucket)
+    suppress_pending_expiring_notifications_for_bucket(
+        app,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        effective_to=new_effective_to,
+    )
+    CreditLedgerEntry.query.filter(
+        CreditLedgerEntry.deleted == 0,
+        CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+        CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL,
+    ).update(
+        {"expires_at": new_effective_to},
+        synchronize_session=False,
+    )
