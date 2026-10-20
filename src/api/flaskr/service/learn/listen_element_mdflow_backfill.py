@@ -448,6 +448,45 @@ def _resolve_follow_up_answer_block(
     return None, 1
 
 
+def _claim_group_rows(
+    progress_record: LearnProgressRecord,
+    group_bid: str,
+    *,
+    stats: MdflowElementBackfillStats,
+    overwrite: bool,
+) -> bool:
+    """Return False when existing rows must be kept; retire them otherwise."""
+    existing_rows = _count_active_group_rows(
+        progress_record.progress_record_bid,
+        group_bid,
+    )
+    if existing_rows and not overwrite:
+        stats.skipped_existing_groups += 1
+        return False
+    if existing_rows:
+        stats.overwritten_rows += _retire_active_group_rows(
+            progress_record.progress_record_bid,
+            group_bid,
+        )
+    return True
+
+
+def _record_emitted_group_rows(
+    stats: MdflowElementBackfillStats,
+    group_bid: str,
+) -> None:
+    """Prune this run's inactive rows for the group and count its active ones."""
+    _prune_current_run_inactive_rows(
+        run_session_bid=stats.run_session_bid,
+        generated_block_bid=group_bid,
+    )
+    stats.processed_block_groups += 1
+    stats.inserted_element_rows += _count_current_run_active_rows(
+        run_session_bid=stats.run_session_bid,
+        generated_block_bid=group_bid,
+    )
+
+
 def _process_progress_record(
     app: Flask,
     progress_record: LearnProgressRecord,
@@ -495,34 +534,18 @@ def _process_progress_record(
                 stats.skipped_anchorless_follow_ups += 1
                 index += consumed
                 continue
-            existing_rows = _count_active_group_rows(
-                progress_record.progress_record_bid,
-                answer_bid,
-            )
-            if existing_rows and not overwrite:
-                stats.skipped_existing_groups += 1
+            if not _claim_group_rows(
+                progress_record, answer_bid, stats=stats, overwrite=overwrite
+            ):
                 index += consumed
                 continue
-            if existing_rows:
-                stats.overwritten_rows += _retire_active_group_rows(
-                    progress_record.progress_record_bid,
-                    answer_bid,
-                )
             _emit_follow_up_group(
                 adapter,
                 ask_block=block,
                 answer_block=answer_block,
                 anchor_element_bid=latest_anchor_bid,
             )
-            _prune_current_run_inactive_rows(
-                run_session_bid=stats.run_session_bid,
-                generated_block_bid=answer_bid,
-            )
-            stats.processed_block_groups += 1
-            stats.inserted_element_rows += _count_current_run_active_rows(
-                run_session_bid=stats.run_session_bid,
-                generated_block_bid=answer_bid,
-            )
+            _record_emitted_group_rows(stats, answer_bid)
             _reset_adapter_runtime(adapter, answer_bid)
             index += consumed
             continue
@@ -541,29 +564,13 @@ def _process_progress_record(
                 stats.skipped_empty_blocks += 1
                 index += 1
                 continue
-            existing_rows = _count_active_group_rows(
-                progress_record.progress_record_bid,
-                block_bid,
-            )
-            if existing_rows and not overwrite:
-                stats.skipped_existing_groups += 1
+            if not _claim_group_rows(
+                progress_record, block_bid, stats=stats, overwrite=overwrite
+            ):
                 index += 1
                 continue
-            if existing_rows:
-                stats.overwritten_rows += _retire_active_group_rows(
-                    progress_record.progress_record_bid,
-                    block_bid,
-                )
             final_messages = _emit_content_group(adapter, block)
-            _prune_current_run_inactive_rows(
-                run_session_bid=stats.run_session_bid,
-                generated_block_bid=block_bid,
-            )
-            stats.processed_block_groups += 1
-            stats.inserted_element_rows += _count_current_run_active_rows(
-                run_session_bid=stats.run_session_bid,
-                generated_block_bid=block_bid,
-            )
+            _record_emitted_group_rows(stats, block_bid)
             latest_anchor = _latest_anchor_bid_from_messages(final_messages)
             if latest_anchor:
                 latest_anchor_bid = latest_anchor
@@ -577,29 +584,13 @@ def _process_progress_record(
                 stats.skipped_empty_blocks += 1
                 index += 1
                 continue
-            existing_rows = _count_active_group_rows(
-                progress_record.progress_record_bid,
-                block_bid,
-            )
-            if existing_rows and not overwrite:
-                stats.skipped_existing_groups += 1
+            if not _claim_group_rows(
+                progress_record, block_bid, stats=stats, overwrite=overwrite
+            ):
                 index += 1
                 continue
-            if existing_rows:
-                stats.overwritten_rows += _retire_active_group_rows(
-                    progress_record.progress_record_bid,
-                    block_bid,
-                )
             _emit_interaction_group(adapter, block)
-            _prune_current_run_inactive_rows(
-                run_session_bid=stats.run_session_bid,
-                generated_block_bid=block_bid,
-            )
-            stats.processed_block_groups += 1
-            stats.inserted_element_rows += _count_current_run_active_rows(
-                run_session_bid=stats.run_session_bid,
-                generated_block_bid=block_bid,
-            )
+            _record_emitted_group_rows(stats, block_bid)
             _reset_adapter_runtime(adapter, block_bid)
             index += 1
             continue
