@@ -17,7 +17,7 @@ from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from flask import Flask, current_app, has_app_context
-from flaskr.service.common.contact_identifiers import (
+from flaskr.service.common.contact_identifiers import (  # noqa: F401 - re-exported for import compatibility
     CONTACT_TYPE_EMAIL,
     normalize_contact_identifier,
     resolve_contact_type,
@@ -28,8 +28,18 @@ from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
-from PIL import Image, ImageOps, UnidentifiedImageError
 
+from .customization_drafts import (  # noqa: F401 - re-exported for import compatibility
+    _admin_draft_contact_digest,
+    _admin_draft_owner_bid,
+    _admin_draft_storage_identity,
+    _empty_admin_creator_customization_draft,
+    _normalize_admin_creator_customization_draft,
+)
+from .customization_images import (
+    _normalize_logo_target,
+    _read_validated_brand_image,
+)
 from .domains import build_creator_domain_bindings
 from .entitlements import (
     grant_creator_manual_entitlement,
@@ -1163,186 +1173,6 @@ def _entitlement_home_url(entitlement_state: object) -> str:
     return str(feature_values.get("home_url") or branding_payload.get("home_url") or "")
 
 
-def _detect_logo_content_type(content: bytes) -> str:
-    if content.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-    if content.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-    if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
-        return "image/webp"
-    if content.startswith(b"\x00\x00\x01\x00"):
-        return "image/x-icon"
-    return ""
-
-
-def _build_favicon_bytes(content: bytes) -> bytes:
-    """Convert an uploaded raster logo into a multi-size ICO favicon."""
-    try:
-        with Image.open(BytesIO(content)) as image:
-            if image.width * image.height > _LOGO_MAX_PIXELS:
-                raise_param_error("file")
-            normalized_image = ImageOps.exif_transpose(image).convert("RGBA")
-            side = max(normalized_image.size)
-            canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-            canvas.paste(
-                normalized_image,
-                (
-                    (side - normalized_image.width) // 2,
-                    (side - normalized_image.height) // 2,
-                ),
-            )
-            canvas = canvas.resize(
-                (_FAVICON_CANVAS_SIZE, _FAVICON_CANVAS_SIZE),
-                Image.LANCZOS,
-            )
-            output = BytesIO()
-            canvas.save(output, format="ICO", sizes=_FAVICON_SIZES)
-            return output.getvalue()
-    except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
-        raise_param_error("file")
-
-
-def _validate_ico_bytes(content: bytes) -> None:
-    """Ensure an uploaded .ico actually decodes as an ICO before storing it."""
-    try:
-        with Image.open(BytesIO(content), formats=["ICO"]) as image:
-            if image.width * image.height > _LOGO_MAX_PIXELS:
-                raise_param_error("file")
-            image.load()
-    except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
-        raise_param_error("file")
-
-
-def _read_validated_brand_image(
-    file: FileStorage, target: str
-) -> tuple[bytes, str, str]:
-    """Validate an uploaded brand asset and return (bytes, suffix, content type).
-
-    Favicon uploads accept the regular raster formats plus .ico; raster input
-    is converted into a real multi-size ICO so operators can upload a PNG.
-    """
-    filename = str(file.filename or "").strip()
-    suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    content_types = (
-        _FAVICON_CONTENT_TYPES if target == "favicon" else _LOGO_CONTENT_TYPES
-    )
-    expected_content_type = content_types.get(suffix)
-    content = file.stream.read(_LOGO_MAX_BYTES + 1)
-    if (
-        expected_content_type is None
-        or not content
-        or len(content) > _LOGO_MAX_BYTES
-        or _detect_logo_content_type(content) != expected_content_type
-    ):
-        raise_param_error("file")
-    if target == "favicon":
-        if suffix != ".ico":
-            content = _build_favicon_bytes(content)
-        else:
-            _validate_ico_bytes(content)
-        return content, ".ico", "image/x-icon"
-    return (
-        _normalize_logo_image(content, suffix=suffix, target=target),
-        suffix,
-        expected_content_type,
-    )
-
-
-def _normalize_logo_target(value: object) -> str:
-    normalized = str(value or "wide").strip().lower()
-    if normalized not in _LOGO_VARIANTS:
-        raise_param_error("target")
-    return normalized
-
-
-def _normalize_logo_image(content: bytes, *, suffix: str, target: str) -> bytes:
-    try:
-        with Image.open(BytesIO(content)) as image:
-            if image.width * image.height > _LOGO_MAX_PIXELS:
-                raise_param_error("file")
-            normalized_image = ImageOps.exif_transpose(image)
-            if target == "square":
-                rendered = _contain_logo_without_upscale(
-                    normalized_image,
-                    _LOGO_SQUARE_MAX_SIZE,
-                )
-                canvas_size = (
-                    min(_LOGO_SQUARE_MAX_SIZE[0], max(rendered.width, rendered.height)),
-                    min(_LOGO_SQUARE_MAX_SIZE[1], max(rendered.width, rendered.height)),
-                )
-                canvas = _create_logo_canvas(
-                    size=canvas_size,
-                    suffix=suffix,
-                    source_mode=rendered.mode,
-                )
-                offset = (
-                    (canvas_size[0] - rendered.width) // 2,
-                    (canvas_size[1] - rendered.height) // 2,
-                )
-                _paste_logo(canvas, rendered, offset)
-                return _save_logo_image(canvas, suffix=suffix)
-
-            rendered = _contain_logo_without_upscale(
-                normalized_image,
-                _LOGO_WIDE_MAX_SIZE,
-            )
-            return _save_logo_image(rendered, suffix=suffix)
-    except (Image.DecompressionBombError, UnidentifiedImageError, OSError):
-        raise_param_error("file")
-
-
-def _contain_logo_without_upscale(
-    image: Image.Image,
-    size: tuple[int, int],
-) -> Image.Image:
-    rendered = image.copy()
-    if rendered.width > size[0] or rendered.height > size[1]:
-        rendered.thumbnail(size, Image.Resampling.LANCZOS)
-    return rendered
-
-
-def _create_logo_canvas(
-    *,
-    size: tuple[int, int],
-    suffix: str,
-    source_mode: str,
-) -> Image.Image:
-    if suffix in {".jpg", ".jpeg"}:
-        return Image.new("RGB", size, (255, 255, 255))
-    if "A" in source_mode:
-        return Image.new("RGBA", size, (255, 255, 255, 0))
-    return Image.new("RGB", size, (255, 255, 255))
-
-
-def _paste_logo(
-    canvas: Image.Image,
-    rendered: Image.Image,
-    offset: tuple[int, int],
-) -> None:
-    if "A" in rendered.getbands():
-        canvas.paste(rendered, offset, rendered)
-        return
-    canvas.paste(rendered, offset)
-
-
-def _save_logo_image(image: Image.Image, *, suffix: str) -> bytes:
-    output = BytesIO()
-    save_kwargs: dict[str, Any] = {}
-    if suffix == ".webp":
-        save_format = "WEBP"
-    elif suffix in {".jpg", ".jpeg"}:
-        save_format = "JPEG"
-        if image.mode not in {"RGB", "L"}:
-            image = image.convert("RGB")
-        save_kwargs["quality"] = 95
-    else:
-        save_format = "PNG"
-        if image.mode not in {"RGB", "RGBA", "L"}:
-            image = image.convert("RGBA")
-    image.save(output, format=save_format, **save_kwargs)
-    return output.getvalue()
-
-
 def _saas_funcs(*, required: bool = True) -> object | None:
     try:
         module = import_module(
@@ -1390,143 +1220,3 @@ def _to_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _admin_draft_contact_digest(creator_mobile: str) -> str:
-    """Digest the contact identifier an unsaved draft is keyed by.
-
-    Emails are lowercased first so a draft stored as ``A@x.com`` is still found
-    when the dialog is reopened with ``a@x.com``. Phone numbers keep their raw
-    trimmed form so drafts written before email support remain reachable.
-    """
-    normalized_creator_contact = str(creator_mobile or "").strip()
-    if not normalized_creator_contact:
-        raise_param_error("creator_mobile")
-    contact_type = resolve_contact_type(normalized_creator_contact)
-    if contact_type == CONTACT_TYPE_EMAIL:
-        normalized_creator_contact = normalize_contact_identifier(
-            normalized_creator_contact, contact_type
-        )
-    return hashlib.sha256(normalized_creator_contact.encode("utf-8")).hexdigest()
-
-
-def _admin_draft_owner_bid(*, creator_bid: str = "", creator_mobile: str = "") -> str:
-    normalized_creator_bid = normalize_bid(creator_bid)
-    if normalized_creator_bid:
-        return f"billing-admin-draft:creator:{normalized_creator_bid}"
-
-    contact_digest = _admin_draft_contact_digest(creator_mobile)
-    return f"billing-admin-draft:mobile:{contact_digest}"
-
-
-def _admin_draft_storage_identity(
-    *, creator_bid: str = "", creator_mobile: str = ""
-) -> tuple[str, str]:
-    normalized_creator_bid = normalize_bid(creator_bid)
-    if normalized_creator_bid:
-        return normalized_creator_bid, f"{ADMIN_DRAFT_KEY}.CREATOR"
-
-    contact_digest = _admin_draft_contact_digest(creator_mobile)
-    return contact_digest[:36], f"{ADMIN_DRAFT_KEY}.MOBILE"
-
-
-def _empty_admin_creator_customization_draft(
-    *, creator_mobile: str = ""
-) -> dict[str, object]:
-    return {
-        "creator_mobile": str(creator_mobile or "").strip(),
-        "branding_enabled": False,
-        "custom_domain_enabled": False,
-        "custom_wechat_enabled": False,
-        "custom_payment_enabled": False,
-        "config_status": "pending",
-        "note": "",
-        "branding": {
-            "logo_wide_url": "",
-            "logo_square_url": "",
-            "favicon_url": "",
-            "home_url": "",
-        },
-        "domain": {
-            "host": "",
-        },
-        "integrations": {
-            provider: {"public_config": {}, "secret_config": {}}
-            for provider in INTEGRATION_PROVIDERS
-        },
-    }
-
-
-def _normalize_admin_creator_customization_draft(
-    payload: dict[str, object],
-    *,
-    creator_mobile: str = "",
-) -> dict[str, object]:
-    base = _empty_admin_creator_customization_draft(creator_mobile=creator_mobile)
-    result = dict(base)
-    result["creator_mobile"] = str(
-        payload.get("creator_mobile") or creator_mobile or ""
-    ).strip()
-    for key in (
-        "branding_enabled",
-        "custom_domain_enabled",
-        "custom_wechat_enabled",
-        "custom_payment_enabled",
-    ):
-        result[key] = _to_bool(payload.get(key))
-
-    config_status = str(payload.get("config_status") or "pending").strip().lower()
-    result["config_status"] = (
-        config_status
-        if config_status in {"pending", "in_progress", "completed", "exception"}
-        else "pending"
-    )
-    result["note"] = str(payload.get("note") or "")[:500]
-
-    branding_payload = payload.get("branding")
-    if isinstance(branding_payload, dict):
-        result["branding"] = {
-            "logo_wide_url": _normalize_logo_url(
-                branding_payload.get("logo_wide_url"), "logo_wide_url"
-            )
-            if branding_payload.get("logo_wide_url")
-            else "",
-            "logo_square_url": _normalize_logo_url(
-                branding_payload.get("logo_square_url"), "logo_square_url"
-            )
-            if branding_payload.get("logo_square_url")
-            else "",
-            "favicon_url": _normalize_logo_url(
-                branding_payload.get("favicon_url"), "favicon_url"
-            )
-            if branding_payload.get("favicon_url")
-            else "",
-            "home_url": _normalize_home_url_lenient(branding_payload.get("home_url")),
-        }
-
-    domain_payload = payload.get("domain")
-    if isinstance(domain_payload, dict):
-        result["domain"] = {"host": str(domain_payload.get("host") or "").strip()}
-
-    integrations_payload = payload.get("integrations")
-    if isinstance(integrations_payload, dict):
-        normalized_integrations = {}
-        for provider in INTEGRATION_PROVIDERS:
-            provider_payload = integrations_payload.get(provider)
-            if isinstance(provider_payload, dict):
-                normalized_integrations[provider] = {
-                    "public_config": _normalize_config(
-                        provider, provider_payload.get("public_config"), secret=False
-                    ),
-                    "secret_config": _normalize_config(
-                        provider, provider_payload.get("secret_config"), secret=True
-                    ),
-                }
-            else:
-                normalized_integrations[provider] = {
-                    "public_config": {},
-                    "secret_config": {},
-                }
-        result["integrations"] = normalized_integrations
-
-    return result
