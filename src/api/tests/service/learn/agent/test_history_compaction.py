@@ -145,7 +145,18 @@ async def test_real_gateway_recovers_from_old_recall_growth_and_still_enforces_t
             separators=(",", ":"),
         ).encode("utf-8")
     )
-    assert projected_size < 65536
+    assert projected_size < INPUT_BUDGET_BYTES
+    # The system prompt and tool schemas are fixed overhead that grows with
+    # prompt edits; bound only the conversation history that compaction owns.
+    # Uncompacted, the 50 recall returns alone exceed 300 KB.
+    history_size = len(
+        json.dumps(
+            [m for m in sent["messages"] if m["role"] != "system"],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+    assert history_size < 32768
     calls.clear()
     _, exact = await run(enabled=True, limit=projected_size)
     assert isinstance(exact[-1], TurnDone)
