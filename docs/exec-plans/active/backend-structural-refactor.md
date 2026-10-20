@@ -35,8 +35,9 @@ same result; the structural metrics below shrink.
   interface snapshot OK (523 modules, routes and CLI identical); full suite
   12,318 passed with exactly the baseline failure set; engine tests 1,039
   passed; uow ratchet OK. Counts of `try`, `except`, `suppress(`,
-  `unit_of_work(`, `on_commit`, and `db.session.commit` are unchanged, and
-  the multiset of `yield` lines is identical.
+  `unit_of_work(`, `on_commit`, and `db.session.commit` are unchanged. (A
+  `yield` comparison recorded here was vacuous; see the 2026-10-20
+  correction below.)
 - [x] 2026-10-19 CST: Owner approved recording relocated imports in the
   architecture baseline. Resumed workers committed the remaining splits
   (`checkout.py`, `dashboard/funcs.py`, `shifu/route.py`, `order/funs.py`,
@@ -54,8 +55,8 @@ same result; the structural metrics below shrink.
   says tests missed. Removed public names: the snapshot compare reports none.
   Changed exception handling: counts of `try`, `except`, `finally`,
   `suppress(`, `raise`, `unit_of_work(`, `on_commit`, and
-  `db.session.commit` are identical to baseline, as is the multiset of
-  `yield` lines. Baseline audit: 29 keys added, each targeting a module the
+  `db.session.commit` are identical to baseline (the `yield` comparison
+  was vacuous; see the 2026-10-20 correction). Baseline audit: 29 keys added, each targeting a module the
   same package already had in the baseline; 4 stale keys removed.
 - [x] 2026-10-19 CST: Round 2 dispatched four workers (`r2-learn`,
   `r2-shifu`, `r2-billing`, `r2-misc`) and a read-only reviewer. All five
@@ -64,13 +65,42 @@ same result; the structural metrics below shrink.
   before stopping. Gates on the merged branch: interface snapshot OK
   (559 modules); full suite 12,318 passed with exactly the baseline failure
   set; engine tests 1,039 passed; uow ratchet and boundary check pass;
-  construct counts and `yield` lines identical; lefthook all 20 checks pass.
+  construct counts identical; lefthook all 20 checks pass.
 - [x] 2026-10-19 CST: Found that the interface snapshot only covered the
   `flask db` commands because `enable_commands` runs only when the app
   auto-creates. Compared `--help` for every command (42 `flask console`
   commands included) on base and HEAD: byte-identical. The snapshot now
   calls `enable_commands`.
-- [ ] Independent review of the full diff (the reviewer did not finish).
+- [x] 2026-10-20 CST: First review round (read-only reviewer with three
+  sub-reviewers) over `75551925b..5d7947f64`: no behavior-changing defect in
+  production paths; five low findings. Fixed with regression tests that
+  fail before the fix: wallet repair clock now read through `wallets`
+  (`46d28bf8f`); order split modules reach credential, config-override,
+  snapshot, payment-request and clock helpers through `order_funs`
+  (`da39894ab`); `import_shifu` again validates outline bids before any
+  risk check (`408b4c60e`); patch forwarding added for the learn modules
+  split in round 2 (`4ff24503c`). Accepted without change: the forwarder
+  only forwards attribute writes (not deletes) to siblings that already
+  define the name; raw SQL whitespace in `_add_legacy_profile_item_quick`;
+  swagger schema registration order.
+- [x] 2026-10-20 CST: Round 2 workers resumed after the credit and network
+  interruptions and finished. Third integration (four branches, no
+  conflicts). Gates: interface snapshot OK against a regenerated,
+  console-aware baseline (572 modules, 306 routes, 58 CLI entries); full
+  suite 12,324 passed (baseline 12,318 plus six new regression tests) with
+  exactly the baseline failure set; engine tests 1,039 passed; uow ratchet
+  OK; boundary check passes with `--fail-on-stale-baseline`.
+- [x] 2026-10-20 CST: Correction. The earlier "identical `yield` lines"
+  check used `git grep -E "\byield\b"`, which matches nothing, so it was
+  vacuous. A syntax-tree count shows try blocks (926), except handlers
+  (942), finally (97), raise (879) and with (666) unchanged, but `yield`
+  expressions grew from 424 to 442 and `nonlocal` fell from 14 to 8, as
+  expected when generators and closures are extracted into helpers and
+  state objects. The first review checked generator extractions by hand up
+  to `5d7947f64`.
+- [ ] Second review round over `5d7947f64..HEAD`, focused on generator
+  extractions, state objects that replaced `nonlocal`, and lock or unit of
+  work boundaries.
 - [ ] Follow-up groups: `billing-notifications`, `engine-tts`, and the
   unfinished items listed under Outcomes.
 
@@ -110,12 +140,12 @@ same result; the structural metrics below shrink.
 
 ## Outcomes & Retrospective
 
-| Metric (`flaskr/`, excluding migrations) | Baseline | Round 1 | Round 2 |
-| --- | --- | --- | --- |
-| Python lines | 193,386 in 491 files | 198,057 in 552 files | 199,788 in 559 files |
-| Files over 1,500 lines | 22 | 13 | 12 |
-| Functions over 150 lines | 115 | 88 | 68 |
-| Functions over 300 lines | 24 | 17 | 11 |
+| Metric (`flaskr/`, excluding migrations) | Baseline | Round 1 | Round 2 (partial) | Round 2 (final) |
+| --- | --- | --- | --- | --- |
+| Python lines | 193,386 in 491 files | 198,057 in 552 files | 199,788 in 559 files | 202,147 in 572 files |
+| Files over 1,500 lines | 22 | 13 | 12 | 6 |
+| Functions over 150 lines | 115 | 88 | 68 | 38 |
+| Functions over 300 lines | 24 | 17 | 11 | 8 |
 
 The rest of this table and the unfinished list below describe round 1;
 round 2 additionally split the billing CLI, `save_shifu_draft_info`,
