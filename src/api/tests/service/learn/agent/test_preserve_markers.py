@@ -1110,3 +1110,72 @@ def test_indented_code_can_start_after_a_completed_block(previous: str) -> None:
     _assert_streaming_output(
         previous + code + "===after===\n", expected + code + "after\n"
     )
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        ">     <script> literal\n>     const equal = a === b;\n",
+        "> ~~~\n> <script> literal\n> a === b;\n> !===\n> ~~~\n",
+        "- ~~~\n  <style> literal\n  a === b;\n  ~~~\n",
+        "1. ```js\n   <script> literal\n   a === b;\n   ```\n",
+        "> -     <script> literal\n>       a === b;\n",
+        "- >     <script> literal\n  >     a === b;\n",
+        "-     <script> literal\n      a === b;\n",
+        "-\n      <script> literal\n      a === b;\n",
+        "- item\n\n      <script> literal\n      a === b;\n",
+        ">\t  <script> literal\n>\t  a === b;\n",
+    ],
+)
+def test_code_inside_markdown_containers_preserves_its_source(code: str) -> None:
+    _assert_streaming_output(code + "\n===after===\n", code + "\nafter\n")
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        ">     const equal = a === b;",
+        "-     const equal = a === b;",
+        "-\n      const equal = a === b;",
+    ],
+)
+def test_container_code_without_a_final_newline_is_preserved(code: str) -> None:
+    _assert_streaming_output(code, code)
+
+
+@pytest.mark.parametrize(
+    "paragraph",
+    [
+        "> prose\n>     <script>const equal = a === b;</script>\n",
+        "> \t<script>const equal = a === b;</script>\n",
+        "Paragraph\n    <script>const equal = a === b;</script>\n",
+    ],
+)
+def test_container_candidates_keep_real_html_in_a_paragraph(paragraph: str) -> None:
+    _assert_streaming_output(paragraph + "===after===\n", paragraph + "after\n")
+
+
+def test_a_container_code_block_ends_an_unmatched_inline_candidate() -> None:
+    text = "Press the ` key.\n> ~~~\n> a === b;\n> ~~~\n===Important=== Use `x`.\n"
+    _assert_streaming_output(text, text.replace("===Important===", "Important"))
+
+
+def test_a_container_code_block_ends_unmatched_link_metadata() -> None:
+    text = '[broken](url "pending\n> ~~~\n> a === b;\n> ~~~\n===Important=== Use `x`.\n'
+    _assert_streaming_output(text, text.replace("===Important===", "Important"))
+
+
+def test_indentation_in_the_same_quote_can_continue_a_code_span() -> None:
+    text = "> Paragraph `code\n>     a === b`\n===after===\n"
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+def test_container_candidates_inside_an_html_visual_remain_real_html() -> None:
+    html = "<div>\n> ~~~\n> <script>a === b;</script>\n> ~~~\n</div>\n"
+    _assert_streaming_output(html + "===after===\n", html + "after\n")
+
+
+def test_ordinary_container_prose_is_emitted_at_the_end_of_its_line() -> None:
+    marker_filter = PreserveMarkerFilter()
+    assert marker_filter.feed("> ===quote===\n- ===list===\n") == "> quote\n- list\n"
+    assert marker_filter.flush() == ""
