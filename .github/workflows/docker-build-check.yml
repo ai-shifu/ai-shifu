@@ -16,6 +16,7 @@ on:
       - scripts/test_merge_docker_manifests.py
       - scripts/check_docker_image.py
       - scripts/test_check_docker_image.py
+      - scripts/testdata/image_trust/**
       - scripts/test_docker_image_metadata.py
       - scripts/select_docker_checks.py
       - scripts/test_select_docker_checks.py

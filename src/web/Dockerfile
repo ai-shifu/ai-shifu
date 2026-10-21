@@ -1,4 +1,10 @@
-FROM node:22.16.0-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS builder
+FROM node:22.23.4-alpine3.23@sha256:206878a60dc7014193f418ab9259b6110c15fbd514b3044a267be706509944e4 AS trust-base
+
+# Node's built-in roots and the OS bundle are independent trust stores.
+RUN apk add --no-cache --upgrade 'ca-certificates>=20261020-r0' 'ca-certificates-bundle>=20261020-r0' && \
+    update-ca-certificates --fresh
+
+FROM trust-base AS builder
 
 WORKDIR /app
 
@@ -41,7 +47,7 @@ RUN --network=none npm prune --omit=dev --offline --ignore-scripts --no-audit --
 
 RUN I18N_ROOT=/app/i18n node scripts/check-production-dependencies.mjs
 
-FROM node:22.16.0-alpine@sha256:41e4389f3d988d2ed55392df4db1420ad048ae53324a8e2b7c6d19508288107e AS runner
+FROM trust-base AS runner
 
 WORKDIR /app
 
