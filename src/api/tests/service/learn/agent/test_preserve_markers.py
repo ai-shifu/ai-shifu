@@ -760,3 +760,68 @@ def test_self_closing_syntax_still_opens_a_nonvoid_html_container() -> None:
     _assert_streaming_output(
         html + markdown, html + markdown.replace("===after===", "after")
     )
+
+
+@pytest.mark.parametrize("indent", ["    ", "\t", "  \t"])
+def test_indented_code_does_not_open_html_or_markdown_fences(indent: str) -> None:
+    code = (
+        f"{indent}<script> literal\n"
+        f"{indent}const equal = a === b;\n\n"
+        f"{indent}```\n{indent}!===\n"
+    )
+    _assert_streaming_output(code + "\n===after===\n", code + "\nafter\n")
+
+
+def test_indented_code_is_preserved_when_the_stream_ends_without_a_newline() -> None:
+    code = "    <script> literal ===source==="
+    _assert_streaming_output(code, code)
+
+
+def test_an_indented_line_continuing_a_paragraph_can_contain_real_html() -> None:
+    text = "Paragraph\n    <script>literal\n===source===\n"
+    _assert_streaming_output(text, text)
+
+
+def test_indented_scripts_inside_an_html_visual_remain_real_scripts() -> None:
+    html = (
+        "<div>\n    `<script>const label = `value`; const equal = a === b;</script>\n"
+        "</div>\n"
+    )
+    _assert_streaming_output(html + "===after===\n", html + "after\n")
+
+
+@pytest.mark.parametrize(
+    "previous",
+    [
+        "Paragraph\n\n",
+        "```js\nconst equal = a === b;\n```\n",
+        "<div>visual</div>\n",
+        "<script>const equal = a === b;</script>\n",
+        "# Heading\n",
+        "<div>\nvisual\n</div>\n",
+        "===<div>visual</div>===\n",
+        "===<script>const equal = a === b;</script>===\n",
+        "===# Heading===\n",
+    ],
+    ids=[
+        "paragraph-break",
+        "fenced-code",
+        "html-visual",
+        "raw-script",
+        "heading",
+        "multiline-visual",
+        "marked-visual",
+        "marked-script",
+        "marked-heading",
+    ],
+)
+def test_indented_code_can_start_after_a_completed_block(previous: str) -> None:
+    code = "    <script>literal\n    const equal = a === b;\n"
+    expected = (
+        previous.replace("===<", "<")
+        .replace(">===", ">")
+        .replace("===# Heading===", "# Heading")
+    )
+    _assert_streaming_output(
+        previous + code + "===after===\n", expected + code + "after\n"
+    )

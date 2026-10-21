@@ -1557,12 +1557,14 @@ def test_verbatim_markers_never_reach_the_learner(
         r"Use `<script>` and \<style> literally. ===Before===",
         "Press the ` key.\n\n===Before=== Use `x`.",
         '[docs](url "<script>") ===Before===',
+        "    <script> literal\n\n===Before===",
     ],
     ids=[
         "plain-prose",
         "literal-html-tags",
         "unmatched-backtick-paragraph",
         "literal-html-in-link-title",
+        "literal-html-in-indented-code",
     ],
 )
 def test_html_script_operators_survive_delivery_and_persistence(

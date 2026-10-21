@@ -23,7 +23,7 @@ import re
 from dataclasses import dataclass
 from string import punctuation
 
-from markdown_flow.formatter.patterns import block_html_open_re
+from markdown_flow.formatter.patterns import block_html_open_re, heading_re
 
 # The same shapes `markdown_flow` recognises: a fence line of `!` and three or more `=`, and the
 # inline tokens `!===` and `===`.
@@ -34,6 +34,7 @@ _FENCE_LINE = re.compile(r"^[ \t]*!={3,}[ \t]*$")
 # text is content inside the block.
 _CODE_FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
 _CODE_FENCE_CLOSE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})[ \t]*$")
+_CODE_INDENT = re.compile(r"^(?: {4}| {0,3}\t)")
 _MARKERS = re.compile(r"!?={3,}")
 # An unfinished line that may still become a fence line of either kind.
 _MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]|^[ \t]*!?=*[ \t]*$")
@@ -272,9 +273,14 @@ class PreserveMarkerFilter:
     def __init__(self) -> None:
         """Start with nothing buffered and no code fence open."""
         self._line = ""
+        # Classification needs the whole source line even after partial output was streamed.
+        self._released_line_parts: list[str] = []
+        self._line_had_html_context = False
         self._released_some_of_line = False
         # The fence that opened the code block we are in: its character and length, or None.
         self._fence: tuple[str, int] | None = None
+        self._indented_code = False
+        self._can_start_indented = True
         self._raw_tag: str | None = None
         # A tag/comment or raw-text closing tag may be split between chunks.
         self._html_tail = ""
@@ -323,10 +329,15 @@ class PreserveMarkerFilter:
                 head, held = self._split_partial(self._line)
                 self._line = held
                 if head:
+                    self._released_line_parts.append(head)
                     self._released_some_of_line = True
                     if self._fence:
                         self._emit(out, head)
                     else:
+                        self._line_had_html_context |= (
+                            self._raw_tag is not None
+                            or self._html_block_tag is not None
+                        )
                         out.append(self._filter_html(head))
             if self._replay_source is not None:
                 text = self._replay_source + self._line
@@ -387,27 +398,64 @@ class PreserveMarkerFilter:
 
     def _flush_buffer(self) -> str:
         """Finish buffered source, allowing a code span to close at end of stream."""
+        whole_line = not self._released_some_of_line
         tail, self._line = self._line, ""
+        self._released_line_parts.clear()
+        self._line_had_html_context = False
         self._released_some_of_line = False
         # A fragment that never became a marker is text, and is shown as it is.
-        out = tail if self._fence else self._filter_html(tail, final=True)
+        out = (
+            tail
+            if self._fence or (whole_line and self._starts_indented_code(tail))
+            else self._filter_html(tail, final=True)
+        )
         # An unfinished tag is still source text, not a MarkdownFlow marker.
         html_tail, self._html_tail = self._html_tail, ""
         return out + html_tail
 
+    def _inside_literal(self) -> bool:
+        """Keep Markdown block rules outside HTML and unfinished inline syntax."""
+        return (
+            self._raw_tag is not None
+            or self._html_block_tag is not None
+            or bool(self._html_tail or self._inline_tail)
+        )
+
+    def _starts_indented_code(self, text: str) -> bool:
+        """Recognize four-column code indentation outside a prose paragraph."""
+        return (
+            not self._inside_literal()
+            and (self._indented_code or self._can_start_indented)
+            and _CODE_INDENT.match(text) is not None
+        )
+
     def _complete_line(self, line: str) -> str:
+        source = "".join(self._released_line_parts) + line
+        self._released_line_parts.clear()
+        html_context = self._line_had_html_context
+        self._line_had_html_context = False
         whole_line = not self._released_some_of_line
         if self._fence is not None:
             if whole_line and self._closes_fence(line):
                 self._fence = None
             self._at_line_start = True
             self._line_indent = 0
+            self._can_start_indented = self._fence is None
             return line + "\n"
-        in_literal = (
-            self._raw_tag is not None
-            or self._html_block_tag is not None
-            or bool(self._html_tail or self._inline_tail)
-        )
+        in_literal = self._inside_literal()
+        if whole_line and not in_literal:
+            if self._indented_code and not line.strip(" \t"):
+                self._at_line_start = True
+                self._line_indent = 0
+                return line + "\n"
+            if self._starts_indented_code(line):
+                self._labels.clear()
+                self._indented_code = True
+                self._at_line_start = True
+                self._line_indent = 0
+                return line + "\n"
+        if not in_literal:
+            self._indented_code = False
         if whole_line and not in_literal and not line.strip(" \t"):
             self._labels.clear()
         if whole_line and not in_literal:
@@ -416,13 +464,33 @@ class PreserveMarkerFilter:
                 self._labels.clear()
                 run = opening.group(1)
                 self._fence = (run[0], len(run))
+                self._can_start_indented = False
                 return line + "\n"
         if whole_line and not in_literal and _FENCE_LINE.match(line):
             # The fence line itself: not content. Its newline goes too, or every fenced block
             # would gain a blank line.
             self._labels.clear()
+            self._can_start_indented = True
             return ""
-        return self._filter_html(line + "\n")
+        classification = _MARKERS.sub("", source)
+        html_block = (
+            html_context
+            or self._raw_tag is not None
+            or self._html_block_tag is not None
+            or block_html_open_re.match(classification)
+            or _HTML_ROOT_HEAD.match(classification.lstrip(" \t"))
+            or _HTML_DOCTYPE_HEAD.match(classification.lstrip(" \t"))
+            or classification.lstrip(" \t").startswith("<!--")
+        )
+        out = self._filter_html(line + "\n")
+        self._can_start_indented = (
+            not source.strip(" \t")
+            or heading_re.match(classification) is not None
+            or bool(
+                html_block and self._raw_tag is None and self._html_block_tag is None
+            )
+        )
+        return out
 
     def _filter_html(self, text: str, *, final: bool = False) -> str:
         """Strip prose markers while preserving actual HTML and Markdown code spans."""
@@ -622,6 +690,8 @@ class PreserveMarkerFilter:
         if not text:
             return "", ""
         if not self._released_some_of_line and _MAY_BE_FENCE.match(text):
+            return "", text
+        if not self._released_some_of_line and self._starts_indented_code(text):
             return "", text
         if self._fence is not None:
             return text, ""
